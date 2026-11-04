@@ -1,0 +1,29 @@
+{
+  "name": "mule-practice-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:emulator": "vite --mode emulator",
+    "emulators": "npx firebase-tools@13.35.1 emulators:start --only auth,firestore --project demo-mule-practice-lab",
+    "build": "vite build",
+    "preview": "vite preview",
+    "runner": "node runner/server.js",
+    "check-content": "node scripts/check-content.js",
+    "check-flows": "node scripts/check-flows.js"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "firebase": "13.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.5",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.2.1",
+    "vite": "^8.3.5"
+  }
+}

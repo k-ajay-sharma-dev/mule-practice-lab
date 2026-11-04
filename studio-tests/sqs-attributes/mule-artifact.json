@@ -1,0 +1,8 @@
+{
+  "minMuleVersion": "4.12.2",
+  "name": "sqs-attributes",
+  "requiredProduct": "MULE_EE",
+  "javaSpecificationVersions": [
+    "17"
+  ]
+}

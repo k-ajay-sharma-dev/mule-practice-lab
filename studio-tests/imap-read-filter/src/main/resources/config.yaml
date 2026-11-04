@@ -1,0 +1,22 @@
+# Placeholder values for a local GreenMail container. Nothing here is a real credential.
+http:
+  port: "8091"
+mail:
+  host: "localhost"
+  smtpPort: "3025"
+  imapPort: "3143"
+  from: "sender@mail.test"
+  # GreenMail runs with authentication disabled, so any password works.
+  password: "placeholder"
+  defaultReader:
+    user: "default-reader"
+    address: "default-reader@mail.test"
+  explicitReader:
+    user: "explicit-reader"
+    address: "explicit-reader@mail.test"
+listener:
+  # Two minutes gives time to seed and mark an email between two polls.
+  frequencyMs: "120000"
+matcher:
+  # INCLUDE is the case under test. Optional reruns: REQUIRE, EXCLUDE.
+  seen: "INCLUDE"

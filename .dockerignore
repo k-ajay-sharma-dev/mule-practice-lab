@@ -1,0 +1,3 @@
+# The runner image only needs the server; keep the build context tiny.
+*
+!runner/server.js

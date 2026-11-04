@@ -1,0 +1,9 @@
+# Placeholder values for a local PostgreSQL container. Nothing here is a real credential.
+http:
+  port: "8096"
+db:
+  url: "jdbc:postgresql://localhost:55432/studiotests?ApplicationName=studio-db-partial-read"
+  user: "studio"
+  password: "placeholder"
+  maxPoolSize: "2"
+  maxWaitSeconds: "10"

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test 1: imap-read-filter (inc-075, ms-081, fl-079)
+  Question: does email:listener-imap pick up an email already marked read,
+  (a) with no matcher, and (b) with an explicit matcher where seen is INCLUDE?
+
+  Two mailboxes are used on purpose. A listener that fetches an email can change its
+  seen flag, so two listeners on one mailbox would disturb each other's result.
+
+  NOT RUN. This project has never been started. See studio-tests/README.md.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:email="http://www.mulesoft.org/schema/mule/email"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <configuration-properties file="config.yaml"/>
+
+    <http:listener-config name="Http_Listener">
+        <http:listener-connection host="127.0.0.1" port="${http.port}"/>
+    </http:listener-config>
+
+    <email:smtp-config name="Smtp">
+        <email:smtp-connection host="${mail.host}" port="${mail.smtpPort}"/>
+    </email:smtp-config>
+
+    <email:imap-config name="Imap_Default">
+        <email:imap-connection host="${mail.host}" port="${mail.imapPort}"
+                               user="${mail.defaultReader.user}" password="${mail.password}"/>
+    </email:imap-config>
+
+    <email:imap-config name="Imap_Explicit">
+        <email:imap-connection host="${mail.host}" port="${mail.imapPort}"
+                               user="${mail.explicitReader.user}" password="${mail.password}"/>
+    </email:imap-config>
+
+    <!-- Case (a): no matcher. Enable Watermark is left at its default (true).
+         TODO verify in Studio: the watermark attribute is deliberately not written here.
+         The email-trigger docs page shows watermark="true", while the 1.8.0 plugin descriptor
+         names the parameter watermarkEnabled. Leaving it out tests the default either way. -->
+    <flow name="listener-a-no-matcher">
+        <email:listener-imap config-ref="Imap_Default" folder="INBOX">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${listener.frequencyMs}"/>
+            </scheduling-strategy>
+        </email:listener-imap>
+        <logger level="INFO" message='#["RESULT-A no-matcher dispatched: " ++ write({id: attributes.id, subject: attributes.subject, seen: attributes.flags.seen, receivedDate: attributes.receivedDate}, "application/json", {indent: false})]'/>
+    </flow>
+
+    <!-- Case (b): explicit matcher. matcher.seen in config.yaml starts as INCLUDE.
+         Optional reruns use REQUIRE and EXCLUDE. -->
+    <flow name="listener-b-explicit-matcher">
+        <email:listener-imap config-ref="Imap_Explicit" folder="INBOX">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${listener.frequencyMs}"/>
+            </scheduling-strategy>
+            <email:imap-matcher seen="${matcher.seen}"/>
+        </email:listener-imap>
+        <logger level="INFO" message='#["RESULT-B explicit-matcher seen=${matcher.seen} dispatched: " ++ write({id: attributes.id, subject: attributes.subject, seen: attributes.flags.seen, receivedDate: attributes.receivedDate}, "application/json", {indent: false})]'/>
+    </flow>
+
+    <!-- POST /seed?subject=CONTROL-1 sends one email to both mailboxes. -->
+    <flow name="seed-email">
+        <http:listener config-ref="Http_Listener" path="/seed"/>
+        <set-variable variableName="subject" value='#[attributes.queryParams.subject default "NO-SUBJECT"]'/>
+        <email:send config-ref="Smtp" fromAddress="${mail.from}" subject="#[vars.subject]">
+            <email:to-addresses>
+                <email:to-address value="${mail.defaultReader.address}"/>
+                <email:to-address value="${mail.explicitReader.address}"/>
+            </email:to-addresses>
+            <email:body>
+                <email:content>#["Body of " ++ vars.subject]</email:content>
+            </email:body>
+        </email:send>
+        <logger level="INFO" message='#["SEED sent subject=" ++ vars.subject]'/>
+        <set-payload value='#["sent " ++ vars.subject]'/>
+    </flow>
+
+    <!-- POST /mark-read?id=2 marks that id as read in both mailboxes.
+         Both mailboxes receive the same sequence of emails, so the ids should match.
+         Check that with the curl command in the README before relying on it. -->
+    <flow name="mark-read">
+        <http:listener config-ref="Http_Listener" path="/mark-read"/>
+        <set-variable variableName="emailId" value='#[attributes.queryParams.id as Number]'/>
+        <email:mark-as-read config-ref="Imap_Default" emailId="#[vars.emailId]"/>
+        <email:mark-as-read config-ref="Imap_Explicit" emailId="#[vars.emailId]"/>
+        <logger level="INFO" message='#["MARK-READ done for id=" ++ (vars.emailId as String)]'/>
+        <set-payload value='#["marked " ++ (vars.emailId as String)]'/>
+    </flow>
+
+    <!-- POST /move?id=2&from=INBOX&to=Failed moves that id in both mailboxes.
+         Optional step for fl-079: does an email moved back to INBOX get dispatched?
+         sourceFolder comes from the 1.8.0 plugin descriptor. The docs XML example does not show it.
+         TODO verify in Studio: sourceFolder attribute on email:move-to-folder. -->
+    <flow name="move-email">
+        <http:listener config-ref="Http_Listener" path="/move"/>
+        <set-variable variableName="emailId" value='#[attributes.queryParams.id as Number]'/>
+        <set-variable variableName="fromFolder" value='#[attributes.queryParams.from default "INBOX"]'/>
+        <set-variable variableName="toFolder" value='#[attributes.queryParams.to default "Failed"]'/>
+        <email:move-to-folder config-ref="Imap_Default" emailId="#[vars.emailId]"
+                              sourceFolder="#[vars.fromFolder]" targetFolder="#[vars.toFolder]" createTargetFolder="true"/>
+        <email:move-to-folder config-ref="Imap_Explicit" emailId="#[vars.emailId]"
+                              sourceFolder="#[vars.fromFolder]" targetFolder="#[vars.toFolder]" createTargetFolder="true"/>
+        <logger level="INFO" message='#["MOVE done id=" ++ (vars.emailId as String) ++ " from=" ++ vars.fromFolder ++ " to=" ++ vars.toFolder]'/>
+        <set-payload value='#["moved " ++ (vars.emailId as String)]'/>
+    </flow>
+</mule>

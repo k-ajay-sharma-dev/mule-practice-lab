@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test 5: sqs-attributes (fl-078)
+  Questions: what are the attribute names on a received SQS message (is attributes.receiptHandle
+  right), and what type is the body? What happens on flow failure with Preserve Messages false
+  and true?
+
+  Two queues, one source each. Messages are sent from the AWS console or the AWS CLI.
+
+  Body convention:
+    FAIL...    raises an error.
+    DELETE...  on the preserve-true flow, calls sqs:delete-message.
+    Anything else ends the flow successfully with no delete.
+
+  NOT RUN. This project has never been started. See studio-tests/README.md.
+-->
+<!-- TODO verify in Studio: namespace. The XML and Maven docs page gives
+     http://www.mulesoft.org/schema/mule/amazon-sqs in its namespace block and
+     http://www.mulesoft.org/schema/mule/sqs in its example. This file follows the example.
+     Drag a Receive messages source onto a scratch flow and compare what Studio writes. -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd">
+
+    <configuration-properties file="config.yaml"/>
+
+    <http:listener-config name="Http_Listener">
+        <http:listener-connection host="127.0.0.1" port="${http.port}"/>
+    </http:listener-config>
+
+    <!-- TODO verify in Studio: region value. The examples show region="us-east-1", while the
+         reference lists the Region Endpoint default as US_EAST_1.
+         TODO verify in Studio: Custom SQS Endpoint. The reference lists this field on the Basic
+         connection, for non-standard endpoints such as a VPC endpoint. No docs page gives its XML
+         name or mentions LocalStack. For the LocalStack route, set the field in the Global
+         Element dialog and let Studio write the attribute. Leave it empty for real AWS. -->
+    <sqs:config name="Sqs_Config" defaultQueueUrl="${sqs.queueUrl.preserveFalse}">
+        <sqs:basic-connection accessKey="${sqs.accessKey}" secretKey="${sqs.secretKey}" region="${sqs.region}"/>
+    </sqs:config>
+
+    <!-- TODO verify in Studio: XML attributes queueUrl and preserveMessages on the source.
+         The reference lists Queue Url and Preserve Messages by display name only. -->
+    <flow name="receive-preserve-false">
+        <sqs:receivemessages config-ref="Sqs_Config" queueUrl="${sqs.queueUrl.preserveFalse}" preserveMessages="false"/>
+        <set-variable variableName="label" value="preserve-false"/>
+        <flow-ref name="inspect-message"/>
+        <choice>
+            <when expression='#[(vars.body as String) startsWith "FAIL"]'>
+                <raise-error type="APP:FORCED_FAILURE" description="Forced failure, Preserve Messages false"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" message='#["FLOW-OK [preserve-false] body=" ++ (vars.body as String)]'/>
+            </otherwise>
+        </choice>
+        <error-handler>
+            <on-error-propagate type="ANY" logException="false">
+                <logger level="WARN" message='#["FLOW-FAILED [preserve-false] body=" ++ ((vars.body default "?") as String) ++ " at " ++ (now() as String)]'/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <!-- TODO verify in Studio: XML attributes queueUrl and preserveMessages, as above. -->
+    <flow name="receive-preserve-true">
+        <sqs:receivemessages config-ref="Sqs_Config" queueUrl="${sqs.queueUrl.preserveTrue}" preserveMessages="true"/>
+        <set-variable variableName="label" value="preserve-true"/>
+        <flow-ref name="inspect-message"/>
+        <choice>
+            <when expression='#[(vars.body as String) startsWith "FAIL"]'>
+                <raise-error type="APP:FORCED_FAILURE" description="Forced failure, Preserve Messages true"/>
+            </when>
+            <when expression='#[(vars.body as String) startsWith "DELETE"]'>
+                <!-- TODO verify in Studio: XML attributes receiptHandle and queueUrl on
+                     sqs:delete-message. The reference lists Receipt Handle and Queue Url by
+                     display name only. vars.receipt holds attributes.receiptHandle, the name
+                     under test. If the log shows another name, change inspect-message. -->
+                <sqs:delete-message config-ref="Sqs_Config" receiptHandle="#[vars.receipt]" queueUrl="${sqs.queueUrl.preserveTrue}"/>
+                <logger level="INFO" message='#["FLOW-OK [preserve-true] deleted body=" ++ (vars.body as String)]'/>
+            </when>
+            <otherwise>
+                <logger level="INFO" message='#["FLOW-OK [preserve-true] no delete, body=" ++ (vars.body as String)]'/>
+            </otherwise>
+        </choice>
+        <error-handler>
+            <on-error-propagate type="ANY" logException="false">
+                <logger level="WARN" message='#["FLOW-FAILED [preserve-true] body=" ++ ((vars.body default "?") as String) ++ " at " ++ (now() as String)]'/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <sub-flow name="inspect-message">
+        <set-variable variableName="body" value="#[payload]"/>
+        <set-variable variableName="receipt" value="#[attributes.receiptHandle]"/>
+        <logger level="INFO" message='#["RECEIVED [" ++ vars.label ++ "] at " ++ (now() as String)]'/>
+
+        <!-- The body: what type is it? -->
+        <try>
+            <logger level="INFO" message='#["BODY [" ++ vars.label ++ "] " ++ write({dwType: typeOf(payload) as String, class: payload.^class, mimeType: payload.^mimeType, value: payload}, "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["BODY [" ++ vars.label ++ "] FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <!-- fl-078 calls read(payload, "application/json") on the body. Send a JSON body to check it. -->
+        <try>
+            <logger level="INFO" message='#["BODY-READ [" ++ vars.label ++ "] OK: " ++ write(read(payload, "application/json"), "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="WARN" message='#["BODY-READ [" ++ vars.label ++ "] FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <!-- The attributes: which names exist? -->
+        <try>
+            <logger level="INFO" message='#["ATTR-CLASS [" ++ vars.label ++ "] " ++ ((attributes.^class default "?") as String)]'/>
+            <logger level="INFO" message='#["ATTR-ALL [" ++ vars.label ++ "] " ++ write(attributes, "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["ATTR-ALL [" ++ vars.label ++ "] FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <try>
+            <logger level="INFO" message='#["ATTR-CHECK [" ++ vars.label ++ "] attributes.receiptHandle is " ++ (if (vars.receipt == null) "NULL" else "PRESENT")]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["ATTR-CHECK [" ++ vars.label ++ "] FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+
+    <!-- GET /count logs the approximate depth of both queues. In-flight messages may not be
+         counted, so also check the console or the CLI. -->
+    <flow name="queue-depth">
+        <http:listener config-ref="Http_Listener" path="/count"/>
+        <sqs:get-approximate-number-of-messages config-ref="Sqs_Config" queueUrl="${sqs.queueUrl.preserveFalse}" target="depthFalse"/>
+        <sqs:get-approximate-number-of-messages config-ref="Sqs_Config" queueUrl="${sqs.queueUrl.preserveTrue}" target="depthTrue"/>
+        <logger level="INFO" message='#["DEPTH preserve-false=" ++ (vars.depthFalse as String) ++ " preserve-true=" ++ (vars.depthTrue as String)]'/>
+        <set-payload value='#["preserve-false=" ++ (vars.depthFalse as String) ++ " preserve-true=" ++ (vars.depthTrue as String)]'/>
+    </flow>
+</mule>

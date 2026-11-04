@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test 3: kafka-batch-reread (fl-082)
+  Question: on kafka:batch-message-listener, can an error handler read the batch records
+  a second time?
+
+  The reference says this source uses a non-repeatable stream. fl-082 stores the batch in a
+  variable and walks it again in On Error Continue, so that second read is what is tested.
+
+  Every batch goes to the error handler:
+    batch-good.txt: read 1 succeeds, then raise-error fires.
+    batch-bad.txt:  read 1 fails on the malformed line.
+
+  snapshot.enabled in config.yaml switches on the fallback named in fl-082: keep the records
+  as text in a variable before the first read, and let the handler use that copy.
+
+  NOT RUN. This project has never been started. See studio-tests/README.md.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd">
+
+    <configuration-properties file="config.yaml"/>
+
+    <kafka:consumer-config name="Consumer_Batch">
+        <kafka:consumer-plaintext-connection groupId="${kafka.group}">
+            <kafka:bootstrap-servers>
+                <kafka:bootstrap-server value="${kafka.bootstrap}"/>
+            </kafka:bootstrap-servers>
+            <kafka:topic-patterns>
+                <kafka:topic-pattern value="${kafka.topic}"/>
+            </kafka:topic-patterns>
+        </kafka:consumer-plaintext-connection>
+    </kafka:consumer-config>
+
+    <flow name="batch-reread">
+        <!-- TODO verify in Studio: XML attribute ackMode. The reference lists the field as
+             Acknowledgement mode and gives no XML name. -->
+        <kafka:batch-message-listener config-ref="Consumer_Batch" ackMode="MANUAL"/>
+
+        <!-- TODO verify in Studio: attributes.consumerCommitKey on the batch listener. The
+             reference places the key in the Consumer Context attributes and gives no expression. -->
+        <set-variable variableName="commitKey" value="#[attributes.consumerCommitKey]"/>
+        <set-variable variableName="records" value="#[payload]"/>
+        <logger level="INFO" message='#["BATCH started: commitKey present=" ++ ((vars.commitKey != null) as String) ++ " payload class=" ++ ((payload.^class default "?") as String)]'/>
+
+        <choice>
+            <when expression='#[p("snapshot.enabled") == "true"]'>
+                <ee:transform>
+                    <ee:variables>
+                        <ee:set-variable variableName="snapshot"><![CDATA[%dw 2.0
+output application/java
+---
+payload map ((r) -> { text: read(r.payload, "text/plain") as String })]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <logger level="INFO" message='#["BATCH snapshot taken, records=" ++ (sizeOf(vars.snapshot) as String)]'/>
+            </when>
+            <otherwise>
+                <logger level="INFO" message="BATCH snapshot disabled"/>
+            </otherwise>
+        </choice>
+
+        <!-- Read 1. With the snapshot on, it uses the copy, so the original stream is read once. -->
+        <ee:transform>
+            <ee:variables>
+                <ee:set-variable variableName="parsed"><![CDATA[%dw 2.0
+output application/java
+---
+if (p("snapshot.enabled") == "true")
+  vars.snapshot map ((s) -> read(s.text, "application/json"))
+else
+  payload map ((r) -> read(r.payload, "application/json"))]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message='#["READ-1 OK records=" ++ (sizeOf(vars.parsed) as String)]'/>
+
+        <!-- Sends a fully readable batch to the handler as well. -->
+        <raise-error type="APP:AFTER_FIRST_READ" description="Forced failure after read 1"/>
+
+        <error-handler>
+            <on-error-continue type="ANY" logException="false">
+                <logger level="WARN" message='#["HANDLER entered: " ++ (error.description default "no description")]'/>
+
+                <!-- Read 2a: how many records does the stored batch still have? -->
+                <try>
+                    <logger level="INFO" message='#["READ-2A outer array from vars.records: size=" ++ (sizeOf(vars.records) as String)]'/>
+                    <error-handler>
+                        <on-error-continue type="ANY" logException="false">
+                            <logger level="ERROR" message='#["READ-2A FAILED: " ++ (error.description default "no description")]'/>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+
+                <!-- Read 2b: is the content of each record still readable? -->
+                <try>
+                    <logger level="INFO" message='#["READ-2B record bodies from vars.records: " ++ write(vars.records map ((r) -> read(r.payload, "text/plain")), "application/json", {indent: false})]'/>
+                    <error-handler>
+                        <on-error-continue type="ANY" logException="false">
+                            <logger level="ERROR" message='#["READ-2B FAILED: " ++ (error.description default "no description")]'/>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+
+                <!-- Read 2c: the For Each that fl-082 uses in its handler. -->
+                <try>
+                    <foreach collection="#[vars.records]">
+                        <logger level="INFO" message='#["READ-2C For Each item " ++ (vars.counter as String) ++ ": " ++ (read(payload.payload, "text/plain") as String)]'/>
+                    </foreach>
+                    <error-handler>
+                        <on-error-continue type="ANY" logException="false">
+                            <logger level="ERROR" message='#["READ-2C FAILED: " ++ (error.description default "no description")]'/>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+
+                <!-- The fallback copy. -->
+                <try>
+                    <logger level="INFO" message='#["READ-2D snapshot: " ++ write(vars.snapshot default "snapshot not taken", "application/json", {indent: false})]'/>
+                    <error-handler>
+                        <on-error-continue type="ANY" logException="false">
+                            <logger level="ERROR" message='#["READ-2D FAILED: " ++ (error.description default "no description")]'/>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+
+                <try>
+                    <!-- TODO verify in Studio: XML attribute consumerCommitKey. The reference lists
+                         the field as Consumer commit key and gives no XML name. -->
+                    <kafka:commit config-ref="Consumer_Batch" consumerCommitKey="#[vars.commitKey]"/>
+                    <logger level="INFO" message="HANDLER commit done"/>
+                    <error-handler>
+                        <on-error-continue type="ANY" logException="false">
+                            <logger level="ERROR" message='#["HANDLER commit FAILED: " ++ (error.description default "no description")]'/>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+</mule>

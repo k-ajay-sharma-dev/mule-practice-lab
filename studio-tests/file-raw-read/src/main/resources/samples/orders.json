@@ -1,0 +1,1 @@
+{ "orders": [ { "id": "O-1", "customer": "C-100", "total": 120.50, "ccy": "EUR" } ] }

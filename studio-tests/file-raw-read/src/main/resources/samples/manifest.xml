@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Manifest id="M-20261103-118">
+  <Shipment><TrackingNo>ZX100</TrackingNo><WeightKg>12.4</WeightKg><Destination>NL</Destination></Shipment>
+  <Shipment><TrackingNo>ZX101</TrackingNo><WeightKg>3.1</WeightKg><Destination>DE</Destination></Shipment>
+</Manifest>

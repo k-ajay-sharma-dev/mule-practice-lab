@@ -1,0 +1,24 @@
+# Render Blueprint for the DataWeave runner (free plan). In Render: New → Blueprint → pick this repo.
+# The free plan sleeps after 15 idle minutes; the site shows "Waking…" while it starts again (about a minute).
+services:
+  - type: web
+    name: dataweave-runner
+    runtime: docker
+    plan: free
+    dockerfilePath: ./runner/Dockerfile
+    dockerContext: .
+    # unauthenticated liveness probe; /health and /run still require the runner key
+    healthCheckPath: /healthz
+    # only redeploy when the runner itself changes, not on every content edit
+    buildFilter:
+      paths:
+        - runner/**
+    envVars:
+      # Render generates a random key; copy it from the service's Environment tab into the site's Settings.
+      - key: RUNNER_KEY
+        generateValue: true
+      # the free instance has 512 MB of memory: run one script at a time
+      - key: MAX_CONCURRENT
+        value: "1"
+      - key: RUN_TIMEOUT_MS
+        value: "15000"

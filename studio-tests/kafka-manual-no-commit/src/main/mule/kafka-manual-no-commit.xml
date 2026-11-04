@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test 2: kafka-manual-no-commit (inc-078, fl-077)
+  Questions:
+    MANUAL: with no Commit, does the listener keep receiving later records?
+            After a restart, where does it resume?
+    AUTO:   after a failed flow, is the record delivered again, and when?
+
+  Records are produced with the Kafka console producer, as described in the README, so this
+  project needs no publish operation. Each flow has its own topic and consumer group.
+
+  Body convention:
+    MANUAL flow: a body starting with COMMIT calls kafka:commit. Anything else does not.
+    AUTO flow:   a body starting with FAIL raises an error. Anything else succeeds.
+
+  NOT RUN. This project has never been started. See studio-tests/README.md.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd">
+
+    <configuration-properties file="config.yaml"/>
+
+    <kafka:consumer-config name="Consumer_Manual">
+        <kafka:consumer-plaintext-connection groupId="${kafka.manual.group}">
+            <kafka:bootstrap-servers>
+                <kafka:bootstrap-server value="${kafka.bootstrap}"/>
+            </kafka:bootstrap-servers>
+            <kafka:topic-patterns>
+                <kafka:topic-pattern value="${kafka.manual.topic}"/>
+            </kafka:topic-patterns>
+        </kafka:consumer-plaintext-connection>
+    </kafka:consumer-config>
+
+    <kafka:consumer-config name="Consumer_Auto">
+        <kafka:consumer-plaintext-connection groupId="${kafka.auto.group}">
+            <kafka:bootstrap-servers>
+                <kafka:bootstrap-server value="${kafka.bootstrap}"/>
+            </kafka:bootstrap-servers>
+            <kafka:topic-patterns>
+                <kafka:topic-pattern value="${kafka.auto.topic}"/>
+            </kafka:topic-patterns>
+        </kafka:consumer-plaintext-connection>
+    </kafka:consumer-config>
+
+    <flow name="manual-no-commit">
+        <!-- TODO verify in Studio: XML attribute ackMode. The reference lists the field as
+             Acknowledgement mode and gives no XML name. If Studio rejects it, set the field
+             in the Message Listener properties panel. -->
+        <kafka:message-listener config-ref="Consumer_Manual" ackMode="MANUAL"/>
+        <set-variable variableName="body" value='#[read(payload, "text/plain")]'/>
+        <!-- TODO verify in Studio: attributes.consumerCommitKey. The reference lists Consumer
+             Commit Key on Kafka Record Attributes and gives no expression. -->
+        <set-variable variableName="commitKey" value="#[attributes.consumerCommitKey]"/>
+        <logger level="INFO" message='#["MANUAL received: " ++ write({body: vars.body, topic: attributes.topic, partition: attributes.partition, offset: attributes.offset, receivedAt: now()}, "application/json", {indent: false})]'/>
+        <choice>
+            <when expression='#[vars.body startsWith "COMMIT"]'>
+                <!-- TODO verify in Studio: XML attribute consumerCommitKey. The reference lists
+                     the field as Consumer commit key and gives no XML name. -->
+                <kafka:commit config-ref="Consumer_Manual" consumerCommitKey="#[vars.commitKey]"/>
+                <logger level="INFO" message='#["MANUAL committed body=" ++ vars.body]'/>
+            </when>
+            <otherwise>
+                <logger level="INFO" message='#["MANUAL left uncommitted body=" ++ vars.body]'/>
+            </otherwise>
+        </choice>
+    </flow>
+
+    <flow name="auto-failed-flow">
+        <!-- TODO verify in Studio: XML attribute ackMode, as above. -->
+        <kafka:message-listener config-ref="Consumer_Auto" ackMode="AUTO"/>
+        <set-variable variableName="body" value='#[read(payload, "text/plain")]'/>
+        <logger level="INFO" message='#["AUTO received: " ++ write({body: vars.body, topic: attributes.topic, partition: attributes.partition, offset: attributes.offset, receivedAt: now()}, "application/json", {indent: false})]'/>
+        <choice>
+            <when expression='#[vars.body startsWith "FAIL"]'>
+                <raise-error type="APP:FORCED_FAILURE" description="Forced failure for the AUTO test"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" message='#["AUTO flow succeeded body=" ++ vars.body]'/>
+            </otherwise>
+        </choice>
+        <error-handler>
+            <on-error-propagate type="ANY" logException="false">
+                <logger level="WARN" message='#["AUTO flow failed body=" ++ (vars.body default "?") ++ " at " ++ (now() as String)]'/>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+</mule>

@@ -1,0 +1,9 @@
+# Placeholder values for a local Kafka container. Nothing here is a real credential.
+kafka:
+  bootstrap: "localhost:9092"
+  manual:
+    topic: "studio.manual"
+    group: "studio-manual-group"
+  auto:
+    topic: "studio.auto"
+    group: "studio-auto-group"

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test 6: db-partial-read (inc-072)
+  Question: does a db:select read only as payload[0] inside For Each hold connections or
+  cursors until the event ends?
+
+  The pool has maxPoolSize 2 and maxWait 10 seconds. A maxWait of 0 would wait forever.
+  Each customer has 5 address rows, so payload[0] leaves rows unread.
+
+    GET /partial?n=5           No transaction, payload[0] only.
+    GET /partial-maxrows?n=5   The same with maxRows="1".
+    GET /full?n=5              Control: every row read in a Transform.
+    GET /tx-partial?n=10       One transaction, fetchSize=2, payload[0], counts pg_cursors.
+    GET /tx-full?n=10          Control: the same with every row read.
+
+  Reading the result: if connections are held, /partial stalls on the third iteration for
+  about 10 seconds and then fails. If they are released, it finishes quickly.
+
+  NOT RUN. This project has never been started. See studio-tests/README.md.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <configuration-properties file="config.yaml"/>
+
+    <http:listener-config name="Http_Listener">
+        <http:listener-connection host="127.0.0.1" port="${http.port}"/>
+    </http:listener-config>
+
+    <db:config name="Pg">
+        <db:generic-connection url="${db.url}" driverClassName="org.postgresql.Driver"
+                               user="${db.user}" password="${db.password}">
+            <db:pooling-profile minPoolSize="0" maxPoolSize="${db.maxPoolSize}"
+                                maxWait="${db.maxWaitSeconds}" maxWaitUnit="SECONDS"/>
+        </db:generic-connection>
+    </db:config>
+
+    <flow name="partial-read">
+        <http:listener config-ref="Http_Listener" path="/partial"/>
+        <set-variable variableName="n" value='#[(attributes.queryParams.n default "5") as Number]'/>
+        <set-variable variableName="variant" value="partial"/>
+        <foreach collection="#[1 to vars.n]">
+            <set-variable variableName="customerId" value="#[payload]"/>
+            <logger level="INFO" message='#["ITER [" ++ vars.variant ++ "] " ++ (vars.customerId as String) ++ " before select at " ++ (now() as String)]'/>
+            <db:select config-ref="Pg">
+                <db:sql>SELECT address_id, customer_id, city FROM customer_address WHERE customer_id = :id ORDER BY address_id</db:sql>
+                <db:input-parameters>#[{ id: vars.customerId }]</db:input-parameters>
+            </db:select>
+            <set-variable variableName="primary" value="#[payload[0]]"/>
+            <logger level="INFO" message='#["ITER [" ++ vars.variant ++ "] " ++ (vars.customerId as String) ++ " after payload[0] city=" ++ (vars.primary.city as String)]'/>
+        </foreach>
+        <flow-ref name="report-success"/>
+        <error-handler>
+            <on-error-continue type="ANY" logException="false">
+                <flow-ref name="report-failure"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <flow name="partial-read-maxrows">
+        <http:listener config-ref="Http_Listener" path="/partial-maxrows"/>
+        <set-variable variableName="n" value='#[(attributes.queryParams.n default "5") as Number]'/>
+        <set-variable variableName="variant" value="partial-maxrows"/>
+        <foreach collection="#[1 to vars.n]">
+            <set-variable variableName="customerId" value="#[payload]"/>
+            <logger level="INFO" message='#["ITER [" ++ vars.variant ++ "] " ++ (vars.customerId as String) ++ " before select at " ++ (now() as String)]'/>
+            <db:select config-ref="Pg" maxRows="1">
+                <db:sql>SELECT address_id, customer_id, city FROM customer_address WHERE customer_id = :id ORDER BY address_id</db:sql>
+                <db:input-parameters>#[{ id: vars.customerId }]</db:input-parameters>
+            </db:select>
+            <set-variable variableName="primary" value="#[payload[0]]"/>
+            <logger level="INFO" message='#["ITER [" ++ vars.variant ++ "] " ++ (vars.customerId as String) ++ " after payload[0] city=" ++ (vars.primary.city as String)]'/>
+        </foreach>
+        <flow-ref name="report-success"/>
+        <error-handler>
+            <on-error-continue type="ANY" logException="false">
+                <flow-ref name="report-failure"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <flow name="full-read">
+        <http:listener config-ref="Http_Listener" path="/full"/>
+        <set-variable variableName="n" value='#[(attributes.queryParams.n default "5") as Number]'/>
+        <set-variable variableName="variant" value="full"/>
+        <foreach collection="#[1 to vars.n]">
+            <set-variable variableName="customerId" value="#[payload]"/>
+            <logger level="INFO" message='#["ITER [" ++ vars.variant ++ "] " ++ (vars.customerId as String) ++ " before select at " ++ (now() as String)]'/>
+            <db:select config-ref="Pg">
+                <db:sql>SELECT address_id, customer_id, city FROM customer_address WHERE customer_id = :id ORDER BY address_id</db:sql>
+                <db:input-parameters>#[{ id: vars.customerId }]</db:input-parameters>
+            </db:select>
+            <ee:transform>
+                <ee:variables>
+                    <ee:set-variable variableName="rows"><![CDATA[%dw 2.0
+output application/java
+---
+payload map ((row) -> row)]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+            <logger level="INFO" message='#["ITER [" ++ vars.variant ++ "] " ++ (vars.customerId as String) ++ " read all rows=" ++ (sizeOf(vars.rows) as String)]'/>
+        </foreach>
+        <flow-ref name="report-success"/>
+        <error-handler>
+            <on-error-continue type="ANY" logException="false">
+                <flow-ref name="report-failure"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <!-- One transaction means one connection, so the pool cannot run out here.
+         The open_cursors figure is what matters. pg_cursors shows the current session only.
+         The PostgreSQL driver keeps a server-side portal only with a fetch size and with
+         autocommit off, which is why fetchSize="2" is set and the rows exceed it. -->
+    <flow name="tx-partial-read">
+        <http:listener config-ref="Http_Listener" path="/tx-partial"/>
+        <set-variable variableName="n" value='#[(attributes.queryParams.n default "10") as Number]'/>
+        <set-variable variableName="variant" value="tx-partial"/>
+        <try transactionalAction="ALWAYS_BEGIN">
+            <foreach collection="#[1 to vars.n]">
+                <set-variable variableName="customerId" value="#[payload]"/>
+                <db:select config-ref="Pg" fetchSize="2">
+                    <db:sql>SELECT address_id, customer_id, city FROM customer_address WHERE customer_id = :id ORDER BY address_id</db:sql>
+                    <db:input-parameters>#[{ id: vars.customerId }]</db:input-parameters>
+                </db:select>
+                <set-variable variableName="primary" value="#[payload[0]]"/>
+                <flow-ref name="log-cursor-count"/>
+            </foreach>
+        </try>
+        <flow-ref name="report-success"/>
+        <error-handler>
+            <on-error-continue type="ANY" logException="false">
+                <flow-ref name="report-failure"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <flow name="tx-full-read">
+        <http:listener config-ref="Http_Listener" path="/tx-full"/>
+        <set-variable variableName="n" value='#[(attributes.queryParams.n default "10") as Number]'/>
+        <set-variable variableName="variant" value="tx-full"/>
+        <try transactionalAction="ALWAYS_BEGIN">
+            <foreach collection="#[1 to vars.n]">
+                <set-variable variableName="customerId" value="#[payload]"/>
+                <db:select config-ref="Pg" fetchSize="2">
+                    <db:sql>SELECT address_id, customer_id, city FROM customer_address WHERE customer_id = :id ORDER BY address_id</db:sql>
+                    <db:input-parameters>#[{ id: vars.customerId }]</db:input-parameters>
+                </db:select>
+                <ee:transform>
+                    <ee:variables>
+                        <ee:set-variable variableName="rows"><![CDATA[%dw 2.0
+output application/java
+---
+payload map ((row) -> row)]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <flow-ref name="log-cursor-count"/>
+            </foreach>
+        </try>
+        <flow-ref name="report-success"/>
+        <error-handler>
+            <on-error-continue type="ANY" logException="false">
+                <flow-ref name="report-failure"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <sub-flow name="log-cursor-count">
+        <!-- TODO verify in Studio: element name db:query-single. The docs name the Query Single
+             operation and the 1.16.2 plugin descriptor has querySingle. The hyphenated tag is inferred.
+             It joins the open transaction by default, so it sees that session's cursors. -->
+        <db:query-single config-ref="Pg" target="cursorInfo">
+            <db:sql>SELECT count(*) AS open_cursors FROM pg_cursors</db:sql>
+        </db:query-single>
+        <logger level="INFO" message='#["CURSORS [" ++ vars.variant ++ "] iteration " ++ (vars.customerId as String) ++ " open_cursors=" ++ (vars.cursorInfo.open_cursors as String)]'/>
+    </sub-flow>
+
+    <sub-flow name="report-success">
+        <logger level="INFO" message='#["DONE [" ++ vars.variant ++ "] n=" ++ (vars.n as String) ++ " finished at " ++ (now() as String)]'/>
+        <set-payload value='#["OK " ++ vars.variant ++ " n=" ++ (vars.n as String)]'/>
+    </sub-flow>
+
+    <sub-flow name="report-failure">
+        <logger level="ERROR" message='#["FAILED [" ++ vars.variant ++ "] at iteration " ++ ((vars.customerId default "?") as String) ++ " at " ++ (now() as String) ++ " type=" ++ (error.errorType.namespace default "?") ++ ":" ++ (error.errorType.identifier default "?") ++ " description=" ++ (error.description default "none")]'/>
+        <set-payload value='#["FAILED " ++ vars.variant ++ " at iteration " ++ ((vars.customerId default "?") as String)]'/>
+    </sub-flow>
+</mule>

@@ -1,0 +1,13 @@
+# Placeholder values. Do not commit real AWS keys. For a real queue, pass the keys as
+# runtime arguments (see the README) and leave the two placeholders below in this file.
+http:
+  port: "8095"
+sqs:
+  accessKey: "test"
+  secretKey: "test"
+  region: "us-east-1"
+  queueUrl:
+    # LocalStack path-style URLs. For real AWS use
+    # https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/studio-preserve-false and the -true equivalent.
+    preserveFalse: "http://localhost:4566/queue/us-east-1/000000000000/studio-preserve-false"
+    preserveTrue: "http://localhost:4566/queue/us-east-1/000000000000/studio-preserve-true"

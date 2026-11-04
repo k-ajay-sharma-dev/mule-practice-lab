@@ -1,0 +1,4 @@
+region,storeId,saleDate,sku,qty,amount
+NORTH,101,2026-11-03,SKU-1,2,19.98
+SOUTH,202,2026-11-03,SKU-2,1,5.49
+TRAILER,2,,,,

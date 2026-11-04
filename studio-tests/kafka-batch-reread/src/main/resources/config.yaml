@@ -1,0 +1,8 @@
+# Placeholder values for a local Kafka container. Nothing here is a real credential.
+kafka:
+  bootstrap: "localhost:9092"
+  topic: "studio.batch"
+  group: "studio-batch-group"
+snapshot:
+  # false tests the plain second read. true tests the fallback copy.
+  enabled: "false"

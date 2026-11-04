@@ -1,0 +1,5 @@
+# Placeholder values. Point workingDir at an empty folder on your machine.
+# It must contain the subfolders in-default, in-binary, in-csv and done.
+file:
+  workingDir: "C:/temp/studio-tests/file-raw-read"
+  frequencyMs: "5000"

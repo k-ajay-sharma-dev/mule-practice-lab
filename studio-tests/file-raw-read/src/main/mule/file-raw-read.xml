@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test 4: file-raw-read (fl-086, fl-087, fl-088)
+  Question: does read(payload.^raw, "application/json") work on a real stream from
+  file:listener, for JSON, CSV and XML files? What changes when outputMimeType is set?
+
+  Each file goes through four attempts, each in its own Try, so one failure hides nothing:
+    ATTEMPT-1 read(payload.^raw, mime, props)   the form the problems teach
+    ATTEMPT-2 the same read again               can the stream be read twice in one flow?
+    ATTEMPT-3 read(payload, mime, props)        the form the problems say fails
+    ATTEMPT-4 payload used directly             what the connector typed it as
+
+  Three listeners, one folder each:
+    in-default  no outputMimeType
+    in-binary   outputMimeType="application/octet-stream"
+    in-csv      outputMimeType="application/csv; separator=;"
+
+  NOT RUN. This project has never been started. See studio-tests/README.md.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:file="http://www.mulesoft.org/schema/mule/file"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+
+    <configuration-properties file="config.yaml"/>
+
+    <file:config name="File_Config">
+        <file:connection workingDir="${file.workingDir}"/>
+    </file:config>
+
+    <flow name="listener-default">
+        <file:listener config-ref="File_Config" directory="in-default" recursive="false"
+                       moveToDirectory="done" overwrite="true">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${file.frequencyMs}"/>
+            </scheduling-strategy>
+        </file:listener>
+        <set-variable variableName="label" value="default"/>
+        <flow-ref name="attempt-reads"/>
+    </flow>
+
+    <!-- TODO verify in Studio: outputMimeType on file:listener. The reference lists Output Mime
+         Type on this source, and the XML name is shown in the docs only on file:read. -->
+    <flow name="listener-binary">
+        <file:listener config-ref="File_Config" directory="in-binary" recursive="false"
+                       moveToDirectory="done" overwrite="true"
+                       outputMimeType="application/octet-stream">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${file.frequencyMs}"/>
+            </scheduling-strategy>
+        </file:listener>
+        <set-variable variableName="label" value="octet-stream"/>
+        <flow-ref name="attempt-reads"/>
+    </flow>
+
+    <!-- TODO verify in Studio: outputMimeType on file:listener, as above. -->
+    <flow name="listener-csv-typed">
+        <file:listener config-ref="File_Config" directory="in-csv" recursive="false"
+                       moveToDirectory="done" overwrite="true"
+                       outputMimeType="application/csv; separator=;">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${file.frequencyMs}"/>
+            </scheduling-strategy>
+        </file:listener>
+        <set-variable variableName="label" value="csv-typed"/>
+        <flow-ref name="attempt-reads"/>
+    </flow>
+
+    <sub-flow name="attempt-reads">
+        <set-variable variableName="fileName" value="#[attributes.fileName]"/>
+        <set-variable variableName="ext" value='#[lower((attributes.fileName splitBy ".")[-1])]'/>
+        <set-variable variableName="mime" value='#[{json: "application/json", csv: "application/csv", xml: "application/xml"}[vars.ext] default "text/plain"]'/>
+        <set-variable variableName="props" value='#[if (attributes.fileName contains "semicolon") {separator: ";"} else {}]'/>
+
+        <try>
+            <logger level="INFO" message='#["META [" ++ vars.label ++ "] " ++ write({file: vars.fileName, readAs: vars.mime, mimeType: payload.^mimeType, mediaType: payload.^mediaType, encoding: payload.^encoding, class: payload.^class, dwType: typeOf(payload) as String, rawClass: payload.^raw.^class}, "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["META [" ++ vars.label ++ "] " ++ vars.fileName ++ " FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <try>
+            <logger level="INFO" message='#["ATTEMPT-1 raw [" ++ vars.label ++ "] " ++ vars.fileName ++ " OK: " ++ write(read(payload.^raw, vars.mime, vars.props), "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["ATTEMPT-1 raw [" ++ vars.label ++ "] " ++ vars.fileName ++ " FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <try>
+            <logger level="INFO" message='#["ATTEMPT-2 raw again [" ++ vars.label ++ "] " ++ vars.fileName ++ " OK: " ++ write(read(payload.^raw, vars.mime, vars.props), "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["ATTEMPT-2 raw again [" ++ vars.label ++ "] " ++ vars.fileName ++ " FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <try>
+            <logger level="INFO" message='#["ATTEMPT-3 payload [" ++ vars.label ++ "] " ++ vars.fileName ++ " OK: " ++ write(read(payload, vars.mime, vars.props), "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["ATTEMPT-3 payload [" ++ vars.label ++ "] " ++ vars.fileName ++ " FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <try>
+            <logger level="INFO" message='#["ATTEMPT-4 direct [" ++ vars.label ++ "] " ++ vars.fileName ++ " OK: " ++ write(payload, "application/json", {indent: false})]'/>
+            <error-handler>
+                <on-error-continue type="ANY" logException="false">
+                    <logger level="ERROR" message='#["ATTEMPT-4 direct [" ++ vars.label ++ "] " ++ vars.fileName ++ " FAILED: " ++ (error.description default "no description")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+</mule>
