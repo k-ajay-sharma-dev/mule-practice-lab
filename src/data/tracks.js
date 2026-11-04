@@ -88,6 +88,12 @@ export const TRACKS = [
     tags: ['security', 'oauth2', 'oauth', 'policies', 'api-manager', 'api-management', 'sla-tiers', 'pii', 'gdpr', 'governance', 'rate-limiting'],
   },
   {
+    slug: 'anypoint-platform',
+    title: 'Anypoint Platform',
+    blurb: 'Exchange, API Designer, API Governance, API Groups, Anypoint Monitoring, API Visualizer, Runtime Manager and the CLI.',
+    tags: ['exchange', 'design-center', 'api-designer', 'mocking-service', 'api-governance', 'anypoint-monitoring', 'api-visualizer', 'runtime-manager', 'anypoint-cli', 'platform-apis', 'api-groups', 'api-proxy', 'contracts'],
+  },
+  {
     slug: 'deployment',
     title: 'Deployment & Operations',
     blurb: 'CloudHub, Runtime Fabric, CI/CD, environments, monitoring, logging and performance.',

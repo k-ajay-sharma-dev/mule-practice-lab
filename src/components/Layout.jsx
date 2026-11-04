@@ -149,6 +149,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
         <div className="side-group">
           <div className="side-group-title">Tools</div>
           {item('/playground', 'playground', 'Playground')}
+          {item('/platform-lab', 'lab', 'Platform Lab')}
           {item('/cheatsheets', 'cheatsheets', 'Cheat Sheets')}
           {item('/search', 'search', 'Search')}
           {item('/settings', 'settings', 'Settings')}

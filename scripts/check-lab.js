@@ -1,7 +1,42 @@
 // Checks the Platform Lab engine against the examples and status codes on the Mule Gateway policy pages.
 import assert from 'node:assert/strict'
 import { ipMatches, jsonViolation, newRuntime, send } from '../src/lab/engine.js'
+import { GUIDED_LABS, runCheck } from '../src/lab/labs.js'
 import { defaultSettings } from '../src/lab/policies.js'
+import {
+  advance,
+  appStatus,
+  deploy,
+  deploymentStatus,
+  keepProtected,
+  MASK,
+  maskProtected,
+  newConfig,
+  newState,
+  parseProperties,
+  remove,
+  rollback,
+  settle,
+  start,
+  stop,
+  usedVCores,
+  validate,
+} from '../src/lab/runtime.js'
+
+const healthy = (extra = {}) => ({
+  ...newConfig(),
+  properties: { 'db.host': 'db.lab', 'db.user': 'lab' },
+  protectedProperties: { 'db.password': 'secret-value' },
+  ...extra,
+})
+// deploys and plays the deployment to its end
+function shipped(state, config) {
+  const result = deploy(state, config)
+  assert.deepEqual(result.errors, [])
+  return settle(result.state)
+}
+const appIn = (state, name = 'orders-api') => state.apps.find((a) => a.name === name)
+const replicaStatuses = (state, name) => appIn(state, name).replicas.map((r) => r.status)
 
 const policy = (type, settings = {}, id = type) => ({ id, type, settings: { ...defaultSettings(type), ...settings } })
 const app = { name: 'Mobile', clientId: 'id-1', clientSecret: 'secret-1', contract: 'approved', tier: 'Gold' }
@@ -128,6 +163,209 @@ const tests = {
     const runtime = newRuntime()
     send({ ...base, policies: [policy('rate-limit')] }, runtime, request(), 0)
     assert.deepEqual(runtime, newRuntime())
+  },
+  'Runtime: application names follow the docs rules'() {
+    const fields = (name) => validate({ ...newConfig(), name }).map((e) => e.field)
+    assert.deepEqual(fields('my-app-1'), [])
+    for (const bad of ['ab', 'a'.repeat(43), '1app', '-app', 'app-', 'my app', 'my_app']) assert.ok(fields(bad).includes('name'), bad)
+    assert.deepEqual(fields('a'.repeat(42)), [])
+  },
+  'Runtime: replica count, size and clustering limits come from the docs'() {
+    const fields = (extra) => validate({ ...newConfig(), ...extra }).map((e) => e.field)
+    assert.deepEqual(fields({ replicas: 8 }), [])
+    assert.deepEqual(fields({ replicas: 9 }), ['replicas'])
+    assert.deepEqual(fields({ replicas: 0 }), ['replicas'])
+    assert.deepEqual(fields({ vCores: 5 }), ['vCores'])
+    assert.deepEqual(fields({ clustered: true, replicas: 1 }), ['clustered'])
+    assert.deepEqual(fields({ clustered: true, replicas: 2 }), [])
+    const { state, errors } = deploy(newState(), { ...newConfig(), replicas: 9 })
+    assert.equal(errors.length, 1)
+    assert.deepEqual(state.apps, [])
+  },
+  'Runtime: a healthy deployment moves Pending, Starting, Started on the clock'() {
+    let state = deploy(newState(), healthy({ replicas: 2 })).state
+    assert.deepEqual(replicaStatuses(state), ['Pending', 'Pending'])
+    assert.equal(appStatus(appIn(state)), 'Not running')
+    assert.equal(deploymentStatus(appIn(state)), 'Applying')
+    state = advance(state, 2000)
+    assert.deepEqual(replicaStatuses(state), ['Starting', 'Starting'])
+    state = advance(state, 3000)
+    assert.deepEqual(replicaStatuses(state), ['Started', 'Started'])
+    assert.equal(appStatus(appIn(state)), 'Running')
+    assert.equal(deploymentStatus(appIn(state)), 'Applied')
+    assert.equal(appIn(state).history[0].status, 'Applied')
+  },
+  'Runtime: a missing property fails with a log line, and is flagged as assumed, then a fix and redeploy works'() {
+    let state = shipped(newState(), newConfig())
+    const app = appIn(state)
+    assert.deepEqual(replicaStatuses(state), ['Failed'])
+    assert.equal(deploymentStatus(app), 'Failed')
+    assert.equal(appStatus(app), 'Not running')
+    assert.equal(app.outcome.kind, 'property')
+    assert.equal(app.outcome.basis, 'assumed')
+    assert.ok(app.logs.some((l) => l.level === 'ERROR' && l.text.includes('${db.password}')))
+    state = shipped(state, healthy())
+    assert.equal(appStatus(appIn(state)), 'Running')
+    assert.equal(appIn(state).outcome, null)
+    assert.deepEqual(appIn(state).history.map((h) => h.status), ['Applied', 'Failed'])
+  },
+  'Runtime: too little heap fails at startup and a larger replica fixes it'() {
+    const config = { ...newConfig(), name: 'inventory', packageId: 'inventory-sync', properties: { 'sftp.host': 'sftp.lab' }, vCores: 0.5 }
+    let state = shipped(newState(), config)
+    assert.equal(appIn(state, 'inventory').outcome.kind, 'memory')
+    assert.equal(appIn(state, 'inventory').outcome.basis, 'docs')
+    state = shipped(state, { ...config, vCores: 1 })
+    assert.equal(appStatus(appIn(state, 'inventory')), 'Running')
+  },
+  'Runtime: a runtime older than the application needs fails, flagged as assumed'() {
+    const config = { ...newConfig(), name: 'inventory', packageId: 'inventory-sync', properties: { 'sftp.host': 'x' }, vCores: 1, runtime: '4.6' }
+    const state = shipped(newState(), config)
+    assert.equal(appIn(state, 'inventory').outcome.kind, 'runtime')
+    assert.equal(appIn(state, 'inventory').outcome.basis, 'assumed')
+    assert.equal(appStatus(appIn(shipped(state, { ...config, runtime: '4.10' }), 'inventory')), 'Running')
+  },
+  'Runtime: without enough vCores the app waits in Pending and starts once another app stops'() {
+    const hello = (name, vCores) => ({ ...newConfig(), name, packageId: 'hello-api', target: 'private', vCores })
+    let state = shipped(newState(), hello('first', 1.5))
+    assert.equal(usedVCores(state, 'private'), 1.5)
+    state = shipped(state, hello('second', 1))
+    assert.deepEqual(replicaStatuses(state, 'second'), ['Pending'])
+    assert.equal(deploymentStatus(appIn(state, 'second')), 'Pending')
+    assert.equal(appIn(state, 'second').outcome.kind, 'capacity')
+    assert.equal(usedVCores(state, 'private'), 1.5)
+    state = settle(stop(state, 'first'))
+    assert.deepEqual(replicaStatuses(state, 'first'), ['Stopped'])
+    assert.deepEqual(replicaStatuses(state, 'second'), ['Started'])
+    assert.equal(usedVCores(state, 'private'), 1)
+    assert.equal(deploymentStatus(appIn(state, 'second')), 'Applied')
+  },
+  'Runtime: deleting an app also frees capacity, and a waiting app can be fixed by a smaller redeploy'() {
+    const hello = (name, vCores) => ({ ...newConfig(), name, packageId: 'hello-api', target: 'private', vCores })
+    const waiting = shipped(shipped(newState(), hello('first', 1.5)), hello('second', 1))
+    assert.deepEqual(replicaStatuses(settle(remove(waiting, 'first')), 'second'), ['Started'])
+    assert.deepEqual(replicaStatuses(shipped(waiting, hello('second', 0.5)), 'second'), ['Started'])
+  },
+  'Runtime: a rolling update keeps serving at every step and replaces each replica'() {
+    let state = shipped(newState(), healthy({ replicas: 2 }))
+    const before = appIn(state).applied
+    state = deploy(state, healthy({ replicas: 2, runtime: '4.10' })).state
+    for (let i = 0; i < 30 && appIn(state).queue.length; i++) {
+      assert.equal(appStatus(appIn(state)), 'Running')
+      state = advance(state, 500)
+    }
+    const app = appIn(state)
+    assert.equal(app.replicas.length, 2)
+    assert.ok(app.replicas.every((r) => r.status === 'Started' && r.configId === app.applied))
+    assert.notEqual(app.applied, before)
+  },
+  'Runtime: a failed rolling update keeps the old replicas serving and reports Update failed'() {
+    let state = shipped(newState(), healthy({ replicas: 2 }))
+    const good = appIn(state).applied
+    state = deploy(state, { ...healthy({ replicas: 2 }), properties: { 'db.user': 'lab' } }).state
+    for (let i = 0; i < 30 && appIn(state).queue.length; i++) {
+      assert.equal(appStatus(appIn(state)), 'Running')
+      state = advance(state, 500)
+    }
+    const app = appIn(state)
+    assert.equal(deploymentStatus(app), 'Update failed')
+    assert.equal(app.applied, good)
+    assert.deepEqual(replicaStatuses(state), ['Started', 'Started'])
+    assert.equal(app.history[0].status, 'Update failed')
+    assert.equal(app.config.properties['db.host'], 'db.lab')
+  },
+  'Runtime: recreate has downtime, and a failed recreate rolls back to the last good configuration'() {
+    const recreate = { model: 'Recreate' }
+    let state = shipped(newState(), healthy(recreate))
+    let outage = false
+    state = deploy(state, healthy({ ...recreate, runtime: '4.10' })).state
+    while (appIn(state).queue.length) {
+      outage ||= appStatus(appIn(state)) === 'Not running'
+      state = advance(state, 500)
+    }
+    assert.ok(outage)
+    assert.equal(appStatus(appIn(state)), 'Running')
+    const good = appIn(state).applied
+    state = shipped(state, { ...healthy(recreate), properties: {} })
+    assert.equal(deploymentStatus(appIn(state)), 'Update failed')
+    assert.equal(appIn(state).applied, good)
+    assert.deepEqual(replicaStatuses(state), ['Started'])
+  },
+  'Runtime: roll back deploys an earlier successful configuration, and refuses a failed one'() {
+    let state = shipped(shipped(newState(), healthy({ runtime: '4.9' })), healthy({ runtime: '4.10' }))
+    const [latest, earlier] = appIn(state).history
+    assert.equal(appIn(state).config.runtime, '4.10')
+    const result = rollback(state, 'orders-api', earlier.id)
+    assert.deepEqual(result.errors, [])
+    state = settle(result.state)
+    assert.equal(appIn(state).config.runtime, '4.9')
+    assert.equal(appIn(state).history.length, 3)
+    assert.notEqual(appIn(state).applied, latest.id)
+    const failed = shipped(newState(), newConfig())
+    assert.equal(rollback(failed, 'orders-api', appIn(failed).history[0].id).errors.length, 1)
+  },
+  'Runtime: history keeps the last 10 configurations, and a stopped app starts again'() {
+    let state = newState()
+    for (let i = 0; i < 12; i++) state = shipped(state, healthy())
+    assert.equal(appIn(state).history.length, 10)
+    state = settle(stop(state, 'orders-api'))
+    assert.equal(appStatus(appIn(state)), 'Not running')
+    assert.equal(deploymentStatus(appIn(state)), 'Stopped')
+    state = settle(start(state, 'orders-api'))
+    assert.equal(appStatus(appIn(state)), 'Running')
+    assert.equal(appIn(state).history.length, 10)
+  },
+  'Runtime: protected values stay out of the logs and survive a masked redeploy'() {
+    const state = shipped(newState(), healthy())
+    assert.ok(!JSON.stringify(appIn(state).logs).includes('secret-value'))
+    assert.deepEqual(maskProtected({ a: 'x' }), { a: MASK })
+    assert.deepEqual(keepProtected({ a: MASK, b: 'new' }, { a: 'old' }), { a: 'old', b: 'new' })
+    assert.deepEqual(parseProperties('a=1\n\nb = x=y\nnot a pair'), { a: '1', b: 'x=y' })
+  },
+  'Runtime: a change during a deployment is refused, actions leave the given state untouched'() {
+    const state = deploy(newState(), healthy()).state
+    const copy = structuredClone(state)
+    assert.equal(deploy(state, healthy()).errors.length, 1)
+    assert.equal(stop(state, 'orders-api'), state)
+    advance(state, 5000)
+    assert.deepEqual(state, copy)
+  },
+  'Guided labs: there are at least 6, with unique ids and a full brief'() {
+    assert.ok(GUIDED_LABS.length >= 6)
+    assert.equal(new Set(GUIDED_LABS.map((l) => l.id)).size, GUIDED_LABS.length)
+    for (const lab of GUIDED_LABS) {
+      for (const key of ['title', 'scenario', 'goal', 'solution', 'why', 'docs']) assert.ok(lab[key], `${lab.id} ${key}`)
+      assert.ok(lab.hints.length > 0, lab.id)
+    }
+  },
+  'Guided labs: every starting setup fails its check and its solution passes'() {
+    for (const lab of GUIDED_LABS) {
+      const before = runCheck(lab, lab.start())
+      assert.equal(before.passed, false, `${lab.id} should fail at the start`)
+      const after = runCheck(lab, lab.solve(lab.start()))
+      assert.equal(after.passed, true, `${lab.id} solution: ${after.items.filter((i) => !i.ok).map((i) => `${i.label} saw ${i.seen}`).join('; ')}`)
+    }
+  },
+  'Guided labs: deleting every policy does not pass any lab'() {
+    for (const lab of GUIDED_LABS) assert.equal(runCheck(lab, { ...lab.solve(lab.start()), policies: [] }).passed, false, lab.id)
+  },
+  'Guided labs: tempting wrong answers do not pass'() {
+    const byId = (id) => GUIDED_LABS.find((l) => l.id === id)
+    const spoof = byId('spoofed-header')
+    const late = spoof.solve(spoof.start())
+    assert.equal(runCheck(spoof, { ...late, policies: [...late.policies].reverse() }).passed, false, 'removal after injection')
+    const sla = byId('sla-approval')
+    const everyone = { ...sla.start(), apps: sla.start().apps.map((a) => ({ ...a, contract: 'approved' })) }
+    assert.equal(runCheck(sla, everyone).passed, false, 'approving the revoked app')
+    const gold = sla.solve(sla.start())
+    assert.equal(runCheck(sla, { ...gold, apps: gold.apps.map((a) => ({ ...a, tier: 'Gold' })) }).passed, false, 'moving the partner to Gold')
+    const spike = byId('smooth-a-burst')
+    const raised = spike.start()
+    raised.policies[0].settings.requests = 4
+    assert.equal(runCheck(spike, raised).passed, false, 'raising the quota')
+    const lb = byId('allowlist-load-balancer')
+    const half = lb.start()
+    half.policies[0].settings.list = '198.51.100.0/24'
+    assert.equal(runCheck(lb, half).passed, false, 'list changed but expression not')
   },
 }
 

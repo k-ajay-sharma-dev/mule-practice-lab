@@ -152,7 +152,7 @@ function runPolicy(applied, ctx) {
       const group = { '#[attributes.method]': request.method, "#[attributes.headers['client_id']]": request.clientId ?? '' }[settings.identifier] ?? ''
       const win = fixedWindow(runtime, `${id}:${group}`, settings.requests, settings.periodMs, now)
       ctx.responseHeaders.push(...limitHeaders(settings.expose, settings.requests, win))
-      const label = group ? `group "${group}"` : settings.identifier === '(not configured)' ? 'one shared quota' : 'the empty group, which has its own quota'
+      const label = group ? `group "${group}"` : settings.identifier === '(not configured)' ? 'all requests' : 'the empty group, which has its own quota'
       if (!win.allowed) return { status: 429, step: docs(name, 'reject', `Quota used for ${label}. New window in ${win.resetMs} ms.`) }
       return { step: docs(name, 'pass', `${win.remaining} of ${settings.requests} left for ${label}.`) }
     }

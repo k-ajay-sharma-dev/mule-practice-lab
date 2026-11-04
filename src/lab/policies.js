@@ -114,7 +114,7 @@ export const POLICIES = [
     summary: 'Adds headers to the request or response. An existing header is kept, not overridden.',
     docs: 'policies-included-header-injection',
     fields: [
-      text('inbound', 'Inbound headers', 'x-tenant: internal', 'One per line would be used in practice: name: value, comma separated here'),
+      text('inbound', 'Inbound headers', 'x-tenant: internal', 'name: value, comma separated'),
       text('outbound', 'Outbound headers', '', 'name: value, comma separated'),
     ],
   },
