@@ -3,7 +3,9 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { checkRunner, getRunnerSettings, runnerMaySleep } from '../runner/client.js'
+import { useFocusSession } from '../store/focus.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
+import { FocusBar, FocusSummary } from './FocusSession.jsx'
 import NavIcon from './NavIcons.jsx'
 import { useSyncStatus } from '../sync/status.js'
 import { useTheme } from '../theme.jsx'
@@ -30,6 +32,8 @@ export default function Layout({ children }) {
   // laptop: full or icons-only (remembered); phone/tablet: a drawer opened from the menu button
   const [collapsed, setCollapsed] = useState(() => readSetting(SIDEBAR_KEY) === 'collapsed')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const focus = useFocusSession()
+  const focusing = Boolean(focus && !focus.endedAt)
 
   useEffect(() => setDrawerOpen(false), [pathname])
   useEffect(() => {
@@ -45,7 +49,8 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className={`app${collapsed ? ' sidebar-collapsed' : ''}${drawerOpen ? ' drawer-open' : ''}`}>
+    <div className={`app${collapsed ? ' sidebar-collapsed' : ''}${drawerOpen ? ' drawer-open' : ''}${focusing ? ' focus-mode' : ''}`}>
+      {focusing ? <FocusBar key={focus.at} session={focus} /> : (
       <header className="topbar">
         <button
           className="icon-btn menu-btn"
@@ -82,12 +87,14 @@ export default function Layout({ children }) {
           </Link>
         </div>
       </header>
+      )}
 
       <div className="app-body">
-        <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} onClose={() => setDrawerOpen(false)} />
-        <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
+        {!focusing && <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} onClose={() => setDrawerOpen(false)} />}
+        {!focusing && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
         <main className="content">{children}</main>
       </div>
+      {focus?.endedAt && <FocusSummary session={focus} />}
     </div>
   )
 }

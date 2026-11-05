@@ -1860,3 +1860,107 @@
   color: var(--danger);
   opacity: 1;
 }
+
+/* ---------- Focus session ---------- */
+.focus-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 10px 0 8px;
+}
+.focus-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.focus-start .today-time {
+  margin-left: auto;
+}
+.focus-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: var(--topbar-h);
+}
+.focus-where {
+  min-width: 0;
+}
+.focus-clock {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.focus-summary-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  padding: 16px;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+}
+.focus-summary {
+  width: 100%;
+  max-width: 520px;
+  margin: auto;
+  padding: 20px 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 12px;
+  background: var(--surface);
+}
+.focus-summary h2 {
+  margin: 0 0 4px;
+  outline: none;
+}
+.focus-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.focus-stats dd {
+  margin: 2px 0 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.focus-finished {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.focus-break {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+.focus-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  /* two rows on a phone, and anything sticky under the bar has to clear both */
+  .app.focus-mode {
+    --topbar-h: 84px;
+  }
+  .focus-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+  }
+  .focus-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .focus-start .today-time {
+    margin-left: 0;
+  }
+}

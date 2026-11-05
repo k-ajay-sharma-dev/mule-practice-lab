@@ -12,7 +12,7 @@ export const BLINK_MS = 60000 // under a minute left
 export const LOW_MS = 5 * 60000
 const STALE_MS = 12 * 3600000 // an attempt this old was abandoned, not still being worked on
 const LOG_SIZE = 20
-const BRIEF_MS = 5000 // a page reload pauses too, and that is not stepping away
+export const BRIEF_MS = 5000 // a page reload pauses too, and that is not stepping away
 
 export const startTimer = (minutes, now) => ({ firstStartedAt: now, startedAt: now, minutes, resets: 0, pauses: 0 })
 

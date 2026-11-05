@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { categoryBySlug } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { PHASES, phaseProblems } from '../data/roadmap.js'
 import { trackProblems } from '../data/tracks.js'
 import { readMocks, weakAreaReport } from '../data/weakAreas.js'
 import { loadBoxes } from '../store/flash.js'
+import { beginFocus, readFocusGoal, readFocusHistory, saveFocusGoal, useFocusSession } from '../store/focus.js'
 import { writeLocal } from '../store/local.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
+import { solvedByCategory } from './FocusSession.jsx'
+import { FOCUS_GOALS, FOCUS_MINUTES, focusStreak, sessionsOn } from '../study/focus.js'
 import { autoDone, buildPlan, DEFAULT_MINUTES, interleave, itemDone, PLAN_MINUTES, planTime, validPlan } from '../study/plan.js'
 
 // Today's work on the dashboard. The plan is saved when first built, so it stays put as you solve things during the day.
@@ -52,6 +55,67 @@ function candidates({ progress, review, today }) {
     interleave(phaseProblems(ph, problems).filter(open), (p) => p.category).map((p) => candidate(p, `Stage ${ph.stage}: ${ph.title}`)),
   )
   return { due, weak, fresh }
+}
+
+// Starts a session on what is left of the plan, and shows how today stands against the daily goal.
+function FocusStart({ left, progress, today }) {
+  const navigate = useNavigate()
+  const session = useFocusSession()
+  const [choosing, setChoosing] = useState(false)
+  const [goal, setGoal] = useState(readFocusGoal)
+  const history = readFocusHistory()
+  const done = sessionsOn(history, today).length
+  const days = focusStreak(history, goal, todayKey)
+
+  function start(minutes) {
+    const queue = left.map((i) => i.id)
+    beginFocus({ minutes, queue, solved: solvedByCategory(progress) })
+    const first = problemById.get(queue[0])
+    navigate(`/${first.category}/${first.id}`)
+  }
+
+  function changeGoal(value) {
+    setGoal(value)
+    saveFocusGoal(value)
+  }
+
+  return (
+    <div className="focus-start">
+      {left.length > 0 && !session && (
+        <div className="focus-start-actions">
+          {choosing ? (
+            <>
+              {FOCUS_MINUTES.map((m) => (
+                <button key={m} className="btn btn-sm btn-primary" onClick={() => start(m)}>
+                  {m} min
+                </button>
+              ))}
+              <button className="btn btn-sm btn-ghost" onClick={() => setChoosing(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-sm btn-primary" onClick={() => setChoosing(true)}>
+              Start focus
+            </button>
+          )}
+        </div>
+      )}
+      <span className="muted small">
+        {done} of {goal} focus sessions today{days > 0 ? ` · ${days} day focus streak` : ''}
+      </span>
+      <label className="today-time small muted">
+        Daily goal
+        <select className="input" value={goal} onChange={(e) => changeGoal(Number(e.target.value))}>
+          {FOCUS_GOALS.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  )
 }
 
 export default function TodayPlan() {
@@ -133,6 +197,8 @@ export default function TodayPlan() {
           <div style={{ width: `${(done.length / plan.items.length) * 100}%` }} />
         </div>
       )}
+
+      <FocusStart left={left} progress={progress} today={today} />
 
       {plan.items.length === 0 ? (
         <p className="muted small">

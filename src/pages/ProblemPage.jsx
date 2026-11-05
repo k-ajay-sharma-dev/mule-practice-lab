@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { categoryBySlug } from '../data/categories.js'
 import { problemById, problemsFor } from '../data/problems.js'
+import { useFocusSession } from '../store/focus.js'
 import { removeReview, scheduleReview, statusOf, useEntry, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import ProblemTimer from '../components/ProblemTimer.jsx'
@@ -13,6 +14,8 @@ export default function ProblemPage() {
   const { category, problemId } = useParams()
   const entry = useEntry(problemId)
   const inReview = Boolean(useReview()[problemId])
+  const focus = useFocusSession()
+  const focusing = Boolean(focus && !focus.endedAt) // the session picks the next problem, so these ways out are hidden
 
   const problem = problemById.get(problemId)
   const cat = categoryBySlug.get(category)
@@ -27,9 +30,11 @@ export default function ProblemPage() {
     <div className="problem-page">
       <header className="problem-head">
         <div className="problem-head-main">
-          <Link to={`/${category}`} className="back-link">
-            ← {cat.label}
-          </Link>
+          {!focusing && (
+            <Link to={`/${category}`} className="back-link">
+              ← {cat.label}
+            </Link>
+          )}
           <h1>{problem.title}</h1>
           <div className="problem-meta">
             <span className="mono muted">{problem.id.toUpperCase()}</span>
@@ -47,20 +52,20 @@ export default function ProblemPage() {
           >
             {inReview ? '✓ In review' : '＋ Review'}
           </button>
-          {prev ? (
+          {!focusing && (prev ? (
             <Link className="btn btn-ghost" to={`/${category}/${prev.id}`} title={prev.title}>
               ← Prev
             </Link>
           ) : (
             <span className="btn btn-ghost disabled">← Prev</span>
-          )}
-          {next ? (
+          ))}
+          {!focusing && (next ? (
             <Link className="btn btn-ghost" to={`/${category}/${next.id}`} title={next.title}>
               Next →
             </Link>
           ) : (
             <span className="btn btn-ghost disabled">Next →</span>
-          )}
+          ))}
         </div>
       </header>
 
