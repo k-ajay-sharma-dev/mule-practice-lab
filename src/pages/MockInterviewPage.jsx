@@ -289,7 +289,7 @@ function Summary({ session, onClose }) {
           const p = problemById.get(r.id)
           if (!p) return null
           return (
-            <Link key={r.id} to={`/${p.category}/${p.id}`} className="problem-row list-row">
+            <Link key={r.id} to={`/${p.category}/${p.id}`} className="problem-row list-row mock-result-row">
               <span className={`row-num ${r.solved ? 'ok-text' : 'err-text'}`}>{r.solved ? '✓' : '✗'}</span>
               <span className="row-title">
                 <span className="title">{p.title}</span>

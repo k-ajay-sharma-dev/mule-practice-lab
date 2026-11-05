@@ -680,6 +680,18 @@
 .mock-page > p.muted {
   max-width: 760px;
 }
+/* these pages stack their content, so a heading needs real space around it */
+.mock-page > .section-heading {
+  margin: 24px 0 10px;
+}
+@media (min-width: 701px) {
+  .mock-result-row {
+    grid-template-columns: 24px minmax(0, 1fr) 90px 0 150px;
+  }
+  .mock-result-row > :last-child {
+    text-align: right;
+  }
+}
 .mock-setup {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
