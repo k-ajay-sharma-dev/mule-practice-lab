@@ -5,6 +5,8 @@ import { removeReview, scheduleReview, statusOf, useEntry, useReview } from '../
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import ProblemTimer from '../components/ProblemTimer.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
+import ReadOnlyLock from '../components/ReadOnlyLock.jsx'
+import { validTimer } from '../study/timer.js'
 import NotFound from './NotFound.jsx'
 
 export default function ProblemPage() {
@@ -63,7 +65,10 @@ export default function ProblemPage() {
       </header>
 
       <ProblemTimer key={problem.id} problem={problem} />
-      <ProblemWorkspace id={problem.id} />
+      {/* a pause from the button stops the work too, so nothing can be solved off the clock */}
+      <ReadOnlyLock locked={Boolean(validTimer(entry.timer)?.held)}>
+        <ProblemWorkspace id={problem.id} />
+      </ReadOnlyLock>
     </div>
   )
 }

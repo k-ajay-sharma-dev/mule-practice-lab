@@ -98,7 +98,7 @@ export default function ProblemTimer({ problem }) {
           {clock(remaining)}
         </span>
         <span className="small muted problem-timer-note">
-          {paused && 'Paused · '}
+          {paused && 'Paused, read only · '}
           {level === 'over' ? `over the ${timer.minutes} minute target` : `of ${timer.minutes} minutes`}
           {timer.resets > 0 && ` · ${plural(timer.resets, 'reset')}`}
           {timer.pauses > 0 && ` · ${plural(timer.pauses, 'pause')}`}

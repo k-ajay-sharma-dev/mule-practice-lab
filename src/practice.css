@@ -451,6 +451,14 @@
   font-size: 1.25rem;
   font-weight: 700;
 }
+/* no box of its own, so the workspace keeps its layout */
+.read-only-lock {
+  display: contents;
+}
+.read-only-lock.locked :is(input, textarea, select, button:not(.panel-tab), .monaco-editor) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .timer-pause {
   flex: none;
   width: 30px;
