@@ -16,7 +16,9 @@ import {
   remove,
   REPLICA_SIZES,
   rollback,
+  rollingNeed,
   RUNTIME_VERSIONS,
+  RUNTIME_VERSIONS_BASIS,
   settle,
   start,
   stop,
@@ -53,22 +55,29 @@ const toForm = (config) => ({
 })
 
 const newForm = () => toForm(newConfig())
+export const formFor = (config) => toForm(config ?? newConfig())
 
 export default function RuntimeManagerScreen() {
   const [state, setState] = useState(loadState)
-  const [form, setForm] = useState(newForm)
-  const [errors, setErrors] = useState([])
-  const [selected, setSelected] = useState(null)
-  const busy = state.apps.some((a) => a.queue.length > 0)
-  const app = state.apps.find((a) => a.name === selected) ?? state.apps[0]
 
   useEffect(() => saveState(state), [state])
+
+  return <RuntimeWorkbench state={state} onChange={setState} onReset={() => setState(newState())} />
+}
+
+// The deploy form and application list. Guided labs reuse it with their own state, so `onChange` takes a state or an updater.
+export function RuntimeWorkbench({ state, onChange: setState, onReset, resetLabel = 'Reset lab', startForm = newForm, focus = null }) {
+  const [form, setForm] = useState(startForm)
+  const [errors, setErrors] = useState([])
+  const [selected, setSelected] = useState(focus)
+  const busy = state.apps.some((a) => a.queue.length > 0)
+  const app = state.apps.find((a) => a.name === selected) ?? state.apps[0]
 
   useEffect(() => {
     if (!busy) return undefined
     const timer = setInterval(() => setState((s) => advance(s, 1000)), TICK_MS)
     return () => clearInterval(timer)
-  }, [busy])
+  }, [busy, setState])
 
   function submit(e) {
     e.preventDefault()
@@ -92,8 +101,8 @@ export default function RuntimeManagerScreen() {
   }
 
   function reset() {
-    setState(newState())
-    setForm(newForm())
+    onReset()
+    setForm(startForm())
     setErrors([])
     setSelected(null)
   }
@@ -104,10 +113,10 @@ export default function RuntimeManagerScreen() {
         <div className="lab-panel-head">
           <h2>Deploy Application</h2>
           <button className="btn btn-sm btn-ghost" onClick={reset}>
-            Reset lab
+            {resetLabel}
           </button>
         </div>
-        <DeployForm form={form} errors={errors} onChange={setForm} onSubmit={submit} />
+        <DeployForm form={form} errors={errors} state={state} onChange={setForm} onSubmit={submit} />
         <Capacity state={state} />
       </section>
 
@@ -142,10 +151,11 @@ export default function RuntimeManagerScreen() {
   )
 }
 
-function DeployForm({ form, errors, onChange, onSubmit }) {
+function DeployForm({ form, errors, state, onChange, onSubmit }) {
   const set = (patch) => onChange({ ...form, ...patch })
   const pkg = PACKAGES.find((p) => p.id === form.packageId)
   const size = REPLICA_SIZES.find((s) => s.vCores === form.vCores)
+  const rolling = size && Number.isInteger(form.replicas) && form.replicas > 0 ? rollingNeed(state, form) : null
 
   return (
     <form onSubmit={onSubmit}>
@@ -164,7 +174,10 @@ function DeployForm({ form, errors, onChange, onSubmit }) {
             ))}
           </select>
         </label>
-        <p className="muted small lab-wide lab-note">{pkg.note}</p>
+        <p className="muted small lab-wide lab-note">
+          {pkg.note}
+          <Assumed basis={pkg.basis} note="This is a sample application made for the lab, and its needs are lab values." />
+        </p>
         <label className="lab-field">
           <span className="small muted">Deployment target</span>
           <select className="input" value={form.target} onChange={(e) => set({ target: e.target.value })}>
@@ -176,7 +189,10 @@ function DeployForm({ form, errors, onChange, onSubmit }) {
           </select>
         </label>
         <label className="lab-field">
-          <span className="small muted">Runtime version</span>
+          <span className="small muted">
+            Runtime version
+            <Assumed basis={RUNTIME_VERSIONS_BASIS} note="Sample versions, not the current support list." />
+          </span>
           <select className="input" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })}>
             {RUNTIME_VERSIONS.map((v) => (
               <option key={v}>{v}</option>
@@ -198,7 +214,7 @@ function DeployForm({ form, errors, onChange, onSubmit }) {
           </select>
         </label>
         <p className="muted small lab-wide lab-note">
-          {size.memory} memory, {size.heapMb} MB heap, {size.storage} storage per replica.
+          {size.memory} memory, {size.heap} heap, {size.storage} storage per replica.
         </p>
         <label className="lab-field">
           <span className="small muted">Deployment model</span>
@@ -208,6 +224,12 @@ function DeployForm({ form, errors, onChange, onSubmit }) {
             ))}
           </select>
         </label>
+        {rolling && (
+          <p className="muted small lab-wide lab-note">
+            A rolling update needs one additional replica of resources: this one peaks at {rolling.peak} vCores, {rolling.extra} above the {rolling.steady} it uses when
+            finished. Recreate needs none, but has downtime.
+          </p>
+        )}
         <label className="lab-check small">
           <input type="checkbox" checked={form.clustered} onChange={(e) => set({ clustered: e.target.checked })} /> Clustering
         </label>
@@ -311,6 +333,12 @@ function Outcome({ outcome }) {
       <b>{outcome.title}</b>
       {outcome.basis === 'assumed' && <Assumed />}
       <p>{outcome.cause}</p>
+      {outcome.assumption && (
+        <p>
+          {outcome.assumption}
+          <Assumed />
+        </p>
+      )}
       <p>
         <b>Fix:</b> {outcome.fix}
         {outcome.docs && (
@@ -335,7 +363,7 @@ function ConfigHistory({ app, busy, onRestore }) {
         {app.history.map((h) => (
           <li key={h.id} className="lab-history-row">
             <span className="lab-grow">
-              {h.id} <span className="muted">{h.status}</span> {h.id === app.applied && <span className="lab-approved">current</span>}
+              {h.id} <span className="muted">{h.status}, deployed at {(h.at / 1000).toFixed(1)} s</span> {h.id === app.applied && <span className="lab-approved">current</span>}
             </span>
             {h.status === 'Applied' && h.id !== app.applied && (
               <button className="btn btn-sm btn-ghost" disabled={busy} onClick={() => onRestore(h.id)}>
@@ -357,7 +385,10 @@ function Logs({ logs }) {
 
   return (
     <>
-      <h3 className="small muted lab-history-title">Logs</h3>
+      <h3 className="small muted lab-history-title">
+        Logs
+        <Assumed note="Log wording is written for the lab. It is not copied from CloudHub 2.0, although the events it reports may be documented." />
+      </h3>
       <div className="lab-fields">
         <label className="lab-field">
           <span className="small muted">Level</span>
@@ -377,7 +408,6 @@ function Logs({ logs }) {
         {shown.map((l, i) => (
           <li key={i} className={`lab-log-${l.level.toLowerCase()}`}>
             <span className="muted">{(l.at / 1000).toFixed(1)} s</span> <b>{l.level}</b> {l.text}
-            <Assumed basis={l.basis} />
           </li>
         ))}
       </ol>

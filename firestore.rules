@@ -1,15 +1,34 @@
 rules_version = '2';
 
-// Each signed-in person can read and write only their own progress, and nothing else exists.
+// Each signed-in person can read and write only their own data, and nothing else exists.
 // Paste this into Firebase console → Firestore Database → Rules (see DEPLOY.md).
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
     match /users/{uid}/{collection}/{docId} {
-      allow read: if request.auth != null && request.auth.uid == uid
+      allow read: if isOwner(uid)
         && collection in ['progress', 'state'];
-      allow write: if request.auth != null && request.auth.uid == uid
+      allow write: if isOwner(uid)
         && collection in ['progress', 'state']
         && request.resource.data.keys().hasOnly(['entry', 'value', 'updatedAt', 'syncedAt']);
+    }
+
+    // Interview Practice answers: the details in one document, so the list loads without downloading any audio.
+    match /users/{uid}/recordings/{id} {
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['question', 'problemId', 'rating', 'seconds', 'type', 'recordedAt']);
+    }
+
+    match /users/{uid}/recordingAudio/{id} {
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['audio'])
+        && request.resource.data.audio is bytes
+        && request.resource.data.audio.size() <= 900000;
     }
   }
 }

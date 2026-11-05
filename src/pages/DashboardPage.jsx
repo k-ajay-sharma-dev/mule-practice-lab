@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CATEGORIES, categoryBySlug } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
-import { currentMonth, getPlanStart, PHASES, phaseProblems, setPlanStart } from '../data/roadmap.js'
+import { currentStage, PHASES, phaseProblems } from '../data/roadmap.js'
 import { statusOf, todayKey, useActivity, useProgress, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge } from '../components/Badges.jsx'
 import Pagination, { paginate } from '../components/Pagination.jsx'
+import TodayPlan from '../components/TodayPlan.jsx'
 import { signIn, useSyncStatus } from '../sync/status.js'
 
 const PHASE_PAGE_SIZE = 10
@@ -15,16 +16,14 @@ export default function DashboardPage() {
   const activity = useActivity()
   const review = useReview()
   const sync = useSyncStatus()
-  const [start, setStart] = useState(getPlanStart)
   const [openPhase, setOpenPhase] = useState(null)
   const [phasePage, setPhasePage] = useState(1)
 
-  function togglePhase(m) {
-    setOpenPhase(openPhase === m ? null : m)
+  function togglePhase(stage) {
+    setOpenPhase(openPhase === stage ? null : stage)
     setPhasePage(1)
   }
 
-  const month = currentMonth(start)
   const isSolved = (p) => statusOf(progress[p.id]) === 'solved'
   const count = (status) => problems.filter((p) => statusOf(progress[p.id]) === status).length
   const solved = count('solved')
@@ -34,30 +33,23 @@ export default function DashboardPage() {
     const list = phaseProblems(ph, problems)
     return { ...ph, list, done: list.filter(isSolved).length }
   })
-  const activePhase = phases.find((ph) => ph.month === Math.min(month, 6))
-  const nextUp =
-    activePhase?.list.find((p) => !isSolved(p)) ?? phases.flatMap((ph) => ph.list).find((p) => !isSolved(p))
+  const activePhase = currentStage(phases)
+  const nextUp = activePhase?.list.find((p) => !isSolved(p))
 
   const today = todayKey()
   const due = Object.entries(review)
     .filter(([id, r]) => r.due <= today && problemById.has(id))
     .map(([id]) => problemById.get(id))
 
-  function changeStart(value) {
-    if (!value) return
-    setPlanStart(value)
-    setStart(value)
-  }
-
   return (
     <div className="dashboard">
       <section className="hero">
         <div className="hero-main">
           <p className="eyebrow">// learning path</p>
-          <h1>Interview-ready in six months</h1>
+          <h1>Your path to interview-ready</h1>
           <p className="muted">
-            A structured path from DataWeave basics to architect-level case studies. Follow one phase per month, solve
-            every problem, and practise the interview follow-ups out loud.
+            A structured path from DataWeave basics to architect-level case studies. Work through the stages in order at
+            your own pace, and practise the interview follow-ups out loud.
           </p>
           <div className="hero-actions">
             {nextUp && (
@@ -65,10 +57,9 @@ export default function DashboardPage() {
                 Continue: {nextUp.title} →
               </Link>
             )}
-            <label className="plan-start small muted">
-              Plan started
-              <input className="input" type="date" value={start} onChange={(e) => changeStart(e.target.value)} />
-            </label>
+            <Link className="btn btn-ghost" to="/readiness">
+              Check readiness
+            </Link>
           </div>
         </div>
         <div className="hero-ring" aria-label={`${pct}% complete`}>
@@ -94,8 +85,10 @@ export default function DashboardPage() {
         </section>
       )}
 
+      <TodayPlan />
+
       <section className="stat-row">
-        <Stat label="Current phase" value={month > 6 ? 'Complete' : `Month ${month}`} hint={activePhase?.title} />
+        <Stat label="Current stage" value={activePhase ? `Stage ${activePhase.stage}` : 'Complete'} hint={activePhase?.title} />
         <Stat label="Solved" value={solved} hint="problems" />
         <Stat label="In progress" value={count('attempted')} hint="attempted" />
         <Stat label="To revisit" value={count('revisit')} hint="flagged" />
@@ -144,15 +137,15 @@ export default function DashboardPage() {
       <h2 className="section-heading">Roadmap</h2>
       <section className="phase-grid">
         {phases.map((ph) => {
-          const state = ph.done === ph.list.length && ph.list.length ? 'done' : ph.month === month ? 'current' : ph.month < month ? 'behind' : 'upcoming'
-          const open = openPhase === ph.month
+          const state = ph.done === ph.list.length ? 'done' : ph === activePhase ? 'current' : 'upcoming'
+          const open = openPhase === ph.stage
           const paged = open && paginate(ph.list, phasePage, PHASE_PAGE_SIZE)
           return (
-            <article key={ph.month} className={`phase-card phase-${state}`}>
+            <article key={ph.stage} className={`phase-card phase-${state}`}>
               <header>
-                <span className="phase-month">Month {ph.month}</span>
+                <span className="phase-stage">Stage {ph.stage}</span>
                 <span className={`phase-tag tag-${state}`}>
-                  {{ done: 'Complete', current: 'Current', behind: 'Catch up', upcoming: 'Upcoming' }[state]}
+                  {{ done: 'Complete', current: 'Current', upcoming: 'Upcoming' }[state]}
                 </span>
               </header>
               <h3>{ph.title}</h3>
@@ -170,7 +163,7 @@ export default function DashboardPage() {
                   {ph.done}/{ph.list.length}
                 </span>
               </div>
-              <button className="btn btn-ghost phase-toggle" onClick={() => togglePhase(ph.month)}>
+              <button className="btn btn-ghost phase-toggle" onClick={() => togglePhase(ph.stage)}>
                 {open ? 'Hide problems' : `Show ${ph.list.length} problems`}
               </button>
               {open && (

@@ -15,8 +15,10 @@ const TracksPage = lazy(() => import('./pages/TracksPage.jsx'))
 const ReviewPage = lazy(() => import('./pages/ReviewPage.jsx'))
 const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage.jsx'))
 const MockInterviewPage = lazy(() => import('./pages/MockInterviewPage.jsx'))
+const ExamPage = lazy(() => import('./pages/ExamPage.jsx'))
 const InterviewPage = lazy(() => import('./pages/InterviewPage.jsx'))
 const WeakAreasPage = lazy(() => import('./pages/WeakAreasPage.jsx'))
+const ReadinessPage = lazy(() => import('./pages/ReadinessPage.jsx'))
 const CheatSheetsPage = lazy(() => import('./pages/CheatSheetsPage.jsx'))
 const PlatformLabPage = lazy(() => import('./pages/PlatformLabPage.jsx'))
 
@@ -45,8 +47,10 @@ export default function App() {
               <Route path="/review" element={<ReviewPage />} />
               <Route path="/flashcards" element={<FlashcardsPage />} />
               <Route path="/mock" element={<MockInterviewPage />} />
+              <Route path="/exam" element={<ExamPage />} />
               <Route path="/interview" element={<InterviewPage />} />
               <Route path="/weak-areas" element={<WeakAreasPage />} />
+              <Route path="/readiness" element={<ReadinessPage />} />
               <Route path="/cheatsheets" element={<CheatSheetsPage />} />
               <Route path="/cheatsheets/:slug" element={<CheatSheetsPage />} />
               <Route path="/platform-lab" element={<PlatformLabPage />} />

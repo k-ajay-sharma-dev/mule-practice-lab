@@ -1,0 +1,27 @@
+# Inline ApiInstance for Omni Gateway in Local Mode. Not run: see ../README.md.
+# Uses the inline model from the Declarative Configuration Reference Guide.
+# The docs print YAML examples on flattened lines, so the indentation here is reconstructed.
+apiVersion: gateway.mulesoft.com/v1alpha1
+kind: ApiInstance
+metadata:
+  name: studio-posts-api
+spec:
+  address: http://0.0.0.0:8080
+  services:
+    posts:
+      # Public sample API that the Getting Started tutorial uses as an upstream.
+      address: https://jsonplaceholder.typicode.com:443/
+      routes:
+        - rules:
+            # The capture group is what goes upstream: /api/posts/1 becomes /posts/1.
+            - path: /api(/.*)
+  policies:
+    - policyRef:
+        name: rate-limiting-flex
+      config:
+        rateLimits:
+          - maximumRequests: 3
+            timePeriodInMilliseconds: 6000
+        exposeHeaders: true
+        # clusterizable defaults to true, and distributed rate limiting needs shared storage.
+        clusterizable: false

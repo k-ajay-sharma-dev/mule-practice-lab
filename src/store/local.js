@@ -12,9 +12,11 @@ export const BACKUP_KEYS = [
   'pl.flash',
   'pl.mock.current',
   'pl.mock.history',
+  'pl.exam.current',
+  'pl.exam.history',
   'pl.interview.history',
   'pl.playground',
-  'pl.planStart',
+  'pl.plan',
 ]
 
 // Keys saved to the account. Theme and page size stay per device. So do the runner settings on a copy served from

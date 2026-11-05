@@ -1,5 +1,6 @@
-import { createContext, Fragment, useContext, useMemo, useState } from 'react'
+import { createContext, Fragment, useContext, useMemo, useRef, useState } from 'react'
 import CodeEditor from '../CodeEditor.jsx'
+import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 import { COMPONENTS, GROUPS } from '../../flow/catalog.js'
 import {
   acceptsKind,
@@ -26,10 +27,22 @@ const Ctx = createContext(null)
 export default function FlowDesigner({ design, onChange, readOnly = false }) {
   const [selectedId, setSelectedId] = useState(null)
   const [armed, setArmed] = useState(null) // component type picked from the palette (tap-to-place)
+  const [moving, setMoving] = useState(null) // id of a node being moved by tapping a slot
   const [drag, setDrag] = useState(null) // { type } from palette or { moveId } from canvas
   const [view, setView] = useState('design')
+  const root = useRef(null)
+  const touch = useCoarsePointer()
 
-  const payload = drag ?? (armed ? { type: armed } : null)
+  const placing = Boolean(armed || moving)
+  useRevealWhenStacked(root, '.designer-body', placing, 'start')
+  useRevealWhenStacked(root, '.node.selected, .route.selected, .flow-box.selected', selectedId)
+
+  function cancelPlacing() {
+    setArmed(null)
+    setMoving(null)
+  }
+
+  const payload = drag ?? (armed ? { type: armed } : moving ? { moveId: moving } : null)
   const payloadKind = payload?.type
     ? COMPONENTS[payload.type].kind
     : payload?.moveId
@@ -55,18 +68,24 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
           onChange(moveNode(design, payload.moveId, key, index))
         }
         setDrag(null)
-        setArmed(null)
+        cancelPlacing()
       },
       change: onChange,
+      touch,
+      placing,
+      startMove: (id) => {
+        setArmed(null)
+        setMoving(id)
+      },
     }),
-    [design, readOnly, selectedId, payload, payloadKind, onChange],
+    [design, readOnly, selectedId, payload, payloadKind, onChange, touch, placing],
   )
 
   function onKeyDown(e) {
     if (readOnly) return
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)
     if (e.key === 'Escape') {
-      setArmed(null)
+      cancelPlacing()
       setSelectedId(null)
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && selectedId) {
@@ -80,7 +99,12 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className={`designer ${readOnly ? 'read-only' : ''}`} tabIndex={-1} onKeyDown={onKeyDown}>
+      <div
+        ref={root}
+        className={`designer ${readOnly ? 'read-only' : ''}${selectedId && !placing ? ' sheet-active' : ''}`}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
         <div className="designer-toolbar">
           <div className="seg">
             <button className={view === 'design' ? 'active' : ''} onClick={() => setView('design')}>
@@ -120,9 +144,21 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
           <div className="designer-body">
             {!readOnly && <Palette armed={armed} setArmed={setArmed} />}
             <div className="canvas" onClick={() => setSelectedId(null)}>
-              {armed && (
+              {placing && (
                 <div className="armed-hint">
-                  Placing <strong>{COMPONENTS[armed].label}</strong> — tap a highlighted slot, or press Esc
+                  <span>
+                    {armed ? 'Placing' : 'Moving'}{' '}
+                    <strong>{COMPONENTS[armed ?? findItem(design, moving)?.item.type]?.label}</strong>: tap a highlighted slot
+                  </span>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      cancelPlacing()
+                    }}
+                  >
+                    Cancel
+                  </button>
                 </div>
               )}
               {design.flows.map((f) => (
@@ -140,7 +176,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
 // ---------- Palette ----------
 
 function Palette({ armed, setArmed }) {
-  const { setDrag } = useContext(Ctx)
+  const { setDrag, touch } = useContext(Ctx)
   const [query, setQuery] = useState('')
   const q = query.toLowerCase()
 
@@ -158,7 +194,7 @@ function Palette({ armed, setArmed }) {
                 <button
                   key={type}
                   className={`palette-item group-${c.group} ${armed === type ? 'armed' : ''}`}
-                  draggable
+                  draggable={!touch}
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', type)
                     e.dataTransfer.effectAllowed = 'copy'
@@ -292,7 +328,7 @@ function Slot({ containerKey, index, empty = false, label }) {
 }
 
 function NodeView({ node }) {
-  const { readOnly, selectedId, select, setDrag, design, change } = useContext(Ctx)
+  const { readOnly, selectedId, select, setDrag, design, change, touch } = useContext(Ctx)
   const def = COMPONENTS[node.type]
   const summary = def.summary?.(node.config, node)
 
@@ -315,7 +351,7 @@ function NodeView({ node }) {
   return (
     <div
       className={`node node-${def.kind} group-${def.group} ${selectedId === node.id ? 'selected' : ''}`}
-      draggable={!readOnly}
+      draggable={!readOnly && !touch}
       onDragStart={(e) => {
         e.stopPropagation()
         e.dataTransfer.setData('text/plain', node.id)
@@ -398,18 +434,30 @@ function NodeView({ node }) {
 // ---------- Properties ----------
 
 function Properties({ selectedId, onDeselect }) {
-  const { design, change } = useContext(Ctx)
+  const { design, change, touch, placing, startMove } = useContext(Ctx)
   const found = selectedId ? findItem(design, selectedId) : null
 
   if (!found) {
     return (
       <aside className="properties">
         <div className="properties-empty muted small">
-          <p>
-            <strong>Build the flow:</strong> drag components from the palette onto the canvas (or tap a component, then
-            tap a <span className="slot-plus inline">+</span> slot).
-          </p>
-          <p>Select any component to configure it here. Delete removes it, Esc cancels placing.</p>
+          {touch ? (
+            <>
+              <p>
+                <strong>Build the flow:</strong> tap a component above, then tap a <span className="slot-plus inline">+</span>{' '}
+                slot on the canvas.
+              </p>
+              <p>Tap any component to configure, move or delete it.</p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong>Build the flow:</strong> drag components from the palette onto the canvas (or click a component,
+                then click a <span className="slot-plus inline">+</span> slot).
+              </p>
+              <p>Select any component to configure it here. Delete removes it, Esc cancels placing.</p>
+            </>
+          )}
         </div>
       </aside>
     )
@@ -437,7 +485,10 @@ function Properties({ selectedId, onDeselect }) {
   const flowNames = design.flows.map((f) => f.name)
 
   return (
-    <aside className="properties">
+    <aside className={`properties${placing ? '' : ' sheet-open'}`}>
+      <button className="btn btn-ghost btn-sm properties-done" onClick={onDeselect}>
+        Done
+      </button>
       <div className="properties-title">{title}</div>
       {fields.length === 0 && <p className="muted small">No settings for this element.</p>}
       {fields.map((f) => (
@@ -477,6 +528,9 @@ function Properties({ selectedId, onDeselect }) {
               </button>
               <button className="btn btn-ghost" onClick={() => change(shiftNode(design, item.id, 1))}>
                 ↓ Down
+              </button>
+              <button className="btn btn-ghost" onClick={() => startMove(item.id)}>
+                Move…
               </button>
             </>
           )}

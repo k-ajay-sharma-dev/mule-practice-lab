@@ -52,6 +52,9 @@ the progress already in that browser is uploaded. Sign in on your other devices 
 Free limits (Spark): 1 GiB stored, 50,000 document reads and 20,000 writes per day — one person's practice uses
 a tiny fraction. The site only pulls what changed since its last sync.
 
+Interview Practice recordings are also stored in Firestore, because Cloud Storage needs the paid Blaze plan. Only
+your latest 30 are kept, which is at most about 16 MB. After changing `firestore.rules`, repeat step 5 to publish it.
+
 ## 2. Push the project to GitHub
 
 Create a repository (for example `dataweave-learning`) and push this folder to its `main` branch.

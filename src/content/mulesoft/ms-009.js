@@ -28,7 +28,7 @@ export default {
         '`<cron expression="0 0 2 ? * MON-FRI"/>` — the cron uses the business time zone by default',
       ],
       answer: 0,
-      explain: 'Mule uses a Quartz-style cron with a **seconds** field first. Without `timeZone` the JVM zone is used — UTC on CloudHub — so the run would happen at the wrong local time and drift with daylight saving.',
+      explain: 'Mule uses a Quartz-style cron with a **seconds** field first. Without `timeZone` the Scheduler uses the time zone of the machine running Mule, and the Scheduler page gives UTC for CloudHub, so the run would happen at the wrong local time and drift with daylight saving. CloudHub 2.0 bases schedules on the scheduler\'s defined time zone. Do not rely on this on CloudHub 1.0, where the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored.',
     },
     {
       type: 'match',
@@ -92,7 +92,8 @@ After go-live, finance receives **two** identical files every night, and the inv
     'Weekday 02:00 cron: 0 0 2 ? * MON-FRI with timeZone America/New_York.',
     'Each replica runs its own Scheduler unless the app is clustered; with clustering, the Scheduler fires on the primary node only.',
     'Prevent overlap by limiting concurrent executions of the flow (maxConcurrency="1" and/or the scheduler\'s disallow-concurrent-execution option).',
-    'Without an explicit timeZone the cron uses the runtime\'s JVM time zone (UTC on CloudHub), which also ignores daylight-saving changes in the business time zone.',
+    'Without an explicit timeZone the cron uses the time zone of the machine running Mule (the Scheduler page gives UTC for CloudHub), which also ignores daylight-saving changes in the business time zone.',
+    'timeZone works on CloudHub 2.0. On CloudHub 1.0 the Manage Schedules page says schedules are based on UTC and the time zone configuration is ignored, so convert the time to UTC there.',
   ],
   solution: `
 **Fixed frequency vs cron**
@@ -119,7 +120,7 @@ After go-live, finance receives **two** identical files every night, and the inv
 
 **Overlap:** a 5-minute fixed frequency triggers again while a 7-minute run is still active. Limit the flow to one execution at a time — \`maxConcurrency="1"\` on the flow and/or the Scheduler's option to disallow concurrent execution — so the next trigger is skipped instead of overlapping. Also consider a watermark so a skipped trigger loses no data.
 
-**Time zone:** without \`timeZone\` the cron uses the JVM's default zone — **UTC** on CloudHub — so 02:00 would really be 21:00/22:00 in New York depending on daylight saving. Always set \`timeZone\` explicitly for business schedules.
+**Time zone:** without \`timeZone\` the cron uses the time zone of the machine running Mule. The Scheduler page gives **UTC** for CloudHub, so 02:00 would really be 21:00/22:00 in New York depending on daylight saving. On this CloudHub 2.0 app, set \`timeZone\` explicitly for business schedules: CloudHub 2.0 bases schedules on the scheduler's defined time zone. **CloudHub 1.0 is different:** the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored, so convert the time to UTC and review it when the clocks change.
 `,
   followUps: [
     {
@@ -128,7 +129,7 @@ After go-live, finance receives **two** identical files every night, and the inv
     },
     {
       q: 'What happens to a cron schedule while the app is stopped at 02:00?',
-      a: 'The docs describe no catch-up mechanism for a stopped app, so plan for the run being missed. If missed runs matter, persist the last successful run date and process the gap on the next start.',
+      a: 'On CloudHub 2.0 it does not run at startup: the schedule runs at its next scheduled time, so plan for the run being missed. CloudHub 1.0 is different: it triggers a missed job as soon as the app restarts. If missed runs matter, persist the last successful run date and process the gap on the next start.',
     },
     {
       q: 'Is clustering the same on on-prem runtimes?',

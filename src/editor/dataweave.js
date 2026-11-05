@@ -1,11 +1,11 @@
 // Minimal DataWeave 2.0 syntax highlighting for Monaco (no IntelliSense).
-const KEYWORDS = [
+export const KEYWORDS = [
   'fun', 'var', 'type', 'ns', 'import', 'from', 'as', 'is', 'if', 'else', 'unless', 'otherwise',
   'match', 'case', 'do', 'using', 'update', 'at', 'and', 'or', 'not', 'default', 'input', 'output',
   'null', 'true', 'false',
 ]
 
-const BUILTINS = [
+export const BUILTINS = [
   'map', 'mapObject', 'filter', 'filterObject', 'reduce', 'pluck', 'groupBy', 'orderBy', 'distinctBy',
   'flatten', 'flatMap', 'sizeOf', 'isEmpty', 'isBlank', 'contains', 'splitBy', 'joinBy', 'upper', 'lower',
   'trim', 'capitalize', 'now', 'log', 'sum', 'avg', 'max', 'min', 'maxBy', 'minBy', 'keysOf', 'valuesOf',

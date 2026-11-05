@@ -1,6 +1,6 @@
 # Studio test pack
 
-Six small Mule 4 projects. Each one answers a question about connector behaviour that the documentation does not settle, so that the answer can be fed back into the problems on this site.
+Six small Mule 4 projects and one Omni Gateway project. Each Mule project answers a question about connector behaviour that the documentation does not settle, so that the answer can be fed back into the problems on this site.
 
 **None of these projects has been run.** They were written without Anypoint Studio, a Mule runtime or Docker. The XML files were checked for well-formedness only, so they have not been checked against the connector schemas. Expect to fix small things on first import. Anything likely to need fixing carries an XML comment with the text `TODO verify in Studio` and is listed in [Unconfirmed items](#unconfirmed-items).
 
@@ -14,6 +14,9 @@ All credentials in this folder are local placeholders. Do not commit real AWS ke
 | 4 | `file-raw-read` | Does `read(payload.^raw, ...)` work on a real file stream? | Nothing |
 | 5 | `sqs-attributes` | Attribute names, body type, Preserve Messages on failure | LocalStack or AWS |
 | 6 | `db-partial-read` | Does `payload[0]` hold connections or cursors? | PostgreSQL |
+| 7 | `omni-gateway-local` | A real gateway in Local Mode with a Rate Limiting policy | Linux, Docker, Anypoint account |
+
+Project 7 is not a Mule project. It does not run on Windows, and registration needs an Anypoint account or token. Its steps are in [its own README](omni-gateway-local/README.md), and the sections below do not apply to it.
 
 ## Prerequisites
 
@@ -534,3 +537,96 @@ Each of these is marked `TODO verify in Studio` in the file named, except the JS
 | LocalStack `4.14.0` running with no token, and `awslocal` being in the image | `docker-compose.yml`, this README | The tag exists, but neither point is confirmed |
 
 Sources for versions: Kafka 4.15.4, SQS 5.12.12, Email 1.8.0, File 1.5.6 and Database 1.16.2 all appear in the MuleSoft release notes. File 1.5.7 and Database 1.16.6 are newer, and the older two were chosen because they are already in your local Maven repository. HTTP 1.11.3 and PostgreSQL driver 42.7.11 also come from your local repository.
+
+## Open questions that need a real run
+
+These questions have no test project in this pack yet. The documentation does not settle them, or the problem assumes a behaviour that nobody has observed. Each one needs a runtime, a real connector or a real platform account. Record the runtime and connector versions with every answer, because the result may depend on them.
+
+### Mule runtime
+
+| Question | What to test | Problem |
+|---|---|---|
+| Bitronix journal | Where the journal is kept, and what recovery does after the runtime is killed between prepare and commit, with the journal kept and then deleted | inc-065 |
+| Unread REF CURSOR | Whether an OUT REF CURSOR that the flow never reads stays open in `v$open_cursor` for the rest of the event | inc-064 |
+| Broker failover | Whether a JMS listener resumes after failover with a `failover:` URL, and what it does with `tcp://` and no reconnection | inc-059 |
+| Wrong `api.id` | Whether every request gets 503, the exact response body, and whether correcting the ID and restarting clears it | inc-039 |
+| HTTP retry | Whether HTTP Request retries by itself on a stale pooled connection, for which methods, and how many calls reach the backend when reconnection and Until Successful are added | inc-038, inc-050 |
+| Scatter-Gather timeout shape | Which error types appear under `MULE:COMPOSITE_ROUTING` when one route exceeds the router timeout | inc-044 |
+| Java 8 regex | Time a nested quantifier against growing near-matching input on Java 8 and on Java 17, through `validation:matches-regex` and through DataWeave | inc-022 |
+| Transform output and HTTP bytes | Feed a Transform with no output directive from `db:select` into HTTP Request, and capture the bytes on the wire | inc-027 |
+| CloudHub 2.0 scheduler | The incident infers this: with two unclustered replicas, does each fire its own Scheduler, and does clustering reduce that to one? | inc-012 |
+| Async logging | Fill the log queue and see whether the flow thread blocks, drops the entry or fails, and how much latency that adds | inc-025, inc-030 |
+| Choice with no `otherwise` | Confirm that no match continues with the payload unchanged and raises no error | ms-046 |
+| `db:insert` in a LOCAL JMS transaction | Force a failure after the insert in a transacted JMS listener flow. Does the row stay, and does the message come back? | ms-071 |
+| Bulk update with MERGE | Run `MERGE` through `db:bulk-update` on Oracle and note the counts returned for inserted and updated rows | ms-064 |
+| REF_CURSOR shape | The key, the type and the number of reads available for an OUT `SYS_REFCURSOR` from `db:stored-procedure` | ms-068 |
+| Rescaffold | Change the spec, rescaffold, and diff the result. What happens to edited, renamed and removed flows? | ms-043, ms-047 |
+| Default error handler | How `defaultErrorHandler-ref` combines with a local handler that does not match, and what happens in a sub-flow | ms-038, ms-011 |
+| `maxRedelivery` left unspecified | Omit it from the ActiveMQ factory, fail a message, and count deliveries. The connector default is 0 and the client default is 6 | ms-062 |
+| Oracle driver and pool | The exact failure with no shared library for the driver, and the error when the pool runs out | ms-060 |
+| Domain redeploy | Redeploy a domain with apps running. Do they restart, lose requests, or need redeploying? | ms-023 |
+| VM failure | Fail a `vm:listener` flow with no transaction, on transient and on persistent queues. Is the message lost? | ms-034 |
+| `sendCorrelationId` AUTO | Capture the wire log with AUTO, ALWAYS and NEVER. Which header is sent, and when? | ms-020 |
+| Cache failure | Raise an error inside a Cache scope, then call it again with the same key. Is anything stored? | ms-012 |
+| Re-publish | Run the publish stage twice with one version. What does the pipeline report? | ms-021 |
+| Distributed rate limit | Three replicas with and without Distributed, on your real target. Is the quota shared? | ms-006 |
+| `outputMimeType` parameters | Whether `application/csv; header=false; separator=\|` works on an operation, for example `file:read` | ms-032 |
+
+### Flow design
+
+| Question | What to test | Problem |
+|---|---|---|
+| Try and `MULE:TIMEOUT` in Scatter-Gather | Wrap a slow route in Try with On Error Continue for `MULE:TIMEOUT`. Does the handler run, or does the router timeout bypass it? | inc-044, fl-040, fl-051 |
+| First Successful error type | Fail every route and log `error.errorType` | fl-007, fl-054, ms-046 |
+| Idempotent Message Validator after failure | Fail the flow after the validator, then resend the same ID. Is it kept, and is the retry rejected as a duplicate? | fl-004, fl-006, fl-015, fl-016 and others |
+| `maxRetries` | Set it to 2 on Until Successful and count calls at the backend. Is that retries, or total attempts? | inc-050, fl-010, fl-045, ms-001 and others |
+| Database operation in a VM or JMS local transaction | Fail after the database step in a transacted listener. Does the database work roll back with the message? | fl-009, fl-035 |
+| `deferred=true` on `application/java` | Stream a large file through it and watch the heap | fl-018 |
+| XML attributes through For Each batches | Split with `batchSize` greater than 1. Do XML attributes survive in each batch? | fl-033 |
+| `payload.body` selectors on WSC | Log the real shape of a Web Service Consumer response, and confirm that `payload.body` with the namespace selectors works | fl-013 |
+| Salesforce `replayId` shape | Log `attributes` on a real replay event. Where does `replayId` sit, and what is its type? | fl-022 |
+| Recursive `flow-ref` depth | Recurse through pages until it fails, and note the depth and the error type | fl-023 |
+| `payload.^raw` on HTTP and S3 streams | Repeat Test 4 with a `http:listener` body and an `s3:get-object` result | fl-036, fl-044, fl-093 |
+
+### MUnit and Maven
+
+| Question | What to test | Problem |
+|---|---|---|
+| Spy on a mocked processor | Mock and spy on the same processor. Do the spy assertions run? | ms-017, ms-042, ms-092 |
+| `doc:id` matching | Mock with `doc:id` as the attribute, then change the XML by hand. What happens to the match? | ms-017 |
+| Child coverage block merge | How the coverage report treats child blocks when several suites cover one flow | inc-088 |
+| `then-return` with `target` | Mock a processor that has `target`. Does the mocked payload land in the variable or in the payload? | ms-092 |
+| `propertiesFile` and the CloudHub 2.0 replace rule | The docs give the replace rule for `properties` and `secureProperties` only. Redeploy with `propertiesFile` alone. Are other values kept? | ar-100, inc-120, ms-134, ms-160, ms-161 |
+| `mule:deploy` on Runtime Fabric | The docs say `mule.artifact` is valid for CloudHub, standalone and on-premises, and do not list Runtime Fabric. Try it | ms-130, ms-134, ms-160 |
+| What `-DmuleDeploy` deploys | The docs require the app in Exchange for CloudHub 2.0 and Runtime Fabric. Check which is used, the local JAR or the Exchange asset, when they differ | ar-100, ms-021, ms-058, ms-130, ms-160 |
+| Second publish of a stable version | The docs say a stable version cannot be republished, and name a 409 only for soft-deleted versions. Record the real Maven error | ms-021 |
+
+### Security and gateway
+
+| Question | What to test | Problem |
+|---|---|---|
+| Revoked contract and cached token | Revoke a contract while a token is cached, and time when calls stop. Then check whether a restart clears the cache | inc-092 |
+| Refresh Token When retry count | Return 403 from a backend every time, and count token calls and API calls | inc-094 |
+| Token endpoint returns 429 | Return 429 from a token endpoint, and record the error type the flow sees | inc-094 |
+| Client-sent `X-SSL` headers at the DLB | Send your own `X-SSL` headers through a DLB. Are they removed, overwritten or passed on? | inc-093, ar-087, fl-094 |
+| Forward Client Certificate | Enable it, and read what reaches the app in each mode | inc-093 |
+| Two Header Injection values | Inject a header the client also sends, and capture what a real backend receives | inc-095 |
+
+### Enterprise XML attributes to check in Studio
+
+Open each operation in Studio, set the field in the properties panel, and copy the XML that Studio writes. These connectors need licences or real systems, so none is in this pack.
+
+| Connector | Attributes to confirm | Problem |
+|---|---|---|
+| Salesforce | `jobId`, `id`, `objectType`, `operation`, `lineEnding`, `columnDelimiter`, `query`, `platformEventName`, `type` on update, and the `salesforce-query` child element | fl-017, fl-026, fl-043, fl-089 |
+| SAP | `idocTypeFilterRegex`, `queueName`, `version`, and `key` on current RFC elements | fl-090, fl-091, ms-090 |
+| Workday | `watermarkEnabled`, `objectType`, `updatedFrom` | fl-092, ms-091 |
+
+### Deployment and CloudHub
+
+| Question | What to test | Problem |
+|---|---|---|
+| Logs page behaviour | With a custom `log4j2.xml` on CloudHub 2.0, what appears on the Logs page, and does it look empty until a config is picked? | inc-112 |
+| Traffic switch on manual private spaces | Whether the DLB switches traffic for vanity domains on a manually created private space, and when | ar-095 |
+| Duplicate `wrapper.conf` line | Use the same `wrapper.java.additional` index twice, and read the live JVM arguments to see which wins | inc-132 |
+| Client error from a DLB block | Call the DLB from a CloudHub 2.0 app that is not on the allowlist, and record the status or error the client sees | inc-111 |

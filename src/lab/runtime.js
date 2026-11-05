@@ -8,18 +8,20 @@ export const MAX_REPLICAS = 8 // 16 needs a higher subscription, which the lab d
 export const MAX_CONFIGS = 10
 export const DEPLOY_MODELS = ['Rolling update', 'Recreate']
 export const RUNTIME_VERSIONS = ['4.6', '4.9', '4.10'] // sample versions, not the current support list
+export const RUNTIME_VERSIONS_BASIS = 'assumed'
 
+// Sizes and heap are the CloudHub 2.0 architecture table. heapMb is the same heap figure in MB, for comparing with a sample package.
 export const REPLICA_SIZES = [
-  { vCores: 0.1, memory: '1.4 GB', heapMb: 480, storage: '8 GB' },
-  { vCores: 0.2, memory: '2 GB', heapMb: 1024, storage: '8 GB' },
-  { vCores: 0.5, memory: '2.6 GB', heapMb: 1331, storage: '10 GB' },
-  { vCores: 1, memory: '4 GB', heapMb: 2048, storage: '12 GB' },
-  { vCores: 1.5, memory: '6 GB', heapMb: 3072, storage: '20 GB' },
-  { vCores: 2, memory: '8 GB', heapMb: 4096, storage: '20 GB' },
-  { vCores: 2.5, memory: '9.5 GB', heapMb: 4864, storage: '20 GB' },
-  { vCores: 3, memory: '11 GB', heapMb: 5632, storage: '20 GB' },
-  { vCores: 3.5, memory: '13 GB', heapMb: 6656, storage: '20 GB' },
-  { vCores: 4, memory: '15 GB', heapMb: 7680, storage: '20 GB' },
+  { vCores: 0.1, memory: '1.4 GB', heap: '480 MB', heapMb: 480, storage: '8 GB' },
+  { vCores: 0.2, memory: '2 GB', heap: '1 GB', heapMb: 1024, storage: '8 GB' },
+  { vCores: 0.5, memory: '2.6 GB', heap: '1.3 GB', heapMb: 1331, storage: '10 GB' },
+  { vCores: 1, memory: '4 GB', heap: '2 GB', heapMb: 2048, storage: '12 GB' },
+  { vCores: 1.5, memory: '6 GB', heap: '3 GB', heapMb: 3072, storage: '20 GB' },
+  { vCores: 2, memory: '8 GB', heap: '4 GB', heapMb: 4096, storage: '20 GB' },
+  { vCores: 2.5, memory: '9.5 GB', heap: '4.75 GB', heapMb: 4864, storage: '20 GB' },
+  { vCores: 3, memory: '11 GB', heap: '5.5 GB', heapMb: 5632, storage: '20 GB' },
+  { vCores: 3.5, memory: '13 GB', heap: '6.5 GB', heapMb: 6656, storage: '20 GB' },
+  { vCores: 4, memory: '15 GB', heap: '7.5 GB', heapMb: 7680, storage: '20 GB' },
 ]
 
 // capacity is the lab's own allocation in vCores, kept small so the shortage can be practised
@@ -28,9 +30,9 @@ export const TARGETS = [
   { id: 'private', name: 'Private Space lab-ps', capacity: 2 },
 ]
 
-// sample applications: what each one needs to start is part of the exercise
+// Sample applications, invented for the lab. What each one needs to start is part of the exercise.
 export const PACKAGES = [
-  { id: 'hello-api', name: 'hello-api 1.0.0', requires: [], heapMb: 300, minRuntime: '4.6', note: 'Needs no properties.' },
+  { id: 'hello-api', name: 'hello-api 1.0.0', requires: [], heapMb: 300, minRuntime: '4.6', note: 'Needs no properties.', basis: 'assumed' },
   {
     id: 'orders-api',
     name: 'orders-api 1.2.0',
@@ -38,6 +40,7 @@ export const PACKAGES = [
     heapMb: 400,
     minRuntime: '4.6',
     note: 'Its configuration reads ${db.host}, ${db.user} and ${db.password}.',
+    basis: 'assumed',
   },
   {
     id: 'inventory-sync',
@@ -46,13 +49,16 @@ export const PACKAGES = [
     heapMb: 1600,
     minRuntime: '4.9',
     note: 'Loads a large catalogue at startup, about 1.6 GB of heap. Built for Mule 4.9 or later. Reads ${sftp.host}.',
+    basis: 'assumed',
   },
 ]
 
 const ACTIVE = new Set(['Pending', 'Starting', 'Started', 'Applying', 'Stopping', 'Deleting'])
 const SERVING = new Set(['Started', 'Applying'])
 
-const line = (level, text, basis = 'assumed') => ({ level, text, basis })
+// Log text is the lab's own wording, so every line is assumed even when the event it reports is documented.
+const line = (level, text) => ({ level, text, basis: 'assumed' })
+const vCoreSum = (value) => Math.round(value * 100) / 100
 const packageOf = (config) => PACKAGES.find((p) => p.id === config.packageId)
 const targetOf = (config) => TARGETS.find((t) => t.id === config.target)
 const sizeOf = (config) => REPLICA_SIZES.find((s) => s.vCores === config.vCores)
@@ -118,15 +124,44 @@ export function usedVCores(state, targetId, exceptName) {
     .reduce((total, r) => total + r.vCores, 0)
 }
 
+// A rolling update keeps the old replicas until each new one has started, so it needs one replica more than the
+// configuration uses. Returns null when the change has no such peak: a first deployment, or the Recreate model.
+export function rollingNeed(state, config) {
+  const app = state.apps.find((a) => a.name === config.name)
+  const olds = app?.replicas.filter((r) => r.configId === app.applied && SERVING.has(r.status)) ?? []
+  if (olds.length === 0 || config.model !== DEPLOY_MODELS[0]) return null
+  const steady = vCoreSum(config.replicas * config.vCores)
+  let peak = 0
+  for (let done = 0; done < config.replicas; done++) {
+    const kept = olds.slice(done).reduce((total, r) => total + r.vCores, 0)
+    peak = Math.max(peak, vCoreSum(kept + (done + 1) * config.vCores))
+  }
+  return { peak, steady, extra: vCoreSum(peak - steady) }
+}
+
 const cannotResolve = (key) => `Could not resolve the configuration property \${${key}}. The application did not start.`
 
 // Returns what stops this configuration from starting, or null when it starts.
 export function diagnose(config, state) {
   const pkg = packageOf(config)
   const target = targetOf(config)
-  const needed = config.replicas * config.vCores
-  const free = target.capacity - usedVCores(state, target.id, config.name)
+  const rolling = rollingNeed(state, config)
+  const needed = rolling?.peak ?? vCoreSum(config.replicas * config.vCores)
+  const free = vCoreSum(target.capacity - usedVCores(state, target.id, config.name))
   if (needed > free) {
+    const logs = [line('WARN', `Waiting for capacity: ${needed} vCores needed, ${free} free on ${target.name}.`)]
+    if (rolling) {
+      return {
+        kind: 'capacity',
+        title: 'Not enough vCores for a rolling update',
+        cause: `A rolling update requires one additional replica's worth of resources. This one peaks at ${needed} vCores, ${rolling.extra} above the ${rolling.steady} it uses when finished, and ${target.name} has ${free} free.`,
+        fix: 'Use the Recreate model, which needs no additional resources but has downtime, or free vCores on this target.',
+        basis: 'docs',
+        docs: `${DOCS}ch2-deploy-maven`,
+        assumption: 'The lab holds the update in Pending and keeps the old replicas serving until the vCores are free.',
+        logs,
+      }
+    }
     return {
       kind: 'capacity',
       title: 'Not enough vCores available',
@@ -134,7 +169,7 @@ export function diagnose(config, state) {
       fix: 'Lower the replica size or count, choose another target, or stop another application on this target.',
       basis: 'docs',
       docs: `${DOCS}ch2-architecture`,
-      logs: [line('WARN', `Waiting for capacity: ${needed} vCores needed, ${free} free on ${target.name}.`, 'docs')],
+      logs,
     }
   }
   const [major, minor] = versionNumbers(config.runtime)
@@ -164,11 +199,12 @@ export function diagnose(config, state) {
     return {
       kind: 'memory',
       title: 'Out of memory at startup',
-      cause: `${pkg.name} needs about ${pkg.heapMb} MB of heap and a ${config.vCores} vCore replica has ${sizeOf(config).heapMb} MB.`,
+      cause: `${pkg.name} needs about ${pkg.heapMb} MB of heap and a ${config.vCores} vCore replica has ${sizeOf(config).heap}.`,
       fix: 'Increase the replica size, or reduce the memory the application uses.',
       basis: 'docs',
       docs: `${DOCS}ch2-migration-troubleshoot`,
-      logs: [line('ERROR', 'java.lang.OutOfMemoryError: Java heap space'), line('WARN', 'Replica status: Recovering, then Failed.', 'docs')],
+      assumption: 'The heap this sample application needs is a lab value.',
+      logs: [line('ERROR', 'java.lang.OutOfMemoryError: Java heap space'), line('WARN', 'Replica terminated, then Recovering. CloudHub 2.0 attempts to restart it.')],
     }
   }
   return null
@@ -204,7 +240,7 @@ function plan(state, app) {
       step(0, [requested, ...problem.logs], { wait: true, problem })
       return steps
     }
-    step(0, [requested, line('INFO', 'Rolling update: the previous configuration keeps serving until each new replica has started.', 'docs')])
+    step(0, [requested, line('INFO', 'Rolling update: the previous configuration keeps serving until each new replica has started.')])
     let fresh = withStatus([first], 'Starting')
     cur = [...waiting, ...fresh]
     step(2000, [line('INFO', `Replica ${first.id} is starting.`)])
@@ -212,7 +248,7 @@ function plan(state, app) {
       cur = [...waiting, ...withStatus(fresh, 'Failed')]
       step(3000, problem.logs)
       cur = olds
-      step(1000, [line('WARN', 'Update failed. The last successful configuration is retained.', 'docs')], { finish: 'rolled-back', problem })
+      step(1000, [line('WARN', 'Update failed. The last successful configuration is retained.')], { finish: 'rolled-back', problem })
       return steps
     }
     for (let i = 0; i < config.replicas; i++) {
@@ -233,9 +269,9 @@ function plan(state, app) {
 
   if (olds.length > 0) {
     cur = withStatus(olds, 'Stopping')
-    step(0, [requested, line('INFO', 'Recreate: replicas are terminated before redeployment.', 'docs')])
+    step(0, [requested, line('INFO', 'Recreate: replicas are terminated before redeployment.')])
     cur = []
-    step(1500, [line('INFO', 'Previous replicas deleted. The application is not receiving traffic.', 'docs')])
+    step(1500, [line('INFO', 'Previous replicas deleted. The application is not receiving traffic.')])
   }
   const fresh = Array.from({ length: config.replicas }, () => replica('Pending'))
   cur = fresh
@@ -256,9 +292,9 @@ function plan(state, app) {
   step(3000, problem.logs, olds.length > 0 ? {} : { finish: 'failed', problem })
   if (olds.length > 0) {
     cur = withStatus(olds, 'Starting')
-    step(1000, [line('WARN', 'Rolling back to the last successful configuration.', 'docs')])
+    step(1000, [line('WARN', 'Rolling back to the last successful configuration.')])
     cur = olds
-    step(3000, [line('WARN', 'Update failed. The last successful configuration is running again.', 'docs')], { finish: 'rolled-back', problem })
+    step(3000, [line('WARN', 'Update failed. The last successful configuration is running again.')], { finish: 'rolled-back', problem })
   }
   return steps
 }
@@ -327,6 +363,19 @@ export function settle(state) {
   return next
 }
 
+const supersede = (app) => {
+  for (const earlier of app.history) if (earlier.status === 'In progress') earlier.status = 'Superseded'
+}
+
+function launch(state, app, id, config) {
+  app.config = structuredClone(config)
+  app.current = id
+  app.waiting = false
+  app.stopped = false
+  app.outcome = null
+  app.queue = plan(state, app)
+}
+
 export function deploy(state, input) {
   const errors = validate(input)
   const existing = state.apps.find((a) => a.name === input.name)
@@ -339,13 +388,9 @@ export function deploy(state, input) {
     next.apps.push(app)
   }
   const id = `config-${++next.configSerial}`
-  app.config = structuredClone(input)
-  app.current = id
-  app.waiting = false
-  app.stopped = false
-  app.outcome = null
+  supersede(app)
   app.history = [{ id, at: next.clock, config: structuredClone(input), status: 'In progress' }, ...app.history].slice(0, MAX_CONFIGS)
-  app.queue = plan(next, app)
+  launch(next, app, id, input)
   return { state: advance(next, 0), errors: [] }
 }
 
@@ -364,7 +409,7 @@ export const stop = (state, name) =>
     app.stopped = true
     app.queue = [
       { at, replicas: withStatus(app.replicas, 'Stopping'), logs: [line('INFO', 'Stop requested.')] },
-      { at: at + 2000, replicas: withStatus(app.replicas, 'Stopped'), logs: [line('INFO', 'Replicas have stopped and are not receiving traffic.', 'docs')], finish: 'stopped' },
+      { at: at + 2000, replicas: withStatus(app.replicas, 'Stopped'), logs: [line('INFO', 'Replicas have stopped and are not receiving traffic.')], finish: 'stopped' },
     ]
   })
 
@@ -382,12 +427,20 @@ export function remove(state, name) {
   return advance(next, 0)
 }
 
-// Deploys an earlier successful configuration again, as a new version of the history.
+// Deploys an earlier successful configuration again. It moves to the top of the history with a new deployment date
+// and keeps its identifier, so no new entry is created.
 export function rollback(state, name, configId) {
   const app = state.apps.find((a) => a.name === name)
   const target = app && entry(app, configId)
   if (target?.status !== 'Applied') return { state, errors: [{ field: 'name', message: 'Only a successful configuration can be rolled back to.', basis: 'docs' }] }
-  return deploy(state, target.config)
+  if (app.queue.length) return { state, errors: [{ field: 'name', message: 'A change to this application is still in progress.', basis: 'assumed' }] }
+  const next = structuredClone(state)
+  const nextApp = next.apps.find((a) => a.name === name)
+  const moved = { ...entry(nextApp, configId), at: next.clock }
+  supersede(nextApp)
+  nextApp.history = [moved, ...nextApp.history.filter((h) => h.id !== configId)]
+  launch(next, nextApp, configId, moved.config)
+  return { state: advance(next, 0), errors: [] }
 }
 
 export function appStatus(app) {

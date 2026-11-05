@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
 import { addEdge, addNode, removeEdge, removeNode, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
+import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 
 const PALETTE = LANES.map((lane) => ({
   ...lane,
@@ -41,6 +42,10 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
   const [query, setQuery] = useState('')
   const lanesRef = useRef(null)
   const rootRef = useRef(null)
+  const touch = useCoarsePointer()
+
+  useRevealWhenStacked(rootRef, '.arch-node.selected', selected?.kind === 'node' ? selected.id : null)
+  useRevealWhenStacked(rootRef, '.arch-canvas', connectFrom, 'start')
 
   const change = (next) => onChange?.(next)
   const nodeById = useMemo(() => new Map(diagram.nodes.map((n) => [n.id, n])), [diagram.nodes])
@@ -113,11 +118,15 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
     const base = lanesRef.current.getBoundingClientRect()
     setDrag({ from, x: e.clientX - base.left, y: e.clientY - base.top })
     const move = (ev) => setDrag((d) => d && { ...d, x: ev.clientX - base.left, y: ev.clientY - base.top })
-    const up = (ev) => {
+    const stop = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-node-id]')
+      window.removeEventListener('pointercancel', stop)
       setDrag(null)
+    }
+    const up = (ev) => {
+      stop()
+      const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-node-id]')
       // connect through state so the edge is added to the latest diagram, not this closure's copy
       if (target && target.dataset.nodeId !== from) {
         setPendingConnect({ from, to: target.dataset.nodeId })
@@ -125,6 +134,8 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+    // a phone can take the gesture back, and then pointerup never arrives
+    window.addEventListener('pointercancel', stop)
   }
   const [pendingConnect, setPendingConnect] = useState(null)
   useEffect(() => {
@@ -139,9 +150,16 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
   )
   const q = query.trim().toLowerCase()
   const lanesSize = lanesRef.current ? { w: lanesRef.current.scrollWidth, h: lanesRef.current.scrollHeight } : { w: 0, h: 0 }
+  // connecting needs the diagram, so the phone's properties sheet steps aside for it
+  const sheetOpen = Boolean(selNode || selEdge) && !connectFrom
 
   return (
-    <div className={`designer arch${readOnly ? ' read-only' : ''}`} ref={rootRef} tabIndex={readOnly ? -1 : 0} onKeyDown={onKeyDown}>
+    <div
+      className={`designer arch${readOnly ? ' read-only' : ''}${sheetOpen ? ' sheet-active' : ''}`}
+      ref={rootRef}
+      tabIndex={readOnly ? -1 : 0}
+      onKeyDown={onKeyDown}
+    >
       {!readOnly && (
         <div className="designer-toolbar">
           <span className="mono small muted">
@@ -187,7 +205,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
                       <button
                         key={t.type}
                         className={`palette-item arch-lane-${lane.key}`}
-                        draggable
+                        draggable={!touch}
                         onDragStart={(e) => e.dataTransfer.setData('text/arch-type', t.type)}
                         onClick={() => add(t.type)}
                         title="Click or drag to add"
@@ -305,14 +323,27 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
           </div>
           {!readOnly && !diagram.nodes.length && (
             <div className="arch-empty muted small">
-              Add components from the palette — each one drops into its lane. Then connect them: drag a component's dot onto
-              another, or select it and use <b>Connect</b>.
+              Add components from the palette — each one drops into its lane. Then connect them:{' '}
+              {touch ? (
+                <>
+                  tap a component and use <b>Connect by tapping</b>.
+                </>
+              ) : (
+                <>
+                  drag a component's dot onto another, or select it and use <b>Connect</b>.
+                </>
+              )}
             </div>
           )}
         </div>
 
         {!readOnly && (
-          <aside className="properties">
+          <aside className={`properties${sheetOpen ? ' sheet-open' : ''}`}>
+            {sheetOpen && (
+              <button className="btn btn-ghost btn-sm properties-done" onClick={() => setSelected(null)}>
+                Done
+              </button>
+            )}
             {selNode && (
               <NodeProps
                 node={selNode}
@@ -359,7 +390,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
                   A <b>sync call</b> is a request/response (HTTP). An <b>async message</b> goes through a queue, topic or
                   event stream.
                 </p>
-                <p>Keys: Delete removes the selection · Esc cancels connecting.</p>
+                {!touch && <p>Keys: Delete removes the selection · Esc cancels connecting.</p>}
               </div>
             )}
           </aside>

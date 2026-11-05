@@ -1128,11 +1128,6 @@ textarea:focus {
   gap: 14px;
   margin-top: 18px;
 }
-.plan-start {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
 .hero-ring {
   position: relative;
   flex-shrink: 0;
@@ -1207,7 +1202,7 @@ textarea:focus {
 .phase-card p {
   margin: 0;
 }
-.phase-month {
+.phase-stage {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
   color: var(--accent);
@@ -1229,10 +1224,6 @@ textarea:focus {
 .tag-done {
   color: var(--success);
   border-color: var(--success);
-}
-.tag-behind {
-  color: var(--warning);
-  border-color: var(--warning);
 }
 .phase-focus {
   margin: 0;
@@ -1545,6 +1536,10 @@ textarea:focus {
   position: sticky;
   top: 0;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: -6px 0 12px;
   padding: 7px 12px;
   border: 1px solid var(--accent);
@@ -1825,6 +1820,11 @@ textarea:focus {
   padding: 12px 14px;
   border-left: 1px solid var(--border);
   background: var(--surface);
+}
+.properties-done {
+  display: none;
+  float: right;
+  margin-left: 8px;
 }
 .properties-title {
   font-weight: 700;
@@ -2491,7 +2491,7 @@ textarea:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .dash-columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .playground-inputs {
     grid-template-rows: auto auto 300px;
@@ -2544,6 +2544,62 @@ textarea:focus {
   }
   .right-panel {
     grid-template-rows: auto 360px 300px;
+  }
+  /* stacked designers: properties would sit far below the canvas, so a selection opens them as a bottom sheet */
+  .designer-body {
+    scroll-margin-top: calc(var(--topbar-h) + 8px);
+  }
+  .arch-canvas {
+    scroll-margin-top: calc(var(--topbar-h) + 8px);
+  }
+  .designer.sheet-active .designer-body {
+    padding-bottom: 45vh;
+  }
+  .properties.sheet-open {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 15;
+    max-height: 45vh;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 35%);
+  }
+  .properties-done {
+    display: inline-flex;
+  }
+}
+
+/* finger-sized targets. 16px text also stops iPhones zooming the page when a field is focused */
+@media (pointer: coarse) {
+  .input,
+  .properties textarea.input,
+  .props-edges .input {
+    font-size: 16px;
+  }
+  .palette-item {
+    min-height: 42px;
+  }
+  .slot-active {
+    height: 44px;
+  }
+  .slot-active .slot-plus {
+    width: 30px;
+    height: 30px;
+    line-height: 28px;
+  }
+  .icon-x {
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .props-edges .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .arch-handle::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
   }
 }
 
@@ -2646,5 +2702,56 @@ textarea:focus {
   }
   .toolbar-actions .btn {
     flex: 1;
+  }
+}
+
+/* ---------- Header on phones: every item keeps its size and the wordmark never touches the icons ---------- */
+@media (max-width: 700px) {
+  .topbar {
+    gap: 8px;
+  }
+  .topbar .menu-btn,
+  .topbar-actions,
+  .topbar-actions > * {
+    flex: none;
+  }
+  .topbar .menu-btn {
+    margin-right: 0;
+  }
+  .topbar .brand {
+    min-width: 0;
+    gap: 7px;
+  }
+  .brand-mark {
+    flex: none;
+  }
+  .brand-name {
+    white-space: nowrap;
+  }
+}
+@media (max-width: 420px) {
+  .topbar {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .topbar-actions {
+    gap: 4px;
+  }
+  .brand-name {
+    font-size: 0.9rem;
+    letter-spacing: 0;
+  }
+  .brand-mark {
+    font-size: 0.72rem;
+    padding: 3px 6px;
+  }
+}
+/* Search is also in the menu, so the smallest phones give its space to the wordmark */
+@media (max-width: 359px) {
+  .topbar-actions .search-icon-link {
+    display: none;
+  }
+  .brand-name {
+    font-size: 0.84rem;
   }
 }

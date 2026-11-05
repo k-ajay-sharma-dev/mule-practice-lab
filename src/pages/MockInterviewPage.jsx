@@ -1,23 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
+import useRemaining from '../components/useRemaining.js'
 import { categoryBySlug } from '../data/categories.js'
 import { EXERCISE_LABELS, exerciseOf } from '../data/exercises.js'
 import { problemById, problems } from '../data/problems.js'
 import { trackBySlug, trackProblems, TRACKS } from '../data/tracks.js'
+import { LEVEL_SETS } from '../quiz/exam.js'
 import { checkRunner } from '../runner/client.js'
 import { writeLocal } from '../store/local.js'
 import { scheduleReview, statusOf, useProgress } from '../store/progress.js'
+import { BLINK_MS } from '../study/timer.js'
 
 // A timed, mixed round: one problem of each exercise type, scored on what is solved before time runs out.
 const CURRENT_KEY = 'pl.mock.current'
 const HISTORY_KEY = 'pl.mock.history'
 const ROUND = ['code', 'flow', 'diagram', 'investigation', 'quiz']
-const LEVEL_SETS = {
-  any: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'],
-  mid: ['INTERMEDIATE', 'ADVANCED', 'EXPERT'],
-  senior: ['ADVANCED', 'EXPERT'],
-}
 
 const read = (key, fallback) => {
   try {
@@ -197,16 +195,6 @@ function Setup({ history, onStart }) {
   )
 }
 
-function useRemaining(session) {
-  const end = new Date(session.startedIso).getTime() + session.minutes * 60000
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return Math.max(0, end - now)
-}
-
 function Running({ session, progress, onSelect, onFinish }) {
   const remaining = useRemaining(session)
   const solvedNow = (id) => solvedInRound(progress[id], session.startedIso, roundEnd(session))
@@ -228,7 +216,7 @@ function Running({ session, progress, onSelect, onFinish }) {
   return (
     <div className="mock-page mock-running">
       <div className="mock-bar">
-        <span className={`mock-timer mono${remaining < 5 * 60000 ? ' err-text' : ''}`}>
+        <span className={`mock-timer mono${remaining < 5 * 60000 ? ' err-text' : ''}${remaining < BLINK_MS ? ' timer-blink' : ''}`}>
           {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
         </span>
         <div className="mock-steps">

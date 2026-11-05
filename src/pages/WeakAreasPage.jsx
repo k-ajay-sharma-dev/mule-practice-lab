@@ -1,21 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ProblemList from '../components/ProblemList.jsx'
-import { weakAreaReport } from '../data/weakAreas.js'
+import { readMocks, weakAreaReport } from '../data/weakAreas.js'
 import { loadBoxes } from '../store/flash.js'
 import { scheduleReview, useProgress, useReview } from '../store/progress.js'
 
 const SHOWN_PER_TOPIC = 5
 const REVIEW_SET = 10
-
-function readMocks() {
-  try {
-    const list = JSON.parse(localStorage.getItem('pl.mock.history'))
-    return Array.isArray(list) ? list.filter((m) => m && Array.isArray(m.results)) : []
-  } catch {
-    return []
-  }
-}
 
 export default function WeakAreasPage() {
   const progress = useProgress()

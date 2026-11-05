@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { GUIDED_LABS, labById, runCheck } from '../../lab/labs.js'
 import { policyByType } from '../../lab/policies.js'
 import Assumed from './Assumed.jsx'
-import { AppsTab, PoliciesTab, TiersTab } from './ConfigTabs.jsx'
+import { AppsTab, NodesTab, PoliciesTab, TiersTab } from './ConfigTabs.jsx'
+import { formFor, RuntimeWorkbench } from './RuntimeManagerScreen.jsx'
+import { topologyOf } from '../../lab/engine.js'
 
 const PROGRESS_KEY = 'pl.lab.guided'
 
-const isConfig = (c) => Array.isArray(c?.apps) && Array.isArray(c?.tiers) && Array.isArray(c?.policies) && c.policies.every((p) => policyByType.has(p?.type))
+const isConfig = (c) =>
+  Array.isArray(c?.apps) && Array.isArray(c?.tiers) && Array.isArray(c?.policies) && [...c.policies, ...(c.automated ?? [])].every((p) => policyByType.has(p?.type))
+const isRuntimeState = (s) => Number.isFinite(s?.clock) && Array.isArray(s?.apps)
+const isSaved = (lab, config) => (lab.kind === 'runtime' ? isRuntimeState(config) : isConfig(config))
 
 function loadProgress() {
   try {
     const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY))
-    const configs = Object.fromEntries(Object.entries(saved?.configs ?? {}).filter(([id, config]) => labById.has(id) && isConfig(config)))
+    const configs = Object.fromEntries(Object.entries(saved?.configs ?? {}).filter(([id, config]) => labById.has(id) && isSaved(labById.get(id), config)))
     return { solved: saved?.solved ?? {}, configs }
   } catch {
     return { solved: {}, configs: {} }
@@ -34,7 +39,15 @@ export default function GuidedLabsScreen() {
 
   useEffect(() => saveProgress(progress), [progress])
 
-  const setConfig = (config) => setProgress((p) => ({ ...p, configs: { ...p.configs, [labId]: config } }))
+  // takes a value or an updater, because a running deployment advances its state on a timer
+  const setConfig = useCallback(
+    (next) =>
+      setProgress((p) => {
+        const value = typeof next === 'function' ? next(p.configs[labId] ?? labById.get(labId).start()) : next
+        return { ...p, configs: { ...p.configs, [labId]: value } }
+      }),
+    [labId],
+  )
   const markSolved = () => setProgress((p) => ({ ...p, solved: { ...p.solved, [labId]: true } }))
 
   function restart() {
@@ -56,6 +69,7 @@ export default function GuidedLabsScreen() {
               <button className={`lab-pick${l.id === labId ? ' active' : ''}`} aria-current={l.id === labId} onClick={() => setLabId(l.id)}>
                 <span className="lab-order mono">{index + 1}</span>
                 <span className="lab-grow">{l.title}</span>
+                <span className="muted small">{l.kind === 'runtime' ? 'Runtime' : 'API'}</span>
                 {progress.solved[l.id] && <span className="lab-badge lab-approved">solved</span>}
               </button>
             </li>
@@ -80,11 +94,21 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
   const [result, setResult] = useState(null)
   const [hints, setHints] = useState(0)
   const [showSolution, setShowSolution] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const isRuntime = lab.kind === 'runtime'
 
   const update = (patch) => {
     onChange({ ...config, ...patch })
     setResult(null)
   }
+
+  const updateState = useCallback(
+    (next) => {
+      onChange(next)
+      setResult(null)
+    },
+    [onChange],
+  )
 
   function check() {
     const outcome = runCheck(lab, config)
@@ -94,6 +118,7 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
 
   function restart() {
     onRestart()
+    setAttempt((a) => a + 1)
     setResult(null)
     setHints(0)
     setShowSolution(false)
@@ -112,20 +137,43 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
         <b>Goal:</b> {lab.goal}
       </p>
 
-      <div className="lab-tabs" role="tablist">
-        {[
-          ['policies', `Policies (${config.policies.length})`],
-          ['apps', `Client Applications (${config.apps.length})`],
-          ['tiers', `SLA Tiers (${config.tiers.length})`],
-        ].map(([key, label]) => (
-          <button key={key} role="tab" aria-selected={tab === key} className={`lab-tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {tab === 'policies' && <PoliciesTab policies={config.policies} onChange={(policies) => update({ policies })} />}
-      {tab === 'apps' && <AppsTab apps={config.apps} tiers={config.tiers} onChange={(apps) => update({ apps })} />}
-      {tab === 'tiers' && <TiersTab tiers={config.tiers} onChange={(tiers) => update({ tiers })} />}
+      {isRuntime ? (
+        <RuntimeWorkbench
+          key={attempt}
+          state={config}
+          onChange={updateState}
+          onReset={restart}
+          resetLabel="Restart this lab"
+          focus={lab.focus}
+          startForm={() => formFor((config.apps.find((a) => a.name === lab.focus) ?? config.apps[0])?.config)}
+        />
+      ) : (
+        <>
+          <div className="lab-tabs" role="tablist">
+            {[
+              ['policies', `Policies (${config.policies.length + (config.automated?.length ?? 0)})`],
+              ['apps', `Client Applications (${config.apps.length})`],
+              ['tiers', `SLA Tiers (${config.tiers.length})`],
+              ['nodes', `Nodes (${topologyOf(config).nodes})`],
+            ].map(([key, label]) => (
+              <button key={key} role="tab" aria-selected={tab === key} className={`lab-tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === 'policies' && (
+            <PoliciesTab
+              policies={config.policies}
+              automated={config.automated}
+              onChange={(policies) => update({ policies })}
+              onAutomatedChange={(automated) => update({ automated })}
+            />
+          )}
+          {tab === 'apps' && <AppsTab apps={config.apps} tiers={config.tiers} onChange={(apps) => update({ apps })} />}
+          {tab === 'tiers' && <TiersTab tiers={config.tiers} onChange={(tiers) => update({ tiers })} />}
+          {tab === 'nodes' && <NodesTab config={config} onChange={(topology) => update({ topology })} />}
+        </>
+      )}
 
       <div className="lab-actions">
         <button className="btn btn-primary" onClick={check}>
@@ -154,18 +202,18 @@ function LabWorkspace({ lab, config, solved, onChange, onSolved, onRestart }) {
           <b>Solution:</b> {lab.solution}
         </p>
       )}
-      {result && <CheckResult lab={lab} result={result} />}
+      {result && <CheckResult lab={lab} result={result} isRuntime={isRuntime} />}
       {!result && solved && <p className="muted small">You have solved this lab. Restart it to practise again.</p>}
     </section>
   )
 }
 
-function CheckResult({ lab, result }) {
+function CheckResult({ lab, result, isRuntime }) {
   return (
     <div className="lab-result" aria-live="polite">
       <div className="lab-row-head">
         <span className={`lab-status ${result.passed ? 'lab-s2' : 'lab-s4'}`}>{result.passed ? 'Passed' : 'Not yet'}</span>
-        <span className="lab-grow small">Real requests were sent through the simulator.</span>
+        <span className="lab-grow small">{isRuntime ? 'Every deployment was played to its end in the simulator.' : 'Real requests were sent through the simulator.'}</span>
       </div>
       <ul className="lab-checks small">
         {result.items.map((item) => (
@@ -180,7 +228,7 @@ function CheckResult({ lab, result }) {
         <p className="small">
           {lab.why}{' '}
           <a href={lab.docs} target="_blank" rel="noreferrer">
-            Policy docs
+            {isRuntime ? 'Docs' : 'Policy docs'}
           </a>
         </p>
       )}

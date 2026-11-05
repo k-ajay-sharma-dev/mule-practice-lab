@@ -26,6 +26,17 @@ const PATHS = {
       <path d="M12 10v3l2 2M10 3h4M12 3v3" />
     </>
   ),
+  readiness: (
+    <>
+      <path d="M4 20h16M7 20v-6M12 20V9M17 20V4" />
+    </>
+  ),
+  exam: (
+    <>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 8h6M9 12h6M9 16l1.5 1.5L14 14" />
+    </>
+  ),
   interview: (
     <>
       <rect x="9" y="3" width="6" height="11" rx="3" />

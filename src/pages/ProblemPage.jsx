@@ -3,6 +3,7 @@ import { categoryBySlug } from '../data/categories.js'
 import { problemById, problemsFor } from '../data/problems.js'
 import { removeReview, scheduleReview, statusOf, useEntry, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
+import ProblemTimer from '../components/ProblemTimer.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import NotFound from './NotFound.jsx'
 
@@ -61,6 +62,7 @@ export default function ProblemPage() {
         </div>
       </header>
 
+      <ProblemTimer key={problem.id} problem={problem} />
       <ProblemWorkspace id={problem.id} />
     </div>
   )

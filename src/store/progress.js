@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { finishTimer } from '../study/timer.js'
 import { writeLocal } from './local.js'
 
 // Local progress store. Each entry is keyed by problem id:
@@ -49,7 +50,9 @@ export function updateEntry(id, patch, { graded = false } = {}) {
   const solvedNow = graded && patch.status === 'solved'
   // solvedAt marks each graded solve, so a mock interview can tell what was solved during the session
   const solvedAt = solvedNow ? { solvedAt: now } : {}
-  state = { ...state, [id]: { ...prev, ...patch, ...solvedAt, updatedAt: now } }
+  // every kind of solve passes through here, so this is where the time gets recorded
+  const timed = solvedNow ? finishTimer(prev, now) : {}
+  state = { ...state, [id]: { ...prev, ...patch, ...solvedAt, ...timed, updatedAt: now } }
   save(STORAGE_KEY, state)
 
   // Flagging a problem puts it on the review schedule; solving it again when due moves it along.
@@ -62,6 +65,14 @@ export function updateEntry(id, patch, { graded = false } = {}) {
   activity = { ...activity, [day]: { actions: today.actions + 1, solved: today.solved + (newlySolved ? 1 : 0) } }
   save(ACTIVITY_KEY, activity)
 
+  listeners.forEach((l) => l())
+}
+
+// Saved apart from updateEntry, because opening a problem starts the clock and that must not count as practice.
+export function setTimer(id, timer) {
+  const prev = isPlainObject(state[id]) ? state[id] : {}
+  state = { ...state, [id]: { ...prev, timer, updatedAt: new Date().toISOString() } }
+  save(STORAGE_KEY, state)
   listeners.forEach((l) => l())
 }
 

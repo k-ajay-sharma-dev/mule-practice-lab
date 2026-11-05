@@ -285,3 +285,6 @@ export async function signOutUser() {
 export function syncNow() {
   schedule(0)
 }
+
+// For features that talk to the account directly, such as recordings. Null when signed out.
+export const account = () => (user ? { db, uid: user.uid } : null)

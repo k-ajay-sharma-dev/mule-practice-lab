@@ -130,8 +130,10 @@ function Sidebar({ collapsed, onToggle, onClose }) {
           {item('/review', 'review', 'Review', dueCount > 0 && <span className="side-badge">{dueCount}</span>)}
           {item('/flashcards', 'flashcards', 'Flashcards')}
           {item('/mock', 'mock', 'Mock Interview')}
+          {item('/exam', 'exam', 'Practice Exam')}
           {item('/interview', 'interview', 'Interview Practice')}
           {item('/weak-areas', 'weak', 'Weak Areas')}
+          {item('/readiness', 'readiness', 'Readiness')}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>

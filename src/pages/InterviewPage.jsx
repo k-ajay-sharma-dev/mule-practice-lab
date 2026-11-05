@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Markdown from '../components/Markdown.jsx'
+import useVoiceRecorder, { canRecord } from '../components/useVoiceRecorder.js'
+import { RecordingLive, SavedAnswers, VoiceClip } from '../components/VoiceRecording.jsx'
 import { deckByKey, DECKS, followUpCards, shuffle } from '../data/cards.js'
 import { categoryBySlug } from '../data/categories.js'
 import { loadProblems } from '../data/problems.js'
 import { loadBoxes, nextBox, saveBoxes } from '../store/flash.js'
 import { writeLocal } from '../store/local.js'
 import { scheduleReview } from '../store/progress.js'
+import { saveProblem } from '../study/recording.js'
+import { useSyncStatus } from '../sync/status.js'
 
 // Timed spoken practice on interview follow-ups: answer out loud against the clock, then compare and rate honestly.
 // Ratings share the flashcard boxes, so a miss also shows up in Flashcards, Review and Weak Areas.
@@ -59,7 +63,7 @@ function Countdown({ seconds, onEnd }) {
     return () => clearInterval(timer)
   }, [seconds])
 
-  return <span className={`interview-timer mono${left <= LOW_SECONDS ? ' low' : ''}`}>{clock(left)}</span>
+  return <span className={`interview-timer mono${left <= LOW_SECONDS ? ' low timer-blink' : ''}`}>{clock(left)}</span>
 }
 
 export default function InterviewPage() {
@@ -67,6 +71,11 @@ export default function InterviewPage() {
   const [count, setCount] = useState(COUNTS[0])
   const [seconds, setSeconds] = useState(TIMES[1])
   const [aloud, setAloud] = useState(false)
+  const [record, setRecord] = useState(false)
+  const voice = useVoiceRecorder()
+  const signedIn = Boolean(useSyncStatus().user)
+  const [kept, setKept] = useState({}) // question id -> what happened to its recording
+  const [keptVersion, setKeptVersion] = useState(0)
   const [round, setRound] = useState(null) // { cards, index, revealed, timedOut, ratings: [{ card, rating }] }
   const [history, setHistory] = useState(readHistory)
   const [loading, setLoading] = useState(false)
@@ -80,9 +89,19 @@ export default function InterviewPage() {
   }, [aloud, card, round?.revealed])
   useEffect(() => () => canSpeak && window.speechSynthesis.cancel(), [])
 
+  // one clip per question: it runs from the question appearing until the answer is revealed
+  useEffect(() => {
+    if (card && !round.revealed && voice.micOn) voice.begin(card.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.id, round?.revealed, voice.micOn])
+
   async function start() {
     setLoading(true)
     setFailed(false)
+    voice.discard()
+    setKept({})
+    // a blocked microphone shows why, and the practice carries on without recording
+    if (record) await voice.open()
     try {
       const boxes = loadBoxes()
       const deck = deckByKey(deckKey).pick().filter((p) => p.cards > 0)
@@ -90,9 +109,13 @@ export default function InterviewPage() {
       const cards = shuffle(loaded.filter(Boolean).flatMap(followUpCards))
         .sort((a, b) => (boxes[a.id] ?? 0) - (boxes[b.id] ?? 0))
         .slice(0, count)
-      if (!cards.length) return setFailed(true)
+      if (!cards.length) {
+        voice.close()
+        return setFailed(true)
+      }
       setRound({ cards: shuffle(cards), index: 0, revealed: false, timedOut: false, ratings: [] })
     } catch {
+      voice.close()
       setFailed(true)
     } finally {
       setLoading(false)
@@ -101,10 +124,32 @@ export default function InterviewPage() {
 
   const reveal = (timedOut) => {
     if (canSpeak) window.speechSynthesis.cancel()
+    voice.finish()
     setRound((r) => ({ ...r, revealed: true, timedOut }))
   }
 
+  function endPractice() {
+    voice.close()
+    voice.discard()
+    setRound(null)
+  }
+
+  async function keepAnswer(question, rating, clip) {
+    const status = (text) => setKept((k) => ({ ...k, [question.id]: text }))
+    status('Saving to your account…')
+    try {
+      const { saveRecording } = await import('../sync/recordings.js')
+      const info = { question: question.front, problemId: question.problem.id, rating, seconds: Math.round(clip.seconds) }
+      await saveRecording(info, clip.blob)
+      status('Saved to your account')
+      setKeptVersion((v) => v + 1)
+    } catch (error) {
+      status(saveProblem(error))
+    }
+  }
+
   function rate(rating) {
+    if (signedIn && voice.clips[card.id]) keepAnswer(card, rating, voice.clips[card.id])
     const boxes = loadBoxes()
     if (rating !== 'partly') saveBoxes({ ...boxes, [card.id]: nextBox(boxes[card.id], rating === 'nailed') })
     if (rating === 'missed') scheduleReview(card.problem.id)
@@ -112,7 +157,10 @@ export default function InterviewPage() {
     const ratings = [...round.ratings, { card, rating }]
     const index = round.index + 1
     setRound({ ...round, index, revealed: false, timedOut: false, ratings })
-    if (index >= round.cards.length) saveRound(ratings)
+    if (index >= round.cards.length) {
+      voice.close()
+      saveRound(ratings)
+    }
   }
 
   function saveRound(ratings) {
@@ -140,7 +188,7 @@ export default function InterviewPage() {
         <h1>Interview Practice</h1>
         <p className="muted">
           Answer each follow-up <b>out loud</b> before the clock runs out, as you would to an interviewer. Then compare
-          with the model answer and rate yourself honestly. Nothing is recorded: the rating is your own judgement.
+          with the model answer and rate yourself honestly. The rating is your own judgement.
         </p>
 
         {finished && (
@@ -161,6 +209,31 @@ export default function InterviewPage() {
                       </Link>
                     </li>
                   ))}
+                </ul>
+              </>
+            )}
+            {Object.keys(voice.clips).length > 0 && (
+              <>
+                <h2 className="section-heading">Listen back</h2>
+                {!signedIn && (
+                  <p className="muted small">
+                    You're not signed in, so these go when you leave this page. Download any you want to keep.
+                  </p>
+                )}
+                <ul className="voice-list">
+                  {round.ratings.map(({ card: c, rating }, i) =>
+                    voice.clips[c.id] ? (
+                      <li key={c.id}>
+                        <Markdown>{c.front}</Markdown>
+                        <VoiceClip
+                          clip={voice.clips[c.id]}
+                          number={i + 1}
+                          label={RATINGS.find((r) => r.key === rating).label}
+                          status={kept[c.id]}
+                        />
+                      </li>
+                    ) : null,
+                  )}
                 </ul>
               </>
             )}
@@ -207,6 +280,19 @@ export default function InterviewPage() {
             </label>
           </p>
         )}
+        {canRecord && (
+          <p>
+            <label className="check-inline">
+              <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />
+              Record my answers so I can listen back
+            </label>
+            <span className="muted small voice-note">
+              {signedIn
+                ? 'Answers you rate are saved to your Google account, and your latest 30 are kept.'
+                : "You're not signed in, so recordings stay on this page and go when you leave it."}
+            </span>
+          </p>
+        )}
         <button className="btn btn-primary" onClick={start} disabled={loading}>
           {loading ? 'Preparing…' : finished ? 'Another round' : 'Start practice'}
         </button>
@@ -233,6 +319,8 @@ export default function InterviewPage() {
             </ul>
           </>
         )}
+
+        {signedIn && <SavedAnswers version={keptVersion} />}
       </div>
     )
   }
@@ -240,7 +328,7 @@ export default function InterviewPage() {
   return (
     <div className="flash-page">
       <div className="flash-top">
-        <button className="btn btn-ghost btn-sm" onClick={() => setRound(null)}>
+        <button className="btn btn-ghost btn-sm" onClick={endPractice}>
           ← End practice
         </button>
         <span className="mono small muted">
@@ -263,8 +351,10 @@ export default function InterviewPage() {
         <div className="flash-front">
           <Markdown>{card.front}</Markdown>
         </div>
+        {voice.problem && <p className="warn-text small">{voice.problem} This round continues without recording.</p>}
         {round.revealed ? (
           <>
+            {voice.clips[card.id] && <VoiceClip clip={voice.clips[card.id]} number={round.index + 1} />}
             <div className="flash-back">
               <Markdown>{card.back}</Markdown>
             </div>
@@ -281,6 +371,7 @@ export default function InterviewPage() {
           </>
         ) : (
           <>
+            {voice.recording && <RecordingLive stream={voice.stream.current} />}
             <p className="muted small">Speak your answer now.</p>
             <button className="btn btn-primary flash-flip" onClick={() => reveal(false)}>
               I've finished answering

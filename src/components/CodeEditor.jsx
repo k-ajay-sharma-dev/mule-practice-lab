@@ -2,8 +2,18 @@ import { useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../theme.jsx'
 import { registerDataWeave } from '../editor/dataweave.js'
+import { useCoarsePointer } from './touch.js'
+import TouchEditor from './TouchEditor.jsx'
 
-export default function CodeEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%' }) {
+// Phones and tablets get a real text field, because Monaco does not open their keyboard reliably.
+export default function CodeEditor(props) {
+  const touch = useCoarsePointer()
+  const { language = 'dataweave', readOnly = false, height = '100%' } = props
+  if (touch) return <TouchEditor {...props} language={language} readOnly={readOnly} height={height} />
+  return <DesktopEditor {...props} />
+}
+
+function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%' }) {
   const { theme } = useTheme()
   // Keep the latest onRun so the Ctrl+Enter command never calls a stale closure.
   const runRef = useRef(onRun)

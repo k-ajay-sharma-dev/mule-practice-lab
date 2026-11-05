@@ -10,6 +10,15 @@ const REASONS = { revisit: 'Marked Revisit', review: 'On review', mock: 'Missed 
 const RECENT_MOCKS = 10
 const MAX_CARDS = 3
 
+export function readMocks() {
+  try {
+    const list = JSON.parse(localStorage.getItem('pl.mock.history'))
+    return Array.isArray(list) ? list.filter((m) => m && Array.isArray(m.results)) : []
+  } catch {
+    return []
+  }
+}
+
 function collectSignals({ progress, review, boxes, mocks }) {
   const signals = new Map() // id -> { weight, reasons: Set }
   const add = (id, reason, times = 1) => {
@@ -24,7 +33,7 @@ function collectSignals({ progress, review, boxes, mocks }) {
   for (const id of Object.keys(review)) add(id, 'review')
 
   // a problem solved since the mock no longer counts against you
-  for (const m of mocks.slice(-RECENT_MOCKS))
+  for (const m of mocks.slice(0, RECENT_MOCKS)) // the history is newest first
     for (const r of m.results) if (!r.solved && progress[r.id]?.status !== 'solved') add(r.id, 'mock')
 
   const missedCards = new Map()
