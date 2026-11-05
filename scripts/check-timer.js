@@ -1,6 +1,6 @@
 // Problem timer rules: the countdown, resets that cannot hide time, what gets recorded, and bad stored data.
 import assert from 'node:assert/strict'
-import { BLINK_MS, clock, finishTimer, inTime, isStale, LOW_MS, remainingMs, resetTimer, startTimer, timerLevel, validTimer } from '../src/study/timer.js'
+import { BLINK_MS, clock, finishTimer, inTime, isStale, LOW_MS, pauseTimer, remainingMs, resetTimer, resumeTimer, startTimer, timerLevel, validTimer } from '../src/study/timer.js'
 
 const at = (minutes) => new Date(Date.parse('2026-11-05T10:00:00.000Z') + minutes * 60000).toISOString()
 const ms = (minutes) => Date.parse(at(minutes))
@@ -31,7 +31,7 @@ assert.equal(clock(3725000), '1:02:05')
 // a clean solve is recorded and stops the timer
 const clean = finishTimer({ timer: t }, at(12.5))
 assert.equal(clean.timer, null)
-assert.deepEqual(clean.timeLog, [{ at: at(12.5), seconds: 750, totalSeconds: 750, minutes: 30, resets: 0 }])
+assert.deepEqual(clean.timeLog, [{ at: at(12.5), seconds: 750, totalSeconds: 750, minutes: 30, resets: 0, pauses: 0 }])
 assert.ok(inTime(clean.timeLog[0]))
 
 // a reset restarts the countdown but cannot hide the time: the total and the count stay on record
@@ -69,8 +69,49 @@ assert.deepEqual(finishTimer({ timer: t }, at(13 * 60)), { timer: null })
 // a clock moved backwards must not record a negative time
 assert.equal(finishTimer({ timer: t }, at(-5)).timeLog[0].seconds, 0)
 
+// leaving stops the clock: the time away counts for nothing, on the countdown or the total
+const away = pauseTimer(t, at(10))
+assert.equal(remainingMs(away, ms(10)), 20 * 60000)
+assert.equal(remainingMs(away, ms(500)), 20 * 60000)
+assert.equal(pauseTimer(away, at(20)).pausedAt, at(10)) // pausing twice keeps the first time
+const back = resumeTimer(away, at(100))
+assert.equal(back.pausedAt, undefined)
+assert.equal(back.pauses, 1)
+assert.equal(remainingMs(back, ms(100)), 20 * 60000)
+assert.equal(remainingMs(back, ms(105)), 15 * 60000)
+assert.deepEqual(finishTimer({ timer: back }, at(105)).timeLog[0], { at: at(105), seconds: 900, totalSeconds: 900, minutes: 30, resets: 0, pauses: 1 })
+assert.equal(resumeTimer(t, at(5)), t) // already running
+assert.equal(resumeTimer(pauseTimer(t, at(10)), at(10.05)).pauses, 0) // a page reload is not a pause
+
+// a reset still keeps the real total across a pause
+const both = resetTimer(resumeTimer(pauseTimer(t, at(10)), at(60)), at(70))
+const bothLog = finishTimer({ timer: both }, at(75)).timeLog[0]
+assert.equal(bothLog.seconds, 300)
+assert.equal(bothLog.totalSeconds, 1500) // 10 + 10 + 5 minutes on the problem, not the 50 away
+assert.equal(bothLog.resets, 1)
+
+// a paused attempt waits, however long, and a solve while paused stops at the moment you left
+assert.equal(isStale(away, ms(48 * 60)), false)
+assert.equal(finishTimer({ timer: away }, at(48 * 60)).timeLog[0].seconds, 600)
+assert.equal(remainingMs(resumeTimer(away, at(48 * 60)), ms(48 * 60)), 20 * 60000)
+
+// the pause button holds until resumed, and always counts, however short
+const held = pauseTimer(t, at(10), true)
+assert.equal(held.held, true)
+assert.equal(remainingMs(held, ms(90)), 20 * 60000)
+assert.equal(isStale(held, ms(48 * 60)), false)
+const released = resumeTimer(held, at(10.01))
+assert.equal(released.held, undefined)
+assert.equal(released.pauses, 1)
+assert.equal(pauseTimer(held, at(20)), held)
+
+// a timer saved before pausing existed still works
+const { pauses: _, ...oldTimer } = t
+assert.equal(finishTimer({ timer: oldTimer }, at(1)).timeLog[0].pauses, 0)
+assert.equal(resumeTimer(pauseTimer(oldTimer, at(1)), at(9)).pauses, 1)
+
 // bad stored data is ignored
-for (const bad of [null, 'x', {}, { ...t, startedAt: 'nope' }, { ...t, firstStartedAt: 3 }, { ...t, minutes: 0 }, { ...t, resets: 'a' }]) {
+for (const bad of [null, 'x', {}, { ...t, pausedAt: 'nope' }, { ...t, startedAt: 'nope' }, { ...t, firstStartedAt: 3 }, { ...t, minutes: 0 }, { ...t, resets: 'a' }]) {
   assert.equal(validTimer(bad), null)
   assert.deepEqual(finishTimer({ timer: bad }, at(1)), {})
 }

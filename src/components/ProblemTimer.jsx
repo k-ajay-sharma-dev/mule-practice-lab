@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getEntry, setTimer, statusOf, useEntry } from '../store/progress.js'
-import { clock, inTime, isStale, remainingMs, resetTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
+import { clock, inTime, isStale, pauseTimer, remainingMs, resetTimer, resumeTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
 
 const CLOCK_CLASS = { ok: '', low: ' warn-text', last: ' err-text timer-blink', over: ' err-text' }
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
@@ -8,10 +8,11 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 function describe(record) {
   const parts = [`${clock(record.seconds * 1000)} of ${record.minutes}:00`]
   if (record.resets) parts.push(`${plural(record.resets, 'reset')}, ${clock(record.totalSeconds * 1000)} in total`)
+  if (record.pauses) parts.push(plural(record.pauses, 'pause'))
   return parts.join(' · ')
 }
 
-// Counts down from the problem's estimated time. It starts when the problem opens and keeps running if you leave.
+// Counts down from the problem's estimated time while the problem is open. Leaving pauses it, and coming back resumes it.
 // Recording happens in the progress store when the problem is solved, whichever way it is solved.
 export default function ProblemTimer({ problem }) {
   const { id, estMinutes } = problem
@@ -22,13 +23,39 @@ export default function ProblemTimer({ problem }) {
   const log = Array.isArray(entry.timeLog) ? entry.timeLog : []
   const last = log.at(-1)
 
+  function pause() {
+    const active = validTimer(getEntry(id).timer)
+    if (active && !active.pausedAt) setTimer(id, pauseTimer(active, new Date().toISOString()))
+  }
+
+  function resume() {
+    const active = validTimer(getEntry(id).timer)
+    if (active?.pausedAt && !active.held) setTimer(id, resumeTimer(active, new Date().toISOString()))
+  }
+
+  function togglePause() {
+    const now = new Date().toISOString()
+    setTimer(id, timer.pausedAt ? resumeTimer(timer, now) : pauseTimer(timer, now, true))
+  }
+
   useEffect(() => {
     const current = getEntry(id)
     const solved = statusOf(current) === 'solved'
     const active = validTimer(current.timer)
-    if (active && !isStale(active, Date.now())) return
-    if (!solved) setTimer(id, startTimer(estMinutes, new Date().toISOString()))
+    if (active && !isStale(active, Date.now())) resume()
+    else if (!solved) setTimer(id, startTimer(estMinutes, new Date().toISOString()))
     else if (active) setTimer(id, null)
+
+    // closing the tab never unmounts this, and a page restored from the back/forward cache never mounts it again
+    const restored = (event) => event.persisted && resume()
+    window.addEventListener('pagehide', pause)
+    window.addEventListener('pageshow', restored)
+    return () => {
+      window.removeEventListener('pagehide', pause)
+      window.removeEventListener('pageshow', restored)
+      pause()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, estMinutes])
 
   useEffect(() => {
@@ -62,20 +89,31 @@ export default function ProblemTimer({ problem }) {
   if (running) {
     const remaining = remainingMs(timer, now)
     const level = timerLevel(remaining)
+    const paused = Boolean(timer.pausedAt)
+    const label = paused ? 'Resume timer' : 'Pause timer'
     return (
       <div className="problem-timer">
-        <span className={`problem-clock mono${CLOCK_CLASS[level]}`} role="timer">
+        <span className={`problem-clock mono${paused ? ' muted' : CLOCK_CLASS[level]}`} role="timer">
           {level === 'over' && '+'}
           {clock(remaining)}
         </span>
         <span className="small muted problem-timer-note">
+          {paused && 'Paused · '}
           {level === 'over' ? `over the ${timer.minutes} minute target` : `of ${timer.minutes} minutes`}
           {timer.resets > 0 && ` · ${plural(timer.resets, 'reset')}`}
+          {timer.pauses > 0 && ` · ${plural(timer.pauses, 'pause')}`}
         </span>
         {history}
-        <button className="btn btn-ghost btn-sm" onClick={reset}>
-          Reset
+        <button className="icon-btn timer-pause" onClick={togglePause} aria-label={label} title={label}>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+            {paused ? <path d="M7 4.5v15l13-7.5z" /> : <path d="M6 4h4v16H6zM14 4h4v16h-4z" />}
+          </svg>
         </button>
+        {!paused && (
+          <button className="btn btn-ghost btn-sm" onClick={reset}>
+            Reset
+          </button>
+        )}
       </div>
     )
   }

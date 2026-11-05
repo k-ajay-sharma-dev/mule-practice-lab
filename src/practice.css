@@ -451,6 +451,11 @@
   font-size: 1.25rem;
   font-weight: 700;
 }
+.timer-pause {
+  flex: none;
+  width: 30px;
+  height: 30px;
+}
 .problem-timer-note {
   flex: 1 1 80px;
   min-width: 0;
