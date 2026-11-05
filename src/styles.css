@@ -2281,6 +2281,13 @@ textarea:focus {
   margin-top: 3px;
   accent-color: var(--accent);
 }
+.option-code {
+  min-width: 0;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .option.chosen,
 .log-line.chosen {
   border-color: var(--accent);

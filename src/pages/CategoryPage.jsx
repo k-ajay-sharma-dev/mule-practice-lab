@@ -184,7 +184,7 @@ export default function CategoryPage() {
               <span className="title">{p.title}</span>
               <span className="row-meta">
                 <span className="mono muted">{p.id.toUpperCase()}</span>
-                {cat.kind === 'self' && (
+                {modes.length > 1 && (
                   <span className={`mode-chip mode-${exerciseOf(p)}`}>{EXERCISE_LABELS[exerciseOf(p)]}</span>
                 )}
                 <Tags tags={p.tags} />

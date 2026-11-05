@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import Markdown from '../Markdown.jsx'
+import { FAILS } from '../../quiz/output-question.js'
 import { grade, permutation } from '../../quiz/quiz.js'
 
 const TYPE_HINT = {
@@ -74,7 +75,7 @@ export default function QuestionCard({ q, number, seed, response, onChange, subm
                     )
                   }
                 />
-                <span>{q.options[oi]}</span>
+                {q.code && q.options[oi] !== FAILS ? <code className="option-code">{q.options[oi]}</code> : <span>{q.options[oi]}</span>}
               </label>
             )
           })}
