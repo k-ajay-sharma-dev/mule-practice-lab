@@ -142,7 +142,7 @@ System:   sys-policy-api (/policies/{id}, /coverages, /insured, /premium)       
 `,
   followUps: [
     { q: 'The broker premium rule genuinely differs. Doesn\'t that justify prc-policy-broker-api?', a: 'A different business rule for a different customer segment is still policy logic; model it as an explicit rule in the one Policy Process API (by distribution channel or product), so it is visible, tested and not silently duplicated.' },
-    { q: 'How do you sell a 6-month remediation to a business that sees no new features?', a: 'Tie each phase to a measurable business outcome — security finding closed, mobile screen 3 s to under 1 s, vCore cost down, premium rule changes in one release instead of three — and deliver the quick wins first to build credibility.' },
+    { q: 'How do you sell a 6-month remediation to a business that sees no new features?', a: 'Tie each phase to a measurable business outcome: security finding closed, mobile screen 3 s to under 1 s, vCore cost down, premium rule changes in one release instead of three. Deliver the quick wins first to build credibility.' },
     { q: 'Why keep facades for #1–#4 instead of migrating consumers immediately?', a: 'Facades decouple the consolidation from consumers\' release schedules, so you can ship the new System API without a big-bang cut-over and retire the facades when analytics show they are unused.' },
   ],
 }

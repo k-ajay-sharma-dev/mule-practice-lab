@@ -119,7 +119,7 @@ Issues found in testing:
   solution: `
 **Where policies run**
 - **Customer API (Mule, modifiable):** **autodiscovery** — \`<api-gateway:autodiscovery apiId="$\{api.id}" flowRef="main"/>\` in the app. No extra hop.
-- **Pricing API and Legacy Billing (cannot change):** a **proxy** in front. Options: **Flex Gateway** (lightweight, runs as container/Linux service, managed from API Manager in connected mode) — the current recommended choice — or a classic **Mule proxy** app that API Manager generates and deploys to CloudHub/RTF/hybrid. The backend must then be reachable only through the proxy (network rules), otherwise policies can be bypassed.
+- **Pricing API and Legacy Billing (cannot change):** a **proxy** in front. Options: **Flex Gateway** (lightweight, runs as container/Linux service, managed from API Manager in connected mode), which is the current recommended choice. The other option is a classic **Mule proxy** app that API Manager generates and deploys to CloudHub/RTF/hybrid. The backend must then be reachable only through the proxy (network rules), otherwise policies can be bypassed.
 
 **Ordering:** policies form a chain in the order configured in API Manager (you can reorder them). Request flows top-down; response flows bottom-up. Recommended:
 1. IP allowlist — cheapest rejection

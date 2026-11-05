@@ -85,7 +85,7 @@ A retailer has a working \`prc-order-api\`. Three consumers now want order data:
 
 **What stays out:** return-eligibility rules, pricing, status derivation, cross-system orchestration — all in \`prc-order-api\`. If the mobile Experience API computes "can return" and the web one computes it differently, customers get different answers. Experience APIs also never call System APIs to "fill gaps" without a deliberate decision.
 
-**GraphQL.** It is a **consumer-facing interface style**, so it fits at the Experience layer: a GraphQL endpoint whose resolvers call Process APIs (MuleSoft offers APIkit for GraphQL to implement a GraphQL API in a Mule app, and Anypoint DataGraph historically offered a unified graph over REST APIs — check current product availability). The System and Process layers stay REST. Mind: query-complexity limits, caching is harder than with GET URLs, and policies apply per endpoint rather than per resource.
+**GraphQL.** It is a **consumer-facing interface style**, so it fits at the Experience layer: a GraphQL endpoint whose resolvers call Process APIs. MuleSoft offers APIkit for GraphQL to implement a GraphQL API in a Mule app, and Anypoint DataGraph historically offered a unified graph over REST APIs. Check current product availability. The System and Process layers stay REST. Mind: query-complexity limits, caching is harder than with GET URLs, and policies apply per endpoint rather than per resource.
 `,
   followUps: [
     { q: 'Doesn\'t a BFF per channel duplicate code?', a: 'Some mapping code is duplicated, but that is cheap and intentional; what must not be duplicated is business logic, which stays in Process APIs. Shared DataWeave modules can remove repetitive mapping.' },

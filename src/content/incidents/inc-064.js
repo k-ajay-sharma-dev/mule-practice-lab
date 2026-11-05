@@ -99,7 +99,7 @@ export default {
     'Fix: always consume/handle cursor outputs, do not open unneeded cursors in PL/SQL, split work into smaller executions, monitor open cursors.',
   ],
   solution: `
-**Diagnosis.** \`PKG_REPLEN.CALC_STORE_NEED\` always opens the \`p_lines\` REF CURSOR. Before v4.2 the flow read every cursor to the end, which let the connector close it. Since the "optimisation", cursors for \`NO_ORDER\` stores are never read, so they stay open. The whole loop runs in **one flow execution** on the same pooled session, and resources held by unread result streams are only released when they are fully read or the execution that opened them ends. At ~300 unread cursors the session exceeds \`OPEN_CURSORS\` and Oracle raises **ORA-01000: maximum open cursors exceeded** (surfaced as **DB:QUERY_EXECUTION**). \`v$open_cursor\` confirms 300 cursors of the same query on the Mule session.
+**Diagnosis.** \`PKG_REPLEN.CALC_STORE_NEED\` always opens the \`p_lines\` REF CURSOR. Before v4.2 the flow read every cursor to the end, which let the connector close it. Since the "optimisation", cursors for \`NO_ORDER\` stores are never read, so they stay open. The whole loop runs in **one flow execution** on the same pooled session. Resources held by unread result streams are only released when they are fully read or the execution that opened them ends. At ~300 unread cursors the session exceeds \`OPEN_CURSORS\` and Oracle raises **ORA-01000: maximum open cursors exceeded** (surfaced as **DB:QUERY_EXECUTION**). \`v$open_cursor\` confirms 300 cursors of the same query on the Mule session.
 
 **Immediate mitigation.** Roll back to v4.1, or hot-fix the flow to always consume \`p_lines\` (for example map it to an array even when it is not used). Rerun the replenishment before the 03:00 DC cut-off and confirm orders arrive in the WMS. If needed, the DBA can raise \`OPEN_CURSORS\` temporarily so tonight's run completes.
 
@@ -108,7 +108,7 @@ export default {
 **Permanent fix.**
 - Treat every REF CURSOR output as a resource: always consume it, or change the contract.
 - Change the procedure to open \`p_lines\` only when \`p_status = 'ORDER'\` (or split into a status call and a lines call).
-- Process stores as separate units of work (publish one message per store to a VM or JMS queue, or a Batch Job), so each store's resources are released and one bad store does not abort all 612.
+- Process stores as separate units of work (publish one message per store to a VM or JMS queue, or a Batch Job). Then each store's resources are released and one bad store does not abort all 612.
 
 **Prevention.** Alert on open cursors per session for integration users; test long loops with production-sized store counts; include the DBA in reviews of stored-procedure contract changes.
 `,

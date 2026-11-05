@@ -92,13 +92,17 @@ export default {
 **Phases**
 1. **Ingest (months 1–2).** Loggers and gateways post batches of readings to \`exp-telemetry-ingest-api\` behind the gateway (client ID per device fleet, mTLS). The API validates and publishes each reading (device ID, timestamp in UTC, temperature, location) to the \`temperature-readings\` stream, keyed by device so order is kept per device.
 2. **Archive (month 2).** A consumer writes every reading to a compliance data lake (write-once storage, retention policy). Out-of-order readings from buffered devices are stored by device timestamp, not arrival time.
-3. **Detect (months 3–4).** \`prc-excursion-detection\` resolves device → shipment → product limits via \`sys-tms-api\` (cached per shipment), evaluates rules (outside 2–8 °C for longer than the allowed duration, missing readings for more than N minutes) and publishes \`ExcursionDetected\` to \`excursion-events\`.
+3. **Detect (months 3–4).** \`prc-excursion-detection\` resolves device → shipment → product limits via \`sys-tms-api\` (cached per shipment). It evaluates rules (outside 2–8 °C for longer than the allowed duration, missing readings for more than N minutes) and publishes \`ExcursionDetected\` to \`excursion-events\`.
 4. **Act (months 4–5).** \`prc-qa-case\` opens a deviation in the QMS through \`sys-qms-api\`, linking the shipment and readings; \`prc-alerting\` notifies QA on-call and the driver. When QA releases or rejects the stock, the decision is recorded against the shipment.
 5. **Carriers (month 6).** Poll or receive carrier logger data and publish it to the same stream with the same model.
 
 **Governance.** Validated system approach for the parts that make GxP decisions (documented requirements, testing, change control). Clocks synchronised; time zones handled as UTC.
 
-**Risks.** Late readings from devices that were out of coverage (event-time processing, allow late arrivals), false alarms during door openings (duration rules), device-to-shipment mapping errors (validated at dispatch scan), and carrier data gaps (contractual requirements and gap alerts).
+**Risks.**
+- Late readings from devices that were out of coverage (event-time processing, allow late arrivals).
+- False alarms during door openings (duration rules).
+- Device-to-shipment mapping errors (validated at dispatch scan).
+- Carrier data gaps (contractual requirements and gap alerts).
 `,
   followUps: [
     { q: 'Why not let the ingest API check thresholds itself?', a: 'It would need shipment context and rule logic, making it slow and hard to change. Keeping it thin means it only accepts and publishes, and the detection logic evolves separately.' },

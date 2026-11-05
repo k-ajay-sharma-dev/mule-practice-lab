@@ -113,7 +113,7 @@ Your Integration CoE is defining standards for **60+ APIs** across business grou
     'Exchange gives mocking, documentation/API console, discoverability, and a contract for API Manager/client applications; governance rulesets can check specs.',
   ],
   solution: `
-**RAML vs OAS:** both are first-class in Anypoint: API Designer, the mocking service, Exchange portals and APIkit scaffolding support RAML 1.0 and OAS 3.0 (and OAS 2.0). RAML's strengths are its reuse constructs (traits, resource types, libraries) and readability; OAS is the industry standard with broad tooling and familiarity outside MuleSoft. A single API spec uses one language; you can mix *across* APIs, but shared fragments written in RAML can't be referenced from an OAS spec and vice versa — so the CoE should pick a primary standard (or maintain shared types as JSON Schema usable from both).
+**RAML vs OAS:** both are first-class in Anypoint: API Designer, the mocking service, Exchange portals and APIkit scaffolding support RAML 1.0 and OAS 3.0 (and OAS 2.0). RAML's strengths are its reuse constructs (traits, resource types, libraries) and readability; OAS is the industry standard with broad tooling and familiarity outside MuleSoft. A single API spec uses one language; you can mix *across* APIs, but shared fragments written in RAML can't be referenced from an OAS spec and vice versa. So the CoE should pick a primary standard (or maintain shared types as JSON Schema usable from both).
 
 **Fragments (RAML)**
 - **Trait** \`pageable\` — standard query params and response headers.
@@ -138,7 +138,13 @@ Applied as \`is: [pageable]\` on a method.
 
 **OAS reuse:** \`components\` (\`schemas\`, \`parameters\`, \`responses\`, \`securitySchemes\`) referenced via \`$ref\` — locally or from external files/Exchange dependencies. There's no direct equivalent of traits/resource types; pagination is a set of reusable \`parameters\` you reference on each operation.
 
-**Benefits of Exchange:** auto-generated documentation and API console, a **mocking service** so consumers can start before implementation, discoverability and ratings, versioned contract for **API Manager** instances and **client application** access requests, and APIkit scaffolding of the implementation from the spec.
+**Benefits of Exchange:**
+
+- auto-generated documentation and API console
+- a **mocking service** so consumers can start before implementation
+- discoverability and ratings
+- versioned contract for **API Manager** instances and **client application** access requests
+- APIkit scaffolding of the implementation from the spec
 `,
   followUps: [
     {

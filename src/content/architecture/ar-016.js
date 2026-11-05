@@ -95,7 +95,7 @@ The key insight: there is rarely *one* owner of "the customer". Defining owners 
 **Governance and MDM.**
 - A **data governance group** (finance, sales ops, e-commerce owners) signs off the ownership table and change process. Architects propose; the business decides.
 - MuleSoft is the **integration layer**: moves, transforms, routes, maintains cross-references for simple cases.
-- When matching rules, survivorship, stewardship UIs and golden-record history become complex (many sources, fuzzy matching), introduce a **dedicated MDM tool** and integrate it with Mule — don't build an MDM inside Mule flows.
+- When matching rules, survivorship, stewardship UIs and golden-record history become complex (many sources, fuzzy matching), introduce a **dedicated MDM tool** and integrate it with Mule. Don't build an MDM inside Mule flows.
 
 **Trade-off:** strict ownership adds process (requests must go to the owner system) and may frustrate users who were used to editing everywhere; in return data conflicts disappear.
 `,

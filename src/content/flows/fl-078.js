@@ -133,12 +133,12 @@ The architects decided on an **Amazon SQS FIFO queue** \`shipment-status.fifo\` 
 
 **Flow 2 — \`shipment-status-to-carrier\`** (SQS Receive Messages)
 1. **Preserve Messages = true** on the source. The default (false) deletes each message as soon as it is read, so a carrier failure would lose the event and the DLQ would never see it.
-2. Keep the receipt handle (the reference does not define the attributes of a received message, so confirm the field name in a test), parse the body, map to the carrier format, **HTTP POST** with a response timeout.
+2. Keep the receipt handle (the reference does not define the attributes of a received message, so confirm the field name in a test). Parse the body, map to the carrier format, and **HTTP POST** with a response timeout.
 3. Success → **SQS Delete Message** with the receipt handle.
 4. **On Error Continue** \`HTTP:BAD_REQUEST\` → insert into \`dbo.CARRIER_REJECTION\` for support, then **Delete Message** so the order's group moves on.
 5. **On Error Propagate** (ANY else: 429, 5xx, timeouts) → the message is not deleted, becomes visible again after the **visibility timeout** (set above the worst-case processing time) and after **maxReceiveCount** (e.g. 5) the redrive policy moves it to \`shipment-status-dlq.fifo\` (a FIFO queue needs a FIFO DLQ). Alert on DLQ depth.
 
-**FIFO behaviour:** while a message of group \`ORDER-123\` is in flight or being retried, later requests do not get more messages of that group; other orders flow normally. One receive call can still return several messages of the same group, so the source reads one message per call (Number Of Messages 1, the default) to keep them from being processed side by side. FIFO queues also have lower throughput limits than standard queues (high-throughput mode raises them).
+**FIFO behaviour:** while a message of group \`ORDER-123\` is in flight or being retried, later requests do not get more messages of that group; other orders flow normally. One receive call can still return several messages of the same group. So the source reads one message per call (Number Of Messages 1, the default) to keep them from being processed side by side. FIFO queues also have lower throughput limits than standard queues (high-throughput mode raises them).
 `,
   followUps: [
     {

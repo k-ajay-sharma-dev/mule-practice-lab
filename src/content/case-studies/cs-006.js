@@ -102,7 +102,11 @@ export default {
 - API Manager policies: OAuth/JWT validation, client ID enforcement, **SLA-tier rate limiting** (regulatory tier vs premium partners), spike control, payload/size limits, IP/threat protection.
 - Protect the mainframe: cache/replicate read-heavy data (balances with short TTL, transaction history from a read store/CDC replica) so AIS polling by TPPs doesn't reach CICS on every call. Timeouts and circuit-breaker behaviour toward the core.
 
-**Developer experience.** Public developer portal (Exchange public portal / API Experience Hub) with specs, guides, a **sandbox** backed by mock data (mocking service or a sandbox implementation), test certificates, and an onboarding flow that checks the TPP's licence before granting production access.
+**Developer experience.** Public developer portal (Exchange public portal / API Experience Hub) with:
+- Specs and guides.
+- A **sandbox** backed by mock data (mocking service or a sandbox implementation).
+- Test certificates.
+- An onboarding flow that checks the TPP's licence before granting production access.
 
 **Operations and reporting.** Anypoint Monitoring dashboards and alerts per endpoint (availability, p95/p99 latency, error rates), split by TPP; data exported for **regulatory KPI reports**. Correlation IDs end to end; audit log of consent and data access; mask account numbers and personal data in logs. Run active/active or multi-AZ for the availability target, with tested failover.
 
@@ -112,6 +116,11 @@ export default {
 3. Months 5–8: PIS with idempotency and fraud checks; performance and penetration testing; conformance testing against the standard.
 4. Month 8–9: go-live, hypercare. Premium product afterwards on the same layers.
 
-**Risks.** Mainframe capacity (mitigate with caching/read store and strict rate limits), IdP/SCA integration delays, getting the consent model wrong (involve compliance early), certificate lifecycle (expiring TPP or bank certs → automate renewal/alerts), and security testing findings late in the plan.
+**Risks.**
+- Mainframe capacity (mitigate with caching/read store and strict rate limits).
+- IdP/SCA integration delays.
+- Getting the consent model wrong (involve compliance early).
+- Certificate lifecycle (expiring TPP or bank certs → automate renewal/alerts).
+- Security testing findings late in the plan.
 `,
 }

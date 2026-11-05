@@ -101,7 +101,7 @@ You must design \`sys-sap-customer-api\` over **SAP ECC** (accessed via BAPIs/RF
 `,
   keyPoints: [
     'The System API exposes clean REST resources with business-friendly names and standard types; SAP field names, padding, flags and codes are mapped in DataWeave inside the System API.',
-    'Pragmatic choice: an "SoR-scoped but cleaned" model (entity boundaries of the system, but normalised types and names) or the enterprise canonical model where one exists — a full enterprise canonical model in every System API is costly.',
+    'Pragmatic choice: an "SoR-scoped but cleaned" model (entity boundaries of the system, but normalised types and names) or the enterprise canonical model where one exists. A full enterprise canonical model in every System API is costly.',
     'SAP RETURN-table errors are inspected and mapped to proper HTTP statuses (404, 400, 409, 502/503) with a standard error body.',
     'Filters are passed through to the BAPI selection where possible; pagination is offered in the contract and implemented as best-effort (max-rows + slicing, or key-based) when the backend cannot page, with a documented maximum.',
     'SAP is protected with a connection pool/concurrency limit matching the RFC allowance, rate limiting/spike control on the API, timeouts, and caching of slow-changing data.',

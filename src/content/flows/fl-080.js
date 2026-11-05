@@ -154,7 +154,7 @@ The mailbox has a small quota and must not fill up. A previous developer copied 
 3. **Insert** into \`mail_landing\` with \`ON CONFLICT (message_id) DO NOTHING\`. No HTTP call happens here, so a tracking outage cannot touch this flow.
 4. **On Error Continue** writes the JSON to \`/data/mail-spool\`. The spool sits on a disk that survives a worker restart.
 
-**Flow 2, \`mail-spool-reload\`:** **File Listener** on the spool, **Insert**, then **File Delete** with the path saved in a variable. If the insert fails the file stays on disk, so the content is safe. Auto Delete on the listener would be wrong here because Apply Post Action When Failed defaults to true. The listener documentation does not spell out when a file left in place is picked up again, so test that before relying on it, and alert on the age of the oldest spool file.
+**Flow 2, \`mail-spool-reload\`:** **File Listener** on the spool, **Insert**, then **File Delete** with the path saved in a variable. If the insert fails the file stays on disk, so the content is safe. Auto Delete on the listener would be wrong here because Apply Post Action When Failed defaults to true. The listener documentation does not spell out when a file left in place is picked up again, so test that before relying on it. Also alert on the age of the oldest spool file.
 
 **Flow 3, \`courier-status-processor\`:** **Scheduler** every minute, **Select** PENDING rows, **For Each** with a **Try**: parse the lines, **POST** to tracking, **Update** to DONE. On failure the attempt counter goes up and the row stays PENDING, so a one-hour maintenance window only delays events. Rows that reach five attempts stop being selected and show up on the support dashboard.
 

@@ -141,6 +141,6 @@ Mule 4 implementation:
 `,
   followUps: [
     { q: 'Why not just run the full sync more often?', a: 'It loads 400k rows to change 3k, stresses both systems and the SaaS API limits, and still cannot meet a 15-minute target if one run takes hours.' },
-    { q: 'What does CDC require that delta does not?', a: 'Access to the database transaction log (or a vendor CDC feature), DBA approval, a CDC tool and usually a broker to carry change events, plus handling of schema changes in the event stream.' },
+    { q: 'What does CDC require that delta does not?', a: 'Access to the database transaction log (or a vendor CDC feature), DBA approval, a CDC tool and usually a broker to carry change events. It also requires handling of schema changes in the event stream.' },
   ],
 }

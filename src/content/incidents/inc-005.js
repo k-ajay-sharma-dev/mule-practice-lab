@@ -148,6 +148,6 @@ The heap fills, GC runs back-to-back (\`Pause Full ... 3742M->3739M\` — almost
 - **File handling**: move the file to a \`/processing\` folder at the start; on completion move it to \`/archive\`, on failure to \`/error\` — never retry the same file automatically forever.
 - Log a row count **at the end** from the batch job result, not \`sizeOf(payload)\`.
 
-**Prevention.** A size check before processing (alert and route files above a threshold), memory and restart alerts in Anypoint Monitoring, performance tests with a worst-case file, and an agreement with the supplier about file size/format changes.
+**Prevention.** Add a size check before processing (alert and route files above a threshold). Set memory and restart alerts in Anypoint Monitoring. Run performance tests with a worst-case file. Make an agreement with the supplier about file size/format changes.
 `,
 }

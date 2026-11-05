@@ -94,7 +94,7 @@ Facts:
 
 **Buffer and drain.** \`prc-checkout\` publishes the accepted order as a persistent message and returns. \`prc-order-ingest\` consumes with a fixed concurrency (e.g. \`jms:listener\` numberOfConsumers or Anypoint MQ subscriber settings plus flow \`maxConcurrency\`) and a DB pool sized to match, so Oracle sees a steady rate instead of 1,200/s.
 
-Do the arithmetic in the interview: at 150/s, the 15-minute burst alone leaves roughly 1,050 × 900 ≈ 950k orders queued, and the sustained 300/s afterwards would keep the backlog **growing**. A queue levels **peaks**; it does not fix **sustained** under-capacity. So the design also raises Oracle write throughput to comfortably above 300/s (batched inserts with \`db:bulk-insert\`, slimmer triggers, a dedicated order-ingest schema) — then the burst backlog drains within an hour or two, which the business must accept explicitly.
+Do the arithmetic in the interview: at 150/s, the 15-minute burst alone leaves roughly 1,050 × 900 ≈ 950k orders queued, and the sustained 300/s afterwards would keep the backlog **growing**. A queue levels **peaks**; it does not fix **sustained** under-capacity. So the design also raises Oracle write throughput to comfortably above 300/s (batched inserts with \`db:bulk-insert\`, slimmer triggers, a dedicated order-ingest schema). Then the burst backlog drains within an hour or two, which the business must accept explicitly.
 
 **Backpressure.**
 - Gateway spike control / rate limiting returns **429** when beyond tested capacity — controlled degradation instead of collapse.

@@ -146,7 +146,7 @@ Connections are opened once and lent to requests; \`maxWait\` makes requests fai
     },
     {
       q: 'How do you query many SKUs at once without concatenation?',
-      a: 'Common options are a fixed number of placeholders built from an allow-listed count, a join to a global temporary table filled with a bulk insert, or splitting the work into batches of single-SKU parameterised queries.',
+      a: 'Common options are a fixed number of placeholders built from an allow-listed count, or a join to a global temporary table filled with a bulk insert. You can also split the work into batches of single-SKU parameterised queries.',
     },
     {
       q: 'Why might the pool need fewer connections than the number of concurrent HTTP requests?',

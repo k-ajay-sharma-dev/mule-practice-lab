@@ -125,7 +125,7 @@ Your **Order Process API** calls a partner **Inventory API** to reserve stock. T
 5. **Idempotency:** send \`orderId\` as an idempotency key header / reservation reference so if a timed-out call actually succeeded, the retry is recognised by the partner instead of reserving twice.
 `,
   followUps: [
-    { q: 'How would you implement exponential backoff?', a: 'Until Successful uses a fixed delay. For backoff, use a custom loop that tracks an attempt counter and waits an increasing delay, or move retries off the request path by re-queuing the message with a growing delivery delay on a broker.' },
+    { q: 'How would you implement exponential backoff?', a: 'Until Successful uses a fixed delay. For backoff, use a custom loop that tracks an attempt counter and waits an increasing delay. Or move retries off the request path by re-queuing the message with a growing delivery delay on a broker.' },
     { q: 'Why not retry 10 times?', a: 'Retries in the request path add latency, hold threads and can amplify load on an already struggling partner. Keep in-line retries small and push longer retry windows to asynchronous processing.' },
     { q: 'Is retrying a POST always safe?', a: 'Only if the operation is idempotent or carries an idempotency key; otherwise a timeout after a successful call leads to duplicates.' },
   ],

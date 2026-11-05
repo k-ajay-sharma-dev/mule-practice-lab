@@ -141,7 +141,7 @@ Common traps:
     },
     {
       q: 'How would you notify the affected customers reliably?',
-      a: 'Publish one message per customer to a queue (for example an ActiveMQ queue consumed by a notification flow) with the recall id and customer id as a correlation/idempotency key, so retries do not send duplicate notices and failures land on a DLQ for follow-up.',
+      a: 'Publish one message per customer to a queue (for example an ActiveMQ queue consumed by a notification flow). Use the recall id and customer id as a correlation/idempotency key, so retries do not send duplicate notices and failures land on a DLQ for follow-up.',
     },
   ],
 }

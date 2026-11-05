@@ -100,7 +100,7 @@ A developer used a single \`<os:object-store>\` with \`persistent="false"\` for 
     'OSv2 has limits (per-key value size, a maximum retention/TTL, API rate limits) and is not a database — no queries across keys.',
   ],
   solution: `
-**In-memory store problems:** \`persistent="false"\` keeps entries in the replica's heap. A redeploy/restart wipes them (the watermark was lost → full re-send), and each of the 2 replicas has its own copy (an ID stored on replica A is unknown to replica B → duplicates slip through).
+**In-memory store problems:** \`persistent="false"\` keeps entries in the replica's heap. A redeploy/restart wipes them (the watermark was lost → full re-send). Each of the 2 replicas also has its own copy (an ID stored on replica A is unknown to replica B → duplicates slip through).
 
 **Token cache:** a small store with \`entryTtl\` ≈ 55 minutes (below the 60-minute token lifetime). In-memory is acceptable — the worst case is one extra token request per replica after a restart. Persistent works too and shares the token across replicas, at the cost of a network call to OSv2 per read.
 

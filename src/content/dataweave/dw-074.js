@@ -126,7 +126,7 @@ output application/csv quoteValues=true, escape='"'
   followUps: [
     {
       q: 'The export is 300 MB of XML. What do you change?',
-      a: 'Enable the XML reader\'s streaming mode and avoid operations that need the whole document — `orderBy` does, so either sort in the source export or drop the sort requirement and let the consumer order the data. Write the CSV as a stream into the upload.',
+      a: 'Enable the XML reader\'s streaming mode and avoid operations that need the whole document. `orderBy` needs it, so either sort in the source export or drop the sort requirement and let the consumer order the data. Write the CSV as a stream into the upload.',
     },
     {
       q: 'The upload fails with HTTP 403 AuthenticationFailed after months of working. Likely cause?',

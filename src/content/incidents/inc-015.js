@@ -105,7 +105,7 @@ export default {
     'Identifies that the policy evaluates remoteAddress, which behind the DLB is the load balancer\'s internal 10.x address, not the partner\'s IP — so nobody matches the allowlist.',
     'Explains why sandbox works (no DLB in the path) and why the app logs show nothing (policies reject the request before the flow runs).',
     'Immediate: remove or disable the policy in API Manager (takes effect without redeploying), confirm traffic resumes.',
-    'Permanent fix: configure the IP expression to read the client IP from X-Forwarded-For as set by the trusted DLB, being careful to use the address added by the load balancer rather than a client-supplied value.',
+    'Permanent fix: configure the IP expression to read the client IP from X-Forwarded-For as set by the trusted DLB. Be careful to use the address added by the load balancer rather than a client-supplied value.',
     'Prevention: apply and test policy changes in a non-prod environment with the same network path as prod, and use change control for policy changes on prod.',
   ],
   solution: `
@@ -117,7 +117,7 @@ export default {
 
 **Permanent fix.**
 - Set the policy's IP expression to read the client address from \`X-Forwarded-For\` (e.g. \`#[attributes.headers['x-forwarded-for']]\`).
-- Be careful: \`X-Forwarded-For\` can contain a **list**, and a client can send its own fake value. Use the entry added by your trusted load balancer (normally the last one appended), not blindly the first. The policy docs say it looks for the starting address in the concatenated header values, so write the expression to return only the entry you trust, and test it with a spoofed header.
+- Be careful: \`X-Forwarded-For\` can contain a **list**, and a client can send its own fake value. Use the entry added by your trusted load balancer (normally the last one appended), not blindly the first. The policy docs say it looks for the starting address in the concatenated header values. So write the expression to return only the entry you trust, and test it with a spoofed header.
 - Alternatively, enforce the allowlist **at the DLB** (it supports client IP allowlisting) and keep API Manager for identity-based policies (client ID, OAuth).
 
 **Prevention.** A non-prod environment with the same network path (DLB in front) for testing policies; change control and a peer review for prod policy changes; a smoke test right after applying a policy; alert on a sudden drop in successful requests or spike in 403s.

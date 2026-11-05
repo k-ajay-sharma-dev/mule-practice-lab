@@ -135,7 +135,7 @@ export default {
 - Prefer a narrower CA where you can: if you run a private issuing CA for brokers, only your own certificates pass the chain check.
 - Add a CRL. All CRL files go in one unencrypted, PEM-encoded file, supplied with \`--crl\` when the load balancer is created or through the CloudHub API for an existing one.
 
-**Things to verify.** The Reserved Headers page says some headers cannot be overwritten, but the \`X-SSL-*\` headers are not in that list. It only says the DLB forwards them, so the docs do not state how a client-sent \`X-SSL-*\` header is treated. Test it. Also close the direct paths: the Architecture page says each app must listen on port 8091 or 8092 if its default domain must not be publicly exposed, and it describes reaching a worker directly through the \`mule-worker-<app>\` hostname. A request that reaches the worker directly, or that forges these headers, would defeat the check.
+**Things to verify.** The Reserved Headers page says some headers cannot be overwritten, but the \`X-SSL-*\` headers are not in that list. It only says the DLB forwards them, so the docs do not state how a client-sent \`X-SSL-*\` header is treated. Test it. Also close the direct paths: the Architecture page says each app must listen on port 8091 or 8092 if its default domain must not be publicly exposed. It also describes reaching a worker directly through the \`mule-worker-<app>\` hostname. A request that reaches the worker directly, or that forges these headers, would defeat the check.
 
 **Prevention.** Add a negative test for each mutual TLS API: a valid certificate from a subject that is not authorised must be refused. Write down in the design where authentication ends and authorisation begins.
 `,

@@ -126,7 +126,7 @@ The company uses **GitHub** and **Jenkins** (or GitHub Actions — your choice),
 
 **Rollback.** Keep a deployment record (app → version → time → commit). Rollback is "run the deploy job with the previous version" — minutes, not hours. CloudHub 2.0 rolling updates keep the old replicas serving until new ones are healthy, so a failed start does not take the API down. Database or contract changes must be backward compatible (expand/contract) so rolling back the app is safe.
 
-**API Manager as code.** Script the API instance creation, Autodiscovery ID and policies per environment (API Manager REST APIs, Anypoint CLI, or an infrastructure-as-code tool), stored in Git and run by the pipeline. Then Test and Prod policies only differ in values (rate limits), not in which policies exist.
+**API Manager as code.** Script the API instance creation, Autodiscovery ID and policies per environment (API Manager REST APIs, Anypoint CLI, or an infrastructure-as-code tool). The scripts are stored in Git and run by the pipeline. Then Test and Prod policies only differ in values (rate limits), not in which policies exist.
 
 **Approvals.** Small team → lightweight: a reviewer approves the prod stage in Jenkins/GitHub Environments, linked to a change ticket. Remove Friday-evening deployments as a rule unless it is an emergency; deploy in working hours when people can react.
 

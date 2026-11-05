@@ -119,7 +119,7 @@ Large uploads crash the worker.
 
 **2. Credentials.** The account key gives full control over every container in the account, so a leaked properties file is a full breach. Use a **SAS Token** connection scoped to the container with only the required permissions (create/write for archiving, read/list for retrieval) and an expiry; store it as a secure property; rotate it before expiry with a calendar/alert. Where your platform supports managed identities or Azure AD-based access, they avoid long-lived secrets altogether.
 
-**3. Large files.** Base64 inflates the content by about a third and, like logging the payload or converting to a String, forces the whole file into memory. Keep the payload as a stream from \`sftp:read\` straight to **Upload Blob**, log only metadata (name, size, hash, claim id), and keep concurrency low for the video job so several 2 GB transfers do not compete for the worker's resources.
+**3. Large files.** Base64 inflates the content by about a third and, like logging the payload or converting to a String, forces the whole file into memory. Keep the payload as a stream from \`sftp:read\` straight to **Upload Blob**, and log only metadata (name, size, hash, claim id). Keep concurrency low for the video job so several 2 GB transfers do not compete for the worker's resources.
 
 **4. Errors.**
 - \`AZURE-STORAGE:CONNECTIVITY\`: retry 3 times with backoff.

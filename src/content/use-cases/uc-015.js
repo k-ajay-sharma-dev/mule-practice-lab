@@ -93,7 +93,7 @@ All return a **canonical slot**: clinicId, therapistId, start, end, treatment ty
 **Performance.** Cache computed availability per clinic+date in an **Object Store with a short TTL** (1–2 minutes) and invalidate it on any booking/cancellation through our API. Most searches then hit the cache; the risk of a stale slot is covered by the re-check at booking time. Graph has throttling limits, so caching also keeps you under them.
 
 **Booking and double-booking prevention.** On \`POST /bookings\`:
-1. Acquire a short **lock** for therapist+slot (e.g. Object Store \`store\` with fail-if-present semantics, or a unique constraint in a bookings table) — the second request for the same slot fails immediately with **409 Conflict** and the app shows the next free slots.
+1. Acquire a short **lock** for therapist+slot (e.g. Object Store \`store\` with fail-if-present semantics, or a unique constraint in a bookings table). The second request for the same slot fails immediately with **409 Conflict** and the app shows the next free slots.
 2. **Re-check** availability live against the system of record (not the cache).
 3. Create the booking in the PMS (which itself rejects conflicts) or create the Outlook event on the therapist's calendar (Graph) and record it in our bookings table.
 4. Release the lock, invalidate the cache, publish \`BookingCreated\`.

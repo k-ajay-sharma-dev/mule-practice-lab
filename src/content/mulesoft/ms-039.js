@@ -50,7 +50,7 @@ export default {
         'Exactly-once, as long as the subscriber uses AUTO acknowledgement',
       ],
       answer: 1,
-      explain: 'Standard queues are documented as at-least-once, and duplicates can occasionally occur. FIFO queues are documented as exactly-once, but a consumer that crashes after the side effect and before the ack still sees the message again once the acknowledgement timeout passes, so keep consumers idempotent there too.',
+      explain: 'Standard queues are documented as at-least-once, and duplicates can occasionally occur. FIFO queues are documented as exactly-once, but a consumer that crashes after the side effect and before the ack still sees the message again once the acknowledgement timeout passes. So keep consumers idempotent there too.',
     },
     {
       type: 'single',
@@ -126,7 +126,7 @@ An architect proposes "Object Store as a queue for everything — it's already i
 | R5 | **Object Store v2** with TTL 7 days (or Idempotent Message Validator using it) | key-value lookup with expiry |
 | R6 | **JMS connector** to IBM MQ (possibly via a bridge app that republishes to Anypoint MQ) | protocol requirement |
 
-**Why not Object Store as a queue:** it has no consumer/listener model, no ordering, no acknowledgement or redelivery, no DLQ, and polling it with a Scheduler creates race conditions between replicas and extra API calls. It is a store, not a messaging system.
+**Why not Object Store as a queue:** it has no consumer/listener model, no ordering, no acknowledgement or redelivery, and no DLQ. Polling it with a Scheduler creates race conditions between replicas and extra API calls. It is a store, not a messaging system.
 
 **Anypoint MQ concepts**
 - **Queue**: point-to-point; each message is processed by one consumer.

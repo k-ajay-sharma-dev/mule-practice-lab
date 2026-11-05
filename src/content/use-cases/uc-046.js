@@ -85,13 +85,13 @@ Facts:
   ],
   solution: `
 **Target integration architecture (strangler fig).**
-1. **Phase 0 — façade first:** build core-agnostic **Experience APIs** (mobile, branch, partners) and **Process APIs** (Accounts, Customers, Payments, Cards) and move channels to them while they still only call the **Mainframe System API** (MQ/CICS via the IBM MQ connector or JMS; batch files via SFTP). Channels are now decoupled from the core.
+1. **Phase 0 — façade first:** build core-agnostic **Experience APIs** (mobile, branch, partners) and **Process APIs** (Accounts, Customers, Payments, Cards). Move channels to them while they still only call the **Mainframe System API** (MQ/CICS via the IBM MQ connector or JMS; batch files via SFTP). Channels are now decoupled from the core.
 2. Add the **New Core System API** (REST/events of the SaaS core).
 3. Process APIs call a **Routing service** to pick the right core per customer/account.
 
 Downstream feeds (data warehouse, AML, regulatory) consume **canonical events** from both cores via an event backbone so they also become core-agnostic.
 
-**Routing by migration wave.** A routing table: customer ID / account number → core (+ wave, effective time). Held in a highly available store, cached in the Process APIs with short TTL and invalidation on wave cut-over. For operations involving two customers (internal transfer between a migrated and non-migrated customer), the Payments Process API orchestrates debit on one core and credit on the other as a saga with compensation, or routes through the payments hub with a clearing/suspense account.
+**Routing by migration wave.** A routing table: customer ID / account number → core (+ wave, effective time). Held in a highly available store, cached in the Process APIs with short TTL and invalidation on wave cut-over. For operations involving two customers (internal transfer between a migrated and non-migrated customer), the Payments Process API orchestrates debit on one core and credit on the other as a saga with compensation. Alternatively, it routes through the payments hub with a clearing/suspense account.
 
 **API contracts and canonical model.** Canonical resources (Customer, Account, Balance, Transaction, Payment) versioned in Exchange. Both System APIs map to them (DataWeave: COBOL copybook / fixed-width → canonical; new core JSON → canonical). Differences (e.g. product codes, transaction type codes) handled by mapping tables owned by the business, not hard-coded.
 

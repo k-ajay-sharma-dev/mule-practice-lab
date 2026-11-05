@@ -90,7 +90,7 @@ Facts:
 
 Rules may send one mention to several routes, so routing publishes to separate queues per destination.
 
-**Case creation and dedupe.** Support route: build a key of **author + network + product** and look for an open case created in the last 72 hours (store case ID by key in Object Store, or search Zendesk by an external ID/tag). Found → add a comment with the new mention; not found → create a ticket with the text, link, sentiment, product tag and a "social" channel tag. 15-minute target: polling every 2 minutes plus queue processing takes well under that.
+**Case creation and dedupe.** Support route: build a key of **author + network + product** and look for an open case created in the last 72 hours. Store case ID by key in Object Store, or search Zendesk by an external ID/tag. Found → add a comment with the new mention; not found → create a ticket with the text, link, sentiment, product tag and a "social" channel tag. 15-minute target: polling every 2 minutes plus queue processing takes well under that.
 
 **Influencer alerts.** Post to Slack via the Slack connector or an incoming webhook, with author, followers, text and link; throttle to avoid flooding the channel during launches (group into a digest if more than N per 10 minutes).
 

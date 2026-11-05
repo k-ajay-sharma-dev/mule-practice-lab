@@ -131,7 +131,7 @@ Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS
 - **Anypoint MQ** is a good fit for decoupling CloudHub apps from each other (no broker to patch), but stores should not depend on it directly: it needs internet at the moment of publishing, and 400 sets of credentials.
 - **Kafka** is justified if analytics need high-volume fan-out and **replay**; a Mule app (or a broker bridge) can publish canonical sales events from the hub into Kafka. Running Kafka in every store would be heavy to operate.
 
-**HQ → stores.** Price changes go to a **durable per-store destination** — a queue per store, or a virtual topic where each store has its own consumer queue — forwarded when the store reconnects. A non-durable topic loses messages for offline stores; one shared queue gives each message to only one store.
+**HQ → stores.** Price changes go to a **durable per-store destination**: a queue per store, or a virtual topic where each store has its own consumer queue. Changes are forwarded when the store reconnects. A non-durable topic loses messages for offline stores; one shared queue gives each message to only one store.
 
 **Trade-offs to state:** two broker technologies to run instead of one; network-of-brokers configuration needs care (duplex connectors, TTLs on price messages so stale prices are not applied, monitoring of forward backlogs per store).
 `,

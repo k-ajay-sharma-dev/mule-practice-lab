@@ -145,9 +145,9 @@ SLA: the Process API must answer within **5 s**; ~30 req/s. Callers must be able
   keyPoints: [
     'Retry where the failure is understood: the System API knows its vendor has short blips, so it retries a few times quickly (Until Successful + reconnection strategy on the connector config).',
     'Fallback is a business decision ("secondary or stale is acceptable"), so it belongs in the Process API — First Successful tries primary, then secondary, then last-known-good.',
-    'Timeout budget must add up: primary (first call + 2 retries = 3 × 600 ms, plus 2 × 300 ms waits ≈ 2.4 s) + secondary 2 s + cache lookup stays under the 5 s SLA. Default retry settings (5 × 60 s) would blow it.',
+    'Timeout budget must add up. Primary is first call + 2 retries = 3 × 600 ms, plus 2 × 300 ms waits ≈ 2.4 s. Primary + secondary 2 s + cache lookup stays under the 5 s SLA. Default retry settings (5 × 60 s) would blow it.',
     'Every fresh answer refreshes a last-known-good copy in Object Store; the response says source and stale so callers can decide.',
-    'When all routes fail, First Successful throws an error, which is mapped to 503. The docs do not name its type (MULE:ROUTING is the generic routing error), so catch ANY or confirm the type in a test — and never retry at every layer, or retries multiply.',
+    'When all routes fail, First Successful throws an error, which is mapped to 503. The docs do not name its type (MULE:ROUTING is the generic routing error), so catch ANY or confirm the type in a test. Never retry at every layer, or retries multiply.',
   ],
   solution: `
 \`\`\`

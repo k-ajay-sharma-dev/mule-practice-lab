@@ -143,7 +143,7 @@ The team is split: one developer wants to rewrite everything in DataWeave, anoth
     },
     {
       q: 'How would you return all validation problems to the partner at once?',
-      a: 'Catch the SCHEMA_NOT_HONOURED error and map the validation details it carries into a structured 400 response body (field paths and messages), and test with documents containing several errors to confirm what the error reports.',
+      a: 'Catch the SCHEMA_NOT_HONOURED error and map the validation details it carries into a structured 400 response body (field paths and messages). Test with documents containing several errors to confirm what the error reports.',
     },
   ],
 }

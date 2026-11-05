@@ -81,7 +81,7 @@ A retailer's **order management system** runs on **Oracle**. Store associates an
     'DataWeave maps OMS status codes to Salesforce picklist values and converts the Oracle TIMESTAMP.',
     'Salesforce Upsert on OMS_Order_Id__c is idempotent, so re-processing a row is harmless.',
     'Until Successful covers short Salesforce blips; anything still failing is written to an error table, because the next poll only picks up rows with a higher watermark, so a failed row may never come back.',
-    'Oracle watermark caveat: a trigger timestamp is set at update time, not commit time, so a long transaction can commit a row with an older timestamp than the watermark — keep an overlap window or use an ORA_ROWSCN/sequence-based column.',
+    'Oracle watermark caveat: a trigger timestamp is set at update time, not commit time, so a long transaction can commit a row with an older timestamp than the watermark. Keep an overlap window or use an ORA_ROWSCN/sequence-based column.',
   ],
   solution: `
 1. **Database On Table Row** — table/view \`ORDER_STATUS_V\`, **watermarkColumn** \`LAST_UPDATED_TS\`, **idColumn** \`ORDER_ID\`, frequency 15 s. The listener selects only rows with a higher watermark than the last poll; each row triggers one flow execution.

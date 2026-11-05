@@ -195,7 +195,7 @@ There is no circuit-breaker policy available on this deployment. Mule runs on **
     },
     {
       q: 'How do you test the breaker?',
-      a: 'MUnit with the HTTP Request mocked to throw HTTP:TIMEOUT N times, asserting the Object Store state goes OPEN, the bureau mock is not called while open, and a success after the cool-down closes it.',
+      a: 'Use MUnit with the HTTP Request mocked to throw HTTP:TIMEOUT N times. Assert that the Object Store state goes OPEN, the bureau mock is not called while open, and a success after the cool-down closes it.',
     },
   ],
 }

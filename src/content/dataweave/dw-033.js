@@ -116,7 +116,7 @@ Order matters: test \`null\` first, otherwise \`isEmpty(null)\` would report a m
     },
     {
       q: 'How would you return HTTP 400 with these issues from a Mule flow?',
-      a: 'Run this transform in a Validation step (or a Choice on `ready`), and when it is false raise an error with `raise error` or `fail` and map the issues into the APIkit 400 error response.',
+      a: 'Run this transform in a Validation step (or a Choice on `ready`). When it is false, raise an error with `raise error` or `fail` and map the issues into the APIkit 400 error response.',
     },
     {
       q: 'How would you make the required-field list configurable?',

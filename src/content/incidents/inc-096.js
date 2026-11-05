@@ -155,7 +155,7 @@ Mon 08:31:12 audit type=User action=Create object=j.lindqvist user=sso
     },
     {
       q: 'How do you rotate a SAML signing certificate without this risk?',
-      a: 'Edit the existing SAML provider instead of deleting it. For the keys Anypoint Platform uses to sign its requests, you can store up to three and designate a primary, so add the new key and reassign the primary only after the IdP can use it.',
+      a: 'Edit the existing SAML provider instead of deleting it. For the keys Anypoint Platform uses to sign its requests, you can store up to three and designate a primary. So add the new key and reassign the primary only after the IdP can use it.',
     },
   ],
 }

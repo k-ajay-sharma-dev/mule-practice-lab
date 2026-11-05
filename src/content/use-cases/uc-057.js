@@ -101,7 +101,7 @@ Facts:
     'Process APIs are the stable seam: during transition they route to either back end (Salesforce or Dynamics, loyalty SaaS or rewards DB) behind one canonical customer model — channels don\'t care which system answers.',
     'Duplicates are resolved with an identity/MDM step (match/merge, golden record in Salesforce) and a cross-reference service (sys-customer-xref) mapping legacy BuildIt IDs to the golden ID.',
     'BuildIt\'s customer-api mixes layers: wrap and replace it rather than reuse it; trade accounts (B2B) become a distinct capability (prc-trade-accounts) modelled as Salesforce business accounts.',
-    'Versioning: keep existing Experience contracts stable (brand apps unaffected), introduce new majors only where the canonical model changes (prc-customer-profile v3 with golden ID and brand memberships), and run old/new in parallel with deprecation dates.',
+    'Versioning: keep existing Experience contracts stable (brand apps unaffected). Introduce new majors only where the canonical model changes (prc-customer-profile v3 with golden ID and brand memberships), and run old/new in parallel with deprecation dates.',
     'Governance: one Anypoint org with business groups per brand during transition, a single Exchange catalogue with naming/API standards, Okta as one IdP, shared error model and policy templates (automated policies).',
   ],
   solution: `

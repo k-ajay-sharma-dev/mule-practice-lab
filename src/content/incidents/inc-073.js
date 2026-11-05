@@ -112,7 +112,7 @@ export default {
     'Fix: partition chunks by key, sort rows by the clustered key, index the WHERE columns, short transaction per chunk, retry only 1205, tune concurrency by load test.',
   ],
   solution: `
-**Diagnosis.** With 8 chunks updating \`item_price\` at once, each in delivery order and each UPDATE scanning the clustered index (no index on \`sku, store_id\`), parallel chunks lock overlapping rows and pages in different orders. When two transactions each wait for a lock the other holds, SQL Server picks a **deadlock victim**, rolls it back and raises **1205**. Mule reports it as \`DB:QUERY_EXECUTION\`; the job did not retry, so 17 chunks were lost.
+**Diagnosis.** 8 chunks update \`item_price\` at once, each in delivery order. Each UPDATE scans the clustered index (no index on \`sku, store_id\`). So parallel chunks lock overlapping rows and pages in different orders. When two transactions each wait for a lock the other holds, SQL Server picks a **deadlock victim**, rolls it back and raises **1205**. Mule reports it as \`DB:QUERY_EXECUTION\`; the job did not retry, so 17 chunks were lost.
 
 **Immediate mitigation.** Identify the 17 failed chunks from the job log, re-run them **sequentially** (concurrency 1), verify the updated row count against the PIM export, then let the 06:00 label run proceed. If it cannot finish in time, delay labels for affected stores only.
 

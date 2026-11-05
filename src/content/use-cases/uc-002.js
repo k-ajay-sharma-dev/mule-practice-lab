@@ -69,7 +69,7 @@ Your job: update the order in the **order DB** and trigger the ticket email. The
 
 **Acknowledge fast.** After verification, publish the event to an **Anypoint MQ** queue and immediately return **200**. The webhook endpoint does no DB work, so the 10-second limit is never at risk even when the order DB is slow.
 
-**Duplicates.** A consumer flow reads the queue and uses an **Idempotent Message Validator** on \`event.id\` with a **persistent Object Store** (TTL ≥ the gateway's 3-day retry window), or stores processed event IDs in a DB column with a unique constraint. Duplicates are acked and dropped. Updates are written so repeating them is harmless (e.g. set status = PAID).
+**Duplicates.** A consumer flow reads the queue and uses an **Idempotent Message Validator** on \`event.id\` with a **persistent Object Store** (TTL ≥ the gateway's 3-day retry window). Alternatively, it stores processed event IDs in a DB column with a unique constraint. Duplicates are acked and dropped. Updates are written so repeating them is harmless (e.g. set status = PAID).
 
 **Failure handling.** The consumer acks only after the DB update and email trigger succeed. Transient errors → message redelivered (with backoff); after N attempts it moves to a **dead letter queue** and an alert is raised. If publishing to MQ itself fails, return 5xx so the gateway retries later.
 `,

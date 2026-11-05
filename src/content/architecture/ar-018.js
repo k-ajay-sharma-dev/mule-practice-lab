@@ -134,6 +134,6 @@ The numbers are illustrative; the *method* (measure per-replica capacity, divide
   followUps: [
     { q: 'Why several smaller replicas rather than one big one?', a: 'Several replicas give high availability across zones and allow rolling updates; a single large replica is a single point of failure. Very small replicas, however, have less CPU per request and can show poor performance under DataWeave-heavy load, so measure.' },
     { q: 'Finance says vCores are expensive — can you scale down after the on-sale?', a: 'Yes: pre-scale before the event and scale back to the normal baseline afterwards through the pipeline or Runtime Manager. You pay for peak capacity only during the peak window, within the licence model\'s rules.' },
-    { q: 'What if the payment hold API slows from 0.9 s to 5 s?', a: 'Concurrency rises roughly fivefold for that share of traffic (Little\'s law), so set tight timeouts, a circuit breaker and a max-concurrency limit on that call so a slow dependency cannot exhaust the app.' },
+    { q: 'What if the payment hold API slows from 0.9 s to 5 s?', a: 'Concurrency rises roughly fivefold for that share of traffic (Little\'s law). Set tight timeouts, a circuit breaker and a max-concurrency limit on that call so a slow dependency cannot exhaust the app.' },
   ],
 }

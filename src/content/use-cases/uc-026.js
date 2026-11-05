@@ -90,7 +90,7 @@ Facts and constraints:
   solution: `
 **Architecture and source of truth.**
 - **PMS** = system of record for physical room inventory and reservations; **RMS** = system of record for prices/restrictions (min stay, closed-to-arrival).
-- The **hub** keeps a **central ARI store** (fast database keyed by hotel/room type/rate plan/date) with the last value sent to each channel — that is how deltas are computed and how you answer "what does Booking.com currently think?"
+- The **hub** keeps a **central ARI store** (fast database keyed by hotel/room type/rate plan/date) with the last value sent to each channel. That is how deltas are computed and how you answer "what does Booking.com currently think?"
 - Layers: **PMS System APIs** (OPERA Cloud APIs/OXI-style interfaces and the other PMS's API), **channel adapters** (Booking.com, Expedia, GDS; OTA XML like \`OTA_HotelAvailNotifRQ\`, \`OTA_HotelRateAmountNotifRQ\`, \`OTA_HotelResNotifRQ\` or channel-specific JSON), **ARI Process** and **Reservation Process** services. Events flow through a durable broker (Kafka or Anypoint MQ with FIFO/message groups where ordering matters).
 
 **ARI distribution.**
@@ -122,7 +122,7 @@ Facts and constraints:
 **Onboarding hotels and channels.** Hotel onboarding is **configuration**: room type and rate plan **mapping tables** per channel (hotel's codes ↔ channel's codes), PMS connection details, buffers. A new channel means a new adapter implementing the canonical ARI and reservation contracts plus a certification process with the channel. A new PMS type means a new PMS System API — the core processes stay untouched.
 `,
   followUps: [
-    { q: 'The RMS sends a full re-price for all 120 hotels at 06:00. How long until channels are updated, and how do you avoid starving availability updates?', a: 'Coalesced deltas shrink the volume, rate updates go to a bulk lane with its own consumers and rate-limit budget, and availability keeps a reserved fast lane, so a re-price may take tens of minutes without delaying availability.' },
+    { q: 'The RMS sends a full re-price for all 120 hotels at 06:00. How long until channels are updated, and how do you avoid starving availability updates?', a: 'Coalesced deltas shrink the volume. Rate updates go to a bulk lane with its own consumers and rate-limit budget, and availability keeps a reserved fast lane. So a re-price may take tens of minutes without delaying availability.' },
     { q: 'An OTA sends a modification before the original reservation was processed. What happens?', a: 'Per-reservation ordering by version: the modification waits (or is parked and retried) until the original is applied; if the original never arrives, fetch it from the channel or alert.' },
     { q: 'How do you test this before go-live?', a: 'Channel certification/test environments, a PMS test property, replay of recorded production-like traffic at peak volume, and race-condition tests where the last room is booked on two channels simultaneously.' },
   ],

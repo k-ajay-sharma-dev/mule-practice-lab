@@ -152,7 +152,7 @@ A manufacturer has one production **CloudHub 2.0** private space with a VPN to i
 
 **2. VPN that survives maintenance.** Configure both tunnels on your endpoint, use BGP with DPD, and add a redundant VPN on a second gateway device with a different public IP. Redundant VPNs fail over automatically with BGP. VPN updates are continuous and on demand, so there is no window to plan around.
 
-**3. Attaching a transit gateway.** Create the private network, make any firewall and route changes, enter static routes that match the external networks, create the AWS RAM share with the MuleSoft AWS account as principal (allowing external accounts), verify ID and Owner, accept the pending attachment, and test with the Network Tools application. The private space and transit gateway must be in the same region.
+**3. Attaching a transit gateway.** Create the private network, make any firewall and route changes, and enter static routes that match the external networks. Create the AWS RAM share with the MuleSoft AWS account as principal (allowing external accounts). Then verify ID and Owner, accept the pending attachment, and test with the Network Tools application. The private space and transit gateway must be in the same region.
 
 **4. States.** \`unknown\` comes from a deleted gateway, a deleted share or a deleted principal. \`deleted\` means removed in AWS but not in CloudHub 2.0. An attachment that is \`rejected\` or \`deleted\` must be detached and reattached. Detaching also deletes associated routes and the attachment in AWS, so record the routes first. To retire a connection properly, remove it from CloudHub 2.0 before removing it in AWS, because removal in AWS alone disrupts the connection without removing it.
 `,

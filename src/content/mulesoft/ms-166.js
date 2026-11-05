@@ -155,7 +155,7 @@ If you do nothing, a connector without the annotation is assumed to support Java
 
 Remember the rule from August 1, 2026: new versions that change Java compatibility need this metadata, or Exchange rejects them. If it rejects a connector with an error about missing compatibility information, check the plugin version, then rebuild and republish.
 
-**External library.** The Exchange page says that Mule 4 extensions that declare dependencies which do not exist in Maven Central or the MuleSoft Maven repositories are not currently supported, and that Java libraries and POM files can be published as Exchange custom assets. So a first pipeline publishes \`ledger-client\` with \`exchange-mule-maven-plugin\`, and the connector depends on that asset. Artifactory can stay as a proxy for internal builds, but the published connector must not rely on it.
+**External library.** The Exchange page says that Mule 4 extensions that declare dependencies which do not exist in Maven Central or the MuleSoft Maven repositories are not currently supported. It also says that Java libraries and POM files can be published as Exchange custom assets. So a first pipeline publishes \`ledger-client\` with \`exchange-mule-maven-plugin\`, and the connector depends on that asset. Artifactory can stay as a proxy for internal builds, but the published connector must not rely on it.
 
 **Consuming assets.** Add the dependency with the group ID, artifact ID and version, plus \`<classifier>mule-plugin</classifier>\`, and the repository:
 

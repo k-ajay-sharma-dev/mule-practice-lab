@@ -120,7 +120,7 @@ export default {
 
 **Permanent fix.**
 - Prefer the platform feature: configure the HTTP Request config with **OAuth client-credentials** authentication (OAuth module). It obtains and stores the token and can refresh it, e.g. \`refreshTokenWhen="#[attributes.statusCode == 401]"\`.
-- If keeping custom code: store the token with a TTL of \`expires_in - 60 s\` (or store the expiry time with it and check before use), and on **401** remove the token, fetch a new one, and **retry once** (not forever).
+- If keeping custom code: store the token with a TTL of \`expires_in - 60 s\` (or store the expiry time with it and check before use). On **401**, remove the token, fetch a new one, and **retry once** (not forever).
 - Fetch the token in one place and protect against many concurrent refreshes (a thundering herd on the token endpoint).
 
 **Prevention.** Review rule: "every cached credential must expire before the real one"; a test that simulates an expired token (mock returns 401 → expect refresh + retry); alerts on 401 rate per outbound system, which would have fired an hour after the first deployment.

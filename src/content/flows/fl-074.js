@@ -110,7 +110,7 @@ The bank collects a semicolon-separated file \`SETTLEMENT_yyyyMMdd.csv\` from it
 7. **Database Update** \`SETTLEMENT_BATCH\` → EXPORTED with the file name. Log the result.
 8. **On Error Propagate** (ANY) → log + **Email Send** to payments operations with the error description.
 
-**Oracle setup:** \`db:config\` with \`db:oracle-connection\` (host, port 1521, service name, user, password in secure properties), the **ojdbc** driver added as a dependency/shared library, and a pooling profile sized for a nightly job (small).
+**Oracle setup:** \`db:config\` with \`db:oracle-connection\` (host, port 1521, service name, user, password in secure properties). Add the **ojdbc** driver as a dependency/shared library. Use a pooling profile sized for a nightly job (small).
 `,
   followUps: [
     {
@@ -119,7 +119,7 @@ The bank collects a semicolon-separated file \`SETTLEMENT_yyyyMMdd.csv\` from it
     },
     {
       q: 'How would you handle a rerun if the file was already renamed but the database update failed?',
-      a: 'Make the run idempotent: the procedure should reuse an existing batch for the same business date, and the write uses OVERWRITE on the .tmp name followed by a rename with overwrite, so rerunning produces the same file again.',
+      a: 'Make the run idempotent: the procedure should reuse an existing batch for the same business date. The write uses OVERWRITE on the .tmp name followed by a rename with overwrite, so rerunning produces the same file again.',
     },
     {
       q: 'What if the procedure returned the rows as a REF CURSOR instead?',

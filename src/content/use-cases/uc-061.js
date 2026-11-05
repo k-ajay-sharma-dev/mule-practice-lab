@@ -86,9 +86,9 @@ Volumes and SLAs:
  3PL WMS --> SFTP /out --> 945/846 poller --> sys-3pl-edi --> [d2c-shipments] --> prc --> sys-shopify / sys-netsuite
 \`\`\`
 
-**Order flow.** Shopify \`orders/paid\` webhook → Experience API verifies the HMAC signature, publishes to an Anypoint MQ queue and returns 200 within Shopify's timeout. The Process API maps to a canonical order and inserts it into the staging table (status READY, unique key on Shopify order ID → duplicates ignored). Every 15 minutes the batch job selects READY orders, builds one X12 940 interchange (one transaction set per order), uploads it through **sys-3pl-edi** to \`/in\` with a temporary name then renames it, and marks the orders SENT with the interchange control number. A 997 from the 3PL marks them ACCEPTED.
+**Order flow.** Shopify \`orders/paid\` webhook → Experience API verifies the HMAC signature, publishes to an Anypoint MQ queue and returns 200 within Shopify's timeout. The Process API maps to a canonical order and inserts it into the staging table (status READY, unique key on Shopify order ID → duplicates ignored). Every 15 minutes the batch job selects READY orders and builds one X12 940 interchange (one transaction set per order). It uploads the interchange through **sys-3pl-edi** to \`/in\` with a temporary name then renames it, and marks the orders SENT with the interchange control number. A 997 from the 3PL marks them ACCEPTED.
 
-**Cancellations and edits.** \`orders/cancelled\` and \`orders/updated\` webhooks update the staging row while it is READY. If it is already SENT, the Process API sends a 940 cancel (or an email to the 3PL for brands whose 3PL does not support cancel) and flags the order for manual follow-up.
+**Cancellations and edits.** \`orders/cancelled\` and \`orders/updated\` webhooks update the staging row while it is READY. If it is already SENT, the Process API sends a 940 cancel (or an email to the 3PL for brands whose 3PL does not support cancel). It also flags the order for manual follow-up.
 
 **Shipment flow.** The poller lists \`/out\`, downloads 945s, moves them to \`/archive\`, and queues one message per shipment. The Process API:
 - creates the **Shopify fulfilment** with carrier and tracking number (Shopify sends the customer email),

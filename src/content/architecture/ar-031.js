@@ -111,7 +111,7 @@ Constraints: 12 integration flows exist today, 25 more planned; three delivery t
     'A canonical model reduces point-to-point mappings (N×M → N+M) and decouples consumers from system-specific fields and keys.',
     'An enterprise-wide canonical model tends to grow into a bloated, slow-to-change schema with optional fields that mean different things to different teams.',
     'Pure pass-through leaks system details (SAP field names, IDs) into consumers, so replacing a backend breaks every consumer.',
-    'A pragmatic approach is a domain (bounded-context) model owned by the Process API of that domain, while System APIs expose a cleaned version of each system and Experience APIs shape for the channel.',
+    'A pragmatic approach is a domain (bounded-context) model owned by the Process API of that domain. System APIs expose a cleaned version of each system, and Experience APIs shape for the channel.',
     'Cross-reference of identifiers (SAP KUNNR ↔ Salesforce Id ↔ customer_ref) is needed regardless and should be owned explicitly (e.g. an MDM or cross-reference service).',
     'Shared models are published as versioned fragments/types in Exchange with additive, backward-compatible change rules.',
   ],

@@ -96,7 +96,7 @@ To "save memory", a developer set the listener's streaming strategy to **non-rep
     'Fix: keep repeatable file-store (or tune inMemorySize), and avoid logging the full payload — log size or a few fields instead.',
   ],
   solution: `
-**Why it breaks:** with \`non-repeatable-stream\` the payload is a one-shot cursor. The Logger expression \`#[payload]\` reads it to the end, so the schema validator and the DataWeave transform see an already-consumed stream — you get an empty body or a "stream already consumed" style error. Any processor that reads the content (Logger, validator, DataWeave, HTTP Request body) counts.
+**Why it breaks:** with \`non-repeatable-stream\` the payload is a one-shot cursor. The Logger expression \`#[payload]\` reads it to the end, so the schema validator and the DataWeave transform see an already-consumed stream. You get an empty body or a "stream already consumed" style error. Any processor that reads the content (Logger, validator, DataWeave, HTTP Request body) counts.
 
 **Default strategy (EE):** \`repeatable-file-store-stream\`. Mule keeps the first part of the stream in memory (\`inMemorySize\`, 512 KB by default) and transparently writes the rest to a temporary file. Each consumer gets a fresh cursor, so the payload can be read many times. Small payloads never touch disk; large ones cost disk I/O but not heap. (\`repeatable-in-memory-stream\` keeps everything in heap and fails when its max buffer is exceeded — Mule CE uses in-memory.)
 

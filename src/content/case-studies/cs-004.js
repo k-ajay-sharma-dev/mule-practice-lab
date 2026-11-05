@@ -84,7 +84,7 @@ export default {
 - \`sap-sapi\` converts \`MATMAS\`/\`LOIPRO\` into canonical *Material* and *ProductionOrder* JSON and publishes them per plant (a queue or topic per plant). The plant runtime consumes and calls the MES REST API.
 - Status back to SAP: the IDoc is acknowledged when it is safely persisted; processing errors are reported back (e.g. a status/ALEAUD message) so the SAP team sees them in \`WE02\`.
 
-**MES → SAP.** The plant runtime receives confirmations from the MES (API call or polling), stores them in a local persistent queue, and forwards them to \`sap-sapi\`, which posts them using the appropriate **BAPI** (or an IDoc). Each confirmation carries the MES confirmation ID; \`sap-sapi\` checks it (Object Store/DB) before posting, so retries never double-book quantities.
+**MES → SAP.** The plant runtime receives confirmations from the MES (API call or polling) and stores them in a local persistent queue. It forwards them to \`sap-sapi\`, which posts them using the appropriate **BAPI** (or an IDoc). Each confirmation carries the MES confirmation ID; \`sap-sapi\` checks it (Object Store/DB) before posting, so retries never double-book quantities.
 
 **Outages.** If the WAN is down, the plant keeps producing with the orders it already has; confirmations queue up locally and flow when the link returns. If SAP is down, messages wait in the queue with retries and backoff; poison messages go to a DLQ with an alert. Monitor queue depth and age per plant.
 

@@ -120,7 +120,7 @@ Compliance says **audit events older than 400 days** must be removed from the \`
 2. \`vars.cutoff = now() - |P400D|\`, then a **Database Select** \`... WHERE created_at < :cutoff\` with streaming (\`fetchSize\`) so rows flow straight into the batch queue.
 3. **Batch Job** \`purge-audit-events\` (blockSize 500, maxFailedRecords 1000):
    - **Step \`archive-and-delete\`**: **Batch Aggregator** size 5000 → keep the chunk in a variable → Transform to JSON (or NDJSON/Parquet) → **S3 Put Object** \`audit_events/<runId>/<uuid>.json\` → restore the chunk → bulk **DELETE FROM audit_events WHERE id = :id** (in Mule this is \`db:bulk-delete\`; modelled here as Database Delete). If the put fails, the processors after it do not run, so those rows stay in the table and the next run selects them again. If the delete fails, the chunk is archived twice on the next run, which is harmless.
-   - **Why one step:** the docs say the next Batch Step starts on records as soon as they return to the stepping queue, and they do not say how a fixed-size aggregator failure marks its records. A separate delete step would rest on that undocumented behaviour.
+   - **Why one step:** the docs say the next Batch Step starts on records as soon as they return to the stepping queue. They do not say how a fixed-size aggregator failure marks its records. A separate delete step would rest on that undocumented behaviour.
    - **On Complete**: log totals from the batch job report and email the DBA team.
 4. **Time window:** the first catch-up run (60M rows) is split by adding \`FETCH FIRST 5000000 ROWS ONLY\` to the select. Each night removes a slice until the backlog is gone.
 

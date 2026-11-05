@@ -119,7 +119,7 @@ export default {
 - Store it as a secure property, redeploy, test one upload and one download.
 - Replay the 4,812 DLQ messages at a controlled rate; reconcile counts per claim and tell the claims team when everything is visible.
 
-**Root cause.** A time-limited credential was introduced without recording its expiry or an owner, and error handling treated an authentication failure as transient, so the only signal was a DLQ depth alert hours later.
+**Root cause.** A time-limited credential was introduced without recording its expiry or an owner. Error handling treated an authentication failure as transient, so the only signal was a DLQ depth alert hours later.
 
 **Permanent fix.**
 - Classify errors: retry connectivity problems; for HTTP 401/403 from the connector, stop retrying, alert immediately and park the message.
@@ -129,7 +129,7 @@ export default {
 `,
   followUps: [
     { q: 'Why not just switch to the storage account key?', a: 'It never expires but gives full control of every container in the account; if leaked, an attacker can read or delete the whole archive. Scoped, expiring SAS tokens with proper rotation are the safer choice.' },
-    { q: 'How would you rotate without downtime?', a: 'Create the new token while the old one is still valid, deploy it, verify traffic succeeds with it, and only then let the old one expire (or revoke it if it was a policy-based token).' },
+    { q: 'How would you rotate without downtime?', a: 'Create the new token while the old one is still valid, deploy it, and verify traffic succeeds with it. Only then let the old one expire (or revoke it if it was a policy-based token).' },
     { q: 'Could clock skew cause the same error?', a: 'Yes, if the SAS start time is in the future relative to Azure\'s clock you get the same message right after creation. That is why tokens are often created with a start time a few minutes in the past.' },
   ],
 }

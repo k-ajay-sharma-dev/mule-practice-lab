@@ -111,7 +111,7 @@ Problems reported:
 ## Alerting and dashboards
 `,
   keyPoints: [
-    'One correlation ID per request, accepted or generated at the Experience API and propagated on every HTTP call (X-Correlation-ID, which Mule 4 HTTP listener/requester handle by default) and as a message property on MQ.',
+    'One correlation ID per request, accepted or generated at the Experience API. It is propagated on every HTTP call (X-Correlation-ID, which Mule 4 HTTP listener/requester handle by default) and as a message property on MQ.',
     'Structured JSON logs with a fixed set of fields (timestamp, app, env, correlationId, flow, event, durationMs, status), logged at entry, exit and error of each API.',
     'Sensitive data (national ID, account numbers, full payloads in prod) is never logged or is masked; payload logging only at DEBUG in lower environments.',
     'Logs forwarded to the central SIEM/log platform (Splunk) via a Log4j2 appender or log forwarding, while Anypoint Monitoring covers built-in metrics and dashboards.',

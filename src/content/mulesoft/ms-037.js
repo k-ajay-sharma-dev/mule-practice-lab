@@ -158,7 +158,7 @@ The method signature includes parameter types to resolve overloads. Argument key
 <java:invoke instance="#[vars.signer]" class="com.acme.crypto.Signer"
              method="sign(String)" args="#[{ payload: write(payload, 'application/json') }]"/>
 \`\`\`
-Constructing an expensive object per request wastes CPU. Create it once — for example as a singleton **Spring bean** (Spring module) or cache it in an initialisation flow — and make sure it is thread-safe, because many events use it concurrently.
+Constructing an expensive object per request wastes CPU. Create it once, for example as a singleton **Spring bean** (Spring module) or cache it in an initialisation flow. Make sure it is thread-safe, because many events use it concurrently.
 
 **Errors:** wrong signature or class → configuration/runtime errors from the Java module (its own \`JAVA:\` error types); exceptions thrown by the method surface as errors whose \`error.cause\` is the Java exception. Handle them like any other error type.
 

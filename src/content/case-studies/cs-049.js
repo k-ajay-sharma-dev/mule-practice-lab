@@ -65,7 +65,7 @@ export default {
         'Introduce canonical billing contracts (`sys-billing-api` v2) and migrate Process APIs off the Amdocs-shaped v1',
         'End the release train: teams deploy independently with contract tests in each pipeline',
       ],
-      explain: 'Measure and agree first, then fix the most painful journey and the cycles, then split the god API and decouple billing (these two can overlap), and only end the train once compatibility is enforced by tests.',
+      explain: 'Measure and agree first, then fix the most painful journey and the cycles. Then split the god API and decouple billing (these two can overlap). Only end the train once compatibility is enforced by tests.',
     },
     {
       type: 'single',

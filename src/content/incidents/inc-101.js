@@ -124,7 +124,7 @@ Runtime Manager: target "credit-proxy-group", type Server Group, 3 servers
 
 **Permanent fix.** There are two documented paths.
 1. **Mule cluster.** Create a cluster and deploy the proxy to it, with Distributed on. The whole cluster then accepts the quota once. Plan for latency: the docs say distributed counters can add it, and they recommend windows longer than one minute in a cluster. Check that the servers have the same Mule runtime, agent and Java versions, and choose unicast or multicast with the network team.
-2. **Separate nodes.** The Rate Limiting page says that with several servers, one backend and a load balancer, you do not need a cluster, but you must set the limit below the capacity of the backend. This fits protection, but it is weak for a per-client commercial limit like this one.
+2. **Separate nodes.** The Rate Limiting page says that with several servers, one backend and a load balancer, you do not need a cluster. But it says you must set the limit below the capacity of the backend. This fits protection, but it is weak for a per-client commercial limit like this one.
 
 Because the vendor charges per call and the contract limit matters, the cluster is the better fit. Note that the Rate Limiting SLA page says a Mule cluster cannot be configured on CloudHub; this feature is for Runtime Fabric, hybrid and standalone setups.
 

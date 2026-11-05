@@ -167,7 +167,7 @@ A manufacturer is tightening access to Anypoint Platform before an ISO 27001 aud
   followUps: [
     {
       q: 'How do connected apps appear in audit logs?',
-      a: 'An audit entry has a Connected App field with the name of the app that acted on behalf of itself or a user, so automated changes can be told apart from human ones.',
+      a: 'An audit entry has a Connected App field with the name of the app that acted on behalf of itself or a user. So automated changes can be told apart from human ones.',
     },
     {
       q: 'Why not give the pipeline Organization Administrator to keep it simple?',

@@ -133,7 +133,7 @@ SO-3001,"Kok, Kok & Co",2026-02-28,1200,100,Y`,
   followUps: [
     {
       q: 'The file is 2 GB. What changes in the flow and the script?',
-      a: 'Read the file as a stream and avoid operations that need the whole document at once (`sizeOf`, two `filter` passes over the same data). Common designs are a Batch Job or a For Each over CSV records with streaming enabled (`streaming=true` reader property), writing accepted and rejected records to separate outputs and computing the summary with aggregators.',
+      a: 'Read the file as a stream and avoid operations that need the whole document at once (`sizeOf`, two `filter` passes over the same data). Common designs are a Batch Job or a For Each over CSV records with streaming enabled (`streaming=true` reader property). They write accepted and rejected records to separate outputs and compute the summary with aggregators.',
     },
     {
       q: 'How do you make sure the same file is not processed twice?',

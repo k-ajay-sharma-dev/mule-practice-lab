@@ -129,7 +129,7 @@ Trades must flow to:
 **Risks.** Ordering bugs causing wrong positions (version checks, replay tests), missed deadlines (alerting + manual fallback), ETRM vendor interface limits, and volatility peaks (load testing at 10x).
 `,
   followUps: [
-    { q: 'How do you guarantee ordering if you scale consumers horizontally?', a: 'Partition by trade ID so all events for one trade go to the same partition/consumer (or use FIFO with a group key), and keep version checks in the consumer as a safety net.' },
+    { q: 'How do you guarantee ordering if you scale consumers horizontally?', a: 'Partition by trade ID so all events for one trade go to the same partition/consumer (or use FIFO with a group key). Keep version checks in the consumer as a safety net.' },
     { q: 'What happens if the backbone is down 20 minutes before gate closure?', a: 'Alerts fire at the predefined thresholds and operations switch to the tested manual fallback for nominations, while the platform fails over; afterwards the backlog is replayed and reconciled.' },
     { q: 'Why not just use Mule with VM queues for everything?', a: 'VM queues are in-app and not a durable, replayable, cross-application event log; for an auditable trade lifecycle with replay and per-trade ordering you need a proper broker or streaming platform, with Mule as the connectivity and transformation layer.' },
     { q: 'How do you measure success?', a: 'Trade-to-risk latency, reporting rejection and late-report rates, nominations submitted before deadline (target 100%), and reconciliation breaks per day trending to zero.' },

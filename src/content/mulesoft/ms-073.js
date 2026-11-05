@@ -62,7 +62,7 @@ export default {
         ['On-prem runtime reads exports dropped by a mainframe job on a mounted NFS share', 'File connector'],
         ['Legacy internal system that only supports FTP, reachable only through the private network', 'FTP connector in passive mode, as an accepted exception'],
       ],
-      explain: 'Use SFTP for anything crossing a network you do not control, File for a file system the runtime itself mounts, and plain FTP only where it cannot be avoided and the traffic stays on a trusted network.',
+      explain: 'Use SFTP for anything crossing a network you do not control, and File for a file system the runtime itself mounts. Use plain FTP only where it cannot be avoided and the traffic stays on a trusted network.',
     },
     {
       type: 'single',

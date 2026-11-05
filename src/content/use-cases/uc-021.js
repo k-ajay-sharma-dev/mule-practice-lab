@@ -95,7 +95,7 @@ A common **customer ID** (Salesforce Account ID) is stored as external ID in eve
 
 **Closed-won to provisioning and billing.**
 1. Salesforce emits an event on closed-won (Platform Event from a Flow, or CDC on Opportunity/Order) → Mule subscribes (Salesforce connector) and enqueues.
-2. **Subscription Process API**: reads quote lines from CPQ, maps them with DataWeave to the billing platform's account + subscription payload (start date, term, rate plans, quantities), and creates them — idempotent by quote ID (check the external reference before create).
+2. **Subscription Process API**: reads quote lines from CPQ and maps them with DataWeave to the billing platform's account + subscription payload (start date, term, rate plans, quantities). It then creates them, idempotent by quote ID (check the external reference before create).
 3. Calls the **Entitlement System API** of the product platform to provision the tenant with plan limits (included API quota, features).
 4. Writes back to Salesforce: billing account/subscription numbers, tenant ID, status. Failures at any step → retry, then alert the deal desk with the exact step; completed steps are not repeated.
 15-minute SLA: event-driven, no nightly batch.
@@ -104,7 +104,7 @@ A common **customer ID** (Salesforce Account ID) is stored as external ID in eve
 
 **Usage.** 8M raw events/day must not become 8M API calls:
 - The product platform writes usage events to its own store/stream; a **daily Mule batch** reads aggregated counts per customer per metric (aggregation done at the source via a query, or in a Batch Job with streaming).
-- Upload as a **bulk usage file/import** to the billing platform (most platforms support CSV usage uploads or bulk usage APIs), keyed by customer + date + metric so a re-run replaces rather than duplicates.
+- Upload as a **bulk usage file/import** to the billing platform (most platforms support CSV usage uploads or bulk usage APIs). Key it by customer + date + metric so a re-run replaces rather than duplicates.
 - Reconcile: total units sent = total units accepted; monthly invoices in arrears use these records.
 
 **Dunning and entitlements.** The billing platform runs dunning (reminders, retries). Its events/callouts (invoice overdue, payment received) go to Mule → **Entitlement API**: overdue 30 days → tenant *read-only*; payment applied → *active*. Use the billing platform's state as truth: before switching to read-only, re-check the invoice balance (avoids suspending a customer who paid minutes ago). Notify the account owner in Salesforce.

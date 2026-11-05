@@ -117,7 +117,7 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'A private space loses access to a transit gateway if the gateway is deleted from CloudHub 2.0 or AWS, a resource share is deleted, or the MuleSoft principal is deleted from the share.',
+    'A private space loses access to a transit gateway in three cases. The gateway is deleted from CloudHub 2.0 or AWS, a resource share is deleted, or the MuleSoft principal is deleted from the share.',
     'When that happens, the gateway state becomes unknown or deleted.',
     'For a deleted principal, the fix is to add the principal back to the resource share.',
     'For a deleted gateway or share, the fix is to delete the gateway from CloudHub 2.0 using the documented steps.',

@@ -87,7 +87,7 @@ Requirements:
 
 **Store → HQ.** A **duplex network connector** from the store broker to the HQ hub (the store dials out, so no inbound firewall holes at the store). When the link is down, messages simply accumulate locally; when it returns they are forwarded. Forwarding is at-least-once, so the HQ consumer must be idempotent.
 
-**HQ consumption.** \`prc-store-sales\` uses a \`jms:listener\` on the hub queue with MANUAL ack (or a transaction), calls \`sys-oracle-retail\`, which does an Oracle **MERGE keyed by store id + transaction id** (duplicate = no-op). After the configured redelivery limit, poison messages go to a **DLQ** with the store id in the properties for triage.
+**HQ consumption.** \`prc-store-sales\` uses a \`jms:listener\` on the hub queue with MANUAL ack (or a transaction). It calls \`sys-oracle-retail\`, which does an Oracle **MERGE keyed by store id + transaction id** (duplicate = no-op). After the configured redelivery limit, poison messages go to a **DLQ** with the store id in the properties for triage.
 
 **HQ → stores.** \`prc-price-distribution\` publishes to a **durable per-store destination** (\`store.<id>.prices\`) that the network connector forwards when the store is online. Messages carry \`priceVersion\` and \`effectiveFrom\`; the store applies only versions newer than what it has. A JMS expiration can drop superseded messages for stores offline for days, followed by a full price snapshot on reconnect.
 

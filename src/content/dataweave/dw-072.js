@@ -134,7 +134,7 @@ output application/json
   followUps: [
     {
       q: 'The query returns 500,000 rows. What is the risk with this script?',
-      a: '`groupBy` needs all rows in memory. Options: page the query (`FETCH FIRST n ROWS ONLY` / `OFFSET` in Oracle 12c+, `TOP`/`OFFSET FETCH` in SQL Server), process per order range, or sort by ORDER_ID in SQL and stream, emitting an order each time the id changes.',
+      a: '`groupBy` needs all rows in memory. Options: page the query (`FETCH FIRST n ROWS ONLY` / `OFFSET` in Oracle 12c+, `TOP`/`OFFSET FETCH` in SQL Server) or process per order range. You can also sort by ORDER_ID in SQL and stream, emitting an order each time the id changes.',
     },
     {
       q: 'How do you pass `fromDate` to the query safely?',

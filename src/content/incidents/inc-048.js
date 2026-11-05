@@ -109,10 +109,10 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Explains latency stacking: the Experience API\'s 30 s budget must cover payment + SAP + network + processing in the lower layers, so identical 30 s timeouts at every layer mean the top always gives up first.',
+    'Explains latency stacking: the Experience API\'s 30 s budget must cover payment + SAP + network + processing in the lower layers. So identical 30 s timeouts at every layer mean the top always gives up first.',
     'Recognises the timeout as an "unknown outcome", not a failure: the order and payment were completed, so client retries cause duplicates.',
     'Immediate: stop duplicate charges with idempotency (idempotency key on checkout/payment), reconcile already double-charged orders, and temporarily raise the outer timeouts above the inner ones.',
-    'Permanent fix: a top-down timeout budget where each inner timeout is smaller than its caller\'s minus overhead, plus an async pattern (202 Accepted + status polling or event) for operations that can legitimately take long.',
+    'Permanent fix: a top-down timeout budget where each inner timeout is smaller than its caller\'s minus overhead. Add an async pattern (202 Accepted + status polling or event) for operations that can legitimately take long.',
     'Addresses the slow dependency itself (SAP batch job scheduling) and sets latency SLOs per layer.',
     'Prevention: timeout values as reviewed, per-API configuration (not template defaults), and monitoring of p95/p99 latency per hop.',
   ],

@@ -94,11 +94,14 @@ export default {
 - *Commitments*: the project tool's approval webhook → queue → \`project-costs-papi\` validates cost codes and supplier, creates the PO in ERP, stores the PO number back on the commitment. Change orders update the existing PO using the stored cross-reference.
 - *Actual costs*: a daily job extracts posted invoice lines by project/cost code and updates the project tool's cost reports.
 
-**Errors.** Validation errors (unknown cost code, supplier on hold) are not retried blindly — the commitment is marked "sync failed" in the project tool with the reason, and the project accountant fixes and re-approves. Technical errors (ERP down) retry with backoff, then go to a DLQ with alerting. A monthly report compares commitments vs POs per project.
+**Errors.** Validation errors (unknown cost code, supplier on hold) are not retried blindly. The commitment is marked "sync failed" in the project tool with the reason, and the project accountant fixes and re-approves. Technical errors (ERP down) retry with backoff, then go to a DLQ with alerting. A monthly report compares commitments vs POs per project.
 
 **Rollout.** Pilot on five projects, then all new projects, then backfill open projects.
 
-**Risks.** Rate limits on the SaaS API (batching, throttling), mismatched cost-code structures (agreed mapping before build), and users editing financial data in the wrong system (lock fields in the project tool that ERP owns).
+**Risks.**
+- Rate limits on the SaaS API (batching, throttling).
+- Mismatched cost-code structures (agreed mapping before build).
+- Users editing financial data in the wrong system (lock fields in the project tool that ERP owns).
 `,
   followUps: [
     { q: 'Why not read the ERP database directly for everything?', a: 'Reads from approved views are fine, but writes must go through the ERP API so its business rules and audit trail apply. Direct table writes are a support and audit risk.' },

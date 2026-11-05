@@ -118,7 +118,7 @@ var fromTs = toTs - |PT24H|
 ## Prevention
 `,
   keyPoints: [
-    'Explains that the local business day of 25 Oct lasted 25 hours (clocks went back), so a fixed PT24H window starting 24 h before local midnight misses the first hour (22:00–23:00 UTC on 24 Oct = 00:00–01:00 local).',
+    'Explains that the local business day of 25 Oct lasted 25 hours (clocks went back). So a fixed PT24H window starting 24 h before local midnight misses the first hour (22:00–23:00 UTC on 24 Oct = 00:00–01:00 local).',
     'Explains the March case: that day had 23 hours, so the 24 h window overlapped the previous day by one hour, causing duplicates.',
     'Explains the start-time shift: the cron has no timeZone, so it runs at 00:00 UTC, which is 02:00 in summer but 01:00 in winter.',
     'Immediate: re-export the missing hour for 25 Oct (correct window 2026-10-24T22:00Z to 2026-10-25T23:00Z), and check the March export for duplicates.',
@@ -145,6 +145,6 @@ var fromTs = toTs - |PT24H|
   followUps: [
     { q: 'Why not just schedule in UTC and avoid time zones entirely?', a: 'Storage and transport in UTC is good, but the business question is "sales for the Amsterdam calendar day", which is defined by local time. The boundaries must be computed in the business zone and then converted to UTC.' },
     { q: 'What happens to a cron job scheduled at 02:30 local on the night clocks go forward?', a: '02:30 does not exist that night, so depending on the scheduler implementation the run may be skipped or shifted. Avoid scheduling business jobs in the 02:00–03:00 local window in DST zones.' },
-    { q: 'How would you prove the root cause to finance?', a: 'Show the logged UTC window next to the true local-day boundaries for 25 Oct, then query the database for rows between 22:00Z and 23:00Z on 24 Oct — that count matches the missing sales.' },
+    { q: 'How would you prove the root cause to finance?', a: 'Show the logged UTC window next to the true local-day boundaries for 25 Oct. Then query the database for rows between 22:00Z and 23:00Z on 24 Oct. That count matches the missing sales.' },
   ],
 }

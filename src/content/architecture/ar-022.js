@@ -72,11 +72,11 @@ Writes (payments, card block) are much rarer than reads (≈ 1:50).
 ## Read-your-own-writes
 `,
   keyPoints: [
-    'A TTL cache helps for repeated reads but each user\'s first read (cache miss) still fans out to core banking, so salary-day peaks with many distinct users still exceed the 300 calls/s limit.',
+    'A TTL cache helps for repeated reads, but each user\'s first read (cache miss) still fans out to core banking. So salary-day peaks with many distinct users still exceed the 300 calls/s limit.',
     'A read model is a query-optimised store (e.g. a document DB or key/value store per customer) pre-computed from the source systems, so reads never call core banking synchronously.',
     'The read model is updated by events/CDC from the systems of record (balance and transaction changes), with an initial bulk load and periodic reconciliation.',
     'Writes still go to the system of record (command side); the read side is eventually consistent, with freshness exposed (e.g. asOf timestamp).',
-    'Read-your-own-writes is handled by updating the read model or overlaying the pending change after a successful write, and the API can fall back to a live call for a single customer if data is stale.',
+    'Read-your-own-writes is handled by updating the read model or overlaying the pending change after a successful write. The API can fall back to a live call for a single customer if data is stale.',
   ],
   solution: `
 **Cache vs read model.** An Object Store/TTL cache is **cache-aside**: the first request per customer still triggers the fan-out. On salary day, hundreds of thousands of distinct users open the app in a short window → mostly cache **misses** → core banking still sees > 300 calls/s. Also a TTL forces a trade-off between freshness and hit rate. A cache is good for reference data; it does not change *where the load lands*.
@@ -93,9 +93,9 @@ Writes (payments, card block) are much rarer than reads (≈ 1:50).
 
 **Degraded behaviour.**
 - Responses include \`asOf\`; the app shows "updated 2 minutes ago" when lag is high.
-- If the read store is down: fall back to a **rate-limited live path** (for a small share of traffic) or return the last known data with a warning — decided with the business, as banking UX rules may require it.
+- If the read store is down: fall back to a **rate-limited live path** (for a small share of traffic) or return the last known data with a warning. This is decided with the business, as banking UX rules may require it.
 
-**Read-your-own-writes.** After a payment succeeds, the Payment Process API **updates the read model immediately** (write-through of the pending transaction and new available balance) or returns the new balance in the payment response so the app shows it. When the core's posting event arrives, it overwrites with the authoritative state.
+**Read-your-own-writes.** After a payment succeeds, the Payment Process API **updates the read model immediately** (write-through of the pending transaction and new available balance). Or it returns the new balance in the payment response so the app shows it. When the core's posting event arrives, it overwrites with the authoritative state.
 
 **Trade-offs.** CQRS adds a datastore, event pipelines, reconciliation and the complexity of eventual consistency. It is justified here by a 50:1 read/write ratio, a hard licence limit and salary-day peaks; for a low-traffic API, a cache or direct calls are simpler.
 `,

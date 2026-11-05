@@ -236,7 +236,7 @@ var totalVat = sum(priced map $.vatAmount)
   followUps: [
     {
       q: 'The product master is 80 MB and the API handles 20 orders per second. Is reading the file on every request acceptable?',
-      a: 'No: parsing it per request costs CPU, memory and file I/O for every order. Load it once when the file arrives (file listener or scheduler), build the SKU index and store it in an Object Store or cache, or better, load it into a database table and look up only the SKUs of the order.',
+      a: 'No: parsing it per request costs CPU, memory and file I/O for every order. Load it once when the file arrives (file listener or scheduler), build the SKU index and store it in an Object Store or cache. Or better, load it into a database table and look up only the SKUs of the order.',
     },
     {
       q: 'Why return `unmatched` instead of raising an error for the order?',

@@ -148,7 +148,7 @@ export default {
 
 **Immediate mitigation.** Rename the server in the template to \`MuleRepository\`, or change the id in the parent POM to match. Changing the template is the smaller change, because it does not need a new parent version, and the id \`MuleRepository\` is also what the docs use. Then run one job on an empty agent. Do not add \`-DskipTests\` to get builds moving: the Enterprise runtime is needed for MUnit, and skipping removes the test gate for every release. If a release cannot wait, run it on an old VM agent while you fix the template.
 
-**Root cause.** The MUnit Maven Plugin page says most applications need the Enterprise edition to run MUnit tests, that Maven downloads the Enterprise runtime from a plugin repository, and that you must set \`id\` to the same value as the \`<id>\` in the \`<server>\` entry of \`settings.xml\`. The ids never matched.
+**Root cause.** The MUnit Maven Plugin page says most applications need the Enterprise edition to run MUnit tests. It says Maven downloads the Enterprise runtime from a plugin repository. It also says you must set \`id\` to the same value as the \`<id>\` in the \`<server>\` entry of \`settings.xml\`. The ids never matched.
 
 The mismatch is old, and the new agents only exposed it. The VM agents had the runtime in their local repository, so no download happened, and a credential that nothing used could stay wrong for years. It would have surfaced there too, on the first MUnit or runtime version that was not in the cache.
 

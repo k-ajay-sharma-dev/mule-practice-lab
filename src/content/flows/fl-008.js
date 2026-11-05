@@ -106,7 +106,7 @@ A code review asks you to refactor this into reusable pieces.
 3. **Audit call → private flow** \`audit-call\`: HTTP Request to the Audit API inside a flow with its **own error handler** — On Error Continue for the HTTP error types that logs a warning. Because the error is handled inside that flow, the caller continues normally.
    - Alternative: keep it a sub-flow but wrap the Flow Reference in a **Try scope** with On Error Continue. Either works; the private flow keeps the policy in one place.
 4. **Calling:** each API endpoint flow (e.g. \`get:\\orders:orders-api-config\`) starts with \`<flow-ref name="common-request-init"/>\`. Variables set inside the sub-flow/private flow are visible to the caller afterwards (same event).
-5. **Sharing across apps:** package common flows/configs as a **Mule plugin or shared library** in Exchange and import them via the POM, or use a **domain project** for shared connector configs on on-prem runtimes. For truly cross-cutting concerns (logging headers, auth) consider **API Manager policies** instead of code.
+5. **Sharing across apps:** package common flows/configs as a **Mule plugin or shared library** in Exchange and import them via the POM. Or use a **domain project** for shared connector configs on on-prem runtimes. For truly cross-cutting concerns (logging headers, auth) consider **API Manager policies** instead of code.
 `,
   followUps: [
     { q: 'Can a sub-flow have an error handler?', a: 'No. A sub-flow has no source and no error handler; use a Try scope inside it, or make it a private flow if it needs its own handling.' },

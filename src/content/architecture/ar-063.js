@@ -131,7 +131,7 @@ A customer domain has 9 APIs on CloudHub 2.0. Licensing/capacity is tight and fi
 **Minimum replicas.** Keep ≥ 2 (ideally across availability zones) for: \`exp-mobile-api\`, \`exp-partner-api\` (SLA 99.9%), and everything on their critical path (\`prc-customer-360\`, \`sys-sfdc\`, \`sys-billing\`). A chain is only as available as its weakest single-replica member. \`exp-callcenter-api\` could run 1 replica if the business accepts minutes of downtime during restarts.
 
 **Shared vs separate apps.**
-- Merging several APIs into one Mule app (multiple APIkit routers / listeners, each with its own API Manager instance via autodiscovery) saves the per-app overhead (each Mule runtime has a fixed memory/CPU baseline).
+- Merging several APIs into one Mule app (multiple APIkit routers / listeners, each with its own API Manager instance via autodiscovery) saves the per-app overhead. Each Mule runtime has a fixed memory/CPU baseline.
 - **Good candidates:** same layer and domain, same owning team, same release cadence, similar criticality, low traffic — e.g. two small System APIs over reference data.
 - **Dangerous:** mixing a critical hot-path API with a slow/heavy one (one memory leak or thread exhaustion takes both down); different owners (deploy conflicts); different scaling needs; mixing layers across ownership boundaries.
 - \`sys-kyc-vendor-api\` (3 s external calls) and \`sys-loyalty-api\` share an app only if thread/connection pools are isolated and both are low-criticality — otherwise keep them apart.

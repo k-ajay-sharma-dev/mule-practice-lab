@@ -95,7 +95,7 @@ Constraints:
 **Grants.** The portal uses **Authorization Code**: the user signs in at the IdP, and a temporary code is exchanged for a token, so the portal never sees the password. Partners use **Client Credentials**, since there is no user.
 
 **Registration and environments.**
-- In **Access Management > Client Providers**, add an **OpenID Connect Dynamic Client Registration** provider for each IdP tenant, with the issuer, Client Registration URL, authorize and token URLs, and a **Token Introspection Client**.
+- In **Access Management > Client Providers**, add an **OpenID Connect Dynamic Client Registration** provider for each IdP tenant. Give it the issuer, Client Registration URL, authorize and token URLs, and a **Token Introspection Client**.
 - Prefer **OAuth2 private key JWT** for registration calls instead of a static Authorization Header: the docs describe the header as a static token that does not expire, while the private key method uses a short-lived token.
 - Associate the Sandbox provider with Sandbox and the Production provider with Production.
 - When a partner requests access in an API portal, a client is generated in the IdP with no ticket. On Okta, the admin must also assign generated clients.

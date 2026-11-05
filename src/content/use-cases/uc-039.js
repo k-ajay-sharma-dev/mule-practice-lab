@@ -78,7 +78,7 @@ Facts:
 - **Tax Process API**: business rules — line mapping, tax codes, exemption lookup, caching, fallback.
 - Called by the **cart/checkout** service (estimates) and **order management** (commit and lifecycle).
 
-**Estimate vs commit.** Cart and checkout use *estimate* (not recorded for filing). The order is **committed once** — at payment capture or shipment depending on the state rules finance chooses — using the **order ID as the document code**, so a retried commit is recognised as the same transaction instead of a duplicate.
+**Estimate vs commit.** Cart and checkout use *estimate* (not recorded for filing). The order is **committed once**, at payment capture or shipment depending on the state rules finance chooses. It uses the **order ID as the document code**, so a retried commit is recognised as the same transaction instead of a duplicate.
 
 **Reducing calls.**
 - Only re-estimate when something tax-relevant changes: ship-to address, items, quantities, prices, discounts, shipping fee.

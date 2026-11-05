@@ -123,7 +123,7 @@ export default {
 **Immediate mitigation.**
 1. **Release the lock**: with the DBA, stop or finish the overrunning index rebuild (or kill the blocking session). Confirm in the DB that the Mule session is no longer waiting.
 2. Think about the backlog before letting it run: instances then execute **one by one in order** — ~20 hours of hourly files, each 48k records. Because **each file is a full snapshot that supersedes earlier ones**, replaying all of them in order gives correct but very late prices.
-   - Fastest correct option: let \`6a1f\` finish (or not), and **load the latest file(s) directly**. Then the queued instances are redundant; discarding them requires clearing the app's batch queues, e.g. redeploying in a way that starts with clean working storage — verify how your deployment target handles batch queue data before relying on it, and keep the source files so nothing is lost.
+   - Fastest correct option: let \`6a1f\` finish (or not), and **load the latest file(s) directly**. Then the queued instances are redundant; discarding them requires clearing the app's batch queues, e.g. redeploying in a way that starts with clean working storage. Verify how your deployment target handles batch queue data before relying on it, and keep the source files so nothing is lost.
    - If files are *not* superseding (deltas), you must process them in order — then only throughput can be improved (bigger aggregator, more threads) once the lock is gone.
 3. Tell the business when prices will be current; consider freezing promotions until then.
 

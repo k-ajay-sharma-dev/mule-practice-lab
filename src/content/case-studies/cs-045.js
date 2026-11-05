@@ -28,7 +28,7 @@ export default {
         'Partner moves to review-only, then the contract ends with knowledge in-house',
         'Federation: delivery teams build their own integrations with C4E office hours and a community of practice',
       ],
-      explain: 'Foundations and a first visible win come first, then internal staff take the lead while the partner is still there to coach, so the partner exit is safe before delivery is federated to the teams.',
+      explain: 'Foundations and a first visible win come first. Then internal staff take the lead while the partner is still there to coach, so the partner exit is safe before delivery is federated to the teams.',
     },
     {
       type: 'multi',
@@ -145,7 +145,7 @@ export default {
 - Roles defined: platform owner, API product owners in business areas, C4E champions in each delivery team.
 
 **Months 0–3: foundations + first lighthouse.**
-- Platform: organisation and business-group/environment structure (dev, test, prod), SSO with the corporate IdP, team permissions, deployment target decision with security (CloudHub 2.0 with private spaces/VPN, or Runtime Fabric on-premises if cloud is not accepted yet), secure properties and secrets handling, logging export to the company's monitoring tool.
+- Platform: organisation and business-group/environment structure (dev, test, prod), SSO with the corporate IdP and team permissions. Deployment target decision with security (CloudHub 2.0 with private spaces/VPN, or Runtime Fabric on-premises if cloud is not accepted yet). Secure properties and secrets handling, and logging export to the company's monitoring tool.
 - Engineering: project templates (Maven parent POM, error handling, logging with correlation IDs, MUnit setup), CI/CD pipeline, naming and versioning standards. Publish all in Exchange.
 - Lighthouse 1: one urgent backlog item with clear value (e.g. policy data to the customer portal) delivered jointly, designed API-led with reusable System APIs.
 

@@ -92,7 +92,7 @@ Facts:
 
 **Working with the mainframe team.** Prefer interfaces that already exist (the CICS transactions and MQ queues) to avoid their backlog. Ask early for: copybooks, test region access, transaction volumes, MIPS budget, CDC approval. Agree an interface contract and a test data set. Schedule the one unavoidable change (e.g. enabling CDC) into their quarterly release now.
 
-**Trade-off:** the read store introduces **eventual consistency** and another component to run, but it is the only way to add a high-traffic digital channel without paying for (and risking) the mainframe at peak.
+**Trade-off:** the read store introduces **eventual consistency** and another component to run. But it is the only way to add a high-traffic digital channel without paying for (and risking) the mainframe at peak.
 `,
   followUps: [
     { q: 'The business says customers must see their address change immediately. How?', a: 'After the mainframe confirms the write, the System API updates the read store (write-through) or the portal shows the confirmed value from the write response. CDC then reconciles; the user never sees the stale value.' },

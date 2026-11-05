@@ -103,7 +103,11 @@ Item and price changes take between 5 minutes and 24 hours to reach channels, a 
 
 **Governance.** Integration design authority with a "no new point-to-point" rule; event catalogue; consumer onboarding is a request to subscribe, not a new queue from the producer; DBA team removes DB links only after the replacing API is live.
 
-**Risks.** Hidden consumers discovered late (broker statistics, temporary logging on old queues before removal), ordering of price changes (sequence numbers per item, consumers ignore older versions), outbox lag at peak (monitoring, index on watermark column), and dual-running costs during the 18 months.
+**Risks.**
+- Hidden consumers discovered late (broker statistics, temporary logging on old queues before removal).
+- Ordering of price changes (sequence numbers per item, consumers ignore older versions).
+- Outbox lag at peak (monitoring, index on watermark column).
+- Dual-running costs during the 18 months.
 `,
   followUps: [
     { q: 'Why a virtual topic and not one plain JMS topic?', a: 'Each consumer gets its own queue, so a slow or offline consumer builds its own backlog without affecting others, can scale with competing consumers and has its own DLQ.' },

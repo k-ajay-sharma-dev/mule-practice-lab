@@ -129,7 +129,7 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 
 **Steps**
 1. \`validate-and-map\` (NO_FAILURES) — Validate customer number and email; DataWeave maps the row to the Account shape. A failure here marks just that record as failed.
-2. \`load-salesforce\` (NO_FAILURES) — **Batch Aggregator size 200** → Salesforce **Upsert** \`Account\` on \`Legacy_Customer_No__c\`. Check the per-item results: the connector reports record-level failures in its result instead of failing the whole group, so a rejected Account does not count as a failed batch record by itself and must be logged from here. (For 300k records, the Salesforce Bulk API v2 is an alternative.)
+2. \`load-salesforce\` (NO_FAILURES) — **Batch Aggregator size 200** → Salesforce **Upsert** \`Account\` on \`Legacy_Customer_No__c\`. Check the per-item results: the connector reports record-level failures in its result instead of failing the whole group. So a rejected Account does not count as a failed batch record by itself and must be logged from here. (For 300k records, the Salesforce Bulk API v2 is an alternative.)
 3. \`mark-migrated\` (NO_FAILURES) — aggregator → Database Bulk Insert into \`migration_log\` (audit and cutover proof).
 4. \`record-failures\` (**ONLY_FAILURES**) — insert the record plus its error into \`migration_errors\` for the data-stewards.
 

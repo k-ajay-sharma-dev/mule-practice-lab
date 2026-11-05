@@ -88,7 +88,7 @@ Readings must reach the meter data management system (MDM) for validation and es
   solution: `
 **Flow.** HES → (files every 30 min) → MDM (validation, estimation) → billing, portal, analytics. Alarms: HES → event stream → outage management system.
 
-**Bulk ingestion.** A Mule app picks up each file (SFTP/File connector or object storage), **streams** it with repeatable file-store streams, validates structure, and loads it into MDM in chunks (Batch Job with a tuned block size, or MDM's bulk import API if it has one — often the best option is letting Mule trigger and monitor MDM's native bulk loader). Track every file: received, rows, rejected, loaded. Split large files or use several workers/replicas to process files in parallel.
+**Bulk ingestion.** A Mule app picks up each file (SFTP/File connector or object storage) and **streams** it with repeatable file-store streams. It validates structure and loads it into MDM in chunks (Batch Job with a tuned block size, or MDM's bulk import API if it has one). Often the best option is letting Mule trigger and monitor MDM's native bulk loader. Track every file: received, rows, rejected, loaded. Split large files or use several workers/replicas to process files in parallel.
 
 **Portal usage.** The portal reads from MDM or a read-optimised usage store via a \`usage-sapi\` with caching; it does not query raw files.
 

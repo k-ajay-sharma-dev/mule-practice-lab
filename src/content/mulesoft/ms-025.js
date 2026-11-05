@@ -113,10 +113,10 @@ You must present a deployment recommendation to the board.
 
 **Control plane:** Anypoint Platform (Runtime Manager, API Manager, Exchange, Monitoring) is a MuleSoft-hosted control plane, available in regions including the **EU control plane**. Apps' payloads stay in the runtime plane; the control plane receives deployment metadata, analytics/metrics and — if enabled — logs. For strict residency, use the **EU control plane** and EU regions for CloudHub 2.0. If even metadata must not leave the premises, **Anypoint Platform Private Cloud Edition** (control plane on-prem) is the option, at a high operational cost.
 
-**Connectivity on CloudHub 2.0:** deploy into a **private space** in an EU region, connect it to the data centre via **IPsec VPN** or **AWS Transit Gateway** (reusing the existing AWS connectivity), configure internal DNS and firewall rules so only the private space CIDR can reach policy/claims. Use private ingress for internal-only APIs.
+**Connectivity on CloudHub 2.0:** deploy into a **private space** in an EU region, and connect it to the data centre via **IPsec VPN** or **AWS Transit Gateway** (reusing the existing AWS connectivity). Configure internal DNS and firewall rules so only the private space CIDR can reach policy/claims. Use private ingress for internal-only APIs.
 
 **Recommendation (mixed)**
-- **CloudHub 2.0, EU control plane, private space in an EU region** for the majority of Experience/Process APIs, including the quote API — fastest to market (3 months), managed scaling for 20× campaigns via additional replicas.
+- **CloudHub 2.0, EU control plane, private space in an EU region** for the majority of Experience/Process APIs, including the quote API. It is the fastest to market (3 months), with managed scaling for 20× campaigns via additional replicas.
 - **Runtime Fabric on the on-prem OpenShift cluster** for System APIs that handle the most sensitive data and for the **regulator-facing integration** that must never leave the network. The ops team's K8s skills fit RTF better than VM-based runtimes.
 - Same CI/CD (mule-maven-plugin targets for both), same API Manager policies, Anypoint Monitoring/log forwarding to one SIEM.
 
@@ -133,7 +133,7 @@ You must present a deployment recommendation to the board.
     },
     {
       q: 'How would you handle the 20× campaign peak?',
-      a: 'Scale replicas ahead of the campaign (or use autoscaling if available in your subscription), add Spike Control/rate limiting at the gateway, cache quote reference data, and make sure System APIs and backends can absorb the load.',
+      a: 'Scale replicas ahead of the campaign (or use autoscaling if available in your subscription), and add Spike Control/rate limiting at the gateway. Cache quote reference data, and make sure System APIs and backends can absorb the load.',
     },
     {
       q: 'What changes in the application code between CloudHub 2.0 and RTF?',

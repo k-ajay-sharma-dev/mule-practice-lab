@@ -102,7 +102,11 @@ export default {
 
 **Governance.** Message contract for a stock movement agreed with the POS vendor and DC team (fields, movement types, IDs). Alerts on queue depth, DLQ depth and reconciliation differences above a threshold.
 
-**Risks.** Double counting on redelivery (idempotent movement IDs), poison messages blocking the queue (ActiveMQ redelivery policy then \`ActiveMQ.DLQ\` or an individual DLQ), Oracle contention at peaks (consumer concurrency tuned with the DBA, connection pool sized), commerce rate limits (batch updates).
+**Risks.**
+- Double counting on redelivery (idempotent movement IDs).
+- Poison messages blocking the queue (ActiveMQ redelivery policy then \`ActiveMQ.DLQ\` or an individual DLQ).
+- Oracle contention at peaks (consumer concurrency tuned with the DBA, connection pool sized).
+- Commerce rate limits (batch updates).
 `,
   followUps: [
     { q: 'Why publish a stock-changed event instead of having the commerce System API read Oracle?', a: 'The event pushes changes as they happen and lets more consumers subscribe later without touching Oracle. Polling Oracle from every consumer adds load and delay.' },

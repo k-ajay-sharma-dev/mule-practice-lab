@@ -181,7 +181,7 @@ The \`groupId\` is the organization ID, or the business group ID if the asset be
 
 **Child apps.** Plugins declared under \`<build><plugins>\` are inherited, so each child gets \`exchange-mule-maven-plugin\` too, as well as its own Mule Maven plugin. The docs say that when a Maven project is published with the Mule Maven plugin and its parent already includes \`exchange-mule-maven-plugin\`, you need to prevent the inheritance. Adding \`<inherited>false</inherited>\`, as above, is the fix.
 
-**Release order.** The Exchange page says that if the uploaded asset has a defined parent, the parent must be a valid and already uploaded Exchange asset for the dynamic parameters to be properly interpreted. So:
+**Release order.** The Exchange page covers an uploaded asset with a defined parent. The parent must be a valid and already uploaded Exchange asset for the dynamic parameters to be properly interpreted. So:
 1. Publish \`retail-parent\` 1.5.0.
 2. Update one pilot app to the new parent and run the full pipeline.
 3. Roll out to the other apps.

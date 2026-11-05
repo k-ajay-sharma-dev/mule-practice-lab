@@ -124,7 +124,7 @@ Volumes are small (≈50 hires/day, peaks of 300 during graduate intake) but eac
   ],
   solution: `
 1. **HTTP Listener** \`POST /hr/v1/hires\` → validate → **Idempotent Message Validator** on \`employeeId\` (duplicate → 200 "already in progress").
-2. **Okta first** (HTTP Request): creating the identity is the dependency for everything else. If it fails, the flow-level On Error Propagate alerts IT and returns an error so Workday retries. The docs do not say the validator releases the ID when a flow fails, so remove \`employeeId\` from the \`onboarding-started\` store in that handler, or the retry may be answered as a duplicate.
+2. **Okta first** (HTTP Request): creating the identity is the dependency for everything else. If it fails, the flow-level On Error Propagate alerts IT and returns an error so Workday retries. The docs do not say the validator releases the ID when a flow fails. So remove \`employeeId\` from the \`onboarding-started\` store in that handler, or the retry may be answered as a duplicate.
 3. **Scatter-Gather** (timeout 30 s) with three routes — M365, ServiceNow, Slack. Each route is a **Try** whose **On Error Continue** sets \`{ system, status: "FAILED", error }\` and on success \`{ system, status: "OK", reference }\`. Because no route throws, there is no \`MULE:COMPOSITE_ROUTING\` error and you always get all three outcomes.
 4. **Transform** aggregates the route results into \`{ results, failed }\`.
 5. **Persist** the outcome per employee (\`onboarding_status\`) — the source of truth for IT dashboards.

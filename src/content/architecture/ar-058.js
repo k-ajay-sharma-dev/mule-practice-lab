@@ -152,7 +152,7 @@ Rule: cache **closest to the consumer that can accept the staleness**, and as lo
 **Answer to the senior developer:** direct DB access from mobile removes security, decoupling and reuse to save ~100 ms that can be recovered by parallelism, internal routing and caching.
 `,
   followUps: [
-    { q: 'How do you find which hop is slow in production?', a: 'Propagate a correlation id and use distributed tracing / Anypoint Monitoring per app (response time per API and per outbound request), then compare each layer\'s time with its downstream time — the difference is that layer\'s own overhead.' },
+    { q: 'How do you find which hop is slow in production?', a: 'Propagate a correlation id and use distributed tracing / Anypoint Monitoring per app (response time per API and per outbound request). Then compare each layer\'s time with its downstream time. The difference is that layer\'s own overhead.' },
     { q: 'Does caching in the Process API break the System API\'s contract?', a: 'No, but consumers must know data can be stale; document freshness in the API spec, and avoid caching data that drives writes or money decisions without validation at write time.' },
     { q: 'Is Scatter-Gather always faster?', a: 'Only if the calls are independent and the backends can handle concurrency. It also uses more threads and connections at once, so size pools and replicas accordingly.' },
   ],

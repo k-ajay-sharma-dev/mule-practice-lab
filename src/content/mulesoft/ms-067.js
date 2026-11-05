@@ -76,7 +76,7 @@ export default {
         'HTTP always guarantees delivery',
       ],
       answer: 0,
-      explain: 'Request-reply over messaging is useful when the responder is only reachable via the broker or needs its load buffering, but the caller still waits — so you do not gain the decoupling of true async.',
+      explain: 'Request-reply over messaging is useful when the responder is only reachable via the broker or needs its load buffering, but the caller still waits. So you do not gain the decoupling of true async.',
     },
   ],
   description: `
@@ -128,9 +128,9 @@ Problems during a Black Friday load test:
 
 **2. Reply destinations and correlation.**
 - **Temporary destination** (no reply-to configured): created for the caller connection, only that caller can consume it, it disappears with the connection. Simple and isolated.
-- **Fixed shared queue** (\`ATP.REPLY\`): visible and monitorable, survives reconnects, but replies for all 3 replicas and all concurrent requests land in one queue. Each waiting request must only take its own reply, which means the responder must put the request's correlation (message ID or correlation ID) into the reply, and the consumer must select on it.
+- **Fixed shared queue** (\`ATP.REPLY\`): visible and monitorable, survives reconnects, but replies for all 3 replicas and all concurrent requests land in one queue. Each waiting request must only take its own reply. That means the responder must put the request's correlation (message ID or correlation ID) into the reply, and the consumer must select on it.
 
-The wrong answers came from \`requestReplyPattern="NONE"\`: the consumer then reads the reply queue without any selector, which suits a temporary queue holding one message, but on a shared queue it takes whichever reply is next, including one meant for another basket. Fix it with the default \`CORRELATION_ID\` (or \`MESSAGE_ID\`), where the operation uses a selector that expects the same value as the request, and make sure the responder returns that value (a Mule listener sets the pattern in its \`jms:response\`). A responder that does not return it never matches, so the caller ends in \`JMS:TIMEOUT\`. Going back to temporary reply destinations also works.
+The wrong answers came from \`requestReplyPattern="NONE"\`: the consumer then reads the reply queue without any selector, which suits a temporary queue holding one message. But on a shared queue it takes whichever reply is next, including one meant for another basket. Fix it with the default \`CORRELATION_ID\` (or \`MESSAGE_ID\`), where the operation uses a selector that expects the same value as the request. Make sure the responder returns that value (a Mule listener sets the pattern in its \`jms:response\`). A responder that does not return it never matches, so the caller ends in \`JMS:TIMEOUT\`. Going back to temporary reply destinations also works.
 
 **3. Timeouts and stale work.**
 - Handle \`JMS:TIMEOUT\` in the checkout flow: fall back to a cached ATP snapshot or accept the order as "pending confirmation" rather than failing checkout.

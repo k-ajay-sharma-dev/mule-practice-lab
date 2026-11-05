@@ -123,7 +123,7 @@ export default {
 **Root cause.** The integration treated job state as the outcome and had **no record-level error handling**. A Salesforce change (validation rule + automation on Account) turned a previously clean load into a partial failure nobody saw.
 
 **Permanent fix.**
-- After \`JobComplete\`, if \`numberRecordsFailed > 0\`: fetch failed results, **classify** errors, **retry** transient ones (lock errors) with backoff in a follow-up job, route data errors to an error report/queue with an owner, and mark the run **PARTIAL**, not SUCCESS. Also handle \`Failed\`/\`Aborted\` job states.
+- After \`JobComplete\`, if \`numberRecordsFailed > 0\`: fetch failed results and **classify** errors. **Retry** transient ones (lock errors) with backoff in a follow-up job. Route data errors to an error report/queue with an owner. Mark the run **PARTIAL**, not SUCCESS. Also handle \`Failed\`/\`Aborted\` job states.
 - **Sort by AccountId** (parent) so children of one parent are in the same batch, reducing lock contention.
 - Validate data in Mule before sending (e.g. country code) to fail early with clearer messages.
 

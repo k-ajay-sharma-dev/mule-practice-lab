@@ -134,7 +134,7 @@ The CISO mandates a **zero-trust** model: "never trust the network; authenticate
 
 **End-user identity propagation.**
 - Do not pass \`X-User-Id: 123\` as a plain header — any internal caller could forge it.
-- Options: **OAuth token exchange** (the Experience API exchanges the user token for a downstream token that contains both user and service identity), or the Experience API issues a **signed internal JWT** containing the user subject, which downstream APIs validate.
+- Options: **OAuth token exchange** (the Experience API exchanges the user token for a downstream token that contains both user and service identity). Or the Experience API issues a **signed internal JWT** containing the user subject, which downstream APIs validate.
 - Payments System API logs \`client_id\` (which service) + \`sub\` (which user) + correlation ID for every payment → satisfies the audit requirement.
 
 **Rollout.**

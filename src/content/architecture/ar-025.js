@@ -107,7 +107,7 @@ You are asked, as the new integration architect, to propose a **C4E (Center for 
     'The current centralised delivery team is a bottleneck (a "center of excellence" that builds everything); a C4E enables LoB teams to build themselves using shared assets, standards and platform services.',
     'Clear split of responsibilities: the C4E owns platform, standards, reusable assets, templates, governance and coaching; LoB/federated teams build and run their own APIs within those guardrails.',
     'Reuse is engineered, not hoped for: domain System APIs with clear owners, discoverable in Exchange, with templates/accelerators so reuse is easier than rebuilding.',
-    'Metrics include reuse (consumers per API, % of new projects reusing existing assets), speed (lead time to deliver an integration), and cost (estimated effort saved per reuse vs platform cost), with data from Exchange, API Manager analytics and project tracking.',
+    'Metrics include reuse (consumers per API, % of new projects reusing existing assets), speed (lead time to deliver an integration), and cost (estimated effort saved per reuse vs platform cost). The data comes from Exchange, API Manager analytics and project tracking.',
     'Metrics are stated honestly with limits (e.g. "cost avoided" is an estimate) and tied to business outcomes such as faster product launches.',
     'The plan shows quick wins within months: enable 1–2 LoB teams, publish key reusable APIs, and report a baseline and a trend before renewal.',
   ],

@@ -139,7 +139,12 @@ Item codes, supplier IDs and store IDs are different in each company. About 60% 
 
 **Architecture.** Group Process APIs and canonical events stay as the stable layer; acquired systems get System APIs (\`sys-acq-erp-api\`, \`sys-acq-wms-api\`) so group processes never depend on their schemas. A bridge republishes needed events from the acquired ActiveMQ into group topics.
 
-**Governance.** Integration management office with business owners per phase, benefits tracked per tranche, wave go/no-go criteria (availability, waste, complaints), retention plan and knowledge capture for the acquired IT team, and a scope register for stores that must be divested (their flows stay on the acquired estate and are carved out).
+**Governance.**
+- Integration management office with business owners per phase.
+- Benefits tracked per tranche.
+- Wave go/no-go criteria (availability, waste, complaints).
+- Retention plan and knowledge capture for the acquired IT team.
+- A scope register for stores that must be divested (their flows stay on the acquired estate and are carved out).
 
 **Risks.** Wrong cross-references causing wrong deliveries (validation per wave), loss of legacy knowledge, scope changes from regulators, and benefits arriving later than the board expects.
 `,

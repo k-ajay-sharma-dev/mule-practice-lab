@@ -144,7 +144,7 @@ export default {
 - Deploy through Runtime Manager to \`prod-grp\`, and put all servers back in rotation.
 - Do not copy the JAR to the other two servers. That gives three unmanaged copies.
 
-**Root cause.** The docs describe this result. If you manually add a \`.jar\` file to a server's \`apps\` folder, the application deploys only to that specific server, and becomes a rogue API that is not visible in the Runtime Manager server group view and is not deployed to other servers in the group. \`standaloneDeployment\` has that effect, because it works with the local \`muleHome\`. The wider rule is on the deployment pages: when you use Runtime Manager to manage a server, you cannot use other deployment and management methods or tools to manage it. The plugin did what it was told, so the job was green.
+**Root cause.** The docs describe this result. If you manually add a \`.jar\` file to a server's \`apps\` folder, the application deploys only to that specific server. It becomes a rogue API that is not visible in the Runtime Manager server group view and is not deployed to other servers in the group. \`standaloneDeployment\` has that effect, because it works with the local \`muleHome\`. The wider rule is on the deployment pages: when you use Runtime Manager to manage a server, you cannot use other deployment and management methods or tools to manage it. The plugin did what it was told, so the job was green.
 
 **Permanent fix.**
 

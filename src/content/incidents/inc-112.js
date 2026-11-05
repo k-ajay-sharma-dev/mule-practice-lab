@@ -145,7 +145,7 @@ export default {
 - Alert when an app that has traffic stops sending logs to Splunk.
 `,
   followUps: [
-    { q: 'Do I lose the Runtime Manager logs if I use a custom log4j2.xml on CloudHub 2.0?', a: 'The docs state that Mule runtime engine and application logs remain available in Runtime Manager with custom Log4j configurations. They also say to use an appender that CloudHub 2.0 collects, such as a third-party appender that streams to your logging system, or to enable log integration for the deployment to collect console output.' },
+    { q: 'Do I lose the Runtime Manager logs if I use a custom log4j2.xml on CloudHub 2.0?', a: 'The docs state that Mule runtime engine and application logs remain available in Runtime Manager with custom Log4j configurations. They also say to use an appender that CloudHub 2.0 collects, such as a third-party appender that streams to your logging system. Another option they give is to enable log integration for the deployment to collect console output.' },
     { q: 'How does this differ from CloudHub 1.0?', a: 'On CloudHub 1.0, custom logging is enabled on request with the Disable CloudHub logs option, and the Log4J2CloudhubLogAppender sends logs to CloudHub alongside your own appender. With CloudHub logs disabled, only system logs stay in Runtime Manager.' },
     { q: 'Why does the Logs page look empty right after an update?', a: 'An update creates a new config. Logs from before the last update are in a drop-down of previous deployments, so select the older config to read them.' },
   ],

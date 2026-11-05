@@ -128,6 +128,6 @@ export default {
   followUps: [
     { q: 'Why did inventory-sapi keep working while others failed?', a: 'Its pools already held open sessions and reused them; only new connection attempts are refused, and the other apps needed new connections.' },
     { q: 'Would increasing PROCESSES on Oracle be a valid fix?', a: 'It can be part of capacity planning but costs memory on the DB server and requires a restart; without a connection budget the next scale-out would hit the new limit too.' },
-    { q: 'How would you size maxPoolSize per replica?', a: 'Measure concurrent DB operations per replica under peak (roughly requests per second x DB time per request), add some headroom, and keep it well below the share of the DB limit allocated to that app.' },
+    { q: 'How would you size maxPoolSize per replica?', a: 'Measure concurrent DB operations per replica under peak (roughly requests per second x DB time per request). Add some headroom, and keep it well below the share of the DB limit allocated to that app.' },
   ],
 }

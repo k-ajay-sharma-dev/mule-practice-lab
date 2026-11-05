@@ -95,7 +95,7 @@ An earlier design said "TLS is handled at the load balancer", and nobody could s
 
 **Lifecycle.** Keep a register of every certificate: where it is, its owner, its expiry, and how to renew it. Alert 60 and 30 days ahead. Plan overlap for partner certificates, and add the new CA before the old one ends.
 
-**CloudHub 2.0.** The migration docs map DLB client certificate validation to mutual TLS at private space level, with TLS contexts and truststores. Use **Forward SSL Session** if apps need certificate information through headers, and **Last-Mile Security** for TLS between ingress and the app, which requires the app to include a certificate and uses more CPU.
+**CloudHub 2.0.** The migration docs map DLB client certificate validation to mutual TLS at private space level, with TLS contexts and truststores. Use **Forward SSL Session** if apps need certificate information through headers. Use **Last-Mile Security** for TLS between ingress and the app, which requires the app to include a certificate and uses more CPU.
 `,
   followUps: [
     {

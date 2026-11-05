@@ -220,7 +220,7 @@ The current implementation returns **500 "Internal Server Error"** for everythin
     'An HTTP Request raises a typed error only for the statuses the connector maps (e.g. HTTP:BAD_REQUEST, HTTP:NOT_FOUND, HTTP:SERVICE_UNAVAILABLE, HTTP:GATEWAY_TIMEOUT; the body is in error.errorMessage.payload). There is no HTTP:CONFLICT or HTTP:UNPROCESSABLE_ENTITY, so add 409/422 to the request\'s success-status-code-validator and branch on attributes.statusCode with a Choice.',
     'Quirks are fixed at the bottom: "200 + declined" becomes APP:PAYMENT_DECLINED → 422 in the System API; our own bad PSP credentials are a 500, not the caller\'s fault.',
     'Validation happens at the edge so bad input never costs downstream calls; schema errors become 400.',
-    'Timeouts shrink down the stack (8 s → 3 s → 2.5 s) and a timeout is reported as 504 "pending" — the order may still have been created, so the shopper must not blindly resubmit (idempotency key next step).',
+    'Timeouts shrink down the stack (8 s → 3 s → 2.5 s) and a timeout is reported as 504 "pending". The order may still have been created, so the shopper must not blindly resubmit (idempotency key next step).',
     'A consistent error body { code, message, correlationId } at every layer lets support trace one failing order through all logs.',
   ],
   solution: `

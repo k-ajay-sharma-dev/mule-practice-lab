@@ -61,7 +61,7 @@ Requirements:
     'SFTP listener/poller picks up the response file, parses rejected lines and alerts HR/payroll with the reasons; accepted file is never re-sent blindly.',
   ],
   solution: `
-**Collecting the data.** A Scheduler with a cron expression for the 20th (e.g. \`0 0 6 20 * ?\`) starts the flow. It reads active workers with compensation and bank data from **Workday** (Workday connector against the HR web services, or a custom Workday report exposed as a REST/RaaS endpoint — a common choice because it returns exactly the fields needed). Hours for the period come from the time-tracking API. DataWeave joins both on employee ID (\`groupBy\` the hours, then map workers) and computes gross amounts where needed.
+**Collecting the data.** A Scheduler with a cron expression for the 20th (e.g. \`0 0 6 20 * ?\`) starts the flow. It reads active workers with compensation and bank data from **Workday**. It uses the Workday connector against the HR web services, or a custom Workday report exposed as a REST/RaaS endpoint. The custom report is a common choice because it returns exactly the fields needed. Hours for the period come from the time-tracking API. DataWeave joins both on employee ID (\`groupBy\` the hours, then map workers) and computes gross amounts where needed.
 
 **Building the file.** Use DataWeave's **flat file** output with a schema describing each record type (header, detail, trailer) — fixed field lengths, padding, numeric formats with implied decimals. The trailer contains the **record count** and the **sum of gross pay**, computed from the same payload so they always match. Validate before sending: no employee without bank details, totals non-zero, count equals the number of active workers.
 

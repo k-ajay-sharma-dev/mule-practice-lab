@@ -155,13 +155,13 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
   ],
   solution: `
 1. **Enable CDC** in Salesforce Setup for Account and Opportunity (or a custom channel combining them).
-2. **Subscriber flow:** Salesforce connector **Replay channel listener** (name may differ by connector version — a streaming/subscribe channel source) on \`/data/AccountChangeEvent\`, replay option "from replay ID" with the stored value, or "only new" for first start. A second flow (or a custom channel) for Opportunity.
+2. **Subscriber flow:** Salesforce connector **Replay channel listener** on \`/data/AccountChangeEvent\`. The name may differ by connector version; it is a streaming/subscribe channel source. Use replay option "from replay ID" with the stored value, or "only new" for first start. A second flow (or a custom channel) for Opportunity.
 3. **Resume:** after an event is processed successfully, **Object Store Store** \`replayId\` per channel (persistent OS). On restart the listener resumes from that ID, so a 6-hour outage replays everything missed (within retention).
 4. **Hand-off:** to keep up with 500k bursts, the listener does minimal work: dedupe + publish to **Anypoint MQ** (\`sfdc.account.changes\`), then store the replay ID. Downstream workers update ERP and Postgres independently with their own retries/DLQ.
 5. **Process change events (DataWeave):** read \`ChangeEventHeader.changeType\` (CREATE/UPDATE/DELETE/UNDELETE/GAP_*), \`recordIds\` (may be multiple — fan out per ID), \`changedFields\`. For UPDATE, map only changed fields into a PATCH for the ERP; for CREATE send the full record; DELETE → deactivate in ERP.
 6. **GAP / overflow events:** for \`GAP_*\` or overflow change types, re-query the record from Salesforce (Query by ID) and sync the full state.
 7. **Loop prevention:** skip events where \`commitUser\` equals the integration user's ID, or set a "last updated by integration" marker.
-8. **Beyond retention:** the connector docs do not state what happens when the stored replay ID is too old, and errors at the source sit outside \`ANY\`, so a flow error handler alone may never see it. Monitor the subscription (for example alert when no events arrive), then start from "only new" and trigger a delta resync job (SOQL on \`LastModifiedDate\` since the last processed time, via Bulk API).
+8. **Beyond retention:** the connector docs do not state what happens when the stored replay ID is too old. Errors at the source sit outside \`ANY\`, so a flow error handler alone may never see it. Monitor the subscription (for example alert when no events arrive), then start from "only new" and trigger a delta resync job (SOQL on \`LastModifiedDate\` since the last processed time, via Bulk API).
 `,
   followUps: [
     { q: 'Platform Events vs CDC — when would you use which?', a: 'CDC publishes record changes automatically for enabled objects; Platform Events are custom business events you publish explicitly (e.g. OrderSubmitted) with your own schema. Use CDC for data sync, Platform Events for business events.' },

@@ -106,7 +106,7 @@ The legacy **ERP order gateway** only accepts its own XML format. The ERP team a
 
 **Errors:** XSD/XML errors → **400** with \`<OrderAck><Status>REJECTED</Status><Reason>…\`. ERP connectivity/timeout/503 → **503** "retry later". Anything else → 500.
 
-**XSLT vs DataWeave:** keep the XSLT for the migration (it is tested and owned by the ERP team), then rewrite in DataWeave when the mapping next changes — DataWeave is faster to change, unit-testable with MUnit and needs no extra module.
+**XSLT vs DataWeave:** keep the XSLT for the migration (it is tested and owned by the ERP team), then rewrite in DataWeave when the mapping next changes. DataWeave is faster to change, unit-testable with MUnit and needs no extra module.
 
 **XXE:** the XML module's Expand Entities setting defaults to **NEVER**, so external entities and DTD expansion are not resolved; do not change it. Also limit the request size on the listener.
 `,

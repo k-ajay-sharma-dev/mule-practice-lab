@@ -120,9 +120,9 @@ Problems seen in the pilot:
 - Customer account changes → **SQS FIFO** with \`MessageGroupId = customerId\` and a deduplication id.
 - Finance → **JMS** connector to IBM MQ (driver provided as a dependency).
 
-**2. Kafka ordering and scaling.** Ordering exists only within a partition. Publish with \`kafka:publish\` and **key = orderId** so all events of an order share a partition. Each partition is assigned to one consumer of a group, so 6 partitions cap a group at 6 active consumers — scale by planning more partitions (keyed so per-key order survives), not just replicas.
+**2. Kafka ordering and scaling.** Ordering exists only within a partition. Publish with \`kafka:publish\` and **key = orderId** so all events of an order share a partition. Each partition is assigned to one consumer of a group, so 6 partitions cap a group at 6 active consumers. Scale by planning more partitions (keyed so per-key order survives), not only replicas.
 
-**3. SQS.** A received message is hidden for the **visibility timeout**; it must be deleted after successful processing or it reappears. In Mule, the Receive Messages source deletes each message as soon as it is read unless **Preserve Messages** is on, so for at-least-once processing turn it on and call **Delete Message** after success. After \`maxReceiveCount\` receives without deletion, the redrive policy moves it to the DLQ. Standard queues can deliver duplicates and out of order; FIFO orders per message group and deduplicates within the deduplication window.
+**3. SQS.** A received message is hidden for the **visibility timeout**; it must be deleted after successful processing or it reappears. In Mule, the Receive Messages source deletes each message as soon as it is read unless **Preserve Messages** is on. So for at-least-once processing turn it on and call **Delete Message** after success. After \`maxReceiveCount\` receives without deletion, the redrive policy moves it to the DLQ. Standard queues can deliver duplicates and out of order; FIFO orders per message group and deduplicates within the deduplication window.
 
 **4. Fixes.**
 - Out of order → key by orderId; process sequentially per partition.
@@ -137,7 +137,7 @@ Problems seen in the pilot:
     },
     {
       q: 'Why not use Anypoint MQ for everything?',
-      a: 'Anypoint MQ is a good managed queue/exchange for Mule apps, but it is not a replayable log for many consumers, and AWS-native consumers or an IBM MQ estate are better served by SQS and JMS respectively.',
+      a: 'Anypoint MQ is a good managed queue/exchange for Mule apps, but it is not a replayable log for many consumers. AWS-native consumers or an IBM MQ estate are better served by SQS and JMS respectively.',
     },
     {
       q: 'How do you choose the number of Kafka partitions?',

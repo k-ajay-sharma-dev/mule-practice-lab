@@ -153,7 +153,7 @@ HTTP Listener → schema validation (APIkit) → enrich with \`orderId\` / \`cor
 - Permanent (\`HTTP:BAD_REQUEST\`, custom \`APP:INVALID_MATERIAL\`): publish to \`orders.parked\` with the error details, then **Ack** — no point retrying, and it must not block others.
 
 **DLQ reprocessing**
-- A separate flow (HTTP-triggered "replay" endpoint for ops, plus an optional Scheduler) uses **Consume** on the DLQ (or parked queue), optionally filters by orderId, lets ops supply a corrected body, then **Publish** back to \`orders.create\` with a \`replayCount\` property and acks the DLQ message.
+- A separate flow (HTTP-triggered "replay" endpoint for ops, plus an optional Scheduler) uses **Consume** on the DLQ (or parked queue). It optionally filters by orderId and lets ops supply a corrected body. Then it calls **Publish** back to \`orders.create\` with a \`replayCount\` property and acks the DLQ message.
 - Guard against infinite loops: if \`replayCount\` exceeds a limit, keep it parked and alert.
 - Expose counts via monitoring (queue depth alerts on the DLQ).
 
@@ -164,6 +164,6 @@ Redelivery happens (Nack, ack timeout, replica crash after SAP succeeded but bef
 
 **Ordering:** a standard queue with concurrent consumers does not guarantee per-customer order. If needed, version/timestamp updates per customer in SAP and reject stale ones, rather than giving up throughput with FIFO.
 
-**Why not VM queues alone:** VM queues live inside the Mule app (persistent VM queues are tied to the app/runtime), have no broker-side DLQ, inspection or replay tooling for ops, and can't decouple separately deployed producer and consumer apps. Anypoint MQ is an external, durable broker with DLQs, delivery counts and a console.
+**Why not VM queues alone:** VM queues live inside the Mule app (persistent VM queues are tied to the app/runtime). They have no broker-side DLQ, inspection or replay tooling for ops. They also can't decouple separately deployed producer and consumer apps. Anypoint MQ is an external, durable broker with DLQs, delivery counts and a console.
 `,
 }

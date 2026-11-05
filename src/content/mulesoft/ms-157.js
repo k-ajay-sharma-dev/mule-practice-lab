@@ -149,7 +149,7 @@ An insurer is building claim intake on **CloudHub 2.0** in \`us-east-1\` with **
   solution: `
 **1. \`claims.intake\`.** Keep **AUTO** so an error returns the message, and set \`acknowledgementTimeout\` above the worst case with an allowance, such as six minutes. Without it the default of two minutes returns four-minute messages to the queue while they are still running. Make the fraud check idempotent by claim ID. Avoid prefetch if the timeout matters.
 
-**2. \`claims.payments\`.** FIFO queues process in order and are deduplicated, and only FIFO queues support only-once delivery. The peak of 500 messages per second exceeds 300 TPS unless messages are batched, and each group allows 10 in-flight messages, so use the policy number as the group to spread the load. FIFO needs an entitlement, and FIFO queues have no cross-region failover, so plan DR separately.
+**2. \`claims.payments\`.** FIFO queues process in order and are deduplicated, and only FIFO queues support only-once delivery. The peak of 500 messages per second exceeds 300 TPS unless messages are batched, and each group allows 10 in-flight messages. So use the policy number as the group to spread the load. FIFO needs an entitlement, and FIFO queues have no cross-region failover, so plan DR separately.
 
 **3. Documents.** Store the file in object storage and send a pointer, which is the claim check style from the FAQ. Manage access for sender and receiver, and consider that messages can arrive out of order on a standard queue.
 

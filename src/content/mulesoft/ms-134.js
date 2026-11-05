@@ -134,7 +134,7 @@ Publish the reports even when the test step fails, because that is when they mat
 
 **Properties per environment.** There are two kinds, and they need different handling.
 - Non-secret values are safe in config files such as \`config-test.yaml\`, selected by an \`env\` property, or in a \`propertiesFile\` for the deployment. Nothing requires a rebuild, because the value comes from the deployment.
-- Secrets leave the application. Either encrypt the file with the Secure Properties tool and read values with \`secure::\`, passing the key at deployment time, or set the secret in \`secureProperties\`, which tells CloudHub 2.0 to encrypt it before storing it.
+- Secrets leave the application. Either encrypt the file with the Secure Properties tool and read values with \`secure::\`, passing the key at deployment time. Or set the secret in \`secureProperties\`, which tells CloudHub 2.0 to encrypt it before storing it.
 
 Remove the plain-text passwords from the Azure team's YAML files, and rotate them, because they are in Git history. On CloudHub 2.0, if \`properties\` or \`secureProperties\` is present, the deployment replaces all existing values, so send the full set.
 

@@ -94,7 +94,7 @@ The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pr
 ## Cluster and re-processing
 `,
   keyPoints: [
-    'FTP On New or Updated File with a filename pattern, a size-check delay (timeBetweenSizeCheck) so a file is only ready once its size stops changing, and a post action (moveToDirectory /archive) so the file is not picked up again.',
+    'Use FTP On New or Updated File with a filename pattern. Add a size-check delay (timeBetweenSizeCheck) so a file is only ready once its size stops changing. Add a post action (moveToDirectory /archive) so the file is not picked up again.',
     'applyPostActionWhenFailed defaults to true; set it to false and move failed files to /error in the error handler, otherwise broken files also land in /archive.',
     'Keep attributes.path in a variable at the start — after a Database operation the attributes describe that operation, not the file.',
     'DataWeave maps CSV rows to typed values (Number, Date); a Bulk Insert with parameterised SQL loads them in chunks of ~1,000 inside one transaction (Try ALWAYS_BEGIN).',
@@ -118,7 +118,7 @@ The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pr
   followUps: [
     {
       q: 'Why not use On Error Continue in the flow error handler?',
-      a: 'On Error Continue tells the source that processing succeeded, so the listener would apply its post action and try to move the file to /archive — which fails or hides the problem because the handler already moved it to /error. On Error Propagate marks the execution as failed.',
+      a: 'On Error Continue tells the source that processing succeeded, so the listener would apply its post action and try to move the file to /archive. That fails or hides the problem because the handler already moved it to /error. On Error Propagate marks the execution as failed.',
     },
     {
       q: 'How do you avoid reading a file the partner is still uploading?',

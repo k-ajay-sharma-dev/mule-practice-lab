@@ -162,7 +162,7 @@ Transform it immediately after the call.
 - **Empty cursor**: usually the cursor was not declared as an output parameter, the procedure opened it on a different query path, or it was read after the connection had been released. Read it right after the call.
 - **Column names** come back in upper case unless aliased with quotes.
 - **PL/SQL-only types** (BOOLEAN, RECORD, associative arrays): ask for a wrapper procedure with NUMBER/VARCHAR2 or SQL object types, e.g. \`p_allow_substitutes IN VARCHAR2 -- 'Y'/'N'\`.
-- **Commits inside the procedure**: the allocation is committed regardless of Mule. If the WMS call fails, either retry the WMS call idempotently (allocation already exists for the order — the procedure should return the existing allocation on a repeated call) or call a \`DEALLOCATE_ORDER\` compensation.
+- **Commits inside the procedure**: the allocation is committed regardless of Mule. If the WMS call fails, either retry the WMS call idempotently or call a \`DEALLOCATE_ORDER\` compensation. For the retry, allocation already exists for the order, so the procedure should return the existing allocation on a repeated call.
 - **Errors**: \`RAISE_APPLICATION_ERROR\` surfaces as \`DB:QUERY_EXECUTION\` with the ORA code in the description; map business codes (e.g. ORA-20001 order not found) to APP errors and 4xx responses.
 
 **4. Testing.** MUnit: mock \`db:stored-procedure\` to return a map with \`p_status\`, \`p_dc_code\` and an array for \`p_lines\`; test PARTIAL/BACKORDER branches and error mapping. Plus an integration test against a dev schema in CI to catch signature changes.

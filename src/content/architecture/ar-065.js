@@ -151,6 +151,6 @@ Automate governance (rulesets, pipeline checks, templates) so central control do
   followUps: [
     { q: 'Should each business unit have its own SAP System API if they use different SAP company codes?', a: 'Usually no; one SAP System API parameterised by company code/sales org avoids duplicated connectivity and mappings. Split only when the SAP instances or data models are genuinely different and separately owned.' },
     { q: 'Is an enterprise canonical data model a good idea at this scale?', a: 'A single canonical model for everything tends to become bloated and slow to change. Prefer canonical models per bounded context plus shared primitive types (address, money, codes), with explicit translation at boundaries.' },
-    { q: 'How do you stop teams bypassing Exchange and building duplicates?', a: 'Make discovery easy (taxonomy, good docs), make reuse the default in project intake and design review, measure duplicates, and give shared-API owners capacity to accept change requests quickly — slow owners cause duplication.' },
+    { q: 'How do you stop teams bypassing Exchange and building duplicates?', a: 'Make discovery simple (taxonomy, good docs), make reuse the default in project intake and design review, and measure duplicates. Give shared-API owners capacity to accept change requests quickly, because slow owners cause duplication.' },
   ],
 }

@@ -76,7 +76,7 @@ Requirements:
   ],
   solution: `
 **Triggers.**
-- *ServiceNow → Jira:* a **business rule** on the incident table (on assignment group change to a Dev group, on comment, on state change) calls an **outbound REST message** to a Mule HTTPS endpoint (secured with basic auth/OAuth and IP allowlist). Payload: incident sys_id, number, changed fields.
+- *ServiceNow → Jira:* a **business rule** on the incident table calls an **outbound REST message** to a Mule HTTPS endpoint. It fires on assignment group change to a Dev group, on comment and on state change. The endpoint is secured with basic auth/OAuth and IP allowlist. Payload: incident sys_id, number, changed fields.
 - *Jira → ServiceNow:* **Jira webhooks** (issue updated, comment created) filtered with JQL to synced projects call another Mule endpoint (validate the webhook secret).
 - Both endpoints only validate and **enqueue** (Anypoint MQ) then return 200 quickly. P1 messages go to a priority queue so they are never stuck behind a burst.
 
@@ -89,7 +89,7 @@ Mule calls ServiceNow through the **ServiceNow connector** / Table API and Jira 
 - Jira status changes are applied via the **transitions** API (you cannot set status directly) — look up the transition ID valid from the current status.
 - Loop prevention: Mule writes as an **integration user** in both systems; events whose author is the integration user are discarded. Comments are prefixed (\`[ServiceNow – J. Smith]\`) so people see their origin.
 
-**Attachments.** On an attachment event, download it from ServiceNow's Attachment API as a stream and upload to Jira's attachments endpoint (multipart/form-data) without loading 20 MB into memory more than needed (repeatable file-store stream). Skip if the same file name + size was already synced.
+**Attachments.** On an attachment event, download it from ServiceNow's Attachment API as a stream and upload to Jira's attachments endpoint (multipart/form-data). Do this without loading 20 MB into memory more than needed (repeatable file-store stream). Skip if the same file name + size was already synced.
 
 **Failure handling.** Consumers retry with exponential backoff on 429/5xx (respect Jira's \`Retry-After\`), then move to a **DLQ** with an alert. Events are processed **in order per incident** (e.g. single consumer per message group, or compare "updated" timestamps and ignore older events). A nightly reconciliation compares open linked items in both systems and fixes drift caused by missed webhooks.
 `,

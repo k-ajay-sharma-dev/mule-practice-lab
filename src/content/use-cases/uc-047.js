@@ -123,7 +123,7 @@ Facts:
 5. Process API calls sys-core-banking \`/balance\` for each account **in parallel** (Scatter-Gather or parallel-for-each), with a 500 ms timeout per call.
 6. Process API merges into a canonical \`CustomerAccounts\` model; Experience API maps it to the mobile shape.
 
-**Own-accounts-only.** The customer ID is taken from the **token**, not from a URL the client controls (\`/me/...\` at the Experience layer). For account-level calls the Process API checks that the account ID is in the customer's linked accounts before calling core banking — the rule lives in one place, so every channel gets it for free.
+**Own-accounts-only.** The customer ID is taken from the **token**, not from a URL the client controls (\`/me/...\` at the Experience layer). For account-level calls the Process API checks that the account ID is in the customer's linked accounts before calling core banking. The rule lives in one place, so every channel gets it for free.
 
 **Reuse.** When the voice assistant comes, the team builds only **exp-voice-banking** (short spoken responses). prc-customer-accounts, sys-core-banking and sys-customer-profile are discovered in **Anypoint Exchange** and reused unchanged. The open-banking API will also reuse them, adding consent checks.
 

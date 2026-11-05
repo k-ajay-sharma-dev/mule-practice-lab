@@ -154,7 +154,7 @@ Set \`vars.httpStatus = error.errorMessage.attributes.statusCode default 500\` (
 - Log at ERROR: \`error.errorType\`, \`error.description\`, status code, correlation ID, and optionally a truncated downstream body.
 - Never return \`error.cause\`, stack traces, internal URLs/hosts (the default description contains the resource URL) or sensitive data.
 
-**Scatter-Gather:** a failure raises \`MULE:COMPOSITE_ROUTING\`. The error message payload exposes the successful \`results\` and the \`failures\` per route (each failure is an error with its own type and description), so you can log which route failed and decide whether a partial response is acceptable.
+**Scatter-Gather:** a failure raises \`MULE:COMPOSITE_ROUTING\`. The error message payload exposes the successful \`results\` and the \`failures\` per route (each failure is an error with its own type and description). So you can log which route failed and decide whether a partial response is acceptable.
 `,
   followUps: [
     {

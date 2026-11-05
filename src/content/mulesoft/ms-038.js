@@ -160,7 +160,7 @@ For each failure, state **which handlers run, in what order**, and **what the cl
 - **Flow without handler (4, 5):** every flow has an error handler — if none is declared, the default applies. It propagates, so the error reaches the Try at the flow-ref position. Try's handler matching works like a flow's.
 - **Async (6):** runs on another thread with a copy of the event after the main flow moves on; its errors never reach \`main\`. Log/alert them or use a reliable queue if the notification matters.
 
-**7 — globalHandler:** \`<configuration defaultErrorHandler-ref="globalHandler"/>\` replaces the built-in default for every flow that declares **no** handler of its own (\`persist\`, \`notify\`). It does not override handlers declared in a flow, and it does not apply to sub-flows (they never have a handler). If a flow declares a handler but none of its strategies matches the error, the error is not caught there and propagates to the caller — as in case 5 for the Try. Keep the global handler simple (log + propagate) so you don't accidentally swallow errors from flows that are expected to fail upward.
+**7 — globalHandler:** \`<configuration defaultErrorHandler-ref="globalHandler"/>\` replaces the built-in default for every flow that declares **no** handler of its own (\`persist\`, \`notify\`). It does not override handlers declared in a flow, and it does not apply to sub-flows (they never have a handler). If a flow declares a handler but none of its strategies matches the error, the error is not caught there and propagates to the caller. The same happens in case 5 for the Try. Keep the global handler simple (log + propagate) so you don't accidentally swallow errors from flows that are expected to fail upward.
 `,
   followUps: [
     {

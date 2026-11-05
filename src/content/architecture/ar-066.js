@@ -108,7 +108,7 @@ Constraints: limited vCores/capacity, no C4E, one team owns everything, only one
 ## Interview framing
 `,
   keyPoints: [
-    'Full three-layer API-led for 12 mostly-sync integrations multiplies apps, deployments, specs, policies and runtime cost for a single team with little reuse demand — the benefits (decoupling across teams, reuse by many consumers) are weakest here.',
+    'Full three-layer API-led for 12 mostly-sync integrations multiplies apps, deployments, specs, policies and runtime cost for a single team with little reuse demand. The benefits (decoupling across teams, reuse by many consumers) are weakest here.',
     'API-led still pays off for systems used by several integrations (a System API per core SaaS) and for the single external consumer (an Experience API/gateway boundary).',
     'Right-size: System APIs only where reused, sync jobs as Process-layer apps calling connectors or System APIs, one partner-facing API, co-located deployments, shared templates — keep logical layering in code even when physically merged.',
     'Grow when there are new channels/consumers, more teams, a backend replacement on the roadmap, duplicated logic appearing, or external consumers multiplying.',
@@ -123,7 +123,7 @@ Constraints: limited vCores/capacity, no C4E, one team owns everything, only one
 - **Governance overhead** with no C4E to run it.
 
 **Where API-led still adds value.**
-- **System APIs for the most-shared systems:** if Salesforce and NetSuite are each touched by 5+ integrations, one System API (or at least one shared connector config + DataWeave module) avoids repeating auth, mapping and API-limit handling.
+- **System APIs for the most-shared systems:** if Salesforce and NetSuite are each touched by 5+ integrations, use one System API (or at least one shared connector config + DataWeave module). It avoids repeating auth, mapping and API-limit handling.
 - **The 3PL partner:** an explicit Experience/partner API with client-id enforcement and rate limiting decouples an external party from internal systems — worth it even for one consumer.
 - **Contracts and Exchange** for anything consumed by another team (e.g. the e-commerce team).
 - **Principles** cost nothing: separate connectivity code from business logic from consumer shaping, inside the code base.

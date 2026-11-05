@@ -27,7 +27,7 @@ export default {
           'The us-east-2 region is still down',
         ],
         answer: 0,
-        explain: 'The docs say apps can still consume messages that remain in the fallback queue after failover is disabled, but it takes deliberate action, and the connector does not do it for you after the restart.',
+        explain: 'The docs say apps can still consume messages that remain in the fallback queue after failover is disabled. But it takes deliberate action, and the connector does not do it for you after the restart.',
       },
       {
         type: 'single',

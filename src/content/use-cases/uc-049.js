@@ -125,7 +125,7 @@ The voice platform handles account linking with the supplier's identity provider
 2. OAuth 2.0 token enforcement policy validates the token; exp-voice-assistant maps the user to the contract account (via sys-customer-identity or a claim).
 3. exp-voice-assistant → prc-meter-reading \`POST /accounts/{id}/readings\` (existing contract).
 4. prc-meter-reading → sys-sap-isu-meters: get estimate, validate range, submit reading — **exact same logic as web and mobile**.
-5. Response mapped to speech: *"Thanks, I've submitted 45219. Your next bill will use this reading."* If the reading is outside the expected range, the Process API returns its existing business error and the voice API turns it into *"That looks higher than expected — please check and try again."*
+5. Response mapped to speech: *"Thanks, I've submitted 45219. Your next bill will use this reading."* If the reading is outside the expected range, the Process API returns its existing business error. The voice API turns it into *"That looks higher than expected — please check and try again."*
 
 **Versioning decisions.**
 - Adding a new resource or an **optional** field is backwards-compatible → publish **v1.1** (minor) in Exchange; existing consumers are not affected and keep calling \`/v1\`.

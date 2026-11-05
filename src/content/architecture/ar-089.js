@@ -108,7 +108,7 @@ Multicast is blocked, so use a **unicast** cluster. It needs fixed IP addresses,
   followUps: [
     { q: 'Why not use Omni Gateway (formerly Flex Gateway) here?', a: 'It is a strong option for non-Mule services, and it has its own deployment models. This design assumes the team already runs and supports Mule on-premises and wants one runtime. A per-partner shared quota would then need its own check against Omni Gateway docs.' },
     { q: 'How many servers can be in a cluster?', a: 'Runtime Manager describes a cluster as a set of up to eight servers.' },
-    { q: 'Is a cluster needed if the backend limit is the only concern?', a: 'No. The Rate Limiting page says that with a load balancer in front of the proxies and one backend, you do not need a cluster, as long as you set the policy below the backend capacity. The commercial per-partner quota is what requires the cluster here.' },
+    { q: 'Is a cluster needed if the backend limit is the only concern?', a: 'No. The Rate Limiting page says that with a load balancer in front of the proxies and one backend, you do not need a cluster. That holds as long as you set the policy below the backend capacity. The commercial per-partner quota is what requires the cluster here.' },
     { q: 'What credentials does the proxy use to reach API Manager?', a: 'A proxy deployed from API Manager has its API Manager credentials set for you in the platform deployment path. For a self-managed server you configure them. The environment client ID and secret are the recommended pair.' },
   ],
 }

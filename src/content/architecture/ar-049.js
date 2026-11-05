@@ -42,7 +42,7 @@ export default {
         ['#10 Teller web app API calling #2 and #5', 'Experience — serves one consumer by composing Process APIs'],
         ['#5 Open account', 'Process — orchestration with compensation needs'],
       ],
-      explain: '#7 looks like a "product API" because regulation dictates its contract, but its shape and security are consumer-specific, so it sits in the Experience layer on top of Process APIs such as #2.',
+      explain: '#7 looks like a "product API" because regulation dictates its contract. But its shape and security are consumer-specific, so it sits in the Experience layer on top of Process APIs such as #2.',
     },
     {
       type: 'single',

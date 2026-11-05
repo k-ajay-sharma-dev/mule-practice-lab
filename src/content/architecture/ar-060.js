@@ -104,7 +104,7 @@ The Experience layer has 3 APIs and ~40 external consumers. The business does no
   keyPoints: [
     'Adding optional fields/resources is non-breaking; changing a field\'s type/cardinality (single address → array) or removing fields is breaking; adding an enum value is breaking for strict consumers unless the contract says enums are extensible.',
     'Prefer evolving v1 additively first (add addresses[] while keeping address = primary) so many consumers never need to move.',
-    'If a v2 is needed, run v1 and v2 side by side (separate base path and API instance), possibly with v1 implemented as an adapter over v2 logic, and migrate Process APIs independently.',
+    'If a v2 is needed, run v1 and v2 side by side (separate base path and API instance), possibly with v1 implemented as an adapter over v2 logic. Migrate Process APIs independently.',
     'Process APIs absorb System changes: their own contracts to Experience APIs stay stable, which is the point of layering.',
     'Exchange semantic versions, deprecation markers, API Manager analytics per client id to find remaining v1 consumers, consumer contract tests in CI, and a published sunset date.',
   ],

@@ -109,7 +109,11 @@ export default {
 
 **Rollout.** Shadow mode first (score but do not act) to tune thresholds and measure latency; then hold only very high scores; then full policy.
 
-**Risks.** Latency creep (performance budget per hop, tests in CI), false positives annoying customers (shadow mode tuning), ordering problems (customer-keyed partitions), and Kafka being treated as a free-for-all (topic governance with the data team).
+**Risks.**
+- Latency creep (performance budget per hop, tests in CI).
+- False positives annoying customers (shadow mode tuning).
+- Ordering problems (customer-keyed partitions).
+- Kafka being treated as a free-for-all (topic governance with the data team).
 `,
   followUps: [
     { q: 'Why not route every event through Mule APIs before Kafka?', a: 'Systems that can publish natively should; adding Mule hops adds latency and cost without value. Mule earns its place adapting systems that cannot produce events and orchestrating actions on decisions.' },

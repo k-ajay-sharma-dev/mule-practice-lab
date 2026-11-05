@@ -70,7 +70,7 @@ Facts:
 - VAT lines where VAT is reclaimable;
 - one credit line to the **employee's vendor account** (employees exist as vendors in the ERP, looked up by employee number).
 
-The mapping table lives outside the code — a small database table, a CSV in a config location, or a custom table in the ERP — loaded and cached at the start of the run. Finance can change it without a deployment. Unknown category → report goes to the error list, it is not posted to a "suspense" account silently.
+The mapping table lives outside the code: a small database table, a CSV in a config location, or a custom table in the ERP. It is loaded and cached at the start of the run. Finance can change it without a deployment. Unknown category → report goes to the error list, it is not posted to a "suspense" account silently.
 
 **Posting and status update.**
 1. Search the ERP for an existing document with external reference = **expense report ID**; if found, skip posting (already booked).

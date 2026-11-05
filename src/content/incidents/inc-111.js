@@ -140,6 +140,6 @@ Confirm that upstream TLS 1.2 or higher is enabled. Retest, and release the park
   followUps: [
     { q: 'What if this estate had used the VPC upgrade path?', a: 'Internal app-to-app calls would also need checking. The upgrade removes VPC firewall rules for ports other than 80, 443 and 30500 to 32500, so rules for 8081 and 8082 may be gone. Validate with the Network Tools application and recreate the rules you need.' },
     { q: 'Does the allowlist limit matter here?', a: 'It can. The maximum is 240 entries with inbound HTTP mode Off, and 120 with On or Redirect, so check the headroom on a DLB with a long list.' },
-    { q: 'How do you recover the parked orders safely?', a: 'Release them at a controlled rate once the stock check works, and make sure the order flow is idempotent, so that a retry of an order that partly completed does not create a duplicate.' },
+    { q: 'How do you recover the parked orders safely?', a: 'Release them at a controlled rate once the stock check works. Make sure the order flow is idempotent, so that a retry of an order that partly completed does not create a duplicate.' },
   ],
 }

@@ -96,7 +96,7 @@ Requirements:
  SLA watchdog -> prc-store-fulfilment (re-source)
 \`\`\`
 
-**Sourcing.** For each released line the Process API asks sys-store-stock for candidate stores with stock ≥ buffer, ranks them with the rules from sys-sourcing (distance, cut-off, markdown priority) and tries to **reserve capacity** in the best one:
+**Sourcing.** For each released line the Process API asks sys-store-stock for candidate stores with stock ≥ buffer. It ranks them with the rules from sys-sourcing (distance, cut-off, markdown priority) and tries to **reserve capacity** in the best one:
 \`UPDATE store_capacity SET used = used + 1 WHERE store_id = :s AND slot_hour = :h AND used < max_orders\` — 1 row updated means capacity was reserved; 0 means try the next store. The assignment row (line ID, store, attempt, version, state ASSIGNED) is inserted in the same transaction, so a line is never assigned twice.
 
 **Store tasks.** A task message (persistent, storeId as a JMS property) is published; exp-store-fulfilment delivers it to the store's tablets. The associate accepts → picks → packs; each call carries the assignment version. If the task was meanwhile re-sourced, the call is rejected with "task moved" and the associate puts the item back.

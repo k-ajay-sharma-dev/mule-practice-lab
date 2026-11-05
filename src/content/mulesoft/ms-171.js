@@ -157,7 +157,7 @@ A second team wants to add \`<ee:scheduler-pools>\` to its reporting app so that
 - *Raise maxSize.* This is global, so it changes all 14 apps. If threads are waiting on a slow backend, more threads only move the queue to that backend. Do this only after finding the bottleneck and after a load test with all apps.
 - *Add a work queue.* It is also a global change. It trades a quick rejection for hidden waiting. The defaults use 0, and the docs advise against changing them.
 - *Return to DEDICATED.* The docs call it legacy and suggest it mainly so old customisations keep working. They ask you to test the default first and to try customising UBER before reverting.
-- *\`ee:scheduler-pools\` in the reporting app.* It does give that app separate pools, but it adds a new set of threads to an instance that is already busy, and it does not fix anything in the other apps. If the aim is to protect a backend, a \`maxConcurrency\` value on the reporting flow is a far smaller change, although the tuning guide says to use defaults unless a lower concurrency is really required.
+- *\`ee:scheduler-pools\` in the reporting app.* It does give that app separate pools, but it adds a new set of threads to an instance that is already busy. It also does not fix anything in the other apps. If the aim is to protect a backend, a \`maxConcurrency\` value on the reporting flow is a far smaller change. However, the tuning guide says to use defaults unless a lower concurrency is really required.
 
 **5. Investigation.**
 - Take several thread dumps during the peak and group them by thread name (\`uber.NN\`, app, flow, processing type).
@@ -175,7 +175,7 @@ The upgrade guidance sums up the attitude: a custom configuration might hide und
     },
     {
       q: 'Can you state how many threads maxSize gives on this server?',
-      a: 'Not reliably from the docs. The Execution Engine page gives the formula with `cores` and `mem` but does not define the unit of `mem`, so read the real number from a thread dump or profiler rather than quoting a calculation.',
+      a: 'Not reliably from the docs. The Execution Engine page gives the formula with `cores` and `mem` but does not define the unit of `mem`. So read the real number from a thread dump or profiler rather than quoting a calculation.',
     },
     {
       q: 'What is gracefulShutdownTimeout on ee:scheduler-pools?',

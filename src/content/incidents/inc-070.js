@@ -117,7 +117,7 @@ export default {
 - Scale back to one replica (or deploy with the listener disabled on one node) to stop new duplicates.
 - Find duplicate batches: same source file name loaded twice since Monday 18:00; with purchasing, cancel the duplicate POs and inform affected suppliers.
 
-**Root cause.** A polling file listener was scaled horizontally without running it on the primary node only, combined with a "delete at the end" pattern that leaves the file visible for the whole processing time and no idempotency in the load.
+**Root cause.** A polling file listener was scaled horizontally without running it on the primary node only. This was combined with a "delete at the end" pattern that leaves the file visible for the whole processing time, and with no idempotency in the load.
 
 **Permanent fix.**
 \`\`\`xml

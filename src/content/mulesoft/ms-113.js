@@ -160,7 +160,7 @@ In API Manager, the **Instance Conformance** field and **Governance Report** pag
   followUps: [
     {
       q: 'When are automatic notifications sent?',
-      a: 'Only when an active profile targets the API, a valid contact email exists, and the status changes to failing because of a change in the API or rulesets, or the first time a version fails a ruleset. Each email names the API and the rulesets it failed, with links to Exchange and Design Center.',
+      a: 'Only when an active profile targets the API and a valid contact email exists. In addition, the status must change to failing because of a change in the API or rulesets, or it must be the first time a version fails a ruleset. Each email names the API and the rulesets it failed, with links to Exchange and Design Center.',
     },
     {
       q: 'What is the difference between automated policies and open policies?',
@@ -172,7 +172,7 @@ In API Manager, the **Instance Conformance** field and **Governance Report** pag
     },
     {
       q: 'Do tags have to exist before you use them in a profile?',
-      a: 'No. You can add a tag name in a profile even if it has not yet been added to APIs in Exchange, and the filter also applies to new APIs as they are added.',
+      a: 'No. You can add a tag name in a profile even if it has not yet been added to APIs in Exchange. The filter also applies to new APIs as they are added.',
     },
   ],
 }

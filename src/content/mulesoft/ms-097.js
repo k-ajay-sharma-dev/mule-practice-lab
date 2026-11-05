@@ -138,7 +138,7 @@ A single integration operations team of six will support both targets. The head 
   ],
   solution: `
 **Placement criteria.**
-- Use **Runtime Fabric** when the workload must run in your own network, needs connectivity such as Direct Connect or VPC peering on your own terms, or the organisation already operates Kubernetes well.
+- Use **Runtime Fabric** when the workload must run in your own network, or needs connectivity such as Direct Connect or VPC peering on your own terms. Also use it when the organisation already operates Kubernetes well.
 - Use **CloudHub 2.0** for everything else, because the platform removes VM, network and ingress work. That covers the existing 25 apps and any new app without a location constraint.
 - Check feature gaps before choosing. The comparison table in *Features of CloudHub 2.0* is the reference, and it changes, so confirm each capability you depend on.
 
@@ -170,7 +170,7 @@ A single integration operations team of six will support both targets. The head 
 
 After a Runtime Fabric restore, deployments reconcile from the control plane, but changes not stored there, such as updated cluster configurations and agent upgrades, must be reapplied by hand. The docs disagree on app changes made after the backup: the HA and DR page says they reconcile automatically, while the backup page lists them as changes to resolve manually, so check them after any restore. Do not run the original and the restored copy at the same time.
 
-**Portability.** Keep apps stateless, use \`$\{http.port}\`-style configuration rather than fixed infrastructure values, and use the Object Store Connector, which reaches Object Store v2 on CloudHub 2.0 and Persistence Gateway on Runtime Fabric without code changes. Note that a platform feature like a default endpoint does not exist on Runtime Fabric, so route clients through your own domain.
+**Portability.** Keep apps stateless, and use \`$\{http.port}\`-style configuration rather than fixed infrastructure values. Use the Object Store Connector, which reaches Object Store v2 on CloudHub 2.0 and Persistence Gateway on Runtime Fabric without code changes. Note that a platform feature like a default endpoint does not exist on Runtime Fabric, so route clients through your own domain.
 
 **Day-2 checklist for Runtime Fabric.**
 1. Review capacity: reserved CPU and memory per node, including sidecars and platform services.

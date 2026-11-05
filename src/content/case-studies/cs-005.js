@@ -100,7 +100,12 @@ export default {
 
 **Reliability and merges.** Retries with backoff to each target, DLQs with alerts. For \`ADT^A40\` merges, update the patient identifier cross-reference so later results resolve to the surviving MRN; results with no matching patient/encounter are held and flagged instead of being attached to a guess.
 
-**Security and audit.** TLS (mTLS for the external lab), OAuth 2.0 with patient-scoped access (SMART on FHIR-style) on the FHIR facade, **no PHI in logs** (log control IDs and correlation IDs only), encryption at rest for queues/stores, and an audit log of every access/disclosure.
+**Security and audit.**
+- TLS (mTLS for the external lab).
+- OAuth 2.0 with patient-scoped access (SMART on FHIR-style) on the FHIR facade.
+- **No PHI in logs** (log control IDs and correlation IDs only).
+- Encryption at rest for queues/stores.
+- An audit log of every access/disclosure.
 
 **Monitoring and migration.** Alerts when no results have flowed for N minutes during working hours, on queue depth/age, NACK rate, and DLQ size. Migrate **interface by interface**: run the new flow in parallel with the old engine (shadow mode), compare outputs, then switch the MLLP endpoint and keep the old one ready for rollback.
 `,

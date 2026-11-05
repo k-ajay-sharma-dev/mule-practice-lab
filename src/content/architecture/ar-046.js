@@ -157,6 +157,6 @@ Notes: exclude client errors (4xx) caused by callers from the "bad" count; choos
 `,
   followUps: [
     { q: 'Why measure at the Experience API rather than each System API?', a: 'The user experiences the whole journey; per-API SLIs are useful for diagnosis and for owner teams, but the journey SLO is what the business cares about and what error budgets should be based on.' },
-    { q: 'What is a burn-rate alert in simple terms?', a: 'It alerts when errors consume the error budget much faster than the rate that would just exhaust it by the end of the window, for example spending a large share of the monthly budget within an hour, which indicates a real incident rather than noise.' },
+    { q: 'What is a burn-rate alert in simple terms?', a: 'It alerts when errors consume the error budget much faster than the rate that would exhaust it exactly by the end of the window. For example, spending a large share of the monthly budget within an hour indicates a real incident rather than noise.' },
   ],
 }

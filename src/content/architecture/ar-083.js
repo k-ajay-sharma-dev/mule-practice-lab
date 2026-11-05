@@ -90,7 +90,7 @@ Constraints:
 
 **Step 0 — decouple.** Move the 6 APIs with direct SQL onto \`sys-orders-oracle\`. Until no consumer depends on Oracle-specific SQL, a database switch is impossible.
 
-**Change flow.** Initial bulk load (DBA tooling) to a known position, then CDC from that position. The CDC tool publishes each row change to Kafka **keyed by order id**, so all changes of an order stay in one partition and in order. \`prc-orders-cdc-apply\` maps types and calls \`sys-orders-sqlserver\`, which upserts with a **MERGE** keyed on the business key and only applies a change if its source sequence/SCN is newer than the stored one — replays and duplicates are harmless. Failures after retries go to \`orders.cdc.dlq\` and alert; the consumer continues.
+**Change flow.** Initial bulk load (DBA tooling) to a known position, then CDC from that position. The CDC tool publishes each row change to Kafka **keyed by order id**, so all changes of an order stay in one partition and in order. \`prc-orders-cdc-apply\` maps types and calls \`sys-orders-sqlserver\`, which upserts with a **MERGE** keyed on the business key. It only applies a change if its source sequence/SCN is newer than the stored one, so replays and duplicates are harmless. Failures after retries go to \`orders.cdc.dlq\` and alert; the consumer continues.
 
 **Reconciliation.** Every hour, per key range: row counts and checksums of normalised columns via both System APIs; deep compare on mismatch. Results on the drift dashboard; dual-run exit criterion: zero unexplained drift for two weeks.
 
@@ -99,6 +99,6 @@ Constraints:
   followUps: [
     { q: 'Why not let Mule write to both databases from prc-orders instead of using CDC?', a: 'Dual writes from the application have no atomicity across two databases and miss changes made outside the APIs (PL/SQL jobs, tools). CDC captures every committed change from the source of record.' },
     { q: 'How do you handle Oracle sequences vs SQL Server IDENTITY during dual run?', a: 'Keep Oracle-generated ids as the keys in SQL Server (identity insert or plain key columns) while Oracle is the system of record; switch id generation only at cut-over, starting above the highest migrated value.' },
-    { q: 'What about the nightly PL/SQL rebate jobs?', a: 'They must be rewritten (T-SQL or moved into an integration/batch job) and run in parallel during dual run, comparing outputs, before cut-over — they are part of the migration scope, not an afterthought.' },
+    { q: 'What about the nightly PL/SQL rebate jobs?', a: 'They must be rewritten (T-SQL or moved into an integration/batch job) and run in parallel during dual run, comparing outputs, before cut-over. They are part of the migration scope, not an afterthought.' },
   ],
 }

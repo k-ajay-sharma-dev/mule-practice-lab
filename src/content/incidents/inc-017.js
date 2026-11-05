@@ -116,7 +116,7 @@ mule-node-b: Tue Nov  3 08:12:07 UTC 2026
   solution: `
 **Diagnosis.** \`date -u\` shows **node-b is ~3 min 20 s behind** node-a. The IdP sets \`nbf\` = issue time, so for a fresh token node-b sees \`nbf\` **in the future** and rejects it as *not yet valid*. Node-a accepts it. With round robin, ~half the requests go to node-b → intermittent 401s. Once a token is older than the skew, node-b accepts it too, which is why "retry a few minutes later" works. The weekend **snapshot restore** is the trigger: the VM came back with a wrong clock and time sync wasn't working.
 
-**Immediate mitigation.** Remove \`mule-node-b\` from the F5 pool (or drain it), confirm the 401 rate drops to normal, then fix its time (resync NTP/chrony, check the VM's host time-sync settings) and add it back after verifying the offset is near zero.
+**Immediate mitigation.** Remove \`mule-node-b\` from the F5 pool (or drain it) and confirm the 401 rate drops to normal. Then fix its time (resync NTP/chrony, check the VM's host time-sync settings). Add it back after verifying the offset is near zero.
 
 **Root cause.** A gateway node with a drifted clock and **no working time synchronisation**, combined with strict validation of time claims. Nothing monitored clock offset.
 

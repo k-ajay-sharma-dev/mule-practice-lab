@@ -101,7 +101,7 @@ Donor records live in Salesforce (a non-profit data model). Money is posted to a
 
 **Donor matching.** Exact email match → existing donor; otherwise name + postcode; if only a weak match, create the gift against a holding record and raise a Salesforce task for a supporter-care person to merge. Consent flags from the source are stored with source and timestamp — never overwritten with "opted in" by default.
 
-**Finance.** A nightly job aggregates the day's gifts by fund/campaign, posts one journal per fund with a deterministic reference (date + fund) so a rerun updates rather than duplicates, and stores a reconciliation record (count/amount) that staff can check.
+**Finance.** A nightly job aggregates the day's gifts by fund/campaign and posts one journal per fund with a deterministic reference (date + fund), so a rerun updates rather than duplicates. It also stores a reconciliation record (count/amount) that staff can check.
 
 **Operations.** Alerts on DLQ depth and failed files; a simple runbook for the small team. Start with online gifts (biggest manual effort), then agencies, then finance.
 

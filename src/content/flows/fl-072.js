@@ -113,7 +113,7 @@ A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5–80 MB) to
 `,
   keyPoints: [
     'A Scheduler (cron, business hours) + SFTP List gives control over which files are taken; the listener would also work with a matcher, timeBetweenSizeCheck (a listener setting, not a matcher one), primaryNodeOnly and a post action.',
-    'Skip files whose modification timestamp is newer than a few minutes (or whose size changed between two checks) — the bank writes under the final name, so a stable timestamp is the only signal.',
+    'Skip files whose modification timestamp is newer than a few minutes (or whose size changed between two checks). The bank writes under the final name, so a stable timestamp is the only signal.',
     'Claim each file with a rename (to .processing) before reading; a worker whose rename fails because the file is gone skips it. This works with replicas that are not a Mule cluster. The connector docs do not call rename atomic, so the claim relies on the SFTP server letting only one rename succeed: test that on the bank server.',
     'Process inside a per-file Try; on success rename with a timestamp and move to the archive, on failure move to the error folder and continue with the next file.',
     'Crash recovery: a .processing file older than N minutes was abandoned; a sweeper renames it back. The Treasury API is idempotent on the file name, so a re-run after a lost response is safe.',
@@ -123,8 +123,8 @@ A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5–80 MB) to
 2. **SFTP List** \`/outbound/remittance\`, \`REM_*.csv\`, not recursive. Listing returns attributes (path, size, timestamp) per file.
 3. **Transform**: keep files with \`size > 0\` and \`attributes.timestamp\` older than 3 minutes, sorted by name. Watch the time zone: the reference does not say which zone the timestamp is in, so compare a real file's value with the clock before you rely on the cutoff.
 4. **For Each** file:
-   - **Try → SFTP Rename** \`REM_x.csv\` → \`REM_x.csv.processing\`. The claim relies on the server: once the first rename is done the source name is gone, so the second worker's rename should fail. The docs list \`SFTP:ILLEGAL_PATH\` and \`SFTP:FILE_ALREADY_EXISTS\` for Rename, but they do not say which one a missing source gives and they do not call rename atomic, so test it with two workers on the bank's server. **On Error Continue** for both types sets nothing and the file is skipped.
-   - **Choice** claimed → **Try**: **SFTP Read** the \`.processing\` file (CSV), **Transform** to the Treasury JSON, **HTTP POST** (idempotency key = file name), compute the archive name \`REM_x.csv.<yyyyMMddHHmmss>.done\` once into a variable, **Rename** to it and **Move** to \`/archive/remittance\`.
+   - **Try → SFTP Rename** \`REM_x.csv\` → \`REM_x.csv.processing\`. The claim relies on the server: once the first rename is done the source name is gone, so the second worker's rename should fail. The docs list \`SFTP:ILLEGAL_PATH\` and \`SFTP:FILE_ALREADY_EXISTS\` for Rename. But they do not say which one a missing source gives, and they do not call rename atomic. So test it with two workers on the bank's server. **On Error Continue** for both types sets nothing and the file is skipped.
+   - **Choice** claimed → **Try**: **SFTP Read** the \`.processing\` file (CSV), **Transform** to the Treasury JSON and **HTTP POST** (idempotency key = file name). Compute the archive name \`REM_x.csv.<yyyyMMddHHmmss>.done\` once into a variable, **Rename** to it and **Move** to \`/archive/remittance\`.
    - Error → **SFTP Move** to \`/error/remittance\`, log, continue with the next file.
 5. **Sweeper**: a second scheduled flow (or the same one at start) renames \`.processing\` files older than 30 minutes back to their original name, so a crashed worker does not strand a file.
 

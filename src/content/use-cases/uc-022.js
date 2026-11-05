@@ -98,7 +98,7 @@ Manual override stays possible for Enterprise deals.
 
 **Migration of existing partners.** Bulk-create client applications for the 1,200 partners via platform APIs and map them to Salesforce accounts and their current limits (tier). For a transition period, a gateway route/legacy proxy accepts the **old API key** and maps it to the partner, while new credentials are distributed through the portal. Track old-key usage per partner in analytics; communicate deadlines; switch off old keys when usage drops to zero (or on the hard deadline).
 
-**Operations.** Analytics per client app (Anypoint Monitoring/API Manager analytics) for usage and billing of Enterprise overages, alerts on 4xx spikes per partner (broken integrations), and a revoke runbook (revoke contract → effect within token lifetime; keep tokens short-lived).
+**Operations.** Analytics per client app (Anypoint Monitoring/API Manager analytics) for usage and billing of Enterprise overages. Alerts on 4xx spikes per partner (broken integrations). A revoke runbook (revoke contract → effect within token lifetime; keep tokens short-lived).
 `,
   followUps: [
     { q: 'A partner is found abusing the API. How fast can you block them?', a: 'Revoke the contract or disable the client in API Manager/IdP; with short-lived tokens (e.g. 15–60 minutes) and contract checks at the gateway, access stops almost immediately. An IP block policy can act instantly as an emergency measure.' },

@@ -132,7 +132,7 @@ Leadership wants to move to MuleSoft with API-led connectivity, REST/JSON as the
 4. Repeat in waves until the ESB receives no traffic.
 
 **Keeping SOAP consumers working.**
-- For partners and slow-moving internal apps, expose the **same WSDL** via a Mule SOAP facade (APIkit for SOAP generates flows from the WSDL) that translates to the new REST Process APIs with DataWeave. Keep WS-Security and mutual TLS behaviour identical (Mule supports WS-Security via its web service/security configuration; validate partner-specific details early).
+- For partners and slow-moving internal apps, expose the **same WSDL** via a Mule SOAP facade (APIkit for SOAP generates flows from the WSDL). The facade translates to the new REST Process APIs with DataWeave. Keep WS-Security and mutual TLS behaviour identical (Mule supports WS-Security via its web service/security configuration; validate partner-specific details early).
 - Publish new **REST** APIs for new consumers and offer partners a migration path with a long deprecation window after the ESB is gone.
 
 **Business logic and XSLT.**

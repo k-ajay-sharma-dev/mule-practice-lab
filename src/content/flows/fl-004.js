@@ -113,7 +113,7 @@ Duplicates have caused **double invoice updates** and duplicate customer emails.
 
 **Duplicates:** the validator raises \`MULE:DUPLICATE_MESSAGE\`. Catch it with **On Error Continue** (type \`MULE:DUPLICATE_MESSAGE\`), log at INFO, and return **200** — the event was already handled, and a non-2xx would make the provider retry for 3 days.
 
-**Failure after the ID is stored:** the validator records the ID *before* the rest of the flow runs. If NetSuite then fails, the provider's retry would be dropped as a duplicate → the event is lost. Fix: in the On Error Propagate for other errors, call \`os:remove\` with key \`payload.id\` (save the ID in a variable first, since the payload may have changed) and return 5xx so the provider retries. Alternative pattern: check with \`os:contains\` first and \`os:store\` only after success — but that leaves a window where two near-simultaneous duplicates both pass, so the validator plus remove-on-failure is usually preferred.
+**Failure after the ID is stored:** the validator records the ID *before* the rest of the flow runs. If NetSuite then fails, the provider's retry would be dropped as a duplicate → the event is lost. Fix: in the On Error Propagate for other errors, call \`os:remove\` with key \`payload.id\`. Save the ID in a variable first, since the payload may have changed. Then return 5xx so the provider retries. Alternative pattern: check with \`os:contains\` first and \`os:store\` only after success — but that leaves a window where two near-simultaneous duplicates both pass, so the validator plus remove-on-failure is usually preferred.
 
 **Retention:** the provider retries for 3 days, so TTL must cover that: **4 days** gives margin. 50k/day × 4 ≈ 200k keys — fine for OSv2.
 

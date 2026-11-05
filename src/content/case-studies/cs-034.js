@@ -93,7 +93,7 @@ export default {
 
 **Async carriers.** XML request generated and sent by SFTP/email; an inbound listener matches responses by reference and updates the record. **Manual carriers**: a task is created for a broker assistant with a pre-filled summary; they key the quote into the portal.
 
-**Bind.** Re-validate the quote is still valid, call the carrier bind endpoint with an idempotency reference, store the policy number, retrieve documents (stored in a document management system with links in the portal).
+**Bind.** Re-validate the quote is still valid and call the carrier bind endpoint with an idempotency reference. Store the policy number and retrieve documents (stored in a document management system with links in the portal).
 
 **Onboarding.** Adapter template in Exchange, mapping from the canonical model, contract tests against the carrier sandbox, then register in carrier registry. Target: 3–4 weeks per API carrier.
 

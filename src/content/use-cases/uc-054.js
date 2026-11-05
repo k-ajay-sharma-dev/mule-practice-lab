@@ -157,7 +157,7 @@ Constraints:
 - **exp-aggregator-quotes on its own replicas** (CloudHub 2.0 / RTF) and autoscaling, so an aggregator storm cannot exhaust capacity used by brokers.
 - prc-home-quote scaled for the aggregate; caching makes cost and capacity proportional to *unique* risks.
 
-**Reuse and migration.** The direct website's point-to-point integration is replaced by exp-direct-web, which reuses prc-home-quote and prc-home-policy — so all three channels share one rating path, one price-guarantee rule and one bind saga. Future products (landlord insurance) reuse sys-policycenter, sys-payments, sys-docgen, sys-fraud-credit.
+**Reuse and migration.** The direct website's point-to-point integration is replaced by exp-direct-web, which reuses prc-home-quote and prc-home-policy. So all three channels share one rating path, one price-guarantee rule and one bind saga. Future products (landlord insurance) reuse sys-policycenter, sys-payments, sys-docgen, sys-fraud-credit.
 
 **Errors and NFRs.**
 - Rating engine down → aggregator gets a fast \`503\` (better than a timeout); brokers see "pricing unavailable".

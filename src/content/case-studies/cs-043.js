@@ -166,7 +166,11 @@ Write it blamelessly: focus on system conditions, not the engineer.
 - Bulkheads: separate apps or separate thread/connection pools for critical flows; no co-deploying unrelated critical APIs.
 - Health endpoints and graceful degradation messaging.
 
-**Observability.** Anypoint Monitoring dashboards (or the existing observability tool via log/metric export) per API with RED metrics (rate, errors, duration), dependency latency, correlation IDs propagated across APIs, and runbooks linked from each alert.
+**Observability.** Anypoint Monitoring dashboards (or the existing observability tool via log/metric export) per API with:
+- RED metrics (rate, errors, duration).
+- Dependency latency.
+- Correlation IDs propagated across APIs.
+- Runbooks linked from each alert.
 
 **Testing.** Load tests with dependency slowness simulated (mock servers injecting latency), game days before peak season, and resilience tests added to the CI/CD pipeline for critical APIs.
 

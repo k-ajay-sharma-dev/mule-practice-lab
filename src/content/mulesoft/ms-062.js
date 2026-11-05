@@ -164,7 +164,7 @@ Store the ackId in a variable early, because the payload and attributes change d
     },
     {
       q: 'What would you include in an error-queue message?',
-      a: 'The original ASN, the error type and description, the ASN and PO numbers, the supplier ID, the delivery count and a timestamp, so the business can fix and replay it without reading logs.',
+      a: 'The original ASN, the error type and description, the ASN and PO numbers, the supplier ID, the delivery count and a timestamp. That way the business can fix and replay it without reading logs.',
     },
   ],
 }

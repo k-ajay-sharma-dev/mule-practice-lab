@@ -110,14 +110,14 @@ Constraints:
 - Sourcing rules the business changes monthly.
 - Compensation logic across lines and shipments. These need durable state, auditability and business tooling — the OMS provides them.
 
-**Why not Camp A.** In 11 months, 8 people would have to build sourcing, split shipments, returns and a state store on top of Mule — effectively writing an OMS, with flows as the place for business rules. It also turns every rule change into a deployment.
+**Why not Camp A.** In 11 months, 8 people would have to build sourcing, split shipments, returns and a state store on top of Mule. That is effectively writing an OMS, with flows as the place for business rules. It also turns every rule change into a deployment.
 
-**When Camp A fits.** One channel, simple linear flows, rules that rarely change, or an OMS too costly for the volume — and even then put state in a database owned by an order service, not in flow variables.
+**When Camp A fits.** One channel, simple linear flows, rules that rarely change, or an OMS too costly for the volume. Even then, put state in a database owned by an order service, not in flow variables.
 
 **Trade-offs:** OMS licence cost and vendor lock-in; the OMS becomes a critical dependency (capture must queue orders if the OMS is down); data model mapping effort into and out of the OMS.
 `,
   followUps: [
-    { q: 'The OMS is down for 30 minutes during peak. What does order capture do?', a: 'Accept the order after validation and payment authorisation, persist it to a durable queue and return "received", then submit to the OMS when it recovers, with idempotent submission keyed by the client order id.' },
+    { q: 'The OMS is down for 30 minutes during peak. What does order capture do?', a: 'Accept the order after validation and payment authorisation, persist it to a durable queue and return "received". Then submit to the OMS when it recovers, with idempotent submission keyed by the client order id.' },
     { q: 'Who owns inventory availability — OMS or the ATP service?', a: 'Many OMS products include availability; pick one owner. If the OMS owns sourcing, it should own availability or consume a single ATP feed — two availability engines will disagree.' },
     { q: 'How do you keep finance consistent with order state changes?', a: 'Consume OMS lifecycle events with per-order ordering and idempotency, post to ERP via a System API, and reconcile daily between OMS and ERP totals.' },
   ],

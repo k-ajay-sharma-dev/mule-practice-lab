@@ -91,7 +91,7 @@ export default {
   solution: `
 **Principles.**
 - *Composable* means each component is replaceable — so consumers must depend on **our** contracts, not vendor APIs, for anything business-critical.
-- But not everything needs Mule. Read-only, frontend-specific vendor features (search queries, CMS content delivery) can be called directly through the vendor's CDN/SDK — adding hops there adds latency for no benefit, and replacing those vendors means frontend work anyway.
+- But not everything needs Mule. Read-only, frontend-specific vendor features (search queries, CMS content delivery) can be called directly through the vendor's CDN/SDK. Adding hops there adds latency for no benefit, and replacing those vendors means frontend work anyway.
 - Anything involving several systems, business rules, customer data, or SAP goes through the application network.
 
 **Application network.**
@@ -130,6 +130,6 @@ export default {
   followUps: [
     { q: 'Why not let the frontend call every SaaS API directly?', a: 'It would spread business logic and vendor-specific models into the frontend, expose more credentials and make swapping a vendor a frontend rewrite. Direct calls are fine for read-only vendor features like search queries and CMS content; business transactions go through governed APIs.' },
     { q: 'What is a BFF and why use one per channel?', a: 'A Backend for Frontend is an Experience API tailored to one client type. Web and mobile need different payload shapes and caching, so separate BFFs avoid one compromise API that serves neither well.' },
-    { q: 'How do you keep click-and-collect stock accurate?', a: 'Combine frequent stock events from SAP and POS into a read model, reserve stock at order time through the OMS, and show a safety buffer for low stock, accepting that the read model is eventually consistent.' },
+    { q: 'How do you keep click-and-collect stock accurate?', a: 'Combine frequent stock events from SAP and POS into a read model, and reserve stock at order time through the OMS. Show a safety buffer for low stock, accepting that the read model is eventually consistent.' },
   ],
 }

@@ -102,16 +102,16 @@ Some adapters wrap APIs (Salesforce, Zendesk, SFMC), some run SQL against databa
 - Throttling per system (e.g. Salesforce API limits) via queues.
 
 **Analytics, backups and platform data.**
-- **Warehouse/data lake**: prefer designs where analytics use **pseudonymous keys** and a separate identity table — erasure deletes the mapping/identity rows, and scheduled jobs purge or rewrite affected partitions (immutable files in a lake need rewrite/compaction jobs).
+- **Warehouse/data lake**: prefer designs where analytics use **pseudonymous keys** and a separate identity table. Erasure deletes the mapping/identity rows, and scheduled jobs purge or rewrite affected partitions (immutable files in a lake need rewrite/compaction jobs).
 - **Backups**: usually not edited; documented approach accepted by the DPO — backups expire by retention, and a **re-erasure list** (hashed IDs) is applied after any restore.
-- **Mule itself**: no personal data in logs (log masking, IDs only), short TTLs on Object Stores and queue messages, DLQ contents purged within a defined period, and the identity graph of a request deleted after completion.
+- **Mule itself**: no personal data in logs (log masking, IDs only) and short TTLs on Object Stores and queue messages. DLQ contents are purged within a defined period, and the identity graph of a request is deleted after completion.
 
 **Evidence and audit.** Keep an **audit record without personal data**: request ID, a salted hash of the identifier (to detect repeat requests), list of systems, actions taken, rule version, timestamps, results and exceptions. The portal holds the closure letter. This proves compliance without re-creating the dataset that was erased.
 
 **Governance.** A system inventory (records of processing) drives which adapters must exist; a new system cannot go live without a DSR adapter. Quarterly tests with synthetic subjects run end to end and report gaps.
 `,
   followUps: [
-    { q: 'A customer requests erasure but has an open claim. What do you do?', a: 'Retain the claim and policy data with the legal basis recorded, erase or restrict everything else (marketing, support history not needed for the claim), inform the customer, and schedule re-evaluation when the claim closes.' },
+    { q: 'A customer requests erasure but has an open claim. What do you do?', a: 'Retain the claim and policy data with the legal basis recorded. Erase or restrict everything else (marketing, support history not needed for the claim). Inform the customer, and schedule re-evaluation when the claim closes.' },
     { q: 'How do you stop the person reappearing via a nightly CRM import from the web shop?', a: 'Erase in source systems first or in the right order, and keep a hashed suppression list checked by imports and marketing so a re-created record is blocked or flagged.' },
     { q: 'How do you test this safely?', a: 'Create synthetic data subjects across all systems in test environments, run the full saga including retention exceptions and failures, and verify with the search step that only allowed records remain.' },
     { q: 'Would you build or buy the orchestration?', a: 'Privacy platforms often include DSR workflow and some connectors; Mule adds value for systems those connectors miss and for a consistent API contract. Evaluate the platform first and integrate rather than duplicate.' },

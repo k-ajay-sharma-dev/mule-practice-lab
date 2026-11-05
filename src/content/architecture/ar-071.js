@@ -106,7 +106,7 @@ Polling remains a good choice for **small tables you own**, with an indexed wate
 - Delivery is at-least-once: consumers must be idempotent.
 `,
   followUps: [
-    { q: 'You cannot get GoldenGate or Kafka approved this year. How do you make polling safer?', a: 'Ask for (or add) a trigger-fed change table or an indexed, reliably maintained watermark, poll that small table instead of the big one, use soft deletes or a deletion log, and use idColumn plus the watermark to avoid duplicates.' },
+    { q: 'You cannot get GoldenGate or Kafka approved this year. How do you make polling safer?', a: 'Ask for (or add) a trigger-fed change table or an indexed, reliably maintained watermark, and poll that small table instead of the big one. Use soft deletes or a deletion log, and use idColumn plus the watermark to avoid duplicates.' },
     { q: 'Why not let Shopify sync read the raw CDC topic directly?', a: 'It would couple Shopify logic to the vendor tables and duplicate the mapping in every consumer; one mapper producing canonical events keeps consumers stable when the source changes.' },
     { q: 'How do you keep per-SKU order through Kafka and Mule?', a: 'Key the canonical events by SKU (or SKU + location) so they land in one partition, and avoid parallel processing of the same key in the consumer.' },
   ],

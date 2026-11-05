@@ -79,7 +79,7 @@ export default {
   solution: `
 **Layers.** \`operator-a-sapi\`, \`operator-b-sapi\`, \`operator-c-sapi\` (each wraps one tracking system) → \`arrivals-papi\` (normalises vehicle, route and stop codes, merges and sorts) → \`public-arrivals-eapi\` exposed through API Manager. A \`stops-sapi\` serves reference data with long caching.
 
-**Protecting operator systems.** Instead of calling an operator per public request, a scheduler in \`arrivals-papi\` pulls each operator's full prediction feed every ~15 seconds (one call, not 4,000) and stores the merged result per stop in Object Store or a fast cache, with a TTL of ~60 seconds. If an operator supports push, consume that instead. Public requests read only from this store, so 3,000 req/s become a few calls per minute to each operator.
+**Protecting operator systems.** Instead of calling an operator per public request, a scheduler in \`arrivals-papi\` pulls each operator's full prediction feed every ~15 seconds (one call, not 4,000). It stores the merged result per stop in Object Store or a fast cache, with a TTL of ~60 seconds. If an operator supports push, consume that instead. Public requests read only from this store, so 3,000 req/s become a few calls per minute to each operator.
 
 **Freshness.** Each response includes \`generatedAt\` and per-operator status; if an operator feed is stale, return the other operators' data plus a flag rather than failing the whole response. The HTTP response can also carry \`Cache-Control: max-age=15\` so CDNs and clients cache briefly.
 

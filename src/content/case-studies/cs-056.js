@@ -85,7 +85,7 @@ Weekend promotions are often wrong in a handful of stores.
     'Put a small broker (or store-and-forward agent) on each store server so messages are persisted locally and forwarded when the link returns, instead of depending on one nightly transfer.',
     'Price changes are published once to a topic; each store gets its own durable queue (ActiveMQ virtual topic) so a store that is offline for two days still receives every change in order.',
     'Messages carry effective dates and sequence numbers, so the store applies prices in the right order and ignores stale ones.',
-    'Sales flow back to a central queue and are posted to SAP by a Process API through a System API, with idempotency on store + transaction ID and a DLQ for poison messages.',
+    'Sales flow back to a central queue and are posted to SAP by a Process API through a System API. Posting uses idempotency on store + transaction ID and a DLQ for poison messages.',
     'The colleague app reads central stock through an Experience API; it degrades gracefully to local store data when the link is down.',
   ],
   solution: `
@@ -100,7 +100,11 @@ Weekend promotions are often wrong in a handful of stores.
 
 **Governance.** Store server builds managed centrally (config management), broker versions kept in step; message contracts versioned.
 
-**Risks.** Disk full on a store server during long outages (sizing and alerts), price storms after a big promotion load (throttle publishing, prioritise near-dated changes), poison messages (ActiveMQ redelivery policy then DLQ), operating 300 small brokers (automation, standard configuration).
+**Risks.**
+- Disk full on a store server during long outages (sizing and alerts).
+- Price storms after a big promotion load (throttle publishing, prioritise near-dated changes).
+- Poison messages (ActiveMQ redelivery policy then DLQ).
+- Operating 300 small brokers (automation, standard configuration).
 `,
   followUps: [
     { q: 'Why not let tills call a central price API directly?', a: 'Tills must keep trading when the link is down, so prices must already be in the store. A central API would make each till depend on the WAN.' },

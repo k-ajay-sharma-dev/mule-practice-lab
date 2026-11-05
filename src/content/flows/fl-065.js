@@ -144,7 +144,7 @@ For each confirmation the integration must:
 **Main flow \`ship-confirm-intake\`**
 1. **JMS On New Message** \`WMS.SHIP.CONFIRM\`, **ALWAYS_BEGIN / LOCAL**, **Inbound Content-Type** \`application/json\` if the WMS does not state the message type (the config default is \`*/*\`).
 2. **Validate** required fields; **Transform** to \`vars.ship\` (shipment + flattened carton lines).
-3. **Database Insert** \`SHIPMENT\` (unique \`SHIPMENT_ID\`) and **Database Bulk Update** \`ORDER_LINE\` shipped quantities, then **JMS Publish** \`ORDER_SHIPPED\` (joins the JMS transaction). The DB statements are not in the JMS transaction. The unique key stops a double insert, but it also means a redelivery after a partial failure (shipment row committed, lines or event not done) lands on the duplicate path with the work unfinished, so record completion (e.g. an \`EVENT_SENT\` flag checked on that path) or use an outbox.
+3. **Database Insert** \`SHIPMENT\` (unique \`SHIPMENT_ID\`) and **Database Bulk Update** \`ORDER_LINE\` shipped quantities, then **JMS Publish** \`ORDER_SHIPPED\` (joins the JMS transaction). The DB statements are not in the JMS transaction. The unique key stops a double insert. But it also means a redelivery after a partial failure (shipment row committed, lines or event not done) lands on the duplicate path with the work unfinished. So record completion (e.g. an \`EVENT_SENT\` flag checked on that path) or use an outbox.
 
 **Error handling — classify errors**
 | Error | Handler | Effect |

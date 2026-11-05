@@ -105,10 +105,10 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Identifies that the idempotency keys expire after 14 days while the source files stay on the server for 90 days, so the listener sees the old files again and the validator no longer recognises them.',
+    'Identifies that the idempotency keys expire after 14 days while the source files stay on the server for 90 days. So the listener sees the old files again and the validator no longer recognises them.',
     'Explains why it happened "suddenly": day 15 is the first day keys from go-live expire; from now on, it will repeat every day for older files.',
     'Immediate: stop the flow/listener, prevent tomorrow\'s re-run (e.g. re-seed processedFiles with all filenames still on the server, or raise TTL beyond 90 days), and reverse the ~1,900 duplicate SAP documents with AP.',
-    'Permanent fix: dedup retention must be at least as long as the source keeps the data, or don\'t depend on it — use the listener watermark, a durable processed-files table, or move files to a processed folder if allowed.',
+    'Permanent fix: dedup retention must be at least as long as the source keeps the data, or don\'t depend on it. Use the listener watermark, a durable processed-files table, or move files to a processed folder if allowed.',
     'Adds a business-level idempotency check: SAP/receiver rejects duplicate supplier + invoice number.',
     'Prevention: test/plan for TTL expiry ("what happens on day TTL+1"), and alert on spikes in files processed per run.',
   ],
@@ -117,7 +117,7 @@ export default {
 
 **Immediate mitigation.**
 1. **Stop** the listener flow now (Runtime Manager → stop the flow / app) to prevent tomorrow's batch of duplicates.
-2. Make the store recognise all existing files: either redeploy with a TTL > 90 days and **re-seed** \`processedFiles\` with every filename currently on the server (a one-off flow that lists the folder and stores the names), or switch on the permanent fix first. A TTL above 90 days is not possible on Object Store v2, whose maximum TTL is 30 days: there, go straight to a database table.
+2. Make the store recognise all existing files. Either redeploy with a TTL > 90 days and **re-seed** \`processedFiles\` with every filename currently on the server (a one-off flow that lists the folder and stores the names). Or switch on the permanent fix first. A TTL above 90 days is not possible on Object Store v2, whose maximum TTL is 30 days: there, go straight to a database table.
 3. With accounts payable: identify the duplicates (logs give file names and SAP doc numbers from today) and **reverse/cancel** them before payment runs.
 
 **Root cause.** The idempotency window (14 days) was shorter than the time the same input can be re-delivered (90 days). Deduplication was the only protection, and the receiver (SAP) had no duplicate check.

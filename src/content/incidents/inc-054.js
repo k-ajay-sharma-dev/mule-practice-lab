@@ -154,7 +154,7 @@ exp-mobile-api -+--> prc-checkout-api --> sys-inventory-api, sys-payment-api, sy
 5. Other System APIs see LESS traffic: requests die upstream before reaching them
 \`\`\`
 
-A **failed** dependency that fails fast is cheap; a **slow** one is expensive because every waiting request holds capacity. In Mule 4 the HTTP requester is non-blocking, so this is less about threads being blocked and more about in-flight request limits, connection pools and memory — but the effect is the same: shared capacity runs out, and features that share an Experience API's flow concurrency or replicas fail together.
+A **failed** dependency that fails fast is cheap; a **slow** one is expensive because every waiting request holds capacity. In Mule 4 the HTTP requester is non-blocking, so this is less about threads being blocked and more about in-flight request limits, connection pools and memory. But the effect is the same: shared capacity runs out, and features that share an Experience API's flow concurrency or replicas fail together.
 
 **Immediate mitigation (next 15 minutes).**
 1. **Stop the trigger**: disable the new promotion reservation rule / revert that query (DB team can also kill blocking sessions).
@@ -165,7 +165,7 @@ A **failed** dependency that fails fast is cheap; a **slow** one is expensive be
 
 **Root cause.**
 - *Trigger*: an untested query with table locking under sale-day concurrency.
-- *Architectural*: the application network has **no failure isolation** — synchronous calls everywhere, long and equal timeouts, retries on timeouts, chatty per-tile calls, no caching, no circuit breakers, and Experience APIs where all features share one concurrency pool. API-led reuse made \`sys-inventory-api\` a shared dependency without making it safe to depend on.
+- *Architectural*: the application network has **no failure isolation**. It has synchronous calls everywhere, long and equal timeouts, retries on timeouts, chatty per-tile calls, no caching, no circuit breakers, and Experience APIs where all features share one concurrency pool. API-led reuse made \`sys-inventory-api\` a shared dependency without making it safe to depend on.
 
 **Permanent fix — resilience architecture.**
 - **Timeout budget**: inner timeouts short and ordered (inventory 1.5 s, catalog → exp 4 s, gateway 8 s); retries only in one place and never on timeouts for overloaded resources.

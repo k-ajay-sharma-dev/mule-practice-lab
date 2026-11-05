@@ -96,7 +96,7 @@ Volumes: ~9,000 BOPIS orders/day, peaks of 1,500/hour.
  Store app -> exp-store-ops -> prc-bopis-order (picked / partial / not found / collected) -> sys-notifications
 \`\`\`
 
-**Availability.** \`GET /availability?sku=&lat=&lon=\` → prc-store-availability finds the nearest stores (store list cached), reads stock for the SKU in those stores through sys-store-inventory, caches the result for 60 seconds and applies a **safety buffer** because store stock is only ~95 % accurate. 800 lookups/s mostly hit the cache.
+**Availability.** \`GET /availability?sku=&lat=&lon=\` → prc-store-availability finds the nearest stores (store list cached) and reads stock for the SKU in those stores through sys-store-inventory. It caches the result for 60 seconds and applies a **safety buffer** because store stock is only ~95 % accurate. 800 lookups/s mostly hit the cache.
 
 **Order placement** (prc-bopis-order):
 1. Reserve stock in the store: \`UPDATE store_stock SET reserved = reserved + :qty WHERE store_id = :s AND sku = :sku AND on_hand - reserved >= :qty\` — 0 rows updated means no stock → offer another store.

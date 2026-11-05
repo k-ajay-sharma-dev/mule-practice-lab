@@ -90,7 +90,7 @@ Mule only handles metadata and orchestration — the **claim-check pattern**.
 
 **Claim creation.** \`POST /claims\` → Claims Process API: verify the policy is active and covers the vehicle/date (Policy System API), create a **first notice of loss (FNOL)** in the claims system via its System API, and return the claim ID. Idempotency key from the app (one claim per submission even if the request is retried on a bad network).
 
-**Document handling.** On upload completed: virus/malware scan, check the file really is an image/video, extract metadata (EXIF time/location, useful for fraud checks), store in the **ECM** (or keep in object storage with an ECM reference), and **link document IDs to the claim** in the claims system. Large files are streamed storage → ECM without loading them fully in memory.
+**Document handling.** On upload completed: virus/malware scan, check the file really is an image/video, and extract metadata (EXIF time/location, useful for fraud checks). Then store in the **ECM** (or keep in object storage with an ECM reference) and **link document IDs to the claim** in the claims system. Large files are streamed storage → ECM without loading them fully in memory.
 
 **Assessment integration.** When the required photos are present, call the assessment API with **time-limited read URLs** and a **callback URL**. The callback endpoint is secured (mTLS or signature/OAuth), correlates by claim ID + request ID, and is idempotent. A Scheduler checks for assessments without callback after 30 minutes → poll the vendor's status endpoint or route to an adjuster.
 

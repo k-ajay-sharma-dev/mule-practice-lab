@@ -124,7 +124,7 @@ exp-mobile-api        3 attempts
                           = 27 SAP calls for one tap in the app
 \`\`\`
 
-At ~40 req/s the theoretical worst case is ~1,080 SAP calls/s. Worse, the timeouts are equal (10 s each), so the outer layers time out and retry **while inner retries are still running** — work is multiplied and nobody is waiting for most of the results. SAP's dialog work processes fill up, and SAP fails for everyone, including the warehouse, which never used these APIs.
+At ~40 req/s the theoretical worst case is ~1,080 SAP calls/s. Worse, the timeouts are equal (10 s each), so the outer layers time out and retry **while inner retries are still running**. Work is multiplied and nobody is waiting for most of the results. SAP's dialog work processes fill up, and SAP fails for everyone, including the warehouse, which never used these APIs.
 
 **Immediate mitigation.**
 1. Turn off retries in \`exp-mobile-api\` and \`prc-inventory-api\` (if the counts are properties, change and restart; otherwise hotfix deploy).

@@ -136,7 +136,7 @@ A regulated insurer must keep runtime traffic and data inside its own cloud acco
   followUps: [
     {
       q: 'Why choose RTF over CloudHub 2.0 private spaces?',
-      a: 'When policy or regulation requires workloads in your own account/region/data centre, when you want to reuse an existing Kubernetes platform and its tooling, or when you need co-location with on-prem systems for latency.',
+      a: 'When policy or regulation requires workloads in your own account/region/data centre. Also when you want to reuse an existing Kubernetes platform and its tooling, or when you need co-location with on-prem systems for latency.',
     },
     {
       q: 'Can you run API gateways on RTF?',

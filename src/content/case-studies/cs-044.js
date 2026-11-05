@@ -111,16 +111,20 @@ The board has approved a move to a modern cloud-native core banking product over
 
 **Data migration.** Dedicated tooling for bulk loads (Mule can orchestrate but bulk ETL/migration tools may be better for volumes); multiple dress rehearsals with production-like data; automated reconciliation of record counts, balances, accrued interest and limits; business sign-off per wave.
 
-**Batch and events.** Overnight mainframe batch keeps running for remaining products. Change data capture (via a CDC tool) or MQ events from the mainframe, and native events from the new core, publish \`AccountTransactionPosted\` etc., letting downstream systems (fraud, CRM, data platform) consume events independent of which core posted them. Regulatory reporting draws from a data platform fed by both cores.
+**Batch and events.** Overnight mainframe batch keeps running for remaining products. Change data capture (via a CDC tool) or MQ events from the mainframe, and native events from the new core, publish \`AccountTransactionPosted\` etc. This lets downstream systems (fraud, CRM, data platform) consume events independent of which core posted them. Regulatory reporting draws from a data platform fed by both cores.
 
 **Governance and people.** Design authority across bank, core vendor and integration team; regulator engagement before each major wave; knowledge capture from retiring mainframe experts (documented interfaces, paired work); integration C4E owns API standards and the registry.
 
-**Risks.** Incorrect balances after migration (reconciliation and rehearsals), performance of fan-out views (caching, parallel calls), facade becoming a bottleneck or a new monolith (domain-aligned APIs, independent deployments), and scope creep in the facade (strict contracts).
+**Risks.**
+- Incorrect balances after migration (reconciliation and rehearsals).
+- Performance of fan-out views (caching, parallel calls).
+- Facade becoming a bottleneck or a new monolith (domain-aligned APIs, independent deployments).
+- Scope creep in the facade (strict contracts).
 `,
   followUps: [
     { q: 'Why start with new products rather than migrating an existing one?', a: 'New products need no data migration, so the bank proves the new core, APIs, operations and controls with low risk and real customers before attempting the harder migrations.' },
     { q: 'What happens to the facade at the end of the programme?', a: 'It stays. The Process APIs are the stable business interface; once the mainframe is gone, the mainframe System APIs are retired and routing simply always points to the new core.' },
-    { q: 'How do you roll back a migration wave?', a: 'Keep the source accounts frozen but intact until sign-off, capture transactions posted to the new core during the window, and have a rehearsed procedure to reverse registry entries and replay those transactions on the old core.' },
+    { q: 'How do you roll back a migration wave?', a: 'Keep the source accounts frozen but intact until sign-off, and capture transactions posted to the new core during the window. Have a rehearsed procedure to reverse registry entries and replay those transactions on the old core.' },
     { q: 'Would you use Mule for the bulk data migration?', a: 'Mule can orchestrate and handle moderate volumes with batch jobs, but for very large one-off migrations a dedicated migration/ETL tool or the core vendor\'s loaders are often more efficient; Mule then focuses on coexistence and APIs.' },
   ],
 }

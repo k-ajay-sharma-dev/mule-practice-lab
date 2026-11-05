@@ -118,7 +118,7 @@ Facts:
 **Acknowledgements.** Two levels: *system ack* (block applied on store server) and *human ack* (team removed N units, photo optional). Both arrive on \`RECALL.STORE.ACK\` and update the tracker by (recallId, version, storeId) with a MERGE so duplicates are harmless. An escalation job runs every 15 minutes against the tracker.
 
 **Customer notification.**
-1. sys-sales-history queries the warehouse for loyalty purchases of the items in the affected stores and date window (lot-level where stores scan lots via GS1 DataMatrix, otherwise item level = over-notify, which is accepted for safety).
+1. sys-sales-history queries the warehouse for loyalty purchases of the items in the affected stores and date window. The query is lot-level where stores scan lots via GS1 DataMatrix, otherwise item level = over-notify, which is accepted for safety.
 2. De-duplicate per customer, apply the "safety notice" contact permission, choose channel.
 3. Publish one message per customer to \`RECALL.CUSTOMER.NOTIFY\`; prc-recall-customer-notify consumes with limited concurrency matching the provider's rate limit (e.g. 200/s), retries 429/5xx with back-off, and records each send in the tracker. Poison messages → DLQ, replayable. 500,000 notices at 200/s ≈ 42 minutes, well inside 24 h.
 

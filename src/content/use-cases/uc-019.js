@@ -92,7 +92,7 @@ Facts:
 4. **Tolerance rules**: difference within e.g. €25 or 0.5% → match and book the difference to a bank-fee/write-off account per policy; larger short-pays → partial application, remainder stays open with a reason code.
 5. Each match gets a **confidence**; only high confidence is auto-posted.
 
-**Posting and exceptions.** Auto-matched lines → NetSuite **customer payment** applied to the invoices (NetSuite connector / SuiteTalk), with the bank transaction reference stored on the record as an **idempotency key** (search before create). Bank fees and other debits → journal entries per mapping. Unmatched or low-confidence lines → a **work queue** (NetSuite saved search/custom record, or a small app) with top suggestions and the remittance text, ready by 08:00. When finance resolves an item manually, the IBAN → customer mapping is learned for next time.
+**Posting and exceptions.** Auto-matched lines → NetSuite **customer payment** applied to the invoices (NetSuite connector / SuiteTalk). The bank transaction reference is stored on the record as an **idempotency key** (search before create). Bank fees and other debits → journal entries per mapping. Unmatched or low-confidence lines → a **work queue** (NetSuite saved search/custom record, or a small app) with top suggestions and the remittance text, ready by 08:00. When finance resolves an item manually, the IBAN → customer mapping is learned for next time.
 
 **Controls and security.** Daily report: lines received, auto-matched %, exceptions, totals per bank. Alerts for missing statements by 05:00. Bank data is sensitive: encrypted at rest, restricted access to logs (log references and amounts aggregated, not full account details), secrets for SFTP/PGP keys in a vault.
 `,

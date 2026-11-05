@@ -82,7 +82,7 @@ This is an **Experience/Process API** for partners; behind it sit System APIs fo
 4. DataWeave maps to the SOAP rating request; call the rating engine.
 5. Store the quote and return 201.
 
-**Security and traffic control.** Apply policies in **API Manager**: **Client ID enforcement** (or OAuth 2.0 client credentials) so each site is a separate client application; **SLA-based rate limiting** per site (e.g. 40 req/s tier); HTTPS only. The rating engine allows ~40 concurrent calls: at 30 req/s × 0.6 s ≈ 18 concurrent per site, so with 5 sites at peak you must **cap concurrency** (flow \`maxConcurrency\` on the calling flow, or a shared queue) and fail fast with **503 + Retry-After** rather than letting the engine collapse. Set an explicit timeout on the SOAP call.
+**Security and traffic control.** Apply policies in **API Manager**: **Client ID enforcement** (or OAuth 2.0 client credentials) so each site is a separate client application; **SLA-based rate limiting** per site (e.g. 40 req/s tier); HTTPS only. The rating engine allows ~40 concurrent calls: at 30 req/s × 0.6 s ≈ 18 concurrent per site. So with 5 sites at peak you must **cap concurrency** (flow \`maxConcurrency\` on the calling flow, or a shared queue). You must also fail fast with **503 + Retry-After** rather than letting the engine collapse. Set an explicit timeout on the SOAP call.
 
 **Storing quotes.** Save each quote in a database (quoteId, client ID, inputs, premium, created, \`expiresAt\` = +30 days). \`GET\` returns 404 if the quote belongs to another client ID (do not reveal it exists) and 410/expired status after 30 days. A nightly job purges expired quotes that were never bought.
 `,

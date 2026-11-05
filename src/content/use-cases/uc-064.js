@@ -102,7 +102,7 @@ Volumes and rules:
 
 Inbound documents from all channels are mapped to the same canonical Ack/Shipment/Invoice/StockLevel and handled by the same flows.
 
-**SLA tracking.** The watchdog runs every 15 minutes: \`SELECT ... WHERE status = 'SENT' AND ack_due < SYSTIMESTAMP\` (and the same for shipping). Overdue lines → send a cancel to the vendor (860 / API / CSV), look up an alternative vendor in the sourcing table, create a new PO, or tell the OMS to cancel and refund the line. Vendor scorecards are produced from the same table.
+**SLA tracking.** The watchdog runs every 15 minutes: \`SELECT ... WHERE status = 'SENT' AND ack_due < SYSTIMESTAMP\` (and the same for shipping). Overdue lines → send a cancel to the vendor (860 / API / CSV), look up an alternative vendor in the sourcing table and create a new PO. Or tell the OMS to cancel and refund the line. Vendor scorecards are produced from the same table.
 
 **Shipments.** An 856 / API shipment / CSV line sets SHIPPED and calls sys-oms with carrier and tracking number; the OMS notifies the customer.
 

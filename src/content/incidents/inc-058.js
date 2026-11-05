@@ -112,7 +112,7 @@ export default {
     'Fix: stable documented clientId, remove orphaned subscriptions, monitor inactive durable subscribers, consider virtual topics / queue-based fan-out.',
   ],
   solution: `
-**Diagnosis.** On a topic, a durable subscription is identified by **clientId + subscription name**. Changing the clientId from \`store-price-sync-prod\` to \`store-price-sync-prod-v3\` created a **brand-new** subscription at 21:00. Messages published before that moment (the W45 batch at 20:41) were stored only for the **old** subscription, which is now inactive and still collecting every price update (18,420 pending), so broker store usage climbs.
+**Diagnosis.** On a topic, a durable subscription is identified by **clientId + subscription name**. Changing the clientId from \`store-price-sync-prod\` to \`store-price-sync-prod-v3\` created a **brand-new** subscription at 21:00. Messages published before that moment (the W45 batch at 20:41) were stored only for the **old** subscription. That subscription is now inactive and still collecting every price update (18,420 pending), so broker store usage climbs.
 
 **Immediate mitigation.** Ask the pricing team to **republish W45** (or replay it from the pricing tables) and spot-check prices in a few stores. If republishing is not possible, start a temporary consumer with the old clientId to drain and forward the old subscription, filtering out messages already delivered by the new one. Inform store operations which items were wrong and since when.
 

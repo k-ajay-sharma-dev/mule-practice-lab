@@ -101,7 +101,7 @@ Rules and facts:
 
 **Preventing double refunds.** The OMS rejects a second return for lines already in progress/returned. The PSP idempotency key makes a POS retry return the original refund instead of a new one. If the PSP times out, the Process API checks refund status before retrying.
 
-**Inventory and finance.** Consumers of the topic (own queues per consumer): sys-store-inventory adds stock to the store with reason "online return" (MERGE on store + SKU), and sys-oracle-ebs-finance creates the inter-company entry (e-commerce entity owes nothing, store entity reverses revenue) through the EBS interface tables. Both are idempotent on return ID.
+**Inventory and finance.** Consumers of the topic (own queues per consumer): sys-store-inventory adds stock to the store with reason "online return" (MERGE on store + SKU). sys-oracle-ebs-finance creates the inter-company entry (e-commerce entity owes nothing, store entity reverses revenue) through the EBS interface tables. Both are idempotent on return ID.
 
 **Offline returns.** If the lookup fails (\`HTTP:TIMEOUT\` / connectivity) the POS offers offline mode: manager approval, store credit only, stored locally and published to \`POS.RETURNS.OFFLINE\` when connectivity returns. The Process API matches it with the OMS; mismatches (already returned elsewhere) are flagged to loss prevention.
 

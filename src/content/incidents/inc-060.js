@@ -127,6 +127,6 @@ export default {
   followUps: [
     { q: 'Can ActiveMQ fail the send instead of blocking?', a: 'Yes, with sendFailIfNoSpace (or sendFailIfNoSpaceAfterTimeout) on systemUsage the producer gets an exception instead of blocking, which lets the app fail fast and use its fallback.' },
     { q: 'Why did restarting the broker not help?', a: 'The messages are persistent, so after the restart the store is just as full; only consuming, purging or expiring them frees space.' },
-    { q: 'What is the outbox pattern here?', a: 'Checkout writes the order and an outbox row in one database transaction, and a separate process publishes outbox rows to the broker, so a broker outage delays messages but never loses or blocks orders.' },
+    { q: 'What is the outbox pattern here?', a: 'Checkout writes the order and an outbox row in one database transaction. A separate process publishes outbox rows to the broker, so a broker outage delays messages but never loses or blocks orders.' },
   ],
 }

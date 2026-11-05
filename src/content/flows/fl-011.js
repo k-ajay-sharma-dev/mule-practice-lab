@@ -118,7 +118,7 @@ A legacy **Oracle ERP** table \`CUSTOMERS\` (2M rows) has a \`LAST_UPDATED\` tim
 6. **Object Store Store** the new watermark = \`{ ts, id }\` of the *last row processed* — only after delivery succeeded. If more than 5000 rows came back, the next poll continues immediately from there.
 7. **Error handling:** On Error Propagate leaves the watermark untouched (next poll retries the same window) and alerts after N consecutive failures.
 
-**Two replicas:** in a Mule runtime cluster, polling sources run on the primary node only. On CloudHub 2.0 / RTF replicas are independent unless clustering is enabled for the app, so either enable clustering, run the poller in a single-replica app, or acquire a distributed lock / Object Store key before polling so only one replica processes a window.
+**Two replicas:** in a Mule runtime cluster, polling sources run on the primary node only. On CloudHub 2.0 / RTF replicas are independent unless clustering is enabled for the app. So either enable clustering or run the poller in a single-replica app. The other option is to acquire a distributed lock / Object Store key before polling so only one replica processes a window.
 `,
   followUps: [
     { q: 'What if a long-running ERP transaction commits rows with an older LAST_UPDATED after you already moved the watermark?', a: 'Those rows are missed. Mitigate with an overlap window (re-read the last few minutes each poll) combined with idempotent upserts, or switch to real CDC (log-based) if the DBA allows.' },

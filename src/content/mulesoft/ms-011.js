@@ -28,7 +28,7 @@ export default {
         '`<raise-error type="ANY"/>`',
       ],
       answer: 0,
-      explain: 'Custom errors must use **your own** namespace. `MULE:VALIDATION_ERROR` is not a core runtime type (Raise Error can raise core types such as `MULE:CONNECTIVITY`, but you cannot invent new ones there), and you cannot raise in a connector namespace such as `HTTP`.',
+      explain: 'Custom errors must use **your own** namespace. `MULE:VALIDATION_ERROR` is not a core runtime type (Raise Error can raise core types such as `MULE:CONNECTIVITY`, but you cannot invent new ones there). You also cannot raise in a connector namespace such as `HTTP`.',
     },
     {
       type: 'single',
@@ -109,7 +109,7 @@ Today each flow has its own copy-pasted error handler, and some flows return the
 \`\`\`xml
 <raise-error type="APP:VALIDATION_ERROR" description="email is not valid"/>
 \`\`\`
-For a custom type the namespace must be your own (\`APP\`, \`CUSTOMER\`…). Raise Error can also raise core runtime types such as \`MULE:CONNECTIVITY\`, where only the description can be customised, but it cannot raise in a namespace that belongs to an existing connector or module (e.g. \`HTTP\`).
+For a custom type the namespace must be your own (\`APP\`, \`CUSTOMER\`…). Raise Error can also raise core runtime types such as \`MULE:CONNECTIVITY\`, where only the description can be customised. It cannot raise in a namespace that belongs to an existing connector or module (e.g. \`HTTP\`).
 
 **Error mapping:** on the CRM "get customer" HTTP Request only:
 \`\`\`xml
@@ -136,7 +136,7 @@ Each is an **On Error Propagate** that sets \`vars.httpStatus\` and a JSON body 
     },
     {
       q: 'Can a flow use both its own handler and the global one?',
-      a: 'The docs say default error handling takes place for errors you do not match or capture with ANY, but they do not spell out how a custom global handler combines with a local one, so do not rely on it. Reference the global handler from a flow (error-handler ref), or handle a few cases locally and re-raise the rest so the caller handles them.',
+      a: 'The docs say default error handling takes place for errors you do not match or capture with ANY. They do not spell out how a custom global handler combines with a local one, so do not rely on it. Reference the global handler from a flow (error-handler ref), or handle a few cases locally and re-raise the rest so the caller handles them.',
     },
     {
       q: 'If APIkit is used, which errors does it raise for you?',

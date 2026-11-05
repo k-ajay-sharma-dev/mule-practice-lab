@@ -156,7 +156,7 @@ Create the TLS secret in the \`rtf\` namespace and label it \`rtf.mulesoft.com/s
 - Cores and memory apply to **each** replica.
 - Other consumers: each replica has an Anypoint Monitoring sidecar that cannot be disabled, and Runtime Fabric runs its own services on worker nodes. The allocation page gives baseline figures for both.
 
-**Minimum resources proposal.** The allocation page gives minimum values, but it also shows approximate startup time rising from under a minute at 1 vCPU to many minutes at the minimum limit, and warns that resource-intensive apps may fail to deploy at the minimum. Apps that load keystores need enough CPU too: the page has a table of certificates per core. Applications also compete for unallocated CPU, so packing a node tightly can hurt performance. Size from load tests, and use bursting deliberately, for example by placing nightly batch apps alongside apps that peak during the day.
+**Minimum resources proposal.** The allocation page gives minimum values, but it also shows approximate startup time rising from under a minute at 1 vCPU to many minutes at the minimum limit. It also warns that resource-intensive apps may fail to deploy at the minimum. Apps that load keystores need enough CPU too: the page has a table of certificates per core. Applications also compete for unallocated CPU, so packing a node tightly can hurt performance. Size from load tests, and use bursting deliberately, for example by placing nightly batch apps alongside apps that peak during the day.
 `,
   followUps: [
     {

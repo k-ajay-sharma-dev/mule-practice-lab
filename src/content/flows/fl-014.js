@@ -124,7 +124,7 @@ A payroll provider drops a **fixed-width** file \`PAYROLL_YYYYMMDD.txt\` (20k–
 6. **Errors:** On Error Propagate for \`APP:FILE_REJECTED\` and parsing errors → File **Move** source to \`/data/error\`, send alert email with the reason. Log counts (read/valid/invalid) with the correlation ID.
 `,
   followUps: [
-    { q: 'What if the file is 5 GB?', a: 'The fixed-width format is documented for files up to 15 MB, and the docs describe no streaming reader for it. Split the file into small pieces before parsing (for example a line-based pre-processing step), process the pieces in chunks (For Each batchSize or Batch Job), and compute trailer totals incrementally or in a second pass.' },
+    { q: 'What if the file is 5 GB?', a: 'The fixed-width format is documented for files up to 15 MB, and the docs describe no streaming reader for it. Split the file into small pieces before parsing (for example a line-based pre-processing step). Process the pieces in chunks (For Each batchSize or Batch Job). Compute trailer totals incrementally or in a second pass.' },
     { q: 'How do you avoid double processing when two replicas watch the same NFS folder?', a: 'Both may see the same file. Use a single poller (primary node in a cluster), or a lock/idempotent filter on file name plus checksum in a shared Object Store.' },
     { q: 'Why validate file-level totals before record-level checks?', a: 'A count/total mismatch means the file is incomplete or corrupt, so partial processing would produce wrong payroll; rejecting early is the safe, cheap check.' },
   ],

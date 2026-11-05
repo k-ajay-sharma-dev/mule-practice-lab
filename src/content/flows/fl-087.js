@@ -139,7 +139,7 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
   solution: `
 1. **File Listener** on \`/data/sales/in\`, \`sales_*.csv\`, \`timeBetweenSizeCheck\` of 5 seconds, no post action.
 2. **Set Variables** for the file name and path, plus \`runDate\` taken from the file name, so a late file still lands in the correct day's folder. Do not use \`now()\` for this.
-3. **Transform** to \`vars.sales\`: read the CSV with \`read(payload.^raw, "application/csv")\` (a \`.csv\` file may already be typed from its extension, and \`read\` accepts only a String or Binary), find the trailer row, filter it out, and build \`{ expected, actual, regions }\`. The trailer has the same number of columns as the data, so the CSV reader treats it as an ordinary row with \`storeId\` holding the count.
+3. **Transform** to \`vars.sales\`: read the CSV with \`read(payload.^raw, "application/csv")\`. A \`.csv\` file may already be typed from its extension, and \`read\` accepts only a String or Binary. Find the trailer row, filter it out, and build \`{ expected, actual, regions }\`. The trailer has the same number of columns as the data, so the CSV reader treats it as an ordinary row with \`storeId\` holding the count.
 4. **Choice**: if \`expected\` differs from \`actual\`, **Raise Error** \`APP:CONTROL_COUNT_MISMATCH\`. A missing trailer gives \`-1\`, which never matches.
 5. **Try** with **File Create Directory**. On Error Continue for \`FILE:FILE_ALREADY_EXISTS\` lets a rerun carry on. The rest of the flow continues after the Try.
 6. **For Each** region: add to the \`written\` counter, **Transform** to \`application/csv\` (the header is included by default) and **File Write** with mode OVERWRITE.

@@ -121,7 +121,7 @@ export default {
 **Root cause.** Horizontal scaling assumed the app was stateless, but it contains a **singleton job** with a non-atomic "select then update" pattern and no duplicate protection.
 
 **Permanent fix.**
-- **Run the Scheduler once**: enable clustering on the deployment so schedulers run on the **primary node only** (the default for the Scheduler source in a cluster), or move scheduled jobs into a separate app that always has exactly one replica.
+- **Run the Scheduler once**: enable clustering on the deployment so schedulers run on the **primary node only** (the default for the Scheduler source in a cluster). Or move scheduled jobs into a separate app that always has exactly one replica.
 - **Make the job concurrency-safe anyway**: claim work atomically — \`UPDATE invoices SET status='PROCESSING', owner=:node WHERE status='READY' ...\` and only process what you claimed — so even an accidental second run finds nothing.
 - **Idempotency at the provider**: send a stable key (the invoice number) so a duplicate submission is rejected or ignored.
 
@@ -130,6 +130,6 @@ export default {
   followUps: [
     { q: 'How does Scheduler behaviour differ between CloudHub 1.0 workers and CloudHub 2.0 replicas?', a: 'On CloudHub 1.0, multi-worker apps had schedulers coordinated by the platform so they run on one worker. On CloudHub 2.0 and Runtime Fabric, replicas behave like independent runtimes unless clustering is enabled, so each replica fires its own schedulers.' },
     { q: 'Is clustering alone enough?', a: 'It removes the duplicate trigger, but a failover or a manual "run now" can still overlap a running job. An atomic claim in the database and an idempotency key at the provider make the job safe regardless of how often it is triggered.' },
-    { q: 'How do you prove the root cause?', a: 'The same scheduler log line from two replica ids at the same timestamp, the scaling change time just before the first duplicate run, and the provider receiving each invoice id twice a few milliseconds apart.' },
+    { q: 'How do you prove the root cause?', a: 'The same scheduler log line appears from two replica ids at the same timestamp. The scaling change time falls right before the first duplicate run. The provider receives each invoice id twice, a few milliseconds apart.' },
   ],
 }

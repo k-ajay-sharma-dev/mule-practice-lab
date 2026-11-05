@@ -148,7 +148,7 @@ The operator also plans to deploy the same apps to a second region. Finance has 
 
 **3. Billing.** Units follow payload size. A 9 MB read is about 90 units, so the document cache is costly if it is read many times a day. Retrieve All Keys is billed on the size of all key-value pairs in the partition, so the nightly count pays for every value. Keep your own counter, or use a partition with small values. If usage exceeds the licence, Object Store v2 continues to work and MuleSoft notifies your account team.
 
-**4. Keys and values.** The overview applies the 10 MB limit to the Base64 form and shows 7.5 MB of raw data converting to 10.24 MB, while the FAQ says only that each value is limited to 10 MB. Plan for the stricter reading, under which the 9 MB documents in the cache do not fit, so keep them in file or object storage and cache only a reference. Keys are up to 1024 bytes.
+**4. Keys and values.** The overview applies the 10 MB limit to the Base64 form and shows 7.5 MB of raw data converting to 10.24 MB. The FAQ says only that each value is limited to 10 MB. Plan for the stricter reading, under which the 9 MB documents in the cache do not fit, so keep them in file or object storage and cache only a reference. Keys are up to 1024 bytes.
 
 **5. Regions.** A store lives in the region of the first deployment. Apps in a second region get their own store and cannot read the first. Caches and tokens cannot be transferred to a secondary region. For cross-region state, bring your own external store.
 

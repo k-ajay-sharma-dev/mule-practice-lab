@@ -119,7 +119,7 @@ Build/tests pass, so the code is fine; the **deploy goal** fails. The parent POM
 Get the bug fix out safely: pin the previous plugin version/parent in a hotfix branch and deploy to the existing environment, or upload the already built and tested JAR through Runtime Manager following change control. Do not try to migrate platforms during an urgent hotfix.
 
 ## Root cause
-A breaking change to shared build configuration (plugin major version + deployment target) was rolled out without migrating dependent apps, and the app pinned a runtime version that had gone out of availability.
+A breaking change to shared build configuration (plugin major version + deployment target) was rolled out without migrating dependent apps. The app also pinned a runtime version that had gone out of availability.
 
 ## Permanent fix
 - Update the app POM to the deployment block the new plugin expects (for CloudHub 2.0: \`cloudhub2Deployment\` with uri, provider, environment, target, muleVersion, replicas, vCores, credentials from CI secrets).

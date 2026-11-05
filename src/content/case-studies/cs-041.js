@@ -100,7 +100,7 @@ export default {
 
 **Cut-offs and validation.** A payroll calendar triggers: (1) T-5 days validation report to HR (missing bank details, tax IDs, invalid codes), (2) cut-off final file/batch, (3) late-change alerts routed to payroll managers for manual handling. Files and API batches have control totals (headcount, changed records).
 
-**Results back.** Providers return gross-to-net results and payment files. \`payroll-results-papi\` maps them to a canonical result, posts summarised journals to the ERP (by cost centre, using deterministic references so reruns do not double post), and lands detailed results in the analytics platform (access-restricted). Reconciliation: HR headcount vs paid headcount, gross totals vs previous month (variance thresholds), bank payments vs net pay.
+**Results back.** Providers return gross-to-net results and payment files. \`payroll-results-papi\` maps them to a canonical result and posts summarised journals to the ERP (by cost centre, using deterministic references so reruns do not double post). It also lands detailed results in the analytics platform (access-restricted). Reconciliation: HR headcount vs paid headcount, gross totals vs previous month (variance thresholds), bank payments vs net pay.
 
 **Security.** Each provider receives only the fields it needs; payloads encrypted (TLS, PGP for files); secrets in a vault; Mule logs hold IDs and outcomes, never salaries or bank data; payload archives in encrypted storage with role-based access and retention per policy. In-country processing requirements met by choosing providers/runtime locations accordingly.
 

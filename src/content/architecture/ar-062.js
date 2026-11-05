@@ -108,7 +108,7 @@ System      [sys-sap-order-api]  [sys-sap-material-api]                 IMPLEMEN
 `,
   followUps: [
     { q: 'Would you create a new System API for S/4 instead of changing the existing one?', a: 'If the S/4 data model is so different that the contract must change, create v2 or a new asset and let Process APIs migrate; otherwise keep one System API with two backends so consumers are untouched. The second is the API-led ideal.' },
-    { q: 'How do you test that consumers are unaffected?', a: 'Run the existing System API contract tests and Process API regression suites against the S/4 implementation, plus parallel-run comparisons (same request to ECC and S/4 path, diff the canonical responses) before each wave.' },
+    { q: 'How do you test that consumers are unaffected?', a: 'Before each wave, run the existing System API contract tests and Process API regression suites against the S/4 implementation. Add parallel-run comparisons (same request to ECC and S/4 path, diff the canonical responses).' },
     { q: 'Where do you keep the ECC-to-S/4 id cross-reference?', a: 'In a small cross-reference store owned by the System layer (database or persistent store), populated from the data migration, so translation stays hidden from the Process layer.' },
   ],
 }

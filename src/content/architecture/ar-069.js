@@ -103,7 +103,7 @@ Letting each channel keep its own stock (the web team's Redis) creates N truths 
 `,
   followUps: [
     { q: 'The web team says a 30-second TTL cache is good enough. Is it?', a: 'A TTL cache still hammers Oracle on every expiry and can be stale for 30 s with no way to update it early. An event-updated read model is fresher and removes the read load entirely; a short TTL can remain as a safety net.' },
-    { q: 'Where would you do the reservation if Oracle cannot handle the checkout peak?', a: 'Shard reservations by SKU into a dedicated reservation store (or allocate quotas per channel in advance) and reconcile to Oracle asynchronously — but that moves the source of truth for reservations, which must then be explicitly owned.' },
+    { q: 'Where would you do the reservation if Oracle cannot handle the checkout peak?', a: 'Shard reservations by SKU into a dedicated reservation store (or allocate quotas per channel in advance) and reconcile to Oracle asynchronously. But that moves the source of truth for reservations, which must then be explicitly owned.' },
     { q: 'How do you rebuild the ATP read model after corruption?', a: 'Take a snapshot of on-hand and open reservations from Oracle through the System API, load it with its sequence/high-water mark, then resume consuming events after that mark.' },
   ],
 }

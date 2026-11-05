@@ -163,7 +163,7 @@ if (isEmpty(entries)) {} else build(entries)`,
   followUps: [
     {
       q: 'How would you test that this mapping and the flattening are true inverses?',
-      a: 'Run a round trip: flatten a document, rebuild it and compare with the original. Choose test documents that hit each lossy edge, such as a string "true", a string "12" or a key containing a dot, and record those as known limits or fix them with a type marker.',
+      a: 'Run a round trip: flatten a document, rebuild it and compare with the original. Choose test documents that hit each lossy edge, such as a string "true", a string "12" or a key containing a dot. Record those as known limits or fix them with a type marker.',
     },
     {
       q: 'Some keys are missing for a tenant because a write to the store failed halfway. What does this mapping return?',

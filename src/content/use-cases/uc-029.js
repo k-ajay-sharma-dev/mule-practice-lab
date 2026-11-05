@@ -67,7 +67,7 @@ Facts:
     'Missing/inactive owners routed to the legal team; weekly digest built from the same selection logic.',
   ],
   solution: `
-**Trigger and selection.** A Scheduler runs daily at 07:00. It pages through the CLM API for contracts with status *active* and end date within the next ~15 months (a bounded window, not all 6,000 every time — though 6,000 is still small). DataWeave computes for each contract:
+**Trigger and selection.** A Scheduler runs daily at 07:00. It pages through the CLM API for contracts with status *active* and end date within the next ~15 months. This is a bounded window, not all 6,000 every time, though 6,000 is still small. DataWeave computes for each contract:
 - \`noticeDeadline\` = end date minus notice days, e.g. \`endDate - (("P" ++ noticeDays ++ "D") as Period)\`;
 - \`daysLeft\` = days between today and the deadline.
 

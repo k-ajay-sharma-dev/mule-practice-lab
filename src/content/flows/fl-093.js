@@ -123,7 +123,7 @@ A freight marketplace pushes shipment updates to your **Shipment Callbacks API**
 **Errors.**
 - \`MULE:DUPLICATE_MESSAGE\` → On Error Continue, 200 \`ALREADY_RECEIVED\`.
 - \`VALIDATION:INVALID_BOOLEAN\` → 401 with a generic body. The reason goes only to the log.
-- Anything else → 500, so that the partner retries. The validator ran before the publish, and the docs do not say an entry is removed after a later failure, so assume a retry after a publish failure would be treated as a duplicate. Either accept this, or publish first and deduplicate in the consumer. Say which you choose.
+- Anything else → 500, so that the partner retries. The validator ran before the publish, and the docs do not say an entry is removed after a later failure. So assume a retry after a publish failure would be treated as a duplicate. Either accept this, or publish first and deduplicate in the consumer. Say which you choose.
 
 **Rotation.**
 1. Generate the new key and encrypt it into the secure properties file.

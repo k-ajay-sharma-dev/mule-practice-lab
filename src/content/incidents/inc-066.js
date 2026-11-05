@@ -110,7 +110,7 @@ export default {
 **Root cause.** A readability refactor changed the numbering logic, and the tests only covered single-order shipments.
 
 **Permanent fix.**
-- Build the hierarchy first as a tree (shipment > orders > packs > items), then **flatten it in order with one running counter**, assigning each node's HL01 and taking HL02 from its parent's assigned ID.
+- Build the hierarchy first as a tree (shipment > orders > packs > items). Then **flatten it in order with one running counter**, assigning each node's HL01 and taking HL02 from its parent's assigned ID.
 - Add regression tests with multi-order, multi-carton shipments, compared with 856 samples the retailer has certified.
 
 **Prevention.** Validate outbound documents against the partner's implementation guide (in the EDI module or gateway) before sending; alert on 997/999 rejections per partner; require partner re-certification for mapping changes.

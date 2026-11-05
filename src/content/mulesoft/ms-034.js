@@ -144,7 +144,7 @@ The Friday loss: the HTTP flow returned 202, so the client believes the order is
   followUps: [
     {
       q: 'In an on-premises Mule cluster, how do persistent VM queues behave?',
-      a: 'In a cluster, VM queues are shared across nodes using the cluster\'s distributed storage, so a message published on one node can be consumed on another and survives the loss of a node.',
+      a: 'In a cluster, VM queues are shared across nodes using the cluster\'s distributed storage. So a message published on one node can be consumed on another and survives the loss of a node.',
     },
     {
       q: 'Is a VM publish faster than a Flow Reference?',

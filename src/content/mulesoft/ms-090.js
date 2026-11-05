@@ -141,7 +141,7 @@ The SAP team asks whether the integration team understands the difference betwee
 
 **3. Transactions.**
 - **Synchronous:** the docs say you must add \`try\` to the BAPI call to create a transaction, otherwise the change does not impact SAP. The example uses \`transactionalAction="ALWAYS_BEGIN"\`. In SAP terms, a BAPI change is saved only by a commit of the logical unit of work. The connector docs do not describe the mechanism beyond the Try, so test it against your system.
-- **Asynchronous:** Start SAP Transaction creates an ID, the call uses that ID (it identifies an RFC so that the RFC runs only once), and Confirm Transaction tells the server the transaction succeeded.
+- **Asynchronous:** Start SAP Transaction creates an ID, and the call uses that ID (it identifies an RFC so that the RFC runs only once). Confirm Transaction tells the server the transaction succeeded.
 - **Reads:** no transaction is needed.
 - The docs say both tRFC and qRFC have a TID handler.
 

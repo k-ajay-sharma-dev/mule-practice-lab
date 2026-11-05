@@ -94,7 +94,7 @@ export default {
   solution: `
 **Phases**
 1. **Capture (months 1–3).** MES writes consumption/production events to a JMS queue (or an outbound table read by a \`db:listener\` with a watermark column). SAP batch and delivery events via IDocs; WMS shipment confirmations via its event feed. All are mapped to a common \`LotEvent\` (lot, parent lot, quantity, location, time, source) and published to \`lot-events\`.
-2. **Store and query (months 3–5).** \`prc-lot-genealogy\` validates and de-duplicates (source + event ID) and calls \`sys-trace-store-api\`, which writes links into an Oracle traceability store with indexes for both directions (hierarchical queries with \`CONNECT BY\` or recursive \`WITH\`). Back-fill two years of history from SAP and MES extracts.
+2. **Store and query (months 3–5).** \`prc-lot-genealogy\` validates and de-duplicates (source + event ID) and calls \`sys-trace-store-api\`. That API writes links into an Oracle traceability store with indexes for both directions (hierarchical queries with \`CONNECT BY\` or recursive \`WITH\`). Back-fill two years of history from SAP and MES extracts.
 3. **Recall (months 5–7).** \`exp-recall-console-api\` → \`prc-recall-api\`: run the trace, show affected batches, customers and stock positions, and on approval block batches in SAP, publish a \`RecallNotice\` to the \`recall-notices\` topic. Subscribers place WMS holds and send customer notices (EDI, portal or email) with lot lists. Customer acknowledgements are tracked.
 4. **Prove it (ongoing).** Quarterly mock recalls with a timer, results reported to QA leadership.
 
@@ -102,7 +102,11 @@ export default {
 
 **Governance.** Data owners per source; lot ID formats agreed across plants; retention rules agreed with legal; recall runbook with approvals (who can trigger a recall).
 
-**Risks.** Missing links because a plant records consumption late (data-quality dashboards, gap alerts), mismatched lot formats between systems (normalisation and cross-reference), customer contact data out of date (validated in mock recalls), and over-broad recalls when data is incomplete.
+**Risks.**
+- Missing links because a plant records consumption late (data-quality dashboards, gap alerts).
+- Mismatched lot formats between systems (normalisation and cross-reference).
+- Customer contact data out of date (validated in mock recalls).
+- Over-broad recalls when data is incomplete.
 `,
   followUps: [
     { q: 'Why not query SAP, MES and WMS live when a recall starts?', a: 'Live queries across systems with different keys are slow and fragile under pressure. Capturing links continuously means the trace is a fast query on one store.' },

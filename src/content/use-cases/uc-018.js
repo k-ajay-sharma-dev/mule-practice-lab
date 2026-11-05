@@ -101,7 +101,7 @@ Mule *could* subscribe to MQTT directly (there is an MQTT connector) for small v
 - Missing data is a risk too: no telemetry from an active truck for 15 minutes → "connectivity lost" alert.
 - If no stream processor is available, a Mule consumer can keep this state in a fast external store keyed by truck — but call out that this is the weaker option.
 
-**TMS updates.** A Mule scheduled flow every 5 minutes reads the latest position per active shipment (from the aggregator topic/state or time-series DB) and sends **one bulk update** (or one call per shipment, throttled) — ~2,500 updates per 5 minutes instead of 75,000 raw messages. Skip trucks that have not moved.
+**TMS updates.** A Mule scheduled flow every 5 minutes reads the latest position per active shipment (from the aggregator topic/state or time-series DB). It sends **one bulk update** (or one call per shipment, throttled). That is ~2,500 updates per 5 minutes instead of 75,000 raw messages. Skip trucks that have not moved.
 
 **Storage and history API.** \`GET /shipments/{id}/temperatures?from&to\` resolves the truck and time window of the shipment and queries the **time-series DB** (recent) or the archive (older, via a query engine over object storage). Page or downsample results (e.g. 1-minute averages with min/max) to keep responses small. Secure with OAuth 2.0 and enforce that customers see only their own shipments. Object storage lifecycle rules move data to colder tiers and delete after 5 years.
 

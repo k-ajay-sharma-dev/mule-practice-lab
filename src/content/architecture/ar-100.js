@@ -144,7 +144,7 @@ The CloudHub 2.0 page gives \`mvn mule:deploy\` for deploying without a rebuild.
 
 **Rollback mechanism.** Rollback is a normal deployment of an earlier version, so it uses the same tested path. The docs say that to redeploy you run the same command as you did to deploy, and the platform rewrites the application. A dedicated "Rollback" pipeline takes an app, an environment and a version from the release record, checks out that tag and deploys. On CloudHub 2.0, \`runtime-mgr:application:modify\` with \`--assetVersion\` is a second route. Practise on a schedule: a rollback that nobody has tried is not a 15-minute rollback.
 
-A version is safe to return to if it is a release version, it is still available in Exchange, its properties are known, and the release record has not marked it as unsafe. A \`SNAPSHOT\` fails the first test, because each redeploy takes the latest binaries.
+A version is safe to return to if all of these hold: it is a release version, it is still available in Exchange, its properties are known, and the release record has not marked it as unsafe. A \`SNAPSHOT\` fails the first test, because each redeploy takes the latest binaries.
 
 **Properties and policies.**
 - Keep non-secret values in version control, one file per app and environment, sent through \`propertiesFile\`. Keep secrets in Azure Key Vault, linked through a variable group, sent through \`secureProperties\`.

@@ -124,7 +124,7 @@ Mon 06:04:51 INFO  [prc-partner-orders] PO-77121 rejected: DUPLICATE_MESSAGE
 - Pause the retry feed or stop the consuming flow.
 - Extract orders processed since Saturday and match them with SAP by partner order number.
 - Work with the SAP team and the business to cancel the duplicates. Do not delete in bulk without checking.
-- Before restarting the feed, pre-load \`seenOrders\` with the last seven days of order IDs from SAP or a report, or ask the partner to hold the repeats until the entries are rebuilt.
+- Before restarting the feed, pre-load \`seenOrders\` with the last seven days of order IDs from SAP or a report. Or ask the partner to hold the repeats until the entries are rebuilt.
 
 **Root cause.** The on-premises cluster docs state that persistent object stores are not shared across a full cluster shutdown unless you configure a centralized JDBC store. The in-grid copy does not survive stopping every node, even when \`persistent\` is true. The team read \`persistent="true"\` as "written to durable storage", which is not how a cluster behaves. The docs also say that all nodes must be stopped to clear the store, so the change did exactly that.
 

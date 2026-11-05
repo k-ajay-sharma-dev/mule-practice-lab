@@ -93,7 +93,7 @@ An HTTP-triggered flow calls a downstream Inventory API. When Inventory is down,
   solution: `
 **HTTP flow → On Error Propagate.** The error is rethrown to the HTTP Listener, which sends the *error response*. Configure the listener's error response with \`statusCode: vars.httpStatus default 500\` and set \`vars.httpStatus = 503\` plus a JSON body in the handler. Write the audit record before the handler ends.
 
-Using **On Error Continue** here would complete the flow as *success*, so the listener would send its normal response (200 by default) unless you override the status yourself — easy to get wrong.
+Using **On Error Continue** here would complete the flow as *success*, so the listener would send its normal response (200 by default) unless you override the status yourself. That is hard to get right.
 
 **Batch per-record call → On Error Continue** (inside a Try scope around the call). The failure is handled and the record continues, so one bad record does not stop the job. Alternatively, rely on the batch job's \`maxFailedRecords\` and accept policies.
 

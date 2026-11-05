@@ -92,16 +92,16 @@ Constraints:
  WMS --receipt events--> [EDI.INBOUND / WMS.RECEIPTS] --> prc-supplier-po --> EBS receiving interface
 \`\`\`
 
-**Outbound 850.** A Scheduler every 5 minutes calls the Process API, which asks **sys-oracle-ebs-purchasing** for POs approved since the last watermark (\`db:select\` against a read-only view over PO_HEADERS_ALL / PO_LINES_ALL with \`:lastRun\` as a bind parameter — never string concatenation). DataWeave maps to the X12 850; the trading-partner profile (ISA/GS IDs, AS2 or VAN, item-number style) comes from a config table. The watermark is stored only after the send succeeds.
+**Outbound 850.** A Scheduler every 5 minutes calls the Process API, which asks **sys-oracle-ebs-purchasing** for POs approved since the last watermark. It runs \`db:select\` against a read-only view over PO_HEADERS_ALL / PO_LINES_ALL with \`:lastRun\` as a bind parameter, never string concatenation. DataWeave maps to the X12 850; the trading-partner profile (ISA/GS IDs, AS2 or VAN, item-number style) comes from a config table. The watermark is stored only after the send succeeds.
 
-**Inbound 855/856.** The AS2 endpoint (Experience API) validates the envelope, writes the raw interchange to the tracking table, returns the MDN and publishes one message per transaction set to the \`EDI.INBOUND\` ActiveMQ queue with \`docType\` and \`poNumber\` as JMS properties. A 997 is generated after syntax validation.
+**Inbound 855/856.** The AS2 endpoint (Experience API) validates the envelope, writes the raw interchange to the tracking table and returns the MDN. It then publishes one message per transaction set to the \`EDI.INBOUND\` ActiveMQ queue with \`docType\` and \`poNumber\` as JMS properties. A 997 is generated after syntax validation.
 
 **Processing in the Process API** (JMS listener, transactional, ackMode handled by the transaction):
 - **855:** per line — accept, quantity change (auto-apply), price/date change (create a buyer approval task, do not touch the PO). Acceptance is recorded in EBS through a PL/SQL wrapper called with \`db:stored-procedure\`.
 - **856:** map HL loops (shipment → order → pack/SSCC → item) into RCV_HEADERS_INTERFACE / RCV_TRANSACTIONS_INTERFACE rows as an ASN; the Receiving Transaction Processor validates them. In parallel the expected receipt (SSCCs, quantities, ETA) is sent to the WMS via **sys-dc-wms**.
 - **Receipt confirmation** from the WMS: posted as a receipt against the ASN shipment lines through the same interface; differences are flagged.
 
-**Idempotency and ordering.** The tracking table has a unique key (sender ID + control number + doc type). A duplicate is acknowledged and ignored. An 856 that arrives before its 855 is processed anyway (EBS allows ASNs on approved POs), but an ASN for an unknown PO is **parked** with status WAITING and retried by the poller for 24 hours.
+**Idempotency and ordering.** The tracking table has a unique key (sender ID + control number + doc type). A duplicate is acknowledged and ignored. An 856 that arrives before its 855 is processed anyway (EBS allows ASNs on approved POs). But an ASN for an unknown PO is **parked** with status WAITING and retried by the poller for 24 hours.
 
 **Error handling.**
 - \`DB:CONNECTIVITY\` → the transaction rolls back; ActiveMQ redelivers (redelivery delay with back-off). After 5 attempts the broker moves the message to \`DLQ.EDI.INBOUND\`.

@@ -126,7 +126,7 @@ You are asked to build the relay in Mule.
     },
     {
       q: 'How do you prove nothing was lost at the end of the transition?',
-      a: 'Log each relayed key with size, keep a daily reconciliation (S3 inventory or the relay log vs List Blobs In Container), and enable S3 versioning so a deleted object can still be recovered during the transition.',
+      a: 'Log each relayed key with size. Keep a daily reconciliation (S3 inventory or the relay log vs List Blobs In Container). Enable S3 versioning so a deleted object can still be recovered during the transition.',
     },
   ],
 }

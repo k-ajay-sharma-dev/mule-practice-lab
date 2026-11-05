@@ -168,7 +168,7 @@ The proposed fix is \`maxPoolSize="100"\` on every replica.
     },
     {
       q: 'Which metrics would you alert on?',
-      a: 'Pool active vs max and wait time (from JMX or custom metrics), p95 latency and 503 rate per replica, Oracle active sessions and lock waits for the app user, and DB:CONNECTIVITY error counts.',
+      a: 'Pool active vs max and wait time (from JMX or custom metrics), and p95 latency and 503 rate per replica. Also Oracle active sessions and lock waits for the app user, and DB:CONNECTIVITY error counts.',
     },
   ],
 }

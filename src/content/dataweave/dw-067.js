@@ -194,7 +194,7 @@ var totalDiscount = sum(outLines map ($.promoDiscount + $.couponDiscount))
     },
     {
       q: 'A customer bought three soaps on the 3-for-2 and returns one. How much do you refund?',
-      a: 'That is a business rule to agree up front. A common approach is to recalculate the basket without the returned unit (2 soaps → no multibuy) and refund the difference between the original and the new net, so the customer cannot keep the free item. Storing the per-line discount allocation makes this possible.',
+      a: 'That is a business rule to agree up front. A common approach is to recalculate the basket without the returned unit (2 soaps → no multibuy). Then refund the difference between the original and the new net, so the customer cannot keep the free item. Storing the per-line discount allocation makes this possible.',
     },
     {
       q: 'Marketing wants "best combination of promotions" instead of "best single promotion per line". What changes?',

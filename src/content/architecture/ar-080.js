@@ -115,7 +115,7 @@ The platform runs on **CloudHub 2.0** (US control plane) and on-prem Mule runtim
 `,
   followUps: [
     { q: 'A loyalty member from the US shops in a German store. Where is the transaction stored?', a: 'The sale is processed in the EU cell where it happened; a cross-region API resolves the member token to points accrual in the US cell, exchanging only what is needed under the agreed legal basis.' },
-    { q: 'Does running CloudHub 2.0 in an EU region solve residency by itself?', a: 'It keeps runtime processing in that region, but you must also consider the control plane, logs, Anypoint MQ or broker location, object stores, backups and support access — residency is about every copy of the data.' },
+    { q: 'Does running CloudHub 2.0 in an EU region solve residency by itself?', a: 'It keeps runtime processing in that region, but you must also consider the control plane, logs, Anypoint MQ or broker location, object stores, backups and support access. Residency is about every copy of the data.' },
     { q: 'How do you stop a developer adding the email field to the global aggregate event?', a: 'Govern the global event schema (reviewed contract in Exchange), validate outbound events against an allow-listed schema in the publishing flow, and add automated data-classification tests in CI.' },
   ],
 }

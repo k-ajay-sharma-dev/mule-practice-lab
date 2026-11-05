@@ -163,7 +163,7 @@ Common traps:
     },
     {
       q: 'What is the risk of collecting all pages before transforming?',
-      a: 'Memory: all pages are held at once. For large exports, process and write each page as it arrives (append to a file, publish to a queue, or use Batch) and keep only the dedup keys or a watermark between pages.',
+      a: 'Memory: all pages are held at once. For large exports, process and write each page as it arrives (append to a file, publish to a queue, or use Batch). Keep only the dedup keys or a watermark between pages.',
     },
     {
       q: 'Does DataWeave optimize this recursion?',

@@ -112,7 +112,7 @@ For very large volumes, stream the query result into the DataWeave script (defer
     },
     {
       q: 'How would you add a SHA-256 checksum file the bank asks for?',
-      a: 'Compute it in DataWeave with dw::Crypto::hashWith(content, "SHA-256") and dw::core::Binaries::toHex from the generated content, write PAY_yyyyMMdd.txt.sha256 the same safe way, and move the checksum file last so its presence signals the pair is complete.',
+      a: 'Compute it in DataWeave with dw::Crypto::hashWith(content, "SHA-256") and dw::core::Binaries::toHex from the generated content. Write PAY_yyyyMMdd.txt.sha256 the same safe way. Move the checksum file last so its presence signals the pair is complete.',
     },
   ],
 }

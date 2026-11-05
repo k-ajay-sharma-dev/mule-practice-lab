@@ -108,7 +108,7 @@ A **Payroll System API** must run in **dev**, **qa** and **prod** from the **sam
 \`\`\`
 At deployment set \`env=prod\` (and \`secure.key\`) — no rebuild, no XML edits. Keep common values in a shared \`config-common.yaml\` if useful.
 
-**Precedence** (highest first): **deployment properties / system properties** (Runtime Manager *Properties*, \`-D\` on the runtime) → **environment variables** → **configuration properties files** (including secure ones) → **global properties**. So a \`db.host\` set in Runtime Manager **does override** the YAML — if it appears not to, check the name exactly matches (YAML nesting \`db: host:\` = \`db.host\`) and that the app was restarted/redeployed after the change.
+**Precedence** (highest first): **deployment properties / system properties** (Runtime Manager *Properties*, \`-D\` on the runtime) → **environment variables** → **configuration properties files** (including secure ones) → **global properties**. So a \`db.host\` set in Runtime Manager **does override** the YAML. If it appears not to, check the name exactly matches (YAML nesting \`db: host:\` = \`db.host\`) and that the app was restarted/redeployed after the change.
 
 **Secure properties**
 1. Encrypt each secret with the Secure Properties Tool (same algorithm/mode as the config), producing values like \`password: "![k1Jx9...]"\` in \`secure-prod.yaml\`.

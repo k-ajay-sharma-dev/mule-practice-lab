@@ -98,7 +98,11 @@ export default {
 
 **Capacity.** Use CloudHub 2.0 replicas (or the platform's equivalent) and scale up by schedule via the CI/CD pipeline or Platform APIs a few days before exams, then scale down. Size from load test results, not guesswork. Apply rate limiting/spike control at the API gateway to protect the platform from client retry storms, with clear \`Retry-After\` responses.
 
-**Readiness.** Load test with the real peak shape (burst at start, burst at end), chaos-test a slow LMS, agree a change freeze during exam weeks, and staff an on-call rota with dashboards for queue depth, latency, and error rates.
+**Readiness.**
+- Load test with the real peak shape (burst at start, burst at end).
+- Chaos-test a slow LMS.
+- Agree a change freeze during exam weeks.
+- Staff an on-call rota with dashboards for queue depth, latency, and error rates.
 
 **Risks.** Hidden limits in the identity provider (include it in load tests), client-side retries amplifying load (exponential backoff in the web app), and data loss (durable acceptance before acknowledgement).
 `,

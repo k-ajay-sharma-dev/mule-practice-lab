@@ -162,13 +162,13 @@ A travel company still runs 40 apps on **CloudHub 1.0**, and a new support engin
 
 **2. Safe work.** Make flows idempotent, because long-running schedules can be retriggered after two minutes during updates and overlapping triggers can occur during zero-downtime deployments. Use an interval of 60 seconds or more for time-sensitive work, and trigger externally for precise timing.
 
-**3. Restarts.** CloudHub checks the Mule Agent health endpoint every 30 seconds. After three consecutive failures the logs print a warning, a console notification appears, and the Worker not responding alert fires if configured. With the automatic restart option, CloudHub restarts the app on the same worker up to five times, then relaunches on a new worker up to three times, then stops and notifies you, and you must redeploy manually. Without the option, it only notifies you. Impaired workers are a separate mechanism: CloudHub attempts to restart the app on a new worker, regardless of the option.
+**3. Restarts.** CloudHub checks the Mule Agent health endpoint every 30 seconds. After three consecutive failures the logs print a warning, a console notification appears, and the Worker not responding alert fires if configured. With the automatic restart option, CloudHub restarts the app on the same worker up to five times, then relaunches on a new worker up to three times. It then stops and notifies you, and you must redeploy manually. Without the option, it only notifies you. Impaired workers are a separate mechanism: CloudHub attempts to restart the app on a new worker, regardless of the option.
 
 **4. Insight.** No. Use it briefly to troubleshoot a specific transaction. It keeps events for two days and displays transactions for 30 days, and it can drop events over its limits. For production monitoring, use the tools on the Monitor Applications page.
 
 **5. DLB update.** Read the release notes, add new static IPs to allowlists when prompted, update the Sandbox DLB and test, then update production at a suitable time. It is a rolling restart and cannot be rolled back. If a sustained outage follows, contact MuleSoft Support.
 
-**6. DLB logs.** Nine days ago is outside the \`RELATIVE\` presets, whose longest range is the last 24 hours, so call Initiate Download with \`queryType\` set to \`ABSOLUTE\`, and with \`startTime\` and \`endTime\` in ISO 8601 UTC with microsecond precision. Set \`maxRows\` if needed, poll the status API, then download the file and keep the token.
+**6. DLB logs.** Nine days ago is outside the \`RELATIVE\` presets, whose longest range is the last 24 hours. So call Initiate Download with \`queryType\` set to \`ABSOLUTE\`, and with \`startTime\` and \`endTime\` in ISO 8601 UTC with microsecond precision. Set \`maxRows\` if needed, poll the status API, then download the file and keep the token.
 `,
   followUps: [
     { q: 'Can I manage CloudHub 1.0 schedules with scripts?', a: 'Not with scripts. Use the Schedules tab or the CloudHub API.' },

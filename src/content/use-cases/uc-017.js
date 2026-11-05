@@ -86,9 +86,9 @@ Facts:
     'Steps are retried independently and tracked: refund to customer first, then credit note in D365; failures alert and are resumable, with a daily reconciliation between refunds and credit notes.',
   ],
   solution: `
-**Process and ownership.** Create a **Returns Process API** that orchestrates the steps and keeps the **RMA state** (or uses D365 return orders as the system of record if the business already works there). States: *Requested → LabelIssued → InTransit → Received → Inspected → Refunded / PartiallyRefunded / Rejected*. Each step publishes an event (Anypoint MQ) so Shopify status, customer emails and reporting can follow.
+**Process and ownership.** Create a **Returns Process API** that orchestrates the steps and keeps the **RMA state**. Alternatively, it uses D365 return orders as the system of record if the business already works there. States: *Requested → LabelIssued → InTransit → Received → Inspected → Refunded / PartiallyRefunded / Rejected*. Each step publishes an event (Anypoint MQ) so Shopify status, customer emails and reporting can follow.
 
-**Return creation.** The Shopify return request (app/webhook or a custom returns page) calls \`POST /returns\`: validate the order is within 30 days and the items were delivered and not already returned, create the RMA in D365 (return order), request a return label from the carrier API, and email it to the customer. Store the mapping Shopify order ↔ D365 sales order ↔ RMA.
+**Return creation.** The Shopify return request (app/webhook or a custom returns page) calls \`POST /returns\`: validate the order is within 30 days and the items were delivered and not already returned. Then create the RMA in D365 (return order), request a return label from the carrier API, and email it to the customer. Store the mapping Shopify order ↔ D365 sales order ↔ RMA.
 
 **Inspection files.** An SFTP listener (or scheduled poll) picks up the 3PL CSV every 2 hours:
 - Move the file to a *processing* folder, parse it with DataWeave, validate (known RMA, known SKU, quantity ≤ returned quantity).

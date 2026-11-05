@@ -145,6 +145,6 @@ Often both: \`POST /pickups\` (sync accept, returns booking ID) → \`PickupBook
   followUps: [
     { q: 'Does event-driven architecture replace API-led connectivity?', a: 'No, they complement each other. APIs remain the way to query and command; events distribute facts. The layered thinking — unlock systems, compose processes, tailor experiences — applies to both.' },
     { q: 'Who should own the ParcelScanned schema — the tracking team or depot operations?', a: 'Depot operations, the producing domain, because it knows what a scan means and is accountable for publishing it correctly. Consumers request changes but do not own the contract.' },
-    { q: 'How do you make webhooks reliable?', a: 'Retry with backoff on failure, sign payloads so partners can verify them, include an event ID for deduplication, park repeated failures in a DLQ with alerts, and offer a bulk query endpoint so partners can reconcile missed events.' },
+    { q: 'How do you make webhooks reliable?', a: 'Retry with backoff on failure, sign payloads so partners can verify them, and include an event ID for deduplication. Park repeated failures in a DLQ with alerts, and offer a bulk query endpoint so partners can reconcile missed events.' },
   ],
 }

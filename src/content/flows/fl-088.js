@@ -138,7 +138,7 @@ Two systems need the data: the tracking portal wants **JSON** in \`out/json\` an
 **Flow:**
 1. **Set Variables**: \`filePath\`, \`baseName\` and \`duplicate = false\`.
 2. **XML Validate Schema** with the XSD. A failure goes to the flow-level **On Error Continue**, which moves the file to \`rejects\`.
-3. **Transform** to \`vars.parsed\`: read the XML with \`read(payload.^raw, "application/xml")\` (an \`.xml\` file may already be typed from its extension, and \`read\` accepts only a String or Binary), use \`.*Shipment\` for the repeating element, and split the shipments into \`valid\` and \`invalid\`.
+3. **Transform** to \`vars.parsed\`: read the XML with \`read(payload.^raw, "application/xml")\`. An \`.xml\` file may already be typed from its extension, and \`read\` accepts only a String or Binary. Use \`.*Shipment\` for the repeating element, and split the shipments into \`valid\` and \`invalid\`.
 4. **Try** around the two outputs:
    - **Transform** to JSON and **File Write** with mode \`CREATE_NEW\`.
    - **Transform** to CSV and **File Write** with mode \`CREATE_NEW\`.
@@ -152,7 +152,7 @@ Two systems need the data: the tracking portal wants **JSON** in \`out/json\` an
 
 **Partial outputs.** If the JSON is new but the CSV already exists, the JSON has been written when the error occurs. This is rare, because the outputs are created together. If it matters, see the follow-up on temporary names.
 
-**Other errors.** A disk failure is not handled here, so the manifest stays in \`in\` for support to look at. The listener documentation describes Auto Delete, Move To Directory and a watermark as the ways a file counts as new, and does not spell out what happens to a file left in place, so confirm in a test whether it is picked up again. On any retry, a JSON output written by the failed attempt would be seen as a duplicate, so a check of the \`duplicates\` folder is part of the runbook.
+**Other errors.** A disk failure is not handled here, so the manifest stays in \`in\` for support to look at. The listener documentation describes Auto Delete, Move To Directory and a watermark as the ways a file counts as new. It does not spell out what happens to a file left in place, so confirm in a test whether it is picked up again. On any retry, a JSON output written by the failed attempt would be seen as a duplicate, so a check of the \`duplicates\` folder is part of the runbook.
 `,
   followUps: [
     {

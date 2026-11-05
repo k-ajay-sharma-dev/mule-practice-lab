@@ -137,6 +137,6 @@ The Process API runs on **2 replicas** on CloudHub 2.0. The payment provider sup
 
 **Downstream consumers.**
 - *Billing:* conditional update — \`UPDATE invoice SET status='PAID', payment_id=:id WHERE id=:inv AND status<>'PAID'\`; re-running it is harmless.
-- *Receipts:* Anypoint MQ is at-least-once, so the consumer uses an **Idempotent Message Validator** on \`paymentId\` with a persistent Object Store (TTL of a few days), and acks only after the email is sent. Accept that the tiny window between "email sent" and "key stored" can still produce a rare duplicate; exactly-once across an external email system is not achievable, only effectively-once.
+- *Receipts:* Anypoint MQ is at-least-once, so the consumer uses an **Idempotent Message Validator** on \`paymentId\` with a persistent Object Store (TTL of a few days). It acks only after the email is sent. Accept that the tiny window between "email sent" and "key stored" can still produce a rare duplicate; exactly-once across an external email system is not achievable, only effectively-once.
 `,
 }

@@ -123,7 +123,7 @@ A retailer keeps its product data in a **PIM**. Every night at 01:00 the PIM dro
 1. **Scheduler** every 5 minutes. A job can take over an hour, so a short wait in a flow would be wasteful. Each poll is one API call, which is cheap.
 2. **Object Store Retrieve** with an empty default. Nothing stored means nothing to do.
 3. **Get Job State Bulk Api V2**, then a **Choice**:
-   - \`JobComplete\`: **Retrieve Job Failed Results Bulk V2**, write the CSV to \`/pim/rejected/\`, then **Retrieve Job Unprocessed Results Bulk V2** and write that CSV to the same folder, log the result and remove the job ID.
+   - \`JobComplete\`: **Retrieve Job Failed Results Bulk V2** and write the CSV to \`/pim/rejected/\`. Then **Retrieve Job Unprocessed Results Bulk V2** and write that CSV to the same folder. Log the result and remove the job ID.
    - \`Failed\` or \`Aborted\`: log, email the support mailbox and remove the job ID.
    - Anything else: the job is still running, so do nothing.
 

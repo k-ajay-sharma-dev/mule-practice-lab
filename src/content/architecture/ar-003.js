@@ -88,6 +88,6 @@ Constraints: some events are malformed (bad parcel IDs); the tracking DB occasio
 
 **Ordering and duplicates.**
 - *Tracking:* store the current status with a rank (\`RECEIVED\`=1 … \`DELIVERED\`=4) and the event timestamp. Update only if the incoming event is newer/higher — a conditional update (\`UPDATE … WHERE rank < :newRank\`). Out-of-order and duplicate events then become no-ops.
-- *Billing:* delivery is at-least-once, so dedupe on \`parcelId\` + event type using an **Idempotent Message Validator** backed by a **persistent Object Store** (with a TTL longer than the redelivery window) and/or a unique constraint on the billing table. The DB constraint is the strongest guarantee.
+- *Billing:* delivery is at-least-once, so dedupe on \`parcelId\` + event type. Use an **Idempotent Message Validator** backed by a **persistent Object Store** (with a TTL longer than the redelivery window) and/or a unique constraint on the billing table. The DB constraint is the strongest guarantee.
 `,
 }

@@ -79,7 +79,7 @@ Facts:
 
 **Shipment confirmation.**
 - \`jms:listener\` on \`WMS.SHIP.CONFIRM\` with \`transactionalAction="ALWAYS_BEGIN"\`; a few concurrent consumers are enough for 600/hour.
-- Transform the XML to the canonical shipment and call the System API, which runs the ship-confirm through a PL/SQL wrapper package (\`db:stored-procedure\` with IN params for delivery ID, quantities and lots, OUT params for status and message).
+- Transform the XML to the canonical shipment and call the System API, which runs the ship-confirm through a PL/SQL wrapper package. It uses \`db:stored-procedure\` with IN params for delivery ID, quantities and lots, and OUT params for status and message.
 - Insert the message ID into \`INT_MESSAGE_LOG\` (unique constraint). A duplicate raises a constraint violation → log "already processed" and commit — do not ship-confirm twice.
 
 **EBS outage.** The connection fails with \`DB:CONNECTIVITY\`; the transaction rolls back and ActiveMQ redelivers. Better: an operations runbook stops the listener flow during the patching window so messages wait safely in the persistent queue and are processed in order afterwards.

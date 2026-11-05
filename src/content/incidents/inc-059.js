@@ -127,7 +127,7 @@ export default {
 `,
   followUps: [
     { q: 'What happens to in-flight messages with the failover transport?', a: 'The client reconnects transparently; sends may block until reconnected, and unacknowledged consumed messages are redelivered by the new master, so consumers must tolerate duplicates.' },
-    { q: 'How is HA different in ActiveMQ Artemis?', a: 'Artemis uses primary/backup pairs (called live/backup in older versions) with replication or shared store, and clients can discover the backup through the cluster topology or a list of connectors, with reconnectAttempts controlling client retries.' },
+    { q: 'How is HA different in ActiveMQ Artemis?', a: 'Artemis uses primary/backup pairs (called live/backup in older versions) with replication or shared store. Clients can discover the backup through the cluster topology or a list of connectors, with reconnectAttempts controlling client retries.' },
     { q: 'Why not just use a load balancer in front of the brokers?', a: 'Only the master accepts connections and JMS connections are long-lived and stateful; the failover transport understands that, while a plain TCP load balancer would need health checks tuned to master status and still break sessions.' },
   ],
 }

@@ -145,7 +145,7 @@ A home-improvement chain changes prices and promotions every night.
 
 **Why per-store queues?** One topic with 500 subscribers filtering by selector would push all 1.5 M rows through every store link; per-store queues send each store only its data and let a store that is offline catch up later.
 
-**Failure granularity:** if a JMS Publish fails inside the aggregator, expect all records in that aggregated chunk to be marked failed (the docs do not spell this out, so confirm it in a test) — chunks ordered by store keep that blast radius to one or two stores. A re-run (or an ops endpoint for one store) re-selects only rows not SENT.
+**Failure granularity:** if a JMS Publish fails inside the aggregator, expect all records in that aggregated chunk to be marked failed (the docs do not spell this out, so confirm it in a test). Chunks ordered by store keep that blast radius to one or two stores. A re-run (or an ops endpoint for one store) re-selects only rows not SENT.
 
 **Throughput:** ~1,500 messages of 1,000 prices; the bottleneck is usually Oracle read speed and the broker network, not Mule. Tune batch concurrency and broker producer flow control.
 `,

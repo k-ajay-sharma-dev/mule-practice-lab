@@ -124,7 +124,7 @@ Requirements:
   solution: `
 **1. Static IPs.** Enable **Use Static IP** on the Static IPs tab of \`logi-payments-prod\` and give the address to the bank. It comes from a CloudHub pool, so nobody can choose it. By default the subscription has twice its Production vCores. Note what can change it: deleting the app, moving from Sandbox to Production, redeploying to another region (preallocate first), or restarting into a newly built VPC.
 
-**2. Shared load balancer.** It is available in all environments, but it has no custom certificates or proxy rules, it uses its own certificate, it supports only TLS 1.2, and it has lower rate limits applied per region. Exceeding them returns 429. So \`api.logi-example.com\`, the company certificate, client certificates and the peak volume all point to a **dedicated load balancer** in the VPC.
+**2. Shared load balancer.** It is available in all environments, but it has no custom certificates or proxy rules. It uses its own certificate, it supports only TLS 1.2, and it has lower rate limits applied per region. Exceeding them returns 429. So \`api.logi-example.com\`, the company certificate, client certificates and the peak volume all point to a **dedicated load balancer** in the VPC.
 
 **3. Mapping rules.** Create a CNAME from the company domain to \`[lb-name].lb.anypointdns.net\`. On the SSL endpoint, add ordered rules such as:
 

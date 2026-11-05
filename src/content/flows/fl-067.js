@@ -153,7 +153,7 @@ EDI-capable suppliers (about 600) exchange **X12 4010** files over the retailer'
 4. **Transform** to the X12 850 structure (BEG, N1 ship-to, PO1 lines, CTT) and **X12 Write** (X12 EDI module) to produce the file text.
 5. **SFTP Write** \`PO_<po>_<icn>.edi\` with **CREATE_NEW**.
 6. **Database Update** \`STATUS = 'SENT'\`, ICN, \`ACK_DUE_AT = +24h\`.
-If the update fails after the file was written, the redelivered event would produce a new ICN and file — so either write the PO status first in a "SENDING" state with the ICN, or make the file name depend only on the PO number so CREATE_NEW rejects the second file.
+If the update fails after the file was written, the redelivered event would produce a new ICN and file. So either write the PO status first in a "SENDING" state with the ICN, or make the file name depend only on the PO number so CREATE_NEW rejects the second file.
 
 **Flow 2 — \`supplier-855-inbound\`**
 1. **SFTP listener** \`/edi/inbound/855\`, move to archive after success. Set **Apply Post Action When Failed** to false (the default is true), or failed files are archived too.

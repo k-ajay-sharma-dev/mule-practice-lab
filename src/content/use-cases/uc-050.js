@@ -149,6 +149,6 @@ Business rules:
     { q: 'Why split eligibility and plan change into two Process APIs?', a: 'They have different consumers and characteristics: eligibility is a high-volume, cacheable read used also by marketing; plan change is a low-volume, stateful write saga. Splitting keeps each simple and independently scalable.' },
     { q: 'Why does prc-plan-change re-check eligibility when the screen already showed eligible plans?', a: 'State can change between browsing and submitting (a payment becomes overdue), and a client could call the POST directly. Business rules must be enforced at write time on the server.' },
     { q: 'Could you use a distributed XA transaction instead of compensation?', a: 'No — billing SOAP, an async OSS gateway and Salesforce do not take part in a shared XA transaction. Long-running cross-system changes need a saga with compensating actions.' },
-    { q: 'Downgrades take effect at the next bill cycle — what changes?', a: 'prc-plan-change schedules the billing change for the cycle date (many billing systems accept a future-dated plan change) and provisioning is triggered at that date by a scheduler or a billing event, with the same state machine.' },
+    { q: 'Downgrades take effect at the next bill cycle — what changes?', a: 'prc-plan-change schedules the billing change for the cycle date (many billing systems accept a future-dated plan change). Provisioning is triggered at that date by a scheduler or a billing event, with the same state machine.' },
   ],
 }

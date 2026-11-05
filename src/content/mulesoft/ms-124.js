@@ -138,7 +138,7 @@ A long-running report in \`partner-claims-api\` takes eight minutes to respond, 
 
 **4. Limits.**
 - The eight-minute report waits on the response, so it needs the read-response timeout raised in the private space advanced settings (up to 3600 seconds).
-- The 600 MB upload is under the 1 GB request limit, but the whole request must arrive within the hardcoded 300-second read-request timeout, so a slow partner link can be a problem. Measure it.
+- The 600 MB upload is under the 1 GB request limit, but the whole request must arrive within the hardcoded 300-second read-request timeout. So a slow partner link can be a problem. Measure it.
 `,
   followUps: [
     { q: 'Can you customise endpoints on a shared space?', a: 'No. CloudHub 2.0 supports customising endpoints only for apps deployed to private spaces.' },

@@ -28,7 +28,7 @@ export default {
         '`<cron expression="0 0 2 ? * MON-FRI"/>` — the cron uses the business time zone by default',
       ],
       answer: 0,
-      explain: 'Mule uses a Quartz-style cron with a **seconds** field first. Without `timeZone` the Scheduler uses the time zone of the machine running Mule, and the Scheduler page gives UTC for CloudHub, so the run would happen at the wrong local time and drift with daylight saving. CloudHub 2.0 bases schedules on the scheduler\'s defined time zone. Do not rely on this on CloudHub 1.0, where the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored.',
+      explain: 'Mule uses a Quartz-style cron with a **seconds** field first. Without `timeZone` the Scheduler uses the time zone of the machine running Mule, and the Scheduler page gives UTC for CloudHub. So the run would happen at the wrong local time and drift with daylight saving. CloudHub 2.0 bases schedules on the scheduler\'s defined time zone. Do not rely on this on CloudHub 1.0, where the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored.',
     },
     {
       type: 'match',
@@ -120,7 +120,7 @@ After go-live, finance receives **two** identical files every night, and the inv
 
 **Overlap:** a 5-minute fixed frequency triggers again while a 7-minute run is still active. Limit the flow to one execution at a time — \`maxConcurrency="1"\` on the flow and/or the Scheduler's option to disallow concurrent execution — so the next trigger is skipped instead of overlapping. Also consider a watermark so a skipped trigger loses no data.
 
-**Time zone:** without \`timeZone\` the cron uses the time zone of the machine running Mule. The Scheduler page gives **UTC** for CloudHub, so 02:00 would really be 21:00/22:00 in New York depending on daylight saving. On this CloudHub 2.0 app, set \`timeZone\` explicitly for business schedules: CloudHub 2.0 bases schedules on the scheduler's defined time zone. **CloudHub 1.0 is different:** the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored, so convert the time to UTC and review it when the clocks change.
+**Time zone:** without \`timeZone\` the cron uses the time zone of the machine running Mule. The Scheduler page gives **UTC** for CloudHub, so 02:00 would really be 21:00/22:00 in New York depending on daylight saving. On this CloudHub 2.0 app, set \`timeZone\` explicitly for business schedules: CloudHub 2.0 bases schedules on the scheduler's defined time zone. **CloudHub 1.0 is different:** the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored. So convert the time to UTC and review it when the clocks change.
 `,
   followUps: [
     {

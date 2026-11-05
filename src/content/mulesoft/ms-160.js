@@ -53,7 +53,7 @@ export default {
         'Runtime Manager upgrades the target to match the POM',
       ],
       answer: 0,
-      explain: 'The reference says that if the value does not match the Mule version running in the target, the plugin raises an exception, and that it does not download a runtime when the values differ. In a hybrid pipeline this makes the server upgrade and the POM change one coordinated step.',
+      explain: 'The reference says that if the value does not match the Mule version running in the target, the plugin raises an exception. It also says the plugin does not download a runtime when the values differ. In a hybrid pipeline this makes the server upgrade and the POM change one coordinated step.',
     },
     {
       type: 'single',

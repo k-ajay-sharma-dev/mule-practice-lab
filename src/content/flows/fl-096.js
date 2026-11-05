@@ -122,7 +122,7 @@ A platform team wants a **weekly traffic report** for four environments, emailed
 5. After the loop, **Transform** builds the report from \`vars.rows\`, and **Email Send** delivers it.
 6. Flow-level **On Error Propagate** logs failures of the whole run, such as a failed token call.
 
-This Try catches only empty data. An HTTP error from the Metrics API for one environment would still end the run, so add another On Error Continue for the HTTP error types you expect if those must not stop the others.
+This Try catches only empty data. An HTTP error from the Metrics API for one environment would still end the run. So add another On Error Continue for the HTTP error types you expect if those must not stop the others.
 
 The exact method, path and request body of the Metrics API are on its page in Exchange. They are not in the docs pages this problem is based on, so the reference flow uses a placeholder path.
 

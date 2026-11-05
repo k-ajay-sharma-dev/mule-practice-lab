@@ -110,7 +110,7 @@ Your API-led estate has 25 Mule apps. Observations:
 **APIkit for SOAP**
 - Input: a **WSDL** (from Exchange or local). Scaffolding generates an HTTP Listener + \`apikit-soap\` router flow, plus one flow per WSDL operation (named after the operation and the SOAP router config).
 - The router validates the SOAP envelope against the WSDL/XSD and dispatches to the operation flow.
-- Each operation flow transforms the SOAP body (XML) into the REST Process API's request with DataWeave, calls it with HTTP Request, and maps the JSON response back to the SOAP response element.
+- Each operation flow transforms the SOAP body (XML) into the REST Process API's request with DataWeave and calls it with HTTP Request. It then maps the JSON response back to the SOAP response element.
 - Errors must be returned as **SOAP Faults** (with a fault code and detail), not JSON — map the Process API's error responses into faults in the error handler.
 - Compared with REST: same idea (contract-driven router + scaffolded flows), different contract language and error model. Policies in API Manager can still be applied (e.g. client ID via headers, IP allowlist).
 
@@ -135,7 +135,7 @@ Your API-led estate has 25 Mule apps. Observations:
 Each app declares \`<parent>\` and keeps: its \`artifactId\`/version, the dependencies it actually uses (versions inherited), its API spec dependency, and app-specific deployment settings. The parent itself is published to Exchange (or an internal Maven repository) and versioned.
 
 **Common error-handling library**
-- Create a small Mule project containing \`common-error-handler.xml\` (a named global \`error-handler\` with On Error Propagate entries for \`APIKIT:*\`, \`HTTP:*\`, connectivity and \`ANY\`), a shared DataWeave module that builds the standard error body \`{ code, message, correlationId }\`, and logging/correlation-ID sub-flows.
+- Create a small Mule project containing \`common-error-handler.xml\` (a named global \`error-handler\` with On Error Propagate entries for \`APIKIT:*\`, \`HTTP:*\`, connectivity and \`ANY\`). It also contains a shared DataWeave module that builds the standard error body \`{ code, message, correlationId }\`, and logging/correlation-ID sub-flows.
 - Package it as a **mule-plugin** and publish to Exchange with \`mvn deploy\`.
 - In each app: add the dependency with \`<classifier>mule-plugin</classifier>\`, then
 \`\`\`xml

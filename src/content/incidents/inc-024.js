@@ -102,7 +102,7 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Explains that 3 replicas × 8 concurrent consumers process events for the same order in parallel, so a later event (SHIPPED) can be applied before an earlier one (PACKED), and the blind overwrite makes the older status win.',
+    'Explains that 3 replicas × 8 concurrent consumers process events for the same order in parallel. So a later event (SHIPPED) can be applied before an earlier one (PACKED), and the blind overwrite makes the older status win.',
     'Notes that a standard queue does not guarantee strict ordering anyway; single-consumer processing only hid the problem.',
     'Immediate: repair affected orders by re-syncing status from the warehouse (source of truth), and either temporarily reduce to one sequential consumer or deploy a stale-update check quickly.',
     'Permanent fix option A: make updates order-tolerant — the SAPI ignores an event older than the stored one (compare occurredAt or, better, a per-order sequence/version number; or reject backwards state transitions).',

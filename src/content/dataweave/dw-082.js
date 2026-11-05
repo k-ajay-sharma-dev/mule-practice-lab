@@ -192,7 +192,7 @@ PAY-3001,2.00,EUR,2026-11-04`,
   followUps: [
     {
       q: 'A row is in inLedger today, but the booking arrives tomorrow. How do you stop finance chasing timing differences?',
-      a: 'Keep unmatched items in a store with their first seen date and retry them in the next run, and report an item only after it stays open past an agreed cut-off, for example two business days. The settledOn date is the natural input for that rule.',
+      a: 'Keep unmatched items in a store with their first seen date and retry them in the next run. Report an item only after it stays open past an agreed cut-off, for example two business days. The settledOn date is the natural input for that rule.',
     },
     {
       q: 'The specification says a reference appears at most once per file. What does this solution do if that stops being true?',

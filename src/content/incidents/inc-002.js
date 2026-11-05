@@ -128,6 +128,6 @@ Do **not** set \`insecure="true"\` on the TLS context's trust store — that dis
 
 **Permanent fix.** Trust the **CA chain** (or, if the carrier uses a public CA, use the default JVM truststore). Manage truststores per environment through secure properties/secrets, not committed in the app.
 
-**Prevention.** Keep an inventory of certificates and truststores used by each app with expiry dates and alerts (e.g. 60/30/7 days). Route partner change notices to the integration team, test the new cert in a lower environment before the switch date, and add a synthetic check that calls the partner endpoint and alerts on handshake failures.
+**Prevention.** Keep an inventory of certificates and truststores used by each app with expiry dates and alerts (e.g. 60/30/7 days). Route partner change notices to the integration team. Test the new cert in a lower environment before the switch date. Add a synthetic check that calls the partner endpoint and alerts on handshake failures.
 `,
 }

@@ -131,6 +131,6 @@ In test, DEBUG was off, so the logger did not evaluate its expression and the tr
 - Only use non-repeatable streams for true single-pass flows (e.g. stream a file straight to a target), and then read once: transform **first**, put the result in a variable, and log/use that.
 - Log identifiers (\`invoiceNo\`, correlation ID), not the full payload.
 
-**Prevention.** Test with the same log levels as production, add a review checklist item for streaming strategy changes ("who reads this stream?"), and include a contract test that posts a real payload through the whole flow.
+**Prevention.** Test with the same log levels as production. Add a review checklist item for streaming strategy changes ("who reads this stream?"). Include a contract test that posts a real payload through the whole flow.
 `,
 }

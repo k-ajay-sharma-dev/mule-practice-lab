@@ -130,7 +130,7 @@ export default {
 - Recover the 14 values. The non-secret ones may be in change records. Plan to get secure values from their owners or the secret store, because they were removed from the app.
 - Redeploy with the complete set in \`properties\` and \`secureProperties\`. Changing only the version to 3.5.2 would not help, because the same block would be sent.
 
-**Root cause.** This is documented behaviour. If neither element is configured, CloudHub 2.0 preserves the properties in the environment. If either element is present, it deploys with only the properties and secure properties in the POM, it does not merge with values configured in Runtime Manager, and any existing property not included is removed. Adding \`api.id\` moved the app from the first case to the second without anyone noticing.
+**Root cause.** This is documented behaviour. If neither element is configured, CloudHub 2.0 preserves the properties in the environment. If either element is present, it deploys with only the properties and secure properties in the POM. It does not merge with values configured in Runtime Manager, and any existing property not included is removed. Adding \`api.id\` moved the app from the first case to the second without anyone noticing.
 
 **Permanent fix.** Make the pipeline the single owner:
 \`\`\`xml

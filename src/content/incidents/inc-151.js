@@ -138,7 +138,7 @@ export default {
 
 Rolling the image back to the previous Maven also unblocks you, but it removes the OS patches you were installing. Rerun \`returns-papi\` once the property is in place.
 
-**Root cause.** The Exchange page documents this. Maven 3.9.12 and later enable parallel file publishing by default. The Exchange Maven Facade API v1 and v2 require sequential file publishing and do not support this behaviour, so if you publish to a v1 or v2 endpoint with Maven 3.9.12 or later, the publish operation fails. The old URL was harmless until the tool below it changed.
+**Root cause.** The Exchange page documents this. Maven 3.9.12 and later enable parallel file publishing by default. The Exchange Maven Facade API v1 and v2 require sequential file publishing and do not support this behaviour. So if you publish to a v1 or v2 endpoint with Maven 3.9.12 or later, the publish operation fails. The old URL was harmless until the tool below it changed.
 
 **Permanent fix.** Move to v3, which is the documented first option, and the FAQ says to use the \`/api/v3/\` URL in \`distributionManagement\`.
 - Plugin: v3 needs the Mule Maven plugin 3.5.0 or later, so this team is fine.

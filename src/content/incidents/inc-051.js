@@ -115,7 +115,7 @@ export default {
   solution: `
 **Diagnosis.** Two separate problems:
 
-1. **The ID is not sent.** In Mule 4, the HTTP listener takes \`X-Correlation-ID\` from the incoming request (or generates one) and the HTTP requester forwards the current \`correlationId\` on outbound calls by default. The shared requester config used by \`prc-customer-api\` has \`sendCorrelationId="NEVER"\`, so \`sys-crm-api\` receives no header and starts a new correlation ID.
+1. **The ID is not sent.** In Mule 4, the HTTP listener takes \`X-Correlation-ID\` from the incoming request (or generates one). The HTTP requester forwards the current \`correlationId\` on outbound calls by default. The shared requester config used by \`prc-customer-api\` has \`sendCorrelationId="NEVER"\`, so \`sys-crm-api\` receives no header and starts a new correlation ID.
 2. **The ID is not logged.** \`sys-crm-api\` logs \`uuid()\`, which creates a new random value on **every log line** — even two lines from the same request (see 11:20:05.341 and .402) don't match. Even if the header arrived, the logs would be untraceable.
 
 \`\`\`
@@ -123,7 +123,7 @@ exp-mobile-api  --X-Correlation-ID: 3e9d-a1c0-->  prc-customer-api  --(no header
      3e9d-a1c0                                        3e9d-a1c0               new ID + uuid() per line
 \`\`\`
 
-**Immediate mitigation.** Answer the customer first: search \`sys-crm-api\` by customer ID and timestamp — the CRM rejected an invalid postcode, so the app should show a validation message (which also suggests the 400 should be mapped to a clear error for the app). Then hotfix:
+**Immediate mitigation.** Answer the customer first: search \`sys-crm-api\` by customer ID and timestamp. The CRM rejected an invalid postcode, so the app should show a validation message (which also suggests the 400 should be mapped to a clear error for the app). Then hotfix:
 - \`prc-customer-api\`: use a requester config without \`sendCorrelationId="NEVER"\` for internal calls (AUTO is the default).
 - \`sys-crm-api\`: log \`correlationId\` instead of \`uuid()\`.
 

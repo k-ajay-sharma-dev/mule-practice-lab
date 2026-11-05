@@ -148,7 +148,11 @@ export default {
 
 **Governance.** Decision record published and reviewed yearly; exceptions require design-authority approval; naming, DLQ and schema conventions; event schemas in a catalogue; cost and usage reported per business domain.
 
-**Risks.** Three platforms to operate (mitigated by managed services and a small list), teams choosing by habit (design reviews), cross-platform bridges becoming bottlenecks (monitoring, scaling), and data residency for customer events (regional clusters or exchanges where needed).
+**Risks.**
+- Three platforms to operate (mitigated by managed services and a small list).
+- Teams choosing by habit (design reviews).
+- Cross-platform bridges becoming bottlenecks (monitoring, scaling).
+- Data residency for customer events (regional clusters or exchanges where needed).
 `,
   followUps: [
     { q: 'Why not standardise on just one product?', a: 'No single option covers replayable high-volume streams, managed cloud queues and WAN-independent sites well. A short list with clear criteria limits sprawl without forcing a poor fit.' },

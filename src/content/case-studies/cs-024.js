@@ -144,7 +144,13 @@ export default {
 
 **People and governance.** Joint C4E; B's team trained on Mule and owns the B-side System APIs (their system knowledge is critical for migration). Shared standards, Exchange as the single catalogue, architecture review for cross-company integrations.
 
-**Risks and KPIs.** Data quality in master-data mapping (dedicated data stewards), key-person attrition from B (retention plans, involvement), security gaps at the network boundary (A's standards from day one), and contractual data restrictions (legal sign-off per data flow). KPIs: consolidated close on time, cross-sell revenue through the portal, number of B integrations retired/migrated, licence costs removed.
+**Risks and KPIs.**
+- Data quality in master-data mapping (dedicated data stewards).
+- Key-person attrition from B (retention plans, involvement).
+- Security gaps at the network boundary (A's standards from day one).
+- Contractual data restrictions (legal sign-off per data flow).
+
+KPIs: consolidated close on time, cross-sell revenue through the portal, number of B integrations retired/migrated, licence costs removed.
 `,
   followUps: [
     { q: 'Why not migrate B straight onto SAP and Salesforce and skip the wrapping?', a: 'Because cross-sell value is needed in months, while ERP migration takes years. Wrapping B systems delivers value now and turns the later ERP swap into a System API implementation change that consumers do not notice.' },

@@ -116,7 +116,7 @@ Column names can't be bound as parameters, so build \`vars.sortColumn\` from an 
 \`\`\`
 For 50,000 rows, split into chunks (e.g. a For Each with \`batchSize\` of 1,000, or a Batch Job) to bound memory and transaction size. Wrap a chunk in a transaction if it must be all-or-nothing.
 
-**3. Memory:** the Select result is streamed as rows are fetched — the problem is usually something that **materialises** all 8M rows (logging the payload, \`sizeOf(payload)\`, a DataWeave that needs random access, \`maxRows\` absent but \`payload\` converted to an array). Fix:
+**3. Memory:** the Select result is streamed as rows are fetched. The problem is usually something that **materialises** all 8M rows (logging the payload, \`sizeOf(payload)\`, a DataWeave that needs random access, \`maxRows\` absent but \`payload\` converted to an array). Fix:
 - Set \`fetchSize\` (e.g. 1,000–5,000) so the driver fetches in pages instead of holding everything (some drivers, PostgreSQL included, only honour fetch size inside a transaction / with auto-commit off).
 - Use a DataWeave transform that streams (\`output application/csv deferred=true\`, sequential \`map\` only) and write directly with the File/SFTP write.
 - Keep the default repeatable file-store iterable so overflow goes to disk, not heap.

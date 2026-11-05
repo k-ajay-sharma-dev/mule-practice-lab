@@ -95,7 +95,7 @@ Marketplace rules:
 
 **Orders.**
 - The poller asks each System API for orders updated since the stored watermark, publishes one message per order to the queue, then advances the watermark.
-- prc-marketplace-orders maps to the canonical order, creates the EBS order through sys-oracle-ebs-om (open interface / API wrapper), with the marketplace order ID as **unique original system reference** — a duplicate is skipped.
+- prc-marketplace-orders maps to the canonical order and creates the EBS order through sys-oracle-ebs-om (open interface / API wrapper). The marketplace order ID is the **unique original system reference**, so a duplicate is skipped.
 - On success it acknowledges the order on the marketplace; if stock is gone it rejects/cancels the line straight away rather than letting it age.
 
 **Shipment confirmation.** EBS ship-confirm publishes an event; the Process API maps carrier codes to the marketplace's list and sends tracking. Failures are retried; anything not confirmed within 20 hours is alerted.

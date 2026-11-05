@@ -117,7 +117,7 @@ When the store does not answer in time, the API should return the snapshot and m
 
 **Why not a Scatter-Gather (live + snapshot in parallel)?** It would query Oracle for every request even though 97% are answered live; the fallback only on timeout is cheaper. If p99 matters more than load, run both in parallel and prefer live.
 
-**Operations:** monitor the fallback rate per store (a store always on SNAPSHOT is probably offline), keep the snapshot query indexed on \`(STORE_ID, SKU)\`, and pass the SKU list to Oracle as a collection or bind list rather than concatenating SQL.
+**Operations:** monitor the fallback rate per store (a store always on SNAPSHOT is probably offline). Keep the snapshot query indexed on \`(STORE_ID, SKU)\`. Pass the SKU list to Oracle as a collection or bind list rather than concatenating SQL.
 `,
   followUps: [
     {

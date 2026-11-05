@@ -148,7 +148,7 @@ The audit gives the team 90 days. The company uses GitHub Actions, and a sister 
 | \`ci-deploy-nonprod\` | Deploy to Dev and Test | Test environment of the CI tool |
 | \`ci-deploy-prod\` | Deploy to Production | Production environment, after approval |
 
-They are Connected Apps acting on their own behalf, with \`connectedAppGrantType\` set to \`client_credentials\`. The plugin pages say the credentials must have the \`Design Center Developer\` access scope, and the CLI page says deployment needs the right CloudHub and Runtime Manager permissions, so confirm the minimum set in a sandbox. Pull request jobs get none of these, except read access if they need to resolve dependencies.
+They are Connected Apps acting on their own behalf, with \`connectedAppGrantType\` set to \`client_credentials\`. The plugin pages say the credentials must have the \`Design Center Developer\` access scope. The CLI page says deployment needs the right CloudHub and Runtime Manager permissions, so confirm the minimum set in a sandbox. Pull request jobs get none of these, except read access if they need to resolve dependencies.
 
 **Secrets by target.**
 - **Pipeline secrets** (Connected App secrets, Nexus credentials) live in the CI secret store, and reach \`settings.xml\` as environment variables at run time. A generated file with placeholders replaces the shared one.
@@ -179,7 +179,7 @@ Finding 8: raise the plugin to a supported version, and do not use the versions 
 
 **GitHub Actions and Azure DevOps.**
 - GitHub Actions: environment secrets with required reviewers, branch and tag rules that limit which refs can deploy, pinned third-party actions, and minimal \`GITHUB_TOKEN\` permissions. Secrets are not passed to workflows triggered from forks, and \`pull_request_target\` needs care, because it runs with secrets.
-- Azure DevOps: approvals and checks on Environments, variable groups linked to Azure Key Vault, secure files for the settings template, and a branch control check, so that only protected branches can use the Production service connection. Secrets are not made available to builds of pull requests from forks unless you enable that.
+- Azure DevOps: approvals and checks on Environments, variable groups linked to Azure Key Vault, secure files for the settings template, and a branch control check. The result is that only protected branches can use the Production service connection. Secrets are not made available to builds of pull requests from forks unless you enable that.
 - In both: masking is a safety net, not a control. Never print the effective settings without redaction.
 `,
   followUps: [

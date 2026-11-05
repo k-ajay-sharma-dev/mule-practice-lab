@@ -170,7 +170,7 @@ Systems (each already has, or will get, its own System API):
     },
     {
       q: 'How do you distinguish a 404 from the CRM from a 404 from inventory in one handler?',
-      a: 'Wrap each call in its own Try (or map the error right after the call with Raise Error of a specific type such as APP:UNKNOWN_CUSTOMER), so the flow-level handler can map by business error type rather than by the generic HTTP:NOT_FOUND.',
+      a: 'Wrap each call in its own Try (or map the error right after the call with Raise Error of a specific type such as APP:UNKNOWN_CUSTOMER). The flow-level handler can then map by business error type rather than by the generic HTTP:NOT_FOUND.',
     },
     {
       q: 'Could the Choice live in the Experience API instead?',

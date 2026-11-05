@@ -40,7 +40,7 @@ export default {
         'Remove `target="fx"` from the flow while testing',
       ],
       answer: 0,
-      explain: 'The docs say that when you mock a processor that stores its result in a target variable, you define that variable value in the mock configuration, and you assert the variable rather than the payload.',
+      explain: 'The docs say that when you mock a processor that stores its result in a target variable, you define that variable value in the mock configuration. They add that you assert the variable rather than the payload.',
     },
     {
       type: 'multi',

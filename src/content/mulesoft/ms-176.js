@@ -53,7 +53,7 @@ export default {
         'Runtime Fabric and Hybrid Standalone: MuleSoft shuts down the running apps',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'Running apps keep running on these targets, but they are no longer in a supported state. Shutdown and forced upgrade are CloudHub and CloudHub 2.0 behaviours. For Hybrid, the End of Extended Support row says you can deploy new apps, while the same table\'s deploy row says to deploy while versions are in support, so do not plan on it.',
+      explain: 'Running apps keep running on these targets, but they are no longer in a supported state. Shutdown and forced upgrade are CloudHub and CloudHub 2.0 behaviours. For Hybrid, the End of Extended Support row says you can deploy new apps, while the same table\'s deploy row says to deploy while versions are in support. So do not plan on it.',
     },
     {
       type: 'single',

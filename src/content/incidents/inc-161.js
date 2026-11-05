@@ -132,7 +132,7 @@ export default {
 **Diagnosis.** The rollout is partly complete and the errors started with the first new replica. Serialization errors between members plus object store failures on both old and new replicas show that the cluster itself is broken, not one replica. This matches the note in the Runtime Fabric docs: during a rolling update to a runtime with a Hazelcast change, the cluster has members on different versions. Exact log text is illustrative; the behaviour is documented.
 
 **Immediate mitigation.** End the mixed state.
-- To abandon the upgrade, roll back to the previous successful configuration. New configurations are applied as rolling updates by default, and the docs do not say how a rollback interacts with the update strategy, so do not assume it avoids a second mixed state: watch the replicas and verify the result.
+- To abandon the upgrade, roll back to the previous successful configuration. New configurations are applied as rolling updates by default. The docs do not say how a rollback interacts with the update strategy, so do not assume it avoids a second mixed state: watch the replicas and verify the result.
 - If the upgrade must proceed, agree a short outage and redeploy with \`updateStrategy: recreate\`, which terminates all replicas before creating new ones.
 - Before either step, work out what is held in cluster memory. Treat all grid state as at risk if every replica stops.
 - Reconcile allocations made in the error window, because some requests failed partway through.

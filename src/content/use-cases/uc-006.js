@@ -93,7 +93,7 @@ System of record: SFCC for order capture, SAP for order/fulfilment/invoicing, Ad
 
 **Coordination.** Use a **hybrid**: events between domains (choreography), with an **Order Process API / orchestrator** owning the order-to-cash saga state and its compensations.
 - SFCC publishes \`OrderPlaced\` (via an order export/webhook to a Mule Experience/System API) → stored in the tracking store **and** an Anypoint MQ queue before acknowledging. Nothing is lost if SAP is slow.
-- A consumer creates the SAP sales order via the SAP System API with the SFCC order number as the **external reference**, so a retry finds the existing order instead of creating a second.
+- A consumer creates the SAP sales order via the SAP System API with the SFCC order number as the **external reference**. That way a retry finds the existing order instead of creating a second.
 - SAP events (order confirmed, delivery created, goods issued, cancelled) come back through a SAP System API (IDoc/OData/events) and drive the next steps.
 
 **Compensation scenarios.**
@@ -102,7 +102,7 @@ System of record: SFCC for order capture, SAP for order/fulfilment/invoicing, Ad
 - All compensations are idempotent and logged in the tracking store.
 
 **Payments.**
-- *Partial shipments:* each SAP goods-issue event triggers a **partial capture** for that delivery's value (lines + share of shipping/tax as agreed with finance), with an idempotency key such as \`sapDeliveryNo\` so a replayed event cannot capture twice. Adyen webhooks confirm the capture; failed captures go to an exception queue.
+- *Partial shipments:* each SAP goods-issue event triggers a **partial capture** for that delivery's value (lines + share of shipping/tax as agreed with finance). It uses an idempotency key such as \`sapDeliveryNo\` so a replayed event cannot capture twice. Adyen webhooks confirm the capture; failed captures go to an exception queue.
 - *Pre-orders:* a 7-day authorisation will expire. Options: authorise a small amount/zero-value to verify the card and tokenise it (with the shopper's consent for later charges), then authorise and capture the full amount close to the ship date; or re-authorise before expiry. Handle a declined re-authorisation with a customer notification and an order hold.
 - Adyen webhooks are verified (HMAC), queued, deduplicated by event code + PSP reference.
 
@@ -110,6 +110,6 @@ System of record: SFCC for order capture, SAP for order/fulfilment/invoicing, Ad
 
 **Monitoring and reconciliation.**
 - The tracking store makes "lost orders" visible: scheduled checks flag orders stuck in a state beyond its SLA (e.g. *placed* but not in SAP after 30 min, *shipped* but not captured after 2 h) and alert with order numbers. Dashboards in Anypoint Monitoring / the ops tool on queue depth, DLQs and error rates; correlation ID = SFCC order number across all logs.
-- **Automated reconciliation:** a daily job loads the Adyen settlement report, matches lines to SAP billing documents by PSP reference / order number and amount, posts matched items (or clears them in SAP) and creates an exception list for finance (unmatched captures, fees, chargebacks, amount differences). Finance handles only the exceptions instead of everything.
+- **Automated reconciliation:** a daily job loads the Adyen settlement report and matches lines to SAP billing documents by PSP reference / order number and amount. It posts matched items (or clears them in SAP) and creates an exception list for finance (unmatched captures, fees, chargebacks, amount differences). Finance handles only the exceptions instead of everything.
 `,
 }

@@ -155,7 +155,7 @@ API Manager can **promote** an instance from Dev to Test/Prod, copying its confi
     },
     {
       q: 'How would a pipeline obtain the Prod instance ID automatically?',
-      a: 'Query API Manager (Anypoint CLI or the API Manager REST API) for the instance by asset ID and version in the target environment, or create/promote it in the pipeline and capture the returned ID, then pass it as a deployment property.',
+      a: 'Query API Manager (Anypoint CLI or the API Manager REST API) for the instance by asset ID and version in the target environment. Or create/promote it in the pipeline and capture the returned ID. Then pass it as a deployment property.',
     },
   ],
 }

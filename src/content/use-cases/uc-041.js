@@ -87,7 +87,7 @@ Facts:
 - **Store delivery workers** consume per store and call the store server; an **ESL worker** calls the ESL vendor API.
 - An **online** consumer pushes national/zone prices to the e-commerce platform.
 
-**Change-set intake and splitting.** Each change set gets a monotonic **version**. DataWeave resolves which stores each change applies to (national → all, zone → stores in that zone via a store-to-zone lookup) and groups by store, producing one message per store per change set (a 200,000-line markdown becomes ~800 messages of a few hundred lines each, not 160 million rows). Large payloads can be stored in object storage with the message carrying a reference (claim-check pattern).
+**Change-set intake and splitting.** Each change set gets a monotonic **version**. DataWeave resolves which stores each change applies to (national → all, zone → stores in that zone via a store-to-zone lookup) and groups by store. It produces one message per store per change set (a 200,000-line markdown becomes ~800 messages of a few hundred lines each, not 160 million rows). Large payloads can be stored in object storage with the message carrying a reference (claim-check pattern).
 
 **Distribution per store.** Workers process messages for a store **in version order**. Calls to the store server are idempotent (store records last applied version; a re-sent version is acknowledged without change). Concurrency across stores is high; within one store, sequential.
 

@@ -124,7 +124,7 @@ export default {
 
 **Permanent fix.**
 - Turn on **Use Object Store V2** for the app in Runtime Manager and redeploy. On CloudHub 2.0 you enable this in Runtime Manager rather than configuring the app. Keep \`persistent="true"\` on \`report-jobs\`, because the guide says \`persistent="false"\` does not use Object Store v2, and expect the status of jobs in flight not to carry over. All replicas then share a store that lives outside them and survives restarts.
-- Clustering alone would share the store between replicas, but the docs direct you to Object Store v2 for data that must persist across restarts, so it is not enough on its own.
+- Clustering alone would share the store between replicas. But the docs direct you to Object Store v2 for data that must persist across restarts, so it is not enough on its own.
 - Check the Object Store v2 limits against the polling rate, since it is rate limited. Ask clients to poll at a sensible interval. If job status is business data, a database is a good alternative.
 - Then scale to 3 replicas, and test with several replicas.
 

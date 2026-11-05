@@ -155,7 +155,7 @@ The warehouse management system calls a webhook for every order status change: *
 `,
   keyPoints: [
     'The intake flow only validates, publishes to a VM queue and returns 202, so the warehouse gets its answer in milliseconds.',
-    'VM queues decouple the stages without an external broker. CloudHub 2.0 has no disk-backed persistent VM queues, so enable clustering for the app: the replicas then share the VM queues in the cluster memory grid, which survives one replica restarting (not a stop of all replicas — that would need Anypoint MQ or a DB hand-off).',
+    'VM queues decouple the stages without an external broker. CloudHub 2.0 has no disk-backed persistent VM queues, so enable clustering for the app: the replicas then share the VM queues in the cluster memory grid. That grid survives one replica restarting. It does not survive a stop of all replicas, which would need Anypoint MQ or a DB hand-off.',
     'The status-processing VM Listener uses a transaction (ALWAYS_BEGIN), so an error rolls back and the message is redelivered instead of lost.',
     'The current status is read (SELECT ... FOR UPDATE) and the update is applied only if the new status is later in the lifecycle, which makes duplicates and out-of-order updates harmless.',
     'Slow Salesforce and email work happens in a separate notification stage fed by a second VM queue, so it cannot slow down or roll back the status update.',

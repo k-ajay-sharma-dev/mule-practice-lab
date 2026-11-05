@@ -111,7 +111,7 @@ Constraints and targets:
 
 **Failure modes.** Oracle unavailable → reservations fail fast with "try again" (no queueing of reservations — fairness matters more than throughput). PSP slow → reservation keeps the unit until expiry. Broker down → paid orders are written to an outbox table in the same transaction as SOLD, and published when the broker returns.
 
-**Testing.** Load test with realistic contention (30,000 requests/minute on 12 SKUs), verify sold + reserved + available = initial stock after every run, chaos tests (kill a worker mid-test, slow the PSP), and a public rehearsal drop with a low-value product.
+**Testing.** Load test with realistic contention (30,000 requests/minute on 12 SKUs), and verify sold + reserved + available = initial stock after every run. Run chaos tests (kill a worker mid-test, slow the PSP) and a public rehearsal drop with a low-value product.
 `,
   followUps: [
     { q: 'Why not keep the stock counter only in a cache like Redis?', a: 'It can be faster, but the stock of record and the one-per-customer rule must survive crashes and be auditable. Many teams use a cache counter as a first gate and Oracle as the final atomic check; for 5,000 units Oracle with buckets is usually enough.' },

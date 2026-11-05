@@ -124,7 +124,7 @@ A logistics company runs Salesforce Service Cloud next to a Mule integration lay
 `,
   keyPoints: [
     'Replay Channel Listener: platform events (/event/...), CDC (/data/...) and legacy generic events. Replay Topic Listener: legacy PushTopic events. The docs say you can use the Salesforce Pub/Sub Connector for new platform event and CDC integrations.',
-    'Retention: the event processing page says 72 hours, or 24 hours for PushTopic and generic events, but the connector reference says 24 hours for both Replay sources, so verify it in the Salesforce docs. Older events are discarded.',
+    'Retention: the event processing page says 72 hours, or 24 hours for PushTopic and generic events, but the connector reference says 24 hours for both Replay sources. So verify it in the Salesforce docs. Older events are discarded.',
     'ONLY_NEW and ALL ignore replayId. FROM_REPLAY_ID uses the Replay Id field. FROM_LAST_REPLAY_ID uses the highest stored ID, processed successfully or not.',
     'The failed-event option starts from the lowest failed ID, filters what already succeeded, overrides Replay Option and can use extra quota.',
     'The source must run on the primary node of a cluster. In non-cluster mode with several workers it runs on all of them and consumes events twice, so on CloudHub run one worker and hand messages to the others through a shared queue.',

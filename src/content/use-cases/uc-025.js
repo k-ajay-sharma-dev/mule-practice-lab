@@ -92,7 +92,7 @@ Facts and constraints:
 - **Search Experience API** (web/app): \`GET /packages/search\` → returns a search ID and first results; \`GET /packages/search/{id}\` for later results.
 - **Booking Experience API**: \`POST /offers/{offerId}/price-check\`, \`POST /bookings\`, \`GET /bookings/{id}\`.
 - **Process APIs**: Flight Search, Hotel Search, Package Composer, Booking Orchestrator.
-- **System APIs per supplier** (GDS via Web Service Consumer, airline and bed bank REST adapters), each mapping to a **canonical offer** model (segments, fares, rooms, rate conditions, cancellation policies, total price + currency, supplier reference).
+- **System APIs per supplier** (GDS via Web Service Consumer, airline and bed bank REST adapters). Each maps to a **canonical offer** model (segments, fares, rooms, rate conditions, cancellation policies, total price + currency, supplier reference).
 Search and booking are deployed and scaled separately: search is huge volume and can tolerate staleness; booking is small volume and must be exact.
 
 **Search aggregation.**
@@ -101,7 +101,7 @@ Search and booking are deployed and scaled separately: search is huge volume and
 - Merge, de-duplicate, rank and paginate in DataWeave; keep payloads small (summary per offer, details on demand).
 
 **Caching and cost control.**
-- Normalise the request (route, dates, pax, cabin) and cache supplier results in a distributed cache (at hundreds of searches per second a dedicated cache such as Redis is a better fit than Object Store v2, which has request-rate limits) with short TTLs (e.g. 5–15 minutes for flights, longer for hotel static data).
+- Normalise the request (route, dates, pax, cabin) and cache supplier results in a distributed cache with short TTLs (e.g. 5–15 minutes for flights, longer for hotel static data). At hundreds of searches per second a dedicated cache such as Redis is a better fit than Object Store v2, which has request-rate limits.
 - Pre-warm popular routes; use cheaper low-fare/cached-shopping products from the GDS where available.
 - Per-supplier **rate limiting and circuit breakers**; track look-to-book per supplier to stay within contract.
 - Policies on the Experience API (rate limiting per client/IP, bot protection at the edge) stop scrapers from burning GDS fees.
@@ -121,7 +121,7 @@ Each supplier call uses an **idempotency key**/booking reference; on timeouts, q
 **Non-functional concerns.** Horizontal scaling of search workers; memory-conscious DataWeave (streaming large GDS XML responses); correlation ID per search/booking across all suppliers; dashboards per supplier (latency, error rate, look-to-book); PCI DSS scope minimised by tokenising cards at the PSP; supplier credentials in a vault.
 `,
   followUps: [
-    { q: 'One supplier becomes very slow during peak. What happens?', a: 'Its timeout cuts it off from the synchronous response, the circuit breaker opens after repeated failures so it is skipped for a cool-down period, and the site keeps working with the other suppliers.' },
+    { q: 'One supplier becomes very slow during peak. What happens?', a: 'Its timeout cuts it off from the synchronous response. The circuit breaker opens after repeated failures so it is skipped for a cool-down period, and the site keeps working with the other suppliers.' },
     { q: 'Why not capture payment first and refund on failure?', a: 'Refunds cost money (fees), take days to reach the customer and hurt trust; authorise-then-capture after successful booking keeps compensation cheap.' },
     { q: 'How do you load-test something with per-call supplier fees?', a: 'Use supplier certification/test environments with agreed limits, and for high-volume tests replace System APIs with simulators that reproduce recorded latencies and payloads.' },
   ],

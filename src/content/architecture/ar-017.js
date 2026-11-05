@@ -113,7 +113,7 @@ An online travel agency deploys its **Booking Process API** on CloudHub 2.0 with
 - **Blue-green:** deploy v1.9 as a second app (green) next to v1.8 (blue), switch traffic at a routing layer; instant switch back. Costs double capacity during the window.
 - **Canary:** blue-green with a gradual traffic split (5% → 25% → 100%) while watching error rate and latency.
 
-**Choice:** the business asked for 5% real traffic and instant rollback → **canary using two app deployments** with traffic splitting at the layer in front (the company's edge load balancer/CDN with weighted routing, or a gateway that can route by weight/header). For routine releases without that requirement, rolling update is enough.
+**Choice:** the business asked for 5% real traffic and instant rollback → **canary using two app deployments**. Traffic is split at the layer in front (the company's edge load balancer/CDN with weighted routing, or a gateway that can route by weight/header). For routine releases without that requirement, rolling update is enough.
 
 **Database — expand/contract.**
 1. *Expand (before v1.9):* add \`loyalty_tier\` (nullable) and add \`passenger_count\`; a trigger or the app writes **both** \`pax_count\` and \`passenger_count\`. Backfill existing rows.

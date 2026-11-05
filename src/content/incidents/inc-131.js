@@ -141,7 +141,7 @@ export default {
 - Check that "diverse" carrier links really take different routes.
 `,
   followUps: [
-    { q: 'What if the company had three data centres?', a: 'The docs say that to prevent an outage with quorum, you must create the cluster in at least three data centres with the same number of nodes, so one site can be lost. All other quorum limits still apply.' },
+    { q: 'What if the company had three data centres?', a: 'The docs say that to prevent an outage with quorum, you must create the cluster in at least three data centres with the same number of nodes. That way one site can be lost. All other quorum limits still apply.' },
     { q: 'Do batch jobs benefit from cluster HA?', a: 'The docs list that batch jobs do not use high availability features. Design restart and duplicate handling for them explicitly.' },
     { q: 'What exception might you see when quorum is no longer met?', a: 'QuorumException for Object Store operations, which the docs tell you to catch. NoDataMemberInClusterException is described as occurring after node loss, split brain or a quorum that is no longer met.' },
   ],

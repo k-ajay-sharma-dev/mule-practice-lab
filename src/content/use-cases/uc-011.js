@@ -68,8 +68,8 @@ Facts:
   ],
   solution: `
 **Capturing changes.**
-- *Salesforce → SFMC:* subscribe to **Change Data Capture** on Contact (or a Platform Event fired by a flow when consent fields change) using the Salesforce connector's subscribe/listener operation, with replay ID stored so no events are lost during a restart. Map to SFMC's subscriber status / publication lists via the **Salesforce Marketing Cloud connector** (or its REST/SOAP API).
-- *SFMC → Salesforce:* unsubscribes and preference-centre changes are pulled every few minutes as an incremental extract (unsubscribe events / subscriber status changed since the last watermark) — or pushed by SFMC automation to a Mule endpoint where available. Write them to Salesforce with a bulk/composite update keyed by Contact ID / subscriber key.
+- *Salesforce → SFMC:* subscribe to **Change Data Capture** on Contact (or a Platform Event fired by a flow when consent fields change) using the Salesforce connector's subscribe/listener operation. Store the replay ID so no events are lost during a restart. Map to SFMC's subscriber status / publication lists via the **Salesforce Marketing Cloud connector** (or its REST/SOAP API).
+- *SFMC → Salesforce:* unsubscribes and preference-centre changes are pulled every few minutes as an incremental extract (unsubscribe events / subscriber status changed since the last watermark). Alternatively, they are pushed by SFMC automation to a Mule endpoint where available. Write them to Salesforce with a bulk/composite update keyed by Contact ID / subscriber key.
 - Both sides land on an **Anypoint MQ** queue first so the 50k-unsubscribes-per-hour spike is absorbed and processed at a pace each API accepts.
 
 (Note: Marketing Cloud Connect also synchronises some data natively; in an interview, mention you would first check what the product already does before building custom sync.)

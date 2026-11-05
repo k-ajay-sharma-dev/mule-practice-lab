@@ -114,11 +114,11 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Explains the retry storm: 4 replicas × 16 concurrent messages × up to 6 attempts every 200 ms, plus MQ redeliveries, sends far more than 100 req/s, so nearly every call gets 429 and real work never gets through.',
+    'Explains the retry storm: 4 replicas × 16 concurrent messages × up to 6 attempts every 200 ms, plus MQ redeliveries, sends far more than 100 req/s. As a result, nearly every call gets 429 and real work never gets through.',
     'Notes that retrying immediately on 429 ignores X-Ratelimit-Reset; retries consume the shared quota, starving the web shop (noisy neighbour on one shared limit).',
     'Explains the DLQ growth (3 failed deliveries → DLQ) and the stale data: messages for the same customer are processed out of order (an older event retried/redelivered later overwrites a newer one).',
     'Immediate: stop or scale down the consumer (e.g. 1 replica, low concurrency) to free the quota for the web shop, then drain at a controlled rate below the limit; replay the DLQ in order only after checking event versions/timestamps.',
-    'Permanent fix: throttle consumption to a rate below the limit, retry with exponential backoff + jitter honouring Retry-After/X-Ratelimit-Reset, treat 429/5xx as retryable but with limited attempts, and give batch consumers a separate SLA tier from interactive clients.',
+    'Permanent fix: throttle consumption to a rate below the limit. Retry with exponential backoff + jitter honouring Retry-After/X-Ratelimit-Reset. Treat 429/5xx as retryable but with limited attempts. Give batch consumers a separate SLA tier from interactive clients.',
     'Adds ordering/version protection (e.g. compare event timestamp/version before updating, or FIFO per customer) and monitoring/alerts on queue depth, DLQ size and 429 rate; considers a circuit breaker to pause consumption while the target is unavailable.',
   ],
   solution: `
@@ -145,6 +145,6 @@ export default {
 - **Ordering/versioning**: include a version/timestamp in each event; \`crm-sapi\` rejects updates older than what it has. Or use a FIFO queue / partition by customer ID if ordering is required.
 - DLQ handling: an alert, a documented replay procedure, and a tool to replay selectively.
 
-**Prevention.** Design reviews that check "what happens when the backlog flushes?", load tests that simulate recovery after an outage, dashboards/alerts on queue depth, message age, DLQ count and 429 rate per client, and runbooks for throttling consumers during incidents.
+**Prevention.** Hold design reviews that check "what happens when the backlog flushes?". Run load tests that simulate recovery after an outage. Add dashboards/alerts on queue depth, message age, DLQ count and 429 rate per client. Keep runbooks for throttling consumers during incidents.
 `,
 }

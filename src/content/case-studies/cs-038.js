@@ -118,7 +118,11 @@ Monthly regulator reports are generated from the data platform with links back t
 
 **Operations.** Infrastructure-as-code builds each site edge; CI/CD deploys the same app versions to all sites; health and backlog-size metrics sent centrally; alert when a site has been offline beyond a threshold. Test link failure regularly.
 
-**Risks.** Mistaking central visibility for a safety system (clear scope), backlog overwhelming links after long outages (rate-limited backfill), clock skew (use event timestamps from synchronised site clocks), and edge hardware failure (redundant nodes, local disk monitoring).
+**Risks.**
+- Mistaking central visibility for a safety system (clear scope).
+- Backlog overwhelming links after long outages (rate-limited backfill).
+- Clock skew (use event timestamps from synchronised site clocks).
+- Edge hardware failure (redundant nodes, local disk monitoring).
 `,
   followUps: [
     { q: 'Why not connect sensors directly to a cloud IoT service and skip the edge?', a: 'Links drop for hours, and the OT network should not open outbound paths per device. An edge in the DMZ gives buffering, prioritisation and a single controlled crossing point.' },

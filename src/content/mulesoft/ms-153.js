@@ -167,6 +167,6 @@ Several apps use Anypoint MQ, Object Store v2 and API Manager policies, and two 
     { q: 'What limits the name of a custom rule group?', a: 'The generated firewall rule name, in the form private-space-name, hyphen, rule-group-name, cannot exceed 53 characters.' },
     { q: 'Where does an app choose its rule group?', a: 'On the Firewall Rules tab when deploying the app, in the Egress Rule Group section.' },
     { q: 'Which permissions are needed?', a: 'CloudHub Network Viewer to view firewall and application-level rules, and CloudHub Network Administrator to change them.' },
-    { q: 'Is an internal DNS change needed if a transit gateway carries the default route?', a: 'The docs say to add your private DNS IP addresses to the route table if you have a transit gateway to reach internal DNS servers and the default route goes to the transit gateway.' },
+    { q: 'Is an internal DNS change needed if a transit gateway carries the default route?', a: 'The docs give two conditions for adding your private DNS IP addresses to the route table. You have a transit gateway to reach internal DNS servers, and the default route goes to the transit gateway.' },
   ],
 }

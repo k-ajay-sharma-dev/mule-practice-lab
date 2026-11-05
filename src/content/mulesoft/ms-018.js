@@ -74,7 +74,7 @@ export default {
         'The JMS message returns to the queue and is redelivered',
         'After the redelivery limit is exceeded, the message is routed to the DLQ',
       ],
-      explain: 'Rollback returns the message to the queue; once the IBM MQ backout threshold is reached the IBM MQ JMS client moves it to the backout queue (the DLQ), or the flow sees `JMSXDeliveryCount` above the limit and publishes it to the DLQ itself.',
+      explain: 'Rollback returns the message to the queue; once the IBM MQ backout threshold is reached the IBM MQ JMS client moves it to the backout queue (the DLQ). Or the flow sees `JMSXDeliveryCount` above the limit and publishes it to the DLQ itself.',
     },
   ],
   description: `
@@ -141,7 +141,7 @@ What went wrong last month:
 \`\`\`
 Alternatively use a Try scope with \`ALWAYS_BEGIN\`/\`XA\` around steps 1–3.
 
-**XA requirements and cost:** XA-capable resources — an XA DataSource for Oracle (data-source connection referencing an XA datasource bean) and an XA connection factory for IBM MQ — plus a transaction manager (**Bitronix** module in Mule 4). Costs: two-phase commit latency, lower throughput, more complex recovery (in-doubt transactions, transaction logs on disk). If XA is too heavy, alternatives are a single local DB transaction plus an **outbox table** (publish from the table afterwards) or idempotent consumers.
+**XA requirements and cost:** XA needs XA-capable resources: an XA DataSource for Oracle (data-source connection referencing an XA datasource bean) and an XA connection factory for IBM MQ. It also needs a transaction manager (**Bitronix** module in Mule 4). Costs: two-phase commit latency, lower throughput, more complex recovery (in-doubt transactions, transaction logs on disk). If XA is too heavy, alternatives are a single local DB transaction plus an **outbox table** (publish from the table afterwards) or idempotent consumers.
 
 **Tax HTTP call:** HTTP can't take part in a transaction — it can't be rolled back. Put it **after** the commit, e.g. in a separate flow triggered by the \`OrderAccepted\` message, with retries and idempotency (tax document ID), and a compensating/manual path if it keeps failing. Inside the transaction it would also hold DB locks while waiting on a remote system.
 

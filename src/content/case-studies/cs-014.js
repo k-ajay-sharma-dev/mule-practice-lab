@@ -85,7 +85,7 @@ export default {
 
 **Processing.** \`entitlements-papi\` consumes events, resolves the user (account linking), applies idempotency on \`sourceEventId\`, ignores events older than the stored \`sourceTimestamp\`, writes to the entitlement store and publishes \`EntitlementChanged\`.
 
-**Serving checks.** The playback team needs very low latency at huge volume. Options: expose \`entitlements-sapi\` with aggressive caching, or — usually better at this scale — let the playback service read a replicated key-value store/cache that the Mule pipeline updates, and invalidate via the \`EntitlementChanged\` event. Mule stays out of the per-play hot path or sits behind a cache.
+**Serving checks.** The playback team needs very low latency at huge volume. Options: expose \`entitlements-sapi\` with aggressive caching, or let the playback service read a replicated key-value store/cache that the Mule pipeline updates. The second is usually better at this scale, and you invalidate it via the \`EntitlementChanged\` event. Mule stays out of the per-play hot path or sits behind a cache.
 
 **Timing.** Direct/app-store events within minutes; partner files daily, with a grace period so bundled users are not cut off by a late file.
 

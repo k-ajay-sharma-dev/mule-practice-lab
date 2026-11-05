@@ -146,7 +146,7 @@ The architect proposes **XA with Bitronix** across ActiveMQ and Oracle. The plat
   <jms:publish config-ref="amqXa" destination="GR.POSTED"/>
 </flow>
 \`\`\`
-(\`oracleXaDataSource\` is an \`oracle.jdbc.xa.client.OracleXADataSource\` bean. Check \`transactionalAction\` on each operation so that it really joins, as in section 1.) **Costs**: two-phase commit on every message (prepare + commit on both resources), lower throughput, Bitronix transaction logs that must survive restarts to recover in-doubt transactions, Oracle privileges for XA recovery, and DBA procedures for pending transactions. On CloudHub 2.0 replicas, local disk is not durable across replica replacement, which weakens recovery.
+(\`oracleXaDataSource\` is an \`oracle.jdbc.xa.client.OracleXADataSource\` bean. Check \`transactionalAction\` on each operation so that it really joins, as in section 1.) **Costs**: two-phase commit on every message (prepare + commit on both resources), lower throughput, and Bitronix transaction logs that must survive restarts to recover in-doubt transactions. You also need Oracle privileges for XA recovery and DBA procedures for pending transactions. On CloudHub 2.0 replicas, local disk is not durable across replica replacement, which weakens recovery.
 
 **4. Outbox + idempotency (recommended here).**
 - Listener with AUTO ack and no JMS transaction, because a Try with ALWAYS_BEGIN inside an active LOCAL transaction raises an error. In a Try with a LOCAL DB transaction: insert the receipt (unique \`RECEIPT_NO\`), lines, PO update and an \`OUTBOX\` row (\`event_type=GR_POSTED\`, payload, status NEW). Commit.

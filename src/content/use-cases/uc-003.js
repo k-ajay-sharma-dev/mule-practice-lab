@@ -80,7 +80,7 @@ Facts:
     'Available-to-sell calculated per channel (on-hand minus channel safety stock), and the kiosk reads from a Process/Experience API backed by a cache or inventory store rather than hitting the WMS per request.',
   ],
   solution: `
-**Capture.** A Mule app subscribes to the WMS topic, maps the message to a canonical \`InventoryChanged\` event (\`sku\`, \`warehouse\`, \`onHand\`, \`eventTime\`) and publishes it to an **Anypoint MQ exchange** (or keeps using the existing broker). It also upserts the latest value into an **inventory store** (DB table keyed on SKU + warehouse) — only if \`eventTime\` is newer than the stored one.
+**Capture.** A Mule app subscribes to the WMS topic and maps the message to a canonical \`InventoryChanged\` event (\`sku\`, \`warehouse\`, \`onHand\`, \`eventTime\`). It then publishes the event to an **Anypoint MQ exchange** (or keeps using the existing broker). It also upserts the latest value into an **inventory store** (DB table keyed on SKU + warehouse) — only if \`eventTime\` is newer than the stored one.
 
 **Fan-out.** One queue per channel bound to the exchange: \`shopify-inv-q\`, \`amazon-inv-q\`. Each channel consumer scales and fails independently; an Amazon outage does not slow Shopify.
 

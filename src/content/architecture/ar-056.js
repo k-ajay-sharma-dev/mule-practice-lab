@@ -87,7 +87,7 @@ Internet ──TLS──> [public ingress] ──> exp-mobile-api   (OAuth2/OIDC
 **Trust and user identity.**
 - Layer-to-layer trust = *application* identity (client id/secret or certificate).
 - *User* identity: the Experience API validates the user token and then either forwards it (if downstream can validate it) or passes trusted claims (e.g. \`customerId\`) in a header that Process APIs accept **only** from authenticated internal clients. Never accept a \`customerId\` from the external request body as the authority.
-- Data-level authorisation ("customer may only see own accounts") must be enforced where the request is resolved — commonly the Experience API sets the filter from the token and the Process API enforces it again for defence in depth.
+- Data-level authorisation ("customer may only see own accounts") must be enforced where the request is resolved. Commonly the Experience API sets the filter from the token and the Process API enforces it again for defence in depth.
 
 **Network exposure.**
 - Only Experience APIs on the **public** ingress (public endpoint / load balancer).

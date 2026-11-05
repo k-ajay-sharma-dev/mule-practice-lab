@@ -110,7 +110,7 @@ export default {
   ],
   solution: `
 ## Diagnosis
-Each request now serialises ~5 MB of JSON **twice** into log messages. At 50 req/s that is roughly 500 MB/s of strings to build, encode and ship. That costs CPU, creates a lot of garbage (memory spikes, GC pauses) and fills the async logging queue — once it is full, the logger **blocks the calling thread**, which shows up directly as request latency.
+Each request now serialises ~5 MB of JSON **twice** into log messages. At 50 req/s that is roughly 500 MB/s of strings to build, encode and ship. That costs CPU, creates a lot of garbage (memory spikes, GC pauses) and fills the async logging queue. Once it is full, the logger **blocks the calling thread**, which shows up directly as request latency.
 
 ## Immediate mitigation
 Turn the noise off: if the logger uses a dedicated category, set it to WARN in Runtime Manager (logging levels can be changed without code), otherwise hotfix and redeploy with the logger removed. Ask the log platform team to purge/restrict the logs containing customer pricing.

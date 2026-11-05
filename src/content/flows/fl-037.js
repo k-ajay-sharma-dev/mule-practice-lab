@@ -132,7 +132,7 @@ Volumes: ~20 requests/s at peak; the mobile app expects a response within **3 s*
 
 **Why HTTP between layers?** Each API is its own Mule application with its own RAML/OAS contract in Exchange, its own policies (client ID enforcement, rate limits) and its own scaling. Flow Reference would collapse them into one deployable and defeat reuse.
 
-**Timeout budget:** 3 s at the edge, 2.5 s in the process layer, 2 s per system call — each layer fails before its caller gives up, so the caller gets a real error instead of a hang.
+**Timeout budget:** 3 s at the edge, 2.5 s in the process layer, 2 s per system call. Each layer fails before its caller gives up, so the caller gets a real error instead of a hang.
 `,
   followUps: [
     {

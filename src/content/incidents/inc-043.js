@@ -116,7 +116,7 @@ Two independent problems:
 2. **Watermark = \`now()\` (the old 3%).** Even with matching clocks, the flow advances the watermark to the time of the poll, not to the data it read. Rows committed **after** the poll but stamped with an **earlier** \`last_modified\` (batch jobs stamp their start time) fall behind the watermark and are never selected. No error — just missing data.
 
 ## Immediate mitigation
-Hotfix the watermark (see below), reset it to a point before Monday's migration (and, for the old gap, before the reconciliation period), and re-sync to Salesforce using **upsert by external ID** so re-sending already synced customers is harmless. Confirm with a reconciliation report (counts per day) that the gap is closed.
+Hotfix the watermark (see below). Reset it to a point before Monday's migration (and, for the old gap, before the reconciliation period). Re-sync to Salesforce using **upsert by external ID** so re-sending already synced customers is harmless. Confirm with a reconciliation report (counts per day) that the gap is closed.
 
 ## Root cause
 A watermark based on the integration server's clock instead of the source data, plus an implicit timezone assumption in zone-less values that broke when the runtime's default timezone changed.

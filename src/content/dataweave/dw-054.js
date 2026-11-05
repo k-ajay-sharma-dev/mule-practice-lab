@@ -159,7 +159,7 @@ Common traps:
     },
     {
       q: 'How would you send one message per zone to the handhelds?',
-      a: 'Use a `foreach` (or `parallel-foreach`) over the zone array and publish each zone to a queue such as a JMS queue per zone or one queue with a `zone` property, so pickers in a zone only consume their own work.',
+      a: 'Use a `foreach` (or `parallel-foreach`) over the zone array and publish each zone to a queue. Examples are a JMS queue per zone or one queue with a `zone` property, so pickers in a zone only consume their own work.',
     },
     {
       q: 'Two waves are released close together and tasks overlap. What protects you from double picking?',

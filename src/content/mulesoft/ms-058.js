@@ -146,7 +146,7 @@ Cross-domain reuse: a Sales Process API may call a Supply Chain System API. The 
 **5. Cross-layer release ordering**
 - Contracts decouple layers: the SAPI publishes and deploys a **backward-compatible minor** (1.3.0) first; the PAPI that needs the new field is released after, against 1.3.0 in each environment.
 - Breaking changes go out as a **new major** (v2) running alongside v1 (separate API instance and base path) until consumers migrate; v1 is deprecated in Exchange and then retired.
-- The pipeline can check that the dependent API version is deployed in the target environment before promoting the consumer — a simple gate that prevents "PAPI in Prod calls SAPI field that only exists in Test".
+- The pipeline can check that the dependent API version is deployed in the target environment before promoting the consumer. This is a simple gate that prevents "PAPI in Prod calls SAPI field that only exists in Test".
 `,
   followUps: [
     {

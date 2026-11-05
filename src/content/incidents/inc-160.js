@@ -159,7 +159,7 @@ curl -X PATCH -H 'Authorization: Bearer {authToken}' \\
     },
     {
       q: 'Can the missing hours be backfilled?',
-      a: 'Do not assume so. Each replica stores up to 450 MB of log data on disk and the sidecar forwards from there, but the docs do not state what happens to entries written before the sidecar existed. Treat them as unavailable in Anypoint Monitoring and use container logs if retained.',
+      a: 'Do not assume so. Each replica stores up to 450 MB of log data on disk and the sidecar forwards from there. But the docs do not state what happens to entries written before the sidecar existed. Treat them as unavailable in Anypoint Monitoring and use container logs if retained.',
     },
     {
       q: 'Why does the 450 MB limit matter here?',

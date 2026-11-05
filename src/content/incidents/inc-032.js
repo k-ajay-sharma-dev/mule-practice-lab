@@ -115,7 +115,7 @@ Three layers failed in turn:
 3. **PKIX path building failed** — the new proxy does **TLS inspection**: it terminates TLS and presents a certificate signed by the **corporate root CA**. The JVM/app truststore doesn't trust that CA, so the handshake fails. Browsers work because the corporate CA is in the OS trust store and they use system proxy settings; the JVM uses its own.
 
 ## Immediate mitigation
-Ask the network team to **bypass TLS inspection** for the integration hosts (Salesforce, payment gateway) — usually the right answer for payment and API traffic anyway — or add the corporate CA to the truststore used by the HTTP request configs. Store proxy credentials in **secure properties** and restart.
+Ask the network team to **bypass TLS inspection** for the integration hosts (Salesforce, payment gateway). This is usually the right answer for payment and API traffic anyway. Or add the corporate CA to the truststore used by the HTTP request configs. Store proxy credentials in **secure properties** and restart.
 
 ## Root cause
 A proxy migration that changed the host, introduced authentication and TLS interception, without an impact assessment for server-side Java applications.

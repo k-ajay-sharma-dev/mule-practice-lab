@@ -122,10 +122,10 @@ Findings from a quick code read:
   solution: `
 **Method**
 1. Define the target (150 req/s, p95 < 800 ms) and a repeatable load test with realistic payloads and data volumes.
-2. Instrument: Anypoint Monitoring / metrics for response time per flow and per outbound call, log timings at step boundaries (with correlation IDs), heap/GC metrics, and **thread dumps** at peak to see where threads wait.
+2. Instrument: Anypoint Monitoring / metrics for response time per flow and per outbound call, and log timings at step boundaries (with correlation IDs). Add heap/GC metrics, and **thread dumps** at peak to see where threads wait.
 3. Find the biggest contributor, fix one thing, re-test. Keep a results table.
 
-**Interpretation:** CPU at 40 % while throughput plateaus means threads are mostly **waiting**: on six sequential calls (6 × 180 ms ≈ 1.1 s minimum — and as the Pricing backend slows at peak, those waits become \`HTTP:TIMEOUT\`), and on the per-request DB load. (The Mule 4 HTTP Request connection's max connections is unlimited by default, so the defaults do not cap the pool — but they also do not protect the backend, and the response timeout may not suit the target.) GC pressure comes from loading 5,000 products and logging full payloads on every request.
+**Interpretation:** CPU at 40 % while throughput plateaus means threads are mostly **waiting**: on six sequential calls (6 × 180 ms ≈ 1.1 s minimum — and as the Pricing backend slows at peak, those waits become \`HTTP:TIMEOUT\`), and on the per-request DB load. (The Mule 4 HTTP Request connection's max connections is unlimited by default, so the defaults do not cap the pool. But they also do not protect the backend, and the response timeout may not suit the target.) GC pressure comes from loading 5,000 products and logging full payloads on every request.
 
 **Fixes in priority order**
 | # | Fix | Effect |
@@ -140,7 +140,7 @@ Findings from a quick code read:
 
 **Validation:** re-run the same load test after each change; compare p50/p95/p99, throughput, error rate, GC. Add a performance test stage (smaller scale) to CI or a pre-release environment, and alerts on p95 and error rate in production.
 
-**When to scale:** once per-request work is lean and CPU becomes the limit at target load, add replicas (horizontal, also improves availability) or larger vCores (more CPU/memory per replica, useful for memory-heavy transforms). Scaling first would have doubled cost and doubled DB/pricing load without fixing the sequential waits.
+**When to scale:** scale once per-request work is lean and CPU becomes the limit at target load. Add replicas (horizontal, also improves availability) or larger vCores (more CPU/memory per replica, useful for memory-heavy transforms). Scaling first would have doubled cost and doubled DB/pricing load without fixing the sequential waits.
 `,
   followUps: [
     {

@@ -138,7 +138,7 @@ export default {
 **Reduce dependency (cheap, high value).**
 - Contracts-first with standard specs; keep specs in Git as well as Exchange.
 - Business rules documented with the API (not only inside flows); canonical models defined in schemas.
-- Standard protocols at boundaries (HTTP/REST, AMQP/JMS where already used, Kafka where the company already runs it) and an abstraction for messaging in code (a thin internal module) so the broker can change.
+- Standard protocols at boundaries (HTTP/REST, AMQP/JMS where already used, Kafka where the company already runs it). An abstraction for messaging in code (a thin internal module) so the broker can change.
 - Logs and metrics exported to the company's own observability tooling; CI/CD in the company's own pipeline tool.
 - Architecture decision records whenever a proprietary feature is adopted, stating why and the exit cost.
 - What not to do: forbid platform features "just in case" — that slows delivery and wastes the investment.

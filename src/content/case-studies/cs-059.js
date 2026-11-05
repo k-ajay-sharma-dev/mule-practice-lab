@@ -98,7 +98,7 @@ export default {
   solution: `
 **Phases**
 1. **Canonical model and core (months 1–3).** Canonical messages for orders, receipts, shipments and inventory. \`prc-warehouse-orders\` validates against the client profile, de-duplicates on client + order number and calls \`sys-wms-api\` (batching calls where the WMS licence model rewards it).
-2. **Adapters (months 2–5).** \`exp-edi-inbound\` (AS2 + X12 940/943 → canonical), \`exp-client-orders-api\` (REST behind API Manager, a client ID per client), an SFTP intake job for CSV clients with a configurable column mapping, and an IDoc adapter for the two SAP clients. All publish to \`canonical-warehouse-orders\`.
+2. **Adapters (months 2–5).** \`exp-edi-inbound\` (AS2 + X12 940/943 → canonical) and \`exp-client-orders-api\` (REST behind API Manager, a client ID per client). An SFTP intake job for CSV clients with a configurable column mapping, and an IDoc adapter for the two SAP clients. All publish to \`canonical-warehouse-orders\`.
 3. **Outbound (months 4–6).** WMS shipment and inventory events → \`sys-wms-api\` → \`shipment-confirmed\` topic → \`prc-client-outbound\`, which reads the profile and sends a 945, a CSV or a webhook.
 4. **Migrate existing clients (months 6–15).** Move in waves by channel type, parallel-running with comparison of outputs, oldest custom code first.
 
@@ -108,7 +108,11 @@ export default {
 
 **Governance.** Canonical model owned by a product owner; changes versioned. Client profiles stored with audit history. Operations runbook per channel.
 
-**Risks.** Canonical model too rigid (extension fields per client, versioning), profile mistakes sending data to the wrong client (four-eyes approval on endpoint changes, automated tests), WMS API costs (batching, caching reference data), November peak (load tests at 5x, pre-scaled workers).
+**Risks.**
+- Canonical model too rigid (extension fields per client, versioning).
+- Profile mistakes sending data to the wrong client (four-eyes approval on endpoint changes, automated tests).
+- WMS API costs (batching, caching reference data).
+- November peak (load tests at 5x, pre-scaled workers).
 `,
   followUps: [
     { q: 'Would you build one Mule application per client?', a: 'No. Per-client apps multiply deployment and runtime costs and bring back the three-month onboarding. Shared adapters plus profiles cover most clients; only exceptional mappings are plugged in.' },

@@ -132,7 +132,7 @@ Use the Logger component's \`category\` to group your own messages. In Runtime M
     },
     {
       q: 'What happens to correlation IDs inside a Batch job or an Async scope?',
-      a: 'They usually derive from the triggering event, but for batch records and async hops you should log the batch job instance ID and record keys explicitly, because the per-record context differs from the original request.',
+      a: 'They usually derive from the triggering event. But for batch records and async hops you should log the batch job instance ID and record keys explicitly, because the per-record context differs from the original request.',
     },
     {
       q: 'Where does the log4j2.xml live and what if you don\'t provide one?',

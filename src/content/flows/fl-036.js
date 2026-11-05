@@ -219,7 +219,7 @@ You operate a **payment-event relay**. The payment provider POSTs webhooks (paym
     },
     {
       q: 'How do you preserve per-merchant ordering?',
-      a: 'Re-queuing breaks ordering. If ordering matters, use a FIFO queue / message group per merchant and park the whole merchant stream while the circuit is open, or have merchants handle events idempotently by eventId and timestamp.',
+      a: 'Re-queuing breaks ordering. If ordering matters, use a FIFO queue / message group per merchant and park the whole merchant stream while the circuit is open. Or have merchants handle events idempotently by eventId and timestamp.',
     },
     {
       q: 'What metrics would you expose?',

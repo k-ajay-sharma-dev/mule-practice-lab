@@ -109,7 +109,7 @@ A sub-flow behaves as if its processors were pasted inline into the caller — e
 **Choices**
 - \`validate-invoice\` → **sub-flow**. Pure reusable steps; any validation error should surface to the caller's error handler anyway.
 - \`enrich-customer\` → **private flow** with an error handler: \`On Error Continue type="HTTP:CONNECTIVITY, HTTP:TIMEOUT"\` sets a default customer. (A sub-flow wrapping a Try scope would also work.)
-- \`post-to-erp\` → **private flow** (or sub-flow) referenced from both the HTTP flow and the Scheduler flow — a flow with a source cannot be "called" through its source by another flow, so keep the reusable logic sourceless.
+- \`post-to-erp\` → **private flow** (or sub-flow) referenced from both the HTTP flow and the Scheduler flow. A flow with a source cannot be "called" through its source by another flow, so keep the reusable logic sourceless.
 
 "Sub-flows are faster" is not a meaningful design argument; the difference is negligible. Choose based on error handling and configuration needs.
 

@@ -252,7 +252,7 @@ var ship = order.shipping_address
   followUps: [
     {
       q: 'How does the IDoc actually reach SAP from Mule?',
-      a: 'With the SAP connector: either send the IDoc (the connector converts the XML to the IDoc format and transmits it via tRFC/qRFC, usually with a transaction ID for exactly-once processing) or call a BAPI such as a sales-order create BAPI. SAP then processes the inbound IDoc with its configured process code.',
+      a: 'With the SAP connector: either send the IDoc or call a BAPI such as a sales-order create BAPI. The connector converts the XML to the IDoc format and transmits it via tRFC/qRFC, usually with a transaction ID for exactly-once processing. SAP then processes the inbound IDoc with its configured process code.',
     },
     {
       q: 'Shopify retries the webhook if you do not answer within a few seconds. How do you design for that?',

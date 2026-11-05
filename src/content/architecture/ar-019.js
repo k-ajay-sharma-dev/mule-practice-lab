@@ -115,7 +115,7 @@ A hospital group is moving integrations to Anypoint Platform. Systems:
 - **Runtime Fabric on the existing on-prem Kubernetes** (or standalone hybrid runtimes if there's no K8s skill): the **EHR System API**, HL7/MLLP listeners, the lab integration and the nightly imaging-file flow. Reasons: data stays inside the data center, latency to the EHR is LAN-level, HL7 MLLP listeners must be reachable by on-prem devices, and large files don't cross the WAN.
 
 **Network connectivity.**
-- Connect the Private Space to the data center with **IPsec VPN** or, since AWS connectivity already exists, a **Transit Gateway** attachment to the hospital's network hub (which reaches on-prem over Direct Connect/VPN). Tunnels are initiated from the cloud side; **nothing is exposed inbound from the internet**.
+- Connect the Private Space to the data center with **IPsec VPN** or, since AWS connectivity already exists, a **Transit Gateway** attachment to the hospital's network hub. That hub reaches on-prem over Direct Connect/VPN. Tunnels are initiated from the cloud side; **nothing is exposed inbound from the internet**.
 - Plan **non-overlapping CIDRs** (Private Space vs data center) early — overlaps are hard to fix later.
 - **Firewall:** allow only the Private Space CIDR → specific on-prem endpoints (e.g. the RTF ingress for the EHR System API on 443). Cloud apps call the **on-prem System API**, not the EHR database directly.
 - **DNS:** configure the Private Space to resolve internal hostnames (internal DNS servers) so apps use names, not IPs.

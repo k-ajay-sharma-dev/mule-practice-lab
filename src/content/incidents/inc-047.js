@@ -127,7 +127,7 @@ SAP: 0 rows
   -> mobile app       "Something went wrong"
 \`\`\`
 
-In Mule 4 the HTTP requester's default validator treats any response with a status of 400 or above as an error, so a 404 from the System API becomes an \`HTTP:NOT_FOUND\` error in the Process API. The catch-all handler throws away that information and reports 500. Each layer only sees the previous layer's response, so the meaning is lost after one hop.
+In Mule 4 the HTTP requester's default validator treats any response with a status of 400 or above as an error. So a 404 from the System API becomes an \`HTTP:NOT_FOUND\` error in the Process API. The catch-all handler throws away that information and reports 500. Each layer only sees the previous layer's response, so the meaning is lost after one hop.
 
 **Immediate mitigation.**
 - Hotfix \`prc-order-api\`: add an \`on-error-propagate type="HTTP:NOT_FOUND"\` *before* the ANY handler that returns 404 with a clear body (e.g. \`{ "code": "ORDER_NOT_FOUND", "message": "Order SO-99812 not found" }\`). Do the same in \`exp-mobile-api\` and have the app show "Order not found".
@@ -151,7 +151,7 @@ In Mule 4 the HTTP requester's default validator treats any response with a stat
 **Prevention.** Shared error-handling module/template published in Exchange; RAML/OAS documents 404/400/503 responses for each resource; MUnit tests that mock the System API returning 404 and 503 and assert the Process/Experience status codes; alert on 5xx only, and track 4xx separately as a product signal.
 `,
   followUps: [
-    { q: 'Should the Process API just pass through whatever status the System API returned?', a: 'Not blindly. A 404 for "order not found" can pass through, but a 401 from the System API means the Process API\'s own credentials are wrong — returning 401 to the end user would be misleading. Each layer translates errors into what its consumer can act on.' },
+    { q: 'Should the Process API just pass through whatever status the System API returned?', a: 'Not blindly. A 404 for "order not found" can pass through, but a 401 from the System API means the Process API\'s own credentials are wrong. Returning 401 to the end user would be misleading. Each layer translates errors into what its consumer can act on.' },
     { q: 'What is the difference between on-error-propagate and on-error-continue here?', a: 'on-error-propagate rethrows the error so the HTTP listener returns an error response (status from the handler), while on-error-continue treats the flow as successful and returns the payload set in the handler. Both can set a 404 status; propagate is typical for genuine error responses.' },
     { q: 'Why does it matter for alerting?', a: 'If every client mistake becomes a 500, the 5xx rate stops meaning "we have a problem", on-call gets paged for nothing, and real outages are harder to spot.' },
   ],
