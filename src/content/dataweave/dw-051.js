@@ -6,7 +6,11 @@ export default {
   tags: ['pagination', 'recursion', 'lookup', 'distinctBy', 'resilience'],
   estMinutes: 35,
   description: `
-A CRM API returns customers in **cursor-paginated** pages. To speed things up, your Mule flow prefetched pages in parallel and collected every response into one array — so the pages arrive in **random order**, and a stale page left over from an earlier run can be mixed in. Each page looks like this:
+A CRM API returns customers in **cursor-paginated** pages. To speed things up, your Mule flow prefetched pages in parallel and collected every response into one array. This has two effects:
+- The pages arrive in **random order**.
+- A stale page left over from an earlier run can be mixed in.
+
+Each page looks like this:
 
 \`\`\`json
 { "self": "/v1/customers?cursor=c1", "prev": "/v1/customers?cursor=c0", "next": "/v1/customers?cursor=c2", "data": [ ... ] }

@@ -68,11 +68,18 @@ export default {
     ),
   ),
   description: `
-**Stripe-style payment webhooks** arrive at \`POST /webhooks/payments\` (~50k/day). The provider guarantees *at-least-once* delivery: if it doesn't get a 2xx within 10 seconds it retries for up to **3 days**, and occasionally sends the same event twice within milliseconds. Each event has a unique \`id\` (e.g. \`evt_1Q2w...\`).
+**Stripe-style payment webhooks** arrive at \`POST /webhooks/payments\` (~50k/day). For each event, the flow updates the invoice in **NetSuite** and publishes a notification.
 
-For each event, the flow updates the invoice in **NetSuite** and publishes a notification. Duplicates have caused **double invoice updates** and duplicate customer emails.
+**Facts**
+- The provider guarantees *at-least-once* delivery.
+- If it doesn't get a 2xx within 10 seconds, it retries for up to **3 days**.
+- It occasionally sends the same event twice within milliseconds.
+- Each event has a unique \`id\` (e.g. \`evt_1Q2w...\`).
+- The app runs on CloudHub 2.0 with **2 replicas**.
 
-The app runs on CloudHub 2.0 with **2 replicas**.
+**What is wrong now**
+
+Duplicates have caused **double invoice updates** and duplicate customer emails.
 
 **Design the flow:**
 - How do you detect and drop duplicates? Which component, which ID, which store?

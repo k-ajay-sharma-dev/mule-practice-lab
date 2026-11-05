@@ -52,7 +52,16 @@ export default {
     ),
   },
   description: `
-**Context.** An energy company trades power and gas on exchanges and bilaterally. Trades are captured in an Energy Trading and Risk Management (ETRM) system and on exchange platforms (via exchange APIs and drop-copy feeds). Trades must flow to the risk engine (positions, limits), scheduling/nomination systems (which tell grid/pipeline operators what will be delivered), settlement and invoicing, the general ledger, and regulatory trade reporting (rules kept generic). Today a mix of database triggers, nightly files and spreadsheets connects them; position views are hours old and reporting errors have triggered regulator queries.
+**Context.** An energy company trades power and gas on exchanges and bilaterally. Trades are captured in an Energy Trading and Risk Management (ETRM) system and on exchange platforms (via exchange APIs and drop-copy feeds).
+
+Trades must flow to:
+- the risk engine (positions, limits)
+- scheduling/nomination systems (which tell grid/pipeline operators what will be delivered)
+- settlement and invoicing
+- the general ledger
+- regulatory trade reporting (rules kept generic)
+
+**The problem today.** A mix of database triggers, nightly files and spreadsheets connects them. Position views are hours old, and reporting errors have triggered regulator queries.
 
 **Goals**
 - Positions in the risk engine within seconds of trade capture.
@@ -66,7 +75,11 @@ export default {
 - 24/7 operation for some markets; downtime around gate closure has direct financial and regulatory cost.
 - Existing systems are a mix of vendor products (on-premises) and SaaS; the ETRM vendor provides a message-based outbound interface.
 
-**Your task.** Propose the integration architecture, including how you guarantee correctness (ordering, no loss, no duplicates), availability, and reconciliation. State where MuleSoft fits and where it should not be used.
+**Your task.** Propose the integration architecture. Include:
+- how you guarantee correctness (ordering, no loss, no duplicates)
+- availability
+- reconciliation
+- where MuleSoft fits and where it should not be used
 `,
   answerTemplate: `## Trade event model and lifecycle
 

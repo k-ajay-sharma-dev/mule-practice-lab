@@ -47,7 +47,17 @@ export default {
     ),
   },
   description: `
-**Context.** A manufacturing group with 40,000 employees in 25 countries runs five regional HR systems (two on-premises, three SaaS) and many local payroll providers. It has chosen a single global cloud HCM platform and will roll it out region by region over two years. More than 60 downstream systems consume employee data today: Active Directory/identity, payroll providers, time & attendance, benefits, learning, expenses, badge access and the data warehouse.
+**Context.** A manufacturing group with 40,000 employees in 25 countries runs five regional HR systems (two on-premises, three SaaS) and many local payroll providers. It has chosen a single global cloud HCM platform and will roll it out region by region over two years.
+
+More than 60 downstream systems consume employee data today:
+- Active Directory/identity
+- payroll providers
+- time & attendance
+- benefits
+- learning
+- expenses
+- badge access
+- the data warehouse
 
 **Goals**
 - Downstream systems keep working throughout the rollout, whichever HR system a region is on.

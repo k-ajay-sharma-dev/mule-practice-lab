@@ -2,7 +2,7 @@ export default {
   id: 'inc-039',
   category: 'incidents',
   title: 'Every Request Gets 503 After Promoting the API to Production',
-  level: 'ADVANCED',
+  level: 'INTERMEDIATE',
   tags: ['api-manager', 'autodiscovery', 'deployment', 'policies', 'environments'],
   estMinutes: 25,
   investigation: {

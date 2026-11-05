@@ -4,7 +4,7 @@ export default {
   id: 'cs-030',
   category: 'case-studies',
   title: 'Publisher Syndicating Articles to Partner Platforms',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['media', 'content-syndication', 'partners', 'transformation', 'async'],
   estMinutes: 25,
   diagram: {
@@ -48,7 +48,11 @@ export default {
     ),
   },
   description: `
-**Context.** A news publisher produces ~1,500 articles a day in its content management system (CMS). It has licensing deals with 12 partners — news aggregators, a mobile carrier's news app, and two regional newspapers. Each partner wants content in a different format (JSON, RSS/Atom, a NewsML-style XML) and some only want certain sections (sport, business). Today a developer maintains 12 separate scripts that run on a server under a desk.
+**Context.** A news publisher produces ~1,500 articles a day in its content management system (CMS). It has licensing deals with 12 partners: news aggregators, a mobile carrier's news app, and two regional newspapers.
+- Each partner wants content in a different format (JSON, RSS/Atom, a NewsML-style XML).
+- Some only want certain sections (sport, business).
+
+**The problem today.** A developer maintains 12 separate scripts that run on a server under a desk.
 
 **Goals**
 - Publish once in the CMS; partners receive their content within 5 minutes.
@@ -60,7 +64,7 @@ export default {
 - Licensing: a partner must only receive sections and image rights they paid for.
 - The CMS emits a "published/updated/unpublished" event per article.
 
-**Your task.** Propose a design that replaces the scripts and makes partner onboarding easy.
+**Your task.** Propose a design that replaces the scripts and makes partner onboarding straightforward.
 `,
   answerTemplate: `## Overall architecture
 

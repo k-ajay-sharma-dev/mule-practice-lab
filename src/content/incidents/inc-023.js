@@ -67,7 +67,8 @@ export default {
   },
   description: `
 ## Symptoms
-- Since Sunday's infrastructure window, \`finance-sapi\` (CloudHub 1.0, 4 workers, in an Anypoint VPC connected to the data centre over IPsec VPN) has **intermittent failures** reaching the on-prem Oracle DB.
+- \`finance-sapi\` runs on CloudHub 1.0 with 4 workers, in an Anypoint VPC connected to the data centre over IPsec VPN.
+- Since Sunday's infrastructure window, it has **intermittent failures** reaching the on-prem Oracle DB.
 - Some workers fail **every** call; others never fail. After a redeploy, the **set of failing workers changes**.
 - Calls to other on-prem systems (an HTTP API on a different subnet) work from all workers.
 

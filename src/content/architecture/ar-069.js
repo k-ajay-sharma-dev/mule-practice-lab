@@ -45,11 +45,14 @@ export default {
   },
   description: `
 An omnichannel retailer sells through **web, mobile app and 250 stores** (BOPIS and ship-from-store). Stock lives in several places:
-- **Oracle** inventory tables (the official book stock and reservations) — updated by ERP jobs.
-- **WMS** for 3 distribution centres — real-time picks and receipts.
-- **Store POS** — sales decrement store stock; counts arrive nightly.
+- **Oracle** inventory tables (the official book stock and reservations), updated by ERP jobs.
+- **WMS** for 3 distribution centres: real-time picks and receipts.
+- **Store POS**: sales decrement store stock, and counts arrive nightly.
 
-Problems today: product pages call Oracle directly for availability (**8,000 reads/s at peak**, Oracle is at 90% CPU), and the web team now wants to cache stock in their own Redis. During the last sale, 3% of orders were **oversold** because two channels sold the last unit at the same time.
+Problems today:
+- Product pages call Oracle directly for availability (**8,000 reads/s at peak**), and Oracle is at 90% CPU.
+- The web team now wants to cache stock in their own Redis.
+- During the last sale, 3% of orders were **oversold** because two channels sold the last unit at the same time.
 
 **Questions:**
 - Should there be ONE source of truth for inventory, or should each channel hold its own availability? Defend your answer.

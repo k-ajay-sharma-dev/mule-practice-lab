@@ -2,7 +2,7 @@ export default {
   id: 'ms-010',
   category: 'mulesoft',
   title: 'Anypoint Platform Structure: Business Groups, Environments, Access',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['anypoint-platform', 'access-management', 'environments', 'governance'],
   estMinutes: 15,
   quiz: [

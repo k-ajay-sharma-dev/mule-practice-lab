@@ -104,7 +104,7 @@ export default {
     },
   ],
   description: `
-A manufacturer runs **Runtime Fabric on two clusters**: production on AKS, installed with \`rtfctl\` on agent 2.11, and a third, older site still on **Runtime Fabric appliance**. The platform team has to produce a lifecycle plan for the next year:
+A manufacturer runs **Runtime Fabric on two clusters**. Production is on AKS, installed with \`rtfctl\` on agent 2.11. A third, older site is still on **Runtime Fabric appliance**. The platform team has to produce a lifecycle plan for the next year:
 
 - Decide what to do with the appliance site. The local team has no Kubernetes experience.
 - Move the AKS clusters to Helm management and to agent 3.0.

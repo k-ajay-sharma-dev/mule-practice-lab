@@ -2,7 +2,7 @@ export default {
   id: 'dw-072',
   category: 'dataweave',
   title: 'Nest a Flat Database Join into Orders with Lines',
-  level: 'ADVANCED',
+  level: 'INTERMEDIATE',
   tags: ['database', 'oracle', 'sql-server', 'json', 'groupBy', 'pluck', 'orderBy'],
   estMinutes: 30,
   description: `
@@ -15,9 +15,13 @@ FROM ORDERS o LEFT JOIN ORDER_LINES l ON l.ORDER_ID = o.ORDER_ID
 WHERE o.ORDER_DATE >= :fromDate
 \`\`\`
 
-The result set is a **flat** array of rows with **uppercase** column names: one row per order line, the order columns repeated on every row. An order without lines appears once with all line columns \`null\` (left join). The rows come back in no particular order.
+**The result set**
+- It is a **flat** array of rows with **uppercase** column names.
+- There is one row per order line, with the order columns repeated on every row.
+- An order without lines appears once with all line columns \`null\` (left join).
+- The rows come back in no particular order.
 
-**Output** — an array of orders, sorted by \`orderId\` (numerically):
+**Output**: an array of orders, sorted by \`orderId\` (numerically):
 - \`orderId\`, \`orderDate\` (the date part only, \`yyyy-MM-dd\`), \`customerNo\`, \`status\`
 - \`lineCount\` and \`total\` (sum of the line amounts, \`0\` without lines)
 - \`lines\` sorted by \`lineNo\`, each \`{ lineNo, sku, qty, unitPrice, amount }\` where \`amount = qty * unitPrice\`; an order without lines has \`lines: []\`.

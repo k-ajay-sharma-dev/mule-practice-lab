@@ -84,9 +84,16 @@ Your organisation must put governance in front of three APIs:
 | Pricing API | Spring Boot service on Kubernetes | No (other team) |
 | Legacy Billing | SOAP service in the data centre | No (vendor) |
 
-Policies required: Client ID enforcement, rate limiting (100 req/min per client), JWT validation for internal callers, IP allowlist, and a **company-specific** header check: every request must carry \`X-Tenant-Id\` that matches a claim in the JWT.
+Policies required:
+- Client ID enforcement
+- Rate limiting (100 req/min per client)
+- JWT validation for internal callers
+- IP allowlist
+- A **company-specific** header check: every request must carry \`X-Tenant-Id\` that matches a claim in the JWT
 
-In testing, clients without a valid token were being counted against rate limits and the header check ran before JWT validation, failing with a null claim.
+Issues found in testing:
+- Clients without a valid token were being counted against rate limits.
+- The header check ran before JWT validation and failed with a null claim.
 
 **Questions**
 1. When do you use autodiscovery in the implementation, a Mule proxy, or Flex Gateway?

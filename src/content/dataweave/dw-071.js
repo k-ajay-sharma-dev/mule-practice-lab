@@ -6,9 +6,13 @@ export default {
   tags: ['csv', 'json', 'sftp', 'ftp', 'validation', 'type-conversion', 'try'],
   estMinutes: 30,
   description: `
-A wholesale customer uploads a daily order file to an SFTP folder. A Mule flow reads it with \`sftp:read\` as \`application/csv\` (header row, comma separator, fields with commas or quotes are enclosed in double quotes). Bad rows must **not** stop the batch: valid rows go to the order API, invalid rows are reported back to the customer.
+A wholesale customer uploads a daily order file to an SFTP folder. A Mule flow reads it with \`sftp:read\` as \`application/csv\`.
 
-**Validation, in this order — a row is rejected with the reason of the first failing check:**
+The file has a header row and a comma separator. Fields with commas or quotes are enclosed in double quotes.
+
+Bad rows must **not** stop the batch. Valid rows go to the order API, and invalid rows are reported back to the customer.
+
+**Validation, in this order.** A row is rejected with the reason of the first failing check:
 1. \`orderDate\` must convert to a Date with the format \`yyyy-MM-dd\` → \`INVALID_DATE\`
 2. \`amount\` must be a decimal with a dot and at most 2 decimals (e.g. \`75\`, \`75.5\`, \`149.90\`) → \`INVALID_AMOUNT\`
 3. \`qty\` must be a whole number greater than 0 → \`INVALID_QTY\`
@@ -17,7 +21,7 @@ A wholesale customer uploads a daily order file to an SFTP folder. A Mule flow r
 
 **Rejected row** → \`line\` (the line number in the file; the header is line 1), \`orderId\`, \`reason\`.
 
-**Output** → \`summary\` (\`received\`, \`accepted\`, \`rejected\`), \`accepted\`, \`rejected\` — both in file order.
+**Output** → \`summary\` (\`received\`, \`accepted\`, \`rejected\`), \`accepted\`, \`rejected\`, both in file order.
 `,
   inputs: [
     {

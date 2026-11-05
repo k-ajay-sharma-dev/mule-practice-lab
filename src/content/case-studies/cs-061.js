@@ -81,7 +81,11 @@ export default {
     },
   ],
   description: `
-**Context.** A national supermarket group (600 stores, 8 DCs, SAP S/4HANA, SAP EWM, ActiveMQ and API-led integration on Anypoint) has acquired a regional chain (140 stores, 2 DCs). The acquired chain runs an Oracle-based retail ERP, its own WMS, a different POS vendor and about 80 point-to-point integrations on an ActiveMQ Classic broker. Item codes, supplier IDs and store IDs are different in each company, and about 60% of products are the same.
+**Context.** A national supermarket group has acquired a regional chain.
+- **Group:** 600 stores, 8 DCs, SAP S/4HANA, SAP EWM, ActiveMQ and API-led integration on Anypoint.
+- **Acquired chain:** 140 stores, 2 DCs, an Oracle-based retail ERP, its own WMS, a different POS vendor and about 80 point-to-point integrations on an ActiveMQ Classic broker.
+
+Item codes, supplier IDs and store IDs are different in each company. About 60% of products are the same.
 
 **Goals**
 - Realise purchasing savings from common suppliers within 12 months.
@@ -97,7 +101,11 @@ export default {
 | People | The acquired IT team (12 people) knows the legacy estate; retention is uncertain |
 | Budget | Funded in yearly tranches, each requiring measurable benefits |
 
-**Your task.** Propose the integration strategy, the phasing, how master data is handled, and the governance for the programme.
+**Your task.** Propose:
+- the integration strategy
+- the phasing
+- how master data is handled
+- the governance for the programme
 `,
   answerTemplate: `## Day-one priorities
 

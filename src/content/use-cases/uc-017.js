@@ -43,15 +43,24 @@ export default {
     ),
   },
   description: `
-A sportswear brand sells online via **Shopify Plus**; orders and invoices live in **Microsoft Dynamics 365 Finance & Operations (D365)**; the **3PL warehouse** has its own WMS reachable via SFTP files and a REST API; refunds go back through the **payment provider** (cards, PayPal) or as store credit (gift card in Shopify).
+A sportswear brand sells online and is introducing a new returns process.
+
+Systems:
+- **Shopify Plus**: the online shop.
+- **Microsoft Dynamics 365 Finance & Operations (D365)**: orders and invoices.
+- **3PL warehouse**: has its own WMS, reachable via SFTP files and a REST API.
+- **Payment provider** (cards, PayPal): refunds go back through it, or are paid as store credit (gift card in Shopify).
 
 The new returns process:
 1. Customer starts a return in the web shop (within 30 days), chooses items and reason, and gets a **return label**.
 2. The 3PL receives the parcel and **inspects** each item (OK / damaged / wrong item).
-3. Only inspected-OK items are **refunded** — to the original payment method or as store credit (customer's choice, +10% bonus for store credit).
+3. Only inspected-OK items are **refunded**, to the original payment method or as store credit (customer's choice, +10% bonus for store credit).
 4. D365 must get a **credit note** and the stock must be updated.
 
-Facts: ~2,000 returns/day, 4,000 after Christmas. The 3PL sends inspection results as a **CSV file every 2 hours**. Customers complain today about refunds taking 3 weeks and about being refunded twice by mistake.
+Facts:
+- ~2,000 returns/day, 4,000 after Christmas.
+- The 3PL sends inspection results as a **CSV file every 2 hours**.
+- Customers complain today about refunds taking 3 weeks and about being refunded twice by mistake.
 
 **Describe your solution:**
 - Which steps and events, and which system owns the return state?

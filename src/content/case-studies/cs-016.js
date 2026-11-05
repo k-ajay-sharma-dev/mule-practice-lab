@@ -80,7 +80,14 @@ export default {
     },
   ],
   description: `
-**Context.** An insurance broker runs 60 Mule 4 applications on CloudHub 1.0 in a VPC with a VPN to its data centre and a Dedicated Load Balancer (DLB) with custom certificates and URL mapping rules. Several apps use persistent queues, some rely on static IPs whitelisted by partners, and deployments are done with the mule-maven-plugin from a CI pipeline. Leadership wants to move to CloudHub 2.0.
+**Context.** An insurance broker runs 60 Mule 4 applications on CloudHub 1.0. Leadership wants to move to CloudHub 2.0.
+
+**Current setup**
+- The apps run in a VPC with a VPN to its data centre.
+- A Dedicated Load Balancer (DLB) has custom certificates and URL mapping rules.
+- Several apps use persistent queues.
+- Some apps rely on static IPs whitelisted by partners.
+- Deployments are done with the mule-maven-plugin from a CI pipeline.
 
 **Goals**
 - Move all apps with no partner-visible changes where possible.

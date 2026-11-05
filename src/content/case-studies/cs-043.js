@@ -95,7 +95,15 @@ export default {
     },
   ],
   description: `
-**Context.** An online grocery retailer had a 5-hour outage on a Saturday morning. The timeline: a third-party address-validation API became slow (responses taking 30 s instead of 200 ms). The \`checkout-papi\` called it synchronously with a 60 s timeout. Mule worker threads filled up, checkout stopped responding, the web app retried aggressively, and the shared \`customer-sapi\` (deployed in the same application as \`checkout-papi\` for "cost reasons") also stopped. Alerts fired only on CPU, which stayed low, so the on-call engineer was paged 50 minutes in by the customer-service team. Restarts helped for a few minutes each time.
+**Context.** An online grocery retailer had a 5-hour outage on a Saturday morning.
+
+**Timeline**
+1. A third-party address-validation API became slow (responses taking 30 s instead of 200 ms).
+2. The \`checkout-papi\` called it synchronously with a 60 s timeout.
+3. Mule worker threads filled up, checkout stopped responding, and the web app retried aggressively.
+4. The shared \`customer-sapi\` (deployed in the same application as \`checkout-papi\` for "cost reasons") also stopped.
+5. Alerts fired only on CPU, which stayed low, so the on-call engineer was paged 50 minutes in by the customer-service team.
+6. Restarts helped for a few minutes each time.
 
 You are the integration architect asked to run the post-incident review and propose a 6-month resilience programme across ~90 Mule applications.
 
@@ -108,7 +116,12 @@ You are the integration architect asked to run the post-incident review and prop
 - Feature teams are busy with a peak trading season in 3 months.
 - No dedicated SRE team; the integration team runs operations.
 
-**Your task.** Run the analysis and propose the programme: immediate actions, design standards, observability, testing and governance.
+**Your task.** Run the analysis and propose the programme:
+- immediate actions
+- design standards
+- observability
+- testing
+- governance
 `,
   answerTemplate: `## Incident analysis (causes and contributing factors)
 

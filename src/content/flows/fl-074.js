@@ -62,7 +62,13 @@ export default {
     ),
   ),
   description: `
-A payment processor settles card transactions with its **acquiring bank** every night. The settlement logic already exists in **Oracle** as the stored procedure \`PKG_SETTLEMENT.PREPARE_DAILY(p_business_date IN DATE, p_batch_id OUT NUMBER, p_row_count OUT NUMBER)\`, which aggregates the previous day's transactions (~2 million) into \`SETTLEMENT_EXPORT\` rows (~12,000 merchants/terminals) for a new batch.
+A payment processor settles card transactions with its **acquiring bank** every night.
+
+The settlement logic already exists in **Oracle** as this stored procedure:
+
+\`PKG_SETTLEMENT.PREPARE_DAILY(p_business_date IN DATE, p_batch_id OUT NUMBER, p_row_count OUT NUMBER)\`
+
+It aggregates the previous day's transactions (~2 million) into \`SETTLEMENT_EXPORT\` rows (~12,000 merchants/terminals) for a new batch.
 
 The bank collects a semicolon-separated file \`SETTLEMENT_yyyyMMdd.csv\` from its **SFTP server** (\`/inbound/settlement\`) at **04:00**.
 

@@ -6,7 +6,9 @@ export default {
   tags: ['xml', 'attributes', 'recursion', 'pluck', 'generic-transform'],
   estMinutes: 30,
   description: `
-You are replacing a legacy ESB that exposed **any** XML document to REST clients as JSON using a fixed convention. Mobile apps already parse that convention, so your Mule API must reproduce it exactly — and it must work for **every** document type, not just the sample (the hidden tests use different XML). The default \`output application/json\` drops all attributes, so you need your own converter.
+You are replacing a legacy ESB that exposed **any** XML document to REST clients as JSON using a fixed convention. Mobile apps already parse that convention, so your Mule API must reproduce it exactly.
+
+It must work for **every** document type, not only the sample (the hidden tests use different XML). The default \`output application/json\` drops all attributes, so you need your own converter.
 
 **Convention**
 1. The result is an object with one key: the root element's name.

@@ -4,7 +4,7 @@ export default {
   id: 'cs-027',
   category: 'case-studies',
   title: 'Charity Connecting Donations, CRM and Finance',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['non-profit', 'crm', 'system-api', 'scheduler', 'data-quality'],
   estMinutes: 25,
   diagram: {
@@ -43,7 +43,14 @@ export default {
     ),
   },
   description: `
-**Context.** A national charity raises money through three channels: an online donation platform (SaaS, card and direct-debit gifts), street and event fundraising agencies (they send weekly CSV files by SFTP), and a legacy gift-aid/tax-relief spreadsheet process. Donor records live in Salesforce (a non-profit data model); money is posted to a cloud finance system. Today two staff re-key data every Monday, duplicates are common, and thank-you emails go out days late.
+**Context.** A national charity raises money through three channels:
+- an online donation platform (SaaS, card and direct-debit gifts)
+- street and event fundraising agencies (they send weekly CSV files by SFTP)
+- a legacy gift-aid/tax-relief spreadsheet process
+
+Donor records live in Salesforce (a non-profit data model). Money is posted to a cloud finance system.
+
+**The problem today.** Two staff re-key data every Monday, duplicates are common, and thank-you emails go out days late.
 
 **Goals**
 - Every donation lands in Salesforce linked to the right donor, ideally within minutes for online gifts.
@@ -51,7 +58,7 @@ export default {
 - Duplicate donor records are reduced, not multiplied.
 
 **Constraints**
-- Small IT team (2 people), one new Mule developer, limited budget — keep the design simple.
+- Small IT team (2 people), one new Mule developer, limited budget. Keep the design simple.
 - Donor personal data and consent preferences (marketing opt-in) must be respected.
 - Agency files vary in quality (missing postcodes, misspelled names).
 

@@ -79,9 +79,13 @@ export default {
     },
   ],
   description: `
-\`sys-sfdc-customer-api\` v1 is consumed by **4 Process APIs** (\`prc-customer-360\`, \`prc-order\`, \`prc-onboarding\`, \`prc-marketing-sync\`). The Salesforce team restructures data: a customer can now have **multiple addresses**, and the single \`address\` object in v1 no longer represents reality. Also, \`customerType\` gains a new value \`PARTNER\`.
+\`sys-sfdc-customer-api\` v1 is consumed by **4 Process APIs** (\`prc-customer-360\`, \`prc-order\`, \`prc-onboarding\`, \`prc-marketing-sync\`).
 
-The Experience layer has 3 APIs and ~40 external consumers; the business does not want *any* external consumer to change.
+The Salesforce team restructures data:
+- A customer can now have **multiple addresses**, and the single \`address\` object in v1 no longer represents reality.
+- \`customerType\` gains a new value \`PARTNER\`.
+
+The Experience layer has 3 APIs and ~40 external consumers. The business does not want *any* external consumer to change.
 
 **Questions:**
 1. Which of these changes are breaking and which are not?

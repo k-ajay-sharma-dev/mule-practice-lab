@@ -46,7 +46,12 @@ export default {
     ),
   },
   description: `
-**Context.** A food manufacturer with four plants and three distribution centres supplies supermarkets and food-service customers. Raw material lots, production batches and shipments are recorded in different systems: SAP S/4HANA (batch management, goods receipts, deliveries), a plant MES (which raw lots went into which production batch) and a WMS in each DC (which pallets went on which truck). During the last allergen recall, it took the team 30 hours and a lot of spreadsheets to work out which customers had received the affected batches.
+**Context.** A food manufacturer with four plants and three distribution centres supplies supermarkets and food-service customers. Raw material lots, production batches and shipments are recorded in different systems:
+- SAP S/4HANA (batch management, goods receipts, deliveries)
+- a plant MES (which raw lots went into which production batch)
+- a WMS in each DC (which pallets went on which truck)
+
+**The problem today.** During the last allergen recall, it took the team 30 hours and a lot of spreadsheets to work out which customers had received the affected batches.
 
 **Goals**
 - Trace one step back (supplier lots) and one step forward (customers) for any lot within 2 hours.
@@ -62,7 +67,10 @@ export default {
 | Customers | Large retailers want recall notices by EDI or their supplier portal; smaller ones by email |
 | Data | Several million lot links a year; records kept for several years |
 
-**Your task.** Design the traceability data flow, the recall process and how you would prove it works.
+**Your task.** Design:
+- the traceability data flow
+- the recall process
+- how you would prove it works
 `,
   answerTemplate: `## Traceability data model (lots, batches, shipments, links)
 

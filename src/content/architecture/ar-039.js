@@ -91,7 +91,10 @@ A retailer's **checkout** chain has these settings today:
 | Payment System API → Payment provider | 90 s | 500 ms |
 | Load balancer in front of apps | its own idle/request timeout | — |
 
-Incident: the payment provider became slow (responses after 40–80 s). Users saw an error after 30 s and clicked "Pay" again. Meanwhile the inner calls kept running and **some payments completed after the user had already given up**, leading to double charges. Threads and connections piled up in the Payment System API.
+Incident: the payment provider became slow (responses after 40–80 s).
+- Users saw an error after 30 s and clicked "Pay" again.
+- Meanwhile the inner calls kept running, and **some payments completed after the user had already given up**, leading to double charges.
+- Threads and connections piled up in the Payment System API.
 
 **Questions:**
 - What is wrong with these timeout values?

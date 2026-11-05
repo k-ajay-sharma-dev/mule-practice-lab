@@ -103,7 +103,7 @@ export default {
     },
   ],
   description: `
-A retailer is sizing two workloads for a **new on-premises server with 4 cores and 16 GB of RAM**, and one on Runtime Fabric:
+A retailer is sizing three workloads. Two run on a **new on-premises server with 4 cores and 16 GB of RAM**, and one runs on Runtime Fabric:
 
 - **Catalogue load:** 5 million small records (about 1 KB each) in one nightly batch job with three steps, loading a database through a Batch Aggregator.
 - **Image sync:** 40,000 product images of about 3 MB each in a batch job, four times a day.
@@ -113,7 +113,7 @@ In the test environment the team saw:
 - Heap exhaustion in the image job after increasing nothing but the record size.
 - Slow catalogue loads on a shared network disk.
 - \`No space left on device\` after a week of running the image job.
-- Nothing wrong at low volume, then memory pressure at high concurrency in the price API, after a developer raised the stream buffer.
+- A developer raised the stream buffer in the price API. Nothing went wrong at low volume, but memory pressure appeared at high concurrency.
 
 **Questions**
 1. How do block size and concurrency drive working memory? Estimate the image job.

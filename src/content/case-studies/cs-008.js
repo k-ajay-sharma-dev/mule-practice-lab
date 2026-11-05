@@ -4,7 +4,7 @@ export default {
   id: 'cs-008',
   category: 'case-studies',
   title: 'Food Delivery Platform Sending Orders to Restaurants',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['async', 'anypoint-mq', 'webhooks', 'retail', 'idempotency'],
   estMinutes: 25,
   diagram: {
@@ -47,7 +47,11 @@ export default {
     ),
   },
   description: `
-**Context.** A regional food delivery start-up takes orders in its mobile app. Orders must reach restaurants, which use three different tablet/POS vendors (each with its own REST API or webhook), and the courier dispatch service. Today the app backend calls each POS directly; when a POS vendor is slow, the customer's checkout spins for 30 seconds and sometimes the order is sent twice.
+**Context.** A regional food delivery start-up takes orders in its mobile app. Orders must reach:
+- restaurants, which use three different tablet/POS vendors (each with its own REST API or webhook)
+- the courier dispatch service
+
+**The problem today.** The app backend calls each POS directly. When a POS vendor is slow, the customer's checkout spins for 30 seconds and sometimes the order is sent twice.
 
 **Goals**
 - Checkout responds in under 2 seconds regardless of POS speed.

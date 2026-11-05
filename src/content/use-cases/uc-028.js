@@ -4,7 +4,7 @@ export default {
   id: 'uc-028',
   category: 'use-cases',
   title: 'School Attendance Alerts to the Parent App',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['event-driven', 'push-notifications', 'idempotency', 'education'],
   estMinutes: 15,
   diagram: {

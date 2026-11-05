@@ -43,7 +43,13 @@ export default {
     ),
   },
   description: `
-**Context.** A DIY and garden retailer runs 300 stores, about a third in rural or retail-park locations where the WAN link drops several times a week (4G backup is slow and metered). Today each store server downloads a price file and uploads a sales file by FTP overnight. When the transfer fails, tills open with yesterday's prices and the store's sales arrive in SAP a day late, breaking replenishment. Weekend promotions are often wrong in a handful of stores.
+**Context.** A DIY and garden retailer runs 300 stores. About a third are in rural or retail-park locations where the WAN link drops several times a week (4G backup is slow and metered). Each store server downloads a price file and uploads a sales file by FTP overnight.
+
+**The problem today.** When the transfer fails:
+- Tills open with yesterday's prices.
+- The store's sales arrive in SAP a day late, breaking replenishment.
+
+Weekend promotions are often wrong in a handful of stores.
 
 **Goals**
 - Price and promotion changes reach every store within 15 minutes when the link is up, and are applied in order when it comes back.
@@ -59,7 +65,9 @@ export default {
 | Volume | 2–5 million price lines in a big promotional week; ~1.5 million sale lines a day |
 | Outages | Store links can be down for up to 2 days |
 
-**Your task.** Propose the store integration design for price distribution, sales upload and the colleague app, and how you handle outages.
+**Your task.** Propose:
+- the store integration design for price distribution, sales upload and the colleague app
+- how you handle outages
 `,
   answerTemplate: `## Why the FTP batch fails
 

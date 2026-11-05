@@ -2,7 +2,7 @@ export default {
   id: 'dw-011',
   category: 'dataweave',
   title: 'Mask PII Anywhere in a Payload',
-  level: 'EXPERT',
+  level: 'ADVANCED',
   tags: ['recursion', 'match', 'mapObject', 'pii', 'security'],
   estMinutes: 30,
   description: `

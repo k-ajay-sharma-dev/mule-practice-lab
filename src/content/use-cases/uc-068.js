@@ -4,7 +4,7 @@ export default {
   id: 'uc-068',
   category: 'use-cases',
   title: 'Store Inventory Cycle Counts from Handhelds to the ERP',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'store-inventory', 'cycle-count', 'oracle', 'oracle-ebs', 'activemq', 'handheld', 'api-led'],
   estMinutes: 20,
   diagram: {
@@ -36,8 +36,8 @@ export default {
 A DIY retailer with **600 stores** replaces its yearly stock-take with **daily cycle counts**: every night ~50 items per store are selected for counting (high value, high shrink, or negative stock). Next morning associates count them with **handheld scanners** before opening.
 
 Systems:
-- **Store inventory database** (Oracle) — book stock per store and item, updated from POS sales and deliveries.
-- **Oracle EBS Inventory** — the financial stock ledger; counts must be posted as **inventory adjustments**.
+- **Store inventory database** (Oracle): book stock per store and item, updated from POS sales and deliveries.
+- **Oracle EBS Inventory**: the financial stock ledger. Counts must be posted as **inventory adjustments**.
 
 Rules:
 - The handheld must download today's count list, then submit counts (item, location in store, counted quantity).
@@ -48,7 +48,11 @@ Rules:
 
 Volumes: 600 stores × 50 items = 30,000 counts/day, mostly 07:00–09:00.
 
-**Questions:** which APIs do you build, how do you compute the variance correctly, how do you handle recounts, and how do counts reach EBS?
+**Questions:**
+1. Which APIs do you build?
+2. How do you compute the variance correctly?
+3. How do you handle recounts?
+4. How do counts reach EBS?
 `,
   answerTemplate: `## APIs
 

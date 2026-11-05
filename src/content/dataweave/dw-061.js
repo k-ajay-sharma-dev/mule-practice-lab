@@ -2,7 +2,7 @@ export default {
   id: 'dw-061',
   category: 'dataweave',
   title: 'Gift Card Balances from a Transaction Ledger',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'gift-card', 'groupBy', 'filter', 'strings-module', 'json'],
   estMinutes: 15,
   description: `

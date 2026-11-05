@@ -62,9 +62,7 @@ export default {
     },
   ],
   description: `
-You join a team and open \`orders-sapi\` in Anypoint Studio. A colleague's laptop build works, but the CI build fails with "Cannot load driver class: oracle.jdbc.OracleDriver", and after deployment to CloudHub 1.0 the Runtime Manager **Properties** tab shows \`db.password\` in clear text.
-
-The project tree looks like this:
+You join a team and open \`orders-sapi\` in Anypoint Studio. The project tree looks like this:
 
 \`\`\`text
 orders-sapi/
@@ -77,7 +75,9 @@ orders-sapi/
 └── src/test/resources/
 \`\`\`
 
-The Oracle JDBC jar was added to Studio's build path by hand on the colleague's machine.
+There are two problems:
+- A colleague's laptop build works, but the CI build fails with "Cannot load driver class: oracle.jdbc.OracleDriver". The Oracle JDBC jar was added to Studio's build path by hand on the colleague's machine.
+- After deployment to CloudHub 1.0, the Runtime Manager **Properties** tab shows \`db.password\` in clear text.
 
 **Questions**
 1. What belongs in each folder, and what ends up in the deployable jar?

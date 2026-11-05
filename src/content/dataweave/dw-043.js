@@ -6,7 +6,12 @@ export default {
   tags: ['x-www-form-urlencoded', 'multi-value-selector', 'coercion', 'default', 'webhooks'],
   estMinutes: 15,
   description: `
-A legacy payment gateway calls your Mule HTTP Listener when a payment finishes. It does **not** send JSON — the body is \`application/x-www-form-urlencoded\`, exactly like an HTML form post. Every value therefore arrives as a **string**, and the \`item\` field is **repeated** once per purchased SKU.
+A legacy payment gateway calls your Mule HTTP Listener when a payment finishes.
+
+**The callback**
+- It does **not** send JSON. The body is \`application/x-www-form-urlencoded\`, exactly like an HTML form post.
+- Every value therefore arrives as a **string**.
+- The \`item\` field is **repeated** once per purchased SKU.
 
 Turn the callback into the JSON event your order service expects:
 

@@ -4,7 +4,7 @@ export default {
   id: 'cs-029',
   category: 'case-studies',
   title: 'Construction Firm Linking Project Management and ERP',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['construction', 'erp', 'system-api', 'master-data', 'error-handling'],
   estMinutes: 25,
   diagram: {
@@ -40,7 +40,11 @@ export default {
     ),
   },
   description: `
-**Context.** A mid-sized construction company runs ~120 active building projects. Site teams use a SaaS project-management tool (budgets, change orders, subcontractor commitments, progress claims). Finance uses an on-premises ERP for cost codes, purchase orders, supplier invoices and payments. Each month, project accountants spend days copying commitments and change orders into the ERP and copying actual costs back, and the two systems rarely agree.
+**Context.** A mid-sized construction company runs ~120 active building projects.
+- Site teams use a SaaS project-management tool (budgets, change orders, subcontractor commitments, progress claims).
+- Finance uses an on-premises ERP for cost codes, purchase orders, supplier invoices and payments.
+
+**The problem today.** Each month, project accountants spend days copying commitments and change orders into the ERP and copying actual costs back. The two systems rarely agree.
 
 **Goals**
 - New projects and cost codes created in the ERP appear automatically in the project tool.
@@ -52,7 +56,10 @@ export default {
 - The project tool has a REST API with rate limits (~100 calls/minute) and webhooks for approvals.
 - Finance insists the ERP stays the system of record for money; the project tool is the system of record for project scope.
 
-**Your task.** Propose the integration architecture, ownership of each data object, and error handling.
+**Your task.** Propose:
+- the integration architecture
+- ownership of each data object
+- error handling
 `,
   answerTemplate: `## System of record per data object
 

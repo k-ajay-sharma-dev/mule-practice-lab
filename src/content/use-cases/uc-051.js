@@ -58,7 +58,7 @@ A university with 35,000 students is replacing a batch-driven registration proce
 
 | System | Holds | Interface |
 |---|---|---|
-| **Student Information System (SIS)** — e.g. Ellucian Banner | Students, programmes, modules, sections, seats, registrations, prerequisites | Oracle DB + Banner Ethos REST APIs |
+| **Student Information System (SIS)**, e.g. Ellucian Banner | Students, programmes, modules, sections, seats, registrations, prerequisites | Oracle DB + Banner Ethos REST APIs |
 | **Finance system** (e.g. Oracle Fusion / Unit4) | Tuition fees, **financial holds** | REST |
 | **LMS** (Canvas) | Courses, enrolments | REST, rate-limited |
 | **Identity** (Microsoft Entra ID) | Student accounts, groups | Microsoft Graph |
@@ -69,7 +69,10 @@ Facts:
 - LMS enrolment must follow within **15 minutes**; the LMS being slow must **not** slow registration.
 - Fees for extra modules are calculated in the finance system after registration.
 
-**Questions:** decompose the API network, describe the registration sequence, and explain which parts are synchronous vs event-driven and why.
+**Questions:**
+1. Decompose the API network.
+2. Describe the registration sequence.
+3. Explain which parts are synchronous vs event-driven and why.
 `,
   answerTemplate: `## Experience APIs
 

@@ -73,7 +73,7 @@ export default {
     },
   ],
   description: `
-A product-search screen must respond in **≤ 800 ms at p95**. Current chain:
+A product-search screen must respond in **≤ 800 ms at p95**. Measured p95 end-to-end is **1.4 s**. Current chain:
 
 \`\`\`
 mobile -> exp-mobile-api -> prc-product-api -> sys-pim-api        (PIM, p95 250 ms)
@@ -81,7 +81,10 @@ mobile -> exp-mobile-api -> prc-product-api -> sys-pim-api        (PIM, p95 250 
                                            -> sys-stock-api      (WMS, p95 400 ms)
 \`\`\`
 
-Measured p95 end-to-end: **1.4 s**. Each Mule app runs separately on CloudHub 2.0 (0.2 vCore, 1 replica). The Process API calls the three System APIs **sequentially**. Every call goes through the public load balancer because developers used the public URLs.
+Facts:
+- Each Mule app runs separately on CloudHub 2.0 (0.2 vCore, 1 replica).
+- The Process API calls the three System APIs **sequentially**.
+- Every call goes through the public load balancer because developers used the public URLs.
 
 A senior developer says: *"API-led is too slow — let's have the mobile app call the databases directly."*
 

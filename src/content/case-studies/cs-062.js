@@ -81,7 +81,14 @@ export default {
     },
   ],
   description: `
-**Context.** A global home and electronics retailer (1,100 stores in 12 countries, 18 DCs, e-commerce in every country) runs four ActiveMQ Classic 5.x broker clusters that are out of support, plus a small Anypoint MQ footprint used by newer CloudHub apps. The data team has started a self-managed Kafka cluster for clickstream data. Every new project asks "which messaging should we use?" and gets a different answer. The CTO wants one architecture decision record for the supply chain and retail estate.
+**Context.** A global home and electronics retailer has 1,100 stores in 12 countries, 18 DCs and e-commerce in every country.
+
+**Messaging today**
+- Four ActiveMQ Classic 5.x broker clusters that are out of support.
+- A small Anypoint MQ footprint used by newer CloudHub apps.
+- A self-managed Kafka cluster the data team has started for clickstream data.
+
+**The problem today.** Every new project asks "which messaging should we use?" and gets a different answer. The CTO wants one architecture decision record for the supply chain and retail estate.
 
 **Current flows (examples)**
 | Flow | Volume / need |
@@ -97,7 +104,11 @@ export default {
 - Licence and run cost must not grow faster than volume.
 - Regional data residency applies to customer data (not to stock data).
 
-**Your task.** Write the messaging decision: options, criteria, the standard you recommend for each type of flow, and the migration from ActiveMQ Classic.
+**Your task.** Write the messaging decision:
+- options
+- criteria
+- the standard you recommend for each type of flow
+- the migration from ActiveMQ Classic
 `,
   answerTemplate: `## Decision criteria
 

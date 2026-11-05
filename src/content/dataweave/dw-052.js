@@ -2,7 +2,7 @@ export default {
   id: 'dw-052',
   category: 'dataweave',
   title: 'Export Purchase Order Lines as a Supplier CSV',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'csv', 'writer-properties', 'quoteValues', 'number-format'],
   estMinutes: 15,
   description: `

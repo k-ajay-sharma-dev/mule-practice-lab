@@ -45,7 +45,15 @@ export default {
     ),
   },
   description: `
-**Context.** A regional bank (1.5 million customers) runs a 30-year-old mainframe core banking system for current accounts, savings, loans and payments. About 70 channel and back-office systems connect to it through a mix of CICS transactions, nightly batch files, MQ messages and screen-scraping. The board has approved a move to a modern cloud-native core banking product over five years. A previous "big bang" core replacement at a peer bank failed publicly.
+**Context.** A regional bank (1.5 million customers) runs a 30-year-old mainframe core banking system for current accounts, savings, loans and payments.
+
+About 70 channel and back-office systems connect to it through a mix of:
+- CICS transactions
+- nightly batch files
+- MQ messages
+- screen-scraping
+
+The board has approved a move to a modern cloud-native core banking product over five years. A previous "big bang" core replacement at a peer bank failed publicly.
 
 **Goals**
 - Move products to the new core in stages, starting with new savings products.
@@ -58,7 +66,12 @@ export default {
 - Customers hold products on both cores during the transition (e.g. current account on mainframe, savings on new core).
 - Mainframe skills are scarce; three key experts retire within two years.
 
-**Your task.** Propose the target architecture, the strangler migration strategy, data migration approach, coexistence design and governance.
+**Your task.** Propose:
+- the target architecture
+- the strangler migration strategy
+- the data migration approach
+- the coexistence design
+- governance
 `,
   answerTemplate: `## Target architecture and principles
 

@@ -6,16 +6,18 @@ export default {
   tags: ['retail', 'inventory', 'csv', 'groupBy', 'distinctBy', 'full-outer-join', 'number-formatting'],
   estMinutes: 25,
   description: `
-A store does a cycle count with handheld scanners. The scanner export (\`payload\`, CSV) has one row per **location** where a SKU was counted — the same SKU can be on the shop floor and in the backroom. The merchandise system's stock for the counted range is in \`systemStock\` (JSON).
+A store does a cycle count with handheld scanners. Produce the variance report the store manager must sign off before the counts are posted to the ERP.
 
-Produce the variance report the store manager must sign off before the counts are posted to the ERP.
+**Inputs**
+- \`payload\` (CSV): the scanner export, with one row per **location** where a SKU was counted. The same SKU can be on the shop floor and in the backroom.
+- \`systemStock\` (JSON): the merchandise system's stock for the counted range.
 
 **Rules**
 - \`CountedQty\` of a SKU is the **sum** of all its scanner rows.
 - Every SKU from either side is considered:
-  - in the system but without any scanner row → \`CountedQty\` \`0\`, status \`NOT_COUNTED\`;
-  - scanned but unknown to the system → \`SystemQty\` \`0\`, empty \`Description\`, empty \`VarianceValue\`, status \`UNKNOWN_SKU\`.
-  - otherwise \`MATCH\` (variance 0), \`OVER\` (counted more) or \`SHORT\` (counted less). A SKU scanned with \`0\` **was** counted — it is \`SHORT\`, not \`NOT_COUNTED\`.
+  - In the system but without any scanner row: \`CountedQty\` \`0\`, status \`NOT_COUNTED\`.
+  - Scanned but unknown to the system: \`SystemQty\` \`0\`, empty \`Description\`, empty \`VarianceValue\`, status \`UNKNOWN_SKU\`.
+  - Otherwise \`MATCH\` (variance 0), \`OVER\` (counted more) or \`SHORT\` (counted less). A SKU scanned with \`0\` **was** counted, so it is \`SHORT\`, not \`NOT_COUNTED\`.
 - \`Variance\` = \`CountedQty - SystemQty\`; \`VarianceValue\` = \`Variance * unitCost\` formatted with exactly two decimals.
 - \`MATCH\` rows are **not** written. The remaining rows are sorted by \`SKU\` ascending.
 - Header: \`SKU,Description,SystemQty,CountedQty,Variance,VarianceValue,Status\`.

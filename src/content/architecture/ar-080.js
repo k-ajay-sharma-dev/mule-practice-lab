@@ -46,7 +46,12 @@ export default {
     ),
   },
   description: `
-A sports retailer operates **650 stores in 9 countries** (Germany, France, Netherlands, UK, US, Canada, India, UAE, Australia) and runs a single global integration platform in the US: every store sends sales with **loyalty IDs**, receipts with customer emails, and store-employee timesheets to a US-hosted Oracle database and data lake.
+A sports retailer operates **650 stores in 9 countries** (Germany, France, Netherlands, UK, US, Canada, India, UAE, Australia). It runs a single global integration platform in the US.
+
+Every store sends these to a US-hosted Oracle database and data lake:
+- Sales with **loyalty IDs**
+- Receipts with customer emails
+- Store-employee timesheets
 
 Legal has flagged:
 - **EU (GDPR)**: personal data may leave the EU only with a valid transfer mechanism; the DPO wants EU customer and employee data processed and stored in the EU by default.

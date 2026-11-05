@@ -4,7 +4,7 @@ export default {
   id: 'uc-067',
   category: 'use-cases',
   title: 'Store POS Sales to the Merchandising System via ActiveMQ',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'pos', 'activemq', 'jms', 'oracle', 'bulk-insert', 'merchandising', 'reconciliation'],
   estMinutes: 20,
   diagram: {
@@ -43,7 +43,11 @@ Facts:
 - Stores send an end-of-day total (count and amount per register) at closing.
 - Finance must be able to prove that every store's sales reached the merchandising system.
 
-**Questions:** describe the Mule flows, how you write to Oracle efficiently, how you handle duplicates and bad messages, and how you reconcile.
+**Questions:**
+1. Describe the Mule flows.
+2. How do you write to Oracle efficiently?
+3. How do you handle duplicates and bad messages?
+4. How do you reconcile?
 `,
   answerTemplate: `## Consuming from ActiveMQ
 

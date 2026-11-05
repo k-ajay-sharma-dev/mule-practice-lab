@@ -101,11 +101,27 @@ export default {
     ),
   ),
   description: `
-Your company pushes **product price updates** to a marketplace partner API. The partner contract says: **max 20 requests/second** and **max 5 concurrent connections** per client ID; violations return **429 Too Many Requests** with a \`Retry-After\` header, and repeated abuse suspends the account.
+Your company pushes **product price updates** to a marketplace partner API.
 
-Load pattern: usually 2–5 updates/s, but the pricing engine sometimes publishes **150,000 updates in 10 minutes**. The integration app runs on **3 replicas**. Updates for the same SKU must not be applied out of order (an older price must not overwrite a newer one).
+**Partner contract**
+- **Max 20 requests/second** and **max 5 concurrent connections** per client ID.
+- Violations return **429 Too Many Requests** with a \`Retry-After\` header.
+- Repeated abuse suspends the account.
 
-**Design the flow(s):** buffering, enforcing the rate and concurrency limit across replicas, handling 429, and preserving per-SKU correctness.
+**Load**
+- Usually 2–5 updates/s.
+- The pricing engine sometimes publishes **150,000 updates in 10 minutes**.
+- The integration app runs on **3 replicas**.
+
+**Ordering rule**
+
+Updates for the same SKU must not be applied out of order (an older price must not overwrite a newer one).
+
+**Design the flow(s):**
+- Buffering
+- Enforcing the rate and concurrency limit across replicas
+- Handling 429
+- Preserving per-SKU correctness
 `,
   answerTemplate: `## Buffering the burst
 

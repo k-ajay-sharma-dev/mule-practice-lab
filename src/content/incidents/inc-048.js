@@ -2,7 +2,7 @@ export default {
   id: 'inc-048',
   category: 'incidents',
   title: 'Experience API Times Out While the Lower Layers Still Finish Successfully',
-  level: 'INTERMEDIATE',
+  level: 'ADVANCED',
   tags: ['api-led', 'timeouts', 'latency', 'timeout-budget', 'idempotency'],
   estMinutes: 30,
   investigation: {

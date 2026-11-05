@@ -2,7 +2,7 @@ export default {
   id: 'ms-059',
   category: 'mulesoft',
   title: 'Store Price Updates over ActiveMQ: Queues, Topics, Durable and Shared Subscriptions',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'jms', 'activemq', 'topics', 'durable-subscription', 'pricing'],
   estMinutes: 15,
   quiz: [
@@ -66,14 +66,16 @@ export default {
     },
   ],
   description: `
-A grocery chain with **420 stores** is moving price distribution onto **ActiveMQ**. The central pricing engine publishes a \`PriceChanged\` message (SKU, store cluster, new price, effective time) whenever a price or promotion changes — around 80,000 messages on a busy Monday morning.
+A grocery chain with **420 stores** is moving price distribution onto **ActiveMQ**. The central pricing engine publishes a \`PriceChanged\` message (SKU, store cluster, new price, effective time) whenever a price or promotion changes. A busy Monday morning brings around 80,000 messages.
 
 Three Mule applications consume these messages:
 - **store-price-sync** (2 replicas on CloudHub 2.0) pushes prices to the store POS servers.
 - **ecom-price-sync** updates the e-commerce catalogue.
 - **pricing-analytics** loads every change into a reporting database.
 
-A first prototype used one queue \`PRICE.CHANGES\`, and the business noticed that the website and the stores disagreed on prices. A second prototype used a topic, but after a redeploy the e-commerce site missed a whole promotion, and the stores sometimes received the same change twice.
+Two prototypes had problems:
+- **First prototype:** it used one queue \`PRICE.CHANGES\`. The business noticed that the website and the stores disagreed on prices.
+- **Second prototype:** it used a topic. After a redeploy, the e-commerce site missed a whole promotion, and the stores sometimes received the same change twice.
 
 **Questions**
 1. Why did the single queue cause the website and stores to disagree?

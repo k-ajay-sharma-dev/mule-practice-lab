@@ -95,7 +95,13 @@ public class Signer {
 }
 \`\`\`
 
-The Mule app must compute a check digit for each account in a list and sign the outgoing JSON once per request. A developer copied the jar into \`src/main/resources/lib\` and gets \`ClassNotFoundException\` at runtime. Another suggestion is to "just use a Groovy script".
+The Mule app must:
+- compute a check digit for each account in a list
+- sign the outgoing JSON once per request
+
+So far:
+- A developer copied the jar into \`src/main/resources/lib\` and gets \`ClassNotFoundException\` at runtime.
+- Another suggestion is to use a Groovy script instead.
 
 **Questions**
 1. How do you add the jar to the project correctly?

@@ -9,7 +9,7 @@ export default {
   estMinutes: 8,
   exercise: 'quiz',
   description: `
-Small scripts that join text and do arithmetic look easy, but DataWeave converts some types for you. These questions check whether you know when.
+Small scripts that join text and do arithmetic look simple, but DataWeave converts some types for you. These questions check whether you know when.
 
 Work out each result before you choose.
 `,

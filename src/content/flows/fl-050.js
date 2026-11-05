@@ -101,12 +101,18 @@ export default {
 A B2B/B2C distributor's sales portal needs **quotes**: given a customer and a list of SKUs, return a price per line, availability and a total.
 
 Systems (each already has, or will get, its own System API):
-- **CRM** (Salesforce) — customer and segment: \`B2B\` or \`B2C\`.
-- **ERP** — negotiated **contract prices** (B2B customers only).
-- **Pricing engine** — public **list prices** (B2C).
-- **Inventory** — stock per SKU.
+- **CRM** (Salesforce): customer and segment, \`B2B\` or \`B2C\`.
+- **ERP:** negotiated **contract prices** (B2B customers only).
+- **Pricing engine:** public **list prices** (B2C).
+- **Inventory:** stock per SKU.
 
-Rules: look the customer up first; B2B customers are priced from the ERP, everyone else from the pricing engine; then check availability for the priced lines. ~10 quotes/s, 5 s end-to-end SLA. An unknown customer must give a clear business error, not a 500.
+**Rules**
+- Look the customer up first.
+- B2B customers are priced from the ERP, everyone else from the pricing engine.
+- Then check availability for the priced lines.
+- An unknown customer must give a clear business error, not a 500.
+
+**Load:** ~10 quotes/s, 5 s end-to-end SLA.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-quotes/v1/quotes\`), and let layers call each other with HTTP Request pointing at the lower API's path. Draw the Process API in full; one System API flow is enough to show the pattern.
 

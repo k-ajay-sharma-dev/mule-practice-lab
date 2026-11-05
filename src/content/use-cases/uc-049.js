@@ -55,11 +55,11 @@ An energy supplier delivered **Project 1** last year: a customer self-service we
 | System | sys-customer-identity (Okta) | \`GET /users/{id}\` | Experience APIs |
 
 **Project 2 requirement.** Launch a **voice assistant skill** (Alexa / Google Assistant) so customers can say:
-- *"What's my balance?"* — answer in one sentence.
-- *"Submit a meter reading of 4 5 2 1 9."* — confirm back.
-- *"When is my next bill?"* — **new**: needs the next bill date, which today no API returns (SAP IS-U holds it on the contract account's billing schedule).
+- *"What's my balance?"* Answer in one sentence.
+- *"Submit a meter reading of 4 5 2 1 9."* Confirm back.
+- *"When is my next bill?"* This is **new**. It needs the next bill date, which no API returns today. SAP IS-U holds it on the contract account's billing schedule.
 
-Account linking with the supplier's identity provider (Okta) (OAuth) is handled by the voice platform. Expected volume is small (≤ 5 req/s).
+The voice platform handles account linking with the supplier's identity provider (Okta) over OAuth. Expected volume is small (≤ 5 req/s).
 
 **Questions:**
 1. Which existing APIs are reused as-is?

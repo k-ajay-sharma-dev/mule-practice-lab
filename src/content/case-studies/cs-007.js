@@ -47,7 +47,11 @@ export default {
     ),
   },
   description: `
-**Context.** A university runs a Student Information System (SIS) as the source of truth for enrolments. The learning management system (LMS), the library system and the campus ID-card system each get a nightly CSV export from the SIS, built by different teams with different scripts. Students who enrol late wait up to 24 hours for LMS and library access, and the scripts fail silently about once a week.
+**Context.** A university runs a Student Information System (SIS) as the source of truth for enrolments. The learning management system (LMS), the library system and the campus ID-card system each get a nightly CSV export from the SIS, built by different teams with different scripts.
+
+**The problem today**
+- Students who enrol late wait up to 24 hours for LMS and library access.
+- The scripts fail silently about once a week.
 
 **Goals**
 - New and changed enrolments reach the LMS, library and ID-card systems within 15 minutes.
@@ -59,7 +63,10 @@ export default {
 - Small team (2 developers new to MuleSoft), CloudHub already licensed.
 - Peak load at the start of term: ~20,000 changes in a week.
 
-**Your task.** Propose a simple MuleSoft design: which APIs/apps you build, how changes are detected and delivered, and how you handle errors.
+**Your task.** Propose a simple MuleSoft design:
+- which APIs/apps you build
+- how changes are detected and delivered
+- how you handle errors
 `,
   answerTemplate: `## APIs and applications
 

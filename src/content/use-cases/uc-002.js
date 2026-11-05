@@ -4,7 +4,7 @@ export default {
   id: 'uc-002',
   category: 'use-cases',
   title: 'Payment Gateway Webhooks',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['webhooks', 'hmac', 'retries', 'anypoint-mq'],
   estMinutes: 15,
   diagram: {

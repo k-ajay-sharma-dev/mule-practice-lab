@@ -47,7 +47,11 @@ export default {
     ),
   },
   description: `
-**Context.** A tier-1 supplier builds car seats in a plant 20 km from two OEM assembly plants. Seats are delivered just-in-sequence (JIS): the OEM sends a sequence call for each car as it enters final assembly (EDIFACT DELJIT over AS2), and the supplier has about four hours to build the exact seat variant and deliver it in a rack in the same order as the cars on the line. Today a 15-year-old custom program on a single Windows server receives the calls and writes them into the MES database. When it stopped for 40 minutes last year, the supplier had to pay for line-stoppage time at the OEM.
+**Context.** A tier-1 supplier builds car seats in a plant 20 km from two OEM assembly plants. Seats are delivered just-in-sequence (JIS):
+- The OEM sends a sequence call for each car as it enters final assembly (EDIFACT DELJIT over AS2).
+- The supplier has about four hours to build the exact seat variant and deliver it in a rack in the same order as the cars on the line.
+
+**The problem today.** A 15-year-old custom program on a single Windows server receives the calls and writes them into the MES database. When it stopped for 40 minutes last year, the supplier had to pay for line-stoppage time at the OEM.
 
 **Goals**
 - Receive, acknowledge and pass calls to the line within 1 minute, with no lost or out-of-order calls.
@@ -65,7 +69,11 @@ export default {
 | Network | Plant WAN to the cloud is a single link; the line must keep running if it fails |
 | Messaging | ActiveMQ Artemis is the company standard for plant messaging |
 
-**Your task.** Propose the architecture, deployment model, ordering and resilience approach, and how you test it.
+**Your task.** Propose:
+- the architecture
+- the deployment model
+- the ordering and resilience approach
+- how you test it
 `,
   answerTemplate: `## Message flow (call → build → rack → despatch → invoice)
 

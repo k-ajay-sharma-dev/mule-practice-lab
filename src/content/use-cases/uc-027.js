@@ -4,7 +4,7 @@ export default {
   id: 'uc-027',
   category: 'use-cases',
   title: 'Daily Currency Rates Distribution',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['scheduler', 'fx-rates', 'fan-out', 'object-store', 'finance'],
   estMinutes: 15,
   diagram: {

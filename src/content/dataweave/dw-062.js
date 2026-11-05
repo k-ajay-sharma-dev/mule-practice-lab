@@ -8,7 +8,10 @@ export default {
   description: `
 After closing, each store's back-office server drops its POS transaction log on SFTP. A Mule flow picks the files up and must post an **end-of-day sales summary** per store to the ERP.
 
-The log is XML. Every \`Transaction\` has the attributes \`store\`, \`register\`, \`seq\`, \`kind\` and optionally \`cancelled="true"\`. Lines are \`Line\` elements with the attributes \`dept\`, \`sku\`, \`qty\`, \`amount\` (line total, always positive) and optionally \`voided="true"\`. The business date is the \`storeDate\` attribute of the root element.
+**The log is XML**
+- The business date is the \`storeDate\` attribute of the root element.
+- Every \`Transaction\` has the attributes \`store\`, \`register\`, \`seq\`, \`kind\` and optionally \`cancelled="true"\`.
+- Lines are \`Line\` elements with the attributes \`dept\`, \`sku\`, \`qty\`, \`amount\` (line total, always positive) and optionally \`voided="true"\`.
 
 **Rules**
 - Only transactions of kind \`SALE\` or \`RETURN\` count (\`NO_SALE\` drawer openings, \`PAID_OUT\` etc. are ignored), and never a transaction with \`cancelled="true"\`.
@@ -16,11 +19,11 @@ The log is XML. Every \`Transaction\` has the attributes \`store\`, \`register\`
 - A transaction without any \`Line\` is possible.
 - One object per store that has at least one counted transaction, **sorted by \`storeId\`**:
   - \`storeId\`, \`businessDate\`
-  - \`transactionCount\` — counted transactions of that store
-  - \`grossSales\` — sum of SALE line amounts
-  - \`returns\` — sum of RETURN line amounts (positive number)
-  - \`netSales\` — \`grossSales - returns\`
-  - \`departments\` — one entry per department with at least one non-voided line, **sorted by \`dept\`**: \`dept\`, \`netSales\` (sales minus returns), \`units\` (sold qty minus returned qty)
+  - \`transactionCount\`: counted transactions of that store
+  - \`grossSales\`: sum of SALE line amounts
+  - \`returns\`: sum of RETURN line amounts (positive number)
+  - \`netSales\`: \`grossSales - returns\`
+  - \`departments\`: one entry per department with at least one non-voided line, **sorted by \`dept\`**: \`dept\`, \`netSales\` (sales minus returns), \`units\` (sold qty minus returned qty)
 - Amounts and quantities are numbers in the output.
 `,
   inputs: [

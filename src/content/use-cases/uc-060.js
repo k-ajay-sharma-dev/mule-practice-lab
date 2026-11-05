@@ -4,7 +4,7 @@ export default {
   id: 'uc-060',
   category: 'use-cases',
   title: 'WMS ↔ ERP Order Release and Shipment Confirmations over ActiveMQ',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'wms', 'activemq', 'jms', 'oracle', 'oracle-ebs', 'dlq', 'idempotency'],
   estMinutes: 20,
   diagram: {
@@ -45,7 +45,11 @@ Facts:
 - EBS is down for patching every second Sunday for 4 hours; the WMS keeps working.
 - About 1 in 500 confirmations has an error (e.g. lot number unknown to EBS).
 
-**Questions:** design both flows. Which queues, which Mule components, how do you avoid duplicate ship-confirms, what happens during the EBS outage, and what happens to bad messages?
+**Design both flows:**
+- Which queues and which Mule components do you use?
+- How do you avoid duplicate ship-confirms?
+- What happens during the EBS outage?
+- What happens to bad messages?
 `,
   answerTemplate: `## Order release flow
 

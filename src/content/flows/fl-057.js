@@ -4,7 +4,7 @@ export default {
   id: 'fl-057',
   category: 'flows',
   title: 'Store Cycle-Count Files from SFTP into Oracle with Bulk Insert',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'store-inventory', 'sftp', 'csv', 'oracle', 'bulk-insert', 'transactions'],
   estMinutes: 20,
   flowChecks: [
@@ -71,14 +71,20 @@ export default {
     ),
   ),
   description: `
-A grocery chain runs **cycle counts** in its **320 stores** every night. Each store's handheld system uploads one CSV per count to an SFTP folder (\`/counts/inbound/STORE_<storeId>_<yyyyMMdd>.csv\`), columns \`SKU, LOCATION, QTY\`, typically **2,000–5,000 lines**. Files arrive between 21:00 and 23:30.
+A grocery chain runs **cycle counts** in its **320 stores** every night.
+
+**Incoming files**
+- Each store's handheld system uploads one CSV per count to an SFTP folder: \`/counts/inbound/STORE_<storeId>_<yyyyMMdd>.csv\`.
+- Columns: \`SKU, LOCATION, QTY\`.
+- A file typically has **2,000–5,000 lines**.
+- Files arrive between 21:00 and 23:30.
 
 The counts must be loaded into **Oracle** staging tables before the 01:00 stock-adjustment job runs:
-- \`STORE_COUNT_BATCH\` — one row per file (store, count date, file name, line count); unique on store + count date.
-- \`STORE_COUNT_STG\` — one row per counted line.
+- \`STORE_COUNT_BATCH\`: one row per file (store, count date, file name, line count); unique on store + count date.
+- \`STORE_COUNT_STG\`: one row per counted line.
 
 **Requirements**
-- A file is loaded completely or not at all — the adjustment job must never see half a count.
+- A file is loaded completely or not at all. The adjustment job must never see half a count.
 - The same count must not be loaded twice if a store re-uploads it.
 - Loaded files go to \`/counts/archive\`, bad files to \`/counts/error\` so the store support team can see them.
 

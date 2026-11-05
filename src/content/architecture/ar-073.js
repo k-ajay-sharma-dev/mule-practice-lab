@@ -44,13 +44,26 @@ export default {
     ),
   },
   description: `
-A department-store group (web, app, **180 stores**, and 3 **marketplaces**) is replacing its order flow. Requirements: BOPIS, ship-from-store, split shipments, partial cancellations, returns to any store, and **sourcing** (choose the DC or store that fulfils each line based on stock, distance and cost).
+A department-store group (web, app, **180 stores**, and 3 **marketplaces**) is replacing its order flow.
+
+Requirements:
+- BOPIS
+- Ship-from-store
+- Split shipments
+- Partial cancellations
+- Returns to any store
+- **Sourcing**: choose the DC or store that fulfils each line based on stock, distance and cost
 
 Two camps:
 - **Camp A (integration team):** "We already have Mule. Build the order state machine and sourcing as a set of Process APIs (\`prc-order\`, \`prc-sourcing\`) with an Oracle order schema."
 - **Camp B (business):** "Buy a commercial **OMS** (e.g. Salesforce Order Management, Manhattan, IBM Sterling). Mule only integrates."
 
-Constraints: go-live before the next peak (11 months), integration team of 8, order volume 40k/day (peak 250k/day), the business expects to tweak sourcing rules monthly, and finance needs every state change for revenue recognition.
+Constraints:
+- Go-live before the next peak (11 months).
+- Integration team of 8.
+- Order volume 40k/day (peak 250k/day).
+- The business expects to tweak sourcing rules monthly.
+- Finance needs every state change for revenue recognition.
 
 **Questions:**
 - Which camp do you side with, and where exactly is the boundary between OMS and Mule?

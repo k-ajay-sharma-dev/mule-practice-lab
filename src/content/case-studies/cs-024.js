@@ -80,11 +80,13 @@ export default {
     },
   ],
   description: `
-**Context.** A consumer-goods company (Company A, 12,000 staff, mature Anypoint Platform practice with ~150 APIs, SAP ERP, Salesforce) has acquired Company B (3,000 staff, uses a different iPaaS, Microsoft Dynamics, its own e-commerce stack and warehouse system). The deal closes in 3 months.
+**Context.** A consumer-goods company (Company A) has acquired Company B. The deal closes in 3 months.
+- **Company A:** 12,000 staff, mature Anypoint Platform practice with ~150 APIs, SAP ERP, Salesforce.
+- **Company B:** 3,000 staff, uses a different iPaaS, Microsoft Dynamics, its own e-commerce stack and warehouse system.
 
 **Business priorities**
 - Day 1 (close): finance must see consolidated revenue; staff must email and find each other.
-- Within 6 months: cross-sell — A's sales team sells B's products, and B's products appear on A's B2B portal.
+- Within 6 months: cross-sell: A's sales team sells B's products, and B's products appear on A's B2B portal.
 - Within 24 months: B's ERP and CRM retired onto A's platforms; one integration platform.
 
 **Constraints**
@@ -93,7 +95,10 @@ export default {
 - Different identity providers, security standards and network setups.
 - Some B customers have contracts that require their data to stay with B's legal entity for now.
 
-**Your task.** Propose the integration strategy across Day 1, the first 6 months and the 24-month end state — including platform, organisation and governance decisions.
+**Your task.** Propose the integration strategy, including platform, organisation and governance decisions, across:
+- Day 1
+- the first 6 months
+- the 24-month end state
 `,
   answerTemplate: `## Guiding principles
 

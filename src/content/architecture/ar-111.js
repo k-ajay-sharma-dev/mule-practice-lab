@@ -99,7 +99,12 @@ export default {
     },
   ],
   description: `
-Northwind Foods is moving **40 applications** to CloudHub 2.0. Some are public and simple, others reach SAP in a data centre, call a bank from a fixed address, or face partners on a branded domain. The company is on a usage-based pricing contract, still runs some CloudHub 1.0 apps during the migration, and finance wants a defensible budget.
+Northwind Foods is moving **40 applications** to CloudHub 2.0. Some are public and simple. Others reach SAP in a data centre, call a bank from a fixed address, or face partners on a branded domain.
+
+Other facts:
+- The company is on a usage-based pricing contract.
+- It still runs some CloudHub 1.0 apps during the migration.
+- Finance wants a defensible budget.
 
 Each question is a decision that the platform architect must make, and every answer rests on a documented rule or limit.
 `,

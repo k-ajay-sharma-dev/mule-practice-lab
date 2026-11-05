@@ -2,7 +2,7 @@ export default {
   id: 'dw-019',
   category: 'dataweave',
   title: 'Split Records into API Batches',
-  level: 'ADVANCED',
+  level: 'INTERMEDIATE',
   tags: ['divideBy', 'arrays-module', 'leftPad', 'chunking', 'json'],
   estMinutes: 20,
   description: `

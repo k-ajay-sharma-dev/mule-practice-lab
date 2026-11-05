@@ -2,7 +2,7 @@ export default {
   id: 'dw-047',
   category: 'dataweave',
   title: 'Parse an X12 850 Purchase Order Segment String',
-  level: 'INTERMEDIATE',
+  level: 'ADVANCED',
   tags: ['edi', 'x12', 'splitBy', 'text/plain', 'divideBy'],
   estMinutes: 25,
   description: `

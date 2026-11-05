@@ -48,7 +48,12 @@ export default {
     ),
   },
   description: `
-**Context.** A freight forwarder handles imports and exports for ~2,000 shipper customers. Customers send shipment and commercial-invoice data as EDI (X12 and EDIFACT), CSV uploads and occasionally PDFs. Customs declarations are lodged with two national customs systems through their electronic interfaces (XML messages over a secure gateway), and responses (accepted, query, rejected, released) come back asynchronously. Declarations are currently assembled by hand in a customs-broker application.
+**Context.** A freight forwarder handles imports and exports for ~2,000 shipper customers.
+- Customers send shipment and commercial-invoice data as EDI (X12 and EDIFACT), CSV uploads and occasionally PDFs.
+- Customs declarations are lodged with two national customs systems through their electronic interfaces (XML messages over a secure gateway).
+- Responses (accepted, query, rejected, released) come back asynchronously.
+
+**The problem today.** Declarations are assembled by hand in a customs-broker application.
 
 **Goals**
 - 70% of declarations created automatically from customer data within a year.

@@ -6,18 +6,28 @@ export default {
   tags: ['regex', 'scan', 'replace', 'capture-groups', 'strings'],
   estMinutes: 25,
   description: `
-A Mule flow polls the support mailbox and links each email to ServiceNow tickets mentioned in its subject. Agents type references inconsistently (\`inc-2024-42\`, \`INC-2024-00042\`), so they must be extracted and **normalised**.
+A Mule flow polls the support mailbox and links each email to the ServiceNow tickets mentioned in its subject. Agents type references inconsistently (\`inc-2024-42\`, \`INC-2024-00042\`), so they must be extracted and **normalised**.
+
+**What counts as a reference**
 
 A reference is \`TYPE-YEAR-NUMBER\` where:
 - \`TYPE\` is \`INC\`, \`REQ\` or \`CHG\`, in any letter case
-- \`YEAR\` is exactly 4 digits, \`NUMBER\` is 1 to 5 digits
+- \`YEAR\` is exactly 4 digits
+- \`NUMBER\` is 1 to 5 digits
 - it is a whole word: not preceded or followed by a letter, digit or underscore (so \`XINC-2024-1\` and \`CHG-2025-123456\` are **not** references)
 
-The normalised form is \`TYPE\` upper-cased and \`NUMBER\` left-padded with zeros to 5 digits: \`inc-2024-42\` → \`INC-2024-00042\`.
+**Normalised form**
+
+\`TYPE\` is upper-cased and \`NUMBER\` is left-padded with zeros to 5 digits: \`inc-2024-42\` → \`INC-2024-00042\`.
+
+**Output**
 
 For each email return \`{ id, refs, subject }\`:
-- \`refs\` — normalised references in order of first appearance, without duplicates (\`[]\` if none)
-- \`subject\` — the original subject with (1) any number of leading \`RE:\`, \`FW:\` or \`FWD:\` prefixes removed (any case, each optionally followed by whitespace), (2) every reference replaced in place by its normalised form, and (3) leading/trailing whitespace trimmed
+- \`refs\`: normalised references in order of first appearance, without duplicates (\`[]\` if none)
+- \`subject\`: the original subject with these changes:
+  1. Remove any number of leading \`RE:\`, \`FW:\` or \`FWD:\` prefixes (any case, each optionally followed by whitespace).
+  2. Replace every reference in place with its normalised form.
+  3. Trim leading and trailing whitespace.
 `,
   inputs: [
     {

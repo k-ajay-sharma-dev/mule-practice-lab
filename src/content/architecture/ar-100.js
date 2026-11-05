@@ -93,7 +93,9 @@ export default {
     },
   ],
   description: `
-An energy retailer runs **70 Mule applications**: 48 on **CloudHub 2.0** and 22 on **Runtime Fabric** in its own data centre, near the metering systems. Release frequency has risen to about 25 production deployments per week, and last quarter three bad releases took 2 to 5 hours to recover, because nobody knew which artifact and settings had been running.
+An energy retailer runs **70 Mule applications**: 48 on **CloudHub 2.0** and 22 on **Runtime Fabric** in its own data centre, near the metering systems.
+
+Release frequency has risen to about 25 production deployments per week. Last quarter, three bad releases took 2 to 5 hours to recover, because nobody knew which artifact and settings had been running.
 
 The CIO has set new targets:
 - Any release can be reversed within **15 minutes**, or the team knows before releasing that it cannot.

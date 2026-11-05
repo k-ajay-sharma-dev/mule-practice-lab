@@ -6,20 +6,26 @@ export default {
   tags: ['csv', 'salesforce', 'flatMap', 'nested-arrays', 'null-handling'],
   estMinutes: 20,
   description: `
-A nightly job runs this SOQL query with the Salesforce connector and sends the result to a data-warehouse loader that only accepts a **flat CSV**:
+A nightly job runs this SOQL query with the Salesforce connector. It sends the result to a data-warehouse loader that only accepts a **flat CSV**.
 
 \`\`\`sql
 SELECT Id, Name, BillingCountry, (SELECT Id, FirstName, LastName, Email FROM Contacts) FROM Account
 \`\`\`
 
-The input is the raw REST-style query result. Note the Salesforce quirks: every record carries an \`attributes\` object, the child relationship \`Contacts\` is itself a query result with its own \`records\`, and an account **without** contacts has \`"Contacts": null\` (not an empty list).
+The input is the raw REST-style query result. Note the Salesforce quirks:
+- Every record carries an \`attributes\` object.
+- The child relationship \`Contacts\` is itself a query result with its own \`records\`.
+- An account **without** contacts has \`"Contacts": null\` (not an empty list).
 
 **Rules**
 - One CSV row **per contact**, accounts in input order, contacts in input order within each account.
 - An account with **no** contacts still produces **one** row, with the three contact columns empty.
 - Columns, in this order, with this header: \`AccountId,AccountName,Country,ContactId,ContactName,Email\`.
-- \`ContactName\` is \`FirstName + " " + LastName\`; when \`FirstName\` is null it is just \`LastName\`.
-- The loader parses strict RFC 4180: **every value** is wrapped in double quotes (the header row is **not**), a double quote inside a value is doubled (\`""\`), and a null value is written as an empty quoted field \`""\`.
+- \`ContactName\` is \`FirstName + " " + LastName\`. When \`FirstName\` is null it is \`LastName\` alone.
+- The loader parses strict RFC 4180:
+  - **Every value** is wrapped in double quotes (the header row is **not**).
+  - A double quote inside a value is doubled (\`""\`).
+  - A null value is written as an empty quoted field \`""\`.
 `,
   inputs: [
     {

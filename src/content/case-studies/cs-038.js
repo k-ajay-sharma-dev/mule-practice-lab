@@ -44,7 +44,19 @@ export default {
     ),
   },
   description: `
-**Context.** A mining company operates six remote sites (open-pit and underground). Each site has gas detectors, ventilation controls, personnel location tags and heavy-vehicle collision-avoidance systems, all feeding an on-site control system. Head office wants a central safety operations centre, incident management integration (a SaaS EHS platform), shift rosters from the HR system, and regulator reporting. Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
+**Context.** A mining company operates six remote sites (open-pit and underground). Each site has these systems, all feeding an on-site control system:
+- gas detectors
+- ventilation controls
+- personnel location tags
+- heavy-vehicle collision-avoidance systems
+
+Head office wants:
+- a central safety operations centre
+- incident management integration (a SaaS EHS platform)
+- shift rosters from the HR system
+- regulator reporting
+
+Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
 
 **Goals**
 - Critical alarms (gas, man-down) visible centrally within 10 seconds when the link is up.
@@ -58,7 +70,10 @@ export default {
 - ~2,000 sensors per site, readings every few seconds; most are routine.
 - Site IT staff are minimal; deployments must be remote and repeatable.
 
-**Your task.** Propose the edge/central architecture, prioritisation of data, and security across OT/IT boundaries.
+**Your task.** Propose:
+- the edge/central architecture
+- prioritisation of data
+- security across OT/IT boundaries
 `,
   answerTemplate: `## Safety principles and what stays local
 

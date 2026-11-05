@@ -48,7 +48,7 @@ export default {
   description: `
 A digital bank lets customers **open an account in its mobile app**. Before activation, regulations require **KYC/AML checks**:
 
-1. **Document + selfie verification** with an identity-verification vendor (the app uploads ID photos and a selfie video to the vendor SDK; the vendor returns a result via **webhook**, usually in 2 minutes, sometimes hours when manual review is needed).
+1. **Document + selfie verification** with an identity-verification vendor. The app uploads ID photos and a selfie video to the vendor SDK. The vendor returns a result via **webhook**, usually in 2 minutes, sometimes hours when manual review is needed.
 2. **Sanctions and PEP screening** with a screening provider (synchronous REST, ~1 s).
 3. **Address verification** against a credit bureau (SOAP, sometimes slow).
 4. Create the customer and account in the **core banking system** only if all checks pass.
@@ -57,7 +57,8 @@ Constraints:
 - 5,000 applications/day, marketing campaigns can bring 5× peaks.
 - Applicants must see progress in the app; ~80% should be approved **within 10 minutes**.
 - Any "possible match" on sanctions/PEP or a vendor "review" result goes to the **compliance team's case tool**; compliance decisions must be fed back.
-- Personal data and ID images are highly sensitive; the regulator requires a full **audit trail** of every check and decision, retained for 5 years after the relationship ends.
+- Personal data and ID images are highly sensitive.
+- The regulator requires a full **audit trail** of every check and decision, retained for 5 years after the relationship ends.
 - The bank plans to add a second identity vendor as fallback next year.
 
 **Design the integration:**

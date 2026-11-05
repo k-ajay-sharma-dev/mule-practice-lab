@@ -48,7 +48,16 @@ export default {
     ),
   },
   description: `
-**Context.** A digital lender offers personal loans through its app and through comparison/broker websites. A loan application requires: identity verification (KYC vendor), fraud scoring, credit bureau reports from two bureaus, open-banking income verification (via an aggregator), an internal decision engine, e-signature, and finally booking in the loan management system (LMS) and funding via the payments provider. Today this is a monolith that times out when a bureau is slow.
+**Context.** A digital lender offers personal loans through its app and through comparison/broker websites. A loan application requires:
+- identity verification (KYC vendor)
+- fraud scoring
+- credit bureau reports from two bureaus
+- open-banking income verification (via an aggregator)
+- an internal decision engine
+- e-signature
+- finally, booking in the loan management system (LMS) and funding via the payments provider
+
+**The problem today.** This is a monolith that times out when a bureau is slow.
 
 **Goals**
 - Instant decision (under 30 s) for 80% of applications; the rest go to manual review.
@@ -57,10 +66,13 @@ export default {
 
 **Constraints**
 - Highly sensitive personal and financial data; strict audit requirements from regulators (keep rules generic).
-- Third-party vendors are pay-per-call — avoid unnecessary or duplicate calls.
+- Third-party vendors are pay-per-call. Avoid unnecessary or duplicate calls.
 - Bureaus occasionally take 20+ seconds or are unavailable.
 
-**Your task.** Propose the architecture, the orchestration and the security/data-protection approach.
+**Your task.** Propose:
+- the architecture
+- the orchestration
+- the security/data-protection approach
 `,
   answerTemplate: `## API architecture (channels, process, systems)
 

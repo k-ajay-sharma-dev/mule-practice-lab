@@ -130,13 +130,26 @@ export default {
   description: `
 A **Checkout Process API** must complete three steps in three independent systems, each with its own database and REST API:
 
-1. **Payment service** — authorise card (\`POST /authorisations\`, reversible via \`POST /authorisations/{id}/void\`).
-2. **Inventory service** — reserve stock (\`POST /reservations\`, reversible via \`DELETE /reservations/{id}\`).
-3. **Shipping service** — book a courier slot (\`POST /bookings\`, cancellable only within 30 min).
+1. **Payment service:** authorise card (\`POST /authorisations\`, reversible via \`POST /authorisations/{id}/void\`).
+2. **Inventory service:** reserve stock (\`POST /reservations\`, reversible via \`DELETE /reservations/{id}\`).
+3. **Shipping service:** book a courier slot (\`POST /bookings\`, cancellable only within 30 min).
 
-No distributed transaction (XA) is possible across these HTTP APIs. Requirements: no customer is charged without stock and a booking; a failure in step 3 must undo steps 1–2; compensations themselves can fail; the process must survive a Mule replica crash mid-saga; ops must see stuck sagas.
+No distributed transaction (XA) is possible across these HTTP APIs.
 
-**Design the flow(s):** orchestration vs choreography, step order, compensation logic, saga state persistence, recovery after crash, and idempotency.
+**Requirements**
+- No customer is charged without stock and a booking.
+- A failure in step 3 must undo steps 1–2.
+- Compensations themselves can fail.
+- The process must survive a Mule replica crash mid-saga.
+- Ops must see stuck sagas.
+
+**Design the flow(s):**
+- Orchestration vs choreography
+- Step order
+- Compensation logic
+- Saga state persistence
+- Recovery after crash
+- Idempotency
 `,
   answerTemplate: `## Orchestration or choreography
 

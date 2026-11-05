@@ -75,7 +75,9 @@ export default {
 
 ## Change / Context
 - A month ago the network team replaced the old load balancer with a cloud LB that has a fixed **idle timeout of 350 s**.
-- The Mule HTTP Request config comes from an old template: persistent connections enabled (the default) and **\`connectionIdleTimeout="600000"\`** (10 minutes, set years ago for the old LB; the connector default is 30 s), which is larger than the new LB value.
+- The Mule HTTP Request config comes from an old template:
+  - Persistent connections are enabled (the default).
+  - **\`connectionIdleTimeout="600000"\`** (10 minutes, set years ago for the old LB; the connector default is 30 s). This is larger than the new LB value.
 - No retries are configured on the request.
 
 ## Logs

@@ -4,7 +4,7 @@ export default {
   id: 'uc-010',
   category: 'use-cases',
   title: 'Car Insurance Quote API for Comparison Sites',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['api-design', 'raml', 'validation', 'policies'],
   estMinutes: 20,
   diagram: {

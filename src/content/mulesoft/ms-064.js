@@ -79,7 +79,7 @@ export default {
     },
   ],
   description: `
-A home-improvement retailer onboards **supplier catalogues** (item, supplier SKU, cost, pack size, lead time) into Oracle. Suppliers upload CSV files over SFTP; a Mule app loads them into:
+A home-improvement retailer onboards **supplier catalogues** (item, supplier SKU, cost, pack size, lead time) into Oracle. Suppliers upload CSV files over SFTP, and a Mule app loads them into:
 
 \`\`\`sql
 SUPPLIERS        (SUPPLIER_ID NUMBER PK  -- from SUPPLIER_SEQ, SUPPLIER_CODE VARCHAR2 UNIQUE, NAME ...)
@@ -88,7 +88,11 @@ SUPPLIER_ITEMS   (SUPPLIER_ID NUMBER, SUPPLIER_SKU VARCHAR2, COST NUMBER(12,4), 
                   CONSTRAINT UQ_SUP_ITEM UNIQUE (SUPPLIER_ID, SUPPLIER_SKU))
 \`\`\`
 
-The existing flow does, per row: \`db:select\` the item → \`db:insert\` if not found → otherwise \`db:update\`. Large files (60,000 rows) take an hour, and when a supplier uploads a corrected file while the first is still loading, the load fails with **ORA-00001: unique constraint (UQ_SUP_ITEM) violated**.
+For each row, the existing flow runs \`db:select\` on the item, then \`db:insert\` if it is not found, otherwise \`db:update\`.
+
+Problems:
+- Large files (60,000 rows) take an hour.
+- When a supplier uploads a corrected file while the first is still loading, the load fails with **ORA-00001: unique constraint (UQ_SUP_ITEM) violated**.
 
 New suppliers also need a header row in \`SUPPLIERS\`, and the generated \`SUPPLIER_ID\` must be used for their items.
 

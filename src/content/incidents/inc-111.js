@@ -77,7 +77,7 @@ export default {
   },
   description: `
 ## Symptoms
-- Sunday 06:12, just after the first migration wave: \`prc-orders\` is RUNNING on CloudHub 2.0, but every stock check fails. Orders are parked for retry.
+- Sunday 06:12, right after the first migration wave: \`prc-orders\` is RUNNING on CloudHub 2.0, but every stock check fails. Orders are parked for retry.
 - \`exp-web\`, still on CloudHub 1.0, calls the same inventory URL successfully.
 
 ## Change / Context

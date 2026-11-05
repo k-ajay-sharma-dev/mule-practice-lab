@@ -4,7 +4,7 @@ export default {
   id: 'fl-002',
   category: 'flows',
   title: 'For Each vs Parallel For Each for Order Lines',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['for-each', 'parallel-for-each', 'performance'],
   estMinutes: 15,
   flowChecks: [
@@ -56,14 +56,23 @@ export default {
     ]),
   ),
   description: `
-A **Quote API** receives an order with up to **300 lines**. For each line it must call the **Pricing API** (\`GET /prices/{sku}\`, ~400 ms per call, allows 20 concurrent requests) and return the quote with the price on every line, **in the original line order**. Target response time: **under 10 seconds**.
+A **Quote API** receives an order with up to **300 lines**. It must return the quote with the price on every line.
 
-The current implementation uses a **For Each**, sets \`vars.total\` inside the loop, and the developer is surprised that:
+**Facts**
+- For each line, the API calls the **Pricing API**: \`GET /prices/{sku}\`.
+- Each call takes ~400 ms.
+- The Pricing API allows 20 concurrent requests.
+- The lines must stay **in the original line order**.
+- Target response time: **under 10 seconds**.
+
+**What is wrong now**
+
+The current implementation uses a **For Each** and sets \`vars.total\` inside the loop. The developer is surprised that:
 - the call takes ~2 minutes for 300 lines, and
 - after the loop the \`payload\` is the original order again, not the priced lines.
 
 **Design the flow:**
-- For Each or Parallel For Each — which and why? Show the numbers.
+- For Each or Parallel For Each: which one, and why? Show the numbers.
 - How do you collect the results, keep the order, and calculate the total?
 - What happens when one Pricing call fails in each option?
 `,

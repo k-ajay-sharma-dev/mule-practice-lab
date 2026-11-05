@@ -90,15 +90,22 @@ export default {
     },
   ],
   description: `
-A pharmaceutical distributor runs its integration platform on **CloudHub 2.0** in one region (EU-West). About 60 Mule apps:
+A pharmaceutical distributor runs its integration platform on **CloudHub 2.0** in one region (EU-West). It has about 60 Mule apps:
 
-- **Tier 1 — order capture APIs** used by pharmacies (≈ 200 orders/min at peak). Business target: **RTO 15 min, RPO ≈ 0** for accepted orders.
-- **Tier 2 — event-driven flows** on Anypoint MQ (order → ERP, shipping notifications). Target: **RTO 2 h, RPO 5 min**.
-- **Tier 3 — nightly batch** (price lists, reports). Target: **RTO 24 h**, rerunnable.
+- **Tier 1: order capture APIs** used by pharmacies (≈ 200 orders/min at peak). Business target: **RTO 15 min, RPO ≈ 0** for accepted orders.
+- **Tier 2: event-driven flows** on Anypoint MQ (order → ERP, shipping notifications). Target: **RTO 2 h, RPO 5 min**.
+- **Tier 3: nightly batch** (price lists, reports). Target: **RTO 24 h**, rerunnable.
 
-Backends: SAP S/4HANA (has its own DR site in EU-Central, ~30 min failover), a PostgreSQL order DB (managed, cross-region replica available), Salesforce (SaaS).
+Backends:
+- SAP S/4HANA, with its own DR site in EU-Central (~30 min failover).
+- A PostgreSQL order DB (managed, cross-region replica available).
+- Salesforce (SaaS).
 
-Other facts: apps use **Object Store v2** for watermarks and idempotency keys; secrets are in secure properties; consumers reach APIs through a single hostname \`api.distributor.eu\`. Budget is limited — the CFO will not pay for a fully active-active second region for everything.
+Other facts:
+- Apps use **Object Store v2** for watermarks and idempotency keys.
+- Secrets are in secure properties.
+- Consumers reach APIs through a single hostname \`api.distributor.eu\`.
+- Budget is limited. The CFO will not pay for a fully active-active second region for everything.
 
 **Design the DR strategy:**
 - What is the deployment topology per tier (active-active, warm standby, pilot light, backup & redeploy)?

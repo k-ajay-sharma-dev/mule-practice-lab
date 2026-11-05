@@ -2,7 +2,7 @@ export default {
   id: 'inc-028',
   category: 'incidents',
   title: 'Pipeline Deploy Fails After Upgrading the Mule Maven Plugin',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['deployment', 'maven', 'ci-cd', 'versions', 'cloudhub-2'],
   estMinutes: 20,
   investigation: {

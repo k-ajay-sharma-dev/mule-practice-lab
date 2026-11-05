@@ -82,7 +82,7 @@ export default {
   description: `
 ## Symptoms
 - Black Friday, 09:00 sale launch. Traffic is 6x normal, which was load-tested.
-- 09:07: **checkout, product pages, account login and store-locator** all start failing with 503/504 on web and mobile — even features that never touch inventory.
+- 09:07: **checkout, product pages, account login and store-locator** all start failing with 503/504 on web and mobile. This includes features that never touch inventory.
 - Anypoint Monitoring: \`sys-inventory-api\` p95 rises from 120 ms to **25 s**; all other System APIs look healthy but their request rates **drop** (requests aren't reaching them).
 - \`prc-catalog-api\` and \`prc-checkout-api\` memory usage climbs; replicas restart around 09:20, making it worse.
 
@@ -97,8 +97,11 @@ exp-mobile-api -+--> prc-checkout-api --> sys-inventory-api, sys-payment-api, sy
 \`\`\`
 
 - \`sys-inventory-api\` reads from a legacy warehouse database. A last-minute promotion rule added a stock reservation query that does a **table lock** under concurrency.
-- Every requester uses \`responseTimeout=30000\`; \`prc-catalog-api\` calls inventory for **every product tile** (24 per page). No caching of stock. Experience APIs are single apps serving all features, each with one shared HTTP requester config per downstream API and \`maxConnections\` limits; flows have \`maxConcurrency\` set.
-- No circuit breakers; \`prc-checkout-api\` and \`prc-catalog-api\` retry inventory once on timeout.
+- Every requester uses \`responseTimeout=30000\`.
+- \`prc-catalog-api\` calls inventory for **every product tile** (24 per page). There is no caching of stock.
+- Experience APIs are single apps serving all features. Each has one shared HTTP requester config per downstream API, with \`maxConnections\` limits.
+- Flows have \`maxConcurrency\` set.
+- There are no circuit breakers. \`prc-checkout-api\` and \`prc-catalog-api\` retry inventory once on timeout.
 
 ## Logs
 \`\`\`
@@ -115,7 +118,7 @@ exp-mobile-api -+--> prc-checkout-api --> sys-inventory-api, sys-payment-api, sy
 ## Your tasks
 1. Explain how one slow System API cascades into a network-wide outage, including features that don't use inventory.
 2. What do you do in the next 15 minutes, on the busiest day of the year?
-3. What is the root cause — technical and architectural?
+3. What is the root cause, both technical and architectural?
 4. Design the permanent resilience architecture (bulkheads, circuit breakers, timeouts, caching, async, degradation).
 5. How do you prevent and prepare for next year's peak?
 `,

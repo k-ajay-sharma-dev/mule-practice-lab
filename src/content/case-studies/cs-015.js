@@ -81,12 +81,20 @@ export default {
     },
   ],
   description: `
-**Context.** A logistics company runs 85 Mule 3.x applications (a mix of 3.8 and 3.9) on customer-hosted servers. They use MEL extensively, DataWeave 1.0, a few custom Java components, old transports (file, FTP, JMS, HTTP), Batch modules and some DevKit-based custom connectors. The runtime version is out of standard support and security has flagged it.
+**Context.** A logistics company runs 85 Mule 3.x applications (a mix of 3.8 and 3.9) on customer-hosted servers. The runtime version is out of standard support and security has flagged it.
+
+The apps use:
+- MEL, extensively
+- DataWeave 1.0
+- a few custom Java components
+- old transports (file, FTP, JMS, HTTP)
+- Batch modules
+- some DevKit-based custom connectors
 
 **Goals**
 - All business-critical apps on Mule 4 within 12 months.
 - No unplanned downtime for the 15 apps that handle shipment tracking.
-- Use the migration to improve quality, not just copy the old code.
+- Use the migration to improve quality, rather than only copy the old code.
 
 **Constraints**
 - Four Mule developers, only one has Mule 4 experience.

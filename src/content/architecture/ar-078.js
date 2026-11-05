@@ -2,7 +2,7 @@ export default {
   id: 'ar-078',
   category: 'architecture',
   title: 'Goods Receipt Consistency: XA Transactions vs Outbox with JMS and Oracle',
-  level: 'INTERMEDIATE',
+  level: 'ADVANCED',
   tags: ['supply-chain', 'xa', 'outbox', 'transactions', 'activemq', 'jms', 'oracle', 'idempotency'],
   estMinutes: 30,
   quiz: [

@@ -4,7 +4,7 @@ export default {
   id: 'cs-054',
   category: 'case-studies',
   title: 'Electronics Distributor Moving EDI Off a VAN to AS2 and Partner APIs',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'edi', 'x12', 'as2', 'b2b', 'oracle', 'oracle-ebs'],
   estMinutes: 35,
   diagram: {
@@ -44,7 +44,15 @@ export default {
     ),
   },
   description: `
-**Context.** An electronics distributor exchanges X12 EDI with 300 trading partners (retailers, resellers and a few manufacturers) through a value-added network (VAN). Inbound 850 purchase orders arrive in a VAN mailbox, are downloaded every 30 minutes and parsed by a PL/SQL package into Oracle EBS interface tables. Outbound 855 acknowledgements, 856 ship notices and 810 invoices are built by the same package. VAN charges per kilocharacter are now significant, and the PL/SQL code is understood by one retiring developer.
+**Context.** An electronics distributor exchanges X12 EDI with 300 trading partners (retailers, resellers and a few manufacturers) through a value-added network (VAN).
+
+**How it works today**
+- Inbound 850 purchase orders arrive in a VAN mailbox, are downloaded every 30 minutes and parsed by a PL/SQL package into Oracle EBS interface tables.
+- Outbound 855 acknowledgements, 856 ship notices and 810 invoices are built by the same package.
+
+**The problem today**
+- VAN charges per kilocharacter are now significant.
+- The PL/SQL code is understood by one retiring developer.
 
 **Goals**
 - Move the top 40 partners (about 80% of volume) to direct AS2.
@@ -60,7 +68,11 @@ export default {
 | Volume | 6,000 850s a day, peaks of 3x in Q4 |
 | SLA | 855 back to the partner within 2 hours of the 850 |
 
-**Your task.** Propose the B2B architecture, a canonical order model, the partner migration approach and how you monitor documents.
+**Your task.** Propose:
+- the B2B architecture
+- a canonical order model
+- the partner migration approach
+- how you monitor documents
 `,
   answerTemplate: `## Channels (AS2, API, VAN)
 

@@ -71,7 +71,8 @@ export default {
   },
   description: `
 ## Symptoms
-- Every store uploads an end-of-day sales file (\`EOD_<store>_<date>.csv\`) to SFTP. Mule app \`pos-eod-loader\` polls \`/pos/eod/in\` every 5 minutes, bulk-inserts the lines into Oracle \`STORE_SALES_DAILY\`, and then the listener moves the file to \`/pos/eod/archive\`.
+- Every store uploads an end-of-day sales file (\`EOD_<store>_<date>.csv\`) to SFTP.
+- Mule app \`pos-eod-loader\` polls \`/pos/eod/in\` every 5 minutes and bulk-inserts the lines into Oracle \`STORE_SALES_DAILY\`. The listener then moves the file to \`/pos/eod/archive\`.
 - This morning's finance report shows **18.4 M** in sales against a forecast of 6.2 M. Some stores appear two times, some three or more.
 
 ## Change / Context

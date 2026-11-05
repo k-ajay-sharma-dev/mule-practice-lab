@@ -4,7 +4,7 @@ export default {
   id: 'fl-038',
   category: 'flows',
   title: 'Outbound Payment File with Header/Trailer and Safe SFTP Hand-off',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['sftp', 'file', 'flat-file', 'scheduler', 'dataweave'],
   estMinutes: 20,
   flowChecks: [

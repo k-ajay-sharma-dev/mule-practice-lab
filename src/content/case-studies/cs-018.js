@@ -49,9 +49,18 @@ export default {
     ),
   },
   description: `
-**Context.** A mid-size airline handles flight cancellations and long delays mostly by hand: agents rebook passengers in the passenger service system (PSS), call hotels and send emails. During a storm, 200 flights can be cancelled in two hours, affecting 30,000 passengers; call centres collapse and the mobile app shows stale information.
+**Context.** A mid-size airline handles flight cancellations and long delays mostly by hand: agents rebook passengers in the passenger service system (PSS), call hotels and send emails.
 
-**Systems.** PSS (reservations, inventory; vendor-hosted with rate-limited APIs), operations control system (publishes flight status events), a rebooking-optimisation engine (new, vendor product), CRM/loyalty, a notification platform (SMS, email, push), hotel/meal voucher providers and the mobile app backend.
+**The problem today.** During a storm, 200 flights can be cancelled in two hours, affecting 30,000 passengers. Call centres collapse and the mobile app shows stale information.
+
+**Systems**
+- PSS (reservations, inventory; vendor-hosted with rate-limited APIs)
+- operations control system (publishes flight status events)
+- a rebooking-optimisation engine (new, vendor product)
+- CRM/loyalty
+- a notification platform (SMS, email, push)
+- hotel/meal voucher providers
+- the mobile app backend
 
 **Goals**
 - Affected passengers get a rebooking offer in the app within 15 minutes of a cancellation.
@@ -60,10 +69,13 @@ export default {
 
 **Constraints**
 - The PSS allows ~50 write transactions per second for the airline.
-- Regulation requires correct passenger notifications and care (vouchers) — keep exact rules generic, but they must be auditable.
+- Regulation requires correct passenger notifications and care (vouchers). Keep exact rules generic, but they must be auditable.
 - Disruptions are rare but extreme bursts; normal days are quiet.
 
-**Your task.** Propose the event flow, the integration architecture and how it behaves under burst load.
+**Your task.** Propose:
+- the event flow
+- the integration architecture
+- how it behaves under burst load
 `,
   answerTemplate: `## Event flow from cancellation to offer
 

@@ -2,7 +2,7 @@ export default {
   id: 'inc-047',
   category: 'incidents',
   title: 'Mobile App Shows "Something Went Wrong" for Orders That Simply Do Not Exist',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['api-led', 'error-handling', 'error-mapping', 'http-status-codes', 'layers'],
   estMinutes: 20,
   investigation: {

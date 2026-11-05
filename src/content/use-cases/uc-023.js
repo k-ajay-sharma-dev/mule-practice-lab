@@ -43,9 +43,10 @@ export default {
 An elevator maintenance company has **1,800 technicians**. Asset and maintenance planning lives in **SAP S/4HANA Plant Maintenance (PM)** (equipment, maintenance plans, maintenance orders, spare parts stock, costs). Technicians use **Salesforce Field Service** (mobile app, scheduling and dispatch).
 
 Flows required:
-- SAP generates **preventive maintenance orders** (~3,000/day) from maintenance plans; breakdown calls are logged in Salesforce by the call centre (~600/day) and need an SAP order for cost collection.
+- SAP generates **preventive maintenance orders** (~3,000/day) from maintenance plans.
+- The call centre logs breakdown calls in Salesforce (~600/day). These need an SAP order for cost collection.
 - Orders must appear in Field Service as **work orders** with the equipment, location, operations and planned parts, so dispatchers can schedule them.
-- Technicians record **time, parts used, readings and completion notes** — sometimes offline in elevator shafts — and the data must flow back to SAP (confirmations, goods issues, measurement documents).
+- Technicians record **time, parts used, readings and completion notes**, sometimes offline in elevator shafts. The data must flow back to SAP (confirmations, goods issues, measurement documents).
 - **Emergency (people trapped)** calls: SAP order must exist and technician dispatched within **5 minutes**.
 - Equipment master (~250,000 elevators) changes slowly but must be in sync.
 

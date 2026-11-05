@@ -4,7 +4,7 @@ export default {
   id: 'fl-059',
   category: 'flows',
   title: 'Releasing Expired Cart Reservations in Oracle on a Schedule',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'e-commerce', 'inventory', 'reservations', 'oracle', 'scheduler', 'transactions'],
   estMinutes: 20,
   flowChecks: [
@@ -51,12 +51,19 @@ export default {
     ),
   ),
   description: `
-An online grocer **holds stock** when a customer adds an item to the basket: a row in the **Oracle** table \`STOCK_RESERVATION\` (\`SKU, LOCATION_ID, QTY, STATUS='HELD', EXPIRES_AT\`) and the same quantity added to \`STOCK_AVAILABILITY.RESERVED_QTY\`. Holds last 20 minutes; around **40,000** are created a day and roughly a third expire without checkout.
+An online grocer **holds stock** when a customer adds an item to the basket. A hold does two things:
+- It adds a row to the **Oracle** table \`STOCK_RESERVATION\` (\`SKU, LOCATION_ID, QTY, STATUS='HELD', EXPIRES_AT\`).
+- It adds the same quantity to \`STOCK_AVAILABILITY.RESERVED_QTY\`.
 
-Expired holds must be given back to available stock **within 5 minutes** of expiry, otherwise the site shows items as sold out that are actually on the shelf.
+**Facts**
+- Holds last 20 minutes.
+- Around **40,000** are created a day.
+- Roughly a third expire without checkout.
+
+Expired holds must be given back to available stock **within 5 minutes** of expiry. Otherwise the site shows items as sold out that are actually on the shelf.
 
 **Requirements**
-- Stock released and reservations deleted must always match — never one without the other.
+- Stock released and reservations deleted must always match, never one without the other.
 - A reservation converted to an order at the same moment (status changes to \`CONFIRMED\`) must not be released.
 - The job runs on a 2-replica deployment and must not double-release.
 

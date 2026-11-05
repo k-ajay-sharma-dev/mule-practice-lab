@@ -74,7 +74,9 @@ export default {
 ## Change / Context
 - The ERP drops purchase order files every 15 minutes into \`/outbound\` on an internal **FTP** server.
 - On Monday evening \`po-intake\` was scaled from **1 to 2 replicas** on CloudHub 2.0 with Runtime Cluster Mode enabled, "for high availability".
-- The listener has no post-action and no watermark; the flow inserts the lines and then deletes the file with \`ftp:delete\` as its last step. The listener configuration was copied from a template and contains \`primaryNodeOnly="false"\`.
+- The listener has no post-action and no watermark.
+- The flow inserts the lines. Its last step deletes the file with \`ftp:delete\`.
+- The listener configuration was copied from a template and contains \`primaryNodeOnly="false"\`.
 
 ## Logs
 \`\`\`

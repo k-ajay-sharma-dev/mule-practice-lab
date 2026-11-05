@@ -79,17 +79,16 @@ export default {
     },
   ],
   description: `
-An electronics retailer runs **flash sales** (limited stock released at 12:00). The **Order Capture Process API** (CloudHub 2.0, 4 replicas, autoscaling up to 8) reserves stock and writes orders to **Oracle**. Each replica has:
+An electronics retailer runs **flash sales** (limited stock released at 12:00). The **Order Capture Process API** (CloudHub 2.0, 4 replicas, autoscaling up to 8) reserves stock and writes orders to **Oracle**. Oracle allows the app user 200 sessions.
+
+Each replica has:
 
 \`\`\`xml
 <db:pooling-profile maxPoolSize="10" maxWait="30" maxWaitUnit="SECONDS"/>
 \`\`\`
 
-At 12:00:05 last Friday:
-- p95 latency went from 180 ms to **30 s**, then requests failed with errors about not obtaining a connection.
-- Thread dumps showed dozens of threads waiting on the pool.
-- The DBA saw most of the app's Oracle sessions **idle** ("SQL*Net message from client") while the API was slow, and one \`UPDATE inventory_reservation\` waiting on row locks for a hot SKU.
-- The flow looks like this:
+The flow looks like this:
+
 \`\`\`xml
 <try transactionalAction="ALWAYS_BEGIN">
   <db:update config-ref="oracle"> <!-- reserve stock --> </db:update>
@@ -97,7 +96,14 @@ At 12:00:05 last Friday:
   <db:insert config-ref="oracle"> <!-- order --> </db:insert>
 </try>
 \`\`\`
-- The proposed fix is \`maxPoolSize="100"\` on every replica. Oracle allows the app user 200 sessions.
+
+At 12:00:05 last Friday:
+- p95 latency went from 180 ms to **30 s**, then requests failed with errors about not obtaining a connection.
+- Thread dumps showed dozens of threads waiting on the pool.
+- The DBA saw most of the app's Oracle sessions **idle** ("SQL*Net message from client") while the API was slow.
+- The DBA also saw one \`UPDATE inventory_reservation\` waiting on row locks for a hot SKU.
+
+The proposed fix is \`maxPoolSize="100"\` on every replica.
 
 **Questions**
 1. What are the signs of pool exhaustion vs a slow database, and what do these symptoms tell you?

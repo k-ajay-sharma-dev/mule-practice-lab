@@ -2,7 +2,7 @@ export default {
   id: 'ar-009',
   category: 'architecture',
   title: 'When Not to Use MuleSoft',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['tool-selection', 'point-to-point', 'cost', 'integration-strategy'],
   estMinutes: 15,
   quiz: [

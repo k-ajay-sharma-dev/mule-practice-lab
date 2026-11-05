@@ -44,7 +44,14 @@ export default {
     ),
   },
   description: `
-**Context.** An electricity and gas utility is rolling out 2 million smart meters. A head-end system (HES) collects readings every 30 minutes and makes them available as large files (every 30 minutes) and via a REST API for on-demand reads. Readings must reach the meter data management system (MDM) for validation and estimation, then billing, a customer portal ("your usage today") and an analytics platform.
+**Context.** An electricity and gas utility is rolling out 2 million smart meters. A head-end system (HES) collects readings every 30 minutes and makes them available in two ways:
+- large files (every 30 minutes)
+- a REST API for on-demand reads
+
+Readings must reach the meter data management system (MDM) for validation and estimation, then:
+- billing
+- a customer portal ("your usage today")
+- an analytics platform
 
 **Goals**
 - All readings delivered to MDM within 1 hour of collection.

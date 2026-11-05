@@ -40,7 +40,12 @@ export default {
     ),
   },
   description: `
-**Context.** A car manufacturer has 600 independent dealers. Dealers want to see vehicle stock (in factory, in transit, at other dealers), place vehicle orders and check order status. Today dealers get an emailed spreadsheet twice a week and order through a web form that a back-office team re-keys into the order system.
+**Context.** A car manufacturer has 600 independent dealers. Dealers want to:
+- see vehicle stock (in factory, in transit, at other dealers)
+- place vehicle orders
+- check order status
+
+**The problem today.** Dealers get an emailed spreadsheet twice a week. They order through a web form that a back-office team re-keys into the order system.
 
 **Goals**
 - Dealers' own dealer-management systems (DMS) can query stock and place orders via APIs.

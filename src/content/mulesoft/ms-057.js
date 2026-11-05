@@ -79,9 +79,14 @@ export default {
     },
   ],
   description: `
-Saturday morning, the business reports "mobile orders are failing". The on-call engineer opens five different Runtime Manager log screens, one per app, and takes 90 minutes to discover that the **Inventory System API**'s database was refusing connections. Meanwhile, the Experience API's own dashboard looked "green" because it returned well-formed 502 responses quickly.
+Saturday morning, the business reports "mobile orders are failing".
 
 Chain: **Mobile EAPI → Orders PAPI → Inventory SAPI / Customers SAPI → backends**
+
+What happened:
+- The on-call engineer opens five different Runtime Manager log screens, one per app.
+- It takes 90 minutes to discover that the **Inventory System API**'s database was refusing connections.
+- Meanwhile, the Experience API's own dashboard looked "green" because it returned well-formed 502 responses quickly.
 
 **Questions**
 1. What is API Functional Monitoring and how would you use it for this chain? Which layers would you monitor this way and from where?

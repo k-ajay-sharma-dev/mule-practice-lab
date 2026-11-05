@@ -4,7 +4,7 @@ export default {
   id: 'ar-074',
   category: 'architecture',
   title: 'API-led Connectivity for a Retail Supply Chain',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'retail', 'api-led', 'oracle', 'wms', 'tms', 'layers'],
   estMinutes: 20,
   diagram: {

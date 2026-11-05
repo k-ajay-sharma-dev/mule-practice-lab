@@ -69,7 +69,10 @@ Facts and constraints:
 - Partner clinics are external: they must only see patients they referred, through a standards-based (FHIR) interface.
 - Health data (PHI) must be protected end to end and every access audited.
 
-**Questions:** design the application network (APIs per layer with resources), describe the kiosk check-in and the partner pre-registration journeys, and explain where FHIR mapping and duplicate detection live.
+**Questions:**
+1. Design the application network (APIs per layer with resources).
+2. Describe the kiosk check-in and the partner pre-registration journeys.
+3. Explain where FHIR mapping and duplicate detection live.
 `,
   answerTemplate: `## Experience APIs
 

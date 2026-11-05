@@ -4,7 +4,7 @@ export default {
   id: 'ar-070',
   category: 'architecture',
   title: 'Escaping the Shared Oracle Integration Database',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'supply-chain', 'oracle', 'anti-pattern', 'api-led', 'events', 'data-ownership'],
   estMinutes: 20,
   diagram: {
@@ -46,7 +46,12 @@ A retailer's **Oracle database** has become the integration hub. Over 15 years:
 - The **store ops app** runs SQL against the same tables.
 - **Finance** runs nightly queries joining 30 tables; a trigger copies changes into staging tables for them.
 
-Now the inventory team wants to rename two columns and split \`INV_ONHAND\` by location — and **six teams** say this will break them. Nobody knows all the readers. A bad query from the store app locked \`RESERVATIONS\` for 20 minutes last month.
+Now the inventory team wants to rename two columns and split \`INV_ONHAND\` by location.
+
+What is wrong now:
+- **Six teams** say this will break them.
+- Nobody knows all the readers.
+- A bad query from the store app locked \`RESERVATIONS\` for 20 minutes last month.
 
 **Questions:**
 - Why is "integrate through a shared database" an anti-pattern here? Name at least three concrete problems from the scenario.

@@ -4,7 +4,7 @@ export default {
   id: 'ar-075',
   category: 'architecture',
   title: 'Black Friday Peak: Queue-Based Load Levelling and Backpressure',
-  level: 'INTERMEDIATE',
+  level: 'ADVANCED',
   tags: ['retail', 'peak', 'scaling', 'backpressure', 'activemq', 'anypoint-mq', 'oracle', 'rate-limiting'],
   estMinutes: 30,
   diagram: {
@@ -44,7 +44,13 @@ export default {
   description: `
 An electronics retailer expects **10× normal traffic on Black Friday**: up to **1,200 checkouts/s** for the first 15 minutes of the doorbuster sale, then ~300/s for hours.
 
-Current synchronous chain: \`exp-checkout → prc-checkout → sys-oracle-orders → Oracle\` plus payment authorisation. Oracle order inserts (several tables, triggers, sequence calls) top out at about **150 orders/s**. Last year the Oracle connection pool was exhausted, HTTP threads piled up, response times went to 60 s, and the site went down for 40 minutes.
+Current synchronous chain: \`exp-checkout → prc-checkout → sys-oracle-orders → Oracle\` plus payment authorisation. Oracle order inserts (several tables, triggers, sequence calls) top out at about **150 orders/s**.
+
+What happened last year:
+- The Oracle connection pool was exhausted.
+- HTTP threads piled up.
+- Response times went to 60 s.
+- The site went down for 40 minutes.
 
 Facts:
 - Customers must see "order received" with an order number within 3 seconds.

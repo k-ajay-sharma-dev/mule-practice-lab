@@ -44,7 +44,14 @@ export default {
     ),
   },
   description: `
-**Context.** A retail bank processes card payments, instant payments, online-banking logins and payee changes in separate systems. Its fraud checks run in overnight batches, so instant-payment scams are spotted only after the money has left. The bank has bought a real-time fraud-scoring engine and wants every relevant event scored, with high-risk instant payments held before release. The bank already runs a Kafka cluster owned by the data team and uses Mule for most system integration.
+**Context.** A retail bank processes card payments, instant payments, online-banking logins and payee changes in separate systems.
+
+**The problem today.** Its fraud checks run in overnight batches, so instant-payment scams are spotted only after the money has left.
+
+**What the bank has**
+- A newly bought real-time fraud-scoring engine. The bank wants every relevant event scored, with high-risk instant payments held before release.
+- A Kafka cluster owned by the data team.
+- Mule, used for most system integration.
 
 **Goals**
 - Instant payments scored before release (budget: 150 ms of the payment's processing time).
@@ -57,7 +64,10 @@ export default {
 - Customer data is sensitive; data minimisation and encryption are mandatory.
 - The fraud engine vendor offers a synchronous REST scoring API and a Kafka-based event ingest.
 
-**Your task.** Propose the architecture, the split between synchronous and asynchronous paths, and failure behaviour.
+**Your task.** Propose:
+- the architecture
+- the split between synchronous and asynchronous paths
+- failure behaviour
 `,
   answerTemplate: `## Synchronous vs asynchronous paths
 

@@ -67,7 +67,8 @@ export default {
   },
   description: `
 ## Symptoms
-- \`stock-papi\` runs as a standalone Mule 4 runtime image on the company's own Kubernetes cluster with 2 replicas (pods). During the morning peak, \`kubectl get pods\` shows the pods **restarting** every few minutes, and clients see bursts of 502/503.
+- \`stock-papi\` runs as a standalone Mule 4 runtime image on the company's own Kubernetes cluster with 2 replicas (pods).
+- During the morning peak, \`kubectl get pods\` shows the pods **restarting** every few minutes, and clients see bursts of 502/503.
 - After a restart the replica is fine for a while, then restarts again as load climbs.
 - Off-peak, no restarts.
 

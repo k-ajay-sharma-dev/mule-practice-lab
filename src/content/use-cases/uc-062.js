@@ -4,7 +4,7 @@ export default {
   id: 'uc-062',
   category: 'use-cases',
   title: 'Carrier Tracking Events into the Customer App',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'retail', 'carrier', 'webhooks', 'activemq', 'oracle', 'notifications', 'canonical-model'],
   estMinutes: 20,
   diagram: {
@@ -52,7 +52,11 @@ Facts:
 - Events can arrive out of order (a "Delivered" before the last "In transit").
 - Orders and shipments are already in an **Oracle** database owned by the order team.
 
-**Questions:** describe the APIs, how you normalise statuses, how you deal with duplicates and out-of-order events, and how the app gets the status.
+**Questions:**
+1. Describe the APIs.
+2. How do you normalise statuses?
+3. How do you deal with duplicates and out-of-order events?
+4. How does the app get the status?
 `,
   answerTemplate: `## Receiving webhooks
 

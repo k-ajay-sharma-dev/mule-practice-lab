@@ -50,7 +50,15 @@ export default {
     ),
   },
   description: `
-**Context.** A car and home insurer receives claims through four channels: a web form, a mobile app (with photos), brokers (who email PDF forms), and a call centre. All claims end up in a **20-year-old claims system** that only accepts a fixed-width file loaded overnight and has a slow SOAP service for single claims (~8 s per call, often unavailable during its nightly batch).
+**Context.** A car and home insurer receives claims through four channels:
+- a web form
+- a mobile app (with photos)
+- brokers (who email PDF forms)
+- a call centre
+
+All claims end up in a **20-year-old claims system**. It offers only two ways in:
+- a fixed-width file loaded overnight
+- a slow SOAP service for single claims (~8 s per call, often unavailable during its nightly batch)
 
 **Goals**
 - Customers get a **claim reference immediately**, whatever the channel.

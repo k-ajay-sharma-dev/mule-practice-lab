@@ -15,7 +15,7 @@ This is the return trip of the parameter store migration. A Mule API reads all k
 
 **Structure rules**
 - Object keys appear in order of first appearance in the input.
-- Array elements are ordered by position **numerically** (\`[2]\` before \`[10]\`). Positions may have gaps, and gaps are simply closed up.
+- Array elements are ordered by position **numerically** (\`[2]\` before \`[10]\`). Positions may have gaps, and gaps are closed up.
 - A node never mixes names and positions, and no key is a prefix of another key.
 - An empty input gives \`{}\`.
 

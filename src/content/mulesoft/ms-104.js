@@ -91,7 +91,9 @@ export default {
     },
   ],
   description: `
-A logistics group runs **Mule Gateway** for its Mule APIs. A platform team is introducing **Omni Gateway (formerly Flex Gateway)** in front of containerised Java and Node services, partly in Connected Mode and partly in Local Mode in a factory network with no management access. Their plan is to "reuse the same policies" and they have assumed that:
+A logistics group runs **Mule Gateway** for its Mule APIs. A platform team is introducing **Omni Gateway (formerly Flex Gateway)** in front of containerised Java and Node services. Part of it runs in Connected Mode, and part in Local Mode in a factory network with no management access.
+
+Their plan is to "reuse the same policies". They have assumed that:
 
 - every policy name exists on both gateways,
 - ordering works the same way,

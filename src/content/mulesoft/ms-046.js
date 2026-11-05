@@ -2,7 +2,7 @@ export default {
   id: 'ms-046',
   category: 'mulesoft',
   title: 'Certification-Style Tricky Questions: Rapid-Fire Round',
-  level: 'EXPERT',
+  level: 'ADVANCED',
   tags: ['certification', 'interview', 'gotchas', 'mule-4'],
   estMinutes: 30,
   quiz: [

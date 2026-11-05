@@ -74,9 +74,9 @@ export default {
 - The DBA confirms **deadlock graphs** in SQL Server between sessions from the Mule app, all on table \`stock_level\`.
 
 ## Change / Context
-- For each order the flow starts a **Try scope with a transaction** (\`transactionalAction="ALWAYS_BEGIN"\`, local transaction on the DB connector) and, inside a For Each over the order lines **in the order they appear in the request**, runs:
+- For each order the flow starts a **Try scope with a transaction** (\`transactionalAction="ALWAYS_BEGIN"\`, local transaction on the DB connector).
+- Inside that scope, a For Each loops over the order lines **in the order they appear in the request**. For each line it runs this statement, followed by an \`INSERT\` into \`reservation\`:
   \`UPDATE stock_level SET reserved = reserved + :qty WHERE sku = :sku AND warehouse = :wh\`
-  followed by an \`INSERT\` into \`reservation\`.
 - Before the commit, the flow also calls the pricing API (HTTP, ~300 ms) to log the reserved value.
 - Last week the flow's \`maxConcurrency\` was raised from 4 to 32 to handle the promotion.
 - \`stock_level\` has a primary key on \`id\`; there is **no index** on \`(sku, warehouse)\`.

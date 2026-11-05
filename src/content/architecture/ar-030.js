@@ -2,7 +2,7 @@ export default {
   id: 'ar-030',
   category: 'architecture',
   title: 'Data Sync Strategy: Full, Delta or CDC',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['data-sync', 'cdc', 'watermark', 'delta-load'],
   estMinutes: 20,
   quiz: [

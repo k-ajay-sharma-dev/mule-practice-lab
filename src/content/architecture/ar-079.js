@@ -2,7 +2,7 @@ export default {
   id: 'ar-079',
   category: 'architecture',
   title: 'Highly Available ActiveMQ for Warehouse Messaging and Mule Reconnection',
-  level: 'INTERMEDIATE',
+  level: 'ADVANCED',
   tags: ['supply-chain', 'activemq', 'artemis', 'jms', 'high-availability', 'reconnection', 'wms'],
   estMinutes: 30,
   quiz: [
@@ -81,9 +81,15 @@ export default {
     },
   ],
   description: `
-A 3PL runs its **WMS ↔ Mule** messaging on a single **ActiveMQ Classic** broker at the main DC: pick confirmations, ship confirmations (to Oracle and the TMS) and wave releases. When the broker VM was patched last Sunday, **warehouse scanners froze for 25 minutes** and 1,800 pick confirmations had to be re-keyed.
+A 3PL runs its **WMS ↔ Mule** messaging on a single **ActiveMQ Classic** broker at the main DC. It carries pick confirmations, ship confirmations (to Oracle and the TMS) and wave releases.
 
-You are asked to design high availability for the broker and make the Mule apps (4 apps, on-prem runtime cluster) survive a broker failover without data loss or frozen threads. The team is also considering migrating to **ActiveMQ Artemis**.
+When the broker VM was patched last Sunday, **warehouse scanners froze for 25 minutes** and 1,800 pick confirmations had to be re-keyed.
+
+You are asked to:
+- Design high availability for the broker.
+- Make the Mule apps (4 apps, on-prem runtime cluster) survive a broker failover without data loss or frozen threads.
+
+The team is also considering migrating to **ActiveMQ Artemis**.
 
 **Questions:**
 - What HA options exist for ActiveMQ Classic and Artemis, and what does each require from the infrastructure?

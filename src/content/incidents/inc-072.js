@@ -72,7 +72,8 @@ export default {
 - During the day, the \`GET /customers/batch\` endpoint of the same app intermittently hangs for 30 s and fails with a pool error; other endpoints using Oracle fail at the same time.
 
 ## Change / Context
-- Release v4.1.0 (Monday) added "address enrichment": inside a For Each over customers, a \`db:select\` fetches addresses per customer and the flow uses \`payload[0]\` as the primary address. The same sub-flow is reused by the batch endpoint (up to 50 ids per request).
+- Release v4.1.0 (Monday) added "address enrichment". Inside a For Each over customers, a \`db:select\` fetches addresses per customer, and the flow uses \`payload[0]\` as the primary address.
+- The batch endpoint reuses the same sub-flow (up to 50 ids per request).
 - The nightly job wraps the whole loop in a Try with \`transactionalAction="ALWAYS_BEGIN"\`.
 - Pooling profile: \`maxPoolSize="20"\`, \`maxWait="30" maxWaitUnit="SECONDS"\`. Oracle \`OPEN_CURSORS = 300\`.
 

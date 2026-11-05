@@ -183,14 +183,21 @@ export default {
   description: `
 An online shop's checkout submits orders through three layers:
 
-- \`exp-web\` — called by the web checkout (~20 orders/s at peak, 10 s browser timeout).
-- \`prc-orders\` — authorises the payment, then creates the order.
-- \`sys-payment\` — wraps the payment service provider (PSP). **Quirk:** a declined card is HTTP **200** with \`"status": "declined"\`; a wrong API key is 401.
-- \`sys-oms\` — wraps the order database (a duplicate order id violates a unique key).
+- \`exp-web\`: called by the web checkout (~20 orders/s at peak, 10 s browser timeout).
+- \`prc-orders\`: authorises the payment, then creates the order.
+- \`sys-payment\`: wraps the payment service provider (PSP). **Quirk:** a declined card is HTTP **200** with \`"status": "declined"\`; a wrong API key is 401.
+- \`sys-oms\`: wraps the order database (a duplicate order id violates a unique key).
 
-The current implementation returns **500 "Internal Server Error"** for everything — declined cards, duplicate submits, PSP outages and timeouts look the same to the shopper, and support cannot tell them apart.
+**What is wrong now**
 
-Required behaviour at the edge: invalid input **400**, declined card or duplicate **422** with a business code, downstream outage **503**, slow downstream **504** (with a hint not to resubmit blindly), anything else **500** with a correlation id and no internals.
+The current implementation returns **500 "Internal Server Error"** for everything. Declined cards, duplicate submits, PSP outages and timeouts look the same to the shopper, and support cannot tell them apart.
+
+**Required behaviour at the edge**
+- Invalid input: **400**.
+- Declined card or duplicate: **422** with a business code.
+- Downstream outage: **503**.
+- Slow downstream: **504** (with a hint not to resubmit blindly).
+- Anything else: **500** with a correlation id and no internals.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-orders/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 

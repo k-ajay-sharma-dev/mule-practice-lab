@@ -6,7 +6,9 @@ export default {
   tags: ['json', 'xml', 'lookup', 'multiple-inputs', 'recursion', 'effective-dating', 'file', 'rounding'],
   estMinutes: 45,
   description: `
-An order API (\`payload\`, JSON) sends web-shop orders to Mule. Prices and product data are **not** in the order: they come from a product master XML file that the ERP drops on a shared folder every night. The flow reads it with \`file:read\` into the variable \`productMaster\` (in the playground: the input \`productMaster\`; in the flow: \`vars.productMaster\`) and enriches the order before it goes to the invoicing system.
+An order API (\`payload\`, JSON) sends web-shop orders to Mule. The flow enriches each order before it goes to the invoicing system.
+
+Prices and product data are **not** in the order. They come from a product master XML file that the ERP drops on a shared folder every night. The flow reads it with \`file:read\` into the variable \`productMaster\` (in the playground: the input \`productMaster\`; in the flow: \`vars.productMaster\`).
 
 **Product master**
 - \`product\` elements keyed by the \`sku\` attribute.
@@ -17,10 +19,16 @@ An order API (\`payload\`, JSON) sends web-shop orders to Mule. Prices and produ
 1. Resolve the ordered SKU through the \`replacedBy\` chain to the current SKU. Follow at most **5** replacements; a longer chain is treated as a loop.
 2. The unit price is the price valid on the order's \`orderDate\`; if several are valid, the one with the latest \`validFrom\` wins.
 3. \`netAmount = qty * unitPrice\`, \`vatAmount = netAmount * vatRate / 100\` rounded to 2 decimals, \`grossAmount = netAmount + vatAmount\`.
-4. A line that cannot be priced is **not** an error for the whole order: it goes to \`unmatched\` with \`reason\`:
-   \`UNKNOWN_SKU\` (the SKU or a successor is not in the file), \`REPLACEMENT_LOOP\` (more than 5 replacements) or \`NO_PRICE\` (no price valid on the order date).
+4. A line that cannot be priced is **not** an error for the whole order. It goes to \`unmatched\` with \`reason\`:
+   - \`UNKNOWN_SKU\`: the SKU or a successor is not in the file
+   - \`REPLACEMENT_LOOP\`: more than 5 replacements
+   - \`NO_PRICE\`: no price valid on the order date
 
-**Output** — \`orderId\`, \`orderDate\`, \`currency\`; \`lines\` (priced lines in input order) with \`lineId\`, \`orderedSku\`, \`sku\`, \`substituted\`, \`description\`, \`qty\`, \`unitPrice\`, \`vatRate\`, \`netAmount\`, \`vatAmount\`, \`grossAmount\`; \`unmatched\` (\`lineId\`, \`sku\` as ordered, \`reason\`); \`totals\` (\`net\`, \`vat\`, \`gross\`) over the priced lines.
+**Output**
+- \`orderId\`, \`orderDate\`, \`currency\`
+- \`lines\` (priced lines in input order) with \`lineId\`, \`orderedSku\`, \`sku\`, \`substituted\`, \`description\`, \`qty\`, \`unitPrice\`, \`vatRate\`, \`netAmount\`, \`vatAmount\`, \`grossAmount\`
+- \`unmatched\` (\`lineId\`, \`sku\` as ordered, \`reason\`)
+- \`totals\` (\`net\`, \`vat\`, \`gross\`) over the priced lines
 `,
   inputs: [
     {

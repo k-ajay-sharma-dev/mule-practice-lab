@@ -68,9 +68,14 @@ export default {
     },
   ],
   description: `
-A **Product Experience API** handles \`GET /products/{sku}\` at ~300 req/s. Each request calls a slow **Pricing System API** (~800 ms). Prices change a few times per day, and when Finance publishes a price change, the new price must be visible within **10 minutes**.
+A **Product Experience API** handles \`GET /products/{sku}\`. Each request calls a slow **Pricing System API**.
 
-A developer wrapped the Pricing call in a **Cache** scope with the default caching strategy. Response times dropped dramatically — but QA reports that **every SKU now returns the same price**.
+- Traffic is ~300 req/s.
+- The Pricing call takes ~800 ms.
+- Prices change a few times per day.
+- When Finance publishes a price change, the new price must be visible within **10 minutes**.
+
+A developer wrapped the Pricing call in a **Cache** scope with the default caching strategy. Response times dropped dramatically, but QA reports that **every SKU now returns the same price**.
 
 **Questions**
 1. How does the Cache scope decide whether it has a hit, and what is the default key?

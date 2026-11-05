@@ -47,7 +47,17 @@ export default {
     ),
   },
   description: `
-**Context.** A fashion retailer with 180 stores, a web shop and two marketplace channels wants to offer click-and-collect, ship-from-store and endless aisle (order in store for home delivery). It has bought a SaaS order management system (OMS) to decide where each order is fulfilled. Store stock lives in a point-of-sale (POS) system that syncs to head office overnight; warehouse stock is in a WMS; the web shop is a commerce SaaS platform.
+**Context.** A fashion retailer with 180 stores, a web shop and two marketplace channels wants to offer:
+- click-and-collect
+- ship-from-store
+- endless aisle (order in store for home delivery)
+
+It has bought a SaaS order management system (OMS) to decide where each order is fulfilled.
+
+**Current systems**
+- Store stock lives in a point-of-sale (POS) system that syncs to head office overnight.
+- Warehouse stock is in a WMS.
+- The web shop is a commerce SaaS platform.
 
 **Goals**
 - Near-real-time available-to-promise (ATP) stock across stores and warehouse.

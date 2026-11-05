@@ -85,11 +85,18 @@ An **Order System API** receives orders from an **IBM MQ queue** (JMS connector)
 3. Publish an \`OrderAccepted\` message to a second JMS queue.
 4. Call a **Tax HTTP API** to register the tax document.
 
-Requirements: if anything in steps 1–3 fails, **nothing** should be written to Oracle, nothing published, and the original message must go back to the queue for redelivery (max 5 times, then to a DLQ). Last month a failure in step 2 left orphan headers in \`ORDERS\`, and some \`OrderAccepted\` messages were published for orders that were never saved.
+If anything in steps 1 to 3 fails:
+- **Nothing** should be written to Oracle.
+- Nothing should be published.
+- The original message must go back to the queue for redelivery (max 5 times, then to a DLQ).
+
+What went wrong last month:
+- A failure in step 2 left orphan headers in \`ORDERS\`.
+- Some \`OrderAccepted\` messages were published for orders that were never saved.
 
 **Questions**
 1. Explain the transactional actions on the Try scope and on connector operations.
-2. Design the transaction boundaries. Can a **local** transaction cover steps 1–3? Why or why not?
+2. Design the transaction boundaries. Can a **local** transaction cover steps 1 to 3? Why or why not?
 3. What do you need for an XA transaction in Mule 4, and what does it cost?
 4. Where does the Tax HTTP call go, and why can't it be in the transaction?
 5. What decides commit vs rollback in the error handler, and how does redelivery reach the DLQ?

@@ -2,7 +2,7 @@ export default {
   id: 'ar-067',
   category: 'architecture',
   title: 'Store-to-HQ Messaging: ActiveMQ, Anypoint MQ or Kafka',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'supply-chain', 'activemq', 'jms', 'anypoint-mq', 'kafka', 'messaging'],
   estMinutes: 20,
   quiz: [
@@ -84,6 +84,8 @@ A grocery chain has **400 stores** and an HQ data centre running **Oracle Retail
 The business wants:
 - POS sales, store receipts and stock counts at HQ **within minutes**, not overnight.
 - Price and promotion changes pushed **from HQ to every store**.
+
+Facts:
 - Store WAN links are cheap broadband: **outages of minutes to hours** happen weekly.
 - A small central integration team (4 people) and one store-IT team.
 

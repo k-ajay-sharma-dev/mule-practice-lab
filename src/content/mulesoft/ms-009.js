@@ -2,7 +2,7 @@ export default {
   id: 'ms-009',
   category: 'mulesoft',
   title: 'Scheduler: Fixed Frequency vs Cron in a Cluster',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['scheduler', 'cron', 'clustering', 'cloudhub'],
   estMinutes: 10,
   quiz: [

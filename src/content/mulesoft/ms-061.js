@@ -2,7 +2,7 @@ export default {
   id: 'ms-061',
   category: 'mulesoft',
   title: 'JMS Connector Config for ActiveMQ Classic vs Artemis: Connection Factory, Caching and Client ID',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'jms', 'activemq', 'artemis', 'connector-config'],
   estMinutes: 15,
   quiz: [

@@ -4,7 +4,7 @@ export default {
   id: 'cs-053',
   category: 'case-studies',
   title: 'Homewares Retailer Replacing a Nightly Oracle Stock Batch With Near-Real-Time Inventory',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'supply-chain', 'inventory', 'oracle', 'activemq', 'jms', 'events'],
   estMinutes: 30,
   diagram: {
@@ -42,7 +42,14 @@ export default {
     ),
   },
   description: `
-**Context.** A homewares retailer with 120 stores, one distribution centre and a growing web shop keeps stock in an Oracle merchandising database. Store POS systems upload the day's sales after closing; a PL/SQL batch at 02:00 recalculates stock per store and the DC, and a CSV of stock levels is pushed by SFTP to the commerce platform at 06:00. By mid-afternoon the website is selling items that sold out in stores that morning. Click-and-collect cancellations are running at 7%.
+**Context.** A homewares retailer with 120 stores, one distribution centre (DC) and a growing web shop keeps stock in an Oracle merchandising database.
+
+**How stock is updated today**
+1. Store POS systems upload the day's sales after closing.
+2. A PL/SQL batch at 02:00 recalculates stock per store and the DC.
+3. A CSV of stock levels is pushed by SFTP to the commerce platform at 06:00.
+
+**The problem today.** By mid-afternoon the website is selling items that sold out in stores that morning. Click-and-collect cancellations are running at 7%.
 
 **Goals**
 - Web stock reflects store and DC movements within 5 minutes.
@@ -58,7 +65,10 @@ export default {
 | Volume | ~400,000 sale lines a day, 4x on promotional weekends |
 | Team | Two Mule developers, first event-driven project |
 
-**Your task.** Propose the target integration for stock movements, how the website reads stock, and how you keep Oracle accurate.
+**Your task.** Propose:
+- the target integration for stock movements
+- how the website reads stock
+- how you keep Oracle accurate
 `,
   answerTemplate: `## Current problem in one sentence
 

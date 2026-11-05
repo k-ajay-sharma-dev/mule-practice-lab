@@ -46,7 +46,13 @@ export default {
     ),
   },
   description: `
-**Context.** A third-party logistics (3PL) company runs 12 warehouses for about 200 clients (retail brands, e-commerce sellers, consumer-goods manufacturers) on one multi-client WMS. Each client integration was built separately: some send X12 940 warehouse shipping orders and expect 945 confirmations and 846 inventory reports over AS2; others drop CSV files on SFTP; newer e-commerce clients want REST APIs and webhooks; two large clients send SAP IDocs. Onboarding a new client takes about three months of developer time, and sales says they lose deals because of it.
+**Context.** A third-party logistics (3PL) company runs 12 warehouses for about 200 clients (retail brands, e-commerce sellers, consumer-goods manufacturers) on one multi-client WMS. Each client integration was built separately:
+- Some send X12 940 warehouse shipping orders and expect 945 confirmations and 846 inventory reports over AS2.
+- Others drop CSV files on SFTP.
+- Newer e-commerce clients want REST APIs and webhooks.
+- Two large clients send SAP IDocs.
+
+**The problem today.** Onboarding a new client takes about three months of developer time, and sales says they lose deals because of it.
 
 **Goals**
 - Onboard a typical new client in two weeks, mostly by configuration.
@@ -62,7 +68,11 @@ export default {
 | Contracts | SLAs per client, e.g. orders received by 14:00 ship same day |
 | Security | Clients must never see each other's data |
 
-**Your task.** Propose the integration platform architecture, the onboarding model, multi-tenancy controls and operating model.
+**Your task.** Propose:
+- the integration platform architecture
+- the onboarding model
+- multi-tenancy controls
+- the operating model
 `,
   answerTemplate: `## Canonical model (orders, receipts, shipments, inventory)
 

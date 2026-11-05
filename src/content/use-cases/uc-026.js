@@ -49,13 +49,15 @@ export default {
 A hotel group with **120 hotels** wants to replace its third-party channel manager with its own integration hub. Each hotel runs a **PMS** (Oracle OPERA Cloud in 90 hotels, a smaller cloud PMS in 30). Rates are set by a **revenue management system (RMS)**. Rooms are sold on:
 
 - The group's own **booking engine** (website/app).
-- OTAs: **Booking.com**, **Expedia**, and a GDS connection for corporate travel — each with its own APIs (several use **OpenTravel Alliance (OTA) XML** messages for availability/rate notifications and reservations).
+- OTAs: **Booking.com**, **Expedia**, and a GDS connection for corporate travel. Each has its own APIs. Several use **OpenTravel Alliance (OTA) XML** messages for availability/rate notifications and reservations.
 
 Facts and constraints:
-- ARI (availability, rates, inventory) changes: the RMS re-prices several times a day — up to **2 million rate/availability cells** (hotel × room type × rate plan × date for 365 days) per run; bookings change availability constantly.
+- ARI (availability, rates, inventory) changes: the RMS re-prices several times a day, up to **2 million rate/availability cells** (hotel × room type × rate plan × date for 365 days) per run. Bookings change availability constantly.
 - ~25,000 reservations/day across channels including modifications and cancellations.
-- Channels must reflect availability changes within **60 seconds** — every minute of stale availability risks **overbooking**.
-- OTAs rate-limit ARI updates and **penalise** (ranking, fees) on failed or late reservation confirmations; reservations must be confirmed with a PMS confirmation number.
+- Channels must reflect availability changes within **60 seconds**. Every minute of stale availability risks **overbooking**.
+- OTAs rate-limit ARI updates.
+- OTAs **penalise** (ranking, fees) failed or late reservation confirmations.
+- Reservations must be confirmed with a PMS confirmation number.
 - Last room on a busy night may be booked on two channels within seconds.
 
 **Design the hub:**

@@ -2,11 +2,19 @@ export default {
   id: 'dw-053',
   category: 'dataweave',
   title: 'Map Oracle Shipment Rows to a Canonical JSON Model',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['supply-chain', 'oracle', 'database', 'skipNullOn', 'dates', 'lookup'],
   estMinutes: 15,
   description: `
-A \`db:select\` against an Oracle shipment table returns rows exactly as the database names them: **UPPERCASE** column names, \`CHAR(10)\` carrier codes padded with spaces, timestamps without a time zone and plenty of \`NULL\`s. (The input is shown here as JSON; at runtime it would be the connector's result.) Map each row to the canonical shipment model used by the tracking API.
+A \`db:select\` against an Oracle shipment table returns rows exactly as the database names them. Map each row to the canonical shipment model used by the tracking API.
+
+The rows have:
+- **UPPERCASE** column names
+- \`CHAR(10)\` carrier codes padded with spaces
+- timestamps without a time zone
+- plenty of \`NULL\`s
+
+(The input is shown here as JSON; at runtime it would be the connector's result.)
 
 | Canonical field | Source | Rule |
 |---|---|---|
@@ -18,7 +26,7 @@ A \`db:select\` against an Oracle shipment table returns rows exactly as the dat
 | \`weightKg\` | \`WEIGHT_KG\` | as is |
 | \`status\` | \`STATUS_CD\` | \`CR\` → \`CREATED\`, \`IT\` → \`IN_TRANSIT\`, \`DL\` → \`DELIVERED\`, anything else (or null) → \`UNKNOWN\` |
 
-The canonical API **omits** fields that have no value — never send \`null\`.
+The canonical API **omits** fields that have no value. Never send \`null\`.
 `,
   inputs: [
     {

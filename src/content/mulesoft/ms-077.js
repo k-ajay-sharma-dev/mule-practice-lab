@@ -84,7 +84,13 @@ An insurer is moving its claims document archive from an on-prem file share to *
 - pull nightly batches of **repair-shop videos (up to 2 GB)** from a partner SFTP server;
 - list and download documents for a claim when a handler opens it.
 
-The first proof of concept used the **Microsoft Azure Storage connector** with an **Access Key** connection (the account key in a properties file), created one container per claim, base64-encoded files before upload "for safety", and logged the payload for debugging. Large uploads crash the worker.
+The first proof of concept:
+- used the **Microsoft Azure Storage connector** with an **Access Key** connection (the account key in a properties file);
+- created one container per claim;
+- base64-encoded files before upload "for safety";
+- logged the payload for debugging.
+
+Large uploads crash the worker.
 
 **Questions**
 1. How should containers and blob names be organised?

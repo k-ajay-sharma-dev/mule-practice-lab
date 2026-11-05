@@ -53,7 +53,7 @@ A fashion retailer receives ~40% of its contact-centre calls asking **"where is 
 
 | System | Holds | Interface |
 |---|---|---|
-| **Order management system (OMS)** — Manhattan or similar | Orders, lines, fulfilment status | REST |
+| **Order management system (OMS)**, Manhattan or similar | Orders, lines, fulfilment status | REST |
 | **Warehouse management system (WMS)** | Pick/pack/ship status per shipment | SOAP |
 | **Carrier aggregator** (e.g. a multi-carrier tracking SaaS) | Carrier tracking events | REST, rate-limited 20 req/s |
 
@@ -63,7 +63,10 @@ Facts:
 - Guests must not be able to enumerate other people's orders.
 - Agents need extra fields customers must **not** see.
 
-**Questions:** name the APIs per layer with resources, show the sequence for a guest lookup on the website, and explain how the agent-only fields are handled.
+**Questions:**
+1. Name the APIs per layer with resources.
+2. Show the sequence for a guest lookup on the website.
+3. Explain how the agent-only fields are handled.
 `,
   answerTemplate: `## Experience APIs
 

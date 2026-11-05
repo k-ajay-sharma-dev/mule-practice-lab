@@ -4,7 +4,7 @@ export default {
   id: 'ar-010',
   category: 'architecture',
   title: 'Batch vs Streaming vs Real-Time',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['batch', 'real-time', 'streaming', 'integration-patterns'],
   estMinutes: 15,
   diagram: {

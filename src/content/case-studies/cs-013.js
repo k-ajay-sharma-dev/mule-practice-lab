@@ -48,7 +48,15 @@ export default {
     ),
   },
   description: `
-**Context.** A regional government wants one citizen portal and mobile app for services now spread across separate websites: vehicle registration renewal, property tax payments, business permits and social benefit applications. Each service is backed by a different department system: a mainframe (vehicles), a COTS tax system, a case-management platform (permits, benefits) and a payment gateway. A national digital identity service already exists for citizen login.
+**Context.** A regional government wants one citizen portal and mobile app for services now spread across separate websites: vehicle registration renewal, property tax payments, business permits and social benefit applications.
+
+Each service is backed by a different department system:
+- a mainframe (vehicles)
+- a COTS tax system
+- a case-management platform (permits, benefits)
+- a payment gateway
+
+A national digital identity service already exists for citizen login.
 
 **Goals**
 - One login and one "my services" dashboard showing status across departments.

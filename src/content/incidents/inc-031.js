@@ -69,7 +69,8 @@ export default {
   },
   description: `
 ## Symptoms
-- Since the old DNS servers were switched off on Sunday night, after the weekend's network maintenance, \`hr-sapi\` (CloudHub 2.0, Private Space connected to the corporate network over VPN) fails **every** call to the on-prem HR system \`hr-core.corp.internal\`.
+- \`hr-sapi\` runs on CloudHub 2.0, in a Private Space connected to the corporate network over VPN.
+- The old DNS servers were switched off on Sunday night, after the weekend's network maintenance. Since then, \`hr-sapi\` fails **every** call to the on-prem HR system \`hr-core.corp.internal\`.
 - Calls to public SaaS endpoints from the same app work.
 - The network team says "the HR server is up, we can reach it from the office by IP and by name".
 

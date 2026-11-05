@@ -2,7 +2,7 @@ export default {
   id: 'inc-042',
   category: 'incidents',
   title: 'Our New Certificate Works in Browsers but Partner Integrations Fail',
-  level: 'ADVANCED',
+  level: 'INTERMEDIATE',
   tags: ['tls', 'certificates', 'keystore', 'certificate-chain', 'http-listener'],
   estMinutes: 25,
   investigation: {

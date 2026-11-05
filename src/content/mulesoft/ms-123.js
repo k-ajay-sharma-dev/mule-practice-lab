@@ -93,7 +93,12 @@ export default {
     },
   ],
   description: `
-A retailer has one Anypoint VPC with **65 applications on CloudHub 1.0**, a DLB with 40 mapping rules, an allowlist and a denylist, mTLS for two partners, a Transit Gateway to the data centre, and per-app static IPs allowlisted on Oracle and a SaaS tax service.
+A retailer has one Anypoint VPC with **65 applications on CloudHub 1.0**. It also has:
+
+- A DLB with 40 mapping rules, an allowlist and a denylist.
+- mTLS for two partners.
+- A Transit Gateway to the data centre.
+- Per-app static IPs allowlisted on Oracle and a SaaS tax service.
 
 Management wants to move to **CloudHub 2.0** in waves over six months, with no client changes.
 

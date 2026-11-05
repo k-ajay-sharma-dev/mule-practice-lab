@@ -43,7 +43,9 @@ export default {
     ),
   },
   description: `
-**Context.** A pharmaceutical wholesaler distributes vaccines, biologics and insulin from four temperature-controlled warehouses to hospitals and pharmacies using its own refrigerated fleet and two subcontracted carriers. Data loggers record temperatures, but data is downloaded from loggers only when they come back to the depot, so excursions are found days later. An inspector recently asked how the company knows each delivery stayed within 2–8 °C, and the answer took two weeks to assemble.
+**Context.** A pharmaceutical wholesaler distributes vaccines, biologics and insulin from four temperature-controlled warehouses to hospitals and pharmacies. It uses its own refrigerated fleet and two subcontracted carriers.
+
+**The problem today.** Data loggers record temperatures, but data is downloaded from loggers only when they come back to the depot, so excursions are found days later. An inspector recently asked how the company knows each delivery stayed within 2–8 °C, and the answer took two weeks to assemble.
 
 **Goals**
 - Detect temperature excursions within 5 minutes during transport and storage.
@@ -59,7 +61,11 @@ export default {
 | Compliance | Records must be complete, tamper-evident and kept for several years (GDP expectations, kept generic) |
 | Carriers | Subcontracted carriers use their own loggers and portals |
 
-**Your task.** Propose the architecture for telemetry ingestion, excursion detection, quality cases and audit evidence.
+**Your task.** Propose the architecture for:
+- telemetry ingestion
+- excursion detection
+- quality cases
+- audit evidence
 `,
   answerTemplate: `## Data sources and volumes
 

@@ -6,7 +6,12 @@ export default {
   tags: ['csv', 'groupBy', 'coercion', 'default', 'nesting'],
   estMinutes: 20,
   description: `
-An ERP exports open orders as a CSV file with **one row per order line**. The order columns are repeated on every line, the file is **not** sorted, and — because a human edits it in a spreadsheet — some numeric cells are **empty**. Your Mule app must post the orders as nested JSON to an e-commerce API.
+An ERP exports open orders as a CSV file. Your Mule app must post the orders as nested JSON to an e-commerce API.
+
+**The file**
+- It has **one row per order line**, and the order columns are repeated on every line.
+- It is **not** sorted.
+- A human edits it in a spreadsheet, so some numeric cells are **empty**.
 
 **Rules**
 - One object per \`orderId\`, in the order in which each \`orderId\` **first appears** in the file.

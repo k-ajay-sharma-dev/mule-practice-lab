@@ -69,11 +69,13 @@ export default {
   description: `
 ## Symptoms
 - \`billing-sapi\` is redeployed to PROD to pick up a new DB password. The deployment **fails at startup**.
-- Two other PROD apps that share the same encryption key are running fine — but they have not been redeployed since the change below.
+- Two other PROD apps that share the same encryption key are running fine, but they have not been redeployed since the change below.
 - In QA, the same version deploys successfully.
 
 ## Change / Context
-- Security policy requires rotating the **secure properties encryption key** yearly. Yesterday the PROD key was rotated: the new key was stored as the shared PROD \`mule.key\` secret in the CI/CD pipeline, which sets it as a hidden property in Runtime Manager whenever an app is deployed.
+- Security policy requires rotating the **secure properties encryption key** yearly.
+- Yesterday the PROD key was rotated. The new key was stored as the shared PROD \`mule.key\` secret in the CI/CD pipeline.
+- The pipeline sets that secret as a hidden property in Runtime Manager whenever an app is deployed.
 - The developers re-encrypted **only the new DB password** with the new key in \`prod-secure.yaml\`. The other encrypted values (API client secret, SFTP password) in the same file are still encrypted with the **old** key.
 - The secure config uses \`algorithm="AES" mode="CBC"\`.
 

@@ -80,9 +80,17 @@ export default {
     },
   ],
   description: `
-A convenience-store chain receives an **end-of-day sales file** from each of its 1,800 stores (POS line items: store, business date, transaction ID, line number, SKU, quantity, price, discount, tender). A Mule app loads the lines into Oracle \`POS_SALES_LINES\` for replenishment and finance; on a normal day that is ~400,000 lines, and up to 2 million after promotions.
+A convenience-store chain receives an **end-of-day sales file** from each of its 1,800 stores. A Mule app loads the lines into Oracle \`POS_SALES_LINES\` for replenishment and finance.
 
-Current implementation: a For Each over the lines with a \`db:insert\` per line. It takes 2 hours. A developer switched to a single \`db:bulk-insert\` with all lines of a store and it was fast — until one line with a missing SKU caused \`DB:QUERY_EXECUTION\` (ORA-01400: cannot insert NULL), and nobody could tell which lines of that store were in the table and which were not. When the job was rerun, finance saw some sales twice.
+- Each file holds POS line items: store, business date, transaction ID, line number, SKU, quantity, price, discount, tender.
+- A normal day is ~400,000 lines, and up to 2 million after promotions.
+
+The current implementation is a For Each over the lines with a \`db:insert\` per line. It takes 2 hours.
+
+A developer switched to a single \`db:bulk-insert\` with all lines of a store, and it was fast. Then this happened:
+- One line with a missing SKU caused \`DB:QUERY_EXECUTION\` (ORA-01400: cannot insert NULL).
+- Nobody could tell which lines of that store were in the table and which were not.
+- When the job was rerun, finance saw some sales twice.
 
 **Questions**
 1. How does \`db:bulk-insert\` work, and why is it so much faster than a For Each with \`db:insert\`?

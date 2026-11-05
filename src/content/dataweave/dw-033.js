@@ -2,7 +2,7 @@ export default {
   id: 'dw-033',
   category: 'dataweave',
   title: 'Audit Required Fields: Missing vs Blank vs Empty',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['isEmpty', 'isBlank', 'sizeOf', 'null-handling', 'json'],
   estMinutes: 15,
   description: `

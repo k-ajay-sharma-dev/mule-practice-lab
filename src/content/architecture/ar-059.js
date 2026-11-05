@@ -49,7 +49,12 @@ export default {
   description: `
 An interviewer challenges you: *"API-led is all synchronous request/response. Real enterprises are event-driven. How do events fit into the three layers?"*
 
-Scenario: a retailer's \`prc-order-api\` creates orders in SAP. After an order is created, **five** things must happen: warehouse picking, loyalty points, customer email, fraud scoring, analytics. Today \`prc-order-api\` calls all five synchronously and the order POST takes 4 s and fails if loyalty is down.
+Scenario: a retailer's \`prc-order-api\` creates orders in SAP. After an order is created, **five** things must happen: warehouse picking, loyalty points, customer email, fraud scoring, analytics.
+
+What is wrong today:
+- \`prc-order-api\` calls all five synchronously.
+- The order POST takes 4 s.
+- The POST fails if loyalty is down.
 
 Also, customer master data changes directly in Salesforce (by sales users), and three systems need those changes.
 

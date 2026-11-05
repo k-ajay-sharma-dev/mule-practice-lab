@@ -6,9 +6,12 @@ export default {
   tags: ['xml', 'csv', 'azure-blob', 'namespaces', 'writer-properties', 'escaping'],
   estMinutes: 30,
   description: `
-Every night the product information system (PIM) exports its catalogue as XML. A scheduled Mule flow converts it to CSV and stores it with the Azure Storage connector's **Upload Blob** operation in the \`analytics\` container, where a data platform loads it. The loader follows RFC 4180: fields are enclosed in double quotes and a quote **inside** a value is written as two quotes (\`""\`). A backslash is not an escape character for it.
+Every night the product information system (PIM) exports its catalogue as XML. A scheduled Mule flow converts it to CSV and stores it with the Azure Storage connector's **Upload Blob** operation in the \`analytics\` container, where a data platform loads it.
 
-The catalogue uses a **default namespace** (\`xmlns="urn:example:pim:catalogue:v3"\`).
+**Formats**
+- The catalogue uses a **default namespace** (\`xmlns="urn:example:pim:catalogue:v3"\`).
+- The loader follows RFC 4180: fields are enclosed in double quotes and a quote **inside** a value is written as two quotes (\`""\`).
+- A backslash is not an escape character for the loader.
 
 **Rules**
 - Only products with \`status="ACTIVE"\`.
@@ -16,7 +19,7 @@ The catalogue uses a **default namespace** (\`xmlns="urn:example:pim:catalogue:v
   - \`SKU\` and \`CATEGORY\` come from the \`sku\` attribute and the \`path\` attribute of \`category\`.
   - \`PRICE\` with exactly 2 decimals; \`CURRENCY\` from the \`currency\` attribute of \`price\`.
   - \`IN_STOCK\` is \`Y\` when \`stock\` > 0, otherwise \`N\` (a missing \`stock\` counts as 0).
-  - \`TAGS\` — all \`tag\` values joined with \`|\` (empty when there are none).
+  - \`TAGS\`: all \`tag\` values joined with \`|\` (empty when there are none).
 - Sort by \`CATEGORY\`, then \`SKU\`.
 - Header row unquoted; **every** data value enclosed in double quotes, embedded quotes doubled.
 `,

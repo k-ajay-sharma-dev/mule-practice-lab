@@ -49,7 +49,16 @@ export default {
     ),
   },
   description: `
-**Context.** A telecom operator sells broadband through its website, call centre and retail partners. Fulfilling one order touches: credit check, address/line availability check, number/port allocation, network provisioning (an OSS platform), equipment shipping (a 3PL), engineer appointment booking, and billing account creation. Each channel currently runs its own sequence of calls, so failures leave half-provisioned orders and customers get conflicting status messages.
+**Context.** A telecom operator sells broadband through its website, call centre and retail partners. Fulfilling one order touches:
+- credit check
+- address/line availability check
+- number/port allocation
+- network provisioning (an OSS platform)
+- equipment shipping (a 3PL)
+- engineer appointment booking
+- billing account creation
+
+**The problem today.** Each channel runs its own sequence of calls. Failures leave half-provisioned orders, and customers get conflicting status messages.
 
 **Goals**
 - One order orchestration used by all channels.

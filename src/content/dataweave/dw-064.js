@@ -8,13 +8,17 @@ export default {
   description: `
 The PIM exports products as JSON. A marketplace accepts listings as a **tab-separated** flat file with one row per sellable item. Write the transformation.
 
-A product has \`sku\`, \`title\`, \`price\`, optional \`attributes\` and \`stock\`, and a \`variants\` array (possibly empty or missing). A variant has \`sku\`, \`price\` (\`null\` = use the product price), \`status\`, \`attributes\` and \`stock\`. \`attributes\` is a list of \`{ name, value }\` pairs and the PIM is not consistent about the case of \`name\` (\`Color\`, \`color\`). \`stock\` is an object of warehouse → quantity.
+**Input**
+- A product has \`sku\`, \`title\`, \`price\`, optional \`attributes\` and \`stock\`, and a \`variants\` array (possibly empty or missing).
+- A variant has \`sku\`, \`price\` (\`null\` = use the product price), \`status\`, \`attributes\` and \`stock\`.
+- \`attributes\` is a list of \`{ name, value }\` pairs. The PIM is not consistent about the case of \`name\` (\`Color\`, \`color\`).
+- \`stock\` is an object of warehouse → quantity.
 
 **Rules**
 - A product **with** variants produces one row per variant whose \`status\` is not \`DISCONTINUED\`; \`parent_sku\` is the product SKU. If every variant is discontinued, the product produces no rows.
 - A product **without** variants (empty or missing) produces one row for itself: \`parent_sku\` is empty, attributes and stock come from the product.
 - \`color\` and \`size\` are taken from the attributes, matching the name **case-insensitively**; a missing attribute is an empty field.
-- \`title\` = product title, followed by \`" - "\` and the present values of color and size joined with \`" / "\`; when neither exists, just the product title.
+- \`title\` = product title, followed by \`" - "\` and the present values of color and size joined with \`" / "\`; when neither exists, only the product title.
 - \`price\` with exactly two decimals; \`quantity\` = sum over all warehouses (\`0\` when \`stock\` is empty or missing).
 - Columns in this order: \`parent_sku, sku, title, color, size, price, quantity\`, separated by a **tab**, header included.
 `,

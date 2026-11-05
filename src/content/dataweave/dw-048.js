@@ -6,20 +6,26 @@ export default {
   tags: ['dw::Crypto', 'SHA1', 'idempotency', 'canonicalization', 'duplicates'],
   estMinutes: 25,
   description: `
-Your Mule app forwards payment instructions to a bank API. Network timeouts cause retries, and the bank only protects against double payments if every request carries an \`Idempotency-Key\` header that is **identical for the same business payment** — even when the upstream system sends it twice with different formatting and a different \`paymentId\`.
+Your Mule app forwards payment instructions to a bank API. Network timeouts cause retries.
 
-**Canonical string** — join these six parts with \`|\` (in this order):
+The bank only protects against double payments if every request carries an \`Idempotency-Key\` header. That header must be **identical for the same business payment**, even when the upstream system sends it twice with different formatting and a different \`paymentId\`.
 
-1. \`debtorIban\` — spaces removed, upper-case
-2. \`creditorIban\` — spaces removed, upper-case
-3. \`amount\` — formatted with exactly two decimals (\`1250.5\` → \`1250.50\`, \`99\` → \`99.00\`)
-4. \`currency\` — upper-case
-5. \`executionDate\` — as received
-6. \`reference\` — trimmed; \`null\` becomes the empty string
+**Canonical string**: join these six parts with \`|\` (in this order):
 
-**Key** — the **SHA-1** hash of the canonical string's UTF-8 bytes, as a **lower-case hex** string (40 characters).
+1. \`debtorIban\`: spaces removed, upper-case
+2. \`creditorIban\`: spaces removed, upper-case
+3. \`amount\`: formatted with exactly two decimals (\`1250.5\` → \`1250.50\`, \`99\` → \`99.00\`)
+4. \`currency\`: upper-case
+5. \`executionDate\`: as received
+6. \`reference\`: trimmed; \`null\` becomes the empty string
 
-**Output** — one object per payment, in input order: \`paymentId\`, \`canonical\`, \`idempotencyKey\`, and \`duplicateOf\`: the \`paymentId\` of the **first earlier** payment in the batch with the same key, or \`null\`.
+**Key**: the **SHA-1** hash of the canonical string's UTF-8 bytes, as a **lower-case hex** string (40 characters).
+
+**Output**: one object per payment, in input order:
+- \`paymentId\`
+- \`canonical\`
+- \`idempotencyKey\`
+- \`duplicateOf\`: the \`paymentId\` of the **first earlier** payment in the batch with the same key, or \`null\`
 `,
   inputs: [
     {

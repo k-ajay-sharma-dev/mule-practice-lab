@@ -8,7 +8,7 @@ export default {
   description: `
 The CRM System API returns every customer, but the marketing platform only accepts **active** customers.
 
-Return only customers whose \`status\` is \`"ACTIVE"\`, keeping just the \`id\`, \`name\` and \`email\` fields.
+Return only customers whose \`status\` is \`"ACTIVE"\`, keeping only the \`id\`, \`name\` and \`email\` fields.
 
 **Rules**
 - Keep the original order.

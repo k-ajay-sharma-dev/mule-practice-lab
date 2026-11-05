@@ -62,7 +62,9 @@ export default {
 - \`wms-sapi\` has been slow since 15:30 (p95 ~10 s).
 
 ## Change / Context
-- Flow: JMS listener (\`ackMode="AUTO"\`) → \`db:insert\` (auto-commit, \`movement_id\` from \`STKMV_SEQ.NEXTVAL\`) → HTTP POST to \`wms-sapi\` (timeout 10 s) → end. Error handler: On Error Propagate. The ActiveMQ factory configuration sets \`maxRedelivery="5"\`.
+- Flow: JMS listener (\`ackMode="AUTO"\`) → \`db:insert\` (auto-commit, \`movement_id\` from \`STKMV_SEQ.NEXTVAL\`) → HTTP POST to \`wms-sapi\` (timeout 10 s) → end.
+- Error handler: On Error Propagate.
+- The ActiveMQ factory configuration sets \`maxRedelivery="5"\`.
 - \`STOCK_MOVEMENT\` has a primary key on \`movement_id\` only.
 
 ## Logs

@@ -42,9 +42,20 @@ export default {
     ),
   },
   description: `
-A logistics group exchanges files with **120 partners**: carriers send shipment status and proof of delivery, suppliers send invoices and advance shipping notices, a customs broker exchanges declarations. Volumes: ~9,000 files per day, from 1 KB to 300 MB (CSV, fixed-width, XML).
+A logistics group exchanges files with **120 partners**:
+- Carriers send shipment status and proof of delivery.
+- Suppliers send invoices and advance shipping notices.
+- A customs broker exchanges declarations.
 
-Today every partner has its own point-to-point script: some write into the **Oracle** order database through database links, others drop files that a SQL Server Agent job imports into the **SQL Server** billing database. Problems: duplicates, half-loaded files, no visibility of which partner sent what, and passwords shared by email.
+Volumes: ~9,000 files per day, from 1 KB to 300 MB (CSV, fixed-width, XML).
+
+Today every partner has its own point-to-point script. Some write into the **Oracle** order database through database links. Others drop files that a SQL Server Agent job imports into the **SQL Server** billing database.
+
+Problems:
+- Duplicates
+- Half-loaded files
+- No visibility of which partner sent what
+- Passwords shared by email
 
 Constraints:
 - Most partners can use **SFTP** with key authentication; one customs broker only supports **FTP**, reachable over a site-to-site VPN.

@@ -2,7 +2,7 @@ export default {
   id: 'dw-042',
   category: 'dataweave',
   title: 'Mask Card Numbers and Format IBANs for a Support Screen',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['strings', 'masking', 'regex', 'repeat', 'pci'],
   estMinutes: 15,
   description: `

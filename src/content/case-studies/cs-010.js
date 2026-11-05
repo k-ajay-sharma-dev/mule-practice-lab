@@ -80,7 +80,9 @@ export default {
     },
   ],
   description: `
-**Context.** A fast-growing SaaS start-up built its first Mule app a year ago (Salesforce to its billing system). The business now plans ~50 integrations over 18 months: payment provider, support desk, marketing tools, data warehouse, partner APIs. There is one integration developer and two more being hired. The first app has hard-coded passwords, no tests and is deployed by hand from Anypoint Studio.
+**Context.** A fast-growing SaaS start-up built its first Mule app a year ago (Salesforce to its billing system). The business now plans ~50 integrations over 18 months: payment provider, support desk, marketing tools, data warehouse, partner APIs. There is one integration developer and two more being hired.
+
+**The problem today.** The first app has hard-coded passwords, no tests and is deployed by hand from Anypoint Studio.
 
 **Goals**
 - Deliver integrations quickly without creating a mess that slows the team later.

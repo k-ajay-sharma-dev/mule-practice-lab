@@ -86,7 +86,7 @@ export default {
 
 ## Change / Context
 - \`claims-api\` runs on CloudHub in an Anypoint VPC, behind a **Dedicated Load Balancer (DLB)**. The architecture document says: "Brokers are authenticated with mutual TLS at the load balancer."
-- To make onboarding easy, the certificate chain of the commercial CA **TrustBridge** was uploaded to the SSL endpoint, as all 45 brokers buy their certificates there.
+- To simplify onboarding, the certificate chain of the commercial CA **TrustBridge** was uploaded to the SSL endpoint, as all 45 brokers buy their certificates there.
 - The Mule app has no authentication of its own, and it trusts anything the DLB forwards.
 
 ## Logs

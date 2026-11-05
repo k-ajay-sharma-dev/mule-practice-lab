@@ -2,7 +2,7 @@ export default {
   id: 'ms-052',
   category: 'mulesoft',
   title: 'API Instances, Environments, Client Applications and Contracts Across the Layers',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['api-led', 'api-manager', 'client-applications', 'contracts', 'exchange', 'environments'],
   estMinutes: 15,
   quiz: [

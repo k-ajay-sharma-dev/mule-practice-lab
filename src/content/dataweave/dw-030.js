@@ -6,7 +6,7 @@ export default {
   tags: ['validation', 'try', 'dw::Runtime', 'regex', 'functions'],
   estMinutes: 30,
   description: `
-Before new hires are loaded into the payroll system, the HR integration validates every record and returns **all** problems at once (not just the first one), so HR can fix the file in one go.
+Before new hires are loaded into the payroll system, the HR integration validates every record and returns **all** problems at once (not only the first one), so HR can fix the file in one go.
 
 **Rules** — check each record against all four rules, in this order:
 

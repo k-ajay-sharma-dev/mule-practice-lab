@@ -9,9 +9,13 @@ export default {
 A configuration store (and many CSV/spreadsheet exports) keeps documents as **flat dotted keys**. Rebuild the nested JSON document that the downstream REST API expects.
 
 **Rules**
-- Split every key on \`.\`. Each segment is one level of nesting; the value sits at the end of the path, unchanged.
-- A segment made only of digits is an **array index**. A node becomes an **array** when *all* of its child segments are digit-only. Elements are ordered by the index **numerically** (\`2\` before \`10\`); indexes need not be contiguous — gaps are simply closed up (\`0\`, \`5\` → two elements).
+- Split every key on \`.\`. Each segment is one level of nesting. The value sits at the end of the path, unchanged.
+- A segment made only of digits is an **array index**.
+- A node becomes an **array** when *all* of its child segments are digit-only.
+  - Elements are ordered by the index **numerically** (\`2\` before \`10\`).
+  - Indexes need not be contiguous. Gaps are closed up (\`0\`, \`5\` → two elements).
 - Otherwise the node is an **object**, with keys in order of first appearance. If an object mixes digit and non-digit segments, the digit segments stay as ordinary string keys.
+
 - The root is always an object and its keys are never digit-only. An empty input gives \`{}\`.
 - No key is also a prefix of another key (you will not get both \`a\` and \`a.b\`).
 `,

@@ -41,7 +41,12 @@ export default {
     ),
   },
   description: `
-An energy supplier runs 48 applications on **CloudHub 1.0** in one Anypoint VPC, behind a DLB on \`api.example.com\`. It has partner mTLS, 30 mapping rules, and a Transit Gateway to SAP and a customer database on premises. It must move to **CloudHub 2.0** in four waves over eight months, because the business will not accept a single cutover.
+An energy supplier runs 48 applications on **CloudHub 1.0** in one Anypoint VPC. It must move to **CloudHub 2.0** in four waves over eight months, because the business will not accept a single cutover.
+
+Current setup:
+- A DLB on \`api.example.com\` in front of the applications.
+- Partner mTLS and 30 mapping rules.
+- A Transit Gateway to SAP and a customer database on premises.
 
 Constraints:
 - Clients and partners must not change URLs or certificates.

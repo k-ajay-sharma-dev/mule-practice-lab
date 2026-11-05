@@ -43,7 +43,11 @@ export default {
     ),
   },
   description: `
-**Context.** A commercial insurance broker wants a portal where its brokers (and later small-business customers) enter a risk once and get quotes from up to 30 insurance carriers. Carriers integrate very differently: 12 have modern REST APIs, 9 have SOAP services, 5 accept structured XML by email/SFTP and respond hours later, and 4 have only a web portal (manual).
+**Context.** A commercial insurance broker wants a portal where its brokers (and later small-business customers) enter a risk once and get quotes from up to 30 insurance carriers. Carriers integrate very differently:
+- 12 have modern REST APIs
+- 9 have SOAP services
+- 5 accept structured XML by email/SFTP and respond hours later
+- 4 have only a web portal (manual)
 
 **Goals**
 - One quote request → comparable quotes from as many carriers as possible.

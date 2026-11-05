@@ -46,9 +46,10 @@ export default {
 A cold-chain logistics company runs **2,500 refrigerated trucks**. Each truck has a gateway that sends telemetry over **MQTT**: temperature (per compartment), door open/closed, GPS position and engine status.
 
 Facts:
-- One message every **10 seconds** per truck (≈ 250 msg/s, ~22 million/day); trucks lose connectivity in tunnels and rural areas and then send **buffered backlogs** (out of order, up to 6 hours old).
+- Each truck sends one message every **10 seconds** (≈ 250 msg/s, ~22 million/day).
+- Trucks lose connectivity in tunnels and rural areas. They then send **buffered backlogs** (out of order, up to 6 hours old).
 - Pharmaceutical customers require an **alert within 2 minutes** when a compartment is outside its range (e.g. 2–8 °C) for more than 5 consecutive minutes.
-- Raw data must be retained **5 years** for audits (GDP – Good Distribution Practice).
+- Raw data must be retained **5 years** for audits (GDP, Good Distribution Practice).
 - The **TMS** (transport management system, REST API) needs the latest position and ETA every 5 minutes per active shipment.
 - Customers' portals call an API to get the temperature history of their shipment.
 

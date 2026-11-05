@@ -50,7 +50,11 @@ export default {
     ),
   },
   description: `
-**Context.** A hotel group with 300 properties grew through acquisitions and now runs three property-management systems (PMS) and two central reservation systems (CRS). The loyalty programme lives in a separate platform that only gets stay data via nightly files, so points arrive days late and members cannot see a single booking history. A new mobile app must show "my bookings", availability and prices across all brands, and award points at checkout.
+**Context.** A hotel group with 300 properties grew through acquisitions. It now runs three property-management systems (PMS) and two central reservation systems (CRS).
+
+**The problem today.** The loyalty programme lives in a separate platform that only gets stay data via nightly files. Points arrive days late and members cannot see a single booking history.
+
+**What is needed.** A new mobile app must show "my bookings", availability and prices across all brands, and award points at checkout.
 
 **Goals**
 - One booking API for web, mobile and call centre across all brands.
@@ -58,12 +62,16 @@ export default {
 - Availability searches must be fast (< 1 s) even though some CRS calls take 2–3 s.
 
 **Constraints**
-- PMS/CRS replacements are planned over three years — the design must survive them.
+- PMS/CRS replacements are planned over three years. The design must survive them.
 - Two CRSs charge per availability call.
 - Member data includes personal data and payment tokens; card data must not pass through the integration layer.
 - Peak: holiday sales campaigns generate 20x normal search traffic.
 
-**Your task.** Propose the API architecture, the approach for search vs booking, loyalty event flow and how you keep it stable through future system replacements.
+**Your task.** Propose:
+- the API architecture
+- the approach for search vs booking
+- the loyalty event flow
+- how you keep it stable through future system replacements
 `,
   answerTemplate: `## API layers and routing by brand/property
 

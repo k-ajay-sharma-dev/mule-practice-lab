@@ -2,7 +2,7 @@ export default {
   id: 'dw-060',
   category: 'dataweave',
   title: 'Loyalty Points for a POS Receipt with Tier Bonuses',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retail', 'loyalty', 'pos', 'filter', 'floor', 'null-handling', 'json'],
   estMinutes: 15,
   description: `

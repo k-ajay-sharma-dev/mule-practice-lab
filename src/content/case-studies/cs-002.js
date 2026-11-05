@@ -4,7 +4,7 @@ export default {
   id: 'cs-002',
   category: 'case-studies',
   title: 'Retailer Preparing for 10x Black Friday Traffic',
-  level: 'BEGINNER',
+  level: 'ADVANCED',
   tags: ['scalability', 'performance', 'caching', 'peak-traffic'],
   estMinutes: 25,
   diagram: {

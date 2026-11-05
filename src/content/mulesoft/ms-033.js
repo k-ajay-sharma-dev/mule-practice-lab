@@ -85,7 +85,14 @@ A **Claims Intake** integration receives data from three channels:
 | Broker SFTP drop | XML | \`claim-v3.xsd\` from the insurer |
 | Internal Kafka topic | JSON | JSON Schema \`claim.schema.json\` |
 
-Bad claims have been reaching the claims system: missing policy numbers, negative amounts and \`incidentDate\` in the future. The team wants invalid messages rejected early with a clear list of problems, sent to an error queue for the non-HTTP channels and answered with **400** for the REST channel.
+Bad claims have been reaching the claims system:
+- missing policy numbers
+- negative amounts
+- \`incidentDate\` in the future
+
+The team wants invalid messages rejected early with a clear list of problems:
+- Non-HTTP channels: send them to an error queue.
+- REST channel: answer with **400**.
 
 **Questions**
 1. Which component validates each channel against its contract?

@@ -45,7 +45,14 @@ export default {
     ),
   },
   description: `
-**Context.** A professional-services firm with 25,000 employees in 40 countries has one cloud HR system (the system of record for employees, positions and compensation) but uses 14 payroll providers: a global payroll aggregator covering 28 countries, and 13 local in-country providers. Today HR teams email spreadsheets of changes each month; payroll errors and late payments damage trust, and finance struggles to post payroll journals and reconcile bank payments.
+**Context.** A professional-services firm with 25,000 employees in 40 countries has one cloud HR system (the system of record for employees, positions and compensation). It uses 14 payroll providers:
+- a global payroll aggregator covering 28 countries
+- 13 local in-country providers
+
+**The problem today**
+- HR teams email spreadsheets of changes each month.
+- Payroll errors and late payments damage trust.
+- Finance struggles to post payroll journals and reconcile bank payments.
 
 **Goals**
 - Employee changes (hires, leavers, salary, bank details, absences) flow automatically to the right payroll provider before each country's cut-off.
@@ -58,7 +65,11 @@ export default {
 - Local legal rules differ (kept generic); some countries require data to be processed in-country or by specific providers.
 - HR changes are often entered late or retroactively.
 
-**Your task.** Propose the integration architecture, how you handle cut-offs and retroactive changes, security, and the rollout across countries.
+**Your task.** Propose:
+- the integration architecture
+- how you handle cut-offs and retroactive changes
+- security
+- the rollout across countries
 `,
   answerTemplate: `## Target architecture and canonical payroll model
 

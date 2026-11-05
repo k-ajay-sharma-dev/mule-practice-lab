@@ -6,7 +6,7 @@ export default {
   id: 'dw-107',
   category: 'dataweave',
   title: 'Read the Output: update, Removing Keys and Dynamic Objects',
-  level: 'EXPERT',
+  level: 'INTERMEDIATE',
   tags: ['update', 'objects', 'dynamic-keys', 'read-the-output'],
   estMinutes: 12,
   exercise: 'quiz',

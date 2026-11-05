@@ -49,7 +49,11 @@ Today the Process API fans out on each request to:
 - **Card management** SaaS (~250 ms),
 - **CRM** (customer segment, ~300 ms).
 
-Problems: on salary day morning, home-screen traffic hits **2,500 requests/s**; core banking throttles, p95 latency is 4 s, and the app shows errors. Writes (payments, card block) are much rarer than reads (≈ 1:50).
+Problems:
+- On salary day morning, home-screen traffic hits **2,500 requests/s**.
+- Core banking throttles, p95 latency is 4 s, and the app shows errors.
+
+Writes (payments, card block) are much rarer than reads (≈ 1:50).
 
 **Questions:**
 - Would a simple cache (Object Store with TTL) solve this? Why or why not?

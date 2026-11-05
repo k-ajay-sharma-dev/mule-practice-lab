@@ -2,22 +2,27 @@ export default {
   id: 'dw-021',
   category: 'dataweave',
   title: 'Pivot Meter Readings into a Wide Report',
-  level: 'EXPERT',
+  level: 'ADVANCED',
   tags: ['pivot', 'groupBy', 'dynamic-keys', 'distinctBy', 'orderBy', 'json'],
   estMinutes: 35,
   description: `
-Smart meters send energy readings as long-format rows: \`{ "site", "month", "kWh" }\` with \`month\` as \`yyyy-MM\`. The rows arrive unsorted and a site can report the **same month more than once** (partial readings). The finance team wants a wide, spreadsheet-like report.
+Smart meters send energy readings as long-format rows. The finance team wants a wide, spreadsheet-like report.
 
-Output an object with:
+**Input**
+- Each row is \`{ "site", "month", "kWh" }\`, with \`month\` as \`yyyy-MM\`.
+- The rows arrive unsorted.
+- A site can report the **same month more than once** (partial readings).
 
-- \`months\` — every distinct month present in the input, sorted ascending
-- \`rows\` — one object per site:
+**Output**: an object with:
+
+- \`months\`: every distinct month present in the input, sorted ascending
+- \`rows\`: one object per site:
   - \`site\`
   - one key **per month in \`months\`, in that order**, whose value is the site's total kWh for that month (sum of its readings), or \`0\` when the site has no reading that month
-  - \`total\` — the site's total kWh over all months
+  - \`total\`: the site's total kWh over all months
 
-  Rows are sorted by \`total\` **descending**; sites with equal totals are sorted by \`site\` ascending.
-- \`monthTotals\` — an object with one key per month (same order as \`months\`) holding the total kWh of all sites for that month
+  Rows are sorted by \`total\` **descending**. Sites with equal totals are sorted by \`site\` ascending.
+- \`monthTotals\`: an object with one key per month (same order as \`months\`) holding the total kWh of all sites for that month
 
 No readings → \`{ "months": [], "rows": [], "monthTotals": {} }\`.
 `,

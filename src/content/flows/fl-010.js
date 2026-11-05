@@ -4,7 +4,7 @@ export default {
   id: 'fl-010',
   category: 'flows',
   title: 'Retrying Flaky Outbound Calls with Until Successful',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['retry', 'until-successful', 'reconnection', 'http', 'error-handling'],
   estMinutes: 20,
   flowChecks: [

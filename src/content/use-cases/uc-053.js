@@ -53,7 +53,7 @@ An agricultural machinery manufacturer sells through **1,100 independent dealers
 | Channel | Users | Needs |
 |---|---|---|
 | **Dealer portal** (web, Experience Cloud) | Dealer staff | Check machine/parts availability and dealer-specific price, place parts orders, track orders, submit warranty claims with photos |
-| **Dealer-group DMS integration** (phase 2) | 15 large dealer groups' systems | Parts availability + price, place orders, order status — system-to-system |
+| **Dealer-group DMS integration** (phase 2) | 15 large dealer groups' systems | Parts availability + price, place orders, order status, system-to-system |
 | **Internal sales-ops app** | 80 employees | See any dealer's orders and claims, approve claims |
 
 | System | Holds | Interface |
@@ -68,7 +68,10 @@ Facts:
 - Pricing comes from SAP condition records (pricing simulation is ~1.5 s per call).
 - Dealers must only see their **own** prices and orders; dealer groups see all their member dealers.
 
-**Questions:** decompose into Experience, Process and System APIs; describe the "check price & order parts" sequence; show what phase 2 (DMS integration) reuses.
+**Questions:**
+1. Decompose into Experience, Process and System APIs.
+2. Describe the "check price & order parts" sequence.
+3. Show what phase 2 (DMS integration) reuses.
 `,
   answerTemplate: `## Experience APIs
 

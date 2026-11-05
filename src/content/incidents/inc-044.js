@@ -71,7 +71,8 @@ export default {
 ## Symptoms
 - \`customer360-papi\` aggregates a profile from **CRM**, **Orders**, **Loyalty** and **Support tickets** using a Scatter-Gather.
 - Since Thursday, during peaks, ~8% of requests return **500**, and the call-centre UI shows a generic error.
-- Worse: a fix attempted on Friday made the 500s disappear, but now agents see profiles **without orders and without loyalty points** and nobody can tell — a customer was told they had no recent orders and complained.
+- A fix attempted on Friday made the 500s disappear, but the result is worse. Agents now see profiles **without orders and without loyalty points**, and nobody can tell.
+- A customer was told they had no recent orders and complained.
 
 ## Change / Context
 - Scatter-Gather \`timeout="5000"\` was set on the router. Orders SAPI slowed to 3–9 s at peak after a DB migration.

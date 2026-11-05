@@ -4,7 +4,7 @@ export default {
   id: 'fl-009',
   category: 'flows',
   title: 'Fire-and-Forget Auditing: Async Scope vs VM Queue',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['async', 'vm', 'fire-and-forget', 'reliability'],
   estMinutes: 15,
   flowChecks: [

@@ -93,9 +93,17 @@ export default {
     ),
   ),
   description: `
-A home-improvement chain changes prices and promotions every night. The **Oracle** pricing database holds \`PRICE_CHANGE\` (change ID, price zone, SKU, new price, promo ID, effective date); the pricing engine expands it per store into \`STORE_PRICE_CHANGE\` (change ID, store ID, \`DIST_STATUS\` PENDING/SENT/FAILED) for **500 stores** in 12 price zones. A typical night produces **~1.5 million store × SKU rows** (much more before seasonal markdowns).
+A home-improvement chain changes prices and promotions every night.
 
-Each store runs a POS/price server that consumes its own **ActiveMQ** queue \`STORE.<storeId>.PRICES\` over a store-to-DC network of brokers. The store applies prices at opening time.
+**Price data**
+- The **Oracle** pricing database holds \`PRICE_CHANGE\` (change ID, price zone, SKU, new price, promo ID, effective date).
+- The pricing engine expands it per store into \`STORE_PRICE_CHANGE\` (change ID, store ID, \`DIST_STATUS\` PENDING/SENT/FAILED).
+- There are **500 stores** in 12 price zones.
+- A typical night produces **~1.5 million store × SKU rows** (much more before seasonal markdowns).
+
+**Stores**
+- Each store runs a POS/price server that consumes its own **ActiveMQ** queue \`STORE.<storeId>.PRICES\` over a store-to-DC network of brokers.
+- The store applies prices at opening time.
 
 **Requirements**
 - Everything must be on the store queues by **05:00**; the job starts at 01:30.

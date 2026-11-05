@@ -89,9 +89,16 @@ PROCEDURE ALLOCATE_ORDER(
 );
 \`\`\`
 
-A Mule **Allocation System API** must call it for each order received from the order management system, return the result as JSON, and then send the allocated lines to the **WMS** for picking.
+For each order received from the order management system, a Mule **Allocation System API** must:
+1. Call the procedure.
+2. Return the result as JSON.
+3. Send the allocated lines to the **WMS** for picking.
 
-The first attempts failed: \`db:select\` with \`SELECT ALLOC_PKG.ALLOCATE_ORDER(...) FROM dual\` threw errors; a later version returned an empty \`p_lines\`; and the ERP team mentions a new version of the procedure that takes a PL/SQL \`BOOLEAN p_allow_substitutes\`.
+The first attempts failed:
+- \`db:select\` with \`SELECT ALLOC_PKG.ALLOCATE_ORDER(...) FROM dual\` threw errors.
+- A later version returned an empty \`p_lines\`.
+
+The ERP team also mentions a new version of the procedure that takes a PL/SQL \`BOOLEAN p_allow_substitutes\`.
 
 **Questions**
 1. Configure \`db:stored-procedure\` for IN, IN OUT, OUT and REF CURSOR parameters.

@@ -79,12 +79,14 @@ export default {
   },
   description: `
 ## Symptoms
-- Finance in Amsterdam reconciles the nightly sales export against the POS system. For **Sunday 25 Oct 2026** (the night clocks went back from CEST to CET) the export is **missing all sales between 00:00 and 01:00 local time**.
-- They also find that in **March** one hour of sales was **exported twice** — at the time it was blamed on "a POS glitch".
+- Finance in Amsterdam reconciles the nightly sales export against the POS system.
+- **Sunday 25 Oct 2026** was the night clocks went back from CEST to CET. The export for that day is **missing all sales between 00:00 and 01:00 local time**.
+- Finance also finds that in **March** one hour of sales was **exported twice**. At the time it was blamed on "a POS glitch".
 - Since 25 Oct, the export job also starts at **01:00 local** instead of the usual 02:00.
 
 ## Change / Context
-- App runs on CloudHub (JVM time zone **UTC**). Scheduler: \`<cron expression="0 0 0 * * ?"/>\` — written when the developer worked out that "00:00 UTC = 02:00 Amsterdam" (true in summer).
+- The app runs on CloudHub (JVM time zone **UTC**).
+- Scheduler: \`<cron expression="0 0 0 * * ?"/>\`. The developer wrote it after working out that "00:00 UTC = 02:00 Amsterdam" (true in summer).
 - The flow computes the window like this (simplified DataWeave):
 \`\`\`
 var to   = (now() >> "Europe/Amsterdam") as Date  // today, local
