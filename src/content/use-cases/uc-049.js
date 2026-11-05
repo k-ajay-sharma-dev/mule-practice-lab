@@ -6,7 +6,7 @@ export default {
   title: 'API-Led Project 2: Adding a Voice Assistant to an Energy Supplier',
   level: 'BEGINNER',
   tags: ['api-led', 'reuse', 'application-network', 'voice-assistant', 'utilities'],
-  estMinutes: 20,
+  estMinutes: 25,
   diagram: {
     task: 'draw the application network after Project 2: the existing web and mobile channels plus the new voice assistant, showing which Experience, Process and System APIs the voice channel reuses (keep the Project 1 API names).',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Publisher Syndicating Articles to Partner Platforms',
   level: 'INTERMEDIATE',
   tags: ['media', 'content-syndication', 'partners', 'transformation', 'async'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the syndication platform: CMS events turned into a canonical article, published once to an exchange with one queue per partner, push delivery (webhook, SFTP) and a pull feed API.',
     checks: [

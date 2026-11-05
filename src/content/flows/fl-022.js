@@ -33,7 +33,7 @@ export default {
   title: 'Salesforce Change Data Capture Subscriber with Replay',
   level: 'ADVANCED',
   tags: ['salesforce', 'cdc', 'platform-events', 'replay-id', 'streaming-api'],
-  estMinutes: 30,
+  estMinutes: 40,
   flowChecks: [
     { label: 'Changes are received from a Salesforce event listener, not by polling', rule: { type: 'source', component: 'sf-listener' } },
     {

@@ -6,7 +6,7 @@ export default {
   title: 'Long-Running Report Job: 202 Accepted and Status Polling',
   level: 'INTERMEDIATE',
   tags: ['async-api', '202-accepted', 'polling', 'object-store', 'vm'],
-  estMinutes: 25,
+  estMinutes: 35,
   flowChecks: [
     { label: 'POST /statements is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {

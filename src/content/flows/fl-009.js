@@ -6,7 +6,7 @@ export default {
   title: 'Fire-and-Forget Auditing: Async Scope vs VM Queue',
   level: 'INTERMEDIATE',
   tags: ['async', 'vm', 'fire-and-forget', 'reliability'],
-  estMinutes: 15,
+  estMinutes: 20,
   flowChecks: [
     { label: 'The Payments API is an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {

@@ -6,7 +6,7 @@ export default {
   title: 'School Attendance Alerts to the Parent App',
   level: 'INTERMEDIATE',
   tags: ['event-driven', 'push-notifications', 'idempotency', 'education'],
-  estMinutes: 15,
+  estMinutes: 20,
   diagram: {
     task: 'draw the attendance-alert flow: the SMS webhook into a queue, the latest-status store for the debounce window, the scheduled run that looks up guardians and sends, the idempotency store, the parent app and the DLQ.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'API-led Connectivity: Experience, Process and System Layers',
   level: 'BEGINNER',
   tags: ['api-led', 'architecture', 'system-api', 'process-api', 'experience-api'],
-  estMinutes: 20,
+  estMinutes: 25,
   flowChecks: [
     { label: 'There is at least one flow per API layer (three or more flows)', rule: { type: 'flows', kind: 'flow', min: 3 } },
     { label: 'Every layer exposes its own HTTP Listener (separately deployable APIs)', rule: { type: 'exists', component: 'http-listener', min: 3 } },

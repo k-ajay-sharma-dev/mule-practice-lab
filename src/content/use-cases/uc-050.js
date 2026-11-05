@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: Telco Self-Service Plan Change',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'application-network', 'telecom', 'orchestration', 'process-api'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the API-led network for self-service plan changes: the three channels and their Experience APIs, the eligibility and plan-change Process APIs, the four System APIs and back ends, the async provisioning callback, saga state and the plan-changed event.',
     checks: [

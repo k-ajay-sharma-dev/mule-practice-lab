@@ -6,7 +6,7 @@ export default {
   title: 'Price Change API: Update Oracle, then Announce on an ActiveMQ Topic',
   level: 'BEGINNER',
   tags: ['retail', 'pricing', 'activemq', 'jms', 'topic', 'oracle', 'api'],
-  estMinutes: 20,
+  estMinutes: 25,
   flowChecks: [
     { label: 'Price changes arrive on an HTTP listener (POST /prices)', rule: { type: 'source', component: 'http-listener', where: { path: 'price' } } },
     { label: 'The request is validated (SKU present, price > 0)', rule: { type: 'exists', component: 'validation' } },

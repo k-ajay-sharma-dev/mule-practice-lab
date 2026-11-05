@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: "Where Is My Order?" for Web, Mobile and Call Centre',
   level: 'BEGINNER',
   tags: ['api-led', 'application-network', 'retail', 'order-tracking', 'decomposition'],
-  estMinutes: 20,
+  estMinutes: 25,
   diagram: {
     task: 'draw the API-led application network for "where is my order?": the three channels and their Experience APIs, the order-status Process API, one System API per back end, and how the carrier rate limit is protected.',
     checks: [

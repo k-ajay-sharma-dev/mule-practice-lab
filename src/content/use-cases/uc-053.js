@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: Manufacturer Dealer Portal for Orders and Warranty',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'application-network', 'manufacturing', 'b2b', 'sap'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the dealer application network including phase 2: the portal, sales-ops app and dealer-group DMS with their Experience APIs, the pricing, orders and warranty Process APIs, the System APIs and back ends, and the pricing cache.',
     checks: [

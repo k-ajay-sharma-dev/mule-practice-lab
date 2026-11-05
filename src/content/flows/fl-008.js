@@ -6,7 +6,7 @@ export default {
   title: 'Reusing Logic: Sub-flow vs Private Flow vs Flow Reference',
   level: 'BEGINNER',
   tags: ['sub-flow', 'flow-ref', 'private-flow', 'reuse', 'error-handling'],
-  estMinutes: 15,
+  estMinutes: 25,
   flowChecks: [
     { label: 'Shared logic is extracted into at least one sub-flow', rule: { type: 'flows', kind: 'sub-flow', min: 1 } },
     {

@@ -8,7 +8,7 @@ export default {
   title: 'Order Submission Across Three Layers with Error Translation at Each Hop',
   level: 'ADVANCED',
   tags: ['api-led', 'error-handling', 'error-propagation', 'orders', 'architecture'],
-  estMinutes: 45,
+  estMinutes: 70,
   flowChecks: [
     { label: 'Experience, process and two system APIs are separate flows', rule: { type: 'flows', kind: 'flow', min: 4 } },
     {

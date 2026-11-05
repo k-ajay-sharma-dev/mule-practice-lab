@@ -6,7 +6,7 @@ export default {
   title: 'Process API Publishing a Domain Event after a Synchronous Create',
   level: 'ADVANCED',
   tags: ['api-led', 'event-driven', 'process-api', 'anypoint-mq', 'outbox'],
-  estMinutes: 40,
+  estMinutes: 45,
   flowChecks: [
     {
       label: 'Onboarding is a Process API listener (/prc-...)',

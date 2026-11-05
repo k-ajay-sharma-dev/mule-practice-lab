@@ -6,7 +6,7 @@ export default {
   title: 'System API Hiding the Quirks of a Legacy SOAP Policy System',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'system-api', 'soap', 'legacy', 'error-handling'],
-  estMinutes: 30,
+  estMinutes: 35,
   flowChecks: [
     {
       label: 'The policy system is unlocked by its own System API listener (/sys-...)',

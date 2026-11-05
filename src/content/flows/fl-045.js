@@ -6,7 +6,7 @@ export default {
   title: 'Inventory Holds with Retries, Release on Failure and Expiry Sweeper',
   level: 'ADVANCED',
   tags: ['inventory', 'until-successful', 'compensation', 'scheduler', 'reservation'],
-  estMinutes: 35,
+  estMinutes: 45,
   flowChecks: [
     {
       label: 'The hold is recorded (with an expiry) before the warehouse is called',

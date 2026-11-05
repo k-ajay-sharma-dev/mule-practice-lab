@@ -6,7 +6,7 @@ export default {
   title: 'Product Lookup API: Validating Query and URI Parameters',
   level: 'BEGINNER',
   tags: ['http-listener', 'query-params', 'uri-params', 'validation', 'choice', 'http-status'],
-  estMinutes: 20,
+  estMinutes: 25,
   flowChecks: [
     { label: 'The API is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {

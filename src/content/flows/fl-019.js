@@ -29,7 +29,7 @@ export default {
   title: 'Order Event Fan-out with an Anypoint MQ Exchange',
   level: 'ADVANCED',
   tags: ['anypoint-mq', 'pub-sub', 'exchange', 'event-driven', 'fan-out'],
-  estMinutes: 30,
+  estMinutes: 60,
   flowChecks: [
     { label: 'The publisher publishes the order event to Anypoint MQ (an exchange)', rule: { type: 'exists', component: 'mq-publish' } },
     {

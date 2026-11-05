@@ -6,7 +6,7 @@ export default {
   title: 'Responsibilities of System, Process and Experience Layers',
   level: 'BEGINNER',
   tags: ['api-led', 'layers', 'system-api', 'process-api', 'experience-api'],
-  estMinutes: 15,
+  estMinutes: 20,
   diagram: {
     task: 'draw the three API-led layers for the e-commerce example: both consumers, their Experience APIs, the Process APIs, one System API per backend, and SAP, Salesforce and the WMS.',
     checks: [

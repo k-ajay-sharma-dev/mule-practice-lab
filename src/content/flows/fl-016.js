@@ -6,7 +6,7 @@ export default {
   title: 'Processing Invoice Attachments from a Mailbox',
   level: 'INTERMEDIATE',
   tags: ['email', 'imap', 'attachments', 'pdf', 'ocr'],
-  estMinutes: 25,
+  estMinutes: 35,
   flowChecks: [
     {
       label: 'New emails are picked up from the mailbox (IMAP listener or scheduled poll)',

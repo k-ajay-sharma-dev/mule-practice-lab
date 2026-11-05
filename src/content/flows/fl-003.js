@@ -6,7 +6,7 @@ export default {
   title: 'APIkit Orders API with HTTP Error Mapping',
   level: 'INTERMEDIATE',
   tags: ['apikit', 'raml', 'rest', 'error-handling', 'http'],
-  estMinutes: 25,
+  estMinutes: 35,
   flowChecks: [
     { label: 'A main flow exposes the API through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {

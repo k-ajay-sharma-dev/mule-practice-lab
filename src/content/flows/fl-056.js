@@ -6,7 +6,7 @@ export default {
   title: 'Order-to-Cash Application Network: Web, Partner, ERP, CRM and Payments',
   level: 'EXPERT',
   tags: ['api-led', 'application-network', 'event-driven', 'compensation', 'architecture'],
-  estMinutes: 60,
+  estMinutes: 85,
   flowChecks: [
     { label: 'The network has at least seven APIs, each drawn as its own flow', rule: { type: 'flows', kind: 'flow', min: 7 } },
     {

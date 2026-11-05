@@ -21,7 +21,7 @@ export default {
   title: 'Employee Onboarding Across Four SaaS Systems with Partial-Failure Reporting',
   level: 'INTERMEDIATE',
   tags: ['orchestration', 'scatter-gather', 'partial-failure', 'saas', 'error-handling'],
-  estMinutes: 30,
+  estMinutes: 40,
   flowChecks: [
     { label: 'Onboarding starts from the HR hire event (HTTP webhook or queue)', rule: { type: 'source', component: ['http-listener', 'mq-subscriber'] } },
     {

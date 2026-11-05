@@ -6,7 +6,7 @@ export default {
   title: 'Nightly Reconciliation Between ERP and E-commerce',
   level: 'ADVANCED',
   tags: ['reconciliation', 'scheduler', 'dataweave', 'join', 'reporting'],
-  estMinutes: 30,
+  estMinutes: 35,
   flowChecks: [
     { label: 'The reconciliation runs nightly on a Scheduler', rule: { type: 'source', component: 'scheduler' } },
     {

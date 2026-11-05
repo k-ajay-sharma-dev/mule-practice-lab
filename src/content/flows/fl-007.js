@@ -6,7 +6,7 @@ export default {
   title: 'Choosing a Router: Choice, Scatter-Gather, First Successful, Round Robin',
   level: 'BEGINNER',
   tags: ['routers', 'choice', 'first-successful', 'round-robin', 'scatter-gather'],
-  estMinutes: 15,
+  estMinutes: 35,
   flowChecks: [
     {
       label: 'Carrier selection uses a Choice router with US and EU conditions',

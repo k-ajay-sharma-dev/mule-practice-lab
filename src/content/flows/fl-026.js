@@ -20,7 +20,7 @@ export default {
   title: 'GDPR Right-to-Erasure Across Multiple Systems',
   level: 'EXPERT',
   tags: ['gdpr', 'privacy', 'orchestration', 'audit', 'compliance'],
-  estMinutes: 40,
+  estMinutes: 65,
   flowChecks: [
     { label: 'Erasure requests arrive through an HTTP Listener (intake API)', rule: { type: 'source', component: 'http-listener' } },
     {

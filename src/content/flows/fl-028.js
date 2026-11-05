@@ -18,7 +18,7 @@ export default {
   title: 'Liveness and Readiness Health Check Endpoints',
   level: 'BEGINNER',
   tags: ['health-check', 'readiness', 'liveness', 'try', 'on-error-continue', 'monitoring'],
-  estMinutes: 15,
+  estMinutes: 20,
   flowChecks: [
     { label: 'Health endpoints are exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     { label: 'Liveness and readiness are separate flows / endpoints', rule: { type: 'flows', kind: 'flow', min: 2 } },

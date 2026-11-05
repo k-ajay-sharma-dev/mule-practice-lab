@@ -37,7 +37,7 @@ export default {
   title: 'Saga with Compensation Across Payment, Inventory and Shipping',
   level: 'EXPERT',
   tags: ['saga', 'compensation', 'orchestration', 'consistency', 'error-handling'],
-  estMinutes: 40,
+  estMinutes: 60,
   flowChecks: [
     { label: 'Checkout is exposed through an HTTP Listener (the orchestrator)', rule: { type: 'source', component: 'http-listener' } },
     {

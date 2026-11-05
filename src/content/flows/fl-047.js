@@ -6,7 +6,7 @@ export default {
   title: 'System API over a Customer Database: Paging and 404/503 Mapping',
   level: 'BEGINNER',
   tags: ['api-led', 'system-api', 'database', 'pagination', 'error-handling'],
-  estMinutes: 20,
+  estMinutes: 25,
   flowChecks: [
     {
       label: 'The System API is exposed on its own HTTP Listener (path /sys-...)',

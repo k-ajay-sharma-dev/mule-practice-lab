@@ -6,7 +6,7 @@ export default {
   title: 'Power Outage Notifications for Utility Customers',
   level: 'INTERMEDIATE',
   tags: ['event-driven', 'notifications', 'fan-out', 'throttling', 'utilities'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the outage-notification flow: OMS events in, resolution of nodes to customers, the per-channel queues and throttled providers, the call-centre path for vulnerable customers and the planned-outage job.',
     checks: [

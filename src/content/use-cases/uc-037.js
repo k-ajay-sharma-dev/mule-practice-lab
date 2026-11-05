@@ -6,7 +6,7 @@ export default {
   title: 'Social Media Mentions to Marketing and Support',
   level: 'INTERMEDIATE',
   tags: ['polling', 'routing', 'rate-limiting', 'marketing', 'enrichment'],
-  estMinutes: 20,
+  estMinutes: 25,
   diagram: {
     task: 'draw the social-mention pipeline: the polling job with its watermark store, the router, and the separate routes to Zendesk, Slack and the data lake.',
     checks: [

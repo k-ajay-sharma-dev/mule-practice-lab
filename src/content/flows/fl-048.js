@@ -6,7 +6,7 @@ export default {
   title: 'Two Experience APIs (Mobile and Partner) Sharing One Process API',
   level: 'BEGINNER',
   tags: ['api-led', 'experience-api', 'process-api', 'reuse', 'architecture'],
-  estMinutes: 20,
+  estMinutes: 25,
   flowChecks: [
     { label: 'Each API is its own flow (two experience, one process, at least one system)', rule: { type: 'flows', kind: 'flow', min: 4 } },
     {
