@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../theme.jsx'
 import { registerDataWeave } from '../editor/dataweave.js'
+import CopyButton from './CopyButton.jsx'
 import { useCoarsePointer } from './touch.js'
 import TouchEditor from './TouchEditor.jsx'
 
@@ -9,8 +10,16 @@ import TouchEditor from './TouchEditor.jsx'
 export default function CodeEditor(props) {
   const touch = useCoarsePointer()
   const { language = 'dataweave', readOnly = false, height = '100%' } = props
-  if (touch) return <TouchEditor {...props} language={language} readOnly={readOnly} height={height} />
-  return <DesktopEditor {...props} />
+  return (
+    <div className="copyable code-editor" style={{ height }}>
+      {touch ? (
+        <TouchEditor {...props} language={language} readOnly={readOnly} height={height} />
+      ) : (
+        <DesktopEditor {...props} />
+      )}
+      {props.value && <CopyButton text={props.value} />}
+    </div>
+  )
 }
 
 function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%' }) {

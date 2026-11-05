@@ -1716,3 +1716,54 @@
 .tok-variable {
   color: var(--warning);
 }
+
+/* Copy icon in the corner of code blocks and editors */
+.copyable {
+  position: relative;
+}
+.copyable > pre {
+  padding-right: 40px;
+}
+.md .copyable {
+  margin: 0.75em 0;
+}
+.md .copyable > pre {
+  margin: 0;
+}
+.code-editor {
+  min-height: 0;
+}
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.8;
+}
+.code-editor > .copy-btn {
+  right: 20px; /* clear of the editor's scrollbar */
+}
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  opacity: 1;
+}
+.copy-btn.copied {
+  color: var(--success);
+  opacity: 1;
+}
+.copy-btn.failed {
+  color: var(--danger);
+  opacity: 1;
+}

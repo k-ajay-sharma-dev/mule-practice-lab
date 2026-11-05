@@ -26,6 +26,7 @@ import {
   undeploy,
   updateBinding,
 } from '../../lab/pipeline.js'
+import { CodeBlock } from '../../components/CopyButton.jsx'
 import Assumed from './Assumed.jsx'
 import { LabOutcome } from './ExchangeScreen.jsx'
 import './exchange.css'
@@ -327,7 +328,7 @@ function Options({ config, onChange }) {
 
       <details className="lx-pom">
         <summary className="small">Deployment block these options produce</summary>
-        <pre className="mono small">{pomPreview(config)}</pre>
+        <CodeBlock className="mono small">{pomPreview(config)}</CodeBlock>
       </details>
     </>
   )

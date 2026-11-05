@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import CodeEditor from '../components/CodeEditor.jsx'
+import { CodeBlock } from '../components/CopyButton.jsx'
 import RunningMessage from '../components/RunningMessage.jsx'
 import { runScript } from '../runner/client.js'
 import { mimeToLanguage } from '../runner/grade.js'
@@ -185,7 +186,7 @@ export default function PlaygroundPage() {
               ) : result.ok ? (
                 <CodeEditor value={result.output} language={mimeToLanguage(result.mime)} readOnly />
               ) : (
-                <pre className={`io-message ${result.notConfigured ? 'info' : 'error'}`}>{result.error}</pre>
+                <CodeBlock className={`io-message ${result.notConfigured ? 'info' : 'error'}`}>{result.error}</CodeBlock>
               )}
             </div>
           </div>

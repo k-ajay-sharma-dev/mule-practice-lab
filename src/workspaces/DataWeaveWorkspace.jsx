@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CodeEditor from '../components/CodeEditor.jsx'
+import { CodeBlock } from '../components/CopyButton.jsx'
 import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
 import RunningMessage from '../components/RunningMessage.jsx'
@@ -85,14 +86,14 @@ export default function DataWeaveWorkspace({ problem }) {
                   <div className="io-label">
                     Input · <span className="mono">{inp.name}</span> <span className="muted">({inp.mime})</span>
                   </div>
-                  <pre className="code-block">{inp.content}</pre>
+                  <CodeBlock>{inp.content}</CodeBlock>
                 </div>
               ))}
               <div className="io-block">
                 <div className="io-label">
                   Expected output <span className="muted">({expectedMime})</span>
                 </div>
-                <pre className="code-block">{problem.expected.content}</pre>
+                <CodeBlock>{problem.expected.content}</CodeBlock>
               </div>
               {problem.tests?.length > 0 && (
                 <p className="muted small">
@@ -124,7 +125,7 @@ export default function DataWeaveWorkspace({ problem }) {
           {leftTab === 'solution' &&
             (entry.revealed ? (
               <div className="stack">
-                <pre className="code-block">{problem.solution}</pre>
+                <CodeBlock>{problem.solution}</CodeBlock>
                 {problem.explanation && <Markdown>{problem.explanation}</Markdown>}
                 <FollowUps items={problem.followUps} />
               </div>
@@ -209,7 +210,7 @@ export default function DataWeaveWorkspace({ problem }) {
 function OutputView({ result, busy, problem }) {
   if (busy) return <RunningMessage />
   if (!result) return <div className="io-message muted">Click Run to execute your script against the sample input.</div>
-  if (!result.ok) return <pre className={`io-message ${result.notConfigured ? 'info' : 'error'}`}>{result.error}</pre>
+  if (!result.ok) return <CodeBlock className={`io-message ${result.notConfigured ? 'info' : 'error'}`}>{result.error}</CodeBlock>
 
   const matches = outputsMatch(result.output, problem.expected.content, problem.expected.mime)
   return (

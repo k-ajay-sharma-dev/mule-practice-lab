@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { newRuntime, newTopology, nodeNotes, quotaView, send, topologyOf } from '../../lab/engine.js'
 import { AUTH_SERVER_STATES, defaultSettings, policyByType, TOKENS } from '../../lab/policies.js'
+import { CodeBlock } from '../../components/CopyButton.jsx'
 import { AppsTab, NodeNotes, NodesTab, PoliciesTab, TiersTab, uid } from './ConfigTabs.jsx'
 import Assumed from './Assumed.jsx'
 
@@ -307,7 +308,7 @@ function Results({ history }) {
               Application log
               <Assumed note="The layout follows the Mule format on the Message Logging page. The date and thread name are left out." />
             </span>
-            <pre className="mono small">{latest.appLog.map((l) => `${l.phase}: ${l.text}`).join('\n')}</pre>
+            <CodeBlock className="mono small">{latest.appLog.map((l) => `${l.phase}: ${l.text}`).join('\n')}</CodeBlock>
           </div>
         )}
       </div>
@@ -387,7 +388,7 @@ function HeaderBlock({ title, headers }) {
   return (
     <div className="lab-headers">
       <span className="small muted">{title}</span>
-      <pre className="mono small">{headers.map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
+      <CodeBlock className="mono small">{headers.map(([k, v]) => `${k}: ${v}`).join('\n')}</CodeBlock>
     </div>
   )
 }
