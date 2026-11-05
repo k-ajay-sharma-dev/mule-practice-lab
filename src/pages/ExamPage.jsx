@@ -134,6 +134,7 @@ function Setup({ history, onStart }) {
   const [count, setCount] = useState(LENGTHS[0])
   const [levels, setLevels] = useState('mid')
   const [track, setTrack] = useState('')
+  const [details, setDetails] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -144,7 +145,10 @@ function Setup({ history, onStart }) {
     setFailed(false)
     try {
       const loaded = (await loadProblems(shuffled(pool).slice(0, count).map((p) => p.id))).filter(Boolean)
-      const items = chooseQuestions(loaded, count, seenInHistory(history))
+      const seen = seenInHistory(history)
+      const chosen = chooseQuestions(loaded, count, seen, Math.random, (q) => details || !q.detail)
+      // a focus made up only of detail questions still gets an exam
+      const items = chosen.length ? chosen : chooseQuestions(loaded, count, seen)
       onStart(newSession(items, trackBySlug.get(track)?.title ?? 'Everything'))
     } catch {
       setFailed(true)
@@ -196,6 +200,11 @@ function Setup({ history, onStart }) {
           </select>
         </label>
       </div>
+
+      <label className="exam-details small muted">
+        <input type="checkbox" checked={details} onChange={(e) => setDetails(e.target.checked)} />
+        Include detail questions: exact limits, defaults and names you can only learn by reading the docs
+      </label>
 
       {pool.length === 0 && <p className="warn-text small">No quizzes match this focus and difficulty. Try a wider choice.</p>}
       {failed && <p className="warn-text small">Couldn't load the questions. Check your connection and try again.</p>}
@@ -271,7 +280,9 @@ function Running({ session, questionOf, loaded, onChange, onFinish }) {
 
       {q ? (
         <>
-          <details className="exam-scenario" key={item.id}>
+          <p className="exam-topic small muted">{loaded.get(item.id).title}</p>
+          {/* open only where the question can't be read without it, so the rest stay on one screen */}
+          <details className="exam-scenario" key={`scenario-${key}`} open={Boolean(q.needsScenario)}>
             <summary className="small">Scenario for this question</summary>
             <Markdown>{loaded.get(item.id).description}</Markdown>
           </details>

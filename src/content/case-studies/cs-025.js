@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the migration steps.',
       items: [
         'Classify data, inventory every API/flow and agree the per-country legal matrix',
@@ -55,29 +56,28 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Where can hidden copies of personal data survive and must be checked?',
+      prompt: 'A retailer must keep customer personal data inside its region. Its apps now run on regional runtimes, and it wants to find any copies of that data left behind. Which three places should it check?',
       options: [
-        'Application logs (e.g. emails and phone numbers)',
+        'Application logs',
         'Caches and Object Stores',
         'Backups and test environments',
-        'API analytics custom fields and monitoring dimensions',
         'RAML type definitions in Exchange',
+        'Exchange tags for data classification',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Logs, caches, backups, test copies and analytics/monitoring data can all hold personal data. A RAML type describes the shape of data, not actual customer values.',
+      answer: [0, 1, 2],
+      explain: 'Logs (for example emails and phone numbers), caches, backups and test copies can all hold personal data. So can API analytics custom fields and monitoring dimensions. A RAML type describes the shape of data, and a tag labels an asset. Neither holds actual customer values.',
     },
     {
-      type: 'multi',
-      prompt: 'Which governance measures give auditors clear evidence?',
+      type: 'single',
+      prompt: 'Auditors ask a global retailer to prove where customer personal data flows between regions. What gives them the clearest evidence?',
       options: [
-        'Residency check as part of API design review',
-        'Exchange metadata tags for data classification and region',
-        'Automated scans for PII in logs',
-        'Data-flow diagrams kept current, with DPO/legal sign-off per cross-region flow',
-        'A single verbal approval from the CIO for all flows',
+        'Data-flow diagrams kept current, with legal sign-off per cross-region flow',
+        'A verbal approval from the CIO that covers all flows at once',
+        'A note that the control plane runs in the EU, so all flows comply',
+        'RAML type definitions in Exchange, which show the shape of each payload',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Reviews, tags, automated scans and maintained data-flow documentation create repeatable, auditable evidence. A verbal approval leaves nothing for an auditor to inspect.',
+      answer: 0,
+      explain: 'Maintained data-flow documentation with DPO or legal sign-off is repeatable, auditable evidence. A residency check in API design review, Exchange tags for classification and region, and automated scans for PII in logs add to it. A verbal approval leaves nothing to inspect, a regional control plane does not decide where payloads are processed, and a RAML type describes data shape, not flows.',
     },
   ],
   description: `

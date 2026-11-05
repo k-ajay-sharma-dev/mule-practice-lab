@@ -31,16 +31,16 @@ export default {
       explain: 'Size and time checks are heuristics — a slow or paused upload can still pass them. A rename is atomic on the server. SFTP has no reliable cross-client lock.',
     },
     {
-      type: 'multi',
-      prompt: 'Why are some files processed **twice**, and what prevents it?',
+      type: 'single',
+      prompt: 'A Mule app on CloudHub 2.0 with 2 replicas reads payment files with an SFTP listener. Some files are processed twice, because both replicas poll the same folder. What stops this?',
       options: [
-        'Both replicas poll the same folder; clustering with Primary Node Only on the listener makes it run on the primary only',
-        'A file not moved before the next poll can be picked up again; an idempotency check in a persistent Object Store prevents reprocessing',
-        'The SFTP connector always delivers each file twice for reliability',
-        'Listener watermarking can stop already-seen files from being picked up again',
+        'Set `timeBetweenSizeCheck` on the listener',
+        'Add a matcher with a `filenamePattern` for payment files',
+        'Set `notUpdatedInTheLast` on the matcher',
+        'Enable clustering and set Primary Node Only on the listener',
       ],
-      answer: [0, 1, 3],
-      explain: 'Duplicates come from multiple pollers and late moves. Clustering, watermarking and an idempotency key (file name + size + timestamp) close both gaps.',
+      answer: 3,
+      explain: 'With clustering and Primary Node Only, the listener runs on the primary node only, so one poller sees the folder. Size checks and `notUpdatedInTheLast` deal with half-written files, and `filenamePattern` deals with unwanted files. Duplicates also come from late moves: a file not moved before the next poll can be picked up again. Listener watermarking and an idempotency key (file name + size + timestamp) in a persistent Object Store close that gap.',
     },
     {
       type: 'single',
@@ -56,6 +56,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Files can be 300 MB. What should the flow avoid?',
       options: [
         'Loading the whole CSV into memory (e.g. converting it to a Java list or logging it)',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Which file do you edit to change the heap of an on-premises Mule runtime?',
       options: [
         '`$MULE_HOME/conf/wrapper.conf`, then restart the runtime',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team sets `wrapper.java.maxmemory=2048` and also adds a `-Xmx4096m` additional line. What is the documented advice?',
       options: [
         'Use the wrapper memory properties, not a mix with `-Xms`/`-Xmx` lines, so one setting does not silently override the other',
@@ -56,6 +58,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each symptom to the documented response.',
       pairs: [
         ['`Timed out waiting for signal from JVM` during startup', 'Increase `wrapper.startup.timeout` in `wrapper.conf`'],
@@ -67,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Two lines in `wrapper.conf` both use `wrapper.java.additional.14`. What happens?',
       options: [
         'The wrapper keeps one and ignores the other',
@@ -78,17 +82,16 @@ export default {
       explain: 'Always use the next unused index. The ignored line has no effect, so check the running JVM\'s arguments after a change.',
     },
     {
-      type: 'multi',
-      prompt: 'Two Mule instances will share one host. Which rules apply?',
+      type: 'single',
+      prompt: 'A team wants a second Mule instance on a host that already runs one. How must the second instance be set up?',
       options: [
-        'Each instance has its own install directory and `MULE_HOME`',
-        'Apps need unique HTTP and other listener ports',
-        'Wrapper and cluster ports must not collide',
-        'On Windows, each instance is installed as its own service from its own `bin` directory',
-        'Both instances can run from the same unpacked zip if they use different `wrapper.conf` files',
+        'From the same unpacked zip, with a second `wrapper.conf`',
+        'From the same `MULE_HOME`, with different listener ports',
+        'From its own unpacked distribution, with its own `MULE_HOME`',
+        'From a copied `conf` folder that shares the first `bin` folder',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The docs say not to run two instances from the same unpacked zip.',
+      answer: 2,
+      explain: 'The docs say not to run two instances from the same unpacked zip, so each has its own install directory and `MULE_HOME`. Apps also need unique HTTP and other listener ports, and wrapper and cluster ports must not collide. On Windows, each instance is installed as its own service from its own `bin` directory.',
     },
   ],
   description: `

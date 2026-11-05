@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Where do you get "number of consumers per API" from in Anypoint Platform?',
       options: [
         'Counting Exchange page views',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The report shows every Experience API has exactly one consumer. How do you read that?',
       options: [
         'A failure of the programme',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Most System APIs also show only one consumer each. What does that suggest?',
       options: [
         'Everything is fine',
@@ -43,20 +46,20 @@ export default {
       explain: 'System APIs should show the highest reuse; low numbers point to design or discoverability problems.',
     },
     {
-      type: 'multi',
-      prompt: 'Which reusable assets should the C4E publish to Exchange to make APIs consistent?',
+      type: 'single',
+      prompt: 'In an API-led programme, every project writes its own error format and pagination. What should the Center for Enablement (C4E) publish to Exchange to fix this?',
       options: [
-        'API fragments: ErrorResponse, Money, Address, a pageable trait, security schemes',
-        'Project templates/archetypes with global error handler, logging and CI pipeline',
-        'Common modules such as a shared logging/error library and DataWeave function modules',
-        'Governance rulesets for naming and required error responses',
-        'A rule that the C4E builds every API itself',
+        'A rule that the C4E itself builds every API from now on',
+        'A monthly report of consumers per API and per layer',
+        'A copy of every project\'s spec, so that teams can compare them',
+        'API fragments with a shared error type and a pageable trait',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Shared fragments and templates solve "every project writes its own error format and pagination". A C4E that builds everything recreates the old ESB bottleneck.',
+      answer: 3,
+      explain: 'Shared fragments give all APIs the same error and paging contracts. The same aim is served by project templates with a global error handler, logging and a CI pipeline, by common modules such as a logging and error library or DataWeave function modules, and by governance rulesets for naming and required error responses. A C4E that builds everything recreates the old ESB bottleneck.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A team built a duplicate Customer System API anyway. What do you do first?',
       options: [
         'Delete the duplicate immediately',

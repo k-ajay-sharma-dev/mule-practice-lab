@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Until Successful runs out of retries. Which error does it raise?',
       options: ['`MULE:RETRY_EXHAUSTED`', '`HTTP:TIMEOUT`', '`MULE:UNKNOWN`', 'The last child error, unchanged'],
       answer: 0,
@@ -36,17 +37,16 @@ export default {
       explain: 'Connection loss → reconnection; transient HTTP errors → narrow, short Until Successful; non-idempotent POST → never blind-retry.',
     },
     {
-      type: 'multi',
-      prompt: 'What is wrong with wrapping everything in one Until Successful with `maxRetries=5` and `millisBetweenRetries=60000`?',
+      type: 'single',
+      prompt: 'A flow with a 5 second SLA wraps all its steps in one Until Successful scope, which re-runs those steps on any error. It uses `maxRetries=5` and `millisBetweenRetries=60000`. What happens to a request during an outage?',
       options: [
-        'A request can wait up to ~5 minutes against a 5 s SLA',
-        'Waiting events pile up and hold resources at 20 req/s during an outage',
-        'Earlier steps are re-run, which can re-charge cards',
-        'Until Successful runs its retries asynchronously, so the caller gets an immediate 200',
-        'Non-retryable errors such as 400 validation errors are retried too',
+        'The event waits through the retries for up to about 5 minutes',
+        'The retries run in the background, and the caller gets an immediate 200',
+        'Mule stops retrying once the 5 second SLA has passed',
+        'Mule parks the event on a queue until the retry delay has ended',
       ],
-      answer: [0, 1, 2, 4],
-      explain: 'Until Successful is **synchronous** — the event waits. Retrying a whole block re-runs every step and retries every error type. Long-delay retries belong in an async design (queue redelivery + DLQ).',
+      answer: 0,
+      explain: 'Until Successful is **synchronous**, so the event waits. Five retries 60 seconds apart far exceed the SLA, and waiting events pile up and hold resources during an outage. Retrying a whole block also re-runs every step, which can re-charge cards, and it retries every error type, including 400 validation errors. Long-delay retries belong in an async design (queue redelivery + DLQ).',
     },
     {
       type: 'single',

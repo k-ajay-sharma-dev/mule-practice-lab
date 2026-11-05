@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'How do the docs say a parent POM reaches Exchange?',
       options: [
         'As a custom asset, published with `exchange-mule-maven-plugin`',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The parent POM publish fails in the deploy stage with status code 412. What does the troubleshooting section say?',
       options: [
         '`exchange-pre-deploy` was not executed, so make sure that goal is inside the executions of the plugin',
@@ -44,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The parent POM has a `distributionManagement` URL with `/api/v2/`, and a new child overrides it with `/api/v3/`. What does the Exchange FAQ say?',
       options: [
         'Do not mix versions: a parent POM using v2 and a child using v3 fails to deploy',
@@ -55,20 +58,20 @@ export default {
       explain: 'In a Maven POM, use the Maven Facade URL with `/api/v3/`. The REST Exchange API stays on v2, and that is a different API.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the parent and its children are correct?',
+      type: 'single',
+      prompt: 'A parent POM declares the Mule Maven plugin, with its version, in `pluginManagement`. A child app needs that plugin. What must the child do?',
       options: [
-        'A plugin in `pluginManagement` is inherited only if the child references it in its `<plugin>` section',
-        'The child can then leave out `<version>`, because the version comes from the parent',
-        'If the uploaded asset has a defined parent, the parent must be a valid and already uploaded Exchange asset for dynamic parameters to be interpreted',
-        'The Maven Facade supports dynamic parameters for `<artifactId>` and `<version>` only',
-        'Including `maven-deploy-plugin` alongside `mule-maven-plugin` is the recommended way to publish',
+        "Reference it in the child's `<plugins>`, leaving out `<version>`",
+        'Nothing, because the child inherits it automatically',
+        'Add `<inherited>true</inherited>` to the plugin in the parent',
+        'Declare it as a dependency in `dependencyManagement`',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The Exchange page says not to include `maven-deploy-plugin` in the POM or settings file, because it is not compatible with the required plugin.',
+      answer: 0,
+      explain: 'A plugin in `pluginManagement` is inherited only if the child references it in its `<plugin>` section, and the version then comes from the parent. On publishing: if the uploaded asset has a defined parent, the parent must be a valid and already uploaded Exchange asset for dynamic parameters to be interpreted, and the Maven Facade supports dynamic parameters for `<artifactId>` and `<version>` only. The Exchange page also says not to include `maven-deploy-plugin` in the POM or settings file, because it is not compatible with the required plugin.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each need to the plugin configuration that meets it.',
       pairs: [
         ['The Database Connector needs a JDBC driver, and the driver is an application dependency', '`sharedLibraries`'],
@@ -79,6 +82,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Two dependencies in an application bring in different versions of the same library. What does the packaging page say about a dependency version conflict in the `pom.xml`?',
       options: [
         'The latest version is used',

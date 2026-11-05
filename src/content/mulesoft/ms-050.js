@@ -7,16 +7,16 @@ export default {
   estMinutes: 15,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which Anypoint capabilities accept OAS 3.0 specs as well as RAML?',
+      type: 'single',
+      prompt: 'A team that already writes OpenAPI (OAS) 3.0 specs asks whether Anypoint tools accept them as well as RAML. What is the correct answer?',
       options: [
-        'API Designer / Anypoint Code Builder',
-        'Exchange documentation, console and mocking',
-        'APIkit for REST scaffolding and validation',
-        'API Manager instances and policies',
+        'Yes, API Designer, Exchange, APIkit and API Manager all accept both formats',
+        'Only Exchange accepts OAS 3.0, and the other tools need RAML',
+        'API Designer and Exchange accept OAS 3.0, but APIkit needs RAML',
+        'APIkit accepts OAS 3.0, but API Manager policies need RAML',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'All of these support both formats; check the docs for exact OAS minor versions before committing.',
+      answer: 0,
+      explain: 'All of these support both formats: API Designer and Anypoint Code Builder, Exchange documentation, console and mocking, APIkit for REST scaffolding and validation, and API Manager instances and policies. Check the docs for exact OAS minor versions before committing.',
     },
     {
       type: 'match',
@@ -43,6 +43,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What should happen to the six working RAML System APIs?',
       options: [
         'Rewrite them all in OAS now for consistency',
@@ -67,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Does the APIkit flow naming convention change for OAS specs?',
       options: [
         'Yes, flows are named by `operationId`',

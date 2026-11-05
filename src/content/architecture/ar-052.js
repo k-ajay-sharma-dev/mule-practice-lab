@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which data model should `sys-sap-customer-api` expose?',
       options: [
         'The raw SAP structure (KUNNR, \'X\' flags) — zero mapping effort',
@@ -49,17 +50,16 @@ export default {
       explain: 'The limit applies to the SAP user across all replicas, so the per-replica pool must add up to at most 10.',
     },
     {
-      type: 'multi',
-      prompt: 'Which measures protect SAP?',
+      type: 'single',
+      prompt: 'A System API wraps SAP, which allows only a limited number of concurrent RFC connections. A burst of consumer traffic could overwhelm SAP. Which measure protects it?',
       options: [
-        'Spike Control / Rate Limiting policy so callers get 429 instead of overloading SAP',
-        'Timeouts on the RFC call',
-        'Caching code tables and short-TTL customer lookups in Object Store',
-        'No blind retries on writes without idempotency',
-        'Fetching all customers and filtering in Mule',
+        'Apply a Spike Control or Rate Limiting policy, so callers get 429',
+        'Retry every failed call, including writes, until SAP accepts it',
+        'Raise the connection pool above the RFC allowance to absorb peaks',
+        'Fetch all customers on each call and filter them inside Mule',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Filters should be pushed into the BAPI selection so SAP does the work; pulling everything into Mule multiplies load.',
+      answer: 0,
+      explain: 'A Spike Control or Rate Limiting policy gives callers 429 instead of overloading SAP. Other protections are timeouts on the RFC call, caching code tables and short-TTL customer lookups in Object Store, and no blind retries on writes without idempotency. Filters should be pushed into the BAPI selection so SAP does the work, because pulling everything into Mule multiplies load.',
     },
     {
       type: 'single',

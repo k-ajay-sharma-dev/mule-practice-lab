@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do MUnit parameterizations collapse the 14 nearly identical tax tests?',
       options: [
         'Each test gets a `for-each` over a list of inputs',
@@ -42,6 +43,8 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which munit-maven-plugin coverage settings implement the management gates?',
       options: [
         '`<runCoverage>true</runCoverage>`',

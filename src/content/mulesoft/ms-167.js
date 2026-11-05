@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
+      detail: true,
       prompt: 'What can you pass to `governance:api:validate` as `api-specification`?',
       options: [
         'An API project ZIP file',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each source of rulesets to how the command finds it.',
       pairs: [
         ['Ruleset dependencies that are defined for the project', '`exchange.json` in the folder or ZIP file'],
@@ -30,6 +32,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A script uses `exchange.json` dependencies and also passes `--rulesets` with one of the same rulesets. What does the note say?',
       options: [
         'Duplicate rulesets are not detected, so some rulesets might be validated multiple times',
@@ -42,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which permission does the API Governance CLI page state for `api validate`?',
       options: [
         'None, because it is one of the commands that run locally without accessing Anypoint Platform',
@@ -54,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A step runs `governance:api:validate --rulesets a.yaml b.yaml my-api.zip`, and the parser takes the API file as a third ruleset. What does the reference advise?',
       options: [
         'Put the parameter before the flags, or use `-- ` (two dashes and a space) before the parameter',
@@ -66,6 +72,8 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which statements about `api-catalog publish-asset` are correct?',
       options: [
         '`--dry-run` verifies that the descriptor file is valid, and publishes no APIs',
@@ -79,6 +87,8 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each branch policy to the version strategy in `versionStrategyConditions`.',
       pairs: [
         ['`develop`: publish a development asset, at the version in the descriptor, and republish it each time', '`snapshot`'],

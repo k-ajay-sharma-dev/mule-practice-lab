@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A team wants to publish a Mule application to Exchange from its pipeline. Its POM uses `maven-deploy-plugin`. What do the docs require?',
       options: [
         'Use `mule-maven-plugin` and do not include `maven-deploy-plugin`, because it is not compatible',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What must `groupId` be when publishing an asset to a business group through the Maven facade?',
       options: [
         'The business group ID, which also appears in the repository URL',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A Mule app was published to Exchange with Maven, and the pipeline shows success. A developer cannot find it in the Exchange asset list. What is the likely explanation?',
       options: [
         'Mule 4 applications are not displayed in the Exchange asset list; they are consumed through the APIs',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'A pipeline must authenticate to the Maven facade with a connected app. Which statements are correct?',
       options: [
         'The username in settings.xml is `~~~Client~~~`',
@@ -67,6 +71,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Company A shares a RAML fragment and a REST API with Company B, an external organization. What can a user in Company B do?',
       options: [
         'Use the fragment as a dependency in API Designer and scaffold from the API in Studio, but not manage the API in API Manager',
@@ -79,6 +84,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which statement about portals is correct?',
       options: [
         'API Experience Hub is the next-generation evolution of API Community Manager, while an Exchange public portal is the simple built-in portal of an organization',

@@ -32,6 +32,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'What is needed to make the JMS consume, the Oracle inserts and the JMS publish one XA transaction in Mule 4?',
       options: [
         'A transaction manager — the Bitronix module (bti:transaction-manager)',
@@ -44,19 +45,20 @@ export default {
       explain: 'XA needs a transaction manager plus XA-capable resources, and the transaction must be begun as XA. MANUAL ack plays no part: in a transaction the message is acknowledged only after the transaction completes.',
     },
     {
-      type: 'multi',
-      prompt: 'Which are real costs or risks of XA in this design?',
+      type: 'single',
+      prompt: 'A Mule flow uses XA, so a JMS listener and Oracle updates commit together through the Bitronix transaction manager. The runtime crashes after Oracle has prepared and before the commit. What does recovery of this in-doubt transaction depend on?',
       options: [
-        'Two-phase commit adds latency and round trips to both resources for every message',
-        'In-doubt transactions after a crash must be recovered from the transaction log, which needs persistent storage for the runtime',
-        'The Oracle user needs privileges for XA recovery, and DBAs must understand pending in-doubt transactions',
-        'XA makes the HTTP call to the ERP transactional too',
+        'Redelivery of the message by the JMS broker',
+        'An automatic rollback by Oracle',
+        'A transaction log that survives the restart',
+        'A `MANUAL` ack on the JMS listener',
       ],
-      answer: [0, 1, 2],
-      explain: 'XA only covers XA resources. HTTP is never part of it. Recovery depends on the transaction log surviving restarts, which is harder on ephemeral container replicas.',
+      answer: 2,
+      explain: 'The branch stays in doubt in Oracle, holding locks, until the transaction manager recovers it from its log. That needs persistent storage for the runtime, which is harder on ephemeral container replicas. If the log is lost, a DBA has to resolve it manually. Other costs of XA: two-phase commit adds latency and round trips for every message, and the Oracle user needs privileges for XA recovery. XA only covers XA resources, so an HTTP call is never part of it.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The team picks the **transactional outbox** instead of XA. What does that mean here?',
       options: [
         'In one Oracle LOCAL transaction insert the receipt and an OUTBOX row; a separate flow publishes OUTBOX rows to GR.POSTED and marks them sent',

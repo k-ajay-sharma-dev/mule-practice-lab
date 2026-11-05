@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The DBA gives you an Oracle 19c pluggable database reachable as service `ORDERSPDB`. How do you configure the connection?',
       options: [
         'db:oracle-connection with host, port 1521, user, password and serviceName="ORDERSPDB"',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'SQL Server runs as named instance `SQLPROD01\\BILLING`, database `Billing`. Which configuration fits?',
       options: [
         'db:mssql-connection with host SQLPROD01, instanceName BILLING and databaseName Billing',
@@ -55,19 +57,20 @@ export default {
       explain: 'Named parameters are bound by the driver as values, never parsed as SQL, which prevents SQL injection and lets the database reuse the execution plan. Escaping by hand is fragile.',
     },
     {
-      type: 'multi',
-      prompt: 'A nightly job loads 2 million rows into SQL Server and reads 5 million rows from Oracle. Which practices are right?',
+      type: 'single',
+      prompt: 'A nightly export reads millions of rows from Oracle with `db:select` and ends in an `OutOfMemoryError`. What fixes it?',
       options: [
-        'Use db:bulk-insert with a list of parameter sets per chunk, instead of one db:insert per row',
-        'Read the Oracle result as a stream (with a sensible fetchSize) and process it in chunks, instead of loading it all into memory',
-        'Size the pooling profile for the concurrency you actually run, not for the row count',
-        'Turn the 5 million rows into one JSON array in memory before writing, so the write is a single call',
+        'Read the result as a stream with a `fetchSize`, and process it in chunks',
+        'Build one JSON array of all the rows, so the write is a single call',
+        'Raise `maxPoolSize` in the pooling profile to match the row count',
+        'Set a shorter `maxWait` in the pooling profile',
       ],
-      answer: [0, 1, 2],
-      explain: 'Bulk operations send a JDBC batch; streaming keeps memory flat; pools are sized by concurrent statements. Materialising millions of rows at once risks running out of memory.',
+      answer: 0,
+      explain: 'Streaming keeps memory flat, and materialising millions of rows at once risks running out of memory. Pools are sized by concurrent statements, not by row count. For the write side of a large load, use `db:bulk-insert` with a list of parameter sets per chunk, because bulk operations send a JDBC batch.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each vendor feature to the database it belongs to.',
       pairs: [
         ['ORA-00001 on a duplicate key', 'Oracle unique constraint violation'],

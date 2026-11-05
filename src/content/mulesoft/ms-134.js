@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The CI tool must show MUnit results in its own test view. Where does the MUnit Maven Plugin write the reports it can read?',
       options: [
         '`target/surefire-reports`, in Surefire format, enabled by default',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A project has no test suites yet, and the build fails at the test step. Which statement is correct?',
       options: [
         '`munitFailIfNoTests` defaults to true, so a build with no suites, or no tests run, fails',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which parameters of the MUnit Maven Plugin are documented?',
       options: [
         '`skipMunitTests` skips all MUnit tests and defaults to false',
@@ -45,6 +48,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A team wants non-secret deployment values in one reviewed file per environment. Which plugin element fits, and what format does it need?',
       options: [
         '`propertiesFile`, in Java properties format with one `key=value` pair per line',
@@ -56,20 +61,20 @@ export default {
       explain: 'The reference table describes `propertiesFile` as an alternative to defining properties inline with `properties`.',
     },
     {
-      type: 'multi',
-      prompt: 'An app reads `db.password` from an encrypted properties file with the Secure Configuration Properties module. Which statements are correct?',
+      type: 'single',
+      prompt: 'An app reads `db.password` from an encrypted properties file with the Secure Configuration Properties module, using the `secure::` prefix. How should the decryption key reach the app?',
       options: [
-        'The reference needs the `secure::` prefix',
-        'The key is passed in at deployment time, and must be the exact key used to encrypt the values',
-        'The `secure::` prefix works for all values in the file, even if they are not encrypted',
-        'The key should be sent through `secureProperties`, or an equivalent, not committed to the repository',
-        'The module decrypts values without a key if the file is in `src/main/resources`',
+        'Committed to the repository, next to the encrypted file',
+        'Generated fresh at each deployment, separate from the encryption key',
+        'Left out, because files in `src/main/resources` decrypt without a key',
+        'Passed in at deployment time, through `secureProperties` or an equivalent',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The first three are in the module page. Encryption of the file gives no protection if the key is stored beside it.',
+      answer: 3,
+      explain: 'The key is passed in at deployment time, and it must be the exact key used to encrypt the values. Encryption of the file gives no protection if the key is stored beside it. The reference needs the `secure::` prefix, and the prefix works for all values in the file, even if they are not encrypted.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each pipeline need to the feature in each tool.',
       pairs: [
         ['Jenkins: inject a secret into a build step', '`withCredentials`'],

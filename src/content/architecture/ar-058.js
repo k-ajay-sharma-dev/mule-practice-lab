@@ -14,15 +14,17 @@ export default {
       explain: 'Parallel independent calls cost about the slowest route rather than the sum — the single biggest win here.',
     },
     {
-      type: 'order',
-      prompt: 'Order these fixes by expected impact, biggest first.',
-      items: [
+      type: 'single',
+      needsScenario: true,
+      prompt: 'Which single fix should give the biggest reduction in p95 latency?',
+      options: [
         'Parallelise the three System API calls',
         'Call internal/private endpoints instead of the public load balancer',
         'Cache product content and prices',
         'Right-size the 0.2 vCore apps and tune connection pools',
       ],
-      explain: 'Sequential composition and hairpin routing cost the most; caching then removes most PIM/price calls, and right-sizing removes queueing under load.',
+      answer: 0,
+      explain: 'The three calls run in sequence, so together they cost about 770 ms at p95. In parallel they cost about 400 ms, the time of the slowest call. That saves about 370 ms on every request. The other fixes also help, but their gain depends on hop count, cache hit rate and load, so measure them.',
     },
     {
       type: 'match',

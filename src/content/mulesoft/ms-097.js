@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each capability to how the CloudHub 2.0 feature comparison describes it.',
       pairs: [
         ['Mule patch updates', 'CloudHub 2.0 automated; Runtime Fabric requires redeployment'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'To save money, a team proposes one Runtime Fabric instance for both test and production apps, separated by namespace. What does the deployment page say?',
       options: [
         'Applications deployed to a production environment must be deployed to an instance separate from non-production applications',
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'On Runtime Fabric, who is responsible for staying within the Mule licence, and how?',
       options: [
         'You are: keep the sum of CPU Limits across app replicas, or the total CPU of worker nodes running Mule apps, within the licensed quantity',
@@ -43,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Data centre connectivity must use AWS Direct Connect or VPC peering directly attached to the runtime network. How do the platforms differ?',
       options: [
         'The comparison lists both as supported on Runtime Fabric, through your own infrastructure, and not supported on CloudHub 2.0',
@@ -54,17 +58,16 @@ export default {
       explain: 'On CloudHub 2.0 use a VPN or a transit gateway attachment. On Runtime Fabric the network is your own, and "supported" means you and your provider manage it.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about Runtime Fabric backup and restore are correct?',
+      type: 'single',
+      prompt: 'Runtime Fabric runs Mule apps on a Kubernetes cluster that you manage. A cluster is lost, and the team restores an `rtfctl` backup to a new cluster. What does the restore NOT bring back?',
       options: [
-        'You own backup, restore and DR, and MuleSoft does not back up your cluster',
-        'The `rtfctl` backup covers cluster configuration such as services, secrets, ingress and ConfigMaps',
-        'Application deployments are reconciled from the control plane on restore',
-        'Application state is not in the backup',
-        'You should run the original and the restored copy together to validate them',
+        'Cluster services and secrets',
+        'Ingress configuration and ConfigMaps',
+        'Application deployments',
+        'Application state',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Running two concurrent instances of the same Runtime Fabric causes deployment conflicts. Use the same `rtfctl` version for the restore that created the backup, and test restores regularly.',
+      answer: 3,
+      explain: 'The `rtfctl` backup covers cluster configuration such as services, secrets, ingress and ConfigMaps, and application deployments are reconciled from the control plane on restore. Application state is not in the backup. You own backup, restore and DR, and MuleSoft does not back up your cluster. Do not run the original and the restored copy together, because two concurrent instances of the same Runtime Fabric cause deployment conflicts. Use the same `rtfctl` version for the restore that created the backup, and test restores regularly.',
     },
     {
       type: 'single',

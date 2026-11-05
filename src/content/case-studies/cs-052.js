@@ -7,26 +7,25 @@ export default {
   estMinutes: 60,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which responsibilities belong to the thin **central** core of the federated model?',
+      type: 'single',
+      prompt: 'A group with three business units moves to federated API governance: a small central team sets shared rules, and each unit delivers its own APIs. Which job stays with the central team?',
       options: [
-        'Platform foundations: org structure, environments, CI/CD templates, IdP integration, monitoring',
-        'A short list of mandatory standards (security baseline, naming, versioning, error format, correlation IDs), enforced by automation',
-        'Exchange as the single catalogue with a reuse-before-build check',
-        'The domain map and ownership register, plus arbitration on overlaps',
-        'Building and running all domain APIs for the three BUs',
-        'Deciding each BU\'s delivery cadence and internal designs',
+        'Setting a short list of mandatory standards for all units',
+        'Building and running the domain APIs for all units',
+        'Deciding the delivery cadence of each unit',
+        'Choosing the internal API designs inside each unit',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'A 4-person central team cannot build everything; BUs keep delivery and design choices. The centre owns only what must be common — and automates it so it does not become a review bottleneck.',
+      answer: 0,
+      explain: 'A small central team cannot build everything, and units keep delivery and design choices. The centre owns only what must be common: platform foundations, a short list of mandatory standards (security baseline, naming, versioning, error format, correlation IDs), Exchange as the single catalogue with a reuse-before-build check, and the domain map and ownership register with arbitration on overlaps. It automates the standards so it does not become a review bottleneck.',
     },
     {
       type: 'single',
-      prompt: 'Who should own the consolidated SAP customer-master System API?',
+      needsScenario: true,
+      prompt: 'Three business units (BUs) will share one consolidated SAP customer-master System API, and the central architecture team has only 4 people. Who should own the API?',
       options: [
         'Whichever BU calls it most',
         'The central architecture team, since it is shared',
-        'The team closest to the system of record with the skills and capacity to run it (here Spare Parts), backed by joint funding and an SLA',
+        'The team closest to the system of record, with joint funding and an SLA',
         'All three BUs jointly, with each able to change it',
       ],
       answer: 2,
@@ -34,6 +33,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the method for consolidating the three customer System APIs.',
       items: [
         'Inventory with runtime data: consumers, traffic, incidents, operations used',
@@ -47,6 +47,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why do the losing duplicates become **facades** instead of being switched off?',
       options: [
         'Facades are cheaper to run than normal APIs',
@@ -59,6 +60,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which domain do you consolidate first, and why?',
       options: [
         'Workday, because it is the smallest and lowest risk',
@@ -71,6 +73,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'One duplicate filters out inactive customers, the others do not. What do you do?',
       options: [
         'Keep the behaviour of the API with the most consumers',
@@ -82,18 +85,16 @@ export default {
       explain: 'Hidden rule differences caused the unreconcilable reports. The rule is a business decision; once agreed, the canonical contract states it openly instead of burying it in implementations.',
     },
     {
-      type: 'multi',
-      prompt: 'Which success measures would you report?',
+      type: 'single',
+      prompt: 'A company is consolidating duplicate System APIs across its business units, and leadership wants a progress report. Which measure shows real progress, not only activity?',
       options: [
-        'Duplicate System APIs retired (customer domain: 0 duplicates by month 9)',
-        'Percentage of APIs compliant with the security baseline',
-        'vCore / capacity cost trend',
-        'APIs consumed by two or more BUs',
+        'Number of duplicate System APIs retired',
         'Number of assets published in Exchange',
         'Number of governance meetings held',
+        'Number of new APIs built by each unit',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'These track the actual goals: less duplication, closed security gaps, lower cost and real cross-BU reuse. Asset counts and meeting counts measure activity, and can even reward more duplication.',
+      answer: 0,
+      explain: 'Retired duplicates track the actual goal of less duplication. Other useful measures are the percentage of APIs compliant with the security baseline, the vCore or capacity cost trend, and APIs consumed by two or more units. Asset counts and meeting counts measure activity, and can even reward more duplication.',
     },
   ],
   description: `

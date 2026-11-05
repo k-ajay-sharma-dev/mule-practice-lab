@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why did no alert fire between 02:10 and 05:40?',
       options: [
         'Alerts were on infrastructure (CPU/memory/app state), which stayed normal during a dependency failure',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which alerts would have caught this incident quickly?',
       options: [
         'Payment System API failure rate > 5% for 5 minutes',

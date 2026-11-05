@@ -44,6 +44,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which errors should count towards opening the hotel circuit?',
       options: [
         'Every error, including 400 Bad Request',
@@ -56,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The hotel circuit is open. What should a trip search return?',
       options: [
         'HTTP 500 with the circuit-open error',
@@ -68,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why combine the breaker with a short (e.g. 3 s) hotel timeout instead of 30 s?',
       options: [
         'Short timeouts are required by the Object Store',

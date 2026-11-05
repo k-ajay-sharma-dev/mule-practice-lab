@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each JMS listener ack mode to its behaviour in Mule 4.',
       pairs: [
         ['IMMEDIATE', 'Acknowledged as soon as Mule receives it, before the flow runs'],
@@ -54,16 +55,16 @@ export default {
       explain: 'Recovering the session makes the unacknowledged messages available again, which counts as a redelivery. It is not a DLQ move or a reconnection.',
     },
     {
-      type: 'multi',
-      prompt: 'An ASN with an invalid SKU fails every time. Which statements are true on **ActiveMQ Classic** with a redelivery limit of 5?',
+      type: 'single',
+      prompt: 'A Mule app reads messages from an ActiveMQ Classic queue with manual acknowledgement, and a redelivery limit is set. One message has an invalid SKU, so it will fail on every attempt. What is the best way to handle it?',
       options: [
-        'Each redelivery increases the JMSXDeliveryCount property, which the flow can read',
-        'After the limit is exceeded the message is moved to a dead-letter queue (ActiveMQ.DLQ unless an individual DLQ strategy is configured)',
-        'A validation error that will never succeed can be routed to an error queue at once instead of waiting for all redeliveries',
-        'Redelivery happens forever unless Mule has a redelivery policy',
+        'Call `jms:recover-session`, so that it is redelivered at once',
+        'Ack it and discard it, so that it stops slowing the queue',
+        'Publish it to an error queue with the reason, then ack it',
+        'Raise the redelivery limit, so that it gets more attempts',
       ],
-      answer: [0, 1, 2],
-      explain: 'Classic counts deliveries and dead-letters the message after `maximumRedeliveries`. For permanent errors, it is better to publish the message with error details to a business error queue and ack it, rather than burning redeliveries.',
+      answer: 2,
+      explain: 'A message that can never succeed should go to a business error queue with its error details and be acked, rather than burning redeliveries. Without that, each redelivery increases `JMSXDeliveryCount`, which the flow can read, and Classic moves the message to a dead-letter queue after `maximumRedeliveries` (`ActiveMQ.DLQ` unless an individual DLQ strategy is configured).',
     },
     {
       type: 'order',

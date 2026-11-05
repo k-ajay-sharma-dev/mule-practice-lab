@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A Java SDK connector has no `@JavaVersionSupport` annotation. On Mule 4.5.0 or later, which Java versions is it assumed to support?',
       options: ['Java 8 and Java 11', 'Java 17 only', 'All Java versions that Mule supports', 'No version, so it does not load'],
       answer: 0,
@@ -15,6 +16,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'From August 1, 2026, a team publishes a new connector version that changes its supported Java versions. What do the docs require?',
       options: [
         'Java connectors include the `@JavaVersionSupport` annotation',
@@ -28,6 +30,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How do you confirm that a built connector carries the Java metadata?',
       options: [
         'Check that `mule-artifact.json` in the connector JAR includes the `supportedJavaVersions` attribute',
@@ -40,6 +43,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A custom connector depends on a library that exists only in the company Artifactory. What does the Exchange page say?',
       options: [
         'Mule 4 extensions that declare dependencies that do not exist in Maven Central or the MuleSoft Maven repositories are not currently supported, so publish the library as an Exchange custom asset',
@@ -52,6 +56,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An app depends on version 2.3.0 of a connector that is in the `development` state and is not a SNAPSHOT. Why does the build fail to resolve it?',
       options: [
         'An asset that is in development state and is not a SNAPSHOT version cannot be consumed through Maven',
@@ -64,6 +69,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which settings are valid for a pipeline that consumes assets from Exchange?',
       options: [
         'A `<repository>` in the POM with the Maven Facade URL, and a `<server>` in `settings.xml` with the same `<id>`',
@@ -76,6 +82,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Publishing a custom connector ends in a timeout, and its schema definitions import other schemas. What does the troubleshooting note say?',
       options: [
         'Remove external references that are private or not reachable from the internet',

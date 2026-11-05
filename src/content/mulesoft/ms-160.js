@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each target to the deployment element of the Mule Maven plugin.',
       pairs: [
         ['A Production cluster registered in Runtime Manager', '`armDeployment`'],
@@ -18,6 +19,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which parameters does the Runtime Manager REST API reference table mark as required for `armDeployment`?',
       options: [
         '`applicationName`',
@@ -33,6 +35,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'The Production target is a cluster called `prod-cluster-a`. What does the plugin need?',
       options: [
         '`target` set to `prod-cluster-a` and `targetType` set to `cluster`',
@@ -45,6 +49,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The POM says `muleVersion` 4.9.6, and the servers run 4.9.4. What does the page say happens?',
       options: [
         'The plugin raises an exception, and it does not download a Mule runtime',
@@ -57,6 +62,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The operations team manages the Test servers from Runtime Manager. A developer proposes `standaloneDeployment` on one of them, because it needs no Anypoint credentials. What do the docs say?',
       options: [
         'When you use Runtime Manager to manage a server, you cannot use other deployment and management methods or tools to manage it',
@@ -69,6 +75,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about the on-premises strategies are correct?',
       options: [
         'The plugin supports deploying domains only with the standalone or the Runtime Manager agent strategy',
@@ -82,6 +89,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A pipeline uses `standaloneDeployment` for an integration test box. Which setting is NOT in the standalone reference table?',
       options: [
         '`skipDeploymentVerification`',

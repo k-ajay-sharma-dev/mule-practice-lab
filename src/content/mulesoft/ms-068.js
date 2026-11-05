@@ -30,6 +30,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'After the call, where do you find `p_status`?',
       options: [
         'In the payload map under the output parameter key, e.g. payload.p_status',
@@ -41,16 +43,16 @@ export default {
       explain: 'db:stored-procedure returns a map whose entries include each OUT and IN OUT parameter by its key (plus result sets and update counts when present).',
     },
     {
-      type: 'multi',
-      prompt: 'The REF CURSOR `p_lines` returns the allocated lines. Which statements are true?',
+      type: 'single',
+      prompt: 'An Oracle procedure returns a REF CURSOR, a pointer to a server-side result set, as an OUT parameter. A Mule flow calls it with `db:stored-procedure`. When should the flow read the cursor?',
       options: [
-        'The cursor is a result set read from the open database connection, so it should be consumed (e.g. transformed) within the flow, not stored for later',
-        'Large cursors can be streamed and iterated instead of loading every row first',
-        'A REF CURSOR is returned as a JSON string by Oracle',
-        'You must close the connection manually after reading the cursor',
+        'Right after the call, in the same flow, while the connection is open',
+        'Later in a second flow, after saving the cursor in a variable',
+        'After the flow has closed the database connection by hand',
+        'After Oracle has turned the cursor into a JSON string',
       ],
-      answer: [0, 1],
-      explain: 'A REF CURSOR is a pointer to a server-side result set; it is read row by row while the statement and connection are open. Mule manages the connection and closes it once the stream is consumed or the event completes.',
+      answer: 0,
+      explain: 'A REF CURSOR is read row by row while the statement and connection are open, so consume it (e.g. transform it) within the flow and do not store it for later. Large cursors can be streamed and iterated instead of loading every row first. Mule manages the connection and closes it once the stream is consumed or the event completes.',
     },
     {
       type: 'single',

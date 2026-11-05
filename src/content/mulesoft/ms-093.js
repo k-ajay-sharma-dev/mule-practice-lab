@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The ledger call fails with `HTTP:CONNECTIVITY` and an `on-error-continue` sets `{ status: "QUEUED" }`. How do you test it?',
       options: [
         'Mock the request to raise the error and assert `payload.status` in validation, with no `expectedErrorType` on the test',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A test mocks an HTTP request with `typeId="FTP:CONNECTIVITY"`, but no flow under test uses the FTP connector. What does the docs page say you get?',
       options: [
         '`MULE:UNKNOWN` instead of the configured error',
@@ -43,20 +45,20 @@ export default {
       explain: 'You can return only the error types defined in the modules the current flow uses. Anything outside that scope comes back as `MULE:UNKNOWN`.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the expected-error attributes on `munit:test` are correct?',
+      type: 'single',
+      prompt: 'An MUnit test sets `expectedErrorType` on `munit:test`, so it expects an error. The flow under test finishes with no error. What happens?',
       options: [
-        'If `expectedErrorType` names a type that does not exist in the application, the test does not run',
-        'Mule runtime error types are written without the prefix, so `RETRY_EXHAUSTED` rather than `MULE:RETRY_EXHAUSTED`',
-        '`expectedErrorDescription` passes when the error description equals or contains the expected text',
-        'If an exception is expected and none is thrown, the test fails immediately',
-        'An expected error makes MUnit retry the test once',
+        'The test fails immediately',
+        'The test passes, because no error is a good result',
+        'MUnit retries the test once',
+        'The test is skipped and marked as not run',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'These are all on the test structure page. Retrying is not part of these attributes.',
+      answer: 0,
+      explain: 'If an exception is expected and none is thrown, the test fails immediately. The test structure page has more rules. If `expectedErrorType` names a type that does not exist in the application, the test does not run. Mule runtime error types are written without the prefix, so `RETRY_EXHAUSTED` rather than `MULE:RETRY_EXHAUSTED`. `expectedErrorDescription` passes when the error description equals or contains the expected text. Retrying is not part of these attributes.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Error logic lives in a sub-flow that reads `error.description`. You want to test that sub-flow on its own. How do you provide the error?',
       options: [
         'In `munit:set-event`, add `munit:error` with an `id` and an `exception`',
@@ -79,17 +81,16 @@ export default {
       explain: 'You can use one of each Before and After scope per suite, and each suite runs independently of the others.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about MUnit coverage are correct?',
+      type: 'single',
+      prompt: 'MUnit coverage counts the event processors that tests execute. A developer adds one flow to `ignoreFlows` in the `coverage` settings of the MUnit Maven Plugin. What is the effect on that flow?',
       options: [
-        'Coverage counts event processors',
-        'Flow coverage covers flows, sub-flows and batch jobs',
-        'The `coverage` settings in the MUnit Maven Plugin apply when tests run through Maven, not when they run from Studio',
-        'A flow in `ignoreFlows` still counts towards the total number of processors',
-        'With `failBuild` set to false, unmet levels appear as a warning in the summary',
+        'It is left out of the totals and cannot fail the build',
+        'It still counts towards the total number of processors',
+        'It counts as fully covered in the report',
+        'It fails the build unless a test runs it',
       ],
-      answer: [0, 1, 2, 4],
-      explain: 'An ignored flow does not count as coverage data, does not affect the processor total and cannot fail the build, so use `ignoreFlows` sparingly.',
+      answer: 0,
+      explain: 'An ignored flow does not count as coverage data, does not affect the processor total and cannot fail the build, so use `ignoreFlows` sparingly. Flow coverage covers flows, sub-flows and batch jobs. The `coverage` settings apply when tests run through Maven, not when they run from Studio. With `failBuild` set to false, unmet levels appear as a warning in the summary.',
     },
   ],
   description: `

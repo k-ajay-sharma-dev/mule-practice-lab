@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each channel property to its documented value.',
       pairs: [
         ['Edge release cadence', 'Up to three times per year'],
@@ -21,6 +22,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'It is November 2026. According to the published table, what is the status of Mule 4.6 LTS?',
       options: [
         'Past End of Standard Support (August 2026), in Extended Support until February 2027',
@@ -33,6 +35,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each target to how minor version upgrades happen.',
       pairs: [
         ['CloudHub 2.0, Edge channel', 'Auto-upgraded six weeks after End of Standard Support, with a self-upgrade window'],
@@ -44,19 +47,21 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'What happens when a version reaches End of Extended Support, or later End of Life, on customer-hosted targets?',
       options: [
         'Runtime Fabric: you cannot deploy new apps on that version',
         'Runtime Fabric: at End of Life, you can still restart or redeploy apps on the same runtime version',
-        'Hybrid Standalone: you can still deploy new apps',
+        'Hybrid Standalone: MuleSoft does not upgrade the apps for you',
         'Hybrid Standalone: at End of Life, MuleSoft reserves the right to close the connection of the runtime server to Anypoint Platform',
         'Runtime Fabric and Hybrid Standalone: MuleSoft shuts down the running apps',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'Running apps keep running on these targets, but they are no longer in a supported state. Shutdown and forced upgrade are CloudHub and CloudHub 2.0 behaviours. For Hybrid, the End of Extended Support row says you can deploy new apps, while the same table\'s deploy row says to deploy while versions are in support. So do not plan on it.',
+      explain: 'Running apps keep running on these targets, but they are no longer in a supported state. Shutdown and forced upgrade are CloudHub and CloudHub 2.0 behaviours. The table is not clear on deploying new apps to an expired Hybrid version, so do not plan on it.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An app moved to 4.7 Edge for one feature. It now wants to return to LTS. Which move is supported?',
       options: [
         'To a later LTS version, such as 4.9 LTS',
@@ -68,20 +73,20 @@ export default {
       explain: 'MuleSoft does not support switching an app from Edge to an older LTS version, because it might lose features.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about Java and Mule versions are correct?',
+      type: 'single',
+      prompt: 'Mule apps run on Mule 4.6 LTS with Java 8, and the team plans to move them to Mule 4.9 LTS. What does the move mean for Java?',
       options: [
-        '4.6 LTS supports Java 8, 11 and 17',
-        '4.9 LTS and later versions support Java 17 only',
-        'From Mule 4.9.0 you can compile projects and dependencies for Java 17 or lower',
-        'Before Mule 4.9.0, you must compile projects and dependencies for Java 8',
-        'Mule 4.6 supports running on Java 21',
+        'They can stay on Java 8, which 4.9 LTS still supports',
+        'They can choose Java 8, 11 or 17, as they can on 4.6',
+        'They must run on Java 21, the version that 4.9 requires',
+        'They must run on Java 17, the only version 4.9 supports',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'In Mule 4.6.0 and later the maximum supported version for running apps is Java 17. A jump from 4.6 on Java 8 to 4.9 therefore includes a Java upgrade.',
+      answer: 3,
+      explain: '4.6 LTS supports Java 8, 11 and 17, while 4.9 LTS and later versions support Java 17 only. So a jump from 4.6 on Java 8 to 4.9 includes a Java upgrade. In Mule 4.6.0 and later the maximum supported version for running apps is Java 17. Before Mule 4.9.0 you must compile projects and dependencies for Java 8, and from 4.9.0 you can compile them for Java 17 or lower.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Your API proxies and Mule Gateway policies must move to Java 17 along with the apps. What order does the Java Support page insist on?',
       options: [
         'Upgrade policies before upgrading API proxies or Mule apps',
@@ -94,6 +99,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Why would a CloudHub 2.0 app on Mule 4.9 not auto-upgrade to 4.10 or later?',
       options: [
         'Mule 4.10 removes support for TLS 1.0 and 1.1, which could break apps',
@@ -140,7 +146,7 @@ Management asks for a one-page plan. The compliance lead asks whether Edge can b
     'Patch updates follow a monthly schedule; the channel cadence is about new runtime versions.',
     'From the table: 4.6 LTS ended Standard Support in August 2026 and ends Extended Support in February 2027. 4.8 Edge ended Extended Support in June 2025. 4.9 LTS runs to August 2027 and February 2028.',
     'CloudHub and CloudHub 2.0 auto-patch monthly and auto-upgrade Edge apps. Runtime Fabric and Hybrid Standalone do not upgrade apps without your action.',
-    'At End of Extended Support: Runtime Fabric cannot deploy new apps; Hybrid can.',
+    'At End of Extended Support: Runtime Fabric cannot deploy new apps. The table is unclear for Hybrid, so do not plan on it.',
     'Mule 4.10 removes TLS 1.0 and 1.1, so 4.9 and earlier are not auto-upgraded past the 4.9 line.',
     'Moving from Edge to LTS requires a later LTS.',
     'Java: 4.6 LTS supports 8, 11 and 17; 4.9 onward supports 17. Upgrade connectors first, policies before proxies and apps.',
@@ -158,7 +164,7 @@ Management asks for a one-page plan. The compliance lead asks whether Edge can b
 
 **3. If nothing is done.**
 - *Runtime Fabric (B):* apps keep running. They are not auto-upgraded. New apps cannot be deployed on that version, and the apps are outside support. Existing apps can still be restarted or redeployed on the same version once they reach End of Life. This is the reason they were not moved automatically: Runtime Fabric needs a customer action.
-- *Hybrid (A, D):* apps keep running and new apps can still be deployed. There is no auto-upgrade. After End of Life, MuleSoft reserves the right to close the connection between the runtime server and Anypoint Platform.
+- *Hybrid (A, D):* apps keep running. There is no auto-upgrade. The table is unclear on deploying new apps to an expired version, so do not plan on it. After End of Life, MuleSoft reserves the right to close the connection between the runtime server and Anypoint Platform.
 - *CloudHub 2.0 (C):* apps are auto-patched monthly as long as the TLS version is compatible. LTS apps are not auto-upgraded at End of Standard Support, and apps that stay until End of Extended Support are subject to a forced upgrade. Do not plan on relying on that.
 
 **4. Java and order.** Moving A, B and D to 4.9 LTS means Java 17, because 4.9 and later support only 17. The Java Support page sets out this approach:

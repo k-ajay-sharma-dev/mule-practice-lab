@@ -7,19 +7,21 @@ export default {
   estMinutes: 20,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which can a Mule domain project contain?',
+      type: 'single',
+      prompt: 'A bank creates a Mule domain project so that several apps on one on-premises runtime can share resources. Which item can the domain project NOT contain?',
       options: [
         'A shared HTTP listener config and TLS context',
         'A shared Database config',
         'A VM config with queues',
         'Flows with business logic',
       ],
-      answer: [0, 1, 2],
-      explain: 'A domain holds shared **global elements** for apps on the same runtime. It cannot contain flows.',
+      answer: 3,
+      explain: 'A domain holds shared **global elements** for apps on the same runtime, such as HTTP listener, Database and VM configs and TLS contexts. It cannot contain flows.',
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'How does an app associate itself with the domain?',
       options: [
         'A Maven dependency on the domain with classifier `mule-domain` and scope `provided`',
@@ -54,6 +56,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The bank later moves to CloudHub 2.0. What happens to the domain design?',
       options: [
         'Domains are not supported; use platform ingress with path routing, per-app pools, and a broker instead of shared VM queues',

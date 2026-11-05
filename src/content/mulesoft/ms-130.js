@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A new job runs `mvn clean deploy -DmuleDeploy` for an app that has never been published. The plugin configuration is valid. What is missing?',
       options: [
         'The prerequisite: the application must already be published in Exchange, which is a separate `mvn clean deploy` without `muleDeploy`',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The promotion stage must deploy the artifact that was already built, without compiling again. Which command does the CloudHub 2.0 page give for that?',
       options: [
         '`mvn mule:deploy`',
@@ -44,6 +46,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about `skip` and `skipDeploymentVerification` are correct?',
       options: [
         '`skip` set to true skips the plugin deployment goal',
@@ -57,6 +60,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A large app takes about 13 minutes to reach a running state, and the deploy job fails while waiting for confirmation. Which setting applies, and what is its default?',
       options: [
         '`deploymentTimeout`, in milliseconds, default `600000` (10 minutes)',
@@ -69,6 +73,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A parent POM declares the plugin without `<extensions>true</extensions>`. What do the docs say?',
       options: [
         'The plugin does not work without it',

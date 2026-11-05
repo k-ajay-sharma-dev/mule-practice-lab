@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Each carrier is called inside a For Each and must return a different rate. What is the documented way to mock that?',
       options: [
         '`then-call` a test flow whose Choice evaluates `vars.counter` and sets a different payload per iteration',
@@ -44,7 +45,7 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'A tester wants to mock every step of the flow. Which of these **cannot** be mocked?',
+      prompt: 'A tester writes an MUnit test and wants to replace every processor in a flow with a mock, a configured fake response. Which two processors **cannot** be mocked?',
       options: [
         'Logger',
         'Transform Message',
@@ -69,6 +70,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each `verify-call` setting to what it proves.',
       pairs: [
         ['No count attribute at all', 'Called exactly once, because `times` defaults to 1'],

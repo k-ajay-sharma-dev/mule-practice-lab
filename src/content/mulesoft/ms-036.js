@@ -18,6 +18,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which DataWeave expression reads the Billing result (route 2 of 3) after Scatter-Gather?',
       options: ['`payload[1]`', '`payload."1".payload`', '`payload.billing`', '`vars.route1`'],
       answer: 1,
@@ -25,6 +27,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The Loyalty route fails and nothing special is configured. What happens?',
       options: [
         'Scatter-Gather returns the other two results and `loyalty` is null',
@@ -48,17 +51,16 @@ export default {
       explain: 'Unbounded parallelism protects nobody. Latency for the order part then is roughly ceil(N / concurrency) × 150 ms.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about **For Each** (not Parallel For Each) are true?',
+      type: 'single',
+      prompt: 'A flow runs a For Each loop (not Parallel For Each) over a list of orders. Each pass sets the payload and also sets a variable. What does the flow see after the loop?',
       options: [
-        'It restores the original payload after the loop',
-        'Variables set inside are visible after the loop',
-        'It supports `maxConcurrency`',
-        'It stops at the first failure',
-        'Its output is a list of result messages',
+        'The original payload, and the variable changes are kept',
+        'The original payload, and the variable changes are lost',
+        'A list of result messages, and the variable changes are kept',
+        'The payload of the last pass, and the variable changes are lost',
       ],
-      answer: [0, 1, 3],
-      explain: 'For Each is sequential, has no `maxConcurrency`, and gives back the original payload — collect results in a variable. Parallel For Each is the one that outputs a list of messages.',
+      answer: 0,
+      explain: 'For Each gives back the original payload and keeps variable changes, so collect results in a variable. It is sequential, stops at the first failure and has no `maxConcurrency`. Parallel For Each is the one that outputs a list of messages.',
     },
     {
       type: 'single',

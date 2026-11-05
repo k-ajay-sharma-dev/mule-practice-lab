@@ -20,19 +20,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which are real costs or prerequisites of the XA option? (Select all that apply.)',
+      prompt: 'A Mule flow consumes a message from ActiveMQ, writes to Oracle and publishes an event. The team wants an XA transaction so that all three commit or roll back together. Which three are real costs or prerequisites of XA?',
       options: [
-        'Both resources must be XA-capable: an Oracle XA data source and an XA-enabled ActiveMQ connection factory',
-        'Two-phase commit adds round trips and holds locks longer, reducing throughput',
-        'The transaction manager keeps a recovery log; in-doubt transactions after a crash need recovery and sometimes manual resolution',
-        'XA also makes the call to the WMS REST API transactional',
-        'XA removes the need for idempotent consumers downstream of the published event',
+        'An Oracle XA data source and an XA-enabled ActiveMQ connection factory',
+        'Two-phase commit round trips and longer lock holds, which reduce throughput',
+        'A recovery log, and handling of in-doubt transactions after a crash',
+        'An XA-enabled HTTP connection, so that REST calls join the transaction',
+        'An outbox table in Oracle, and a relay that publishes its rows later',
       ],
       answer: [0, 1, 2],
-      explain: 'XA needs XA drivers on both sides, costs throughput and introduces recovery/in-doubt handling. HTTP is not an XA resource, and downstream consumers still see at-least-once delivery from the broker.',
+      explain: 'XA needs XA drivers on both sides, costs throughput and introduces recovery and in-doubt handling, which sometimes needs manual resolution. HTTP is not an XA resource, so a REST call cannot join. An outbox and relay belong to the alternative design. XA also does not remove the need for idempotent consumers, because they still see at-least-once delivery from the broker.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In the outbox alternative, what happens in the single LOCAL Oracle transaction?',
       options: [
         'Insert the goods receipt AND insert a row into an OUTBOX table describing the "receipt.posted" event',
@@ -57,6 +58,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The relay publishes an outbox event, then crashes before marking the row as sent. What is the consequence and the correct design response?',
       options: [
         'The event is published again after restart; subscribers deduplicate on the event id',

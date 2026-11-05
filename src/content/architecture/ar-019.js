@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each integration to where it runs.',
       pairs: [
         ['Mobile / Experience APIs', 'CloudHub 2.0 Private Space (in-country region)'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Security forbids inbound internet connections to the data center. How does the Private Space reach on-prem?',
       options: [
         'Open port 443 on the data center firewall to the internet',
@@ -31,19 +33,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which network design points must be settled early?',
+      prompt: 'A CloudHub 2.0 Private Space, an isolated network for Mule apps, will connect to a data center over a VPN. Security forbids inbound connections from the internet to the data center. Which three should the network design include?',
       options: [
-        'Non-overlapping CIDRs between the Private Space and the data center',
-        'Firewall rules allowing only the Private Space CIDR to specific on-prem endpoints and ports',
-        'DNS resolution of internal hostnames from the Private Space',
-        'TLS (ideally mTLS) between cloud Process APIs and on-prem System APIs',
-        'Letting cloud apps query the EHR database directly',
+        'Non-overlapping CIDR ranges for the Private Space and the data center',
+        'Firewall rules that let only the Private Space CIDR reach specific on-prem endpoints',
+        'DNS settings so that Private Space apps can resolve internal hostnames',
+        'Cloud apps that query the on-prem database directly, skipping the System API',
+        'A public port on the data center firewall that the cloud apps can call',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'CIDR overlaps are hard to fix later. Cloud apps call the on-prem System API, never the EHR database directly.',
+      answer: [0, 1, 2],
+      explain: 'CIDR overlaps are hard to fix later, so plan them early. The firewall allows only the Private Space CIDR, and internal DNS lets apps use names and not IPs. Tunnels are initiated from the cloud side, so nothing is exposed inbound from the internet. Cloud apps call the on-prem System API, never the database directly, and TLS (ideally mTLS) protects those calls.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'With runtimes on-prem, what does the Anypoint control plane receive?',
       options: [
         'All patient payloads processed by the apps',
@@ -56,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the main operational cost of Runtime Fabric on-prem?',
       options: [
         'MuleSoft charges per log line',
@@ -68,6 +72,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The VPN goes down. What still works?',
       options: [
         'Nothing; every integration stops',

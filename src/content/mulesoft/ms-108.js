@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A developer requests access in Exchange to an API instance that has no SLA tiers defined. What happens to the request?',
       options: [
         'It is approved automatically and a contract is created',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The Gold tier allows 1,000 requests per minute and 40 apps are approved on it. An administrator edits it to 500. When does this affect those apps?',
       options: [
         'Immediately: approved apps are held to the edited tier',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A tier requires manual approval and has 12 pending requests. It is changed to automatic approval. What happens to the 12 requests?',
       options: [
         'API Manager grants them',
@@ -55,16 +58,16 @@ export default {
       explain: 'You cannot delete a tier that has applications assigned. The docs describe this path: new tier, revoke, re-request, approve, delete.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about revoking and deleting a contract are correct?',
+      type: 'single',
+      prompt: 'A contract links a client application to an API instance. During a dispute, an API owner must block one partner\'s app and keep the option to let it back in. What should the owner do?',
       options: [
-        'Revoking blocks the client application from accessing the API',
-        'A revoked contract can be restored',
-        'You must revoke a contract before you can delete it',
-        'Deleting a contract only hides it, and it can be restored later',
+        'Revoke the contract, and restore it when the dispute ends',
+        'Delete the contract, and restore it when the dispute ends',
+        'Deprecate the API instance, and undo that when the dispute ends',
+        'Deprecate the SLA tier that the app is on',
       ],
-      answer: [0, 1, 2],
-      explain: 'Revoke is the reversible step: the contract can then be restored or deleted. The docs describe restore only for a revoked contract, and deletion removes the approved contract.',
+      answer: 0,
+      explain: 'Revoking blocks the client application from accessing the API. It is the reversible step: the contract can then be restored or deleted, and you must revoke a contract before you can delete it. The docs describe restore only for a revoked contract, and deletion removes the approved contract. Deprecating an instance or a tier leaves existing apps in place.',
     },
     {
       type: 'single',
@@ -80,6 +83,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A partner requests access on a manual tier. Who is notified automatically that the contract is pending?',
       options: [
         'Organization administrators, environment administrators and contracts managers',

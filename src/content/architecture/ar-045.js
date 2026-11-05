@@ -43,6 +43,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do services get their identity instead of the shared client ID/secret?',
       options: [
         'Each Mule app gets its own OAuth client (client credentials) and obtains short-lived JWTs with the target audience and scopes; secrets are rotated automatically',

@@ -7,20 +7,20 @@ export default {
   estMinutes: 30,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Persistent queues are enabled for `shipment-events` on CloudHub 1.0. Which queues does the persistent queue manager now cover?',
+      type: 'single',
+      prompt: 'A CloudHub 1.0 app has the Persistent queues deployment setting enabled. One of its VM queues is configured as non-persistent in the app. What happens to that queue?',
       options: [
-        'VM connector queues configured as persistent in the app',
-        'VM connector queues configured as non-persistent in the app',
-        'Internal Batch component queues',
-        'Internal SEDA queues',
-        'Anypoint MQ queues the app consumes',
+        'It is persisted too, because the setting covers VM queues of both kinds',
+        'It stays in memory, because the setting in the app takes priority',
+        'It moves to Anypoint MQ, because CloudHub hands it over to that service',
+        'It stops the deployment until the queue is configured as persistent',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'CloudHub replaces the default queue manager, which then persists all queues regardless of in-app configuration. Anypoint MQ is a separate service and not part of this list.',
+      answer: 0,
+      explain: 'CloudHub replaces the default queue manager, which then persists all queues regardless of in-app configuration. That covers VM queues configured as persistent or non-persistent, plus internal Batch and SEDA queues. Anypoint MQ is a separate service and not part of this list.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Downstream, a duplicate shipment label costs real money. What do the docs say about persistent queues and duplicates?',
       options: [
         'They do not guarantee one-time-only delivery, so duplicates may be sent; if that is critical for the use case, do not enable them',
@@ -33,6 +33,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'The carrier API is down for five days during a dispute and messages wait on a persistent queue. What is the concern?',
       options: [
         'Message retention in a persistent queue is up to 4 days, so messages can expire before the carrier returns',
@@ -69,6 +71,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each documented limit to the store.',
       pairs: [
         ['Maximum of 100,000 keys per application', 'Object Store v1'],
@@ -80,6 +83,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A quarterly reconciliation wants to read a value written 90 days earlier from Object Store v2. What is the right design decision?',
       options: [
         'Keep it in a durable store such as a database, because Object Store v2 keys persist for up to 30 days',

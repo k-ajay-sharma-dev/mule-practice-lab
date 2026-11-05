@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each deployment target to its command family in Anypoint CLI 4.x.',
       pairs: [
         ['On-premises server, server group or cluster', '`runtime-mgr:standalone-application:*`'],
@@ -18,6 +19,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What does `runtime-mgr:standalone-application:deploy` take as its arguments?',
       options: [
         '`<targetIdentifier> <name> <zipfile>`, where the target is a server, server group or cluster, by ID or name',
@@ -30,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A script must redeploy with a new logging level and with Insight turned on. Which command does the reference point to?',
       options: [
         '`runtime-mgr:standalone-application:modify`, with `--log` and `--insight`',
@@ -42,6 +45,8 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which warnings in the reference matter for a script?',
       options: [
         'The delete commands do not prompt twice before deleting',
@@ -55,6 +60,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A script must parse the state of an application. What does the reference offer?',
       options: [
         '`--output json`, or `-o json`, for the raw JSON response of `describe`',
@@ -67,6 +74,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Before a risky redeploy, an operator wants a copy of the binary that is running now. Which command fits?',
       options: [
         '`runtime-mgr:standalone-application:artifact <identifier> <directory>`',
@@ -79,6 +87,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A nightly script sets a client ID and secret, but no environment by flag, variable or profile. Which environment does it act on?',
       options: [
         'Production, which is the default if you do not specify an environment',

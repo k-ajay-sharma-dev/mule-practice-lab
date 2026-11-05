@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each cluster to the installation method the docs describe for it.',
       pairs: [
         ['Amazon EKS, where the team wants a command-line install', '`rtfctl`'],
@@ -17,20 +18,20 @@ export default {
       explain: 'All three start by creating a Runtime Fabric in Runtime Manager to obtain the activation data. The `rtfctl` page also points larger deployments to Helm, so more resources can be allocated to the agent.',
     },
     {
-      type: 'multi',
-      prompt: 'Which items are real requirements before installing Runtime Fabric?',
+      type: 'single',
+      prompt: 'A team plans to install Runtime Fabric, which runs Mule apps on a Kubernetes cluster that the team provides. Which worker nodes meet the requirements?',
       options: [
-        'A provisioned, operational Kubernetes cluster on a supported version',
-        'Worker nodes with the x86-64 architecture',
-        'VM-based nodes, so Fargate does not qualify',
-        'An ingress controller of your own to send external requests to apps',
-        'Docker and Kubernetes supplied by the Runtime Fabric installer',
+        'VM-based nodes with an ARM architecture',
+        'VM-based nodes with the x86-64 architecture',
+        'Fargate nodes with the x86-64 architecture',
+        'Fargate nodes with an ARM architecture',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Kubernetes and Docker are not included: you provide them. ARM-based nodes are not supported.',
+      answer: 1,
+      explain: 'Nodes must be VM-based, so Fargate does not qualify, and worker nodes need the x86-64 architecture, because ARM-based nodes are not supported. You also provide a provisioned, operational Kubernetes cluster on a supported version and your own ingress controller to send external requests to apps. Kubernetes and Docker are not included in Runtime Fabric.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Why must `spec.ingressClassName` in an ingress resource template start with `rtf-`, for example `rtf-nginx`?',
       options: [
         'The prefix marks the object as a template, consumed only by the Runtime Fabric agent and not by the actual ingress controller',
@@ -55,6 +56,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A TLS certificate on a template is renewed. How do you get the new secret into all application namespaces without updating each one by hand?',
       options: [
         'Add the label `rtf.mulesoft.com/synchronized: "true"` to the secret in the agent namespace',
@@ -79,6 +82,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A developer moves an app from a CloudHub sizing guide and allocates memory on Runtime Fabric, expecting that full amount as heap. What should they plan for instead?',
       options: [
         'Runtime Fabric lists the total memory for the app, and available heap is approximately half of it',

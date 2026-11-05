@@ -31,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Can an OAS 3.0 spec reference a RAML 1.0 Library fragment from Exchange?',
       options: [
         'No — a spec uses one language and RAML fragments cannot be referenced from OAS (or vice versa)',
@@ -54,16 +55,16 @@ export default {
       explain: 'OAS has `components` (schemas, parameters, responses, securitySchemes) referenced with `$ref`, but no direct equivalent of traits or resource types.',
     },
     {
-      type: 'multi',
-      prompt: 'What do you get once an API spec is published to Exchange?',
+      type: 'single',
+      prompt: 'An API spec is published to Exchange, but nobody has built the implementation yet. A consumer wants to start work now. What can the consumer use?',
       options: [
-        'Generated documentation and an API console',
-        'A mocking service so consumers can start before implementation',
-        'A versioned contract for API Manager instances and client access requests',
-        'Automatic deployment of an implementation to CloudHub',
+        'The mocking service and the generated documentation',
+        'A CloudHub app that Exchange deployed from the spec',
+        'An implementation that APIkit built and deployed by itself',
+        'Nothing, because Exchange only stores the spec file',
       ],
-      answer: [0, 1, 2],
-      explain: 'Exchange does not deploy anything; APIkit can scaffold the implementation from the spec, but you still build and deploy it.',
+      answer: 0,
+      explain: 'Publishing gives generated documentation, an API console and a mocking service, so consumers can start before implementation. It also gives a versioned contract for API Manager instances and client access requests. Exchange does not deploy anything. APIkit can scaffold the implementation from the spec, but you still build and deploy it.',
     },
     {
       type: 'single',

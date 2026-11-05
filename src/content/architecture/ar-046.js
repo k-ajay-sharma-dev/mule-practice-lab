@@ -30,6 +30,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which alert would have caught the 3-hour silent stop of order-to-warehouse within minutes?',
       options: [
         'CPU above 80% on the consumer app',
@@ -42,17 +43,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which signals should page the on-call engineer?',
+      prompt: 'A team is redesigning on-call alerts for a checkout API and an order event queue. An alert that pages must point to a real problem for users. Which three signals should page the engineer?',
       options: [
-        'Fast SLO burn rate on checkout',
-        'Oldest message age above 5 minutes on the warehouse queue',
-        'Gap between published and consumed orders',
-        'DLQ count above zero for the order flow',
-        'CPU above 80%',
-        'Every single ERROR log line',
+        'Checkout using up its error budget fast (a fast SLO burn rate)',
+        'The oldest message on the order queue getting too old',
+        'Messages landing in the dead letter queue (DLQ) of the order flow',
+        'CPU use going above 80% on one of the Mule apps',
+        'Each single ERROR line that a Mule app writes to its log',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Page on symptoms users feel and on budget burn. CPU and individual log lines belong on dashboards and tickets — paging on them is why on-call ignores alerts.',
+      answer: [0, 1, 2],
+      explain: 'Page on symptoms users feel and on budget burn. A gap between published and consumed orders is another good symptom to page on. CPU and individual log lines belong on dashboards and tickets. Paging on them is why on-call ignores alerts.',
     },
     {
       type: 'single',

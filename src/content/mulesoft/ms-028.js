@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: '`GET /shipments?status=OPEN&status=DELAYED`. Which expression returns both values?',
       options: [
         '`attributes.queryParams.*status`',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match the flow outcome to the listener builder that sends the response.',
       pairs: [
         ['Flow completes normally', '`http:response`'],
@@ -65,6 +67,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which are fields of `HttpRequestAttributes`?',
       options: ['`method`', '`uriParams`', '`relativePath`', '`remoteAddress`', '`statusCode`'],
       answer: [0, 1, 2, 3],

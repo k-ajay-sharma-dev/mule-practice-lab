@@ -32,19 +32,21 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which APIs should keep at least 2 replicas regardless of load?',
       options: [
         'exp-mobile-api',
         'exp-partner-api (99.9% SLA)',
         'prc-customer-360-api',
-        'sys-billing-account-api',
+        'sys-billing-account-api (on the critical path of prc-customer-360-api)',
         'exp-callcenter-api (internal, 3 TPS)',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'Customer-facing and SLA-bound APIs and everything on their critical path need HA — a chain is only as available as its weakest single-replica member. The internal call-centre API may run on one replica if the business agrees.',
+      explain: 'Customer-facing and SLA-bound APIs, and everything on their critical path, need high availability. A chain is only as available as its weakest single-replica member. The internal call-centre API may run on one replica if the business agrees.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'exp-mobile-api has campaign spikes. Vertical or horizontal scaling?',
       options: [
         'Vertical: one large replica',

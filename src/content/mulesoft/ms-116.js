@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which requirements apply to a server group?',
       options: [
         'All servers run the same Mule runtime version',
@@ -33,6 +34,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each deployment target to its property.',
       pairs: [
         ['Unicast', 'You configure node IP addresses, so they cannot be assigned dynamically with DHCP'],
@@ -55,6 +57,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each environment type to its purpose.',
       pairs: [
         ['Production', 'Deploy applications and APIs publicly'],
@@ -65,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A CI job runs Anypoint CLI. The credentials file has one client ID, an environment variable has another, and the command line has a third. Which is used?',
       options: [
         'The command line, then environment variables, then the file',

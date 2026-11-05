@@ -54,6 +54,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the rollout steps for the common library.',
       items: [
         'Agree the standard in an architecture review and publish `common-api-lib` 1.0.0',
@@ -65,6 +66,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Does the `clientIdEnforcement` security scheme in the library enforce client credentials at runtime?',
       options: [
         'Yes, APIkit rejects calls without `client_id`',

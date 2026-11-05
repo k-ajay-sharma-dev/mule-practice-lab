@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each store to its documented retention or size limit.',
       pairs: [
         ['Runtime Manager logs on CloudHub 2.0', 'Up to 100 MB per config or 30 days, whichever comes first'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'On **CloudHub 1.0**, you want logs in your own system and in Runtime Manager. What must the custom `log4j2.xml` include?',
       options: [
         'The `Log4J2CloudhubLogAppender` alongside your own appender, in a configuration enabled through the Disable CloudHub logs option',
@@ -30,33 +32,32 @@ export default {
       explain: 'The Disable CloudHub logs option is available only on request. The docs warn that you must include the appenders in your custom configuration for MuleSoft Support to have visibility into the logs.',
     },
     {
-      type: 'multi',
-      prompt: 'On CloudHub 1.0 with **Disable CloudHub logs** selected, which statements are correct?',
+      type: 'single',
+      prompt: 'On CloudHub 1.0, a team sends logs to its own system with a custom `log4j2.xml` and selects **Disable CloudHub logs**. The configuration leaves out `Log4J2CloudhubLogAppender`, which keeps logs in CloudHub. What can the team still see in Runtime Manager?',
       options: [
-        'Only system logs are available in Runtime Manager',
-        'You cannot download application worker logs from the Logs page',
-        'System logs (`mule_ee.log`) cannot be forwarded to external logging solutions in the same way as application logs',
-        'Synchronous appenders are the recommended option',
-        'MuleSoft Support will help implement your custom logging configuration',
+        'Only system logs',
+        'Only application logs',
+        'Application logs and system logs, as before',
+        'No logs at all',
       ],
-      answer: [0, 1, 2],
-      explain: 'Only asynchronous appenders can be used, and MuleSoft Support does not help with custom logging configurations or their side effects, such as lost logs or running out of disk space.',
-    },
-    {
-      type: 'multi',
-      prompt: 'Which statements about custom Log4j on **CloudHub 2.0** are correct?',
-      options: [
-        'Runtime and application logs remain available in Runtime Manager when you use a custom Log4j configuration',
-        'You do not need to configure `AnypointMonitoringFileAppender`, because deployment configures it automatically',
-        'Tracing module logs can be forwarded only with third-party appenders',
-        'External collectors such as Azure Monitor are reached through a generic custom appender, not a built-in connector',
-        'You must request a Disable CloudHub logs option from support first',
-      ],
-      answer: [0, 1, 2, 3],
-      explain: 'The on-request option belongs to CloudHub 1.0. In the feature comparison, log forwarding on CloudHub 2.0 is Manual, while on CloudHub 1.0 it is Supported per app.',
+      answer: 0,
+      explain: 'Without the CloudHub appender, only system logs are available in Runtime Manager, and you cannot download application worker logs from the Logs page. System logs (`mule_ee.log`) cannot be forwarded to external logging solutions in the same way as application logs. Only asynchronous appenders can be used, and MuleSoft Support does not help with custom logging configurations or their side effects, such as lost logs or running out of disk space.',
     },
     {
       type: 'single',
+      prompt: 'An app on CloudHub 2.0 gets a custom Log4j configuration that sends its logs to an external system. What happens to its logs in Runtime Manager?',
+      options: [
+        'Runtime and application logs stay available there',
+        'Only system logs stay available there',
+        'They stay only if you add `Log4J2CloudhubLogAppender`',
+        'They stop until support enables a logging option',
+      ],
+      answer: 0,
+      explain: 'Runtime and application logs remain available in Runtime Manager with a custom Log4j configuration. You do not need to configure `AnypointMonitoringFileAppender`, because deployment configures it automatically. Tracing module logs can be forwarded only with third-party appenders, and external collectors such as Azure Monitor are reached through a generic custom appender, not a built-in connector. The on-request Disable CloudHub logs option belongs to CloudHub 1.0. In the feature comparison, log forwarding on CloudHub 2.0 is Manual, while on CloudHub 1.0 it is Supported per app.',
+    },
+    {
+      type: 'single',
+      detail: true,
       prompt: 'A CloudHub 2.0 app sat in a deployment loop overnight, and the Runtime Manager alert with the **Deployment failure** condition stayed silent. Why?',
       options: [
         'That condition is triggered only for failures, and not when the app is stuck in a deployment loop',
@@ -69,6 +70,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each requirement to the alert that provides it.',
       pairs: [
         ['CloudHub 2.0: email when a deployment succeeds or fails', 'Runtime Manager alert with a Deployment condition'],
@@ -92,6 +94,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'A team moving from CloudHub 1.0 to 2.0 reviews its monitoring. Which statements are correct?',
       options: [
         'Built-in notifications are not supported on CloudHub 2.0',

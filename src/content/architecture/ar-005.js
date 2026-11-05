@@ -32,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A second request with the same key arrives while the first is still `IN_PROGRESS`. What should the Process API do?',
       options: [
         'Call the provider again, since the provider dedupes anyway',
@@ -55,16 +56,16 @@ export default {
       explain: 'A timeout means "unknown", not "failed". Retrying with the same key is safe because the provider returns the original result instead of charging twice. A new key would cause the double charge.',
     },
     {
-      type: 'multi',
-      prompt: 'Which measures stop duplicate receipt emails? (Choose all that apply.)',
+      type: 'single',
+      prompt: 'A consumer reads `PaymentCompleted` messages from Anypoint MQ and emails a receipt. MQ delivery is at-least-once, so the same message can arrive twice. How should the consumer stop duplicate emails?',
       options: [
-        'An Idempotent Message Validator on paymentId backed by a persistent Object Store',
-        'Acknowledging the message only after the email has been sent',
-        'Switching Anypoint MQ to exactly-once delivery',
-        'Accepting that a rare duplicate is still possible in a tiny window',
+        'Turn on exactly-once delivery in the Anypoint MQ settings',
+        'Use an Idempotent Message Validator on `paymentId` with a persistent Object Store',
+        'Use an Idempotent Message Validator on `paymentId` with an in-memory store per replica',
+        'Dedupe on a new UUID that the consumer generates for each delivery',
       ],
-      answer: [0, 1, 3],
-      explain: 'Anypoint MQ is at-least-once, so the consumer must dedupe itself. Across an external email system you can only reach *effectively-once*; there is no exactly-once switch to turn on.',
+      answer: 1,
+      explain: 'Anypoint MQ is at-least-once, so the consumer must dedupe itself on a stable key such as `paymentId`, in a store that does not depend on one replica. It acks only after the email is sent. Across an external email system you can only reach *effectively-once*, so accept that a rare duplicate is still possible in a tiny window. There is no exactly-once switch to turn on.',
     },
     {
       type: 'match',

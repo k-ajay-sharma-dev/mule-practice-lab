@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How should the new CRM customer id be introduced?',
       options: [
         'Change the format of `customerId` and announce it in an email',

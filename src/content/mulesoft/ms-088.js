@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each format to its MIME type in DataWeave.',
       pairs: [
         ['CSV', 'application/csv'],
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A pipe-delimited file has no header row. Which File Read setting reads it correctly?',
       options: [
         '`outputMimeType="application/csv; header=false; separator=|"`',
@@ -55,19 +57,20 @@ export default {
       explain: 'The flat file and fixed width formats require `schemaPath`. If the schema has several definitions, `structureIdent` or `segmentIdent` selects the right one.',
     },
     {
-      type: 'multi',
-      prompt: 'A 2 GB log export has one JSON object on each line, and a few lines are damaged. Which statements are correct for `application/x-ndjson`?',
+      type: 'single',
+      prompt: 'A large log export in `application/x-ndjson` has one JSON object on each line, and a few lines are damaged. How do you read the valid objects and leave out the damaged lines?',
       options: [
-        'Each line is one object, and DataWeave presents the input as an array of objects',
-        'The reader property `skipInvalid=true` skips invalid lines and keeps the valid objects',
-        '`skipInvalid` defaults to false',
-        'The whole file must be wrapped in one top-level JSON array',
+        'Set the reader property `skipInvalid=true`',
+        'Set the reader property `ignoreEmptyLine=true`',
+        'Leave the defaults, because they skip invalid lines',
+        'Wrap the whole file in one top-level JSON array',
       ],
-      answer: [0, 1, 2],
-      explain: 'NDJSON needs no enclosing array, which is why it suits very long streams of records. By default invalid lines are not skipped.',
+      answer: 0,
+      explain: '`skipInvalid=true` skips invalid lines and keeps the valid objects. It defaults to false, so by default invalid lines are not skipped, and `ignoreEmptyLine` is about empty lines. Each line is one object, and DataWeave presents the input as an array of objects. NDJSON needs no enclosing array, which is why it suits very long streams of records.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A flow reads a 1 GB CSV from start to end, once. Which property streams it, and what limit applies?',
       options: [
         '`streaming=true` on the reader, for sequential access only',
@@ -80,6 +83,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each need to the property that meets it.',
       pairs: [
         ['JSON output on a single line', 'indent=false on the JSON writer'],

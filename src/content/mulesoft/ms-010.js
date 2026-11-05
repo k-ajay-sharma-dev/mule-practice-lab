@@ -44,6 +44,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each requirement to the Anypoint feature.',
       pairs: [
         ['CoE shares RAML fragments and templates', 'Exchange in the CoE business group'],
@@ -54,16 +55,16 @@ export default {
       explain: 'Exchange is the asset catalogue; capacity is assigned from the root org down; each environment has its own client ID/secret.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about environments are true?',
+      type: 'single',
+      prompt: 'A Mule app is promoted from a QA environment to Production in Anypoint Platform. Each environment has its own client ID and secret. How should the app get the Production credentials?',
       options: [
-        'Each business group has its own environments',
-        'Environments are typed as Production or Sandbox (plus Design)',
-        'Each environment has its own client ID and secret',
-        'Promoting an app keeps the source environment credentials inside the JAR',
+        'They stay in the JAR from QA, because credentials work in every environment',
+        'They are baked into a new JAR that is built only for Production',
+        'They are supplied at deployment, or by the platform, for the target environment',
+        'They come from the root organization, which shares one secret with all environments',
       ],
-      answer: [0, 1, 2],
-      explain: 'Credentials differ per environment, so they must be supplied at deployment (or by the platform) for the target environment — never baked into the JAR.',
+      answer: 2,
+      explain: 'Credentials differ per environment, so they must be supplied at deployment (or by the platform) for the target environment, and never baked into the JAR. Each business group has its own environments, and environments are typed as Production or Sandbox (plus Design).',
     },
   ],
   description: `

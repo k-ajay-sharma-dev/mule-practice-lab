@@ -15,6 +15,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Load tests show one 1-vCore replica sustains ~150 rps for this mix. How do you size for 600 rps?',
       options: [
         'Exactly 4 replicas — 600 / 150',
@@ -27,6 +28,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the real bottleneck at 600 rps?',
       options: [
         'Mule CPU',
@@ -39,19 +41,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which measures protect the inventory database?',
+      prompt: 'At peak, a Process API gets 600 requests per second. Each request makes one query to an inventory database that handles at most 400 queries per second. Which three measures protect the database?',
       options: [
         'Cache availability for a few seconds in the Process API',
-        'Request collapsing for many users asking about the same event',
-        'Spike Control / Rate Limiting on the System API below 400 qps, returning 429 with Retry-After',
-        'A virtual waiting room at the edge for on-sale peaks',
-        'Adding more Mule replicas of the Process API',
+        'Collapse requests for the same event into one backend query',
+        'Set Spike Control or Rate Limiting on the System API below that limit',
+        'Add more Mule replicas of the Process API to absorb the load',
+        'Remove rate limits so that every request reaches the database',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'All four reduce or shape the load that reaches the DB. More replicas increase the load on the DB instead.',
+      answer: [0, 1, 2],
+      explain: 'All three reduce or shape the load that reaches the database, and the limits return 429 with Retry-After. A virtual waiting room at the edge is another option for on-sale peaks. More replicas only overload the database faster.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The on-sale starts at 10:00 and traffic jumps within a minute. How do you handle "possibly more than 600 rps"?',
       options: [
         'Rely only on autoscaling to react to CPU',
@@ -63,17 +66,16 @@ export default {
       explain: 'Scaling takes time; for a spike in the first minutes you must already have the capacity. Limits make overload degrade gracefully instead of timing out.',
     },
     {
-      type: 'multi',
-      prompt: 'What should the load test measure to validate the estimate?',
+      type: 'single',
+      prompt: 'A load test of a Mule API should confirm a capacity estimate before a ticket sale. The test reports a good average response time. Why is that not enough to accept the estimate?',
       options: [
-        'CPU and heap per replica',
-        'p95/p99 latency and error rate',
-        'Backend latency under load',
-        'A realistic mix, ramping to about 1.5× forecast, plus a soak test',
-        'Only the average response time of a single request',
+        'Averages hide tail latency, so p95 and p99 must be checked too',
+        'Averages are valid only for a test on a single replica',
+        'Response time stops mattering once CPU stays below target',
+        'Averages include backend latency, which must be left out',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Averages hide tail latency. Production-like mix and ramp-up give the per-replica capacity figure you defend to finance.',
+      answer: 0,
+      explain: 'Averages hide tail latency. Measure CPU and heap per replica, p95/p99 latency, error rate and backend latency under load. Use a realistic mix, ramp to about 1.5× forecast and add a soak test. That gives the per-replica capacity figure you defend to finance.',
     },
   ],
   description: `

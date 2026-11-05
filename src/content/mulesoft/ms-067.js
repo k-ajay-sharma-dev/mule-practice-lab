@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The responder is a Mule flow with a `jms:listener` on `ATP.REQUEST`. How does it send the answer back?',
       options: [
         'The listener sends the flow result to the JMSReplyTo destination of the request automatically',
@@ -43,16 +44,16 @@ export default {
       explain: 'On a shared reply queue many replies for many callers are mixed together. The responder must copy the request correlation (message ID or correlation ID) into the reply, and the waiting consumer selects on it.',
     },
     {
-      type: 'multi',
-      prompt: 'The WMS responder is slow during peak and the checkout API calls publish-consume with a 2-second maximum wait. Which statements are true?',
+      type: 'single',
+      prompt: 'A checkout flow calls `jms:publish-consume`, which sends a request and waits for the reply up to a maximum wait. The responder is slow and the wait runs out. What happens?',
       options: [
-        'If no reply arrives in time, the operation raises JMS:TIMEOUT, which the checkout flow should handle (e.g. fallback ATP from cache)',
-        'A reply that arrives after the timeout is not delivered to the original request',
-        'Setting a time-to-live on the request lets the broker discard requests nobody will wait for anymore',
-        'The timeout cancels the processing that the responder already started',
+        'The operation raises `JMS:TIMEOUT`, and the responder may still process the request',
+        'The operation raises `JMS:TIMEOUT`, and the responder cancels the work it started',
+        'The operation keeps waiting, and returns the late reply when it arrives',
+        'The operation returns an empty payload, and the flow carries on as normal',
       ],
-      answer: [0, 1, 2],
-      explain: 'The caller stops waiting, but the responder does not know that; it may still process the request. A TTL on requests stops stale work queuing up, and late replies have to be expired or ignored.',
+      answer: 0,
+      explain: 'The caller stops waiting, but the responder does not know that, so it may still process the request. The checkout flow should handle `JMS:TIMEOUT`, for example with a fallback ATP from cache. A reply that arrives after the timeout is not delivered to the original request, so late replies have to be expired or ignored. A time-to-live on requests lets the broker discard requests nobody will wait for, which stops stale work queuing up.',
     },
     {
       type: 'order',
@@ -68,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why might an architect still prefer an HTTP System API for ATP instead of JMS request-reply?',
       options: [
         'Checkout is synchronous anyway; JMS request-reply adds broker hops, reply-queue management and timeout edge cases without decoupling the caller',

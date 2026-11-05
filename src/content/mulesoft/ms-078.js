@@ -31,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What does xml-module:xpath-extract return?',
       options: [
         'A list of strings, one per matching node',
@@ -43,6 +44,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which XML module errors can xml-module:validate-schema raise?',
       options: [
         'XML-MODULE:SCHEMA_NOT_HONOURED when the document does not match the schema',

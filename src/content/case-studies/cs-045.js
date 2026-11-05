@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Teams resent central control and the old architecture board was a bottleneck. Which operating model fits best?',
       options: [
         'A central integration factory that builds every integration so quality stays consistent',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Put the first-year plan in order.',
       items: [
         'Foundations: business groups/environments, SSO, deployment target agreed with security, CI/CD and project templates',
@@ -32,17 +34,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which measures stop the C4E from becoming a bottleneck?',
+      prompt: 'A company sets up a C4E (centre for enablement), a small central team that helps delivery teams build integrations. Which three measures stop the C4E from becoming a bottleneck?',
       options: [
         'Self-service templates, documentation and CI/CD pipelines',
-        'Governance by automation: API spec linting and pipeline gates for tests and coverage',
-        'A clear SLA for C4E design reviews, e.g. 2 business days',
+        'Automated API spec linting and pipeline gates for tests',
         'Delivery teams own their APIs in production',
-        'A weekly architecture board that must approve every change before deployment',
+        'A weekly architecture board approves every change before deployment',
         'The C4E deploys every application to production itself',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Self-service, automated checks, time-boxed reviews and team ownership scale. A weekly board approving every change and central deployments are exactly the bottleneck the previous board became.',
+      answer: [0, 1, 2],
+      explain: 'Self-service, automated checks and team ownership scale. A clear SLA for C4E design reviews, for example 2 business days, helps too. A weekly board approving every change and central deployments are exactly the bottleneck a previous board became.',
     },
     {
       type: 'single',
@@ -58,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How should the lighthouse projects be chosen?',
       options: [
         'Start with the most complex legacy system to prove the platform can handle anything',
@@ -70,17 +72,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which metrics would you report to the CIO to show first-year value?',
+      prompt: 'An integration team must show the CIO the value of its first year on Anypoint Platform. Which three metrics show real value?',
       options: [
-        'Lead time per integration against the pre-platform baseline',
+        'Lead time per integration against the earlier baseline',
         'Reusable assets and how many times they are reused',
         'Point-to-point links and scripts retired',
-        'Hours of manual work saved by the lighthouse projects',
-        'Number of APIs created',
-        'Number of Exchange page views',
+        'Total number of APIs created during the year',
+        'Total number of page views on Exchange assets',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Speed, reuse, simplification and business outcomes show value. API counts and page views measure activity, not benefit.',
+      answer: [0, 1, 2],
+      explain: 'Speed, reuse and simplification show value, and so do business outcomes such as hours of manual work saved by the lighthouse projects. API counts and page views measure activity, not benefit.',
     },
     {
       type: 'match',

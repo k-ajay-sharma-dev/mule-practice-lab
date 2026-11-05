@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How do you call the static `Checksum.luhnCheckDigit` from DataWeave?',
       options: [
         '`import java!com::acme::crypto::Checksum` then `Checksum::luhnCheckDigit($.number)`',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Can DataWeave create a `Signer` and call its instance method `sign`?',
       options: [
         'Yes, with `new Signer(alias).sign(payload)`',
@@ -43,19 +45,20 @@ export default {
       explain: 'DataWeave can instantiate a class (`Signer::new(...)`) and read its fields, but it cannot call instance methods such as `sign`. `java:new` creates the instance and `java:invoke` calls the method on it.',
     },
     {
-      type: 'multi',
-      prompt: 'The Signer is expensive to construct and used on every request. Which practices are correct?',
+      type: 'single',
+      prompt: 'A Mule app calls the instance method `sign` of a Java class `Signer` on every request, and a `Signer` is expensive to construct. How should the app get its `Signer` object?',
       options: [
-        'Create it once, e.g. as a singleton Spring bean or in an initialisation flow',
-        'Make sure it is thread-safe, because many events use it concurrently',
-        'Create a new instance per message so threads never share it',
-        'Store it in `src/main/resources` as a serialized file',
+        'Create a new instance per message, so threads never share it',
+        'Keep it in `src/main/resources` as a serialized file',
+        'Create it once in DataWeave and call `sign` from there',
+        'Create it once, for example as a singleton Spring bean',
       ],
-      answer: [0, 1],
-      explain: 'Constructing per request wastes CPU. A shared instance is efficient but is called by several threads at once, so it must be thread-safe.',
+      answer: 3,
+      explain: 'Constructing per request wastes CPU, so create the object once, for example as a singleton Spring bean or in an initialisation flow. A shared instance is called by several threads at once, so it must be thread-safe. DataWeave can instantiate a class but cannot call instance methods.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'In `java:invoke-static ... args="#[{ accountNumber: vars.account }]"`, how are argument keys determined?',
       options: [
         'By position only — keys are ignored',

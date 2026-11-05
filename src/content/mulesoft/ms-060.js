@@ -32,15 +32,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which are benefits of `WHERE store_id = :storeId AND sku = :sku` with values in `db:input-parameters`?',
+      prompt: 'A Mule flow used to build its Oracle query by joining request values into the SQL text. It now uses `WHERE store_id = :storeId AND sku = :sku` with the values in `db:input-parameters`. Which three benefits does this give?',
       options: [
         'Values are bound, not parsed as SQL, which prevents injection',
         'Oracle can reuse the parsed statement across calls',
-        'The driver converts types (numbers, dates) instead of you formatting them as text',
+        'The driver converts types such as numbers and dates',
         'It removes the need for a connection pool',
+        'A table name can be passed the same way as a value',
       ],
       answer: [0, 1, 2],
-      explain: 'Bind parameters are safe, reusable and type-aware. They do nothing for connection management — that is the pooling profile.',
+      explain: 'Bind parameters are safe, reusable and type-aware, so you do not format numbers and dates as text. They do nothing for connection management, which is the pooling profile. They replace values only, not identifiers such as table names.',
     },
     {
       type: 'single',

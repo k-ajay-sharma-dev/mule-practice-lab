@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A POST method defines responses 201, 400, 409 and 500. A consumer calls the mock with no special headers. Which response comes back?',
       options: [
         '201, because by default the mocking service chooses the lowest status code defined for the method',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each header to what it does in the mocking service.',
       pairs: [
         ['MS2-Status-Code', 'Filters the status codes that the mock can choose from'],
@@ -32,6 +34,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A consumer wants 201 when there is no error and 401 for about 30% of calls. Which headers do this?',
       options: [
         '`MS2-Error-Rate: 0.3` and `MS2-Status-Code: 201,401`',
@@ -44,6 +48,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A partner must try the mock without an Anypoint login. What should you do?',
       options: [
         'Turn on Make Public in the Mocking Service Configuration, and optionally set an expiration date',
@@ -56,6 +61,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about dependencies in an API project are correct?',
       options: [
         'You can add RAML fragments, OAS components, JSON schemas and rulesets as dependencies',
@@ -69,6 +75,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team has an OAS 3.0 spec, and another team needs a RAML 1.0 copy for its tools. What is a documented way to provide it?',
       options: [
         'In API Designer, use Duplicate on the file, select RAML, set the RAML file as the root file and publish',

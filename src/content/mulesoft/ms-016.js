@@ -31,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How is the encrypted DB password referenced in the connector config?',
       options: ['`${secure::db.password}`', '`${db.password}`', '`#[secure(db.password)]`', '`![db.password]`'],
       answer: 0,
@@ -49,16 +50,16 @@ export default {
       explain: 'The key must never be in the project. Different keys per environment limit the blast radius if one leaks.',
     },
     {
-      type: 'multi',
-      prompt: 'Which actions are needed after discovering a plain-text password committed to Git?',
+      type: 'single',
+      prompt: 'A developer finds a plain-text database password committed to Git in a Mule project. What must happen to that password?',
       options: [
-        'Encrypt it with the Secure Properties Tool and move it to the secure file',
-        'Rotate the password, because it remains in Git history',
-        'Mask sensitive values in Runtime Manager: `secureProperties` in `mule-artifact.json` on CloudHub 1.0, property protection on the Properties tab on CloudHub 2.0',
-        'Delete the file from the latest commit — that removes it from history',
+        'Delete the file in a new commit, which removes it from history',
+        'Encrypt it in the file, which makes the old value safe',
+        'Rotate it, because it remains in Git history',
+        'Hide it in Runtime Manager, which also covers the Git copy',
       ],
-      answer: [0, 1, 2],
-      explain: 'Deleting the file in a new commit does not remove it from history, so the password must be rotated.',
+      answer: 2,
+      explain: 'Deleting the file in a new commit does not remove it from history, so the password must be rotated. The new value is then encrypted with the Secure Properties Tool and moved to the secure file. Also mask sensitive values in Runtime Manager: `secureProperties` in `mule-artifact.json` on CloudHub 1.0, property protection on the Properties tab on CloudHub 2.0.',
     },
   ],
   description: `

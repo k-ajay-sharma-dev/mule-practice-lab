@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which values can the pipeline set as environment variables for `anypoint-cli-v4`?',
       options: [
         '`ANYPOINT_CLIENT_ID`',
@@ -21,6 +22,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order these sources from highest priority to lowest.',
       items: [
         'Command-line parameter',
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A script sets the client ID and secret but never sets an environment, in a flag, a variable or a profile. What does the Anypoint CLI page say?',
       options: [
         'If you do not specify an environment, the default is production',
@@ -43,6 +46,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which items can `api-mgr:api:promote` copy, and through which flags?',
       options: [
         'Policies, with `--copyPolicies`',
@@ -56,6 +60,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A pipeline applies a rate limiting policy with `api-mgr:policy:apply` and sends only the fields it wants to change, trusting the defaults for the rest. What does the docs note say?',
       options: [
         'You must configure all required policy parameters, even if you plan to use the default values',
@@ -68,6 +73,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each pipeline need to the command.',
       pairs: [
         ['Create a new API instance from an Exchange asset', '`api-mgr:api:manage`'],

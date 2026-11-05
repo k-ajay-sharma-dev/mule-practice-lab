@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What should you try first?',
       options: [
         'Publish v2 immediately and ask all four Process APIs to migrate',
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A v2 is unavoidable. How do you run both versions?',
       options: [
         'Replace v1 with v2 on a single release date',
@@ -42,6 +44,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you guarantee the 40 external consumers see no change?',
       options: [
         'Version the Experience APIs to v2 as well',
@@ -53,17 +56,16 @@ export default {
       explain: 'Each layer versions independently — a major version at one layer does not imply one above. This containment is the point of layering.',
     },
     {
-      type: 'multi',
-      prompt: 'Which tooling and process support the migration?',
+      type: 'single',
+      prompt: 'A System API is moving from v1 to v2. You can switch v1 off only when no client still calls it. Which tool shows you who still calls v1?',
       options: [
-        'API Manager analytics / contracts by client id to see who still calls v1',
-        'Exchange deprecation status and a published sunset date',
-        'Contract tests in each Process API against the System API spec',
-        'A written versioning standard (what is breaking, deprecation period, max two concurrent majors)',
-        'Bumping every Experience API to a new major version',
+        'API Manager analytics by client id',
+        'Exchange deprecation status',
+        'Contract tests in each Process API',
+        'A written versioning standard',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'You can only switch v1 off when you can see that no client still uses it; external consumers should never be forced to migrate for an internal change.',
+      answer: 0,
+      explain: 'API Manager analytics and contracts by client id show which client apps still call v1. Exchange deprecation status and a published sunset date announce the change. Contract tests check each Process API against the System API spec. A written standard states what is breaking, the deprecation period and the limit of two concurrent majors. External consumers should never be forced to migrate for an internal change.',
     },
     {
       type: 'single',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each DLB feature to its CloudHub 2.0 equivalent.',
       pairs: [
         ['URL mapping rules', 'Per-app path and path rewrite on the Ingress tab'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The DLB has a denylist that blocks a set of abusive ranges. What is the CloudHub 2.0 equivalent?',
       options: [
         'There is none: firewall rules are allow-only, so allow only trusted CIDRs, or block upstream with a WAF or Flex Gateway policy',
@@ -43,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What must change in the listener configuration of an app that uses `${http.private.port}`?',
       options: [
         'Remove the CloudHub 1.0 port settings and use the standard `${http.port}` (port 8081) on CloudHub 2.0',
@@ -54,20 +57,21 @@ export default {
       explain: 'The migration guide says to remove `http.port`, `https.port`, `http.private.port` and `https.private.port` settings specific to CloudHub 1.0. The troubleshooting steps also check that the listener is on 8081.',
     },
     {
-      type: 'multi',
-      prompt: 'The team uses the VPC upgrade path. Which statements are documented?',
+      type: 'single',
+      prompt: 'A company moves to CloudHub 2.0 with the VPC upgrade path, which turns its CloudHub 1.0 VPC into a private space. The VPC has Transit Gateway connections to a data centre. What happens to those connections?',
       options: [
-        'Existing Transit Gateway connections transfer to the new private space automatically',
-        'The upgrade removes VPC firewall rules for ports other than 80, 443 and 30500 to 32500, so rules for 8081 and 8082 can be dropped',
-        'Internal app-to-app connectivity should be validated with the Network Tools application after the upgrade',
-        'After the upgrade the CloudHub VPC is locked for infrastructure changes',
-        'Internal app-to-app calls keep working without any checks, because the CIDR is unchanged',
+        'They transfer to the new private space automatically',
+        'They are dropped, and the private space needs its own attachment',
+        'They stay on the old VPC until it is decommissioned',
+        'They transfer only after you add rules for ports 8081 and 8082',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'A private space created manually is different: it has a different CIDR block and needs its own Transit Gateway attachment.',
+      answer: 0,
+      explain: 'With the VPC upgrade, existing Transit Gateway connections transfer to the new private space automatically. A private space created manually is different: it has a different CIDR block and needs its own Transit Gateway attachment. The upgrade also removes VPC firewall rules for ports other than 80, 443 and 30500 to 32500, so rules for 8081 and 8082 can be dropped. Validate internal app-to-app connectivity with the Network Tools application after the upgrade. After the upgrade the CloudHub VPC is locked for infrastructure changes.',
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which preconditions apply before switching traffic for an app behind a DLB that expects HTTPS?',
       options: [
         'Restart the DLB before you start switching traffic',
@@ -81,6 +85,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A CloudHub 1.0 app has both the default endpoint and a vanity domain on a DLB. You want the DLB to switch the traffic. What do you do?',
       options: [
         'Remove the default endpoint of the CloudHub 1.0 app, apply changes, then change the traffic switch percentage',

@@ -54,21 +54,26 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which of these identify an Exchange asset?',
-      options: ['groupId (the organization or business group ID)', 'assetId', 'version', 'The Runtime Manager environment name', 'The API Manager instance ID'],
+      prompt: 'A team adds an API spec from Anypoint Exchange as a dependency in its POM file. Which three values identify that asset?',
+      options: [
+        '`groupId`',
+        '`assetId`',
+        '`version`',
+        'The Runtime Manager environment name',
+        'The API Manager instance ID',
+      ],
       answer: [0, 1, 2],
-      explain: 'Exchange uses Maven-style coordinates — **groupId, assetId, version** — the same ones you put in a POM dependency. Environments and API instances belong to Runtime/API Manager, not to the asset identity.',
+      explain: 'Exchange uses Maven-style coordinates: **groupId, assetId, version**. The groupId is the organization or business group ID. These are the same coordinates you put in a POM dependency. Environments and API instances belong to Runtime Manager and API Manager, not to the asset identity.',
     },
     {
       type: 'order',
       prompt: 'Put the steps for retiring an old asset version in order.',
       items: [
-        'Mark the old version as deprecated in Exchange',
-        'Communicate a migration window to consumers',
+        'Mark the old version as deprecated in Exchange and communicate a migration window to consumers',
         'Run the old and new API versions side by side while consumers migrate',
         'Remove the old version once no consumer remains',
       ],
-      explain: 'Deprecation hides the version from view without deleting it, and consumers then get time to move. Removal comes last, only when nobody depends on it.',
+      explain: 'Deprecation hides the version from view without deleting it, so tell consumers at the same time. They then move while both versions run. Removal comes last, only when nobody depends on it.',
     },
   ],
   description: `

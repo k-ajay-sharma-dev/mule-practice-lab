@@ -19,6 +19,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is usually the most expensive part of a full exit?',
       options: [
         'Exporting the API specifications from Exchange',
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which measures reduce dependency cheaply **without** slowing delivery?',
       options: [
         'Keep API specs in Git as well as in Exchange',
@@ -69,6 +71,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How should you open the board presentation?',
       options: [
         '"There is no lock-in because we use open standards."',
@@ -81,16 +84,15 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which commercial terms would you seek at renewal?',
+      prompt: 'A company\'s Anypoint Platform licence is up for renewal, and the board worries about vendor lock-in. It asks for contract terms that make a future exit cheaper. Which two terms do that?',
       options: [
-        'Multi-year price protection',
         'Clear data and configuration export rights',
         'Transition assistance terms if you leave',
-        'Flexibility to reduce capacity',
+        'Multi-year price protection',
         'Exclusivity for the vendor on all future integration work',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'These terms cap price risk and lower exit cost. Granting exclusivity would increase dependency — the opposite of what the board asked for.',
+      answer: [0, 1],
+      explain: 'Export rights and transition assistance lower exit cost. Multi-year price protection is also worth seeking, but it caps price risk and does not change the cost of leaving. Flexibility to reduce capacity is another useful term. Granting exclusivity would increase dependency, which is the opposite of what the board asked for.',
     },
   ],
   description: `

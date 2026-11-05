@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each deployment to the store behind a persistent Object Store.',
       pairs: [
         ['Mule cluster with default settings', 'The distributed memory grid, even when `persistent` is true'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which databases are documented for the cluster JDBC object store?',
       options: [
         'MySQL 5.5+, PostgreSQL 9, and Microsoft SQL Server 2014, 2019 and 2022',
@@ -31,19 +33,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which recommendations apply to the cluster JDBC store database?',
+      prompt: 'A two-node Mule cluster keeps its object stores in a distributed memory grid, so a full shutdown loses them. The team adds a JDBC store to keep that data in a database. Which three rules apply to that database?',
       options: [
-        'Use a dedicated database or schema for the JDBC store',
-        'Give the user permission to create and drop tables and to insert, update, delete and select',
+        'Use a dedicated database or schema for the store',
+        'Give its user rights to create and drop tables and to change data',
         'Use one database per cluster, reachable from all nodes',
         'Share one database between clusters so that they stay in sync',
         'Create the tables by hand before starting the nodes',
       ],
       answer: [0, 1, 2],
-      explain: 'Clusters are not aware of each other, so sharing a database can corrupt data, for example when apps in different clusters have the same name. Tables are created automatically, two per object store.',
+      explain: 'The user needs permission to create and drop tables and to insert, update, delete and select. Clusters are not aware of each other, so sharing a database can corrupt data, for example when apps in different clusters have the same name. Tables are created automatically, two per object store.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An app on Runtime Fabric stores idempotency keys that it expects to keep for 90 days in Persistence Gateway. What does the documentation say?',
       options: [
         'The Persistence Gateway maximum TTL is 30 days, so a 90-day requirement needs a store you control, such as a database',
@@ -56,6 +59,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which requirements apply before you enable Persistence Gateway?',
       options: [
         'A PostgreSQL database on a supported version that does not reserve the `partition` keyword',
@@ -69,6 +73,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A standalone on-premises app needs a shared store and a team suggests Object Store v2. How can it reach it?',
       options: [
         'Only through the Object Store REST API',
@@ -81,6 +86,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team moves a stateful app between Runtime Fabric clusters and wants its Persistence Gateway data too. What is the documented approach?',
       options: [
         'Back up the `stores` and `items` tables entirely and recreate them on the target database, without apps deployed on both clusters during the process',

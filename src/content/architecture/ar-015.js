@@ -8,6 +8,8 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each Mule error to the HTTP status the framework returns.',
       pairs: [
         ['APIKIT:BAD_REQUEST or VALIDATION:*', '400'],
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How should the framework be distributed to 60 apps?',
       options: [
         'Copy the 300 lines of error XML into each project',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'An Anypoint MQ consumer receives a message with invalid data. What should the framework do?',
       options: [
         'Return HTTP 400 to the publisher',
@@ -67,16 +71,16 @@ export default {
       explain: 'Errors are propagated with meaning: a downstream failure becomes a gateway-type error at the next layer, never a leaked stack trace.',
     },
     {
-      type: 'multi',
-      prompt: 'Which practices apply to versioning and rolling out the framework?',
+      type: 'single',
+      prompt: 'A shared Mule library gives many apps the same error handling. Its next release changes the shape of the error response body. How should that release ship?',
       options: [
-        'Semantic versioning of the library',
-        'A parent POM pins the recommended version',
-        'A pipeline check or dependency bot flags apps on old versions',
-        'Breaking changes to the error shape ship as a patch version',
+        'As a major version of the library, with a coordinated rollout',
+        'As a patch version of the library, so apps pick it up at once',
+        'As a minor version of the library, with no rollout plan',
+        'As updated XML that each vendor copies into its own apps',
       ],
-      answer: [0, 1, 2],
-      explain: 'A new error response shape changes API contracts, so it needs a major version and a coordinated rollout — never a patch.',
+      answer: 0,
+      explain: 'A new error response shape changes API contracts, so it needs a major version and a coordinated rollout, never a patch. For every release, the library uses semantic versioning, a parent POM pins the recommended version, and a pipeline check or dependency bot flags apps on old versions.',
     },
   ],
   description: `

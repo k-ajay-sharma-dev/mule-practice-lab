@@ -54,19 +54,20 @@ export default {
       explain: 'The rule is the same on both sides: the keystore proves who you are, and the truststore says who you believe. Having both on one side is what the docs call two-way or mutual authentication.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about `tls:context` are correct?',
+      type: 'single',
+      prompt: 'A keystore file has one password, and the private key inside it has a different one. How do you set these in a `tls:context`?',
       options: [
-        '`password` opens the keystore file, while `keyPassword` opens the private key inside it',
-        'When a keystore holds several private keys, `alias` selects one; otherwise Mule uses the first key in the file',
-        'The default store `type` is JKS, so a PKCS12 file needs `type="pkcs12"`',
-        '`tls:context` can take its keystore path from an expression, so one configuration can switch certificate per request',
+        '`keyPassword` for the file and `password` for the private key',
+        '`password` for the file and `keyPassword` for the private key',
+        '`password` for the file and `alias` for the private key',
+        'Only `password`, because it opens the private key as well',
       ],
-      answer: [0, 1, 2],
-      explain: 'The HTTP reference says TLS configuration supports static configuration only and does not support expressions or dynamic configuration. Use separate configurations when you need different certificates.',
+      answer: 1,
+      explain: '`password` opens the keystore file, and `keyPassword` opens the private key inside it. When a keystore holds several private keys, `alias` selects one; otherwise Mule uses the first key in the file. The default store `type` is JKS, so a PKCS12 file needs `type="pkcs12"`. The HTTP reference says TLS configuration supports static configuration only, with no expressions, so use separate configurations when you need different certificates.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A developer sets `enabledCipherSuites` in `tls:context`, but the Mule administrator has not enabled those suites in `tls-default.conf`. What do the docs say?',
       options: [
         'Protocols and suites must be enabled in both the runtime and the app; otherwise the default Java environment protocols and suites are used',
@@ -79,6 +80,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team generates a keystore with `keytool -genkey -alias api -keystore api.jks` and no `-keyalg`. Requests to the HTTPS listener then fail in the handshake. What does the Mule TLS page give as the cause?',
       options: [
         'Without `-keyalg` the tool uses DSA, which is not compatible with TLS 1.2, so use `-keyalg RSA` (or `EC`)',

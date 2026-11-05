@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'On Mule 4.2.2 or later, an app\'s `pom.xml` declares its domain at version `1.0.1`. Which deployed domain versions satisfy it?',
       options: [
         '1.0.2 and later work; 1.0.0 does not',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The release team wants to install a new domain through the Runtime Manager UI, the same way they deploy apps to their hybrid servers. What do the docs say?',
       options: [
         'Mule domain projects cannot be installed using Runtime Manager; place the JAR in `$MULE_HOME/domains`, or use the Mule Maven plugin with the standalone or Runtime Manager agent deployment strategy',
@@ -44,16 +46,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which of these can you define in a domain and share with its apps?',
+      prompt: 'A team moves 70 on-premises Mule apps under one shared domain, because they use the same backend and listener settings. Which three can it define in the domain and share with its apps?',
       options: [
-        'Connector configurations such as an HTTP Listener or HTTP Request configuration',
+        'Connector configurations',
         'Shared properties',
         'Scheduler pools',
         'A shared error-handling subflow',
         'A flow that logs every request',
       ],
       answer: [0, 1, 2],
-      explain: 'Domains share resources, not behaviour. Defining flows, subflows or any message processors as shared resources is not supported. Shared logic belongs in a library or a separate app.',
+      explain: 'Domains share resources, such as an HTTP Listener or HTTP Request configuration, not behaviour. Defining flows, subflows or any message processors as shared resources is not supported. Shared logic belongs in a library or a separate app.',
     },
     {
       type: 'order',
@@ -69,6 +71,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Two different domains on one server have the same group ID, artifact ID and version, and the reference in an app\'s `pom.xml` has become ambiguous. What is the documented way to pin the app to one of them?',
       options: [
         'Add the domain folder name to the app\'s `mule-artifact.json`, for example `"domain": "mymuledomain-1.0.1-mule-domain"`',

@@ -19,20 +19,20 @@ export default {
       explain: 'You cannot request a specific address: static IPs come from a pool. Inside a VPC only the public IP can be static; the internal private IP always remains dynamic.',
     },
     {
-      type: 'multi',
-      prompt: 'In which situations can a static IP of a CloudHub 1.0 application change or be lost?',
+      type: 'single',
+      prompt: 'A bank allowlists the static IP of an application on CloudHub 1.0. Which action keeps that IP unchanged?',
       options: [
-        'The application is deleted and a new one is created with the same name',
-        'The application is moved from Sandbox to Production, which needs a new name and static IP',
-        'The application is redeployed to a different geographic region',
-        'An existing application not yet in the Anypoint VPC restarts inside the newly built VPC',
-        'The application is restarted in the same region with no other change',
+        'Deleting the application and creating a new one with the same name',
+        'Moving the application from Sandbox to Production',
+        'Redeploying the application to a different geographic region',
+        'Restarting the application in the same region with no other change',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'These are the situations the FAQ lists. In a region change you can preallocate a static IP in the new region on the Static IPs tab first.',
+      answer: 3,
+      explain: 'A plain restart is not one of the situations the FAQ lists. The IP can change or be lost when the application is deleted, when it moves from Sandbox to Production (which needs a new name and static IP), when it is redeployed to another region, and when an existing application restarts inside a newly built Anypoint VPC. For a region change you can preallocate a static IP in the new region on the Static IPs tab first.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How many static IPs does a subscription get by default on CloudHub 1.0?',
       options: [
         'Twice the number of Production vCores in the subscription; a higher limit is requested from Salesforce Help',
@@ -44,20 +44,20 @@ export default {
       explain: 'The default allocation is twice the Production vCores. Budget for it when many applications need allowlisting.',
     },
     {
-      type: 'multi',
-      prompt: 'The security team needs a custom certificate, two-way TLS and `api.example.com` in front of several apps. Which statements about the shared and dedicated load balancers are correct?',
+      type: 'single',
+      prompt: 'A team on CloudHub 1.0 needs a custom certificate, two-way TLS and `api.example.com` in front of several apps. What should it use?',
       options: [
-        'The shared load balancer does not allow custom SSL certificates or proxy rules',
-        'A DLB can enforce two-way SSL client authentication with custom certificates',
-        'DLB proxy rules map applications to custom domains, so they can sit under one domain',
-        'The DLB also has higher rate limit thresholds than the shared load balancer',
-        'A DLB can run in the MuleSoft shared VPC without an Anypoint VPC',
+        'The shared load balancer, with the custom certificate added to it',
+        'The shared load balancer, with proxy rules for the custom domain',
+        'A dedicated load balancer (DLB) assigned to an Anypoint VPC',
+        'A DLB in the MuleSoft shared VPC, with no Anypoint VPC',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Each DLB is assigned to an Anypoint VPC. The shared load balancer also has lower, per-region rate limits and returns 429 when an application exceeds them.',
+      answer: 2,
+      explain: 'The shared load balancer does not allow custom SSL certificates or proxy rules. A DLB can enforce two-way SSL client authentication with custom certificates, and its proxy rules map applications to custom domains, so they can sit under one domain. Each DLB is assigned to an Anypoint VPC. The DLB also has higher rate limit thresholds: the shared load balancer has lower, per-region rate limits and returns 429 when an application exceeds them.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A mapping rule has Input Path `/hello/`, Target App `myApp1` and Output Path `/test/`. A client requests `/hello/world/`. What does the DLB send to `myApp1`?',
       options: ['`/test/world/`', '`/test/hello/world/`', '`/hello/world/`', '`/test/`'],
       answer: 0,
@@ -65,6 +65,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The app inside the VPC listens on HTTPS, but the DLB rule was created with its default settings. What must change?',
       options: [
         'Set the rule protocol (`upstreamProtocol`) to `https`, which uses port 8092; by default the DLB talks to workers over HTTP on port 8091',
@@ -77,6 +78,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Two rules on an SSL endpoint could both match a request. Which one is applied?',
       options: [
         'The first matching rule in the list, because order sets priority',

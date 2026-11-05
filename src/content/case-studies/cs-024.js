@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each phase to the work that belongs in it.',
       pairs: [
         ['Before close', 'Inventory, target architecture and master-data mapping design — no production data exchange'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why wrap B’s ERP and inventory with System APIs (b-products-sapi, b-orders-sapi) instead of connecting A’s processes to them directly?',
       options: [
         'They act as an anti-corruption layer: when B moves to SAP later, only the System API implementation changes and A’s Process APIs and portal are untouched',
@@ -43,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the platform decision for B’s iPaaS?',
       options: [
         'Consolidate on Anypoint, but run B’s iPaaS in coexistence and retire, migrate or replace its flows by value — no big bang',
@@ -55,6 +58,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which actions address the people and governance side?',
       options: [
         'Bring B’s integration team into a joint C4E and train them on Mule',
@@ -68,6 +72,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Some B customers’ contracts require their data to stay with B’s legal entity. How do cross-sell orders work?',
       options: [
         'A’s orders Process API routes those orders to b-orders-sapi so B’s ERP fulfils them and B remains the legal seller, with legal sign-off per data flow',

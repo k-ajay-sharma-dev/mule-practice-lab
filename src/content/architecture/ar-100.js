@@ -20,7 +20,7 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which are valid ways to deploy version 4.1.3 again?',
+      prompt: 'An app on CloudHub 2.0 has to go back from version 4.2.0 to 4.1.3. Which two ways deploy 4.1.3 again?',
       options: [
         'Check out the 4.1.3 tag and run the normal plugin deployment for that environment',
         'Use `runtime-mgr:application:modify` with `--assetVersion` on CloudHub 2.0',
@@ -32,6 +32,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'During a rollback, an operator adds `--property log.level:DEBUG` to `runtime-mgr:application:modify`. What does the command reference warn about?',
       options: [
         '`--property` replaces all existing properties with the specified property',
@@ -44,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where should the design keep properties so that a rollback is safe?',
       options: [
         'In one owner: a versioned file and secret store that the pipeline sends in full, alongside the app version',
@@ -55,17 +58,16 @@ export default {
       explain: 'On CloudHub 2.0, if `properties` or `secureProperties` is present, nothing merges with the Runtime Manager values. With a versioned set, each app version has a matching set of properties to return to.',
     },
     {
-      type: 'multi',
-      prompt: 'Release 4.2.0 added a required database column and a new API field. Which design rules keep 4.1.3 safe to roll back to?',
+      type: 'single',
+      prompt: 'Release 4.2.0 of a Mule app changes a database table. A rollback to 4.1.3 redeploys only the application, so the old version must still work with the new schema. Which approach keeps that possible?',
       options: [
-        'Make database changes backward compatible: add first, and remove only in a later release',
-        'Keep the API change additive, under the same major version',
-        'Separate the database change from the application change',
-        'Record, for each release, whether rollback is safe and what else must change',
+        'Add the new column now, and remove the old one in a later release',
         'Drop the old column in the same release, to keep the schema tidy',
+        'Rename the old column in place, and update the app to the new name',
+        'Rely on the redeploy of 4.1.3 to undo the schema change',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'A redeploy changes only the application. If the data or the contract has moved on, the old version may no longer work.',
+      answer: 0,
+      explain: 'A redeploy changes only the application. If the data has moved on, the old version may no longer work. So make database changes backward compatible: add first, and remove only in a later release. The same thinking covers the rest of a release: keep API changes additive under the same major version, separate the database change from the application change, and record for each release whether rollback is safe and what else must change.',
     },
     {
       type: 'match',

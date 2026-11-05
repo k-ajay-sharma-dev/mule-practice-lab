@@ -30,6 +30,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why narrow the ERP mock with a `with-attribute` such as `config-ref`, rather than using `processor="http:request"` alone?',
       options: [
         'With no attribute the mock targets any `http:request`, so a second HTTP call added later would silently get the ERP response',
@@ -41,16 +42,16 @@ export default {
       explain: 'The MUnit pages show matching on attributes such as `config-ref`, `method`, `path`, `operation` and `doc:name`. A name can repeat or be renamed, so `config-ref` is often the safer choice when each call has its own configuration.',
     },
     {
-      type: 'multi',
-      prompt: 'One test must prove that the **rejected** path (ERP returns `status: "REJECTED"`) never publishes. What does it need?',
+      type: 'single',
+      prompt: 'An MUnit test checks that a rejected order never publishes to Anypoint MQ. The flow raises `APP:ORDER_REJECTED`, the error propagates, and the `validation` section with `verify-call` is skipped. How do you get `verify-call` to run?',
       options: [
-        'Mock the ERP call to return `{ status: "REJECTED" }`',
-        'Wrap the `flow-ref` in a `try` with `on-error-continue type="APP:ORDER_REJECTED"` inside `munit:execution`',
-        '`verify-call` on `anypoint-mq:publish` with `times="0"` in validation',
+        'Wrap the `flow-ref` in a `try` with `on-error-continue`',
+        'Set `expectedErrorType="APP:ORDER_REJECTED"` on the same test',
+        'Move `verify-call` into the `munit:behavior` section',
         'Mock the ERP call to raise `HTTP:CONNECTIVITY`',
       ],
-      answer: [0, 1, 2],
-      explain: 'The rejected branch raises `APP:ORDER_REJECTED`, and the error propagates. The cookbook says the flow then fails and the `validation` section is skipped, so `verify-call` needs the `try`. Prove the error type itself in a separate test with `expectedErrorType="APP:ORDER_REJECTED"`. Raising `HTTP:CONNECTIVITY` tests the other failure path.',
+      answer: 0,
+      explain: 'The cookbook says the flow fails when the error propagates and the `validation` section is skipped, so `verify-call` needs the `try` inside `munit:execution`. The test also mocks the ERP call to return `{ status: "REJECTED" }`, and uses `verify-call` on `anypoint-mq:publish` with `times="0"`. Prove the error type itself in a separate test with `expectedErrorType="APP:ORDER_REJECTED"`. Raising `HTTP:CONNECTIVITY` tests the other failure path.',
     },
     {
       type: 'single',
@@ -66,6 +67,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How is the 80% coverage rule enforced so the build fails below it?',
       options: [
         '`munit-maven-plugin` with coverage enabled, `requiredApplicationCoverage` 80 and `failBuild` true',

@@ -20,6 +20,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which `raise-error` is allowed for the validation case?',
       options: [
         '`<raise-error type="APP:VALIDATION_ERROR"/>`',
@@ -43,27 +45,28 @@ export default {
       explain: '`<error-mapping sourceType="HTTP:NOT_FOUND" targetType="CRM:CUSTOMER_NOT_FOUND"/>` on one operation re-types the error for that call only; other 404s keep their type.',
     },
     {
-      type: 'order',
-      prompt: 'Order the On Error Propagate handlers in the global error handler.',
-      items: [
-        '`APP:VALIDATION_ERROR` → 400',
-        '`CRM:CUSTOMER_NOT_FOUND` → 404',
-        '`CRM:UNAVAILABLE, HTTP:CONNECTIVITY, HTTP:TIMEOUT` → 503',
-        '`ANY` → 500',
+      type: 'single',
+      prompt: 'A global error handler has On Error Propagate handlers for `APP:VALIDATION_ERROR`, `CRM:CUSTOMER_NOT_FOUND`, `CRM:UNAVAILABLE` and `ANY`. Where must the `ANY` handler go?',
+      options: [
+        'Last, after all the specific handlers',
+        'First, so that no error is missed',
+        'Anywhere, because Mule picks the most specific match',
+        'In a separate copy in each flow',
       ],
-      explain: 'Specific types first, the catch-all `ANY` last, otherwise it would shadow everything below it.',
+      answer: 0,
+      explain: 'Handlers are checked top to bottom and the first match wins, so `ANY` goes last. Placed earlier, it would shadow everything below it. The specific types do not overlap, so their order among themselves does not matter.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the shared global handler are true?',
+      type: 'single',
+      prompt: 'An app sets a global error handler with `<configuration defaultErrorHandler-ref="global-error-handler"/>`. One flow keeps its own error handler with an On Error for `HTTP:NOT_FOUND`, and that error occurs in the flow. Which handler runs?',
       options: [
-        'It is set with `<configuration defaultErrorHandler-ref="global-error-handler"/>`',
-        'When an On-Error in the flow\'s own handler matches the error, that one runs and not the default handler',
-        'It should return `error.errorMessage.payload` so clients see the CRM error page',
-        'A handler for `MULE:CONNECTIVITY` also catches `HTTP:CONNECTIVITY`',
+        'The default handler, because it overrides flow handlers',
+        'Both handlers, the flow handler first and then the default',
+        'Both handlers, the default first and then the flow handler',
+        "The flow's own handler, and the default one does not run",
       ],
-      answer: [0, 1, 3],
-      explain: 'Connector connectivity types have `MULE:CONNECTIVITY` as their parent. Never return the raw CRM HTML — log it and return the contract JSON body.',
+      answer: 3,
+      explain: "An error matched by a flow's own handler never reaches the default one, which is why flows remove their local handlers when they move to the shared one. In the shared handler, a handler for `MULE:CONNECTIVITY` also catches `HTTP:CONNECTIVITY`, because connector connectivity types have it as their parent. Never return the raw CRM HTML from `error.errorMessage.payload`: log it and return the contract JSON body.",
     },
   ],
   description: `

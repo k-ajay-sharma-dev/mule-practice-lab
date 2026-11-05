@@ -44,6 +44,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'The team wants retries without duplicates and turns on **Enable idempotence**. What must also be true for the producer connection?',
       options: [
         'Maximum in flight requests is 5 or less',
@@ -56,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A brand-new consumer group starts on a topic that holds 7 days of data. Auto offset reset is left at its default. What does it read?',
       options: [
         'Only records published after it starts, because the default is LATEST',
@@ -68,6 +70,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each description to the operation or error that fits, using the connector reference.',
       pairs: [
         ['Moves a consumer to a chosen offset of one partition', 'kafka:seek'],

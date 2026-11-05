@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'An app runs with 3 replicas and **Run in Runtime Cluster Mode** off. Which statement is true?',
       options: [
         'It is highly available, but the replicas do not share data with each other',
@@ -32,6 +33,8 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each requirement to the configuration suggested by the Clustering page.',
       pairs: [
         ['Scale out, and schedules may run on every replica because the flows are idempotent', 'Two or more replicas, clustering not enabled'],
@@ -53,17 +56,16 @@ export default {
       explain: 'Extra replicas help traffic that the load balancer can distribute. If the whole app is updated or redeployed during a run, the rest of the batch job does not continue.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about CPU-based horizontal autoscaling on CloudHub 2.0 are correct?',
+      type: 'single',
+      prompt: 'CPU-based horizontal autoscaling on CloudHub 2.0 adds and removes replicas as CPU use changes. A team turns it on for an app. What can the team configure?',
       options: [
-        'MuleSoft owns the policy, which targets 70% average CPU utilization',
-        'Scale-up can happen at most every 180 seconds, adding up to 100% of the running replicas',
-        'Scale-down uses a stabilization window of 1800 seconds',
-        'Batch jobs and schedulers without re-entrance are poor candidates',
-        'You can set your own CPU target per app in Runtime Manager',
+        'The minimum and maximum replica count',
+        'The CPU utilization target of the app',
+        'How often scale-up can happen',
+        'The length of the scale-down window',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'You choose the minimum and maximum replica count, not the policy. The feature depends on your licence model, and scaling can raise flow usage, so set the maximum carefully.',
+      answer: 0,
+      explain: 'You choose the minimum and maximum replica count, and MuleSoft owns the policy. The policy targets 70% average CPU utilization. Scale-up can happen at most every 180 seconds, adding up to 100% of the running replicas, and scale-down uses a stabilization window of 1800 seconds. Batch jobs and schedulers without re-entrance are poor candidates. The feature depends on your licence model, and scaling can raise flow usage, so set the maximum carefully.',
     },
     {
       type: 'single',
@@ -79,10 +81,17 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'An app with 4 replicas is hit by platform replica rebalancing. According to the rebalancing table on the Automatic App Restarts page, how many replicas can be disrupted at once?',
-      options: ['2', '1', '3', 'All 4'],
+      options: [
+        '2',
+        '1',
+        '3',
+        'All 4',
+      ],
       answer: 0,
-      explain: 'A maximum of 30% of replicas are rebalanced concurrently, rounded up, so 4 replicas gives 2. Even a 2-replica app has 1 disrupted, which is why apps must tolerate restarts. The same page also says at least two thirds of replicas stay available, which does not fit 2 of 4, so plan for the table figure.',
+      explain: 'A maximum of 30% of replicas are rebalanced concurrently, rounded up, so 4 replicas gives 2. Even a 2-replica app has 1 disrupted, which is why apps must tolerate restarts. The same page also says at least two thirds of replicas stay available, but that line is in a separate section on Recreate and Rolling Restart, so for rebalancing plan for the table figure.',
     },
   ],
   description: `

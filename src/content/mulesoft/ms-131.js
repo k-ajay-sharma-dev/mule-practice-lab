@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'What value does `provider` take in both `cloudhub2Deployment` and `runtimeFabricDeployment`?',
       options: [
         '`MC`, the MuleSoft Control Plane, meaning the deployment is managed through Runtime Manager',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each need to the element that handles it.',
       pairs: [
         ['Size a CloudHub 2.0 replica (non-UBP organization)', '`vCores`'],
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The Runtime Fabric block has no `resources` element. What does the reference table say each replica gets?',
       options: [
         '0.5 vCores reserved and 700 MB of memory reserved',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'A team sets `<muleVersion>4.6.0</muleVersion>` and nothing else about the runtime. Which statements match the reference table?',
       options: [
         '`4.6.0` selects the last build, defaulting to the Edge channel and Java 8',
@@ -57,6 +61,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A CloudHub 2.0 app has 4 replicas in a private space and `updateStrategy` is not set. Which behaviour applies on redeploy?',
       options: [
         '`rolling`: replicas update incrementally, and this needs one additional replica\'s worth of resources',
@@ -69,6 +74,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'A team enables `enforceDeployingReplicasAcrossNodes`. Which limits follow, with N nodes?',
       options: [
         'With `rolling`, the maximum number of replicas is N minus 1',
@@ -81,6 +87,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A business group user has access to one business group but not to the parent organization. How should the deployment identify it?',
       options: [
         '`businessGroupId`, which the docs call mandatory in this case',

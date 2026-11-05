@@ -29,16 +29,16 @@ export default {
       explain: 'Rulesets are versioned and reusable assets, and can be combined with MuleSoft-provided ones (e.g. best practices, OWASP API security).',
     },
     {
-      type: 'multi',
-      prompt: 'How do you shift governance left into the developer workflow?',
+      type: 'single',
+      prompt: 'API Governance checks API specs against rulesets. You want a spec with rule errors to be stopped before it is published to Exchange, with no manual check. Where do you enforce this?',
       options: [
-        'Add rulesets as dependencies in API Designer / Code Builder so authors see violations while editing',
-        'Run governance validation in CI before publishing to Exchange and fail the build on errors',
-        'Make conformance a criterion for moving an asset to stable',
-        'Block non-conformant APIs at runtime via the gatekeeper',
+        'In CI, by running governance validation and failing the build on errors',
+        'At runtime, by blocking non-conformant APIs through the gatekeeper',
+        'After release, by reading conformance status in the governance console',
+        'In API Manager, by adding the rules to the API\'s policies',
       ],
-      answer: [0, 1, 2],
-      explain: 'Design-time governance does not stop running APIs; blocking happens where you enforce it, e.g. CI or promotion.',
+      answer: 0,
+      explain: 'Design-time governance does not stop running APIs; blocking happens where you enforce it, e.g. CI or promotion. Shifting left also means adding rulesets as dependencies in API Designer / Code Builder so authors see violations while editing, and making conformance a criterion for moving an asset to stable.',
     },
     {
       type: 'single',
@@ -66,6 +66,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which assets should be shared to the public developer portal?',
       options: [
         'All 60 assets, so partners can discover everything',

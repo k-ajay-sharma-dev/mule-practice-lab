@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A user with the **Read secrets metadata** permission opens a keystore in a secret group. What can they see?',
       options: [
         'Metadata about the secret, not the secret itself',
@@ -43,6 +44,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about secret groups are correct?',
       options: [
         'Secrets are stored per secret group, per environment and per business group',
@@ -55,6 +57,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'You want to use a stored TLS context for a Mule 4 HTTPS API proxy deployed from API Manager. Which settings does the page on HTTPS proxies call for?',
       options: [
         'Enable Secret Group Downloadable on the group, and set the TLS context target to Mule',
@@ -67,6 +71,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'You set the optional **Expiration Date** on a TLS context to next March. What changes?',
       options: [
         'Only metadata of the TLS context: the expiry of the certificates in the keystore or truststore does not change',

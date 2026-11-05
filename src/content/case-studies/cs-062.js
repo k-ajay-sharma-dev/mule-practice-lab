@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which requirement in this scenario most clearly points to a log-based event stream (Kafka) rather than a queue broker?',
       options: [
         'DC flows must keep running when the WAN link to the cloud is down',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A DC flow updates Oracle stock tables and must publish a stock-movement message only if the update commits. What is the best design recommendation?',
       options: [
         'Use Anypoint MQ inside an XA transaction with the Oracle Database connector',
@@ -32,11 +34,11 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which are valid reasons to keep a broker (ActiveMQ Artemis) running inside each distribution centre? (choose all that apply)',
+      prompt: 'A retailer is deciding whether to keep ActiveMQ Artemis, a JMS message broker, running inside each distribution centre (DC), or to use only cloud messaging. Which three are valid reasons to keep the local broker?',
       options: [
         'Picking and shipping must continue during a WAN outage',
-        'Local WMS and conveyor systems already use JMS and need low-latency messaging on the site network',
-        'Some legacy DC applications rely on JMS features such as message groups for ordered processing',
+        'Local WMS and conveyor systems need low-latency messaging on site',
+        'Legacy DC applications rely on JMS features such as message groups',
         'On-premises Mule runtimes cannot connect to Anypoint MQ',
         'Kafka cannot store messages for more than a few minutes',
       ],
@@ -45,6 +47,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each requirement to the best-fit messaging option in the proposed standard.',
       pairs: [
         ['Order hand-off between CloudHub apps with a DLQ and no infrastructure to run', 'Anypoint MQ queue'],

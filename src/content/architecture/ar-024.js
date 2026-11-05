@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is XA/2PC not viable for the subscription order?',
       options: [
         'Mule 4 does not support XA at all',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Orchestration or choreography for this saga?',
       options: [
         'Choreography: each system reacts to events, no central owner',
@@ -56,19 +58,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'How does the orchestrator survive a replica crash mid-saga?',
+      prompt: 'A saga is a long business process made of separate steps, each with its own undo action. A Mule orchestrator is halfway through one when its replica crashes. Which three things together let another replica resume the saga safely?',
       options: [
-        'A saga record per order in a durable DB, written before and after each step',
-        'Steps driven by queue messages so unfinished work is redelivered to another replica',
-        'Idempotent step calls (idempotency keys/external IDs) so re-execution is safe',
-        'A scheduler that finds sagas stuck past their timeout',
-        'Keeping saga state in flow variables',
+        'A saga record per order in a durable database, written before and after each step',
+        'Steps driven by queue messages, so unfinished work is redelivered to another replica',
+        'Idempotent step calls, so running a step a second time is safe',
+        'Saga state kept in flow variables, so every step can read it',
+        'An XA transaction held open across the HTTP calls, so a crash rolls them all back',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Flow variables die with the replica. Durable state, redelivery and idempotency together let any replica resume the saga.',
+      answer: [0, 1, 2],
+      explain: 'Durable state, redelivery and idempotency together let any replica resume the saga. Idempotency keys or external IDs make the repeat safe, and a scheduler can also find sagas stuck past their timeout. Flow variables die with the replica. XA does not help because HTTP services cannot join a transaction.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Cancelling the contract fails because billing is down. What happens?',
       options: [
         'Ignore it; the saga is over',

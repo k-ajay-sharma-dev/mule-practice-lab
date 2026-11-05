@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A config has `<secure-properties:encrypt/>` with no attributes. Which algorithm and mode does the module use?',
       options: ['AES and CBC', 'Blowfish and CBC', 'AES and ECB', 'DES and CFB'],
       answer: 0,
@@ -15,6 +16,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Is the `<secure-properties:encrypt>` tag needed if you want the default algorithm and mode?',
       options: [
         'Yes, the tag is required even with the default values',
@@ -39,6 +41,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match the Secure Properties Tool `<method>` to what it does.',
       pairs: [
         ['string', 'Encrypts one text value passed on the command line'],
@@ -48,20 +51,20 @@ export default {
       explain: 'With `file-level` the module also needs `fileLevelEncryption="true"`, available since version 1.1.0.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements are correct?',
+      type: 'single',
+      prompt: 'A secure properties file holds an encrypted `db.password` and a plain `db.host`. The team wants to swap a plain development file for an encrypted production file and change nothing else. How should the app read `db.host`?',
       options: [
-        'Use `secure::` to read every value in a secure properties file, even a value that is not encrypted',
-        'A trailing space after the closing `]` of `![value]` makes decryption fail',
-        'In YAML, encrypted values should be in quotes so they are read as strings',
-        'A secure property can depend on another secure property, but not on another Mule configuration property',
-        'Once a value is encrypted in the file, it cannot be seen on the running server',
+        '`${secure::db.host}`, because every value in the file is read with the prefix',
+        '`${db.host}`, because the prefix is only for encrypted values',
+        '`${secure::db.host}` in production and `${db.host}` in development',
+        '`${secure::db.host}`, but only after the value is encrypted too',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Decrypted values are stored in memory, and the docs warn that anyone who runs `ps` or views a Java console can see them. Encryption at rest does not replace securing the operating system.',
+      answer: 0,
+      explain: 'Read every value in a secure properties file through `secure::`, even a plain one, so files can be swapped between environments. Other rules apply to encrypted values. A trailing space after the closing `]` of `![value]` makes decryption fail, and in YAML the values should be in quotes. A secure property can depend on another secure property, but not on another Mule configuration property. Decrypted values are stored in memory, and the docs warn that anyone who runs `ps` or views a Java console can see them, so encryption at rest does not replace securing the operating system.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The same property is defined in two secure properties files, each with its own `<secure-properties:config>`. Which value is used?',
       options: [
         'The value where it is first defined',
@@ -74,6 +77,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where should the decryption key live?',
       options: [
         'Outside the application: the config uses `key="${runtime.property}"` and the value is supplied when the app is deployed',

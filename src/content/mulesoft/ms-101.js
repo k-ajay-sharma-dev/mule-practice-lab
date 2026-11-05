@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The OpenID Connect policy does not appear in the list of policies for an API. What do the docs say to check first?',
       options: [
         'That the OpenID client provider is configured in Access Management, and, with multiple client providers, that it is configured for the API',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each response from the OpenID Connect OAuth 2.0 Token Enforcement policy to its meaning.',
       pairs: [
         ['400', 'Invalid token'],
@@ -54,20 +56,20 @@ export default {
       explain: 'Step 4 is the one skipped by **Skip Client Id Validation**. The docs recommend keeping it so that the token is tied to an approved contract.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the token enforcement policies on Mule Gateway are correct?',
+      type: 'single',
+      prompt: 'A token enforcement policy on Mule Gateway has validated an access token, and the token has not expired. The security team now revokes it at the identity provider. What happens with default settings?',
       options: [
-        'They validate tokens only, they never issue them',
-        'A validated token is cached by default until it expires',
-        'If the validation endpoint returns no expiry information, the token is not cached',
-        'Each request calls Anypoint Platform to check the contract',
-        'With **Contains any scope**, a token needs at least one of the listed scopes',
+        'The next request fails, because every request calls the validation endpoint',
+        'The next request fails, because the provider notifies the gateway',
+        'The token stops at the next contract check with Anypoint Platform',
+        'The cached token can keep working until it expires',
       ],
-      answer: [0, 1, 2, 4],
-      explain: 'Contracts come from client applications previously retrieved by the runtime, so the policy keeps working if the connection to the management plane is lost. Caching differs on Omni Gateway: in Managed and Connected Mode the OpenID Connect policy has a Validated Token TTL field, 600 seconds by default.',
+      answer: 3,
+      explain: 'A validated token is cached by default until it expires, so revoking it at the provider does not stop it at once. If the validation endpoint returns no expiry information, the token is not cached. Contracts come from client applications previously retrieved by the runtime, so the policy keeps working if the connection to the management plane is lost. These policies validate tokens and never issue them, and with **Contains any scope** a token needs at least one of the listed scopes. Caching differs on Omni Gateway: in Managed and Connected Mode the OpenID Connect policy has a Validated Token TTL field, 600 seconds by default.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'You add Rate Limiting: SLA-Based after the OpenID Connect policy, and clients only send a bearer token. How do you configure it?',
       options: [
         'Client ID Expression `#[authentication.principal]`, and leave Client Secret Expression empty',
@@ -80,6 +82,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Your gateway is Omni Gateway (formerly Flex Gateway), and you want to validate tokens from an IdP with an introspection endpoint without registering that IdP in Anypoint Platform. Which policy fits?',
       options: [
         'OAuth 2.0 Token Introspection',
@@ -92,6 +95,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'With **Expose Headers** on, a validation response has `uid`, `mail`, `token_type`, `exp` and an `address` object. What reaches the backend through the HTTP requester of a proxy?',
       options: [
         'X-AGW-uid, X-AGW-mail and X-AGW-token_type; objects, arrays and exp are not propagated',

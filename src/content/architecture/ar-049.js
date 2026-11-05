@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which of these are System APIs?',
       options: [
         '#1 Core-banking balances (mainframe via MQ) as REST/JSON',
@@ -22,6 +23,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which of these are Process APIs?',
       options: [
         '#2 Relationship view combining accounts, cards and loans',
@@ -35,6 +37,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each API to its layer and reason.',
       pairs: [
         ['#3 Mobile home screen with promo banner', 'Experience — shaped for one channel'],
@@ -46,6 +49,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'API #4 is changed to also read the core-banking customer record and merge it with Salesforce. What is it now?',
       options: [
         'Still a System API',
@@ -58,6 +62,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which pair is the MOST and the LEAST likely to be reused?',
       options: [
         'Most: #3 home screen · Least: #1 balances',
@@ -70,6 +75,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: '#9 eligibility is currently used only inside #5. When does it deserve to be its own Process API?',
       options: [
         'Never — rules always belong inside orchestration',

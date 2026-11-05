@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The job used default settings and stopped after the **first** bad record. Why?',
       options: [
         'The default `maxFailedRecords` is 0, so the first failure stops the job',
@@ -48,6 +49,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The calling flow logged "job finished" right after the Batch Job scope. Why was that wrong?',
       options: [
         'The Batch Job runs asynchronously; the flow continues immediately with a `BatchJobInstance`',
@@ -60,6 +62,8 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which settings are real throughput / memory levers for this job?',
       options: [
         '`blockSize` (default 100)',

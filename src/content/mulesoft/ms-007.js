@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is `attributes.uriParams.id` null when the Database Select runs?',
       options: [
         'The HTTP Request replaced the whole message — payload and attributes — with the System API response',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which are valid ways to keep the request params available for the Choice router?',
       options: [
         'Set variables (`customerId`, `includeOrders`) right after the Listener and use `vars.*` later',

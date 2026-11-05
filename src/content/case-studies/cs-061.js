@@ -33,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Both chains buy from the same 300 national suppliers, each with its own EDI setup. What is the best approach for purchase orders during coexistence?',
       options: [
         'Ask every supplier to accept POs from both ERPs indefinitely',
@@ -45,6 +46,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which controls reduce the risk of moving acquired stores to group distribution centres? (choose all that apply)',
       options: [
         'Move stores in regional waves, each with a rollback plan to the old DC',
@@ -69,6 +71,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Halfway through, the board asks to accelerate by six months. Which response best reflects good architectural governance?',
       options: [
         'Agree, and skip the shadow-mode replenishment runs in the remaining waves',

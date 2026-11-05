@@ -19,16 +19,16 @@ export default {
       explain: 'Each system and each consumer maps once to the shared model, instead of every pair having its own mapping.',
     },
     {
-      type: 'multi',
-      prompt: 'What are the real costs of one enterprise-wide Canonical Customer?',
+      type: 'single',
+      prompt: 'An architect proposes one enterprise-wide Canonical Customer, a shared data model that every API must speak. B2B accounts, individuals and billing entities all count as customers in different systems. What is the main risk of this proposal?',
       options: [
-        'Agreeing one definition for B2B accounts, individuals and billing entities is slow and political',
-        'The model grows to the union of all fields, mostly optional, with unclear semantics',
-        'Every change needs cross-team coordination, so teams start bypassing it',
-        'It makes replacing a backend impossible',
+        'Consumers become coupled to the field names of each backend',
+        'The model fills up with optional fields of unclear meaning',
+        'Replacing a backend system becomes impossible',
+        'Mappings multiply, because each pair of systems needs its own',
       ],
-      answer: [0, 1, 2],
-      explain: 'A shared model actually makes backend replacement easier. Its costs are governance and bloat, especially with no data team to own it.',
+      answer: 1,
+      explain: 'The costs of one enterprise model are governance and bloat. Agreeing one definition is slow and political, the model grows to the union of all fields, most of them optional, and every change needs cross-team coordination, so teams start bypassing it. A shared model actually makes backend replacement easier, reduces mappings and hides system fields from consumers.',
     },
     {
       type: 'single',
@@ -44,6 +44,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each layer to the model it exposes in the "canonical per domain" recommendation.',
       pairs: [
         ['System APIs', 'Each system\'s data, cleaned but still system-shaped'],
@@ -54,6 +55,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How are KUNNR, the Salesforce Account Id and customer_ref linked to one customer?',
       options: [
         'Each consumer keeps its own mapping table',

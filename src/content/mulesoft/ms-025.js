@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do CloudHub 2.0 apps reach the on-prem policy and claims systems?',
       options: [
         'Deploy into a private space connected to the data centre via IPsec VPN or AWS Transit Gateway, with firewall rules for the space CIDR',
@@ -53,16 +54,16 @@ export default {
       explain: 'A private space is still MuleSoft-hosted in AWS. RTF on the on-prem cluster keeps the data inside the network and fits the team Kubernetes skills.',
     },
     {
-      type: 'multi',
-      prompt: 'Which are real trade-offs of the mixed CloudHub 2.0 + RTF recommendation?',
+      type: 'single',
+      prompt: 'A company runs some Mule apps on CloudHub 2.0 and others on Runtime Fabric (RTF), which runs on its own Kubernetes cluster. Which cost does this mix really add?',
       options: [
-        'Two deployment targets mean two capacity models and runbooks',
-        'The team must keep the Kubernetes cluster and RTF components supported and upgraded',
-        'The VPN / Transit Gateway becomes critical path for on-prem calls',
-        'Apps must be rewritten differently for each target',
+        'Two capacity models and two sets of runbooks',
+        'App code rewritten differently for each target',
+        'A separate CI/CD toolchain for each target',
+        'A separate set of API Manager policies for each target',
       ],
-      answer: [0, 1, 2],
-      explain: 'Ideally app code is identical across targets — only deployment configuration changes. Avoid target-specific features like domains to stay portable.',
+      answer: 0,
+      explain: 'Two deployment targets mean two capacity models and runbooks, which shared pipeline templates help with. The team must also keep the Kubernetes cluster and RTF components supported and upgraded, and a VPN or Transit Gateway becomes critical path for on-prem calls. Ideally app code is identical across targets and only deployment configuration changes, and the same CI/CD and API Manager policies serve both. Avoid target-specific features like domains to stay portable.',
     },
   ],
   description: `

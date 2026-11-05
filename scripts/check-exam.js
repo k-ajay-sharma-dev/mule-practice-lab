@@ -25,6 +25,11 @@ const seen = new Set(['a:0', 'a:1', 'a:2'])
 assert.deepEqual(chooseQuestions([problem('a', 4)], 1, seen), [{ id: 'a', q: 3 }])
 assert.equal(chooseQuestions([problem('a', 4)], 4, seen).length, 4)
 
+// a filter leaves questions out, and the numbering stays that of the whole quiz
+const flagged = { id: 'm', quiz: [{ ...single, detail: true }, single, { ...single, detail: true }] }
+assert.deepEqual(chooseQuestions([flagged], 3, new Set(), Math.random, (q) => !q.detail), [{ id: 'm', q: 1 }])
+assert.equal(chooseQuestions([flagged], 3).length, 3)
+
 // scoring
 const questions = [single, multi, order, match]
 const items = questions.map((_, q) => ({ id: 'x', q }))

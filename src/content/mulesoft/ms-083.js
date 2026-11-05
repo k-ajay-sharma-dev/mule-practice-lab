@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Kafka listener ack mode to its documented behaviour.',
       pairs: [
         ['AUTO', 'Commits if the flow finishes successfully'],
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Where does the Commit operation get its required Consumer Commit Key on a Batch Listener?',
       options: [
         'From the Consumer Context attribute of the Batch Listener',
@@ -54,16 +56,16 @@ export default {
       explain: 'Consume defaults to IMMEDIATE ack and does not return the key. If the flow must control the commit, use a Message Listener or a Batch Listener.',
     },
     {
-      type: 'multi',
-      prompt: 'A team compares the Message Listener with the Batch Listener. Which statements are correct?',
+      type: 'single',
+      prompt: 'A Mule app loads Kafka events into a data warehouse, where the bulk load is much cheaper in groups. Which source fits, and why?',
       options: [
-        'The Message Listener produces a single record; the Batch Listener produces a list of records',
-        'With a Batch Listener, Commit covers the list of messages',
-        'Both have an Amount of parallel consumers setting that defaults to 1',
-        'The Batch Listener supports configurable streaming strategies; the Message Listener does not',
+        'Batch Listener, because each flow receives a list of records',
+        'Message Listener, because each flow receives a list of records',
+        'Batch Listener, because it has configurable streaming strategies',
+        '`kafka:consume` on a Scheduler, because it returns the commit key',
       ],
-      answer: [0, 1, 2],
-      explain: 'The last statement is the wrong way round: the Message Listener has a Streaming Strategy, and the Batch Listener does not support configurable streaming strategies.',
+      answer: 0,
+      explain: 'The Batch Listener produces a list of records, and Commit covers that list. The Message Listener produces a single record. Both have an Amount of parallel consumers setting that defaults to 1. The Message Listener has a Streaming Strategy, and the Batch Listener does not support configurable streaming strategies. `kafka:consume` does not return the commit key.',
     },
     {
       type: 'single',

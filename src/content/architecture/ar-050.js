@@ -7,21 +7,20 @@ export default {
   estMinutes: 20,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which Exchange asset names follow a good layer-system-entity convention?',
+      type: 'single',
+      prompt: 'A company names Exchange assets with the pattern `<layer>-<system or domain>-<entity>-api`, and only System APIs keep the system name. Its order fulfilment Process API runs on top of SAP. Which asset name follows the standard?',
       options: [
-        'sys-sap-order-api',
-        'prc-order-fulfilment-api',
-        'exp-mobile-api',
-        'prc-sap-order-api',
-        'order-api-v2',
-        'sys-sap-order-api-prod',
+        '`prc-order-fulfilment-api`',
+        '`prc-sap-order-fulfilment-api`',
+        '`prc-order-fulfilment-api-v2`',
+        '`prc-order-fulfilment-api-prod`',
       ],
-      answer: [0, 1, 2],
-      explain: 'Process names must be backend-agnostic (no "sap"), the major version belongs in the asset version and base path, and the environment is never part of the asset name.',
+      answer: 0,
+      explain: 'Process names must be backend-agnostic, so "sap" does not belong. The major version belongs in the asset version and base path, and the environment is never part of the asset name. System API names do keep the system, as in `sys-sap-order-api`, and Experience API names show the consumer, as in `exp-mobile-api`.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The Order System API needs a breaking change. How is v2 published?',
       options: [
         'As a new Exchange asset called sys-sap-order-api-v2',
@@ -46,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which System API resource is modelled best?',
       options: [
         'GET /bapi-salesorder-getlist',

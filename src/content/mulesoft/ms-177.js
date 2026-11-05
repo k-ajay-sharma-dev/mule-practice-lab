@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A hybrid server group has four servers. How is Anypoint Monitoring installed?',
       options: [
         'On each individual server, and in a server group you then use Runtime Manager to restart the server so that it starts collecting metrics',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each point to the Anypoint Monitoring agent installer version.',
       pairs: [
         ['Outbound to `us1.ingest.mulesoft.com:8443`', '3.x installer'],
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'When must you reinstall the Anypoint Monitoring agent on a hybrid server?',
       options: [
         'When you upgrade the Runtime Manager agent',
@@ -44,6 +47,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'You finished the install and want to confirm that it works. What is the documented check?',
       options: [
         'Wait 10 minutes, open an app in Anypoint Insights, go to the JVM tab, and check that CPU Utilization and Memory Utilization show data',
@@ -56,6 +61,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Runtime Fabric telemetry fact to its documented value.',
       pairs: [
         ['Metrics cached per replica when the connection is interrupted', 'Up to 100 MB, typically at least four days'],
@@ -68,6 +74,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which rules apply to sending Runtime Fabric logs to Splunk with a custom Log4j configuration?',
       options: [
         'Custom Log4j is disabled by default and must be enabled, for example in `Values.yaml` or the `custom-properties` secret',
@@ -81,6 +88,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A custom metric uses several dimensions. How many unique combinations of dimension values does Anypoint Monitoring support?',
       options: [
         'Up to 100; lower-volume combinations beyond that are grouped under a single Other category',
@@ -93,6 +101,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Order IDs are mixed-case strings, and a dashboard counts `/orders/aBcDe/items` and `/orders/kLmNo/items` as separate endpoints. What should you look at?',
       options: [
         'Path normalization: the default replaces segments with digits or all uppercase, and `anypoint.platform.config.analytics.endpoint.patterns` sets a custom pattern',

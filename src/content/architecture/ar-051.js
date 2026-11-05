@@ -19,6 +19,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In case D, will adding `prc-order-status-api` next year be a breaking change for the partner?',
       options: [
         'Yes — the partner must migrate to a new API',
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In case B, why not put the aggregation of SAP, PIM and WMS inside the mobile Experience API?',
       options: [
         'Experience APIs cannot call more than one API',
@@ -54,21 +56,20 @@ export default {
       explain: 'The skip is fine while there is no orchestration or rule; it becomes a problem when logic starts to accumulate in the Experience layer.',
     },
     {
-      type: 'multi',
-      prompt: 'Which rules belong in the board\'s decision policy?',
+      type: 'single',
+      prompt: 'An architecture board is writing a policy for when teams may skip a layer in API-led design. When should a team build a Process API?',
       options: [
-        'Build a System API for a system of record consumed (or plausibly consumed) by more than one integration',
-        'Build a Process API only for orchestration, cross-system aggregation or business rules shared by more than one consumer',
-        'Build an Experience API when the consumer is external, needs a different security model or a materially different shape',
-        'Record every skip in an ADR and revisit when a second consumer or system appears',
-        'Every integration must always have all three layers',
-        'External partners may call System APIs directly to save a hop',
+        'For every integration, even when the API would only forward the calls',
+        'In front of every System API, so that nothing calls a System API directly',
+        'For orchestration, cross-system aggregation or rules shared by several consumers',
+        'Only when the consumer is external or needs a materially different shape',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The default is "build a layer only when it has a responsibility", with skips documented as decisions — not accidents. External consumers still deserve an Experience boundary.',
+      answer: 2,
+      explain: 'The default is "build a layer only when it has a responsibility". A Process API that only forwards calls adds latency, cost and maintenance with no benefit. The same policy says to build a System API for a system of record consumed (or plausibly consumed) by more than one integration, and an Experience API when the consumer is external, needs a different security model or needs a materially different shape. Record every skip in an ADR and revisit it when a second consumer or system appears, so skips are decisions and not accidents. External consumers still deserve an Experience boundary.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What does "API-led is logical, not physical" mean here?',
       options: [
         'Layers exist only on diagrams and need no contracts',

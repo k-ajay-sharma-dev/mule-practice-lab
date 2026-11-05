@@ -30,6 +30,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is `maxConcurrency=1000` a bad idea here?',
       options: [
         'It adds no capacity — more events block on the same slow JDBC call, using memory and exhausting DB connections',
@@ -52,6 +53,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which fixes address the actual bottleneck?',
       options: [
         'Replace the JDBC inside the library with the Database connector (BLOCKING_IO, pooling, query timeout), or bound the call with a timeout',
@@ -64,6 +66,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Since Mule 4.3, what is the default thread pool strategy?',
       options: [
         'A single UBER pool shared by all processing types',

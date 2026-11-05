@@ -31,7 +31,7 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What may the external error body contain?',
+      prompt: 'An Experience API returns an error to a mobile app after SAP fails behind it. Which three things may the error body contain?',
       options: [
         'A stable error `code`',
         'A safe, human-readable `message`',
@@ -40,7 +40,7 @@ export default {
         'The SAP message text and backend hostname',
       ],
       answer: [0, 1, 2],
-      explain: 'Internal details are logged with the correlation id, not returned to external consumers.',
+      explain: 'External consumers get a stable `code`, a safe `message` and the `correlationId`. Internal details are logged with the correlation id, not returned to them.',
     },
     {
       type: 'single',

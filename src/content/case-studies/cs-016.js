@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each CloudHub 1.0 feature to how you handle it on CloudHub 2.0.',
       pairs: [
         ['Workers', 'Replicas (size and count)'],
@@ -55,19 +56,19 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which items must you check in each app before moving it?',
+      prompt: 'You are moving a Mule app from CloudHub 1.0 to CloudHub 2.0. Which three things must you check in the app before the move?',
       options: [
         'It listens on the port property the platform expects, not a hard-coded port',
         'Whether it uses CloudHub persistent queues',
-        'Log forwarding and retention still meet needs',
-        'API Manager autodiscovery points to the new deployment after cutover',
-        'Its DataWeave scripts must be rewritten in DataWeave 1.0',
+        'Whether log forwarding and retention still meet needs',
+        'Whether its DataWeave scripts must be converted to a different DataWeave version',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Ports, persistent queues, logging and API Manager pairing all change with the platform. DataWeave versions are unrelated to the CloudHub move — Mule 4 apps already use DataWeave 2.0.',
+      answer: [0, 1, 2],
+      explain: 'Ports, persistent queues and logging all change with the platform. After cutover, API Manager autodiscovery must also point to the new deployment. DataWeave versions are unrelated to the CloudHub move, because Mule 4 apps already use DataWeave 2.0.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you sequence the waves of ~10 apps?',
       options: [
         'Pilot 2–3 low-risk internal apps first, then group waves by dependency, migrating System APIs before the APIs that call them',

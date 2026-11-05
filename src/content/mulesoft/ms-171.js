@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A standalone Mule 4.9 instance runs 14 apps. How many UBER pools does it have with default settings, and who uses them?',
       options: [
         'One pool, managed by Mule and shared across all apps in the instance',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which are the documented default values of the UBER strategy?',
       options: [
         '`org.mule.runtime.scheduler.uber.threadPool.coreSize=cores`',
@@ -33,6 +35,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An operator changes `MULE_HOME/conf/schedulers-pools.conf` to suit one app on a shared instance. What is the scope of the change?',
       options: [
         'The configuration is global and affects the entire Mule instance',
@@ -57,6 +60,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A log line shows the thread `[MuleRuntime].uber.07: [echo].echoFlow.CPU_LITE @63e7e52c`. What does it tell you?',
       options: [
         'The thread is number 07 of the UBER pool, the app is `echo`, the flow is `echoFlow`, and the work is CPU_LITE',
@@ -92,6 +96,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'After a move to Mule 4.9, a consultant wants to keep the custom pool values from a Mule 4.2 instance. What is the documented advice?',
       options: [
         'Test the apps with default settings first; if a custom setup still seems necessary, suspect a resource management problem, and try customising UBER before reverting to DEDICATED',

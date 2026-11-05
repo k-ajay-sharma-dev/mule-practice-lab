@@ -7,20 +7,20 @@ export default {
   estMinutes: 35,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which requirements rule out a CloudHub 2.0 shared space and need a private space?',
+      type: 'single',
+      prompt: 'CloudHub 2.0 runs apps in a shared space or in a private space. A team wants to stay on a shared space. Which requirement can it still meet there?',
       options: [
         'A vanity domain such as `api.example.com`',
-        'A custom certificate',
-        'A VPN or Transit Gateway attachment to the data centre',
-        'Static application source IP addresses',
+        'A VPN or Transit Gateway link to the data centre',
         'Running more than one replica of an app',
+        'Static application source IP addresses',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Single-tenancy and private endpoints also need a private space. A shared space suits apps that can use `cloudhub.io`, need no custom certificates and need no connection to a data centre.',
+      answer: 2,
+      explain: 'The replica count does not decide the space. Vanity domains, custom certificates, VPN or Transit Gateway attachments and static application source IP addresses all need a private space, and so do single-tenancy and private endpoints. A shared space suits apps that can use `cloudhub.io`, need no custom certificates and need no connection to a data centre.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An internal HR API on a private space must never be reachable from the internet. What is the documented way?',
       options: [
         'Remove the external endpoint and use the internal endpoint, which is reachable only within the private network, VPN or Transit Gateway',
@@ -45,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Security requires traffic to stay encrypted from the ingress layer to the app. What must be done?',
       options: [
         'Enable Last-Mile Security on the Ingress tab, and configure the app to listen on HTTPS with a certificate',
@@ -69,6 +70,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each CloudHub 2.0 limit to its value.',
       pairs: [
         ['Read-request timeout (hardcoded)', '300 seconds'],
@@ -81,6 +83,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A TLS context truststore with hundreds of partner certificates is rejected. What is the documented limit?',
       options: [
         'There is no limit on the number of client certificates, but the truststore file has a maximum size of 40960 bytes (40 KB)',

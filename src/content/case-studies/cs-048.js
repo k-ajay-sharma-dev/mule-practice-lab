@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The CFO asks "What have we got for this money?". Which headline best answers it?',
       options: [
         '"We built 52 APIs in 18 months."',
@@ -46,6 +47,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the one-page presentation for leadership.',
       items: [
         'Business outcomes: what was launched and how fast',

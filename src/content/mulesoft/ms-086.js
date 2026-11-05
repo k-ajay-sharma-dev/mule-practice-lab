@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Trade confirmations are published with `jms:publish` and the config uses its defaults. Operations expects them to survive a broker restart. What should you check first?',
       options: [
         'Persistent Delivery, because the connector config default is false',
@@ -20,6 +21,8 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each publish setting to its connector config default.',
       pairs: [
         ['Persistent Delivery', 'false'],
@@ -64,6 +67,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Consuming a Java `ObjectMessage` on ActiveMQ 5.15 fails after an upgrade. What is the right fix on the ActiveMQ factory?',
       options: [
         'List the needed packages in trustedPackages',
@@ -76,6 +80,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about redelivery settings on the ActiveMQ factory are correct?',
       options: [
         '`maxRedelivery` defaults to 0, which means no redelivery',

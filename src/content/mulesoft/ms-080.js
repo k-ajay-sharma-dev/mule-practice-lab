@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Email connector connection type to its port as listed in the connector documentation.',
       pairs: [
         ['SMTP', '25'],
@@ -42,6 +43,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A legacy host offers POP3 only. After a message is processed it must not be picked up again. What do you configure?',
       options: [
         'Delete after retrieve on the POP3 listener',
@@ -54,6 +56,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'The claims team needs mail to be processed and then filed in a `Processed` folder, with a watermark on polling. Which of these are available with an IMAP configuration but not with POP3?',
       options: [
         'email:move-to-folder',

@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A job has only 90 records with heavy processing per record. What happens with the default block size?',
       options: [
         'Processing is sequential, because fewer than 101 records form a single block',
@@ -44,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An app on Runtime Fabric has 0.5 vCPU. Which statement about the default batch `maxConcurrency` is correct?',
       options: [
         'It defaults to twice the cores that the JVM detects, and on fractional core deployments the JVM detects a non-fractional number, so the default can be higher than the allocation suggests',
@@ -56,6 +58,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each streaming strategy to its documented default and overflow behaviour.',
       pairs: [
         ['Repeatable file-store stream (Mule EE default)', '512 KB in memory, then a temporary file on disk'],
@@ -79,6 +82,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A frequently triggered batch app starts failing with `No space left on device`. Which setting does the docs page point to?',
       options: [
         'A Batch Job History configuration, to shorten how long instance history stays in a temporary Mule directory (default 7 days)',
@@ -91,6 +95,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about moving a large batch app to Java 17 are documented?',
       options: [
         'Heap usage can remain at a higher baseline or not fall immediately after load, and this is expected',

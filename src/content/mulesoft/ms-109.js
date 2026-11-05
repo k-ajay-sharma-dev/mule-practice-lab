@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each API instance setting to its meaning.',
       pairs: [
         ['Consumer endpoint', 'The address consumers use to send requests'],
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An instance uses asset version 1.4.0. A new 2.0.0 is published to Exchange with a new API version. How do you move to it?',
       options: [
         'Create a new API instance, because the asset version can only change within the same major version',
@@ -42,20 +44,20 @@ export default {
       explain: 'The asset version of an instance can be upgraded or downgraded only within one major version. For a different major version, the docs say to create a new instance.',
     },
     {
-      type: 'multi',
-      prompt: 'An instance is promoted from Sandbox to Production. Which statements are correct?',
+      type: 'single',
+      prompt: 'An API instance in API Manager is promoted from Sandbox to Production. A Mule app already runs in Production and must use the promoted instance. What has to happen?',
       options: [
-        'The API label stays the same and the API Instance ID changes',
-        'Deployed applications are not changed by the promotion',
-        'An app that must use the promoted instance needs its API Instance ID updated',
-        'The app also needs the client ID and secret of the new environment',
-        'Production apps are switched to the new instance automatically',
+        'Update the app with the new API Instance ID and the Production client ID and secret',
+        'Nothing, because promotion switches the app to the new instance automatically',
+        'Nothing, because the API Instance ID stays the same after promotion',
+        'Update the app with the new API label, because only the label changes',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Promotion affects only the API definition, and not deployed applications. Each environment has its own client ID and secret, so both the ID and the credentials must be updated in the app.',
+      answer: 0,
+      explain: 'The API label stays the same and the API Instance ID changes. Promotion affects only the API definition, and not deployed applications. Each environment has its own client ID and secret, so both the ID and the credentials must be updated in the app.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Gatekeeper level to its behaviour.',
       pairs: [
         ['strict', 'If connectivity to Anypoint Platform is lost while engaged, the resource stays blocked until the connection returns'],
@@ -66,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A running API on Mule 4.9 is healthy. When does Gatekeeper block requests without a restart?',
       options: [
         'While a policy configuration is being edited; it does not block when only the policy order is edited',

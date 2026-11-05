@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In the blameless review, which statement best separates the **trigger** from the **root cause**?',
       options: [
         'Trigger: the address-validation API slowed down. Root cause: it was called synchronously on the checkout critical path with a 60 s timeout and no fallback.',
@@ -19,21 +20,20 @@ export default {
       explain: 'Third parties will always slow down sometimes — that is only the trigger. The outage happened because the design let an unessential dependency hold checkout threads for up to 60 s with no fallback. Blaming the vendor or the engineer misses what the team can fix.',
     },
     {
-      type: 'multi',
-      prompt: 'Which contributing factors turned a slow dependency into a 5-hour outage?',
+      type: 'single',
+      prompt: 'A checkout API calls a third-party service synchronously with a 60 s timeout. The service slows from 200 ms to 30 s per response, and checkout stops responding. What is the direct cause inside the Mule app?',
       options: [
-        'A 60 s timeout let slow calls hold worker threads until they were exhausted',
-        '`customer-sapi` was co-deployed in the same application as `checkout-papi`, so it failed too',
-        'The web app retried aggressively, adding load to an already saturated API',
-        'Alerts fired only on CPU, which stayed low, so detection took 50 minutes',
-        'The address-validation API used REST instead of SOAP',
-        'Mule 4 cannot set response timeouts on HTTP Request operations',
+        'Slow calls hold worker threads until none are left',
+        'Worker CPU reaches its limit, so requests queue up',
+        'Mule 4 cannot set response timeouts on HTTP requests',
+        'The third-party service uses REST instead of SOAP',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Long timeouts, the shared deployment (no bulkhead), retry amplification and symptom-blind alerting all made it worse. The protocol of the vendor API is irrelevant, and Mule 4 HTTP requests do support explicit response timeouts — the team simply set a very long one.',
+      answer: 0,
+      explain: 'A long timeout lets slow calls hold worker threads until they are exhausted. CPU stayed low in this outage, Mule 4 HTTP requests do support explicit response timeouts (a very long one was set), and the protocol of the vendor API is irrelevant. Other factors made the outage worse: a co-deployed `customer-sapi` failed too (no bulkhead), aggressive web app retries added load, and alerts fired only on CPU, so detection took 50 minutes.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the best **immediate** fix for the address-validation call?',
       options: [
         'Raise the timeout to 120 s so slow responses still succeed',
@@ -46,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why did restarting the application only help for a few minutes each time?',
       options: [
         'The restart cleared a memory leak that came back after a few minutes',
@@ -58,6 +59,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each resilience standard to the failure mode it addresses in this incident.',
       pairs: [
         ['Circuit breaker on unstable dependencies', 'Stop calling a dependency that is already failing or slow'],
@@ -69,6 +71,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Put the 6-month resilience programme in a sensible order, given peak trading starts in 3 months.',
       items: [
         'Blameless post-incident review with causes and contributing factors',
@@ -80,18 +83,16 @@ export default {
       explain: 'Understand first, then remove the exact failure quickly, then protect what matters most before peak, then broaden. The monthly review keeps the programme measurable after the big push.',
     },
     {
-      type: 'multi',
-      prompt: 'Which metrics would you report to leadership to show resilience is improving?',
+      type: 'single',
+      prompt: 'In a Mule outage, nobody was paged for 50 minutes, because alerts watched only CPU and CPU stayed low. Which metric shows leadership whether this detection gap is closing?',
       options: [
-        'SLO attainment for critical APIs',
-        'Time to detect (target under 5 minutes)',
-        'Time to recover',
-        'Percentage of critical APIs compliant with the resilience checklist',
         'Number of Mule applications deployed',
         'Average CPU utilisation of all workers',
+        'Number of restarts during each incident',
+        'Time to detect an incident',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Leadership needs outcome and coverage metrics. App count says nothing about resilience, and CPU is the very signal that stayed green during this outage.',
+      answer: 3,
+      explain: 'Time to detect measures the gap directly, and the programme target is under 5 minutes. Leadership also needs SLO attainment for critical APIs, time to recover, and the percentage of critical APIs compliant with the resilience checklist. App count says nothing about resilience, restarts did not address the cause, and CPU is the very signal that stayed green during the outage.',
     },
   ],
   description: `

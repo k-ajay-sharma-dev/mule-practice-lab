@@ -7,16 +7,16 @@ export default {
   estMinutes: 15,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'An in-memory (`persistent="false"`) object store is used on CloudHub 2.0 with 2 replicas, without clustering. What are the consequences?',
+      type: 'single',
+      prompt: 'A Mule app runs on CloudHub 2.0 with 2 replicas and no clustering. It keeps processed message IDs in an object store with `persistent="false"` to catch duplicates, but some duplicates get through. Why?',
       options: [
-        'Entries are lost on restart or redeploy',
-        'Each replica has its own separate copy of the entries',
-        'Entries are automatically synced to Object Store v2 every minute',
-        'An ID stored on replica A is unknown to replica B',
+        'Each replica has its own entries, so an ID stored on one is unknown to the other',
+        'Entries reach Object Store v2 on a delay, so new IDs are missed for a while',
+        'Entries expire as soon as the flow that stored them has finished',
+        'Both replicas share one store, but their writes overwrite each other',
       ],
-      answer: [0, 1, 3],
-      explain: 'In-memory stores live in the replica JVM heap: not shared, not durable. That explains both the full re-send after redeploy and the duplicates slipping through on one replica.',
+      answer: 0,
+      explain: 'In-memory stores live in the replica JVM heap: not shared and not durable. So an ID stored on replica A is unknown to replica B, which lets duplicates through. Entries are also lost on restart or redeploy, and nothing syncs them to Object Store v2.',
     },
     {
       type: 'match',
@@ -53,15 +53,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Which statement about Object Store v2 is accurate?',
+      prompt: 'A developer plans to keep order records in Object Store v2 and to search them by customer from a high-throughput flow. Why is that a poor fit?',
       options: [
-        'It is a database that supports queries across keys',
-        'Every operation is a remote call, and there are limits on retention, value size and request rate',
-        'Entries never expire unless you call `os:remove`',
-        'Persistent stores are shared by every application in the business group by default',
+        'Entries never expire, so the store fills up unless you call `os:remove`',
+        'Its entries are visible to every app in the business group by default',
+        'It is a key-value service with no queries across keys, and every call is remote',
+        'Its entries are lost each time the app is redeployed',
       ],
-      answer: 1,
-      explain: 'OSv2 is a key-value service with a maximum TTL of 30 days, per-value size and rate limits. Persistent stores are scoped to the application; other apps need the Object Store REST API.',
+      answer: 2,
+      explain: 'OSv2 is a key-value service, not a database, and every operation is a remote HTTP call. It has a maximum TTL of 30 days, plus per-value size and rate limits. Persistent stores are scoped to the application and survive redeploys; other apps need the Object Store REST API.',
     },
   ],
   description: `

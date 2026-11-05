@@ -7,20 +7,20 @@ export default {
   estMinutes: 30,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which statements about an asset version in the `development` state are correct?',
+      type: 'single',
+      prompt: 'A developer publishes an Exchange asset version in the `development` lifecycle state, then tries to select it in API Manager. What happens?',
       options: [
-        'Republishing the same GAV overwrites its files, dependencies and keywords',
-        'It is not shown on the public portal',
-        'API Manager and Anypoint Studio do not consume it',
-        'Deleting it is always a hard delete',
-        'Republishing it also overwrites its tags and documentation pages',
+        'API Manager offers it, and marks it as unfinished',
+        'API Manager offers it, and locks it against overwrites',
+        'Exchange promotes it to `stable` once it is selected',
+        'API Manager does not offer it until it is `stable`',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Files, dependencies and keywords are overwritten. Asset type, tags, categories, custom fields and documentation pages are not. Development versions are for iteration, so other platform products do not use them.',
+      answer: 3,
+      explain: 'Development versions are for iteration, so other platform products such as API Manager and Anypoint Studio do not consume them. Promote the version to `stable` first. A `development` version is also not shown on the public portal, and deleting it is always a hard delete. Republishing the same GAV overwrites files, dependencies and keywords, but not asset type, tags, categories, custom fields or documentation pages.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team publishes 1.3.0 as `stable` and finds a mistake in a response example an hour later. It wants to republish 1.3.0 with the fix. What happens?',
       options: [
         'A stable version cannot be republished or overwritten, so it must publish a new version such as 1.3.1',
@@ -33,6 +33,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each deletion to its result, with default settings.',
       pairs: [
         ['Delete a development version', 'Always a hard delete, whatever its age'],
@@ -43,6 +44,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A pipeline republishes version 2.1.0, which was deleted a month ago, and Exchange returns `409 Conflict: There is a deleted asset with the same version number.` Which is a documented way forward?',
       options: [
         'Publish at the next free version, or enable GAV reuse and hard-delete that version before republishing',
@@ -55,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: '`orders-api` is in `development` and depends on `common-types`, also in `development`. The team tries to promote `orders-api` to `stable`. What happens?',
       options: [
         'Exchange does not allow it until the dependency is promoted to stable first',
@@ -79,6 +82,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Who can move a version to `deprecated`?',
       options: [
         'Administrators; contributors can only promote to development and stable',

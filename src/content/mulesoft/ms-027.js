@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each item to the folder it belongs in.',
       pairs: [
         ['Flow XML files', '`src/main/mule`'],
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What does `pom.xml` declare as the packaging of a Mule application?',
       options: ['`mule-application`', '`jar`', '`mule-domain`', '`mule-plugin`'],
       answer: 0,
@@ -38,6 +40,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which fields belong in `mule-artifact.json`?',
       options: [
         '`minMuleVersion`',
@@ -50,6 +53,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: '`db.password` shows in clear text in Runtime Manager Properties for an app on CloudHub 1.0. What masks it there?',
       options: [
         'Listing `db.password` under `secureProperties` in `mule-artifact.json`',

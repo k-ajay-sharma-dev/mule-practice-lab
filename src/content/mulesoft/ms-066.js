@@ -32,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What is the `idColumn` of the db:listener for?',
       options: [
         'To avoid processing the same row twice while it is still being processed (e.g. when polls overlap)',

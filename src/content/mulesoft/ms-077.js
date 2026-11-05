@@ -43,19 +43,20 @@ export default {
       explain: 'A SAS token carries its own start and expiry time; after expiry Azure rejects the request with 403 AuthenticationFailed. Track expiry dates and rotate tokens ahead of time.',
     },
     {
-      type: 'multi',
-      prompt: 'An app archives video evidence files of up to 2 GB from SFTP to Azure Blob. Which practices help?',
+      type: 'single',
+      prompt: 'A Mule app copies large video files from an SFTP server to Azure Blob Storage, and big uploads crash the worker. Which change fixes that?',
       options: [
-        'Keep the content as a stream from sftp:read to the Upload Blob operation, without transforming it in DataWeave',
-        'Avoid logging or converting the payload (for example to Base64 or a String) on the way',
-        'Store metadata (case id, hash, size) in the index database, not in the file content',
-        'Load the file into a Java byte array first so the upload is faster',
+        'Keep the content as a stream from `sftp:read` to Upload Blob',
+        'Convert the payload to Base64 before the upload',
+        'Log the payload so that failed uploads can be traced',
+        'Load the file into a Java byte array before the upload',
       ],
-      answer: [0, 1, 2],
-      explain: 'Mule streams payloads; anything that reads the whole payload into memory (logging, conversion, byte arrays) breaks that and risks out-of-memory errors with large files.',
+      answer: 0,
+      explain: 'Mule streams payloads, and anything that reads the whole payload into memory (logging, conversion to Base64 or a String, byte arrays) breaks that and risks out-of-memory errors with large files. Do not transform the content in DataWeave on the way. Store metadata such as case id, hash and size in the index database, not in the file content.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each requirement to the operation you would use.',
       pairs: [
         ['Store a document received in the payload', 'Upload Blob'],
@@ -67,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How should the integration react to the connector\'s error types?',
       options: [
         'Retry AZURE-STORAGE:CONNECTIVITY a few times with backoff; treat authentication/permission failures as non-retryable and alert; handle RETRY_EXHAUSTED by parking the message for replay',

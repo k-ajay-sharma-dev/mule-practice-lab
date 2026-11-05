@@ -20,6 +20,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which configuration runs the Finance export at 02:00 New York time on weekdays?',
       options: [
         '`<cron expression="0 0 2 ? * MON-FRI" timeZone="America/New_York"/>`',

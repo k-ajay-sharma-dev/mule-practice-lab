@@ -19,16 +19,16 @@ export default {
       explain: 'The docs use this exact example. Permissions and roles assigned in one business group do not apply to that user\'s access in other business groups.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about business group hierarchy are correct?',
+      type: 'single',
+      prompt: 'In Anypoint Platform, a business group can have child groups. A user gains Organization Administrator on a parent group after a child group was created. What does this give the user in that child group?',
       options: [
-        'The owner of a parent business group keeps administrator permissions for its child groups, even if another administrator owns the child',
-        'Owners of child groups cannot view the parent group\'s client ID and client secret',
-        'Users with Organization Administrator at a level get it automatically in child groups created within that level',
-        'Someone who gains Organization Administrator after a child group was created automatically has it in that child group',
+        'Nothing automatic, because the inheritance is not retroactive',
+        'Organization Administrator, because it flows down to every child group',
+        'Organization Administrator, once the child group owner accepts it',
+        'Read-only access to the child group settings',
       ],
-      answer: [0, 1, 2],
-      explain: 'The docs say the inheritance is not retroactive. It does not apply to users who gain the permission after the child group is created, so check existing child groups when you promote someone.',
+      answer: 0,
+      explain: 'Users with Organization Administrator at a level get it automatically in child groups created within that level. The docs say this does not apply to users who gain the permission after the child group is created, so check existing child groups when you promote someone. Separately, the owner of a parent group keeps administrator permissions for its child groups, even if another administrator owns the child, and owners of child groups cannot view the parent group\'s client ID and client secret.',
     },
     {
       type: 'single',
@@ -56,6 +56,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each way of granting access to its description.',
       pairs: [
         ['Team', 'Hierarchical group of users with cascading permissions across business groups'],
@@ -66,6 +67,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An environment was created as Sandbox by mistake and should be Production. What can you do?',
       options: [
         'Create a new Production environment, because the type cannot be changed after creation',
@@ -78,6 +80,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Compliance needs platform changes kept for 3 years. Which statements about audit logs are correct?',
       options: [
         'The default retention for a new organization is one year',

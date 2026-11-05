@@ -43,6 +43,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which actions address the audit findings?',
       options: [
         'Enable TLS on the internal System APIs that still use plain HTTP',

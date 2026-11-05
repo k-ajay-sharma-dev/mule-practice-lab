@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Until Successful with `maxRetries="3"` keeps failing. How many attempts are made, and what error is raised?',
       options: [
         '3 attempts, then the original error',
@@ -50,22 +51,23 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: '`db.host` is in `config.yaml` and also passed as `-Ddb.host=...` at deployment. Which value wins?',
       options: ['The value in config.yaml', 'The system property (-D)', 'Whichever is defined last alphabetically', 'Deployment fails on the conflict'],
       answer: 1,
       explain: 'System/deployment properties override properties from configuration files.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements are true in Mule 4?',
+      type: 'single',
+      prompt: 'A flow calls an HTTP endpoint. It must store the status code of that call in a variable and also keep the current payload. What do you set?',
       options: [
-        'A Batch Aggregator with `size="100"` processes a list of records (when not streaming)',
-        'To keep the payload but store the status code of an outbound call, set `target` and `targetValue="#[attributes.statusCode]"`',
-        'A sub-flow may contain its own error handler',
-        'An inline expression reading `.price` from a payload with no MIME type always works because DataWeave auto-detects JSON',
+        '`target` and `targetValue="#[attributes.statusCode]"` on the call',
+        'A Set Payload after the call, with `attributes.statusCode` as its value',
+        'An Async scope around the call, with the status read after the scope',
+        '`targetValue="#[attributes.statusCode]"` alone, with no `target`',
       ],
-      answer: [0, 1],
-      explain: 'Sub-flows have no error handler — use a Try or a private flow. DataWeave reads based on MIME type, so an untyped payload must be declared as `application/json` or parsed with `read()`.',
+      answer: 0,
+      explain: 'Target leaves payload and attributes untouched, and `targetValue` picks what is stored. Related Mule 4 facts: a Batch Aggregator with `size="100"` processes a list of records (when not streaming). Sub-flows have no error handler, so use a Try or a private flow. DataWeave reads based on MIME type, so an untyped payload must be declared as `application/json` or parsed with `read()`.',
     },
   ],
   description: `

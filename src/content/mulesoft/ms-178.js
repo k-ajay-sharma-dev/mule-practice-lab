@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The Mule admin has limited `$MULE_HOME/conf/tls-default.conf`. A developer sets `enabledProtocols` in a `tls:context` to a protocol that the file does not include. What is the rule?',
       options: [
         'In `tls:context` you can only reference protocols or cipher suites included in the global TLS configuration or defaults: the app can narrow the list, not widen it',
@@ -20,6 +21,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Nobody has edited `tls-default.conf`. Who picks the protocols and cipher suites for an app?',
       options: [
         'Mule allows the configured security manager to select them',
@@ -32,6 +35,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which steps are part of running standalone Mule 4.9.8 or later in FIPS 140-2 mode?',
       options: [
         'Set up a certified security provider in the Java environment',
@@ -45,6 +49,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'FIPS mode is switched on for a two-node cluster, and apps fail to deploy with `Cluster key must be defined in FIPS mode.` What is missing?',
       options: [
         '`mule.cluster.network.encryption.key`, with the same value on every node and a key length of 16, 24 or 32 bytes',
@@ -69,6 +74,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each requirement to its FIPS option.',
       pairs: [
         ['Mule 4.11.4 or later, with Java 17 or later', 'FIPS 140-3 on a standalone runtime'],
@@ -80,6 +86,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about FIPS 140-3 on Mule are documented?',
       options: [
         'It requires support for TLS 1.3 and TLS 1.2; earlier TLS versions are not supported',

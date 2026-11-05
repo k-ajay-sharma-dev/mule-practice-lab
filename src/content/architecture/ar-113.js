@@ -19,20 +19,20 @@ export default {
       explain: 'With branches per environment, what reaches Production is a new merge result, not what was tested. A tag on one line of history gives a fixed point for each release, and a pull request keeps the review.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about `SNAPSHOT` versions decide where they can appear in this design?',
+      type: 'single',
+      prompt: 'A pipeline publishes Mule apps to Exchange. A `SNAPSHOT` version has passed its tests in the Test environment. Can that same asset become a stable release for Production?',
       options: [
-        'A `SNAPSHOT` asset is permanently in the `development` state, and it cannot be promoted to any other state',
-        'Publishing a `SNAPSHOT` again overwrites the asset without any errors',
-        'The CloudHub 2.0 page says to avoid deploying them into your production environment, because they can change after deployment',
-        'Each time a `SNAPSHOT` is updated, you must redeploy to refresh the app with the latest binaries',
-        'A `SNAPSHOT` that passes Test turns into a stable version automatically',
+        'Yes. A `SNAPSHOT` that passes Test turns into a stable version',
+        'Yes. A `SNAPSHOT` cannot change once it has been published',
+        'No. A `SNAPSHOT` stays in `development` and cannot be promoted',
+        'No, but an administrator can promote it by hand in Exchange',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'So a pipeline cannot turn a tested `SNAPSHOT` into a release. The build for a release must produce a release version, and that version is what goes through Test and on to Production.',
+      answer: 2,
+      explain: 'A `SNAPSHOT` asset is permanently in the `development` state and cannot be promoted to any other state. Publishing a `SNAPSHOT` again overwrites the asset without any errors, and each update needs a redeployment to refresh the app with the latest binaries. The CloudHub 2.0 page says to avoid them in production, because they can change after deployment. So the build for a release must produce a release version, and that version is what goes through Test and on to Production.',
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which steps keep the same artifact on its way through the environments?',
       options: [
         'Publish the release version to Exchange once, and on CloudHub 2.0 deploy with `mvn mule:deploy`, which does not rebuild',
@@ -46,6 +46,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each item to the place it belongs in this design.',
       pairs: [
         ['Mule flows, DataWeave, and non-environment defaults', 'The versioned artifact'],
@@ -57,6 +58,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A new configuration fails to deploy on CloudHub 2.0. What do the docs say the platform does?',
       options: [
         'The status is `Update failed`, and the deployment attempts to roll back to the last successful version of the configuration, though in some situations the rollback might not succeed',
@@ -68,16 +70,16 @@ export default {
       explain: 'The Runtime Fabric page says the same, and adds that on the first deployment no rollback version is defined. A pipeline must read the result, and it cannot assume the old version is back.',
     },
     {
-      type: 'multi',
-      prompt: 'What does the default `rolling` strategy mean for releases?',
+      type: 'single',
+      prompt: 'An app on CloudHub 2.0 is updated with the default `rolling` strategy, which updates replicas incrementally. What is true while the update runs?',
       options: [
-        'Different application versions run at the same time until the update completes, so apps must be able to run multiple versions in parallel',
-        'It needs one additional replica\'s worth of resources',
-        'It maintains availability by updating replicas incrementally',
-        'A smoke test that passes during the update proves that all replicas run the new version',
+        'Old and new app versions run at the same time',
+        'All replicas stop first, so the app is unavailable',
+        'No extra resources are needed for the replicas',
+        'A passing smoke test proves that all replicas are new',
       ],
-      answer: [0, 1, 2],
-      explain: 'During an update, a request can reach either version. So run smoke tests after the deployment is complete, and keep API and data changes compatible with the old version.',
+      answer: 0,
+      explain: 'Different versions run at the same time until the update completes, so a request can reach either one. Apps must be able to run multiple versions in parallel, so keep API and data changes compatible with the old version, and run smoke tests after the deployment is complete. `rolling` maintains availability, and it needs one additional replica\'s worth of resources.',
     },
     {
       type: 'single',

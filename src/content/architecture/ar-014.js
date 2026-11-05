@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why not route the Kubernetes services through a Mule API proxy on CloudHub?',
       options: [
         'Mule proxies cannot apply rate limiting',
@@ -41,16 +42,16 @@ export default {
       explain: 'They solve different problems. Internet traffic passes the WAF first and then the gateway; neither replaces the other.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about internal east-west traffic are correct in this design?',
+      type: 'single',
+      prompt: 'A company puts a WAF (web application firewall) in front of its internet APIs. Its internal APIs are reachable only through private ingress. Security wants to know who calls what, and internal calls must not pay for an extra hop. How should internal east-west traffic be controlled?',
       options: [
-        'Internal endpoints are not reachable from the internet (private ingress, no public DNS)',
-        'Callers still prove their identity (client ID or JWT) so you know who calls what',
-        'Internal traffic skips the WAF hop to save latency',
-        'Internal APIs need no policies at all because the network is trusted',
+        'Callers prove their identity with a client ID or JWT, and the traffic skips the WAF hop',
+        'Callers send no identity because the network is trusted, and the traffic skips the WAF hop',
+        'Callers prove their identity with a client ID or JWT, and the traffic passes the WAF first',
+        'Callers send no identity because the network is trusted, and the traffic passes the WAF first',
       ],
-      answer: [0, 1, 2],
-      explain: 'Internal traffic gets lighter controls, not none. Without identity you cannot answer the "who calls what" question security asked for.',
+      answer: 0,
+      explain: 'Internal traffic gets lighter controls, not none. Without identity you cannot answer the "who calls what" question security asked for. Internal traffic skips the WAF hop to save latency. Internal endpoints stay unreachable from the internet, with private ingress and no public DNS.',
     },
     {
       type: 'single',

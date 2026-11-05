@@ -28,6 +28,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In the trip summary, the airline route of a Scatter-Gather fails. What happens, and what should you do?',
       options: [
         'The failed route is silently skipped',
@@ -40,6 +41,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Book trip is half-done when the pod restarts. Where should its state have been?',
       options: [
         'In flow variables',
@@ -51,21 +53,20 @@ export default {
       explain: 'Statelessness is about request handling: any replica serves any request, while long-running process state is externalised.',
     },
     {
-      type: 'multi',
-      prompt: 'Which are signs of a badly designed Process API?',
+      type: 'single',
+      prompt: 'A reviewer looks at a new order Process API, which sits between the Experience and System layers. Which design choice is a sign of a badly designed Process API?',
       options: [
-        'Pure pass-through: one call in, one System API call out, no rules',
-        'One Process API per consumer (prc-order-mobile-api, prc-order-web-api)',
-        'Uses the SAP or JDBC connector directly instead of a System API',
-        'Returns UI-ready labels and mobile-specific fields',
-        'Calls another Process API such as Pricing',
-        'Uses Scatter-Gather for independent reads',
+        'It calls SAP directly with the SAP connector',
+        'It calls one other Process API, such as Pricing',
+        'It uses Scatter-Gather for independent reads',
+        'It keeps long-running process state in a database',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Composing Process APIs is valid (watch chain depth), and Scatter-Gather is the right tool for independent reads.',
+      answer: 0,
+      explain: 'Using the SAP or JDBC connector directly in place of a System API is a smell. Others are pure pass-through with no rules, one Process API per consumer (prc-order-mobile-api, prc-order-web-api), and UI-ready labels or mobile-specific fields. Composing Process APIs is valid (watch chain depth), Scatter-Gather is the right tool for independent reads, and durable process state belongs in a database.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why not use the Async scope to aggregate the trip summary?',
       options: [
         'The Async scope is deprecated',

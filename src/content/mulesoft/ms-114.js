@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'On a Gold subscription, an engineer wants one search across the logs of all 30 apps. What do the docs say?',
       options: [
         'Gold and Platinum have log search for a single application only, in Runtime Manager; cross-application search needs Titanium or the Advanced package',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'In the usage-based packages, which features are listed for Anypoint Integration Advanced and not for Starter?',
       options: [
         'Custom metrics',
@@ -55,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A flow logs a 20 KB JSON document in one logger call. What happens in Anypoint Monitoring?',
       options: [
         'The line is truncated at 8 KB, including date and thread metadata',
@@ -67,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A company moves from Titanium to Platinum. What must it do first with its logs?',
       options: [
         'Preserve them outside the platform, because storage is cleared within an hour of the change',
@@ -79,6 +83,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about data limits are correct?',
       options: [
         'Advanced and Titanium retain built-in and custom metrics for 365 days',

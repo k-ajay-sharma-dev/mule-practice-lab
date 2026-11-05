@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each HTTP Request setting to what it limits.',
       pairs: [
         ['`connectionTimeout` (TCP client socket properties)', 'Establishing the TCP/TLS connection'],
@@ -26,6 +27,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why did a hanging rates API make the Order API stop answering **unrelated** requests?',
       options: [
         'In-flight events piled up holding connections and concurrency until the app ran out of capacity',
@@ -62,6 +64,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The rates host is completely unreachable. Which error type is raised?',
       options: ['`HTTP:CONNECTIVITY`', '`HTTP:NOT_FOUND`', '`HTTP:SERVICE_UNAVAILABLE`', '`MULE:EXPRESSION`'],
       answer: 0,

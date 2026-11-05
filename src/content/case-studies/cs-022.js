@@ -57,6 +57,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each concern to the right mechanism.',
       pairs: [
         ['Premium-only webhooks', 'A premium-only scope or separate API product'],
@@ -68,6 +69,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which KPIs show whether the partner programme is succeeding as a business?',
       options: [
         'Active partners and free-to-paid conversion',

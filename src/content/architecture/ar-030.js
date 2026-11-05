@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which approach fits 3,000 daily changes, a 15-minute price target and a 5-hour nightly run?',
       options: [
         'Run the full sync every hour',
@@ -54,6 +55,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'How do you handle physical deletes and programs that do not update LAST_MODIFIED?',
       options: [
         'A soft-delete flag or a trigger writing deleted SKUs to an audit table that Mule polls',
@@ -66,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The sync was down for 3 hours. What happens when it restarts?',
       options: [
         'All changes from those hours are lost',

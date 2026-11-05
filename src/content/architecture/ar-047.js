@@ -30,6 +30,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The insurer builds a web portal first, then a broker portal. What does the application network mean for the second project?',
       options: [
         'It must rebuild its own integrations to the mainframe and billing',
@@ -42,6 +43,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which benefits can you honestly promise the insurer?',
       options: [
         'Faster delivery for subsequent projects through reuse',

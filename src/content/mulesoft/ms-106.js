@@ -42,20 +42,20 @@ export default {
       explain: 'When you add scopes you select the business groups and then the environments they apply to. Keep them as narrow as the pipeline needs.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about connected app credentials and tokens are correct?',
+      type: 'single',
+      prompt: 'A Connected App gives a pipeline its own access to Anypoint Platform. It is created with default settings. What happens to its `clientSecret` over time?',
       options: [
-        'The `clientSecret` has no expiration date by default, though you can change that',
-        'Refresh tokens expire after 90 days',
-        'With Authorization Code, the `offline_access` scope is required to use refresh tokens after the original access tokens expire',
-        'The Password grant is not recommended: it reveals user credentials to the app and precludes measures such as MFA',
-        'Revoking an app\'s authorization can be undone from the Authorizations tab',
+        'It expires after 90 days, the same as refresh tokens',
+        'It expires as soon as the access token expires',
+        'It has no expiration date, so you plan its rotation',
+        'It expires when the user who created the app leaves',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Revoking removes the access and refresh tokens, and the docs say the action cannot be undone.',
+      answer: 2,
+      explain: 'The `clientSecret` has no expiration date by default, though you can change that, so set a rotation date. Refresh tokens are different: they expire after 90 days. With Authorization Code, the `offline_access` scope is required to use refresh tokens after the original access tokens expire. The Password grant is not recommended, because it reveals user credentials to the app and precludes measures such as MFA. Revoking an authorization removes the access and refresh tokens, and the docs say the action cannot be undone.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The engineer who created several connected apps leaves and is removed from the organization. What happens, and what should you do?',
       options: [
         'Ownership transfers to the root organization owner, and you should manually rotate the client secrets of the connected apps',
@@ -80,6 +80,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which limits of external identity are documented?',
       options: [
         'External identity can be configured only at organization level, not for a business group',
@@ -93,6 +94,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'After SSO goes live, an administrator uses **Invite User** for a new starter. Where are that user\'s credentials stored?',
       options: [
         'In the organization, using the Anypoint identity provider rather than the external IdP',

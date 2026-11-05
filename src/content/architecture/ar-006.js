@@ -30,6 +30,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How does traffic for `api.distributor.eu` move to the DR region?',
       options: [
         'Runtime Manager automatically moves the hostname to another region',
@@ -41,16 +42,16 @@ export default {
       explain: 'A DNS/global traffic manager points to each region\'s ingress (custom domain and certificates present in both). Failover is either automatic on health checks or a runbook decision; failback is planned.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about state during a region loss are true?',
+      type: 'single',
+      prompt: 'A Mule app on CloudHub 2.0 keeps its watermarks and idempotency keys in Object Store v2. The flow must keep working in a second region if the first region is lost. Where should those keys live?',
       options: [
-        'Object Store v2 is regional, so watermarks and idempotency keys do not follow to the DR region automatically',
-        'Anypoint MQ messages in the lost region may be unavailable until it recovers, so producers should be able to replay from the source of truth (e.g. an outbox)',
-        'With asynchronous cross-region DB replication, the last seconds of orders can be lost — state this gap explicitly',
-        'CloudHub 2.0 replicates all application state to every region by default',
+        'In a replicated database, because Object Store v2 is regional',
+        'In Object Store v2, because its keys are copied to the DR region automatically',
+        'In application memory, because CloudHub 2.0 replicates app state to every region',
+        'In the secure properties file, because it is deployed to both regions',
       ],
-      answer: [0, 1, 2],
-      explain: 'State does not follow the app. DR-critical keys belong in the replicated DB (or the design must tolerate a reset), and an outbox lets you meet the Tier 2 RPO by replay rather than by the queue.',
+      answer: 0,
+      explain: 'State does not follow the app. Object Store v2 is regional, so DR-critical keys belong in the replicated DB, or the design must tolerate a reset. Other state has the same limit. Anypoint MQ messages in a lost region may be unavailable until it recovers, so producers should be able to replay from an outbox. Asynchronous cross-region DB replication can lose the last seconds of orders, and that gap should be stated explicitly.',
     },
     {
       type: 'single',
@@ -66,6 +67,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'SAP fails over to its own DR site, which takes ~30 minutes. What does that mean for Tier 2 order-to-ERP flows?',
       options: [
         'Mule should fail all orders immediately',
@@ -77,16 +79,16 @@ export default {
       explain: 'An end-to-end RTO cannot be better than the slowest dependency. Buffering lets orders wait and be processed once SAP is back.',
     },
     {
-      type: 'multi',
-      prompt: 'What keeps the two regions consistent and proves the DR plan works?',
+      type: 'single',
+      prompt: 'A company runs the same Mule APIs in a primary region and a DR region. The two regions must stay the same after every release. What is the best way to do that?',
       options: [
-        'One CI/CD pipeline deploying the same artifact and API Manager config to both regions',
-        'Secrets and client contracts present in both regions',
-        'Regular DR drills that measure the actual RTO and data loss',
-        'Manually copying settings to the DR region when an outage happens',
+        'One CI/CD pipeline deploys the same artifact and API Manager config to both regions',
+        'Each region has its own team, which builds the artifact and sets the config by hand',
+        'Settings are copied by hand to the DR region at the moment an outage happens',
+        'The primary region is configured first, and the DR region only during a DR drill',
       ],
-      answer: [0, 1, 2],
-      explain: 'Configuration as code and drills turn DR from a document into a tested capability. Manual copying during an outage is exactly when drift and mistakes happen.',
+      answer: 0,
+      explain: 'Configuration as code keeps both regions the same. Secrets and client contracts must also be present in both regions, and regular DR drills that measure the actual RTO and data loss prove the plan works. Manual copying during an outage is exactly when drift and mistakes happen.',
     },
   ],
   description: `

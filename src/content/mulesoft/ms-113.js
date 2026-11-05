@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A governance administrator creates a profile and selects no filter criteria. What is the effect?',
       options: [
         'The rulesets apply to all of the organization\'s APIs in Exchange',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why save a new profile as draft first?',
       options: [
         'Conformance results stay in the draft profile view and notifications are off, so you can test before developers see anything',
@@ -66,18 +68,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'How can a team find conformance issues before central governance reports them?',
+      prompt: 'A team wants to find conformance issues in its API spec before central API Governance reports them. Which three ways let it check earlier?',
       options: [
         'Add published rulesets as dependencies in the API Designer project',
-        'Run the governance:api:validate command of Anypoint CLI in the pipeline',
+        'Run the `governance:api:validate` command of Anypoint CLI in the pipeline',
         'Validate in Anypoint Code Builder',
-        'Wait for the Runtime Manager alert',
+        'Wait for a Runtime Manager alert after the API is deployed',
+        'Wait for the notification emails from an active governance profile',
       ],
       answer: [0, 1, 2],
-      explain: 'A spec can be validated against rulesets in its project whether or not the API is centrally governed. Runtime Manager alerts are about runtime events.',
+      explain: 'A spec can be validated against rulesets in its project whether or not the API is centrally governed. Runtime Manager alerts are about runtime events. Notification emails come from central governance, so they are too late for this.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which statement about counting governed APIs is correct?',
       options: [
         'If an API is governed, all versions of that API are considered one governed API',

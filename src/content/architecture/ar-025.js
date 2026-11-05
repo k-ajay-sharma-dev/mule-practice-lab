@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the root cause of the 3–4 month wait and the teams buying other tools?',
       options: [
         'Anypoint Platform is too slow a tool',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each responsibility to who owns it in the target model.',
       pairs: [
         ['Platform, CI/CD templates, standards and rulesets', 'C4E'],
@@ -29,20 +31,20 @@ export default {
       explain: 'Federated delivery with central enablement: the C4E provides products and guardrails, domains own their APIs.',
     },
     {
-      type: 'multi',
-      prompt: 'Which metrics belong in the value framework shown to the CFO?',
+      type: 'single',
+      prompt: 'An integration architect must show a CFO what an Anypoint Platform licence delivers, using numbers on reuse, speed and cost. Which metric should stay out of the report because it is a vanity metric?',
       options: [
-        'Consumers (client apps/contracts) per API',
-        '% of new projects reusing at least one existing API',
-        'Lead time from request to production',
-        'Estimated effort avoided by reuse vs platform + C4E cost, with the model agreed with finance',
+        'Consumers per API',
+        'Share of new projects that reuse an existing API',
         'Total number of APIs in Exchange',
+        'Lead time from request to production',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'API count is a vanity metric — sprawl increases it. Reuse, speed and cost tied to real projects show value.',
+      answer: 2,
+      explain: 'API count is a vanity metric, because API sprawl increases it. A value framework shows reuse (consumers per API, share of new projects reusing at least one existing API), speed (lead time from request to production) and cost (estimated effort avoided by reuse against platform and C4E cost, with the model agreed with finance).',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where does the "consumers per API" number come from?',
       options: [
         'A survey of developers',
@@ -55,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The CFO does not trust "cost avoided" figures. What is the honest response?',
       options: [
         'Insist the numbers are exact',
@@ -67,6 +70,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the 9-month plan.',
       items: [
         'Baseline current lead time and reuse; form the C4E; pick 2 pilot LoBs',

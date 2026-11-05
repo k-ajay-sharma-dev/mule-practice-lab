@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A team claims that deploying through Runtime Manager to a cluster gives a rolling release, with one node ready before the next one starts. What do the docs say?',
       options: [
         'Artifacts are staged to nodes sequentially, but that does not guarantee the app starts on one node before another; startup and readiness have no fixed order and can overlap',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What makes a deployment zero-downtime in the on-premises HA guide?',
       options: [
         'A side-by-side approach: a new environment takes a small share of traffic, which grows until it is the new baseline and the old one is terminated',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about hot deployment on a standalone runtime are documented?',
       options: [
         'Mule checks `$MULE_HOME/apps` for updated configuration files every three seconds',
@@ -45,6 +48,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How do you confirm that `stockTrader.jar` copied to `$MULE_HOME/apps` was deployed?',
       options: [
         'Status `DEPLOYED`, an unpacked `apps/stockTrader` folder and an anchor file `apps/stockTrader-anchor.txt`',
@@ -57,6 +61,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The same property `db.host` is in the bundled YAML file, set with `-M-Ddb.host=...` at start-up, and in the app\'s deployment properties. Which value wins?',
       options: [
         'The deployment property, then the system property, then the application property',
@@ -69,6 +74,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A cluster needs one more node during business hours. It is a unicast cluster. What should you plan for?',
       options: [
         'Adding a server triggers an automatic restart of all existing servers, so use a maintenance window',
@@ -81,6 +87,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each hybrid limit to its value.',
       pairs: [
         ['Maximum servers per cluster', '8'],

@@ -42,6 +42,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why can parallelising the pricing calls make things **worse** if done carelessly?',
       options: [
         'Parallel calls are always slower in Mule',
@@ -54,6 +55,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Management suggests going from 2 to 6 replicas right now. What is the best answer?',
       options: [
         'Yes — scaling always fixes latency',
@@ -65,16 +67,16 @@ export default {
       explain: 'Once the app is efficient and CPU becomes the limit, adding replicas (also better availability) or larger vCores is the right move.',
     },
     {
-      type: 'multi',
-      prompt: 'How do you validate the result and prevent regressions?',
+      type: 'single',
+      prompt: 'A team is tuning a slow Mule API that must meet a p95 latency target under load. How do they confirm that each fix really helped?',
       options: [
         'Re-run the same load test after each change',
-        'Add a smaller-scale performance test stage to CI or pre-release',
-        'Alert on p95 and error rate in production',
-        'Rely on unit-test coverage percentage',
+        'Check that unit-test coverage has not dropped',
+        'Apply every fix first, then run one final load test',
+        'Add replicas and check whether latency falls',
       ],
-      answer: [0, 1, 2],
-      explain: 'Coverage says nothing about latency; repeatable load tests and production alerts do.',
+      answer: 0,
+      explain: 'Change one thing at a time and repeat the same test, otherwise you cannot tell which fix helped. Coverage says nothing about latency, and scaling first would not show whether the app got more efficient. To prevent regressions, add a smaller-scale performance test stage to CI or pre-release, and alert on p95 and error rate in production.',
     },
   ],
   description: `

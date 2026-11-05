@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each case to the addresses your network team should expect.',
       pairs: [
         ['A Mule app calls on-prem Oracle over the VPN', 'Source address from the private space CIDR block'],
@@ -53,20 +54,20 @@ export default {
       explain: 'That difference is a good reason to prefer BGP. A redundant VPN also needs two gateway endpoints with different public IP addresses.',
     },
     {
-      type: 'multi',
-      prompt: 'The company already has an AWS Transit Gateway and Direct Connect to its data centre. Which statements about attaching the private space are correct?',
+      type: 'single',
+      prompt: 'A company has an AWS Transit Gateway with Direct Connect to its data centre. A new CloudHub 2.0 private space, the isolated network for its Mule apps, must reach that data centre. How should it connect?',
       options: [
-        'The private space and the transit gateway must be in the same region',
-        'Transit Gateway connections are highly available by design, so you do not create redundant ones',
-        'Direct Connect cannot be attached to the private space itself; the supported route is a transit gateway attachment',
-        'Network connections are subject to your entitlement, and CloudHub 1.0 and 2.0 share that quota',
-        'Each private space needs its own transit gateway in a separate AWS account',
+        'Attach the private space to the transit gateway in the same region',
+        'Attach Direct Connect to the private space itself',
+        'Attach the private space to a transit gateway in any region',
+        'Give each private space its own transit gateway in a separate AWS account',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Direct Connect is shown as not supported for CloudHub 2.0, with Transit Gateway as the replacement. Entitlements count VPNs and attachments across both CloudHub versions.',
+      answer: 0,
+      explain: 'Direct Connect is shown as not supported for CloudHub 2.0, with Transit Gateway as the replacement, and the gateway must be in the same region as the private space. Transit Gateway connections are highly available by design, so you do not create redundant ones. Network connections are subject to your entitlement, which counts VPNs and attachments across both CloudHub versions.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A warehouse system must reach a Mule app over raw TCP, not HTTP. What do the docs allow?',
       options: [
         'A firewall rule for a port in the 30500-32500 range, reachable only from within the private space or through a VPN or Transit Gateway',

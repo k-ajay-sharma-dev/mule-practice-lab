@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The organization is on usage-based pricing and the POM sets both `vCores` and `instanceType`. What does the reference say?',
       options: [
         '`vCores` cannot be used if you configure `instanceType`, and non-UBP organizations use `vCores` instead',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which `vCores` values does the CloudHub 2.0 reference accept?',
       options: ['`0.1`', '`0.2`', '`0.5`', '`1.5`', '`4`', '`0.25`', '`0.75`', '`8`'],
       answer: [0, 1, 2, 3, 4],
@@ -27,6 +29,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about the application endpoint settings are correct?',
       options: [
         'Configure either `publicUrl` or `endpoints`, but not both in the same deployment configuration',
@@ -40,6 +43,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team sets `<muleVersion>4.6.0</muleVersion>` and nothing else about the runtime, and expects an LTS image on Java 17. What does the reference say the value selects?',
       options: [
         'The last build, defaulting to the Edge channel and Java 8',
@@ -52,6 +56,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each element to the plugin release that added it or that you need for it.',
       pairs: [
         ['`autoscaling` and `tracingEnabled` on CloudHub 2.0', '4.3.0'],
@@ -64,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Autoscaling is disabled, `replicas` is 3, and `minReplicas` and `maxReplicas` are left in the POM from a trial. What must be true of them?',
       options: [
         'They must match the value of the replicas field',
@@ -76,6 +82,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about logging settings in `cloudhub2Deployment` are correct?',
       options: [
         '`scopeLoggingConfigurations` sets a `logLevel` for a `scope`',

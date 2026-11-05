@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: '`prc-settlement` runs on one replica with a Scheduler that fires every few minutes. The team chose **Recreate** because redeployment is faster. What is the documented consequence during a restart?',
       options: [
         'The sole replica is terminated first, traffic sees a brief downtime, and a schedule that triggers during that downtime is missed',
@@ -45,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A replica shows PENDING with the message `CrashLoopBackoff`, then alternates between RECOVERING and PENDING. What does this mean?',
       options: [
         'The replica cannot restart, for example because it relies on an unavailable network resource, and CloudHub 2.0 keeps trying with exponential backoff',
@@ -57,6 +59,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'A long-running flow is cut short during shutdown. Match each case to the documented behaviour.',
       pairs: [
         ['Infrastructure-triggered restart with no custom `shutdownTimeout`', 'A grace period of up to 12 hours'],
@@ -68,6 +71,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An update does not deploy. What does the Updating Apps page say happens?',
       options: [
         'CloudHub 2.0 reports that it did not apply the configuration, the status is `Update failed`, and the deployment attempts to roll back to the last successful version, which might not always succeed',
@@ -80,6 +84,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about configuration history and rollback are correct?',
       options: [
         'The Config changes tab includes the last 10 configuration deployments, each identified by a unique hash',
@@ -93,6 +98,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'On a production app during business hours, which of these actions cause a restart or redeployment?',
       options: [
         'Changing the log level and clicking Apply Changes',

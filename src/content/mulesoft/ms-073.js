@@ -31,16 +31,16 @@ export default {
       explain: 'FTP uses a control connection (port 21) plus separate data connections. In active mode the server connects back to the client, which firewalls/NAT usually block, so login works but LIST/RETR fail. Passive mode lets the client open the data connection.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about SFTP authentication and trust are correct?',
+      type: 'single',
+      prompt: "A Mule app connects to a partner's SFTP server with a strict known-hosts check. The partner rotates its server host key, and connections start to fail. Why?",
       options: [
-        'The connector can authenticate with a username and password or with a private key (identity file, optionally with a passphrase)',
-        'Verifying the server against a known hosts entry protects against connecting to an impostor server',
-        'When the partner rotates the server host key, a strict known-hosts check fails until the new key is trusted',
-        'SFTP is FTP over TLS and needs the same passive-mode data ports as FTP',
+        'The private key of the app expired when the server key changed',
+        'The stored host key no longer matches, and the new key is not trusted yet',
+        'The passive-mode data ports changed along with the host key',
+        'The password of the app must be reset after a host key change',
       ],
-      answer: [0, 1, 2],
-      explain: 'SFTP is a subsystem of SSH: one connection, password or key authentication, and host-key verification. FTP over TLS is **FTPS**, a different protocol with FTP-style control and data channels.',
+      answer: 1,
+      explain: 'Verifying the server against a known hosts entry protects against an impostor server, so a strict check fails until the new key is trusted. SFTP is a subsystem of SSH: one connection, with a username and password or a private key (identity file, optionally with a passphrase). It has no passive-mode data ports. FTP over TLS is **FTPS**, a different protocol with FTP-style control and data channels.',
     },
     {
       type: 'single',
@@ -66,6 +66,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'All three connectors offer the same core operations. Which pair is correct?',
       options: [
         'sftp:move with sourcePath and targetPath; sftp:write with mode OVERWRITE, APPEND or CREATE_NEW',

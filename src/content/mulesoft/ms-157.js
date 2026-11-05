@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A subscriber uses AUTO mode with no `acknowledgementTimeout`. Some messages take four minutes because a downstream system is slow. What happens?',
       options: [
         'The connector uses two minutes by default, so the message returns to the queue for redelivery while the first flow is still running, and it can be processed twice',
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team uses prefetch on the Subscriber source and depends on `acknowledgementTimeout` being applied exactly. What do the docs warn?',
       options: [
         'Anypoint MQ extends the expiration if a message stays in the buffer until 80% of the timeout, so do not use prefetch if the timeout must be honoured',
@@ -42,6 +44,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Anypoint MQ limit to its value.',
       pairs: [
         ['Maximum payload', '10 MB'],
@@ -55,6 +58,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The claims app publishes PDF files of up to 12 MB as binary payloads, and gets `Payload too large`, even on files of about 9 MB. What is the documented guidance?',
       options: [
         'Non-text payloads are converted to a string, which increases the size. Split the payload or use a claim check: store the file and send a pointer',
@@ -67,6 +71,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about cross-region failover are correct?',
       options: [
         'It is not enabled by default and needs the connector at version 4.0.7 or later and the `cross.region.failover.feature.enabled` property set to true',
@@ -91,17 +96,16 @@ export default {
       explain: 'The docs require the DLQ to be enabled before the primary, and all consuming and publishing apps to be restarted. Enabling might not work through the UI or REST API if either region is unavailable.',
     },
     {
-      type: 'multi',
-      prompt: 'A publish to an exchange succeeds, but no consumer sees the message, and operations asks about tracing and replay. Which statements are correct?',
+      type: 'single',
+      prompt: 'An app publishes to an Anypoint MQ exchange, and the publish succeeds. Every binding on the exchange has a routing rule, and none matches the message. What happens to the message?',
       options: [
-        'If every binding has a routing rule and none matches, the message is not delivered to any queue, and DLQ settings do not apply',
-        'A successful publish confirms only that Anypoint MQ accepted the message for the exchange',
-        'There is no built-in replay from a DLQ, so you implement a flow that forwards messages back to the original queue',
-        'To pass an ID between publisher and subscriber, add a user property, because `correlationId` is not propagated in the way APIs propagate it',
-        'Unmatched messages wait on the exchange until a matching binding is added',
+        'It is not delivered to any queue, and DLQ settings do not apply',
+        'It moves to the dead-letter queue of a bound queue',
+        'It waits on the exchange until a matching binding is added',
+        'It is delivered to every bound queue, because no rule matched',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'A binding with no rule receives every message, so one such queue gives you a record of what was published. Anypoint MQ encrypts only the message body, so also keep sensitive data out of properties.',
+      answer: 0,
+      explain: 'If every binding has a routing rule and none matches, the message is not delivered to any queue, and DLQ settings do not apply. A successful publish confirms only that Anypoint MQ accepted the message for the exchange. A binding with no rule receives every message, so one such queue gives you a record of what was published. Related points: there is no built-in replay from a DLQ, so you implement a flow that forwards messages back to the original queue. To pass an ID between publisher and subscriber, add a user property, because `correlationId` is not propagated in the way APIs propagate it. Anypoint MQ encrypts only the message body, so also keep sensitive data out of properties.',
     },
   ],
   description: `

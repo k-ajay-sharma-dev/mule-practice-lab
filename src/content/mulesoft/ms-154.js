@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about the default `cloudhub.io` TLS context are correct?',
       options: [
         'Each private space includes it, and it cannot be removed',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team wants to host a customer web portal at the default `cloudhub.io` address of its app, to avoid buying a certificate. What do the docs say?',
       options: [
         'Hosting websites or other browser-facing apps on the default domain is not supported, because the parent domain is shared and cookies are not isolated between customers. Use a customer-owned vanity domain',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each TLS context item to the docs.',
       pairs: [
         ['PEM keystore', 'Public certificate, private key and an optional CA path file'],
@@ -43,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A new vanity domain `api.example-insurance.com` must reach apps in the private space. Where should its CNAME record point?',
       options: [
         'To the non-wildcard private space FQDN, such as `<space-id>.<region>.cloudhub.io`, or `internal-<space-id>.<region>.cloudhub.io` for internal access',
@@ -66,20 +70,20 @@ export default {
       explain: 'Private DNS target IPs do not change during the life of the private space, so they are safe to use in internal DNS records and allowlists.',
     },
     {
-      type: 'multi',
-      prompt: 'A public certificate expires in two weeks. Which statements about editing an existing TLS context are correct?',
+      type: 'single',
+      prompt: 'A public certificate in a PEM TLS context of a CloudHub 2.0 private space expires in two weeks. How do you renew it?',
       options: [
-        'For PEM, you cannot change the private key or password unless you replace the public certificate',
-        'For PEM, you can remove and add a CA path certificate without replacing the public certificate',
-        'For JKS, you can select a different alias without replacing the keystore file',
-        'Editing needs the CloudHub Network Administrator permission',
-        'You must delete the TLS context and create a new one to change a certificate',
+        'Delete the TLS context and create a new one',
+        'Do nothing, because custom certificates renew automatically',
+        'Edit the context, and replace the certificate and its key',
+        'Edit the context, and replace only the private key',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The Domains & TLS tab has an Edit action. CloudHub 2.0 validates passwords against the keystore during editing.',
+      answer: 2,
+      explain: 'The Domains & TLS tab has an Edit action, which needs the CloudHub Network Administrator permission. For PEM, you cannot change the private key or password unless you replace the public certificate, though you can remove and add a CA path certificate without replacing it. For JKS, you can select a different alias without replacing the keystore file. CloudHub 2.0 validates passwords against the keystore during editing. Only the default certificate renews automatically.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each store to its maximum file size.',
       pairs: [
         ['Truststore, or a JKS, JCEKS or PKCS12 keystore', '40960 bytes (40 KB)'],
@@ -90,6 +94,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'With a truststore and Forward SSL Session in place, how does the app learn who connected?',
       options: [
         'From HTTP headers such as `x-ssl-client-verify` (SUCCESS or FAIL), `x-ssl-client-dn`, `x-ssl-issuer`, `x-ssl-client-serial` and `x-ssl-client-cert`',
@@ -102,6 +107,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A partner uses an old appliance limited to TLS 1.1, and a Mule client in another organization calling your `cloudhub.io` endpoint fails certificate validation. What do the docs tell you?',
       options: [
         'CloudHub 2.0 does not support TLS 1.0 or 1.1, and clients that must trust `cloudhub.io` certificates should add the LetsEncrypt root to their truststore',

@@ -8,6 +8,8 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each Anypoint VPN symptom to the explanation in the troubleshooting page.',
       pairs: [
         ['Static VPN: remote networks vanish from the route table while the tunnel is down', 'Expected: they are added when the tunnel is active and removed when it is inactive'],
@@ -19,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A network engineer wants to script failover between tunnels from the tunnel status shown in Runtime Manager. What do the docs advise?',
       options: [
         'Do not: status can lag by up to five minutes because of the delay in the infrastructure provider API, so monitor tunnels at the customer-side gateway',
@@ -31,6 +34,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Anypoint VPN updates are applied on demand with no published window. Match each configuration to its impact during maintenance.',
       pairs: [
         ['At least one tunnel pair with BGP and DPD', 'Minimal downtime: the switchover takes a few seconds'],
@@ -41,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'After a maintenance event, an IKEv2 tunnel is unreliable. Your firewall uses 28800 and 3600 seconds, the values in the AWS documentation. What does MuleSoft recommend?',
       options: [
         'Set Phase 1 to 28000 seconds and Phase 2 to 3000 seconds, so that your firewall times out first and controls the rekey',
@@ -52,21 +57,20 @@ export default {
       explain: 'For IKEv1 the recommendation is the default of 28800 and 3600 seconds. The IKEv2 values are deliberately shorter.',
     },
     {
-      type: 'multi',
-      prompt: 'You are reviewing a gateway configuration against the Anypoint VPN requirements. Which items belong on the checklist?',
+      type: 'single',
+      prompt: 'Two network ranges overlap across an Anypoint VPN tunnel. A network engineer suggests using NAT across the tunnel to hide the overlap. Is that a valid fix?',
       options: [
-        'TCP MSS adjustment of 1387 bytes',
-        'Clear the Don\'t Fragment (`DF`) bit where the device supports it',
-        'Fragment packets before encryption',
-        'Enable DPD, with an interval of 10 and 3 retries',
-        'Allow asymmetric routing when the device uses active/active tunnels',
-        'Use NAT across the tunnel to hide overlapping ranges',
+        'No. Anypoint VPN does not support NAT, so fix it in the network plan',
+        'No. NAT works only on IPv6 tunnels, so move the tunnel to IPv6 first',
+        'Yes, as long as DPD is enabled on the customer gateway device',
+        'Yes, as long as the `DF` bit is cleared on the customer gateway device',
       ],
-      answer: [0, 1, 2, 3, 4],
-      explain: 'Anypoint VPN does not support NAT or IPv6. Overlapping ranges must be solved in the network plan, which is why the CIDR block is chosen so carefully.',
+      answer: 0,
+      explain: 'Anypoint VPN does not support NAT or IPv6. Overlapping ranges must be solved in the network plan, which is why the CIDR block is chosen so carefully. A gateway review checks other items: TCP MSS adjustment of 1387 bytes, clearing the Don\'t Fragment (`DF`) bit where the device supports it, fragmenting packets before encryption, DPD with an interval of 10 and 3 retries, and allowing asymmetric routing when the device uses active/active tunnels.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A site with many small subnets asks you to add its 96th route to a private space that has two VPNs and a transit gateway. What is the rule?',
       options: [
         'A maximum of 95 route table entries is allowed per private space, regardless of the number of connections, so consolidate networks',
@@ -92,6 +96,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each transit gateway state to its documented fix.',
       pairs: [
         ['Gateway `unknown`: the MuleSoft account principal was deleted', 'Add the principal back to the resource share'],

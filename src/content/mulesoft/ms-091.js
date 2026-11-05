@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'How does a Mule flow call the Workday operation `Get_Workers`?',
       options: [
         'With the Human Resources operation of the connector, setting its Operation field to `Get_Workers` and sending the SOAP request XML as Content',
@@ -20,6 +21,8 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each need to the connector operation that invokes the right web service.',
       pairs: [
         ['Read employee and organization data', 'Human Resources'],
@@ -31,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which connection types does the Workday Connector configuration offer?',
       options: [
         'Basic Authentication, OAuth Code Authentication and x.509 Authentication',
@@ -43,6 +47,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'With OAuth Code Authentication, the State field looks optional. What should you do?',
       options: [
         'Set it: Workday requires the parameter, and omitting it causes an authorization error',
@@ -55,6 +60,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'The Host name field is left empty on a connection to a production tenant. Why is that a risk?',
       options: [
         'It defaults to `impl-cc.workday.com`, so you must enter the Workday cloud server of your own tenant',
@@ -67,19 +74,21 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which practices fit an integration system user (ISU) in Workday?',
+      prompt: 'A Mule integration connects to Workday with an integration system user (ISU), a dedicated non-human account. Which three practices fit an ISU?',
       options: [
-        'One dedicated ISU per integration, so that access and audit stay separate',
-        'Add it to an integration system security group that has only the domain permissions the integration needs',
-        'Do not allow UI sessions for the account',
-        'Activate pending security policy changes after changing domain permissions',
-        'Reuse the account of an HR administrator, because it already has access',
+        'One ISU per integration, so that access and audit stay separate',
+        'A security group that has only the domain permissions needed',
+        'No UI sessions allowed for the account',
+        'One ISU shared by all integrations, so there is one password to change',
+        'The account of an HR administrator, because it already has access',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'An ISU is a non-human account with least-privilege access through a security group and domain security policies. A person\'s account changes with that person\'s job and may leave with them. The connector docs only say the service account must have the required permissions.',
+      answer: [0, 1, 2],
+      explain: 'An ISU is a non-human account with least-privilege access through a security group and domain security policies. After changing domain permissions, activate pending security policy changes. A shared account has the combined permissions of every integration, and audit cannot separate their activity. A person\'s account changes with that person\'s job and may leave with them. The connector docs only say the service account must have the required permissions.',
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'What does Watermark Enabled do on the On Modified Objects source?',
       options: [
         'If true, Mule processes an item just once, even if it receives the item multiple times; the default is false',

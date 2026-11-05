@@ -8,6 +8,8 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each need to the visualization.',
       pairs: [
         ['Export a diagram of the network for a design review, with no metrics', 'Architecture'],
@@ -18,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Two apps are known to depend on each other, but no connection appears between them. The dependent batch runs once a month. What is the likely reason?',
       options: [
         'Connections are based on traffic in the last seven days, so a monthly call has no active edge most of the time',
@@ -30,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A pipeline should place every app in its API-led layer automatically. How?',
       options: [
         'Set the application property `anypoint.platform.visualizer.layer` at deployment',
@@ -42,6 +46,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'After a redeployment, an app node shows no inbound connections for a while. Why?',
       options: [
         'Redeploying removes all metadata collected for that app, and the inbound connection count resets',
@@ -54,6 +60,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'All consumers of an API appear under one **External Traffic** node. The team wants to see them by client application. What is needed?',
       options: [
         'The target must have the Client ID Enforcement policy, so that the ClientId can be detected',
@@ -65,20 +73,20 @@ export default {
       explain: 'When ClientId is detected, consumer nodes are grouped by it; otherwise they are grouped under External Traffic. The target must have the Client ID Enforcement policy.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about views are correct?',
+      type: 'single',
+      prompt: 'API Visualizer builds a live graph of apps and APIs from real traffic. A product team wants a defined view, which is a saved set of environments, tags and services that others can open. Which permission does the person creating it need?',
       options: [
-        'Only users with the Visualizer Editor permission can create defined views',
-        'A defined view is visible to users who have access to the environments in it',
-        'Saving a view saves both its Production and Sandbox configurations',
-        'New services that match the environments and tags of a view appear in it',
-        'A private view can be deleted when it is no longer needed',
+        'Visualizer Editor',
+        'Read Applications',
+        'View Policies',
+        'Manage Policies',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'A private view cannot be deleted. It can be edited, renamed, discarded or exported as PNG.',
+      answer: 0,
+      explain: 'Only users with the Visualizer Editor permission can create defined views. A defined view is visible to users who have access to the environments in it, and new services that match its environments and tags appear in it. Saving a view saves both its Production and Sandbox configurations. Read Applications is enough to see the graph, and View Policies or Manage Policies are relevant only to the Policy visualization. A private view cannot be deleted. It can be edited, renamed, discarded or exported as PNG.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Standalone Mule apps run on customer servers, but their connections do not render correctly. What do the docs require for standalone Mule?',
       options: [
         'The Anypoint Monitoring agent, with header injection enabled at the server level',

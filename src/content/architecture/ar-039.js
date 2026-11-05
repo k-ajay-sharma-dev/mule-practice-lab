@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the core problem with the current timeout values?',
       options: [
         'They are all too short',
@@ -42,17 +43,16 @@ export default {
       explain: 'A timeout on a non-idempotent call is **unknown outcome**, not failure. Blind retries or a second click caused the double charges.',
     },
     {
-      type: 'multi',
-      prompt: 'Which settings must be designed and aligned for this chain?',
+      type: 'single',
+      prompt: 'A Mule API returns a clear `504` error body when its own outbound call times out. Clients sometimes get a generic error from the load balancer instead. Which change fixes this?',
       options: [
-        'HTTP Request `connectionTimeout` and `responseTimeout` per hop',
-        'Bounded connection pools (`maxConnections`) so a slow backend cannot take every connection',
-        'Gateway and load balancer timeouts at least as long as the app timeout at that layer',
-        '`maxConcurrency` on the flow calling the slow dependency, as a bulkhead',
-        'Relying on Mule to cancel downstream calls automatically when the caller disconnects',
+        'Set the load balancer timeout at least as long as the app timeout',
+        'Set the load balancer timeout shorter than the app timeout',
+        'Raise `maxConnections` on the HTTP Request configuration',
+        'Set `maxConcurrency` on the flow that makes the call',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Mule does not cancel downstream work when the caller is gone — that is why inner timeouts must be shorter. If the load balancer cuts first, clients see generic errors instead of your 504.',
+      answer: 0,
+      explain: 'If the load balancer cuts first, clients see generic errors instead of your 504. Gateway and load balancer timeouts must be at least as long as the app timeout at that layer. The other settings still matter in a chain: `connectionTimeout` and `responseTimeout` per hop, bounded connection pools (`maxConnections`) so a slow backend cannot take every connection, and `maxConcurrency` as a bulkhead. Mule does not cancel downstream work when the caller is gone, which is why inner timeouts must be shorter.',
     },
     {
       type: 'single',
@@ -68,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you choose a value like 1.5 s for the Pricing call?',
       options: [
         'Use the connector default',

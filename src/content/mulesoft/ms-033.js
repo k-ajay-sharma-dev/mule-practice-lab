@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each validation to the error type it raises.',
       pairs: [
         ['APIkit request validation', 'APIKIT:BAD_REQUEST'],
@@ -41,6 +42,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why wrap the business-rule checks in the Validation module **All** scope?',
       options: [
         'It runs every validation and raises one VALIDATION:MULTIPLE error with all failures, instead of stopping at the first',
@@ -52,19 +54,20 @@ export default {
       explain: 'The requirement is to return **all** violations at once. Without All, the first failing validator raises and the rest never run.',
     },
     {
-      type: 'multi',
-      prompt: 'Which practices fit schema files and performance here?',
+      type: 'single',
+      prompt: 'A Mule app receives insurance claims as JSON and checks them against a JSON Schema. Several downstream flows then process each claim. Where should the schema validation run?',
       options: [
-        'Store schemas in `src/main/resources/schemas`, or publish shared contracts as an Exchange asset',
-        'Validate once at the entry point, not again in every downstream flow',
-        'Re-validate the schema before every connector call to be safe',
-        'Keep a private copy of the schema in each consumer so it can drift independently',
+        'Once, at the entry point of the app',
+        'In every downstream flow that uses the claim',
+        'Before every connector call, to be safe',
+        'Only in the last flow, before the target system call',
       ],
-      answer: [0, 1],
-      explain: 'A shared, versioned schema keeps producer and consumer aligned, and validating once at the edge avoids repeated full-document parsing.',
+      answer: 0,
+      explain: 'Validating once at the edge rejects bad messages early and avoids repeated full-document parsing. Store schemas in `src/main/resources/schemas`, or publish shared contracts as an Exchange asset, so producer and consumer stay aligned on one versioned schema.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What do the APIkit docs say the router validates at runtime?',
       options: [
         'Outgoing responses only',

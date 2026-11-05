@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the right way to use the Mule Migration Assistant (MMA) here?',
       options: [
         'As an accelerator: run it, then review, refactor and test its output, planning for manual rework',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the migration waves.',
       items: [
         'Inventory and score all 85 apps; decommission the unused ones',
@@ -44,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Few automated tests exist. What do you do before migrating an app?',
       options: [
         'Capture its behaviour — MUnit tests for key flows and recorded production input/output pairs — so the Mule 4 version can be compared',
@@ -56,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you cut over a shipment-tracking app without unplanned downtime?',
       options: [
         'Deploy the Mule 4 version alongside, route a slice of traffic or replay messages, compare outputs, then switch with a tested rollback',
@@ -67,17 +71,16 @@ export default {
       explain: 'Parallel run plus a rehearsed rollback removes the risk of a one-way switch. Big-bang migration of all critical apps concentrates risk exactly where downtime is not allowed.',
     },
     {
-      type: 'multi',
-      prompt: 'Which actions address the team and demand constraints?',
+      type: 'single',
+      prompt: 'A small team is migrating many apps from Mule 3 to Mule 4 over a year. The business still expects new features during that time. How should the team handle those features?',
       options: [
-        'Mule 4 and DataWeave 2.0 training plus a migration playbook and templates',
-        'Pair the one experienced Mule 4 developer with others on the first wave',
         'Build new features only in apps that are already migrated',
-        'Keep adding features to Mule 3 apps and port them later',
-        'Add partner capacity for peaks if needed',
+        'Keep adding features to the Mule 3 apps and port them later',
+        'Build each new feature twice, once in Mule 3 and once in Mule 4',
+        'Pause the migration until all requested features are delivered',
       ],
-      answer: [0, 1, 2, 4],
-      explain: 'Training, pairing and extra capacity close the skills gap; a "new features only on Mule 4" rule avoids building everything twice. Adding features to Mule 3 apps means double work and a moving target.',
+      answer: 0,
+      explain: 'A "new features only on Mule 4" rule avoids building everything twice. Adding features to Mule 3 apps means double work and a moving target, and letting feature demand stall the programme is a named risk. The skills gap is handled separately with training, a migration playbook and templates, pairing with the experienced developer, and partner capacity for peaks.',
     },
   ],
   description: `

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each authentication method in the deployment configuration to its parameters.',
       pairs: [
         ['Username and password', '`username` and `password`'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What value does `connectedAppGrantType` take in the Mule Maven plugin?',
       options: [
         '`client_credentials`, the only supported type',
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which access scope does the CloudHub 2.0 deployment page say the Connected App credentials must have?',
       options: [
         '`Design Center Developer`',
@@ -55,6 +58,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A deployment block has `<server>my.anypoint.credentials</server>`, and the parent POM still sets `<username>` and `<password>` in the same block. Which credentials are used?',
       options: [
         'The username and password, because the docs say they overwrite the defined server ID',
@@ -66,17 +70,16 @@ export default {
       explain: 'The docs warn you to make sure that the username and password are not set in the deployment configuration, or they overwrite the server ID.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about a Connected App that acts on its own behalf are correct?',
+      type: 'single',
+      prompt: 'A pipeline deploys Mule apps with a Connected App that acts on its own behalf. Does a person have to be involved for it to get access?',
       options: [
-        'It acts without impersonating a user',
-        'It uses the Client Credentials grant type',
-        'It can be used only in the organization where it is created',
-        'It is a documented way to build CI/CD pipelines',
-        'It needs a user to sign in the first time a pipeline runs',
+        'No. It signs in with the password of a shared service account',
+        'Yes. A user signs in the first time a pipeline runs',
+        'No. It uses the Client Credentials grant and impersonates no user',
+        'Yes. It acts as the user who created the Connected App',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Those are in the Connected Apps overview and developer pages. No user is involved: signing in belongs to apps that act on behalf of a user.',
+      answer: 2,
+      explain: 'No user is involved: signing in belongs to apps that act on behalf of a user. A Connected App that acts on its own behalf uses the Client Credentials grant type and acts without impersonating a user. It can be used only in the organization where it is created, and it is a documented way to build CI/CD pipelines. These points are in the Connected Apps overview and developer pages.',
     },
   ],
   description: `

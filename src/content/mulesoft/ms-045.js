@@ -7,14 +7,20 @@ export default {
   estMinutes: 30,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'With Runtime Fabric, which of these stay in MuleSoft\'s cloud (control plane)?',
-      options: ['Runtime Manager', 'API Manager', 'Exchange', 'The Mule app pods', 'The app\'s request traffic and data'],
-      answer: [0, 1, 2],
-      explain: 'Management stays in the control plane; apps, their traffic and their data run in your cluster (runtime plane).',
+      type: 'single',
+      prompt: 'A regulated insurer uses Runtime Fabric (RTF) to keep runtime traffic and data in its own Kubernetes cluster, while it still manages apps through Anypoint Platform. Which of these runs in the cluster?',
+      options: [
+        'The Mule app pods',
+        'Runtime Manager',
+        'API Manager',
+        'Exchange',
+      ],
+      answer: 0,
+      explain: 'Management stays in MuleSoft\'s cloud (the control plane): Runtime Manager, API Manager and Exchange. Apps, their traffic and their data run in your cluster (the runtime plane).',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which way do connections between the cluster and the control plane go?',
       options: [
         'MuleSoft connects inbound to the cluster API server',
@@ -27,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How does each Mule app replica run on RTF?',
       options: ['As a pod running the Mule runtime with the app', 'As a VM per app', 'Inside the RTF agent process', 'As a CloudHub worker'],
       answer: 0,

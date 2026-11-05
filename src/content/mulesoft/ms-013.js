@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The client also sends `sortBy` for the ORDER BY. How do you handle it safely?',
       options: [
         'Bind it as `:sortBy` like any other parameter',
@@ -44,6 +45,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'The 8-million-row export runs out of memory. Which changes help?',
       options: [
         'Set `fetchSize` so the driver fetches rows in pages',

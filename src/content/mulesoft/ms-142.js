@@ -7,21 +7,21 @@ export default {
   estMinutes: 25,
   quiz: [
     {
-      type: 'multi',
-      prompt: 'Which items must be ready before running the Mule upgrade tool?',
+      type: 'single',
+      prompt: 'The Mule upgrade tool is a command-line utility that updates standalone on-premises Mule 4 instances. A team wants to apply the latest cumulative patch with it. What must it give the tool as the new distribution?',
       options: [
-        'The Mule instance is stopped',
-        'The latest version of the upgrade tool',
-        'The full runtime distribution, unpacked, with `distribution` and not `patch` in the file name',
-        'At least 2 GB of free disk space',
-        'Paths with no blank spaces in `$MULE_HOME` or the new distribution path',
-        'All apps removed from `$MULE_HOME/apps`',
+        'The full runtime distribution, unpacked',
+        'The full runtime distribution, still packed',
+        'The patch file for the new version, unpacked',
+        'A copy of the current `$MULE_HOME` directory',
       ],
-      answer: [0, 1, 2, 3, 4],
-      explain: 'The tool does not modify the Mule apps running on the runtime, so they do not need removing. Paths with blank spaces make it exit with an error.',
+      answer: 0,
+      explain: 'The tool needs the full runtime distribution, unpacked, with `distribution` and not `patch` in the file name. It also needs a stopped Mule instance, the latest version of the tool, at least 2 GB of free disk space and no blank spaces in `$MULE_HOME` or the new distribution path. Paths with blank spaces make it exit with an error. Apps do not need removing, because the tool does not modify the Mule apps running on the runtime.',
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'The Anypoint Monitoring agent is installed on the server. What do you do about it?',
       options: [
         'Uninstall it before the upgrade and reinstall it afterwards, because the tool does not support upgrading it',
@@ -34,6 +34,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'Why rename the `$MULE_HOME` directory before running the tool, if you rename it at all?',
       options: [
         'Renaming it after the upgrade makes Anypoint Monitoring stop working, which needs an uninstall and reinstall to restore',
@@ -46,6 +48,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'The upgrade fails with an error naming `wrapper.conf` as a conflict. What has happened?',
       options: [
         'The tool could not merge the local and new versions of the file automatically, so you review it in `to_review`, put the result in `ready`, and run the upgrade again',
@@ -71,6 +75,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'How does the tool handle a Mule cluster?',
       options: [
         'It upgrades local instances: you run it on each node, and every node must end on the same Mule version',
@@ -83,6 +89,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'After the upgrade, smoke tests fail and the team decides to go back. What do they run?',
       options: [
         '`$MULE_HOME/tools/upgrade-tool rollback`, which restores from the backup in `$MULE_HOME/.upgrade-tool-backup`',

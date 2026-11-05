@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'On Mule 4.2.1 or later, what decides whether a key has a rolling or a static TTL?',
       options: [
         'If **Entry ttl** is empty the TTL is rolling; if it has a value the TTL is static',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A returns team sets `entryTtl` to 90 days on an idempotency store, so that duplicate returns are rejected for a whole quarter. What happens?',
       options: [
         'The TTL is set to the maximum of 2592000 seconds (30 days) with no error, so keys can expire before the window ends',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'With rolling TTL, which Object Store Connector operations extend the TTL of a key?',
       options: ['Retrieve', 'Retrieve All', 'Retrieve All Keys', 'Store', 'Contains', 'Remove'],
       answer: [0, 1, 2, 3],
@@ -51,6 +54,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'One app uses two object stores, `case-obj-store` and `ticket-obj-store`, on the premium subscription. What does the example on the rate-limiting page say about its limit?',
       options: [
         '100 TPS across both stores together, because rate limiting is applied per application',
@@ -63,6 +67,8 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each operation to its billable units.',
       pairs: [
         ['Retrieve one key with a 500 KB payload', '5 units'],
@@ -74,6 +80,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A nightly job calls **Retrieve All Keys** on a partition of large values, only to count the keys. Why is finance surprised by the bill?',
       options: [
         'Billable units for Retrieve All and Retrieve All Keys are based on the size of all key-value pairs in the partition, not just the keys',
@@ -86,6 +93,8 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which statements about values, keys and regions are correct?',
       options: [
         'The overview gives a limit of 10 MB when Base64 encoded, and its example converts a 7.5 MB payload to 10.24 MB',

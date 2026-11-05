@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Which JMS connector connection type is designed for **ActiveMQ Classic** (5.x)?',
       options: [
         '`jms:active-mq-connection` with a `jms:factory-configuration brokerUrl="..."`',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The warehouse is moving to **ActiveMQ Artemis** and the team wants to use the Artemis JMS client and JMS 2.0 features. How is that usually configured?',
       options: [
         'A `jms:generic-connection` referencing an Artemis `ActiveMQConnectionFactory` bean, with specification JMS_2_0',
@@ -44,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The same app with a hard-coded client ID is scaled to 2 replicas. What do you expect?',
       options: [
         'The second connection is rejected (or the subscription conflicts), because a client ID may be used by only one connection at a time',
@@ -67,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The connection factory bean is already a **pooled** factory. What caching setting is usually recommended in Mule?',
       options: [
         'No caching, so you do not pool on top of a pool',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'What does APIkit for SOAP scaffold from?',
       options: [
         'A RAML spec with SOAP traits',
@@ -31,20 +32,20 @@ export default {
       explain: 'SOAP clients expect the SOAP error model; map the Process API\'s error responses into faults.',
     },
     {
-      type: 'multi',
-      prompt: 'What belongs in the shared **parent POM**?',
+      type: 'single',
+      prompt: 'Twenty-five Mule apps pin different versions in their own `pom.xml`, so a shared parent POM is created to centralise them. Which item stays in each app and not in the parent?',
       options: [
-        'Mule runtime, mule-maven-plugin and MUnit versions',
-        'Connector and common-library versions in `dependencyManagement`',
-        'Plugin configuration such as MUnit coverage thresholds',
+        'The app\'s `artifactId` and API spec dependency',
+        'Mule runtime, `mule-maven-plugin` and MUnit versions',
+        'Connector versions in `dependencyManagement`',
         'Repositories and Exchange `distributionManagement`',
-        'Each app\'s `artifactId` and API spec dependency',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Apps keep their own identity, the dependencies they actually use (versions inherited), their spec dependency and app-specific settings.',
+      answer: 0,
+      explain: 'Apps keep their own identity, the dependencies they actually use (versions inherited), their spec dependency and app-specific settings. The parent holds the Mule runtime, `mule-maven-plugin` and MUnit versions, connector and common-library versions in `dependencyManagement`, plugin configuration such as MUnit coverage thresholds, and repositories and Exchange `distributionManagement`.',
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the steps to adopt the common error-handling library in an app.',
       items: [
         'Package the shared project as a mule-plugin and publish it to Exchange',

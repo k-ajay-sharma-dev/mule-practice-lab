@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where does the API take the tenant ID from?',
       options: [
         'An X-Tenant-ID header sent by the client',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each plan to its isolation model.',
       pairs: [
         ['Basic / Pro compute', 'Shared multi-replica Mule apps'],
@@ -29,20 +31,20 @@ export default {
       explain: 'The pool keeps thousands of small tenants cheap; dedicated cells deliver residency and guaranteed capacity, priced into Enterprise.',
     },
     {
-      type: 'multi',
-      prompt: 'Which measures stop one marketplace\'s Black Friday traffic from slowing everyone else?',
+      type: 'single',
+      prompt: 'On a shared multi-tenant API platform, one marketplace\'s Black Friday surge creates a large webhook backlog. Other tenants\' webhooks must not be delayed. How should webhook processing be set up?',
       options: [
-        'SLA-tier rate limiting per client application in API Manager',
-        'Per-tenant quotas in front of shared DB and async processing',
-        'Separate queues or consumer pools for big tenants\' webhooks',
-        'Moving the biggest tenants to dedicated cells',
-        'One shared queue for all tenants so load is spread evenly',
+        'Separate queues or consumer pools for the biggest tenants',
+        'One shared queue for all tenants, so load is spread evenly',
+        'One shared queue, with more retries for each webhook',
+        'A higher rate limit for the biggest tenants during the peak',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'A single shared queue means one tenant\'s backlog delays every other tenant\'s webhooks — the exact noisy-neighbour problem.',
+      answer: 0,
+      explain: 'A single shared queue means one tenant\'s backlog delays every other tenant\'s webhooks. That is the noisy-neighbour problem. Separate queues or consumer pools keep the backlog away from other tenants. The wider defence also includes SLA-tier rate limiting per client application in API Manager, per-tenant quotas in front of the shared DB and async processing, and moving the biggest tenants to dedicated cells.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where does tenant-specific configuration (plan, features, webhook URLs, limits, cell) live?',
       options: [
         'In per-tenant properties files, redeployed for each new tenant',
@@ -54,17 +56,16 @@ export default {
       explain: 'With 3,000 tenants, onboarding must be an automated API flow with no redeploy.',
     },
     {
-      type: 'multi',
-      prompt: 'Which controls guarantee data isolation even if a developer forgets a WHERE clause?',
+      type: 'single',
+      prompt: 'A multi-tenant API keeps all tenants\' rows in one shared database. A developer might forget the tenant filter in a query. What stops that query from returning another tenant\'s data?',
       options: [
-        'A shared component that injects tenant_id into every query',
-        'Database row-level security or separate schemas as a second line of defence',
-        'Cache and Object Store keys prefixed with tenantId',
-        'Automated CI tests where tenant A\'s token tries to read tenant B\'s shipment',
+        'Database row-level security, as a second line of defence',
         'A code-review reminder in the wiki',
+        'A tenant ID header sent by the client on each request',
+        'Logs that include the tenant ID of each call',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Defence in depth: central enforcement, database controls and tests that fail the build. A reminder alone does not stop a mistake.',
+      answer: 0,
+      explain: 'Row-level security (or separate schemas) works in the database, so a forgotten WHERE clause returns nothing. A reminder alone does not stop a mistake, logs do not block a query, and a client can change any header it sends. Defence in depth also includes a shared component that injects tenant_id into every query, cache and Object Store keys prefixed with tenantId, and automated CI tests where tenant A\'s token tries to read tenant B\'s shipment.',
     },
     {
       type: 'single',

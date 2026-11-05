@@ -32,16 +32,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which designs make applying an inventory event safe to repeat or to receive out of order? (Select all that apply.)',
+      prompt: 'A Mule consumer reads inventory events from a message broker and updates stock in Oracle. After a failover the broker can deliver the same event again. Which three designs stop a repeated event from changing the stock twice?',
       options: [
-        'Events carry the absolute quantity plus a per-SKU-location sequence number, and Oracle applies them with a MERGE whose update only fires when the incoming sequence is higher',
-        'A unique constraint on (source, eventId) in a processed-events table, written in the same transaction',
-        'Mule idempotent-message-validator backed by a persistent, shared Object Store keyed on eventId, with a TTL longer than the redelivery window',
-        'Deltas applied with UPDATE qty = qty + :delta and no other check',
-        'Relying on the broker to never deliver a message twice',
+        'Absolute quantities with a sequence number, updated only when the sequence is higher',
+        'A unique key on the event id in a dedup table, written in the same transaction',
+        'An idempotent message validator on a persistent, shared Object Store keyed on event id',
+        'A delta update such as `qty = qty + :delta`, with no other check on the event',
+        'Trusting the broker to deliver each message only once, with no check in the consumer',
       ],
       answer: [0, 1, 2],
-      explain: 'Absolute values with a sequence guard are naturally idempotent and order-tolerant; a dedup table or a shared persistent Object Store prevents double application. A bare delta update double-counts on redelivery, and at-least-once brokers do deliver duplicates.',
+      explain: 'Absolute values with a sequence guard are naturally idempotent and order-tolerant, for example a MERGE that only updates when the incoming sequence is higher. A dedup table or a shared persistent Object Store prevents double application; give the Object Store entries a TTL longer than the redelivery window. A bare delta update double-counts on redelivery, and at-least-once brokers do deliver duplicates.',
     },
     {
       type: 'single',

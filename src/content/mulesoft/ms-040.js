@@ -21,8 +21,7 @@ export default {
       prompt: 'Put the policies in the recommended order for the request path.',
       items: [
         'IP allowlist',
-        'JWT validation',
-        'Client ID enforcement',
+        'JWT validation and client ID enforcement',
         'Rate limiting',
         'Custom X-Tenant-Id check',
       ],
@@ -30,6 +29,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In testing, the header check failed with a null claim. Why?',
       options: [
         'The JWT policy strips claims from the request',
@@ -42,6 +42,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each custom policy type to how it is built.',
       pairs: [
         ['Mule 4 custom policy', 'Maven project with a YAML definition and a template using `http-policy:proceed`'],
@@ -63,16 +64,16 @@ export default {
       explain: 'Gatekeeper behaviour blocks traffic until policies are applied.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about policies and autodiscovery are true?',
+      type: 'single',
+      prompt: 'A Mule app is paired with an API Manager instance through autodiscovery, so its runtime enforces that instance\'s policies. An admin changes a policy in API Manager. What must happen to the app?',
       options: [
-        'The runtime needs the API instance ID and platform client ID/secret to download policies',
-        'Changing a policy in API Manager does not require redeploying the app',
-        'Policies are packaged inside the application jar',
-        'Many policies can be scoped to specific methods and resource paths',
+        'A redeploy, because policies are packaged inside the application jar',
+        'A rebuild, because the policy must be added to the app\'s XML',
+        'No redeploy, because the runtime downloads policies from API Manager',
+        'A new API instance ID, because each policy change creates one',
       ],
-      answer: [0, 1, 3],
-      explain: 'Policies live in API Manager, not in the app; the runtime polls for and downloads them.',
+      answer: 2,
+      explain: 'Policies live in API Manager, not in the app, and the runtime polls for them and downloads them. To do that it needs the API instance ID and the platform client ID and secret. Many policies can also be scoped to specific methods and resource paths.',
     },
   ],
   description: `

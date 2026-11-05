@@ -31,16 +31,16 @@ export default {
       explain: 'How much of a failing JDBC batch is applied depends on driver behaviour and commit mode. Make the outcome explicit: wrap the chunk in a transaction (all-or-nothing) and handle the failure yourself.',
     },
     {
-      type: 'multi',
-      prompt: 'Which design isolates bad rows while keeping bulk speed?',
+      type: 'single',
+      prompt: 'A Mule app loads sales lines into Oracle with `db:bulk-insert`, one chunk at a time, in a Try with a LOCAL transaction. A bad row makes one chunk fail, and that chunk rolls back. How do you still load its good rows and keep bulk speed?',
       options: [
-        'Validate lines in DataWeave first and route invalid ones to an error table/file with the reason',
-        'Insert each chunk inside a Try with a LOCAL transaction so a failing chunk is rolled back cleanly',
-        'When a chunk fails, re-insert that chunk row by row to find and park the bad rows, and insert the good ones',
         'Switch the whole load to row-by-row inserts permanently',
+        'Run the same bulk insert again for the whole file',
+        'Skip the failed chunk, and log the number of lost rows',
+        'Retry only that chunk row by row, and park the bad rows',
       ],
-      answer: [0, 1, 2],
-      explain: 'Pre-validation catches most problems cheaply; atomic chunks make failure predictable; the row-by-row fallback only runs for the rare failing chunk. Row-by-row everywhere throws away the bulk gain.',
+      answer: 3,
+      explain: 'The row-by-row fallback only runs for the rare failing chunk, so bad rows are parked with a reason and good rows are loaded. Atomic chunks make failure predictable, and validating lines in DataWeave first catches most problems cheaply and sends invalid ones to an error table with the reason. Row-by-row everywhere throws away the bulk gain.',
     },
     {
       type: 'single',

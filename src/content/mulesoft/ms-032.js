@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why does `payload map { id: $.column_0 }` fail on the pipe-delimited file?',
       options: [
         'DataWeave cannot map over CSV at all',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which File Read setting lets DataWeave read the file correctly as headerless, pipe-separated CSV?',
       options: [
         '`outputMimeType="application/csv; header=false; separator=|"`',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What does `#[{ count: sizeOf(payload), source: "nightly" }]` in Set Payload produce?',
       options: [
         'A JSON string',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A teammate fixes step 2 by setting `mimeType="application/json"` on Set Payload while keeping the same inline expression. Does that work?',
       options: [
         'Yes, it converts the Java Map to JSON text',
@@ -65,16 +69,16 @@ export default {
       explain: '`target` redirects the result into a variable, and `targetValue` (default `#[payload]`) selects what part of the result goes there.',
     },
     {
-      type: 'multi',
-      prompt: 'Why is declaring the type on the File Read operation usually preferred over `read(payload, "application/csv", {...})` inside DataWeave?',
+      type: 'single',
+      prompt: 'A flow reads a headerless, pipe-separated file. One option declares the type with `outputMimeType` on File Read. The other parses it with `read(payload, "application/csv", {...})` inside DataWeave. Why is the File Read option usually preferred?',
       options: [
-        'Every downstream component sees the correct type',
-        'Studio metadata works',
-        'It is the only way to set `header=false`',
+        'Every later component sees the correct type',
+        'Only File Read can set `header=false`',
         'It avoids having to parse the file at all',
+        '`read` cannot take a custom separator',
       ],
-      answer: [0, 1],
-      explain: 'Both approaches can set the reader properties, and both parse the file. Declaring it on the operation types the payload once for the whole flow and lets Studio show metadata.',
+      answer: 0,
+      explain: 'Declaring it on the operation types the payload once for the whole flow and lets Studio show metadata. Both approaches can set the reader properties, and both parse the file.',
     },
   ],
   description: `

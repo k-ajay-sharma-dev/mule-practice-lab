@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'You create `src/main/resources/dw/common/Utils.dwl`. What is its module name?',
       options: ['`dw.common.Utils`', '`dw::common::Utils`', '`Utils`', '`classpath://dw/common/Utils`'],
       answer: 1,
@@ -24,14 +25,20 @@ export default {
       explain: 'Importing the module keeps calls qualified; `import * from` or a named list brings functions into scope directly.',
     },
     {
-      type: 'multi',
-      prompt: 'Which of these are allowed in a DataWeave **module** file?',
-      options: ['`fun` declarations', '`var` declarations', '`type` declarations', 'An `output application/json` directive', 'A body after `---`'],
-      answer: [0, 1, 2],
-      explain: 'A module is a library: declarations (fun, var, type, ns) and imports only. No `output` directive and no body.',
+      type: 'single',
+      prompt: 'A developer moves shared logic into a DataWeave module, which is a `.dwl` file that other scripts import. Which of these must not appear in the module file?',
+      options: [
+        'A `fun` declaration',
+        'A `var` declaration',
+        'A `type` declaration',
+        'An `output` directive',
+      ],
+      answer: 3,
+      explain: 'A module is a library: declarations (`fun`, `var`, `type`, `ns`) and imports only. It has no `output` directive and no body after `---`.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How do you move the whole Transform Message script out of the XML?',
       options: [
         '`<ee:set-payload resource="dw/orders/toErp.dwl"/>`',
@@ -44,6 +51,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where should the 200-entry country lookup live and how is it loaded?',
       options: [
         'Inline in both scripts, so each can change independently',

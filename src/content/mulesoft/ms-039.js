@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each requirement of the order pipeline to the best mechanism.',
       pairs: [
         ['R1 — buffer work between two flows inside the Order API', 'VM queue'],
@@ -20,15 +21,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Why is Object Store a poor queue? (Select all that apply.)',
+      prompt: 'An architect proposes using Object Store as a queue for all messaging between Mule apps, because it is already included. Which three reasons make it a poor queue?',
       options: [
-        'No consumer/listener model',
-        'No acknowledgement, redelivery or DLQ',
+        'It has no consumer or listener model',
+        'It has no acknowledgement, redelivery or DLQ',
         'Polling it with a Scheduler causes races between replicas',
-        'It cannot expire entries',
+        'It cannot expire entries, so old messages pile up',
+        'It cannot look up a stored value by its key',
       ],
       answer: [0, 1, 2],
-      explain: 'Object Store **does** support TTL — that is why it suits R5. It is a store, not a messaging system.',
+      explain: 'Object Store **does** support key lookups and TTL, which is why it suits remembering processed event IDs. It also has no ordering. It is a store, not a messaging system.',
     },
     {
       type: 'match',
@@ -54,6 +56,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you meet R4 (park failed messages after N attempts) with Anypoint MQ?',
       options: [
         'Catch the error and write the message to Object Store',
@@ -66,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'You add more consumers to the FIFO queue for R3, but publishers set no message group ID. What happens to throughput?',
       options: [
         'It scales linearly with consumers',

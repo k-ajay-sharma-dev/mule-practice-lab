@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'The flow fails halfway through a message. Match each listener ack mode to the outcome the documentation describes.',
       pairs: [
         ['AUTO', 'Not acknowledged, and redelivered'],
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which requirement applies when you call `jms:recover-session`?',
       options: [
         'It must use the same connection that received the message',
@@ -43,25 +45,27 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A `jms:listener` runs with a LOCAL transaction. Which ack mode does the configuration documentation require?',
       options: ['IMMEDIATE', 'AUTO', 'MANUAL', 'DUPS_OK'],
       answer: 0,
       explain: 'This surprises many people. IMMEDIATE is required with LOCAL or MULTI transactions. The message is acknowledged only after the transaction occurs, so a rollback returns it for redelivery.',
     },
     {
-      type: 'multi',
-      prompt: 'A flow uses `jms:consume` part-way through its logic. Which statements are correct?',
+      type: 'single',
+      prompt: 'A flow uses `jms:consume` part-way through its logic to read a message. The developer must pick an ack mode, which decides how the message is acknowledged to the broker. Which modes can it use?',
       options: [
-        'Its ack mode can only be IMMEDIATE or MANUAL',
-        'Maximum Wait defaults to 10000 ms, and the operation can raise JMS:TIMEOUT',
-        'If the result goes to a target with targetValue `#[message]`, the id is under the variable, for example `#[vars.consumedMessage.attributes.ackId]`',
-        'It supports AUTO, because the flow can succeed or fail after it',
+        'IMMEDIATE or MANUAL',
+        'AUTO or DUPS_OK',
+        'AUTO or MANUAL',
+        'All four listener modes',
       ],
-      answer: [0, 1, 2],
-      explain: 'AUTO and DUPS_OK belong to the listener, whose acknowledgement follows the flow it starts. Consume is a step inside a flow, so it offers IMMEDIATE or MANUAL only.',
+      answer: 0,
+      explain: 'Consume is a step inside a flow, so it offers IMMEDIATE or MANUAL only. AUTO and DUPS_OK belong to the listener, whose acknowledgement follows the flow it starts. Maximum Wait defaults to 10000 ms, and the operation can raise JMS:TIMEOUT. If the result goes to a target with targetValue `#[message]`, the id is under the variable, for example `#[vars.consumedMessage.attributes.ackId]`.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An audit feed tolerates a repeated message, and each record is safe to apply twice. Which listener mode gives flow-based acknowledgement and accepts that possible repeat?',
       options: ['DUPS_OK', 'IMMEDIATE', 'MANUAL with no recover-session', 'AUTO with a transaction'],
       answer: 0,
@@ -69,6 +73,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team sets Max Redelivery on the JMS listener to limit retries on ActiveMQ. Why does this not work?',
       options: [
         'The docs say Max Redelivery on the listener or config has no effect; use maxRedelivery on the ActiveMQ factory',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A colleague keeps saying "Flex Gateway". What should you call it now, and what is it?',
       options: [
         'Omni Gateway (formerly Flex Gateway): an Envoy-based lightweight API gateway for APIs running anywhere',
@@ -19,16 +20,16 @@ export default {
       explain: 'The docs now use Omni Gateway (formerly Flex Gateway). Know both names: interviewers and older material may say Flex Gateway, and flex names remain in the product, such as the `flex-gateway` service and `FLEX_*` variables. Mule Gateway is different: it is embedded in Mule runtime engine, and policies are injected into the Mule app or proxy.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements on policy order hold for **both** gateways?',
+      type: 'single',
+      prompt: 'An API on Mule Gateway and an API on Omni Gateway (formerly Flex Gateway) each have the CORS policy, an automated policy and an API-level policy. In what order do these run on a request, on both gateways?',
       options: [
-        'The CORS policy cannot be ordered and runs before automated and API-level policies',
-        'Automated policies run before API-level policies',
-        'Duplicate policies are supported and should be given labels',
-        'Policies can be reordered in Local Mode with a `PolicyBinding` YAML resource',
+        'CORS, then automated, then API-level',
+        'Automated, then CORS, then API-level',
+        'API-level, then automated, then CORS',
+        'CORS, then API-level, then automated',
       ],
-      answer: [0, 1, 2],
-      explain: 'Local Mode exists only on Omni Gateway, where the `order` parameter of a `PolicyBinding` sets the sequence. In Connected Mode you order API-level policies in API Manager, as on Mule Gateway.',
+      answer: 0,
+      explain: 'The CORS policy cannot be ordered and runs first, and automated policies run before API-level policies. Both gateways also support duplicate policies, which should be given labels. The mechanisms differ. Local Mode exists only on Omni Gateway, where the `order` parameter of a `PolicyBinding` sets the sequence. In Connected Mode you order API-level policies in API Manager, as on Mule Gateway.',
     },
     {
       type: 'order',
@@ -45,6 +46,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each policy to where the docs list it.',
       pairs: [
         ['OAuth 2.0 Access Token Enforcement Using Mule OAuth Provider', 'Mule Gateway only'],
@@ -55,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'On Omni Gateway in **Local Mode**, you want to apply OpenID Connect OAuth 2.0 Token Enforcement with a declarative file. What do the docs say?',
       options: [
         'It is not supported in Local Mode: use Managed Omni Gateway or Connected Mode, or another policy such as OAuth 2.0 Token Introspection',
@@ -79,15 +82,16 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An administrator applies an **automated** IP Allowlist to the environment on Mule Gateway. One API already has its own IP Allowlist with a wider range. What happens?',
       options: [
-        'The automated policy has priority, and you cannot apply that type as a provided policy to an API while the automated one exists',
-        'The two lists are merged',
+        'The automated policy has priority, and you must solve the conflict',
+        'The two lists are merged, and both ranges are allowed',
         'The API-level policy wins, because it is more specific',
         'The API-level policy can be moved before the automated one',
       ],
       answer: 0,
-      explain: 'Automated policies have priority over policies of the same type, and API-level policies cannot be configured to run before them. Alerts also cannot be added to API instances protected by automated policies. This rule is from the Automated Policies page. The Reordering Policies page separately says that automated and API-level policies support duplicates, so test your exact case.',
+      explain: 'Automated policies have priority over policies of the same type, and API-level policies cannot be configured to run before them. API Manager detects the conflict when you apply the automated policy, and you solve it by disabling, removing or overriding the API-level policy. If you override it, the API-level policy is disabled, and it is re-enabled automatically if the automated policy is removed. Alerts also cannot be added to API instances protected by automated policies.',
     },
   ],
   description: `
@@ -126,7 +130,7 @@ Their plan is to "reuse the same policies". They have assumed that:
     'Mule Gateway only: Mule OAuth Provider, PingFederate and OpenAM enforcement. Omni Gateway only: OAuth 2.0 Token Introspection, TLS policies, outbound Credential Injection policies.',
     'Local Mode: OpenID Connect enforcement is not supported, and JWT Validation needs skipClientIdValidation true.',
     'Inbound TLS on Omni Gateway is per port.',
-    'Automated policies on Mule Gateway have priority over the same type applied to an API, and block applying that type to it.',
+    'Automated policies on Mule Gateway have priority over the same type applied to an API. API Manager detects the conflict, which you solve by disabling, removing or overriding the API-level policy.',
   ],
   solution: `
 **1. The gateways.**

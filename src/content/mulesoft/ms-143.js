@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each log on a standalone runtime to what it holds.',
       pairs: [
         ['`$MULE_HOME/logs/<app-name>.log`', 'Unhandled errors raised in that app and anything it logs explicitly'],
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An app must use a config file named `custom-log4j2.xml`. Where do you declare that?',
       options: [
         'A `logConfigFile` entry in `mule-artifact.json`, with a path relative to the root of the app',
@@ -54,6 +56,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Operations want log level changes in `conf/log4j2.xml` to apply without a restart every time. What is the documented setup?',
       options: [
         'Add `monitorInterval` to `<Configuration>` and restart Mule once to load it; later changes apply within the interval',
@@ -66,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'After a change to Log4j 2, "nothing happened". What is the documented diagnostic?',
       options: [
         'Start Mule with `-M-Dlog4j.debug=true`, which writes the location of the configuration file in use to `stdout`',

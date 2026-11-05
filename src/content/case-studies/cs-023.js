@@ -32,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'A SOAP consumer cannot change. How do you still end up with reusable APIs?',
       options: [
         'Expose the same WSDL from Mule (e.g. APIkit for SOAP) as a contract-compatible facade backed by the new API-led APIs',
@@ -44,6 +45,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the steps for moving one service.',
       items: [
         'Build the Mule implementation',
@@ -56,6 +58,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The JMS broker is part of the old ESB product. How do you handle it?',
       options: [
         'Introduce the new broker early, bridge queues between old and new during transition, and cut over queue by queue starting with low-volume flows',
@@ -67,17 +70,16 @@ export default {
       explain: 'Bridging lets producers and consumers move independently, which is essential in a 24/7 operation. Switching everything at once is a big-bang risk, and the old broker disappears with the licence.',
     },
     {
-      type: 'multi',
-      prompt: 'Which programme decisions protect the 24-month deadline?',
+      type: 'single',
+      prompt: 'A programme is replacing an old ESB before a fixed licence renewal date. One wave is late, because redesigning its services into API-led APIs takes too long. What should the programme do?',
       options: [
-        'A buffer of a few months before the licence renewal',
-        'Time-boxing redesign work and falling back to lift-and-shift when a wave is late',
-        'Pairing old-ESB experts with Mule developers (and an SI partner for early waves)',
-        'Tracking services migrated, services retired and % of traffic on Mule',
-        'Redesigning every service into a perfect API-led model before moving any',
+        'Finish a perfect API-led redesign of each service before moving it',
+        'Pause all other waves until the late redesign work is complete',
+        'Time-box the redesign, and fall back to lift-and-shift when late',
+        'Skip parallel runs and testing, to win back the lost time',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Buffers, time-boxed redesign, knowledge pairing and visible progress metrics keep the date safe. Perfecting every service before moving any is the scope trap the plan warns about.',
+      answer: 2,
+      explain: 'Lift-and-shift reimplements a service quickly with the same contract, so time-boxing redesign keeps the date safe. Perfecting every service before moving any is the scope trap the plan warns about. Other decisions that protect the deadline are a buffer of a few months before the renewal, pairing old-ESB experts with Mule developers (and an SI partner for early waves), and tracking services migrated, services retired and % of traffic on Mule.',
     },
   ],
   description: `

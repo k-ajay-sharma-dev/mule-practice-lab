@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Oracle type to what it stores.',
       pairs: [
         ['DATE', 'Date and time to the second, no fractional seconds, no time zone'],
@@ -31,6 +32,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'In DataWeave, how do you correctly turn the store-local value into an instant for the Chicago store?',
       options: [
         'Take the local date-time (as LocalDateTime) and append the store zone: (row.SALE_TS as LocalDateTime) ++ ("America/Chicago" as TimeZone)',
@@ -54,16 +57,16 @@ export default {
       explain: 'The `>>` operator changes the zone while keeping the instant, so the wall-clock time changes. After 1 Nov 2026 Chicago is on CST (UTC-6).',
     },
     {
-      type: 'multi',
-      prompt: 'Which are good practices for the end-of-day store sales feed?',
+      type: 'single',
+      prompt: 'A retailer has stores in several time zones. An end-of-day sales feed groups sales by business date. How should the business date of a sale be derived?',
       options: [
-        'Store event times as UTC (or TIMESTAMP WITH TIME ZONE) and keep the store time zone on the store master',
-        'Derive the business date in the store time zone, not from the UTC date',
-        'Use the server time zone of whichever runtime processes the message',
-        'Pass dates to Oracle as bound DateTime parameters rather than formatted strings in the SQL',
+        'From the sale time in the store time zone',
+        'From the UTC date of the sale',
+        'From the server time zone of the runtime that processes it',
+        'From Oracle `SYSDATE` at the time of the extract',
       ],
-      answer: [0, 1, 3],
-      explain: 'Unambiguous storage plus explicit conversion at the edges avoids drift. Relying on the runtime time zone makes results depend on where the app happens to run.',
+      answer: 0,
+      explain: 'A 21:30 sale in Los Angeles is 05:30Z the next day, so its UTC date is the next business date. Relying on the runtime time zone makes results depend on where the app happens to run, and `SYSDATE` depends on the DB server settings. Unambiguous storage plus explicit conversion at the edges avoids drift: store event times as UTC (or TIMESTAMP WITH TIME ZONE), keep the store time zone on the store master, and pass dates to Oracle as bound DateTime parameters rather than formatted strings in the SQL.',
     },
   ],
   description: `

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'How does the correlation ID travel from the Experience API to the System API?',
       options: [
         'The Listener takes `X-Correlation-ID` (or generates one), and HTTP Request controls sending it downstream with `sendCorrelationId` (AUTO by default)',
@@ -20,12 +21,13 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which belong in a good production INFO log line?',
+      prompt: 'Support must trace one failed order across several Mule apps in Splunk, without exposing customer data. Which three things belong in a production INFO log line?',
       options: [
-        '`correlationId`',
+        'The `correlationId`',
         'App, flow and step names',
-        'Business identifier such as `orderId`, status and elapsed time',
-        'The full payload including card holder name and address',
+        'An `orderId`, status and elapsed time',
+        'The full payload, with card holder name and address',
+        'The access token of the calling client',
       ],
       answer: [0, 1, 2],
       explain: 'Structured logs with IDs and timing make cross-app search possible. Never log card data, personal data, passwords or tokens.',
@@ -56,6 +58,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'On **CloudHub 1.0** you add a Splunk appender to `log4j2.xml`. How do you keep logs visible in Runtime Manager too?',
       options: [
         'Disable CloudHub logs for the app and also include the CloudHub log4j appender in the config',

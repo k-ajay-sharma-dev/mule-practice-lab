@@ -30,19 +30,20 @@ export default {
       explain: 'A purpose-built Experience API already gives one round trip and a small payload. GraphQL pays off when many front ends need flexible queries over the same graph.',
     },
     {
-      type: 'multi',
-      prompt: 'Which are real costs of offering GraphQL?',
+      type: 'single',
+      prompt: 'A company adds a GraphQL API next to its REST APIs. GraphQL lets each client ask for exactly the fields it wants. Why do plain HTTP caching and per-endpoint rate limits stop working for it?',
       options: [
-        'One endpoint with POST bodies, so plain HTTP caching and per-endpoint rate limits stop working',
-        'Need for query depth/cost limits',
-        'Field-level authorization',
-        'It cannot return JSON',
+        'Every query is a POST body sent to one endpoint',
+        'Responses come back in a format other than JSON',
+        'Contracts are binary and need HTTP/2',
+        'Each requested field becomes a separate HTTP call',
       ],
-      answer: [0, 1, 2],
-      explain: 'GraphQL responses are JSON. The costs are in caching, rate limiting and authorization, which move from the endpoint level to the query level.',
+      answer: 0,
+      explain: 'GraphQL has one endpoint and takes POST bodies, so plain HTTP caching and simple per-endpoint rate limits no longer work. It also needs query depth and cost limits, and field-level authorization. The costs move from the endpoint level to the query level. Responses are still JSON.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is gRPC a poor choice for the partner aggregators?',
       options: [
         'It is slower than REST',
@@ -67,6 +68,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where is MuleSoft not the natural hop?',
       options: [
         'Exposing a SOAP facade for the broker portal',

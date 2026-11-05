@@ -26,10 +26,11 @@ export function shuffled(list, random = Math.random) {
 }
 
 // One question per problem first, so a short exam covers as many topics as it can. A small pool then goes round
-// again. Questions from recent exams are used last.
-export function chooseQuestions(loaded, count, seen = new Set(), random = Math.random) {
+// again. Questions from recent exams are used last. keep can leave some questions out, such as detail ones.
+export function chooseQuestions(loaded, count, seen = new Set(), random = Math.random, keep = () => true) {
   const queues = loaded.map((problem) => {
-    const items = shuffled(problem.quiz.map((_, q) => ({ id: problem.id, q })), random)
+    const all = problem.quiz.map((question, q) => ({ question, item: { id: problem.id, q } }))
+    const items = shuffled(all.filter((x) => keep(x.question)).map((x) => x.item), random)
     return [...items.filter((i) => !seen.has(itemKey(i))), ...items.filter((i) => seen.has(itemKey(i)))]
   })
   const picked = []

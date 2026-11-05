@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Put the first six months of the programme in the right order.',
       items: [
         'Catalogue every integration (source, target, frequency, owner, pain) and pick 2–3 painful pilots',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which assets should the team build first to unlock the CIO goals of speed and reuse?',
       options: [
         'System APIs for the core systems (ERP products/orders/stock, CRM customers)',
@@ -43,20 +45,20 @@ export default {
       explain: 'The strangler pattern replaces integrations incrementally with a parallel run and rollback option per integration. Leaving the old links forever never removes the fragility that caused the problem.',
     },
     {
-      type: 'multi',
-      prompt: 'Which governance practices belong in this programme?',
+      type: 'single',
+      prompt: 'A retailer is replacing its point-to-point integrations with APIs published in Anypoint Exchange. It wants new projects to reuse those APIs and not build new links. Which practice most directly makes that happen?',
       options: [
         'Every new integration starts by searching Exchange for an existing API',
-        'API specs (RAML/OAS) published in Exchange before implementation',
-        'Policies such as client ID enforcement and rate limiting applied centrally',
-        'Track reuse count and integration lead time as KPIs',
         'Each project team chooses its own error format and logging style',
+        'Each project builds its own copy of the ERP integration to stay independent',
+        'The main KPI is the number of Mule applications deployed',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Discovery in Exchange, spec-first design, central policies and measured KPIs make reuse real and prove the 3-weeks goal. Letting each team pick its own error model is how the point-to-point mess started.',
+      answer: 0,
+      explain: 'Searching Exchange first turns reuse into the normal starting point. Spec-first design in Exchange, central policies such as client ID enforcement and rate limiting, and KPIs for reuse count and lead time support it. Letting each team pick its own error model is how the point-to-point mess started, and private copies recreate it. An app count says nothing about reuse.',
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each programme risk to its mitigation.',
       pairs: [
         ['Double writes during the parallel run', 'One system of record per entity'],
@@ -67,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you show the CIO that the loyalty app goal (reuse what the web shop uses) has been met?',
       options: [
         'The loyalty app is built on the same Customer and Order APIs, and the reuse count in Exchange/API Manager shows it',

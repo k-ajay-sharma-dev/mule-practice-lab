@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'One server runs test apps and the team also wants to see it in the Production environment. What do the docs say?',
       options: [
         'Do not do it: a Mule runtime must not be registered with more than one business group or environment, or more than once',
@@ -31,17 +32,16 @@ export default {
       explain: 'The registration token identifies a specific environment in a specific business group. The docs also note that the agent cannot run in a separate JVM.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the network path between the agent and Anypoint Platform are documented?',
+      type: 'single',
+      prompt: 'A firewall team refuses any new inbound rule from the internet. Standalone Mule servers in the data centre must be managed by Runtime Manager through the agent. Can that work?',
       options: [
-        'All connectivity requirements are outbound from your network',
-        'No inbound connectivity to your servers is required',
-        'The agent keeps persistent WebSocket connections open',
-        'The agent authenticates to the Runtime Manager endpoints with mutual TLS',
-        'Runtime Manager opens an inbound connection to each server for every deployment',
+        'Yes, because all connectivity requirements are outbound from your network',
+        'No, because Runtime Manager opens an inbound connection for every deployment',
+        'No, because the agent needs an inbound port for its WebSocket connections',
+        'Yes, but only with a proxy that intercepts the Runtime Manager certificate',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'This is why a server in a data centre can be managed without opening inbound firewall rules. A proxy that intercepts the Runtime Manager certificate breaks the connection, and the troubleshooting page says to check for that.',
+      answer: 0,
+      explain: 'No inbound connectivity to your servers is required, so a server in a data centre can be managed without opening inbound firewall rules. The agent keeps persistent WebSocket connections open and authenticates to the Runtime Manager endpoints with mutual TLS. A proxy that intercepts the Runtime Manager certificate breaks the connection, and the troubleshooting page says to check for that.',
     },
     {
       type: 'single',
@@ -57,6 +57,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each agent task to the documented way of doing it.',
       pairs: [
         ['First registration from a bundled agent', '`$MULE_HOME/bin/amc_setup -H <token> <server-name>`'],
@@ -68,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: '`$MULE_HOME/conf/mule-agent.yml` is found empty after a disk incident and no backup exists. What is the documented recovery?',
       options: [
         'Remove the server from Runtime Manager, uninstall the agent, update it to the latest supported version, and add the server again',

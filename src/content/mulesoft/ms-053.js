@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each API to its core policy set.',
       pairs: [
         ['Customer Mobile EAPI', 'JWT validation / OAuth 2.0 token enforcement + JSON threat protection'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why does **Rate Limiting – SLA Based** belong on the Partner EAPI and not on the System APIs?',
       options: [
         'It is only available on Experience APIs',

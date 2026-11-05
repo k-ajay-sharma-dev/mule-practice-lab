@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Where does the Anypoint mocking service get its response data?',
       options: [
         'From a sample of production traffic',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which spec should the **mobile** team review in the consumer-driven workflow?',
       options: [
         'The Inventory System API spec',
@@ -31,16 +33,16 @@ export default {
       explain: 'The Experience API never calls the System API directly. The Process API team reviews the System API contract.',
     },
     {
-      type: 'multi',
-      prompt: 'What will the mock **not** tell the mobile team?',
+      type: 'single',
+      prompt: 'A mobile team builds against the Anypoint mocking service, which simulates an API from its spec and returns the declared examples. The real API does not exist yet. What can the team learn from the mock?',
       options: [
         'Realistic latency and timeout behaviour',
-        'Whether a POST followed by a GET returns what was created',
-        'Whether client ID / OAuth policies work',
         'The shape of the response the contract promises',
+        'Whether a POST followed by a GET returns what was created',
+        'Whether client ID and OAuth policies work',
       ],
-      answer: [0, 1, 2],
-      explain: 'Mocks show the contract shape from examples, but have no state, no real performance and no API Manager policies.',
+      answer: 1,
+      explain: 'Mocks show the contract shape from examples, but have no state, no real performance and no API Manager policies. So a POST followed by a GET will not return what was created, latency and timeouts are not realistic, and client ID and OAuth flows are not exercised.',
     },
     {
       type: 'single',

@@ -42,16 +42,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which criteria do you compare when choosing a broker?',
+      prompt: 'An architect must choose between Anypoint MQ, Kafka and a JMS broker for a new flow. The choice should fit the workload and be repeatable on the next project. Which three criteria should the architect compare?',
       options: [
-        'Delivery model: queue vs log',
-        'Throughput, retention and replay',
-        'Ordering guarantees and fan-out (exchanges, topics, consumer groups)',
-        'Operations effort (managed vs self-run), skills and cost',
-        'Using the same broker everywhere, whatever the workload',
+        'Delivery model: queue or log',
+        'Retention and replay needs',
+        'Ordering guarantees and fan-out',
+        'The broker the last project happened to use',
+        'The same broker everywhere, whatever the workload',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The criteria are about the workload and the team that runs it, documented so the choice is repeatable.',
+      answer: [0, 1, 2],
+      explain: 'The criteria are about the workload and the team that runs it, documented so the choice is repeatable. Throughput, operations effort (managed or self-run), skills and cost belong on the same list. Habit and one broker for everything say nothing about the workload.',
     },
     {
       type: 'single',
@@ -67,6 +67,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you answer the CIO\'s "one messaging technology for everything"?',
       options: [
         'Agree and run Kafka for all three use cases',

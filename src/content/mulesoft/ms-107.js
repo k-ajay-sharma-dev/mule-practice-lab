@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each policy to what it does.',
       pairs: [
         ['Rate Limiting', 'Fixed window; a quota per group of requests chosen by an optional identifier expression'],
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The API has a Rate Limiting SLA policy. A registered client application calls it with a valid client ID, but it has no contract with this API instance. What happens?',
       options: [
         'Every request is rejected, because the policy can only count clients that have a contract',
@@ -53,20 +55,20 @@ export default {
       explain: 'The window starts with the first request after the policy is applied, and it is a fixed window. When it closes, the quota resets. A burst around a window boundary can therefore pass nearly twice the quota, and this is a reason to add Spike Control for backend protection.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about queuing in Spike Control are correct?',
+      type: 'single',
+      prompt: 'Spike Control is an API policy that queues requests during a burst and retries them before rejection. Each queued request keeps a thread and an HTTP connection. Which setting restricts how many requests can wait at one time?',
       options: [
-        'A queued request keeps a thread and an HTTP connection while it waits',
-        'Queuing Limit restricts how many requests can wait at one time, which protects the gateway from running out of resources',
-        'Callers can see a slower response and not an error during a burst',
-        'In a Mule cluster, the policy shares one window across all nodes',
-        'Delay Attempts sets how many times a request is retried before rejection',
+        'Queuing Limit',
+        'Delay Attempts',
+        'Delay Time',
+        'Expose Headers',
       ],
-      answer: [0, 1, 2, 4],
-      explain: 'The docs say queuing retains a thread and an HTTP connection, and that users may see higher latency. Spike Control cannot be clustered: it protects one gateway instance, so each node has its own window.',
+      answer: 0,
+      explain: 'Queuing Limit protects the gateway from running out of resources. Delay Attempts sets how many times a request is retried before rejection, and Delay Time is how long it stays queued. Callers can see a slower response and not an error during a burst. Spike Control cannot be clustered: it protects one gateway instance, so each node has its own window.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A Rate Limiting policy uses the identifier `#[attributes.headers[\'x-depot-id\']]`. Some requests do not send this optional header. What does the policy do with them?',
       options: [
         'The identifier resolves to an empty value, and those requests share that empty value\'s own quota',

@@ -8,7 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
-      prompt: 'Which of these does the distributed shared memory grid of a Mule cluster cover?',
+      prompt: 'The nodes of a Mule cluster share a distributed memory grid. Which three of these does the grid cover?',
       options: [
         'Persistent and non-persistent object stores',
         'Persistent and transient VM queues',
@@ -33,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An app has a Scheduler, a JMS listener left at its defaults, and an HTTP listener. On a three-node cluster, which statement is right?',
       options: [
         'The Scheduler runs only on the primary node; the JMS On New Message source has "primary node only" selected by default; the HTTP listener receives traffic on each node that the load balancer sends it to',
@@ -55,6 +56,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team sets `mule.cluster.storeprofile=performance` to reduce grid traffic. What exactly changes?',
       options: [
         'Distributed queues are disabled in favour of local queues, and the object store runs without backups, so data associated with a failed node is lost',
@@ -67,6 +69,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about the Quorum feature are documented?',
       options: [
         'It can only be configured manually, with `mule.cluster.quorumsize` in `{MULE_HOME}/.mule/mule-cluster.properties`',
@@ -80,6 +83,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Nodes fail to form a cluster set up with Runtime Manager default ports. What should the firewall allow between nodes?',
       options: [
         'TCP 5701, 5702 and 5703 in both directions; and, if multicast is used, UDP 54327 and the multicast address 224.2.2.3',
@@ -92,6 +96,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A node logs `NoDataMemberInClusterException`. What does it mean, and what is the documented action?',
       options: [
         'Hazelcast has no data member that can serve a partition, after node loss, split brain or lost quorum; restore enough nodes, and reduce the quorum only if you accept weaker consistency',

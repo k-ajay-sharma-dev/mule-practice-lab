@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Which description matches the status codes of the Mule Gateway JWT Validation policy?',
       options: [
         '400 when no token was provided; 401 for an invalid signature, a missing or failed claim, or a token that cannot be parsed',
@@ -43,20 +44,20 @@ export default {
       explain: 'A non-mandatory claim is only validated if it is present. If `aud` is present with the wrong value, the token is rejected. So for anything you rely on, tick mandatory as well.',
     },
     {
-      type: 'multi',
-      prompt: 'Which are true for **JWT Signing Method**?',
+      type: 'single',
+      prompt: 'An API uses the JWT Validation policy on Mule Gateway. A penetration test finds that a token with `"alg": "none"` was accepted. What in the policy configuration explains this?',
       options: [
-        'The policy rejects a token whose signing method differs from the one configured',
-        'With no algorithm specified, the policy matches every signed and unsigned token',
-        'None means no signature validation, so the claims could have been written by anyone',
-        'HMAC uses a shared secret, while RSA uses a PEM public key pasted without the header and footer',
-        'The policy can validate JWE tokens if the key is provided',
+        'The key was pasted as Text, not loaded from a JWKS URL',
+        'Audience validation is switched off in the policy',
+        'No signing method is set, so unsigned tokens also match',
+        'Skip Client ID Validation is ticked in the policy',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The policy validates JWTs in JWS format and does not validate JWE. In production always set a signing method and a key length, for example RSA and 256 for RS256.',
+      answer: 2,
+      explain: 'With no algorithm specified, the policy matches every signed and unsigned token. When a method is set, the policy rejects a token whose signing method differs. None means no signature validation, so the claims could have been written by anyone. HMAC uses a shared secret, while RSA uses a PEM public key pasted without the header and footer. The policy validates JWTs in JWS format and does not validate JWE. In production always set a signing method and a key length, for example RSA and 256 for RS256.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'You want to accept only tokens where the custom claim `region` is `EU`. Which custom claim validation works?',
       options: [
         "`#[vars.claimSet.region == 'EU']`",
@@ -69,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Client ID validation is on (Skip Client ID Validation is off). The IdP puts the client ID in a claim called `cid`, and all requests fail. What should you change?',
       options: [
         'Set **Client ID Expression** to `#[vars.claimSet.cid]`',
@@ -81,6 +83,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'After the policy, how does a Mule flow read the `tenant` claim and the original token?',
       options: [
         '`#[authentication.properties.claims.tenant]` and `#[authentication.properties.jwt]`',
@@ -93,6 +97,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The JWKS endpoint is briefly unreachable when the cached set expires. What does the policy do?',
       options: [
         'It retries asynchronously with exponential backoff, and keeps using the expired JWKS to process requests until a new set is cached',

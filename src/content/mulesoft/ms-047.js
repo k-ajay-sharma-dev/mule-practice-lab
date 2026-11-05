@@ -32,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the central artefact handed from one stage to the next?',
       options: [
         'The Studio project folder',
@@ -44,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is design-first especially valuable for the Process API team that will consume this System API?',
       options: [
         'It makes the System API faster at runtime',

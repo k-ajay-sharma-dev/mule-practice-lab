@@ -44,6 +44,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which practices belong in the key-management design?',
       options: [
         'A different encryption key per environment',
@@ -68,6 +69,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the work so the audit findings are closed first.',
       items: [
         'Rotate every credential that was exposed in plain text',

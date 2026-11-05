@@ -46,6 +46,7 @@ export default function QuestionCard({ q, number, seed, response, onChange, subm
       <div className="question-head">
         <span className="question-num mono">Q{number}</span>
         <span className="question-hint muted small">{TYPE_HINT[q.type]}</span>
+        {q.detail && <span className="question-detail small" title="An exact limit, default or name you learn by reading the docs">Detail</span>}
         {submitted && <span className={`question-mark ${correct ? 'ok-text' : 'err-text'}`}>{correct ? '✓ Correct' : '✗ Not quite'}</span>}
       </div>
       <div className="question-prompt">

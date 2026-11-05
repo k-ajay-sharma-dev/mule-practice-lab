@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The claims intake API runs on one 0.1 vCore worker. It is fast at start-up and during occasional bursts, but response times are uneven under the steady daytime load. What do the docs say about this size?',
       options: [
         '0.1 and 0.2 vCore workers give limited CPU and I/O and can only burst for a short time; workers with 1 or more vCores provide performance consistency',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each CloudHub 1.0 worker size to its heap memory.',
       pairs: [
         ['0.1 vCores', '500 MB heap'],
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The document rendering app writes large temporary files and logs verbosely on a 0.2 vCore worker, and storage is the constraint. What is the documented way to get more disk?',
       options: [
         'Use a worker with two or more vCores: 0.1, 0.2 and the 1 vCore worker stop at 8 to 12 GB, while 2 vCores gives 40 GB',
@@ -43,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A developer sets `http.port=9090` in `mule-app.properties` and points the HTTP Listener at `localhost:9090`. What should the listener use on CloudHub 1.0?',
       options: [
         'Host `0.0.0.0` and the reserved property `${http.port}` (or `${https.port}` for HTTPS); other values in mule-app.properties are overwritten at deployment',
@@ -55,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A synchronous reconciliation call sends no data for six minutes while the app works, then the client sees the connection closed. What is the documented cause and advice?',
       options: [
         'The load balancer closes both connections after 300 seconds with no data on either one; handle work that long asynchronously',
@@ -66,17 +71,16 @@ export default {
       explain: 'The load balancer holds one connection from the client and one to the worker, with a 300-second idle timeout. Accepting the request, returning a reference and finishing the work asynchronously avoids it.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about CloudHub 1.0 workers and vCores are correct?',
+      type: 'single',
+      prompt: 'A CloudHub 1.0 subscription has no free vCores left, because running apps use them all. A developer deploys one more application. What happens?',
       options: [
-        'Only running applications count toward worker usage',
-        'If not enough vCores are available you can create the application, but you cannot start it until vCores become available',
-        'Calling `mule-worker-internal-myapp.region.cloudhub.io` works only from inside a customer Anypoint VPC, and it gives up the load balancing layer',
-        'Zero-downtime restarts also work for durable subscribers, because both versions subscribe at once',
-        'The internal HTTP and HTTPS ports default to 8091 and 8092 and can be changed per application',
+        'The app can be created, but it cannot start until vCores are free',
+        'The app cannot be created until enough vCores are free',
+        'The app starts at once on a smaller shared worker instead',
+        'The app starts, and CloudHub stops another app to free vCores',
       ],
-      answer: [0, 1, 2],
-      explain: 'A durable subscriber is a documented zero-downtime limitation, because only one unique subscriber can be active at a time. The defaults 8091 and 8092 cannot be changed.',
+      answer: 0,
+      explain: 'Only running applications count toward worker usage. If not enough vCores are available, you can create the application, but you cannot start it until vCores become available. Other worker facts: calling `mule-worker-internal-myapp.region.cloudhub.io` works only from inside a customer Anypoint VPC and gives up the load balancing layer. A durable subscriber is a documented zero-downtime limitation, because only one unique subscriber can be active at a time. The internal ports 8091 and 8092 cannot be changed.',
     },
   ],
   description: `

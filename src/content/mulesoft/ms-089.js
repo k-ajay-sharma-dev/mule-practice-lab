@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Salesforce publishes the platform event `Shipment_Update__e`. Which source do you use in the Mule app?',
       options: [
         'Replay Channel Listener with the streaming channel `/event/Shipment_Update__e`',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each Replay Option to what the subscriber receives.',
       pairs: [
         ['ONLY_NEW', 'Only events published after the subscription starts (subscribes with -1)'],
@@ -31,6 +33,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A flow failed on replay ID 10 and went on to process up to 15. After a restart, the team wants event 10 processed again without running 11 to 15 through the flow a second time. Which setting does that?',
       options: [
         'Turn on "Replay failed events if any or resume from last replay id": it starts from the lowest failed ID and filters out events that already succeeded',
@@ -55,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The listener logs `403::Organization total events daily limit exceeded`. What is the right reaction?',
       options: [
         'Stop the listener or app and wait for the allocation to reset; a reconnection strategy will not restore it',
@@ -67,6 +72,8 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
+      needsScenario: true,
       prompt: 'Which statements about reading records with the connector are correct?',
       options: [
         'The Query operation is deprecated, and the reference points to Query Xml Stream instead',

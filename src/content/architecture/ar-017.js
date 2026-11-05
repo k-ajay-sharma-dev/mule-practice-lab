@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the expand/contract steps for renaming `pax_count` to `passenger_count`.',
       items: [
         'Add passenger_count (and nullable loyalty_tier); write both columns; backfill',
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Blue and green both run during the canary. What happens to the 10-minute reminder Scheduler?',
       options: [
         'Only blue runs it automatically',
@@ -43,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Both versions consume the same payment-confirmation queue. When is that safe?',
       options: [
         'Never; a queue can only have one consumer app',
@@ -54,16 +57,16 @@ export default {
       explain: 'Competing consumers are normal. The risk is a format change one version cannot read, so consumers must accept old and new formats before producers switch.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about rollback are true here?',
+      type: 'single',
+      prompt: 'A release adds a new database column and keeps the old one, so the old and new app versions both work on the same schema. During a canary, where the new version takes a small share of real traffic, errors rise. Why is it safe to switch back to the old version?',
       options: [
-        'Canary rollback = set green\'s traffic weight back to 0%',
-        'Rolling-update rollback = redeploy the previous artifact version through the pipeline',
-        'Rollback is safe only because the schema change stayed backward compatible',
-        'Rollback restores the old database column names automatically',
+        'The rollback restores the old database column names automatically',
+        'The routing layer converts the new column names for the old version',
+        'The schema change stayed backward compatible, so the old version still works',
+        'The old version is rebuilt against the new schema during the switch',
       ],
-      answer: [0, 1, 2],
-      explain: 'The deployment tool switches code; it does not undo schema changes. Backward-compatible changes are what make the switch back safe.',
+      answer: 2,
+      explain: 'The deployment tool switches code; it does not undo schema changes. Backward-compatible changes are what make the switch back safe. A canary rollback sets the traffic weight of the new version back to 0%. A rolling-update rollback redeploys the previous artifact version through the pipeline.',
     },
     {
       type: 'single',

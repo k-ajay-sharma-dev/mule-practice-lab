@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'JSON Threat Protection is applied with all fields left at their defaults. A request with a JSON document nested 5,000 levels deep arrives. What happens?',
       options: [
         'It passes: the default of each limit is -1, which means no limit',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each attack to the JSON Threat Protection field that limits it.',
       pairs: [
         ['Objects inside arrays inside objects, thousands deep', 'Maximum Container Depth'],
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Which request is outside what JSON Threat Protection supports, according to its page?',
       options: [
         'A multipart form request, and SOAP APIs in general',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'In XML Threat Protection, you set Maximum Attribute Count Per Element to 3. An element has three normal attributes and two `xmlns` declarations. Is it within the limit?',
       options: [
         'Yes, because attributes that define namespaces are not counted',
@@ -55,19 +59,20 @@ export default {
       explain: 'The field description says this directly. The policy also limits node depth, child count, text length, attribute length and comment length.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the CORS policy on Mule Gateway are correct?',
+      type: 'single',
+      prompt: 'A developer applies the CORS policy on Mule Gateway and tests it with a plain `curl` call. The response has no CORS headers. What explains this?',
       options: [
-        'Its execution order cannot be configured: it runs before automated and API-level policies',
-        'With the policy applied, an OPTIONS request does not reach the protected resource',
-        'Testing with curl and no CORS headers shows no CORS response headers, which looks as if the policy is not applied',
-        'Applying the policy stops non-browser clients from calling the API from other domains',
+        'CORS response headers need CORS request headers, which this test did not send',
+        'The policy runs last, so it never saw the request',
+        'The policy must be moved to the top of the list first',
+        'CORS blocks non-browser clients, so `curl` never reached the gateway',
       ],
-      answer: [0, 1, 2],
-      explain: 'CORS is enforced by browsers. The gateway only answers with headers that tell a browser what is allowed, so it is not an access control against other clients. Keep authentication policies as well.',
+      answer: 0,
+      explain: 'Without CORS request headers the policy adds no response headers, so it looks as if it is not applied. Send an `Origin` header and the preflight headers, or test from a browser. The policy cannot be ordered: it runs before automated and API-level policies, and an OPTIONS request does not reach the protected resource. CORS is enforced by browsers. The gateway only answers with headers that tell a browser what is allowed, so it is not an access control against other clients. Keep authentication policies as well.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Header Injection is configured to add `X-Env: prod` inbound, and the caller already sends `X-Env: test`. What happens?',
       options: [
         'A new header is created and the existing one is not overridden, so both are present',
@@ -80,6 +85,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'A team wants the Header Removal policy to strip these headers. Which ones may **not** be removed?',
       options: ['host', 'user-agent', 'content-type', 'x-powered-by', 'x-internal-trace'],
       answer: [0, 1, 2],
@@ -87,6 +93,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Where should Client ID Enforcement read the credentials from, according to its page?',
       options: [
         'Headers (the default) or the Basic Authorization header; query parameters are supported but pose possible security risks, and the payload is not recommended',

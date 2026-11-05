@@ -19,6 +19,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is request 3 (customer and order data for three channels) a strong MuleSoft case?',
       options: [
         'Because Mule is the fastest at moving bulk data',
@@ -31,6 +32,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What role, if any, does Mule play for the machine telemetry?',
       options: [
         'Carry every sensor reading through a Mule app',
@@ -43,16 +45,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which criteria belong in the integration decision guide?',
+      prompt: 'A company is writing a guide to decide when a new integration should use MuleSoft and when another tool fits better. The guide must give the same result across teams. Which three criteria belong in it?',
       options: [
-        'Number of consumers and expected reuse',
-        'Governance needs (security, SLA, audit)',
-        'Volume and shape of the data (bulk set, stream, transactions)',
-        'Ownership, support and total cost (vCores, licences)',
-        'Whether the team enjoys working with the tool',
+        'How many consumers will use it, now and later',
+        'What security, SLA and audit needs it has',
+        'How much data moves, and in what shape',
+        'Which tool the developers enjoy working with most',
+        'Which tool a senior manager personally prefers',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The criteria must be explainable to a CIO and repeatable across teams. Personal preference is not a selection criterion.',
+      answer: [0, 1, 2],
+      explain: 'The criteria must be explainable to a CIO and repeatable across teams. Reuse, governance needs, and the volume and shape of the data (bulk set, stream, transactions) all point to the right tool. Ownership, support and total cost (vCores, licences) also belong in the guide. Personal preference is not a selection criterion.',
     },
     {
       type: 'single',
@@ -68,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Six months later the Salesforce-to-Slack flow also needs data from SAP. What now?',
       options: [
         'Keep the native integration and add a second native one from SAP to Slack',

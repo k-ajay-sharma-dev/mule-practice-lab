@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Mobile (4 attempts) → Experience (4 attempts) → Process (4 attempts) → Inventory System API. Worst case, how many HTTP calls reach the System API for one tap?',
       options: ['12', '16', '64', '4'],
       answer: 2,
@@ -15,6 +16,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where should automatic retries live in this chain?',
       options: [
         'At every layer, so each one is resilient on its own',
@@ -27,17 +29,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which failures are reasonable to retry (with backoff)?',
+      prompt: 'A Mule app calls a backend API with `GET` requests and can retry failed calls with backoff. A retry only helps if the failure is transient. Which three failures should it retry?',
       options: [
-        '`HTTP:CONNECTIVITY` on an idempotent GET',
+        '`HTTP:CONNECTIVITY`',
         '503 Service Unavailable',
-        '429 Too Many Requests, respecting Retry-After',
-        'A transient database deadlock',
+        '429 Too Many Requests',
         '400 Bad Request',
         '403 Forbidden',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Retry only transient failures. A 400 or 403 will fail again on every attempt — retrying it just adds load.',
+      answer: [0, 1, 2],
+      explain: 'Retry only transient failures. `HTTP:CONNECTIVITY` is safe to retry here because a GET is idempotent, and a 429 retry should respect `Retry-After`. A transient database deadlock is another retryable failure. A 400 or 403 will fail again on every attempt, so retrying it only adds load.',
     },
     {
       type: 'single',
@@ -53,6 +54,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'You want exponential backoff with jitter on a synchronous call in Mule 4. What is true about `until-successful`?',
       options: [
         'It supports exponential backoff out of the box via `backoffMultiplier`',

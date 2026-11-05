@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'When the ERP is slow, `vm:publish` blocks and then fails with `VM:QUEUE_TIMEOUT`. Which setting controls how many messages can wait before publishers block?',
       options: [
         '`maxOutstandingMessages` on the queue (default 0, so blocking starts immediately)',
@@ -66,15 +67,15 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which statements about this VM design are true?',
+      prompt: 'A flow with a `vm:listener` reads a VM queue and calls a slow ERP. Which two settings control how many messages it processes in parallel?',
       options: [
-        '`numberOfConsumers` on `vm:listener` sets how many parallel consumers read the queue',
-        'PERSISTENT queues survive restarts but are slower than TRANSIENT',
-        'VM publish is faster than Flow Reference, so use it for speed',
-        'The flow\'s `maxConcurrency` also caps parallel processing',
+        '`numberOfConsumers` on the `vm:listener`',
+        '`maxConcurrency` on the flow',
+        '`maxOutstandingMessages` on the queue',
+        '`queueType` on the queue',
       ],
-      answer: [0, 1, 3],
-      explain: 'Flow Reference is a direct in-memory call; VM adds queueing. Use VM for decoupling, buffering or transaction boundaries — not for speed.',
+      answer: [0, 1],
+      explain: '`numberOfConsumers` sets how many parallel consumers read the queue, and the flow\'s `maxConcurrency` also caps parallel processing. `maxOutstandingMessages` sets how many messages can be queued before blocking starts. `queueType` chooses TRANSIENT or PERSISTENT: PERSISTENT queues survive restarts but are slower. VM publish is not faster than Flow Reference, which is a direct in-memory call. Use VM for decoupling, buffering or transaction boundaries, not for speed.',
     },
   ],
   description: `

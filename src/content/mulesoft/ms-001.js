@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The HTTP flow calls Inventory, which is down. The flow has **On Error Continue** that sets a JSON error payload but does not touch the status. What does the caller receive?',
       options: [
         'HTTP 500 with the default error message',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which handler fits the HTTP flow so the caller gets a 503 and the error is reported as a failure?',
       options: [
         'On Error Propagate, with the Listener error response status set from a variable',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'In the batch job, one record fails when calling the shared logic. You want the other records to keep processing. What do you wrap the per-record call with?',
       options: [
         'A Try scope with On Error Propagate',
@@ -53,16 +56,16 @@ export default {
       explain: 'Propagate rethrows after its processors run; Continue swallows the error and the flow (or Try) ends as success. With no matching handler, Mule uses the default error handler, which logs and propagates.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about the audit requirement and the 503 response are true?',
+      type: 'single',
+      prompt: 'An HTTP flow uses On Error Propagate. When a downstream API is down, the caller must get HTTP 503 with a JSON body, and an audit record must be written. Where do you do this?',
       options: [
-        'The audit record can be written inside On Error Propagate before it rethrows',
-        'The audit record can only be written in On Error Continue',
-        'The error body can be built with DataWeave in the handler and sent via the Listener error response body `#[payload]`',
-        'The Listener always sends 500 for any propagated error, regardless of configuration',
+        'In On Error Continue only, because On Error Propagate runs no processors',
+        'Inside the handler, and the Listener error response sends the 503',
+        'After the handler, in the next processor of the flow, which still runs',
+        'Nowhere, because the Listener always sends 500 for a propagated error',
       ],
-      answer: [0, 2],
-      explain: 'Both handlers run their processors before completing, so auditing works in either. The Listener error response status and body are configurable — 500 is only the default.',
+      answer: 1,
+      explain: 'Both handlers run their processors before completing, so auditing works in either. The handler sets `vars.httpStatus` to 503 and builds the body with DataWeave. The Listener error response uses status `#[vars.httpStatus default 500]` and body `#[payload]`, so 500 is only the default.',
     },
   ],
   description: `

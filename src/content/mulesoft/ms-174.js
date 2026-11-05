@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'A customer still runs Runtime Fabric appliance on VMs and has no Kubernetes team. What does the migration page recommend considering first if they want the lowest operational overhead?',
       options: [
         'CloudHub 2.0, described as the recommended offering with the lowest operational overhead',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A cluster was installed with `rtfctl`. The team wants to use `helm upgrade` for the next agent version. What must happen first?',
       options: [
         'Migrate to Helm with `rtfctl migrate`, with `rtf-agent` at v2.2.5 or above and `rtfctl` at 1.0.10 or later',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'What does `rtfctl migrate` do?',
       options: [
         'Backs up the current installation to the named tarball',
@@ -70,6 +73,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each telemetry setup to the sidecar resources to plan per replica on agent 3.0.0.',
       pairs: [
         ['Metrics only', '0.05 vCPU and 90 MiB'],
@@ -80,6 +84,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'After a component upgrade with `rtfctl`, the fabric reports "degraded" in Runtime Manager. What should the on-call engineer expect?',
       options: [
         'It is normal for a few minutes while it synchronizes with the control plane, and it resolves after about five minutes',
@@ -92,6 +97,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A new Mule date-patch was released for Runtime Fabric. What happens to running apps?',
       options: [
         'Nothing until you redeploy: Mule deployments on Runtime Fabric are not automatically patched',

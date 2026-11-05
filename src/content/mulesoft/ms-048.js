@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each problem in the junior\'s draft to the RAML feature that fixes it.',
       pairs: [
         ['`page`/`pageSize` repeated on every GET', 'A trait (e.g. `pageable`) applied with `is:`'],
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'In a resource type, what does `get?:` (with a question mark) mean?',
       options: [
         'The GET method is deprecated',
@@ -41,16 +43,16 @@ export default {
       explain: 'Optional methods let one resource type serve resources that declare only some of its methods.',
     },
     {
-      type: 'multi',
-      prompt: 'Why do examples matter beyond documentation?',
+      type: 'single',
+      prompt: 'A RAML spec declares realistic response examples. Process API developers want to start before the implementation of this API exists. How do the examples help them?',
       options: [
-        'The mocking service returns them, so Process API developers get realistic responses early',
-        'API Designer validates them against the declared types',
-        'They become test data ideas for MUnit and functional monitors',
-        'APIkit uses them as default responses in production',
+        'APIkit returns them as the real responses in production',
+        'They replace the API contract until the implementation is ready',
+        'The backend loads them as seed data for the real database',
+        'The mocking service returns them, so a mock gives realistic responses',
       ],
-      answer: [0, 1, 2],
-      explain: 'Examples power mocks, catch contract mistakes and seed tests. The implementation — not the example — produces production responses.',
+      answer: 3,
+      explain: 'The mocking service returns the examples, so Process API developers get realistic responses early. Examples do more: API Designer validates them against the declared types, which catches contract mistakes, and they become test data ideas for MUnit and functional monitors. The implementation, not the example, produces production responses.',
     },
     {
       type: 'multi',
@@ -79,6 +81,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'How do you make `email` optional in a RAML type?',
       options: ['`email?: string` or `required: false`', '`email: string | null` only', '`optional: true`', '`email: string?`'],
       answer: 0,

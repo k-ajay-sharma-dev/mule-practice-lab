@@ -787,6 +787,15 @@
 .exam-count {
   flex: 1;
 }
+.exam-details {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0;
+}
+.exam-topic {
+  margin: 0 0 8px;
+}
 .exam-scenario {
   margin-bottom: 12px;
   padding: 8px 14px;
@@ -1963,4 +1972,11 @@
   .focus-start .today-time {
     margin-left: 0;
   }
+}
+
+.question-detail {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
 }

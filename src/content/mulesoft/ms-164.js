@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'Pull requests must run only the tests tagged `smoke`. Which command does the MUnit Maven Plugin page give?',
       options: [
         '`mvn clean test -Dmunit.tags=smoke`',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What does `-Dmunit.test=.*orders.*#.*happy.*` select?',
       options: [
         'Tests whose name matches `.*happy.*`, in suites whose file name matches `.*orders.*`',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The team wants several suites to run in parallel inside one Maven run. Which parameter of the plugin reference turns this on?',
       options: [
         'The reference table lists no such parameter, so parallelism comes from separate CI jobs that each select a share of the suites',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'One shard selects tests by a tag that no test carries yet. Which statements are correct?',
       options: [
         'By default, MUnit fails the build if no tests run from the discovered suites',
@@ -57,6 +61,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Two jobs share an agent and fail with a port binding exception. Match each statement to the feature that it describes.',
       pairs: [
         ['Works only through the MUnit Maven Plugin, not in Studio', '`<dynamicPorts>` in the plugin configuration'],
@@ -68,6 +73,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about coverage in Maven are correct?',
       options: [
         'The report formats are console, HTML, JSON and SONAR',
@@ -81,6 +87,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The app declares `minMuleVersion` 4.9.0, and production runs a later 4.9 patch. Which runtime do the tests use in Maven unless you change it?',
       options: [
         'The Mule version that corresponds to `minMuleVersion`, which `munit.runtimeversion` can override',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: '`exp-tracking` handles a steady 60 requests per second and has a strict latency target. The owner proposes 2 replicas of 0.1 vCore because "small replicas can burst". What do the docs say?',
       options: [
         'Replicas under 1 vCore have limited CPU and I/O, bursting depends on node resources and is not guaranteed, and consistent performance needs 1 or more vCores',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each CloudHub 2.0 vCore size to its heap memory.',
       pairs: [
         ['0.1 vCore', '480 MB'],
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Load tests show `prc-rate-shopping` needs about 3 GB of heap. Which is the smallest vCore size that provides it?',
       options: ['1.5 vCores', '1 vCore', '0.5 vCore', '2.5 vCores'],
       answer: 0,
@@ -39,6 +42,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: '`sys-carrier-connectors` bundles many connectors, and the team reads about metaspace pressure. They propose moving from 1 to 4 vCores to get more metaspace. What is the documented position?',
       options: [
         'The metaspace limit is 256 MB regardless of replica size, so a larger replica does not raise it',
@@ -50,33 +55,32 @@ export default {
       explain: 'The architecture page gives a limit of 256 MB for all sizes, with an initial size of 128 MB, and metaspace garbage collection starts after that threshold. More heap does not change this.',
     },
     {
-      type: 'multi',
-      prompt: '`prc-label-render` writes temporary files and logs verbosely. Which statements about replica storage are correct?',
+      type: 'single',
+      prompt: 'A CloudHub 2.0 app writes temporary PDF files to local disk and logs verbosely, and it needs more storage than its small replica gives. What do the docs say to do?',
       options: [
-        'Each replica has at least 8 GB of storage, shared by system and application use',
-        'For more storage, the docs say to use a replica with two or more vCores, which gives access to additional storage in `/tmp`',
-        'Files the app writes to local disk are deleted when the app restarts',
-        'Storage is bought separately from vCores and attached to a replica',
-        'Local files are copied to the replacement replica during a rolling update',
+        'Buy extra storage separately and attach it to the replica',
+        'Use a replica with two or more vCores, for more storage in `/tmp`',
+        'Add replicas, so that their local disks are pooled',
+        'Keep the replica size and move the files to `/tmp`',
       ],
-      answer: [0, 1, 2],
-      explain: 'Storage comes with the replica size. Local storage is ephemeral, so anything that must survive a restart belongs in external storage. The same page cites verbose logging as an example of needing more space.',
+      answer: 1,
+      explain: 'Storage comes with the replica size. Each replica has at least 8 GB, shared by system and application use, and two or more vCores give access to additional storage in `/tmp`. Local storage is ephemeral: files are deleted when the app restarts and are not copied to a replacement replica, so anything that must survive a restart belongs in external storage. The same page cites verbose logging as an example of needing more space.',
     },
     {
-      type: 'multi',
-      prompt: 'The organization has 20 vCores and also runs CloudHub 1.0 apps. Which statements about allocation are correct?',
+      type: 'single',
+      prompt: 'An organization runs apps on both CloudHub 1.0 and CloudHub 2.0, and its running apps use nearly all of its vCores. A team creates a CloudHub 2.0 app that needs more vCores than are free. What happens?',
       options: [
-        'Stopped applications do not count toward replica usage, and running applications do',
-        'If apps need more vCores than are available, you can create the app but cannot start it until vCores are free',
-        'CloudHub 1.0 and CloudHub 2.0 share vCore quotas',
-        'Failed application deployments in CloudHub 2.0 still count toward limits',
-        'Each CloudHub version receives its own full copy of the purchased vCores',
+        'The app starts, because each CloudHub version has its own vCores',
+        'The platform refuses to create the app',
+        'The app starts with fewer vCores than requested',
+        'The app is created but cannot start until vCores are free',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Entitlements are shared across both versions, so budget them together. The failed-deployment rule surprises people: clean up failed apps instead of leaving them in place.',
+      answer: 3,
+      explain: 'You can create the app, but you cannot start it until you stop or delete another app or raise the allocation. Entitlements are shared across both versions, so budget them together. Running applications count toward replica usage and stopped ones do not. Failed deployments in CloudHub 2.0 also count toward limits, which surprises people: clean up failed apps instead of leaving them in place.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each limit to its documented value.',
       pairs: [
         ['Largest replica size per deployment', '4 vCores'],
@@ -90,6 +94,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'An organization on usage-based pricing needs about 3 GB of heap but has no use for extra CPU. Which instance type fits best?',
       options: [
         '`mule.large.mem`: equivalent to 1 vCore, 8 GB in total and 4 GB of heap',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What makes this estate a **distributed monolith** rather than an API-led network?',
       options: [
         'It has more than 150 Mule applications',
@@ -20,17 +21,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which causes explain the coupling here?',
+      prompt: 'A company with API-led naming has a distributed monolith: apps deployed separately but so coupled that they must change and fail together. Which three design choices cause this?',
       options: [
-        'Layers used as a mandatory pipeline: every call goes exp → prc → sys even when a layer adds nothing',
-        'Process APIs organised by entity (`prc-customer-api`) instead of business capability',
-        'Process-to-Process chains with two call cycles and no dependency-direction rule',
-        'System APIs leaking Amdocs field names up to Process and Experience APIs',
-        'Using RAML instead of OAS for the API specifications',
-        'Deploying the applications to CloudHub instead of on-premises',
+        'Every call must pass through exp, prc and sys, even when a layer adds nothing',
+        'Process APIs are organised by entity instead of by business capability',
+        'System APIs leak backend field names up to the Process and Experience APIs',
+        'API specifications are written in RAML instead of in OAS',
+        'Applications are deployed to CloudHub instead of to on-premises servers',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Coupling comes from how responsibilities and dependencies are drawn, not from the spec language or the deployment target.',
+      answer: [0, 1, 2],
+      explain: 'Coupling comes from how responsibilities and dependencies are drawn, not from the spec language or the deployment target. Process-to-Process chains with call cycles and no dependency-direction rule are another cause of the same kind.',
     },
     {
       type: 'single',
@@ -46,6 +46,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each symptom to the refactoring that addresses it.',
       pairs: [
         ['`GET /my-account` makes 23 synchronous hops', 'An account read model fed by domain events'],
@@ -57,6 +58,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'Order the incremental refactoring plan.',
       items: [
         'Map dependencies, agree domains and owners, set principles and contract tests',
@@ -81,17 +83,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which metrics show the refactoring is working?',
+      prompt: 'A team is refactoring tightly coupled Mule APIs so that each app can change and release on its own. Which three metrics show the refactoring is working?',
       options: [
         'Average number of apps changed per feature',
         'Hops and p95 latency per key journey',
-        'Number of call cycles (target 0)',
-        'Deployments per team per month outside the release train',
+        'Number of call cycles between APIs',
         'Total number of APIs in Exchange',
-        'Lines of DataWeave code',
+        'Lines of DataWeave code across the apps',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Progress means less coupling: fewer apps per change, shorter chains, no cycles and independent releases. API counts and code size say nothing about coupling.',
+      answer: [0, 1, 2],
+      explain: 'Progress means less coupling: fewer apps per change, shorter chains and no cycles (the target is 0). Deployments per team outside the release train also show independent releases. API counts and code size say nothing about coupling.',
     },
   ],
   description: `

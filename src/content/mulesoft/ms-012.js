@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which caching-strategy setting fixes the bug and meets the 10-minute freshness requirement?',
       options: [
         '`keyGenerationExpression="#[vars.sku]"` with an object store `entryTtl="10" entryTtlUnit="MINUTES"`',
@@ -43,16 +44,16 @@ export default {
       explain: 'In-memory is per replica. Persistent (OSv2) is shared but every lookup is a network call — still a big win against an 800 ms backend.',
     },
     {
-      type: 'multi',
-      prompt: 'In which cases does the Cache scope **not** store a result?',
+      type: 'single',
+      prompt: 'A Cache scope wraps a slow call and stores the result, so later requests can skip that call. In testing, one backend response is never stored. Which cause fits?',
       options: [
-        'The incoming payload is a non-repeatable stream',
         'The response is a non-repeatable stream',
-        'The filter expression bypasses caching for that request',
         'The response is larger than 1 KB',
+        'The key comes from a variable, not the payload',
+        'The object store has an entry TTL set',
       ],
-      answer: [0, 1, 2],
-      explain: 'Non-repeatable streams can be read only once, so they are not cached, and the filter expression can skip caching. There is no 1 KB limit.',
+      answer: 0,
+      explain: 'Non-repeatable streams can be read only once, so they are not cached, whether the stream is the incoming payload or the response. The filter expression can also skip caching for a request. There is no 1 KB limit, and a key from a variable and an entry TTL are normal settings.',
     },
     {
       type: 'single',

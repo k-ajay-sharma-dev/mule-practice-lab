@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'How do application-level egress rules relate to private space firewall rules?',
       options: [
         'They are independent, and outbound traffic must pass both the private space level and the application level',
@@ -19,20 +20,21 @@ export default {
       explain: 'Think of two gates in a row. A correct application rule does not help if the private space blocks the same traffic.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about a newly created private space are correct?',
+      type: 'single',
+      prompt: 'Firewall rules control the traffic of a CloudHub 2.0 private space. A new space is created and nobody changes its rules. Which outbound traffic can its apps send?',
       options: [
-        'All traffic to the space is blocked unless a firewall rule allows it',
-        'Rules are created that allow inbound HTTPS on 443 and HTTP on 80 from any host',
-        'Rules are created that allow outbound TCP on all ports and HTTPS on 443 to any host',
-        'Application-level egress rules are disabled',
-        'IPv6 firewall rules can be added for dual-stack partners',
+        'TCP on all ports to any host',
+        'Only HTTPS on 443 to any host',
+        'No outbound traffic until a rule is added',
+        'Only traffic allowed by an application-level rule group',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'CloudHub 2.0 does not support IPv6 firewall rules. Application-level egress starts disabled, and the docs say to finish provisioning the private network before enabling it.',
+      answer: 0,
+      explain: 'All traffic to a new space is blocked unless a firewall rule allows it, and rules are created that allow inbound HTTPS on 443 and HTTP on 80 from any host, and outbound TCP on all ports and HTTPS on 443 to any host. Application-level egress starts disabled, and the docs say to finish provisioning the private network before enabling it. CloudHub 2.0 does not support IPv6 firewall rules.',
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A team removes the general outbound rules and adds application-level rule groups for Anypoint MQ. MQ still fails. What do the docs say is also required?',
       options: [
         'Outbound access on port 443 at the private space level, set up separately',
@@ -45,6 +47,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each case to the documented behaviour of domain-based egress rules.',
       pairs: [
         ['`salesforce.com` redirects to `www.salesforce.com`', 'Allow both the original and the redirected target'],
@@ -56,6 +59,8 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'An architect deletes the custom rule group `grp-payments` while apps use it. What happens to those apps?',
       options: [
         'They immediately start using the default egress rule group',
@@ -68,6 +73,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'During a stressful change, someone wants to turn off the App-Level Egress Rules toggle "to get back to normal". What is the documented effect?',
       options: [
         'All custom rule groups are deleted, and all application-level egress is allowed for all applications',
@@ -80,6 +86,8 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
+      needsScenario: true,
       prompt: 'Match each item to its documented value.',
       pairs: [
         ['Added latency from application-level rules', '3 to 10 milliseconds'],
@@ -92,6 +100,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Security wants to remove all ingress and egress rules to the internet. Which statements are correct?',
       options: [
         'The private space still functions, because Anypoint Monitoring ingestion rules are added implicitly and essential AWS traffic is always allowed',

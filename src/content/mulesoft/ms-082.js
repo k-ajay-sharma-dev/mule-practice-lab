@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'An IMAP listener receives a supplier email with `statement.pdf` attached. Where is the attachment in Mule 4?',
       options: [
         'In a map on the payload, for example `payload.attachments.\'statement.pdf\'`',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A flow receives an email with two attachments and forwards it with `email:send`. What arrives at the recipient?',
       options: [
         'Only what the flow set explicitly: outbound attachments must be given in the Attachments parameter',
@@ -32,6 +34,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'In the Attachments map of `email:send`, what does each key represent?',
       options: [
         'The attachment filename',
@@ -44,6 +47,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The Content field on `email:send` is left empty and the payload is a PDF. What happens?',
       options: [
         'The operation uses the payload as the body, and a non-text payload causes EMAIL:SEND',
@@ -55,19 +59,20 @@ export default {
       explain: 'Content defaults to the payload. Set an explicit text body and pass the PDF in Attachments instead.',
     },
     {
-      type: 'multi',
-      prompt: 'A nightly flow sends a 4 MB PDF as an attachment. Which statements are correct?',
+      type: 'single',
+      prompt: 'A flow sends a PDF with `email:send`, using the Attachments parameter (a map of filename to content). What should the value in the map be?',
       options: [
-        'Pass the PDF as binary content; do not convert it to a string',
-        'The connector Base64-encodes non-text attachments by default',
-        'Content Transfer Encoding can change that default',
-        'A PDF must be converted to JSON before it can be attached',
+        'The PDF converted to a string, so that the mail stays readable',
+        'The PDF converted to JSON, so that the connector can parse it',
+        'The PDF as binary content, with no conversion to anything else',
+        'A short text note, because the PDF is attached from the payload',
       ],
-      answer: [0, 1, 2],
-      explain: 'Attachments stay binary. Turning a PDF into a string corrupts it, and JSON has no role here.',
+      answer: 2,
+      explain: 'Attachments stay binary. Turning a PDF into a string corrupts it, and JSON has no role here. The connector Base64-encodes non-text attachments by default, and Content Transfer Encoding can change that. Nothing is attached from the payload: outbound attachments must be set explicitly.',
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each operation to the errors listed for it in the connector reference.',
       pairs: [
         ['email:send', 'EMAIL:SEND, EMAIL:CONNECTIVITY, EMAIL:RETRY_EXHAUSTED'],

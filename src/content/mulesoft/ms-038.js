@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The `validate` **sub-flow** raises `APP:INVALID`. Which handler runs and what does the client get?',
       options: [
         '`globalHandler`, then 500',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'order',
+      needsScenario: true,
       prompt: 'The HTTP request in `enrich` **times out**. Put what happens in order.',
       items: [
         '`enrich` On Error Propagate `HTTP:TIMEOUT` logs "enrich timeout"',
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The HTTP request in `enrich` returns **404**. What does the client receive?',
       options: [
         '404',
@@ -43,6 +46,7 @@ export default {
     },
     {
       type: 'match',
+      needsScenario: true,
       prompt: 'Match each failure to the outcome. (`persist` has no handler of its own.)',
       pairs: [
         ['DB:CONNECTIVITY in `persist`', 'globalHandler propagates → Try On Error Continue → main continues'],
@@ -53,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The HTTP request in the async `notify` flow fails. What does the client receive?',
       options: [
         '500, because `main`\'s ANY handler catches it',
@@ -64,16 +69,16 @@ export default {
       explain: 'Async errors are invisible to the caller. If the notification matters, log/alert or use a reliable queue.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about `defaultErrorHandler-ref="globalHandler"` are true?',
+      type: 'single',
+      prompt: 'A Mule app sets `defaultErrorHandler-ref="globalHandler"` in its `configuration` element. Flow A has an error handler that matches the error it raises. Flow B declares no handler. Which handler deals with each error?',
       options: [
-        'It replaces the built-in default for every flow that declares no handler of its own',
-        'It does not override handlers declared in a flow',
-        'It applies to sub-flows',
-        'It can point at any flow, not only at a global error handler',
+        'Flow A uses its own handler, and flow B uses `globalHandler`',
+        'Both flows use `globalHandler`, because it overrides declared handlers',
+        'Flow A uses its own handler, and flow B uses the built-in default',
+        'Flow A uses `globalHandler` and then its own, and flow B uses `globalHandler`',
       ],
-      answer: [0, 1],
-      explain: 'It is the fallback for flows with no handler of their own, and it must reference a global error handler. Sub-flows never have a handler.',
+      answer: 0,
+      explain: 'It replaces the built-in default for every flow with no handler of its own, and it does not override handlers declared in a flow. It must reference a global error handler, not any flow. It does not apply to sub-flows, which never have a handler.',
     },
   ],
   description: `

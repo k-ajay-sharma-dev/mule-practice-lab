@@ -19,16 +19,16 @@ export default {
       explain: 'Until autodiscovery pairs the app with its API instance and downloads policies, the **gatekeeper** returns 503. Wrong `api.id` or wrong environment credentials are the classic causes. A rate limit would give 429, not 503 for every call.',
     },
     {
-      type: 'multi',
-      prompt: 'What is needed for API autodiscovery to work with the same JAR in every environment?',
+      type: 'single',
+      prompt: 'You want to promote one JAR from Sandbox to Production without rebuilding. The app uses API autodiscovery to pair with its API instance in API Manager. How should the API ID and the platform credentials be handled?',
       options: [
-        '`<api-gateway:autodiscovery apiId="${api.id}" flowRef="..."/>` in the app',
-        '`api.id` set per environment at deployment',
-        'Environment credentials `anypoint.platform.client_id` / `client_secret` for that environment',
-        'A separate JAR build per environment with the API ID hard-coded',
+        'Keep `api.id` as a property, and set it and that environment\'s client ID and secret at deployment',
+        'Hard-code the API ID in the app, and build a separate JAR for each environment',
+        'Keep `api.id` as a property, and reuse the Sandbox client ID and secret in every environment',
+        'Hard-code the Production API ID in the JAR, and set only the client ID and secret at deployment',
       ],
-      answer: [0, 1, 2],
-      explain: 'Externalising `api.id` and supplying the right environment client ID/secret at deployment lets one artifact be promoted without rebuilding.',
+      answer: 0,
+      explain: 'The app holds `<api-gateway:autodiscovery apiId="${api.id}" flowRef="..."/>`. Externalising `api.id` and supplying the right environment credentials (`anypoint.platform.client_id` / `client_secret`) at deployment lets one artifact be promoted without rebuilding.',
     },
     {
       type: 'match',
@@ -43,6 +43,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A client sends a valid client ID but has exceeded its tier limit. What does the SLA-based rate limiting policy return?',
       options: ['401', '403', '429', '503'],
       answer: 2,

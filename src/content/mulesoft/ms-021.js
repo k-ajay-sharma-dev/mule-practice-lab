@@ -29,6 +29,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'For CloudHub 2.0 publishing, what must the project `groupId` be?',
       options: [
         'The organization / business group ID',
@@ -53,16 +54,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which values should come from pipeline variables per environment rather than a rebuild?',
+      prompt: 'A team builds a Mule app once and deploys the same JAR to dev, qa and prod with the Mule Maven plugin. Which three values should come from pipeline variables for each environment, with no rebuild?',
       options: [
-        'Target environment and space',
         'Replicas and vCores',
         'Application properties such as `env`',
-        'The secure-properties key (as a secure property)',
+        'The secure-properties key',
         'The MUnit test cases',
+        'The connector versions in the POM',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Everything environment-specific is a deploy-time parameter of the mule-maven-plugin; tests belong to the build, which happens once.',
+      answer: [0, 1, 2],
+      explain: 'Everything environment-specific, including the target environment and space, is a deploy-time parameter of the mule-maven-plugin. The secure-properties key is passed as a secure property. Tests and connector dependencies belong to the build, which happens once, so what was tested is what runs.',
     },
   ],
   description: `

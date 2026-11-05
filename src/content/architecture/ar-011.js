@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How does one correlation ID follow the loan request across the HTTP hops?',
       options: [
         'Each app generates its own UUID and logs it',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The LoanSubmitted message crosses Anypoint MQ. How do you keep the same correlation ID in the document consumer?',
       options: [
         'It is propagated automatically over MQ with no work',
@@ -31,16 +33,16 @@ export default {
       explain: 'The async hop breaks the HTTP header chain, so the ID must travel as a message property and be restored as the event correlation ID on the consumer side.',
     },
     {
-      type: 'multi',
-      prompt: 'Which items belong in the logging standard?',
+      type: 'single',
+      prompt: 'Seven Mule apps each log in a different format, and some log whole payloads that contain national ID numbers. Which shared logging standard fixes both problems?',
       options: [
-        'Structured JSON with fixed fields (timestamp, app, env, correlationId, businessKey, event, durationMs, status)',
-        'Log at entry, exit, before/after each external call with duration, and on error',
-        'Mask national ID numbers, credentials and tokens in a shared component',
-        'Log the full payload at INFO in production for easier debugging',
+        'Structured JSON with fixed fields, and sensitive values masked in a shared component',
+        'Structured JSON with fixed fields, and full payloads logged at `INFO` in production',
+        'Free text in each app\'s own style, and sensitive values masked in a shared component',
+        'Structured JSON with fields chosen by each app, and masking written separately in each app',
       ],
-      answer: [0, 1, 2],
-      explain: 'Per-call durations answer "which hop was slow". Full payloads in production logs leak personal data and inflate Splunk cost.',
+      answer: 0,
+      explain: 'Fixed fields (timestamp, app, env, correlationId, businessKey, event, durationMs, status) make every app log the same way. A shared component masks national ID numbers, credentials and tokens the same way everywhere. Full payloads in production logs leak personal data and inflate Splunk cost. The standard also logs at entry, exit, before and after each external call with duration, and on error. Per-call durations answer "which hop was slow".',
     },
     {
       type: 'single',
@@ -56,6 +58,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which alerts tell the team about problems before customers do?',
       options: [
         '5xx rate above a threshold',

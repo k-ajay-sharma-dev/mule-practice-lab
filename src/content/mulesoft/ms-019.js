@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which API fits the nightly load of ~2 million records?',
       options: [
         'Bulk API v2 — asynchronous jobs designed for large volumes, far fewer API calls',
@@ -44,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The hourly sync must also send **deleted** Accounts. Which operation do you use?',
       options: [
         '`queryAll`, which also returns deleted (IsDeleted = true) and archived records',
@@ -56,16 +58,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which measures reduce Salesforce API limit consumption?',
+      prompt: 'A Mule app syncs accounts with Salesforce one record per call, and the org is close to its daily API request limit. Which three changes reduce the number of API calls?',
       options: [
-        'Bulk API for large volumes',
-        'Up to 200 records per SOAP call instead of one',
-        'Change Data Capture instead of hourly polling',
-        'Querying only the fields you need',
-        'Describing the object metadata before every record',
+        'Use the Bulk API for large volumes',
+        'Send batches of records per SOAP call, not one at a time',
+        'Use Change Data Capture in place of hourly polling',
+        'Describe the object metadata before every record',
+        'Create each record, then update it if the create fails as a duplicate',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Describing metadata on every record burns calls; cache reference data instead.',
+      answer: [0, 1, 2],
+      explain: 'The Bulk API, up to 200 records per SOAP call and Change Data Capture all mean fewer calls. Querying only the fields you need also helps. Describing metadata on every record burns calls, so cache reference data instead. Create then update spends extra calls where one upsert would do.',
     },
   ],
   description: `

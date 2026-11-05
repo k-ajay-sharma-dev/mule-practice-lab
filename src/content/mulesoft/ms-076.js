@@ -32,6 +32,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each failure to the Mule error type it raises.',
       pairs: [
         ['The pool cannot obtain a connection: listener refused / host unreachable', 'DB:CONNECTIVITY'],
@@ -55,15 +56,15 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which errors are reasonable to **retry** (with a small number of attempts and backoff)?',
+      prompt: 'A Mule app writes to a database and retries transient failures a small number of times with backoff. Which two of these errors should it retry?',
       options: [
-        'SQL Server error 1205: the transaction was chosen as deadlock victim',
-        'DB:CONNECTIVITY during a short database failover',
-        'ORA-00001 unique constraint violated',
-        'DB:BAD_SQL_SYNTAX',
+        'SQL Server error 1205, chosen as deadlock victim',
+        '`DB:CONNECTIVITY` during a short database failover',
+        'ORA-00001, unique constraint violated',
+        '`DB:BAD_SQL_SYNTAX` from a typo in a table name',
       ],
       answer: [0, 1],
-      explain: 'Deadlock victims and brief connectivity loss are transient — the same work usually succeeds on retry. Duplicate keys and syntax errors fail the same way every time.',
+      explain: 'Deadlock victims and brief connectivity loss are transient, so the same work usually succeeds on retry. Duplicate keys and syntax errors fail the same way every time.',
     },
     {
       type: 'order',

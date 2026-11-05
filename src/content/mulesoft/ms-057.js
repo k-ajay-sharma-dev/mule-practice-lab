@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The Mobile EAPI dashboard looked "green" while every order failed. Why?',
       options: [
         'Anypoint Monitoring was down',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which Inventory SAPI functional monitor would have caught the database refusing connections?',
       options: [
         'A `/health` check that returns 200 without touching the backend',
@@ -44,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Which alert would have named the culprit fastest?',
       options: [
         'An error-rate alert on the Inventory SAPI app',
@@ -66,16 +69,16 @@ export default {
       explain: 'Propagation plus centralised logs turns 90 minutes across five log screens into one query.',
     },
     {
-      type: 'multi',
-      prompt: 'Which metrics belong on the **System API** layer dashboard?',
+      type: 'single',
+      prompt: 'An order chain has Experience, Process and System APIs, with one dashboard per layer. The Process layer calls downstream APIs, and the System layer talks to the backends. Which metric belongs on the System layer dashboard?',
       options: [
-        'Backend error types (connectivity, timeouts)',
-        'Response time',
-        'Connection pool / JVM / CPU',
-        'Per-partner SLA tier usage',
+        'Backend connectivity errors',
+        'Usage per client application',
+        'Auth failures from client apps',
+        'Latency by downstream API call',
       ],
-      answer: [0, 1, 2],
-      explain: 'Per-client application usage and policy violations belong to the Experience layer, which faces consumers.',
+      answer: 0,
+      explain: 'A System dashboard shows backend error types, response time, and connection pool, JVM and CPU metrics. Per-client application usage and policy violations belong to the Experience layer, which faces consumers. Latency broken down by downstream call belongs to the Process layer.',
     },
   ],
   description: `

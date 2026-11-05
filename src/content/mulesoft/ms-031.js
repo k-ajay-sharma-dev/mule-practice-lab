@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'The Card System API returned **422** with a JSON body. Inside the error handler, where is that body?',
       options: [
         '`payload` — the HTTP Request replaced it before failing',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each field of the Mule 4 `error` object to what it holds.',
       pairs: [
         ['`errorType`', 'Namespace + identifier, e.g. HTTP:SERVICE_UNAVAILABLE'],
@@ -31,19 +33,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which items belong in the **client-facing** error body? (Select all that apply.)',
+      prompt: 'A Process API calls a card API, which fails with a 422 and a JSON body holding a `code` and a `message`. The Process API must now send its client a safe error body. Which three items belong in that body?',
       options: [
-        'The downstream `code` (e.g. CARD_EXPIRED)',
+        'The downstream `code`',
         'The downstream `message`',
         'The correlation ID',
         '`error.cause` and its stack trace',
-        'The default `error.description` with the internal resource URL',
+        'The default `error.description`',
       ],
       answer: [0, 1, 2],
-      explain: 'Return a sanitized, consistent body. Stack traces and the default description (which contains `https://cards.internal/...`) leak internals — log them instead.',
+      explain: 'Return a sanitized, consistent body, for example with the code `CARD_EXPIRED`. Stack traces and the default description, which contains the internal resource URL, leak internals. Log them instead.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A DataWeave transformation fails. What should you expect in `error.errorMessage`?',
       options: [
         'Always the input payload of the transformation',
@@ -56,6 +59,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'One route of a Scatter-Gather fails. Which error is raised, and where are the per-route details?',
       options: [
         'The failing route\'s own error type; other routes are discarded',

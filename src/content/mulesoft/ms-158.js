@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each case to the behaviour documented for **CloudHub 1.0** and **CloudHub 2.0** schedules.',
       pairs: [
         ['CloudHub 1.0: a job was not triggered because the app was not running', 'Triggered as soon as the app restarts'],
@@ -19,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A job must run on CloudHub 1.0 at 06:00 in Sydney. The Manage Schedules page says schedules are based in which time zone?',
       options: [
         'UTC, regardless of the region where the app is deployed, so the expression must be converted',
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'During a platform update, a long-running CloudHub 1.0 schedule ran twice. What does the page describe?',
       options: [
         'CloudHub waits two minutes for existing schedules to complete and then retriggers incomplete schedules, and zero-downtime deployments can also trigger a schedule more than once, so flows must be idempotent',
@@ -43,6 +46,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A fixed 15-second polling schedule drifts and occasionally seems to merge runs under load. What is the documented position?',
       options: [
         'Schedules are best effort. For time-sensitive work use an interval of 60 seconds or more, and for precise execution trigger the flow externally, for example over HTTP',
@@ -67,6 +71,7 @@ export default {
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'Which statements about worker monitoring are correct?',
       options: [
         'CloudHub attempts to restart impaired workers regardless of the application restart setting',
@@ -80,6 +85,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A support lead wants **Insight** switched on permanently for the production order app, so transactions can always be traced. What do the docs say?',
       options: [
         'Insight is marked to be deprecated, can significantly affect processing performance and memory, and should not be enabled for long periods in production. Use it for specific transactions only',
@@ -91,20 +97,20 @@ export default {
       explain: 'Insight limits include 50,000 events per minute per app and 100,000 per business group, and it may not give visibility into batch processing. The page points to traces as the new approach.',
     },
     {
-      type: 'multi',
-      prompt: 'The **Update** button appears on a dedicated load balancer. Which statements are correct?',
+      type: 'single',
+      prompt: 'The **Update** button appears on a production dedicated load balancer (DLB) on CloudHub 1.0. What is the safest way to apply the update?',
       options: [
-        'Updates are provided quarterly, with OS and security patches, and more often if necessary',
-        'An applied update cannot be rolled back, so update the Sandbox DLB first and test',
-        'The update is a rolling restart with no downtime, and no transactions are dropped provided they are shorter than 600 seconds or the Mule Application Response Timeout, whichever is smaller',
-        'If you are prompted to add new static IPs to your allowlist, do so before clicking Update',
-        'Updates include new features that change mapping rules',
+        'Update the Sandbox DLB first and test, then update production',
+        'Update production first, and roll back if a problem appears',
+        'Stop all apps behind the DLB, because the update needs downtime',
+        'Rewrite the mapping rules first, because updates change them',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The updates do not include feature changes. Some in-flight requests might see a brief interruption during the restart.',
+      answer: 0,
+      explain: 'An applied update cannot be rolled back, so update the Sandbox DLB first and test. Updates are provided quarterly, with OS and security patches, and more often if necessary. They do not include feature changes. The update is a rolling restart with no downtime, and no transactions are dropped provided they are shorter than 600 seconds or the Mule Application Response Timeout, whichever is smaller. Some in-flight requests might see a brief interruption during the restart. If you are prompted to add new static IPs to your allowlist, do so before clicking Update.',
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'You need DLB logs for an investigation, using the CloudHub API. Which statements are correct?',
       options: [
         'Download is asynchronous: initiate a request, check its status, then use the download URL',

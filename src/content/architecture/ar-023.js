@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you make the API style guide enforceable rather than a PDF?',
       options: [
         'Ask the architecture board to read every spec more carefully',
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What should the architecture board still review by hand?',
       options: [
         'Naming conventions and pagination parameters',
@@ -41,20 +43,20 @@ export default {
       explain: 'Machines check the mechanical rules; people judge domain design and reuse, which rulesets cannot assess.',
     },
     {
-      type: 'multi',
-      prompt: 'Which changes keep human review fast?',
+      type: 'single',
+      prompt: 'An architecture board reviews every API in a long weekly meeting, and teams now try to skip it. Automated rules already check the mechanical parts of each spec. Which change keeps human review fast?',
       options: [
-        'Asynchronous review in pull requests/Exchange comments with a 2-day SLA',
-        'A short checklist',
-        'A trained API champion in each team who reviews first',
-        'A synchronous meeting only for new domains or exceptions',
-        'Requiring CTO sign-off on every API',
+        'Require CTO sign-off on every API before the board meets',
+        'Review asynchronously in pull requests or Exchange comments, with a fixed SLA',
+        'Add a second weekly meeting so the board can see every API',
+        'Ask the board to read every spec line by line before each meeting',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Federating and making review asynchronous removes the weekly bottleneck that teams were trying to skip.',
+      answer: 1,
+      explain: 'Asynchronous review removes the weekly bottleneck that teams were trying to skip. A 2-day SLA and a short checklist keep it moving. A trained API champion in each team can review first, and a synchronous meeting stays only for new domains or exceptions. More sign-offs and more meetings make the bottleneck worse.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What do you do with existing non-conforming APIs?',
       options: [
         'Block them all until they conform',
@@ -67,6 +69,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you introduce blocking rules without frustrating teams?',
       options: [
         'Make every rule an error from day one',

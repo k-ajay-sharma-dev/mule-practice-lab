@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: '`file:move` targets a path that already exists, and Overwrite is left at its default. What happens?',
       options: [
         'FILE:FILE_ALREADY_EXISTS, because Overwrite defaults to false',
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A flow reads a file with `lock="true"`, but another party holds a lock on it. What does the operation raise?',
       options: [
         'FILE:FILE_LOCK',
@@ -41,19 +43,20 @@ export default {
       explain: 'FILE:FILE_LOCK is listed only for read. ACCESS_DENIED is about permissions, which is a different problem from a lock held by someone else.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about locks on `file:read` are correct?',
+      type: 'single',
+      prompt: 'A nightly Mule job reads files from a shared drive, and a partner tool may still be writing them. A developer plans to turn on Lock on `file:read` for protection. What should the developer know first?',
       options: [
-        'Lock defaults to false',
-        'The lock is released when the flow that took it ends, or when the content has been fully read',
-        'Lock behaviour depends on the host file system and operating system',
-        'A lock guarantees exclusive access on every mounted drive',
+        'Lock behaviour depends on the host file system, so test it on this drive',
+        'Lock guarantees exclusive access on every mounted drive, so no test is needed',
+        'Lock is on by default, so no setting has to change',
+        'Lock stays held after the flow ends, until the file is moved',
       ],
-      answer: [0, 1, 2],
-      explain: 'Because the lock depends on the host file system, you must test it on the real mount rather than assume it protects you.',
+      answer: 0,
+      explain: 'Because the lock depends on the host file system, you must test it on the real mount rather than assume it protects you. Lock defaults to false. It is released when the flow that took it ends, or when the content has been fully read.',
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'A team uses `file:rename` with `to="archive/invoice-1.csv"`. Why is this wrong?',
       options: [
         'The new name must not contain a path separator; use file:move to change directory',
@@ -78,6 +81,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each error to the operations that list it.',
       pairs: [
         ['FILE:FILE_LOCK', 'Read only'],

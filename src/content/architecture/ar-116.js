@@ -30,20 +30,21 @@ export default {
       explain: 'Control plane location, runtime hosting option and runtime region are three independent choices, and each organization lives in exactly one cloud.',
     },
     {
-      type: 'multi',
-      prompt: 'Which statements about high availability and disaster recovery responsibility are documented?',
+      type: 'single',
+      prompt: 'A company runs Mule apps on Runtime Fabric, in a Kubernetes cluster it operates itself. It is writing its disaster recovery plan. Who owns backup, restore and failover to a standby cluster?',
       options: [
-        'On CloudHub 2.0, MuleSoft manages in-region resilience and you own the multi-region strategy, with your own global load balancer',
-        'On Runtime Fabric, you own backup, restore and failover to a standby cluster',
-        'On Hybrid Standalone, you own backup, restore and DR',
-        'In every model, you own any runtime strategy that spans regions',
-        'On Runtime Fabric, MuleSoft backs up your cluster configuration',
+        'The company owns all three',
+        'MuleSoft owns all three',
+        'MuleSoft owns backup and restore, and the company owns failover',
+        'The company owns backup and restore, and MuleSoft owns failover',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'MuleSoft doesn\'t back up your data or cluster configuration on Runtime Fabric. Cross-region support in the matrix concerns Mule runtime regions only, not the control plane.',
+      answer: 0,
+      explain: 'MuleSoft doesn\'t back up your data or cluster configuration on Runtime Fabric. You own backup, restore and failover to a standby cluster, and the same goes for backup, restore and DR on Hybrid Standalone. On CloudHub 2.0, MuleSoft manages in-region resilience and you own the multi-region strategy, with your own global load balancer. In every model, you own any runtime strategy that spans regions. Cross-region support in the matrix concerns Mule runtime regions only, not the control plane.',
     },
     {
       type: 'single',
+      detail: true,
+      needsScenario: true,
       prompt: 'A public sector client is on MuleSoft Government Cloud. According to the compatibility matrix, which option is available there that Runtime Fabric is not?',
       options: [
         'Hybrid Standalone, along with CloudHub, while CloudHub 2.0 and Runtime Fabric show No',
@@ -55,20 +56,20 @@ export default {
       explain: 'Always read the matrix for your control plane: Government Cloud and Government Cloud Plus differ. For Anypoint Platform PCE only Hybrid Standalone shows Yes.',
     },
     {
-      type: 'multi',
-      prompt: 'What differs in day-to-day operations between targets?',
+      type: 'single',
+      prompt: 'A platform team runs Mule apps on both CloudHub 2.0 and Runtime Fabric. A new Mule patch comes out. How do the apps on each target take it?',
       options: [
-        'CloudHub 2.0 apps are auto-patched monthly; Runtime Fabric apps need a redeploy to take a patch',
-        'Hybrid Standalone upgrades use the Mule Upgrade Tool, with no auto-upgrade',
-        'Runtime Fabric runs a separate Mule runtime server for each app',
-        'One Hybrid Standalone instance can run many apps, which share its resources',
-        'Runtime Fabric apps can share a listener through a domain',
+        'CloudHub 2.0 apps are auto-patched, and Runtime Fabric apps need a redeploy',
+        'Runtime Fabric apps are auto-patched, and CloudHub 2.0 apps need a redeploy',
+        'Apps on both targets are auto-patched, with no redeploy',
+        'Apps on both targets are upgraded with the Mule Upgrade Tool',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'The shared resources documentation covers on-premises deployment. With one runtime per app, Runtime Fabric gives isolation instead of sharing.',
+      answer: 0,
+      explain: 'CloudHub 2.0 apps are auto-patched monthly, and Runtime Fabric apps need a redeploy to take a patch. Hybrid Standalone upgrades use the Mule Upgrade Tool, with no auto-upgrade. Isolation differs too: Runtime Fabric runs a separate Mule runtime server for each app, while one Hybrid Standalone instance can run many apps, which share its resources. The shared resources documentation covers on-premises deployment. With one runtime per app, Runtime Fabric gives isolation instead of sharing.',
     },
     {
       type: 'multi',
+      detail: true,
       prompt: 'How is licence compliance measured for customer-hosted targets?',
       options: [
         'Runtime Fabric: the sum of CPU Limits per replica, or the total CPU of worker nodes running Mule apps, must be within the licensed quantity',
@@ -81,6 +82,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The security team asks what leaves the data centre by default with a Hybrid Standalone runtime. What does Runtime Manager documentation say?',
       options: [
         'Only metadata pushed by the Runtime Manager agent flows to the cloud, and no application data is exposed by default; you can change what the agent pushes',

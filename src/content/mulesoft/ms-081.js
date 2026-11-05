@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Enable Watermark is true, which is the default. What does it do on the IMAP listener?',
       options: [
         'It uses the received date, so only emails received after the last poll are dispatched',
@@ -32,6 +33,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each operation to what it does on an IMAP mailbox.',
       pairs: [
         ['email:mark-as-read', 'Changes one email to the read state'],
@@ -43,6 +45,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'The flow must file each processed email in `Processed/2026`, and that folder may not exist yet. Which setting matters?',
       options: [
         'Create Target Folder on email:move-to-folder, which defaults to false',
@@ -54,16 +57,16 @@ export default {
       explain: 'Create Target Folder defaults to `false`, so the target must already exist unless you turn it on.',
     },
     {
-      type: 'multi',
-      prompt: 'The app runs on a two-node cluster and uses an IMAP listener. Which statements are correct?',
+      type: 'single',
+      prompt: 'A Mule app with an `email:listener-imap` polling source runs on a two-node cluster. Both nodes must not dispatch the same email. Which setting handles this?',
       options: [
-        'Primary Node Only controls whether the source runs on only the primary node of the cluster',
-        'Keeping polling on one node stops two nodes dispatching the same email',
-        'The listener needs a scheduling strategy',
-        'Enable Watermark removes the need to think about clustering, because it deletes each email',
+        'Turn on Enable Watermark on the listener',
+        'Set Primary Node Only on the listener',
+        'Add an Imap Matcher that filters on `seen`',
+        'Use a longer frequency in the scheduling strategy',
       ],
-      answer: [0, 1, 2],
-      explain: 'A polling source that runs on every node reads the same mailbox from each of them. The watermark filters by received date and deletes nothing.',
+      answer: 1,
+      explain: 'A polling source that runs on every node reads the same mailbox from each of them. Primary Node Only keeps the source on the primary node. The reference lists no default for it on this listener, so set it explicitly. The watermark filters by received date and deletes nothing. The listener also needs a scheduling strategy, but that sets how often it polls and not where.',
     },
     {
       type: 'order',
@@ -78,6 +81,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'Enable Remote Search is false by default. What does turning it on change?',
       options: [
         'Search filters are resolved by the mail server instead of on the client side',

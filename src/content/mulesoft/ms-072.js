@@ -67,15 +67,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which are causes of connections being held longer than the SQL execution?',
+      prompt: 'A Mule API runs out of pooled database connections at peak. Each connection is held much longer than the SQL needs to run. Which three things can cause that?',
       options: [
-        'Streaming a large db:select result that is consumed slowly or not fully',
-        'A transaction spanning remote calls',
-        'Long-running statements without a queryTimeout waiting on row locks',
-        'Using named parameters',
+        'Streaming a large `db:select` result that is consumed slowly',
+        'A transaction that spans a remote HTTP call',
+        'Statements with no `queryTimeout` waiting on row locks',
+        'Using named parameters in the SQL statement text',
+        'A short `maxWait` setting on the pooling profile',
       ],
       answer: [0, 1, 2],
-      explain: 'A connection returns to the pool when the statement, result set and transaction are finished. Named parameters have no effect on hold time.',
+      explain: 'A connection returns to the pool when the statement, result set and transaction are finished. Named parameters have no effect on hold time. `maxWait` only sets how long a request waits for a connection, so a short value makes it fail fast.',
     },
   ],
   description: `

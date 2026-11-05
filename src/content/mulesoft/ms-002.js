@@ -20,6 +20,7 @@ export default {
     },
     {
       type: 'single',
+      detail: true,
       prompt: 'What is the default streaming strategy in Mule 4 **Enterprise**?',
       options: [
         'Non-repeatable stream',
@@ -54,6 +55,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which changes would you make to fix this flow?',
       options: [
         'Restore the repeatable file-store strategy (optionally tune `inMemorySize`)',

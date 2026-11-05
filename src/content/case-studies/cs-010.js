@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The first app has hard-coded passwords. What is the right fix?',
       options: [
         'Move them to secure (encrypted) properties or a secrets manager, with per-environment config files',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Would you build a System API for every SaaS application the start-up integrates?',
       options: [
         'No — only for systems several integrations will touch (Salesforce, billing); one-off SaaS-to-SaaS syncs can be a single app, with a System API extracted when a second consumer appears',
@@ -44,13 +46,13 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What belongs in the shared project template / parent POM so any developer can pick up any app?',
+      prompt: 'A small team of Mule developers wants any developer to be able to pick up any app, so it creates a shared project template and parent POM. Which three things belong in them?',
       options: [
         'Common dependencies and plugin versions',
-        'A global error handler returning a standard error body',
+        'A global error handler with a standard error body',
         'JSON logging with correlation IDs',
         'Production passwords for every system',
-        'A full copy of every other app’s flows',
+        'A full copy of the flows from every other app',
       ],
       answer: [0, 1, 2],
       explain: 'A template standardises structure, error handling and logging so apps look alike. Secrets never belong in a template, and copying flows between apps is duplication, not reuse.',
@@ -68,6 +70,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'vCores are limited and there is no platform team. Which choice helps most?',
       options: [
         'Group small, related flows into one app where it makes sense, and track vCore consumption as apps grow',

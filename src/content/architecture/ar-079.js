@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      detail: true,
       prompt: 'In ActiveMQ Classic shared-storage master/slave, what does the slave broker do while the master is healthy?',
       options: [
         'It waits to acquire the lock on the shared store and does not accept client connections',
@@ -43,17 +44,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Which settings make the Mule WMS consumers resilient to a broker failover? (Select all that apply.)',
+      prompt: 'Mule apps consume warehouse messages from a pair of ActiveMQ brokers. Only one broker serves clients at a time, and the other takes over if it fails. Which three settings let the consumers survive a failover?',
       options: [
-        'A connection URL listing both brokers (failover transport for Classic, or an Artemis HA URL)',
-        'A reconnection strategy on the JMS connection so the listener re-establishes consumption',
-        'Idempotent processing, because unacknowledged in-flight messages are redelivered after failover',
-        'Persistent delivery for messages that must survive a broker restart',
-        'ackMode IMMEDIATE so messages are never redelivered after failover',
-        'Pointing Mule only at amq1, because the slave never serves clients',
+        'A connection URL that lists both brokers',
+        'A reconnection strategy on the JMS connection',
+        'Idempotent processing of redelivered messages',
+        'A connection URL that names only the first broker',
+        'Ack mode `IMMEDIATE`, so that nothing is redelivered',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Clients must know both addresses, reconnect, and tolerate redelivery; persistence is what lets the backup see the messages. IMMEDIATE ack would lose in-flight messages, and pointing at one host makes failover impossible.',
+      answer: [0, 1, 2],
+      explain: 'Clients must know both addresses (the failover transport for Classic, or an Artemis HA URL), reconnect so the listener resumes consumption, and tolerate redelivery of unacknowledged messages. Persistent delivery is what lets the backup see the messages. `IMMEDIATE` ack would lose in-flight messages, and pointing at one host makes failover impossible.',
     },
     {
       type: 'single',

@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Why is full three-layer API-led (36 APIs) weak value for this team?',
       options: [
         'MuleSoft does not support Shopify',
@@ -20,17 +21,16 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'Where does API-led still add value here?',
+      prompt: 'A 4-developer integration team runs about 12 integrations, mostly nightly syncs, with one external partner. It will not build all three API-led layers. Which two APIs are still worth building?',
       options: [
-        'System APIs for Salesforce and NetSuite if several integrations share them',
-        'A partner API for the 3PL with client-id enforcement and rate limiting',
-        'Logical layering inside each app: connectivity, orchestration and mapping in separate flows/modules',
-        'One project template, one error contract, one logging standard',
-        'A separate Experience API for each nightly sync job',
-        'A Process API per integration even when it has a single caller',
+        'A System API for a backend that several integrations share',
+        'A partner API with client-id enforcement for the external partner',
+        'An Experience API for each nightly sync job',
+        'A Process API for each integration, even with a single caller',
+        'A System API for a backend that only one integration uses',
       ],
-      answer: [0, 1, 2, 3],
-      explain: 'Apply the principles proportionately: shared systems and external consumers justify APIs; batch syncs have no channel and gain nothing from extra hops.',
+      answer: [0, 1],
+      explain: 'Shared systems and external consumers justify an API, even for one partner. Batch syncs have no channel and gain nothing from extra hops, and a System API with a single consumer is premature. Apply the principles proportionately: keep connectivity, orchestration and mapping in separate flows or modules inside each app, and use one project template, one error contract and one logging standard.',
     },
     {
       type: 'single',
@@ -46,6 +46,7 @@ export default {
     },
     {
       type: 'multi',
+      needsScenario: true,
       prompt: 'Which signals would tell you to grow towards fuller API-led?',
       options: [
         'A second and third consumer for the same data',
@@ -60,6 +61,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you frame this answer in the interview?',
       options: [
         '"API-led is pointless for small teams."',
@@ -72,6 +74,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'What is the minimum governance you would keep?',
       options: [
         'None — the team is small',

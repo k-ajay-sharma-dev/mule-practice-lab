@@ -18,6 +18,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Making `effectiveDate` a required query parameter on search is…',
       options: [
         'Non-breaking, because it only adds a parameter',
@@ -30,6 +31,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where does the version appear?',
       options: [
         'Full semver in the URL, e.g. /policies/v1.5.0',
@@ -42,6 +44,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'How do you run v1 and v2 side by side at low cost?',
       options: [
         'Fork the whole stack: separate Process and System APIs for v2',
@@ -62,19 +65,19 @@ export default {
         'Use API Manager analytics per client app to contact who still calls v1',
         'Run brown-out tests, then remove the v1 instance',
       ],
-      explain: 'Communicate first, then make it machine-detectable, then chase the remaining users with data, and only then switch v1 off. Partners releasing twice a year need about two release cycles of notice.',
+      explain: 'A sunset date means little until v2 exists to move to. The Sunset header carries that date, so the date must be set first. Analytics then show who still calls v1 after the notice, and only then is v1 switched off. Partners releasing twice a year need about two release cycles of notice.',
     },
     {
-      type: 'multi',
-      prompt: 'Which practices keep the number of live versions manageable?',
+      type: 'single',
+      prompt: 'An API used by external partners must replace the field `holderName` with a new `holder` object. The owners want to avoid adding another live major version. What should they do?',
       options: [
-        'Make changes additively where possible (add holder, keep holderName as deprecated)',
-        'A policy of at most two live major versions',
-        'Contract tests in CI that fail a breaking diff without a major bump',
-        'Publish every change as a new URL version',
+        'Add `holder` in v1 and keep `holderName` as deprecated',
+        'Rename the field in v1 and publish it as a patch version',
+        'Publish a new URL version for this and every later change',
+        'Remove `holderName` now and ask partners to update their code',
       ],
-      answer: [0, 1, 2],
-      explain: 'Every URL version is another contract to secure, monitor and support. Avoiding unnecessary breaking changes and detecting accidental ones keeps the platform manageable.',
+      answer: 0,
+      explain: 'Adding the new field is an additive change, so clients that read the old field keep working. Every URL version is another contract to secure, monitor and support. A policy of at most two live major versions also helps, and so do contract tests in CI that fail a breaking diff without a major bump.',
     },
   ],
   description: `

@@ -44,6 +44,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'While the export runs, other flows that use the same DB config wait for connections. Why?',
       options: [
         'A streamed result set keeps its connection busy until the stream is fully consumed or closed',
@@ -56,6 +57,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'The table also has `LABEL_PDF BLOB` (pallet labels) and `NOTES CLOB`. How should the export treat them?',
       options: [
         'Select them only when needed; LOB values are read through the open connection, add per-row cost and can be large, so exclude them from the bulk CSV and fetch them on demand',

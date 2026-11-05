@@ -8,6 +8,7 @@ export default {
   quiz: [
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Can a **local** transaction make steps 1–3 (Oracle inserts + JMS publish, plus the JMS consume) all-or-nothing?',
       options: [
         'No — a local transaction is bound to one resource; Oracle + JMS needs XA',
@@ -20,6 +21,7 @@ export default {
     },
     {
       type: 'match',
+      detail: true,
       prompt: 'Match each transactional action to its behaviour.',
       pairs: [
         ['INDIFFERENT (scope default)', 'Does not start a transaction'],
@@ -31,6 +33,7 @@ export default {
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Last month a failure in step 2 left orphan headers in `ORDERS`. Which error handler behaviour causes that inside a transaction?',
       options: [
         'On Error Continue — it commits whatever already succeeded',
@@ -43,18 +46,20 @@ export default {
     },
     {
       type: 'multi',
-      prompt: 'What do you need for an XA transaction in Mule 4?',
+      prompt: 'A Mule 4 flow must insert into Oracle and publish to IBM MQ as one all-or-nothing unit. That takes an XA transaction, which spans several resources. Which three things must be in place?',
       options: [
         'An XA DataSource for Oracle',
         'An XA connection factory for IBM MQ',
         'A transaction manager such as the Bitronix module',
+        'A separate local transaction on each connector config',
         'An HTTP Request with `transactionalAction="ALWAYS_JOIN"`',
       ],
       answer: [0, 1, 2],
-      explain: 'XA needs XA-capable resources and a transaction manager, and costs two-phase-commit latency and complex recovery. HTTP cannot take part in a transaction.',
+      explain: 'XA needs XA-capable resources and a transaction manager, and costs two-phase-commit latency and complex recovery. A local transaction belongs to one resource, so separate ones are not all-or-nothing. HTTP cannot take part in a transaction.',
     },
     {
       type: 'single',
+      needsScenario: true,
       prompt: 'Where does the Tax HTTP call belong?',
       options: [
         'After the commit (e.g. a separate flow triggered by `OrderAccepted`), with retries and idempotency',
