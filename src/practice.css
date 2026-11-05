@@ -952,6 +952,41 @@
   margin: 0 0 4px;
 }
 
+/* ---------- Answer check ---------- */
+.answer-live {
+  max-height: 120px;
+  margin: 0;
+  overflow-y: auto;
+  color: var(--muted);
+}
+.answer-check {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.answer-check .section-title,
+.answer-check p {
+  margin: 0;
+}
+.answer-points {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.answer-points li {
+  display: flex;
+  gap: 8px;
+}
+.answer-points .md {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.answer-points .md p {
+  margin: 0;
+}
+
 /* ---------- Weak areas ---------- */
 .weak-page {
   max-width: 980px;

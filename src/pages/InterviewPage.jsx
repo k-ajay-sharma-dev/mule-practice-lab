@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AnswerCheck from '../components/AnswerCheck.jsx'
 import Markdown from '../components/Markdown.jsx'
+import useSpeechText, { canListen } from '../components/useSpeechText.js'
 import useVoiceRecorder, { canRecord } from '../components/useVoiceRecorder.js'
 import { RecordingLive, SavedAnswers, VoiceClip } from '../components/VoiceRecording.jsx'
 import { deckByKey, DECKS, followUpCards, shuffle } from '../data/cards.js'
@@ -9,6 +11,7 @@ import { loadProblems } from '../data/problems.js'
 import { loadBoxes, nextBox, saveBoxes } from '../store/flash.js'
 import { writeLocal } from '../store/local.js'
 import { scheduleReview } from '../store/progress.js'
+import { checkAnswer } from '../study/answer-check.js'
 import { saveProblem } from '../study/recording.js'
 import { useSyncStatus } from '../sync/status.js'
 
@@ -72,7 +75,9 @@ export default function InterviewPage() {
   const [seconds, setSeconds] = useState(TIMES[1])
   const [aloud, setAloud] = useState(false)
   const [record, setRecord] = useState(false)
+  const [check, setCheck] = useState(false)
   const voice = useVoiceRecorder()
+  const speech = useSpeechText()
   const signedIn = Boolean(useSyncStatus().user)
   const [kept, setKept] = useState({}) // question id -> what happened to its recording
   const [keptVersion, setKeptVersion] = useState(0)
@@ -95,10 +100,16 @@ export default function InterviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card?.id, round?.revealed, voice.micOn])
 
+  useEffect(() => {
+    if (check && card && !round.revealed) speech.start(card.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [check, card?.id, round?.revealed])
+
   async function start() {
     setLoading(true)
     setFailed(false)
     voice.discard()
+    speech.clear()
     setKept({})
     // a blocked microphone shows why, and the practice carries on without recording
     if (record) await voice.open()
@@ -125,12 +136,14 @@ export default function InterviewPage() {
   const reveal = (timedOut) => {
     if (canSpeak) window.speechSynthesis.cancel()
     voice.finish()
+    speech.stop()
     setRound((r) => ({ ...r, revealed: true, timedOut }))
   }
 
   function endPractice() {
     voice.close()
     voice.discard()
+    speech.clear()
     setRound(null)
   }
 
@@ -154,7 +167,8 @@ export default function InterviewPage() {
     if (rating !== 'partly') saveBoxes({ ...boxes, [card.id]: nextBox(boxes[card.id], rating === 'nailed') })
     if (rating === 'missed') scheduleReview(card.problem.id)
 
-    const ratings = [...round.ratings, { card, rating }]
+    const points = check ? checkAnswer(speech.texts[card.id] ?? '', card.front, card.back) : null
+    const ratings = [...round.ratings, { card, rating, points }]
     const index = round.index + 1
     setRound({ ...round, index, revealed: false, timedOut: false, ratings })
     if (index >= round.cards.length) {
@@ -181,6 +195,8 @@ export default function InterviewPage() {
 
   if (!round || finished) {
     const missed = finished ? round.ratings.filter((r) => r.rating === 'missed') : []
+    const checked = finished ? round.ratings.filter((r) => r.points) : []
+    const sumOf = (key) => checked.reduce((sum, r) => sum + r.points[key], 0)
     const last = history.at(-1)
     return (
       <div className="flash-page">
@@ -196,6 +212,11 @@ export default function InterviewPage() {
             <div className="match-banner pass flash-summary">
               Round done: {last.nailed} nailed · {last.partly} partly · {last.missed} missed
             </div>
+            {checked.length > 0 && (
+              <p className="muted small">
+                By word match, you covered {sumOf('covered')} of {sumOf('total')} points from the model answers.
+              </p>
+            )}
             {missed.length > 0 && (
               <>
                 <h2 className="section-heading">Practise these again</h2>
@@ -293,6 +314,17 @@ export default function InterviewPage() {
             </span>
           </p>
         )}
+        {canListen() && (
+          <p>
+            <label className="check-inline">
+              <input type="checkbox" checked={check} onChange={(e) => setCheck(e.target.checked)} />
+              Check my spoken answers against the model answer
+            </label>
+            <span className="muted small voice-note">
+              Your browser turns your speech into text, and Chrome sends the audio to Google to do that. Nothing is saved.
+            </span>
+          </p>
+        )}
         <button className="btn btn-primary" onClick={start} disabled={loading}>
           {loading ? 'Preparing…' : finished ? 'Another round' : 'Start practice'}
         </button>
@@ -352,12 +384,14 @@ export default function InterviewPage() {
           <Markdown>{card.front}</Markdown>
         </div>
         {voice.problem && <p className="warn-text small">{voice.problem} This round continues without recording.</p>}
+        {check && speech.problem && <p className="warn-text small">{speech.problem}</p>}
         {round.revealed ? (
           <>
             {voice.clips[card.id] && <VoiceClip clip={voice.clips[card.id]} number={round.index + 1} />}
             <div className="flash-back">
               <Markdown>{card.back}</Markdown>
             </div>
+            {check && <AnswerCheck card={card} text={speech.texts[card.id]} onEdit={(text) => speech.edit(card.id, text)} />}
             <div className="interview-rate">
               {RATINGS.map((r) => (
                 <button key={r.key} className={`btn${r.primary ? ' btn-primary' : ''}`} onClick={() => rate(r.key)}>
@@ -372,6 +406,7 @@ export default function InterviewPage() {
         ) : (
           <>
             {voice.recording && <RecordingLive stream={voice.stream.current} />}
+            {check && !speech.problem && <p className="answer-live small">{speech.texts[card.id] || 'Listening…'}</p>}
             <p className="muted small">Speak your answer now.</p>
             <button className="btn btn-primary flash-flip" onClick={() => reveal(false)}>
               I've finished answering
