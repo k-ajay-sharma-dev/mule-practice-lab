@@ -11,7 +11,7 @@ import { writeLocal } from '../store/local.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { solvedByCategory } from './FocusSession.jsx'
 import { FOCUS_GOALS, FOCUS_MINUTES, focusStreak, sessionsOn } from '../study/focus.js'
-import { autoDone, buildPlan, DEFAULT_MINUTES, interleave, itemDone, PLAN_MINUTES, planTime, validPlan } from '../study/plan.js'
+import { autoDone, buildPlan, currentMinutes, DEFAULT_MINUTES, interleave, itemDone, PLAN_MINUTES, planTime, validPlan } from '../study/plan.js'
 
 // Today's work on the dashboard. The plan is saved when first built, so it stays put as you solve things during the day.
 const PLAN_KEY = 'pl.plan'
@@ -22,7 +22,8 @@ const KIND_LABELS = { review: 'Review', weak: 'Weak topic', new: 'New' }
 
 function readPlan() {
   try {
-    return validPlan(JSON.parse(localStorage.getItem(PLAN_KEY)), (id) => problemById.has(id))
+    const plan = validPlan(JSON.parse(localStorage.getItem(PLAN_KEY)), (id) => problemById.has(id))
+    return plan && { ...plan, items: currentMinutes(plan.items, (id) => problemById.get(id).estMinutes) }
   } catch {
     return null
   }

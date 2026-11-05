@@ -11,6 +11,11 @@ const LOOK_AHEAD = 12 // how far down the roadmap to look for something that fit
 
 export const planTime = (items) => items.reduce((sum, i) => sum + i.minutes, 0)
 
+const itemMinutes = (kind, estMinutes) => (kind === 'review' ? Math.min(REVIEW_MINUTES, estMinutes) : estMinutes)
+
+// A saved plan keeps its problems for the day, but its times follow the current estimates.
+export const currentMinutes = (items, estOf) => items.map((i) => ({ ...i, minutes: itemMinutes(i.kind, estOf(i.id)) }))
+
 // Takes one from each group in turn, so a day mixes DataWeave, flows and the rest instead of one long run of one.
 export function interleave(list, keyOf) {
   const groups = new Map()
@@ -34,7 +39,7 @@ export function buildPlan({ due, weak, fresh, minutes, exclude = new Set() }) {
 
   for (const c of due) {
     if (used.has(c.id)) continue
-    const n = Math.min(REVIEW_MINUTES, c.estMinutes)
+    const n = itemMinutes('review', c.estMinutes)
     if (fits(n, minutes * REVIEW_SHARE)) add(c, 'review', n)
   }
 

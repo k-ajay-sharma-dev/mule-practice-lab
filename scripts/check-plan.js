@@ -1,11 +1,15 @@
 // Daily plan rules: priorities, the time budget, what counts as done, and stored-plan checks.
 import assert from 'node:assert/strict'
 import { currentStage, PHASES } from '../src/data/roadmap.js'
-import { autoDone, buildPlan, interleave, itemDone, planTime, REVIEW_MINUTES, validPlan } from '../src/study/plan.js'
+import { autoDone, buildPlan, currentMinutes, interleave, itemDone, planTime, REVIEW_MINUTES, validPlan } from '../src/study/plan.js'
 
 const c = (id, estMinutes = 20) => ({ id, estMinutes, note: id })
 const many = (prefix, n, min) => Array.from({ length: n }, (_, i) => c(`${prefix}${i}`, min))
 const ids = (items) => items.map((i) => i.id)
+
+// a saved plan follows the current estimates, and a review stays costed as a review
+const saved = [{ id: 'n', kind: 'new', note: 'n', minutes: 15 }, { id: 'r', kind: 'review', note: 'r', minutes: 10 }]
+assert.deepEqual(currentMinutes(saved, () => 35).map((i) => i.minutes), [35, REVIEW_MINUTES])
 
 // priority order, and each item says why it is there
 const mixed = buildPlan({ due: [c('r1', 30)], weak: [c('w1', 15)], fresh: [c('n1', 15)], minutes: 45 })
