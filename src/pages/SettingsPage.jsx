@@ -1,15 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AccountCard, BackupCard } from '../components/AccountCard.jsx'
 import { checkRunner, getRunnerSettings, runnerMaySleep, saveRunnerSettings } from '../runner/client.js'
+import { useSyncStatus } from '../sync/status.js'
 import { useTheme } from '../theme.jsx'
 
 export default function SettingsPage() {
   const { theme, toggle } = useTheme()
+  const { lastSync } = useSyncStatus()
   const [runner, setRunner] = useState(getRunnerSettings)
   const [check, setCheck] = useState(null)
   const [saved, setSaved] = useState(false)
+  const edited = useRef(false)
+
+  // a sync may bring the runner settings from the account; never overwrite what is being typed
+  useEffect(() => {
+    if (!edited.current) setRunner(getRunnerSettings())
+  }, [lastSync])
 
   function update(field, value) {
+    edited.current = true
     setRunner((r) => ({ ...r, [field]: value }))
     setSaved(false)
     setCheck(null)
@@ -17,6 +26,7 @@ export default function SettingsPage() {
 
   async function saveAndTest() {
     saveRunnerSettings(runner)
+    edited.current = false
     setRunner(getRunnerSettings())
     setSaved(true)
     setCheck({ pending: true })
@@ -35,7 +45,8 @@ export default function SettingsPage() {
           Run and Submit send your script here. On this laptop start it with <code>npm run runner</code> (
           <code>http://localhost:8787</code>). On the published site, use your Render service's address (
           <code>https://….onrender.com</code>) and the <code>RUNNER_KEY</code> from its Environment tab. The free Render
-          plan sleeps when idle, so the first test after a break can take about a minute.
+          plan sleeps when idle, so the first test after a break can take about a minute. On the published site these
+          are saved to your account when you sign in, so you enter them once for all your devices.
         </p>
         <label className="field">
           <span>Runner URL</span>

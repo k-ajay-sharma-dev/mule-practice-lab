@@ -87,8 +87,9 @@ On the published site open **Settings** (gear icon):
 - **Runner URL**: the Render address (no trailing slash)
 - **Runner key**: the `RUNNER_KEY` value
 
-Click **Save & test** — it shows `✓ Connected · DataWeave 2.12.x`. The runner address and key are per device
-(not synced), so enter them once on each device you use.
+Click **Save & test** — it shows `✓ Connected · DataWeave 2.12.x`. If you are signed in, the address and key are
+saved to your account, so your other devices get them when you sign in there. Without signing in they stay in that
+browser. Backup files leave them out, and a copy running on `localhost` keeps its own settings.
 
 ## How the free runner behaves
 

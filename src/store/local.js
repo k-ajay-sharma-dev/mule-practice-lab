@@ -2,8 +2,10 @@
 // Every write records when the key changed (pl.sync.meta) and tells listeners, so the sync engine
 // knows what to upload — even for changes made offline or before sync finished loading.
 
-// Keys saved to the account. Theme, page size and runner settings stay per device.
-export const SYNCED_KEYS = [
+export const servedLocally = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(globalThis.location?.hostname)
+
+// Keys that go into a backup file. The runner key is a secret, and backups are plain files, so it stays out of them.
+export const BACKUP_KEYS = [
   'pl.progress',
   'pl.activity',
   'pl.review',
@@ -14,6 +16,10 @@ export const SYNCED_KEYS = [
   'pl.playground',
   'pl.planStart',
 ]
+
+// Keys saved to the account. Theme and page size stay per device. So do the runner settings on a copy served from
+// this laptop: it talks to the local runner, and the hosted runner only accepts calls from the published site.
+export const SYNCED_KEYS = servedLocally ? BACKUP_KEYS : [...BACKUP_KEYS, 'pl.runnerUrl', 'pl.runnerKey']
 
 const META_KEY = 'pl.sync.meta'
 const listeners = new Set()

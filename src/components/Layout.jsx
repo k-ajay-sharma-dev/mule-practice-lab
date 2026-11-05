@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
-import { checkRunner, runnerMaySleep } from '../runner/client.js'
+import { checkRunner, getRunnerSettings, runnerMaySleep } from '../runner/client.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import NavIcon from './NavIcons.jsx'
 import { useSyncStatus } from '../sync/status.js'
@@ -167,6 +167,8 @@ function Sidebar({ collapsed, onToggle, onClose }) {
 function RunnerStatus() {
   const [state, setState] = useState('checking')
   const { pathname } = useLocation()
+  useSyncStatus() // re-render after a sync: it may bring the runner settings from the account
+  const { url, key } = getRunnerSettings()
 
   useEffect(() => {
     let cancelled = false
@@ -188,7 +190,7 @@ function RunnerStatus() {
       timers.forEach(clearTimeout)
       window.removeEventListener('focus', check)
     }
-  }, [pathname])
+  }, [pathname, url, key])
 
   const label = {
     checking: 'Checking runner…',

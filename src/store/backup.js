@@ -1,11 +1,11 @@
-import { SYNCED_KEYS, writeLocal } from './local.js'
+import { BACKUP_KEYS, writeLocal } from './local.js'
 
-// A backup file you keep yourself: everything that cloud sync carries, in one JSON file.
+// A backup file you keep yourself: everything that cloud sync carries except the runner settings, in one JSON file.
 const APP = 'mule-practice-lab'
 
 export function exportBackup() {
   const data = {}
-  for (const key of SYNCED_KEYS) {
+  for (const key of BACKUP_KEYS) {
     const value = localStorage.getItem(key)
     if (value != null) data[key] = value
   }
@@ -60,7 +60,7 @@ export async function importBackup(file) {
     writeLocal('pl.activity', JSON.stringify(merged))
   }
 
-  for (const key of SYNCED_KEYS) {
+  for (const key of BACKUP_KEYS) {
     if (key === 'pl.progress' || key === 'pl.activity') continue
     if (typeof data[key] === 'string') writeLocal(key, data[key])
   }

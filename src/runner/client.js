@@ -1,6 +1,8 @@
 // Client for the DataWeave runner service (runner/server.js).
 // Contract: POST {runnerUrl}/run  { script, inputs: [{ name, mime, content }] }
 //        → { ok: true, output, mime } | { ok: false, error }
+import { servedLocally, writeLocal } from '../store/local.js'
+
 const URL_KEY = 'pl.runnerUrl'
 const SECRET_KEY = 'pl.runnerKey'
 const LOCAL_DEFAULT = 'http://localhost:8787'
@@ -13,31 +15,16 @@ function read(key) {
   }
 }
 
-function write(key, value) {
-  try {
-    if (value) localStorage.setItem(key, value)
-    else localStorage.removeItem(key)
-  } catch {
-    // Storage blocked; settings only last for this visit.
-  }
-}
-
 // With nothing saved, a copy served from this laptop assumes the local runner; the published site starts
 // with no runner (so visitors' browsers never probe localhost) until one is set in Settings.
-const servedLocally = () => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
-
 export function getRunnerSettings() {
-  return { url: read(URL_KEY) ?? (servedLocally() ? LOCAL_DEFAULT : ''), key: read(SECRET_KEY) || '' }
+  return { url: read(URL_KEY) ?? (servedLocally ? LOCAL_DEFAULT : ''), key: read(SECRET_KEY) || '' }
 }
 
 // An empty URL is saved as '' (runner switched off) rather than removed, so it doesn't fall back to the default.
 export function saveRunnerSettings({ url, key }) {
-  try {
-    localStorage.setItem(URL_KEY, url.trim().replace(/\/$/, ''))
-  } catch {
-    // Storage blocked; settings only last for this visit.
-  }
-  write(SECRET_KEY, key.trim())
+  writeLocal(URL_KEY, url.trim().replace(/\/$/, ''))
+  writeLocal(SECRET_KEY, key.trim() || null)
 }
 
 function headers(key) {
