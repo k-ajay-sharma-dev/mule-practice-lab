@@ -1,7 +1,8 @@
-import { createContext, Fragment, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import CodeEditor from '../CodeEditor.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 import { COMPONENTS, GROUPS } from '../../flow/catalog.js'
+import { fromXml, looksLikeMuleXml } from '../../flow/import.js'
 import {
   acceptsKind,
   addFlow,
@@ -21,6 +22,7 @@ import {
 import { toXml } from '../../flow/xml.js'
 
 const Ctx = createContext(null)
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // Visual Mule flow editor. Design only: nothing here is executed.
 // Props: design, onChange(design), readOnly
@@ -30,6 +32,9 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
   const [moving, setMoving] = useState(null) // id of a node being moved by tapping a slot
   const [drag, setDrag] = useState(null) // { type } from palette or { moveId } from canvas
   const [view, setView] = useState('design')
+  const [pasted, setPasted] = useState('')
+  const [notice, setNotice] = useState(null) // { text, warn } after importing XML
+  const [pasteError, setPasteError] = useState(null)
   const root = useRef(null)
   const touch = useCoarsePointer()
 
@@ -81,6 +86,46 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
     [design, readOnly, selectedId, payload, payloadKind, onChange, touch, placing],
   )
 
+  function importXml(text) {
+    let result
+    try {
+      result = fromXml(text)
+    } catch (error) {
+      setPasted(text)
+      setPasteError(error.message)
+      setView('paste')
+      return
+    }
+    if (countComponents(design) && !confirm('Replace your current design with this XML?')) return
+    onChange(result.design)
+    setSelectedId(null)
+    cancelPlacing()
+    setPasted('')
+    setPasteError(null)
+    setView('design')
+    const left = result.skipped.map((s) => `${s.name}${s.count > 1 ? ` (${s.count})` : ''}`).join(', ')
+    setNotice({
+      text: `Imported ${plural(result.flows, 'flow')} and ${plural(result.components, 'component')}.${left ? ` Left out: ${left}.` : ''}`,
+      warn: Boolean(left),
+    })
+  }
+
+  // Ctrl+V anywhere on the page, unless the cursor is in something that takes text
+  const onPaste = useRef(null)
+  onPaste.current = (e) => {
+    const typing = e.target.closest?.('input, textarea, select, [contenteditable]')
+    const text = e.clipboardData?.getData('text') ?? ''
+    if (typing || root.current?.closest('.read-only-lock.locked') || !looksLikeMuleXml(text)) return
+    e.preventDefault()
+    importXml(text)
+  }
+  useEffect(() => {
+    if (readOnly) return
+    const listener = (e) => onPaste.current(e)
+    document.addEventListener('paste', listener)
+    return () => document.removeEventListener('paste', listener)
+  }, [readOnly])
+
   function onKeyDown(e) {
     if (readOnly) return
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)
@@ -116,6 +161,9 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
           </div>
           {!readOnly && view === 'design' && (
             <div className="toolbar-actions">
+              <button className="btn btn-ghost" onClick={() => setView('paste')}>
+                Paste XML
+              </button>
               <button className="btn btn-ghost" onClick={() => onChange(addFlow(design, 'flow'))}>
                 + Flow
               </button>
@@ -136,9 +184,51 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
           )}
         </div>
 
+        {notice && view === 'design' && (
+          <div className={`designer-notice small${notice.warn ? ' warn-text' : ''}`}>
+            <span>{notice.text}</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setNotice(null)}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {view === 'xml' ? (
           <div className="designer-xml">
             <CodeEditor value={toXml(design)} language="xml" readOnly />
+          </div>
+        ) : view === 'paste' ? (
+          <div className="designer-paste">
+            <p className="muted small">
+              Paste from the Configuration XML tab in Anypoint Studio. This replaces the design. Global configurations
+              such as connection details are not imported.
+            </p>
+            <textarea
+              className="input mono"
+              autoFocus
+              spellCheck={false}
+              placeholder={'<mule ...>\n  <flow name="orders-api">\n    ...\n  </flow>\n</mule>'}
+              value={pasted}
+              onChange={(e) => {
+                setPasted(e.target.value)
+                setPasteError(null)
+              }}
+            />
+            {pasteError && <p className="warn-text small">{pasteError}</p>}
+            <div className="designer-paste-actions">
+              <button className="btn btn-primary" onClick={() => importXml(pasted)} disabled={!pasted.trim()}>
+                Import
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setPasteError(null)
+                  setView('design')
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         ) : (
           <div className="designer-body">

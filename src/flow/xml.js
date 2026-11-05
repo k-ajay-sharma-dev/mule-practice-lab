@@ -24,7 +24,7 @@ function el(depth, name, attributes = {}, children = null) {
 }
 
 function list(nodes, depth) {
-  return nodes.map((n) => node(n, depth))
+  return nodes.map((n) => nodeXml(n, depth))
 }
 
 function errorHandler(handlers, depth) {
@@ -106,7 +106,7 @@ const replayAttrs = (c) => ({
 // documented only by the display name Function Name, so confirm that attribute in Studio.
 const sapGateway = (c) => ({ 'config-ref': 'SAP_Config', gatewayHost: c.gatewayHost, gatewayService: c.gatewayService, programID: c.programID })
 
-function node(n, d) {
+export function nodeXml(n, d) {
   const c = n.config ?? {}
   const steps = () => list(n.steps ?? [], d + 1)
   switch (n.type) {
@@ -464,7 +464,7 @@ function node(n, d) {
 
 function flowXml(f) {
   if (f.kind === 'sub-flow') return el(1, 'sub-flow', { name: f.name }, list(f.steps, 2))
-  const children = [...(f.source ? [node(f.source, 2)] : []), ...list(f.steps, 2), ...errorHandler(f.errorHandlers, 2)]
+  const children = [...(f.source ? [nodeXml(f.source, 2)] : []), ...list(f.steps, 2), ...errorHandler(f.errorHandlers, 2)]
   return el(1, 'flow', { name: f.name }, children)
 }
 

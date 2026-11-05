@@ -977,6 +977,39 @@
   margin: 0 0 4px;
 }
 
+/* ---------- Paste XML into the Flow Designer ---------- */
+.designer-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.designer-paste {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+}
+.designer-paste p {
+  margin: 0;
+}
+.designer-paste textarea {
+  flex: 1;
+  min-height: 240px;
+  resize: none;
+  font-size: 13px;
+  white-space: pre;
+}
+.designer-paste-actions {
+  display: flex;
+  gap: 10px;
+}
+
 /* ---------- Answer check ---------- */
 .answer-live {
   max-height: 120px;
