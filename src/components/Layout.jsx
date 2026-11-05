@@ -248,6 +248,8 @@ function HeaderSearch() {
       const t = e.target
       if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
       if (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return
+      // the code editor takes keys in a plain <div>, which the check above doesn't catch
+      if (t.closest('.monaco-editor')) return
       e.preventDefault()
       input.current?.focus()
     }
