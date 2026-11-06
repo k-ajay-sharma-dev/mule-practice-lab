@@ -90,6 +90,8 @@ function matchesPattern(value, pattern) {
   }
 }
 
+const FORMATS = { int8: [-128, 127], int16: [-32768, 32767], int32: [-2147483648, 2147483647] }
+
 const looksLike = {
   'date-only': /^\d{4}-\d{2}-\d{2}$/,
   'time-only': /^\d{2}:\d{2}:\d{2}/,
@@ -129,6 +131,7 @@ function misfit(value, decl, types, where, depth = 0) {
     case 'number':
     case 'integer':
       if (typeof value !== 'number' || (expr === 'integer' && !Number.isInteger(value))) return `${where} must be ${expr === 'integer' ? 'an integer' : 'a number'}`
+      if (FORMATS[d.format] && (value < FORMATS[d.format][0] || value > FORMATS[d.format][1])) return `${where} does not fit format ${d.format}`
       if (d.minimum !== undefined && value < d.minimum) return `${where} is below ${d.minimum}`
       if (d.maximum !== undefined && value > d.maximum) return `${where} is above ${d.maximum}`
       return null
@@ -213,6 +216,11 @@ function lint(root, scope, report, isBlock, library = false) {
       if (bad) report(`${bad}.`, at)
     }
     if (hasParam(decl)) return
+    if (decl.example !== undefined && decl.examples !== undefined) report('Use example or examples here, not both.', [...path, 'examples'])
+    if (decl.default !== undefined) {
+      const bad = misfit(decl.default, withoutDefault(decl), types, 'The default')
+      if (bad) report(`${bad}.`, [...path, 'default'])
+    }
     if (decl.example !== undefined) check(decl.example, [...path, 'example'])
     for (const [name, value] of Object.entries(obj(decl.examples))) check(value, [...path, 'examples', name])
   }
@@ -374,6 +382,11 @@ function lint(root, scope, report, isBlock, library = false) {
   for (const [key, value] of Object.entries(obj(root.types))) typeDecl(value, ['types', key])
   for (const [key, value] of Object.entries(obj(root.traits))) method(value, ['traits', key], `trait ${key}`, true)
   for (const [key, value] of Object.entries(obj(root.resourceTypes))) resource(value, ['resourceTypes', key], `resource type ${key}`, true)
+}
+
+function withoutDefault(decl) {
+  const { default: _, example: __, examples: ___, ...rest } = decl
+  return rest
 }
 
 function withoutTargets(decl) {
@@ -551,7 +564,13 @@ function expand(value, path, file, ctx, report, stack) {
   }
   if (kind || /\.(raml|ya?ml)$/.test(target)) {
     const inner = readYaml(text, target, ctx.errors)
-    return inner.ok ? expand(inner.doc.toJS(), path, target, ctx, inner.report, [...stack, target]) : null
+    if (!inner.ok) return null
+    const content = expand(inner.doc.toJS(), path, target, ctx, inner.report, [...stack, target])
+    if (!kind?.[1] || !isObject(content?.uses)) return content
+    // A fragment may bring in its own libraries. Their names go with it.
+    ctx.extra = combine(ctx.extra, loadUses(content, target, ctx, inner.report, [...stack, target], []))
+    const { uses: _, ...rest } = content
+    return rest
   }
   if (target.endsWith('.json')) {
     try {
@@ -679,10 +698,10 @@ export function parseRaml(text, files = {}) {
   if (!main.ok) return { errors, model: null }
   const parsed = main.doc.toJS()
   if (!isObject(parsed)) return { errors: [...errors, { line: 1, message: 'The file needs keys such as title and resources.' }], model: null }
-  const ctx = { files: { ...files, [MAIN]: text }, errors, included: [] }
+  const ctx = { files: { ...files, [MAIN]: text }, errors, included: [], extra: emptyScope() }
   const root = expand(parsed, [], MAIN, ctx, main.report, [MAIN])
   const libraries = []
-  const scope = combine(ownScope(root), loadUses(root, MAIN, ctx, main.report, [MAIN], libraries))
+  const scope = combine(combine(ownScope(root), loadUses(root, MAIN, ctx, main.report, [MAIN], libraries)), ctx.extra)
   lint(root, scope, main.report, main.isBlock)
   const rank = (e) => (e.file ? 1 : 0)
   errors.sort((a, b) => rank(a) - rank(b) || String(a.file ?? '').localeCompare(String(b.file ?? '')) || a.line - b.line)

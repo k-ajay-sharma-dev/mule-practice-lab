@@ -55,7 +55,11 @@ says(`${head}types:
     example: |
       { "n":
 `, /not valid JSON/)
+says(`${head}types:\n  A:\n    type: boolean\n    default: 'false'\n`, /The default must be true or false/)
+says(`${head}types:\n  A:\n    type: integer\n    format: int32\n    example: 3000000000\n`, /does not fit format int32/)
+says(`${head}types:\n  A:\n    type: string\n    example: a\n    examples:\n      b: c\n`, /not both/)
 // Valid files the parser must not reject
+clean(`${head}types:\n  A:\n    type: boolean\n    default: false\n  B:\n    type: integer\n    format: int64\n    example: 3000000000\n`)
 clean(`${head}/a:
   get:
     responses:
@@ -125,6 +129,25 @@ assert.match(exampled('{ "n": ')[0].message, /not valid JSON/)
 assert.deepEqual(errs(`${head}traits:\n  paged: !include traits/p.raml\n/a:\n  get:\n    is: [ paged ]\n`, { 'traits/p.raml': '#%RAML 1.0 Trait\nqueryParameters:\n  page?: integer\n' }), [])
 assert.ok(runRamlChecks(parseRaml(inc, { 'types/order.raml': '#%RAML 1.0 DataType\nproperties:\n  id: string\n' }), [{ label: 'x', rule: { type: 'included', file: 'types/order.raml' } }])[0].pass)
 
+// A fragment may bring in its own library
+const fragUses = { 'types/order.raml': '#%RAML 1.0 DataType\nuses:\n  lib: ../libs/l.raml\nproperties:\n  total: lib.Money\n', 'libs/l.raml': '#%RAML 1.0 Library\ntypes:\n  Money:\n    properties:\n      amount: number\n' }
+assert.deepEqual(errs(inc, fragUses), [])
+has(inc, { ...fragUses, 'types/order.raml': fragUses['types/order.raml'].replace('lib.Money', 'lib.Nope') }, /“lib.Nope” is not declared/)
+// A fragment can name a type from the file that includes it, as in AMF
+assert.deepEqual(errs(`${head}types:\n  Money:\n    properties:\n      a: number\n  Order: !include o.raml\n`, { 'o.raml': '#%RAML 1.0 DataType\nproperties:\n  t: Money\n' }), [])
+
+// Public methods, exact scopes and scheme values
+const sec = parseRaml(`${head}securitySchemes:\n  o:\n    type: OAuth 2.0\n    settings:\n      accessTokenUri: https://a/token\n      authorizationGrants: [ client_credentials ]\nsecuredBy: [ null, o ]\n/open:\n  get:\n/closed:\n  get:\n    securedBy: [ o: { scopes: [ r, w ] } ]\n`)
+const guard = (r) => runRamlChecks(sec, [{ label: 'x', rule: r }])[0].pass
+assert.ok(guard({ type: 'public', path: '/open', method: 'get' }))
+assert.equal(guard({ type: 'public', path: '/closed', method: 'get' }), false)
+assert.equal(guard({ type: 'secured', path: '/open', method: 'get', scheme: 'o', required: true }), false)
+assert.ok(guard({ type: 'secured', path: '/closed', method: 'get', scheme: 'o', required: true }))
+assert.ok(guard({ type: 'secured', path: '/closed', method: 'get', scheme: 'o', scopes: ['r'] }))
+assert.equal(guard({ type: 'secured', path: '/closed', method: 'get', scheme: 'o', scopes: ['r'], onlyScopes: true }), false)
+assert.ok(guard({ type: 'scheme', name: 'o', values: { 'settings.accessTokenUri': 'https://a/token' } }))
+assert.equal(guard({ type: 'scheme', name: 'o', values: { 'settings.accessTokenUri': 'https://b/token' } }), false)
+
 // Sample-based patterns, own examples, and what must come from a resource type
 const rules = parseRaml(`${head}types:\n  R:\n    type: string\n    pattern: ^[A-Z]{2}$\n    example: AB\nresourceTypes:\n  c:\n    get:\n      responses:\n        200:\n          description: x\n/a:\n  type: c\n  get:\n    responses:\n      200:\n        body:\n          type: R\n/b:\n  type: c\n`)
 const says2 = (r) => runRamlChecks(rules, [{ label: 'x', rule: r }])[0].pass
@@ -190,6 +213,24 @@ const files = readdirSync(root).filter((f) => f.endsWith('.js') && (!only.length
 const empty = parseRaml('#%RAML 1.0\ntitle: Empty\n')
 let count = 0
 const fail = []
+
+// Hand-written answers from scripts/raml-cases: each is the model answer with some text swapped.
+// wrong: must fail the check whose label holds `fails`. right: a different correct answer, which must pass everything.
+const caseDir = resolve('scripts/raml-cases')
+const cases = []
+for (const file of readdirSync(caseDir)) cases.push(...(await import(pathToFileURL(join(caseDir, file)).href)).default)
+let wrongCases = 0
+let rightCases = 0
+
+function runCase(p, checks, answer, what) {
+  const texts = { 'api.raml': p.referenceRaml, ...p.referenceFiles }
+  for (const [from, to, file = 'api.raml'] of answer.swap) {
+    if (!texts[file]?.includes(from)) fail.push(`${p.id}: ${what}: “${from}” is not in ${file}`)
+    texts[file] = texts[file]?.replace(from, () => to)
+  }
+  const { 'api.raml': main, ...files } = texts
+  return runRamlChecks(parseRaml(main, files), checks)
+}
 for (const file of files.sort()) {
   const p = (await import(pathToFileURL(join(root, file)).href)).default
   const checks = ramlChecks(p)
@@ -206,6 +247,18 @@ for (const file of files.sort()) {
     if (hint.length < 8 || /undefined|\[object/.test(hint)) fail.push(`${p.id}: bad hint: ${hint}`)
   })
   for (const key of ['description', 'solution', 'keyPoints', 'followUps']) if (!p[key]?.length) fail.push(`${p.id}: no ${key}`)
+  for (const c of cases.filter((x) => x.id === p.id)) {
+    for (const answer of c.wrong ?? []) {
+      wrongCases++
+      const failed = runCase(p, checks, answer, 'wrong').filter((r) => !r.pass).map((r) => r.label)
+      if (!failed.some((l) => l.includes(answer.fails))) fail.push(`${p.id}: expected “${answer.fails}” to fail, failed: ${failed.join(' | ') || 'nothing'}`)
+    }
+    for (const answer of c.right ?? []) {
+      rightCases++
+      const failed = runCase(p, checks, answer, 'right').filter((r) => !r.pass).map((r) => r.label)
+      if (failed.length) fail.push(`${p.id}: a correct answer failed: ${failed.join(' | ')}`)
+    }
+  }
 }
 assert.deepEqual(fail, [])
-console.log(`All RAML checks pass (${count} problems).`)
+console.log(`All RAML checks pass (${count} problems, ${wrongCases} wrong answers fail, ${rightCases} other correct answers pass).`)

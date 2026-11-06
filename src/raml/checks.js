@@ -2,16 +2,16 @@ import { bodyDecl, declOf, entriesOf, isObject, parseRaml, propertiesOf, typeTex
 
 // Checks for RAML problems. Each check is { label, rule } and passes or fails against the parsed file. Rules:
 //   { type: 'valid' }                                   the file has no errors (every problem gets this one)
-//   { type: 'root', key, want? }                        a top-level key is set (want: see below)
+//   { type: 'root', key, want?, has? }                  a top-level key is set (want: see below; has: key paths inside it)
 //   { type: 'resource', path }                          a resource exists. `{}` matches any URI parameter name
 //   { type: 'noResource', path }                        a resource must not exist
 //   { type: 'method', path, method }                    a method exists on a resource
 //   { type: 'noMethod', path, method }                  a method must not exist on a resource
-//   { type: 'param', path, method?, in, name?, want? }  a parameter, with in: 'query' | 'header' | 'uri'
+//   { type: 'param', path?, method?, in, name?, want? } a parameter, with in: 'query' | 'header' | 'uri' | 'base'
 //   { type: 'body', path, method, media?, typeIs? }     a request body
 //   { type: 'response', path, method, status, media?, typeIs?, example?, header?, noBody? }
 //                                                       example: true also accepts the named type's example. 'own' does not
-//   { type: 'typeDecl', name, want?, extends? }         a named type
+//   { type: 'typeDecl', name, want?, extends?, has? }   a named type. has: key paths such as 'examples.normal'
 //   { type: 'noType', name }                            a named type must not exist
 //   { type: 'prop', typeName, prop, want? }             a property of a type, inherited ones included
 //   { type: 'noProp', typeName, prop }                  a property must not be on a type
@@ -25,7 +25,11 @@ import { bodyDecl, declOf, entriesOf, isObject, parseRaml, propertiesOf, typeTex
 //   { type: 'library', prefix, file? }                  uses brings in a library. Its names read as prefix.Name in other rules
 //   { type: 'included', file }                          a file is brought in with !include
 //   { type: 'scheme', schemeType?, name?, has? }        a security scheme is declared. has: key paths such as 'describedBy.headers.client_id'
-//   { type: 'secured', path, method, scheme, scopes? }  a method is secured, on the method, its resource or the whole API
+//                                                       values: { 'settings.accessTokenUri': want } compares what is there
+//   { type: 'secured', path, method, scheme, scopes?, onlyScopes?, required? }
+//                                                       a method is secured, on the method, its resource or the whole API.
+//                                                       onlyScopes: no extra scopes. required: null may not sit beside it
+//   { type: 'public', path, method }                    a method can be called with no credentials
 //   { type: 'any', rules } / { type: 'all', rules }
 // Traits and resource types are applied first, so a page parameter that comes from a trait counts on the method.
 // `want` is a value or a map of values: strings are case-insensitive "contains", numbers and booleans are exact,
@@ -92,6 +96,7 @@ const bodyFits = (list, rule) =>
   list.some((b) => (!rule.media || contains(b.media, rule.media)) && (!rule.typeIs || typeText(b.decl) === rule.typeIs))
 
 function paramsOf(model, rule) {
+  if (rule.in === 'base') return entriesOf(model.root.baseUriParameters)
   if (rule.in === 'uri') {
     // A declaration only counts if its name is a placeholder in the path.
     const resource = findResource(model, rule.path)
@@ -105,13 +110,19 @@ const hasKeyPath = (node, path) => path.split('.').reduce((n, k) => (isObject(n)
 
 const list = (x) => [x].flat()
 
-function secured(method, scheme, scopes) {
-  return list(method?.securedBy).some((s) => {
+function secured(method, { scheme, scopes, onlyScopes, required }) {
+  const by = list(method?.securedBy)
+  if (required && by.includes(null)) return false
+  return by.some((s) => {
     if (s === null || s === undefined) return false
     const name = isObject(s) ? Object.keys(s)[0] : s
-    return contains(name, scheme) && (!scopes || scopes.every((w) => contains(s[name]?.scopes, w)))
+    const have = list(isObject(s) ? s[name]?.scopes : undefined).filter(Boolean)
+    return contains(name, scheme) && (!scopes || scopes.every((w) => contains(have, w))) && (!onlyScopes || have.length === scopes.length)
   })
 }
+
+const isPublic = (method) => method !== undefined && (method.securedBy === undefined || list(method.securedBy).includes(null))
+const valueAt = (node, path) => path.split('.').reduce((n, k) => (isObject(n) ? n[k] : undefined), node)
 
 // The node an annotation rule looks at: the whole API, a resource, a method, a type or a property.
 function annotationAt(model, { path, method, typeName, prop }) {
@@ -127,7 +138,7 @@ function evaluate(rule, parsed) {
   if (!model) return false
   switch (rule.type) {
     case 'root':
-      return matches(model.root[rule.key], rule.want)
+      return matches(model.root[rule.key], rule.want) && list(rule.has ?? []).every((k) => hasKeyPath(model.root[rule.key], k))
     case 'resource':
       return Boolean(findResource(model, rule.path))
     case 'noResource':
@@ -157,7 +168,7 @@ function evaluate(rule, parsed) {
       const t = model.types[rule.name]
       if (t === undefined) return false
       const d = declOf(t)
-      return fits(d, rule.want, model.types) && (!rule.extends || [d.type].flat().includes(rule.extends))
+      return fits(d, rule.want, model.types) && list(rule.has ?? []).every((k) => hasKeyPath(d, k)) && (!rule.extends || [d.type].flat().includes(rule.extends))
     }
     case 'prop': {
       const t = model.types[rule.typeName]
@@ -194,10 +205,12 @@ function evaluate(rule, parsed) {
       return model.libraries.some((l) => l.prefix === rule.prefix && (!rule.file || l.path === rule.file))
     case 'scheme':
       return Object.entries(model.schemes).some(
-        ([name, s]) => (!rule.name || name === rule.name) && (!rule.schemeType || contains(s?.type, rule.schemeType)) && list(rule.has ?? []).every((k) => hasKeyPath(s, k)),
+        ([name, s]) => (!rule.name || name === rule.name) && (!rule.schemeType || contains(s?.type, rule.schemeType)) && list(rule.has ?? []).every((k) => hasKeyPath(s, k)) && Object.entries(rule.values ?? {}).every(([k, w]) => matches(valueAt(s, k), w)),
       )
     case 'secured':
-      return secured(findMethod(model, rule.path, rule.method), rule.scheme, rule.scopes)
+      return secured(findMethod(model, rule.path, rule.method), rule)
+    case 'public':
+      return isPublic(findMethod(model, rule.path, rule.method))
     case 'any':
       return rule.rules.some((r) => evaluate(r, parsed))
     case 'all':
@@ -247,7 +260,7 @@ export function ramlHint(parsed, rule) {
   const noMethod = rule.method && rule.path && !findMethod(model, rule.path, rule.method)
   switch (rule.type) {
     case 'root':
-      return `Add ${rule.key} at the top of the file${rule.want === undefined ? '' : `, with ${wanted(rule.want)}`}.`
+      return `Add ${rule.key} at the top of the file${rule.want === undefined ? '' : `, with ${wanted(rule.want)}`}${rule.has ? `, holding ${list(rule.has).join(', ')}` : ''}.`
     case 'resource':
       return `Add the resource ${pathText(rule.path)}.`
     case 'noResource':
@@ -257,6 +270,7 @@ export function ramlHint(parsed, rule) {
     case 'noMethod':
       return `Remove ${on(rule)}. It should not be offered.`
     case 'param': {
+      if (rule.in === 'base') return `Under baseUriParameters, add ${rule.name}${wantText(rule.want)}.`
       if (rule.in !== 'uri' && noMethod) return `Add ${on(rule)} first.`
       const block = { query: 'queryParameters', header: 'headers', uri: 'uriParameters' }[rule.in]
       const where = rule.in === 'uri' ? pathText(rule.path) : on(rule)
@@ -272,7 +286,7 @@ export function ramlHint(parsed, rule) {
       return `Give ${on(rule)} a ${rule.status} response${bits.length ? ` with ${bits.join(', ')}` : ''}.`
     }
     case 'typeDecl':
-      return `Under types, declare ${rule.name}${rule.extends ? ` with type: ${rule.extends}` : ''}${wantText(rule.want)}.`
+      return `Under types, declare ${rule.name}${rule.extends ? ` with type: ${rule.extends}` : ''}${wantText(rule.want)}${rule.has ? `, holding ${list(rule.has).join(', ')}` : ''}.`
     case 'prop':
       return model.types[rule.typeName] === undefined ? `Declare the type ${rule.typeName} first.` : `Give ${rule.typeName} the property ${rule.prop}${wantText(rule.want)}.`
     case 'noType':
@@ -299,8 +313,11 @@ export function ramlHint(parsed, rule) {
     case 'library':
       return `Under uses, add ${rule.prefix}${rule.file ? `: ${rule.file}` : ''}.`
     case 'scheme':
-      return `Under securitySchemes, declare ${rule.name ?? 'a scheme'}${rule.schemeType ? ` of type ${rule.schemeType}` : ''}${rule.has ? ` with ${list(rule.has).join(', ')}` : ''}.`
+      return `Under securitySchemes, declare ${rule.name ?? 'a scheme'}${rule.schemeType ? ` of type ${rule.schemeType}` : ''}${rule.has ? ` with ${list(rule.has).join(', ')}` : ''}${rule.values ? `. Set ${Object.entries(rule.values).map(([k, w]) => `${k} to ${wanted(w)}`).join(', ')}` : ''}.`
+    case 'public':
+      return noMethod ? `Add ${on(rule)} first.` : `${on(rule)} must work with no token. Use securedBy: [ null ], or leave it out.`
     case 'secured':
+      if (rule.required && !noMethod && list(findMethod(model, rule.path, rule.method).securedBy).includes(null)) return `${on(rule)} needs a token, so its securedBy must not include null.`
       return noMethod ? `Add ${on(rule)} first.` : `Add securedBy: [ ${rule.scheme}${rule.scopes ? `: { scopes: [ ${rule.scopes.join(', ')} ] }` : ''} ] on ${on(rule)}, its resource or the whole API.`
     case 'any':
       return `${ramlHint(parsed, rule.rules[0])} Other ways of doing this also pass.`
