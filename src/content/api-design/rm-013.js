@@ -64,7 +64,7 @@ types:
     { label: 'age is an integer with a minimum of 0', rule: { type: 'prop', typeName: 'Passenger', prop: 'age', want: { type: 'integer', required: true, minimum: 0 } } },
     {
       label: 'reference has a pattern for exactly 6 characters, anchored at both ends',
-      rule: { type: 'prop', typeName: 'Booking', prop: 'reference', want: { type: 'string', required: true, pattern: { accepts: ['AB12CD', '123456', 'ZZZZZZ'], rejects: ['AB12C', 'AB12CDE', 'ab12cd', 'AB-2CD', 'xAB12CDx'] } } },
+      rule: { type: 'prop', typeName: 'Booking', prop: 'reference', want: { required: true, pattern: { accepts: ['AB12CD', '123456', 'ZZZZZZ'], rejects: ['AB12C', 'AB12CDE', 'ab12cd', 'AB-2CD', 'xAB12CDx'] } } },
     },
     { label: 'passengers is a list of Passenger with 1 to 9 items', rule: { type: 'prop', typeName: 'Booking', prop: 'passengers', want: { type: 'Passenger[]', required: true, minItems: 1, maxItems: 9 } } },
     { label: 'baggageKg is a number from 0 to 32', rule: { type: 'prop', typeName: 'Booking', prop: 'baggageKg', want: { type: 'number', required: true, minimum: 0, maximum: 32 } } },

@@ -34,7 +34,7 @@ mediaType: application/json
         type: 'any',
         rules: [
           { type: 'param', path: '/accounts/{}', in: 'uri', want: { type: 'string', minLength: 10, maxLength: 10 } },
-          { type: 'param', path: '/accounts/{}', in: 'uri', want: { type: 'string', pattern: { set: true } } },
+          { type: 'param', path: '/accounts/{}', in: 'uri', want: { type: 'string', pattern: { accepts: ['0123456789', '9876543210'], rejects: ['123456789', '01234567890', 'abcdefghij'] } } },
         ],
       },
     },

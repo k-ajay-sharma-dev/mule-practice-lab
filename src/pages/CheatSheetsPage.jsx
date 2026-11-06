@@ -7,7 +7,15 @@ import NotFound from './NotFound.jsx'
 function Cell({ text }) {
   return String(text)
     .split(/(`[^`]+`)/)
-    .map((part, i) => (part.startsWith('`') && part.endsWith('`') && part.length > 1 ? <code key={i}>{part.slice(1, -1)}</code> : part))
+    .map((part, i) =>
+      part.startsWith('`') && part.endsWith('`') && part.length > 1 ? (
+        <code key={i} className={part.includes('\n') ? 'snippet' : undefined}>
+          {part.slice(1, -1)}
+        </code>
+      ) : (
+        part
+      ),
+    )
 }
 
 export default function CheatSheetsPage() {

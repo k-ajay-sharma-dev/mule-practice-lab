@@ -1169,6 +1169,12 @@
 .sheet-table td:first-child code {
   overflow-wrap: normal;
 }
+/* a snippet that spans lines: its indentation is the syntax, so it must not wrap */
+.sheet-table code.snippet {
+  display: block;
+  white-space: pre;
+  overflow-wrap: normal;
+}
 
 /* paper: just the sheet, black on white */
 @media print {

@@ -42,9 +42,9 @@ types:
   ramlChecks: [
     { label: 'appointmentId is a required string', rule: { type: 'prop', typeName: 'Appointment', prop: 'appointmentId', want: { type: 'string', required: true } } },
     { label: 'clinicDay is a required date-only', rule: { type: 'prop', typeName: 'Appointment', prop: 'clinicDay', want: { type: 'date-only', required: true } } },
-    { label: 'doorsOpen is a required time-only', rule: { type: 'prop', typeName: 'Appointment', prop: 'doorsOpen', want: { type: { oneOf: ['time-only'], not: 'datetime' }, required: true } } },
+    { label: 'doorsOpen is a required time-only', rule: { type: 'prop', typeName: 'Appointment', prop: 'doorsOpen', want: { type: 'time-only', required: true } } },
     { label: 'localStart is a required datetime-only', rule: { type: 'prop', typeName: 'Appointment', prop: 'localStart', want: { type: 'datetime-only', required: true } } },
-    { label: 'bookedAt is a required datetime', rule: { type: 'prop', typeName: 'Appointment', prop: 'bookedAt', want: { type: { oneOf: ['datetime'], not: 'only' }, required: true } } },
+    { label: 'bookedAt is a required datetime', rule: { type: 'prop', typeName: 'Appointment', prop: 'bookedAt', want: { type: 'datetime', required: true } } },
     {
       label: 'Appointment has an example',
       rule: {

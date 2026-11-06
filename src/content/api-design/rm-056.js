@@ -109,7 +109,7 @@ traits:
         ],
       },
     },
-    { label: 'collectedAt is a date and time with a time zone', rule: { type: 'prop', typeName: 'LabResult', prop: 'collectedAt', want: { type: { oneOf: ['datetime'], not: 'datetime-only' }, required: true } } },
+    { label: 'collectedAt is a date and time with a time zone', rule: { type: 'prop', typeName: 'LabResult', prop: 'collectedAt', want: { type: 'datetime', required: true } } },
     { label: 'LabResult.range is brought in as a fragment, not by name', rule: { type: 'prop', typeName: 'LabResult', prop: 'range', want: { type: 'object', required: true } } },
     {
       label: 'LabResult has its example from examples/lab-result.json',

@@ -46,6 +46,17 @@ traits:
         ],
       },
     },
+    {
+      label: 'The type of that query parameter is <<fieldType>>',
+      rule: {
+        type: 'any',
+        rules: ['<<field>>', '<< field >>', '<<field>>?', '<< field >>?'].flatMap((name) => [`queryParameters.${name}.type`, `queryParameters.${name}`]).map((key) => ({
+          type: 'trait',
+          name: 'filterable',
+          values: { [key]: { oneOf: ['<<fieldType>>', '<< fieldType >>'] } },
+        })),
+      },
+    },
     { label: 'GET /machines uses filterable', rule: { type: 'applied', path: '/machines', method: 'get', trait: 'filterable' } },
     { label: 'GET /machines has an optional string plant', rule: { type: 'param', path: '/machines', method: 'get', in: 'query', name: 'plant', want: { type: 'string', required: false } } },
     { label: 'GET /machines returns 200', rule: { type: 'response', path: '/machines', method: 'get', status: '200' } },

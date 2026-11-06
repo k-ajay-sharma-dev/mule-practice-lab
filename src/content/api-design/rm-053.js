@@ -52,7 +52,7 @@ types:
       label: 'flightNumber has a pattern that fits real flight numbers',
       rule: { type: 'prop', typeName: 'FlightEvent', prop: 'flightNumber', want: { required: true, pattern: { accepts: ['BA117', 'U21234', 'LH9'], rejects: ['BA', 'BA12345', 'flight 117'] } } },
     },
-    { label: 'occurredAt is a date and time with a time zone', rule: { type: 'prop', typeName: 'FlightEvent', prop: 'occurredAt', want: { type: { oneOf: ['datetime'], not: 'datetime-only' }, required: true } } },
+    { label: 'occurredAt is a date and time with a time zone', rule: { type: 'prop', typeName: 'FlightEvent', prop: 'occurredAt', want: { type: 'datetime', required: true } } },
     { label: 'FlightEvent has an example', rule: { type: 'typeDecl', name: 'FlightEvent', want: { example: { set: true } } } },
     { label: 'POST /flight-events takes a FlightEvent', rule: { type: 'body', path: '/flight-events', method: 'post', typeIs: 'FlightEvent' } },
     {

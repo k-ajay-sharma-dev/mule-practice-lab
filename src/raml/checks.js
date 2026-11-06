@@ -15,7 +15,8 @@ import { bodyDecl, declOf, entriesOf, isObject, parseRaml, propertiesOf, typeTex
 //   { type: 'noType', name }                            a named type must not exist
 //   { type: 'prop', typeName, prop, want? }             a property of a type, inherited ones included
 //   { type: 'noProp', typeName, prop }                  a property must not be on a type
-//   { type: 'trait', name, has? }                       a trait is declared. has: 'queryParameters.page' style key path
+//   { type: 'trait', name, has?, values? }              a trait is declared. has: 'queryParameters.page' style key path.
+//                                                       values: { 'queryParameters.page.type': want } compares what is there
 //   { type: 'applied', path, method, trait }            a method uses a trait, on the method or from its resource
 //   { type: 'resourceType', name, has? }                a resource type is declared
 //   { type: 'typed', path, resourceType, provides? }    a resource uses a resource type. provides: key paths that must come
@@ -34,13 +35,16 @@ import { bodyDecl, declOf, entriesOf, isObject, parseRaml, propertiesOf, typeTex
 // Traits and resource types are applied first, so a page parameter that comes from a trait counts on the method.
 // `want` is a value or a map of values: strings are case-insensitive "contains", numbers and booleans are exact,
 // an array must all be present, { exactly: [...] } allows nothing else, { accepts, rejects } runs a pattern on samples,
+// { is } must match exactly, case included, { holds: { key: want } } looks inside a facet such as xml,
 // and { gte }, { lte }, { set }, { oneOf }, { not } work as in flow checks.
+// A plain string for `type` and typeIs are exact, and both follow an alias but not a subtype.
 
 const contains = (have, want) =>
   Array.isArray(have) ? have.some((h) => contains(h, want)) : String(have ?? '').toLowerCase().includes(String(want).toLowerCase())
 
 // Runs a pattern on sample values, since two regexes can look different and mean the same.
 function runsPattern(have, { accepts = [], rejects = [] }) {
+  if (have === undefined || have === null) return false
   try {
     const pattern = new RegExp(have)
     return accepts.every((v) => pattern.test(v)) && !rejects.some((v) => pattern.test(v))
@@ -57,6 +61,8 @@ function matches(have, want) {
   if (isObject(want)) {
     if ('set' in want) return want.set === (have !== undefined && have !== null && String(have).trim() !== '')
     if ('accepts' in want || 'rejects' in want) return runsPattern(have, want)
+    if ('is' in want) return have === want.is
+    if ('holds' in want) return Object.entries(want.holds).every(([k, w]) => matches(isObject(have) ? have[k] : undefined, w))
     if ('exactly' in want) return Array.isArray(have) && have.length === want.exactly.length && want.exactly.every((w) => have.includes(w))
     const n = Number(have)
     if ('gte' in want && !(n >= want.gte)) return false
@@ -77,8 +83,23 @@ function facet(decl, key, types, seen = new Set()) {
   return facet(declOf(types[parent]), key, types, seen)
 }
 
+// The names a declaration answers to: what it says, then what that name is an alias of. A named type that adds
+// properties or a discriminatorValue is a subtype and stops the walk, so a CardPayment never counts as a Payment.
+function typeNames(decl, types, seen = new Set()) {
+  const name = typeText(decl)
+  if (types[name] === undefined || seen.has(name)) return [name]
+  seen.add(name)
+  const target = declOf(types[name])
+  return target.properties !== undefined || target.discriminatorValue !== undefined ? [name] : [name, ...typeNames(target, types, seen)]
+}
+
+const typeFits = (decl, want, types) => {
+  const names = typeNames(decl, types)
+  return typeof want === 'string' ? names.includes(want) : names.some((n) => matches(n, want))
+}
+
 const fits = (decl, want = {}, types = {}) =>
-  Object.entries(want).every(([key, w]) => matches(key === 'type' ? typeText(decl) : key === 'required' ? decl.required : facet(decl, key, types), w))
+  Object.entries(want).every(([key, w]) => (key === 'type' ? typeFits(decl, w, types) : matches(key === 'required' ? decl.required : facet(decl, key, types), w)))
 
 const shape = (path) => path.replace(/\{[^}]*\}/g, '{}').replace(/\/$/, '')
 const findResource = (model, path) => model.resources.find((r) => shape(r.path) === shape(path))
@@ -92,8 +113,8 @@ function bodies(body, model) {
   return [{ media: String(model.root.mediaType ?? ''), decl: declOf(bodyDecl(body)) }]
 }
 
-const bodyFits = (list, rule) =>
-  list.some((b) => (!rule.media || contains(b.media, rule.media)) && (!rule.typeIs || typeText(b.decl) === rule.typeIs))
+const bodyFits = (list, rule, types) =>
+  list.some((b) => (!rule.media || contains(b.media, rule.media)) && (!rule.typeIs || typeNames(b.decl, types).includes(rule.typeIs)))
 
 function paramsOf(model, rule) {
   if (rule.in === 'base') return entriesOf(model.root.baseUriParameters)
@@ -150,13 +171,13 @@ function evaluate(rule, parsed) {
     case 'param':
       return paramsOf(model, rule).some((p) => (!rule.name || p.name.toLowerCase() === rule.name.toLowerCase()) && fits(p.decl, rule.want, model.types))
     case 'body':
-      return bodyFits(bodies(findMethod(model, rule.path, rule.method)?.body, model), rule)
+      return bodyFits(bodies(findMethod(model, rule.path, rule.method)?.body, model), rule, model.types)
     case 'response': {
       const r = findMethod(model, rule.path, rule.method)?.responses?.[rule.status]
       if (r === undefined) return false
       const bodyList = bodies(r?.body, model)
       if (rule.noBody && bodyList.length) return false
-      if ((rule.media || rule.typeIs) && !bodyFits(bodyList, rule)) return false
+      if ((rule.media || rule.typeIs) && !bodyFits(bodyList, rule, model.types)) return false
       if (rule.example) {
         const own = bodyList.some((b) => b.decl.example !== undefined || b.decl.examples !== undefined)
         const named = rule.example !== 'own' && bodyList.some((b) => { const t = model.types[typeText(b.decl).replace('[]', '')]; return isObject(t) && (t.example !== undefined || t.examples !== undefined) })
@@ -181,7 +202,7 @@ function evaluate(rule, parsed) {
       return !propertiesOf(model.types[rule.typeName] ?? {}, model.types).some((p) => p.name === rule.prop)
     case 'trait': {
       const t = model.traits[rule.name]
-      return t !== undefined && (!rule.has || hasKeyPath(t, rule.has))
+      return t !== undefined && (!rule.has || hasKeyPath(t, rule.has)) && Object.entries(rule.values ?? {}).every(([k, w]) => matches(valueAt(t, k), w))
     }
     case 'applied':
       return Boolean(findMethod(model, rule.path, rule.method)?.traits.includes(rule.trait))
@@ -235,6 +256,8 @@ const wanted = (want) => {
     return [
       'set' in want ? (want.set ? 'set' : 'not set') : '',
       'exactly' in want ? `exactly ${want.exactly.join(', ')}` : '',
+      'is' in want ? String(want.is) : '',
+      'holds' in want ? Object.entries(want.holds).map(([k, w]) => `${k}: ${wanted(w)}`).join(', ') : '',
       'accepts' in want ? `one that accepts ${want.accepts.join(', ')}` : '',
       'rejects' in want ? `one that rejects ${want.rejects.join(', ')}` : '',
       'gte' in want ? `at least ${want.gte}` : '',
@@ -294,7 +317,7 @@ export function ramlHint(parsed, rule) {
     case 'noProp':
       return `Remove ${rule.prop} from ${rule.typeName}. It does not belong in this contract.`
     case 'trait':
-      return `Under traits, declare ${rule.name}${rule.has ? ` with ${rule.has}` : ''}.`
+      return `Under traits, declare ${rule.name}${rule.has ? ` with ${rule.has}` : ''}${rule.values ? `. Set ${Object.entries(rule.values).map(([k, w]) => `${k} to ${wanted(w)}`).join(', ')}` : ''}.`
     case 'applied':
       return noMethod ? `Add ${on(rule)} first.` : `Apply the trait with is: [ ${rule.trait} ] on ${on(rule)} or its resource.`
     case 'resourceType':

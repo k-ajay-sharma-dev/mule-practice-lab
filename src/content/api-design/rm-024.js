@@ -44,7 +44,7 @@ types:
     },
     {
       label: 'file is a required file limited to PDF and JPEG',
-      rule: { type: 'prop', typeName: 'DocumentUpload', prop: 'file', want: { type: 'file', required: true, fileTypes: ['application/pdf', 'image/jpeg'] } },
+      rule: { type: 'prop', typeName: 'DocumentUpload', prop: 'file', want: { type: 'file', required: true, fileTypes: { exactly: ['application/pdf', 'image/jpeg'] } } },
     },
     { label: 'file is limited to 10 MB', rule: { type: 'prop', typeName: 'DocumentUpload', prop: 'file', want: { maxLength: 10485760 } } },
     { label: 'DocumentType allows ID, PAYSLIP and BANK_STATEMENT', rule: { type: 'typeDecl', name: 'DocumentType', want: { enum: { exactly: ['ID', 'PAYSLIP', 'BANK_STATEMENT'] } } } },

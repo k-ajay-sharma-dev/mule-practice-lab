@@ -11,6 +11,12 @@ export const TRACKS = [
     tags: ['api-led', 'application-network', 'system-api', 'process-api', 'experience-api', 'layers'],
   },
   {
+    slug: 'raml',
+    title: 'RAML',
+    blurb: 'Writing RAML 1.0 by hand: resources, data types, examples, traits, resource types, security, libraries and fragments.',
+    tags: ['raml'],
+  },
+  {
     slug: 'activemq-oracle',
     title: 'ActiveMQ + Oracle',
     blurb: 'JMS with ActiveMQ Classic and Artemis, Oracle with the Database connector, transactions and their production failures.',

@@ -65,7 +65,7 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'typeDecl', name: 'CardPayment', extends: 'Payment', want: { discriminatorValue: 'CARD' } },
+          { type: 'typeDecl', name: 'CardPayment', extends: 'Payment', want: { discriminatorValue: { is: 'CARD' } } },
           { type: 'prop', typeName: 'CardPayment', prop: 'last4', want: { type: 'string', required: true } },
         ],
       },
@@ -75,7 +75,7 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'typeDecl', name: 'BankTransferPayment', extends: 'Payment', want: { discriminatorValue: 'BANK_TRANSFER' } },
+          { type: 'typeDecl', name: 'BankTransferPayment', extends: 'Payment', want: { discriminatorValue: { is: 'BANK_TRANSFER' } } },
           { type: 'prop', typeName: 'BankTransferPayment', prop: 'reference', want: { type: 'string', required: true } },
         ],
       },
@@ -85,7 +85,7 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'typeDecl', name: 'WalletPayment', extends: 'Payment', want: { discriminatorValue: 'WALLET' } },
+          { type: 'typeDecl', name: 'WalletPayment', extends: 'Payment', want: { discriminatorValue: { is: 'WALLET' } } },
           { type: 'prop', typeName: 'WalletPayment', prop: 'walletId', want: { type: 'string', required: true } },
         ],
       },
