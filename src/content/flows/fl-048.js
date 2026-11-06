@@ -45,11 +45,11 @@ export default {
       [
         handler('on-error-propagate', { type: 'HTTP:NOT_FOUND' }, [
           step('set-variable', { variableName: 'httpStatus', value: '200' }),
-          step('set-payload', { value: '#[[]]' }),
+          step('set-payload', { value: '#[output application/json --- []]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ message: "Your orders are not available right now. Please try again." }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: "Your orders are not available right now. Please try again." }]' }),
         ]),
       ],
     ),

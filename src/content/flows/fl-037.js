@@ -39,11 +39,11 @@ export default {
       [
         handler('on-error-propagate', { type: 'HTTP:NOT_FOUND' }, [
           step('set-variable', { variableName: 'httpStatus', value: '404' }),
-          step('set-payload', { value: '#[{ message: "Order not found" }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: "Order not found" }]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '502' }),
-          step('set-payload', { value: '#[{ message: "Order status temporarily unavailable" }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: "Order status temporarily unavailable" }]' }),
         ]),
       ],
     ),

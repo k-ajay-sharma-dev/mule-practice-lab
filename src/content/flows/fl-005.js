@@ -52,7 +52,7 @@ export default {
             ], {
               errorHandlers: [
                 handler('on-error-continue', { type: 'HTTP:TIMEOUT, HTTP:CONNECTIVITY, HTTP:SERVICE_UNAVAILABLE, HTTP:INTERNAL_SERVER_ERROR' }, [
-                  step('set-payload', { value: '#[{ available: false, reason: error.errorType.identifier }]' }),
+                  step('set-payload', { value: '#[output application/json --- { available: false, reason: error.errorType.identifier }]' }),
                 ]),
               ],
             }),
@@ -66,7 +66,7 @@ export default {
             ], {
               errorHandlers: [
                 handler('on-error-continue', { type: 'ANY' }, [
-                  step('set-payload', { value: '#[{ available: false, reason: error.errorType.identifier }]' }),
+                  step('set-payload', { value: '#[output application/json --- { available: false, reason: error.errorType.identifier }]' }),
                 ]),
               ],
             }),

@@ -71,12 +71,12 @@ export default {
           step('db-update', { sql: "UPDATE replay_job SET status = 'COMPLETED', events = :count, finished_at = CURRENT_TIMESTAMP WHERE replay_id = :replayId" }),
         ]),
         step('set-variable', { variableName: 'httpStatus', value: '202' }),
-        step('set-payload', { value: '#[{ replayId: vars.replayId, status: "RUNNING" }]' }),
+        step('set-payload', { value: '#[output application/json --- { replayId: vars.replayId, status: "RUNNING" }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN' }, [
           step('set-variable', { variableName: 'httpStatus', value: '400' }),
-          step('set-payload', { value: '#[{ message: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: error.description }]' }),
         ]),
       ],
     ),

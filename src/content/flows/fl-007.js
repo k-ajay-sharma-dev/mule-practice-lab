@@ -53,21 +53,21 @@ export default {
         route({}, [
           scope('try', {}, [step('http-request', { method: 'GET', path: '/fedex/rates', responseTimeout: 2500 })], {
             errorHandlers: [
-              handler('on-error-continue', { type: 'ANY' }, [step('set-payload', { value: '#[{ carrier: "FedEx", error: "unavailable" }]' })]),
+              handler('on-error-continue', { type: 'ANY' }, [step('set-payload', { value: '#[output application/json --- { carrier: "FedEx", error: "unavailable" }]' })]),
             ],
           }),
         ]),
         route({}, [
           scope('try', {}, [step('http-request', { method: 'GET', path: '/dhl/rates', responseTimeout: 2500 })], {
             errorHandlers: [
-              handler('on-error-continue', { type: 'ANY' }, [step('set-payload', { value: '#[{ carrier: "DHL", error: "unavailable" }]' })]),
+              handler('on-error-continue', { type: 'ANY' }, [step('set-payload', { value: '#[output application/json --- { carrier: "DHL", error: "unavailable" }]' })]),
             ],
           }),
         ]),
         route({}, [
           scope('try', {}, [step('http-request', { method: 'GET', path: '/ups/rates', responseTimeout: 2500 })], {
             errorHandlers: [
-              handler('on-error-continue', { type: 'ANY' }, [step('set-payload', { value: '#[{ carrier: "UPS", error: "unavailable" }]' })]),
+              handler('on-error-continue', { type: 'ANY' }, [step('set-payload', { value: '#[output application/json --- { carrier: "UPS", error: "unavailable" }]' })]),
             ],
           }),
         ]),

@@ -82,7 +82,7 @@ export default {
             ],
           },
         ),
-        step('set-payload', { value: '#[{ status: "STARTED", wave: vars.waveId }]' }),
+        step('set-payload', { value: '#[output application/json --- { status: "STARTED", wave: vars.waveId }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'ANY' }, [

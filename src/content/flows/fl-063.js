@@ -71,7 +71,7 @@ export default {
       [
         handler('on-error-propagate', { type: 'DB:CONNECTIVITY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ error: "Stock information unavailable" }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: "Stock information unavailable" }]' }),
         ]),
       ],
     ),

@@ -52,13 +52,13 @@ export default {
         ]),
         step('set-variable', { variableName: 'httpStatus', value: '202' }),
         step('set-payload', {
-          value: '#[{ jobId: vars.jobId, status: "ACCEPTED", statusUrl: "/pim/v1/bulk/jobs/" ++ vars.jobId }]',
+          value: '#[output application/json --- { jobId: vars.jobId, status: "ACCEPTED", statusUrl: "/pim/v1/bulk/jobs/" ++ vars.jobId }]',
         }),
       ],
       [
         handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN' }, [
           step('set-variable', { variableName: 'httpStatus', value: '413' }),
-          step('set-payload', { value: '#[{ message: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: error.description }]' }),
         ]),
       ],
     ),
@@ -98,7 +98,7 @@ export default {
           [
             route({ expression: '#[isEmpty(payload)]' }, [
               step('set-variable', { variableName: 'httpStatus', value: '404' }),
-              step('set-payload', { value: '#[{ message: "Unknown job" }]' }),
+              step('set-payload', { value: '#[output application/json --- { message: "Unknown job" }]' }),
             ]),
           ],
           {

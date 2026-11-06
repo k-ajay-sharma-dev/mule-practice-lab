@@ -2,11 +2,11 @@ import { design, flow, handler, route, router, scope, source, step } from '../..
 
 const probe = (name, call) =>
   route({}, [
-    scope('try', {}, [call, step('set-payload', { value: `#[{ name: "${name}", status: "UP" }]` })], {
+    scope('try', {}, [call, step('set-payload', { value: `#[output application/json --- { name: "${name}", status: "UP" }]` })], {
       errorHandlers: [
         handler('on-error-continue', { type: 'ANY' }, [
           step('logger', { level: 'WARN', message: `#["Readiness probe ${name} failed: " ++ error.description]` }),
-          step('set-payload', { value: `#[{ name: "${name}", status: "DOWN", reason: error.errorType.identifier }]` }),
+          step('set-payload', { value: `#[output application/json --- { name: "${name}", status: "DOWN", reason: error.errorType.identifier }]` }),
         ]),
       ],
     }),
@@ -45,7 +45,7 @@ export default {
   ],
   referenceFlow: design(
     flow('health-live', source('http-listener', { path: '/health/live', allowedMethods: 'GET' }), [
-      step('set-payload', { value: '#[{ status: "UP", app: app.name }]' }),
+      step('set-payload', { value: '#[output application/json --- { status: "UP", app: app.name }]' }),
     ]),
     flow('health-ready', source('http-listener', { path: '/health/ready', allowedMethods: 'GET' }), [
       router('scatter-gather', { timeout: 3000 }, [

@@ -57,7 +57,7 @@ export default {
       [
         handler('on-error-propagate', { type: 'HTTP:TIMEOUT' }, [
           step('set-variable', { variableName: 'httpStatus', value: '504' }),
-          step('set-payload', { value: '#[{ message: "Catalog is taking too long, please retry" }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: "Catalog is taking too long, please retry" }]' }),
         ]),
         handler('on-error-propagate', { type: 'HTTP:NOT_FOUND' }, [step('set-variable', { variableName: 'httpStatus', value: '404' })]),
         handler('on-error-propagate', { type: 'ANY' }, [step('set-variable', { variableName: 'httpStatus', value: '502' })]),

@@ -54,12 +54,12 @@ export default {
         }),
         step('vm-publish', { queueName: 'order-status-in' }),
         step('set-variable', { variableName: 'httpStatus', value: '#[202]' }),
-        step('set-payload', { value: '#[{ accepted: true, correlationId: correlationId }]' }),
+        step('set-payload', { value: '#[output application/json --- { accepted: true, correlationId: correlationId }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN' }, [
           step('set-variable', { variableName: 'httpStatus', value: '#[400]' }),
-          step('set-payload', { value: '#[{ code: "INVALID_STATUS", message: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "INVALID_STATUS", message: error.description }]' }),
         ]),
       ],
     ),

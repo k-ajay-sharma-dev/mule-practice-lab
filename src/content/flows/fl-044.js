@@ -53,7 +53,7 @@ export default {
         }),
         step('mq-publish', { destination: 'claims-intake' }),
         step('set-variable', { variableName: 'httpStatus', value: '202' }),
-        step('set-payload', { value: '#[{ claimId: vars.claimId, status: "RECEIVED" }]' }),
+        step('set-payload', { value: '#[output application/json --- { claimId: vars.claimId, status: "RECEIVED" }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN' }, [step('set-variable', { variableName: 'httpStatus', value: '413' })]),

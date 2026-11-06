@@ -60,14 +60,14 @@ export default {
                 objectStore: 'statement-jobs',
               }),
               step('os-store', { key: '#["dedupe-" ++ vars.dedupeKey]', value: '#[vars.jobId]', objectStore: 'statement-dedupe' }),
-              step('set-payload', { value: '#[{ jobId: vars.jobId, params: vars.request }]' }),
+              step('set-payload', { value: '#[output application/json --- { jobId: vars.jobId, params: vars.request }]' }),
               step('vm-publish', { queueName: 'statement-jobs' }),
             ],
           },
         ),
         step('set-variable', { variableName: 'httpStatus', value: '#[202]' }),
         step('set-variable', { variableName: 'location', value: '#["/statements/jobs/" ++ vars.jobId]' }),
-        step('set-payload', { value: '#[{ jobId: vars.jobId, status: "PENDING" }]' }),
+        step('set-payload', { value: '#[output application/json --- { jobId: vars.jobId, status: "PENDING" }]' }),
       ],
     ),
     flow(
@@ -85,7 +85,7 @@ export default {
       [
         handler('on-error-continue', { type: 'OS:KEY_NOT_FOUND' }, [
           step('set-variable', { variableName: 'httpStatus', value: '#[404]' }),
-          step('set-payload', { value: '#[{ code: "JOB_NOT_FOUND" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "JOB_NOT_FOUND" }]' }),
         ]),
       ],
     ),

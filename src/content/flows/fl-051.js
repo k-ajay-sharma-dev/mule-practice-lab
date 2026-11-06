@@ -3,7 +3,7 @@ import { design, flow, handler, route, router, scope, source, step } from '../..
 const softFail = (name) =>
   handler('on-error-continue', { type: 'ANY' }, [
     step('logger', { level: 'WARN', message: `#["${name} unavailable: " ++ error.description]` }),
-    step('set-payload', { value: `#[{ source: "${name}", unavailable: true }]` }),
+    step('set-payload', { value: `#[output application/json --- { source: "${name}", unavailable: true }]` }),
   ])
 
 export default {
@@ -86,7 +86,7 @@ export default {
         handler('on-error-propagate', { type: 'MULE:COMPOSITE_ROUTING' }, [
           step('logger', { level: 'ERROR', message: '#["Core banking failed: " ++ error.description]' }),
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ code: "CORE_UNAVAILABLE", message: "Account data is unavailable" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "CORE_UNAVAILABLE", message: "Account data is unavailable" }]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [step('set-variable', { variableName: 'httpStatus', value: '500' })]),
       ],

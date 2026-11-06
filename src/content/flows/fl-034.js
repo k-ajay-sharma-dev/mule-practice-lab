@@ -97,7 +97,7 @@ export default {
         'choice',
         {},
         [route({ expression: '#[isEmpty(payload)]' }, [step('raise-error', { type: 'APP:CUSTOMER_NOT_FOUND', description: 'Unknown customer' })])],
-        { otherwise: [step('set-payload', { value: '#[{ id: payload[0].CUSTOMER_ID, tier: payload[0].TIER }]' })] },
+        { otherwise: [step('set-payload', { value: '#[output application/json --- { id: payload[0].CUSTOMER_ID, tier: payload[0].TIER }]' })] },
       ),
     ]),
     subFlow('price-order', [step('http-request', { method: 'POST', path: '/pricing/quote', responseTimeout: 800 })]),

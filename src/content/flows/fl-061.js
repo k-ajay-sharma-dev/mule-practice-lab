@@ -47,11 +47,11 @@ export default {
             ]),
             route({ expression: '#[payload.status == "INSUFFICIENT"]' }, [
               step('set-variable', { variableName: 'httpStatus', value: '409' }),
-              step('set-payload', { value: '#[{ error: "INSUFFICIENT_STOCK", sku: vars.req.sku, available: payload.availableQty }]' }),
+              step('set-payload', { value: '#[output application/json --- { error: "INSUFFICIENT_STOCK", sku: vars.req.sku, available: payload.availableQty }]' }),
             ]),
             route({ expression: '#[payload.status == "UNKNOWN_SKU"]' }, [
               step('set-variable', { variableName: 'httpStatus', value: '404' }),
-              step('set-payload', { value: '#[{ error: "UNKNOWN_SKU", sku: vars.req.sku }]' }),
+              step('set-payload', { value: '#[output application/json --- { error: "UNKNOWN_SKU", sku: vars.req.sku }]' }),
             ]),
           ],
           {
@@ -62,16 +62,16 @@ export default {
       [
         handler('on-error-propagate', { type: 'DB:CONNECTIVITY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ error: "Inventory service temporarily unavailable" }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: "Inventory service temporarily unavailable" }]' }),
         ]),
         handler('on-error-propagate', { type: 'DB:QUERY_EXECUTION' }, [
           step('logger', { level: 'ERROR', message: '#["RESERVE_STOCK failed: " ++ error.description]' }),
           step('set-variable', { variableName: 'httpStatus', value: '500' }),
-          step('set-payload', { value: '#[{ error: "Reservation failed" }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: "Reservation failed" }]' }),
         ]),
         handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN, VALIDATION:BLANK_STRING' }, [
           step('set-variable', { variableName: 'httpStatus', value: '400' }),
-          step('set-payload', { value: '#[{ error: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: error.description }]' }),
         ]),
       ],
     ),

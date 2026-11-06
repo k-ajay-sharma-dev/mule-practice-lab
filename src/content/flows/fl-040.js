@@ -5,11 +5,11 @@ const provision = (system, method, path) =>
   route({}, [
     scope('try', { transactionalAction: 'INDIFFERENT' }, [
       step('http-request', { method, path, responseTimeout: 10000 }),
-      step('set-payload', { value: `#[{ system: "${system}", status: "OK", reference: payload.id default null }]` }),
+      step('set-payload', { value: `#[output application/json --- { system: "${system}", status: "OK", reference: payload.id default null }]` }),
     ], {
       errorHandlers: [
         handler('on-error-continue', { type: 'ANY' }, [
-          step('set-payload', { value: `#[{ system: "${system}", status: "FAILED", error: error.description }]` }),
+          step('set-payload', { value: `#[output application/json --- { system: "${system}", status: "FAILED", error: error.description }]` }),
         ]),
       ],
     }),
@@ -80,7 +80,7 @@ export default {
       [
         handler('on-error-continue', { type: 'MULE:DUPLICATE_MESSAGE' }, [
           step('set-variable', { variableName: 'httpStatus', value: '200' }),
-          step('set-payload', { value: '#[{ message: "Onboarding already in progress" }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: "Onboarding already in progress" }]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [
           step('logger', { level: 'ERROR', message: '#["Onboarding failed before provisioning: " ++ error.description]' }),

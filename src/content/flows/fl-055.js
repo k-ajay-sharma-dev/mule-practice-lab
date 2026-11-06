@@ -1,6 +1,6 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
 
-const errorBody = (code, message) => step('set-payload', { value: `#[{ code: "${code}", message: ${message}, correlationId: correlationId }]` })
+const errorBody = (code, message) => step('set-payload', { value: `#[output application/json --- { code: "${code}", message: ${message}, correlationId: correlationId }]` })
 
 export default {
   id: 'fl-055',
@@ -76,7 +76,7 @@ export default {
         handler('on-error-propagate', { type: 'APP:ORDER_REJECTED' }, [
           step('set-variable', { variableName: 'httpStatus', value: '422' }),
           step('set-payload', {
-            value: '#[{ code: vars.rejection.code default "REJECTED", message: "We could not accept this order: " ++ (vars.rejection.reason default "please check your details"), correlationId: correlationId }]',
+            value: '#[output application/json --- { code: vars.rejection.code default "REJECTED", message: "We could not accept this order: " ++ (vars.rejection.reason default "please check your details"), correlationId: correlationId }]',
           }),
         ]),
         handler('on-error-propagate', { type: 'HTTP:TIMEOUT' }, [
@@ -122,11 +122,11 @@ export default {
       [
         handler('on-error-propagate', { type: 'APP:PAYMENT_DECLINED' }, [
           step('set-variable', { variableName: 'httpStatus', value: '422' }),
-          step('set-payload', { value: '#[{ code: "PAYMENT_DECLINED", reason: vars.declineReason default "declined" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "PAYMENT_DECLINED", reason: vars.declineReason default "declined" }]' }),
         ]),
         handler('on-error-propagate', { type: 'APP:DUPLICATE_ORDER' }, [
           step('set-variable', { variableName: 'httpStatus', value: '422' }),
-          step('set-payload', { value: '#[{ code: "DUPLICATE_ORDER", reason: "Order already submitted" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "DUPLICATE_ORDER", reason: "Order already submitted" }]' }),
         ]),
         handler('on-error-propagate', { type: 'HTTP:SERVICE_UNAVAILABLE, HTTP:TIMEOUT' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
@@ -153,7 +153,7 @@ export default {
       [
         handler('on-error-propagate', { type: 'APP:PAYMENT_DECLINED' }, [
           step('set-variable', { variableName: 'httpStatus', value: '422' }),
-          step('set-payload', { value: '#[{ code: "DECLINED", reason: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "DECLINED", reason: error.description }]' }),
         ]),
         handler('on-error-propagate', { type: 'HTTP:CONNECTIVITY, HTTP:TIMEOUT, HTTP:SERVICE_UNAVAILABLE' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),

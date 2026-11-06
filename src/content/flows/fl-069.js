@@ -59,13 +59,13 @@ export default {
         step('jms-publish', { destination: 'RECALL.ISSUED' }),
         step('set-variable', { variableName: 'httpStatus', value: '202' }),
         step('set-payload', {
-          value: '#[{ recallId: vars.recall.recallId, status: "QUARANTINED", quantity: vars.quarantine.quarantinedQty, locations: vars.quarantine.locationCount }]',
+          value: '#[output application/json --- { recallId: vars.recall.recallId, status: "QUARANTINED", quantity: vars.quarantine.quarantinedQty, locations: vars.quarantine.locationCount }]',
         }),
       ],
       [
         handler('on-error-propagate', { type: 'DB:QUERY_EXECUTION', when: '#[error.description contains "ORA-00001"]' }, [
           step('set-variable', { variableName: 'httpStatus', value: '409' }),
-          step('set-payload', { value: '#[{ error: "Recall already exists", recallId: vars.recall.recallId }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: "Recall already exists", recallId: vars.recall.recallId }]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [
           step('logger', { level: 'ERROR', message: '#["Recall failed: " ++ error.description]' }),
@@ -112,7 +112,7 @@ export default {
             scope('until-successful', { maxRetries: 5, millisBetweenRetries: 30000 }, [
               step('http-request', { method: 'POST', path: '/notifications/v1/campaigns', responseTimeout: 30000 }),
             ]),
-            step('set-payload', { value: '#[ [{ target: "CUSTOMERS:" ++ (sizeOf(vars.targets.customers) as String), status: "SENT" }] ]' }),
+            step('set-payload', { value: '#[output application/json --- [{ target: "CUSTOMERS:" ++ (sizeOf(vars.targets.customers) as String), status: "SENT" }] ]' }),
           ]),
         ]),
         step('transform', {

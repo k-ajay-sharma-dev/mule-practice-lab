@@ -43,12 +43,12 @@ export default {
         step('set-variable', { variableName: 'orderId', value: '#[payload.orderId default uuid()]' }),
         step('mq-publish', { destination: 'orders.create' }),
         step('set-variable', { variableName: 'httpStatus', value: '202' }),
-        step('set-payload', { value: '#[{ trackingId: vars.orderId }]' }),
+        step('set-payload', { value: '#[output application/json --- { trackingId: vars.orderId }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'ANYPOINT-MQ:CONNECTIVITY, ANYPOINT-MQ:PUBLISHING' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ code: "ORDER_NOT_ACCEPTED", correlationId: correlationId }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "ORDER_NOT_ACCEPTED", correlationId: correlationId }]' }),
         ]),
       ],
     ),
@@ -92,7 +92,7 @@ export default {
         ], {
           otherwise: [step('mq-publish', { destination: 'orders.create' })],
         }),
-        step('set-payload', { value: '#[{ replayed: true }]' }),
+        step('set-payload', { value: '#[output application/json --- { replayed: true }]' }),
       ],
     ),
   ),

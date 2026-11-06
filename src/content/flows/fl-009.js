@@ -61,7 +61,7 @@ export default {
         step('set-variable', { variableName: 'paymentResult', value: '#[payload]' }),
         step('set-payload', { value: '#[vars.auditRecord]' }),
         step('vm-publish', { queueName: 'auditQueue' }),
-        step('set-payload', { value: '#[{ paymentId: vars.paymentResult.id, status: vars.paymentResult.status }]' }),
+        step('set-payload', { value: '#[output application/json --- { paymentId: vars.paymentResult.id, status: vars.paymentResult.status }]' }),
       ],
     ),
     // The transaction starts on the listener: a Try scope transaction would not cover the consumed VM message.

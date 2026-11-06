@@ -103,7 +103,7 @@ export default {
             },
           ),
         ]),
-        step('set-payload', { value: '#[{ replayed: vars.replayed }]' }),
+        step('set-payload', { value: '#[output application/json --- { replayed: vars.replayed }]' }),
       ],
     ),
   ),

@@ -41,7 +41,7 @@ export default {
         }),
         step('mq-publish', { destination: 'notifications.requested' }),
         step('set-variable', { variableName: 'httpStatus', value: '#[202]' }),
-        step('set-payload', { value: '#[{ notificationId: vars.notificationId, status: "ACCEPTED" }]' }),
+        step('set-payload', { value: '#[output application/json --- { notificationId: vars.notificationId, status: "ACCEPTED" }]' }),
       ],
     ),
     flow(

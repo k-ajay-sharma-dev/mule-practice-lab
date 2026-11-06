@@ -55,21 +55,21 @@ export default {
         }),
         // destinationType TOPIC, persistent delivery; subscribers: e-commerce, POS gateway, shelf-label system.
         step('jms-publish', { destination: 'retail.price.changed', destinationType: 'TOPIC', persistentDelivery: 'true' }),
-        step('set-payload', { value: '#[{ status: "UPDATED", sku: vars.change.sku, zone: vars.change.zone }]' }),
+        step('set-payload', { value: '#[output application/json --- { status: "UPDATED", sku: vars.change.sku, zone: vars.change.zone }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN, VALIDATION:BLANK_STRING, VALIDATION:EMPTY_COLLECTION' }, [
           step('set-variable', { variableName: 'httpStatus', value: '400' }),
-          step('set-payload', { value: '#[{ error: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: error.description }]' }),
         ]),
         handler('on-error-propagate', { type: 'APP:NOT_FOUND' }, [
           step('set-variable', { variableName: 'httpStatus', value: '404' }),
-          step('set-payload', { value: '#[{ error: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: error.description }]' }),
         ]),
         handler('on-error-propagate', { type: 'JMS:CONNECTIVITY' }, [
           step('logger', { level: 'ERROR', message: '#["Price saved but event not published for " ++ vars.change.sku]' }),
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ error: "Price saved, notification pending - please retry" }]' }),
+          step('set-payload', { value: '#[output application/json --- { error: "Price saved, notification pending - please retry" }]' }),
         ]),
       ],
     ),

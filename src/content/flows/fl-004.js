@@ -48,12 +48,12 @@ export default {
         step('idempotent', { idExpression: '#[payload.id]', objectStore: 'processedEvents' }),
         step('http-request', { method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', responseTimeout: 5000 }),
         step('mq-publish', { destination: 'payment-notifications' }),
-        step('set-payload', { value: '#[{ received: true }]' }),
+        step('set-payload', { value: '#[output application/json --- { received: true }]' }),
       ],
       [
         handler('on-error-continue', { type: 'MULE:DUPLICATE_MESSAGE' }, [
           step('logger', { level: 'INFO', message: '#["Duplicate webhook " ++ vars.eventId ++ " ignored"]' }),
-          step('set-payload', { value: '#[{ received: true, duplicate: true }]' }),
+          step('set-payload', { value: '#[output application/json --- { received: true, duplicate: true }]' }),
         ]),
         // Raised before the ID was stored, so there is nothing to remove from the store.
         handler('on-error-propagate', { type: 'VALIDATION:BLANK_STRING' }, [

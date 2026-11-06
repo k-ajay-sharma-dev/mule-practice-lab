@@ -66,7 +66,7 @@ export default {
       [
         handler('on-error-propagate', { type: 'HTTP:BAD_REQUEST' }, [
           step('set-variable', { variableName: 'httpStatus', value: '400' }),
-          step('set-payload', { value: '#[{ message: "Invalid credit check request" }]' }),
+          step('set-payload', { value: '#[output application/json --- { message: "Invalid credit check request" }]' }),
         ]),
       ],
     ),

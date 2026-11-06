@@ -55,14 +55,14 @@ export default {
           sql: "UPDATE inventory_hold SET status = 'HELD', wms_refs = :reserved WHERE hold_id = :holdId",
         }),
         step('set-variable', { variableName: 'httpStatus', value: '201' }),
-        step('set-payload', { value: '#[{ holdId: vars.holdId, status: "HELD" }]' }),
+        step('set-payload', { value: '#[output application/json --- { holdId: vars.holdId, status: "HELD" }]' }),
       ],
       [
         handler('on-error-propagate', { type: 'APP:OUT_OF_STOCK, MULE:RETRY_EXHAUSTED' }, [
           step('flow-ref', { name: 'release-reservations' }),
           step('db-update', { sql: "UPDATE inventory_hold SET status = 'RELEASED' WHERE hold_id = :holdId" }),
           step('set-variable', { variableName: 'httpStatus', value: '409' }),
-          step('set-payload', { value: '#[{ holdId: vars.holdId, status: "REJECTED", reason: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { holdId: vars.holdId, status: "REJECTED", reason: error.description }]' }),
         ]),
       ],
     ),
@@ -107,13 +107,13 @@ export default {
           [
             route({ expression: '#[payload.affectedRows == 0]' }, [
               step('set-variable', { variableName: 'httpStatus', value: '410' }),
-              step('set-payload', { value: '#[{ message: "Hold expired or unknown" }]' }),
+              step('set-payload', { value: '#[output application/json --- { message: "Hold expired or unknown" }]' }),
             ]),
           ],
           {
             otherwise: [
               step('http-request', { method: 'POST', path: '/wms/api/reservations/commit', responseTimeout: 3000 }),
-              step('set-payload', { value: '#[{ holdId: vars.holdId, status: "COMMITTED" }]' }),
+              step('set-payload', { value: '#[output application/json --- { holdId: vars.holdId, status: "COMMITTED" }]' }),
             ],
           },
         ),

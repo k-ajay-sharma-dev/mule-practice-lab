@@ -83,7 +83,7 @@ export default {
         // The docs say First Successful "throws an error" but do not name its type, so catch broadly here.
         handler('on-error-propagate', { type: 'ANY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ code: "RATES_UNAVAILABLE", message: "No FX rate source is available" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "RATES_UNAVAILABLE", message: "No FX rate source is available" }]' }),
         ]),
       ],
     ),

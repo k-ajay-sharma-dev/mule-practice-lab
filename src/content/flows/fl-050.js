@@ -78,7 +78,7 @@ export default {
       [
         handler('on-error-propagate', { type: 'HTTP:NOT_FOUND' }, [
           step('set-variable', { variableName: 'httpStatus', value: '422' }),
-          step('set-payload', { value: '#[{ code: "UNKNOWN_CUSTOMER", message: "Customer " ++ (vars.request.customerId default "") ++ " does not exist" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "UNKNOWN_CUSTOMER", message: "Customer " ++ (vars.request.customerId default "") ++ " does not exist" }]' }),
         ]),
         handler('on-error-propagate', { type: 'HTTP:TIMEOUT, HTTP:SERVICE_UNAVAILABLE, HTTP:CONNECTIVITY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),

@@ -59,7 +59,7 @@ export default {
       [
         handler('on-error-propagate', { type: 'DB:CONNECTIVITY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ code: "SERVICE_UNAVAILABLE", message: "Customer store unavailable" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "SERVICE_UNAVAILABLE", message: "Customer store unavailable" }]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [
           step('logger', { level: 'ERROR', message: '#[correlationId ++ " " ++ error.description]' }),
@@ -91,11 +91,11 @@ export default {
       [
         handler('on-error-propagate', { type: 'APP:NOT_FOUND' }, [
           step('set-variable', { variableName: 'httpStatus', value: '404' }),
-          step('set-payload', { value: '#[{ code: "NOT_FOUND", message: error.description }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "NOT_FOUND", message: error.description }]' }),
         ]),
         handler('on-error-propagate', { type: 'DB:CONNECTIVITY' }, [
           step('set-variable', { variableName: 'httpStatus', value: '503' }),
-          step('set-payload', { value: '#[{ code: "SERVICE_UNAVAILABLE", message: "Customer store unavailable" }]' }),
+          step('set-payload', { value: '#[output application/json --- { code: "SERVICE_UNAVAILABLE", message: "Customer store unavailable" }]' }),
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [step('set-variable', { variableName: 'httpStatus', value: '500' })]),
       ],
