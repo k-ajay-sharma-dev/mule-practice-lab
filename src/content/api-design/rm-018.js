@@ -50,7 +50,7 @@ traits:
     },
     {
       label: 'oauth2 is an OAuth 2.0 scheme with its token URL, grants and scopes',
-      rule: { type: 'scheme', name: 'oauth2', schemeType: 'OAuth 2.0', has: ['settings.accessTokenUri', 'settings.authorizationGrants', 'settings.scopes'] },
+      rule: { type: 'scheme', name: 'oauth2', schemeType: 'OAuth 2.0', has: ['settings.accessTokenUri', 'settings.authorizationGrants', 'settings.scopes'], values: { 'settings.accessTokenUri': 'https://auth.example.com/token', 'settings.authorizationGrants': 'authorization_code', 'settings.scopes': ['accounts:read', 'accounts:write'] } },
     },
     {
       label: 'readAccess and writeAccess each hold securedBy',
@@ -84,6 +84,17 @@ traits:
         ],
       },
     },
+    {
+      label: 'Both GET methods need accounts:read and nothing more',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'secured', path: '/accounts', method: 'get', scheme: 'oauth2', scopes: ['accounts:read'], onlyScopes: true },
+          { type: 'secured', path: '/accounts/{}', method: 'get', scheme: 'oauth2', scopes: ['accounts:read'], onlyScopes: true },
+        ],
+      },
+    },
+    { label: 'POST /accounts needs accounts:write', rule: { type: 'secured', path: '/accounts', method: 'post', scheme: 'oauth2', scopes: ['accounts:write'], onlyScopes: true } },
     {
       label: 'Both GET methods return 200',
       rule: {

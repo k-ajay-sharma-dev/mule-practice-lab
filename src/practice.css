@@ -455,7 +455,7 @@
 .read-only-lock {
   display: contents;
 }
-.read-only-lock.locked :is(input, textarea, select, button:not(.panel-tab), .monaco-editor) {
+.read-only-lock.locked :is(input, textarea, select, button:not(.panel-tab, .copy-btn), .monaco-editor):not(.designer.read-only *) {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -1167,6 +1167,12 @@
   overflow-wrap: anywhere;
 }
 .sheet-table td:first-child code {
+  overflow-wrap: normal;
+}
+/* a snippet that spans lines: its indentation is the syntax, so it must not wrap */
+.sheet-table code.snippet {
+  display: block;
+  white-space: pre;
   overflow-wrap: normal;
 }
 

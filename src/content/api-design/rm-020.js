@@ -46,7 +46,7 @@ types:
         ],
       },
     },
-    { label: 'policyId has an xml facet', rule: { type: 'prop', typeName: 'Policy', prop: 'policyId', want: { xml: { set: true } } } },
+    { label: 'In XML, policyId is an attribute', rule: { type: 'prop', typeName: 'Policy', prop: 'policyId', want: { xml: { holds: { attribute: true } } } } },
     {
       label: 'GET /policies/{policyId} returns Policy as JSON and as XML',
       rule: {

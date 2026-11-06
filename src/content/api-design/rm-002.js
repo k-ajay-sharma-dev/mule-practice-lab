@@ -36,14 +36,14 @@ resourceTypes:
     { label: 'Order has a required string orderId', rule: { type: 'prop', typeName: 'Order', prop: 'orderId', want: { type: 'string', required: true } } },
     { label: 'Order has a required number total', rule: { type: 'prop', typeName: 'Order', prop: 'total', want: { type: 'number', required: true } } },
     { label: 'status only allows NEW, PAID and SHIPPED', rule: { type: 'prop', typeName: 'Order', prop: 'status', want: { enum: { exactly: ['NEW', 'PAID', 'SHIPPED'] } } } },
-    { label: 'Order has an example', rule: { type: 'typeDecl', name: 'Order', want: { example: { set: true } } } },
+    { label: 'Order has an example', rule: { type: 'any', rules: [{ type: 'typeDecl', name: 'Order', want: { example: { set: true } } }, { type: 'typeDecl', name: 'Order', want: { examples: { set: true } } }] } },
     {
       label: 'The paged trait has an optional page of at least 1',
       rule: { type: 'param', path: '/orders', method: 'get', in: 'query', name: 'page', want: { type: 'integer', required: false, minimum: 1 } },
     },
     {
       label: 'The paged trait limits pageSize to 200',
-      rule: { type: 'param', path: '/orders', method: 'get', in: 'query', name: 'pageSize', want: { type: 'integer', required: false, maximum: 200 } },
+      rule: { type: 'param', path: '/orders', method: 'get', in: 'query', name: 'pageSize', want: { type: 'integer', required: false, minimum: 1, maximum: 200 } },
     },
     { label: 'GET /orders uses the paged trait', rule: { type: 'applied', path: '/orders', method: 'get', trait: 'paged' } },
     {

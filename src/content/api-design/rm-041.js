@@ -41,8 +41,8 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'prop', typeName: 'Enrolment', prop: 'enrolmentId', want: { type: { oneOf: ['string'], not: '?' }, required: true } },
-          { type: 'prop', typeName: 'Enrolment', prop: 'enrolmentId', want: { type: { oneOf: ['string'], not: 'nil' } } },
+          { type: 'prop', typeName: 'Enrolment', prop: 'enrolmentId', want: { type: 'string', required: true } },
+          { type: 'prop', typeName: 'Enrolment', prop: 'enrolmentId', want: { type: 'string' } },
         ],
       },
     },
@@ -71,8 +71,8 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'prop', typeName: 'Enrolment', prop: 'tutorNote', want: { type: { oneOf: ['string'], not: '?' }, required: false } },
-          { type: 'prop', typeName: 'Enrolment', prop: 'tutorNote', want: { type: { oneOf: ['string'], not: 'nil' } } },
+          { type: 'prop', typeName: 'Enrolment', prop: 'tutorNote', want: { type: 'string', required: false } },
+          { type: 'prop', typeName: 'Enrolment', prop: 'tutorNote', want: { type: 'string' } },
         ],
       },
     },

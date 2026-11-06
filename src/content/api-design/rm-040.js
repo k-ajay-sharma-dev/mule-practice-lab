@@ -60,7 +60,7 @@ types:
     },
     {
       label: 'The q parameter is one optional string',
-      rule: { type: 'param', path: '/products', method: 'get', in: 'query', name: 'q', want: { type: { oneOf: ['string'], not: '[]' }, required: false } },
+      rule: { type: 'param', path: '/products', method: 'get', in: 'query', name: 'q', want: { type: 'string', required: false } },
     },
   ],
   referenceRaml: `#%RAML 1.0

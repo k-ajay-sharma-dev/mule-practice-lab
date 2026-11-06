@@ -2858,3 +2858,32 @@ textarea:focus {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   color: var(--accent);
 }
+
+/* Settings shown under a component in a read-only design */
+.node-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border);
+  cursor: text;
+}
+.node-config p {
+  margin: 0;
+}
+.node-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.node-config-row code {
+  overflow-wrap: anywhere;
+}
+.node-config-row pre {
+  margin: 2px 0 0;
+  padding: 8px 40px 8px 8px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  overflow-x: auto;
+}

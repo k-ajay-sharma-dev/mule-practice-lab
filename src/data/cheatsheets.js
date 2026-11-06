@@ -1,5 +1,6 @@
 // Printable cheat sheets. Connector and error facts come from docs.mulesoft.com.
 // Every DataWeave Example and Result was run on the local runner: `node scripts/check-cheatsheets.js` re-runs them.
+// Every RAML snippet was parsed with AMF and with parseRaml in src/raml/parse.js. A snippet may span lines, so keep its indentation.
 //
 // Shape: { slug, title, blurb, sections: [{ title, note?, columns, rows }] }
 // Each row has one string per column. Backticks mark code; nothing else is markdown.
@@ -1356,4 +1357,87 @@ const deployment = {
   ],
 }
 
-export const CHEATSHEETS = [connectors, errors, dataweave, policies, security, platform, deployment]
+const RAML_COLUMNS = ['Topic', 'What to know', 'RAML']
+
+const raml = {
+  slug: 'raml',
+  title: 'RAML',
+  blurb: 'RAML 1.0 on one sheet, for the last read before an interview. RAML (RESTful API Modeling Language) describes a REST API in YAML. Every snippet here was checked with AMF, the MuleSoft parser.',
+  sections: [
+    {
+      title: 'File and root keys',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['File header', 'The first line says what the file is. An API file has exactly `#%RAML 1.0`. Libraries and fragments add a word after it', '`#%RAML 1.0`'],
+        ['Root keys', '`title` is the only required key. `{version}` in `baseUri` takes the value of `version`, and AMF does not insist on that key. `mediaType` is the default body format. Declarations also sit at the root: `types`, `traits`, `resourceTypes`, `securitySchemes`, `annotationTypes`, `uses`', '`#%RAML 1.0\ntitle: Orders API\nversion: v1\nbaseUri: https://api.example.com/{version}\nprotocols: [ HTTPS ]\nmediaType: application/json\ndocumentation:\n  - title: Getting access\n    content: Ask the API team for a client ID.`'],
+      ],
+    },
+    {
+      title: 'Resources and parameters',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['Resources and methods', 'A resource is a key that starts with `/`. A nested resource extends the path, so this gives `/orders` and `/orders/{orderId}`. Methods: `get`, `post`, `put`, `patch`, `delete`, `head`, `options`. Response keys are status codes', '`/orders:\n  get:\n    responses:\n      200:\n        body:\n          type: Order[]\n  /{orderId}:\n    delete:\n      responses:\n        204:\n          description: Deleted`'],
+        ['Body by media type', 'With a default `mediaType`, `type` can sit directly under `body`. To offer several formats, put each media type under `body`', '`post:\n  body:\n    application/json:\n      type: Order\n    application/xml:\n      type: Order`'],
+        ['URI parameters', 'The name in braces in the path. It is valid without a declaration. Declare it under `uriParameters` to add a type or facets. A facet is a rule on a value, such as `minLength`', '`/orders/{orderId}:\n  uriParameters:\n    orderId:\n      type: string\n      minLength: 8\n  get:`'],
+        ['Query parameters', 'Required unless the name ends in `?` or `required: false` is set. A plain value after the name is its type', '`get:\n  queryParameters:\n    status:\n      enum: [ NEW, PAID ]\n    page?:\n      type: integer\n      default: 1\n    q?: string`'],
+        ['Headers', 'Same form as query parameters. Allowed on a method and on a response', '`get:\n  headers:\n    X-Correlation-Id: string\n  responses:\n    200:\n      headers:\n        X-Total-Count?: integer`'],
+      ],
+    },
+    {
+      title: 'Data types',
+      note: 'Built-in types: `string`, `number`, `integer`, `boolean`, `date-only`, `time-only`, `datetime-only`, `datetime`, `file`, `nil`, `any`, `object`, `array`.',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['Declaring a type', 'Declare under `types`. With no `type` key, a declaration with `properties` is an object, one with `items` is an array, and anything else is a string. Properties are required by default', '`types:\n  Order:\n    properties:\n      id: string\n      total:\n        type: number\n        minimum: 0\n      status:\n        enum: [ NEW, PAID ]`'],
+        ['Facets by type', 'String: `pattern`, `minLength`, `maxLength`. Number and integer: `minimum`, `maximum`, `multipleOf`, `format`. Array: `items`, `minItems`, `maxItems`, `uniqueItems`. Object: `properties`, `minProperties`, `maxProperties`, `additionalProperties`. File: `fileTypes`, `minLength`, `maxLength`', '`Sku:\n  type: string\n  pattern: ^[A-Z]{3}[0-9]{4}$\nQuantity:\n  type: integer\n  minimum: 1\n  maximum: 99`'],
+        ['Optional key', '`?` on the name. The key can be missing. If present it must match the type, so `null` fails', '`note?: string`'],
+        ['Nullable value', '`?` on the type, short for `string | nil`. The key must be there, and its value can be `null`', '`note: string?`'],
+        ['Optional and nullable', 'The key can be missing, and its value can be `null`', '`note?: string?`'],
+        ['Arrays', '`Order[]` is short for `type: array` with `items: Order`', '`orders: Order[]\ntags:\n  type: array\n  items: string\n  minItems: 1\n  uniqueItems: true`'],
+        ['Unions', 'A union lists types with `|`, and the value must match at least one. `Card | Bank[]` is a Card or an array of Bank. `(Card | Bank)[]` is an array of either', '`payment: Card | Bank\nhistory: (Card | Bank)[]`'],
+        ['Inheritance', '`type` names the parent. The child gets the parent properties and adds its own. `type: [ A, B ]` inherits from both. Objects accept extra keys unless `additionalProperties: false` is set', '`Party:\n  properties:\n    id: string\nCustomer:\n  type: Party\n  additionalProperties: false\n  properties:\n    name: string`'],
+      ],
+    },
+    {
+      title: 'Examples',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['One example', '`example` holds one value, and it is checked against the type. `example` and `examples` cannot sit together on one node', '`Order:\n  properties:\n    id: string\n  example:\n    id: A1`'],
+        ['Named examples', '`examples` maps a name to a value. An entry can also use `value` with `displayName` or `description`. `strict: false` turns off the check for that entry', '`examples:\n  first:\n    id: A1\n  second:\n    displayName: Second order\n    value:\n      id: A2`'],
+        ['JSON as text', 'JSON in a quoted string is rejected as an object example. A `|` block is fine', '`example: |\n  { "id": "A1" }`'],
+      ],
+    },
+    {
+      title: 'Traits and resource types',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['Trait', 'A trait is a reusable part of a method, such as paging parameters. `is` applies a list of traits to a method, or to a resource for all its methods', '`traits:\n  paged:\n    queryParameters:\n      page?: integer\n/orders:\n  get:\n    is: [ paged ]`'],
+        ['Trait with parameters', '`<<name>>` marks a parameter. The caller passes values as a map after the trait name', '`traits:\n  capped:\n    queryParameters:\n      size?:\n        type: integer\n        maximum: <<max>>\n/orders:\n  get:\n    is: [ capped: { max: 100 } ]`'],
+        ['Resource type', 'A resource type is a template for a whole resource. A resource takes one `type` but many traits. `?` on a method name in the template means the method is added only if the resource defines it. Here `/orders` gets `get` and `post`, and `/archive` gets `get` only', '`resourceTypes:\n  collection:\n    get:\n      responses:\n        200:\n          body:\n            type: <<item>>[]\n    post?:\n      body:\n        type: <<item>>\n/orders:\n  type: { collection: { item: Order } }\n  post:\n/archive:\n  type: { collection: { item: Order } }`'],
+        ['Reserved parameters', '`<<resourcePath>>` and `<<resourcePathName>>` work in both. `<<methodName>>` works in traits. Functions change a value: `!singularize`, `!pluralize`, `!uppercase`, `!lowercase`, `!uppercamelcase`, `!lowercamelcase`', '`type: <<resourcePathName | !singularize | !uppercamelcase>>`'],
+      ],
+    },
+    {
+      title: 'Security',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['Security scheme', 'Declare under `securitySchemes`. `type` is `OAuth 1.0`, `OAuth 2.0`, `Basic Authentication`, `Digest Authentication`, `Pass Through`, or a custom name starting `x-`. `describedBy` documents what the scheme adds to a request and response. `settings` holds its URLs, grants and scopes', '`securitySchemes:\n  oauth:\n    type: OAuth 2.0\n    describedBy:\n      headers:\n        Authorization: string\n      responses:\n        401:\n          description: Bad or expired token\n    settings:\n      authorizationUri: https://id.example.com/authorize\n      accessTokenUri: https://id.example.com/token\n      authorizationGrants: [ authorization_code ]\n      scopes: [ orders:read ]`'],
+        ['`securedBy`', 'Takes a list, on the root, a resource or a method. The root value covers every method, and a method value replaces it. `null` means no security, so `[ null ]` is a public method and `[ null, oauth ]` makes the token optional. Scopes go in a map after the scheme name. If the scheme `settings` list scopes, only those are accepted', '`securedBy: [ oauth ]\n/orders:\n  get:\n    securedBy: [ oauth: { scopes: [ orders:read ] } ]\n/health:\n  get:\n    securedBy: [ null ]\n/catalog:\n  get:\n    securedBy: [ null, oauth ]`'],
+      ],
+    },
+    {
+      title: 'Annotations, libraries and fragments',
+      columns: RAML_COLUMNS,
+      rows: [
+        ['Annotation', 'An annotation is your own metadata on a part of the API. Declare it under `annotationTypes`, then use the name in parentheses. `allowedTargets` limits where it can go, and any other place is rejected', '`annotationTypes:\n  owner:\n    type: string\n    allowedTargets: [ Method ]\n/orders:\n  get:\n    (owner): team-a`'],
+        ['Library', 'A library is a file of declarations to share. It has no `title` and no resources. `usage` says what it is for', '`#%RAML 1.0 Library\nusage: Shared order types\ntypes:\n  Order:\n    properties:\n      id: string\ntraits:\n  paged:\n    queryParameters:\n      page?: integer`'],
+        ['`uses`', 'Takes a plain path, never `!include`. The key is a prefix for every name from the library. Names a library pulls in through its own `uses` are not visible in your file', '`uses:\n  lib: libs/common.raml\n/orders:\n  get:\n    is: [ lib.paged ]\n    responses:\n      200:\n        body:\n          type: lib.Order[]`'],
+        ['Fragment', 'A fragment is a file that holds one item, and its header names the kind: `DataType`, `Trait`, `ResourceType`, `SecurityScheme`, `NamedExample`, `AnnotationTypeDeclaration`, `DocumentationItem`', '`#%RAML 1.0 DataType\nproperties:\n  id: string`'],
+        ['`!include`', 'Puts a file in at that spot, as the value of a key. The fragment kind must fit the place. A library cannot come in this way', '`types:\n  Order: !include types/order.raml\ntraits:\n  paged: !include traits/paged.raml`'],
+        ['Named example fragment', 'Holds a map of examples. Bring it in with `examples: !include examples/orders.raml`', '`#%RAML 1.0 NamedExample\nfirst:\n  id: A1\nsecond:\n  id: A2`'],
+      ],
+    },
+  ],
+}
+
+export const CHEATSHEETS = [connectors, errors, dataweave, raml, policies, security, platform, deployment]

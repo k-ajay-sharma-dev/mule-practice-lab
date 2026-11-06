@@ -42,7 +42,7 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'prop', typeName: 'CardPayment', prop: 'kind', want: { required: true, enum: 'CARD' } },
+          { type: 'prop', typeName: 'CardPayment', prop: 'kind', want: { required: true, enum: { exactly: ['CARD'] } } },
           { type: 'prop', typeName: 'CardPayment', prop: 'cardToken', want: { type: 'string', required: true } },
         ],
       },
@@ -52,7 +52,7 @@ types:
       rule: {
         type: 'all',
         rules: [
-          { type: 'prop', typeName: 'DirectDebit', prop: 'kind', want: { required: true, enum: 'DIRECT_DEBIT' } },
+          { type: 'prop', typeName: 'DirectDebit', prop: 'kind', want: { required: true, enum: { exactly: ['DIRECT_DEBIT'] } } },
           { type: 'prop', typeName: 'DirectDebit', prop: 'mandateId', want: { type: 'string', required: true } },
         ],
       },

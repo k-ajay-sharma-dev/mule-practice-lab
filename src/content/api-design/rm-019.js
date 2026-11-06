@@ -47,6 +47,7 @@ types:
         name: 'clientIdEnforcement',
         schemeType: 'Pass Through',
         has: ['describedBy.headers.client_id', 'describedBy.headers.client_secret', 'describedBy.responses.401'],
+        values: { 'describedBy.headers.client_id': { set: true }, 'describedBy.headers.client_secret': { set: true } },
       },
     },
     {

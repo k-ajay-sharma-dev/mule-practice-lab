@@ -148,6 +148,25 @@ assert.equal(guard({ type: 'secured', path: '/closed', method: 'get', scheme: 'o
 assert.ok(guard({ type: 'scheme', name: 'o', values: { 'settings.accessTokenUri': 'https://a/token' } }))
 assert.equal(guard({ type: 'scheme', name: 'o', values: { 'settings.accessTokenUri': 'https://b/token' } }), false)
 
+// Types compare exactly and follow an alias, but never a subtype
+const typed = parseRaml(head + 'types:\n  Id:\n    type: string\n    minLength: 2\n  Ids:\n    type: Id[]\n  Base:\n    properties:\n      a: string\n  Sub:\n    type: Base\n    properties:\n      b: string\n  Holder:\n    properties:\n      id: Id\n      sub: Sub\n      x:\n        type: string\n        xml:\n          attribute: true\n      y: string\n/h:\n  get:\n    responses:\n      200:\n        body:\n          type: Ids\n')
+const typeRule = (r) => runRamlChecks(typed, [{ label: 'x', rule: r }])[0].pass
+const holder = (prop, want) => typeRule({ type: 'prop', typeName: 'Holder', prop, want })
+assert.ok(holder('id', { type: 'string', minLength: 2 }))
+assert.ok(holder('id', { type: 'Id' }))
+assert.ok(holder('sub', { type: 'Sub' }))
+assert.equal(holder('sub', { type: 'Base' }), false)
+assert.equal(holder('id', { type: 'str' }), false)
+assert.ok(typeRule({ type: 'response', path: '/h', method: 'get', status: '200', typeIs: 'Id[]' }))
+assert.ok(typeRule({ type: 'response', path: '/h', method: 'get', status: '200', typeIs: 'Ids' }))
+assert.equal(typeRule({ type: 'response', path: '/h', method: 'get', status: '200', typeIs: 'Id' }), false)
+// A pattern that is missing passes nothing, is keeps the case, holds looks inside a facet
+assert.equal(holder('y', { pattern: { accepts: ['a'] } }), false)
+assert.ok(typeRule({ type: 'root', key: 'title', want: { is: 'T' } }))
+assert.equal(typeRule({ type: 'root', key: 'title', want: { is: 't' } }), false)
+assert.ok(holder('x', { xml: { holds: { attribute: true } } }))
+assert.equal(holder('y', { xml: { holds: { attribute: true } } }), false)
+
 // Sample-based patterns, own examples, and what must come from a resource type
 const rules = parseRaml(`${head}types:\n  R:\n    type: string\n    pattern: ^[A-Z]{2}$\n    example: AB\nresourceTypes:\n  c:\n    get:\n      responses:\n        200:\n          description: x\n/a:\n  type: c\n  get:\n    responses:\n      200:\n        body:\n          type: R\n/b:\n  type: c\n`)
 const says2 = (r) => runRamlChecks(rules, [{ label: 'x', rule: r }])[0].pass

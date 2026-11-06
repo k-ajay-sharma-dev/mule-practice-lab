@@ -106,7 +106,7 @@ resourceTypes:
       rule: {
         type: 'all',
         rules: [
-          { type: 'scheme', name: 'oauth2', schemeType: 'OAuth 2.0', has: ['settings.accessTokenUri', 'settings.authorizationGrants'] },
+          { type: 'scheme', name: 'oauth2', schemeType: 'OAuth 2.0', has: ['settings.accessTokenUri', 'settings.authorizationGrants'], values: { 'settings.accessTokenUri': 'https://auth.example.com/token', 'settings.authorizationGrants': 'client_credentials' } },
           { type: 'secured', path: '/enrolments', method: 'get', scheme: 'oauth2' },
           { type: 'secured', path: '/enrolments', method: 'post', scheme: 'oauth2' },
           { type: 'secured', path: '/enrolments/{}', method: 'get', scheme: 'oauth2' },
