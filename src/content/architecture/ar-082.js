@@ -18,6 +18,8 @@ export default {
       { label: 'The S3 copy is made from the replication queue, not in the user\'s request', rule: { type: 'path', from: ['queue', 'cloud-queue', 'event-stream', 'topic'], to: 's3-bucket' } },
       { label: 'Failed replications go to a dead-letter queue', rule: { type: 'edge', from: ['queue', 'cloud-queue', 'event-stream', 'topic', 'process-api'], to: 'dlq' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

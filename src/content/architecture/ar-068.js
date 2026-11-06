@@ -18,6 +18,7 @@ export default {
       { label: 'Messages that keep failing are moved to a dead-letter queue', rule: { type: 'edge', from: ['process-api', 'queue'], to: 'dlq' } },
       { label: 'Price changes are published from HQ asynchronously', rule: { type: 'edge', from: 'process-api', to: ['topic', 'queue', 'event-stream'], kind: 'async' } },
       { label: 'Price changes reach the store POS', rule: { type: 'path', from: 'process-api', to: 'pos' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

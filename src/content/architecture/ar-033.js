@@ -16,6 +16,7 @@ export default {
       { label: 'The event fans out to the three consumers', rule: { type: 'edge', from: ['topic', 'event-stream'], to: ['queue', 'process-api', 'system-api'], min: 3 } },
       { label: 'Consumers that need the content fetch it from storage by reference', rule: { type: 'edge', from: ['process-api', 'system-api'], to: 'file-store', min: 2 } },
       { label: 'The core claims system is reached only through a System API', rule: { type: 'only-via', target: ['legacy', 'saas', 'erp'], from: 'system-api' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

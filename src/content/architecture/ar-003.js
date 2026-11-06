@@ -18,6 +18,8 @@ export default {
       { label: 'Billing deduplicates with a persistent store (Object Store or unique DB key)', rule: { type: 'edge', from: { type: ['process-api', 'system-api'], label: ['bill'] }, to: ['cache', 'database'] } },
       { label: 'Analytics events reach the data lake', rule: { type: 'path', from: 'topic', to: 'data-warehouse' } },
       { label: 'The Experience API never writes to consumer stores directly', rule: { type: 'no-edge', from: 'experience-api', to: ['database', 'data-warehouse', 'cache'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

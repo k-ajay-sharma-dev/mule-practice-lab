@@ -17,6 +17,7 @@ export default {
       { label: 'Claim files are stored in file/object storage', rule: { type: 'edge', from: ['experience-api', 'process-api', 'system-api', 'mobile-app', 'web-app'], to: 'file-store' } },
       { label: 'Claim ingestion is handed off asynchronously instead of running inside the HTTP call', rule: { type: 'edge', from: ['experience-api', 'process-api'], to: ['queue', 'topic'], kind: 'async' } },
       { label: 'Channels never call backends directly', rule: { type: 'no-edge', from: ['web-app', 'mobile-app'], to: ['external-api', 'legacy', 'erp', 'crm', 'saas', 'data-warehouse', 'database'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

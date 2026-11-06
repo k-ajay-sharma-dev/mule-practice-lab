@@ -17,6 +17,7 @@ export default {
       { label: 'End users log in through the identity provider', rule: { type: 'edge', from: ['mobile-app', 'web-app', 'experience-api', 'api-gateway'], to: 'identity-provider' } },
       { label: 'The order list is cached with a short TTL at the Experience layer', rule: { type: 'edge', from: 'experience-api', to: 'cache' } },
       { label: 'The order backend is reached only through a System API', rule: { type: 'only-via', target: ['erp', 'database', 'crm', 'saas', 'legacy'], from: 'system-api' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

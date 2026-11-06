@@ -14,6 +14,7 @@ export default {
       { label: 'The load balancer reaches two copies of the API', rule: { type: 'each', of: 'experience-api', min: 2, edgeFrom: 'load-balancer' } },
       { label: 'The copies are reached only through the load balancer', rule: { type: 'only-via', target: 'experience-api', from: 'load-balancer' } },
       { label: 'Both copies call the same Process API', rule: { type: 'each', of: 'experience-api', min: 2, edgeTo: 'process-api' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
     ],
     reference: diagram(
       {

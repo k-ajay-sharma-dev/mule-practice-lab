@@ -18,6 +18,8 @@ export default {
       { label: 'Availability reads during checkout come from a cache', rule: { type: 'edge', from: ['process-api', 'experience-api', 'system-api'], to: 'cache' } },
       { label: 'Payment authorisation is reached only through a System API', rule: { type: 'only-via', target: 'payment', from: 'system-api' } },
       { label: 'Orders that keep failing go to a dead-letter queue', rule: { type: 'edge', from: ['process-api', 'queue'], to: 'dlq' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

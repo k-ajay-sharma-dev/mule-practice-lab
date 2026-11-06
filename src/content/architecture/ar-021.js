@@ -18,6 +18,7 @@ export default {
       { label: 'Outbound ASNs/invoices flow from SAP back to the partner gateway', rule: { type: 'path', from: 'erp', to: 'api-gateway' } },
       { label: 'Inbound and outbound documents are tracked (control numbers, PO number)', rule: { type: 'edge', to: 'monitoring', min: 2 } },
       { label: 'Documents that keep failing go to a dead-letter queue', rule: { type: 'edge', to: 'dlq' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

@@ -17,6 +17,8 @@ export default {
       { label: 'The API is reached only through the policy gateway', rule: { type: 'only-via', target: 'experience-api', from: 'api-gateway' } },
       { label: 'The gateway validates JWTs locally and never calls the IdP per request', rule: { type: 'no-edge', from: 'api-gateway', to: 'identity-provider' } },
       { label: 'The payments backend is reached only through a System API', rule: { type: 'only-via', target: ['database', 'legacy', 'erp'], from: 'system-api' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

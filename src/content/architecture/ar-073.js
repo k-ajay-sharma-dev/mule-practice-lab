@@ -18,6 +18,7 @@ export default {
       { label: 'WMS and store POS are reached only through System APIs', rule: { type: 'only-via', target: ['wms', 'pos'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'A marketplace order reaches the OMS end to end', rule: { type: 'path', from: 'partner', to: { type: ['saas', 'erp'], label: ['oms', 'order management'] } } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

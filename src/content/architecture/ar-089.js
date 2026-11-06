@@ -17,6 +17,7 @@ export default {
       { label: 'The Spring Boot service is reached only through a proxy', rule: { type: 'only-via', target: 'system-api', from: 'api-gateway' } },
       { label: 'Partners have no direct route to the vendor service', rule: { type: 'no-edge', from: 'partner', to: 'legacy' } },
       { label: 'Monitoring data goes from the proxy tier to Anypoint Monitoring', rule: { type: 'edge', from: 'api-gateway', to: 'monitoring' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
     ],
     reference: diagram(
       {

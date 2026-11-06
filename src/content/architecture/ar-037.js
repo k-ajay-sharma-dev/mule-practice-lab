@@ -18,6 +18,9 @@ export default {
       { label: 'The card processor is reached only through a System API', rule: { type: 'only-via', target: ['saas', 'external-api'], from: 'system-api' } },
       { label: 'Transaction events for push notifications are published asynchronously, off the request path', rule: { type: 'edge', from: ['process-api', 'system-api'], to: ['queue', 'topic', 'event-stream'], kind: 'async' } },
       { label: 'The mobile app reaches core banking end to end', rule: { type: 'path', from: 'mobile-app', to: ['legacy', 'erp', 'database'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

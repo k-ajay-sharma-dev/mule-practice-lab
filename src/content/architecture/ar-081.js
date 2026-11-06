@@ -18,6 +18,8 @@ export default {
       { label: 'SQL Server is reached only through a System API', rule: { type: 'only-via', target: 'sql-server', from: 'system-api' } },
       { label: 'Separate System APIs for the two databases', rule: { type: 'node', match: 'system-api', min: 2 } },
       { label: 'Partners never write to the databases directly', rule: { type: 'no-edge', from: 'partner', to: ['oracle-db', 'sql-server'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

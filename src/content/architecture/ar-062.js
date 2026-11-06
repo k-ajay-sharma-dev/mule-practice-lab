@@ -18,6 +18,7 @@ export default {
       { label: 'Experience APIs are unchanged and keep calling Process APIs', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'The mobile app still reaches SAP end to end', rule: { type: 'path', from: 'mobile-app', to: 'erp' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

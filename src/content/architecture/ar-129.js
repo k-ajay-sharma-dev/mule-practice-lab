@@ -15,6 +15,7 @@ export default {
       { label: 'The producer puts each booking on the queue', rule: { type: 'edge', from: 'experience-api', to: 'queue', kind: 'async' } },
       { label: 'The consumer takes bookings from the queue', rule: { type: 'edge', from: 'queue', to: 'process-api', kind: 'async' } },
       { label: 'The producer never calls the consumer directly', rule: { type: 'no-edge', from: 'experience-api', to: 'process-api' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

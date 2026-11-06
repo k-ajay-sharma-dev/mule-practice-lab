@@ -18,6 +18,8 @@ export default {
       { label: 'Payments (commands) go to core banking via a System API', rule: { type: 'path', from: 'process-api', to: 'legacy', via: 'system-api' } },
       { label: 'The read store is read by the home API and written by the projector and the payment command (read-your-own-writes)', rule: { type: 'edge', from: ['process-api', 'experience-api', 'batch-job'], to: 'database', min: 3 } },
       { label: 'A reconciliation job checks the read store against the system of record', rule: { type: 'edge', from: 'batch-job', to: ['database', 'system-api'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

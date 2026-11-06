@@ -14,6 +14,7 @@ export default {
       { label: 'One System API is shared by both', rule: { type: 'node', match: 'system-api', min: 1, max: 1 } },
       { label: 'The System API connects to the database', rule: { type: 'edge', from: 'system-api', to: 'database' } },
       { label: 'The Process APIs never connect to the database directly', rule: { type: 'no-edge', from: 'process-api', to: 'database' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

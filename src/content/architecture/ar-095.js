@@ -18,6 +18,8 @@ export default {
       { label: 'The migrated Process API calls back through the DLB to reach CloudHub 1.0', rule: { type: 'edge', from: 'process-api', to: { type: 'load-balancer', label: ['dlb', 'dedicated'] } } },
       { label: 'The ERP is reached only through a System API', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
       { label: 'Clients never call a System API directly', rule: { type: 'no-edge', from: ['partner', 'web-app'], to: 'system-api' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

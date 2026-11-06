@@ -17,6 +17,8 @@ export default {
       { label: 'Source systems never call Salesforce once per event', rule: { type: 'no-edge', from: ['saas', 'erp'], to: ['system-api', 'crm'] } },
       { label: 'Reference data and the throttle flag are cached', rule: { type: 'edge', from: ['process-api', 'system-api'], to: 'cache' } },
       { label: 'API allocation usage is monitored and alerted', rule: { type: 'edge', to: 'monitoring' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

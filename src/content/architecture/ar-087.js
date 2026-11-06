@@ -17,6 +17,7 @@ export default {
       { label: 'The legacy system is reached only through a System API', rule: { type: 'only-via', target: 'legacy', from: 'system-api' } },
       { label: 'The third-party API is reached only through a System API', rule: { type: 'only-via', target: 'external-api', from: 'system-api' } },
       { label: 'Partner traffic reaches the legacy system end to end through the load balancer', rule: { type: 'path', from: 'partner', to: 'legacy', via: 'load-balancer' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
     ],
     reference: diagram(
       {

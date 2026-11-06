@@ -16,6 +16,8 @@ export default {
       { label: 'A Customer Process API (the hub) consumes the change events', rule: { type: 'edge', from: ['topic', 'event-stream', 'queue'], to: 'process-api' } },
       { label: 'The hub applies owned attributes to all three systems via their System APIs', rule: { type: 'edge', from: 'process-api', to: 'system-api', min: 3 } },
       { label: 'A cross-reference store maps the global customer ID to each local ID', rule: { type: 'edge', from: 'process-api', to: ['database', 'cache'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

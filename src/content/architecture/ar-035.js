@@ -17,6 +17,7 @@ export default {
       { label: 'The balance (Billing System API) is never cached', rule: { type: 'no-edge', from: { type: 'system-api', label: ['billing', 'balance'] }, to: 'cache' } },
       { label: 'Backends (PIM, billing, CRM) are reached only through System APIs', rule: { type: 'only-via', target: ['saas', 'external-api', 'erp', 'crm', 'database', 'legacy'], from: 'system-api' } },
       { label: 'The Experience API never calls System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

@@ -15,6 +15,7 @@ export default {
       { label: 'There are two subscribers', rule: { type: 'node', match: 'process-api', min: 2 } },
       { label: 'Every subscriber gets its messages from the topic', rule: { type: 'each', of: 'process-api', edgeFrom: 'topic', kind: 'async' } },
       { label: 'The publisher never calls a subscriber directly', rule: { type: 'no-edge', from: 'system-api', to: 'process-api' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

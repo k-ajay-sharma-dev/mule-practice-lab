@@ -18,6 +18,7 @@ export default {
       { label: 'The carrier API is reached only through a System API', rule: { type: 'only-via', target: 'external-api', from: 'system-api' } },
       { label: 'Order status is cached to cut SAP calls', rule: { type: 'edge', from: ['process-api', 'system-api', 'experience-api'], to: 'cache' } },
       { label: 'The mobile app reaches SAP end to end', rule: { type: 'path', from: 'mobile-app', to: 'erp' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

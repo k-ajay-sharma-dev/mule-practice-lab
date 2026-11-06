@@ -17,6 +17,8 @@ export default {
       { label: 'The read store is fed from the mainframe changes', rule: { type: 'path', from: 'legacy', to: 'database' } },
       { label: 'Address changes (writes) go to the mainframe through the System API', rule: { type: 'edge', from: 'system-api', to: ['legacy', 'queue'] } },
       { label: 'Only the System API (or its MQ request queue) touches the mainframe', rule: { type: 'only-via', target: 'legacy', from: ['system-api', 'queue'] } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {
