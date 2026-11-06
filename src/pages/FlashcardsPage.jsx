@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Markdown from '../components/Markdown.jsx'
-import { cardsOf, deckByKey, DECKS, shuffle } from '../data/cards.js'
+import MultiPick from '../components/MultiPick.jsx'
+import { cardsOf, DECK_OPTIONS, deckLists, shuffle } from '../data/cards.js'
 import { categoryBySlug } from '../data/categories.js'
 import { loadProblems } from '../data/problems.js'
 import { loadBoxes, nextBox, saveBoxes } from '../store/flash.js'
+import { evenMix } from '../study/mix.js'
 
 const ROUND_SIZE = 20
 
 export default function FlashcardsPage() {
-  const [deckKey, setDeckKey] = useState('all')
+  const [deckKeys, setDeckKeys] = useState([])
   const [round, setRound] = useState(null) // { cards, index, flipped, again, good }
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -19,9 +21,9 @@ export default function FlashcardsPage() {
     setLoading(true)
     setFailed(false)
     try {
-      const deck = deckByKey(deckKey).pick().filter((p) => p.cards > 0)
+      const lists = deckLists(deckKeys).map((list) => list.filter((p) => p.cards > 0))
       // load a random slice of the deck's problems, then prefer the cards you know least
-      const loaded = await loadProblems(shuffle(deck).slice(0, 40).map((p) => p.id))
+      const loaded = await loadProblems(evenMix(lists, shuffle).slice(0, 40).map((p) => p.id))
       const cards = shuffle(loaded.filter(Boolean).flatMap(cardsOf))
         .sort((a, b) => (boxes[a.id] ?? 0) - (boxes[b.id] ?? 0))
         .slice(0, ROUND_SIZE)
@@ -64,16 +66,7 @@ export default function FlashcardsPage() {
           </div>
         )}
         <div className="flash-setup">
-          <label className="field">
-            Deck
-            <select className="input" value={deckKey} onChange={(e) => setDeckKey(e.target.value)}>
-              {DECKS.map((d) => (
-                <option key={d.key} value={d.key}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MultiPick label="Deck" options={DECK_OPTIONS} value={deckKeys} onChange={setDeckKeys} />
           <button className="btn btn-primary" onClick={start} disabled={loading}>
             {loading ? 'Shuffling…' : round ? 'Another round' : `Start a round of ${ROUND_SIZE}`}
           </button>

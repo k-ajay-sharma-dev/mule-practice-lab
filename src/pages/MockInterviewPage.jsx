@@ -5,8 +5,9 @@ import useRemaining from '../components/useRemaining.js'
 import { categoryBySlug } from '../data/categories.js'
 import { EXERCISE_LABELS, exerciseOf } from '../data/exercises.js'
 import { problemById, problems } from '../data/problems.js'
-import { trackBySlug, trackProblems, TRACKS } from '../data/tracks.js'
-import { LEVEL_SETS } from '../quiz/exam.js'
+import MultiPick from '../components/MultiPick.jsx'
+import { TRACK_OPTIONS, TRACKS, trackLists } from '../data/tracks.js'
+import { DEFAULT_LEVELS, evenMix, fitsLevels, LEVEL_OPTIONS } from '../study/mix.js'
 import { checkRunner } from '../runner/client.js'
 import { writeLocal } from '../store/local.js'
 import { scheduleReview, statusOf, useProgress } from '../store/progress.js'
@@ -54,11 +55,11 @@ const solvedInRound = (entry, startIso, endIso) => {
 }
 const roundEnd = (s) => new Date(new Date(s.startedIso).getTime() + s.minutes * 60000).toISOString()
 
-function buildRound({ levels, track, skipCode }, progress) {
-  const pool = track ? trackProblems(trackBySlug.get(track)) : problems
+function buildRound({ levels, tracks, skipCode }, progress) {
+  const pool = evenMix(trackLists(tracks, problems))
   return ROUND.filter((type) => !(skipCode && type === 'code'))
     .map((type) => {
-      const ofType = (list) => list.filter((p) => exerciseOf(p) === type && LEVEL_SETS[levels].includes(p.level))
+      const ofType = (list) => list.filter((p) => exerciseOf(p) === type && fitsLevels(levels)(p))
       // prefer unsolved problems in the chosen focus, then anything of that type
       const candidates = [ofType(pool), ofType(problems)]
       for (const list of candidates) {
@@ -106,8 +107,8 @@ export default function MockInterviewPage() {
 function Setup({ history, onStart }) {
   const progress = useProgress()
   const [minutes, setMinutes] = useState(45)
-  const [levels, setLevels] = useState('mid')
-  const [track, setTrack] = useState('')
+  const [levels, setLevels] = useState(DEFAULT_LEVELS)
+  const [tracks, setTracks] = useState([])
   const [runner, setRunner] = useState('checking')
 
   useEffect(() => {
@@ -116,7 +117,7 @@ function Setup({ history, onStart }) {
 
   function start() {
     // a runner still waking up counts as available; only a definite "offline" drops the DataWeave problem
-    const items = buildRound({ levels, track, skipCode: runner === 'offline' }, progress)
+    const items = buildRound({ levels, tracks, skipCode: runner === 'offline' }, progress)
     onStart({ items, current: 0, minutes, startedIso: new Date().toISOString() })
   }
 
@@ -141,25 +142,8 @@ function Setup({ history, onStart }) {
             ))}
           </select>
         </label>
-        <label className="field">
-          Difficulty
-          <select className="input" value={levels} onChange={(e) => setLevels(e.target.value)}>
-            <option value="any">Any level</option>
-            <option value="mid">Intermediate and up</option>
-            <option value="senior">Advanced and expert (senior / architect)</option>
-          </select>
-        </label>
-        <label className="field">
-          Focus
-          <select className="input" value={track} onChange={(e) => setTrack(e.target.value)}>
-            <option value="">Everything</option>
-            {TRACKS.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
+        <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
       </div>
       {runner === 'offline' && (
         <p className="warn-text small">

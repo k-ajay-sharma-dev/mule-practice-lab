@@ -8,12 +8,6 @@ export const MINUTES_PER_QUESTION = 2
 export const LENGTHS = [20, 40, 60]
 export const RETAKE_FOCUS = 'Missed questions'
 
-export const LEVEL_SETS = {
-  any: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'],
-  mid: ['INTERMEDIATE', 'ADVANCED', 'EXPERT'],
-  senior: ['ADVANCED', 'EXPERT'],
-}
-
 export const itemKey = (item) => `${item.id}:${item.q}`
 
 export function shuffled(list, random = Math.random) {

@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import Markdown from '../components/Markdown.jsx'
 import QuestionCard, { fitsQuestion, initialResponse } from '../components/quiz/QuestionCard.jsx'
 import useRemaining from '../components/useRemaining.js'
+import MultiPick from '../components/MultiPick.jsx'
 import { loadProblems, problemById, problems } from '../data/problems.js'
-import { trackBySlug, trackProblems, TRACKS } from '../data/tracks.js'
+import { TRACK_OPTIONS, trackLists, trackProblems, TRACKS, tracksLabel } from '../data/tracks.js'
 import {
   chooseQuestions,
   examSummary,
   itemKey,
   LENGTHS,
-  LEVEL_SETS,
   MINUTES_PER_QUESTION,
   missedProblems,
   PASS_MARK,
@@ -23,6 +23,7 @@ import {
 } from '../quiz/exam.js'
 import { writeLocal } from '../store/local.js'
 import { scheduleReview } from '../store/progress.js'
+import { DEFAULT_LEVELS, evenMix, fitsLevels, LEVEL_OPTIONS } from '../study/mix.js'
 import { BLINK_MS, LOW_MS } from '../study/timer.js'
 
 // A timed exam across every quiz on the site: one question at a time, no feedback until the end, then a score by topic.
@@ -46,8 +47,9 @@ function readHistory() {
   return Array.isArray(h) ? h.filter((x) => x && typeof x.date === 'string' && Array.isArray(x.results)) : []
 }
 
-const quizPool = (levels, track) =>
-  (track ? trackProblems(trackBySlug.get(track)) : problems).filter((p) => p.exercise === 'quiz' && LEVEL_SETS[levels].includes(p.level))
+// one list of quizzes per chosen topic
+const quizLists = (levels, tracks) =>
+  trackLists(tracks, problems).map((list) => list.filter((p) => p.exercise === 'quiz' && fitsLevels(levels)(p)))
 
 const newSession = (items, focus) => ({
   items,
@@ -133,24 +135,25 @@ export default function ExamPage() {
 
 function Setup({ history, onStart }) {
   const [count, setCount] = useState(LENGTHS[0])
-  const [levels, setLevels] = useState('mid')
-  const [track, setTrack] = useState('')
+  const [levels, setLevels] = useState(DEFAULT_LEVELS)
+  const [tracks, setTracks] = useState([])
   const [details, setDetails] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const pool = useMemo(() => quizPool(levels, track), [levels, track])
+  const lists = useMemo(() => quizLists(levels, tracks), [levels, tracks])
+  const poolSize = useMemo(() => evenMix(lists).length, [lists])
 
   async function start() {
     setBusy(true)
     setFailed(false)
     try {
-      const loaded = (await loadProblems(shuffled(pool).slice(0, count).map((p) => p.id))).filter(Boolean)
+      const loaded = (await loadProblems(evenMix(lists, shuffled).slice(0, count).map((p) => p.id))).filter(Boolean)
       const seen = seenInHistory(history)
       const chosen = chooseQuestions(loaded, count, seen, Math.random, (q) => details || !q.detail)
       // a focus made up only of detail questions still gets an exam
       const items = chosen.length ? chosen : chooseQuestions(loaded, count, seen)
-      onStart(newSession(items, trackBySlug.get(track)?.title ?? 'Everything'))
+      onStart(newSession(items, tracksLabel(tracks)))
     } catch {
       setFailed(true)
       setBusy(false)
@@ -181,25 +184,8 @@ function Setup({ history, onStart }) {
             ))}
           </select>
         </label>
-        <label className="field">
-          Difficulty
-          <select className="input" value={levels} onChange={(e) => setLevels(e.target.value)}>
-            <option value="any">Any level</option>
-            <option value="mid">Intermediate and up</option>
-            <option value="senior">Advanced and expert (senior / architect)</option>
-          </select>
-        </label>
-        <label className="field">
-          Focus
-          <select className="input" value={track} onChange={(e) => setTrack(e.target.value)}>
-            <option value="">Everything</option>
-            {TRACKS.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
+        <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
       </div>
 
       <label className="exam-details small muted">
@@ -207,9 +193,9 @@ function Setup({ history, onStart }) {
         Include detail questions: exact limits, defaults and names you can only learn by reading the docs
       </label>
 
-      {pool.length === 0 && <p className="warn-text small">No quizzes match this focus and difficulty. Try a wider choice.</p>}
+      {poolSize === 0 && <p className="warn-text small">No quizzes match this focus and difficulty. Try a wider choice.</p>}
       {failed && <p className="warn-text small">Couldn't load the questions. Check your connection and try again.</p>}
-      <button className="btn btn-primary" onClick={start} disabled={busy || pool.length === 0}>
+      <button className="btn btn-primary" onClick={start} disabled={busy || poolSize === 0}>
         {busy ? 'Preparing…' : 'Start the exam'}
       </button>
 

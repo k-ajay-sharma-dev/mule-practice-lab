@@ -1995,3 +1995,63 @@
   border-radius: 6px;
   color: var(--muted);
 }
+
+/* a dropdown of checkboxes for choosing several topics or levels */
+.multi-pick {
+  position: relative;
+  min-width: 0;
+}
+.multi-pick-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.multi-pick-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.multi-pick-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  width: max(100%, 260px);
+  max-width: calc(100vw - 32px);
+  max-height: 300px;
+  margin-top: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-weight: 400;
+}
+.multi-pick-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.multi-pick-group {
+  margin: 8px 12px 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.multi-pick-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.multi-pick-option:hover {
+  background: var(--surface-2);
+}

@@ -5,7 +5,9 @@ import Markdown from '../components/Markdown.jsx'
 import useSpeechText, { canListen } from '../components/useSpeechText.js'
 import useVoiceRecorder, { canRecord } from '../components/useVoiceRecorder.js'
 import { RecordingLive, SavedAnswers, VoiceClip } from '../components/VoiceRecording.jsx'
-import { deckByKey, DECKS, followUpCards, shuffle } from '../data/cards.js'
+import MultiPick from '../components/MultiPick.jsx'
+import { DECK_OPTIONS, deckLists, decksLabel, followUpCards, shuffle } from '../data/cards.js'
+import { evenMix } from '../study/mix.js'
 import { categoryBySlug } from '../data/categories.js'
 import { loadProblems } from '../data/problems.js'
 import { loadBoxes, nextBox, saveBoxes } from '../store/flash.js'
@@ -70,7 +72,7 @@ function Countdown({ seconds, onEnd }) {
 }
 
 export default function InterviewPage() {
-  const [deckKey, setDeckKey] = useState('all')
+  const [deckKeys, setDeckKeys] = useState([])
   const [count, setCount] = useState(COUNTS[0])
   const [seconds, setSeconds] = useState(TIMES[1])
   const [aloud, setAloud] = useState(false)
@@ -115,8 +117,8 @@ export default function InterviewPage() {
     if (record) await voice.open()
     try {
       const boxes = loadBoxes()
-      const deck = deckByKey(deckKey).pick().filter((p) => p.cards > 0)
-      const loaded = await loadProblems(shuffle(deck).slice(0, 40).map((p) => p.id))
+      const lists = deckLists(deckKeys).map((list) => list.filter((p) => p.cards > 0))
+      const loaded = await loadProblems(evenMix(lists, shuffle).slice(0, 40).map((p) => p.id))
       const cards = shuffle(loaded.filter(Boolean).flatMap(followUpCards))
         .sort((a, b) => (boxes[a.id] ?? 0) - (boxes[b.id] ?? 0))
         .slice(0, count)
@@ -181,7 +183,7 @@ export default function InterviewPage() {
     const tally = (key) => ratings.filter((r) => r.rating === key).length
     const entry = {
       date: new Date().toISOString(),
-      deck: deckByKey(deckKey).label,
+      deck: decksLabel(deckKeys),
       seconds,
       total: ratings.length,
       nailed: tally('nailed'),
@@ -262,16 +264,7 @@ export default function InterviewPage() {
         )}
 
         <div className="mock-setup">
-          <label className="field">
-            Deck
-            <select className="input" value={deckKey} onChange={(e) => setDeckKey(e.target.value)}>
-              {DECKS.map((d) => (
-                <option key={d.key} value={d.key}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MultiPick label="Deck" options={DECK_OPTIONS} value={deckKeys} onChange={setDeckKeys} />
           <label className="field">
             Questions
             <select className="input" value={count} onChange={(e) => setCount(Number(e.target.value))}>

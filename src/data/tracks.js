@@ -1,3 +1,4 @@
+import { choiceLabel } from '../study/mix.js'
 import { problems } from './problems.js'
 
 // Topic tracks cut across tabs: each is one ordered path through every problem tagged with its topic.
@@ -128,3 +129,9 @@ export function trackProblems(track) {
         a.id.localeCompare(b.id, undefined, { numeric: true }),
     )
 }
+
+export const TRACK_OPTIONS = TRACKS.map((t) => ({ value: t.slug, label: t.title }))
+
+// The problems of each chosen track, one list per track. Nothing chosen means all of them.
+export const trackLists = (slugs, all) => (slugs.length ? slugs.map((slug) => trackProblems(trackBySlug.get(slug))) : [all])
+export const tracksLabel = (slugs) => choiceLabel(slugs.map((slug) => trackBySlug.get(slug).title))
