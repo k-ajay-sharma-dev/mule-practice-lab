@@ -455,7 +455,7 @@
 .read-only-lock {
   display: contents;
 }
-.read-only-lock.locked :is(input, textarea, select, button:not(.panel-tab), .monaco-editor) {
+.read-only-lock.locked :is(input, textarea, select, button:not(.panel-tab, .copy-btn), .monaco-editor):not(.designer.read-only *) {
   opacity: 0.55;
   cursor: not-allowed;
 }

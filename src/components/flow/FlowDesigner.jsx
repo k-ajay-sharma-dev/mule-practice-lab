@@ -1,5 +1,6 @@
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import CodeEditor from '../CodeEditor.jsx'
+import { CodeBlock } from '../CopyButton.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 import { COMPONENTS, GROUPS } from '../../flow/catalog.js'
 import { fromXml, looksLikeMuleXml } from '../../flow/import.js'
@@ -60,7 +61,8 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
       design,
       readOnly,
       selectedId,
-      select: (id) => !readOnly && setSelectedId(id),
+      // read-only: clicking opens the settings under the component, and clicking again closes them
+      select: (id) => setSelectedId((current) => (readOnly && current === id ? null : id)),
       payloadKind,
       setDrag,
       canDrop: (key) => !!payloadKind && acceptsKind(key, payloadKind),
@@ -185,7 +187,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     <Ctx.Provider value={ctx}>
       <div
         ref={root}
-        className={`designer ${readOnly ? 'read-only' : ''}${selectedId && !placing ? ' sheet-active' : ''}`}
+        className={`designer ${readOnly ? 'read-only' : ''}${selectedId && !placing && !readOnly ? ' sheet-active' : ''}`}
         tabIndex={-1}
         onKeyDown={onKeyDown}
       >
@@ -198,6 +200,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               Configuration XML
             </button>
           </div>
+          {readOnly && view === 'design' && <span className="muted small">Click a component to see its settings</span>}
           {!readOnly && view === 'design' && (
             <div className="toolbar-actions">
               {history && (
@@ -365,7 +368,7 @@ function FlowView({ flow }) {
         className="flow-head"
         onClick={(e) => {
           e.stopPropagation()
-          select(flow.id)
+          if (!readOnly) select(flow.id)
         }}
       >
         <span className={`flow-kind kind-${flow.kind}`}>{flow.kind}</span>
@@ -500,6 +503,7 @@ function NodeView({ node }) {
       onDragEnd={() => setDrag(null)}
     >
       {head}
+      {readOnly && selectedId === node.id && <ConfigView fields={def.fields} values={node.config} />}
       {(def.kind === 'scope' || def.kind === 'handler') && (
         <div className="node-body">
           <StepList containerKey={`${node.id}:steps`} nodes={node.steps} emptyLabel="Drop steps inside" />
@@ -537,6 +541,7 @@ function NodeView({ node }) {
                     </button>
                   )}
                 </div>
+                {readOnly && selectedId === r.id && <ConfigView fields={def.routeFields} values={r.config} />}
                 <StepList containerKey={`${r.id}:steps`} nodes={r.steps} emptyLabel="Drop steps" />
               </div>
             ))}
@@ -566,6 +571,30 @@ function NodeView({ node }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// The settings of one component in a read-only design, such as the reference answer.
+function ConfigView({ fields = [], values }) {
+  // a reference can set something the catalog has no field for: show that too, under its own name
+  const extra = Object.keys(values)
+    .filter((key) => !fields.some((f) => f.key === key))
+    .map((key) => ({ key, label: key }))
+  const filled = [...fields, ...extra].filter((f) => values[f.key] != null && values[f.key] !== '')
+  return (
+    <div className="node-config" onClick={(e) => e.stopPropagation()}>
+      {filled.length === 0 && <p className="muted small">No settings for this element.</p>}
+      {filled.map((f) => (
+        <div key={f.key} className="node-config-row">
+          <span className="muted small">{f.label}</span>
+          {f.type === 'textarea' ? (
+            <CodeBlock className="mono small">{String(values[f.key])}</CodeBlock>
+          ) : (
+            <code className="small">{String(values[f.key])}</code>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
