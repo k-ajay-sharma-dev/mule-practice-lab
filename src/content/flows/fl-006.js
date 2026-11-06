@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { HANDLERS } from '../../flow/rules.js'
 
 export default {
   id: 'fl-006',
@@ -8,30 +9,66 @@ export default {
   tags: ['anypoint-mq', 'async', 'dlq', 'reliability', 'idempotency'],
   estMinutes: 40,
   flowChecks: [
-    { label: 'The website posts orders to an HTTP Listener front door', rule: { type: 'source', component: 'http-listener' } },
     {
-      label: 'The front door hands the order to Anypoint MQ before responding',
-      rule: { type: 'before', first: 'mq-publish', then: ['set-payload', 'transform'] },
+      label: 'The website posts orders to an HTTP Listener front door',
+      rule: { type: 'source', component: 'http-listener', where: { path: '/orders', allowedMethods: 'POST' } },
+    },
+    {
+      label: 'The front door hands the order to Anypoint MQ and never calls SAP itself',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', firstWhere: { path: '/orders' }, then: 'mq-publish' },
+          { type: 'before', first: 'mq-publish', then: ['set-payload', 'transform'] },
+          {
+            type: 'absent',
+            component: 'http-request',
+            inFlowWith: { component: 'http-listener', where: { path: { oneOf: ['/orders'], not: 'replay' } } },
+          },
+        ],
+      },
     },
     {
       label: 'A separate consumer subscribes to the orders queue with MANUAL acknowledgement',
       rule: { type: 'source', component: 'mq-subscriber', where: { acknowledgementMode: 'MANUAL' } },
     },
     {
-      label: 'The message is acknowledged only after SAP and WMS succeed',
-      rule: { type: 'before', first: 'http-request', then: 'mq-ack' },
+      label: 'The message is acknowledged only after both SAP and WMS succeed',
+      rule: { type: 'before', first: 'http-request', then: 'mq-ack', every: true },
     },
     {
       label: 'Transient errors Nack the message so it is redelivered (and eventually dead-lettered)',
-      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+      rule: {
+        type: 'inside',
+        component: 'mq-nack',
+        within: HANDLERS,
+        withinWhere: { type: { oneOf: ['TIMEOUT', 'CONNECTIVITY', 'SERVICE_UNAVAILABLE', 'RETRY_EXHAUSTED', 'ANY'] } },
+      },
     },
     {
-      label: 'Permanent errors park the order on a separate queue instead of retrying',
-      rule: { type: 'inside', component: 'mq-publish', within: ['on-error-continue', 'on-error-propagate'] },
+      label: 'Permanent errors park the order on a separate queue and ack it, so it leaves the main queue',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'mq-publish', within: HANDLERS },
+          { type: 'inside', component: 'mq-ack', within: HANDLERS },
+        ],
+      },
     },
     {
       label: 'Ops have a replay flow that re-publishes fixed orders to the main queue',
       rule: { type: 'flows', kind: 'flow', min: 3 },
+    },
+    {
+      label: 'A replayed order cannot create a duplicate in SAP',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'http-request', firstWhere: { method: 'GET' }, then: 'http-request', thenWhere: { method: 'POST' } },
+          { type: 'exists', component: 'idempotent' },
+          { type: 'exists', component: 'os-retrieve' },
+        ],
+      },
     },
   ],
   referenceFlow: design(

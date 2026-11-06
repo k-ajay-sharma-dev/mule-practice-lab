@@ -17,18 +17,36 @@ export default {
       rule: { type: 'source', component: 'jms-listener', where: { transactionalAction: 'ALWAYS_BEGIN', transactionType: 'XA' } },
     },
     {
-      label: 'The trade and leg inserts happen before the risk message is published',
-      rule: { type: 'before', first: ['db-insert', 'db-bulk-insert'], then: 'jms-publish' },
-    },
-    { label: 'The risk message is published to JMS in the same flow', rule: { type: 'exists', component: 'jms-publish' } },
-    { label: 'The trade is enriched with DataWeave before publishing to risk', rule: { type: 'before', first: 'transform', then: 'jms-publish' } },
-    {
-      label: 'Real failures use On Error Propagate so the transaction rolls back and the message is redelivered',
-      rule: { type: 'handler', component: 'on-error-propagate' },
+      label: 'All trade and leg inserts happen before the risk message is published',
+      rule: { type: 'before', first: ['db-insert', 'db-bulk-insert'], then: 'jms-publish', every: true },
     },
     {
-      label: 'A duplicate-key insert error is treated as already processed (On Error Continue)',
-      rule: { type: 'handler', component: 'on-error-continue', errorType: 'DB:QUERY_EXECUTION' },
+      label: 'The risk message goes to TRADES.RISK in the same flow as the listener',
+      rule: { type: 'before', first: 'jms-listener', then: 'jms-publish', thenWhere: { destination: 'TRADES.RISK' } },
+    },
+    {
+      label: 'The trade is enriched with DataWeave before publishing to risk',
+      rule: { type: 'before', first: 'transform', then: 'jms-publish' },
+    },
+    {
+      label: 'Real failures use On Error Propagate, and no catch-all commits them by mistake',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', where: { type: { oneOf: ['ANY', 'DB:', 'JMS:'] } } },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+        ],
+      },
+    },
+    {
+      label: 'Only a duplicate-key error is treated as already processed, not every query error',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'on-error-continue', where: { type: 'QUERY_EXECUTION', when: { set: true } } },
+          { type: 'inside', component: 'choice', within: 'on-error-continue', withinWhere: { type: 'QUERY_EXECUTION' } },
+        ],
+      },
     },
   ],
   referenceFlow: design(

@@ -10,23 +10,54 @@ export default {
   flowChecks: [
     {
       label: 'Confirmations are consumed in a JMS transaction so a failure rolls the message back to the broker',
-      rule: { type: 'source', component: 'jms-listener', where: { destination: 'SHIP', transactionalAction: 'ALWAYS_BEGIN' } },
+      rule: { type: 'source', component: 'jms-listener', where: { destination: 'SHIP.CONFIRM', transactionalAction: 'ALWAYS_BEGIN' } },
     },
     {
       label: 'Oracle is updated before the shipment event is published',
-      rule: { type: 'before', first: ['db-update', 'db-bulk-update', 'db-insert'], then: 'jms-publish' },
+      rule: {
+        type: 'before',
+        first: ['db-update', 'db-bulk-update', 'db-insert'],
+        then: 'jms-publish',
+        thenWhere: { destination: 'SHIPMENT.EVENTS' },
+        every: true,
+      },
     },
-    { label: 'Transient failures propagate (rollback → broker redelivery)', rule: { type: 'handler', component: 'on-error-propagate' } },
+    {
+      label: 'Transient failures propagate (rollback → broker redelivery)',
+      rule: { type: 'handler', component: 'on-error-propagate', where: { type: { oneOf: ['ANY', 'DB:'] } } },
+    },
     {
       label: 'Non-retryable data errors are parked at once instead of burning redeliveries',
-      rule: { type: 'inside', component: 'jms-publish', within: 'on-error-continue' },
+      rule: {
+        type: 'inside',
+        component: 'jms-publish',
+        within: 'on-error-continue',
+        withinWhere: { type: { oneOf: ['VALIDATION', 'EXPRESSION', 'APP:'] } },
+      },
     },
-    { label: 'A separate replay flow exists', rule: { type: 'flows', kind: 'flow', min: 2 } },
+    {
+      label: 'A re-sent shipment is not applied twice',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'on-error-continue', where: { type: 'QUERY_EXECUTION' } },
+          { type: 'exists', component: 'idempotent' },
+          { type: 'exists', component: ['db-update', 'db-insert', 'db-bulk-update'], where: { sql: 'MERGE' } },
+        ],
+      },
+    },
+    {
+      label: 'A separate replay flow exists',
+      rule: { type: 'flows', kind: 'flow', min: 2 },
+    },
     {
       label: 'The replay flow reads the dead-letter queue with JMS Consume',
       rule: { type: 'exists', component: 'jms-consume', where: { destination: 'DLQ' } },
     },
-    { label: 'Replayed messages are republished to the original queue', rule: { type: 'before', first: 'jms-consume', then: 'jms-publish' } },
+    {
+      label: 'Replayed messages are republished to the original queue',
+      rule: { type: 'before', first: 'jms-consume', then: 'jms-publish', thenWhere: { destination: 'SHIP.CONFIRM' } },
+    },
     {
       label: 'Replay is bounded (a loop with a maximum count)',
       rule: { type: 'inside', component: 'jms-consume', within: ['foreach', 'until-successful'] },

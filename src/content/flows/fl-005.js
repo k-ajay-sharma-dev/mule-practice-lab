@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-005',
@@ -8,7 +9,10 @@ export default {
   tags: ['scatter-gather', 'aggregation', 'timeout', 'error-handling', 'dataweave'],
   estMinutes: 30,
   flowChecks: [
-    { label: 'The 360 endpoint is an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
+    {
+      label: 'The 360 endpoint is a GET on an HTTP Listener',
+      rule: { type: 'source', component: 'http-listener', where: { path: '360', allowedMethods: 'GET' } },
+    },
     {
       label: 'Salesforce, SAP and Zendesk are called in parallel (Scatter-Gather with 3 routes)',
       rule: { type: 'routes', component: 'scatter-gather', min: 3 },
@@ -18,20 +22,20 @@ export default {
       rule: { type: 'exists', component: 'scatter-gather', where: { timeout: { gte: 1, lte: 2000 } } },
     },
     {
-      label: 'Optional HTTP calls have their own response timeouts',
-      rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 2000 } }, min: 2 },
+      label: 'The calls inside the gather have their own response timeouts',
+      rule: { type: 'inside', component: 'http-request', within: 'scatter-gather', where: { responseTimeout: { gte: 1, lte: 2000 } }, min: 2 },
     },
     {
-      label: 'Optional routes catch their own errors (Try + On Error Continue) inside the gather',
-      rule: { type: 'handler', component: 'on-error-continue', within: 'scatter-gather' },
+      label: 'Both optional routes catch their own errors (Try + On Error Continue) inside the gather',
+      rule: { type: 'inside', component: 'on-error-continue', within: 'scatter-gather', min: 2 },
     },
     {
-      label: 'Route results are merged with DataWeave after the gather',
-      rule: { type: 'before', first: 'scatter-gather', then: 'transform' },
+      label: 'Route results are merged with DataWeave after the gather, not inside it',
+      rule: { type: 'before', first: 'scatter-gather', then: 'transform', outside: true },
     },
     {
       label: 'A mandatory (Salesforce) failure surfacing as MULE:COMPOSITE_ROUTING returns 502',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'COMPOSITE_ROUTING' } },
+      rule: handlerStatus('COMPOSITE_ROUTING', '502'),
     },
   ],
   referenceFlow: design(

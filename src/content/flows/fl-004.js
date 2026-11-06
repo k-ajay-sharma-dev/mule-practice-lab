@@ -8,7 +8,10 @@ export default {
   tags: ['idempotency', 'object-store', 'webhooks', 'deduplication'],
   estMinutes: 20,
   flowChecks: [
-    { label: 'Webhooks are received by an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
+    {
+      label: 'Webhooks are received on POST /webhooks/payments',
+      rule: { type: 'source', component: 'http-listener', where: { path: 'webhooks', allowedMethods: 'POST' } },
+    },
     {
       label: 'Duplicates are detected on the event id with an Idempotent Message Validator',
       rule: { type: 'exists', component: 'idempotent', where: { idExpression: 'id' } },
@@ -18,20 +21,30 @@ export default {
       rule: { type: 'exists', component: 'idempotent', where: { objectStore: { set: true } } },
     },
     {
-      label: 'Deduplication happens before NetSuite is updated',
-      rule: { type: 'before', first: 'idempotent', then: ['http-request', 'wsc-consume'] },
+      label: 'Deduplication happens before any NetSuite update',
+      rule: { type: 'before', first: 'idempotent', then: ['http-request', 'wsc-consume'], every: true },
     },
     {
       label: 'Duplicates are acknowledged with 2xx via On Error Continue for MULE:DUPLICATE_MESSAGE',
       rule: { type: 'exists', component: 'on-error-continue', where: { type: 'DUPLICATE_MESSAGE' } },
     },
     {
-      label: 'Other failures propagate (5xx) so the provider retries',
-      rule: { type: 'handler', component: 'on-error-propagate' },
+      label: 'Other failures propagate so the provider retries, and no catch-all swallows them',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+        ],
+      },
     },
     {
       label: 'The event id is kept in a variable for cleanup on failure',
-      rule: { type: 'before', first: 'set-variable', then: ['http-request', 'wsc-consume'] },
+      rule: { type: 'before', first: 'set-variable', firstWhere: { value: 'id' }, then: ['http-request', 'wsc-consume'] },
+    },
+    {
+      label: 'A failed event has its id removed from the store, so the retry is processed',
+      rule: { type: 'inside', component: 'os-remove', within: 'on-error-propagate' },
     },
   ],
   referenceFlow: design(

@@ -4,7 +4,8 @@ import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
-import { missingHint, runChecks } from '../flow/checks.js'
+import { designChecks, missingHint, runChecks } from '../flow/checks.js'
+import { compareDesigns } from '../flow/compare.js'
 import { countComponents, restoreDesign } from '../flow/model.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { rate } from '../store/rating.js'
@@ -19,6 +20,45 @@ const RATINGS = [
   { status: 'revisit', label: 'Revisit' },
 ]
 
+// Differences from the model answer, to read and think about. This is not scored.
+function DesignCompare({ design, model }) {
+  const { missing, extra, settings, moreSettings } = useMemo(() => compareDesigns(design, model), [design, model])
+  const same = !missing.length && !extra.length && !settings.length
+  const count = (c) => `${c.label} (yours ${c.yours}, model ${c.model})`
+  return (
+    <div className="design-compare">
+      <div className="section-title">Your design and the model answer</div>
+      <p className="muted small">This is not scored. A design can differ from the model answer and still be right, so ask why each difference exists.</p>
+      {same && <p className="small">Your components and settings match the model answer.</p>}
+      {missing.length > 0 && (
+        <p className="small">
+          <strong>More in the model answer:</strong> {missing.map(count).join(', ')}
+        </p>
+      )}
+      {extra.length > 0 && (
+        <p className="small">
+          <strong>More in your design:</strong> {extra.map(count).join(', ')}
+        </p>
+      )}
+      {settings.length > 0 && (
+        <>
+          <p className="small">
+            <strong>Different settings:</strong>
+          </p>
+          <ul className="small">
+            {settings.map((s, i) => (
+              <li key={i}>
+                {s.label}, {s.field}: yours {s.yours}, model {s.model}
+              </li>
+            ))}
+          </ul>
+          {moreSettings > 0 && <p className="muted small">And {moreSettings} more.</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
 // guided adds the step guide and the hints on failed checks. A mock interview turns it off.
 export default function FlowWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
@@ -30,7 +70,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
 
   useSidebarRoom()
 
-  const checks = problem.flowChecks ?? []
+  const checks = useMemo(() => designChecks(problem), [problem])
   const steps = useMemo(() => flowSteps(checks), [checks])
   const live = useMemo(() => runChecks(design, checks), [design, checks])
   const checked = (Array.isArray(entry.checkedPoints) ? entry.checkedPoints : [])
@@ -124,6 +164,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
                     <div className="reference-canvas">
                       <FlowDesigner design={problem.referenceFlow} readOnly />
                     </div>
+                    {countComponents(design) > 0 && <DesignCompare design={design} model={problem.referenceFlow} />}
                   </>
                 )}
                 {problem.keyPoints?.length > 0 && (

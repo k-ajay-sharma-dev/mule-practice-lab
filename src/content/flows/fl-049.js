@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-049',
@@ -10,12 +11,27 @@ export default {
   flowChecks: [
     {
       label: 'The policy system is unlocked by its own System API listener (/sys-...)',
-      rule: { type: 'source', component: 'http-listener', where: { path: 'sys-' } },
+      rule: { type: 'source', component: 'http-listener', where: { path: 'sys-', allowedMethods: 'GET' } },
     },
-    { label: 'Only the System API speaks SOAP (Web Service Consumer)', rule: { type: 'exists', component: 'wsc-consume' } },
+    {
+      label: 'Only the System API speaks SOAP (Web Service Consumer)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'wsc-consume' },
+          { type: 'absent', component: 'wsc-consume', inFlowWith: { component: 'http-listener', where: { path: 'prc-' } } },
+        ],
+      },
+    },
     {
       label: 'In-body result codes (HTTP 200 + ResultCode) are turned into real Mule errors',
-      rule: { type: 'before', first: 'wsc-consume', then: 'raise-error' },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'raise-error', within: 'choice', routeWhere: { expression: 'ResultCode' } },
+          { type: 'exists', component: 'validation', where: { expression: 'ResultCode' } },
+        ],
+      },
     },
     {
       label: 'Legacy dates, amounts and padded strings are normalised in DataWeave',
@@ -23,15 +39,24 @@ export default {
     },
     {
       label: 'The legacy session token is reused, not fetched on every call',
-      rule: { type: 'exists', component: ['os-retrieve', 'os-store', 'cache'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'all', rules: [{ type: 'exists', component: 'os-retrieve' }, { type: 'exists', component: 'os-store' }] },
+          { type: 'inside', component: 'wsc-consume', within: 'cache' },
+        ],
+      },
     },
-    {
-      label: 'An unknown policy becomes a clean 404',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'NOT_FOUND' } },
-    },
+    { label: 'An unknown policy becomes a clean 404', rule: handlerStatus('NOT_FOUND', '404') },
     {
       label: 'SOAP faults and connectivity problems are mapped to 502/503',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'WSC:' } },
+      rule: {
+        type: 'all',
+        rules: [
+          handlerStatus('SOAP_FAULT', { oneOf: ['502', '503'] }),
+          handlerStatus('WSC:CONNECTIVITY', { oneOf: ['502', '503'] }),
+        ],
+      },
     },
     {
       label: 'The Process API consumes the System API over plain REST',

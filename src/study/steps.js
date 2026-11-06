@@ -25,12 +25,14 @@ const FLOW_STAGES = [
   { key: 'final', title: 'Final checks' },
 ]
 
-const componentsIn = (rule) => [rule.component, rule.first, rule.then, rule.within].flat().filter(Boolean)
+const componentsIn = (rule) =>
+  rule.rules ? rule.rules.flatMap(componentsIn) : [rule.component, rule.first, rule.then, rule.within].flat().filter(Boolean)
 const isErrorPart = (type) => type.startsWith('on-error') || type === 'raise-error' || type === 'try'
 
 function flowStage(rule) {
+  if (rule.rules && rule.rules.every((r) => r.type === 'source')) return 'start'
   if (rule.type === 'source' || rule.type === 'flows') return 'start'
-  if (rule.type === 'absent' || rule.type === 'refs') return 'final'
+  if (rule.type === 'absent' || rule.type === 'refs' || rule.type === 'complete') return 'final'
   if (rule.type === 'handler' || componentsIn(rule).some(isErrorPart)) return 'errors'
   return 'logic'
 }

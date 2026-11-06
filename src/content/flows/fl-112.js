@@ -9,24 +9,44 @@ export default {
   estMinutes: 10,
   flowChecks: [
     {
-      label: 'A Validate step checks that the email is present (is-not-null)',
-      rule: { type: 'exists', component: 'validation', where: { check: 'is-not-null' } },
+      label: 'A Validate step checks that the email is present, with its own message',
+      rule: {
+        type: 'exists',
+        component: 'validation',
+        where: { check: { oneOf: ['is-not-null', 'is-not-blank-string'] }, expression: 'email', message: 'required' },
+      },
     },
     {
-      label: 'A Validate step checks the email format (is-email)',
-      rule: { type: 'exists', component: 'validation', where: { check: 'is-email' } },
+      label: 'A Validate step checks the email format, with its own message',
+      rule: { type: 'exists', component: 'validation', where: { check: 'is-email', expression: 'email', message: 'valid' } },
     },
     {
-      label: 'Validation happens before the Database Insert',
-      rule: { type: 'before', first: 'validation', then: 'db-insert' },
+      label: 'Both checks run before the Database Insert',
+      rule: { type: 'before', first: 'validation', then: 'db-insert', every: true },
     },
     {
       label: 'An On Error Propagate handles the VALIDATION errors',
       rule: { type: 'exists', component: 'on-error-propagate', where: { type: 'VALIDATION' } },
     },
     {
-      label: 'The handler sets vars.httpStatus to 400',
-      rule: { type: 'inside', component: 'set-variable', within: 'on-error-propagate', where: { variableName: 'httpStatus', value: '400' } },
+      label: 'That handler sets vars.httpStatus to 400',
+      rule: {
+        type: 'inside',
+        component: 'set-variable',
+        within: 'on-error-propagate',
+        withinWhere: { type: 'VALIDATION' },
+        where: { variableName: 'httpStatus', value: '400' },
+      },
+    },
+    {
+      label: 'The error body uses the Validate message',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'set-payload', within: 'on-error-propagate', withinWhere: { type: 'VALIDATION' }, where: { value: 'error.' } },
+          { type: 'inside', component: 'transform', within: 'on-error-propagate', withinWhere: { type: 'VALIDATION' }, where: { script: 'error.' } },
+        ],
+      },
     },
   ],
   referenceFlow: design(

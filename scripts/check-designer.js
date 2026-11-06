@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { diagramHint, runDiagramChecks } from '../src/arch/checks.js'
 import { duplicateNode as duplicateBox, emptyDiagram } from '../src/arch/model.js'
-import { missingHint, runChecks } from '../src/flow/checks.js'
+import { designChecks, missingHint, runChecks } from '../src/flow/checks.js'
 import { countComponents, createNode, duplicateNode, emptyDesign, findItem, insertNode, walk } from '../src/flow/model.js'
 import { currentStep, diagramSteps, flowSteps } from '../src/study/steps.js'
 import { record, redo, startHistory, undo } from '../src/study/undo.js'
@@ -67,14 +67,15 @@ let flows = 0
 for (const p of await load('flows')) {
   if (!p.flowChecks?.length) continue
   flows++
-  const steps = flowSteps(p.flowChecks)
-  coverAll(steps, p.flowChecks, p.id)
+  const checks = designChecks(p)
+  const steps = flowSteps(checks)
+  coverAll(steps, checks, p.id)
   const empty = emptyDesign()
-  for (const c of p.flowChecks) {
+  for (const c of checks) {
     const hint = missingHint(empty, c.rule)
     assert.ok(typeof hint === 'string' && hint.length > 8 && !hint.includes('undefined'), `${p.id}: ${c.label}: ${hint}`)
   }
-  if (p.referenceFlow) assert.equal(currentStep(steps, runChecks(p.referenceFlow, p.flowChecks)), steps.length, p.id)
+  if (p.referenceFlow) assert.equal(currentStep(steps, runChecks(p.referenceFlow, checks)), steps.length, p.id)
 }
 
 let diagrams = 0

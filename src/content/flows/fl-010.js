@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-010',
@@ -8,30 +9,54 @@ export default {
   tags: ['retry', 'until-successful', 'reconnection', 'http', 'error-handling'],
   estMinutes: 20,
   flowChecks: [
-    { label: 'The Order Process API is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
+    {
+      label: 'The Order Process API is exposed through an HTTP Listener',
+      rule: { type: 'source', component: 'http-listener' },
+    },
     {
       label: 'The Inventory API call is wrapped in Until Successful',
       rule: { type: 'inside', component: 'http-request', within: 'until-successful' },
     },
     {
-      label: 'Retries are bounded (a few attempts, so the 10 s caller budget holds)',
-      rule: { type: 'exists', component: 'until-successful', where: { maxRetries: { gte: 1, lte: 5 } } },
+      label: 'Retries are bounded and about a second apart, so the 10 s caller budget holds',
+      rule: {
+        type: 'exists',
+        component: 'until-successful',
+        where: { maxRetries: { gte: 1, lte: 5 }, millisBetweenRetries: { gte: 100, lte: 3000 } },
+      },
     },
     {
-      label: 'The outbound call has a response timeout configured',
-      rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1 } } },
+      label: 'The outbound call has a response timeout that fits the budget',
+      rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 5000 } } },
     },
     {
-      label: 'Non-retryable 400s are caught inside the retry scope so they do not trigger retries',
-      rule: { type: 'handler', component: 'on-error-continue', errorType: 'HTTP:BAD_REQUEST', within: 'until-successful' },
+      label: 'Only non-retryable 400s are caught inside the retry scope, so other failures still retry',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'on-error-continue', where: { type: 'HTTP:BAD_REQUEST' }, within: 'until-successful' },
+          {
+            type: 'absent',
+            component: 'on-error-continue',
+            within: 'until-successful',
+            where: { type: { oneOf: ['ANY', 'HTTP:SERVICE_UNAVAILABLE', 'HTTP:TIMEOUT', 'HTTP:CONNECTIVITY'] } },
+          },
+        ],
+      },
     },
     {
-      label: 'A permanent failure is raised as a custom error after the retry scope',
-      rule: { type: 'before', first: 'until-successful', then: 'raise-error' },
+      label: 'A permanent failure is raised behind a condition, after the retry scope',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'until-successful', then: 'raise-error', outside: true },
+          { type: 'inside', component: 'raise-error', within: 'choice' },
+        ],
+      },
     },
     {
-      label: 'Exhausted retries (MULE:RETRY_EXHAUSTED) are mapped to an error response',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'MULE:RETRY_EXHAUSTED' },
+      label: 'Exhausted retries (MULE:RETRY_EXHAUSTED) are mapped to a 5xx response',
+      rule: handlerStatus('RETRY_EXHAUSTED', { oneOf: ['502', '503', '504'] }),
     },
   ],
   referenceFlow: design(

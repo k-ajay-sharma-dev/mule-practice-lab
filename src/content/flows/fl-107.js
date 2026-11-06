@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { handlerBody } from '../../flow/rules.js'
 
 export default {
   id: 'fl-107',
@@ -17,16 +18,43 @@ export default {
       rule: { type: 'exists', component: 'http-request', where: { method: 'POST', path: '/core-banking' } },
     },
     {
-      label: 'An unreachable core banking system is handled with On Error Propagate (HTTP:CONNECTIVITY)',
-      rule: { type: 'handler', component: 'on-error-propagate', errorType: 'HTTP:CONNECTIVITY' },
+      label: 'The success answer is built after the core banking call',
+      rule: { type: 'before', first: 'http-request', then: ['set-payload', 'transform'] },
     },
     {
-      label: 'The handler sets vars.httpStatus to 503',
-      rule: { type: 'inside', component: 'set-variable', within: 'on-error-propagate', where: { variableName: 'httpStatus', value: '503' } },
+      label: 'An unreachable system and a timeout both use On Error Propagate, never On Error Continue',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'HTTP:CONNECTIVITY' },
+          { type: 'handler', component: 'on-error-propagate', errorType: 'HTTP:TIMEOUT' },
+          { type: 'absent', component: 'on-error-continue', where: { type: { oneOf: ['CONNECTIVITY', 'TIMEOUT', 'ANY'] } } },
+        ],
+      },
     },
     {
-      label: 'The handler builds a clear error body',
-      rule: { type: 'inside', component: ['set-payload', 'transform'], within: 'on-error-propagate' },
+      label: 'That handler sets vars.httpStatus to 503',
+      rule: {
+        type: 'inside',
+        component: 'set-variable',
+        within: 'on-error-propagate',
+        withinWhere: { type: { oneOf: ['HTTP:CONNECTIVITY', 'ANY'] } },
+        where: { variableName: 'httpStatus', value: '503' },
+      },
+    },
+    {
+      label: 'That handler builds a clear error body',
+      rule: handlerBody({ oneOf: ['HTTP:CONNECTIVITY', 'ANY'] }, 'on-error-propagate'),
+    },
+    {
+      label: 'That handler logs the error',
+      rule: {
+        type: 'inside',
+        component: 'logger',
+        within: 'on-error-propagate',
+        withinWhere: { type: { oneOf: ['HTTP:CONNECTIVITY', 'ANY'] } },
+        where: { level: { oneOf: ['ERROR', 'WARN'] } },
+      },
     },
   ],
   referenceFlow: design(

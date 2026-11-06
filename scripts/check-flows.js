@@ -5,7 +5,7 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { COMPONENTS } from '../src/flow/catalog.js'
-import { runChecks } from '../src/flow/checks.js'
+import { designChecks, runChecks } from '../src/flow/checks.js'
 import { emptyDesign, walk } from '../src/flow/model.js'
 
 const dir = join(import.meta.dirname, '..', 'src', 'content', 'flows')
@@ -38,12 +38,13 @@ for (const file of files) {
   walk(p.referenceFlow, (item, ctx) => {
     if (!ctx.isFlow && !ctx.isRoute && !COMPONENTS[item.type]) fail(p.id, `unknown component type "${item.type}"`)
   })
-  for (const r of runChecks(p.referenceFlow, p.flowChecks)) {
+  const checks = designChecks(p)
+  for (const r of runChecks(p.referenceFlow, checks)) {
     if (!r.pass) fail(p.id, `reference fails: ${r.label}`)
   }
-  const emptyPasses = runChecks(emptyDesign(), p.flowChecks).filter((r) => r.pass)
+  const emptyPasses = runChecks(emptyDesign(), checks).filter((r) => r.pass)
   for (const r of emptyPasses) fail(p.id, `passes on an empty design: ${r.label}`)
-  console.log(`PASS  ${p.id}  ${p.flowChecks.length} checks`)
+  console.log(`PASS  ${p.id}  ${checks.length} checks`)
 }
 
 console.log(failures ? `\n${failures} problem(s)` : `\nAll ${withChecks} flow problems with checks are consistent.`)

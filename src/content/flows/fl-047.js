@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-047',
@@ -9,8 +10,8 @@ export default {
   estMinutes: 25,
   flowChecks: [
     {
-      label: 'The System API is exposed on its own HTTP Listener (path /sys-...)',
-      rule: { type: 'source', component: 'http-listener', where: { path: 'sys-' } },
+      label: 'The System API is a GET on its own HTTP Listener (path /sys-...)',
+      rule: { type: 'source', component: 'http-listener', where: { path: 'sys-', allowedMethods: 'GET' } },
     },
     {
       label: 'The list query is paged in the database (LIMIT/OFFSET), not in memory',
@@ -22,20 +23,17 @@ export default {
     },
     {
       label: 'An empty result for one customer raises a not-found error',
-      rule: { type: 'before', first: 'db-select', then: ['raise-error', 'validation'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'db-select', then: 'raise-error', thenWhere: { type: 'NOT_FOUND' } },
+          { type: 'before', first: 'db-select', then: 'validation' },
+        ],
+      },
     },
-    {
-      label: 'The not-found error is mapped to 404',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'NOT_FOUND' } },
-    },
-    {
-      label: 'An unreachable database is mapped to 503',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'DB:CONNECTIVITY' } },
-    },
-    {
-      label: 'A catch-all handler returns a generic 500',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'ANY' } },
-    },
+    { label: 'The not-found error is mapped to 404', rule: handlerStatus('NOT_FOUND', '404') },
+    { label: 'An unreachable database is mapped to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
+    { label: 'A catch-all handler returns a generic 500', rule: handlerStatus('ANY', '500') },
   ],
   referenceFlow: design(
     flow(
