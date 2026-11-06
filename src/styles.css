@@ -53,6 +53,14 @@
   box-sizing: border-box;
 }
 
+/* No scrollbars anywhere. Everything still scrolls with the wheel, touch and keyboard. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 html,
 body {
   margin: 0;

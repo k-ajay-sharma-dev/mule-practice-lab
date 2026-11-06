@@ -49,6 +49,8 @@ function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnl
         fontSize: 14,
         lineNumbersMinChars: 3,
         scrollBeyondLastLine: false,
+        scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+        overviewRulerLanes: 0,
         wordWrap: 'on',
         tabSize: 2,
         automaticLayout: true,
