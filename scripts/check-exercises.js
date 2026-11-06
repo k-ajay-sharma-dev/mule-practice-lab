@@ -25,7 +25,7 @@ function checkDiagram(d) {
     if (!c.label) errs.push('check without label')
     if (!RULE_TYPES.includes(c.rule?.type)) errs.push(`unknown rule type "${c.rule?.type}"`)
     const r = c.rule ?? {}
-    for (const m of [r.match, r.from, r.to, r.via, r.target, r.of, r.edgeTo, r.edgeFrom])
+    for (const m of [r.match, r.from, r.to, r.via, r.target, r.of, r.edgeTo, r.edgeFrom, r.touching])
       for (const t of matcherTypes(m)) if (!isNodeType(t)) errs.push(`unknown node type "${t}" in check "${c.label}"`)
   }
   if (errs.length) return errs

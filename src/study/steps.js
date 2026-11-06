@@ -45,7 +45,7 @@ const DIAGRAM_STAGES = [
 
 function diagramStage(rule) {
   if (rule.type === 'node') return 'boxes'
-  if (['edge', 'each', 'path'].includes(rule.type)) return 'lines'
+  if (['edge', 'each', 'path', 'link', 'lines'].includes(rule.type)) return 'lines'
   return 'limits'
 }
 

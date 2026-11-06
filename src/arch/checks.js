@@ -8,10 +8,15 @@ import { NODE_TYPES } from './catalog.js'
 // Rules:
 //   { type: 'node', match, min = 1, max }            how many matching nodes exist
 //   { type: 'edge', from, to, kind, min = 1 }         direct connections (kind 'sync' | 'async' optional)
-//   { type: 'path', from, to, via }                   a directed route exists (optionally through `via`)
+//   { type: 'path', from, to, via, kind, min = 1 }    a directed route exists (optionally through `via`, or using only
+//                                                     `kind` lines), reaching at least `min` different `to` nodes
+//   { type: 'no-path', from, to, kind, ifDrawn }      both exist but no route joins them (using only `kind` lines, if given);
+//                                                     with `ifDrawn`, `to` may be left out of the diagram
 //   { type: 'only-via', target, from }                target is reached, and only from `from` nodes
 //   { type: 'no-edge', from, to }                     both exist but are never directly connected
-//   { type: 'each', of, edgeTo | edgeFrom, kind }     every `of` node (at least one) has such a connection
+//   { type: 'each', of, edgeTo | edgeFrom, kind, count = 1 }  every `of` node (at least `min`) has `count` such connections
+//   { type: 'link', from, to }                        a line joins them in either direction, for when both directions are right
+//   { type: 'lines', from, to | touching, kind }      every such line that is drawn has this kind (none drawn is fine)
 // Every rule needs something drawn to pass, so an empty canvas never satisfies a check.
 
 const asList = (v) => (Array.isArray(v) ? v : [v])
@@ -33,16 +38,18 @@ function graph(diagram) {
   const find = (m) => diagram.nodes.filter((n) => matches(n, m))
   const edgeMatches = (e, from, to, kind) =>
     matches(byId.get(e.from), from) && matches(byId.get(e.to), to) && (!kind || e.kind === kind)
-  const reachable = (startIds) => {
+  const reachable = (startIds, kind) => {
     const seen = new Set(startIds)
     const queue = [...startIds]
     while (queue.length) {
       const id = queue.shift()
-      for (const e of edges) if (e.from === id && !seen.has(e.to)) seen.add(e.to), queue.push(e.to)
+      for (const e of edges) if (e.from === id && (!kind || e.kind === kind) && !seen.has(e.to)) seen.add(e.to), queue.push(e.to)
     }
     return seen
   }
-  return { byId, edges, find, edgeMatches, reachable }
+  // Everything reachable in at least one hop from these nodes.
+  const after = (ids, kind) => reachable(edges.filter((e) => ids.includes(e.from) && (!kind || e.kind === kind)).map((e) => e.to), kind)
+  return { byId, edges, find, edgeMatches, after }
 }
 
 const RULES = {
@@ -54,20 +61,18 @@ const RULES = {
     return g.edges.filter((e) => g.edgeMatches(e, r.from, r.to, r.kind)).length >= (r.min ?? 1)
   },
   path(g, r) {
+    const fromStart = g.after(g.find(r.from).map((n) => n.id), r.kind)
+    const reached = new Set()
+    if (!r.via) for (const id of fromStart) reached.add(id)
+    else for (const v of g.find(r.via)) if (fromStart.has(v.id)) for (const id of g.after([v.id], r.kind)) reached.add(id)
+    return g.find(r.to).filter((t) => reached.has(t.id)).length >= (r.min ?? 1)
+  },
+  'no-path'(g, r) {
     const starts = g.find(r.from).map((n) => n.id)
     const targets = g.find(r.to)
-    if (!r.via) {
-      // a path of at least one hop
-      const firstHops = g.edges.filter((e) => starts.includes(e.from)).map((e) => e.to)
-      const seen = g.reachable(firstHops)
-      return targets.some((t) => seen.has(t.id))
-    }
-    return g.find(r.via).some((v) => {
-      const fromStart = g.reachable(g.edges.filter((e) => starts.includes(e.from)).map((e) => e.to))
-      if (!fromStart.has(v.id)) return false
-      const afterVia = g.reachable(g.edges.filter((e) => e.from === v.id).map((e) => e.to))
-      return targets.some((t) => afterVia.has(t.id))
-    })
+    if (!starts.length || (!targets.length && !r.ifDrawn)) return false
+    const seen = g.after(starts, r.kind)
+    return !targets.some((t) => seen.has(t.id))
   },
   'only-via'(g, r) {
     const incoming = g.edges.filter((e) => matches(g.byId.get(e.to), r.target))
@@ -81,12 +86,22 @@ const RULES = {
     const nodes = g.find(r.of)
     if (nodes.length < (r.min ?? 1)) return false
     return nodes.every((n) =>
-      g.edges.some((e) =>
+      g.edges.filter((e) =>
         r.edgeTo
           ? e.from === n.id && matches(g.byId.get(e.to), r.edgeTo) && (!r.kind || e.kind === r.kind)
           : e.to === n.id && matches(g.byId.get(e.from), r.edgeFrom) && (!r.kind || e.kind === r.kind),
-      ),
+      ).length >= (r.count ?? 1),
     )
+  },
+  link(g, r) {
+    return g.edges.some((e) => g.edgeMatches(e, r.from, r.to) || g.edgeMatches(e, r.to, r.from))
+  },
+  lines(g, r) {
+    const covered = (e) =>
+      r.touching
+        ? matches(g.byId.get(e.from), r.touching) || matches(g.byId.get(e.to), r.touching)
+        : g.edgeMatches(e, r.from, r.to)
+    return g.edges.length > 0 && g.edges.every((e) => !covered(e) || e.kind === r.kind)
   },
 }
 
@@ -111,7 +126,7 @@ export function runDiagramChecks(diagram, checks) {
 
 // Names a check expects, so a failed check can tell the learner what to call their components.
 export function labelHints(rule) {
-  return [rule.match, rule.from, rule.to, rule.via, rule.target, rule.of, rule.edgeTo, rule.edgeFrom]
+  return [rule.match, rule.from, rule.to, rule.via, rule.target, rule.of, rule.edgeTo, rule.edgeFrom, rule.touching]
     .filter((m) => m && typeof m === 'object' && !Array.isArray(m) && m.label)
     .map((m) => asList(m.label))
 }
@@ -127,6 +142,7 @@ function matcherName(m) {
 }
 
 const kindName = (kind) => (kind === 'async' ? 'async message' : kind === 'sync' ? 'sync call' : 'line')
+const aKind = (kind) => `${kind === 'async' ? 'an' : 'a'} ${kindName(kind)}`
 
 // Says in plain words what a failing check still needs, reading the diagram so it can name what is already there.
 export function diagramHint(diagram, rule) {
@@ -143,13 +159,29 @@ export function diagramHint(diagram, rule) {
     case 'edge': {
       const anyKind = g.edges.filter((e) => g.edgeMatches(e, rule.from, rule.to)).length
       const min = rule.min ?? 1
-      if (rule.kind && anyKind >= min) return `Change the line from ${from} to ${to} into a ${kindName(rule.kind)}.`
+      if (rule.kind && anyKind >= min) return `Change the line from ${from} to ${to} into ${aKind(rule.kind)}.`
       return min > 1
         ? `Draw at least ${min} ${kindName(rule.kind)}s from ${from} to ${to}.`
-        : `Draw a ${kindName(rule.kind)} from ${from} to ${to}.`
+        : `Draw ${aKind(rule.kind)} from ${from} to ${to}.`
     }
-    case 'path':
-      return `Connect ${from} to ${to}${rule.via ? ` through ${matcherName(rule.via)}` : ''}. It can take several lines.`
+    case 'path': {
+      const through = rule.via ? ` through ${matcherName(rule.via)}` : ''
+      const using = rule.kind ? `, using only ${kindName(rule.kind)}s` : ''
+      const target = (rule.min ?? 1) > 1 ? `at least ${rule.min} of ${to}` : to
+      return `Connect ${from} to ${target}${through}${using}. It can take several lines.`
+    }
+    case 'no-path':
+      if (!g.find(rule.from).length) return `Add ${from}.`
+      if (!g.find(rule.to).length) return `Add both ${from} and ${to}, and keep them apart.`
+      return rule.kind
+        ? `Break the chain of ${kindName(rule.kind)}s from ${from} to ${to}. Put a queue or topic in the route.`
+        : `Remove the route from ${from} to ${to}.`
+    case 'link':
+      return `Join ${from} and ${to} with a line.`
+    case 'lines': {
+      const which = rule.touching ? `to or from ${matcherName(rule.touching)}` : `from ${from} to ${to}`
+      return `Make every line ${which} ${aKind(rule.kind)}.`
+    }
     case 'only-via':
       return `Draw a line into ${matcherName(rule.target)} from ${matcherName(rule.from)}, and remove any other line into it.`
     case 'no-edge':
@@ -158,8 +190,9 @@ export function diagramHint(diagram, rule) {
         : `Add both ${from} and ${to}, with no direct line between them.`
     case 'each': {
       const target = matcherName(rule.edgeTo ?? rule.edgeFrom)
-      const kind = kindName(rule.kind)
-      return rule.edgeTo ? `Every ${matcherName(rule.of)} needs a ${kind} to ${target}.` : `Every ${matcherName(rule.of)} needs a ${kind} from ${target}.`
+      const kind = (rule.count ?? 1) > 1 ? `${rule.count} ${kindName(rule.kind)}s` : aKind(rule.kind)
+      const have = (rule.min ?? 1) > 1 ? `Have at least ${rule.min} of ${matcherName(rule.of)}. Each one` : `Every ${matcherName(rule.of)}`
+      return `${have} needs ${kind} ${rule.edgeTo ? 'to' : 'from'} ${target}.`
     }
     default:
       return 'Check this requirement against the scenario.'

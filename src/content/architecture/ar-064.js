@@ -18,6 +18,16 @@ export default {
       { label: 'The policy mainframe is reached only through a System API (#14)', rule: { type: 'only-via', target: 'legacy', from: 'system-api' } },
       { label: 'The claims database is reached only through a resource-oriented System API (#5)', rule: { type: 'only-via', target: 'database', from: 'system-api' } },
       { label: 'Notifications are triggered by events, off the critical path (#15)', rule: { type: 'edge', from: ['queue', 'topic', 'event-stream'], to: 'process-api', kind: 'async' } },
+      { label: 'Every Experience API uses the one Policy Process API (#7–#9)', rule: { type: 'each', of: 'experience-api', edgeTo: { type: 'process-api', label: 'policy' } } },
+      { label: 'Mobile and broker both get claim eligibility from the Claims Process API (#11, #13)', rule: { type: 'each', of: { type: 'experience-api', label: ['mobile', 'broker'] }, min: 2, edgeTo: { type: 'process-api', label: ['claim', 'eligib'] } } },
+      { label: 'The Policy Process API reads policies through the one Policy System API (#1–#4)', rule: { type: 'each', of: { type: 'process-api', label: 'policy' }, edgeTo: { type: 'system-api', label: 'policy' } } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'database', 'crm', 'notification', 'saas', 'erp', 'external-api'] } },
+      { label: 'The Policy Process API publishes its events asynchronously (#15)', rule: { type: 'edge', from: { type: 'process-api', label: 'policy' }, to: ['queue', 'topic', 'event-stream'], kind: 'async' } },
+      { label: 'Events lead on to the SMS / email provider (#15)', rule: { type: 'path', from: ['queue', 'topic', 'event-stream'], to: 'notification' } },
+      { label: 'No chain of sync calls joins an Experience API to the SMS / email provider (#15)', rule: { type: 'no-path', from: 'experience-api', to: 'notification', kind: 'sync' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'web-app', 'partner', 'internal-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

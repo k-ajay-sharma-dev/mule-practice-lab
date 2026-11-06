@@ -11,13 +11,18 @@ export default {
     task: 'draw the consolidated target structure for the Customer domain (Salesforce CRM, billing, network subscriptions) serving web, mobile and partners, with no pass-through or per-query APIs.',
     checks: [
       { label: 'Web and mobile both call an Experience API', rule: { type: 'each', of: ['web-app', 'mobile-app'], min: 2, edgeTo: 'experience-api' } },
-      { label: 'Partners get their own Experience API', rule: { type: 'each', of: 'partner', edgeTo: 'experience-api' } },
+      { label: 'Partners get their own Experience API', rule: { type: 'each', of: 'partner', edgeTo: { type: 'experience-api', label: ['partner', 'b2b'] } } },
       { label: 'At most two Experience APIs (shared digital + partner, no "lite" variants)', rule: { type: 'node', match: 'experience-api', min: 1, max: 2 } },
       { label: 'Exactly one System API per backend system (three in total)', rule: { type: 'node', match: 'system-api', min: 3, max: 3 } },
       { label: 'At most two Process APIs, and only ones that add value', rule: { type: 'node', match: 'process-api', min: 1, max: 2 } },
       { label: 'Process APIs orchestrate several System APIs rather than passing through', rule: { type: 'edge', from: 'process-api', to: 'system-api', min: 3 } },
       { label: 'Each backend is hidden behind its System API', rule: { type: 'only-via', target: ['crm', 'saas', 'legacy', 'erp', 'database'], from: 'system-api' } },
-      { label: 'The mobile app reaches Salesforce end to end', rule: { type: 'path', from: 'mobile-app', to: 'crm' } },
+      { label: 'The mobile app reaches Salesforce end to end over sync calls', rule: { type: 'path', from: 'mobile-app', to: 'crm', kind: 'sync' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Every Process API combines at least two System APIs, so none is a pass-through', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 2 } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['crm', 'saas', 'legacy', 'erp', 'database'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'mobile-app', 'partner', 'internal-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

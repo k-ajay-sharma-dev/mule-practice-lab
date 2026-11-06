@@ -18,6 +18,15 @@ export default {
       { label: 'Card requests that keep failing end up in a dead-letter queue', rule: { type: 'edge', from: ['queue', 'topic', 'event-stream'], to: 'dlq' } },
       { label: 'The card processor is reached only through its System API', rule: { type: 'only-via', target: ['external-api', 'saas', 'payment'], from: 'system-api' } },
       { label: 'System APIs never call each other — they stay unaware of the saga', rule: { type: 'no-edge', from: 'system-api', to: 'system-api' } },
+      { label: 'The mobile channel calls every Experience API', rule: { type: 'each', of: 'experience-api', edgeFrom: 'mobile-app' } },
+      { label: 'The card step reaches the card processor through the queue', rule: { type: 'path', from: 'process-api', via: ['queue', 'topic', 'event-stream'], to: ['external-api', 'saas', 'payment'] } },
+      { label: 'No chain of sync calls joins the mobile request to the slow card processor', rule: { type: 'no-path', from: 'experience-api', to: ['external-api', 'saas', 'payment'], kind: 'sync' } },
+      { label: 'CRM and core banking are reached only through System APIs', rule: { type: 'only-via', target: ['crm', 'legacy'], from: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['crm', 'legacy', 'erp', 'database', 'external-api', 'saas', 'payment'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

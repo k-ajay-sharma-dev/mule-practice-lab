@@ -11,13 +11,20 @@ export default {
     task: 'redesign order creation with events (at least two subscribers) and show how Salesforce customer changes are captured and published.',
     checks: [
       { label: 'Channels call an Experience API', rule: { type: 'each', of: ['web-app', 'mobile-app'], edgeTo: 'experience-api' } },
-      { label: 'The order is still created in SAP synchronously, through a System API', rule: { type: 'path', from: 'experience-api', to: 'erp', via: 'system-api' } },
+      { label: 'The order is still created in SAP synchronously, through a System API', rule: { type: 'path', from: 'experience-api', to: 'erp', via: 'system-api', kind: 'sync' } },
       { label: 'The Process layer publishes OrderCreated asynchronously', rule: { type: 'edge', from: 'process-api', to: ['topic', 'queue', 'event-stream'], kind: 'async' } },
       { label: 'At least two subscribers consume the event asynchronously', rule: { type: 'edge', from: ['queue', 'topic', 'event-stream'], to: 'process-api', kind: 'async', min: 2 } },
       { label: 'The Experience API does not publish business events', rule: { type: 'no-edge', from: 'experience-api', to: ['topic', 'queue', 'event-stream'] } },
       { label: 'Salesforce changes are captured by the System layer and published as an event', rule: { type: 'edge', from: 'system-api', to: ['topic', 'queue', 'event-stream'], kind: 'async' } },
       { label: 'Subscribers reach their backends only through System APIs', rule: { type: 'only-via', target: ['erp', 'crm', 'legacy', 'saas', 'database'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'OrderCreated reaches the backends of at least two subscribers', rule: { type: 'path', from: { type: 'process-api', label: 'order' }, via: ['topic', 'queue', 'event-stream'], to: ['erp', 'crm', 'legacy', 'saas', 'wms', 'database', 'notification', 'data-warehouse', 'external-api'], min: 2 } },
+      { label: 'No chain of sync calls joins the order request to loyalty, warehouse, email or analytics', rule: { type: 'no-path', from: 'experience-api', to: { label: ['loyalty', 'warehouse', 'wms', 'fulfil', 'email', 'notif', 'analytics'] }, kind: 'sync', ifDrawn: true } },
+      { label: 'A System API is joined to Salesforce to capture its changes', rule: { type: 'link', from: 'system-api', to: 'crm' } },
+      { label: 'A Process API subscribes to the Salesforce change event', rule: { type: 'path', from: 'system-api', via: ['topic', 'queue', 'event-stream'], to: 'process-api' } },
+      { label: 'Every Process API does its work through a System API', rule: { type: 'each', of: 'process-api', edgeTo: ['system-api', 'notification', 'data-warehouse'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'mobile-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
     ],
     reference: diagram(
       {

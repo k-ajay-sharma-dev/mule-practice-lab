@@ -17,8 +17,17 @@ export default {
       { label: 'Each Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'The ERP is reached only through a System API', rule: { type: 'only-via', target: ['erp', 'legacy'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
-      { label: 'Business state lives in an external database', rule: { type: 'edge', from: ['process-api', 'system-api'], to: ['database', 'sql-server', 'oracle-db'] } },
+      { label: 'Both regions keep business state in an external database', rule: { type: 'edge', from: ['process-api', 'system-api'], to: ['database', 'sql-server', 'oracle-db'], min: 2 } },
       { label: 'A scheduled job writes backups outside the cluster', rule: { type: 'edge', from: 'batch-job', to: ['file-store', 's3-bucket', 'azure-blob'] } },
+      { label: 'The global load balancer routes to the ingress in each region', rule: { type: 'edge', from: { type: 'load-balancer', label: ['global', 'glb', 'route 53', 'dns'] }, to: 'load-balancer', min: 2 } },
+      { label: 'Two regions: at least two Process APIs', rule: { type: 'node', match: 'process-api', min: 2 } },
+      { label: 'Two regions: at least two System APIs', rule: { type: 'node', match: 'system-api', min: 2 } },
+      { label: 'Every Process API calls a System API', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'legacy'] } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'sql-server', 'oracle-db'], kind: 'sync' } },
     ],
     reference: diagram(
       {

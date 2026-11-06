@@ -10,14 +10,23 @@ export default {
   diagram: {
     task: 'draw a customer-hosted Mule estate in two data centres, with each client entering through a load balancer that reaches Experience APIs in both sites, each site running its own API-led stack, the core banking system reached only through System APIs, and shared state kept in a replicated external database and a message broker rather than in a cluster spanning the sites.',
     checks: [
-      { label: 'Every client enters through the load balancer', rule: { type: 'each', of: ['partner', 'internal-app', 'web-app', 'mobile-app'], edgeTo: 'load-balancer' } },
+      { label: 'Every client enters through the load balancer', rule: { type: 'each', of: ['partner', 'internal-app', 'web-app', 'mobile-app'], min: 3, edgeTo: 'load-balancer' } },
       { label: 'Two sites: at least two Experience APIs', rule: { type: 'node', match: 'experience-api', min: 2 } },
       { label: 'The load balancer sends traffic to every Experience API', rule: { type: 'each', of: 'experience-api', edgeFrom: 'load-balancer' } },
       { label: 'Each Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'Core banking is reached only through a System API', rule: { type: 'only-via', target: ['legacy', 'erp'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
-      { label: 'State is kept outside the runtimes, in a database', rule: { type: 'edge', from: ['process-api', 'system-api'], to: ['database', 'sql-server', 'oracle-db'] } },
-      { label: 'Work between layers can use an external broker', rule: { type: 'edge', from: 'process-api', to: ['queue', 'topic', 'event-stream'], kind: 'async' } },
+      { label: 'Both sites keep state outside the runtimes, in a database', rule: { type: 'edge', from: ['process-api', 'system-api'], to: ['database', 'sql-server', 'oracle-db'], min: 2 } },
+      { label: 'Both sites publish to the external broker', rule: { type: 'edge', from: 'process-api', to: ['queue', 'topic', 'event-stream'], kind: 'async', min: 2 } },
+      { label: 'Two sites: at least two Process APIs', rule: { type: 'node', match: 'process-api', min: 2 } },
+      { label: 'Two sites: at least two System APIs', rule: { type: 'node', match: 'system-api', min: 2 } },
+      { label: 'Every Process API calls a System API', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'erp'] } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'sql-server', 'oracle-db'], kind: 'sync' } },
     ],
     reference: diagram(
       {

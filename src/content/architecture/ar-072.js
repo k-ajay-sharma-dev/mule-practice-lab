@@ -11,13 +11,19 @@ export default {
     task: 'draw the B2B gateway: how 300 suppliers connect, how inbound documents are parsed and routed to Oracle and the WMS, how outbound POs and acknowledgements go back, and how missing 997s are tracked.',
     checks: [
       { label: 'Suppliers connect only through a B2B edge gateway (AS2 / SFTP endpoint)', rule: { type: 'each', of: 'partner', edgeTo: 'api-gateway' } },
-      { label: 'Inbound processing looks up partner profiles', rule: { type: 'edge', from: 'process-api', to: { type: ['database', 'cache'], label: ['profile', 'partner'] } } },
+      { label: 'Inbound processing looks up partner profiles', rule: { type: 'each', of: { type: 'process-api', label: ['inbound', 'outbound', 'b2b', 'edi', 'x12'] }, edgeTo: { type: ['database', 'cache'], label: ['profile', 'partner'] } } },
       { label: 'Raw EDI files are archived', rule: { type: 'edge', from: 'process-api', to: 'file-store' } },
-      { label: 'Inbound and outbound documents are decoupled with queues', rule: { type: 'edge', from: ['process-api', 'system-api'], to: ['queue', 'topic', 'event-stream'], kind: 'async', min: 2 } },
+      { label: 'Inbound and outbound documents are decoupled with queues', rule: { type: 'edge', from: ['process-api', 'system-api', 'erp'], to: ['queue', 'topic', 'event-stream'], kind: 'async', min: 2 } },
       { label: 'Oracle and the WMS are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'wms'], from: 'system-api' } },
       { label: 'Documents that fail parsing or mapping go to a DLQ', rule: { type: 'edge', from: 'process-api', to: 'dlq' } },
       { label: 'Outbound documents leave through the same gateway', rule: { type: 'edge', from: 'process-api', to: 'api-gateway' } },
       { label: 'Overdue 997 acknowledgements are tracked and alerted', rule: { type: 'edge', from: 'process-api', to: 'monitoring' } },
+      { label: 'Inbound documents pass from the gateway to a Process API', rule: { type: 'edge', from: 'api-gateway', to: 'process-api' } },
+      { label: 'Supplier documents reach both Oracle and the WMS through a queue', rule: { type: 'path', from: 'partner', via: ['queue', 'topic', 'event-stream'], to: ['erp', 'wms'], min: 2 } },
+      { label: 'Released POs reach the gateway through a queue', rule: { type: 'path', from: ['system-api', 'erp'], via: ['queue', 'topic', 'event-stream'], to: 'api-gateway' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: 'process-api', to: 'system-api', kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {

@@ -10,14 +10,23 @@ export default {
   diagram: {
     task: 'draw an API-led deployment on Runtime Fabric in the customer\'s own Kubernetes cluster, in which all clients enter through the customer\'s ingress controller, each layer calls only the next one, SAP and the plant database are reached only through System APIs, and object store data is kept in a store the customer provides.',
     checks: [
-      { label: 'Every client enters through the customer\'s ingress / load balancer', rule: { type: 'each', of: ['partner', 'internal-app', 'web-app'], edgeTo: 'load-balancer' } },
+      { label: 'Every client enters through the customer\'s ingress / load balancer', rule: { type: 'each', of: ['partner', 'internal-app', 'web-app'], min: 3, edgeTo: 'load-balancer' } },
       { label: 'Ingress routes to the Experience APIs', rule: { type: 'edge', from: 'load-balancer', to: 'experience-api' } },
       { label: 'Experience APIs call Process APIs', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'Process APIs reach the backends through System APIs', rule: { type: 'path', from: 'process-api', to: ['erp', 'database', 'sql-server', 'oracle-db'], via: 'system-api' } },
-      { label: 'SAP is reached only through a System API', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
+      { label: 'SAP and the plant database are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'sql-server', 'oracle-db'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'Persistent object store data sits in a customer-provided store (Persistence Gateway database)', rule: { type: 'edge', from: ['process-api', 'experience-api', 'system-api'], to: ['database', 'cache'] } },
       { label: 'Logs and metrics leave the cluster to a monitoring stack', rule: { type: 'edge', from: ['experience-api', 'process-api', 'system-api'], to: 'monitoring' } },
+      { label: 'Every Process API calls a System API', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', min: 2, edgeTo: ['erp', 'sql-server', 'oracle-db', 'database'] } },
+      { label: 'Dealer orders reach SAP through a System API', rule: { type: 'path', from: 'partner', to: 'erp', via: 'system-api' } },
+      { label: 'The MES client reads plant status over sync calls all the way down', rule: { type: 'path', from: 'internal-app', to: { type: ['sql-server', 'oracle-db', 'database'], label: ['plant', 'sql server'] }, via: 'system-api', kind: 'sync' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['sql-server', 'oracle-db', 'database', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(
       {
