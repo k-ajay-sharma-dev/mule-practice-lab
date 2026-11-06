@@ -6,6 +6,7 @@ import { useProblem } from '../data/problems.js'
 const WORKSPACES = {
   code: lazy(() => import('../workspaces/DataWeaveWorkspace.jsx')),
   flow: lazy(() => import('../workspaces/FlowWorkspace.jsx')),
+  raml: lazy(() => import('../workspaces/RamlWorkspace.jsx')),
   diagram: lazy(() => import('../workspaces/ArchWorkspace.jsx')),
   quiz: lazy(() => import('../workspaces/QuizWorkspace.jsx')),
   written: lazy(() => import('../workspaces/SelfAssessWorkspace.jsx')),

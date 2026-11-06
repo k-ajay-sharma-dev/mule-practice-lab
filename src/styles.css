@@ -2790,3 +2790,51 @@ textarea:focus {
     font-size: 0.84rem;
   }
 }
+
+/* RAML workspace */
+.raml-workspace .right-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.raml-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.raml-status {
+  flex: 1;
+  font-size: 13px;
+}
+.raml-status.good {
+  color: var(--success);
+}
+.raml-status.bad {
+  color: var(--warning);
+}
+.raml-editor {
+  flex: 1;
+  min-height: 320px;
+}
+.raml-errors {
+  margin: 0;
+  padding: 8px 12px;
+  max-height: 130px;
+  overflow: auto;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.raml-errors li + li {
+  margin-top: 4px;
+}
+.raml-reference {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mode-chip.mode-raml {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+}

@@ -1,5 +1,6 @@
 // kind: 'code' problems are solved in the DataWeave editor and graded by the runner;
 // 'flow' problems are designed on the Flow Designer canvas and checked against rules (never executed);
+// 'raml' problems are written in an editor, then parsed and checked against rules;
 // 'self' problems get an interactive exercise when their content has one (see data/exercises.js),
 // otherwise a written answer compared against a reference solution.
 export const CATEGORIES = [
@@ -23,6 +24,13 @@ export const CATEGORIES = [
     label: 'Flow Design',
     kind: 'flow',
     blurb: 'Design Mule flows for real requirements: sources, routers, scopes, connectors and error handling.',
+  },
+  {
+    slug: 'api-design',
+    eyebrow: 'write RAML & checks',
+    label: 'API Design (RAML)',
+    kind: 'raml',
+    blurb: 'Write real RAML 1.0 specs: resources, types, traits, resource types, security and design-first API contracts.',
   },
   {
     slug: 'architecture',

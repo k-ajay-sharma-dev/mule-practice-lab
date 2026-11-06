@@ -5,7 +5,7 @@ import { categoryBySlug } from './categories.js'
 export function exerciseOf(problem) {
   if (problem.exercise) return problem.exercise // already worked out in the problem index
   const kind = categoryBySlug.get(problem.category)?.kind
-  if (kind === 'code' || kind === 'flow') return kind
+  if (kind === 'code' || kind === 'flow' || kind === 'raml') return kind
   if (problem.diagram) return 'diagram'
   if (problem.investigation) return 'investigation'
   if (problem.quiz) return 'quiz'
@@ -15,6 +15,7 @@ export function exerciseOf(problem) {
 export const EXERCISE_LABELS = {
   code: 'Code',
   flow: 'Flow design',
+  raml: 'RAML',
   diagram: 'Architecture',
   investigation: 'Investigate',
   quiz: 'Quiz',

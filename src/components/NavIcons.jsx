@@ -77,6 +77,7 @@ const PATHS = {
       <path d="M9 6h4a2 2 0 0 1 2 2v7" />
     </>
   ),
+  'api-design': <path d="M8 4H6a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-2M10 12h.01M14 12h.01" />,
   architecture: <path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" />,
   'use-cases': (
     <>
