@@ -91,3 +91,80 @@ export function runChecks(design, checks = []) {
 
 // Human-readable name for a component type, used in authoring tools and messages.
 export const componentLabel = (type) => COMPONENTS[type]?.label ?? type
+
+const names = (component) => anyOf(component).map(componentLabel).join(' or ')
+
+function fieldLabel(component, key) {
+  for (const type of anyOf(component)) {
+    const field = COMPONENTS[type]?.fields?.find((f) => f.key === key)
+    if (field) return field.label
+  }
+  return key
+}
+
+function wantedValue(want) {
+  if (want && typeof want === 'object') {
+    if ('set' in want) return want.set ? 'filled in' : 'left empty'
+    return [
+      'gte' in want ? `of at least ${want.gte}` : '',
+      'lte' in want ? `of at most ${want.lte}` : '',
+    ].filter(Boolean).join(' and ')
+  }
+  return typeof want === 'number' ? `set to ${want}` : `containing “${want}”`
+}
+
+const whereText = (component, where) =>
+  Object.entries(where)
+    .map(([key, want]) => `${fieldLabel(component, key)} ${wantedValue(want)}`)
+    .join(' and ')
+
+// Says in plain words what a failing check still needs, reading the design so it can name what is already there.
+export function missingHint(design, rule) {
+  const nodes = index(design)
+  const of = (component, where) =>
+    nodes.filter((e) => anyOf(component).includes(e.node.type) && matchesWhere(e.node.config, where))
+  const addOrFix = (component, where) => {
+    if (!where) return `Add ${names(component)}.`
+    const text = whereText(component, where)
+    return of(component).length ? `Your ${names(component)} needs ${text}.` : `Add ${names(component)} with ${text}.`
+  }
+
+  switch (rule.type) {
+    case 'source':
+      if (of(rule.component).some((e) => e.slot === 'source')) return addOrFix(rule.component, rule.where)
+      return `Put ${names(rule.component)} in the source slot at the top of a flow${rule.where ? `, with ${whereText(rule.component, rule.where)}` : ''}.`
+    case 'exists': {
+      const min = rule.min ?? 1
+      if (min > 1) return `Use ${names(rule.component)} at least ${min} times${rule.where ? `, with ${whereText(rule.component, rule.where)}` : ''}. You have ${of(rule.component, rule.where).length}.`
+      return addOrFix(rule.component, rule.where)
+    }
+    case 'absent':
+      return `Remove ${names(rule.component)}. This design should not use it.`
+    case 'routes':
+      return of(rule.component).length
+        ? `Give ${names(rule.component)} at least ${rule.min} routes.`
+        : `Add ${names(rule.component)} with at least ${rule.min} routes.`
+    case 'inside':
+      if (!of(rule.component, rule.where).length) return `${addOrFix(rule.component, rule.where)} Place it inside ${names(rule.within)}.`
+      return `Move ${names(rule.component)} inside ${names(rule.within)}.`
+    case 'before':
+      if (!of(rule.first).length) return `Add ${names(rule.first)}, before ${names(rule.then)} in the same flow.`
+      if (!of(rule.then).length) return `Add ${names(rule.then)}, after ${names(rule.first)} in the same flow.`
+      return `Put ${names(rule.first)} before ${names(rule.then)}, and keep both in the same flow.`
+    case 'handler': {
+      const type = rule.errorType ? ` for error type ${rule.errorType}` : ''
+      const within = rule.within ? ` inside ${names(rule.within)}` : ''
+      return of(rule.component).length
+        ? `Your ${names(rule.component)} needs to be${within || ' set up'}${type}.`
+        : `Add ${names(rule.component)}${type}${within}.`
+    }
+    case 'flows':
+      return `Use at least ${rule.min} ${rule.kind === 'sub-flow' ? 'sub-flows' : 'flows'}. Add more with the toolbar buttons.`
+    case 'refs':
+      return of('flow-ref').length
+        ? 'Every Flow Reference must name a flow that exists. Check the spelling.'
+        : 'Add a Flow Reference and point it at a flow that exists.'
+    default:
+      return 'Check this requirement against the scenario.'
+  }
+}

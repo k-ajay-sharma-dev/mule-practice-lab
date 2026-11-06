@@ -1,3 +1,4 @@
+import { SidebarRoom } from './sidebar.js'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/categories.js'
@@ -26,12 +27,29 @@ const saveSetting = (key, value) => {
   }
 }
 
+function useLaptopWidth() {
+  const query = '(min-width: 1001px) and (max-width: 1400px)'
+  const [match, setMatch] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const list = window.matchMedia(query)
+    const onChange = () => setMatch(list.matches)
+    list.addEventListener('change', onChange)
+    return () => list.removeEventListener('change', onChange)
+  }, [])
+  return match
+}
+
 export default function Layout({ children }) {
   const { theme, toggle } = useTheme()
   const { pathname } = useLocation()
   // laptop: full or icons-only (remembered); phone/tablet: a drawer opened from the menu button
   const [collapsed, setCollapsed] = useState(() => readSetting(SIDEBAR_KEY) === 'collapsed')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // a designer folds the sidebar on laptop screens, until the learner opens it again
+  const [room, setRoom] = useState(false)
+  const [keptOpen, setKeptOpen] = useState(false)
+  const laptop = useLaptopWidth()
+  const folded = room && laptop && !keptOpen
   const focus = useFocusSession()
   const focusing = Boolean(focus && !focus.endedAt)
 
@@ -43,13 +61,22 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [drawerOpen])
 
+  useEffect(() => {
+    if (!room) setKeptOpen(false)
+  }, [room])
+
   function toggleCollapsed() {
+    if (room && laptop && !collapsed) {
+      setKeptOpen(!keptOpen)
+      return
+    }
+    if (room && laptop) setKeptOpen(true)
     setCollapsed(!collapsed)
     saveSetting(SIDEBAR_KEY, collapsed ? 'full' : 'collapsed')
   }
 
   return (
-    <div className={`app${collapsed ? ' sidebar-collapsed' : ''}${drawerOpen ? ' drawer-open' : ''}${focusing ? ' focus-mode' : ''}`}>
+    <div className={`app${collapsed || folded ? ' sidebar-collapsed' : ''}${drawerOpen ? ' drawer-open' : ''}${focusing ? ' focus-mode' : ''}`}>
       {focusing ? <FocusBar key={focus.at} session={focus} /> : (
       <header className="topbar">
         <button
@@ -90,9 +117,11 @@ export default function Layout({ children }) {
       )}
 
       <div className="app-body">
-        {!focusing && <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} onClose={() => setDrawerOpen(false)} />}
+        {!focusing && <Sidebar collapsed={collapsed || folded} onToggle={toggleCollapsed} onClose={() => setDrawerOpen(false)} />}
         {!focusing && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
-        <main className="content">{children}</main>
+        <main className="content">
+          <SidebarRoom.Provider value={setRoom}>{children}</SidebarRoom.Provider>
+        </main>
       </div>
       {focus?.endedAt && <FocusSummary session={focus} />}
     </div>

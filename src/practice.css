@@ -498,6 +498,18 @@
     min-height: 420px;
   }
 }
+@media (min-width: 1201px) and (max-width: 1400px) {
+  .app.sidebar-collapsed .problem-page:has(.flow-workspace) {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h) - 40px);
+  }
+  .app.sidebar-collapsed .problem-page .workspace.flow-workspace {
+    flex: 1;
+    height: auto;
+    min-height: 420px;
+  }
+}
 .timer-blink {
   animation: timer-blink 1s steps(2, jump-none) infinite;
 }
@@ -2054,4 +2066,52 @@
 }
 .multi-pick-option:hover {
   background: var(--surface-2);
+}
+
+/* one small step at a time, above the designers */
+.step-guide {
+  flex: none;
+  max-height: 34%;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.step-guide.off {
+  padding: 4px 12px;
+  background: none;
+}
+.step-guide-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.step-guide-actions {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+}
+.step-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.step-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface-3);
+}
+.step-dots .done {
+  background: var(--success);
+}
+.step-dots .now {
+  background: var(--accent);
+}
+.step-guide-list {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+}
+.step-guide .btn {
+  margin-top: 6px;
 }

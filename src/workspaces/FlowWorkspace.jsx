@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import FlowDesigner from '../components/flow/FlowDesigner.jsx'
 import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
-import { runChecks } from '../flow/checks.js'
+import { useSidebarRoom } from '../components/sidebar.js'
+import StepGuide from '../components/StepGuide.jsx'
+import { missingHint, runChecks } from '../flow/checks.js'
 import { countComponents, restoreDesign } from '../flow/model.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { rate } from '../store/rating.js'
+import { flowSteps } from '../study/steps.js'
 import { useAutosave } from './useAutosave.js'
+import { useUndo } from './useUndo.js'
 
 const TABS = ['scenario', 'checks', 'reference', 'notes']
 const RATINGS = [
@@ -15,15 +19,20 @@ const RATINGS = [
   { status: 'revisit', label: 'Revisit' },
 ]
 
-export default function FlowWorkspace({ problem }) {
+// guided adds the step guide and the hints on failed checks. A mock interview turns it off.
+export default function FlowWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
-  const [design, setDesign] = useState(() => restoreDesign(entry.flow))
+  const [design, setDesign, history] = useUndo(() => restoreDesign(entry.flow))
   const [tab, setTab] = useState('scenario')
   const [results, setResults] = useState(null)
 
   useAutosave(design, (value) => updateEntry(problem.id, { flow: value, status: workedStatus(problem.id) }))
 
+  useSidebarRoom()
+
   const checks = problem.flowChecks ?? []
+  const steps = useMemo(() => flowSteps(checks), [checks])
+  const live = useMemo(() => runChecks(design, checks), [design, checks])
   const checked = (Array.isArray(entry.checkedPoints) ? entry.checkedPoints : [])
 
   function checkDesign() {
@@ -81,7 +90,10 @@ export default function FlowWorkspace({ problem }) {
                     return (
                       <li key={i} className={r ? (r.pass ? 'pass' : 'fail') : ''}>
                         <span className="mark">{r ? (r.pass ? '✓' : '✗') : '○'}</span>
-                        <span>{c.label}</span>
+                        <span>
+                          {c.label}
+                          {guided && r && !r.pass && <span className="check-hint muted small">{missingHint(design, c.rule)}</span>}
+                        </span>
                       </li>
                     )
                   })}
@@ -160,7 +172,20 @@ export default function FlowWorkspace({ problem }) {
       </section>
 
       <section className="panel right-panel">
-        <FlowDesigner design={design} onChange={setDesign} />
+        {guided && (
+          <StepGuide
+            steps={steps}
+            checks={checks}
+            results={live}
+            hintFor={(i) => missingHint(design, checks[i].rule)}
+            finish={
+              <button className="btn btn-primary btn-sm" onClick={checkDesign}>
+                Check design
+              </button>
+            }
+          />
+        )}
+        <FlowDesigner design={design} onChange={setDesign} history={history} />
       </section>
     </div>
   )

@@ -1,3 +1,5 @@
+import { NODE_TYPES } from './catalog.js'
+
 // Rule-based checks for Architecture Designer diagrams.
 //
 // A node matcher is a type ('system-api'), a list of types (['erp', 'legacy']) or
@@ -112,6 +114,56 @@ export function labelHints(rule) {
   return [rule.match, rule.from, rule.to, rule.via, rule.target, rule.of, rule.edgeTo, rule.edgeFrom]
     .filter((m) => m && typeof m === 'object' && !Array.isArray(m) && m.label)
     .map((m) => asList(m.label))
+}
+
+const typeNames = (types) => asList(types).map((t) => NODE_TYPES[t]?.label ?? t).join(' or ')
+
+function matcherName(m) {
+  if (!m) return 'any box'
+  if (typeof m === 'string' || Array.isArray(m)) return typeNames(m)
+  const label = m.label ? asList(m.label).map((l) => `“${l}”`).join(' or ') : ''
+  if (m.type && label) return `${typeNames(m.type)} with ${label} in its name`
+  return m.type ? typeNames(m.type) : `a box with ${label} in its name`
+}
+
+const kindName = (kind) => (kind === 'async' ? 'async message' : kind === 'sync' ? 'sync call' : 'line')
+
+// Says in plain words what a failing check still needs, reading the diagram so it can name what is already there.
+export function diagramHint(diagram, rule) {
+  const g = graph(diagram)
+  const from = matcherName(rule.from)
+  const to = matcherName(rule.to)
+  switch (rule.type) {
+    case 'node': {
+      const have = g.find(rule.match).length
+      const min = rule.min ?? 1
+      if (rule.max != null && have > rule.max) return `Use at most ${rule.max} of ${matcherName(rule.match)}. You have ${have}.`
+      return min > 1 ? `Add at least ${min} of ${matcherName(rule.match)}. You have ${have}.` : `Add ${matcherName(rule.match)}.`
+    }
+    case 'edge': {
+      const anyKind = g.edges.filter((e) => g.edgeMatches(e, rule.from, rule.to)).length
+      const min = rule.min ?? 1
+      if (rule.kind && anyKind >= min) return `Change the line from ${from} to ${to} into a ${kindName(rule.kind)}.`
+      return min > 1
+        ? `Draw at least ${min} ${kindName(rule.kind)}s from ${from} to ${to}.`
+        : `Draw a ${kindName(rule.kind)} from ${from} to ${to}.`
+    }
+    case 'path':
+      return `Connect ${from} to ${to}${rule.via ? ` through ${matcherName(rule.via)}` : ''}. It can take several lines.`
+    case 'only-via':
+      return `Draw a line into ${matcherName(rule.target)} from ${matcherName(rule.from)}, and remove any other line into it.`
+    case 'no-edge':
+      return g.find(rule.from).length && g.find(rule.to).length
+        ? `Remove the direct line from ${from} to ${to}.`
+        : `Add both ${from} and ${to}, with no direct line between them.`
+    case 'each': {
+      const target = matcherName(rule.edgeTo ?? rule.edgeFrom)
+      const kind = kindName(rule.kind)
+      return rule.edgeTo ? `Every ${matcherName(rule.of)} needs a ${kind} to ${target}.` : `Every ${matcherName(rule.of)} needs a ${kind} from ${target}.`
+    }
+    default:
+      return 'Check this requirement against the scenario.'
+  }
 }
 
 // Every node type a matcher refers to, for validating content against the catalog.

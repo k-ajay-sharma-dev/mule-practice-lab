@@ -4,7 +4,7 @@ export default {
   id: 'ar-002',
   category: 'architecture',
   title: 'Sync Request/Reply vs Async Events',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['sync', 'async', 'event-driven'],
   estMinutes: 30,
   diagram: {

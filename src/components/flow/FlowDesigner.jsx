@@ -9,6 +9,7 @@ import {
   addRoute,
   countComponents,
   createNode,
+  duplicateNode,
   emptyDesign,
   findItem,
   insertNode,
@@ -25,8 +26,8 @@ const Ctx = createContext(null)
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // Visual Mule flow editor. Design only: nothing here is executed.
-// Props: design, onChange(design), readOnly
-export default function FlowDesigner({ design, onChange, readOnly = false }) {
+// Props: design, onChange(design), readOnly, history (undo and redo from useUndo)
+export default function FlowDesigner({ design, onChange, readOnly = false, history = null }) {
   const [selectedId, setSelectedId] = useState(null)
   const [armed, setArmed] = useState(null) // component type picked from the palette (tap-to-place)
   const [moving, setMoving] = useState(null) // id of a node being moved by tapping a slot
@@ -82,6 +83,12 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
         setArmed(null)
         setMoving(id)
       },
+      duplicate(id) {
+        const copy = duplicateNode(design, id)
+        if (!copy.id) return
+        onChange(copy.design)
+        setSelectedId(copy.id)
+      },
     }),
     [design, readOnly, selectedId, payload, payloadKind, onChange, touch, placing],
   )
@@ -126,9 +133,41 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
     return () => document.removeEventListener('paste', listener)
   }, [readOnly])
 
+  // Ctrl+Z and Ctrl+Y anywhere on the page, unless the cursor is in something that takes text
+  const keys = useRef(null)
+  keys.current = (e) => {
+    if (!history || !(e.ctrlKey || e.metaKey)) return
+    if (e.target.closest?.('input, textarea, select, [contenteditable]') || root.current?.closest('.read-only-lock.locked')) return
+    const key = e.key.toLowerCase()
+    if (key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      history.undo()
+    } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+      e.preventDefault()
+      history.redo()
+    }
+  }
+  useEffect(() => {
+    if (readOnly) return undefined
+    const listener = (e) => keys.current(e)
+    document.addEventListener('keydown', listener)
+    return () => document.removeEventListener('keydown', listener)
+  }, [readOnly])
+
+  function duplicate(id) {
+    const copy = duplicateNode(design, id)
+    if (!copy.id) return
+    onChange(copy.design)
+    setSelectedId(copy.id)
+  }
+
   function onKeyDown(e) {
     if (readOnly) return
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && !typing && selectedId) {
+      e.preventDefault()
+      duplicate(selectedId)
+    }
     if (e.key === 'Escape') {
       cancelPlacing()
       setSelectedId(null)
@@ -161,6 +200,16 @@ export default function FlowDesigner({ design, onChange, readOnly = false }) {
           </div>
           {!readOnly && view === 'design' && (
             <div className="toolbar-actions">
+              {history && (
+                <>
+                  <button className="btn btn-ghost" onClick={history.undo} disabled={!history.canUndo} title="Undo (Ctrl+Z)">
+                    Undo
+                  </button>
+                  <button className="btn btn-ghost" onClick={history.redo} disabled={!history.canRedo} title="Redo (Ctrl+Y)">
+                    Redo
+                  </button>
+                </>
+              )}
               <button className="btn btn-ghost" onClick={() => setView('paste')}>
                 Paste XML
               </button>
@@ -524,7 +573,7 @@ function NodeView({ node }) {
 // ---------- Properties ----------
 
 function Properties({ selectedId, onDeselect }) {
-  const { design, change, touch, placing, startMove } = useContext(Ctx)
+  const { design, change, touch, placing, startMove, duplicate } = useContext(Ctx)
   const found = selectedId ? findItem(design, selectedId) : null
 
   if (!found) {
@@ -621,6 +670,9 @@ function Properties({ selectedId, onDeselect }) {
               </button>
               <button className="btn btn-ghost" onClick={() => startMove(item.id)}>
                 Move…
+              </button>
+              <button className="btn btn-ghost" onClick={() => duplicate(item.id)} title="Duplicate (Ctrl+D)">
+                Duplicate
               </button>
             </>
           )}

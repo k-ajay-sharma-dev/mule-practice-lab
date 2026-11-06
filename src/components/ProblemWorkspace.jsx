@@ -15,14 +15,14 @@ WORKSPACES.investigation = WORKSPACES.quiz
 const loading = <div className="workspace-loading muted small">Loading problem…</div>
 
 // Loads a problem's full content on demand and shows the workspace for its exercise type.
-export default function ProblemWorkspace({ id }) {
+export default function ProblemWorkspace({ id, guided = true }) {
   const problem = useProblem(id)
   if (!problem) return loading
   const Workspace = WORKSPACES[exerciseOf(problem)]
   return (
     <Suspense fallback={loading}>
       {/* key resets editor state when moving between problems */}
-      <Workspace key={problem.id} problem={problem} />
+      <Workspace key={problem.id} problem={problem} guided={guided} />
     </Suspense>
   )
 }

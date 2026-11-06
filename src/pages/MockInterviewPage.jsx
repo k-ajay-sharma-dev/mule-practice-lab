@@ -235,7 +235,7 @@ function Running({ session, progress, onSelect, onFinish }) {
           <p className="muted small">
             Treat the <b>Explain it</b> and reference tabs as off-limits until the round is over — that is the interview.
           </p>
-          <ProblemWorkspace id={p.id} />
+          <ProblemWorkspace id={p.id} guided={false} />
         </>
       )}
     </div>

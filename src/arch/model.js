@@ -20,6 +20,14 @@ export function addNode(diagram, type) {
   return { diagram: { ...diagram, nodes: [...diagram.nodes, node] }, id: node.id }
 }
 
+// Copies a box just after the original. Its lines are not copied, because a copy usually connects differently.
+export function duplicateNode(diagram, id) {
+  const i = diagram.nodes.findIndex((n) => n.id === id)
+  if (i < 0) return { diagram, id: null }
+  const copy = { ...diagram.nodes[i], id: newId('n') }
+  return { diagram: { ...diagram, nodes: [...diagram.nodes.slice(0, i + 1), copy, ...diagram.nodes.slice(i + 1)] }, id: copy.id }
+}
+
 export function updateNode(diagram, id, patch) {
   return { ...diagram, nodes: diagram.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }
 }

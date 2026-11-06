@@ -4,7 +4,7 @@ export default {
   id: 'ar-048',
   category: 'architecture',
   title: 'Responsibilities of System, Process and Experience Layers',
-  level: 'BEGINNER',
+  level: 'INTERMEDIATE',
   tags: ['api-led', 'layers', 'system-api', 'process-api', 'experience-api'],
   estMinutes: 20,
   diagram: {

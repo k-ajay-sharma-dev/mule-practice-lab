@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import ArchDesigner from '../components/arch/ArchDesigner.jsx'
 import ExplainPanel from '../components/ExplainPanel.jsx'
 import Markdown from '../components/Markdown.jsx'
-import { labelHints, runDiagramChecks } from '../arch/checks.js'
+import { useSidebarRoom } from '../components/sidebar.js'
+import StepGuide from '../components/StepGuide.jsx'
+import { diagramHint, runDiagramChecks } from '../arch/checks.js'
 import { restoreDiagram } from '../arch/model.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
+import { diagramSteps } from '../study/steps.js'
 import { useAutosave } from './useAutosave.js'
+import { useUndo } from './useUndo.js'
 
 const TABS = [
   ['scenario', 'Scenario'],
@@ -16,12 +20,16 @@ const TABS = [
 
 // Architecture problems with a `diagram` exercise: draw the solution on the Architecture Designer and
 // check it against the rules in `diagram.checks`.
-export default function ArchWorkspace({ problem }) {
+export default function ArchWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
-  const [diagram, setDiagram] = useState(() => restoreDiagram(entry.diagram))
+  const [diagram, setDiagram, history] = useUndo(() => restoreDiagram(entry.diagram))
   const [tab, setTab] = useState('scenario')
   const [results, setResults] = useState(null)
   const { checks, reference, task } = problem.diagram
+  const steps = useMemo(() => diagramSteps(checks), [checks])
+  const live = useMemo(() => runDiagramChecks(diagram, checks), [diagram, checks])
+
+  useSidebarRoom()
 
   useAutosave(diagram, (value) => updateEntry(problem.id, { diagram: value, status: workedStatus(problem.id) }))
 
@@ -77,7 +85,6 @@ export default function ArchWorkspace({ problem }) {
               <ul className="check-list">
                 {checks.map((c, i) => {
                   const r = results?.[i]
-                  const hints = r && !r.pass ? labelHints(c.rule) : []
                   return (
                     <li key={i} className={r ? (r.pass ? 'pass' : 'fail') : ''}>
                       <span className="mark">{r ? (r.pass ? '✓' : '✗') : '○'}</span>
@@ -88,11 +95,9 @@ export default function ArchWorkspace({ problem }) {
                             Close — your arrow points the other way. Arrows go from the caller or sender to the receiver.
                           </span>
                         )}
-                        {hints.map((h, j) => (
-                          <span key={j} className="check-hint muted small">
-                            Name the component with one of: {h.map((l) => `“${l}”`).join(', ')}
-                          </span>
-                        ))}
+                        {guided && r && !r.pass && !r.reversed && (
+                          <span className="check-hint muted small">{diagramHint(diagram, c.rule)}</span>
+                        )}
                       </span>
                     </li>
                   )
@@ -127,7 +132,16 @@ export default function ArchWorkspace({ problem }) {
       </section>
 
       <section className="panel right-panel">
-        <ArchDesigner diagram={diagram} onChange={setDiagram} />
+        {guided && (
+          <StepGuide
+            steps={steps}
+            checks={checks}
+            results={live}
+            hintFor={(i) => diagramHint(diagram, checks[i].rule)}
+            finish={checkButton}
+          />
+        )}
+        <ArchDesigner diagram={diagram} onChange={setDiagram} history={history} />
       </section>
     </div>
   )

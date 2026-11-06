@@ -1870,15 +1870,35 @@ textarea:focus {
 .flow-workspace .designer {
   flex: 1;
 }
+/* stacked below 1401px, unless the sidebar is folded and there is room for the scenario beside the canvas */
 @media (max-width: 1400px) {
-  .workspace.flow-workspace {
+  .app:not(.sidebar-collapsed) .workspace.flow-workspace {
     grid-template-columns: 1fr;
     height: auto;
   }
-  .flow-workspace .left-panel .panel-body {
+  .app:not(.sidebar-collapsed) .flow-workspace .left-panel .panel-body {
     max-height: 42vh;
   }
-  .flow-workspace .right-panel {
+  .app:not(.sidebar-collapsed) .flow-workspace .right-panel {
+    height: 85vh;
+    min-height: 560px;
+  }
+  .flow-workspace .designer-body {
+    grid-template-columns: 180px minmax(0, 1fr) 220px;
+  }
+  .flow-workspace .reference-canvas .designer-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 1200px) {
+  .app .workspace.flow-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .app .flow-workspace .left-panel .panel-body {
+    max-height: 42vh;
+  }
+  .app .flow-workspace .right-panel {
     height: 85vh;
     min-height: 560px;
   }

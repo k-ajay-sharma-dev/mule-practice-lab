@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
-import { addEdge, addNode, removeEdge, removeNode, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
+import { addEdge, addNode, duplicateNode, removeEdge, removeNode, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 
 const PALETTE = LANES.map((lane) => ({
@@ -33,7 +33,7 @@ function edgePath(s, t) {
   return `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`
 }
 
-export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
+export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null }) {
   const [selected, setSelected] = useState(null) // { kind: 'node' | 'edge', id }
   const [connectFrom, setConnectFrom] = useState(null)
   const [newKind, setNewKind] = useState('sync')
@@ -102,8 +102,40 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
     setSelected(null)
   }
 
+  // Ctrl+Z and Ctrl+Y anywhere on the page, unless the cursor is in something that takes text
+  const keys = useRef(null)
+  keys.current = (e) => {
+    if (!history || !(e.ctrlKey || e.metaKey)) return
+    if (e.target.closest?.('input, textarea, select, [contenteditable]') || rootRef.current?.closest('.read-only-lock.locked')) return
+    const key = e.key.toLowerCase()
+    if (key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      history.undo()
+    } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+      e.preventDefault()
+      history.redo()
+    }
+  }
+  useEffect(() => {
+    if (readOnly) return undefined
+    const listener = (e) => keys.current(e)
+    document.addEventListener('keydown', listener)
+    return () => document.removeEventListener('keydown', listener)
+  }, [readOnly])
+
+  function duplicateSelected() {
+    if (!selNode) return
+    const copy = duplicateNode(diagram, selNode.id)
+    change(copy.diagram)
+    setSelected({ kind: 'node', id: copy.id })
+  }
+
   function onKeyDown(e) {
     if (readOnly || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+      e.preventDefault()
+      duplicateSelected()
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
       e.preventDefault()
       deleteSelected()
@@ -169,6 +201,16 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
             <span className="arch-legend small muted">
               <span className="legend-sync" /> sync call <span className="legend-async" /> async message
             </span>
+            {history && (
+                <>
+                  <button className="btn btn-ghost btn-sm" onClick={history.undo} disabled={!history.canUndo} title="Undo (Ctrl+Z)">
+                    Undo
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={history.redo} disabled={!history.canRedo} title="Redo (Ctrl+Y)">
+                    Redo
+                  </button>
+                </>
+              )}
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => {
@@ -358,6 +400,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false }) {
                 onEdgeRemove={(id) => change(removeEdge(diagram, id))}
                 onShift={(dir) => change(shiftNode(diagram, selNode.id, dir))}
                 onDelete={deleteSelected}
+                onDuplicate={duplicateSelected}
               />
             )}
             {selEdge && (
@@ -412,7 +455,7 @@ function KindToggle({ value, onChange }) {
   )
 }
 
-function NodeProps({ node, diagram, nodeById, newKind, setNewKind, onLabel, onConnect, onStartConnect, onEdgeKind, onEdgeRemove, onShift, onDelete }) {
+function NodeProps({ onDuplicate, node, diagram, nodeById, newKind, setNewKind, onLabel, onConnect, onStartConnect, onEdgeKind, onEdgeRemove, onShift, onDelete }) {
   const [target, setTarget] = useState('')
   const out = diagram.edges.filter((e) => e.from === node.id)
   const inc = diagram.edges.filter((e) => e.to === node.id)
@@ -486,6 +529,9 @@ function NodeProps({ node, diagram, nodeById, newKind, setNewKind, onLabel, onCo
         </button>
         <button className="btn btn-ghost btn-sm" onClick={() => onShift(1)} title="Move right in its lane">
           →
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={onDuplicate} title="Duplicate (Ctrl+D)">
+          Duplicate
         </button>
         <button className="btn btn-ghost btn-sm danger" onClick={onDelete}>
           Delete

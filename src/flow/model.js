@@ -171,6 +171,26 @@ export function moveNode(design, nodeId, key, index) {
   return insertNode(removeNode(design, nodeId), key, target, node)
 }
 
+function freshIds(node) {
+  node.id = newId()
+  for (const slot of SLOTS) node[slot]?.forEach(freshIds)
+  node.routes?.forEach((route) => {
+    route.id = newId('r')
+    route.steps.forEach(freshIds)
+  })
+  return node
+}
+
+// Copies a component, with everything inside it, to just after the original. A flow has one source, so sources stay single.
+export function duplicateNode(design, nodeId) {
+  const next = clone(design)
+  const loc = locate(next, nodeId)
+  if (!loc || loc.isSource) return { design, id: null }
+  const copy = freshIds(structuredClone(loc.list[loc.index]))
+  loc.list.splice(loc.index + 1, 0, copy)
+  return { design: next, id: copy.id }
+}
+
 export function shiftNode(design, nodeId, delta) {
   const next = clone(design)
   const loc = locate(next, nodeId)
