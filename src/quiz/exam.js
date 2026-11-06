@@ -51,6 +51,9 @@ export function scoreExam(items, responses, questionOf) {
   })
 }
 
+// A blank says nothing about what you know, so only a wrong answer brings a problem back for review.
+export const missedProblems = (results) => [...new Set(results.filter((r) => r.answered && !r.ok).map((r) => r.id))]
+
 export function examSummary(results) {
   const correct = results.filter((r) => r.ok).length
   const total = results.length

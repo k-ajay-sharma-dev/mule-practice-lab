@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { chooseQuestions, examSummary, itemKey, PASS_MARK, scoreExam, seenInHistory, topicScores, validSession } from '../src/quiz/exam.js'
+import { chooseQuestions, examSummary, itemKey, missedProblems, PASS_MARK, scoreExam, seenInHistory, topicScores, validSession } from '../src/quiz/exam.js'
 
 const single = { type: 'single', prompt: 'p', options: ['a', 'b'], answer: 1, explain: 'e' }
 const multi = { type: 'multi', prompt: 'p', options: ['a', 'b', 'c'], answer: [0, 2], explain: 'e' }
@@ -29,6 +29,17 @@ assert.equal(chooseQuestions([problem('a', 4)], 4, seen).length, 4)
 const flagged = { id: 'm', quiz: [{ ...single, detail: true }, single, { ...single, detail: true }] }
 assert.deepEqual(chooseQuestions([flagged], 3, new Set(), Math.random, (q) => !q.detail), [{ id: 'm', q: 1 }])
 assert.equal(chooseQuestions([flagged], 3).length, 3)
+
+// only answered, wrong questions go to review, and a problem counts once
+assert.deepEqual(
+  missedProblems([
+    { id: 'wrong', answered: true, ok: false },
+    { id: 'wrong', answered: true, ok: false },
+    { id: 'right', answered: true, ok: true },
+    { id: 'blank', answered: false, ok: false },
+  ]),
+  ['wrong'],
+)
 
 // scoring
 const questions = [single, multi, order, match]

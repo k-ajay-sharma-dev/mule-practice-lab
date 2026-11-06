@@ -12,6 +12,7 @@ import {
   LENGTHS,
   LEVEL_SETS,
   MINUTES_PER_QUESTION,
+  missedProblems,
   PASS_MARK,
   RETAKE_FOCUS,
   scoreExam,
@@ -94,7 +95,7 @@ export default function ExamPage() {
     const finishedIso = now < end ? now : end
     const items = session.items.filter(questionOf)
     const results = scoreExam(items, session.responses, questionOf)
-    new Set(results.filter((r) => !r.ok).map((r) => r.id)).forEach((id) => scheduleReview(id))
+    missedProblems(results).forEach((id) => scheduleReview(id))
     const { correct, total, pct, passed } = examSummary(results)
     const entry = { date: finishedIso, focus: session.focus, correct, total, pct, passed, results: results.map(({ id, q, ok }) => ({ id, q, ok })) }
     const next = [entry, ...history].slice(0, MAX_HISTORY)
@@ -367,7 +368,7 @@ function Result({ session, questionOf, loaded, onClose, onRetake }) {
       <p className="muted">
         {minutesUsed} of {session.minutes} minutes used.
         {skipped > 0 && ` ${skipped} left unanswered.`}
-        {wrong.length > 0 && ' Problems behind your wrong answers are now on your review schedule.'}
+        {missedProblems(session.results).length > 0 && ' Problems behind your wrong answers are now on your review schedule.'}
       </p>
 
       {topics.length > 0 && (
