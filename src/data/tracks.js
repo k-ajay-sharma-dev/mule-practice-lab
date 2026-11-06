@@ -100,6 +100,12 @@ export const TRACKS = [
     tags: ['deployment', 'cloudhub', 'cloudhub-2', 'runtime-fabric', 'ci-cd', 'environments', 'maven', 'observability', 'logging', 'performance', 'memory', 'capacity-planning'],
   },
   {
+    slug: 'ai-agents',
+    title: 'AI Agents & Agent Fabric',
+    blurb: 'Agent Fabric, Omni Gateway, MCP, A2A, Model Proxy and governing agents and LLM traffic in production.',
+    tags: ['ai-agents', 'agent-fabric', 'mcp', 'a2a', 'llm'],
+  },
+  {
     slug: 'dataweave-core',
     title: 'DataWeave Essentials',
     blurb: 'Selectors, map/filter/reduce, groupBy, formats, dates, recursion — the functions interviewers ask about.',
