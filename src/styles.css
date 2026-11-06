@@ -2814,6 +2814,26 @@ textarea:focus {
 .raml-status.bad {
   color: var(--warning);
 }
+.raml-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.raml-file {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.raml-file.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .raml-editor {
   flex: 1;
   min-height: 320px;

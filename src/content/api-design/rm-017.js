@@ -70,8 +70,8 @@ resourceTypes:
         type: 'all',
         rules: [
           { type: 'resourceType', name: 'collection' },
-          { type: 'typed', path: '/depots', resourceType: 'collection' },
-          { type: 'typed', path: '/carriers', resourceType: 'collection' },
+          { type: 'typed', path: '/depots', resourceType: 'collection', provides: ['get.responses.200', 'post.body'] },
+          { type: 'typed', path: '/carriers', resourceType: 'collection', provides: ['get.responses.200', 'post.body'] },
         ],
       },
     },
@@ -81,8 +81,8 @@ resourceTypes:
         type: 'all',
         rules: [
           { type: 'resourceType', name: 'item' },
-          { type: 'typed', path: '/depots/{}', resourceType: 'item' },
-          { type: 'typed', path: '/carriers/{}', resourceType: 'item' },
+          { type: 'typed', path: '/depots/{}', resourceType: 'item', provides: ['get.responses.200'] },
+          { type: 'typed', path: '/carriers/{}', resourceType: 'item', provides: ['get.responses.200'] },
         ],
       },
     },

@@ -15,30 +15,45 @@ const RATINGS = [
   { status: 'revisit', label: 'Revisit' },
 ]
 const BLANK = '#%RAML 1.0\ntitle: \n'
+const MAIN = 'api.raml'
+
+// Saved as a list, because file paths hold dots and slashes that a Firestore map key should not.
+const toList = (files) => Object.entries(files).map(([path, text]) => ({ path, text }))
+const fromList = (list) => Object.fromEntries((Array.isArray(list) ? list : []).filter((f) => typeof f?.path === 'string').map((f) => [f.path, String(f.text ?? '')]))
+const languageOf = (path) => (path.endsWith('.json') ? 'json' : 'yaml')
 
 // guided adds the hints on failed checks. A mock interview turns them off.
 export default function RamlWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
   const starter = problem.starter ?? BLANK
-  const [text, setText] = useState(() => (typeof entry.raml === 'string' ? entry.raml : starter))
+  const startFiles = problem.files ?? {}
+  const [work, setWork] = useState(() => ({
+    main: typeof entry.raml === 'string' ? entry.raml : starter,
+    files: { ...startFiles, ...fromList(entry.ramlFiles) },
+  }))
+  const [active, setActive] = useState(MAIN)
   const [tab, setTab] = useState('scenario')
   const [results, setResults] = useState(null)
   const [checkedOn, setCheckedOn] = useState(null)
 
-  useAutosave(text, (value) => updateEntry(problem.id, { raml: value, status: workedStatus(problem.id) }))
+  useAutosave(work, (value) => updateEntry(problem.id, { raml: value.main, ramlFiles: toList(value.files), status: workedStatus(problem.id) }))
   useSidebarRoom()
 
   const checks = useMemo(() => ramlChecks(problem), [problem])
-  const parsed = useMemo(() => parseRaml(text), [text])
-  const hintSource = useMemo(() => (checkedOn === null ? null : parseRaml(checkedOn)), [checkedOn])
+  const parsed = useMemo(() => parseRaml(work.main, work.files), [work])
+  const hintSource = useMemo(() => (checkedOn === null ? null : parseRaml(checkedOn.main, checkedOn.files)), [checkedOn])
+  const paths = [MAIN, ...Object.keys(work.files)]
+  const text = active === MAIN ? work.main : work.files[active]
+  const setText = (value) => setWork((x) => (active === MAIN ? { ...x, main: value } : { ...x, files: { ...x.files, [active]: value } }))
+  const reference = [[MAIN, problem.referenceRaml], ...Object.entries(problem.referenceFiles ?? {})]
   const checked = Array.isArray(entry.checkedPoints) ? entry.checkedPoints : []
 
   function checkRaml() {
     const r = runRamlChecks(parsed, checks)
     setResults(r)
-    setCheckedOn(text)
+    setCheckedOn(work)
     setTab('checks')
-    if (r.every((c) => c.pass)) updateEntry(problem.id, { raml: text, status: 'solved' }, { graded: true })
+    if (r.every((c) => c.pass)) updateEntry(problem.id, { raml: work.main, ramlFiles: toList(work.files), status: 'solved' }, { graded: true })
   }
 
   function togglePoint(i) {
@@ -109,9 +124,14 @@ export default function RamlWorkspace({ problem, guided = true }) {
             ) : (
               <div className="reference">
                 <div className="section-title">Reference RAML</div>
-                <div className="raml-reference">
-                  <CodeEditor language="yaml" value={problem.referenceRaml} readOnly height="360px" />
-                </div>
+                {reference.map(([path, value]) => (
+                  <div key={path}>
+                    {reference.length > 1 && <div className="muted small mono">{path}</div>}
+                    <div className="raml-reference">
+                      <CodeEditor language={languageOf(path)} value={value} readOnly height={reference.length > 1 ? '240px' : '360px'} />
+                    </div>
+                  </div>
+                ))}
                 {problem.keyPoints?.length > 0 && (
                   <div className="key-points">
                     <div className="section-title">
@@ -162,21 +182,30 @@ export default function RamlWorkspace({ problem, guided = true }) {
           <span className={`raml-status ${parsed.errors.length ? 'bad' : 'good'}`}>
             {parsed.errors.length ? `${parsed.errors.length} ${parsed.errors.length === 1 ? 'problem' : 'problems'} in the file` : 'No errors in the file'}
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => window.confirm('Start again from the starter file?') && setText(starter)}>
+          <button className="btn btn-ghost btn-sm" onClick={() => window.confirm('Start again from the starter files?') && setWork({ main: starter, files: { ...startFiles } })}>
             Reset
           </button>
           <button className="btn btn-primary btn-sm" onClick={checkRaml}>
             Check RAML
           </button>
         </div>
+        {paths.length > 1 && (
+          <div className="raml-files">
+            {paths.map((path) => (
+              <button key={path} className={`raml-file mono ${path === active ? 'active' : ''}`} onClick={() => setActive(path)}>
+                {path}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="raml-editor">
-          <CodeEditor language="yaml" value={text} onChange={setText} onRun={checkRaml} />
+          <CodeEditor key={active} language={languageOf(active)} value={text} onChange={setText} onRun={checkRaml} />
         </div>
         {parsed.errors.length > 0 && (
           <ul className="raml-errors small">
             {parsed.errors.slice(0, 5).map((e, i) => (
               <li key={i}>
-                <span className="mono">Line {e.line}</span> {e.message}
+                <span className="mono">{e.file ? `${e.file}, line` : 'Line'} {e.line}</span> {e.message}
               </li>
             ))}
             {parsed.errors.length > 5 && <li className="muted">And {parsed.errors.length - 5} more.</li>}

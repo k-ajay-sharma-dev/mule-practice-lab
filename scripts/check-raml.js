@@ -19,7 +19,7 @@ const clean = (text) => assert.deepEqual(errorsOf(text), [], text)
 says('title: T\n', /first line/)
 says('#%RAML 1.0 Library\ntitle: T\n', /full API/)
 says('#%RAML 1.0\ntitle:\n', /needs a title/)
-says('#%RAML 1.0\ntitle: T\nbaseUri: https://x/{version}\n', /version key/)
+clean('#%RAML 1.0\ntitle: T\nbaseUri: https://x/{version}\n')
 says(`${head}titel: x\n`, /Unknown key “titel”/, 4)
 says(`${head}/a:\n  GET:\n    description: x\n`, /lower case/, 5)
 says(`${head}/a:\n  get:\n    query:\n      x: string\n`, /Unknown key “query”/, 6)
@@ -46,8 +46,15 @@ says(`${head}types:\n  A:\n    properties:\n      n: number\n    example:\n     
 says(`${head}types:\n  S:\n    enum: [ A, B ]\n    type: string\n    example: C\n`, /must be one of/)
 says(`${head}types:\n  A:\n    additionalProperties: false\n    properties:\n      n: number\n    example:\n      n: 1\n      z: 2\n`, /“z”/)
 says(`${head}types:\n  A:\n    properties:\n      d: date-only\n    example:\n      d: 12/01/2026\n`, /not a valid date-only/)
-says(`${head}types:\n  A:\n    properties:\n      n: number\n    example: '{ "n": '\n`, /not valid JSON/)
+says(`${head}types:\n  A:\n    properties:\n      n: number\n    example: '{ "n": '\n`, /JSON in quotes/)
 
+says(`${head}types:
+  A:
+    properties:
+      n: number
+    example: |
+      { "n":
+`, /not valid JSON/)
 // Valid files the parser must not reject
 clean(`${head}/a:
   get:
@@ -59,13 +66,74 @@ clean(`${head}/a:
 clean(`${head}types:\n  A:\n    properties:\n      n?: number\n      tags: string[]\n      s: string | nil\n    example:\n      tags: [ a ]\n      s: null\n`)
 clean(`${head}types:\n  Base:\n    properties:\n      id: string\n  Kid:\n    type: Base\n    properties:\n      n: integer\n    example:\n      id: x\n      n: 1\n`)
 clean(`${head}types:\n  A:\n    properties:\n      n: number\n    examples:\n      one:\n        value:\n          n: 1\n      two:\n        n: 2\n`)
-clean(`${head}types:\n  A:\n    properties:\n      n: number\n    example: '{ "n": 1 }'\n`)
+clean(`${head}types:\n  A:\n    properties:\n      n: number\n    example: |\n      { "n": 1 }\n`)
+says(`${head}types:\n  A:\n    properties:\n      n: number\n    example: '{ "n": 1 }'\n`, /JSON in quotes/)
+says(`${head}types:\n  A:\n    properties:\n      n: number\n    example: |\n      { "n": "x" }\n`, /must be a number/)
 clean(`${head}traits:\n  t:\n    usage: Use on lists\n    queryParameters:\n      <<name>>: string\nresourceTypes:\n  c:\n    usage: Collections\n    get?:\n      is: [ t: { name: x } ]\n/a:\n  type: c\n  get:\n`)
-clean(`${head}uses:\n  lib: !include libs/common.raml\n/a:\n  get:\n    is: [ lib.paged ]\n    responses:\n      200:\n        body:\n          type: lib.Order\n`)
 clean(`${head}securitySchemes:\n  oauth:\n    type: OAuth 2.0\n    settings:\n      accessTokenUri: https://x/token\n      authorizationGrants: [ client_credentials ]\nsecuredBy: [ oauth, null ]\n/a:\n  get:\n    securedBy: [ oauth: { scopes: [ read ] } ]\n`)
 clean(`${head}annotationTypes:\n  owner: string\n(owner): team-a\n/a:\n  (owner): team-b\n  get:\n    (owner): team-c\n`)
 clean(`${head}/a:\n  post:\n    body:\n      application/json:\n        type: object\n      application/xml:\n        type: object\n`)
 clean(`${head}/a:\n  uriParameters:\n    x: integer\n  /{id}:\n    get:\n`)
+
+// Annotations and documentation, as AMF treats them
+const notes = `${head}annotationTypes:\n  owner:\n    type: string\n    allowedTargets: [ Method ]\n  level: integer\n`
+clean(`${notes}/a:\n  get:\n    (owner): x\n`)
+says(`${notes}/a:\n  (owner): x\n  get:\n`, /cannot sit on a Resource/)
+says(`${notes}/a:\n  (level): abc\n  get:\n`, /must be an integer/)
+says(`${notes.replace('[ Method ]', '[ Nowhere ]')}/a:\n  get:\n`, /not an annotation target/)
+says(`${head}documentation: hello\n`, /must be a list/)
+says(`${head}documentation:\n  - title: x\n`, /needs content/)
+clean(`${head}documentation:\n  - title: x\n    content: y\n`)
+
+// Libraries and fragments, as AMF treats them
+const lib = '#%RAML 1.0 Library\nusage: Shared\ntypes:\n  Money:\n    properties:\n      amount: number\n  Order:\n    properties:\n      total: Money\ntraits:\n  paged:\n    queryParameters:\n      page?: integer\n'
+const inApi = `${head}uses:\n  lib: libs/common.raml\n/a:\n  get:\n    is: [ lib.paged ]\n    responses:\n      200:\n        body:\n          type: lib.Order\n`
+const withLib = { 'libs/common.raml': lib }
+const errs = (text, files) => parseRaml(text, files).errors
+const has = (text, files, pattern) => assert.ok(errs(text, files).some((e) => pattern.test(e.message)), `${pattern}: ${errs(text, files).map((e) => e.message).join(' | ') || 'no errors'}`)
+assert.deepEqual(errs(inApi, withLib), [])
+has(inApi, {}, /does not exist/)
+has(inApi.replace('lib.Order', 'lib.Nope'), withLib, /“lib.Nope” is not declared/)
+has(inApi.replace('lib.Order', 'Order'), withLib, /“Order” is not declared/)
+has(inApi, { 'libs/common.raml': '#%RAML 1.0\ntitle: X\n' }, /must start with #%RAML 1.0 Library/)
+has(inApi.replace('lib: libs', 'lib: !include libs'), withLib, /plain path/)
+const badLib = errs(inApi.replace('lib.Order', 'string').replace('is: [ lib.paged ]', ''), { 'libs/common.raml': lib.replace('total: Money', 'total: Missing') })
+assert.equal(badLib[0].file, 'libs/common.raml')
+assert.match(badLib[0].message, /“Missing” is not declared/)
+has(inApi, { 'libs/common.raml': `${lib}title: x\n` }, /cannot sit in a library/)
+// Nested libraries work inside, and stay private outside
+const nested = { 'libs/a.raml': '#%RAML 1.0 Library\nuses:\n  b: b.raml\ntypes:\n  Order:\n    properties:\n      m: b.Money\n', 'libs/b.raml': '#%RAML 1.0 Library\ntypes:\n  Money:\n    properties:\n      amount: number\n' }
+const nestedApi = `${head}uses:\n  lib: libs/a.raml\n/x:\n  get:\n    responses:\n      200:\n        body:\n          type: lib.Order\n`
+assert.deepEqual(errs(nestedApi, nested), [])
+has(nestedApi.replace('lib.Order', 'lib.b.Money'), nested, /not declared/)
+const seen = parseRaml(nestedApi, nested)
+assert.equal(runRamlChecks(seen, [{ label: 'x', rule: { type: 'prop', typeName: 'lib.Order', prop: 'm', want: { type: 'lib.b.Money' } } }])[0].pass, true)
+assert.equal(runRamlChecks(seen, [{ label: 'x', rule: { type: 'library', prefix: 'lib', file: 'libs/a.raml' } }])[0].pass, true)
+// A trait from a library reaches the method
+const traited = parseRaml(inApi, withLib)
+assert.ok(runRamlChecks(traited, [{ label: 'x', rule: { type: 'param', path: '/a', method: 'get', in: 'query', name: 'page' } }])[0].pass)
+assert.ok(runRamlChecks(traited, [{ label: 'x', rule: { type: 'applied', path: '/a', method: 'get', trait: 'lib.paged' } }])[0].pass)
+// !include
+const inc = `${head}types:\n  Order: !include types/order.raml\n/a:\n  get:\n    responses:\n      200:\n        body:\n          type: Order\n`
+assert.deepEqual(errs(inc, { 'types/order.raml': '#%RAML 1.0 DataType\nproperties:\n  id: string\n' }), [])
+has(inc, {}, /does not exist/)
+has(inc, { 'types/order.raml': '#%RAML 1.0 Trait\ndescription: x\n' }, /needs DataType/)
+const exampled = (json) => errs(`${head}types:\n  A:\n    properties:\n      n: number\n    example: !include examples/a.json\n`, { 'examples/a.json': json })
+assert.deepEqual(exampled('{ "n": 1 }'), [])
+assert.match(exampled('{ "n": "x" }')[0].message, /must be a number/)
+assert.match(exampled('{ "n": ')[0].message, /not valid JSON/)
+assert.deepEqual(errs(`${head}traits:\n  paged: !include traits/p.raml\n/a:\n  get:\n    is: [ paged ]\n`, { 'traits/p.raml': '#%RAML 1.0 Trait\nqueryParameters:\n  page?: integer\n' }), [])
+assert.ok(runRamlChecks(parseRaml(inc, { 'types/order.raml': '#%RAML 1.0 DataType\nproperties:\n  id: string\n' }), [{ label: 'x', rule: { type: 'included', file: 'types/order.raml' } }])[0].pass)
+
+// Sample-based patterns, own examples, and what must come from a resource type
+const rules = parseRaml(`${head}types:\n  R:\n    type: string\n    pattern: ^[A-Z]{2}$\n    example: AB\nresourceTypes:\n  c:\n    get:\n      responses:\n        200:\n          description: x\n/a:\n  type: c\n  get:\n    responses:\n      200:\n        body:\n          type: R\n/b:\n  type: c\n`)
+const says2 = (r) => runRamlChecks(rules, [{ label: 'x', rule: r }])[0].pass
+assert.ok(says2({ type: 'typeDecl', name: 'R', want: { pattern: { accepts: ['AB'], rejects: ['A', 'ab', 'ABC'] } } }))
+assert.equal(says2({ type: 'typeDecl', name: 'R', want: { pattern: { accepts: ['A'] } } }), false)
+assert.ok(says2({ type: 'response', path: '/a', method: 'get', status: '200', example: true }))
+assert.equal(says2({ type: 'response', path: '/a', method: 'get', status: '200', example: 'own' }), false)
+assert.ok(says2({ type: 'typed', path: '/b', resourceType: 'c', provides: ['get.responses.200'] }))
+assert.equal(says2({ type: 'typed', path: '/a', resourceType: 'c', provides: ['get.responses.200'] }), false, 'written by hand')
 
 // Traits, resource types and optional methods are applied before checks run
 const applied = parseRaml(`${head}traits:\n  paged:\n    queryParameters:\n      page?: integer\nresourceTypes:\n  c:\n    get:\n      is: [ paged ]\n      responses:\n        200:\n          description: <<resourcePathName | !singularize>>\n    delete?:\n      description: x\n/orders:\n  type: c\n`)
@@ -126,12 +194,12 @@ for (const file of files.sort()) {
   const p = (await import(pathToFileURL(join(root, file)).href)).default
   const checks = ramlChecks(p)
   count++
-  const reference = parseRaml(p.referenceRaml)
+  const reference = parseRaml(p.referenceRaml, p.referenceFiles)
   for (const e of reference.errors) fail.push(`${p.id}: reference line ${e.line}: ${e.message}`)
   for (const r of runRamlChecks(reference, checks)) if (!r.pass) fail.push(`${p.id}: reference fails: ${r.label}`)
   // The shared valid check is the only one a near-empty file may pass.
   runRamlChecks(empty, checks).slice(1).forEach((r) => r.pass && fail.push(`${p.id}: passes on an empty file: ${r.label}`))
-  const starter = runRamlChecks(parseRaml(p.starter), checks)
+  const starter = runRamlChecks(parseRaml(p.starter, p.files), checks)
   if (starter.every((r) => r.pass)) fail.push(`${p.id}: the starter already passes`)
   checks.forEach((c) => {
     const hint = ramlHint(empty, c.rule)

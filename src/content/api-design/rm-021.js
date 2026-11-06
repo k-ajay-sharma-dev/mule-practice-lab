@@ -47,8 +47,17 @@ types:
       },
     },
     { label: 'The file has a documentation section', rule: { type: 'root', key: 'documentation' } },
-    { label: 'The file declares annotation types', rule: { type: 'root', key: 'annotationTypes' } },
-    { label: 'The API is marked with (owner)', rule: { type: 'root', key: '(owner)' } },
+    {
+      label: 'owner is a string annotation, and dataClass allows only PUBLIC, INTERNAL and SENSITIVE',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'annotationType', name: 'owner', want: { type: 'string' } },
+          { type: 'annotationType', name: 'dataClass', want: { type: 'string', enum: { exactly: ['PUBLIC', 'INTERNAL', 'SENSITIVE'] } } },
+        ],
+      },
+    },
+    { label: 'The API is marked with (owner)', rule: { type: 'annotated', name: 'owner' } },
     {
       label: 'Patient has required patientId, fullName and dateOfBirth',
       rule: {

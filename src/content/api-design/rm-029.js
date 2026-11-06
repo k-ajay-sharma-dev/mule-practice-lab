@@ -128,7 +128,8 @@ types:
         type: 'all',
         rules: [
           { type: 'root', key: 'annotationTypes' },
-          { type: 'prop', typeName: 'Reservation', prop: 'phone', want: { '(deprecatedSince)': 'v2' } },
+          { type: 'annotationType', name: 'deprecatedSince', want: { type: 'string' } },
+          { type: 'annotated', name: 'deprecatedSince', value: 'v2', typeName: 'Reservation', prop: 'phone' },
         ],
       },
     },

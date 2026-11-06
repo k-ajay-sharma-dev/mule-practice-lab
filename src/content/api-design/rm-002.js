@@ -51,7 +51,7 @@ resourceTypes:
       rule: {
         type: 'all',
         rules: [
-          { type: 'resourceType', name: 'collection' },
+          { type: 'resourceType', name: 'collection', has: ['get', 'post'] },
           { type: 'typed', path: '/orders', resourceType: 'collection' },
         ],
       },

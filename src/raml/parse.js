@@ -1,14 +1,16 @@
 import { LineCounter, isMap, isSeq, parseDocument } from 'yaml'
 
-// Reads one RAML 1.0 API file. YAML alone would accept almost anything, so this also applies the RAML rules that
-// catch real mistakes: unknown keys, broken type, trait and scheme references, and examples that do not fit their type.
-// It is not a full RAML parser. !include is accepted but its file is not read, since a problem is a single file.
+// Reads a RAML 1.0 API with its libraries and fragments. YAML alone would accept almost anything, so this also applies
+// the RAML rules that catch real mistakes: unknown keys, broken references, files of the wrong kind, and examples and
+// annotations that do not fit. Where the rules are in doubt it follows MuleSoft's AMF parser, the one behind Design Center.
 
 const METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch']
 const ROOT_KEYS = ['title', 'description', 'version', 'baseUri', 'baseUriParameters', 'protocols', 'mediaType', 'documentation', 'schemas', 'types', 'traits', 'resourceTypes', 'annotationTypes', 'securitySchemes', 'securedBy', 'uses']
 const RESOURCE_KEYS = ['displayName', 'description', 'is', 'type', 'securedBy', 'uriParameters', ...METHODS]
 const METHOD_KEYS = ['displayName', 'description', 'queryParameters', 'headers', 'queryString', 'responses', 'body', 'protocols', 'is', 'securedBy']
 const RESPONSE_KEYS = ['description', 'headers', 'body']
+const LIBRARY_KEYS = ['usage', 'types', 'traits', 'resourceTypes', 'annotationTypes', 'securitySchemes', 'uses']
+const TARGETS = ['API', 'DocumentationItem', 'Resource', 'Method', 'Response', 'RequestBody', 'ResponseBody', 'TypeDeclaration', 'Example', 'ResourceType', 'Trait', 'SecurityScheme', 'SecuritySchemeSettings', 'AnnotationType', 'Library', 'Overlay', 'Extension']
 const TYPE_KEYS = ['type', 'schema', 'default', 'example', 'examples', 'displayName', 'description', 'facets', 'xml', 'enum', 'properties', 'minProperties', 'maxProperties', 'additionalProperties', 'discriminator', 'discriminatorValue', 'items', 'minItems', 'maxItems', 'uniqueItems', 'pattern', 'minLength', 'maxLength', 'minimum', 'maximum', 'format', 'multipleOf', 'fileTypes', 'required']
 const BUILT_IN = ['any', 'object', 'array', 'string', 'number', 'integer', 'boolean', 'date-only', 'time-only', 'datetime-only', 'datetime', 'file', 'nil']
 
@@ -167,15 +169,14 @@ function misfit(value, decl, types, where, depth = 0) {
 
 // ---------- Checking the file ----------
 
-function lint(root, report) {
-  const types = obj(root.types)
-  const uses = obj(root.uses)
-  const traits = obj(root.traits)
-  const resourceTypes = obj(root.resourceTypes)
-  const schemes = obj(root.securitySchemes)
+// scope holds what is declared here and in libraries, by the name this file uses. isBlock says whether a value was
+// written as a YAML block, the one way a string can hold JSON. A library has no title or resources of its own.
+function lint(root, scope, report, isBlock, library = false) {
+  const { types, traits, resourceTypes, schemes, annotationTypes } = scope
   const open = Object.values(types).some((t) => isObject(t) && t.facets) // custom facets may add keys of their own
   const hasParam = (x) => JSON.stringify(x ?? '').includes('<<')
-  const fromLibrary = (name) => name.includes('.') && uses[name.split('.')[0]] !== undefined
+  // A library's own libraries stay private to it, so a name has one prefix at most.
+  const visible = (name) => name.split('.').length <= 2
 
   const unknownKeys = (node, allowed, path, what) => {
     for (const key of Object.keys(node)) {
@@ -186,7 +187,7 @@ function lint(root, report) {
   const typeRef = (expr, path) => {
     if (isObject(expr) || isInline(expr) || hasParam(expr)) return
     for (const name of namesIn(expr)) {
-      if (BUILT_IN.includes(name) || types[name] !== undefined || fromLibrary(name)) continue
+      if (BUILT_IN.includes(name) || (types[name] !== undefined && visible(name))) continue
       if (name === 'date') report('RAML 1.0 has no type “date”. Use date-only, time-only, datetime-only or datetime.', path)
       else if (name === 'int' || name === 'long' || name === 'float' || name === 'double') report(`RAML has no type “${name}”. Use integer or number, with format: ${name}.`, path)
       else report(`Type “${name}” is not declared. Add it under types, or use a built-in type.`, path)
@@ -200,13 +201,13 @@ function lint(root, report) {
       let value = wrapped ? raw.value : raw
       const text = typeText(decl)
       if (typeof value === 'string' && text !== 'string' && /^\s*[[{]/.test(value)) {
+        if (!isBlock(wrapped ? [...at, 'value'] : at)) return report('JSON in quotes is read as a plain string. Write the example as YAML, or use a block that starts with |.', at)
         try {
           value = JSON.parse(value)
         } catch {
           return report('This example is not valid JSON.', at)
         }
       }
-      if (isObject(value) && value.$include) return
       if (typeof value === 'string' && /^\s*</.test(value)) return // XML examples are not compared
       const bad = misfit(value, decl, types, 'The example')
       if (bad) report(`${bad}.`, at)
@@ -240,7 +241,7 @@ function lint(root, report) {
     if (typeof value === 'string' || !isObject(value)) return typeDecl(value, path)
     const media = Object.keys(value).filter((k) => k.includes('/'))
     if (!media.length) {
-      if (!root.mediaType) report('This body has no media type. Add mediaType at the top of the file, or a key such as application/json.', path)
+      if (!library && !root.mediaType) report('This body has no media type. Add mediaType at the top of the file, or a key such as application/json.', path)
       return typeDecl(bodyDecl(value), path)
     }
     for (const key of Object.keys(value)) {
@@ -254,7 +255,7 @@ function lint(root, report) {
       if (item === null) continue
       const name = refName(item)
       if (typeof name !== 'string' || hasParam(name)) continue
-      if (known[name] === undefined && !fromLibrary(name)) report(`${what} “${name}” is not declared.`, [...path, ...(Array.isArray(value) ? [i] : [])])
+      if (known[name] === undefined || !visible(name)) report(`${what} “${name}” is not declared.`, [...path, ...(Array.isArray(value) ? [i] : [])])
     }
   }
 
@@ -303,29 +304,81 @@ function lint(root, report) {
     usesRef(node.securedBy, schemes, 'Security scheme', [...path, 'securedBy'])
   }
 
+  // Where an annotation sits, in allowedTargets terms. Null where a template or body makes that unclear.
+  const targetOf = (path) => {
+    if (!path.length) return library ? 'Library' : 'API'
+    const [top] = path
+    if (top === 'types' || top === 'annotationTypes') return 'TypeDeclaration'
+    if (top === 'securitySchemes') return 'SecurityScheme'
+    if (top === 'documentation') return 'DocumentationItem'
+    if (!String(top).startsWith('/')) return null
+    const last = String(path.at(-1))
+    if (path.some((p) => ['body', 'queryParameters', 'headers', 'uriParameters'].includes(p))) return path.includes('body') ? null : 'TypeDeclaration'
+    if (path.at(-2) === 'responses') return 'Response'
+    if (last.startsWith('/')) return 'Resource'
+    return METHODS.includes(last) ? 'Method' : null
+  }
+
+  const annotation = (key, value, path) => {
+    const name = key.slice(1, -1)
+    const decl = annotationTypes[name]
+    if (decl === undefined) return report(`Annotation ${key} is not declared. Add it under annotationTypes.`, [...path, key])
+    const allowed = isObject(decl) ? list(decl.allowedTargets) : []
+    const target = targetOf(path)
+    if (allowed.length && target && !allowed.includes(target)) report(`Annotation ${key} cannot sit on a ${target}. It is allowed on: ${allowed.join(', ')}.`, [...path, key])
+    const bad = hasParam(value) ? null : misfit(value, isObject(decl) ? withoutTargets(decl) : decl, types, `The value of ${key}`)
+    if (bad) report(`${bad}.`, [...path, key])
+  }
+
   const annotations = (node, path) => {
     if (Array.isArray(node)) return node.forEach((x, i) => annotations(x, [...path, i]))
     if (!isObject(node)) return
     for (const [key, value] of Object.entries(node)) {
-      if (key === 'example' || key === 'examples') continue
-      if (isAnnotation(key)) {
-        const name = key.slice(1, -1)
-        if (obj(root.annotationTypes)[name] === undefined && !fromLibrary(name)) report(`Annotation ${key} is not declared. Add it under annotationTypes.`, [...path, key])
-      } else annotations(value, [...path, key])
+      if (key === 'example' || key === 'examples' || (path.length === 0 && key === 'annotationTypes')) continue
+      if (isAnnotation(key)) annotation(key, value, path)
+      else annotations(value, [...path, key])
     }
   }
   annotations(root, [])
 
-  if (root.title === undefined || root.title === null || String(root.title).trim() === '') report('Every RAML file needs a title.', ['title'])
-  if (String(root.baseUri ?? '').includes('{version}') && root.version === undefined) report('baseUri uses {version}, so the file needs a version key.', ['baseUri'])
-  for (const key of Object.keys(root)) {
-    if (!key.startsWith('/') && !ROOT_KEYS.includes(key) && !isAnnotation(key)) report(`Unknown key “${key}” at the top of the file. A resource starts with a slash.`, [key])
-    if (key.startsWith('/')) resource(root[key], [key], key)
+  for (const [key, value] of Object.entries(obj(root.annotationTypes))) {
+    const at = ['annotationTypes', key]
+    for (const [i, t] of list(isObject(value) ? value.allowedTargets : undefined).entries()) {
+      if (!TARGETS.includes(t)) report(`“${t}” is not an annotation target. Use one of: ${TARGETS.join(', ')}.`, [...at, 'allowedTargets', ...(Array.isArray(value.allowedTargets) ? [i] : [])])
+    }
+    typeDecl(isObject(value) ? withoutTargets(value) : value, at)
   }
-  for (const [key, value] of Object.entries(types)) typeDecl(value, ['types', key])
-  for (const [key, value] of Object.entries(traits)) method(value, ['traits', key], `trait ${key}`, true)
-  for (const [key, value] of Object.entries(resourceTypes)) resource(value, ['resourceTypes', key], `resource type ${key}`, true)
-  usesRef(root.securedBy, schemes, 'Security scheme', ['securedBy'])
+
+  if (library) {
+    for (const key of Object.keys(root)) {
+      if (!LIBRARY_KEYS.includes(key) && !isAnnotation(key)) report(`“${key}” cannot sit in a library. A library holds ${LIBRARY_KEYS.join(', ')}.`, [key])
+    }
+  } else {
+    if (root.title === undefined || root.title === null || String(root.title).trim() === '') report('Every RAML file needs a title.', ['title'])
+    if (root.documentation !== undefined) {
+      if (!Array.isArray(root.documentation)) report('documentation must be a list of items, each with title and content.', ['documentation'])
+      else {
+        for (const [i, item] of root.documentation.entries()) {
+          for (const key of ['title', 'content']) {
+            if (!isObject(item) || item[key] === undefined || item[key] === null || item[key] === '') report(`Each documentation item needs ${key}.`, ['documentation', i])
+          }
+        }
+      }
+    }
+    for (const key of Object.keys(root)) {
+      if (!key.startsWith('/') && !ROOT_KEYS.includes(key) && !isAnnotation(key)) report(`Unknown key “${key}” at the top of the file. A resource starts with a slash.`, [key])
+      if (key.startsWith('/')) resource(root[key], [key], key)
+    }
+    usesRef(root.securedBy, schemes, 'Security scheme', ['securedBy'])
+  }
+  for (const [key, value] of Object.entries(obj(root.types))) typeDecl(value, ['types', key])
+  for (const [key, value] of Object.entries(obj(root.traits))) method(value, ['traits', key], `trait ${key}`, true)
+  for (const [key, value] of Object.entries(obj(root.resourceTypes))) resource(value, ['resourceTypes', key], `resource type ${key}`, true)
+}
+
+function withoutTargets(decl) {
+  const { allowedTargets: _, ...rest } = decl
+  return rest
 }
 
 // ---------- Traits and resource types ----------
@@ -377,9 +430,7 @@ function applyTraits(method, traits, base, inherited) {
   return out
 }
 
-function collect(root) {
-  const traits = obj(root.traits)
-  const resourceTypes = obj(root.resourceTypes)
+function collect(root, { traits, resourceTypes }) {
   const resources = []
   const visit = (node, path) => {
     const own = obj(node)
@@ -408,7 +459,7 @@ function collect(root) {
       const full = applyTraits(merged[m], traits, { ...base, methodName: m }, list(merged.is))
       methods[m] = { ...full, securedBy: full.securedBy ?? merged.securedBy ?? root.securedBy, traits: [...list(full.is), ...list(merged.is)].map(refName) }
     }
-    resources.push({ path, type: typeof typeName === 'string' ? typeName : undefined, uriParameters: merged.uriParameters, methods })
+    resources.push({ path, raw: own, type: typeof typeName === 'string' ? typeName : undefined, uriParameters: merged.uriParameters, methods })
     for (const key of Object.keys(own)) if (key.startsWith('/')) visit(own[key], `${path}${key}`)
   }
   for (const key of Object.keys(root)) if (key.startsWith('/')) visit(root[key], key)
@@ -436,24 +487,204 @@ function findKey(doc, path) {
   return found
 }
 
-export function parseRaml(text) {
+function valueAt(doc, path) {
+  let node = doc.contents
+  for (const part of path) {
+    if (isMap(node)) node = node.items.find((p) => String(p.key?.value ?? p.key) === String(part))?.value
+    else if (isSeq(node)) node = node.items[part]
+    else return null
+  }
+  return node
+}
+
+const FRAGMENTS = { types: ['DataType'], annotationTypes: ['AnnotationTypeDeclaration'], traits: ['Trait'], resourceTypes: ['ResourceType'], securitySchemes: ['SecurityScheme'], documentation: ['DocumentationItem'] }
+
+function joinPath(from, rel) {
+  const parts = rel.startsWith('/') ? [] : from.split('/').slice(0, -1)
+  for (const part of rel.split('/')) {
+    if (part === '..') parts.pop()
+    else if (part && part !== '.') parts.push(part)
+  }
+  return parts.join('/')
+}
+
+function readYaml(text, file, errors) {
+  const lines = new LineCounter()
+  const doc = parseDocument(text, { lineCounter: lines, customTags: [include], prettyErrors: false })
+  for (const e of doc.errors) errors.push({ file, line: lines.linePos(e.pos[0]).line, message: e.message })
+  const report = (message, path) => {
+    const node = findKey(doc, path)
+    errors.push({ file, line: node?.range ? lines.linePos(node.range[0]).line : 1, message })
+  }
+  const isBlock = (path) => {
+    const type = valueAt(doc, path)?.type
+    return type === 'BLOCK_LITERAL' || type === 'BLOCK_FOLDED'
+  }
+  return { doc, report, isBlock, ok: doc.errors.length === 0 }
+}
+
+// Swaps each !include for what the file holds. A RAML fragment must suit its place, as in AMF.
+function expand(value, path, file, ctx, report, stack) {
+  if (Array.isArray(value)) return value.map((x, i) => expand(x, [...path, i], file, ctx, report, stack))
+  if (!isObject(value)) return value
+  if (typeof value.$include !== 'string') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expand(v, [...path, k], file, ctx, report, stack)]))
+  }
+  const target = joinPath(file, value.$include)
+  const text = ctx.files[target]
+  if (text === undefined) {
+    report(`File “${target}” does not exist in this problem.`, path)
+    return null
+  }
+  if (stack.includes(target)) {
+    report(`“${target}” includes itself.`, path)
+    return null
+  }
+  ctx.included.push(target)
+  const kind = /^#%RAML 1\.0(?: (\S+))?/.exec(text.split(/\r?\n/, 1)[0])
+  if (kind) {
+    const wanted = path.length === 2 ? FRAGMENTS[path[0]] : null
+    if (wanted && !wanted.includes(kind[1])) {
+      report(`“${target}” is a ${kind[1] ?? 'full API'} file, but this place needs ${wanted.join(' or ')}.`, path)
+      return null
+    }
+  }
+  if (kind || /\.(raml|ya?ml)$/.test(target)) {
+    const inner = readYaml(text, target, ctx.errors)
+    return inner.ok ? expand(inner.doc.toJS(), path, target, ctx, inner.report, [...stack, target]) : null
+  }
+  if (target.endsWith('.json')) {
+    try {
+      return JSON.parse(text)
+    } catch {
+      report(`“${target}” is not valid JSON.`, path)
+      return null
+    }
+  }
+  return text
+}
+
+// Library names as seen from outside: everything gets the prefix, including references inside the library.
+function prefixed(scope, prefix) {
+  const add = (map) => Object.fromEntries(Object.keys(map).map((k) => [k, `${prefix}.${k}`]))
+  const names = { types: add(scope.types), traits: add(scope.traits), resourceTypes: add(scope.resourceTypes), schemes: add(scope.schemes) }
+  const typeExpr = (expr) =>
+    typeof expr !== 'string' || isInline(expr) || expr.includes('<<') ? expr : expr.replace(/[A-Za-z_][\w.-]*/g, (name) => names.types[name] ?? name)
+  const renameRef = (item, map) => {
+    if (isObject(item)) return Object.fromEntries(Object.entries(item).map(([k, v]) => [map[k] ?? k, v]))
+    return typeof item === 'string' ? map[item] ?? item : item
+  }
+  const refs = (value, map) => (Array.isArray(value) ? value.map((x) => renameRef(x, map)) : renameRef(value, map))
+  const decl = (value) => {
+    if (Array.isArray(value)) return value.map(typeExpr)
+    if (!isObject(value)) return typeExpr(value)
+    const out = { ...value }
+    if (out.type !== undefined) out.type = Array.isArray(out.type) ? out.type.map(typeExpr) : isObject(out.type) ? decl(out.type) : typeExpr(out.type)
+    if (out.schema !== undefined) out.schema = typeExpr(out.schema)
+    if (out.items !== undefined) out.items = decl(out.items)
+    if (isObject(out.properties)) out.properties = Object.fromEntries(Object.entries(out.properties).map(([k, v]) => [k, decl(v)]))
+    return out
+  }
+  const declMap = (map) => (isObject(map) ? Object.fromEntries(Object.entries(map).map(([k, v]) => [k, decl(v)])) : map)
+  const body = (value) => {
+    if (!isObject(value) || !Object.keys(value).some((k) => k.includes('/'))) return decl(value)
+    return declMap(value)
+  }
+  const method = (node) => {
+    if (!isObject(node)) return node
+    const out = { ...node }
+    for (const key of ['queryParameters', 'headers']) if (out[key] !== undefined) out[key] = declMap(out[key])
+    if (out.body !== undefined) out.body = body(out.body)
+    if (out.is !== undefined) out.is = refs(out.is, names.traits)
+    if (out.securedBy !== undefined) out.securedBy = refs(out.securedBy, names.schemes)
+    if (isObject(out.responses)) {
+      out.responses = Object.fromEntries(
+        Object.entries(out.responses).map(([code, r]) => {
+          if (!isObject(r)) return [code, r]
+          return [code, { ...r, ...(r.body !== undefined && { body: body(r.body) }), ...(r.headers !== undefined && { headers: declMap(r.headers) }) }]
+        }),
+      )
+    }
+    return out
+  }
+  const resource = (node) => {
+    if (!isObject(node)) return node
+    const out = {}
+    for (const [key, value] of Object.entries(node)) out[key] = METHODS.includes(key.replace(/\?$/, '')) ? method(value) : value
+    if (out.is !== undefined) out.is = refs(out.is, names.traits)
+    if (out.type !== undefined) out.type = refs(out.type, names.resourceTypes)
+    if (out.securedBy !== undefined) out.securedBy = refs(out.securedBy, names.schemes)
+    if (out.uriParameters !== undefined) out.uriParameters = declMap(out.uriParameters)
+    return out
+  }
+  const under = (map, fn) => Object.fromEntries(Object.entries(map).map(([k, v]) => [`${prefix}.${k}`, fn(v)]))
+  return {
+    types: under(scope.types, decl),
+    traits: under(scope.traits, method),
+    resourceTypes: under(scope.resourceTypes, resource),
+    schemes: under(scope.schemes, (x) => x),
+    annotationTypes: under(scope.annotationTypes, decl),
+  }
+}
+
+const combine = (a, b) => Object.fromEntries(Object.keys(a).map((k) => [k, { ...a[k], ...b[k] }]))
+const ownScope = (root) => ({ types: obj(root.types), traits: obj(root.traits), resourceTypes: obj(root.resourceTypes), schemes: obj(root.securitySchemes), annotationTypes: obj(root.annotationTypes) })
+const emptyScope = () => ({ types: {}, traits: {}, resourceTypes: {}, schemes: {}, annotationTypes: {} })
+
+// What this file can see through uses. Each library is checked in its own right.
+function loadUses(root, file, ctx, report, stack, libraries) {
+  let scope = emptyScope()
+  for (const [prefix, value] of Object.entries(obj(root.uses))) {
+    if (typeof value !== 'string') {
+      report('Point uses at a library with a plain path. !include is not used here.', ['uses', prefix])
+      continue
+    }
+    const target = joinPath(file, value)
+    const text = ctx.files[target]
+    if (text === undefined) {
+      report(`File “${target}” does not exist in this problem.`, ['uses', prefix])
+      continue
+    }
+    if (text.split(/\r?\n/, 1)[0].trim() !== '#%RAML 1.0 Library') {
+      report(`“${target}” must start with #%RAML 1.0 Library to be used here.`, ['uses', prefix])
+      continue
+    }
+    if (stack.includes(target)) {
+      report(`“${target}” uses itself.`, ['uses', prefix])
+      continue
+    }
+    libraries.push({ prefix, path: target })
+    const inner = readYaml(text, target, ctx.errors)
+    if (!inner.ok) continue
+    const lib = expand(inner.doc.toJS(), [], target, ctx, inner.report, [...stack, target])
+    if (!isObject(lib)) continue
+    const seen = combine(ownScope(lib), loadUses(lib, target, ctx, inner.report, [...stack, target], []))
+    lint(lib, seen, inner.report, inner.isBlock, true)
+    scope = combine(scope, prefixed(seen, prefix))
+  }
+  return scope
+}
+
+const MAIN = 'api.raml'
+
+// files holds any other files of the problem, by path from the API file.
+export function parseRaml(text, files = {}) {
   const errors = []
   const header = String(text ?? '').split(/\r?\n/, 1)[0].trim()
   if (header !== '#%RAML 1.0') {
     const fragment = /^#%RAML 1\.0 \S/.test(header)
     errors.push({ line: 1, message: fragment ? 'Write a full API here, so the first line is exactly #%RAML 1.0.' : 'The first line must be exactly #%RAML 1.0.' })
   }
-  const lines = new LineCounter()
-  const doc = parseDocument(text ?? '', { lineCounter: lines, customTags: [include], prettyErrors: false })
-  for (const e of doc.errors) errors.push({ line: lines.linePos(e.pos[0]).line, message: e.message })
-  if (doc.errors.length) return { errors, model: null }
-  const root = doc.toJS()
-  if (!isObject(root)) return { errors: [...errors, { line: 1, message: 'The file needs keys such as title and resources.' }], model: null }
-  const report = (message, path) => {
-    const node = findKey(doc, path)
-    errors.push({ line: node?.range ? lines.linePos(node.range[0]).line : 1, message })
-  }
-  lint(root, report)
-  errors.sort((a, b) => a.line - b.line)
-  return { errors, model: { root, resources: collect(root), types: obj(root.types), traits: obj(root.traits), resourceTypes: obj(root.resourceTypes), schemes: obj(root.securitySchemes) } }
+  const main = readYaml(text ?? '', undefined, errors)
+  if (!main.ok) return { errors, model: null }
+  const parsed = main.doc.toJS()
+  if (!isObject(parsed)) return { errors: [...errors, { line: 1, message: 'The file needs keys such as title and resources.' }], model: null }
+  const ctx = { files: { ...files, [MAIN]: text }, errors, included: [] }
+  const root = expand(parsed, [], MAIN, ctx, main.report, [MAIN])
+  const libraries = []
+  const scope = combine(ownScope(root), loadUses(root, MAIN, ctx, main.report, [MAIN], libraries))
+  lint(root, scope, main.report, main.isBlock)
+  const rank = (e) => (e.file ? 1 : 0)
+  errors.sort((a, b) => rank(a) - rank(b) || String(a.file ?? '').localeCompare(String(b.file ?? '')) || a.line - b.line)
+  return { errors, model: { root, resources: collect(root, scope), libraries, included: ctx.included, types: scope.types, traits: scope.traits, resourceTypes: scope.resourceTypes, schemes: scope.schemes, annotationTypes: scope.annotationTypes } }
 }

@@ -16,7 +16,7 @@ import { BLINK_MS } from '../study/timer.js'
 // A timed, mixed round: one problem of each exercise type, scored on what is solved before time runs out.
 const CURRENT_KEY = 'pl.mock.current'
 const HISTORY_KEY = 'pl.mock.history'
-const ROUND = ['code', 'flow', 'diagram', 'investigation', 'quiz']
+const ROUND = ['code', 'flow', 'raml', 'diagram', 'investigation', 'quiz']
 
 const read = (key, fallback) => {
   try {

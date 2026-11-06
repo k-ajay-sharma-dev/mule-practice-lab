@@ -55,7 +55,7 @@ mediaType: application/json
   keyPoints: [
     'The first line of a RAML file is exactly #%RAML 1.0.',
     'A nested resource adds to the path of its parent, so /{storeId} under /stores is /stores/{storeId}.',
-    'A baseUri that uses {version} needs a version key.',
+    '{version} in baseUri is filled in from the version key.',
     'mediaType sets the default once, so bodies do not repeat it.',
   ],
   solution: `

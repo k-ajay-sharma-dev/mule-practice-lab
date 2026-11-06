@@ -119,7 +119,7 @@ resourceTypes:
         type: 'all',
         rules: [
           { type: 'resourceType', name: 'collection' },
-          { type: 'typed', path: '/enrolments', resourceType: 'collection' },
+          { type: 'typed', path: '/enrolments', resourceType: 'collection', provides: ['get.responses.200', 'post.body'] },
         ],
       },
     },
