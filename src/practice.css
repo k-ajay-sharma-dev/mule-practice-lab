@@ -472,15 +472,30 @@
 .problem-timer-note.result {
   flex-basis: 260px;
 }
-/* the timer strip takes this much of the screen, so the workspace gives it back. Stacked layouts size themselves */
+/* side by side, the page fits the screen exactly: the workspace takes whatever the title and timer leave, so only the
+   panels scroll and the page has no scrollbar of its own. Stacked layouts size themselves and scroll as a page. */
 @media (min-width: 1001px) {
+  .problem-page:has(.workspace:not(.flow-workspace)) {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h) - 40px);
+  }
   .problem-page .workspace:not(.flow-workspace) {
-    height: calc(100vh - 250px);
+    flex: 1;
+    height: auto;
+    min-height: 420px;
   }
 }
 @media (min-width: 1401px) {
+  .problem-page:has(.flow-workspace) {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h) - 40px);
+  }
   .problem-page .workspace.flow-workspace {
-    height: calc(100vh - 250px);
+    flex: 1;
+    height: auto;
+    min-height: 420px;
   }
 }
 .timer-blink {

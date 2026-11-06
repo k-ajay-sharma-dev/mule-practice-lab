@@ -1,7 +1,7 @@
 // Daily plan rules: priorities, the time budget, what counts as done, and stored-plan checks.
 import assert from 'node:assert/strict'
 import { currentStage, PHASES } from '../src/data/roadmap.js'
-import { autoDone, buildPlan, currentMinutes, interleave, itemDone, planTime, REVIEW_MINUTES, validPlan } from '../src/study/plan.js'
+import { activeItems, autoDone, buildPlan, currentMinutes, interleave, itemDone, planTime, REVIEW_MINUTES, validPlan } from '../src/study/plan.js'
 
 const c = (id, estMinutes = 20) => ({ id, estMinutes, note: id })
 const many = (prefix, n, min) => Array.from({ length: n }, (_, i) => c(`${prefix}${i}`, min))
@@ -56,10 +56,22 @@ const dayOf = (iso) => iso.slice(0, 10)
 const base = { ticked: [], review: {}, progress: {}, today, dayOf }
 const review = { id: 'r', kind: 'review' }
 const fresh = { id: 'n', kind: 'new' }
+// a review is done by doing it: leaving the due list is not enough
 assert.equal(autoDone(review, { ...base, review: { r: { due: today } } }), false)
-assert.equal(autoDone(review, { ...base, review: { r: { due: '2026-11-01' } } }), false)
-assert.equal(autoDone(review, { ...base, review: { r: { due: '2026-11-06' } } }), true)
-assert.equal(autoDone(review, base), true) // graduated or removed
+assert.equal(autoDone(review, { ...base, review: { r: { due: '2026-11-06' } } }), false, 'Again moves it to tomorrow')
+assert.equal(autoDone(review, base), false, 'removed')
+assert.equal(autoDone(review, { ...base, progress: { r: { reviewedAt: '2026-11-05T09:00:00.000Z' } } }), true, 'Got it')
+assert.equal(autoDone(review, { ...base, progress: { r: { reviewedAt: '2026-11-04T09:00:00.000Z' } } }), false, 'yesterday')
+assert.equal(autoDone(review, { ...base, progress: { r: { solvedAt: '2026-11-05T09:00:00.000Z' } } }), true, 'solved')
+assert.equal(autoDone(fresh, { ...base, progress: { n: { reviewedAt: '2026-11-05T09:00:00.000Z' } } }), false, 'only a review counts this way')
+
+// a removed review leaves the plan, unless it was done first
+const both = [review, fresh]
+assert.deepEqual(activeItems(both, base), [fresh])
+assert.deepEqual(activeItems(both, { ...base, review: { r: { due: today } } }), both)
+assert.deepEqual(activeItems(both, { ...base, ticked: ['r'] }), both)
+assert.deepEqual(activeItems(both, { ...base, progress: { r: { reviewedAt: '2026-11-05T09:00:00.000Z' } } }), both)
+
 assert.equal(autoDone(fresh, base), false)
 assert.equal(autoDone(fresh, { ...base, progress: { n: { solvedAt: '2026-11-05T09:00:00.000Z' } } }), true)
 assert.equal(autoDone(fresh, { ...base, progress: { n: { solvedAt: '2026-11-04T09:00:00.000Z' } } }), false)

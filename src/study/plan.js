@@ -59,18 +59,21 @@ export function buildPlan({ due, weak, fresh, minutes, exclude = new Set() }) {
   return items
 }
 
-// A review counts once it is no longer due, however it was dealt with: solved, Got it or Again.
-// Anything else needs a graded solve today. The tick is for work the site can't see, such as a Partial rating.
-export function itemDone(item, { ticked, review, progress, today, dayOf }) {
+// Done means the work happened today: a graded solve, or for a review a Got it. Again or removing a review is not work
+// done. The tick is for work the site can't see, such as a Partial rating.
+export function itemDone(item, { ticked, progress, today, dayOf }) {
   if (ticked.includes(item.id)) return true
-  return autoDone(item, { review, progress, today, dayOf })
+  return autoDone(item, { progress, today, dayOf })
 }
 
-export function autoDone(item, { review, progress, today, dayOf }) {
-  if (item.kind === 'review') return !review[item.id] || review[item.id].due > today
-  const at = progress[item.id]?.solvedAt
-  return typeof at === 'string' && dayOf(at) === today
+export function autoDone(item, { progress, today, dayOf }) {
+  const on = (at) => typeof at === 'string' && dayOf(at) === today
+  const entry = progress[item.id]
+  return on(entry?.solvedAt) || (item.kind === 'review' && on(entry?.reviewedAt))
 }
+
+// A review you took off the schedule has nothing left to do today, so it leaves the plan unless it was finished first.
+export const activeItems = (items, state) => items.filter((i) => i.kind !== 'review' || state.review[i.id] || itemDone(i, state))
 
 // Stored plans are checked before use: an old or corrupt one is dropped, and so are items whose problem was removed.
 export function validPlan(p, isKnown) {

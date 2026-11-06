@@ -11,7 +11,7 @@ import { writeLocal } from '../store/local.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { solvedByCategory } from './FocusSession.jsx'
 import { FOCUS_GOALS, FOCUS_MINUTES, focusStreak, sessionsOn } from '../study/focus.js'
-import { autoDone, buildPlan, currentMinutes, DEFAULT_MINUTES, interleave, itemDone, PLAN_MINUTES, planTime, validPlan } from '../study/plan.js'
+import { activeItems, autoDone, buildPlan, currentMinutes, DEFAULT_MINUTES, interleave, itemDone, PLAN_MINUTES, planTime, validPlan } from '../study/plan.js'
 
 // Today's work on the dashboard. The plan is saved when first built, so it stays put as you solve things during the day.
 const PLAN_KEY = 'pl.plan'
@@ -142,9 +142,10 @@ export default function TodayPlan() {
 
   const state = { ticked: plan.ticked, review, progress, today, dayOf }
   const isDone = (item) => itemDone(item, state)
-  const done = plan.items.filter(isDone)
-  const left = plan.items.filter((i) => !isDone(i))
-  const finished = plan.items.length > 0 && left.length === 0
+  const items = activeItems(plan.items, state)
+  const done = items.filter(isDone)
+  const left = items.filter((i) => !isDone(i))
+  const finished = items.length > 0 && left.length === 0
 
   // work already done stays on the list and uses up its share of the new time
   function changeMinutes(minutes) {
@@ -174,11 +175,11 @@ export default function TodayPlan() {
         <div>
           <h2>Today's plan</h2>
           <span className="muted small">
-            {!plan.items.length
+            {!items.length
               ? 'Nothing left to plan'
               : finished
-                ? `All ${plan.items.length} done`
-                : `${done.length} of ${plan.items.length} done · about ${planTime(left)} minutes left`}
+                ? `All ${items.length} done`
+                : `${done.length} of ${items.length} done · about ${planTime(left)} minutes left`}
           </span>
         </div>
         <label className="today-time small muted">
@@ -193,22 +194,22 @@ export default function TodayPlan() {
         </label>
       </div>
 
-      {plan.items.length > 0 && (
+      {items.length > 0 && (
         <div className="progress-bar today-progress">
-          <div style={{ width: `${(done.length / plan.items.length) * 100}%` }} />
+          <div style={{ width: `${(done.length / items.length) * 100}%` }} />
         </div>
       )}
 
       <FocusStart left={left} progress={progress} today={today} />
 
-      {plan.items.length === 0 ? (
+      {items.length === 0 ? (
         <p className="muted small">
           You've solved everything on the roadmap and nothing is due. Try a <Link to="/exam">Practice Exam</Link> or a{' '}
           <Link to="/mock">Mock Interview</Link>.
         </p>
       ) : (
         <ul className="today-list">
-          {plan.items.map((item) => {
+          {items.map((item) => {
             const p = problemById.get(item.id)
             const complete = isDone(item)
             const automatic = autoDone(item, state)

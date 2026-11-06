@@ -155,6 +155,10 @@ export function removeReview(id) {
 export function reviewOutcome(id, success, notify = true) {
   const item = review[id]
   if (!success) return scheduleReview(id, notify)
+  // kept on the entry because a finished review leaves the schedule, and today's plan still has to count it
+  const now = new Date().toISOString()
+  state = { ...state, [id]: { ...(isPlainObject(state[id]) ? state[id] : {}), reviewedAt: now, updatedAt: now } }
+  save(STORAGE_KEY, state)
   const step = (item?.step ?? -1) + 1
   if (step >= REVIEW_INTERVALS.length) {
     const { [id]: _, ...rest } = review
