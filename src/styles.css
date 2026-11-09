@@ -900,6 +900,48 @@ textarea:focus {
   min-height: 0;
   border-top: 1px solid var(--border);
 }
+.io-expand {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 30px;
+  margin-left: auto;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.sub-tabs + .io-expand {
+  margin-left: 6px;
+}
+.io-expand:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* the eye button opens Input, Output and Tests large over the page */
+.io-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.6);
+}
+.io-panel.io-popup {
+  position: fixed;
+  inset: 4vh 4vw;
+  z-index: 41;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.5);
+}
+@media (max-width: 700px) {
+  .io-panel.io-popup {
+    inset: 8px;
+  }
+}
 .io-body {
   flex: 1;
   min-height: 0;

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CodeEditor from '../components/CodeEditor.jsx'
 import { CodeBlock } from '../components/CopyButton.jsx'
 import FollowUps from '../components/FollowUps.jsx'
@@ -21,6 +21,14 @@ export default function DataWeaveWorkspace({ problem }) {
   const [busy, setBusy] = useState(null) // 'run' | 'submit' | null
   const [runResult, setRunResult] = useState(null)
   const [testResults, setTestResults] = useState(null)
+  const [popup, setPopup] = useState(false) // Input, Output and Tests open large over the page
+
+  useEffect(() => {
+    if (!popup) return
+    const close = (e) => e.key === 'Escape' && setPopup(false)
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [popup])
 
   useAutosave(code, (value) => updateEntry(problem.id, { code: value, status: workedStatus(problem.id) }))
 
@@ -169,7 +177,8 @@ export default function DataWeaveWorkspace({ problem }) {
           <CodeEditor value={code} onChange={setCode} onRun={() => !busy && run()} />
         </div>
 
-        <div className="io-panel">
+        {popup && <div className="io-backdrop" onClick={() => setPopup(false)} />}
+        <div className={`io-panel${popup ? ' io-popup' : ''}`} role={popup ? 'dialog' : undefined} aria-label={popup ? 'Input, output and tests' : undefined}>
           <div className="panel-tabs">
             {['input', 'output', 'tests'].map((t) => (
               <button key={t} className={`panel-tab ${ioTab === t ? 'active' : ''}`} onClick={() => setIoTab(t)}>
@@ -189,6 +198,23 @@ export default function DataWeaveWorkspace({ problem }) {
                 ))}
               </div>
             )}
+            <button
+              className="io-expand"
+              onClick={() => setPopup(!popup)}
+              title={popup ? 'Close (Esc)' : 'Open large'}
+              aria-label={popup ? 'Close the large view' : 'Open input, output and tests large'}
+            >
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {popup ? (
+                  <path d="M6 6l12 12M18 6L6 18" />
+                ) : (
+                  <>
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </>
+                )}
+              </svg>
+            </button>
           </div>
           <div className="io-body">
             {ioTab === 'input' && (

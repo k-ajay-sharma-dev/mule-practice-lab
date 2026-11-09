@@ -2,14 +2,17 @@ import { useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../theme.jsx'
 import { registerDataWeave } from '../editor/dataweave.js'
+import { formatJson } from '../study/json-format.js'
 import CopyButton from './CopyButton.jsx'
 import { useCoarsePointer } from './touch.js'
 import TouchEditor from './TouchEditor.jsx'
 
 // Phones and tablets get a real text field, because Monaco does not open their keyboard reliably.
-export default function CodeEditor(props) {
+// JSON you only read is laid out one entry per line. JSON you type stays as you typed it.
+export default function CodeEditor(given) {
   const touch = useCoarsePointer()
-  const { language = 'dataweave', readOnly = false, height = '100%' } = props
+  const { language = 'dataweave', readOnly = false, height = '100%' } = given
+  const props = readOnly && language === 'json' ? { ...given, value: formatJson(given.value) } : given
   return (
     <div className="copyable code-editor" style={{ height }}>
       {touch ? (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatJson } from '../study/json-format.js'
 
 const ICONS = {
   idle: (
@@ -39,12 +40,13 @@ export default function CopyButton({ text }) {
   )
 }
 
-// A <pre> with the copy icon in its corner. `children` is the text it shows.
+// A <pre> with the copy icon in its corner. `children` is the text it shows, and JSON is laid out one entry per line.
 export function CodeBlock({ className = 'code-block', children }) {
+  const text = formatJson(children)
   return (
     <div className="copyable">
-      <pre className={className}>{children}</pre>
-      <CopyButton text={children} />
+      <pre className={className}>{text}</pre>
+      <CopyButton text={text} />
     </div>
   )
 }
