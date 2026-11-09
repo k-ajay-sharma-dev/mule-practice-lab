@@ -16,15 +16,35 @@ export default {
     { label: 'Every Flow Reference points to an existing flow or sub-flow', rule: { type: 'refs' } },
     {
       label: 'Shared init sets a correlation ID variable before logging',
-      rule: { type: 'before', first: 'set-variable', then: 'logger' },
+      rule: { type: 'before', first: 'set-variable', firstWhere: { variableName: 'correlationId' }, then: 'logger' },
     },
     {
       label: 'The tenant config lookup is cached (Cache scope around the Database Select)',
-      rule: { type: 'inside', component: 'db-select', within: 'cache' },
+      rule: { type: 'inside', component: 'db-select', where: { sql: 'tenant' }, within: 'cache' },
+    },
+    {
+      label: 'The Audit API call is made from shared logic, behind a Flow Reference',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'flow-ref' },
+          { type: 'absent', component: 'http-request', where: { path: 'audit' }, inFlowWith: { component: 'http-listener' } },
+        ],
+      },
     },
     {
       label: 'Audit failures are logged and ignored with On Error Continue',
-      rule: { type: 'handler', component: 'on-error-continue' },
+      rule: { type: 'inside', component: 'logger', within: 'on-error-continue' },
+    },
+    {
+      label: 'Audit failures never reach the endpoint flows (no On Error Propagate around the audit call)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'on-error-continue' },
+          { type: 'absent', component: 'on-error-propagate', inFlowWith: { component: 'http-request', where: { path: 'audit' } } },
+        ],
+      },
     },
   ],
   referenceFlow: design(

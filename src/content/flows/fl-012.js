@@ -16,16 +16,54 @@ export default {
     { label: 'Token handling lives in a reusable sub-flow', rule: { type: 'flows', kind: 'sub-flow', min: 1 } },
     { label: 'Every Flow Reference points to an existing flow', rule: { type: 'refs' } },
     {
-      label: 'The token endpoint is only called on a cache miss',
-      rule: { type: 'inside', component: ['flow-ref', 'http-request'], within: ['choice', 'on-error-continue', 'cache'] },
+      label: 'The token endpoint (POST /oauth/token) is only called on a cache miss',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'http-request', where: { method: 'POST', path: 'token' }, within: ['choice', 'cache'] },
+          {
+            type: 'inside',
+            component: 'http-request',
+            where: { method: 'POST', path: 'token' },
+            within: 'on-error-continue',
+            withinWhere: { type: 'KEY_NOT_FOUND' },
+          },
+        ],
+      },
+    },
+    {
+      label: 'A fetched token is stored so other requests and replicas reuse it',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'http-request', firstWhere: { path: 'token' }, then: 'os-store' },
+          { type: 'inside', component: 'http-request', where: { path: 'token' }, within: 'cache' },
+        ],
+      },
     },
     {
       label: 'A 401 from the carrier is caught in a Try around the business call',
       rule: { type: 'handler', component: ['on-error-continue', 'on-error-propagate'], errorType: 'HTTP:UNAUTHORIZED', within: 'try' },
     },
     {
-      label: 'After a 401 the call is retried once with a fresh token',
-      rule: { type: 'inside', component: 'http-request', within: 'on-error-continue' },
+      label: 'After a 401 the call is retried once with a fresh token, in On Error Continue',
+      rule: {
+        type: 'inside',
+        component: 'http-request',
+        where: { path: { not: 'token' } },
+        within: 'on-error-continue',
+        withinWhere: { type: 'UNAUTHORIZED' },
+      },
+    },
+    {
+      label: 'The 401 handler fetches a fresh token before the retry',
+      rule: {
+        type: 'inside',
+        component: 'http-request',
+        where: { path: 'token' },
+        within: 'on-error-continue',
+        withinWhere: { type: 'UNAUTHORIZED' },
+      },
     },
   ],
   referenceFlow: design(

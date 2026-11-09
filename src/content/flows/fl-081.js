@@ -9,13 +9,63 @@ export default {
   estMinutes: 20,
   flowChecks: [
     { label: 'The digest runs on a nightly cron schedule', rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron' } } },
+    {
+      label: 'The Scheduler fires at 02:00',
+      rule: { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['0 0 2 ', '0 0 02 '] } } },
+    },
     { label: 'Exception rows are read before deciding whether to send', rule: { type: 'before', first: 'db-select', then: 'choice' } },
-    { label: 'The email is sent only on the branch that has rows (inside a Choice)', rule: { type: 'inside', component: 'email-send', within: 'choice' } },
+    {
+      label: 'The email is sent only on the Choice branch that has rows',
+      rule: {
+        type: 'any',
+        rules: [
+          // A route that tests for no rows, and the email on the otherwise branch.
+          {
+            type: 'all',
+            rules: [
+              { type: 'inside', component: 'email-send', within: 'choice', inSlot: 'otherwise' },
+              {
+                type: 'routes',
+                component: 'choice',
+                routeWhere: { expression: { oneOf: ['[isEmpty', ' isEmpty', 'sizeOf(payload) == 0', 'sizeOf(payload) < 1'], not: 'not' } },
+              },
+            ],
+          },
+          // Or the email on a route that tests for rows.
+          { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: { all: ['not', 'isEmpty'] } } },
+          { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: '!isEmpty' } },
+          { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: { oneOf: ['sizeOf(payload) >', 'sizeOf(payload)>'] } } },
+        ],
+      },
+    },
+    {
+      label: 'The digest goes to integration-support@company.example',
+      rule: { type: 'exists', component: 'email-send', where: { toAddresses: 'integration-support@' } },
+    },
     { label: 'A CSV attachment is built with DataWeave', rule: { type: 'exists', component: 'transform', where: { script: 'application/csv' } } },
     { label: 'The email body is sent as HTML', rule: { type: 'exists', component: 'email-send', where: { contentType: 'text/html' } } },
-    { label: 'The attachment is set explicitly on Email Send', rule: { type: 'exists', component: 'email-send', where: { attachments: { set: true } } } },
-    { label: 'Rows are marked as reported only after the email was sent', rule: { type: 'before', first: 'email-send', then: 'db-update' } },
-    { label: 'A failed send is handled (EMAIL:SEND)', rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'EMAIL:SEND' } },
+    {
+      label: 'The attachment is set explicitly on Email Send, named exceptions.csv',
+      rule: { type: 'exists', component: 'email-send', where: { attachments: 'exceptions.csv' } },
+    },
+    {
+      label: 'Rows are marked as reported only after the email was sent',
+      rule: { type: 'before', first: 'email-send', then: ['db-update', 'db-bulk-update'], every: true, outside: true },
+    },
+    {
+      label: 'Only the rows that were sent are marked, so a row added during the run is not missed',
+      rule: { type: 'exists', component: ['db-update', 'db-bulk-update'], where: { sql: { oneOf: ['CREATED_AT', 'EXCEPTION_ID'] } } },
+    },
+    {
+      label: 'A failed send (EMAIL:SEND) is handled and leaves the rows unreported for the next digest',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'EMAIL:SEND' },
+          { type: 'absent', component: ['db-update', 'db-bulk-update'], within: ['on-error-propagate', 'on-error-continue'] },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

@@ -27,20 +27,54 @@ export default {
       rule: { type: 'exists', component: 'db-select', where: { sql: 'select' } },
     },
     {
-      label: 'The downstream dependency probe has a short response timeout',
-      rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 5000 } } },
+      label: 'Liveness does not call the database or the Customer API',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'http-listener', where: { path: 'live' } },
+          { type: 'absent', component: 'db-select', inFlowWith: { component: 'http-listener', where: { path: 'live' } } },
+          { type: 'absent', component: 'http-request', inFlowWith: { component: 'http-listener', where: { path: 'live' } } },
+        ],
+      },
     },
     {
-      label: 'Each dependency probe is wrapped in a Try',
-      rule: { type: 'inside', component: ['db-select', 'http-request'], within: 'try' },
+      label: 'The downstream dependency probe has a response timeout inside the 3 s budget',
+      rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 3000 } } },
+    },
+    {
+      label: 'Both dependency probes (database and Customer API) are wrapped in a Try',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-select', within: 'try' },
+          { type: 'inside', component: 'http-request', within: 'try' },
+        ],
+      },
     },
     {
       label: 'A failing probe is caught with On Error Continue and reported as DOWN',
-      rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', within: 'try' },
+          {
+            type: 'any',
+            rules: [
+              { type: 'inside', component: 'set-payload', where: { value: 'DOWN' }, within: 'on-error-continue' },
+              { type: 'inside', component: 'transform', where: { script: 'DOWN' }, within: 'on-error-continue' },
+              { type: 'inside', component: 'set-variable', where: { value: 'DOWN' }, within: 'on-error-continue' },
+            ],
+          },
+        ],
+      },
     },
     {
       label: 'A Choice returns 503 when any dependency is down',
       rule: { type: 'inside', component: 'set-variable', within: 'choice', where: { value: '503' } },
+    },
+    {
+      label: 'The status is decided after all probes have run',
+      rule: { type: 'before', first: ['scatter-gather', 'try'], then: 'choice', outside: true },
     },
   ],
   referenceFlow: design(

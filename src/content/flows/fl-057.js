@@ -20,12 +20,21 @@ export default {
     },
     {
       label: 'Header and lines commit together in one database transaction (Try, ALWAYS_BEGIN)',
-      rule: { type: 'inside', component: 'db-bulk-insert', within: 'try' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-bulk-insert', within: 'try', withinWhere: { transactionalAction: { oneOf: ['ALWAYS_BEGIN', 'BEGIN_OR_JOIN'] } } },
+          { type: 'inside', component: 'db-insert', within: 'try', withinWhere: { transactionalAction: { oneOf: ['ALWAYS_BEGIN', 'BEGIN_OR_JOIN'] } } },
+        ],
+      },
     },
-    { label: 'Loaded files are moved to an archive folder', rule: { type: 'exists', component: 'sftp-move', where: { targetPath: 'archive' } } },
     {
-      label: 'A file that fails is moved to an error folder from the error handler',
-      rule: { type: 'inside', component: 'sftp-move', within: ['on-error-propagate', 'on-error-continue'] },
+      label: 'Loaded files are moved to the archive folder only after the load',
+      rule: { type: 'before', first: 'db-bulk-insert', then: 'sftp-move', thenWhere: { targetPath: 'archive' }, outside: true },
+    },
+    {
+      label: 'A file that fails is moved to the error folder from the error handler',
+      rule: { type: 'inside', component: 'sftp-move', where: { targetPath: 'error' }, within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
   referenceFlow: design(

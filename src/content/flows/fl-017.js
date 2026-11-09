@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-017',
@@ -11,7 +12,27 @@ export default {
     { label: 'POST /statements is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {
       label: 'A separate GET endpoint reports job status',
-      rule: { type: 'exists', component: 'http-listener', min: 2 },
+      rule: { type: 'all', rules: [{ type: 'exists', component: 'http-listener', min: 2 }, { type: 'source', component: 'http-listener', where: { allowedMethods: 'GET' } }] },
+    },
+    {
+      label: 'The submit call answers 202 Accepted with the job id',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'http-listener', firstWhere: { allowedMethods: 'POST' }, then: 'set-variable', thenWhere: { value: '202' } },
+          { type: 'before', first: 'http-listener', firstWhere: { allowedMethods: 'POST' }, then: 'transform', thenWhere: { script: '202' } },
+        ],
+      },
+    },
+    {
+      label: 'The warehouse query runs in the worker, not in the API flows',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'db-select' },
+          { type: 'absent', component: 'db-select', inFlowWith: { component: 'http-listener' } },
+        ],
+      },
     },
     {
       label: 'Duplicate submissions are looked up before a new job is queued',
@@ -19,7 +40,13 @@ export default {
     },
     {
       label: 'The job is recorded as PENDING before it is queued',
-      rule: { type: 'before', first: ['os-store', 'db-insert'], then: ['vm-publish', 'mq-publish', 'jms-publish'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'os-store', firstWhere: { value: 'PENDING' }, then: ['vm-publish', 'mq-publish', 'jms-publish'] },
+          { type: 'before', first: ['db-insert', 'db-update'], firstWhere: { sql: 'PENDING' }, then: ['vm-publish', 'mq-publish', 'jms-publish'] },
+        ],
+      },
     },
     {
       label: 'A worker flow consumes jobs from a queue, decoupled from the API',
@@ -30,8 +57,31 @@ export default {
       rule: { type: 'exists', component: ['os-store', 'db-insert', 'db-update'], min: 3 },
     },
     {
+      label: 'The job is marked COMPLETED only after the file is stored',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: ['http-request', 's3-put'], then: 'os-store', thenWhere: { value: 'COMPLETED' }, outside: true },
+          { type: 'before', first: ['http-request', 's3-put'], then: 'db-update', thenWhere: { sql: 'COMPLETED' }, outside: true },
+        ],
+      },
+    },
+    {
       label: 'Worker failures mark the job FAILED instead of losing it',
-      rule: { type: 'inside', component: ['os-store', 'db-update'], within: ['on-error-continue', 'on-error-propagate'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'os-store', where: { value: 'FAILED' }, within: ['on-error-continue', 'on-error-propagate'] },
+          { type: 'inside', component: 'db-update', where: { sql: 'FAILED' }, within: ['on-error-continue', 'on-error-propagate'] },
+        ],
+      },
+    },
+    {
+      label: 'An unknown job id returns 404',
+      rule: {
+        type: 'any',
+        rules: [handlerStatus('NOT_FOUND', '404'), { type: 'inside', component: 'set-variable', where: { value: '404' }, within: 'choice' }],
+      },
     },
   ],
   referenceFlow: design(

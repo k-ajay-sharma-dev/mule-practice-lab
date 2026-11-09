@@ -13,6 +13,10 @@ export default {
       rule: { type: 'source', component: 'ftp-listener', where: { moveTo: 'archive' } },
     },
     {
+      label: 'A file still being uploaded is not read: the listener waits for its size to stop changing',
+      rule: { type: 'source', component: 'ftp-listener', where: { timeBetweenSizeCheck: { gte: 1000 } } },
+    },
+    {
       label: 'The original file path is kept in a variable before later steps overwrite the attributes',
       rule: { type: 'exists', component: 'set-variable', where: { value: 'attributes.path' } },
     },
@@ -21,14 +25,17 @@ export default {
       label: 'Rows are loaded with a Bulk Insert against SQL Server',
       rule: { type: 'exists', component: 'db-bulk-insert', where: { database: 'SQL Server' } },
     },
-    { label: 'Large files are inserted in chunks (For Each with a batch size)', rule: { type: 'inside', component: 'db-bulk-insert', within: 'foreach' } },
     {
-      label: 'A file is loaded all or nothing (Try with ALWAYS_BEGIN)',
-      rule: { type: 'exists', component: 'try', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+      label: 'Large files are inserted in chunks (For Each with a batch size of at least 100)',
+      rule: { type: 'inside', component: 'db-bulk-insert', within: 'foreach', withinWhere: { batchSize: { gte: 100 } } },
     },
     {
-      label: 'A file that fails is moved to /error by the error handler',
-      rule: { type: 'inside', component: 'ftp-move', within: ['on-error-propagate', 'on-error-continue'], where: { targetPath: 'error' } },
+      label: 'A file is loaded all or nothing: every insert runs inside a Try with ALWAYS_BEGIN',
+      rule: { type: 'inside', component: 'db-bulk-insert', within: 'try', withinWhere: { transactionalAction: 'ALWAYS_BEGIN' } },
+    },
+    {
+      label: 'A file that fails is moved from its saved path to /error, and the error propagates so it is not archived',
+      rule: { type: 'inside', component: 'ftp-move', within: 'on-error-propagate', where: { targetPath: 'error', sourcePath: 'vars.' } },
     },
   ],
   referenceFlow: design(
@@ -36,7 +43,7 @@ export default {
       'partner-price-file-intake',
       // Listener config: outputMimeType application/csv, matcher plus timeBetweenSizeCheck on the listener (files arrive slowly),
       // applyPostActionWhenFailed="false" so a failed file is not moved to /archive, primaryNodeOnly in a cluster.
-      source('ftp-listener', { directory: '/outbound/prices', matcher: 'PRICES_*.csv', postAction: 'move', moveTo: '/archive', watermarkEnabled: 'false' }),
+      source('ftp-listener', { directory: '/outbound/prices', matcher: 'PRICES_*.csv', postAction: 'move', moveTo: '/archive', timeBetweenSizeCheck: 30000, watermarkEnabled: 'false' }),
       [
         step('set-variable', { variableName: 'originalPath', value: '#[attributes.path]' }),
         step('set-variable', { variableName: 'fileName', value: '#[attributes.fileName]' }),

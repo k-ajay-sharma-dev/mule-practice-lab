@@ -10,8 +10,8 @@ export default {
   flowChecks: [
     { label: 'Stock checks are served over HTTP', rule: { type: 'source', component: 'http-listener' } },
     {
-      label: 'Live stock is requested from the store system with JMS Publish-Consume',
-      rule: { type: 'exists', component: 'jms-publish-consume' },
+      label: 'Live stock is requested on STORE.STOCK.REQUEST with JMS Publish-Consume',
+      rule: { type: 'exists', component: 'jms-publish-consume', where: { destination: 'STORE.STOCK.REQUEST' } },
     },
     { label: 'The request-reply call is wrapped in a Try scope', rule: { type: 'inside', component: 'jms-publish-consume', within: 'try' } },
     {
@@ -19,12 +19,18 @@ export default {
       rule: { type: 'inside', component: 'on-error-continue', within: 'try', where: { type: 'JMS:TIMEOUT' } },
     },
     {
-      label: 'The fallback reads the last stock snapshot from Oracle',
-      rule: { type: 'inside', component: 'db-select', within: 'on-error-continue' },
+      label: 'On a timeout the fallback reads STORE_STOCK_SNAPSHOT from Oracle',
+      rule: {
+        type: 'inside',
+        component: 'db-select',
+        where: { sql: 'STORE_STOCK_SNAPSHOT' },
+        within: 'on-error-continue',
+        withinWhere: { type: { oneOf: ['JMS:TIMEOUT', 'ANY'] } },
+      },
     },
     {
       label: 'One response mapping after the Try covers live and snapshot data',
-      rule: { type: 'before', first: 'try', then: 'transform' },
+      rule: { type: 'before', first: 'try', then: 'transform', outside: true },
     },
   ],
   referenceFlow: design(

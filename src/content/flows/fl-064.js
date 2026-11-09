@@ -15,9 +15,32 @@ export default {
     },
     { label: 'Stock at the chosen and nearby stores is read from Oracle before routing', rule: { type: 'before', first: 'db-select', then: 'choice' } },
     { label: 'A Choice routes to chosen store, alternate store (and ship-to-home by default)', rule: { type: 'routes', component: 'choice', min: 2 } },
-    { label: 'Stock is reserved before a store is told to pick', rule: { type: 'before', first: 'db-stored-procedure', then: 'jms-publish' } },
-    { label: 'Orders are handed on via JMS from inside the routes', rule: { type: 'inside', component: 'jms-publish', within: 'choice' } },
-    { label: 'Failures roll back so the order is redelivered (On Error Propagate)', rule: { type: 'handler', component: 'on-error-propagate' } },
+    {
+      label: 'Stock is reserved through INV_PKG.RESERVE_ORDER',
+      rule: { type: 'exists', component: 'db-stored-procedure', where: { sql: 'RESERVE_ORDER' } },
+    },
+    {
+      label: 'Stock is reserved before a store is told to pick',
+      rule: { type: 'before', first: 'db-stored-procedure', then: 'jms-publish', thenWhere: { destination: 'PICKS' } },
+    },
+    {
+      label: 'Pick requests go to the store pick queue STORE.<id>.PICKS from inside the routes',
+      rule: { type: 'inside', component: 'jms-publish', where: { destination: 'PICKS' }, within: 'choice' },
+    },
+    {
+      label: 'Orders no store can fulfil go to OMS.SHIPTOHOME.ORDERS from inside the Choice',
+      rule: { type: 'inside', component: 'jms-publish', where: { destination: 'SHIPTOHOME' }, within: 'choice' },
+    },
+    {
+      label: 'Failures roll back so the order is redelivered, and no catch-all On Error Continue loses it',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

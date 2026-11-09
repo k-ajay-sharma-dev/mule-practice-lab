@@ -11,7 +11,38 @@ export default {
     { label: 'An HTTP Listener receives requests on /store/hours', rule: { type: 'source', component: 'http-listener', where: { path: '/store/hours' } } },
     { label: 'The listener allows the GET method', rule: { type: 'source', component: 'http-listener', where: { allowedMethods: 'GET' } } },
     { label: 'The arrival of a request is logged before the response is built', rule: { type: 'before', first: 'logger', then: ['set-payload', 'transform'] } },
-    { label: 'The response is built with Set Payload or Transform Message', rule: { type: 'exists', component: ['set-payload', 'transform'] } },
+    {
+      label: 'The response holds the fixed hours, 09:00 to 18:00',
+      rule: {
+        type: 'all',
+        rules: [
+          {
+            type: 'any',
+            rules: [
+              { type: 'exists', component: 'set-payload', where: { value: '09:00' } },
+              { type: 'exists', component: 'transform', where: { script: '09:00' } },
+            ],
+          },
+          {
+            type: 'any',
+            rules: [
+              { type: 'exists', component: 'set-payload', where: { value: '18:00' } },
+              { type: 'exists', component: 'transform', where: { script: '18:00' } },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'The response is JSON',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'set-payload', where: { value: 'application/json' } },
+          { type: 'exists', component: 'transform', where: { script: 'application/json' } },
+        ],
+      },
+    },
     { label: 'A second Logger records that the response is ready', rule: { type: 'before', first: ['set-payload', 'transform'], then: 'logger' } },
   ],
   referenceFlow: design(

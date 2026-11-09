@@ -16,7 +16,23 @@ export default {
     { label: 'Rows are written with Database Bulk Insert, not row by row', rule: { type: 'exists', component: 'db-bulk-insert' } },
     {
       label: 'Bulk inserts run per chunk (For Each batch size or Batch Aggregator)',
-      rule: { type: 'inside', component: 'db-bulk-insert', within: ['foreach', 'batch-aggregator'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'db-bulk-insert', within: 'foreach', withinWhere: { batchSize: { gte: 100 } } },
+          { type: 'inside', component: 'db-bulk-insert', within: 'batch-aggregator' },
+        ],
+      },
+    },
+    {
+      label: 'Rows with a bad quantity are skipped, not failing the load',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'filter' } },
+          { type: 'exists', component: 'batch-job', where: { maxFailedRecords: -1 } },
+        ],
+      },
     },
     {
       label: 'Staged data is swapped into the reporting table inside a Try scope',
@@ -26,7 +42,20 @@ export default {
       label: 'The swap Try scope begins a transaction',
       rule: { type: 'exists', component: 'try', where: { transactionalAction: 'BEGIN' } },
     },
-    { label: 'The swap happens only after the chunked load', rule: { type: 'before', first: ['foreach', 'batch-job'], then: 'try' } },
+    {
+      label: 'A failed swap rolls back: no On Error Continue inside the transaction, which would commit it',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'try', where: { transactionalAction: 'BEGIN' } },
+          { type: 'absent', component: 'on-error-continue', within: 'try', withinWhere: { transactionalAction: 'BEGIN' } },
+        ],
+      },
+    },
+    {
+      label: 'The swap happens only after the chunked load',
+      rule: { type: 'before', first: ['foreach', 'batch-job'], then: 'try', outside: true },
+    },
     {
       label: 'A flow-level error handler alerts when the load fails',
       rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] },

@@ -9,15 +9,47 @@ export default {
   estMinutes: 20,
   flowChecks: [
     { label: 'The clean-up runs on a Scheduler', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'The Scheduler runs at least every 5 minutes, so expired holds come back in time',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'source', component: 'scheduler', where: { strategy: 'fixed-frequency', timeUnit: 'MINUTES', frequency: { gte: 1, lte: 5 } } },
+          { type: 'source', component: 'scheduler', where: { strategy: 'fixed-frequency', timeUnit: 'SECONDS', frequency: { gte: 1, lte: 300 } } },
+          { type: 'source', component: 'scheduler', where: { strategy: 'cron' } },
+        ],
+      },
+    },
     { label: 'Expired reservation rows are removed with a Database Delete', rule: { type: 'exists', component: 'db-delete' } },
     {
       label: 'Reserved quantity is given back to stock before the reservation rows are deleted',
       rule: { type: 'before', first: ['db-update', 'db-stored-procedure'], then: 'db-delete' },
     },
+    {
+      label: 'Only reservations still HELD are released and deleted, never a CONFIRMED one',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'db-delete', where: { sql: 'HELD' } },
+          { type: 'any', rules: [{ type: 'exists', component: 'db-update', where: { sql: 'HELD' } }, { type: 'exists', component: 'db-stored-procedure' }] },
+        ],
+      },
+    },
     { label: 'Release and delete are inside a Try scope', rule: { type: 'inside', component: 'db-delete', within: 'try' } },
     {
       label: 'The Try begins a transaction (ALWAYS_BEGIN) so both statements commit or roll back together',
-      rule: { type: 'exists', component: 'try', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-delete', within: 'try', withinWhere: { transactionalAction: { oneOf: ['ALWAYS_BEGIN', 'BEGIN_OR_JOIN'] } } },
+          {
+            type: 'inside',
+            component: ['db-update', 'db-stored-procedure'],
+            within: 'try',
+            withinWhere: { transactionalAction: { oneOf: ['ALWAYS_BEGIN', 'BEGIN_OR_JOIN'] } },
+          },
+        ],
+      },
     },
     { label: 'One cutoff timestamp is fixed in a variable before the SQL runs', rule: { type: 'before', first: 'set-variable', then: 'db-update' } },
     { label: 'A failed run is logged and left for the next tick (error handler)', rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] } },

@@ -11,27 +11,50 @@ export default {
     { label: 'The flow is triggered by the arrival of the XML file', rule: { type: 'source', component: ['file-listener', 'sftp-listener'] } },
     {
       label: 'Sales records are iterated in chunks instead of being grouped all at once',
-      rule: { type: 'exists', component: ['foreach', 'batch-job'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'foreach', where: { batchSize: { gte: 2 } } },
+          { type: 'exists', component: 'batch-job' },
+        ],
+      },
     },
     {
-      label: 'Region files are written inside the iteration',
-      rule: { type: 'inside', component: ['file-write', 'sftp-write'], within: ['foreach', 'batch-job'] },
-    },
-    {
-      label: 'Chunks are appended to per-region part files',
-      rule: { type: 'exists', component: ['file-write', 'sftp-write'], where: { mode: 'APPEND' } },
+      label: 'Chunks are appended to per-region part files inside the iteration',
+      rule: { type: 'inside', component: ['file-write', 'sftp-write'], where: { mode: 'APPEND' }, within: ['foreach', 'batch-job'] },
     },
     {
       label: 'The output file path is derived from the region',
       rule: { type: 'exists', component: ['file-write', 'sftp-write'], where: { path: 'region' } },
     },
     {
+      label: 'Region files reach the out folder by a move or rename after they are written, so no team sees a partial file',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: '/out' } },
+          { type: 'before', first: 'sftp-write', then: 'sftp-move', thenWhere: { targetPath: '/out' } },
+        ],
+      },
+    },
+    {
       label: 'The input file is archived only after all region files are written',
-      rule: { type: 'before', first: ['file-write', 'sftp-write'], then: ['file-move', 'sftp-move'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: 'archive' }, every: true, outside: true },
+          { type: 'before', first: 'sftp-write', then: 'sftp-move', thenWhere: { targetPath: 'archive' }, every: true, outside: true },
+        ],
+      },
     },
     {
       label: 'On failure the input file is moved to an error folder',
-      rule: { type: 'inside', component: ['file-move', 'sftp-move'], within: ['on-error-propagate', 'on-error-continue'] },
+      rule: {
+        type: 'inside',
+        component: ['file-move', 'sftp-move'],
+        where: { targetPath: 'error' },
+        within: ['on-error-propagate', 'on-error-continue'],
+      },
     },
   ],
   referenceFlow: design(

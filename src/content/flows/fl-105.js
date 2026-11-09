@@ -10,9 +10,23 @@ export default {
   flowChecks: [
     { label: 'An HTTP Listener receives the order', rule: { type: 'source', component: 'http-listener' } },
     { label: 'For Each loops over payload.lines', rule: { type: 'exists', component: 'foreach', where: { collection: 'lines' } } },
-    { label: 'The inventory call is inside the For Each', rule: { type: 'inside', component: 'http-request', within: 'foreach' } },
-    { label: 'Each line is logged inside the For Each', rule: { type: 'inside', component: 'logger', within: 'foreach' } },
-    { label: 'The response is built after the For Each', rule: { type: 'before', first: 'foreach', then: 'transform' } },
+    {
+      label: 'The inventory call POST /inventory/reservations is inside the For Each',
+      rule: { type: 'inside', component: 'http-request', within: 'foreach', where: { method: 'POST', path: '/inventory/reservations' } },
+    },
+    { label: 'The SKU of each line is logged inside the For Each', rule: { type: 'inside', component: 'logger', within: 'foreach', where: { message: 'sku' } } },
+    { label: 'The response is built once, after the For Each and not inside it', rule: { type: 'before', first: 'foreach', then: 'transform', outside: true } },
+    {
+      label: 'The response holds the orderId, the status RESERVED and the number of lines',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'orderId' } },
+          { type: 'exists', component: 'transform', where: { script: 'RESERVED' } },
+          { type: 'exists', component: 'transform', where: { script: { oneOf: ['sizeOf', 'counter'] } } },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow('reserve-order-lines', source('http-listener', { path: '/orders/lines/reserve', allowedMethods: 'POST' }), [

@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-073',
@@ -9,19 +10,38 @@ export default {
   estMinutes: 25,
   flowChecks: [
     { label: 'Invoices are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener', where: { path: 'invoice' } } },
-    { label: 'The invoice is validated against the JSON schema before it is stored', rule: { type: 'before', first: 'json-validate', then: 'azure-upload-blob' } },
+    {
+      label: 'The invoice is validated against supplier-invoice-v2.json before it is stored',
+      rule: { type: 'before', first: 'json-validate', firstWhere: { schema: 'supplier-invoice-v2' }, then: 'azure-upload-blob' },
+    },
     {
       label: 'The blob name (date folder + invoice key) is computed once in a variable before the upload',
       rule: { type: 'before', first: 'set-variable', then: 'azure-upload-blob' },
     },
-    { label: 'The blob name is logged after a successful upload', rule: { type: 'before', first: 'azure-upload-blob', then: 'logger' } },
     {
-      label: 'A schema violation returns a client error (JSON:SCHEMA_NOT_HONOURED handled)',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'JSON:SCHEMA_NOT_HONOURED' },
+      label: 'The blob name is yyyy/MM/dd/<supplierId>-<invoiceNumber>.json, so a re-sent invoice lands on the same blob',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'set-variable', where: { value: 'yyyy/MM/dd' } },
+          { type: 'exists', component: 'set-variable', where: { value: 'supplierId' } },
+          { type: 'exists', component: 'set-variable', where: { value: 'invoiceNumber' } },
+          { type: 'absent', component: 'set-variable', where: { value: 'uuid' } },
+        ],
+      },
     },
     {
+      label: 'The blob is uploaded to the supplier-invoices container under the computed name',
+      rule: { type: 'exists', component: 'azure-upload-blob', where: { container: 'supplier-invoices', fileName: 'vars.' } },
+    },
+    {
+      label: 'The blob name is logged after a successful upload',
+      rule: { type: 'before', first: 'azure-upload-blob', then: 'logger', thenWhere: { message: 'blob' }, outside: true },
+    },
+    { label: 'A schema violation (JSON:SCHEMA_NOT_HONOURED) returns 400', rule: handlerStatus('SCHEMA_NOT_HONOURED', '400') },
+    {
       label: 'Storage being unreachable is mapped to a retryable 503',
-      rule: { type: 'exists', component: 'set-variable', where: { value: '503' } },
+      rule: handlerStatus({ oneOf: ['AZURE', 'CONNECTIVITY'] }, '503'),
     },
   ],
   referenceFlow: design(

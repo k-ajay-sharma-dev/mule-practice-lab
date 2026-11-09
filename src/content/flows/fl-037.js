@@ -15,8 +15,25 @@ export default {
       rule: { type: 'exists', component: 'http-request', min: 2 },
     },
     {
-      label: 'A System API hides the back-end protocol (SOAP / database) from its callers',
-      rule: { type: 'exists', component: ['wsc-consume', 'db-select'] },
+      label: 'Only the ERP System API speaks SOAP; no other API calls the ERP directly',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'http-listener' },
+          { type: 'exists', component: 'wsc-consume' },
+          { type: 'absent', component: 'wsc-consume', inFlowWith: { component: 'http-request' } },
+        ],
+      },
+    },
+    {
+      label: 'Every call down the stack times out within the 3 s mobile budget',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 3000 } } },
+          { type: 'absent', component: 'http-request', where: { responseTimeout: { gte: 3001 } } },
+        ],
+      },
     },
     {
       label: 'The Process API combines several System APIs',

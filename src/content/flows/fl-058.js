@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-058',
@@ -18,14 +19,44 @@ export default {
       label: 'Oracle is updated before the change event is published',
       rule: { type: 'before', first: ['db-update', 'db-insert', 'db-stored-procedure'], then: 'jms-publish' },
     },
-    { label: 'The change is published to a price topic', rule: { type: 'exists', component: 'jms-publish', where: { destination: 'price' } } },
+    {
+      label: 'The change is published to the retail.price.changed topic',
+      rule: { type: 'exists', component: 'jms-publish', where: { destination: 'retail.price.changed', destinationType: 'TOPIC' } },
+    },
     {
       label: 'An unknown SKU/zone (0 rows updated) is detected with a Choice',
       rule: { type: 'before', first: 'db-update', then: 'choice' },
     },
     {
-      label: 'A broker outage has its own error mapping (JMS error type)',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'JMS:' } },
+      label: 'Nothing is published for an unknown SKU/zone: the check comes before the publish',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'choice', then: 'jms-publish', outside: true },
+          { type: 'inside', component: 'jms-publish', within: 'choice' },
+        ],
+      },
+    },
+    { label: 'Bad input is answered with 400', rule: handlerStatus('VALIDATION', '400') },
+    {
+      label: 'An unknown SKU/zone is answered with 404',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'all', rules: [{ type: 'inside', component: 'raise-error', within: 'choice' }, handlerStatus('APP:', '404')] },
+          { type: 'inside', component: 'set-variable', where: { value: '404' }, within: 'choice' },
+        ],
+      },
+    },
+    {
+      label: 'A broker outage has its own error mapping (JMS error type) and asks the tool to retry with 503',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'JMS:' } },
+          handlerStatus('JMS:', '503'),
+        ],
+      },
     },
   ],
   referenceFlow: design(

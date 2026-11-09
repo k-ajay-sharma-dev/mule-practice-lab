@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { handlerBody, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-020',
@@ -14,6 +15,33 @@ export default {
       rule: { type: 'exists', component: ['jms-publish-consume', 'jms-publish'], where: { destination: 'BAL.REQ' } },
     },
     {
+      label: 'The flow waits for its own correlated reply (Publish Consume, or Publish then Consume from BAL.RPLY)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'jms-publish-consume', where: { destination: 'BAL.REQ' } },
+          {
+            type: 'before',
+            first: 'jms-publish',
+            firstWhere: { destination: 'BAL.REQ' },
+            then: 'jms-consume',
+            thenWhere: { destination: 'BAL.RPLY' },
+            outside: true,
+          },
+        ],
+      },
+    },
+    {
+      label: 'No JMS listener competes for replies on the shared BAL.RPLY queue',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['jms-publish-consume', 'jms-consume'] },
+          { type: 'absent', component: 'jms-listener', where: { destination: 'RPLY' } },
+        ],
+      },
+    },
+    {
       label: 'DataWeave builds the mainframe request before it is sent',
       rule: { type: 'before', first: 'transform', then: ['jms-publish-consume', 'jms-publish'] },
     },
@@ -25,15 +53,12 @@ export default {
       label: 'A JMS timeout is handled by a dedicated error handler',
       rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'JMS:TIMEOUT' },
     },
+    { label: 'The timeout handler maps the timeout to 504', rule: handlerStatus('JMS:TIMEOUT', '504') },
+    { label: 'The timeout handler builds an error body for the caller', rule: handlerBody('JMS:TIMEOUT') },
     {
-      label: 'The timeout handler builds a 504 BACKEND_TIMEOUT response',
-      rule: {
-        type: 'inside',
-        component: ['transform', 'set-payload', 'set-variable'],
-        within: ['on-error-propagate', 'on-error-continue'],
-      },
+      label: 'Late replies are drained by a scheduled JMS Consume, not a listener that competes for live replies',
+      rule: { type: 'before', first: 'scheduler', then: 'jms-consume', thenWhere: { destination: 'BAL.RPLY' } },
     },
-    { label: 'Late replies are drained by a scheduled JMS Consume, not a listener that competes for live replies', rule: { type: 'exists', component: 'jms-consume' } },
   ],
   referenceFlow: design(
     flow(

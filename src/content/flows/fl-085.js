@@ -11,9 +11,40 @@ export default {
     { label: 'Events enter through an HTTP Listener and are validated', rule: { type: 'before', first: 'json-validate', then: 'jms-publish' } },
     { label: 'Publishing is chosen by event kind (Choice with at least two conditions)', rule: { type: 'routes', component: 'choice', min: 2 } },
     { label: 'Events are published to a TOPIC', rule: { type: 'exists', component: 'jms-publish', where: { destinationType: 'TOPIC' } } },
-    { label: 'Safety notices use a high priority', rule: { type: 'exists', component: 'jms-publish', where: { priority: { gte: 7 } } } },
-    { label: 'Short-lived events have a time to live', rule: { type: 'exists', component: 'jms-publish', where: { timeToLive: { gte: 1 } } } },
-    { label: 'Safety notices use persistent delivery', rule: { type: 'exists', component: 'jms-publish', where: { persistentDelivery: 'true' } } },
+    {
+      label: 'Safety notices are published with a high priority, persistent delivery and no time to live',
+      rule: {
+        type: 'inside',
+        component: 'jms-publish',
+        where: { priority: { gte: 7 }, persistentDelivery: 'true', timeToLive: { lte: 0 } },
+        within: 'choice',
+        routeWhere: { expression: 'SAFETY' },
+      },
+    },
+    {
+      label: 'Gate changes expire after about 30 minutes',
+      rule: {
+        type: 'inside',
+        component: 'jms-publish',
+        where: { timeToLive: { gte: 900000, lte: 2700000 } },
+        within: 'choice',
+        routeWhere: { expression: 'GATE_CHANGE' },
+      },
+    },
+    {
+      label: 'Position updates expire after about 2 minutes, so an offline app does not get a stale backlog',
+      rule: { type: 'exists', component: 'jms-publish', where: { timeToLive: { gte: 30000, lte: 300000 } } },
+    },
+    {
+      label: 'Topic listeners use one consumer, because a subscription allows only one on JMS 1.1',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'jms-listener' },
+          { type: 'absent', component: 'jms-listener', where: { numberOfConsumers: { gte: 2 } } },
+        ],
+      },
+    },
     {
       label: 'Consumers filter with a selector on the published property',
       rule: { type: 'source', component: 'jms-listener', where: { selector: 'eventKind' } },

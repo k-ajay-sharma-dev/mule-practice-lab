@@ -13,13 +13,37 @@ export default {
       rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron' } },
     },
     {
+      label: 'The cron fires inside the 02:00 to 05:00 window',
+      rule: { type: 'source', component: 'scheduler', where: { expression: { oneOf: [' 2 ', ' 3 ', ' 4 ', ' 02 ', ' 03 ', ' 04 '] } } },
+    },
+    {
       label: 'Only expired rows are selected before processing starts',
-      rule: { type: 'before', first: 'db-select', then: ['batch-job', 'foreach'] },
+      rule: { type: 'before', first: 'db-select', firstWhere: { sql: 'WHERE' }, then: ['batch-job', 'foreach'] },
     },
     { label: 'The millions of rows are processed with a Batch Job', rule: { type: 'exists', component: 'batch-job' } },
     {
+      label: 'A failed record does not stop the job (Max failed records is not 0)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'batch-job', where: { maxFailedRecords: -1 } },
+          { type: 'exists', component: 'batch-job', where: { maxFailedRecords: { gte: 1 } } },
+        ],
+      },
+    },
+    {
       label: 'Rows are archived to S3 before they are deleted',
-      rule: { type: 'before', first: ['s3-put', 'file-write', 'sftp-write'], then: ['db-update', 'db-delete'] },
+      rule: { type: 'before', first: ['s3-put', 'file-write', 'sftp-write'], then: ['db-update', 'db-delete'], outside: true },
+    },
+    {
+      label: 'No delete runs from an error handler, where the archive may have failed',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['db-delete', 'db-update'] },
+          { type: 'absent', component: ['db-delete', 'db-update'], within: ['on-error-continue', 'on-error-propagate'] },
+        ],
+      },
     },
     {
       label: 'Deletes run in bulk chunks (inside a Batch Aggregator), not row by row',
@@ -30,8 +54,8 @@ export default {
       rule: { type: 'inside', component: ['s3-put', 'file-write', 'sftp-write'], within: 'batch-aggregator' },
     },
     {
-      label: 'The job reports its totals when it completes',
-      rule: { type: 'inside', component: ['logger', 'email-send'], within: 'batch-job' },
+      label: 'The job sends its totals to the DBA team once, from On Complete',
+      rule: { type: 'inside', component: ['email-send', 'mq-publish', 'http-request'], within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
   referenceFlow: design(

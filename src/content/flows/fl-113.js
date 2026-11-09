@@ -13,20 +13,47 @@ export default {
       rule: { type: 'source', component: 'http-listener', where: { path: '/returns', allowedMethods: 'POST' } },
     },
     {
-      label: 'The return request is saved in vars.returnRequest',
-      rule: { type: 'exists', component: 'set-variable', where: { variableName: 'returnRequest' } },
+      label: 'The whole request is saved in vars.returnRequest before the insert replaces the payload',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { variableName: 'returnRequest', value: 'payload]' }, then: 'db-insert' },
     },
     {
-      label: 'The return is saved before the Async scope',
-      rule: { type: 'before', first: 'db-insert', then: 'async' },
+      label: 'The return is inserted into parcel_returns before the Async scope',
+      rule: { type: 'before', first: 'db-insert', firstWhere: { sql: 'parcel_returns' }, then: 'async' },
     },
     {
-      label: 'The email is sent inside the Async scope',
-      rule: { type: 'inside', component: 'email-send', within: 'async' },
+      label: 'The insert stays outside the Async scope, because the reply promises the return is saved',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'db-insert' },
+          { type: 'absent', component: 'db-insert', within: 'async' },
+        ],
+      },
     },
     {
-      label: 'The reply is set after the return is saved',
-      rule: { type: 'before', first: 'db-insert', then: ['set-payload', 'transform'] },
+      label: 'The email to the customer is sent inside the Async scope',
+      rule: { type: 'inside', component: 'email-send', within: 'async', where: { toAddresses: 'email' } },
+    },
+    {
+      label: 'The RECEIVED reply is set on the main path after the return is saved',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'db-insert', then: 'set-payload', thenWhere: { value: 'RECEIVED' }, outside: true },
+          { type: 'before', first: 'db-insert', then: 'transform', thenWhere: { script: 'RECEIVED' }, outside: true },
+        ],
+      },
+    },
+    {
+      label: 'The reply is not built inside the Async scope',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'async' },
+          { type: 'absent', component: 'set-payload', within: 'async', where: { value: 'RECEIVED' } },
+          { type: 'absent', component: 'transform', within: 'async', where: { script: 'RECEIVED' } },
+        ],
+      },
     },
   ],
   referenceFlow: design(

@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 const softFail = (name) =>
   handler('on-error-continue', { type: 'ANY' }, [
@@ -27,24 +28,53 @@ export default {
       rule: { type: 'routes', component: 'scatter-gather', min: 3 },
     },
     {
-      label: 'Each parallel route calls a System API over HTTP Request',
-      rule: { type: 'inside', component: 'http-request', within: 'scatter-gather', where: { path: 'sys-' } },
+      label: 'Each parallel route calls a System API over HTTP Request, with a timeout below the scope timeout',
+      rule: {
+        type: 'inside',
+        component: 'http-request',
+        within: 'scatter-gather',
+        where: { path: 'sys-', responseTimeout: { gte: 1, lte: 2500 } },
+        min: 3,
+      },
     },
     {
-      label: 'The Scatter-Gather has a timeout inside the SLA',
-      rule: { type: 'exists', component: 'scatter-gather', where: { timeout: { gte: 1 } } },
+      label: 'The Scatter-Gather has a timeout inside the 2.5 s SLA',
+      rule: { type: 'exists', component: 'scatter-gather', where: { timeout: { gte: 1, lte: 2500 } } },
     },
     {
-      label: 'Optional sources fail softly (Try + On Error Continue inside the route)',
-      rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
+      label: 'Cards and loans fail softly (Try + On Error Continue inside the route)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', within: 'try' },
+          { type: 'inside', component: 'http-request', where: { path: 'sys-cards' }, within: 'try' },
+          { type: 'inside', component: 'http-request', where: { path: 'sys-loans' }, within: 'try' },
+        ],
+      },
+    },
+    {
+      label: 'Core banking is not soft-failed, so its failure still fails the overview',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'http-request', where: { path: 'sys-core' }, within: 'scatter-gather' },
+          { type: 'absent', component: 'http-request', where: { path: 'sys-core' }, within: 'try' },
+        ],
+      },
     },
     {
       label: 'Route results are merged into one response with DataWeave',
       rule: { type: 'before', first: 'scatter-gather', then: 'transform' },
     },
     {
-      label: 'A failure of the mandatory source (MULE:COMPOSITE_ROUTING) is mapped to a clear status',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'COMPOSITE_ROUTING' } },
+      label: 'A failure of the mandatory source (MULE:COMPOSITE_ROUTING) is mapped to 503',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'COMPOSITE_ROUTING' } },
+          handlerStatus('COMPOSITE_ROUTING', '503'),
+        ],
+      },
     },
   ],
   referenceFlow: design(

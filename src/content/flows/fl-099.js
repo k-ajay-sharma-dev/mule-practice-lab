@@ -12,9 +12,39 @@ export default {
       label: 'A Scheduler starts the flow every 5 minutes on a fixed frequency',
       rule: { type: 'source', component: 'scheduler', where: { strategy: 'fixed-frequency', frequency: 5, timeUnit: 'MINUTES' } },
     },
-    { label: 'The service name is kept in a variable called serviceName', rule: { type: 'exists', component: 'set-variable', where: { variableName: 'serviceName' } } },
+    {
+      label: 'The service name order-sync is kept in a variable called serviceName',
+      rule: { type: 'exists', component: 'set-variable', where: { variableName: 'serviceName', value: 'order-sync' } },
+    },
     { label: 'The heartbeat message is built before it is logged', rule: { type: 'before', first: ['transform', 'set-payload'], then: 'logger' } },
-    { label: 'The heartbeat is logged at INFO level', rule: { type: 'exists', component: 'logger', where: { level: 'INFO' } } },
+    {
+      label: 'The message holds the service name from the variable, the status ALIVE and the current time',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'all',
+            rules: [
+              { type: 'exists', component: 'transform', where: { script: 'vars.serviceName' } },
+              { type: 'exists', component: 'transform', where: { script: 'ALIVE' } },
+              { type: 'exists', component: 'transform', where: { script: 'now()' } },
+            ],
+          },
+          {
+            type: 'all',
+            rules: [
+              { type: 'exists', component: 'set-payload', where: { value: 'vars.serviceName' } },
+              { type: 'exists', component: 'set-payload', where: { value: 'ALIVE' } },
+              { type: 'exists', component: 'set-payload', where: { value: 'now()' } },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'The built message is what gets logged, at INFO level',
+      rule: { type: 'exists', component: 'logger', where: { level: 'INFO', message: 'payload' } },
+    },
   ],
   referenceFlow: design(
     flow('order-sync-heartbeat', source('scheduler', { strategy: 'fixed-frequency', frequency: 5, timeUnit: 'MINUTES' }), [

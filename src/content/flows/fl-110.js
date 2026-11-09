@@ -13,20 +13,32 @@ export default {
       rule: { type: 'source', component: 'http-listener', where: { path: '/orders', allowedMethods: 'POST' } },
     },
     {
-      label: 'The order ID is saved in vars.orderId',
-      rule: { type: 'exists', component: 'set-variable', where: { variableName: 'orderId' } },
+      label: 'The order ID is saved in vars.orderId before the payload is replaced',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { variableName: 'orderId', value: 'payload.orderId' }, then: ['transform', 'set-payload'], every: true },
     },
     {
-      label: 'The message is built before it is published',
-      rule: { type: 'before', first: ['transform', 'set-payload'], then: 'mq-publish' },
+      label: 'A message with the orderId and items is built before it is published',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'transform', firstWhere: { script: 'items' }, then: 'mq-publish' },
+          { type: 'before', first: 'set-payload', firstWhere: { value: 'items' }, then: 'mq-publish' },
+        ],
+      },
     },
     {
       label: 'The message is published to the warehouse-orders queue',
       rule: { type: 'exists', component: 'mq-publish', where: { destination: 'warehouse-orders' } },
     },
     {
-      label: 'The reply is set after the publish',
-      rule: { type: 'before', first: 'mq-publish', then: ['set-payload', 'transform'] },
+      label: 'The RECEIVED reply is set after the publish, on the main path',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'mq-publish', then: 'set-payload', thenWhere: { value: 'RECEIVED' }, outside: true },
+          { type: 'before', first: 'mq-publish', then: 'transform', thenWhere: { script: 'RECEIVED' }, outside: true },
+        ],
+      },
     },
   ],
   referenceFlow: design(

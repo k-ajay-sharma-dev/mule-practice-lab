@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-075',
@@ -12,16 +13,26 @@ export default {
     { label: 'The order is validated against the partner XSD', rule: { type: 'exists', component: 'xml-validate', where: { schemas: '.xsd' } } },
     {
       label: 'Validation happens before the order is transformed to the legacy format',
-      rule: { type: 'before', first: 'xml-validate', then: ['xml-xslt', 'transform'] },
+      rule: { type: 'before', first: 'xml-validate', then: ['xml-xslt', 'transform'], every: true },
     },
     { label: 'Only validated orders are sent to the ERP', rule: { type: 'before', first: 'xml-validate', then: 'http-request' } },
     {
       label: 'An order that breaks the XSD (XML-MODULE:SCHEMA_NOT_HONOURED) is answered with 400',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'XML-MODULE:SCHEMA_NOT_HONOURED' },
+      rule: handlerStatus('SCHEMA_NOT_HONOURED', '400'),
     },
     {
-      label: 'XML-MODULE:INVALID_INPUT_XML, which Validate Schema can also raise, is a client error too',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'XML-MODULE:INVALID_INPUT_XML' },
+      label: 'XML-MODULE:INVALID_INPUT_XML, which Validate Schema can also raise, is answered with 400 too',
+      rule: handlerStatus('INVALID_INPUT_XML', '400'),
+    },
+    {
+      label: 'The acknowledgement built after the ERP call carries the partner order number',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'http-request', then: 'transform', thenWhere: { script: 'OrderNumber' }, outside: true },
+          { type: 'before', first: 'http-request', then: 'set-payload', thenWhere: { value: 'OrderNumber' }, outside: true },
+        ],
+      },
     },
   ],
   referenceFlow: design(

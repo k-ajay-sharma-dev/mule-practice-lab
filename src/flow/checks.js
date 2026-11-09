@@ -8,11 +8,14 @@ import { walk } from './model.js'
 //   { type: 'absent',  component, where?, inFlowWith?, within? }
 //                                                       component must not be used (in a flow holding { component, where },
 //                                                       or inside `within`)
-//   { type: 'routes',  component, min }                 a router with at least `min` routes
-//   { type: 'inside',  component, within, where?, withinWhere?, routeWhere?, min? }
+//   { type: 'routes',  component, min?, where?, routeWhere? }
+//                                                       a router with at least `min` routes, one of them matching routeWhere
+//   { type: 'inside',  component, within?, where?, withinWhere?, routeWhere?, inSlot?, min? }
 //                                                       component placed inside a `within` scope/router/handler. withinWhere
-//                                                       matches that parent's config, routeWhere the route it sits on.
-//                                                       A Flow Reference counts: a called flow sits where the call sits.
+//                                                       matches that parent's config, routeWhere the route it sits on, and
+//                                                       inSlot a slot on the way down, such as 'onComplete' or 'otherwise'.
+//                                                       A Flow Reference counts: a called flow sits where each call sits.
+//                                                       absent takes routeWhere and inSlot too.
 //   { type: 'before',  first, then, firstWhere?, thenWhere?, every?, outside? }
 //                                                       `first` appears before `then` in the same flow. every: all of them
 //                                                       do. outside: `then` is on the main path, so not nested
@@ -26,14 +29,17 @@ import { walk } from './model.js'
 // `component` may be a string or an array of alternatives.
 // `where` matches config values: strings are case-insensitive "contains", numbers are exact,
 // { gte }, { lte } compare numbers, { set: true } requires a non-empty value,
-// { oneOf: [...] } contains one of these, { not } must not contain this.
+// { oneOf: [...] } contains one of these, { not } must not contain this, { all: [...] } contains each of these,
+// { is } equals this exactly (case aside). For an error handler's type, ANY is a whole word and also matches
+// a handler with no type, since both catch everything.
+// Order follows the canvas: steps, then routes, then otherwise, On Complete and error handlers.
 
 function index(design) {
   const nodes = []
   let order = 0
   walk(design, (item, ctx) => {
     if (ctx.isFlow || ctx.isRoute) return
-    nodes.push({ node: item, flow: ctx.flow, ancestors: ctx.ancestors, order: order++, slot: ctx.slot })
+    nodes.push({ node: item, flow: ctx.flow, ancestors: ctx.ancestors, order: order++, slot: ctx.slot, slots: ctx.slots })
   })
   return nodes
 }
@@ -42,20 +48,28 @@ const anyOf = (component) => (Array.isArray(component) ? component : [component]
 
 const contains = (have, want) => String(have ?? '').toLowerCase().includes(String(want).toLowerCase())
 
+// An error handler with type ANY, or with no type at all, catches everything. "Contains ANY" would also match
+// ANYPOINT-MQ:CONNECTIVITY or HTTP:TOO_MANY_REQUESTS, so ANY in a type is read as a whole word.
+const catchesAll = (type) => String(type ?? '').trim() === '' || String(type).toUpperCase().split(/[,\s]+/).includes('ANY')
+const has = (key, have, want) => (key === 'type' && String(want).toUpperCase() === 'ANY' ? catchesAll(have) : contains(have, want))
+const same = (have, want) => String(have ?? '').trim().toLowerCase() === String(want).trim().toLowerCase()
+
 function matchesWhere(config = {}, where = {}) {
   return Object.entries(where).every(([key, want]) => {
     const have = config[key]
     if (want && typeof want === 'object') {
       if ('set' in want) return want.set ? have !== undefined && String(have).trim() !== '' : !have
       const n = Number(have)
+      if ('is' in want && !same(have, want.is)) return false
+      if ('all' in want && !want.all.every((w) => has(key, have, w))) return false
       if ('gte' in want && !(n >= want.gte)) return false
       if ('lte' in want && !(n <= want.lte)) return false
-      if ('oneOf' in want && !want.oneOf.some((w) => contains(have, w))) return false
-      if ('not' in want && contains(have, want.not)) return false
+      if ('oneOf' in want && !want.oneOf.some((w) => has(key, have, w))) return false
+      if ('not' in want && has(key, have, want.not)) return false
       return true
     }
     if (typeof want === 'number') return Number(have) === want
-    return contains(have, want)
+    return has(key, have, want)
   })
 }
 
@@ -65,22 +79,30 @@ const errorTypeMatches = (configured = '', wanted) =>
     .map((t) => t.trim().toUpperCase())
     .some((t) => t === wanted.toUpperCase() || t === 'ANY')
 
-// Everything a component sits inside, following Flow References up to the callers.
-function allAncestors(entry, nodes, seen = new Set([entry.flow])) {
-  const out = [...entry.ancestors]
+// Every place a component sits: its own chain of parents, and one chain for each Flow Reference that calls
+// its flow, so a sub-flow called from a handler and from a route sits in both. Each entry is
+// { ancestors, slots }, outermost first.
+function placements(entry, nodes, seen = new Set()) {
+  const own = { ancestors: entry.ancestors, slots: entry.slots ?? [] }
+  const out = [own]
   for (const ref of nodes) {
-    if (ref.node.type !== 'flow-ref' || ref.node.config.name !== entry.flow.name || seen.has(ref.flow)) continue
-    seen.add(ref.flow)
-    out.push(...allAncestors(ref, nodes, seen))
+    if (ref.node.type !== 'flow-ref' || ref.node.config.name !== entry.flow.name || seen.has(ref)) continue
+    for (const above of placements(ref, nodes, new Set([...seen, ref]))) {
+      out.push({ ancestors: [...above.ancestors, ref.node, ...own.ancestors], slots: [...above.slots, ...own.slots] })
+    }
   }
   return out
 }
 
+// One placement must hold the whole rule: the scope, the route and the slot, so a match is never pieced
+// together from two different call sites.
 function placedInside(entry, rule, nodes) {
-  const around = allAncestors(entry, nodes)
-  const parent = around.some((a) => anyOf(rule.within).includes(a.type) && matchesWhere(a.config, rule.withinWhere))
-  // Routes are the ancestors with no component type of their own.
-  return parent && (!rule.routeWhere || around.some((a) => !a.type && matchesWhere(a.config, rule.routeWhere)))
+  return placements(entry, nodes).some(({ ancestors, slots }) => {
+    const parent = !rule.within || ancestors.some((a) => anyOf(rule.within).includes(a.type) && matchesWhere(a.config, rule.withinWhere))
+    // Routes are the ancestors with no component type of their own.
+    const route = !rule.routeWhere || ancestors.some((a) => !a.type && matchesWhere(a.config, rule.routeWhere))
+    return parent && route && (!rule.inSlot || slots.includes(rule.inSlot))
+  })
 }
 
 // Settings a component cannot work without. Optional settings are left out, and so is an error handler's
@@ -142,12 +164,15 @@ function evaluate(rule, nodes, design) {
       return of(rule.component, rule.where).length >= (rule.min ?? 1)
     case 'absent': {
       const holders = rule.inFlowWith && of(rule.inFlowWith.component, rule.inFlowWith.where).map((e) => e.flow)
+      const placed = rule.within || rule.routeWhere || rule.inSlot
       return !of(rule.component, rule.where).some(
-        (e) => (!holders || holders.includes(e.flow)) && (!rule.within || placedInside(e, rule, nodes)),
+        (e) => (!holders || holders.includes(e.flow)) && (!placed || placedInside(e, rule, nodes)),
       )
     }
     case 'routes':
-      return of(rule.component).some((e) => (e.node.routes?.length ?? 0) >= rule.min)
+      return of(rule.component, rule.where).some(
+        (e) => (e.node.routes?.length ?? 0) >= (rule.min ?? 1) && (!rule.routeWhere || e.node.routes.some((r) => matchesWhere(r.config, rule.routeWhere))),
+      )
     case 'inside':
       return of(rule.component, rule.where).filter((e) => placedInside(e, rule, nodes)).length >= (rule.min ?? 1)
     case 'before': {
@@ -210,6 +235,8 @@ function wantedValue(want) {
   if (want && typeof want === 'object') {
     if ('set' in want) return want.set ? 'filled in' : 'left empty'
     return [
+      'is' in want ? `set to “${want.is}”` : '',
+      'all' in want ? `containing ${want.all.map((w) => `“${w}”`).join(' and ')}` : '',
       'gte' in want ? `of at least ${want.gte}` : '',
       'lte' in want ? `of at most ${want.lte}` : '',
       'oneOf' in want ? `containing ${want.oneOf.map((w) => `“${w}”`).join(' or ')}` : '',
@@ -225,6 +252,15 @@ const whereText = (component, where) =>
     .join(' and ')
 
 const withText = (component, where) => (where ? ` with ${whereText(component, where)}` : '')
+
+// Where a rule places a component: the scope, the route (by the router's own route fields) and the slot.
+function placeText(rule) {
+  const routeLabel = (key) => anyOf(rule.within ?? []).map((t) => COMPONENTS[t]?.routeFields?.find((f) => f.key === key)?.label).find(Boolean) ?? key
+  const route = rule.routeWhere ? `, on a route with ${Object.entries(rule.routeWhere).map(([k, w]) => `${routeLabel(k)} ${wantedValue(w)}`).join(' and ')}` : ''
+  const slot = rule.inSlot ? `, in its ${SLOT_NAMES[rule.inSlot] ?? rule.inSlot}` : ''
+  return `${rule.within ? names(rule.within) : 'the flow'}${withText(rule.within, rule.withinWhere)}${route}${slot}`
+}
+const SLOT_NAMES = { onComplete: 'On Complete phase', otherwise: 'otherwise branch', errorHandlers: 'error handling' }
 
 // Says in plain words what a failing check still needs, reading the design so it can name what is already there.
 export function missingHint(design, rule) {
@@ -249,13 +285,16 @@ export function missingHint(design, rule) {
     case 'absent':
       return rule.inFlowWith
         ? `Remove ${names(rule.component)} from the flow with ${names(rule.inFlowWith.component)}${withText(rule.inFlowWith.component, rule.inFlowWith.where)}.`
-        : `Remove ${names(rule.component)}${withText(rule.component, rule.where)}${rule.within ? ` from ${names(rule.within)}` : ''}. This design should not use it.`
-    case 'routes':
+        : `Remove ${names(rule.component)}${withText(rule.component, rule.where)}${rule.within || rule.routeWhere || rule.inSlot ? ` from ${placeText(rule)}` : ''}. This design should not use it.`
+    case 'routes': {
+      const route = rule.routeWhere ? `, one of them with ${Object.entries(rule.routeWhere).map(([k, w]) => `${COMPONENTS[anyOf(rule.component)[0]]?.routeFields?.find((f) => f.key === k)?.label ?? k} ${wantedValue(w)}`).join(' and ')}` : ''
+      const min = rule.min ?? 1
       return of(rule.component).length
-        ? `Give ${names(rule.component)} at least ${rule.min} routes.`
-        : `Add ${names(rule.component)} with at least ${rule.min} routes.`
+        ? `Give ${names(rule.component)}${withText(rule.component, rule.where)} at least ${min} ${min === 1 ? 'route' : 'routes'}${route}.`
+        : `Add ${names(rule.component)}${withText(rule.component, rule.where)} with at least ${min} ${min === 1 ? 'route' : 'routes'}${route}.`
+    }
     case 'inside': {
-      const place = `${names(rule.within)}${withText(rule.within, rule.withinWhere)}${rule.routeWhere ? `, on a route whose condition mentions “${rule.routeWhere.expression}”` : ''}`
+      const place = placeText(rule)
       const min = rule.min ?? 1
       if (min > 1) return `Use ${names(rule.component)}${withText(rule.component, rule.where)} at least ${min} times inside ${place}.`
       if (!of(rule.component, rule.where).length) return `${addOrFix(rule.component, rule.where)} Place it inside ${place}.`

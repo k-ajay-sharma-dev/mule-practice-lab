@@ -9,6 +9,16 @@ export default {
   estMinutes: 40,
   flowChecks: [
     { label: 'The job is driven by a Scheduler, not a file listener', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'The Scheduler polls every 10 minutes, Monday to Friday',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['0/10', '*/10'] } } },
+          { type: 'source', component: 'scheduler', where: { expression: 'MON-FRI' } },
+        ],
+      },
+    },
     { label: 'The remote directory is listed and the files are processed one by one', rule: { type: 'before', first: 'sftp-list', then: 'foreach' } },
     {
       label: 'Files that changed in the last minutes (still being uploaded) are filtered out by their timestamp',
@@ -17,10 +27,21 @@ export default {
     { label: 'Each file is claimed with a rename before it is read', rule: { type: 'before', first: 'sftp-rename', then: 'sftp-read' } },
     {
       label: 'A failed claim (another worker took the file) is handled inside a Try and skipped',
-      rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
+      rule: { type: 'handler', component: 'on-error-continue', within: 'try', where: { type: { oneOf: ['SFTP:', 'ANY'] } } },
     },
     { label: 'Reading the file happens inside the loop', rule: { type: 'inside', component: 'sftp-read', within: 'foreach' } },
-    { label: 'Processed files are moved to an archive folder', rule: { type: 'exists', component: 'sftp-move', where: { targetPath: 'archive' } } },
+    {
+      label: 'A file is read only when this worker claimed it (behind a Choice or in the claiming Try)',
+      rule: { type: 'inside', component: 'sftp-read', within: ['choice', 'try'] },
+    },
+    {
+      label: 'A file is archived only after it was posted to the Treasury API',
+      rule: { type: 'before', first: 'http-request', then: 'sftp-move', thenWhere: { targetPath: 'archive' }, outside: true },
+    },
+    {
+      label: 'A file that fails goes to the error folder',
+      rule: { type: 'inside', component: 'sftp-move', where: { targetPath: 'error' }, within: ['on-error-continue', 'on-error-propagate'] },
+    },
   ],
   referenceFlow: design(
     flow(

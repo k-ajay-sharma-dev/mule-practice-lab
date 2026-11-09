@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-091',
@@ -13,9 +14,61 @@ export default {
     { label: 'The BAPI is called with Synchronous Remote Function Call', rule: { type: 'exists', component: 'sap-sync-rfc', where: { key: 'BAPI_SALESORDER_CREATEFROMDAT2' } } },
     { label: 'The call runs in a Try that begins a transaction', rule: { type: 'exists', component: 'try', where: { transactionalAction: 'ALWAYS_BEGIN' } } },
     { label: 'The BAPI call is inside the Try', rule: { type: 'inside', component: 'sap-sync-rfc', within: 'try' } },
-    { label: 'A business error in the RETURN table raises an error inside the Try', rule: { type: 'inside', component: 'raise-error', within: 'try', where: { type: 'SAP-ORDER' } } },
-    { label: 'A rejected order gets a 422 from its own handler', rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'APP:SAP-ORDER-REJECTED' } },
-    { label: 'SAP being unreachable is mapped to a 503', rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'SAP:CONNECTIVITY' } },
+    {
+      label: 'A business error in the RETURN table raises an error inside the Try, after the BAPI call',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'raise-error', within: 'try', where: { type: 'SAP-ORDER' } },
+          { type: 'before', first: 'sap-sync-rfc', then: 'raise-error', thenWhere: { type: 'SAP-ORDER' } },
+        ],
+      },
+    },
+    {
+      label: 'No On Error Continue sits on the Try, so a rejected order leaves the Try and is not committed',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'sap-sync-rfc', within: 'try' },
+          { type: 'absent', component: 'on-error-continue', within: 'try' },
+        ],
+      },
+    },
+    {
+      label: 'A rejected order gets a 422 from its own handler',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'APP:SAP-ORDER-REJECTED' },
+          handlerStatus('SAP-ORDER-REJECTED', '422'),
+        ],
+      },
+    },
+    {
+      label: 'SAP being unreachable is mapped to a 503',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'SAP:CONNECTIVITY' },
+          handlerStatus('SAP:CONNECTIVITY', '503'),
+        ],
+      },
+    },
+    {
+      label: 'SAP timing out or being busy is also handled (SAP:TIMEOUT, SAP:SYSTEM_BUSY)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'SAP:TIMEOUT' },
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'SAP:SYSTEM_BUSY' },
+        ],
+      },
+    },
+    {
+      // An error handler overrides the status, so the main path may set it at any point.
+      label: 'A saved order returns 201, set on the main path and not in an error handler',
+      rule: { type: 'before', first: 'http-listener', then: 'set-variable', thenWhere: { value: '201' }, outside: true },
+    },
   ],
   referenceFlow: design(
     flow(

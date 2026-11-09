@@ -8,7 +8,10 @@ export default {
   tags: ['kafka', 'postgresql', 'event-streaming', 'idempotency', 'ordering', 'upsert', 'dead-letter', 'json'],
   estMinutes: 50,
   flowChecks: [
-    { label: 'Order events are consumed with a Kafka Message Listener in a consumer group', rule: { type: 'source', component: 'kafka-listener', where: { groupId: { set: true } } } },
+    {
+      label: 'Order events are consumed from orders.v1 with a Kafka Message Listener in a consumer group',
+      rule: { type: 'source', component: 'kafka-listener', where: { topic: 'orders.v1', groupId: { set: true } } },
+    },
     {
       label: 'The order is written to PostgreSQL',
       rule: { type: 'exists', component: ['db-insert', 'db-update'], where: { database: 'PostgreSQL' } },
@@ -17,8 +20,22 @@ export default {
       label: 'The write is an idempotent upsert (INSERT ... ON CONFLICT)',
       rule: { type: 'exists', component: ['db-insert', 'db-update'], where: { sql: 'ON CONFLICT' } },
     },
-    { label: 'The enriched event is published only after the database write', rule: { type: 'before', first: ['db-insert', 'db-update'], then: 'kafka-publish' } },
-    { label: 'The enriched event is keyed by customer ID', rule: { type: 'exists', component: 'kafka-publish', where: { key: 'customerId' } } },
+    {
+      label: 'An older version arriving late does not overwrite a newer one (the upsert compares versions)',
+      rule: {
+        type: 'exists',
+        component: ['db-insert', 'db-update'],
+        where: { sql: { oneOf: ['version <', 'version >', 'version<', 'version>'] } },
+      },
+    },
+    {
+      label: 'The enriched event is published only after the database write',
+      rule: { type: 'before', first: ['db-insert', 'db-update'], then: 'kafka-publish', thenWhere: { topic: 'orders.enriched' }, outside: true },
+    },
+    {
+      label: 'The enriched event goes to orders.enriched.v1, keyed by customer ID so one customer stays in order',
+      rule: { type: 'exists', component: 'kafka-publish', where: { topic: 'orders.enriched', key: 'customerId' } },
+    },
     {
       label: 'Stale (older version) events are not re-published',
       rule: { type: 'inside', component: 'kafka-publish', within: 'choice' },
@@ -30,6 +47,22 @@ export default {
     {
       label: 'Transient database outages are propagated so the offset is not committed',
       rule: { type: 'handler', component: 'on-error-propagate', errorType: 'DB:CONNECTIVITY' },
+    },
+    {
+      label: 'The database outage handler comes before the catch-all that parks events, so an outage is not parked',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'on-error-propagate', firstWhere: { type: 'DB:CONNECTIVITY' }, then: 'on-error-continue', every: true },
+          {
+            type: 'all',
+            rules: [
+              { type: 'handler', component: 'on-error-propagate', where: { type: 'DB:CONNECTIVITY' } },
+              { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

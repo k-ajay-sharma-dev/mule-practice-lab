@@ -10,6 +10,10 @@ export default {
   flowChecks: [
     { label: 'The reconciliation runs nightly on a Scheduler', rule: { type: 'source', component: 'scheduler' } },
     {
+      label: 'The Scheduler fires at 02:00 (cron)',
+      rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { oneOf: ['0 0 2 ', '0 0 02 '] } } },
+    },
+    {
       label: 'Paged APIs are read in a loop, page by page',
       rule: { type: 'inside', component: 'http-request', within: ['foreach', 'parallel-foreach'] },
     },
@@ -19,8 +23,29 @@ export default {
     },
     { label: 'The report is emailed to finance', rule: { type: 'exists', component: 'email-send' } },
     {
-      label: 'Price fixes run in a loop inside a Choice that enforces the nightly cap',
-      rule: { type: 'inside', component: ['foreach', 'parallel-foreach', 'batch-job'], within: 'choice' },
+      label: 'The report is built as CSV before it is emailed',
+      rule: { type: 'before', first: 'transform', firstWhere: { script: 'application/csv' }, then: 'email-send' },
+    },
+    {
+      label: 'Price fixes run in a loop inside a Choice that enforces the nightly cap of 500',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: ['foreach', 'parallel-foreach', 'batch-job'], within: 'choice', routeWhere: { expression: '500' } },
+          // The cap may also be written as the alert route, with the fixes as the default branch.
+          {
+            type: 'all',
+            rules: [
+              { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: '500' } },
+              { type: 'inside', component: ['foreach', 'parallel-foreach', 'batch-job'], within: 'choice' },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'Fixes update the Shopify price (SAP wins)',
+      rule: { type: 'inside', component: 'http-request', where: { path: 'shopify' }, within: ['foreach', 'parallel-foreach', 'batch-job'] },
     },
     {
       label: 'Above the cap, fixes are skipped and an alert is sent instead',
@@ -28,7 +53,7 @@ export default {
     },
     {
       label: 'A failed extraction aborts the run with an alert (no partial report)',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] },
+      rule: { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
   referenceFlow: design(

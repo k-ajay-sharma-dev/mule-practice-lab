@@ -32,18 +32,43 @@ export default {
       rule: { type: 'exists', component: ['mq-publish', 'vm-publish', 'jms-publish'] },
     },
     {
+      label: 'Tasks are published only on the accepted branch of the legal hold check',
+      rule: { type: 'inside', component: ['mq-publish', 'vm-publish', 'jms-publish'], within: 'choice' },
+    },
+    {
       label: 'Each target system has its own worker flow (at least four)',
       rule: { type: 'exists', component: ['mq-subscriber', 'vm-listener', 'jms-listener'], min: 4 },
     },
     {
       label: 'Policy DB records are anonymised with an UPDATE inside a transaction',
-      rule: { type: 'inside', component: 'db-update', within: 'try' },
+      rule: { type: 'inside', component: 'db-update', within: 'try', withinWhere: { transactionalAction: 'BEGIN' } },
+    },
+    {
+      label: 'Policy records are anonymised, never deleted (no Database Delete)',
+      rule: { type: 'all', rules: [{ type: 'exists', component: 'db-update' }, { type: 'absent', component: 'db-delete' }] },
+    },
+    {
+      label: 'A worker acknowledges its task only after the erasure call',
+      rule: { type: 'before', first: ['http-request', 'db-update', 'sf-query'], then: 'mq-ack', outside: true },
     },
     {
       label: 'Failed worker tasks are returned to the queue for retry',
       rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
     },
-    { label: 'A Scheduler tracks asynchronous erasure jobs and completion', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'A Scheduler tracks asynchronous erasure jobs and completion',
+      rule: { type: 'before', first: 'scheduler', then: 'http-request', thenWhere: { method: 'GET' } },
+    },
+    {
+      label: 'No Logger writes personal data (the whole payload, customerId or email)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'http-listener' },
+          { type: 'absent', component: 'logger', where: { message: { oneOf: ['#[payload]', 'customerId', 'email'] } } },
+        ],
+      },
+    },
     {
       label: 'An audit evidence record is written when a request completes',
       rule: { type: 'exists', component: ['db-insert', 'os-store'], where: { sql: 'audit' } },

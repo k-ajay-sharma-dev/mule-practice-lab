@@ -10,16 +10,61 @@ export default {
   flowChecks: [
     { label: 'A Scheduler starts the sync', rule: { type: 'source', component: 'scheduler' } },
     { label: 'The checkpoint is read from the Object Store before rows are selected', rule: { type: 'before', first: 'os-retrieve', then: 'db-select' } },
-    { label: 'A Choice skips the run while the wait time has not passed', rule: { type: 'routes', component: 'choice', min: 1 } },
-    { label: 'Each row is sent inside a For Each', rule: { type: 'inside', component: 'http-request', within: 'foreach' } },
-    { label: 'The checkpoint is updated inside the loop, after each successful call', rule: { type: 'inside', component: 'os-store', within: 'foreach' } },
+    { label: 'Rows are selected in id order', rule: { type: 'exists', component: 'db-select', where: { sql: 'order by' } } },
     {
-      label: 'A 429 is handled in a Try around the loop, so the run ends cleanly',
-      rule: { type: 'handler', component: 'on-error-continue', errorType: 'HTTP:TOO_MANY_REQUESTS', within: 'try' },
+      label: 'A Choice skips the run while the wait time has not passed, so no row is read or sent then',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'routes', component: 'choice', min: 1 },
+          { type: 'inside', component: 'db-select', within: 'choice' },
+        ],
+      },
+    },
+    { label: 'Each row is sent inside a For Each', rule: { type: 'inside', component: 'http-request', within: 'foreach' } },
+    {
+      label: 'The checkpoint is updated inside the loop, after each successful call',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'os-store', within: 'foreach' },
+          { type: 'before', first: 'http-request', then: 'os-store', outside: true },
+        ],
+      },
     },
     {
-      label: 'The handler reads X-RateLimit-Reset from the error message to find out how long to wait',
-      rule: { type: 'exists', component: 'set-variable', where: { value: 'x-ratelimit-reset' } },
+      label: 'A 429 is handled in a Try around the loop, so the run ends cleanly',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', errorType: 'HTTP:TOO_MANY_REQUESTS', within: 'try' },
+          { type: 'inside', component: 'foreach', within: 'try' },
+        ],
+      },
+    },
+    {
+      label: 'A 429 is not caught per row, so the loop stops at once',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'http-request', within: 'foreach' },
+          { type: 'absent', component: 'on-error-continue', within: 'foreach', where: { type: { oneOf: ['TOO_MANY_REQUESTS', 'ANY'] } } },
+        ],
+      },
+    },
+    {
+      label: 'The handler reads X-RateLimit-Reset from the error message, with a default when it is missing',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'set-variable', within: 'on-error-continue', where: { value: 'x-ratelimit-reset' } },
+          { type: 'inside', component: 'set-variable', within: 'on-error-continue', where: { value: 'default' } },
+        ],
+      },
+    },
+    {
+      label: 'The handler stores the time to wait in the Object Store, so it survives a restart',
+      rule: { type: 'inside', component: 'os-store', within: 'on-error-continue' },
     },
   ],
   referenceFlow: design(

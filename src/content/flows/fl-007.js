@@ -13,6 +13,10 @@ export default {
       rule: { type: 'routes', component: 'choice', min: 2 },
     },
     {
+      label: 'One Choice route has a condition on US orders',
+      rule: { type: 'inside', component: ['http-request', 'flow-ref'], within: 'choice', routeWhere: { expression: 'US' } },
+    },
+    {
       label: 'Rate quotes call the three carriers in parallel (Scatter-Gather)',
       rule: { type: 'routes', component: 'scatter-gather', min: 3 },
     },
@@ -21,8 +25,12 @@ export default {
       rule: { type: 'exists', component: 'scatter-gather', where: { timeout: { gte: 1, lte: 3000 } } },
     },
     {
-      label: 'One failing carrier does not fail the rate screen (On Error Continue inside the gather)',
-      rule: { type: 'handler', component: 'on-error-continue', within: 'scatter-gather' },
+      label: 'One failing carrier does not fail the rate screen (On Error Continue in every gather route)',
+      rule: { type: 'inside', component: 'on-error-continue', within: 'scatter-gather', min: 3 },
+    },
+    {
+      label: 'The gathered quotes are flattened into one list after the Scatter-Gather',
+      rule: { type: 'before', first: 'scatter-gather', then: 'transform', outside: true },
     },
     {
       label: 'Address validation tries primary then backup vendor (First Successful)',
@@ -31,6 +39,17 @@ export default {
     {
       label: 'When both vendors fail the address is accepted unvalidated (First Successful inside a Try)',
       rule: { type: 'inside', component: 'first-successful', within: 'try' },
+    },
+    {
+      label: 'The fallback is On Error Continue and flags the address as not validated',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'transform', where: { script: 'validated' }, within: 'on-error-continue' },
+          { type: 'inside', component: 'set-payload', where: { value: 'validated' }, within: 'on-error-continue' },
+          { type: 'inside', component: 'set-variable', where: { variableName: 'validated' }, within: 'on-error-continue' },
+        ],
+      },
     },
     {
       label: 'Label printing rotates over three print servers (Round Robin)',

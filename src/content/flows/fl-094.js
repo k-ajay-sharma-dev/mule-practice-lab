@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-094',
@@ -9,13 +10,74 @@ export default {
   estMinutes: 25,
   flowChecks: [
     { label: 'Claims arrive through an HTTP Listener', rule: { type: 'source', component: 'http-listener', where: { path: 'submissions' } } },
-    { label: 'X-SSL-Client-Verify must be SUCCESS', rule: { type: 'exists', component: 'validation', where: { check: 'is-true', expression: 'SUCCESS' } } },
-    { label: 'The claim is saved in a variable before the database call replaces the payload', rule: { type: 'before', first: 'set-variable', then: 'db-select' } },
-    { label: 'The certificate identity is looked up in the authorised broker list', rule: { type: 'exists', component: 'db-select', where: { sql: 'cert_serial' } } },
-    { label: 'An unknown certificate is refused before the claim goes further', rule: { type: 'before', first: 'db-select', then: 'mq-publish' } },
-    { label: 'An unverified certificate returns 401', rule: { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:INVALID_BOOLEAN' } },
-    { label: 'A verified but unauthorised certificate returns 403', rule: { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:EMPTY_COLLECTION' } },
-    { label: 'The original claim is restored before publishing', rule: { type: 'exists', component: 'transform', where: { script: 'vars.claim' } } },
+    {
+      label: 'X-SSL-Client-Verify must be SUCCESS, checked before the broker lookup',
+      rule: { type: 'before', first: 'validation', firstWhere: { check: 'is-true', expression: 'SUCCESS' }, then: 'db-select' },
+    },
+    {
+      label: 'The claim and the DN and serial headers are saved in variables before the database call replaces them',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'set-variable', firstWhere: { value: 'payload]' }, then: 'db-select' },
+          // Saving all headers, or all attributes, in one variable also keeps them.
+          { type: 'before', first: 'set-variable', firstWhere: { value: { oneOf: ['x-ssl-client-dn', 'attributes.headers]', 'attributes]'] } }, then: 'db-select' },
+          { type: 'before', first: 'set-variable', firstWhere: { value: { oneOf: ['x-ssl-client-serial', 'attributes.headers]', 'attributes]'] } }, then: 'db-select' },
+        ],
+      },
+    },
+    {
+      label: 'The lookup matches both the DN and the serial of an active broker',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'db-select', where: { sql: 'cert_serial' } },
+          { type: 'exists', component: 'db-select', where: { sql: 'cert_dn' } },
+          { type: 'exists', component: 'db-select', where: { sql: 'ACTIVE' } },
+        ],
+      },
+    },
+    {
+      label: 'An unknown certificate is refused by an empty result check before the claim is published',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'db-select', then: 'validation', thenWhere: { check: 'is-not-empty-collection' } },
+          { type: 'before', first: 'validation', firstWhere: { check: 'is-not-empty-collection' }, then: 'mq-publish' },
+        ],
+      },
+    },
+    {
+      label: 'An unverified certificate returns 401',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:INVALID_BOOLEAN' },
+          handlerStatus('VALIDATION:INVALID_BOOLEAN', '401'),
+        ],
+      },
+    },
+    {
+      label: 'A verified but unauthorised certificate returns 403',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:EMPTY_COLLECTION' },
+          handlerStatus('VALIDATION:EMPTY_COLLECTION', '403'),
+        ],
+      },
+    },
+    {
+      label: 'The 403 handler logs the serial for investigation',
+      rule: { type: 'inside', component: 'logger', within: HANDLERS, withinWhere: { type: 'VALIDATION:EMPTY_COLLECTION' }, where: { message: 'serial' } },
+    },
+    { label: 'The original claim is restored before publishing', rule: { type: 'before', first: 'transform', firstWhere: { script: 'vars.claim' }, then: 'mq-publish' } },
+    { label: 'Claims are published to claims.submissions', rule: { type: 'exists', component: 'mq-publish', where: { destination: 'claims.submissions' } } },
+    {
+      // An error handler overrides the status, so the main path may set it at any point.
+      label: 'An accepted claim is answered with 202, set on the main path and not in an error handler',
+      rule: { type: 'before', first: 'http-listener', then: 'set-variable', thenWhere: { value: '202' }, outside: true },
+    },
   ],
   referenceFlow: design(
     flow(

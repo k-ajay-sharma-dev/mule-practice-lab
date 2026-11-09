@@ -27,6 +27,9 @@ const cdcListener = (object) =>
     ],
   )
 
+// What the skip or the hand-off route of the loop-prevention Choice may hold.
+const LISTENER_STEPS = ['logger', 'mq-publish', 'vm-publish', 'jms-publish', 'flow-ref', 'set-variable']
+
 export default {
   id: 'fl-022',
   category: 'flows',
@@ -38,15 +41,30 @@ export default {
     { label: 'Changes are received from a Salesforce event listener, not by polling', rule: { type: 'source', component: 'sf-listener' } },
     {
       label: 'Changes made by the integration user are filtered out (loop prevention)',
-      rule: { type: 'exists', component: ['choice', 'validation'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: LISTENER_STEPS, within: 'choice', routeWhere: { expression: 'commitUser' } },
+          { type: 'inside', component: LISTENER_STEPS, within: 'choice', routeWhere: { expression: 'LastModifiedById' } },
+          { type: 'inside', component: LISTENER_STEPS, within: 'choice', routeWhere: { expression: 'integrationUser' } },
+          { type: 'exists', component: 'validation', where: { expression: 'commitUser' } },
+        ],
+      },
     },
     {
       label: 'The listener hands events off to a queue for downstream workers',
       rule: { type: 'exists', component: ['mq-publish', 'vm-publish', 'jms-publish'] },
     },
     {
-      label: 'The replay ID is stored in an Object Store after the hand-off',
-      rule: { type: 'before', first: ['mq-publish', 'vm-publish', 'jms-publish', 'http-request'], then: 'os-store' },
+      label: 'The replay ID is stored in an Object Store only after the hand-off',
+      rule: {
+        type: 'before',
+        first: ['mq-publish', 'vm-publish', 'jms-publish', 'http-request'],
+        then: 'os-store',
+        thenWhere: { value: 'replay' },
+        every: true,
+        outside: true,
+      },
     },
     {
       label: 'A separate worker flow consumes the queue and updates ERP and Postgres',
@@ -54,8 +72,16 @@ export default {
     },
     { label: 'The worker routes on changeType (create / update / delete / gap)', rule: { type: 'routes', component: 'choice', min: 3 } },
     {
+      label: 'Update events send only the changed fields, so missing fields do not wipe ERP data',
+      rule: { type: 'inside', component: 'transform', where: { script: 'changedFields' }, within: 'choice', routeWhere: { expression: 'UPDATE' } },
+    },
+    {
       label: 'GAP / overflow events re-query the full record from Salesforce',
-      rule: { type: 'inside', component: 'sf-query', within: 'choice' },
+      rule: { type: 'inside', component: 'sf-query', within: 'choice', routeWhere: { expression: 'GAP' } },
+    },
+    {
+      label: 'The worker acknowledges a change only after ERP and Postgres are updated',
+      rule: { type: 'before', first: ['http-request', 'db-insert', 'db-update'], then: ['mq-ack', 'jms-ack'], outside: true },
     },
     {
       label: 'Failures in the listener flow alert and trigger a delta resync',

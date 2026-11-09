@@ -9,13 +9,43 @@ export default {
   estMinutes: 40,
   flowChecks: [
     { label: 'A scheduled flow reads the product file and a second scheduled flow monitors the job', rule: { type: 'exists', component: 'scheduler', min: 2 } },
-    { label: 'The load uses Create Job Bulk Api V2 with an upsert', rule: { type: 'exists', component: 'sf-create-job-v2', where: { operation: 'upsert', externalIdFieldName: { set: true } } } },
+    {
+      label: 'The load is one Bulk API v2 upsert of Product2 keyed on PIM_Product_Id__c',
+      rule: { type: 'exists', component: 'sf-create-job-v2', where: { objectType: 'Product2', operation: 'upsert', externalIdFieldName: 'PIM_Product_Id__c' } },
+    },
+    {
+      label: 'No single-record Salesforce calls are used for the load',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'sf-create-job-v2' },
+          { type: 'absent', component: ['sf-create', 'sf-upsert', 'sf-update'] },
+        ],
+      },
+    },
     { label: 'The data is transformed before the job is created', rule: { type: 'before', first: 'transform', then: 'sf-create-job-v2' } },
-    { label: 'The job ID is kept in the Object Store after the job is created', rule: { type: 'before', first: 'sf-create-job-v2', then: 'os-store' } },
+    { label: 'The job ID is kept in the Object Store after the job is created', rule: { type: 'before', first: 'sf-create-job-v2', then: 'os-store', outside: true } },
+    {
+      label: 'The submit flow does not wait for the job: the job state is asked for only in a separate flow',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'sf-get-job-state-v2' },
+          { type: 'absent', component: 'sf-get-job-state-v2', inFlowWith: { component: 'sf-create-job-v2' } },
+        ],
+      },
+    },
     { label: 'The monitor flow reads the stored job ID before asking for the job state', rule: { type: 'before', first: 'os-retrieve', then: 'sf-get-job-state-v2' } },
     { label: 'Failed results are fetched only when the job has finished (inside a Choice)', rule: { type: 'inside', component: 'sf-retrieve-failed-v2', within: 'choice' } },
     { label: 'Unprocessed rows are also fetched', rule: { type: 'exists', component: 'sf-retrieve-unprocessed-v2' } },
-    { label: 'Rejected rows are written to a file for the product team', rule: { type: 'before', first: 'sf-retrieve-failed-v2', then: 'sftp-write' } },
+    {
+      label: 'Rejected rows are written to /pim/rejected/ for the product team',
+      rule: { type: 'before', first: 'sf-retrieve-failed-v2', then: 'sftp-write', thenWhere: { path: '/pim/rejected/' } },
+    },
+    {
+      label: 'A failed or aborted job sends an alert email from the monitor flow',
+      rule: { type: 'inside', component: 'email-send', within: 'choice', where: { toAddresses: { set: true } } },
+    },
   ],
   referenceFlow: design(
     flow(

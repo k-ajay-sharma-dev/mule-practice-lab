@@ -14,13 +14,37 @@ export default {
     },
     { label: 'A Choice has a route for each known format (three conditions)', rule: { type: 'routes', component: 'choice', min: 3 } },
     { label: 'Each format is normalised with DataWeave inside the Choice', rule: { type: 'inside', component: 'transform', within: 'choice' } },
-    { label: 'The CSV route reads the content as CSV', rule: { type: 'exists', component: 'transform', where: { script: 'application/csv' } } },
+    {
+      label: 'The CSV route reads the content as CSV with the semicolon separator',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'application/csv' } },
+          { type: 'exists', component: 'transform', where: { script: 'separator' } },
+        ],
+      },
+    },
     { label: 'The XML route reads the content as XML', rule: { type: 'exists', component: 'transform', where: { script: 'application/xml' } } },
     {
       label: 'Unknown file types go to the quarantine folder',
       rule: { type: 'inside', component: ['file-move', 'file-copy'], within: 'choice', where: { targetPath: 'quarantine' } },
     },
-    { label: 'The source file is archived after the output is written', rule: { type: 'before', first: 'file-write', then: ['file-move', 'file-copy'] } },
+    {
+      label: 'Each input file gets its own output in /data/normalised, not appended to a shared file',
+      rule: { type: 'exists', component: 'file-write', where: { path: 'normalised', mode: { not: 'APPEND' } } },
+    },
+    {
+      label: 'The source file is archived after the output is written',
+      rule: { type: 'before', first: 'file-write', then: ['file-move', 'file-copy'], thenWhere: { targetPath: 'archive' } },
+    },
+    {
+      label: 'Archived files get a unique name, so a same-named file next week does not collide',
+      rule: {
+        type: 'exists',
+        component: ['file-move', 'file-copy'],
+        where: { targetPath: 'archive', renameTo: { oneOf: ['now()', 'uuid', 'timestamp', 'correlationId'] } },
+      },
+    },
     {
       label: 'A file that cannot be parsed is moved out by the error handler',
       rule: { type: 'inside', component: 'file-move', within: 'on-error-continue', where: { targetPath: 'quarantine' } },

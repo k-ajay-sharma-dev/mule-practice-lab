@@ -11,22 +11,89 @@ export default {
     { label: 'POST /notifications is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {
       label: 'The request is queued and acknowledged instead of sent synchronously',
-      rule: { type: 'exists', component: ['mq-publish', 'vm-publish', 'jms-publish'] },
+      rule: { type: 'before', first: 'http-listener', then: ['mq-publish', 'vm-publish', 'jms-publish'] },
+    },
+    {
+      label: 'The API flow does not send email or SMS itself',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'http-listener' },
+          { type: 'absent', component: 'email-send', inFlowWith: { component: 'http-listener' } },
+          { type: 'absent', component: 'http-request', inFlowWith: { component: 'http-listener' } },
+        ],
+      },
     },
     {
       label: 'Each channel has its own queue consumer so one failing channel does not block the other',
       rule: { type: 'exists', component: ['mq-subscriber', 'vm-listener', 'jms-listener'], min: 2 },
     },
     { label: 'Contact preferences are read from the Preferences DB', rule: { type: 'exists', component: 'db-select' } },
+    {
+      label: 'The template is read at run time, so wording changes need no release',
+      rule: { type: 'before', first: ['db-select', 'os-retrieve', 's3-get', 'http-request'], then: 'email-send' },
+    },
     { label: 'The message is rendered with DataWeave before the email is sent', rule: { type: 'before', first: 'transform', then: 'email-send' } },
     { label: 'SMS goes out through an HTTP Request to the SMS provider', rule: { type: 'exists', component: 'http-request' } },
     {
-      label: 'Worker failures record a status and return the message for redelivery',
+      label: 'No consumer acknowledges a message as soon as it arrives (IMMEDIATE)',
       rule: {
-        type: 'inside',
-        component: ['mq-nack', 'db-update', 'db-insert'],
-        within: ['on-error-continue', 'on-error-propagate'],
+        type: 'all',
+        rules: [
+          { type: 'source', component: ['mq-subscriber', 'vm-listener', 'jms-listener'] },
+          { type: 'absent', component: 'mq-subscriber', where: { acknowledgementMode: 'IMMEDIATE' } },
+        ],
       },
+    },
+    {
+      label: 'A manual acknowledgement comes only after the email or SMS was sent',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'all',
+            rules: [
+              { type: 'before', first: 'email-send', then: ['mq-ack', 'jms-ack'], outside: true },
+              { type: 'before', first: 'http-request', then: ['mq-ack', 'jms-ack'], outside: true },
+            ],
+          },
+          {
+            type: 'all',
+            rules: [
+              { type: 'exists', component: 'email-send' },
+              { type: 'exists', component: 'http-request' },
+              { type: 'absent', component: 'mq-ack' },
+              { type: 'absent', component: 'jms-ack' },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'Worker failures return the message for redelivery (nack, or the error propagates)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: ['mq-nack', 'jms-recover-session'], within: ['on-error-continue', 'on-error-propagate'] },
+          {
+            type: 'all',
+            rules: [
+              { type: 'source', component: ['mq-subscriber', 'vm-listener', 'jms-listener'] },
+              {
+                type: 'absent',
+                component: 'on-error-continue',
+                // ANY also matches a handler with no type, since both catch everything.
+                where: { type: 'ANY' },
+                inFlowWith: { component: ['mq-subscriber', 'vm-listener', 'jms-listener'] },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'Worker failures record a status',
+      rule: { type: 'inside', component: ['db-update', 'db-insert'], within: ['on-error-continue', 'on-error-propagate'] },
     },
   ],
   referenceFlow: design(

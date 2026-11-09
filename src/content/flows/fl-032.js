@@ -13,20 +13,62 @@ export default {
   flowChecks: [
     { label: 'Checkout requests arrive through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {
-      label: 'An entry log line with the correlation ID is written before the downstream call',
-      rule: { type: 'before', first: 'logger', then: 'http-request' },
+      label: 'An entry log line with the correlation ID is written before the Payment API call',
+      rule: {
+        type: 'before',
+        first: 'logger',
+        firstWhere: { message: 'correlationId' },
+        then: 'http-request',
+        thenWhere: { path: 'pay' },
+        outside: true,
+      },
     },
     {
       label: 'Log messages include the correlation ID (entry and exit)',
       rule: { type: 'exists', component: 'logger', where: { message: 'correlationId' }, min: 2 },
     },
     {
-      label: 'The asynchronous consumer is a separate flow triggered by a queue',
-      rule: { type: 'source', component: ['mq-subscriber', 'vm-listener', 'jms-listener'] },
+      label: 'The notification flow is a separate flow triggered by the order-confirmed queue',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'source', component: ['mq-subscriber', 'jms-listener'], where: { destination: 'order-confirmed' } },
+          { type: 'source', component: 'vm-listener', where: { queueName: 'order-confirmed' } },
+        ],
+      },
     },
     {
-      label: 'The event is published to a queue for the asynchronous part',
-      rule: { type: 'exists', component: ['mq-publish', 'vm-publish', 'jms-publish'] },
+      label: 'The confirmation is published to order-confirmed after the Payment API call',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'before',
+            first: 'http-request',
+            firstWhere: { path: 'pay' },
+            then: ['mq-publish', 'jms-publish'],
+            thenWhere: { destination: 'order-confirmed' },
+            outside: true,
+          },
+          {
+            type: 'before',
+            first: 'http-request',
+            firstWhere: { path: 'pay' },
+            then: 'vm-publish',
+            thenWhere: { queueName: 'order-confirmed' },
+            outside: true,
+          },
+        ],
+      },
+    },
+    {
+      label: 'The notification flow logs with the correlation ID too',
+      rule: {
+        type: 'before',
+        first: ['mq-subscriber', 'vm-listener', 'jms-listener'],
+        then: 'logger',
+        thenWhere: { message: 'correlationId' },
+      },
     },
     {
       label: 'The error handler logs the failure with the correlation ID',
@@ -39,7 +81,13 @@ export default {
     },
     {
       label: 'Error responses return the correlation ID to the caller',
-      rule: { type: 'inside', component: ['transform', 'set-payload'], within: ['on-error-propagate', 'on-error-continue'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'transform', where: { script: 'correlationId' }, within: ['on-error-propagate', 'on-error-continue'] },
+          { type: 'inside', component: 'set-payload', where: { value: 'correlationId' }, within: ['on-error-propagate', 'on-error-continue'] },
+        ],
+      },
     },
   ],
   referenceFlow: design(

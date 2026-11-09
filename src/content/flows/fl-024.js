@@ -45,6 +45,30 @@ export default {
       rule: { type: 'before', first: ['db-insert', 'os-store'], then: ['http-request', 'flow-ref'] },
     },
     { label: 'Steps and compensations are separate flows reached via Flow Reference', rule: { type: 'refs' } },
+    {
+      label: 'Stock is reserved before the card is authorised',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'before',
+            first: 'flow-ref',
+            firstWhere: { name: { oneOf: ['inventory', 'reserv', 'stock'] } },
+            then: 'flow-ref',
+            thenWhere: { name: { oneOf: ['payment', 'authori'] } },
+            outside: true,
+          },
+          {
+            type: 'before',
+            first: 'http-request',
+            firstWhere: { path: 'reservations' },
+            then: 'http-request',
+            thenWhere: { path: 'authorisations' },
+            outside: true,
+          },
+        ],
+      },
+    },
     { label: 'Each remote step call is wrapped in a Try scope', rule: { type: 'inside', component: 'http-request', within: 'try' } },
     { label: 'A failed step raises a custom saga error', rule: { type: 'exists', component: 'raise-error' } },
     {
@@ -52,10 +76,21 @@ export default {
       rule: { type: 'inside', component: 'flow-ref', within: ['on-error-propagate', 'on-error-continue'] },
     },
     {
+      label: 'The payment is undone with POST /authorisations/{id}/void',
+      rule: { type: 'exists', component: 'http-request', where: { method: 'POST', path: 'void' } },
+    },
+    {
+      label: 'The reservation is undone with DELETE /reservations/{id}',
+      rule: { type: 'exists', component: 'http-request', where: { method: 'DELETE', path: 'reservations' } },
+    },
+    {
       label: 'A failed compensation is queued for retry instead of being lost',
       rule: { type: 'inside', component: ['mq-publish', 'vm-publish', 'jms-publish'], within: ['on-error-continue', 'on-error-propagate'] },
     },
-    { label: 'A Scheduler recovers sagas stuck after a crash', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'A Scheduler recovers sagas stuck after a crash, read from the saga store',
+      rule: { type: 'before', first: 'scheduler', then: ['db-select', 'os-retrieve'] },
+    },
   ],
   referenceFlow: design(
     flow(

@@ -19,14 +19,30 @@ export default {
       rule: { type: 'inside', component: 'sf-upsert', within: 'batch-aggregator' },
     },
     {
+      label: 'Accounts are upserted on Legacy_Customer_No__c, so a wave can be re-run safely',
+      rule: { type: 'exists', component: 'sf-upsert', where: { objectType: 'Account', externalIdField: 'Legacy_Customer_No__c' } },
+    },
+    {
       label: 'The job does not stop on bad records (max failed records = -1)',
       rule: { type: 'exists', component: 'batch-job', where: { maxFailedRecords: { lte: -1 } } },
     },
     {
-      label: 'Failed records are persisted for re-run from within the job',
-      rule: { type: 'inside', component: ['db-insert', 'db-bulk-insert', 'os-store', 'file-write'], within: 'batch-job' },
+      label: 'The Salesforce load step accepts only good records (NO_FAILURES)',
+      rule: { type: 'inside', component: 'sf-upsert', within: 'batch-job', routeWhere: { acceptPolicy: { is: 'NO_FAILURES' } } },
     },
-    { label: 'A migration report is emailed from the job (On Complete)', rule: { type: 'inside', component: 'email-send', within: 'batch-job' } },
+    {
+      label: 'Failed records are persisted for re-run from a step that accepts ONLY_FAILURES',
+      rule: {
+        type: 'inside',
+        component: ['db-insert', 'db-bulk-insert', 'os-store', 'file-write', 'sftp-write'],
+        within: 'batch-job',
+        routeWhere: { acceptPolicy: { is: 'ONLY_FAILURES' } },
+      },
+    },
+    {
+      label: 'A migration report is emailed once from On Complete, not from a batch step',
+      rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
+    },
   ],
   referenceFlow: design(
     flow(

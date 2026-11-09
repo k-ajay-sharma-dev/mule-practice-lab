@@ -9,12 +9,22 @@ export default {
   estMinutes: 30,
   flowChecks: [
     {
-      label: 'Baskets are consumed from the integration queue of the POS virtual topic',
-      rule: { type: 'source', component: 'jms-listener', where: { destination: 'POS.SALES' } },
+      label: 'Baskets are consumed from this app\'s own consumer queue of the POS virtual topic, not the topic itself',
+      rule: { type: 'source', component: 'jms-listener', where: { destination: 'Consumer.' } },
+    },
+    {
+      label: 'The consumer queue belongs to the VirtualTopic.POS.SALES topic',
+      rule: { type: 'source', component: 'jms-listener', where: { destination: 'VirtualTopic.POS.SALES' } },
     },
     {
       label: 'The listener uses MANUAL acknowledgement (ack only after Oracle committed)',
-      rule: { type: 'source', component: 'jms-listener', where: { ackMode: 'MANUAL' } },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'jms-listener', where: { ackMode: 'MANUAL' } },
+          { type: 'before', first: 'db-bulk-insert', then: 'jms-ack', every: true },
+        ],
+      },
     },
     {
       label: 'The basket JSON is split into header and line rows with DataWeave',
@@ -23,15 +33,40 @@ export default {
     { label: 'Header is inserted, then all lines with one Bulk Insert', rule: { type: 'before', first: 'db-insert', then: 'db-bulk-insert' } },
     {
       label: 'Header and lines commit together (Try, ALWAYS_BEGIN)',
-      rule: { type: 'inside', component: 'db-bulk-insert', within: 'try' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-bulk-insert', within: 'try', withinWhere: { transactionalAction: { oneOf: ['ALWAYS_BEGIN', 'BEGIN_OR_JOIN'] } } },
+          { type: 'inside', component: 'db-insert', within: 'try', withinWhere: { transactionalAction: { oneOf: ['ALWAYS_BEGIN', 'BEGIN_OR_JOIN'] } } },
+        ],
+      },
     },
     {
-      label: 'A redelivered basket (ORA-00001 on the natural key) is treated as already loaded',
-      rule: { type: 'exists', component: 'on-error-continue', where: { type: 'DB:QUERY_EXECUTION' } },
+      label: 'Only a duplicate-key error (ORA-00001 on the natural key) is treated as already loaded, and acknowledged',
+      rule: {
+        type: 'all',
+        rules: [
+          {
+            type: 'any',
+            rules: [
+              { type: 'exists', component: 'on-error-continue', where: { type: 'QUERY_EXECUTION', when: { set: true } } },
+              { type: 'inside', component: 'choice', within: 'on-error-continue', withinWhere: { type: 'QUERY_EXECUTION' } },
+            ],
+          },
+          { type: 'inside', component: 'jms-ack', within: 'on-error-continue', withinWhere: { type: 'QUERY_EXECUTION' } },
+        ],
+      },
     },
     {
       label: 'Other failures propagate, leaving the message unacknowledged for redelivery',
-      rule: { type: 'handler', component: 'on-error-propagate' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate' },
+          { type: 'absent', component: 'jms-ack', within: 'on-error-propagate' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+        ],
+      },
     },
   ],
   referenceFlow: design(

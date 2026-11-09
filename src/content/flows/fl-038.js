@@ -8,19 +8,32 @@ export default {
   tags: ['sftp', 'file', 'flat-file', 'scheduler', 'dataweave'],
   estMinutes: 20,
   flowChecks: [
-    { label: 'The export runs on a schedule', rule: { type: 'source', component: 'scheduler' } },
-    { label: 'Approved payments are read from the database', rule: { type: 'exists', component: 'db-select' } },
+    {
+      label: 'The export runs every night at 01:30 on a cron schedule',
+      rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { oneOf: ['0 30 1 ', '0 30 01 '] } } },
+    },
+    {
+      label: 'Approved payments are read from the database',
+      rule: { type: 'exists', component: 'db-select', where: { sql: 'APPROVED' } },
+    },
     {
       label: 'DataWeave builds the file (header, detail lines, trailer) before it is written',
       rule: { type: 'before', first: 'transform', then: 'sftp-write' },
     },
     {
-      label: 'The file is written to a temporary name/location first, then moved into the pickup folder',
-      rule: { type: 'before', first: 'sftp-write', then: 'sftp-move' },
+      label: 'The file is written to a temporary name or folder first, then moved or renamed into the pickup folder',
+      rule: { type: 'before', first: 'sftp-write', then: ['sftp-move', 'sftp-rename'], outside: true },
     },
     {
       label: 'Payments are marked as exported only after the file is published',
-      rule: { type: 'before', first: 'sftp-move', then: ['db-update', 'db-bulk-update'] },
+      rule: {
+        type: 'before',
+        first: ['sftp-move', 'sftp-rename'],
+        then: ['db-update', 'db-bulk-update'],
+        thenWhere: { sql: 'EXPORTED' },
+        every: true,
+        outside: true,
+      },
     },
     {
       label: 'A failure alerts the payments team from an error handler',

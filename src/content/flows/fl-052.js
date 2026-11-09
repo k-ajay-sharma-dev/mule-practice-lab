@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-052',
@@ -17,8 +18,24 @@ export default {
       rule: { type: 'source', component: 'http-listener', where: { path: 'prc-' } },
     },
     {
-      label: 'The slow Process API call is wrapped in a Cache scope',
-      rule: { type: 'inside', component: 'http-request', within: 'cache', where: { path: 'prc-' } },
+      label: 'The slow Process API call is wrapped in a Cache scope in the Experience API',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'http-request', within: 'cache', where: { path: 'prc-' } },
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'exp-' }, then: 'cache' },
+        ],
+      },
+    },
+    {
+      label: 'The cache key is built from the category and the locale',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'cache', where: { cachingStrategy: 'locale' } },
+          { type: 'before', first: 'set-variable', firstWhere: { value: 'locale' }, then: 'cache' },
+        ],
+      },
     },
     {
       label: 'The cached response is shaped for the web channel with DataWeave',
@@ -30,7 +47,13 @@ export default {
     },
     {
       label: 'A Process API timeout is mapped to a clear status (504)',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'TIMEOUT' } },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'TIMEOUT' } },
+          handlerStatus('TIMEOUT', '504'),
+        ],
+      },
     },
   ],
   referenceFlow: design(

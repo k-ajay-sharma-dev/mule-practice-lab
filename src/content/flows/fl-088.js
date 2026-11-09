@@ -12,15 +12,38 @@ export default {
       label: 'The listener waits for the manifest to finish arriving (timeBetweenSizeCheck)',
       rule: { type: 'source', component: 'file-listener', where: { timeBetweenSizeCheck: { gte: 1 } } },
     },
-    { label: 'The XML is validated against the XSD before it is transformed', rule: { type: 'before', first: 'xml-validate', then: 'transform' } },
-    { label: 'Both outputs refuse to replace an existing file (mode CREATE_NEW)', rule: { type: 'exists', component: 'file-write', where: { mode: 'CREATE_NEW' }, min: 2 } },
+    {
+      label: 'The XML is validated against carrier-manifest-v3.xsd before it is transformed',
+      rule: { type: 'before', first: 'xml-validate', firstWhere: { schemas: 'carrier-manifest-v3' }, then: 'transform', every: true },
+    },
+    {
+      label: 'Both outputs, out/json and out/csv, refuse to replace an existing file (mode CREATE_NEW)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'file-write', where: { mode: 'CREATE_NEW' }, min: 2 },
+          { type: 'exists', component: 'file-write', where: { mode: 'CREATE_NEW', path: 'json' } },
+          { type: 'exists', component: 'file-write', where: { mode: 'CREATE_NEW', path: 'csv' } },
+        ],
+      },
+    },
     { label: 'A CSV output is produced with DataWeave', rule: { type: 'exists', component: 'transform', where: { script: 'application/csv' } } },
     {
       label: 'An output that already exists is handled (FILE:FILE_ALREADY_EXISTS in a Try)',
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'FILE:FILE_ALREADY_EXISTS', within: 'try' },
     },
-    { label: 'A reject file is written only when there are rejected rows', rule: { type: 'inside', component: 'file-write', within: 'choice', where: { path: 'reject' } } },
-    { label: 'The manifest is archived after the outputs are written', rule: { type: 'before', first: 'file-write', then: 'file-move' } },
+    {
+      label: 'A re-sent manifest is moved to /data/manifests/duplicates for review',
+      rule: { type: 'inside', component: 'file-move', where: { targetPath: 'duplicates' }, within: ['choice', 'on-error-continue', 'on-error-propagate'] },
+    },
+    {
+      label: 'A reject file (<name>.rejects.csv) is written only when there are rejected rows',
+      rule: { type: 'inside', component: 'file-write', within: 'choice', where: { path: 'rejects.csv' } },
+    },
+    {
+      label: 'The manifest is archived after the outputs are written',
+      rule: { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: 'archive' }, outside: true },
+    },
     {
       label: 'A manifest that fails the XSD is moved to the rejects folder',
       rule: { type: 'inside', component: 'file-move', within: 'on-error-continue', where: { targetPath: 'rejects' } },

@@ -15,10 +15,25 @@ export default {
     { label: 'Workers are read with the Workday Human Resources operation Get_Workers', rule: { type: 'exists', component: 'wd-human-resources', where: { operation: 'Get_Workers' } } },
     { label: 'The last sync time is read before calling Workday', rule: { type: 'before', first: 'os-retrieve', then: 'wd-human-resources' } },
     { label: 'Further pages are read in a loop', rule: { type: 'inside', component: 'wd-human-resources', within: 'foreach' } },
-    { label: 'Worker data is pushed to the identity platform', rule: { type: 'exists', component: 'http-request', where: { method: 'PUT' } } },
-    { label: 'The sync time is stored only after the workers are processed', rule: { type: 'before', first: 'flow-ref', then: 'os-store' } },
+    {
+      label: 'Each worker is pushed with PUT /identities/{workerId} inside a loop',
+      rule: { type: 'inside', component: 'http-request', within: ['foreach', 'parallel-foreach'], where: { method: 'PUT', path: 'identities' } },
+    },
+    {
+      label: 'The sync time is stored only after all pages are processed, on the main path and not in an error handler',
+      rule: { type: 'before', first: ['flow-ref', 'foreach'], then: 'os-store', every: true, outside: true },
+    },
     { label: 'Every Flow Reference points to an existing flow', rule: { type: 'refs' } },
-    { label: 'Workday request problems are handled (WORKDAY:VALIDATION_ERROR)', rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'WORKDAY:VALIDATION_ERROR' } },
+    {
+      label: 'A rejected Workday request (WORKDAY:VALIDATION_ERROR) alerts the HRIS support mailbox',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'WORKDAY:VALIDATION_ERROR' },
+          { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'], withinWhere: { type: 'WORKDAY:VALIDATION_ERROR' } },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

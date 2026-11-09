@@ -17,12 +17,38 @@ export default {
       rule: { type: 'exists', component: 'set-variable', where: { variableName: 'category', value: 'queryParams' } },
     },
     {
+      label: 'The category is saved before the Select uses it',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { variableName: 'category' }, then: 'db-select' },
+    },
+    {
       label: 'The SELECT uses a :category parameter, not joined text',
-      rule: { type: 'exists', component: 'db-select', where: { sql: ':category' } },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'db-select', where: { sql: ':category' } },
+          { type: 'absent', component: 'db-select', where: { sql: { oneOf: ['++', '$('] } } },
+        ],
+      },
+    },
+    {
+      label: 'The rows are sorted by name in the SQL',
+      rule: { type: 'exists', component: 'db-select', where: { sql: 'order by' } },
     },
     {
       label: 'The rows are transformed after the Select',
       rule: { type: 'before', first: 'db-select', then: 'transform' },
+    },
+    {
+      label: 'The response uses the field names sku, name and price, not the column names',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'sku' } },
+          { type: 'exists', component: 'transform', where: { script: 'name:' } },
+          { type: 'exists', component: 'transform', where: { script: 'price:' } },
+          { type: 'absent', component: 'transform', where: { script: { oneOf: ['product_name:', 'unit_price:'] } } },
+        ],
+      },
     },
     {
       label: 'The response is JSON',

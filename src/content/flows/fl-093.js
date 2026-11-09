@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-093',
@@ -11,11 +12,21 @@ export default {
     { label: 'Callbacks are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener', where: { path: 'callbacks' } } },
     { label: 'The signing keys come from secure properties', rule: { type: 'exists', component: 'set-variable', where: { value: 'secure::' }, min: 2 } },
     { label: 'Both the timestamp and the signature are validated', rule: { type: 'exists', component: 'validation', where: { check: 'is-true' }, min: 2 } },
-    { label: 'Validation happens before the replay check, so forged requests do not fill the store', rule: { type: 'before', first: 'validation', then: 'idempotent' } },
+    {
+      label: 'Both checks run before the replay check, so forged requests do not fill the store',
+      rule: { type: 'before', first: 'validation', then: 'idempotent', every: true },
+    },
     { label: 'A replayed request is stopped before anything is published', rule: { type: 'before', first: 'idempotent', then: 'mq-publish' } },
+    { label: 'Valid events go to the shipment.callbacks queue', rule: { type: 'exists', component: 'mq-publish', where: { destination: 'shipment.callbacks' } } },
     { label: 'A failed check returns 401 (VALIDATION:INVALID_BOOLEAN handled)', rule: { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:INVALID_BOOLEAN' } },
     { label: 'A duplicate is answered as a success (MULE:DUPLICATE_MESSAGE handled)', rule: { type: 'handler', component: 'on-error-continue', errorType: 'MULE:DUPLICATE_MESSAGE' } },
-    { label: 'The response status is set to 401 for rejected requests', rule: { type: 'exists', component: 'set-variable', where: { value: '401' } } },
+    { label: 'The VALIDATION:INVALID_BOOLEAN handler sets the status to 401', rule: handlerStatus('VALIDATION:INVALID_BOOLEAN', '401') },
+    { label: 'The MULE:DUPLICATE_MESSAGE handler sets the status to 200', rule: handlerStatus('MULE:DUPLICATE_MESSAGE', '200') },
+    {
+      // An error handler overrides the status, so the main path may set it at any point.
+      label: 'A valid event is answered with 202, set on the main path and not in an error handler',
+      rule: { type: 'before', first: 'http-listener', then: 'set-variable', thenWhere: { value: '202' }, outside: true },
+    },
   ],
   referenceFlow: design(
     flow(

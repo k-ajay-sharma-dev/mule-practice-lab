@@ -17,19 +17,49 @@ export default {
       rule: { type: 'exists', component: 'db-insert', where: { sql: 'ON CONFLICT' } },
     },
     {
+      label: 'The mailbox flow only lands the email; the tracking call happens later from the landed row',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'email-listener-pop3' },
+          { type: 'absent', component: 'http-request', inFlowWith: { component: 'email-listener-pop3' } },
+        ],
+      },
+    },
+    {
       label: 'If the landing insert fails, the email is spooled to disk by the error handler',
       rule: { type: 'inside', component: 'file-write', within: 'on-error-continue' },
     },
     { label: 'A file listener loads spooled emails back into the landing table', rule: { type: 'source', component: 'file-listener' } },
     {
+      label: 'The file listener does not auto delete, which would also remove a file whose insert failed',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'file-listener' },
+          { type: 'absent', component: 'file-listener', where: { postAction: 'delete' } },
+        ],
+      },
+    },
+    {
       label: 'A spool file is deleted only after its row is inserted',
-      rule: { type: 'before', first: 'db-insert', then: 'file-delete' },
+      rule: { type: 'before', first: 'db-insert', then: 'file-delete', every: true, outside: true },
     },
     { label: 'Processing runs in a separate scheduled flow', rule: { type: 'source', component: 'scheduler' } },
     { label: 'The tracking system is called for each landed row', rule: { type: 'inside', component: 'http-request', within: 'foreach' } },
     {
-      label: 'A row is marked as done only after the tracking system accepted it',
-      rule: { type: 'before', first: 'http-request', then: 'db-update' },
+      label: 'A row is marked as done only after the tracking system accepted it, never from an error handler',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-request', then: 'db-update', thenWhere: { sql: 'DONE' }, outside: true },
+          { type: 'absent', component: 'db-update', where: { sql: 'DONE' }, within: ['on-error-continue', 'on-error-propagate'] },
+        ],
+      },
+    },
+    {
+      label: 'One failing row is kept for a retry and does not stop the other rows',
+      rule: { type: 'handler', component: 'on-error-continue', within: 'foreach' },
     },
   ],
   referenceFlow: design(

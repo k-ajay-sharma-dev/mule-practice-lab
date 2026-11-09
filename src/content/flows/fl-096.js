@@ -8,22 +8,45 @@ export default {
   tags: ['observability', 'platform-apis', 'anypoint-monitoring', 'connected-apps', 'api-management', 'scheduler', 'http'],
   estMinutes: 30,
   flowChecks: [
-    { label: 'A Scheduler starts the weekly report', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'A cron Scheduler starts the report every Monday at 06:00',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { oneOf: ['MON', '* 2'] } } },
+          { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['0 0 6 ', '0 0 06 '] } } },
+        ],
+      },
+    },
     {
       label: 'The connected app gets a bearer token from the Access Management token endpoint',
       rule: { type: 'exists', component: 'http-request', where: { method: 'POST', path: 'oauth2/token' } },
     },
-    { label: 'The token is kept in a variable, because the next HTTP call replaces the payload', rule: { type: 'before', first: 'set-variable', then: 'foreach' } },
+    {
+      label: 'The token is kept in a variable, because the next HTTP call replaces the payload',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { value: 'access_token' }, then: 'foreach' },
+    },
     { label: 'Each environment is queried on its own, inside a For Each', rule: { type: 'inside', component: 'http-request', within: 'foreach' } },
     {
-      label: 'Empty data fails validation, so it is never recorded as zero traffic',
-      rule: { type: 'exists', component: 'validation', where: { check: 'is-not-empty-collection' } },
+      label: 'Empty data fails validation inside the Try, so it is never recorded as zero traffic',
+      rule: { type: 'inside', component: 'validation', within: 'try', where: { check: 'is-not-empty-collection' } },
     },
     {
       label: 'An environment with empty data is caught and recorded as a failure, and the other environments still run',
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'VALIDATION:EMPTY_COLLECTION', within: 'try' },
     },
-    { label: 'The finished report is sent by email', rule: { type: 'exists', component: 'email-send' } },
+    {
+      label: 'The Try sits inside the For Each, so one bad environment does not end the loop',
+      rule: { type: 'inside', component: 'try', within: 'foreach' },
+    },
+    {
+      label: 'The handler adds the environment to the report as a problem',
+      rule: { type: 'inside', component: ['set-variable', 'transform'], within: 'on-error-continue', withinWhere: { type: 'EMPTY_COLLECTION' } },
+    },
+    {
+      label: 'The finished report is sent by email after the loop',
+      rule: { type: 'before', first: 'foreach', then: 'email-send', outside: true },
+    },
   ],
   referenceFlow: design(
     flow(

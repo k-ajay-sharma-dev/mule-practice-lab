@@ -10,14 +10,55 @@ export default {
   flowChecks: [
     { label: 'The replay is started on demand through an HTTP admin endpoint', rule: { type: 'source', component: 'http-listener', where: { path: 'replay' } } },
     { label: 'The request is validated before the consumer position is changed', rule: { type: 'before', first: 'validation', then: 'kafka-seek' } },
+    {
+      label: 'The validation caps a call at 2,000 records',
+      rule: { type: 'exists', component: 'validation', where: { expression: '2000' } },
+    },
+    {
+      label: 'Seek moves to the requested start offset on ledger.postings.v1',
+      rule: { type: 'exists', component: 'kafka-seek', where: { topic: 'ledger.postings.v1', offset: 'fromOffset' } },
+    },
     { label: 'Seek sets the start offset before anything is consumed', rule: { type: 'before', first: 'kafka-seek', then: 'kafka-consume' } },
     { label: 'Consume is called in a bounded loop', rule: { type: 'inside', component: 'kafka-consume', within: 'foreach' } },
     {
       label: 'Consume uses IMMEDIATE acknowledgement, because it returns no commit key for a later Commit',
       rule: { type: 'exists', component: 'kafka-consume', where: { ackMode: 'IMMEDIATE' } },
     },
+    {
+      label: 'No offsets are committed, so the live consumer group is not moved',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'kafka-consume' },
+          { type: 'absent', component: 'kafka-commit' },
+        ],
+      },
+    },
     { label: 'Each record is checked against the requested partition and offset range', rule: { type: 'inside', component: 'choice', within: 'foreach' } },
-    { label: 'Replayed rows are written with an idempotent upsert', rule: { type: 'exists', component: 'db-insert', where: { sql: 'ON CONFLICT' } } },
+    {
+      label: 'A record is written only when the range check passes',
+      rule: { type: 'inside', component: 'db-insert', within: 'choice', routeWhere: { expression: 'toOffset' } },
+    },
+    {
+      label: 'Replayed rows are written with an upsert that changes nothing for a row already there (ON CONFLICT DO NOTHING)',
+      rule: { type: 'exists', component: 'db-insert', where: { sql: 'DO NOTHING' } },
+    },
+    {
+      label: 'The response after the loop reports the replayed count and the last offset',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'foreach', then: ['transform', 'set-payload'], outside: true },
+          {
+            type: 'any',
+            rules: [
+              { type: 'exists', component: 'transform', where: { script: 'lastOffset' } },
+              { type: 'exists', component: 'set-payload', where: { value: 'lastOffset' } },
+            ],
+          },
+        ],
+      },
+    },
     {
       label: 'A consume that times out ends the replay instead of failing it (KAFKA:TIMEOUT in a Try)',
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'KAFKA:TIMEOUT', within: 'try' },

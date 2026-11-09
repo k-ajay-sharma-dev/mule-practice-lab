@@ -37,6 +37,16 @@ export default {
       rule: { type: 'before', first: 'transform', then: 'mq-publish' },
     },
     {
+      label: 'The publisher sends one event to the exchange, not one message per team',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'mq-publish' },
+          { type: 'absent', component: 'mq-publish', where: { destination: { oneOf: ['warehouse', 'loyalty', 'analytics', 'email'] } } },
+        ],
+      },
+    },
+    {
       label: 'Each of the four consumers has its own MQ Subscriber flow (one queue per consumer)',
       rule: { type: 'exists', component: 'mq-subscriber', min: 4 },
     },
@@ -44,13 +54,55 @@ export default {
       label: 'Subscribers use manual acknowledgement',
       rule: { type: 'exists', component: 'mq-subscriber', where: { acknowledgementMode: 'MANUAL' } },
     },
-    { label: 'Messages are acknowledged after successful processing', rule: { type: 'exists', component: 'mq-ack' } },
+    {
+      label: 'No subscriber acknowledges an event as soon as it arrives (IMMEDIATE)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'mq-subscriber' },
+          { type: 'absent', component: 'mq-subscriber', where: { acknowledgementMode: 'IMMEDIATE' } },
+        ],
+      },
+    },
+    {
+      label: 'Messages are acknowledged after successful processing',
+      rule: { type: 'before', first: ['http-request', 'email-send'], then: 'mq-ack', outside: true },
+    },
     {
       label: 'Failed messages are returned to the queue (Nack) from an error handler',
       rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
     },
-    { label: 'The analytics subscriber filters out orders under the threshold', rule: { type: 'exists', component: ['choice', 'validation'] } },
-    { label: 'Consumers deduplicate events on eventId', rule: { type: 'exists', component: ['idempotent', 'os-retrieve'] } },
+    {
+      label: 'The analytics subscriber only forwards orders over 100',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: ['http-request', 'flow-ref'], within: 'choice', routeWhere: { expression: '100' } },
+          { type: 'exists', component: 'validation', where: { expression: '100' } },
+        ],
+      },
+    },
+    {
+      label: 'Consumers deduplicate events on eventId',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'idempotent', where: { idExpression: 'eventId' } },
+          { type: 'exists', component: 'os-retrieve', where: { key: 'eventId' } },
+        ],
+      },
+    },
+    {
+      label: 'A failed event has its id removed from the dedupe store, so the redelivery is processed',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'os-remove', within: ['on-error-continue', 'on-error-propagate'] },
+          // An id stored only after success (Retrieve first, Store at the end) needs no cleanup.
+          { type: 'all', rules: [{ type: 'exists', component: 'os-store' }, { type: 'absent', component: 'idempotent' }] },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

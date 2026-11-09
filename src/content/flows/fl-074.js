@@ -10,14 +10,22 @@ export default {
   flowChecks: [
     { label: 'The job runs nightly on a cron Scheduler', rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron' } } },
     {
-      label: 'The settlement is prepared by calling the Oracle stored procedure',
-      rule: { type: 'exists', component: 'db-stored-procedure', where: { database: 'Oracle' } },
+      label: 'The Scheduler fires at 02:30',
+      rule: { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['0 30 2 ', '0 30 02 '] } } },
+    },
+    {
+      label: 'The settlement is prepared by calling the Oracle stored procedure PKG_SETTLEMENT.PREPARE_DAILY',
+      rule: { type: 'exists', component: 'db-stored-procedure', where: { database: 'Oracle', sql: 'PREPARE_DAILY' } },
     },
     { label: 'The prepared rows are selected after the procedure has run', rule: { type: 'before', first: 'db-stored-procedure', then: 'db-select' } },
     { label: 'The rows are turned into the file format before writing', rule: { type: 'before', first: 'transform', then: 'sftp-write' } },
     {
       label: 'The file is written under a temporary name and renamed when complete',
       rule: { type: 'before', first: 'sftp-write', then: 'sftp-rename' },
+    },
+    {
+      label: 'The batch is marked exported only after the file was renamed to its final name',
+      rule: { type: 'before', first: 'sftp-rename', then: 'db-update', thenWhere: { sql: 'EXPORT' }, outside: true },
     },
     {
       label: 'Operations are notified by email when the job fails',

@@ -19,11 +19,37 @@ export default {
     },
     {
       label: 'The intake flow publishes to a VM queue and answers without waiting for processing',
-      rule: { type: 'before', first: 'vm-publish', then: ['set-variable', 'set-payload', 'transform'] },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', then: 'vm-publish' },
+          { type: 'before', first: 'vm-publish', then: ['set-variable', 'set-payload', 'transform'] },
+          {
+            type: 'absent',
+            component: ['db-update', 'db-select', 'sf-upsert', 'email-send', 'http-request'],
+            inFlowWith: { component: 'http-listener' },
+          },
+        ],
+      },
     },
     {
       label: 'The status-processing consumer runs in a transaction so a failure redelivers the message',
-      rule: { type: 'exists', component: 'vm-listener', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+      rule: { type: 'before', first: 'vm-listener', firstWhere: { transactionalAction: 'ALWAYS_BEGIN' }, then: 'db-update' },
+    },
+    {
+      label: 'No catch-all On Error Continue commits a failed status update, so the message is redelivered',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'vm-listener', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+          {
+            type: 'absent',
+            component: 'on-error-continue',
+            where: { type: 'ANY' },
+            inFlowWith: { component: 'vm-listener', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+          },
+        ],
+      },
     },
     {
       label: 'The current status is read before it is updated',
@@ -34,8 +60,18 @@ export default {
       rule: { type: 'inside', component: 'db-update', within: 'choice' },
     },
     {
-      label: 'Customer notification and CRM update happen in a downstream stage',
-      rule: { type: 'exists', component: ['email-send', 'sf-upsert', 'http-request'] },
+      label: 'The Salesforce upsert runs in a later VM stage, not in the status update flow',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'vm-listener', then: ['sf-upsert', 'http-request'] },
+          { type: 'absent', component: ['sf-upsert', 'http-request'], inFlowWith: { component: 'db-update' } },
+        ],
+      },
+    },
+    {
+      label: 'The customer is emailed only when the status is SHIPPED',
+      rule: { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: 'SHIPPED' } },
     },
   ],
   referenceFlow: design(

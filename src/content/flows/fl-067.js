@@ -8,20 +8,46 @@ export default {
   tags: ['supply-chain', 'procurement', 'edi', 'x12', 'sftp', 'oracle', 'activemq', 'jms'],
   estMinutes: 45,
   flowChecks: [
-    { label: 'Approved POs arrive as events on an ActiveMQ queue', rule: { type: 'source', component: 'jms-listener' } },
+    {
+      label: 'Approved POs arrive as events on the ActiveMQ queue PROC.PO.APPROVED',
+      rule: { type: 'source', component: 'jms-listener', where: { destination: 'PROC.PO.APPROVED' } },
+    },
     { label: 'PO header and lines are read from Oracle before the 850 is written', rule: { type: 'before', first: 'db-select', then: 'sftp-write' } },
+    {
+      label: 'A redelivered event for a PO already sent finds nothing to send (only APPROVED POs are read)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'db-select', where: { sql: 'APPROVED' } },
+          { type: 'exists', component: 'idempotent' },
+        ],
+      },
+    },
     {
       label: 'The 850 file is written with CREATE_NEW (a sent PO file is never overwritten)',
       rule: { type: 'exists', component: 'sftp-write', where: { mode: 'CREATE_NEW' } },
     },
-    { label: 'The PO is marked SENT only after the file was written', rule: { type: 'before', first: 'sftp-write', then: 'db-update' } },
-    { label: 'Supplier 855 files are picked up from an inbound SFTP folder', rule: { type: 'source', component: 'sftp-listener' } },
-    { label: 'Line-level acknowledgement codes are written to Oracle in one Bulk Update', rule: { type: 'exists', component: 'db-bulk-update' } },
     {
-      label: 'Rejected or changed lines are raised to buyers on an exceptions queue',
-      rule: { type: 'exists', component: 'jms-publish', where: { destination: 'EXCEPTION' } },
+      label: 'The PO is marked SENT only after the file was written',
+      rule: { type: 'before', first: 'sftp-write', then: 'db-update', thenWhere: { sql: 'SENT' }, every: true, outside: true },
+    },
+    {
+      label: 'Supplier 855 files are picked up from the inbound SFTP folder /edi/inbound/855',
+      rule: { type: 'source', component: 'sftp-listener', where: { directory: '855' } },
+    },
+    {
+      label: 'Line-level acknowledgement codes are written to Oracle in one Bulk Update',
+      rule: { type: 'exists', component: 'db-bulk-update', where: { sql: 'ACK_CODE' } },
+    },
+    {
+      label: 'Only POs with rejected or changed lines are raised to buyers on PROC.PO.ACK.EXCEPTIONS (behind a Choice)',
+      rule: { type: 'inside', component: 'jms-publish', where: { destination: 'PROC.PO.ACK.EXCEPTIONS' }, within: 'choice' },
     },
     { label: 'A scheduled monitor flags POs with no 855 after 24 hours', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'The monitor raises overdue POs on the exceptions queue',
+      rule: { type: 'before', first: 'scheduler', then: 'jms-publish', thenWhere: { destination: 'PROC.PO.ACK.EXCEPTIONS' } },
+    },
   ],
   referenceFlow: design(
     flow(

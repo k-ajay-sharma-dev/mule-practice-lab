@@ -9,8 +9,32 @@ export default {
   estMinutes: 10,
   flowChecks: [
     {
+      label: 'The whole order is saved in a variable called order before the insert',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { variableName: 'order', value: 'payload]' }, then: 'db-insert' },
+    },
+    {
       label: 'The order is saved with Database Insert before the Try',
       rule: { type: 'before', first: 'db-insert', then: 'try' },
+    },
+    {
+      label: 'The insert stays outside the Try, so a failed insert still fails the request',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'db-insert' },
+          { type: 'absent', component: 'db-insert', within: 'try' },
+        ],
+      },
+    },
+    {
+      label: 'The loyalty request with customerId and amount is built before the call',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'transform', firstWhere: { script: 'customerId' }, then: 'http-request' },
+          { type: 'before', first: 'transform', firstWhere: { script: 'amount' }, then: 'http-request' },
+        ],
+      },
     },
     {
       label: 'The loyalty call is inside a Try scope',
@@ -21,12 +45,18 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
     },
     {
-      label: 'The handler logs the failure',
-      rule: { type: 'inside', component: 'logger', within: 'on-error-continue' },
+      label: 'The handler logs a warning',
+      rule: { type: 'inside', component: 'logger', within: 'on-error-continue', where: { level: 'WARN' } },
     },
     {
-      label: 'The reply is set after the Try',
-      rule: { type: 'before', first: 'on-error-continue', then: ['set-payload', 'transform'] },
+      label: 'The CONFIRMED reply is set after the Try, on the main path',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'try', then: 'set-payload', thenWhere: { value: 'CONFIRMED' }, outside: true },
+          { type: 'before', first: 'try', then: 'transform', thenWhere: { script: 'CONFIRMED' }, outside: true },
+        ],
+      },
     },
   ],
   referenceFlow: design(

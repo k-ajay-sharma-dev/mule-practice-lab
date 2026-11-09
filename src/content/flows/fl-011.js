@@ -16,18 +16,38 @@ export default {
       label: 'The last watermark is read from a persistent store before querying',
       rule: { type: 'before', first: 'os-retrieve', then: 'db-select' },
     },
-    { label: 'DataWeave maps ERP columns to the CRM customer model', rule: { type: 'exists', component: 'transform' } },
+    {
+      label: 'The query selects rows changed since the watermark, on LAST_UPDATED',
+      rule: { type: 'exists', component: 'db-select', where: { sql: 'LAST_UPDATED' } },
+    },
+    {
+      label: 'Rows that share a LAST_UPDATED value are not missed (tie-break on CUST_ID or a >= filter)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'db-select', where: { sql: 'CUST_ID' } },
+          { type: 'exists', component: 'db-select', where: { sql: '>=' } },
+        ],
+      },
+    },
+    { label: 'DataWeave maps ERP columns to the CRM customer model', rule: { type: 'before', first: 'transform', then: 'http-request' } },
     {
       label: 'Changes are delivered to the CRM in chunks / per record',
       rule: { type: 'inside', component: 'http-request', within: ['foreach', 'parallel-foreach', 'batch-job', 'batch-aggregator'] },
     },
     {
-      label: 'The watermark is advanced only after delivery succeeded',
-      rule: { type: 'before', first: 'http-request', then: 'os-store' },
+      label: 'The watermark is advanced only after delivery succeeded, on the main path',
+      rule: { type: 'before', first: 'http-request', then: 'os-store', every: true, outside: true },
     },
     {
       label: 'A failed poll propagates its error so the watermark stays untouched',
-      rule: { type: 'handler', component: 'on-error-propagate' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate' },
+          { type: 'absent', component: 'os-store', within: ['on-error-propagate', 'on-error-continue'] },
+        ],
+      },
     },
   ],
   referenceFlow: design(

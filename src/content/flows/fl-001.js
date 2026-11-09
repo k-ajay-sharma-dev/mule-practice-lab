@@ -15,21 +15,51 @@ export default {
       rule: { type: 'inside', component: ['validation', 'raise-error'], within: 'batch-job' },
     },
     {
+      label: 'Rows are validated before they are upserted',
+      rule: { type: 'before', first: ['validation', 'raise-error'], then: 'sf-upsert' },
+    },
+    {
+      label: 'Failed rows do not stop the job, so every row is counted (Max failed records -1)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'batch-job', where: { maxFailedRecords: -1 } },
+          { type: 'exists', component: 'batch-job', where: { maxFailedRecords: { gte: 50000 } } },
+        ],
+      },
+    },
+    {
       label: 'Salesforce Upsert runs inside a Batch Aggregator (bulk chunks)',
       rule: { type: 'inside', component: 'sf-upsert', within: 'batch-aggregator' },
     },
     {
-      label: 'Upsert is keyed on the External_Id__c field',
-      rule: { type: 'exists', component: 'sf-upsert', where: { externalIdField: 'External_Id__c' } },
+      label: 'Upsert targets Contact and is keyed on the External_Id__c field',
+      rule: { type: 'exists', component: 'sf-upsert', where: { objectType: 'Contact', externalIdField: 'External_Id__c' } },
     },
     {
-      label: 'Summary email is sent from the batch job (On Complete)',
-      rule: { type: 'inside', component: 'email-send', within: 'batch-job' },
+      label: 'The upsert step accepts only rows that passed (NO_FAILURES)',
+      rule: { type: 'inside', component: 'sf-upsert', within: 'batch-job', routeWhere: { acceptPolicy: { is: 'NO_FAILURES' } } },
     },
-    { label: 'Processed files are moved out of the inbound folder', rule: { type: 'exists', component: 'sftp-move' } },
     {
-      label: 'A flow-level error handler deals with files that fail to parse',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] },
+      label: 'Failed rows are collected for the attachment in a step that accepts ONLY_FAILURES',
+      rule: {
+        type: 'inside',
+        component: ['os-store', 'db-insert', 'db-bulk-insert', 'file-write', 'sftp-write', 'vm-publish', 'mq-publish', 'jms-publish'],
+        within: 'batch-job',
+        routeWhere: { acceptPolicy: { is: 'ONLY_FAILURES' } },
+      },
+    },
+    {
+      label: 'Summary email is sent once, from the batch job On Complete phase',
+      rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
+    },
+    {
+      label: 'The file is moved to /archive after the batch job, on the main path',
+      rule: { type: 'before', first: 'batch-job', then: 'sftp-move', thenWhere: { targetPath: 'archive' }, outside: true },
+    },
+    {
+      label: 'A flow-level error handler moves a failed file to /error',
+      rule: { type: 'inside', component: 'sftp-move', where: { targetPath: 'error' }, within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
   referenceFlow: design(

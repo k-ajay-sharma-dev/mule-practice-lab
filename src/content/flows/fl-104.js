@@ -8,11 +8,25 @@ export default {
   tags: ['http-request', 'http', 'rest', 'http-listener'],
   estMinutes: 10,
   flowChecks: [
-    { label: 'An HTTP Listener receives the GET request', rule: { type: 'source', component: 'http-listener', where: { allowedMethods: 'GET' } } },
+    {
+      label: 'An HTTP Listener receives GET /exchange-rates/eur',
+      rule: { type: 'source', component: 'http-listener', where: { path: '/exchange-rates/eur', allowedMethods: 'GET' } },
+    },
     { label: 'An HTTP Request calls GET /v1/rates/EUR', rule: { type: 'exists', component: 'http-request', where: { method: 'GET', path: '/v1/rates/EUR' } } },
     { label: 'The incoming call is logged before the provider is called', rule: { type: 'before', first: 'logger', then: 'http-request' } },
     { label: 'The provider answer is reshaped after the call', rule: { type: 'before', first: 'http-request', then: 'transform' } },
-    { label: 'The response has a usdRate field', rule: { type: 'exists', component: 'transform', where: { script: 'usdRate' } } },
+    {
+      label: 'The response has currency, usdRate from the provider rate, and asOf',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'currency' } },
+          { type: 'exists', component: 'transform', where: { script: 'usdRate' } },
+          { type: 'exists', component: 'transform', where: { script: 'payload.rate' } },
+          { type: 'exists', component: 'transform', where: { script: 'asOf' } },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow('get-eur-rate', source('http-listener', { path: '/exchange-rates/eur', allowedMethods: 'GET' }), [

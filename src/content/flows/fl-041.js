@@ -13,17 +13,67 @@ export default {
       label: 'Every event is stored durably before the message is acknowledged',
       rule: { type: 'before', first: ['db-insert', 'db-bulk-insert', 's3-put'], then: 'mq-ack' },
     },
+    {
+      label: 'A failed archive write is never acknowledged, so the event is redelivered',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'mq-ack' },
+          { type: 'absent', component: 'mq-ack', within: ['on-error-continue', 'on-error-propagate'] },
+        ],
+      },
+    },
     { label: 'An admin endpoint triggers the replay', rule: { type: 'source', component: 'http-listener' } },
-    { label: 'Replay requests are validated (time window, allowed target queue)', rule: { type: 'exists', component: 'validation' } },
+    {
+      label: 'Replay requests are validated (time window, allowed target queue) before the replay starts',
+      rule: { type: 'before', first: 'validation', then: ['async', 'vm-publish', 'batch-job', 'foreach', 'mq-publish'] },
+    },
     {
       label: 'The replay runs in the background so the admin call returns immediately',
-      rule: { type: 'exists', component: ['async', 'vm-publish', 'batch-job'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'mq-publish', within: ['async', 'batch-job'] },
+          { type: 'before', first: 'vm-listener', then: 'mq-publish' },
+        ],
+      },
     },
     {
       label: 'Archived events are re-published one by one to the target queue',
       rule: { type: 'inside', component: 'mq-publish', within: ['foreach', 'batch-job', 'parallel-foreach'] },
     },
-    { label: 'Each replay is recorded for audit', rule: { type: 'exists', component: ['db-insert', 'db-update'], min: 2 } },
+    {
+      label: 'Replayed events go to the one chosen consumer queue, never to the order-events exchange that feeds them all',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'mq-publish', within: ['foreach', 'batch-job', 'parallel-foreach'] },
+          { type: 'absent', component: 'mq-publish', where: { destination: { is: 'order-events' } } },
+          { type: 'absent', component: 'mq-publish', where: { destination: { is: '#["order-events"]' } } },
+          { type: 'absent', component: 'mq-publish', where: { destination: { is: "#['order-events']" } } },
+        ],
+      },
+    },
+    {
+      label: 'Replayed events carry a replay marker so consumers can recognise them',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'transform', where: { script: 'replay' }, within: ['foreach', 'batch-job', 'parallel-foreach'] },
+          { type: 'inside', component: 'set-payload', where: { value: 'replay' }, within: ['foreach', 'batch-job', 'parallel-foreach'] },
+        ],
+      },
+    },
+    {
+      label: 'Each replay is recorded for audit by the replay API',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['db-insert', 'db-update'], min: 2 },
+          { type: 'before', first: 'http-listener', then: ['db-insert', 'db-update'] },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

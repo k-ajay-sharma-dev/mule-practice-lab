@@ -21,14 +21,33 @@ export default {
       label: 'The excursion is recorded in Oracle (deduplicated per load) before calling the TMS',
       rule: { type: 'before', first: ['db-stored-procedure', 'db-insert', 'db-update'], then: 'until-successful' },
     },
+    {
+      label: 'One alert per excursion: the alert is sent only when recording the reading says so',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: ['db-stored-procedure', 'db-insert', 'db-update'], then: 'choice' },
+          { type: 'exists', component: 'idempotent' },
+        ],
+      },
+    },
     { label: 'The TMS alert call is retried with Until Successful', rule: { type: 'inside', component: 'http-request', within: 'until-successful' } },
+    {
+      label: 'Retries cover a short TMS outage and still leave time to tell QA within 2 minutes',
+      rule: { type: 'exists', component: 'until-successful', where: { maxRetries: { gte: 2, lte: 6 }, millisBetweenRetries: { gte: 5000, lte: 20000 } } },
+    },
     {
       label: 'Exhausted retries (MULE:RETRY_EXHAUSTED) are handled in a Try around the retry scope',
       rule: { type: 'inside', component: 'on-error-continue', within: 'try', where: { type: 'RETRY_EXHAUSTED' } },
     },
     {
-      label: 'When the TMS stays down the alert is escalated, not lost',
-      rule: { type: 'inside', component: ['jms-publish', 'email-send'], within: 'on-error-continue' },
+      label: 'When the TMS stays down the alert is escalated to QA, not lost',
+      rule: {
+        type: 'inside',
+        component: ['jms-publish', 'email-send'],
+        within: 'on-error-continue',
+        withinWhere: { type: { oneOf: ['RETRY_EXHAUSTED', 'ANY'] } },
+      },
     },
   ],
   referenceFlow: design(

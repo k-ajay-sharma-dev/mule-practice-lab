@@ -18,13 +18,18 @@ export default {
     },
     { label: 'OMS status codes are mapped to the Salesforce model with DataWeave', rule: { type: 'before', first: 'transform', then: 'sf-upsert' } },
     {
-      label: 'Salesforce is updated with an upsert on an external ID (idempotent on replays)',
-      rule: { type: 'exists', component: 'sf-upsert', where: { externalIdField: { set: true } } },
+      label: 'Customer_Order__c records are upserted on the external ID OMS_Order_Id__c, so replays are harmless',
+      rule: { type: 'exists', component: 'sf-upsert', where: { objectType: 'Customer_Order', externalIdField: 'OMS_Order_Id' } },
     },
     { label: 'Transient Salesforce failures are retried (Until Successful)', rule: { type: 'inside', component: 'sf-upsert', within: 'until-successful' } },
     {
-      label: 'Rows that still fail are parked in an Oracle error table for replay',
-      rule: { type: 'inside', component: ['db-insert', 'jms-publish'], within: ['on-error-continue', 'on-error-propagate'] },
+      label: 'Rows that still fail in Salesforce are parked for replay by a handler that catches those errors',
+      rule: {
+        type: 'inside',
+        component: ['db-insert', 'jms-publish'],
+        within: ['on-error-continue', 'on-error-propagate'],
+        withinWhere: { type: { oneOf: ['ANY', 'SALESFORCE', 'RETRY_EXHAUSTED'] } },
+      },
     },
   ],
   referenceFlow: design(

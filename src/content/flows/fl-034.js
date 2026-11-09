@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step, subFlow } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 const errorBody = (code) => step('transform', {
   script: `%dw 2.0\noutput application/json\n---\n{ code: "${code}", message: error.description, correlationId: correlationId }`,
@@ -15,7 +16,17 @@ export default {
     { label: 'Orders are accepted through an HTTP Listener', rule: { type: 'source', component: ['http-listener'] } },
     { label: 'Validation and enrichment are reusable sub-flows', rule: { type: 'flows', kind: 'sub-flow', min: 2 } },
     { label: 'Every Flow Reference points to an existing flow', rule: { type: 'refs' } },
-    { label: 'The order is validated with the Validation module', rule: { type: 'exists', component: 'validation' } },
+    {
+      label: 'Validation and the customer lookup live in reusable sub-flows, not inline in the API flow',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'validation' },
+          { type: 'exists', component: 'db-select' },
+          { type: 'absent', component: ['validation', 'db-select'], inFlowWith: { component: 'http-listener' } },
+        ],
+      },
+    },
     {
       label: 'Lookup results are stored in a target variable so the order payload is preserved',
       rule: { type: 'exists', component: 'flow-ref', where: { target: { set: true } } },
@@ -25,12 +36,36 @@ export default {
       rule: { type: 'routes', component: 'choice', min: 2 },
     },
     {
-      label: 'An unsupported country raises a custom APP: error',
-      rule: { type: 'exists', component: 'raise-error', where: { type: 'APP:' } },
+      label: 'An unsupported country raises a custom APP: error from the country Choice',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'raise-error', where: { type: 'APP:' }, within: 'choice' },
+          { type: 'before', first: 'http-listener', then: 'raise-error', thenWhere: { type: 'APP:' } },
+        ],
+      },
     },
     {
-      label: 'Downstream calls have timeouts that fit the 2 s SLA',
-      rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 2000 } } },
+      label: 'Every downstream call has a timeout that fits the 2 s SLA',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 2000 } } },
+          { type: 'absent', component: 'http-request', where: { responseTimeout: { gte: 2001 } } },
+        ],
+      },
+    },
+    {
+      label: 'An invalid order is answered with 400',
+      rule: handlerStatus({ oneOf: ['VALIDATION', 'JSON:', 'SCHEMA'] }, '400'),
+    },
+    {
+      label: 'An unknown customer or unsupported country is answered with 422',
+      rule: handlerStatus('APP:', '422'),
+    },
+    {
+      label: 'A dependency that is down or timing out is answered with 503',
+      rule: handlerStatus({ oneOf: ['TIMEOUT', 'CONNECTIVITY', 'SERVICE_UNAVAILABLE'] }, '503'),
     },
   ],
   referenceFlow: design(

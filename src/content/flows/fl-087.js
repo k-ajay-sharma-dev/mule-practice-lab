@@ -13,17 +13,46 @@ export default {
       rule: { type: 'source', component: 'file-listener', where: { timeBetweenSizeCheck: { gte: 1 } } },
     },
     { label: 'The control count is checked before anything is written', rule: { type: 'before', first: 'choice', then: 'file-create-directory' } },
+    {
+      label: 'No region file is written before the control count check',
+      rule: { type: 'before', first: 'choice', then: 'file-write', every: true },
+    },
     { label: 'A count mismatch raises an error', rule: { type: 'inside', component: 'raise-error', within: 'choice' } },
+    {
+      label: 'The trailer is split off from the data rows, so it appears in no output',
+      rule: { type: 'exists', component: 'transform', where: { script: 'TRAILER' } },
+    },
     { label: 'The dated folder is created before the region files', rule: { type: 'before', first: 'file-create-directory', then: 'file-write' } },
     {
       label: 'A rerun does not fail when the folder exists (FILE:FILE_ALREADY_EXISTS handled in a Try)',
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'FILE:FILE_ALREADY_EXISTS', within: 'try' },
     },
     { label: 'Each region file is written inside a For Each', rule: { type: 'inside', component: 'file-write', within: 'foreach', where: { path: 'region' } } },
-    { label: 'The source file is archived after the region files are written', rule: { type: 'before', first: 'file-write', then: 'file-move' } },
+    {
+      label: 'A rerun replaces the region files instead of adding to them (no APPEND)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'file-write', within: 'foreach' },
+          { type: 'absent', component: 'file-write', where: { mode: 'APPEND' } },
+        ],
+      },
+    },
+    {
+      label: 'The source file is archived after the region files are written',
+      rule: { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: 'archive' }, outside: true },
+    },
+    {
+      label: 'The archived copy gets a unique name, so a rerun of the same file does not clash in the archive',
+      rule: { type: 'exists', component: 'file-move', where: { targetPath: 'archive', renameTo: { set: true } } },
+    },
     {
       label: 'A file that fails the control check is moved to a rejected folder',
       rule: { type: 'inside', component: 'file-move', within: 'on-error-continue', where: { targetPath: 'rejected' } },
+    },
+    {
+      label: 'The sales data team is emailed when a file is rejected',
+      rule: { type: 'inside', component: 'email-send', within: ['on-error-continue', 'on-error-propagate'] },
     },
   ],
   referenceFlow: design(

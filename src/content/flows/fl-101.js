@@ -10,9 +10,37 @@ export default {
   flowChecks: [
     { label: 'An HTTP Listener receives the shipment', rule: { type: 'source', component: 'http-listener' } },
     { label: 'A Choice has two condition routes', rule: { type: 'routes', component: 'choice', min: 2 } },
-    { label: 'A route inside the Choice selects the LETTER service', rule: { type: 'inside', component: 'set-variable', within: 'choice', where: { variableName: 'service', value: 'LETTER' } } },
-    { label: 'The Choice also selects the FREIGHT service for heavy shipments', rule: { type: 'inside', component: 'set-variable', within: 'choice', where: { variableName: 'service', value: 'FREIGHT' } } },
-    { label: 'The response is built after the Choice', rule: { type: 'before', first: 'choice', then: 'transform' } },
+    {
+      label: 'A condition route selects the LETTER service',
+      rule: { type: 'inside', component: 'set-variable', within: 'choice', where: { variableName: 'service', value: 'LETTER' }, routeWhere: { expression: 'weightKg' } },
+    },
+    {
+      label: 'A condition route selects the PARCEL service',
+      rule: { type: 'inside', component: 'set-variable', within: 'choice', where: { variableName: 'service', value: 'PARCEL' }, routeWhere: { expression: 'weightKg' } },
+    },
+    {
+      label: 'The 2 kg test comes first, so light shipments are not sent as PARCEL',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'before',
+            first: 'set-variable',
+            firstWhere: { value: 'LETTER' },
+            then: 'set-variable',
+            thenWhere: { value: 'PARCEL' },
+          },
+          // A PARCEL condition with its own lower bound does not depend on the order.
+          { type: 'inside', component: 'set-variable', within: 'choice', where: { value: 'PARCEL' }, routeWhere: { expression: '>' } },
+        ],
+      },
+    },
+    {
+      label: 'The default route selects the FREIGHT service for heavy shipments',
+      rule: { type: 'inside', component: 'set-variable', within: 'choice', inSlot: 'otherwise', where: { variableName: 'service', value: 'FREIGHT' } },
+    },
+    { label: 'The response is built once, after the Choice', rule: { type: 'before', first: 'choice', then: 'transform', outside: true } },
+    { label: 'The response holds the shipmentId and the service', rule: { type: 'exists', component: 'transform', where: { script: 'vars.service' } } },
   ],
   referenceFlow: design(
     flow('pick-shipping-service', source('http-listener', { path: '/shipments/service', allowedMethods: 'POST' }), [

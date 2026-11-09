@@ -11,11 +11,38 @@ export default {
     { label: 'QA raises a recall through an HTTP API', rule: { type: 'source', component: 'http-listener', where: { path: 'recall' } } },
     {
       label: 'Affected lots are quarantined by an Oracle procedure inside a DB transaction with the recall record',
-      rule: { type: 'inside', component: 'db-stored-procedure', within: 'try' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-stored-procedure', within: 'try', withinWhere: { transactionalAction: 'ALWAYS_BEGIN' } },
+          { type: 'inside', component: 'db-insert', within: 'try', withinWhere: { transactionalAction: 'ALWAYS_BEGIN' } },
+        ],
+      },
     },
     {
       label: 'The fan-out is handed off via JMS only after the quarantine committed',
-      rule: { type: 'before', first: 'try', then: 'jms-publish' },
+      rule: { type: 'before', first: 'try', firstWhere: { transactionalAction: 'ALWAYS_BEGIN' }, then: 'jms-publish', outside: true },
+    },
+    {
+      label: 'The slow notifications do not run inside the QA request, so QA gets an answer within 5 seconds',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'scatter-gather' },
+          { type: 'absent', component: 'scatter-gather', inFlowWith: { component: 'http-listener' } },
+          { type: 'absent', component: 'http-request', inFlowWith: { component: 'http-listener' } },
+        ],
+      },
+    },
+    {
+      label: 'A recall submitted twice is rejected, not executed again',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'QUERY_EXECUTION' } },
+          { type: 'exists', component: 'idempotent' },
+        ],
+      },
     },
     {
       label: 'A separate JMS-driven flow consumes the recall event and does the fan-out',
@@ -28,11 +55,19 @@ export default {
     { label: 'Stores, DCs and customers are notified in parallel (Scatter-Gather, 3 routes)', rule: { type: 'routes', component: 'scatter-gather', min: 3 } },
     {
       label: 'Each store gets its own recall message (per-store JMS destination)',
-      rule: { type: 'inside', component: 'jms-publish', within: 'scatter-gather' },
+      rule: { type: 'inside', component: 'jms-publish', where: { destination: 'STORE' }, within: 'scatter-gather' },
+    },
+    {
+      label: 'The WMS gets its hold command on WMS.HOLD.COMMANDS in parallel',
+      rule: { type: 'inside', component: 'jms-publish', where: { destination: 'WMS.HOLD.COMMANDS' }, within: 'scatter-gather' },
+    },
+    {
+      label: 'The slow, flaky customer notification call is retried',
+      rule: { type: 'inside', component: 'http-request', within: 'until-successful' },
     },
     {
       label: 'Every notification outcome is recorded in Oracle for the audit trail',
-      rule: { type: 'before', first: 'scatter-gather', then: ['db-bulk-insert', 'db-insert'] },
+      rule: { type: 'before', first: 'scatter-gather', then: ['db-bulk-insert', 'db-insert'], outside: true },
     },
   ],
   referenceFlow: design(

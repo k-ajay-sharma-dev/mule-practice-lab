@@ -19,15 +19,44 @@ export default {
     },
     {
       label: 'Variant B: the audit record is published to a VM queue only after the payment succeeds',
-      rule: { type: 'before', first: 'http-request', then: 'vm-publish' },
+      rule: { type: 'before', first: 'http-request', then: 'vm-publish', outside: true },
+    },
+    {
+      label: 'Variant B: the VM publish is not inside an Async scope, so the hand-off is not lost in memory',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'vm-publish' },
+          { type: 'absent', component: 'vm-publish', within: 'async' },
+        ],
+      },
     },
     {
       label: 'Variant B: a VM Listener flow consumes the audit queue',
       rule: { type: 'source', component: 'vm-listener' },
     },
     {
+      label: 'Variant B: the compliance insert runs in the VM Listener flow',
+      rule: { type: 'before', first: 'vm-listener', then: 'db-insert' },
+    },
+    {
       label: 'Variant B: the VM Listener begins a transaction so failures return the message to the queue',
       rule: { type: 'source', component: 'vm-listener', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+    },
+    {
+      label: 'Variant B: a failed insert is not swallowed by On Error Continue, so the message is not lost',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'vm-listener' },
+          {
+            type: 'absent',
+            component: 'on-error-continue',
+            where: { type: { oneOf: ['ANY', 'DB:'] } },
+            inFlowWith: { component: 'vm-listener' },
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

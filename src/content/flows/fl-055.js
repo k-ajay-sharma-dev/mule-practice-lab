@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 const errorBody = (code, message) => step('set-payload', { value: `#[output application/json --- { code: "${code}", message: ${message}, correlationId: correlationId }]` })
 
@@ -13,7 +14,13 @@ export default {
     { label: 'Experience, process and two system APIs are separate flows', rule: { type: 'flows', kind: 'flow', min: 4 } },
     {
       label: 'The order is validated at the edge before any downstream call',
-      rule: { type: 'before', first: 'validation', then: 'http-request' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'exp-' }, then: 'validation' },
+          { type: 'before', first: 'validation', then: 'http-request', thenWhere: { path: 'prc-' } },
+        ],
+      },
     },
     {
       label: 'The Experience API calls the Process API over HTTP Request',
@@ -24,8 +31,14 @@ export default {
       rule: { type: 'exists', component: 'http-request', where: { path: 'sys-' }, min: 2 },
     },
     {
-      label: 'A declined payment (HTTP 200 + status) becomes a typed error in the System API',
-      rule: { type: 'before', first: 'http-request', then: 'raise-error' },
+      label: 'A declined payment (HTTP 200 + status) becomes a typed error in the payment System API',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'sys-pay' }, then: 'raise-error', thenWhere: { type: 'APP:' } },
+          { type: 'inside', component: 'raise-error', where: { type: 'APP:' }, within: 'choice' },
+        ],
+      },
     },
     {
       label: 'Business rejections (422/409) from the layer below become typed APP errors in the process and experience layers too',
@@ -37,7 +50,34 @@ export default {
     },
     {
       label: 'Database errors in the order System API are mapped (duplicate 409, down 503)',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'DB:' } },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'DB:' } },
+          handlerStatus('DB:', { oneOf: ['409', '422'] }),
+          handlerStatus('DB:', '503'),
+        ],
+      },
+    },
+    { label: 'At the edge, invalid input is answered with 400', rule: handlerStatus({ oneOf: ['SCHEMA', 'VALIDATION', 'JSON:'] }, '400') },
+    { label: 'At the edge, a declined card or duplicate is answered with 422', rule: handlerStatus('APP:', '422') },
+    { label: 'At the edge, a slow downstream is answered with 504', rule: handlerStatus('TIMEOUT', '504') },
+    { label: 'A downstream outage is answered with 503', rule: handlerStatus('SERVICE_UNAVAILABLE', '503') },
+    {
+      label: 'Anything else is a 500 that carries the correlation ID',
+      rule: {
+        type: 'all',
+        rules: [
+          handlerStatus('ANY', '500'),
+          {
+            type: 'any',
+            rules: [
+              { type: 'inside', component: 'set-payload', where: { value: 'correlationId' }, within: HANDLERS, withinWhere: { type: 'ANY' } },
+              { type: 'inside', component: 'transform', where: { script: 'correlationId' }, within: HANDLERS, withinWhere: { type: 'ANY' } },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

@@ -18,14 +18,43 @@ export default {
       label: 'Each parallel route has a timeout, so one hung call cannot hold the quote open',
       rule: { type: 'exists', component: 'parallel-foreach', where: { timeout: { gte: 1 } } },
     },
-    { label: 'The Pricing API call runs inside the loop', rule: { type: 'inside', component: 'http-request', within: 'parallel-foreach' } },
+    {
+      label: 'The Pricing API call (GET /prices) runs inside the parallel loop',
+      rule: { type: 'inside', component: 'http-request', where: { method: 'GET', path: 'prices' }, within: 'parallel-foreach' },
+    },
+    {
+      label: 'No Pricing call runs in a sequential For Each',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request' },
+          { type: 'absent', component: 'http-request', within: 'foreach' },
+        ],
+      },
+    },
     {
       label: 'A failing Pricing call is handled per line (Try + On Error Continue) for a partial quote',
-      rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', within: 'try' },
+          { type: 'inside', component: 'on-error-continue', within: 'parallel-foreach' },
+        ],
+      },
+    },
+    {
+      label: 'The total is not kept in a variable inside the loop, where it is lost',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'parallel-foreach' },
+          { type: 'absent', component: 'set-variable', where: { variableName: 'total' }, within: ['parallel-foreach', 'foreach'] },
+        ],
+      },
     },
     {
       label: 'Results are flattened and the total calculated in DataWeave after the loop',
-      rule: { type: 'before', first: 'parallel-foreach', then: 'transform' },
+      rule: { type: 'before', first: 'parallel-foreach', then: 'transform', outside: true },
     },
   ],
   referenceFlow: design(

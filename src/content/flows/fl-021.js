@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { HANDLERS } from '../../flow/rules.js'
 
 export default {
   id: 'fl-021',
@@ -17,18 +18,35 @@ export default {
       label: 'The last-sent version per SKU is checked before calling the partner',
       rule: { type: 'before', first: ['os-retrieve', 'idempotent', 'db-select'], then: 'http-request' },
     },
-    { label: 'The message is acknowledged only after the partner call', rule: { type: 'before', first: 'http-request', then: 'mq-ack' } },
+    {
+      label: 'The message is acknowledged only after the partner call',
+      rule: { type: 'before', first: 'http-request', then: 'mq-ack', outside: true },
+    },
+    {
+      label: 'The new version per SKU is stored only after the partner accepted it',
+      rule: { type: 'before', first: 'http-request', then: ['os-store', 'db-update', 'db-insert'], outside: true },
+    },
     {
       label: '429 Too Many Requests has its own error handler',
       rule: { type: 'handler', component: ['on-error-continue', 'on-error-propagate'], errorType: 'HTTP:TOO_MANY_REQUESTS' },
     },
     {
-      label: 'On 429 the message goes back to the queue instead of being retried in place',
-      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+      label: 'On 429 the message goes back to the queue (Nack)',
+      rule: { type: 'inside', component: 'mq-nack', within: HANDLERS, withinWhere: { type: 'TOO_MANY_REQUESTS' } },
+    },
+    {
+      label: 'The partner call is not retried in place (no Until Successful around it)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request' },
+          { type: 'absent', component: 'http-request', within: 'until-successful' },
+        ],
+      },
     },
     {
       label: 'A 429 records a shared "pause until" so every replica backs off',
-      rule: { type: 'inside', component: 'os-store', within: ['on-error-continue', 'on-error-propagate'] },
+      rule: { type: 'inside', component: 'os-store', within: HANDLERS, withinWhere: { type: 'TOO_MANY_REQUESTS' } },
     },
   ],
   referenceFlow: design(

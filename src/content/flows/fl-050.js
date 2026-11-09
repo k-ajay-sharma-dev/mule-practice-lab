@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-050',
@@ -14,16 +15,32 @@ export default {
       rule: { type: 'source', component: 'http-listener', where: { path: 'prc-' } },
     },
     {
-      label: 'The Process API calls three System APIs over HTTP Request',
-      rule: { type: 'exists', component: 'http-request', where: { path: 'sys-' }, min: 3 },
+      label: 'The Process API calls three System APIs over HTTP Request; the Experience API never calls them',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request', where: { path: 'sys-' }, min: 3 },
+          { type: 'absent', component: 'http-request', where: { path: 'sys-' }, inFlowWith: { component: 'http-listener', where: { path: 'exp-' } } },
+        ],
+      },
     },
     {
-      label: 'The customer is looked up first, then a Choice routes by customer type',
-      rule: { type: 'before', first: 'http-request', then: 'choice' },
+      label: 'The customer is looked up in the CRM first, then a Choice routes by customer type',
+      rule: { type: 'before', first: 'http-request', firstWhere: { path: 'crm' }, then: 'choice' },
     },
     {
-      label: 'The pricing System API is chosen per customer type inside the Choice',
-      rule: { type: 'inside', component: 'http-request', within: 'choice', where: { path: 'sys-' } },
+      label: 'Both the ERP and the pricing engine are called inside the Choice, one per customer type',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'http-request', within: 'choice', where: { path: 'erp' } },
+          { type: 'inside', component: 'http-request', within: 'choice', where: { path: 'pric' } },
+        ],
+      },
+    },
+    {
+      label: 'Availability is checked after pricing, for the priced lines',
+      rule: { type: 'before', first: 'choice', then: 'http-request', thenWhere: { path: 'inventor' }, outside: true },
     },
     {
       label: 'Intermediate results are kept in variables before the next call replaces the payload',
@@ -34,8 +51,14 @@ export default {
       rule: { type: 'before', first: 'choice', then: 'transform' },
     },
     {
-      label: 'An unknown customer from the CRM System API is mapped to a business error',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'NOT_FOUND' } },
+      label: 'An unknown customer from the CRM System API is mapped to a business error, not a 500',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'NOT_FOUND' } },
+          handlerStatus('NOT_FOUND', { oneOf: ['400', '404', '409', '422'] }),
+        ],
+      },
     },
   ],
   referenceFlow: design(

@@ -9,8 +9,26 @@ export default {
   estMinutes: 30,
   flowChecks: [
     {
-      label: 'The mailbox is polled by the IMAP listener with a subject filter',
-      rule: { type: 'source', component: 'email-listener', where: { subjectRegex: { set: true } } },
+      label: 'The mailbox is polled by the IMAP listener with a subject filter on invoice',
+      rule: { type: 'source', component: 'email-listener', where: { subjectRegex: 'invoice' } },
+    },
+    {
+      label: 'The listener does not delete emails it reads, so they can still be moved',
+      rule: { type: 'source', component: 'email-listener', where: { deleteAfterRetrieve: 'false' } },
+    },
+    {
+      label: 'Only PDF attachments are kept, so signature images and other files are ignored',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'pdf' } },
+          { type: 'inside', component: ['azure-upload-blob', 'sftp-write'], within: 'choice', routeWhere: { expression: 'pdf' } },
+        ],
+      },
+    },
+    {
+      label: 'Attachments are stored in the supplier-invoices container',
+      rule: { type: 'exists', component: 'azure-upload-blob', where: { container: 'supplier-invoices' } },
     },
     {
       label: 'The email ID is kept in a variable before the attachment loop',
@@ -18,13 +36,22 @@ export default {
     },
     { label: 'Each attachment is saved inside a For Each', rule: { type: 'inside', component: ['azure-upload-blob', 'sftp-write'], within: 'foreach' } },
     {
-      label: 'An email with no PDF attachment is routed away from the upload loop (Choice)',
-      rule: { type: 'inside', component: 'email-move', within: 'choice' },
+      label: 'An email with no PDF attachment is routed to NeedsReview, away from the upload loop (Choice)',
+      rule: { type: 'inside', component: 'email-move', where: { targetFolder: 'NeedsReview' }, within: 'choice' },
     },
-    { label: 'Successful emails are moved to the Processed folder', rule: { type: 'exists', component: 'email-move', where: { targetFolder: 'Processed' } } },
     {
-      label: 'The move happens after the attachments are stored',
-      rule: { type: 'before', first: ['azure-upload-blob', 'sftp-write'], then: 'email-move' },
+      label: 'Successful emails are moved to the Processed folder using the email ID saved before the loop',
+      rule: { type: 'exists', component: 'email-move', where: { targetFolder: 'Processed', emailId: 'vars.' } },
+    },
+    {
+      label: 'The move to Processed happens once, after all attachments are stored (after the loop, not inside it)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: ['azure-upload-blob', 'sftp-write'], then: 'email-move', thenWhere: { targetFolder: 'Processed' }, outside: true },
+          { type: 'absent', component: 'email-move', within: 'foreach' },
+        ],
+      },
     },
     {
       label: 'A failed email is moved to a Failed folder by the error handler, not to Processed',

@@ -14,20 +14,72 @@ export default {
       rule: { type: 'exists', component: 'db-select', where: { database: 'SQL Server' } },
     },
     { label: 'Rows are sent one by one, in order, to the queue', rule: { type: 'inside', component: 'sqs-send', within: 'foreach' } },
+    {
+      label: 'A failed send stops the loop, so later events of the same order are not sent ahead of it',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'sqs-send', within: 'foreach' },
+          { type: 'absent', component: 'on-error-continue', within: 'foreach' },
+        ],
+      },
+    },
     { label: 'The target is a FIFO queue', rule: { type: 'exists', component: 'sqs-send', where: { queueUrl: '.fifo' } } },
-    { label: 'An outbox row is marked as sent only after SQS accepted the message', rule: { type: 'before', first: 'sqs-send', then: 'db-update' } },
+    {
+      label: 'Each message uses the order as its FIFO group and carries a deduplication ID',
+      rule: { type: 'exists', component: 'sqs-send', where: { groupId: 'ORDER', deduplicationId: { set: true } } },
+    },
+    {
+      label: 'An outbox row is marked as sent only after SQS accepted the message',
+      rule: { type: 'before', first: 'sqs-send', then: 'db-update', thenWhere: { sql: 'SENT' }, every: true, outside: true },
+    },
     {
       label: 'The consumer receives from SQS with Preserve Messages on, so a failed call does not lose the message',
       rule: { type: 'source', component: 'sqs-receive', where: { preserveMessages: 'true' } },
     },
-    { label: 'The message is deleted from the queue only after the carrier accepted it', rule: { type: 'before', first: 'http-request', then: 'sqs-delete' } },
+    {
+      label: 'The consumer takes one message per poll, so events of one order are not processed side by side',
+      rule: { type: 'source', component: 'sqs-receive', where: { numberOfMessages: 1 } },
+    },
+    {
+      label: 'The message is deleted from the queue only after the carrier accepted it',
+      rule: { type: 'before', first: 'http-request', then: 'sqs-delete', outside: true },
+    },
     {
       label: 'Permanent rejections from the carrier API (400) are recorded and the message is consumed',
-      rule: { type: 'handler', component: 'on-error-continue', errorType: 'HTTP:BAD_REQUEST' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', errorType: 'HTTP:BAD_REQUEST' },
+          { type: 'inside', component: 'sqs-delete', within: 'on-error-continue', withinWhere: { type: 'BAD_REQUEST' } },
+        ],
+      },
     },
     {
       label: 'Transient failures propagate so SQS redelivers the message (and finally moves it to the DLQ)',
-      rule: { type: 'handler', component: 'on-error-propagate' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' }, inFlowWith: { component: 'sqs-receive' } },
+        ],
+      },
+    },
+    {
+      label: 'The 400 handler comes before the catch-all, so a rejection does not block the order group',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'on-error-continue', firstWhere: { type: 'BAD_REQUEST' }, then: 'on-error-propagate', thenWhere: { type: 'ANY' }, every: true },
+          {
+            type: 'all',
+            rules: [
+              { type: 'handler', component: 'on-error-continue', where: { type: 'BAD_REQUEST' } },
+              { type: 'absent', component: 'on-error-propagate', where: { type: 'ANY' }, inFlowWith: { component: 'sqs-receive' } },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

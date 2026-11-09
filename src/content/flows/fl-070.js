@@ -16,17 +16,51 @@ export default {
     },
     {
       label: 'Receipt and outbox rows are written in one Oracle transaction (Try, ALWAYS_BEGIN)',
-      rule: { type: 'exists', component: 'try', where: { transactionalAction: 'ALWAYS_BEGIN' } },
+      rule: { type: 'inside', component: 'db-insert', within: 'try', withinWhere: { transactionalAction: 'ALWAYS_BEGIN' }, min: 2 },
+    },
+    {
+      label: 'The dock intake never calls SAP, so SAP outages cannot stop scanning',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request' },
+          { type: 'absent', component: 'http-request', inFlowWith: { component: 'jms-listener' } },
+        ],
+      },
+    },
+    {
+      label: 'No XA transaction is used',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'jms-listener' },
+          { type: 'absent', component: 'jms-listener', where: { transactionalAction: 'ALWAYS_BEGIN', transactionType: 'XA' } },
+        ],
+      },
     },
     {
       label: 'A redelivered pallet (unique SSCC violation) is treated as already received',
       rule: { type: 'inside', component: 'on-error-continue', within: 'try', where: { type: 'DB:QUERY_EXECUTION' } },
     },
+    {
+      label: 'Other intake failures are not swallowed, so the broker redelivers the scan',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'jms-listener' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' }, inFlowWith: { component: 'jms-listener' } },
+        ],
+      },
+    },
     { label: 'A separate scheduled flow drains the outbox to SAP', rule: { type: 'source', component: 'scheduler' } },
     { label: 'Posting to SAP is retried for transient failures (Until Successful)', rule: { type: 'inside', component: 'http-request', within: 'until-successful' } },
     {
+      label: 'SAP is checked for an existing document before posting, so a lost response does not post twice',
+      rule: { type: 'before', first: 'http-request', firstWhere: { method: 'GET' }, then: 'http-request', thenWhere: { method: 'POST' } },
+    },
+    {
       label: 'The outbox row is marked POSTED only after SAP returned the material document',
-      rule: { type: 'before', first: 'http-request', then: 'db-update' },
+      rule: { type: 'before', first: 'http-request', firstWhere: { method: 'POST' }, then: 'db-update', thenWhere: { sql: 'POSTED' }, outside: true },
     },
   ],
   referenceFlow: design(

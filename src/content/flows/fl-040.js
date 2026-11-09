@@ -33,6 +33,26 @@ export default {
       label: 'A failing system is captured with On Error Continue so the others still complete',
       rule: { type: 'handler', component: 'on-error-continue', within: ['scatter-gather', 'parallel-foreach'] },
     },
+    {
+      label: 'Every parallel route catches its own failure, so one system down never hides the others',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'on-error-continue', within: 'scatter-gather', min: 3 },
+          { type: 'inside', component: 'on-error-continue', within: 'parallel-foreach' },
+        ],
+      },
+    },
+    {
+      label: 'A resent hire event cannot create duplicate accounts',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: ['idempotent', 'os-retrieve'], then: 'http-request' },
+          { type: 'before', first: 'http-request', firstWhere: { method: 'GET' }, then: 'http-request', thenWhere: { method: 'POST' } },
+        ],
+      },
+    },
     { label: 'Per-system onboarding status is persisted', rule: { type: 'exists', component: ['db-insert', 'db-update', 'os-store'] } },
     {
       label: 'Only partial failures are reported / queued for retry',

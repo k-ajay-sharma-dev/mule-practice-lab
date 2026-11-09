@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step, subFlow } from '../../flow/dsl.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-003',
@@ -15,24 +16,46 @@ export default {
     },
     { label: 'Main flow plus at least one implementation flow', rule: { type: 'flows', kind: 'flow', min: 2 } },
     {
-      label: 'A wrong Content-Type is mapped to 415 by an error handler',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'UNSUPPORTED_MEDIA_TYPE' } },
+      label: 'The router sits in the flow with the HTTP Listener',
+      rule: { type: 'before', first: 'http-listener', then: 'apikit-router' },
     },
-    {
-      label: 'An unsupported method (DELETE) is mapped to 405 by an error handler',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'METHOD_NOT_ALLOWED' } },
-    },
+    { label: 'An invalid request (APIKIT:BAD_REQUEST) is mapped to 400', rule: handlerStatus('BAD_REQUEST', '400') },
+    { label: 'A wrong Content-Type (UNSUPPORTED_MEDIA_TYPE) is mapped to 415', rule: handlerStatus('UNSUPPORTED_MEDIA_TYPE', '415') },
+    { label: 'An unsupported method like DELETE (METHOD_NOT_ALLOWED) is mapped to 405', rule: handlerStatus('METHOD_NOT_ALLOWED', '405') },
+    { label: 'An unacceptable Accept header (NOT_ACCEPTABLE) is mapped to 406', rule: handlerStatus('NOT_ACCEPTABLE', '406') },
     {
       label: 'An empty Database result raises a "not found" error after the select',
-      rule: { type: 'before', first: 'db-select', then: ['raise-error', 'validation'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'db-select', then: 'raise-error', thenWhere: { type: 'NOT_FOUND' } },
+          { type: 'before', first: 'db-select', then: 'validation' },
+        ],
+      },
+    },
+    { label: 'The not-found error is mapped to 404', rule: handlerStatus('NOT_FOUND', '404') },
+    { label: 'An unreachable database (DB:CONNECTIVITY) is mapped to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
+    { label: 'A catch-all handler returns a generic 500', rule: handlerStatus('ANY', '500') },
+    {
+      label: 'Error responses carry the JSON body with a correlationId',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'transform', where: { script: 'correlationId' }, within: HANDLERS },
+          { type: 'inside', component: 'set-payload', where: { value: 'correlationId' }, within: HANDLERS },
+        ],
+      },
     },
     {
-      label: 'An unreachable database is mapped to 503',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'DB:CONNECTIVITY' } },
-    },
-    {
-      label: 'A catch-all handler returns a generic 500 without stack traces',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'ANY' } },
+      label: 'No error body exposes the detailed description or stack trace',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: ['transform', 'set-payload'], within: HANDLERS },
+          { type: 'absent', component: 'transform', where: { script: 'detailedDescription' }, within: HANDLERS },
+          { type: 'absent', component: 'set-payload', where: { value: 'detailedDescription' }, within: HANDLERS },
+        ],
+      },
     },
   ],
   referenceFlow: design(

@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { HANDLERS } from '../../flow/rules.js'
 
 const deadLetter = (reason) => [
   step('logger', { level: 'ERROR', message: `#["Invoice " ++ (vars.invoice.invoiceNo default "?") ++ " dead-lettered (${reason}): " ++ error.description]` }),
@@ -33,12 +34,63 @@ export default {
       rule: { type: 'inside', component: 'raise-error', within: ['on-error-propagate', 'on-error-continue'] },
     },
     {
+      label: 'HTTP:BAD_REQUEST is re-raised as ERP_REJECTED in a Try around the ERP call, so the flow handlers see it',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'raise-error', where: { type: 'ERP_REJECTED' }, within: HANDLERS, withinWhere: { type: 'BAD_REQUEST' } },
+          { type: 'inside', component: 'raise-error', where: { type: 'ERP_REJECTED' }, within: 'try' },
+        ],
+      },
+    },
+    { label: 'The ERP call succeeds before the message is acknowledged', rule: { type: 'before', first: 'http-request', then: 'mq-ack', outside: true } },
+    {
       label: 'Permanent failures are published to a dead-letter queue from an error handler',
       rule: { type: 'inside', component: ['mq-publish', 'jms-publish'], within: ['on-error-continue', 'on-error-propagate'] },
     },
     {
+      label: 'Business errors (APP:) are dead-lettered and acknowledged, never retried',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: ['mq-publish', 'jms-publish'], within: HANDLERS, withinWhere: { type: 'APP:' } },
+          { type: 'inside', component: ['mq-ack', 'jms-ack'], within: HANDLERS, withinWhere: { type: 'APP:' } },
+        ],
+      },
+    },
+    {
+      label: 'The dead-letter message carries the error type and description',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'transform', where: { script: 'errorType' }, within: HANDLERS },
+          { type: 'inside', component: 'transform', where: { script: 'error.description' }, within: HANDLERS },
+        ],
+      },
+    },
+    {
       label: 'Transient failures go back to the queue for redelivery',
-      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+      rule: {
+        type: 'inside',
+        component: ['mq-nack', 'jms-recover-session'],
+        within: HANDLERS,
+        withinWhere: { type: { oneOf: ['CONNECTIVITY', 'TIMEOUT', 'SERVICE_UNAVAILABLE'] } },
+      },
+    },
+    {
+      label: 'Transient failures are never dead-lettered',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: HANDLERS, errorType: 'HTTP:CONNECTIVITY' },
+          {
+            type: 'absent',
+            component: ['mq-publish', 'jms-publish'],
+            within: HANDLERS,
+            withinWhere: { type: { oneOf: ['CONNECTIVITY', 'TIMEOUT', 'SERVICE_UNAVAILABLE'] } },
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

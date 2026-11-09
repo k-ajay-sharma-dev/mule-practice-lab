@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-056',
@@ -22,20 +23,55 @@ export default {
       rule: { type: 'exists', component: 'http-request', where: { path: 'prc-' }, min: 2 },
     },
     {
+      label: 'Neither channel calls a System API directly',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-listener', where: { path: 'exp-' } },
+          { type: 'absent', component: 'http-request', where: { path: 'sys-' }, inFlowWith: { component: 'http-listener', where: { path: 'exp-' } } },
+        ],
+      },
+    },
+    {
+      label: 'An account on credit hold is rejected with 422 after the CRM lookup',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-request', firstWhere: { path: 'sys-crm' }, then: 'raise-error', thenWhere: { type: 'APP:' } },
+          handlerStatus('APP:', '422'),
+        ],
+      },
+    },
+    {
+      label: 'The card is authorised before the ERP sales order is created',
+      rule: { type: 'before', first: 'http-request', firstWhere: { path: 'sys-pay' }, then: 'http-request', thenWhere: { path: 'sys-erp' }, outside: true },
+    },
+    {
       label: 'If the ERP order fails after payment authorisation, the authorisation is voided (Try + On Error Propagate)',
-      rule: { type: 'handler', component: 'on-error-propagate', within: 'try' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', within: 'try' },
+          { type: 'inside', component: 'http-request', where: { path: 'sys-erp' }, within: 'try' },
+          { type: 'inside', component: 'http-request', where: { path: 'sys-pay' }, within: 'on-error-propagate' },
+        ],
+      },
     },
     {
-      label: 'An OrderAccepted event is published after the synchronous steps succeed',
-      rule: { type: 'before', first: 'http-request', then: 'mq-publish' },
+      label: 'Duplicate submissions are caught in the order Process API before the order is accepted',
+      rule: { type: 'before', first: ['idempotent', 'os-retrieve'], then: 'mq-publish' },
     },
     {
-      label: 'Fulfilment runs asynchronously from an Anypoint MQ subscriber',
-      rule: { type: 'source', component: 'mq-subscriber' },
+      label: 'An OrderAccepted event is published after the ERP sales order exists',
+      rule: { type: 'before', first: 'http-request', firstWhere: { path: 'sys-erp' }, then: 'mq-publish', outside: true },
+    },
+    {
+      label: 'Fulfilment runs asynchronously from an Anypoint MQ subscriber that calls the System APIs',
+      rule: { type: 'before', first: 'mq-subscriber', then: 'http-request', thenWhere: { path: 'sys-' } },
     },
     {
       label: 'Failed fulfilment messages are returned to the queue for redelivery / DLQ',
-      rule: { type: 'exists', component: 'mq-nack' },
+      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
   referenceFlow: design(

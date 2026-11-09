@@ -10,9 +10,26 @@ export default {
   flowChecks: [
     { label: 'An HTTP Listener receives the POST request', rule: { type: 'source', component: 'http-listener', where: { allowedMethods: 'POST' } } },
     { label: 'Set Variable stores the order ID in a variable called orderId', rule: { type: 'exists', component: 'set-variable', where: { variableName: 'orderId', value: 'payload.orderId' } } },
-    { label: 'The order ID is stored before the warehouse call replaces the payload', rule: { type: 'before', first: 'set-variable', then: 'http-request' } },
-    { label: 'The response is built after the warehouse call', rule: { type: 'before', first: 'http-request', then: 'transform' } },
-    { label: 'The response reads the stored value with vars.orderId', rule: { type: 'exists', component: 'transform', where: { script: 'vars.orderId' } } },
+    {
+      label: 'The order ID is stored before the warehouse call replaces the payload',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { variableName: 'orderId' }, then: 'http-request' },
+    },
+    {
+      label: 'The warehouse is called with POST /warehouse/reservations',
+      rule: { type: 'exists', component: 'http-request', where: { method: 'POST', path: '/warehouse/reservations' } },
+    },
+    { label: 'The response is built after the warehouse call', rule: { type: 'before', first: 'http-request', then: 'transform', outside: true } },
+    {
+      label: 'The response reads the stored value with vars.orderId and adds the reservationId',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'vars.orderId' } },
+          { type: 'exists', component: 'transform', where: { script: 'reservationId' } },
+        ],
+      },
+    },
+    { label: 'A log line contains the order ID', rule: { type: 'exists', component: 'logger', where: { message: 'vars.orderId' } } },
   ],
   referenceFlow: design(
     flow('reserve-stock', source('http-listener', { path: '/orders/reserve', allowedMethods: 'POST' }), [

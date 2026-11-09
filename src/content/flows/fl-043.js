@@ -9,7 +9,20 @@ export default {
   estMinutes: 35,
   flowChecks: [
     { label: 'Bulk submissions arrive through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
-    { label: 'The request size limit (max 10,000 records) is enforced up front', rule: { type: 'exists', component: 'validation' } },
+    {
+      label: 'The request size limit (max 10,000 records) is enforced up front',
+      rule: { type: 'before', first: 'validation', firstWhere: { expression: '10000' }, then: ['db-insert', 'os-store', 'mq-publish', 'vm-publish'] },
+    },
+    {
+      label: 'The submit API answers with a job ID and never calls the PIM core itself',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', then: ['mq-publish', 'vm-publish'] },
+          { type: 'absent', component: ['http-request', 'until-successful'], inFlowWith: { component: 'http-listener' } },
+        ],
+      },
+    },
     {
       label: 'A job record is created before any chunk is dispatched',
       rule: { type: 'before', first: ['db-insert', 'os-store'], then: ['mq-publish', 'vm-publish'] },
@@ -19,7 +32,16 @@ export default {
       rule: { type: 'inside', component: ['mq-publish', 'vm-publish'], within: ['foreach', 'parallel-foreach', 'batch-job'] },
     },
     { label: 'Worker flows consume chunks from the queue', rule: { type: 'source', component: ['mq-subscriber', 'vm-listener'] } },
-    { label: 'A separate status endpoint lets clients poll job progress', rule: { type: 'exists', component: 'http-listener', min: 2 } },
+    {
+      label: 'A separate status endpoint lets clients poll job progress',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-listener', min: 2 },
+          { type: 'before', first: 'http-listener', firstWhere: { allowedMethods: 'GET' }, then: ['db-select', 'os-retrieve'] },
+        ],
+      },
+    },
     {
       label: 'A failed chunk is recorded in the job status instead of being lost',
       rule: { type: 'inside', component: ['db-insert', 'db-update', 'os-store'], within: ['on-error-continue', 'on-error-propagate'] },

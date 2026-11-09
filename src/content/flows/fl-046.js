@@ -19,9 +19,40 @@ export default {
     },
     {
       label: 'Only connectivity/timeout-type HTTP errors trip the breaker and fall back (On Error Continue for HTTP:… types)',
-      rule: { type: 'exists', component: 'on-error-continue', where: { type: 'HTTP:' } },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', within: 'try', where: { type: { oneOf: ['TIMEOUT', 'CONNECTIVITY', 'SERVICE_UNAVAILABLE'] } } },
+          { type: 'absent', component: 'on-error-continue', within: 'try', where: { type: { oneOf: ['ANY', 'BAD_REQUEST'] } } },        ],
+      },
     },
     { label: 'State transitions (and the last good score) are written back to the Object Store', rule: { type: 'exists', component: 'os-store', min: 2 } },
+    {
+      label: 'A bureau outage counts as a failure: the handler writes the breaker state',
+      rule: { type: 'inside', component: 'os-store', within: 'on-error-continue' },
+    },
+    {
+      label: 'The fallback answer is given both on the open-circuit route and from the Try handler',
+      rule: {
+        type: 'all',
+        rules: [
+          {
+            type: 'any',
+            rules: [
+              { type: 'inside', component: 'transform', where: { script: 'MANUAL_REVIEW' }, within: 'choice', routeWhere: { expression: 'OPEN' } },
+              { type: 'inside', component: 'set-payload', where: { value: 'MANUAL_REVIEW' }, within: 'choice', routeWhere: { expression: 'OPEN' } },
+            ],
+          },
+          {
+            type: 'any',
+            rules: [
+              { type: 'inside', component: 'transform', where: { script: 'MANUAL_REVIEW' }, within: 'on-error-continue', withinWhere: { type: 'HTTP:' } },
+              { type: 'inside', component: 'set-payload', where: { value: 'MANUAL_REVIEW' }, within: 'on-error-continue', withinWhere: { type: 'HTTP:' } },
+            ],
+          },
+        ],
+      },
+    },
     { label: 'Breaker logic lives in reusable flows reached via Flow Reference', rule: { type: 'refs' } },
   ],
   referenceFlow: design(

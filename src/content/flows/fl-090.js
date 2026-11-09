@@ -11,10 +11,50 @@ export default {
     { label: 'IDocs arrive through the SAP Document Listener', rule: { type: 'source', component: 'sap-document-listener', where: { programID: { set: true } } } },
     { label: 'The listener only accepts MATMAS IDocs', rule: { type: 'source', component: 'sap-document-listener', where: { idocTypeFilterRegex: 'MATMAS' } } },
     { label: 'A repeated IDoc is detected before anything is published', rule: { type: 'before', first: 'idempotent', then: 'mq-publish' } },
+    {
+      label: 'Duplicates are keyed on the IDoc number (DOCNUM), not on the material',
+      rule: { type: 'exists', component: 'idempotent', where: { idExpression: 'docnum' } },
+    },
     { label: 'The IDoc is mapped to the event format before publishing', rule: { type: 'before', first: 'transform', then: 'mq-publish' } },
     { label: 'Material events go to Anypoint MQ', rule: { type: 'exists', component: 'mq-publish', where: { destination: { set: true } } } },
     { label: 'A duplicate is logged and ignored (MULE:DUPLICATE_MESSAGE)', rule: { type: 'handler', component: 'on-error-continue', errorType: 'MULE:DUPLICATE_MESSAGE' } },
-    { label: 'Other failures are logged and propagated', rule: { type: 'exists', component: 'on-error-propagate' } },
+    {
+      label: 'No catch-all On Error Continue hides real failures',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'on-error-propagate' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+        ],
+      },
+    },
+    {
+      label: 'The duplicate handler comes before any catch-all handler, so it is reached',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'on-error-continue', where: { type: 'DUPLICATE_MESSAGE' } },
+          {
+            type: 'any',
+            rules: [
+              {
+                type: 'before',
+                first: 'on-error-continue',
+                firstWhere: { type: 'DUPLICATE_MESSAGE' },
+                then: 'on-error-propagate',
+                thenWhere: { type: 'ANY' },
+                every: true,
+              },
+              { type: 'absent', component: 'on-error-propagate', where: { type: 'ANY' } },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'Other failures are logged with the IDoc number and propagated',
+      rule: { type: 'inside', component: 'logger', within: 'on-error-propagate', where: { message: 'docnum' } },
+    },
   ],
   referenceFlow: design(
     flow(

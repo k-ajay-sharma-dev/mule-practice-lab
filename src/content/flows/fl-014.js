@@ -10,20 +10,50 @@ export default {
   flowChecks: [
     { label: 'Triggered by a File listener on the input folder', rule: { type: 'source', component: 'file-listener' } },
     {
+      label: 'A file is never read twice (moved, deleted or renamed after reading, or a watermark)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'source', component: 'file-listener', where: { postAction: { oneOf: ['move', 'delete', 'rename'] } } },
+          { type: 'source', component: 'file-listener', where: { watermarkMode: { oneOf: ['MODIFIED', 'CREATED'] } } },
+        ],
+      },
+    },
+    {
       label: 'The fixed-width file is parsed with DataWeave using a flat-file schema',
       rule: { type: 'exists', component: 'transform', where: { script: 'flatfile' } },
     },
     {
       label: 'Header/trailer totals are validated before any output is written',
-      rule: { type: 'before', first: ['raise-error', 'validation'], then: 'file-write' },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'raise-error', then: 'file-write', every: true },
+          { type: 'before', first: 'validation', then: 'file-write', every: true },
+        ],
+      },
     },
     {
-      label: 'Valid rows are written as CSV to /data/out',
-      rule: { type: 'exists', component: 'file-write', where: { path: '/data/out' } },
+      label: 'Valid rows are converted to CSV before the output file is written',
+      rule: { type: 'before', first: 'transform', firstWhere: { script: 'application/csv' }, then: 'file-write' },
     },
     {
-      label: 'Invalid rows (with a reason) are written to /data/reject',
+      label: 'Finance never sees a half-written file in /data/out (write to a temporary name, then rename or move)',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'file-write', firstWhere: { path: '/data/out' }, then: 'file-rename' },
+          { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: '/data/out' }, outside: true },
+        ],
+      },
+    },
+    {
+      label: 'Invalid rows are written to /data/reject',
       rule: { type: 'exists', component: 'file-write', where: { path: '/data/reject' } },
+    },
+    {
+      label: 'Each rejected row carries a reason column',
+      rule: { type: 'exists', component: 'transform', where: { script: 'reason' } },
     },
     {
       label: 'A flow error handler deals with rejected or unparseable files',

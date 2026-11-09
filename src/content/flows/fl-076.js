@@ -9,17 +9,79 @@ export default {
   estMinutes: 35,
   flowChecks: [
     { label: 'The relay runs on a Scheduler', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'The Scheduler runs at least every 10 minutes, so documents reach Azure in time',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'source', component: 'scheduler', where: { timeUnit: 'MINUTES', frequency: { lte: 10 } } },
+          { type: 'source', component: 'scheduler', where: { timeUnit: 'SECONDS', frequency: { lte: 600 } } },
+          { type: 'source', component: 'scheduler', where: { timeUnit: 'MILLISECONDS', frequency: { lte: 600000 } } },
+          { type: 'source', component: 'scheduler', where: { strategy: 'cron' } },
+        ],
+      },
+    },
+    {
+      label: 'Objects are listed in acme-claims-scans-export under outbound/',
+      rule: { type: 'exists', component: 's3-list', where: { bucket: 'acme-claims-scans-export', prefix: 'outbound' } },
+    },
     { label: 'Pending objects are listed in S3 and then processed in a loop', rule: { type: 'before', first: 's3-list', then: ['foreach', 'parallel-foreach'] } },
     { label: 'Each object is downloaded from S3 and then uploaded to Azure', rule: { type: 'before', first: 's3-get', then: 'azure-upload-blob' } },
     { label: 'The upload happens inside the per-file loop', rule: { type: 'inside', component: 'azure-upload-blob', within: ['foreach', 'parallel-foreach'] } },
-    { label: 'The S3 object is deleted only after a successful upload', rule: { type: 'before', first: 'azure-upload-blob', then: 's3-delete' } },
+    {
+      label: 'The S3 object is deleted only after a successful upload',
+      rule: { type: 'before', first: 'azure-upload-blob', then: 's3-delete', every: true, outside: true },
+    },
+    {
+      label: 'The upload result is checked before the delete, because Upload Blob returns false on failure',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'all',
+            rules: [
+              { type: 'before', first: 'azure-upload-blob', then: 'validation' },
+              { type: 'before', first: 'validation', then: 's3-delete' },
+            ],
+          },
+          { type: 'inside', component: 's3-delete', within: 'choice' },
+        ],
+      },
+    },
     {
       label: 'A failing file is logged and skipped so the rest of the batch continues',
       rule: { type: 'handler', component: 'on-error-continue', within: ['foreach', 'parallel-foreach'] },
     },
     {
       label: 'If Azure Storage is unreachable the run stops instead of failing every file (On Error Propagate inside the loop)',
-      rule: { type: 'handler', component: 'on-error-propagate', within: ['foreach', 'parallel-foreach'] },
+      rule: {
+        type: 'handler',
+        component: 'on-error-propagate',
+        within: ['foreach', 'parallel-foreach'],
+        where: { type: { oneOf: ['AZURE', 'CONNECTIVITY'] } },
+      },
+    },
+    {
+      label: 'The connectivity handler comes before the catch-all, so the catch-all does not swallow it',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'before',
+            first: 'on-error-propagate',
+            firstWhere: { type: { oneOf: ['AZURE', 'CONNECTIVITY'] } },
+            then: 'on-error-continue',
+            every: true,
+          },
+          {
+            type: 'all',
+            rules: [
+              { type: 'handler', component: 'on-error-propagate', where: { type: { oneOf: ['AZURE', 'CONNECTIVITY'] } } },
+              { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

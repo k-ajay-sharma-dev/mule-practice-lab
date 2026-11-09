@@ -16,6 +16,14 @@ export default {
       rule: { type: 'exists', component: 'choice', min: 2 },
     },
     {
+      label: 'The ERP flow\'s Choice tests last_modified_by to drop its own echo',
+      rule: { type: 'routes', component: 'choice', routeWhere: { expression: 'last_modified_by' } },
+    },
+    {
+      label: 'The Salesforce flow\'s Choice tests whether the integration user made the change',
+      rule: { type: 'routes', component: 'choice', routeWhere: { expression: { oneOf: ['LastModifiedBy', 'integration'] } } },
+    },
+    {
       label: 'The Salesforce write happens only on the "real change" branch',
       rule: { type: 'inside', component: ['sf-upsert', 'sf-create'], within: 'choice' },
     },
@@ -24,8 +32,23 @@ export default {
       rule: { type: 'inside', component: ['db-update', 'db-insert'], within: 'choice' },
     },
     {
-      label: 'Salesforce is written by upsert on an external ID',
-      rule: { type: 'exists', component: 'sf-upsert', where: { externalIdField: { set: true } } },
+      label: 'Salesforce is written by upsert on the ERP_Customer_No__c external ID',
+      rule: { type: 'exists', component: 'sf-upsert', where: { objectType: 'Account', externalIdField: 'ERP_Customer_No__c' } },
+    },
+    {
+      label: 'Each direction writes only to the other system, never back to the system it listens to',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: ['sf-upsert', 'sf-create'] },
+          { type: 'absent', component: ['sf-upsert', 'sf-create', 'sf-update'], inFlowWith: { component: 'sf-listener' } },
+          { type: 'absent', component: ['db-update', 'db-insert'], inFlowWith: { component: 'db-listener' } },
+        ],
+      },
+    },
+    {
+      label: 'The ERP write stamps last_modified_by, so the ERP flow can recognise and drop its own echo',
+      rule: { type: 'exists', component: ['db-update', 'db-insert'], where: { sql: 'last_modified_by' } },
     },
   ],
   referenceFlow: design(

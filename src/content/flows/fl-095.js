@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-095',
@@ -9,14 +10,72 @@ export default {
   estMinutes: 30,
   flowChecks: [
     { label: 'Statements are served by an HTTP Listener with the account in the path', rule: { type: 'source', component: 'http-listener', where: { path: '{accountId}' } } },
-    { label: 'The tenant comes from the validated claims', rule: { type: 'exists', component: 'set-variable', where: { value: 'authentication.properties.claims' }, min: 2 } },
+    {
+      label: 'The tenant comes from the validated claims',
+      rule: { type: 'exists', component: 'set-variable', where: { value: 'authentication.properties.claims.tenant_id' } },
+    },
+    {
+      label: 'The scope comes from the validated claims',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'set-variable', where: { value: 'authentication.properties.claims.scope' } },
+          { type: 'exists', component: 'validation', where: { expression: 'authentication.properties.claims.scope' } },
+        ],
+      },
+    },
+    {
+      label: 'The tenant and scope are not read from headers or query parameters',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'set-variable', where: { value: 'authentication.properties.claims' } },
+          { type: 'absent', component: 'set-variable', where: { value: { oneOf: ['attributes.headers', 'queryParams'] } } },
+        ],
+      },
+    },
     { label: 'A request with no tenant claim is refused', rule: { type: 'exists', component: 'validation', where: { check: 'is-not-blank-string' } } },
     { label: 'The required scope is checked', rule: { type: 'exists', component: 'validation', where: { check: 'is-true', expression: 'statements:read' } } },
-    { label: 'Account ownership is checked before statements are read', rule: { type: 'before', first: 'choice', then: 'transform' } },
-    { label: 'An account of another tenant is reported as not found', rule: { type: 'inside', component: 'raise-error', within: 'choice', where: { type: 'APP:ACCOUNT_NOT_FOUND' } } },
-    { label: 'Not found returns 404', rule: { type: 'handler', component: 'on-error-propagate', errorType: 'APP:ACCOUNT_NOT_FOUND' } },
-    { label: 'A missing scope returns 403', rule: { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:INVALID_BOOLEAN' } },
-    { label: 'A missing tenant claim returns 401', rule: { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:BLANK_STRING' } },
+    { label: 'Both checks run before any account data is read', rule: { type: 'before', first: 'validation', then: 'db-select', every: true } },
+    {
+      label: 'Account ownership is checked before statements are read',
+      rule: { type: 'before', first: 'choice', then: 'db-select', thenWhere: { sql: 'statements' }, outside: true },
+    },
+    {
+      label: 'An account of another tenant is reported as not found, on a route that compares the tenant',
+      rule: { type: 'inside', component: 'raise-error', within: 'choice', where: { type: 'APP:ACCOUNT_NOT_FOUND' }, routeWhere: { expression: 'tenant' } },
+    },
+    {
+      label: 'Not found returns 404 and the refused attempt is logged',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'APP:ACCOUNT_NOT_FOUND' },
+          handlerStatus('APP:ACCOUNT_NOT_FOUND', '404'),
+          { type: 'inside', component: 'logger', within: HANDLERS, withinWhere: { type: 'APP:ACCOUNT_NOT_FOUND' } },
+        ],
+      },
+    },
+    {
+      label: 'A missing scope returns 403',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:INVALID_BOOLEAN' },
+          handlerStatus('VALIDATION:INVALID_BOOLEAN', '403'),
+        ],
+      },
+    },
+    {
+      label: 'A missing tenant claim returns 401',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'VALIDATION:BLANK_STRING' },
+          handlerStatus('VALIDATION:BLANK_STRING', '401'),
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

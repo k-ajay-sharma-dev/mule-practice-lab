@@ -15,6 +15,24 @@ export default {
     },
     { label: 'The incoming document is validated (size / checksum)', rule: { type: 'exists', component: 'validation' } },
     {
+      label: 'The portal flow answers after the publish and never calls the slow claims system itself',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', then: 'mq-publish' },
+          { type: 'absent', component: 'wsc-consume', inFlowWith: { component: 'http-listener' } },
+        ],
+      },
+    },
+    {
+      label: 'The consumer verifies the checksum after it reads the body back',
+      rule: {
+        type: 'before',
+        first: ['s3-get', 'db-select', 'file-read', 'sftp-read'],
+        then: ['validation', 'raise-error'],
+      },
+    },
+    {
       label: 'The consumer uses manual acknowledgement',
       rule: { type: 'source', component: 'mq-subscriber', where: { acknowledgementMode: 'MANUAL' } },
     },
@@ -22,7 +40,10 @@ export default {
       label: 'The consumer retrieves the body by its key before calling the back end',
       rule: { type: 'before', first: ['s3-get', 'http-request', 'db-select'], then: ['wsc-consume', 'http-request'] },
     },
-    { label: 'The message is acknowledged only after successful processing', rule: { type: 'exists', component: 'mq-ack' } },
+    {
+      label: 'The message is acknowledged only after successful processing',
+      rule: { type: 'before', first: ['wsc-consume', 'http-request'], then: 'mq-ack', every: true },
+    },
     {
       label: 'A failed message is returned to the queue (Nack) from an error handler',
       rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },

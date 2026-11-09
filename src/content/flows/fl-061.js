@@ -1,4 +1,17 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
+
+// The Choice route for this procedure status sets this HTTP status.
+const routeStatus = (outcome, status) => {
+  const place = { within: 'choice', routeWhere: { expression: outcome } }
+  return {
+    type: 'any',
+    rules: [
+      { type: 'inside', component: 'set-variable', where: { value: status }, ...place },
+      { type: 'inside', component: 'transform', where: { variableName: 'status', script: status }, ...place },
+    ],
+  }
+}
 
 export default {
   id: 'fl-061',
@@ -16,10 +29,11 @@ export default {
     },
     { label: 'The OUT status parameter drives the response through a Choice', rule: { type: 'before', first: 'db-stored-procedure', then: 'choice' } },
     { label: 'Separate outcomes for reserved, insufficient stock and unknown SKU', rule: { type: 'routes', component: 'choice', min: 2 } },
-    {
-      label: 'Oracle connectivity problems map to 503 (DB:CONNECTIVITY)',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'DB:CONNECTIVITY' } },
-    },
+    { label: 'A RESERVED status returns 201', rule: routeStatus('RESERVED', '201') },
+    { label: 'An INSUFFICIENT status returns 409', rule: routeStatus('INSUFFICIENT', '409') },
+    { label: 'An UNKNOWN_SKU status returns 404', rule: routeStatus('UNKNOWN_SKU', '404') },
+    { label: 'Bad input (a failed validation) returns 400', rule: handlerStatus('VALIDATION', '400') },
+    { label: 'Oracle connectivity problems (DB:CONNECTIVITY) map to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
   ],
   referenceFlow: design(
     flow(

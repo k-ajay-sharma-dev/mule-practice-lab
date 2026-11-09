@@ -14,7 +14,17 @@ export default {
     },
     {
       label: 'Each email is processed only once (idempotency on Message-ID)',
-      rule: { type: 'exists', component: ['idempotent', 'os-store'] },
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'idempotent', where: { idExpression: { oneOf: ['messageId', 'message-id'] } } },
+          { type: 'exists', component: 'os-store', where: { key: { oneOf: ['messageId', 'message-id'] } } },
+        ],
+      },
+    },
+    {
+      label: 'The duplicate check runs before any attachment is routed',
+      rule: { type: 'before', first: ['idempotent', 'os-retrieve'], then: 'choice' },
     },
     {
       label: 'Attachments are routed by type inside a For Each',
@@ -26,8 +36,24 @@ export default {
       rule: { type: 'inside', component: 'transform', within: 'choice' },
     },
     {
+      label: 'The XML route posts the invoice to the AP System API',
+      rule: { type: 'inside', component: 'http-request', where: { method: 'POST' }, within: 'choice', routeWhere: { expression: 'xml' } },
+    },
+    {
+      label: 'The PDF route uploads the file to S3 and sends it to OCR',
+      rule: { type: 'inside', component: ['s3-put', 'http-request'], within: 'choice', routeWhere: { expression: 'pdf' }, min: 2 },
+    },
+    {
       label: 'One failing attachment does not stop the others (Try with On Error Continue)',
       rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
+    },
+    {
+      label: 'Failures are made visible to the AP team, not only logged',
+      rule: {
+        type: 'inside',
+        component: ['mq-publish', 'vm-publish', 'jms-publish', 'email-send', 'db-insert'],
+        within: ['on-error-continue', 'on-error-propagate'],
+      },
     },
     { label: 'Senders of unsupported files get an auto-reply', rule: { type: 'exists', component: 'email-send' } },
     { label: 'OCR results arrive on a separate HTTP callback flow', rule: { type: 'source', component: 'http-listener' } },

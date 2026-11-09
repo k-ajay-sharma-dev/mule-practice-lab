@@ -13,8 +13,19 @@ export default {
       rule: { type: 'exists', component: 'http-listener', where: { path: 'sys-' }, min: 2 },
     },
     {
-      label: 'Transient provider errors are retried inside the System API (Until Successful)',
-      rule: { type: 'inside', component: 'http-request', within: 'until-successful' },
+      label: 'Transient provider errors are retried inside the System API (Until Successful), and in no other layer',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'http-request', within: 'until-successful' },
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'sys-' }, then: 'until-successful' },
+          {
+            type: 'absent',
+            component: 'until-successful',
+            inFlowWith: { component: 'http-listener', where: { path: { oneOf: ['prc-', 'exp-'] } } },
+          },
+        ],
+      },
     },
     {
       label: 'The retry budget is small enough to fit the caller timeout (≤ 3 retries, ≤ 2 s apart)',
@@ -22,20 +33,47 @@ export default {
     },
     {
       label: 'The Process API falls back between providers with First Successful',
-      rule: { type: 'routes', component: 'first-successful', min: 2 },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'routes', component: 'first-successful', min: 2 },
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'prc-' }, then: 'first-successful' },
+        ],
+      },
     },
     {
       label: 'The fallback routes call the System APIs over HTTP Request',
       rule: { type: 'inside', component: 'http-request', within: 'first-successful', where: { path: 'sys-' } },
     },
     {
-      label: 'A last-known-good rate is the final fallback route',
-      rule: { type: 'inside', component: 'os-retrieve', within: 'first-successful' },
+      label: 'A last-known-good rate is the final fallback route, tried only after both providers',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'os-retrieve', within: 'first-successful' },
+          { type: 'before', first: 'http-request', firstWhere: { path: 'sys-' }, then: 'os-retrieve', every: true },
+        ],
+      },
     },
-    { label: 'Fresh rates refresh the last-known-good copy', rule: { type: 'exists', component: 'os-store' } },
     {
-      label: 'When every route fails, an error handler returns a clear 503 (MULE:ROUTING or ANY)',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'MULE:ROUTING' },
+      label: 'Fresh rates refresh the last-known-good copy',
+      rule: { type: 'before', first: 'first-successful', then: 'os-store', outside: true },
+    },
+    {
+      label: 'When every route fails, the Process API returns a clear 503 (MULE:ROUTING or ANY)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'MULE:ROUTING' },
+          {
+            type: 'before',
+            first: 'http-listener',
+            firstWhere: { path: 'prc-' },
+            then: 'set-variable',
+            thenWhere: { value: '503' },
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

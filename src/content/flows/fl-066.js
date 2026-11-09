@@ -8,29 +8,48 @@ export default {
   tags: ['retail', 'pricing', 'stores', 'batch', 'activemq', 'jms', 'oracle', 'bulk-update'],
   estMinutes: 40,
   flowChecks: [
-    { label: 'The distribution starts on a Scheduler', rule: { type: 'source', component: 'scheduler' } },
+    {
+      label: 'The distribution starts on a Scheduler at 01:30',
+      rule: { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['30 1 ', '30 01 '] } } },
+    },
     { label: 'Pending price rows are read from Oracle and fed into a Batch Job', rule: { type: 'before', first: 'db-select', then: 'batch-job' } },
     {
-      label: 'Prices go to stores in chunks (Batch Aggregator), not one message per price',
-      rule: { type: 'inside', component: 'jms-publish', within: 'batch-aggregator' },
+      label: 'The source query filters on the distribution status, so a re-run does not re-send prices already sent',
+      rule: { type: 'exists', component: 'db-select', where: { sql: { oneOf: ['PENDING', 'SENT'] } } },
+    },
+    {
+      label: 'Prices go to stores in chunks of many prices that stay under about 1 MB (Batch Aggregator of 100 to 5,000 rows)',
+      rule: { type: 'inside', component: 'jms-publish', within: 'batch-aggregator', withinWhere: { size: { gte: 100, lte: 5000 } } },
     },
     {
       label: 'Each store has its own destination (STORE.<id>.PRICES)',
       rule: { type: 'exists', component: 'jms-publish', where: { destination: 'STORE' } },
     },
     {
-      label: 'Sent rows are flagged in Oracle with a Bulk Update inside the job',
-      rule: { type: 'inside', component: 'db-bulk-update', within: 'batch-job' },
+      label: 'Sent rows are flagged SENT in Oracle with a Bulk Update inside the job',
+      rule: { type: 'inside', component: 'db-bulk-update', where: { sql: 'SENT' }, within: 'batch-job' },
+    },
+    {
+      label: 'Rows are flagged SENT only after they were published',
+      rule: { type: 'before', first: 'jms-publish', then: 'db-bulk-update', thenWhere: { sql: 'SENT' }, every: true },
     },
     {
       label: 'One unreachable store does not stop the whole run (max failed records -1)',
       rule: { type: 'exists', component: 'batch-job', where: { maxFailedRecords: { lte: -1 } } },
     },
     {
-      label: 'Failed rows are recorded for a re-send (ONLY_FAILURES step)',
-      rule: { type: 'inside', component: ['db-insert', 'db-bulk-insert', 'db-update'], within: 'batch-job' },
+      label: 'Failed rows are recorded as failed for a re-send (ONLY_FAILURES step)',
+      rule: {
+        type: 'inside',
+        component: ['db-insert', 'db-bulk-insert', 'db-update', 'db-bulk-update'],
+        within: 'batch-job',
+        routeWhere: { acceptPolicy: { is: 'ONLY_FAILURES' } },
+      },
     },
-    { label: 'A completion summary is emailed from On Complete', rule: { type: 'inside', component: 'email-send', within: 'batch-job' } },
+    {
+      label: 'A completion summary is emailed from On Complete',
+      rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
+    },
   ],
   referenceFlow: design(
     flow(

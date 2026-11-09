@@ -18,14 +18,30 @@ export default {
       rule: { type: 'source', component: 'http-listener', where: { path: 'prc-' } },
     },
     {
-      label: 'Both Experience APIs call the same Process API over HTTP Request',
-      rule: { type: 'exists', component: 'http-request', where: { path: 'prc-' }, min: 2 },
+      label: 'Both Experience APIs call the same Process API over HTTP Request, never a System API',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request', where: { path: 'prc-' }, min: 2 },
+          { type: 'absent', component: 'http-request', where: { path: 'sys-' }, inFlowWith: { component: 'http-listener', where: { path: 'exp-' } } },
+        ],
+      },
     },
     {
-      label: 'The Process API reaches the back end only through a System API',
-      rule: { type: 'exists', component: 'http-request', where: { path: 'sys-' } },
+      label: 'The Process API reaches the OMS only through a System API',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'prc-' }, then: 'http-request', thenWhere: { path: 'sys-' } },
+          { type: 'absent', component: 'db-select', inFlowWith: { component: 'http-listener', where: { path: { oneOf: ['prc-', 'exp-'] } } } },
+        ],
+      },
     },
     { label: 'Each layer shapes its own model with DataWeave', rule: { type: 'exists', component: 'transform', min: 3 } },
+    {
+      label: 'The partner Experience API answers in XML',
+      rule: { type: 'before', first: 'http-listener', firstWhere: { path: 'exp-' }, then: 'transform', thenWhere: { script: 'application/xml' } },
+    },
     {
       label: 'Process API HTTP errors are translated into channel-friendly responses',
       rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'HTTP:' } },

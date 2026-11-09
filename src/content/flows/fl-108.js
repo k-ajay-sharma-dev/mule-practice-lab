@@ -9,16 +9,27 @@ export default {
   estMinutes: 10,
   flowChecks: [
     {
-      label: 'The flow runs on a daily cron schedule',
-      rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron' } },
+      label: 'The flow runs on a cron schedule at 06:00',
+      rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { oneOf: ['0 0 6 ', '0 0 06 '] } } },
     },
     {
-      label: 'File Read reads employees.csv',
-      rule: { type: 'exists', component: 'file-read', where: { path: 'employees.csv' } },
+      label: 'File Read reads /data/hr/in/employees.csv',
+      rule: { type: 'exists', component: 'file-read', where: { path: '/data/hr/in/employees.csv' } },
     },
     {
-      label: 'File Write writes to the backup folder and replaces the old copy',
-      rule: { type: 'exists', component: 'file-write', where: { path: '/data/hr/backup', mode: 'OVERWRITE' } },
+      label: 'File Write writes /data/hr/backup/employees.csv and replaces the old copy',
+      rule: { type: 'exists', component: 'file-write', where: { path: '/data/hr/backup/employees.csv', mode: 'OVERWRITE' } },
+    },
+    {
+      label: 'The original file stays where it is',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'file-read' },
+          { type: 'absent', component: ['file-move', 'file-delete', 'file-rename'] },
+          { type: 'absent', component: 'file-write', where: { path: '/data/hr/in/' } },
+        ],
+      },
     },
     {
       label: 'The file is read before it is written',

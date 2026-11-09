@@ -9,10 +9,45 @@ export default {
   estMinutes: 10,
   flowChecks: [
     { label: 'An HTTP Listener receives the POST on /employees', rule: { type: 'source', component: 'http-listener', where: { path: '/employees', allowedMethods: 'POST' } } },
-    { label: 'Transform Message builds the fullName field', rule: { type: 'exists', component: 'transform', where: { script: 'fullName' } } },
-    { label: 'Transform Message renames dept to department', rule: { type: 'exists', component: 'transform', where: { script: 'department' } } },
-    { label: 'The incoming request is logged before the Transform Message', rule: { type: 'before', first: 'logger', then: 'transform' } },
-    { label: 'The result is logged after the Transform Message', rule: { type: 'before', first: 'transform', then: 'logger' } },
+    {
+      label: 'Transform Message builds fullName from the first and last name',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'fullName' } },
+          { type: 'exists', component: 'transform', where: { script: 'firstName' } },
+          { type: 'exists', component: 'transform', where: { script: 'lastName' } },
+        ],
+      },
+    },
+    {
+      label: 'Transform Message renames dept to department',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'department' } },
+          { type: 'exists', component: 'transform', where: { script: 'dept' } },
+        ],
+      },
+    },
+    {
+      label: 'The response keeps employeeId and startDate',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'employeeId' } },
+          { type: 'exists', component: 'transform', where: { script: 'startDate' } },
+        ],
+      },
+    },
+    {
+      label: 'The employee ID is logged when the request arrives, before the Transform Message',
+      rule: { type: 'before', first: 'logger', firstWhere: { message: 'employeeId' }, then: 'transform' },
+    },
+    {
+      label: 'The full name is logged after the Transform Message',
+      rule: { type: 'before', first: 'transform', then: 'logger', thenWhere: { message: 'fullName' } },
+    },
   ],
   referenceFlow: design(
     flow('create-employee', source('http-listener', { path: '/employees', allowedMethods: 'POST' }), [

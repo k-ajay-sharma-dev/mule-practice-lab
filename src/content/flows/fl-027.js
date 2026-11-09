@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-027',
@@ -15,21 +16,44 @@ export default {
     },
     { label: 'Incoming parameters are checked with the Validation module', rule: { type: 'exists', component: 'validation' } },
     {
+      label: 'The required q parameter is validated',
+      rule: { type: 'exists', component: 'validation', where: { expression: 'queryParams.q' } },
+    },
+    {
+      label: 'The optional limit parameter is validated',
+      rule: { type: 'exists', component: 'validation', where: { expression: 'limit' } },
+    },
+    {
+      label: 'The SKU URI parameter is validated',
+      rule: { type: 'exists', component: 'validation', where: { expression: 'sku' } },
+    },
+    {
       label: 'Parameters are validated before the database is queried',
-      rule: { type: 'before', first: 'validation', then: 'db-select' },
+      rule: { type: 'before', first: 'validation', then: 'db-select', every: true },
+    },
+    {
+      label: 'The search query applies the limit',
+      rule: { type: 'exists', component: 'db-select', where: { sql: 'limit' } },
     },
     {
       label: 'A Choice separates the "found" and "not found" responses',
       rule: { type: 'inside', component: ['set-variable', 'transform', 'set-payload', 'raise-error'], within: 'choice' },
     },
     {
+      label: 'An unknown SKU returns 404',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'set-variable', where: { value: '404' }, within: 'choice' },
+          handlerStatus('NOT_FOUND', '404'),
+        ],
+      },
+    },
+    {
       label: 'The HTTP status code is set explicitly (e.g. vars.httpStatus)',
       rule: { type: 'exists', component: 'set-variable', where: { variableName: 'status' } },
     },
-    {
-      label: 'Validation errors have their own handler that returns 400',
-      rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'VALIDATION' } },
-    },
+    { label: 'Validation errors have their own handler that returns 400', rule: handlerStatus('VALIDATION', '400') },
   ],
   referenceFlow: design(
     flow(

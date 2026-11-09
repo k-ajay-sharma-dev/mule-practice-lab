@@ -1,6 +1,7 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
 
 const CB_STORE = 'merchant-circuit-breaker'
+const TRANSIENT = ['TIMEOUT', 'CONNECTIVITY', 'SERVICE_UNAVAILABLE', 'INTERNAL_SERVER_ERROR', 'BAD_GATEWAY']
 
 export default {
   id: 'fl-036',
@@ -13,7 +14,13 @@ export default {
     { label: 'Provider webhooks are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
     {
       label: 'The webhook is handed to a queue instead of calling the merchant in-line',
-      rule: { type: 'exists', component: 'mq-publish' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', then: 'mq-publish' },
+          { type: 'absent', component: ['http-request', 'until-successful'], inFlowWith: { component: 'http-listener' } },
+        ],
+      },
     },
     {
       label: 'A worker consumes the relay queue with manual acknowledgement',
@@ -32,16 +39,52 @@ export default {
       rule: { type: 'exists', component: 'http-request', where: { responseTimeout: { gte: 1, lte: 10000 } } },
     },
     {
-      label: 'A failed delivery updates the failure count / circuit state in Object Store',
-      rule: { type: 'inside', component: 'os-store', within: ['on-error-continue', 'on-error-propagate'] },
+      label: 'A successful call closes the circuit again in Object Store',
+      rule: { type: 'before', first: 'http-request', then: 'os-store', outside: true },
     },
     {
-      label: 'Exhausted or non-retryable webhooks are dead-lettered from an error handler',
+      label: 'A transient failure (timeout, connectivity, 5xx) updates the failure count in Object Store',
+      rule: {
+        type: 'inside',
+        component: 'os-store',
+        within: ['on-error-continue', 'on-error-propagate'],
+        withinWhere: { type: { oneOf: TRANSIENT } },
+      },
+    },
+    {
+      label: 'Transient failures are retried by re-queuing the event, not by holding a thread in Until Successful',
+      rule: {
+        type: 'all',
+        rules: [
+          {
+            type: 'inside',
+            component: 'mq-publish',
+            where: { destination: { not: 'dlq' } },
+            within: ['on-error-continue', 'on-error-propagate'],
+            withinWhere: { type: { oneOf: TRANSIENT } },
+          },
+          { type: 'absent', component: 'until-successful' },
+        ],
+      },
+    },
+    {
+      label: 'Non-retryable merchant errors (400, 404) go straight to the DLQ',
       rule: {
         type: 'inside',
         component: 'mq-publish',
         within: ['on-error-continue', 'on-error-propagate'],
         where: { destination: 'dlq' },
+        withinWhere: { type: { oneOf: ['BAD_REQUEST', 'NOT_FOUND'] } },
+      },
+    },
+    {
+      label: 'Webhooks that run out of retries are dead-lettered too',
+      rule: {
+        type: 'inside',
+        component: 'mq-publish',
+        within: ['on-error-continue', 'on-error-propagate'],
+        where: { destination: 'dlq' },
+        withinWhere: { type: { oneOf: TRANSIENT } },
       },
     },
   ],

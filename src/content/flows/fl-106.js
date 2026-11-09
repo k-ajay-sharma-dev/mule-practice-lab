@@ -25,8 +25,38 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'HTTP:TIMEOUT' },
     },
     {
-      label: 'The fallback answer is built inside the handler',
-      rule: { type: 'inside', component: ['set-payload', 'transform'], within: 'on-error-continue' },
+      label: 'No catch-all On Error Continue turns other failures into a made up estimate',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'on-error-continue' },
+          { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+        ],
+      },
+    },
+    {
+      label: 'The handler logs a warning',
+      rule: { type: 'inside', component: 'logger', within: 'on-error-continue', where: { level: 'WARN' } },
+    },
+    {
+      label: 'The fallback answer, marked as source standard, is built inside the handler',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'set-payload', within: 'on-error-continue', where: { value: 'standard' } },
+          { type: 'inside', component: 'transform', within: 'on-error-continue', where: { script: 'standard' } },
+        ],
+      },
+    },
+    {
+      label: 'On success the answer uses the carrier number and source carrier',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'http-request', then: 'transform', thenWhere: { script: 'estimatedDays' }, outside: true },
+          { type: 'before', first: 'http-request', then: 'set-payload', thenWhere: { value: 'estimatedDays' }, outside: true },
+        ],
+      },
     },
   ],
   referenceFlow: design(

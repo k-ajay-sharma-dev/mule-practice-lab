@@ -13,8 +13,23 @@ export default {
       rule: { type: 'source', component: 'http-listener', where: { path: 'prc-' } },
     },
     {
-      label: 'The event is published only after the synchronous System API call succeeded',
-      rule: { type: 'before', first: 'http-request', then: 'mq-publish' },
+      label: 'The event is published only after the CRM System API call succeeded',
+      rule: { type: 'before', first: 'http-request', firstWhere: { path: 'sys-crm' }, then: 'mq-publish', outside: true },
+    },
+    {
+      label: 'Marketing, billing and loyalty are not called on the signup path',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request', where: { path: 'sys-crm' } },
+          {
+            type: 'absent',
+            component: 'http-request',
+            where: { path: { oneOf: ['marketing', 'billing', 'loyalty'] } },
+            inFlowWith: { component: 'http-listener', where: { path: { oneOf: ['prc-', 'exp-'] } } },
+          },
+        ],
+      },
     },
     {
       label: 'A business event envelope is built with DataWeave before publishing',
@@ -33,12 +48,22 @@ export default {
       rule: { type: 'inside', component: ['db-insert', 'os-store', 'vm-publish'], within: 'try' },
     },
     {
-      label: 'A scheduled relay re-publishes parked events',
-      rule: { type: 'source', component: 'scheduler' },
+      label: 'A scheduled relay re-publishes parked events and marks them sent only after the publish',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'scheduler', then: 'mq-publish' },
+          { type: 'before', first: 'mq-publish', then: ['db-update', 'db-delete', 'os-remove'] },
+        ],
+      },
     },
     {
       label: 'Downstream processes consume the event asynchronously (Anypoint MQ Subscriber)',
       rule: { type: 'source', component: 'mq-subscriber' },
+    },
+    {
+      label: 'The subscriber copes with duplicate events before it acts on them',
+      rule: { type: 'before', first: 'mq-subscriber', then: ['idempotent', 'os-retrieve', 'db-select'] },
     },
   ],
   referenceFlow: design(

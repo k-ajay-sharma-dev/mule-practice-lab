@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-013',
@@ -23,9 +24,17 @@ export default {
       label: 'SOAP Faults are caught and mapped to HTTP statuses',
       rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'WSC:SOAP_FAULT' },
     },
+    { label: 'A POLICY_NOT_FOUND fault is mapped to 404', rule: handlerStatus('SOAP_FAULT', '404') },
+    { label: 'A POLICY_LOCKED fault is mapped to 409', rule: handlerStatus('SOAP_FAULT', '409') },
     {
       label: 'Backend connectivity failures are mapped to a 5xx',
-      rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'WSC:CONNECTIVITY' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: ['on-error-propagate', 'on-error-continue'], errorType: 'WSC:CONNECTIVITY' },
+          handlerStatus('WSC:CONNECTIVITY', { oneOf: ['502', '503', '504'] }),
+        ],
+      },
     },
   ],
   referenceFlow: design(

@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step, subFlow } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-045',
@@ -13,17 +14,56 @@ export default {
       rule: { type: 'before', first: ['db-insert', 'os-store'], then: ['until-successful', 'foreach', 'http-request'] },
     },
     { label: 'Calls to the flaky WMS are retried with Until Successful', rule: { type: 'inside', component: 'http-request', within: 'until-successful' } },
-    { label: 'Out-of-stock is turned into a business error instead of being retried', rule: { type: 'exists', component: 'raise-error' } },
+    {
+      label: 'Out-of-stock is turned into a business error outside the retry scope, so it is never retried',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'raise-error', within: 'choice' },
+          { type: 'absent', component: 'raise-error', within: 'until-successful' },
+        ],
+      },
+    },
     {
       label: 'On failure, lines already reserved are released (compensation from the error handler)',
-      rule: { type: 'inside', component: ['flow-ref', 'http-request'], within: ['on-error-propagate', 'on-error-continue'] },
+      rule: {
+        type: 'inside',
+        component: 'http-request',
+        where: { method: 'DELETE' },
+        within: ['on-error-propagate', 'on-error-continue'],
+        withinWhere: { type: { oneOf: ['APP:', 'RETRY_EXHAUSTED', 'ANY'] } },
+      },
+    },
+    {
+      label: 'A rejected hold is answered with 409',
+      rule: handlerStatus({ oneOf: ['APP:', 'ANY'] }, '409'),
     },
     {
       label: 'A release that keeps failing is parked on a queue for later retry',
       rule: { type: 'inside', component: ['mq-publish', 'vm-publish', 'jms-publish'], within: ['on-error-continue', 'on-error-propagate'] },
     },
     { label: 'A Scheduler sweeper releases holds that expired without checkout', rule: { type: 'source', component: 'scheduler' } },
-    { label: 'A commit endpoint converts the hold before it expires', rule: { type: 'exists', component: 'http-listener', min: 2 } },
+    {
+      label: 'The sweeper runs often enough to free expired stock within 2 minutes',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'source', component: 'scheduler', where: { strategy: 'fixed-frequency', timeUnit: 'MINUTES', frequency: { gte: 1, lte: 2 } } },
+          { type: 'source', component: 'scheduler', where: { strategy: 'fixed-frequency', timeUnit: 'SECONDS', frequency: { gte: 1, lte: 120 } } },
+          { type: 'source', component: 'scheduler', where: { strategy: 'cron' } },
+        ],
+      },
+    },
+    {
+      label: 'A commit endpoint converts the hold only if it has not expired',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-listener', min: 2 },
+          { type: 'before', first: 'http-listener', then: 'db-update', thenWhere: { sql: { all: ['COMMITTED', 'expires_at'] } } },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

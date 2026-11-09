@@ -10,9 +10,36 @@ export default {
   flowChecks: [
     { label: 'The manager lookup lives in a sub-flow', rule: { type: 'flows', kind: 'sub-flow', min: 1 } },
     { label: 'Every Flow Reference points to an existing flow or sub-flow', rule: { type: 'refs' } },
-    { label: 'The Flow Reference stores its result in the target variable manager', rule: { type: 'exists', component: 'flow-ref', where: { target: 'manager' } } },
+    {
+      label: 'A Flow Reference calls get-manager and stores its result in the target variable manager',
+      rule: { type: 'exists', component: 'flow-ref', where: { name: 'get-manager', target: 'manager' } },
+    },
+    {
+      label: 'The manager lookup call lives in the sub-flow, not in the main flow',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'http-request' },
+          { type: 'absent', component: 'http-request', inFlowWith: { component: 'http-listener' } },
+        ],
+      },
+    },
+    {
+      label: 'The sub-flow calls GET /employees/{employeeId}/manager',
+      rule: { type: 'exists', component: 'http-request', where: { method: 'GET', path: '/manager' } },
+    },
     { label: 'The response is built after the Flow Reference', rule: { type: 'before', first: 'flow-ref', then: 'transform' } },
-    { label: 'The response reads the lookup result from vars.manager', rule: { type: 'exists', component: 'transform', where: { script: 'vars.manager' } } },
+    {
+      label: 'The response puts the manager email from vars.manager in approver',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'transform', where: { script: 'vars.manager' } },
+          { type: 'exists', component: 'transform', where: { script: 'approver' } },
+          { type: 'exists', component: 'transform', where: { script: 'email' } },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow('submit-leave-request', source('http-listener', { path: '/leave-requests', allowedMethods: 'POST' }), [

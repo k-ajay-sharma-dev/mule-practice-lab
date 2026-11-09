@@ -8,21 +8,69 @@ export default {
   tags: ['activemq', 'jms', 'healthcare', 'manual-ack', 'http', 'error-handling'],
   estMinutes: 30,
   flowChecks: [
-    { label: 'Results are consumed by a JMS listener with MANUAL acknowledgement', rule: { type: 'source', component: 'jms-listener', where: { ackMode: 'MANUAL' } } },
-    { label: 'The ack ID is saved in a variable at the start of the flow', rule: { type: 'before', first: 'set-variable', then: 'http-request' } },
-    { label: 'The message is acknowledged only after the EMR accepted the result', rule: { type: 'before', first: 'http-request', then: 'jms-ack' } },
+    {
+      label: 'Results are consumed from LAB.RESULTS by a JMS listener with MANUAL acknowledgement',
+      rule: { type: 'source', component: 'jms-listener', where: { destination: 'LAB.RESULTS', ackMode: 'MANUAL' } },
+    },
+    {
+      label: 'The ack ID is saved in a variable at the start of the flow',
+      rule: { type: 'before', first: 'set-variable', firstWhere: { value: 'ackId' }, then: 'http-request' },
+    },
+    {
+      label: 'The EMR call is a PUT by result ID, so a repeat updates the same record',
+      rule: { type: 'exists', component: 'http-request', where: { method: 'PUT' } },
+    },
+    {
+      label: 'The message is acknowledged only after the EMR accepted the result',
+      rule: { type: 'before', first: 'http-request', then: 'jms-ack', outside: true },
+    },
     { label: 'Ack uses the saved ID, because the HTTP call replaces the attributes', rule: { type: 'exists', component: 'jms-ack', where: { ackId: 'vars' } } },
     {
-      label: 'A transient failure recovers the session in the error handler',
-      rule: { type: 'inside', component: 'jms-recover-session', within: ['on-error-continue', 'on-error-propagate'], where: { ackId: 'vars' } },
+      label: 'A transient failure recovers the session in its error handler',
+      rule: {
+        type: 'inside',
+        component: 'jms-recover-session',
+        within: ['on-error-continue', 'on-error-propagate'],
+        withinWhere: { type: { oneOf: ['ANY', 'SERVICE_UNAVAILABLE', 'CONNECTIVITY', 'TIMEOUT'] } },
+        where: { ackId: 'vars' },
+      },
     },
     {
-      label: 'An invalid result is parked on a separate queue',
-      rule: { type: 'inside', component: 'jms-publish', within: 'on-error-continue', where: { destination: 'PARKED' } },
+      label: 'An invalid result is parked on LAB.RESULTS.PARKED',
+      rule: { type: 'inside', component: 'jms-publish', within: 'on-error-continue', where: { destination: 'LAB.RESULTS.PARKED' } },
     },
     {
-      label: 'A parked result is acknowledged so it does not come back',
-      rule: { type: 'inside', component: 'jms-ack', within: 'on-error-continue' },
+      label: 'A parked result is acknowledged after the publish, so it neither comes back nor gets lost',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'jms-ack', within: 'on-error-continue' },
+          { type: 'before', first: 'jms-publish', firstWhere: { destination: 'PARKED' }, then: 'jms-ack' },
+        ],
+      },
+    },
+    {
+      label: 'The parking handler comes before the catch-all, so an invalid result is not sent back for redelivery',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'before',
+            first: 'on-error-continue',
+            firstWhere: { type: { not: 'ANY' } },
+            then: ['on-error-continue', 'on-error-propagate'],
+            thenWhere: { type: 'ANY' },
+            every: true,
+          },
+          {
+            type: 'all',
+            rules: [
+              { type: 'inside', component: 'jms-publish', within: 'on-error-continue', where: { destination: 'PARKED' } },
+              { type: 'absent', component: ['on-error-continue', 'on-error-propagate'], where: { type: 'ANY' } },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

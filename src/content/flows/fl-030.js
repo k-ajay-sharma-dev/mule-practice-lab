@@ -21,13 +21,59 @@ export default {
       rule: { type: 'inside', component: ['http-request', 'db-select', 'flow-ref'], within: 'cache' },
     },
     {
-      label: 'The event is merged with the cached data after the lookup',
-      rule: { type: 'before', first: 'cache', then: 'transform' },
+      label: 'The Cache scope uses a named caching strategy (key and entry lifetime), not the default',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'cache', where: { cachingStrategy: { set: true } } },
+          { type: 'exists', component: 'cache', where: { cachingStrategy: { not: 'default' } } },
+        ],
+      },
     },
-    { label: 'The enriched event is published downstream', rule: { type: 'before', first: 'transform', then: 'mq-publish' } },
+    {
+      label: 'The event is merged with the cached data after the lookup',
+      rule: { type: 'before', first: 'cache', then: 'transform', outside: true },
+    },
+    {
+      label: 'The enriched event is published to sales-enriched',
+      rule: { type: 'before', first: 'transform', then: 'mq-publish', thenWhere: { destination: 'sales-enriched' }, outside: true },
+    },
     {
       label: 'An unknown store is handled explicitly instead of failing the whole stream',
       rule: { type: 'handler', component: ['on-error-continue', 'on-error-propagate'], errorType: 'HTTP:NOT_FOUND' },
+    },
+    {
+      label: 'An event for an unknown store is still published, marked as unenriched',
+      rule: { type: 'inside', component: 'mq-publish', within: 'on-error-continue', withinWhere: { type: 'NOT_FOUND' } },
+    },
+    {
+      label: 'When the Store Master API is down the error propagates, so the event is redelivered, not lost',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: ['mq-subscriber', 'jms-listener', 'vm-listener'] },
+          { type: 'absent', component: 'mq-subscriber', where: { acknowledgementMode: 'IMMEDIATE' } },
+          {
+            type: 'any',
+            rules: [
+              {
+                type: 'all',
+                rules: [
+                  {
+                    type: 'absent',
+                    component: 'on-error-continue',
+                    where: { type: { oneOf: ['CONNECTIVITY', 'TIMEOUT', 'SERVICE_UNAVAILABLE'] } },
+                  },
+                  // ANY also matches a handler with no type, since both catch everything.
+                  { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+                ],
+              },
+              // With manual acknowledgement, a handler may Nack the message back to the queue instead.
+              { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

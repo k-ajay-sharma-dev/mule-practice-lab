@@ -12,9 +12,21 @@ export default {
       label: 'Readings arrive through the Kafka Batch Message Listener with MANUAL acknowledgement',
       rule: { type: 'source', component: 'kafka-batch-listener', where: { ackMode: 'MANUAL' } },
     },
-    { label: 'The batch is written with one Bulk Insert', rule: { type: 'exists', component: 'db-bulk-insert', where: { sql: 'ON CONFLICT' } } },
-    { label: 'The commit key is saved in a variable at the start of the flow', rule: { type: 'before', first: 'set-variable', then: 'kafka-commit' } },
-    { label: 'The offsets are committed after the insert', rule: { type: 'before', first: 'db-bulk-insert', then: 'kafka-commit' } },
+    {
+      label: 'The batch is written with one Bulk Insert that ignores repeats (ON CONFLICT DO NOTHING), so a re-sent reading changes nothing',
+      rule: { type: 'exists', component: 'db-bulk-insert', where: { sql: 'DO NOTHING' } },
+    },
+    {
+      label: 'The commit key is saved in a variable at the start of the flow, and every commit uses it',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'set-variable', then: 'kafka-commit' },
+          { type: 'absent', component: 'kafka-commit', where: { consumerCommitKey: { not: 'vars.' } } },
+        ],
+      },
+    },
+    { label: 'The offsets are committed after the insert', rule: { type: 'before', first: 'db-bulk-insert', then: 'kafka-commit', outside: true } },
     {
       label: 'When a bad batch is handled with On Error Continue, that path commits as well',
       rule: { type: 'inside', component: 'kafka-commit', within: 'on-error-continue' },
@@ -29,7 +41,29 @@ export default {
     },
     {
       label: 'A database outage is propagated, so that path does not commit',
-      rule: { type: 'handler', component: 'on-error-propagate', errorType: 'DB:CONNECTIVITY' },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'handler', component: 'on-error-propagate', errorType: 'DB:CONNECTIVITY' },
+          { type: 'absent', component: 'kafka-commit', within: 'on-error-propagate' },
+        ],
+      },
+    },
+    {
+      label: 'No catch-all On Error Continue catches the outage first and commits it',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'on-error-propagate', firstWhere: { type: 'DB:CONNECTIVITY' }, then: 'on-error-continue', every: true },
+          {
+            type: 'all',
+            rules: [
+              { type: 'handler', component: 'on-error-propagate', where: { type: 'DB:CONNECTIVITY' } },
+              { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
+            ],
+          },
+        ],
+      },
     },
   ],
   referenceFlow: design(

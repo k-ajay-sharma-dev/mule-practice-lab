@@ -68,21 +68,25 @@ export function restoreDesign(saved) {
 // Calls visit(item, ctx) for every flow, node and route, depth first in document order.
 export function walk(design, visit) {
   const visitList = (list, ctx) => list.forEach((n) => visitNode(n, ctx))
+  // Order as it reads on the canvas: a scope's steps, then its routes, then the otherwise branch, On Complete
+  // and error handlers. Design checks that compare order depend on this. `slots` is every slot on the way down.
+  const into = (ctx, slot) => ({ ...ctx, slot, slots: [...(ctx.slots ?? []), slot] })
   function visitNode(node, ctx) {
     visit(node, ctx)
     const inner = { ...ctx, ancestors: [...ctx.ancestors, node] }
-    for (const slot of SLOTS) if (node[slot]) visitList(node[slot], { ...inner, slot })
+    if (node.steps) visitList(node.steps, into(inner, 'steps'))
     node.routes?.forEach((route) => {
       visit(route, { ...inner, isRoute: true, parent: node })
-      visitList(route.steps, { ...inner, ancestors: [...inner.ancestors, route], slot: 'steps' })
+      visitList(route.steps, into({ ...inner, ancestors: [...inner.ancestors, route] }, 'steps'))
     })
+    for (const slot of SLOTS) if (slot !== 'steps' && node[slot]) visitList(node[slot], into(inner, slot))
   }
   for (const flow of design.flows) {
     visit(flow, { flow, ancestors: [], isFlow: true })
-    const ctx = { flow, ancestors: [] }
-    if (flow.source) visitNode(flow.source, { ...ctx, slot: 'source' })
-    visitList(flow.steps, { ...ctx, slot: 'steps' })
-    if (flow.errorHandlers) visitList(flow.errorHandlers, { ...ctx, slot: 'errorHandlers' })
+    const ctx = { flow, ancestors: [], slots: [] }
+    if (flow.source) visitNode(flow.source, into(ctx, 'source'))
+    visitList(flow.steps, into(ctx, 'steps'))
+    if (flow.errorHandlers) visitList(flow.errorHandlers, into(ctx, 'errorHandlers'))
   }
 }
 
