@@ -13,7 +13,7 @@ export default {
       { label: 'The order API saves the order', rule: { type: 'edge', from: 'process-api', to: 'database' } },
       { label: 'The order API publishes to the event stream', rule: { type: 'edge', from: 'process-api', to: 'event-stream', kind: 'async' } },
       { label: 'The shipping API reads from the event stream', rule: { type: 'edge', from: 'event-stream', to: 'system-api', kind: 'async' } },
-      { label: 'The shipping API books the transport', rule: { type: 'edge', from: 'system-api', to: 'tms' } },
+      { label: 'The shipping API books the transport with a sync call', rule: { type: 'edge', from: 'system-api', to: 'tms', kind: 'sync' } },
       { label: 'The order API never calls the shipping API directly', rule: { type: 'no-edge', from: 'process-api', to: 'system-api' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },

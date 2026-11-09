@@ -14,6 +14,7 @@ export default {
       { label: 'The gateway passes requests to the Experience API', rule: { type: 'edge', from: 'api-gateway', to: 'experience-api' } },
       { label: 'The web app never calls the Experience API directly', rule: { type: 'no-edge', from: 'web-app', to: 'experience-api' } },
       { label: 'The Experience API calls the Process API', rule: { type: 'edge', from: 'experience-api', to: 'process-api' } },
+      { label: 'The gateway forwards live requests, so every call in the path is a sync call', rule: { type: 'lines', from: ['web-app', 'api-gateway', 'experience-api'], to: ['api-gateway', 'experience-api', 'process-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

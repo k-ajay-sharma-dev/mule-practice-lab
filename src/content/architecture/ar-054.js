@@ -12,11 +12,16 @@ export default {
     checks: [
       { label: 'The mobile app, the web portal and the marketplace partner each call an Experience API', rule: { type: 'each', of: ['mobile-app', 'web-app', 'partner'], min: 3, edgeTo: 'experience-api' } },
       { label: 'The partner has its own Experience API, separate from the digital channels', rule: { type: 'each', of: { type: 'experience-api', label: ['partner', 'marketplace'] }, edgeFrom: 'partner' } },
+      { label: 'The mobile app and the web portal never use the partner Experience API', rule: { type: 'no-edge', from: ['mobile-app', 'web-app'], to: { type: 'experience-api', label: ['partner', 'marketplace'] } } },
       { label: 'Every Experience API reuses a Process API (the business rules live there)', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'The Experience APIs share the existing order Process API', rule: { type: 'each', of: 'process-api', edgeFrom: 'experience-api', count: 2, some: true } },
       { label: 'Experience APIs never call System APIs to "fill gaps"', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
-      { label: 'End users log in through the identity provider', rule: { type: 'edge', from: ['mobile-app', 'web-app', 'experience-api', 'api-gateway'], to: 'identity-provider' } },
+      { label: 'Both end-user channels log in through the identity provider', rule: { type: 'each', of: ['mobile-app', 'web-app'], min: 2, edgeTo: 'identity-provider' } },
       { label: 'The order list is cached with a short TTL at the Experience layer', rule: { type: 'edge', from: 'experience-api', to: 'cache' } },
+      { label: 'Every System API is called by the Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to the order backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'database', 'crm', 'saas', 'legacy'] } },
       { label: 'The order backend is reached only through a System API', rule: { type: 'only-via', target: ['erp', 'database', 'crm', 'saas', 'legacy'], from: 'system-api' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'web-app', 'partner', 'api-gateway', 'experience-api', 'process-api'], to: ['api-gateway', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(

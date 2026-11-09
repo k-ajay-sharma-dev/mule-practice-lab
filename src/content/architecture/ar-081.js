@@ -20,6 +20,13 @@ export default {
       { label: 'Partners never write to the databases directly', rule: { type: 'no-edge', from: 'partner', to: ['oracle-db', 'sql-server'] } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'Every partner delivers its files to a managed file server', rule: { type: 'each', of: 'partner', edgeTo: ['sftp-server', 'file-store'] } },
+      { label: 'Every file server receives files from partners', rule: { type: 'each', of: ['sftp-server', 'file-store'], edgeFrom: 'partner' } },
+      { label: 'The intake job picks up from every file server', rule: { type: 'each', of: ['sftp-server', 'file-store'], edgeFrom: ['batch-job', 'process-api'] } },
+      { label: 'Picked up records reach both Oracle and SQL Server through the queue', rule: { type: 'path', from: ['batch-job', 'process-api'], via: ['queue', 'cloud-queue', 'event-stream', 'topic'], to: ['oracle-db', 'sql-server'], min: 2 } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['oracle-db', 'sql-server'] } },
+      { label: 'Each System API owns one database, so none connects to both', rule: { type: 'each', of: 'system-api', edgeTo: ['oracle-db', 'sql-server'], count: 0, max: 1 } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['batch-job', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

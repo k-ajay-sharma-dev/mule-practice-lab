@@ -10,13 +10,19 @@ export default {
   diagram: {
     task: 'draw the API-led network for the store app and the supplier portal: Experience, Process and System APIs, the gateway in front of suppliers, and the Oracle, WMS and TMS backends.',
     checks: [
-      { label: 'The store app calls an Experience API', rule: { type: 'each', of: 'internal-app', edgeTo: 'experience-api' } },
+      { label: 'The store app calls an Experience API', rule: { type: 'path', from: 'internal-app', to: 'experience-api' } },
       { label: 'Suppliers reach their Experience API through an API gateway', rule: { type: 'path', from: 'partner', to: 'experience-api', via: 'api-gateway' } },
       { label: 'Every Experience API goes through a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'The fulfilment Process API orchestrates at least three System APIs', rule: { type: 'edge', from: { type: 'process-api', label: ['fulfil'] }, to: 'system-api', min: 3 } },
       { label: 'The Oracle inventory System API is reused by more than one Process API', rule: { type: 'edge', from: 'process-api', to: { type: 'system-api', label: ['inventory', 'oracle'] }, min: 2 } },
       { label: 'Oracle, WMS and TMS are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'database', 'wms', 'tms'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Suppliers never bypass the gateway to call an Experience API', rule: { type: 'no-edge', from: 'partner', to: 'experience-api' } },
+      { label: 'Supplier requests reach both Oracle and the WMS through System APIs', rule: { type: 'path', from: 'partner', via: 'system-api', to: ['erp', 'database', 'wms'], min: 2 } },
+      { label: 'Store app requests reach Oracle, the WMS and the TMS through System APIs', rule: { type: 'path', from: 'internal-app', via: 'system-api', to: ['erp', 'database', 'wms', 'tms'], min: 3 } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'database', 'wms', 'tms'] } },
+      { label: 'The gateway forwards live requests, so its lines are sync calls', rule: { type: 'lines', touching: 'api-gateway', kind: 'sync' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['internal-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

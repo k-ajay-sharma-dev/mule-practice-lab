@@ -19,6 +19,10 @@ export default {
       { label: 'Analytics receives Oracle changes end to end', rule: { type: 'path', from: ['database', 'erp'], to: 'data-warehouse' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'Shopify and Salesforce get the canonical events a Process API publishes, never the raw rows', rule: { type: 'path', from: 'process-api', via: ['topic', 'event-stream', 'queue'], to: ['saas', 'crm'], min: 2 } },
+      { label: 'Mule does not poll the Oracle tables. Changes come from the log', rule: { type: 'no-edge', from: ['process-api', 'batch-job'], to: ['database', 'erp'] } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['saas', 'crm'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: 'process-api', to: 'system-api', kind: 'sync' } },
     ],
     reference: diagram(
       {

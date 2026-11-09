@@ -18,6 +18,11 @@ export default {
       { label: 'Partners have no direct route to the vendor service', rule: { type: 'no-edge', from: 'partner', to: 'legacy' } },
       { label: 'Monitoring data goes from the proxy tier to Anypoint Monitoring', rule: { type: 'edge', from: 'api-gateway', to: 'monitoring' } },
       { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Partners and internal apps both enter through the load balancer', rule: { type: 'each', of: ['partner', 'internal-app'], min: 2, edgeTo: 'load-balancer' } },
+      { label: 'Every proxy is reached through the load balancer', rule: { type: 'each', of: 'api-gateway', edgeFrom: 'load-balancer' } },
+      { label: 'Every proxy sends its monitoring data to Anypoint Monitoring', rule: { type: 'each', of: 'api-gateway', edgeTo: 'monitoring' } },
+      { label: 'No client has a direct line to either service', rule: { type: 'no-edge', from: ['partner', 'internal-app'], to: ['legacy', 'system-api'] } },
+      { label: 'Proxies forward live requests, so their lines to the services are sync calls', rule: { type: 'lines', from: 'api-gateway', to: ['legacy', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

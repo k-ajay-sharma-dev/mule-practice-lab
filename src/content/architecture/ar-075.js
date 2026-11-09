@@ -20,6 +20,14 @@ export default {
       { label: 'Orders that keep failing go to a dead-letter queue', rule: { type: 'edge', from: ['process-api', 'queue'], to: 'dlq' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'The gateway forwards checkouts to the Experience API', rule: { type: 'edge', from: 'api-gateway', to: 'experience-api' } },
+      { label: 'Channels never bypass the gateway', rule: { type: 'no-edge', from: ['web-app', 'mobile-app'], to: ['experience-api', 'process-api'] } },
+      { label: 'No chain of sync calls joins the checkout request to Oracle', rule: { type: 'no-path', from: 'experience-api', to: ['database', 'erp'], kind: 'sync' } },
+      { label: 'Accepted orders reach Oracle through the queue', rule: { type: 'path', from: 'experience-api', via: ['queue', 'event-stream'], to: ['database', 'erp'] } },
+      { label: 'Card authorisation stays in the request as sync calls, before the order is confirmed', rule: { type: 'path', from: 'experience-api', to: 'payment', kind: 'sync' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['database', 'erp', 'payment'] } },
+      { label: 'The gateway forwards live requests, so its lines are sync calls', rule: { type: 'lines', touching: 'api-gateway', kind: 'sync' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

@@ -14,6 +14,9 @@ export default {
       { label: 'Both Experience APIs call the Process API', rule: { type: 'each', of: 'experience-api', min: 2, edgeTo: 'process-api' } },
       { label: 'One Process API is shared by both channels', rule: { type: 'node', match: 'process-api', min: 1, max: 1 } },
       { label: 'The Process API calls the System API', rule: { type: 'edge', from: 'process-api', to: 'system-api' } },
+      { label: 'Each channel has its own Experience API, so every Experience API is called by one channel', rule: { type: 'each', of: 'experience-api', min: 2, edgeFrom: ['web-app', 'mobile-app'], max: 1 } },
+      { label: 'The channels never skip their Experience API', rule: { type: 'no-edge', from: ['web-app', 'mobile-app'], to: ['process-api', 'system-api'] } },
+      { label: 'Stock lookups are sync calls at every layer', rule: { type: 'lines', from: ['web-app', 'mobile-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

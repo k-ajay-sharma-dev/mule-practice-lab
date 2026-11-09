@@ -18,6 +18,9 @@ export default {
       { label: 'No bridge sits in front of the Vertex AI agent', rule: { type: 'no-edge', from: { label: 'bridge' }, to: { type: 'external-api', label: 'vertex' } } },
       { label: 'The bridged agent appears in the Agents catalog through the bridge', rule: { type: 'edge', from: { label: 'bridge' }, to: { label: ['catalog', 'portfolio', 'registry'] }, kind: 'async' } },
       { label: 'The Vertex AI agent is registered directly', rule: { type: 'edge', from: { type: 'external-api', label: 'vertex' }, to: { label: ['catalog', 'portfolio', 'registry'] }, kind: 'async' } },
+      { label: 'The Agent Broker is reached only through the ingress gateway', rule: { type: 'only-via', target: { label: 'broker' }, from: { type: 'api-gateway', label: 'ingress' } } },
+      { label: 'Runtime calls are sync calls', rule: { type: 'lines', from: ['internal-app', 'api-gateway', 'experience-api'], to: ['api-gateway', 'experience-api', 'crm', 'external-api'], kind: 'sync' } },
+      { label: 'Registration lines into the Agents catalog are async messages', rule: { type: 'lines', to: { label: ['catalog', 'portfolio', 'registry'] }, kind: 'async' } },
     ],
     reference: diagram(
       {

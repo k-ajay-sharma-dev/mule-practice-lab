@@ -15,9 +15,15 @@ export default {
       { label: 'The bundle holds separate Experience APIs, which are not merged into one', rule: { type: 'node', match: 'experience-api', min: 3 } },
       { label: 'Every Experience API is reached through the gateway', rule: { type: 'each', of: 'experience-api', edgeFrom: 'api-gateway' } },
       { label: 'Partners never call an Experience API directly', rule: { type: 'no-edge', from: 'partner', to: 'experience-api' } },
-      { label: 'Experience APIs reuse a shared Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'One Process API is shared by several Experience APIs', rule: { type: 'each', of: 'process-api', edgeFrom: 'experience-api', count: 2, some: true } },
       { label: 'The ERP is reached only through a System API', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
       { label: 'Gateway metrics reach monitoring', rule: { type: 'edge', from: 'api-gateway', to: 'monitoring' } },
+      { label: 'Transport management is reached only through a System API', rule: { type: 'only-via', target: 'tms', from: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['tms', 'erp'] } },
+      { label: 'The gateway forwards live requests, so its lines to the APIs are sync calls', rule: { type: 'lines', from: ['partner', 'api-gateway'], to: ['api-gateway', 'experience-api'], kind: 'sync' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

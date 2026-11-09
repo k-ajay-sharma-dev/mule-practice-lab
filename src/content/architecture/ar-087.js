@@ -18,6 +18,11 @@ export default {
       { label: 'The third-party API is reached only through a System API', rule: { type: 'only-via', target: 'external-api', from: 'system-api' } },
       { label: 'Partner traffic reaches the legacy system end to end through the load balancer', rule: { type: 'path', from: 'partner', to: 'legacy', via: 'load-balancer' } },
       { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Partner traffic reaches the sanctions service end to end through the load balancer', rule: { type: 'path', from: 'partner', to: 'external-api', via: 'load-balancer' } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'external-api'] } },
+      { label: 'Every hop is a live HTTPS call, so every line between APIs and backends is a sync call', rule: { type: 'lines', from: ['experience-api', 'process-api', 'system-api'], to: ['process-api', 'system-api', 'legacy', 'external-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

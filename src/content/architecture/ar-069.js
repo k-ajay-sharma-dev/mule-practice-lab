@@ -10,15 +10,22 @@ export default {
   diagram: {
     task: 'draw the availability architecture: channels, the ATP read path, the reservation write path to the inventory system of record, and how stock changes from the WMS and stores keep availability fresh.',
     checks: [
-      { label: 'Web, mobile and store channels call Experience APIs', rule: { type: 'each', of: ['web-app', 'mobile-app', 'internal-app'], min: 2, edgeTo: 'experience-api' } },
+      { label: 'Web, mobile and store channels call Experience APIs', rule: { type: 'each', of: ['web-app', 'mobile-app', 'internal-app'], min: 3, edgeTo: 'experience-api' } },
       { label: 'Availability reads are served from an ATP read model / cache', rule: { type: 'edge', from: { type: 'process-api', label: ['atp', 'availab'] }, to: 'cache' } },
-      { label: 'Reservations go synchronously to the inventory system of record', rule: { type: 'path', from: { type: 'process-api', label: ['reserv', 'allocat'] }, to: ['database', 'erp'] } },
+      { label: 'Reservations go synchronously to the inventory system of record', rule: { type: 'path', from: { type: 'process-api', label: ['reserv', 'allocat'] }, to: ['database', 'erp'], kind: 'sync' } },
       { label: 'Stock changes are published as events by System APIs', rule: { type: 'edge', from: 'system-api', to: ['topic', 'event-stream', 'queue'], kind: 'async' } },
       { label: 'The ATP service is updated from those events', rule: { type: 'edge', from: ['topic', 'event-stream', 'queue'], to: 'process-api', kind: 'async' } },
-      { label: 'Oracle inventory and the WMS are reached only through System APIs', rule: { type: 'only-via', target: ['database', 'erp', 'wms'], from: 'system-api' } },
+      { label: 'Oracle inventory, the WMS and the store POS are reached only through System APIs', rule: { type: 'only-via', target: ['database', 'erp', 'wms', 'pos'], from: 'system-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'Every Experience API reads availability from the ATP service', rule: { type: 'each', of: 'experience-api', edgeTo: { type: 'process-api', label: ['atp', 'availab'] } } },
+      { label: 'Checkout on the web reserves stock through the reservation Process API', rule: { type: 'path', from: 'web-app', to: { type: 'process-api', label: ['reserv', 'allocat'] } } },
+      { label: 'Availability reads never call Oracle, so peak reads stay off the database', rule: { type: 'no-path', from: { type: 'process-api', label: ['atp', 'availab'] }, to: ['database', 'erp'], kind: 'sync' } },
+      { label: 'The WMS and the store POS each sit behind a System API', rule: { type: 'each', of: ['wms', 'pos'], min: 2, edgeFrom: 'system-api' } },
+      { label: 'Every System API publishes its stock changes as events', rule: { type: 'each', of: 'system-api', edgeTo: ['topic', 'event-stream', 'queue'], kind: 'async' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['database', 'erp', 'wms', 'pos'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'mobile-app', 'internal-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

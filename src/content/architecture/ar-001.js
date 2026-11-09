@@ -17,7 +17,11 @@ export default {
       { label: 'SAP is reached only through a System API', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
       { label: 'The carrier API is reached only through a System API', rule: { type: 'only-via', target: 'external-api', from: 'system-api' } },
       { label: 'Order status is cached to cut SAP calls', rule: { type: 'edge', from: ['process-api', 'system-api', 'experience-api'], to: 'cache' } },
-      { label: 'The mobile app reaches SAP end to end', rule: { type: 'path', from: 'mobile-app', to: 'erp' } },
+      { label: 'The mobile app gets order status from SAP over sync calls', rule: { type: 'path', from: 'mobile-app', to: 'erp', kind: 'sync' } },
+      { label: 'The web portal gets order status from SAP over sync calls', rule: { type: 'path', from: 'web-app', to: 'erp', kind: 'sync' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'external-api', 'saas', 'legacy', 'database'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'web-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(

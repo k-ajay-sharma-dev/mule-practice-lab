@@ -12,9 +12,11 @@ export default {
     checks: [
       { label: 'The customer portal and brokers each call an Experience API', rule: { type: 'each', of: ['web-app', 'partner'], min: 2, edgeTo: 'experience-api' } },
       { label: 'Policy reads are served from an off-mainframe read store', rule: { type: 'edge', from: 'system-api', to: ['database', 'cache'] } },
-      { label: 'Consumers reach the read store through the Policy System API', rule: { type: 'path', from: 'web-app', to: 'database', via: 'system-api' } },
+      { label: 'Consumers reach the read store through the Policy System API', rule: { type: 'path', from: 'web-app', to: ['database', 'cache'], via: 'system-api' } },
+      { label: 'Brokers reach the read store through the Policy System API', rule: { type: 'path', from: 'partner', to: ['database', 'cache'], via: 'system-api' } },
       { label: 'Changes leave the mainframe asynchronously (CDC or MQ)', rule: { type: 'edge', from: 'legacy', to: ['event-stream', 'queue', 'topic'], kind: 'async' } },
-      { label: 'The read store is fed from the mainframe changes', rule: { type: 'path', from: 'legacy', to: 'database' } },
+      { label: 'The read store is fed from the mainframe change stream', rule: { type: 'path', from: 'legacy', via: ['event-stream', 'queue', 'topic'], to: ['database', 'cache'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'partner', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
       { label: 'Address changes (writes) go to the mainframe through the System API', rule: { type: 'edge', from: 'system-api', to: ['legacy', 'queue'] } },
       { label: 'Only the System API (or its MQ request queue) touches the mainframe', rule: { type: 'only-via', target: 'legacy', from: ['system-api', 'queue'] } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },

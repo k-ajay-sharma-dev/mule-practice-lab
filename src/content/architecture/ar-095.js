@@ -10,7 +10,7 @@ export default {
   diagram: {
     task: 'draw the coexistence state in the middle of the migration: clients keep calling the existing DLB domain, the DLB serves one Experience API still on CloudHub 1.0 and forwards to private space ingress for a migrated one, the migrated Process API calls a CloudHub 1.0 System API back through the DLB, and backends are reached only through System APIs.',
     checks: [
-      { label: 'Partners and web clients still enter through the dedicated load balancer', rule: { type: 'each', of: ['partner', 'web-app'], edgeTo: { type: 'load-balancer', label: ['dlb', 'dedicated'] } } },
+      { label: 'Partners and web clients still enter through the dedicated load balancer', rule: { type: 'each', of: ['partner', 'web-app'], min: 2, edgeTo: { type: 'load-balancer', label: ['dlb', 'dedicated'] } } },
       { label: 'There are two load balancing layers: the DLB and private space ingress', rule: { type: 'node', match: 'load-balancer', min: 2 } },
       { label: 'The DLB forwards migrated traffic to private space ingress', rule: { type: 'edge', from: { type: 'load-balancer', label: ['dlb', 'dedicated'] }, to: { type: 'load-balancer', label: ['ingress', 'private space', 'cloudhub 2'] } } },
       { label: 'Ingress reaches a migrated Experience API', rule: { type: 'edge', from: { type: 'load-balancer', label: ['ingress', 'private space', 'cloudhub 2'] }, to: 'experience-api' } },
@@ -20,6 +20,15 @@ export default {
       { label: 'Clients never call a System API directly', rule: { type: 'no-edge', from: ['partner', 'web-app'], to: 'system-api' } },
       { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'The migrated Process API reaches SAP back through the DLB and a System API', rule: { type: 'path', from: 'process-api', via: { type: 'load-balancer', label: ['dlb', 'dedicated'] }, to: 'erp' } },
+      { label: 'Ingress routes calls to the migrated Process API', rule: { type: 'edge', from: { type: 'load-balancer', label: ['ingress', 'private space', 'cloudhub 2'] }, to: 'process-api' } },
+      { label: 'Every Experience API calls a Process API, directly or through ingress', rule: { type: 'each', of: 'experience-api', edgeTo: ['process-api', 'load-balancer'] } },
+      { label: 'Clients keep calling the DLB domain and never call ingress directly', rule: { type: 'no-edge', from: ['partner', 'web-app'], to: { type: 'load-balancer', label: ['ingress', 'private space', 'cloudhub 2'] } } },
+      { label: 'Clients never call an Experience API directly', rule: { type: 'no-edge', from: ['partner', 'web-app'], to: 'experience-api' } },
+      { label: 'The customer database is reached only through a System API', rule: { type: 'only-via', target: 'database', from: 'system-api' } },
+      { label: 'Every System API is called by the Process API, directly or through a load balancer', rule: { type: 'each', of: 'system-api', edgeFrom: ['process-api', 'load-balancer'] } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'database'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

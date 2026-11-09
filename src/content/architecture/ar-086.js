@@ -18,6 +18,12 @@ export default {
       { label: 'Channels never call Experience APIs directly', rule: { type: 'no-edge', from: ['web-app', 'mobile-app', 'partner'], to: 'experience-api' } },
       { label: 'Customer and partner channels have separate Experience APIs', rule: { type: 'node', match: 'experience-api', min: 2 } },
       { label: 'Core banking is reached only through a System API', rule: { type: 'only-via', target: ['legacy', 'erp'], from: 'system-api' } },
+      { label: 'Every Experience API is reached through the gateway', rule: { type: 'each', of: 'experience-api', edgeFrom: 'api-gateway' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Every Process API calls a System API', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'erp'] } },
+      { label: 'Token requests and gateway traffic are live requests, so their lines are sync calls', rule: { type: 'lines', from: ['web-app', 'mobile-app', 'partner', 'api-gateway'], to: ['identity-provider', 'api-gateway', 'experience-api'], kind: 'sync' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['experience-api', 'process-api'], to: ['process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

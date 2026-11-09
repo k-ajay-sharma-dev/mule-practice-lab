@@ -10,11 +10,15 @@ import { NODE_TYPES } from './catalog.js'
 //   { type: 'edge', from, to, kind, min = 1 }         direct connections (kind 'sync' | 'async' optional)
 //   { type: 'path', from, to, via, kind, min = 1 }    a directed route exists (optionally through `via`, or using only
 //                                                     `kind` lines), reaching at least `min` different `to` nodes
-//   { type: 'no-path', from, to, kind, ifDrawn }      both exist but no route joins them (using only `kind` lines, if given);
-//                                                     with `ifDrawn`, `to` may be left out of the diagram
+//   { type: 'no-path', from, to, kind, ifDrawn, unless }  both exist but no route joins them (using only `kind` lines, if
+//                                                     given); with `ifDrawn`, `to` may be left out of the diagram; with
+//                                                     `unless`, routes through those boxes are allowed (every route must
+//                                                     pass one of them)
 //   { type: 'only-via', target, from }                target is reached, and only from `from` nodes
-//   { type: 'no-edge', from, to }                     both exist but are never directly connected
-//   { type: 'each', of, edgeTo | edgeFrom, kind, count = 1 }  every `of` node (at least `min`) has `count` such connections
+//   { type: 'no-edge', from, to, ifDrawn }            both exist but are never directly connected (`ifDrawn`: `to` may be absent)
+//   { type: 'each', of, edgeTo | edgeFrom, kind, count = 1, max, some }
+//                                                     every `of` node (at least `min`) has from `count` to `max` such
+//                                                     connections; with `some`, at least one of them does
 //   { type: 'link', from, to }                        a line joins them in either direction, for when both directions are right
 //   { type: 'lines', from, to | touching, kind }      every such line that is drawn has this kind (none drawn is fine)
 // Every rule needs something drawn to pass, so an empty canvas never satisfies a check.
@@ -38,17 +42,19 @@ function graph(diagram) {
   const find = (m) => diagram.nodes.filter((n) => matches(n, m))
   const edgeMatches = (e, from, to, kind) =>
     matches(byId.get(e.from), from) && matches(byId.get(e.to), to) && (!kind || e.kind === kind)
-  const reachable = (startIds, kind) => {
-    const seen = new Set(startIds)
-    const queue = [...startIds]
+  // stop: boxes a route may not pass through, so nothing is reached beyond them.
+  const reachable = (startIds, kind, stop = () => false) => {
+    const open = startIds.filter((id) => !stop(id))
+    const seen = new Set(open)
+    const queue = [...open]
     while (queue.length) {
       const id = queue.shift()
-      for (const e of edges) if (e.from === id && (!kind || e.kind === kind) && !seen.has(e.to)) seen.add(e.to), queue.push(e.to)
+      for (const e of edges) if (e.from === id && (!kind || e.kind === kind) && !seen.has(e.to) && !stop(e.to)) seen.add(e.to), queue.push(e.to)
     }
     return seen
   }
   // Everything reachable in at least one hop from these nodes.
-  const after = (ids, kind) => reachable(edges.filter((e) => ids.includes(e.from) && (!kind || e.kind === kind)).map((e) => e.to), kind)
+  const after = (ids, kind, stop) => reachable(edges.filter((e) => ids.includes(e.from) && (!kind || e.kind === kind)).map((e) => e.to), kind, stop)
   return { byId, edges, find, edgeMatches, after }
 }
 
@@ -71,7 +77,8 @@ const RULES = {
     const starts = g.find(r.from).map((n) => n.id)
     const targets = g.find(r.to)
     if (!starts.length || (!targets.length && !r.ifDrawn)) return false
-    const seen = g.after(starts, r.kind)
+    // unless: routes through these boxes are allowed, so the search stops at them.
+    const seen = r.unless ? g.after(starts, r.kind, (id) => matches(g.byId.get(id), r.unless)) : g.after(starts, r.kind)
     return !targets.some((t) => seen.has(t.id))
   },
   'only-via'(g, r) {
@@ -79,19 +86,21 @@ const RULES = {
     return incoming.length > 0 && incoming.every((e) => matches(g.byId.get(e.from), r.from))
   },
   'no-edge'(g, r) {
-    if (!g.find(r.from).length || !g.find(r.to).length) return false
+    if (!g.find(r.from).length || (!g.find(r.to).length && !r.ifDrawn)) return false
     return !g.edges.some((e) => g.edgeMatches(e, r.from, r.to))
   },
   each(g, r) {
     const nodes = g.find(r.of)
     if (nodes.length < (r.min ?? 1)) return false
-    return nodes.every((n) =>
+    const lines = (n) =>
       g.edges.filter((e) =>
         r.edgeTo
           ? e.from === n.id && matches(g.byId.get(e.to), r.edgeTo) && (!r.kind || e.kind === r.kind)
           : e.to === n.id && matches(g.byId.get(e.from), r.edgeFrom) && (!r.kind || e.kind === r.kind),
-      ).length >= (r.count ?? 1),
-    )
+      ).length
+    const fits = (n) => lines(n) >= (r.count ?? 1) && (r.max == null || lines(n) <= r.max)
+    // some: one such node is enough, such as a single Process API shared by every channel.
+    return r.some ? nodes.some(fits) : nodes.every(fits)
   },
   link(g, r) {
     return g.edges.some((e) => g.edgeMatches(e, r.from, r.to) || g.edgeMatches(e, r.to, r.from))
@@ -173,6 +182,7 @@ export function diagramHint(diagram, rule) {
     case 'no-path':
       if (!g.find(rule.from).length) return `Add ${from}.`
       if (!g.find(rule.to).length) return `Add both ${from} and ${to}, and keep them apart.`
+      if (rule.unless) return `Every route from ${from} to ${to} must pass through ${matcherName(rule.unless)}. Remove the route that goes around it.`
       return rule.kind
         ? `Break the chain of ${kindName(rule.kind)}s from ${from} to ${to}. Put a queue or topic in the route.`
         : `Remove the route from ${from} to ${to}.`
@@ -185,14 +195,20 @@ export function diagramHint(diagram, rule) {
     case 'only-via':
       return `Draw a line into ${matcherName(rule.target)} from ${matcherName(rule.from)}, and remove any other line into it.`
     case 'no-edge':
-      return g.find(rule.from).length && g.find(rule.to).length
+      if (!g.find(rule.from).length) return `Add ${from}, with no direct line to ${to}.`
+      return g.find(rule.to).length || rule.ifDrawn
         ? `Remove the direct line from ${from} to ${to}.`
         : `Add both ${from} and ${to}, with no direct line between them.`
     case 'each': {
       const target = matcherName(rule.edgeTo ?? rule.edgeFrom)
-      const kind = (rule.count ?? 1) > 1 ? `${rule.count} ${kindName(rule.kind)}s` : aKind(rule.kind)
+      const dir = rule.edgeTo ? 'to' : 'from'
+      const count = rule.count ?? 1
+      const kind = count > 1 ? `${count} ${kindName(rule.kind)}s` : aKind(rule.kind)
+      const most = rule.max != null ? `, and no more than ${rule.max}` : ''
+      const needs = count === 0 && rule.max != null ? `at most ${rule.max} ${kindName(rule.kind)}${rule.max === 1 ? '' : 's'} ${dir} ${target}` : `${kind} ${dir} ${target}${most}`
+      if (rule.some) return `At least one ${matcherName(rule.of)} needs ${needs}.`
       const have = (rule.min ?? 1) > 1 ? `Have at least ${rule.min} of ${matcherName(rule.of)}. Each one` : `Every ${matcherName(rule.of)}`
-      return `${have} needs ${kind} ${rule.edgeTo ? 'to' : 'from'} ${target}.`
+      return `${have} needs ${needs}.`
     }
     default:
       return 'Check this requirement against the scenario.'

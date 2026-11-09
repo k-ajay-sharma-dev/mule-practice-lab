@@ -15,6 +15,8 @@ export default {
       { label: 'The partner never talks to the job directly', rule: { type: 'no-edge', from: 'partner', to: 'batch-job' } },
       { label: 'The job hands the data to the System API', rule: { type: 'edge', from: 'batch-job', to: 'system-api' } },
       { label: 'The WMS is reached only through the System API', rule: { type: 'only-via', target: 'wms', from: 'system-api' } },
+      { label: 'The job starts its own connections, so its lines are sync calls', rule: { type: 'lines', from: 'batch-job', kind: 'sync' } },
+      { label: 'The System API writes to the WMS with a sync call', rule: { type: 'edge', from: 'system-api', to: 'wms', kind: 'sync' } },
     ],
     reference: diagram(
       {

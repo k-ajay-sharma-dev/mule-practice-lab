@@ -15,6 +15,7 @@ export default {
       { label: 'The copies are reached only through the load balancer', rule: { type: 'only-via', target: 'experience-api', from: 'load-balancer' } },
       { label: 'Both copies call the same Process API', rule: { type: 'each', of: 'experience-api', min: 2, edgeTo: 'process-api' } },
       { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Each copy calls the Process API with a sync call', rule: { type: 'lines', from: 'experience-api', to: 'process-api', kind: 'sync' } },
     ],
     reference: diagram(
       {

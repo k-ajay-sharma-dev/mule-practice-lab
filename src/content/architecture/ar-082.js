@@ -10,7 +10,7 @@ export default {
   diagram: {
     task: 'draw a document archive in which portals reach documents through an Experience API, documents are stored in Azure Blob Storage and indexed in a database, and a second copy is written to Amazon S3 asynchronously, with all storage reached only through System APIs.',
     checks: [
-      { label: 'Every portal / staff channel calls an Experience API', rule: { type: 'each', of: ['web-app', 'internal-app'], edgeTo: 'experience-api' } },
+      { label: 'Every portal / staff channel calls an Experience API', rule: { type: 'each', of: ['web-app', 'internal-app'], min: 2, edgeTo: 'experience-api' } },
       { label: 'Azure Blob Storage is reached only through a System API', rule: { type: 'only-via', target: 'azure-blob', from: 'system-api' } },
       { label: 'The S3 bucket is reached only through a System API', rule: { type: 'only-via', target: 's3-bucket', from: 'system-api' } },
       { label: 'The document index database is reached only through a System API', rule: { type: 'only-via', target: ['sql-server', 'oracle-db', 'database'], from: 'system-api' } },
@@ -20,6 +20,16 @@ export default {
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'A document is stored in Azure Blob in the user\'s request, as sync calls', rule: { type: 'path', from: 'experience-api', to: 'azure-blob', kind: 'sync' } },
+      { label: 'A document is indexed in the user\'s request, so search finds it at once', rule: { type: 'path', from: 'experience-api', to: ['sql-server', 'oracle-db', 'database'], kind: 'sync' } },
+      { label: 'No chain of sync calls joins the user\'s request to S3', rule: { type: 'no-path', from: 'experience-api', to: 's3-bucket', kind: 'sync' } },
+      { label: 'The replicator reads the document from Azure Blob to copy it', rule: { type: 'path', from: ['queue', 'cloud-queue', 'event-stream', 'topic'], to: 'azure-blob' } },
+      { label: 'The migration job reads the old DMS through a System API', rule: { type: 'path', from: 'batch-job', via: 'system-api', to: 'legacy' } },
+      { label: 'The DMS is reached only through a System API', rule: { type: 'only-via', target: 'legacy', from: 'system-api' } },
+      { label: 'Migrated documents are archived through a Process API, so they are indexed and copied like new ones', rule: { type: 'path', from: 'batch-job', via: 'process-api', to: 's3-bucket' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['azure-blob', 's3-bucket', 'sql-server', 'oracle-db', 'database', 'legacy'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'internal-app', 'batch-job', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

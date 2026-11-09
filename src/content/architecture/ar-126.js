@@ -15,6 +15,7 @@ export default {
       { label: 'The gateway checks the token with the identity provider', rule: { type: 'edge', from: 'api-gateway', to: 'identity-provider' } },
       { label: 'The gateway passes valid requests to the Experience API', rule: { type: 'edge', from: 'api-gateway', to: 'experience-api' } },
       { label: 'The app never calls the Experience API directly', rule: { type: 'no-edge', from: 'internal-app', to: 'experience-api' } },
+      { label: 'Getting a token, checking it and calling the API are sync calls', rule: { type: 'lines', from: ['internal-app', 'api-gateway'], to: ['identity-provider', 'api-gateway', 'experience-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

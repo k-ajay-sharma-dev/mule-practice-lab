@@ -15,6 +15,9 @@ export default {
       { label: 'Failed messages move from the queue to the dead-letter queue', rule: { type: 'edge', from: 'queue', to: 'dlq', kind: 'async' } },
       { label: 'Only the queue feeds the dead-letter queue', rule: { type: 'only-via', target: 'dlq', from: 'queue' } },
       { label: 'Someone is told about failed messages', rule: { type: 'edge', from: 'dlq', to: 'monitoring' } },
+      { label: 'The producer never calls the consumer directly', rule: { type: 'no-edge', from: 'experience-api', to: 'process-api' } },
+      { label: 'Every line to or from the main queue is an async message', rule: { type: 'lines', touching: 'queue', kind: 'async' } },
+      { label: 'Failed messages reach the dead-letter queue as async messages', rule: { type: 'lines', to: 'dlq', kind: 'async' } },
     ],
     reference: diagram(
       {

@@ -15,6 +15,8 @@ export default {
       { label: 'A System API connects to the TMS', rule: { type: 'edge', from: 'system-api', to: 'tms' } },
       { label: 'The System APIs do not call each other', rule: { type: 'no-edge', from: 'system-api', to: 'system-api' } },
       { label: 'The Process API never connects to a backend directly', rule: { type: 'no-edge', from: 'process-api', to: ['erp', 'tms'] } },
+      { label: 'The order is read from the ERP with sync calls all the way, so it can be merged', rule: { type: 'path', from: 'process-api', to: 'erp', kind: 'sync' } },
+      { label: 'The shipment is read from the TMS with sync calls all the way, so it can be merged', rule: { type: 'path', from: 'process-api', to: 'tms', kind: 'sync' } },
     ],
     reference: diagram(
       {

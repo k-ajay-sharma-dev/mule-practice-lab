@@ -15,6 +15,7 @@ export default {
       { label: 'The job writes to the data warehouse', rule: { type: 'edge', from: 'batch-job', to: 'data-warehouse' } },
       { label: 'The job never calls the ERP directly', rule: { type: 'no-edge', from: 'batch-job', to: 'erp' } },
       { label: 'The ERP is not wired straight to the data warehouse', rule: { type: 'no-edge', from: 'erp', to: 'data-warehouse' } },
+      { label: 'No user waits and there is no queue, so the job reads and writes with sync calls', rule: { type: 'lines', from: ['batch-job', 'system-api'], to: ['system-api', 'erp', 'data-warehouse'], kind: 'sync' } },
     ],
     reference: diagram(
       {

@@ -10,7 +10,7 @@ export default {
   diagram: {
     task: 'draw a migration architecture in which channels keep using the same Experience and Process APIs, Oracle changes are captured as events and applied to SQL Server through a System API, and a reconciliation job compares both databases during the dual run.',
     checks: [
-      { label: 'Every channel calls an Experience API', rule: { type: 'each', of: ['web-app', 'internal-app', 'mobile-app'], edgeTo: 'experience-api' } },
+      { label: 'Every channel calls an Experience API', rule: { type: 'each', of: ['web-app', 'internal-app', 'mobile-app'], min: 2, edgeTo: 'experience-api' } },
       { label: 'Oracle changes are captured as asynchronous events', rule: { type: 'edge', from: 'oracle-db', to: ['event-stream', 'queue', 'topic', 'cloud-queue'], kind: 'async' } },
       { label: 'Change events are applied to SQL Server through a System API', rule: { type: 'path', from: ['event-stream', 'queue', 'topic', 'cloud-queue'], to: 'sql-server', via: 'system-api' } },
       { label: 'Oracle is reached only through a System API', rule: { type: 'only-via', target: 'oracle-db', from: 'system-api' } },
@@ -20,6 +20,12 @@ export default {
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Channel orders still reach Oracle in sync calls during the dual run', rule: { type: 'path', from: 'experience-api', via: 'process-api', to: 'oracle-db', kind: 'sync' } },
+      { label: 'The Process API can route channel requests to SQL Server at cut-over', rule: { type: 'path', from: 'experience-api', via: 'process-api', to: 'sql-server', kind: 'sync' } },
+      { label: 'A Process API maps each change before it is applied to SQL Server', rule: { type: 'path', from: ['event-stream', 'queue', 'topic', 'cloud-queue'], via: 'process-api', to: 'sql-server' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['oracle-db', 'sql-server'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'internal-app', 'mobile-app', 'batch-job', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

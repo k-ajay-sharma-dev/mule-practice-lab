@@ -15,8 +15,12 @@ export default {
       { label: 'The Process API orchestrates three System APIs (catalogue, billing, CRM)', rule: { type: 'edge', from: 'process-api', to: 'system-api', min: 3 } },
       { label: 'The catalogue is cached at the Catalogue System API, protecting the PIM for every consumer', rule: { type: 'edge', from: { type: 'system-api', label: ['catalog', 'product', 'pim'] }, to: 'cache' } },
       { label: 'The balance (Billing System API) is never cached', rule: { type: 'no-edge', from: { type: 'system-api', label: ['billing', 'balance'] }, to: 'cache' } },
+      { label: 'The balance is read live from billing over sync calls', rule: { type: 'path', from: 'mobile-app', via: { type: 'system-api', label: ['billing', 'balance'] }, to: ['saas', 'external-api', 'erp', 'crm', 'database', 'legacy'], kind: 'sync' } },
       { label: 'Backends (PIM, billing, CRM) are reached only through System APIs', rule: { type: 'only-via', target: ['saas', 'external-api', 'erp', 'crm', 'database', 'legacy'], from: 'system-api' } },
+      { label: 'Every System API is called by the Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['saas', 'external-api', 'erp', 'crm', 'database', 'legacy'] } },
       { label: 'The Experience API never calls System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'api-gateway', 'experience-api', 'process-api'], to: ['api-gateway', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
     ],
     reference: diagram(

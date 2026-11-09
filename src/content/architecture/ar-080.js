@@ -20,6 +20,13 @@ export default {
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'Store sales are processed into the customer store of each region', rule: { type: 'path', from: 'pos', via: 'system-api', to: ['database', 'crm'], min: 2 } },
+      { label: 'No route carries regional customer data from a System API or database to global analytics', rule: { type: 'no-path', from: ['system-api', 'database', 'crm'], to: 'data-warehouse' } },
+      { label: 'Regional sales reach global analytics only through the aggregate stream', rule: { type: 'no-path', from: ['pos', 'mobile-app'], to: 'data-warehouse', unless: { type: ['topic', 'event-stream', 'queue'], label: ['aggregate', 'pseudonym', 'no pii'] } } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'The loyalty app reaches the regional customer store through a System API', rule: { type: 'path', from: 'mobile-app', via: 'system-api', to: ['database', 'crm'] } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['database', 'crm'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

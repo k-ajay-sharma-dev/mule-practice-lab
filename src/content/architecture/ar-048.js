@@ -12,11 +12,17 @@ export default {
     checks: [
       { label: 'The mobile app and the marketplace partner each call an Experience API', rule: { type: 'each', of: ['mobile-app', 'partner'], min: 2, edgeTo: 'experience-api' } },
       { label: 'Each consumer gets its own Experience API (at least two)', rule: { type: 'node', match: 'experience-api', min: 2 } },
+      { label: 'The marketplace partner has its own Experience API', rule: { type: 'each', of: { type: 'experience-api', label: ['partner', 'marketplace'] }, edgeFrom: 'partner' } },
+      { label: 'The mobile app never uses the partner Experience API', rule: { type: 'no-edge', from: 'mobile-app', to: { type: 'experience-api', label: ['partner', 'marketplace'] } } },
+      { label: 'No Experience API is shared by the two consumers', rule: { type: 'each', of: 'experience-api', edgeFrom: ['mobile-app', 'partner'], count: 0, max: 1 } },
       { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
       { label: 'System APIs never call other System APIs (cross-system logic belongs in Process)', rule: { type: 'no-edge', from: 'system-api', to: 'system-api' } },
-      { label: 'Every System API unlocks a system of record', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'crm', 'legacy', 'saas', 'database'] } },
-      { label: 'SAP, Salesforce and the WMS are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'crm', 'legacy', 'saas', 'database'], from: 'system-api' } },
+      { label: 'Every System API unlocks a system of record', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'crm', 'legacy', 'wms', 'saas', 'database'] } },
+      { label: 'SAP, Salesforce and the WMS each have a System API', rule: { type: 'each', of: ['erp', 'crm', 'legacy', 'wms', 'saas', 'database'], min: 3, edgeFrom: 'system-api' } },
+      { label: 'SAP, Salesforce and the WMS are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'crm', 'legacy', 'wms', 'saas', 'database'], from: 'system-api' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'partner', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

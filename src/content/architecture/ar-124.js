@@ -15,6 +15,7 @@ export default {
       { label: 'The request reaches the System API through the Process API', rule: { type: 'path', from: 'mobile-app', to: 'system-api', via: 'process-api' } },
       { label: 'Only the Process API calls the System API', rule: { type: 'only-via', target: 'system-api', from: 'process-api' } },
       { label: 'The System API connects to the HR system', rule: { type: 'edge', from: 'system-api', to: 'saas' } },
+      { label: 'The leave balance request is a sync call at every step down to the HR system', rule: { type: 'path', from: 'mobile-app', to: 'saas', kind: 'sync' } },
     ],
     reference: diagram(
       {

@@ -12,12 +12,17 @@ export default {
     checks: [
       { label: 'The mobile app and the partner fintechs enter through the public gateway/ingress', rule: { type: 'each', of: ['mobile-app', 'partner'], min: 2, edgeTo: 'api-gateway' } },
       { label: 'The public gateway exposes only Experience APIs', rule: { type: 'each', of: 'api-gateway', edgeTo: 'experience-api' } },
+      { label: 'Every Experience API sits behind the public gateway', rule: { type: 'each', of: 'experience-api', edgeFrom: 'api-gateway' } },
       { label: 'Process and System APIs are never exposed on the public gateway', rule: { type: 'no-edge', from: 'api-gateway', to: ['process-api', 'system-api'] } },
+      { label: 'Internet consumers never skip the public gateway', rule: { type: 'no-edge', from: ['mobile-app', 'partner'], to: ['experience-api', 'process-api', 'system-api'] } },
       { label: 'Mobile users obtain tokens from the identity provider (OAuth 2.0 / OIDC)', rule: { type: 'edge', from: ['mobile-app', 'api-gateway', 'experience-api'], to: 'identity-provider' } },
       { label: 'Experience APIs call Process APIs over private endpoints', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'Only System APIs hold backend credentials and reach the backends', rule: { type: 'only-via', target: ['erp', 'crm', 'legacy', 'database', 'saas'], from: 'system-api' } },
       { label: 'A partner request reaches core banking only via the gateway and the layers', rule: { type: 'path', from: 'partner', to: ['legacy', 'erp', 'database'], via: 'api-gateway' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'crm', 'legacy', 'database', 'saas'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'partner', 'internal-app', 'api-gateway', 'experience-api', 'process-api'], to: ['api-gateway', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

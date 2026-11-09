@@ -10,13 +10,19 @@ export default {
   diagram: {
     task: 'draw the claim-check design: where attachments are uploaded and stored, what the ClaimSubmitted message carries to the three consumers, and who fetches the files.',
     checks: [
-      { label: 'Clients upload attachments straight to object storage (pre-signed URL), not through Mule', rule: { type: 'edge', from: ['mobile-app', 'web-app'], to: 'file-store' } },
+      { label: 'Clients upload attachments straight to object storage (pre-signed URL), not through Mule', rule: { type: 'each', of: ['mobile-app', 'web-app'], edgeTo: 'file-store' } },
+      { label: 'The Experience API never carries the files to storage itself', rule: { type: 'no-edge', from: 'experience-api', to: 'file-store' } },
+      { label: 'Both clients send the claim data to the Experience API', rule: { type: 'each', of: ['mobile-app', 'web-app'], edgeTo: 'experience-api' } },
       { label: 'Claim data goes through the Experience and Process APIs', rule: { type: 'path', from: ['mobile-app', 'web-app'], to: 'process-api', via: 'experience-api' } },
       { label: 'The Process API publishes ClaimSubmitted (metadata + references) asynchronously', rule: { type: 'edge', from: 'process-api', to: ['topic', 'queue', 'event-stream'], kind: 'async' } },
       { label: 'The event fans out to the three consumers', rule: { type: 'edge', from: ['topic', 'event-stream'], to: ['queue', 'process-api', 'system-api'], min: 3 } },
+      { label: 'ClaimSubmitted reaches all three consumers', rule: { type: 'path', from: ['topic', 'event-stream'], to: ['process-api', 'system-api', 'batch-job'], min: 3 } },
       { label: 'Consumers that need the content fetch it from storage by reference', rule: { type: 'edge', from: ['process-api', 'system-api'], to: 'file-store', min: 2 } },
+      { label: 'A consumer of ClaimSubmitted fetches the files by reference', rule: { type: 'path', from: ['topic', 'event-stream'], to: 'file-store' } },
       { label: 'The core claims system is reached only through a System API', rule: { type: 'only-via', target: ['legacy', 'saas', 'erp'], from: 'system-api' } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'web-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Uploads and fetches from storage are sync calls', rule: { type: 'lines', to: 'file-store', kind: 'sync' } },
     ],
     reference: diagram(
       {

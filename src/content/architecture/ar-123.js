@@ -15,6 +15,9 @@ export default {
       { label: 'The Process API calls the System API', rule: { type: 'edge', from: 'process-api', to: 'system-api' } },
       { label: 'The System API connects to the mainframe', rule: { type: 'edge', from: 'system-api', to: 'legacy' } },
       { label: 'The Experience API does not skip the Process layer', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'The mobile app calls only the Experience API', rule: { type: 'no-edge', from: 'mobile-app', to: ['process-api', 'system-api', 'legacy'] } },
+      { label: 'The mainframe is reached only through the System API', rule: { type: 'only-via', target: 'legacy', from: 'system-api' } },
+      { label: 'The balance request is a sync call at every step down to the mainframe', rule: { type: 'path', from: 'mobile-app', to: 'legacy', kind: 'sync' } },
     ],
     reference: diagram(
       {

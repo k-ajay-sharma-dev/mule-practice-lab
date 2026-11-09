@@ -17,6 +17,9 @@ export default {
       { label: 'Agents take their tasks only from the Agent Broker', rule: { type: 'only-via', target: 'process-api', from: { label: 'broker' } } },
       { label: 'The network reaches the MCP server', rule: { type: 'path', from: { label: 'broker' }, to: { label: 'mcp' } } },
       { label: 'The Order API is reached only through the MCP server', rule: { type: 'only-via', target: { type: 'external-api', label: 'order api' }, from: { label: 'mcp' } } },
+      { label: 'The Agent Broker is reached only through the ingress gateway', rule: { type: 'only-via', target: { label: 'broker' }, from: { type: 'api-gateway', label: 'ingress' } } },
+      { label: 'The chat assistant never calls the MCP server directly', rule: { type: 'no-edge', from: 'chatbot', to: 'system-api' } },
+      { label: 'Requests, task hand offs and tool calls are sync calls. There is no broker for async work here', rule: { type: 'lines', from: ['chatbot', 'api-gateway', 'experience-api', 'process-api', 'system-api'], to: ['api-gateway', 'experience-api', 'process-api', 'system-api', 'external-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

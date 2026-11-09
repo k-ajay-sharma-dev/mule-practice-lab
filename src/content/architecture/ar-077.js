@@ -15,10 +15,15 @@ export default {
       { label: 'The traceability store is reached only through a System API', rule: { type: 'only-via', target: 'database', from: 'system-api' } },
       { label: 'The quality team uses an Experience API', rule: { type: 'each', of: 'internal-app', edgeTo: 'experience-api' } },
       { label: 'The recall Process API queries lineage through the traceability System API', rule: { type: 'edge', from: { type: 'process-api', label: ['recall'] }, to: { type: 'system-api', label: ['trace', 'lineage', 'lot'] } } },
-      { label: 'Recall notices reach the store systems', rule: { type: 'path', from: { type: 'process-api', label: ['recall'] }, to: 'pos' } },
+      { label: 'Recall notices reach the store systems', rule: { type: 'path', from: 'internal-app', via: { type: 'process-api', label: ['recall'] }, to: 'pos' } },
       { label: 'WMS and store systems are reached only through System APIs', rule: { type: 'only-via', target: ['wms', 'pos'], from: 'system-api' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
       { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+      { label: 'WMS lot events reach the traceability store', rule: { type: 'path', from: 'system-api', via: ['topic', 'event-stream', 'queue'], to: 'database' } },
+      { label: 'Supplier ASN lots reach the traceability store through the event stream', rule: { type: 'path', from: 'partner', via: ['topic', 'event-stream', 'queue'], to: 'database' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['database', 'wms', 'pos'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['internal-app', 'partner', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

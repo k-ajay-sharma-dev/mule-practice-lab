@@ -19,6 +19,12 @@ export default {
       { label: 'Price changes are published from HQ asynchronously', rule: { type: 'edge', from: 'process-api', to: ['topic', 'queue', 'event-stream'], kind: 'async' } },
       { label: 'Price changes reach the store POS', rule: { type: 'path', from: 'process-api', to: 'pos' } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Sales pass a store broker and then the HQ hub broker, so a WAN outage loses nothing', rule: { type: 'path', from: 'pos', via: ['queue', 'event-stream'], to: ['queue', 'event-stream'], kind: 'async' } },
+      { label: 'Every sale reaches Oracle through the brokers and the System API', rule: { type: 'path', from: 'pos', via: 'system-api', to: ['erp', 'database'] } },
+      { label: 'The POS gets prices only from a broker, never from a call over the WAN', rule: { type: 'only-via', target: 'pos', from: ['queue', 'topic', 'event-stream'] } },
+      { label: 'Price changes reach the POS as async messages all the way', rule: { type: 'path', from: 'process-api', to: 'pos', kind: 'async' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'database'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: 'process-api', to: 'system-api', kind: 'sync' } },
     ],
     reference: diagram(
       {

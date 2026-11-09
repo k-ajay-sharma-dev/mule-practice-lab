@@ -17,6 +17,8 @@ export default {
       { label: 'The Model Proxy reaches two LLM providers', rule: { type: 'edge', from: { label: 'model proxy' }, to: 'external-api', min: 2 } },
       { label: 'Providers are reached only through the Model Proxy', rule: { type: 'only-via', target: 'external-api', from: { label: 'model proxy' } } },
       { label: 'Usage from the Model Proxy reaches Budget Management', rule: { type: 'edge', from: { label: 'model proxy' }, to: { label: 'budget' } } },
+      { label: 'The Model Proxy takes requests only from the Policies gateway', rule: { type: 'only-via', target: { label: 'model proxy' }, from: { label: 'policies' } } },
+      { label: 'Token requests and model calls are sync calls', rule: { type: 'lines', from: ['internal-app', 'api-gateway'], to: ['identity-provider', 'api-gateway', 'external-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

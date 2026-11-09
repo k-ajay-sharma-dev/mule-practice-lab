@@ -19,6 +19,12 @@ export default {
       { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'A marketplace order reaches the OMS end to end', rule: { type: 'path', from: 'partner', to: { type: ['saas', 'erp'], label: ['oms', 'order management'] } } },
       { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'Every Experience API hands its orders to a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Released orders reach both the DC WMS and the stores through the fulfilment Process API', rule: { type: 'path', from: ['topic', 'event-stream', 'queue'], via: 'process-api', to: ['wms', 'pos'], min: 2 } },
+      { label: 'Fulfilment results go back to the OMS, which owns the order state', rule: { type: 'path', from: ['topic', 'event-stream', 'queue'], via: 'process-api', to: { type: ['saas', 'erp'], label: ['oms', 'order management'] } } },
+      { label: 'Mule keeps no order database of its own. The OMS holds the order state', rule: { type: 'no-edge', from: ['experience-api', 'process-api', 'batch-job'], to: ['database', 'oracle-db', 'sql-server'], ifDrawn: true } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['saas', 'erp', 'wms', 'pos'] } },
+      { label: 'APIs call each other with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'internal-app', 'partner', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
     ],
     reference: diagram(
       {

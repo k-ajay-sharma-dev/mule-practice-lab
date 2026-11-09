@@ -11,6 +11,7 @@ export default {
     task: 'draw one price change reaching two subscribers. Use five boxes: an ERP, a System API, a Topic / exchange, and two Process API boxes, one for each subscriber. Draw a Sync call line from the ERP to the System API. Draw Async message lines from the System API to the Topic, and from the Topic to each Process API. Draw no line from the System API to a Process API.',
     checks: [
       { label: 'Price changes leave the ERP and reach the topic', rule: { type: 'path', from: 'erp', to: 'topic' } },
+      { label: 'The ERP hands each price change to the System API with a sync call', rule: { type: 'edge', from: 'erp', to: 'system-api', kind: 'sync' } },
       { label: 'The System API publishes to the topic', rule: { type: 'edge', from: 'system-api', to: 'topic', kind: 'async' } },
       { label: 'There are two subscribers', rule: { type: 'node', match: 'process-api', min: 2 } },
       { label: 'Every subscriber gets its messages from the topic', rule: { type: 'each', of: 'process-api', edgeFrom: 'topic', kind: 'async' } },

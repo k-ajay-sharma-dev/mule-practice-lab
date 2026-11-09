@@ -11,7 +11,7 @@ export default {
     task: 'draw a parcel booking going through one queue. Use four boxes: a Web app, an Experience API as the producer, a Queue, and a Process API as the consumer. Draw a Sync call line from the Web app to the Experience API. Draw Async message lines from the Experience API to the Queue, and from the Queue to the Process API. Draw no line between the two APIs.',
     checks: [
       { label: 'There is one queue', rule: { type: 'node', match: 'queue', min: 1, max: 1 } },
-      { label: 'The website sends the booking to the Experience API', rule: { type: 'edge', from: 'web-app', to: 'experience-api' } },
+      { label: 'The website sends the booking to the Experience API with a sync call', rule: { type: 'edge', from: 'web-app', to: 'experience-api', kind: 'sync' } },
       { label: 'The producer puts each booking on the queue', rule: { type: 'edge', from: 'experience-api', to: 'queue', kind: 'async' } },
       { label: 'The consumer takes bookings from the queue', rule: { type: 'edge', from: 'queue', to: 'process-api', kind: 'async' } },
       { label: 'The producer never calls the consumer directly', rule: { type: 'no-edge', from: 'experience-api', to: 'process-api' } },
