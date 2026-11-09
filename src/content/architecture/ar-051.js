@@ -1,3 +1,5 @@
+import { diagram } from '../../arch/dsl.js'
+
 export default {
   id: 'ar-051',
   category: 'architecture',
@@ -5,6 +7,54 @@ export default {
   level: 'INTERMEDIATE',
   tags: ['api-led', 'layers', 'trade-offs', 'pass-through'],
   estMinutes: 20,
+  diagram: {
+    task: 'draw all four cases on one canvas and build only the layers each case needs: A (HR dashboard and Workday), B (mobile product details from SAP, PIM and WMS), C (nightly Salesforce to data warehouse batch) and D (partner order status from SAP).',
+    checks: [
+      { label: 'A: the HR dashboard reads Workday through a System API', rule: { type: 'path', from: 'internal-app', via: 'system-api', to: { label: 'workday' } } },
+      { label: 'A: the HR dashboard uses no Process API, because there is nothing to orchestrate', rule: { type: 'no-path', from: 'internal-app', to: 'process-api', ifDrawn: true } },
+      { label: 'B: the mobile app reaches SAP, the PIM and the WMS', rule: { type: 'path', from: 'mobile-app', to: ['erp', 'saas', 'wms', 'database'], min: 3 } },
+      { label: 'B: the mobile app enters through an Experience API', rule: { type: 'no-path', from: 'mobile-app', to: ['process-api', 'system-api'], unless: 'experience-api' } },
+      { label: 'B: the aggregation lives in a Process API, not in the Experience API', rule: { type: 'no-path', from: 'mobile-app', to: 'system-api', unless: 'process-api' } },
+      { label: 'B: one Process API combines three System APIs', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 3, some: true } },
+      { label: 'C: the batch job reads Salesforce accounts', rule: { type: 'path', from: 'batch-job', to: 'crm' } },
+      { label: 'C: the batch job writes to the data warehouse', rule: { type: 'path', from: 'batch-job', to: 'data-warehouse' } },
+      { label: 'D: the partner reaches the SAP order data', rule: { type: 'path', from: 'partner', to: 'erp' } },
+      { label: 'D: the external partner goes through an Experience API that shields it from later changes', rule: { type: 'no-path', from: 'partner', to: ['process-api', 'system-api'], unless: 'experience-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', 'saas', 'wms', 'crm', 'database', 'oracle-db', 'sql-server'] } },
+      { label: 'Workday, SAP, the PIM and the WMS are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'saas', 'wms', 'database', 'oracle-db', 'sql-server'], from: 'system-api' } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: ['internal-app', 'mobile-app', 'partner', 'batch-job', 'api-gateway', 'experience-api', 'process-api'], to: ['api-gateway', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        dash: ['internal-app', 'A: HR dashboard'],
+        gw: ['api-gateway', 'Gateway (client-id enforcement)'],
+        swd: ['system-api', 'sys-workday-worker-api'],
+        wd: ['saas', 'Workday'],
+        mob: ['mobile-app', 'B: Mobile app'],
+        emob: ['experience-api', 'exp-mobile-api'],
+        pprd: ['process-api', 'prc-product-api (aggregates)'],
+        smat: ['system-api', 'sys-sap-material-api'],
+        spim: ['system-api', 'sys-pim-api'],
+        swms: ['system-api', 'sys-wms-stock-api'],
+        sap: ['erp', 'SAP'],
+        pim: ['saas', 'PIM'],
+        wms: ['wms', 'WMS'],
+        job: ['batch-job', 'C: Nightly account sync'],
+        ssf: ['system-api', 'sys-sfdc-account-api'],
+        sf: ['crm', 'Salesforce'],
+        dw: ['data-warehouse', 'Data warehouse'],
+        ptn: ['partner', 'D: Partner'],
+        eptn: ['experience-api', 'exp-partner-api'],
+        sord: ['system-api', 'sys-sap-order-api'],
+      },
+      [
+        'dash -> gw', 'gw -> swd', 'swd -> wd',
+        'mob -> emob', 'emob -> pprd', 'pprd -> smat', 'pprd -> spim', 'pprd -> swms', 'smat -> sap', 'spim -> pim', 'swms -> wms',
+        'job -> ssf', 'ssf -> sf', 'job -> dw',
+        'ptn -> eptn', 'eptn -> sord', 'sord -> sap',
+      ],
+    ),
+  },
   quiz: [
     {
       type: 'match',

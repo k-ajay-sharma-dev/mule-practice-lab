@@ -1,3 +1,5 @@
+import { diagram } from '../../arch/dsl.js'
+
 export default {
   id: 'ar-047',
   category: 'architecture',
@@ -5,6 +7,38 @@ export default {
   level: 'BEGINNER',
   tags: ['api-led', 'application-network', 'point-to-point', 'esb', 'fundamentals'],
   estMinutes: 15,
+  diagram: {
+    task: 'draw the application network after the broker portal project. Use a Web portal and a Broker portal, one Experience API for each, one shared Quote Process API, and one System API for each backend: the policy mainframe, the CRM and the billing database.',
+    checks: [
+      { label: 'Each portal calls its own Experience API', rule: { type: 'each', of: ['web-app', 'partner', 'mobile-app', 'internal-app'], min: 2, edgeTo: 'experience-api', count: 1, max: 1 } },
+      { label: 'Each Experience API serves one portal', rule: { type: 'each', of: 'experience-api', min: 2, edgeFrom: ['web-app', 'partner', 'mobile-app', 'internal-app'], count: 1, max: 1 } },
+      { label: 'Both Experience APIs reuse one Process API', rule: { type: 'each', of: 'process-api', edgeFrom: 'experience-api', count: 2, some: true } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Every Process API calls System APIs', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'crm', 'database', 'oracle-db', 'sql-server', 'erp', 'saas'] } },
+      { label: 'Each backend (mainframe, CRM, billing) has exactly one System API, shared by everyone', rule: { type: 'each', of: ['legacy', 'crm', 'database', 'oracle-db', 'sql-server', 'erp', 'saas'], min: 3, edgeFrom: 'system-api', count: 1, max: 1 } },
+      { label: 'Backends are reached only through System APIs', rule: { type: 'only-via', target: ['legacy', 'crm', 'database', 'oracle-db', 'sql-server', 'erp', 'saas'], from: 'system-api' } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: ['web-app', 'partner', 'mobile-app', 'internal-app', 'experience-api', 'process-api'], to: ['experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a database are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        web: ['web-app', 'Web portal'],
+        brk: ['partner', 'Broker portal'],
+        ew: ['experience-api', 'exp-web-api'],
+        eb: ['experience-api', 'exp-broker-api'],
+        pq: ['process-api', 'prc-quote-api'],
+        sp: ['system-api', 'sys-policy-api'],
+        sc: ['system-api', 'sys-customer-api'],
+        sb: ['system-api', 'sys-billing-api'],
+        mf: ['legacy', 'Policy admin (mainframe)'],
+        crm: ['crm', 'CRM (Salesforce)'],
+        bil: ['oracle-db', 'Billing (Oracle DB)'],
+      },
+      ['web -> ew', 'brk -> eb', 'ew -> pq', 'eb -> pq', 'pq -> sp', 'pq -> sc', 'pq -> sb', 'sp -> mf', 'sc -> crm', 'sb -> bil'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

@@ -1,3 +1,8 @@
+import { diagram } from '../../arch/dsl.js'
+
+const STORE = { type: 'queue', label: ['store broker', 'in-store', 'local'] }
+const HUB = { type: 'queue', label: ['hub', 'hq'] }
+
 export default {
   id: 'ar-067',
   category: 'architecture',
@@ -5,6 +10,35 @@ export default {
   level: 'INTERMEDIATE',
   tags: ['retail', 'supply-chain', 'activemq', 'jms', 'anypoint-mq', 'kafka', 'messaging'],
   estMinutes: 20,
+  diagram: {
+    task: 'draw one store and HQ. Show sales going from the POS to Oracle Retail, and price changes going from HQ to the POS. Draw each broker destination as a Queue box: put "store broker" in the names of the ones in the store, and "hub" in the names of the ones at HQ.',
+    checks: [
+      { label: 'The POS publishes each sale to the store broker as an async message', rule: { type: 'edge', from: 'pos', to: STORE, kind: 'async' } },
+      { label: 'The store broker forwards to the HQ hub', rule: { type: 'edge', from: STORE, to: HUB, kind: 'async' } },
+      { label: 'Sales reach Oracle Retail through the hub', rule: { type: 'path', from: 'pos', via: HUB, to: ['erp', 'oracle-db', 'database'] } },
+      { label: 'Everything the POS sends passes the store broker, so a WAN outage loses nothing', rule: { type: 'no-path', from: 'pos', to: ['cloud-queue', 'topic', 'event-stream', 'process-api', 'system-api', 'erp', 'oracle-db', 'database'], unless: STORE } },
+      { label: 'Oracle Retail is reached only through a System API', rule: { type: 'only-via', target: ['erp', 'oracle-db', 'database'], from: 'system-api' } },
+      { label: 'Price changes leave HQ through the hub and reach the POS', rule: { type: 'path', from: 'process-api', via: HUB, to: 'pos' } },
+      { label: 'The POS reads prices from its own durable queue on the store broker', rule: { type: 'each', of: 'pos', edgeFrom: STORE, kind: 'async' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: ['queue', 'topic', 'event-stream', 'cloud-queue', 'dlq'], kind: 'async' } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: ['process-api', 'system-api'], to: ['process-api', 'system-api', 'erp', 'oracle-db', 'database'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        pos: ['pos', 'Store POS (one of 400)'],
+        sOut: ['queue', 'Store broker: sales (persistent, KahaDB)'],
+        sIn: ['queue', 'Store broker: prices'],
+        hSales: ['queue', 'HQ hub: store.sales'],
+        hPrices: ['queue', 'HQ hub: store.<id>.prices (durable per store)'],
+        ps: ['process-api', 'prc-store-sales (jms:listener)'],
+        pp: ['process-api', 'prc-price-distribution'],
+        so: ['system-api', 'sys-oracle-retail'],
+        ora: ['erp', 'Oracle Retail'],
+        kafka: ['event-stream', 'Kafka (analytics fan-out and replay, optional)'],
+      },
+      ['pos ~> sOut', 'sOut ~> hSales', 'hSales ~> ps', 'ps -> so', 'so -> ora', 'ps ~> kafka', 'pp ~> hPrices', 'hPrices ~> sIn', 'sIn ~> pos'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

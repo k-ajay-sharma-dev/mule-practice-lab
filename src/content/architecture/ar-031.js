@@ -1,3 +1,10 @@
+import { diagram } from '../../arch/dsl.js'
+
+const BROKER = ['topic', 'queue', 'event-stream', 'cloud-queue']
+const SYSTEMS = ['erp', 'crm', 'saas', 'legacy', 'database', 'oracle-db', 'sql-server']
+const XREF = { label: ['cross-ref', 'cross ref', 'xref', 'mdm', 'key map', 'id map'] }
+const APIS = ['experience-api', 'process-api', 'system-api']
+
 export default {
   id: 'ar-031',
   category: 'architecture',
@@ -5,6 +12,45 @@ export default {
   level: 'INTERMEDIATE',
   tags: ['canonical-model', 'data-modeling', 'bounded-context', 'api-led'],
   estMinutes: 25,
+  diagram: {
+    task: 'draw where each model lives. One System API for each of SAP, Salesforce, the billing SaaS and the support tool, one Customer Process API that owns the domain model and the customer cross-reference, and an Experience API for each channel.',
+    checks: [
+      { label: 'Every channel calls its own Experience API', rule: { type: 'each', of: ['mobile-app', 'web-app', 'partner', 'internal-app'], min: 2, edgeTo: 'experience-api' } },
+      { label: 'At least two Experience APIs, each shaping the model for its channel', rule: { type: 'node', match: 'experience-api', min: 2 } },
+      { label: 'Every Experience API calls the Customer Process API, never passing system data through', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'One Customer Process API reads all four System APIs', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 4, some: true } },
+      { label: 'The Customer Process API owns the cross-reference of customer keys', rule: { type: 'edge', from: 'process-api', to: XREF } },
+      { label: 'Every System API is called by the Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Each System API fronts exactly one system, still system-shaped', rule: { type: 'each', of: 'system-api', min: 4, edgeTo: SYSTEMS, count: 1, max: 1 } },
+      { label: 'SAP, Salesforce, billing and support are reached only through System APIs', rule: { type: 'only-via', target: ['erp', 'crm', 'saas', 'legacy'], from: 'system-api' } },
+      { label: 'APIs call each other, Salesforce and the SaaS tools with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['mobile-app', 'web-app', 'partner', 'internal-app', ...APIS], to: [...APIS, 'crm', 'saas', 'database', 'cache'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+    ],
+    reference: diagram(
+      {
+        mob: ['mobile-app', 'Mobile app'],
+        ptl: ['partner', 'Partner portal'],
+        emob: ['experience-api', 'exp-customer-mobile (8 fields)'],
+        eptl: ['experience-api', 'exp-customer-partner (20 fields)'],
+        prc: ['process-api', 'prc-customer (Customer domain model, customerId)'],
+        xref: ['database', 'Customer cross-reference (customerId to KUNNR, Account Id, customer_ref, email)'],
+        ev: ['topic', 'CustomerUpdated (domain model)'],
+        ssap: ['system-api', 'sys-sap-customer (cleaned, SAP-shaped)'],
+        ssf: ['system-api', 'sys-salesforce-account'],
+        sbil: ['system-api', 'sys-billing-customer'],
+        ssup: ['system-api', 'sys-support-contact'],
+        sap: ['erp', 'SAP (KUNNR)'],
+        sf: ['crm', 'Salesforce (Account Id)'],
+        bil: ['saas', 'Billing SaaS (customer_ref)'],
+        sup: ['saas', 'Support tool (email)'],
+      },
+      [
+        'mob -> emob', 'ptl -> eptl', 'emob -> prc', 'eptl -> prc', 'prc -> xref', 'prc ~> ev',
+        'prc -> ssap', 'prc -> ssf', 'prc -> sbil', 'prc -> ssup', 'ssap -> sap', 'ssf -> sf', 'sbil -> bil', 'ssup -> sup',
+      ],
+    ),
+  },
   quiz: [
     {
       type: 'single',

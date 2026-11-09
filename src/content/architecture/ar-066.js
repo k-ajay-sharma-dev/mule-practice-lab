@@ -1,3 +1,8 @@
+import { diagram } from '../../arch/dsl.js'
+
+const APPS = ['process-api', 'batch-job']
+const BACKENDS = ['crm', 'erp', 'saas', 'database', 'oracle-db', 'sql-server', 'external-api', 'pos', 'wms']
+
 export default {
   id: 'ar-066',
   category: 'architecture',
@@ -5,6 +10,39 @@ export default {
   level: 'EXPERT',
   tags: ['api-led', 'trade-offs', 'over-engineering', 'right-sizing', 'interview-strategy'],
   estMinutes: 35,
+  diagram: {
+    task: 'draw your right-sized architecture. Show the 3PL partner, its partner API, the sync apps, the System APIs you would keep, and Salesforce, NetSuite, Shopify and the Postgres warehouse app.',
+    checks: [
+      { label: 'The 3PL partner calls the partner API', rule: { type: 'path', from: 'partner', to: 'experience-api' } },
+      { label: 'The partner reaches nothing internal around the partner API', rule: { type: 'no-path', from: 'partner', to: [...APPS, 'system-api', ...BACKENDS], unless: 'experience-api' } },
+      { label: 'Only one partner-facing API. The sync jobs get no Experience API', rule: { type: 'node', match: 'experience-api', max: 1 } },
+      { label: 'The partner API hands its work to a sync app', rule: { type: 'each', of: 'experience-api', edgeTo: APPS } },
+      { label: 'Every sync app works on a System API or a system directly', rule: { type: 'each', of: APPS, edgeTo: ['system-api', ...BACKENDS] } },
+      { label: 'A System API is kept only where at least two sync apps share it', rule: { type: 'each', of: 'system-api', edgeFrom: APPS, count: 2 } },
+      { label: 'Salesforce is reached only through its System API', rule: { type: 'only-via', target: { type: BACKENDS, label: ['salesforce', 'sfdc'] }, from: 'system-api' } },
+      { label: 'NetSuite is reached only through its System API', rule: { type: 'only-via', target: { type: BACKENDS, label: 'netsuite' }, from: 'system-api' } },
+      { label: 'All four systems are connected', rule: { type: 'each', of: BACKENDS, min: 4, edgeFrom: [...APPS, 'system-api'] } },
+      { label: 'Every System API connects to its system', rule: { type: 'each', of: 'system-api', edgeTo: BACKENDS } },
+      { label: 'APIs and apps call each other with sync calls', rule: { type: 'lines', from: ['partner', 'experience-api', ...APPS], to: ['experience-api', ...APPS, 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        tpl: ['partner', '3PL partner'],
+        papi: ['experience-api', 'partner-api (spec, client-id, rate limit)'],
+        ord: ['process-api', 'order-sync-app'],
+        cus: ['batch-job', 'customer-sync-app'],
+        fin: ['batch-job', 'finance-sync-app'],
+        ssf: ['system-api', 'sys-salesforce-api (shared)'],
+        sns: ['system-api', 'sys-netsuite-api (shared)'],
+        sf: ['crm', 'Salesforce'],
+        ns: ['erp', 'NetSuite'],
+        shop: ['saas', 'Shopify (connector, single use)'],
+        pg: ['database', 'Postgres warehouse app (connector, single use)'],
+      },
+      ['tpl -> papi', 'papi -> ord', 'ord -> ssf', 'ord -> sns', 'ord -> shop', 'cus -> ssf', 'cus -> pg', 'fin -> sns', 'ssf -> sf', 'sns -> ns'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

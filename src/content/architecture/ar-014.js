@@ -1,3 +1,11 @@
+import { diagram } from '../../arch/dsl.js'
+
+const WAF = { type: ['load-balancer', 'api-gateway'], label: ['waf', 'firewall'] }
+const NON_MULE = ['external-api', 'legacy', 'saas']
+const K8S = { type: NON_MULE, label: ['kubernetes', 'k8s', 'microservice', 'spring', 'node'] }
+const SOAP = { type: NON_MULE, label: ['soap', '.net'] }
+const MULE = ['experience-api', 'process-api', 'system-api']
+
 export default {
   id: 'ar-014',
   category: 'architecture',
@@ -5,6 +13,38 @@ export default {
   level: 'INTERMEDIATE',
   tags: ['api-gateway', 'flex-gateway', 'api-manager', 'network-zones'],
   estMinutes: 25,
+  diagram: {
+    task: 'draw where policies are enforced for the three groups of APIs. Partners on the internet pass a WAF first. Draw the Kubernetes microservices and the .NET SOAP service as Third-party API or Legacy boxes, with Kubernetes or SOAP in their names, and put each behind its own Flex Gateway. Internal apps call the internal Mule APIs.',
+    checks: [
+      { label: 'Partners enter through the WAF', rule: { type: 'each', of: 'partner', edgeTo: WAF } },
+      { label: 'Internet traffic never reaches an API or gateway without passing the WAF', rule: { type: 'no-path', from: 'partner', to: [...MULE, 'api-gateway', ...NON_MULE], unless: WAF } },
+      { label: 'Partners reach the Mule APIs through the WAF', rule: { type: 'path', from: 'partner', via: WAF, to: MULE } },
+      { label: 'The Kubernetes microservices are reached only through a Flex Gateway close to them', rule: { type: 'only-via', target: K8S, from: 'api-gateway' } },
+      { label: 'The SOAP service is reached only through a Flex Gateway in the DMZ', rule: { type: 'only-via', target: SOAP, from: 'api-gateway' } },
+      { label: 'Partners reach the microservices through the WAF', rule: { type: 'path', from: WAF, to: K8S } },
+      { label: 'Partners reach the SOAP service through the WAF', rule: { type: 'path', from: WAF, to: SOAP } },
+      { label: 'Mule APIs enforce their own policies, with no Flex Gateway or proxy in front', rule: { type: 'no-edge', from: { type: 'api-gateway', label: ['flex', 'proxy'] }, to: MULE } },
+      { label: 'Internal apps reach the internal Mule APIs', rule: { type: 'path', from: 'internal-app', to: MULE } },
+      { label: 'Internal traffic skips the WAF hop', rule: { type: 'no-path', from: 'internal-app', to: WAF } },
+      { label: 'Gateways, ingresses and the WAF forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: ['load-balancer', 'api-gateway'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        ptn: ['partner', 'Partners on the internet'],
+        int: ['internal-app', 'Internal apps (client ID or JWT)'],
+        waf: ['load-balancer', 'CDN and WAF (OWASP, bots, DDoS)'],
+        pub: ['load-balancer', 'Private Space public ingress'],
+        prv: ['load-balancer', 'Private ingress (no public DNS)'],
+        mp: ['experience-api', 'Partner Mule APIs (Autodiscovery policies)'],
+        mi: ['process-api', 'Internal Mule APIs (Autodiscovery policies)'],
+        fk: ['api-gateway', 'Flex Gateway in the Kubernetes cluster (connected mode)'],
+        k8s: ['external-api', 'Spring Boot and Node.js microservices on Kubernetes'],
+        fd: ['api-gateway', 'Flex Gateway in the DMZ (connected mode)'],
+        soap: ['legacy', '.NET SOAP service'],
+      },
+      ['ptn -> waf', 'waf -> pub', 'pub -> mp', 'waf -> fk', 'fk -> k8s', 'waf -> fd', 'fd -> soap', 'int -> prv', 'prv -> mi'],
+    ),
+  },
   quiz: [
     {
       type: 'match',

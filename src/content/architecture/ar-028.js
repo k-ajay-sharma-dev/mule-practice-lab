@@ -1,3 +1,9 @@
+import { diagram } from '../../arch/dsl.js'
+
+const BROKER = ['topic', 'queue', 'event-stream', 'cloud-queue']
+const BACKEND = ['legacy', 'database', 'erp', 'saas', 'crm', 'oracle-db', 'sql-server', 'payment']
+const APIS = ['experience-api', 'process-api', 'system-api']
+
 export default {
   id: 'ar-028',
   category: 'architecture',
@@ -5,6 +11,43 @@ export default {
   level: 'BEGINNER',
   tags: ['api-style', 'graphql', 'grpc', 'soap', 'event-driven'],
   estMinutes: 20,
+  diagram: {
+    task: 'draw one Policy Process API with a thin Experience API facade for each client: REST for the mobile app, SOAP for the broker portal and REST for the partner aggregators. The Process API reads policy, claims and payments through System APIs and publishes PolicyChanged on a topic for the analytics platform.',
+    checks: [
+      { label: 'The mobile app, the broker portal and the aggregators each call an Experience API facade', rule: { type: 'each', of: ['mobile-app', 'web-app', 'partner'], min: 3, edgeTo: 'experience-api' } },
+      { label: 'At least three facades: mobile REST, broker SOAP and partner REST', rule: { type: 'node', match: 'experience-api', min: 3 } },
+      { label: 'Every facade calls the Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'All three facades share one Process API that owns the logic', rule: { type: 'each', of: 'process-api', edgeFrom: 'experience-api', count: 3, some: true } },
+      { label: 'The Process API reads policy, claims and payments through System APIs', rule: { type: 'edge', from: 'process-api', to: 'system-api', min: 3 } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: BACKEND } },
+      { label: 'Facades never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'The Process API publishes PolicyChanged as an async message', rule: { type: 'edge', from: 'process-api', to: BROKER, kind: 'async' } },
+      { label: 'PolicyChanged reaches the analytics platform', rule: { type: 'path', from: BROKER, to: 'data-warehouse' } },
+      { label: 'No chain of sync calls joins a facade to analytics, so client requests never wait on it', rule: { type: 'no-path', from: 'experience-api', to: 'data-warehouse', kind: 'sync' } },
+      { label: 'Clients and APIs call each other with sync calls', rule: { type: 'lines', from: ['mobile-app', 'web-app', 'partner', ...APIS], to: APIS, kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+    ],
+    reference: diagram(
+      {
+        mob: ['mobile-app', 'Mobile app'],
+        brk: ['web-app', 'Legacy broker portal (WSDL, WS-Security)'],
+        agg: ['partner', 'Partner aggregators'],
+        emob: ['experience-api', 'exp-policy-mobile (REST, shaped for the screen)'],
+        esoap: ['experience-api', 'exp-quote-soap (SOAP facade)'],
+        eagg: ['experience-api', 'exp-quotes-partner (REST, spec in Exchange)'],
+        prc: ['process-api', 'prc-policy-api (owns the logic)'],
+        spol: ['system-api', 'sys-policy-api'],
+        sclm: ['system-api', 'sys-claims-api'],
+        spay: ['system-api', 'sys-payments-api'],
+        pol: ['legacy', 'Policy system'],
+        clm: ['database', 'Claims system'],
+        pay: ['erp', 'Payments system'],
+        ev: ['topic', 'PolicyChanged'],
+        dw: ['data-warehouse', 'Analytics platform'],
+      },
+      ['mob -> emob', 'brk -> esoap', 'agg -> eagg', 'emob -> prc', 'esoap -> prc', 'eagg -> prc', 'prc -> spol', 'prc -> sclm', 'prc -> spay', 'spol -> pol', 'sclm -> clm', 'spay -> pay', 'prc ~> ev', 'ev ~> dw'],
+    ),
+  },
   quiz: [
     {
       type: 'match',

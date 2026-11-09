@@ -1,3 +1,7 @@
+import { diagram } from '../../arch/dsl.js'
+
+const BACKENDS = ['crm', 'saas', 'database', 'erp', 'external-api', 'legacy']
+
 export default {
   id: 'ar-060',
   category: 'architecture',
@@ -5,6 +9,36 @@ export default {
   level: 'ADVANCED',
   tags: ['api-led', 'versioning', 'backward-compatibility', 'exchange', 'deprecation'],
   estMinutes: 25,
+  diagram: {
+    task: 'draw the run-both period. Use one System API box with v1 in its name and one with v2, the four Process APIs, the three Experience APIs and Salesforce. Some Process APIs have moved to v2 and the rest still call v1.',
+    checks: [
+      { label: 'The v1 System API still runs', rule: { type: 'node', match: { type: 'system-api', label: 'v1' } } },
+      { label: 'The v2 System API runs beside it', rule: { type: 'node', match: { type: 'system-api', label: 'v2' } } },
+      { label: 'v1 still reaches Salesforce, directly or as an adapter over v2', rule: { type: 'path', from: { type: 'system-api', label: 'v1' }, to: BACKENDS } },
+      { label: 'v2 reaches Salesforce', rule: { type: 'path', from: { type: 'system-api', label: 'v2' }, to: BACKENDS } },
+      { label: 'Salesforce is reached only through System APIs', rule: { type: 'only-via', target: BACKENDS, from: 'system-api' } },
+      { label: 'All four Process APIs call a version of the System API', rule: { type: 'each', of: 'process-api', min: 4, edgeTo: 'system-api' } },
+      { label: 'Each version is in use by a Process API, so they migrate one by one', rule: { type: 'each', of: { type: 'system-api', label: ['v1', 'v2'] }, min: 2, edgeFrom: 'process-api' } },
+      { label: 'All three Experience APIs call a Process API', rule: { type: 'each', of: 'experience-api', min: 3, edgeTo: 'process-api' } },
+      { label: 'The change stops at the Process layer. No Experience API reaches a System API or Salesforce around it', rule: { type: 'no-path', from: 'experience-api', to: ['system-api', ...BACKENDS], unless: 'process-api' } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: ['experience-api', 'process-api', 'system-api'], to: ['process-api', 'system-api', ...BACKENDS], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        ew: ['experience-api', 'exp-web-api (contract unchanged)'],
+        em: ['experience-api', 'exp-mobile-api (contract unchanged)'],
+        ep: ['experience-api', 'exp-partner-api (contract unchanged)'],
+        p360: ['process-api', 'prc-customer-360 (moved to v2, own contract stable)'],
+        pord: ['process-api', 'prc-order'],
+        ponb: ['process-api', 'prc-onboarding'],
+        pmkt: ['process-api', 'prc-marketing-sync'],
+        sv1: ['system-api', 'sys-sfdc-customer-api v1 (deprecated, address = primary)'],
+        sv2: ['system-api', 'sys-sfdc-customer-api v2 (addresses[])'],
+        sf: ['crm', 'Salesforce'],
+      },
+      ['ew -> p360', 'em -> p360', 'ep -> p360', 'p360 -> sv2', 'pord -> sv1', 'ponb -> sv1', 'pmkt -> sv1', 'sv1 -> sf', 'sv2 -> sf'],
+    ),
+  },
   quiz: [
     {
       type: 'match',

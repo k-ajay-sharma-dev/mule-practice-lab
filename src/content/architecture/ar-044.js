@@ -1,3 +1,5 @@
+import { diagram } from '../../arch/dsl.js'
+
 export default {
   id: 'ar-044',
   category: 'architecture',
@@ -5,6 +7,39 @@ export default {
   level: 'EXPERT',
   tags: ['migration', 'soap', 'esb', 'strangler-fig', 'api-led', 'modernisation'],
   estMinutes: 40,
+  diagram: {
+    task: 'draw the estate halfway through the strangler fig migration. Internal apps and partners keep their endpoints, a routing layer sends migrated services to Mule and the rest to the ESB, and the new APIs are built as System, Process and Experience APIs.',
+    checks: [
+      { label: 'Internal apps and partners call the routing layer, so their endpoints stay the same', rule: { type: 'each', of: ['internal-app', 'partner'], min: 2, edgeTo: ['api-gateway', 'load-balancer'] } },
+      { label: 'Consumers reach the ESB and the new APIs only through the routing layer', rule: { type: 'no-path', from: ['internal-app', 'partner'], to: ['experience-api', 'process-api', 'system-api', 'legacy'], unless: ['api-gateway', 'load-balancer'] } },
+      { label: 'The routing layer still forwards unmigrated services to the ESB, and nothing else calls the ESB', rule: { type: 'only-via', target: { type: 'legacy', label: 'esb' }, from: ['api-gateway', 'load-balancer'] } },
+      { label: 'The routing layer sends migrated services to a Mule SOAP facade (an Experience API)', rule: { type: 'edge', from: ['api-gateway', 'load-balancer'], to: 'experience-api' } },
+      { label: 'Every Experience API (the SOAP facade) calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Every Process API calls a System API', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['database', 'oracle-db', 'sql-server', 'erp', 'crm', 'saas', 'legacy'] } },
+      { label: 'Backends (database, SAP, billing) are reached only through System APIs or the ESB', rule: { type: 'only-via', target: ['database', 'oracle-db', 'sql-server', 'erp', 'crm', 'saas'], from: ['system-api', 'legacy'] } },
+      { label: 'The ESB still serves its unmigrated services from the backends', rule: { type: 'each', of: { type: 'legacy', label: 'esb' }, edgeTo: ['database', 'oracle-db', 'sql-server', 'erp', 'crm', 'saas'] } },
+      { label: 'Reads and writes to a database are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server'], kind: 'sync' } },
+      { label: 'SOAP and REST calls are sync calls', rule: { type: 'lines', from: ['internal-app', 'partner', 'web-app', 'api-gateway', 'load-balancer', 'experience-api', 'process-api'], to: ['api-gateway', 'load-balancer', 'experience-api', 'process-api', 'system-api', 'legacy'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        apps: ['internal-app', 'Internal apps (45)'],
+        ptn: ['partner', 'Partners (WS-Security, 2-way TLS)'],
+        rtr: ['api-gateway', 'Routing layer (moves traffic service by service)'],
+        esb: ['legacy', 'Legacy ESB (unmigrated services)'],
+        soap: ['experience-api', 'exp-customer-soap-facade (same WSDL)'],
+        prc: ['process-api', 'prc-customer-api (one, not 6 variants)'],
+        sdb: ['system-api', 'sys-customer-db-api'],
+        ssap: ['system-api', 'sys-sap-customer-api'],
+        db: ['database', 'Customer DB (stored procedures)'],
+        sap: ['erp', 'SAP'],
+      },
+      ['apps -> rtr', 'ptn -> rtr', 'rtr -> esb', 'rtr -> soap', 'soap -> prc', 'prc -> sdb', 'prc -> ssap', 'sdb -> db', 'ssap -> sap', 'esb -> db', 'esb -> sap'],
+    ),
+  },
   quiz: [
     {
       type: 'match',

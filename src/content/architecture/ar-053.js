@@ -1,3 +1,5 @@
+import { diagram } from '../../arch/dsl.js'
+
 export default {
   id: 'ar-053',
   category: 'architecture',
@@ -5,6 +7,51 @@ export default {
   level: 'INTERMEDIATE',
   tags: ['api-led', 'process-api', 'orchestration', 'aggregation', 'stateless'],
   estMinutes: 25,
+  diagram: {
+    task: 'draw one Process API for each need, named "trip summary", "book trip" and "customer lookup", with the System APIs and systems they use. Add a store for the book trip process state, with "state" in its name.',
+    checks: [
+      { label: 'The trip summary Process API reads the Booking DB, the airline and the hotel through System APIs', rule: { type: 'path', from: { type: 'process-api', label: 'summary' }, via: 'system-api', to: { label: ['booking', 'airline', 'flight', 'hotel'] }, min: 3 } },
+      { label: 'The book trip Process API reserves the flight and hotel and confirms in the Booking DB through System APIs', rule: { type: 'path', from: { type: 'process-api', label: ['book trip', 'book-trip', 'book_trip', 'booktrip'] }, via: 'system-api', to: { label: ['booking', 'airline', 'flight', 'hotel'] }, min: 3 } },
+      { label: 'The book trip Process API takes the payment through a System API', rule: { type: 'path', from: { type: 'process-api', label: ['book trip', 'book-trip', 'book_trip', 'booktrip'] }, via: 'system-api', to: 'payment' } },
+      { label: 'The customer lookup Process API reads the customer from the CRM', rule: { type: 'path', from: { type: 'process-api', label: 'customer' }, via: 'system-api', to: 'crm' } },
+      { label: 'The customer lookup Process API enriches the customer from the loyalty system', rule: { type: 'path', from: { type: 'process-api', label: 'customer' }, via: 'system-api', to: { label: 'loyalty' } } },
+      { label: 'No Process API is a pass-through: each one combines at least two System APIs', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 2 } },
+      { label: 'Airline, hotel, payment, CRM and loyalty are reached only through System APIs, never with connectors in a Process API', rule: { type: 'only-via', target: ['external-api', 'payment', 'crm', 'saas', 'erp', 'legacy'], from: 'system-api' } },
+      { label: 'The Booking DB is reached only through its System API', rule: { type: 'only-via', target: { type: ['database', 'oracle-db', 'sql-server'], label: 'booking' }, from: 'system-api' } },
+      { label: 'Book trip keeps its process state in a durable store, not in memory', rule: { type: 'edge', from: { type: 'process-api', label: ['book trip', 'book-trip', 'book_trip', 'booktrip'] }, to: { type: ['database', 'oracle-db', 'sql-server', 'cache', 'queue'], label: ['state', 'saga'] } } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its system', rule: { type: 'each', of: 'system-api', edgeTo: ['database', 'oracle-db', 'sql-server', 'external-api', 'payment', 'crm', 'saas', 'erp', 'legacy'] } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: 'process-api', to: ['process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        psum: ['process-api', 'prc-trip-summary-api (aggregation, Scatter-Gather)'],
+        pbook: ['process-api', 'prc-book-trip-api (orchestration, compensation)'],
+        pcust: ['process-api', 'prc-customer-lookup-api (enrichment)'],
+        state: ['database', 'Book trip saga state'],
+        lcache: ['cache', 'Loyalty tier cache (TTL)'],
+        sbook: ['system-api', 'sys-booking-api'],
+        sair: ['system-api', 'sys-airline-api'],
+        shot: ['system-api', 'sys-hotel-api'],
+        spay: ['system-api', 'sys-payment-api'],
+        scrm: ['system-api', 'sys-crm-api'],
+        sloy: ['system-api', 'sys-loyalty-api'],
+        db: ['database', 'Booking DB'],
+        air: ['external-api', 'Airline API'],
+        hot: ['external-api', 'Hotel API'],
+        pay: ['payment', 'Payment gateway'],
+        crm: ['crm', 'CRM'],
+        loy: ['saas', 'Loyalty system'],
+      },
+      [
+        'psum -> sbook', 'psum -> sair', 'psum -> shot',
+        'pbook -> sair', 'pbook -> shot', 'pbook -> spay', 'pbook -> sbook', 'pbook -> state',
+        'pcust -> scrm', 'pcust -> sloy', 'pcust -> lcache',
+        'sbook -> db', 'sair -> air', 'shot -> hot', 'spay -> pay', 'scrm -> crm', 'sloy -> loy',
+      ],
+    ),
+  },
   quiz: [
     {
       type: 'match',

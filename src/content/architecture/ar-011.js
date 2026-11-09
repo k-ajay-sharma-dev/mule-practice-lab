@@ -1,3 +1,10 @@
+import { diagram } from '../../arch/dsl.js'
+
+const BROKER = ['queue', 'topic', 'cloud-queue', 'event-stream']
+const BACKEND = ['crm', 'saas', 'external-api', 'legacy', 'database', 'oracle-db', 'sql-server', 'erp']
+const APIS = ['experience-api', 'process-api', 'system-api']
+const SPLUNK = { type: 'monitoring', label: ['splunk', 'log'] }
+
 export default {
   id: 'ar-011',
   category: 'architecture',
@@ -5,6 +12,43 @@ export default {
   level: 'INTERMEDIATE',
   tags: ['observability', 'correlation-id', 'logging', 'tracing'],
   estMinutes: 25,
+  diagram: {
+    task: 'draw the loan chain from the web and mobile channel to the three System APIs and the document consumer behind Anypoint MQ. Then show where the logs go: draw a line from every Mule app to Splunk.',
+    checks: [
+      { label: 'The channel reaches the Loan Experience API', rule: { type: 'path', from: ['web-app', 'mobile-app'], to: 'experience-api' } },
+      { label: 'The Experience API calls the Loan Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'The Loan Process API calls the Customer, Credit Bureau and Core Banking System APIs', rule: { type: 'edge', from: 'process-api', to: 'system-api', min: 3 } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: BACKEND } },
+      { label: 'Salesforce, the bureau and core banking are reached only through System APIs', rule: { type: 'only-via', target: BACKEND, from: 'system-api' } },
+      { label: 'The Experience API never calls System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'The Process API publishes LoanSubmitted as an async message', rule: { type: 'edge', from: 'process-api', to: BROKER, kind: 'async' } },
+      { label: 'The document consumer reads LoanSubmitted from the queue', rule: { type: 'edge', from: BROKER, to: 'process-api', kind: 'async' } },
+      { label: 'Every Mule app, the consumer too, ships its logs to Splunk', rule: { type: 'each', of: APIS, min: 6, edgeTo: SPLUNK } },
+      { label: 'APIs call each other, Salesforce and the bureau with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'mobile-app', ...APIS], to: [...APIS, 'crm', 'external-api', 'saas'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+    ],
+    reference: diagram(
+      {
+        web: ['web-app', 'Web and mobile channel'],
+        exp: ['experience-api', 'exp-loan-api (accepts or creates X-Correlation-ID)'],
+        prc: ['process-api', 'prc-loan-api'],
+        scu: ['system-api', 'sys-customer-api'],
+        scb: ['system-api', 'sys-credit-bureau-api'],
+        sco: ['system-api', 'sys-core-banking-api'],
+        sf: ['crm', 'Salesforce'],
+        cb: ['external-api', 'Credit bureau'],
+        core: ['legacy', 'Core banking (on-prem)'],
+        q: ['queue', 'LoanSubmitted (correlation ID as a message property)'],
+        doc: ['process-api', 'Document consumer'],
+        splunk: ['monitoring', 'Splunk (structured JSON logs)'],
+        am: ['monitoring', 'Anypoint Monitoring (metrics and dashboards)'],
+      },
+      [
+        'web -> exp', 'exp -> prc', 'prc -> scu', 'prc -> scb', 'prc -> sco', 'scu -> sf', 'scb -> cb', 'sco -> core', 'prc ~> q', 'q ~> doc',
+        'exp -> splunk', 'prc -> splunk', 'scu -> splunk', 'scb -> splunk', 'sco -> splunk', 'doc -> splunk', 'prc -> am',
+      ],
+    ),
+  },
   quiz: [
     {
       type: 'single',

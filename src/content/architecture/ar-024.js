@@ -1,3 +1,10 @@
+import { diagram } from '../../arch/dsl.js'
+
+const BROKER = ['queue', 'topic', 'cloud-queue', 'event-stream']
+const STATE = ['database', 'sql-server', 'oracle-db']
+const BACKEND = ['crm', 'external-api', 'oracle-db', 'database', 'erp', 'legacy', 'payment', 'saas']
+const APIS = ['experience-api', 'process-api', 'system-api']
+
 export default {
   id: 'ar-024',
   category: 'architecture',
@@ -5,6 +12,50 @@ export default {
   level: 'EXPERT',
   tags: ['saga', 'eventual-consistency', 'two-phase-commit', 'compensation'],
   estMinutes: 40,
+  diagram: {
+    task: 'draw the orchestrated saga for a new subscription: one orchestrator that owns the order, its durable saga state, the queue that drives each step, a DLQ for failed compensations, and a System API for each of the six systems it calls.',
+    checks: [
+      { label: 'The online shop reaches an Experience API', rule: { type: 'path', from: ['web-app', 'mobile-app'], to: 'experience-api' } },
+      { label: 'The Experience API hands the order to the orchestrator', rule: { type: 'each', of: 'experience-api', edgeTo: ['process-api', ...BROKER] } },
+      { label: 'One orchestrator calls all six System APIs (Salesforce, bureau, numbers, billing, provisioning, payment)', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 6, some: true } },
+      { label: 'The orchestrator keeps saga state in a durable database', rule: { type: 'edge', from: 'process-api', to: STATE } },
+      { label: 'The orchestrator sends each next step as a queue message', rule: { type: 'edge', from: 'process-api', to: BROKER, kind: 'async' } },
+      { label: 'Step messages are consumed again, so another replica can resume the saga', rule: { type: 'path', from: 'process-api', via: BROKER, to: 'process-api' } },
+      { label: 'Failed compensations go to a DLQ', rule: { type: 'edge', from: ['process-api', ...BROKER], to: 'dlq', kind: 'async' } },
+      { label: 'Every System API is called by the orchestrator', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: BACKEND } },
+      { label: 'Salesforce, the bureau, billing, provisioning and the payment provider are reached only through System APIs', rule: { type: 'only-via', target: ['crm', 'external-api', 'erp', 'legacy', 'payment', 'saas'], from: 'system-api' } },
+      { label: 'The Experience API never calls System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'APIs call each other, the saga state and the REST backends with sync calls. Async work goes through a broker', rule: { type: 'lines', from: ['web-app', 'mobile-app', ...APIS], to: [...APIS, ...STATE, 'crm', 'external-api', 'erp', 'payment'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+    ],
+    reference: diagram(
+      {
+        web: ['web-app', 'Online shop (sees order in progress)'],
+        exp: ['experience-api', 'exp-subscription-orders (202 Accepted and a status endpoint)'],
+        orc: ['process-api', 'prc-subscription-saga (orchestrator)'],
+        state: ['database', 'Saga state per order (step, status, external IDs)'],
+        q: ['queue', 'Saga steps (Anypoint MQ)'],
+        dlq: ['dlq', 'Compensation DLQ (alert and manual task)'],
+        scr: ['system-api', 'sys-credit-bureau'],
+        cb: ['external-api', 'Credit bureau'],
+        ssf: ['system-api', 'sys-salesforce-customer'],
+        sf: ['crm', 'Salesforce'],
+        snum: ['system-api', 'sys-number-inventory'],
+        num: ['oracle-db', 'Number inventory (on-prem Oracle)'],
+        spay: ['system-api', 'sys-payments (authorize, then capture last)'],
+        pay: ['payment', 'Payment provider'],
+        sbil: ['system-api', 'sys-billing-contract'],
+        brim: ['erp', 'SAP BRIM'],
+        sprov: ['system-api', 'sys-provisioning'],
+        net: ['legacy', 'Network provisioning (callback in 1 to 10 min)'],
+      },
+      [
+        'web -> exp', 'exp -> orc', 'orc -> state', 'orc ~> q', 'q ~> orc', 'orc ~> dlq',
+        'orc -> scr', 'scr -> cb', 'orc -> ssf', 'ssf -> sf', 'orc -> snum', 'snum -> num', 'orc -> spay', 'spay -> pay', 'orc -> sbil', 'sbil -> brim', 'orc -> sprov', 'sprov -> net',
+      ],
+    ),
+  },
   quiz: [
     {
       type: 'single',

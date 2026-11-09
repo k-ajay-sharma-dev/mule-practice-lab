@@ -1,3 +1,10 @@
+import { diagram } from '../../arch/dsl.js'
+
+const DB = ['database', 'sql-server', 'oracle-db']
+const BROKER = ['queue', 'topic', 'cloud-queue', 'event-stream']
+const CLIENTS = ['partner', 'web-app', 'mobile-app', 'internal-app']
+const GLOBAL = { type: 'load-balancer', label: ['global', 'gtm', 'traffic manager', 'dns', 'route 53', 'akamai', 'cloudflare'] }
+
 export default {
   id: 'ar-006',
   category: 'architecture',
@@ -5,6 +12,44 @@ export default {
   level: 'EXPERT',
   tags: ['disaster-recovery', 'high-availability', 'rpo-rto', 'multi-region'],
   estMinutes: 40,
+  diagram: {
+    task: 'draw the DR topology for Tier 1 and Tier 2. Pharmacies enter through a global traffic manager that reaches an ingress in EU-West and in EU-Central. Each region runs the order capture Experience API and commits orders to its order DB, and accepted orders reach SAP through Anypoint MQ.',
+    checks: [
+      { label: 'Every client enters through the global traffic manager', rule: { type: 'each', of: CLIENTS, edgeTo: 'load-balancer' } },
+      { label: 'A global traffic manager plus an ingress in each region', rule: { type: 'node', match: 'load-balancer', min: 3 } },
+      { label: 'The global traffic manager routes to the ingress in each region', rule: { type: 'edge', from: GLOBAL, to: 'load-balancer', min: 2 } },
+      { label: 'Two regions: an order capture Experience API behind the ingress in each', rule: { type: 'each', of: 'experience-api', min: 2, edgeFrom: 'load-balancer' } },
+      { label: 'Each order capture API commits the order to an order DB before it answers', rule: { type: 'each', of: 'experience-api', edgeTo: [...DB, 'system-api', 'process-api'] } },
+      { label: 'Two order DBs: the primary and its cross-region replica', rule: { type: 'node', match: DB, min: 2 } },
+      { label: 'The order DB replicates to the other region', rule: { type: 'link', from: DB, to: DB } },
+      { label: 'Accepted orders reach SAP through a queue', rule: { type: 'path', from: 'experience-api', via: BROKER, to: 'erp' } },
+      { label: 'The queue is drained by the order to ERP flow', rule: { type: 'edge', from: BROKER, to: ['process-api', 'batch-job'], kind: 'async' } },
+      { label: 'SAP is reached only through a System API', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
+      { label: 'Every System API is called by the order to ERP flow', rule: { type: 'each', of: 'system-api', edgeFrom: ['process-api', 'batch-job', 'experience-api'] } },
+      { label: 'Every System API connects to SAP or the order DB', rule: { type: 'each', of: 'system-api', edgeTo: ['erp', ...DB] } },
+      { label: 'No chain of sync calls joins an order capture API to SAP, so orders wait in the queue while SAP fails over', rule: { type: 'no-path', from: 'experience-api', to: 'erp', kind: 'sync' } },
+      { label: 'Load balancers forward live requests, so their lines are sync calls', rule: { type: 'lines', touching: 'load-balancer', kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+      { label: 'APIs call each other and the order DB with sync calls', rule: { type: 'lines', from: ['experience-api', 'process-api', 'system-api', 'batch-job'], to: ['process-api', 'system-api', 'erp', ...DB], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        ph: ['partner', 'Pharmacies'],
+        gtm: ['load-balancer', 'Global traffic manager (DNS failover for api.distributor.eu, TTL 60 s)'],
+        ingW: ['load-balancer', 'EU-West ingress'],
+        ingC: ['load-balancer', 'EU-Central ingress'],
+        ordW: ['experience-api', 'Order capture API (EU-West, active)'],
+        ordC: ['experience-api', 'Order capture API (EU-Central, hot standby)'],
+        db: ['database', 'Order DB with outbox (EU-West primary)'],
+        dbr: ['database', 'Order DB replica (EU-Central)'],
+        q: ['queue', 'Order events (Anypoint MQ, replayed from the outbox)'],
+        erpf: ['process-api', 'Order to ERP flow (warm standby in EU-Central)'],
+        ssap: ['system-api', 'sys-sap-orders'],
+        sap: ['erp', 'SAP S/4HANA (own DR site, about 30 min)'],
+      },
+      ['ph -> gtm', 'gtm -> ingW', 'gtm -> ingC', 'ingW -> ordW', 'ingC -> ordC', 'ordW -> db', 'ordC -> dbr', 'db -> dbr', 'ordW ~> q', 'q ~> erpf', 'erpf -> ssap', 'ssap -> sap'],
+    ),
+  },
   quiz: [
     {
       type: 'match',

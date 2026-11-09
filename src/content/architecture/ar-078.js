@@ -1,3 +1,11 @@
+import { diagram } from '../../arch/dsl.js'
+
+const DB = ['oracle-db', 'database']
+const BROKER = ['queue', 'topic', 'event-stream', 'cloud-queue']
+const RECEIPT = { type: ['process-api', 'batch-job'], label: ['goods-receipt', 'goods receipt'] }
+const RELAY = { type: ['batch-job', 'process-api'], label: ['relay', 'outbox'] }
+const SUBSCRIBERS = ['process-api', 'batch-job', 'erp', 'saas', 'crm', 'web-app', 'partner', 'internal-app', 'external-api']
+
 export default {
   id: 'ar-078',
   category: 'architecture',
@@ -5,6 +13,34 @@ export default {
   level: 'ADVANCED',
   tags: ['supply-chain', 'xa', 'outbox', 'transactions', 'activemq', 'jms', 'oracle', 'idempotency'],
   estMinutes: 30,
+  diagram: {
+    task: 'draw the outbox design. Show the WMS, the wms.receipts queue, prc-goods-receipt, Oracle, an outbox relay, the receipt.posted topic, and its three subscribers: AP, replenishment and the supplier portal.',
+    checks: [
+      { label: 'Receipts reach prc-goods-receipt through the wms.receipts queue', rule: { type: 'path', from: 'wms', via: 'queue', to: RECEIPT } },
+      { label: 'prc-goods-receipt writes the receipt and the outbox row to Oracle', rule: { type: 'edge', from: RECEIPT, to: DB } },
+      { label: 'prc-goods-receipt never publishes the event itself. Every route to the topic passes Oracle', rule: { type: 'no-path', from: RECEIPT, to: BROKER, unless: DB } },
+      { label: 'The outbox relay reads the OUTBOX table in Oracle', rule: { type: 'link', from: RELAY, to: DB } },
+      { label: 'The outbox relay publishes receipt.posted as an async message', rule: { type: 'edge', from: RELAY, to: ['topic', 'event-stream', 'queue', 'cloud-queue'], kind: 'async' } },
+      { label: 'Only the outbox relay publishes to the topic', rule: { type: 'only-via', target: ['topic', 'event-stream'], from: RELAY } },
+      { label: 'The event reaches all three subscribers', rule: { type: 'path', from: ['topic', 'event-stream'], to: SUBSCRIBERS, min: 3 } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: DB, kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        wms: ['wms', 'WMS'],
+        inq: ['queue', 'wms.receipts'],
+        gr: ['process-api', 'prc-goods-receipt (ack after commit)'],
+        ora: ['oracle-db', 'Oracle: GOODS_RECEIPT, PO lines and OUTBOX in one local transaction'],
+        relay: ['batch-job', 'outbox-relay (publish, then mark sent)'],
+        top: ['topic', 'receipt.posted'],
+        ap: ['process-api', 'AP 3-way match (dedup on receiptId)'],
+        rep: ['process-api', 'Replenishment (dedup on receiptId)'],
+        portal: ['web-app', 'Supplier portal (dedup on receiptId)'],
+      },
+      ['wms ~> inq', 'inq ~> gr', 'gr -> ora', 'relay -> ora', 'relay ~> top', 'top ~> ap', 'top ~> rep', 'top ~> portal'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

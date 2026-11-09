@@ -1,3 +1,5 @@
+import { diagram } from '../../arch/dsl.js'
+
 export default {
   id: 'ar-045',
   category: 'architecture',
@@ -5,6 +7,33 @@ export default {
   level: 'EXPERT',
   tags: ['zero-trust', 'mtls', 'oauth2', 'service-identity', 'security'],
   estMinutes: 40,
+  diagram: {
+    task: 'draw the payment chain under zero trust: a customer channel, the gateway, an Experience API, a Payments Process API, a Payments System API and its backend. Add the identity provider that gives every app its own identity, and the low-value internal app from the penetration test.',
+    checks: [
+      { label: 'Customers reach an Experience API through the gateway', rule: { type: 'path', from: ['web-app', 'mobile-app'], via: 'api-gateway', to: 'experience-api' } },
+      { label: 'Every Experience API calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'The Payments Process API calls the Payments System API', rule: { type: 'edge', from: { type: 'process-api', label: 'payment' }, to: { type: 'system-api', label: 'payment' } } },
+      { label: 'Only the Payments Process API may call the Payments System API, so a compromised app cannot move money', rule: { type: 'only-via', target: { type: 'system-api', label: 'payment' }, from: { type: 'process-api', label: 'payment' } } },
+      { label: 'Every Experience and Process API gets its own token from the identity provider (no shared credentials)', rule: { type: 'each', of: ['experience-api', 'process-api'], edgeTo: 'identity-provider' } },
+      { label: 'The low-value internal app has its own identity with narrow scopes, not a shared secret', rule: { type: 'each', of: 'internal-app', edgeTo: 'identity-provider' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'database', 'oracle-db', 'sql-server', 'erp', 'payment', 'saas', 'external-api'] } },
+      { label: 'API calls and token requests are sync calls', rule: { type: 'lines', from: ['web-app', 'mobile-app', 'internal-app', 'api-gateway', 'experience-api', 'process-api'], to: ['api-gateway', 'identity-provider', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        web: ['web-app', 'Customer web app'],
+        low: ['internal-app', 'Low-value internal app (own client, narrow scopes)'],
+        gw: ['api-gateway', 'Gateway (OAuth, JWT validation)'],
+        idp: ['identity-provider', 'Enterprise IdP (one OAuth client per app)'],
+        exp: ['experience-api', 'exp-banking-api (token exchange for the user)'],
+        prc: ['process-api', 'prc-payments-api'],
+        sys: ['system-api', 'sys-payments-api (allow-list: prc-payments-api only)'],
+        core: ['legacy', 'Core banking payments'],
+      },
+      ['web -> idp', 'web -> gw', 'gw -> exp', 'exp -> idp', 'exp -> prc', 'prc -> idp', 'prc -> sys', 'sys -> core', 'low -> idp'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

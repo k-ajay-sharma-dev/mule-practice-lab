@@ -1,3 +1,9 @@
+import { diagram } from '../../arch/dsl.js'
+
+const STORE = ['database', 'oracle-db', 'sql-server', 'cache']
+const BROKER = ['queue', 'topic', 'cloud-queue', 'event-stream']
+const BACKEND = ['payment', 'external-api', 'database', 'oracle-db', 'sql-server', 'erp', 'saas', 'notification']
+
 export default {
   id: 'ar-005',
   category: 'architecture',
@@ -5,6 +11,43 @@ export default {
   level: 'ADVANCED',
   tags: ['idempotency', 'duplicates', 'object-store', 'retries'],
   estMinutes: 30,
+  diagram: {
+    task: 'draw the payment chain from the mobile app to the payment provider and the billing DB, and the receipts consumer behind the queue. Show the store where each Process API keeps its idempotency keys.',
+    checks: [
+      { label: 'The mobile app reaches the Payments Experience API', rule: { type: 'path', from: 'mobile-app', to: 'experience-api' } },
+      { label: 'The mobile app never skips the Experience API', rule: { type: 'no-path', from: 'mobile-app', to: 'process-api', unless: 'experience-api' } },
+      { label: 'The Experience API passes the key on to the Payments Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'The Process API calls the Payment Provider and Billing System APIs', rule: { type: 'edge', from: 'process-api', to: 'system-api', min: 2 } },
+      { label: 'The payment provider is reached only through a System API', rule: { type: 'only-via', target: 'payment', from: 'system-api' } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: BACKEND } },
+      { label: 'The Experience API never calls System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Both the payments API and the receipts consumer keep their keys in a shared store', rule: { type: 'each', of: 'process-api', min: 2, edgeTo: STORE } },
+      { label: 'The Process API publishes PaymentCompleted as an async message', rule: { type: 'edge', from: 'process-api', to: BROKER, kind: 'async' } },
+      { label: 'The receipts consumer reads PaymentCompleted from the queue', rule: { type: 'edge', from: BROKER, to: 'process-api', kind: 'async' } },
+      { label: 'PaymentCompleted leads on to the email provider', rule: { type: 'path', from: BROKER, to: 'notification' } },
+      { label: 'No chain of sync calls joins the Experience API to the email provider', rule: { type: 'no-path', from: 'experience-api', to: 'notification', kind: 'sync' } },
+      { label: 'Calls between APIs and to the provider, billing, stores and email are sync calls', rule: { type: 'lines', from: ['mobile-app', 'experience-api', 'process-api', 'system-api'], to: ['experience-api', 'process-api', 'system-api', ...BACKEND, 'cache'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+    ],
+    reference: diagram(
+      {
+        mob: ['mobile-app', 'Mobile app (one Idempotency-Key per payment)'],
+        exp: ['experience-api', 'exp-payments-api (requires the key)'],
+        prc: ['process-api', 'prc-payments-api (2 replicas)'],
+        keys: ['cache', 'Idempotency records (persistent Object Store v2, 48 h)'],
+        spay: ['system-api', 'sys-payment-provider-api'],
+        prov: ['payment', 'Payment provider (Idempotency-Key, 24 h)'],
+        sbil: ['system-api', 'sys-billing-api'],
+        bdb: ['database', 'Billing DB (conditional update)'],
+        q: ['queue', 'PaymentCompleted (Anypoint MQ)'],
+        rc: ['process-api', 'prc-receipts (consumer)'],
+        seen: ['cache', 'Processed paymentIds (persistent Object Store)'],
+        mail: ['notification', 'Email provider'],
+      },
+      ['mob -> exp', 'exp -> prc', 'prc -> keys', 'prc -> spay', 'spay -> prov', 'prc -> sbil', 'sbil -> bdb', 'prc ~> q', 'q ~> rc', 'rc -> seen', 'rc -> mail'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

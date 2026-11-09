@@ -1,3 +1,11 @@
+import { diagram } from '../../arch/dsl.js'
+
+const ON_PREM = ['runtime fabric', 'rtf', 'on-prem', 'on prem', 'onprem', 'data center', 'hybrid']
+const CLOUD = ['private space', 'cloudhub', 'ch2']
+const EHR = ['database', 'oracle-db', 'sql-server', 'legacy']
+const BACKEND = [...EHR, 'crm', 'saas', 'erp']
+const APIS = ['experience-api', 'process-api', 'system-api']
+
 export default {
   id: 'ar-019',
   category: 'architecture',
@@ -5,6 +13,42 @@ export default {
   level: 'ADVANCED',
   tags: ['hybrid', 'private-space', 'vpn', 'runtime-fabric'],
   estMinutes: 30,
+  diagram: {
+    task: 'draw the clinician and mobile lookup from the mobile app to Salesforce and the EHR, the HL7 feeds from the lab system, and the nightly imaging file flow. Put where each Mule box runs in its name: Private Space for CloudHub 2.0, or Runtime Fabric on-prem.',
+    checks: [
+      { label: 'The mobile app reaches an Experience API', rule: { type: 'path', from: 'mobile-app', to: 'experience-api' } },
+      { label: 'The Experience API runs in the CloudHub 2.0 Private Space', rule: { type: 'node', match: { type: 'experience-api', label: CLOUD } } },
+      { label: 'The Experience API calls the Patient 360 Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'The EHR System API runs on Runtime Fabric on-prem', rule: { type: 'node', match: { type: 'system-api', label: ON_PREM } } },
+      { label: 'Patient 360 combines Salesforce through a System API', rule: { type: 'path', from: 'process-api', via: 'system-api', to: 'crm' } },
+      { label: 'Patient 360 reaches the EHR through the on-prem System API', rule: { type: 'path', from: 'process-api', via: { type: 'system-api', label: ON_PREM }, to: EHR } },
+      { label: 'Cloud apps never reach the EHR database except through the on-prem System API', rule: { type: 'no-path', from: ['experience-api', 'process-api'], to: EHR, unless: { type: 'system-api', label: ON_PREM } } },
+      { label: 'Salesforce and the EHR are reached only through System APIs', rule: { type: 'only-via', target: ['crm', ...EHR], from: 'system-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: BACKEND } },
+      { label: 'The Experience API never calls System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'The nightly imaging flow runs on Runtime Fabric on-prem', rule: { type: 'node', match: { type: 'batch-job', label: ON_PREM } } },
+      { label: 'The imaging files stay in on-prem storage', rule: { type: 'edge', from: 'batch-job', to: ['file-store', 'sftp-server', 'database'] } },
+      { label: 'The lab system and ward devices send HL7 to a listener on Runtime Fabric on-prem', rule: { type: 'edge', from: ['legacy', 'device'], to: { type: ['process-api', 'system-api'], label: ON_PREM } } },
+      { label: 'APIs, ingresses, HL7 over MLLP and file writes are sync calls', rule: { type: 'lines', from: ['mobile-app', 'device', 'legacy', 'load-balancer', 'batch-job', ...APIS], to: ['load-balancer', ...APIS, 'crm', ...EHR, 'file-store', 'sftp-server'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        mob: ['mobile-app', 'Mobile app'],
+        exp: ['experience-api', 'exp-patient-mobile (Private Space, in-country region)'],
+        prc: ['process-api', 'prc-patient-360 (Private Space)'],
+        ssf: ['system-api', 'sys-salesforce (Private Space)'],
+        sf: ['crm', 'Salesforce Health Cloud'],
+        ing: ['load-balancer', 'RTF ingress over the VPN (allows only the Private Space CIDR)'],
+        sehr: ['system-api', 'sys-ehr (Runtime Fabric on-prem)'],
+        ehr: ['database', 'EHR database (data center)'],
+        lab: ['legacy', 'Lab system and ward devices'],
+        hl7: ['process-api', 'HL7 MLLP listener (Runtime Fabric on-prem)'],
+        img: ['batch-job', 'Nightly imaging metadata flow (Runtime Fabric on-prem)'],
+        files: ['file-store', 'Imaging metadata files (data center)'],
+      },
+      ['mob -> exp', 'exp -> prc', 'prc -> ssf', 'ssf -> sf', 'prc -> ing', 'ing -> sehr', 'sehr -> ehr', 'lab -> hl7', 'img -> files'],
+    ),
+  },
   quiz: [
     {
       type: 'match',

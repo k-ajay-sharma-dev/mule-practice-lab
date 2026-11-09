@@ -1,3 +1,5 @@
+import { diagram } from '../../arch/dsl.js'
+
 export default {
   id: 'ar-058',
   category: 'architecture',
@@ -5,6 +7,38 @@ export default {
   level: 'ADVANCED',
   tags: ['api-led', 'performance', 'latency', 'caching', 'deployment'],
   estMinutes: 30,
+  diagram: {
+    task: 'draw the product search chain after your fixes, from the mobile app to the PIM, the pricing DB and the WMS. Show which calls go through the public load balancer and where product data is cached.',
+    checks: [
+      { label: 'The mobile app reaches the Experience API', rule: { type: 'path', from: 'mobile-app', to: 'experience-api' } },
+      { label: 'Every Experience API calls the Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'The Process API calls the three System APIs (PIM, price, stock)', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 3, some: true } },
+      { label: 'Every System API is called by a Process API', rule: { type: 'each', of: 'system-api', edgeFrom: 'process-api' } },
+      { label: 'Every System API connects to its backend', rule: { type: 'each', of: 'system-api', edgeTo: ['saas', 'database', 'oracle-db', 'sql-server', 'wms', 'erp'] } },
+      { label: 'The mobile app never calls the databases directly: the PIM, pricing DB and WMS are reached only through System APIs', rule: { type: 'only-via', target: ['saas', 'database', 'oracle-db', 'sql-server', 'wms', 'erp'], from: 'system-api' } },
+      { label: 'Calls between the APIs use internal endpoints, never the public load balancer', rule: { type: 'no-edge', from: ['experience-api', 'process-api', 'system-api'], to: 'load-balancer', ifDrawn: true } },
+      { label: 'Product data is cached at the Process or System layer', rule: { type: 'edge', from: ['process-api', 'system-api'], to: 'cache' } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: ['mobile-app', 'load-balancer', 'api-gateway', 'experience-api', 'process-api'], to: ['load-balancer', 'api-gateway', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+      { label: 'Reads and writes to a data store are sync calls', rule: { type: 'lines', to: ['database', 'oracle-db', 'sql-server', 'cache'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        mob: ['mobile-app', 'Mobile app (product search)'],
+        lb: ['load-balancer', 'Public load balancer (mobile traffic only)'],
+        exp: ['experience-api', 'exp-mobile-api'],
+        prc: ['process-api', 'prc-product-api (Scatter-Gather, calls in parallel)'],
+        cache: ['cache', 'Product and price cache (Object Store, TTL)'],
+        spim: ['system-api', 'sys-pim-api'],
+        sprice: ['system-api', 'sys-price-api'],
+        sstock: ['system-api', 'sys-stock-api'],
+        pim: ['saas', 'PIM'],
+        pdb: ['database', 'Pricing DB'],
+        wms: ['wms', 'WMS'],
+      },
+      ['mob -> lb', 'lb -> exp', 'exp -> prc', 'prc -> cache', 'prc -> spim', 'prc -> sprice', 'prc -> sstock', 'spim -> pim', 'sprice -> pdb', 'sstock -> wms'],
+    ),
+  },
   quiz: [
     {
       type: 'single',

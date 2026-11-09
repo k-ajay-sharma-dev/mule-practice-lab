@@ -1,3 +1,17 @@
+import { diagram } from '../../arch/dsl.js'
+
+const API = ['experience-api', 'process-api']
+const DB = ['database', 'sql-server', 'oracle-db']
+const QUEUE = ['queue', 'cloud-queue']
+const BROKER = [...QUEUE, 'topic', 'event-stream']
+const CELL_WORDS = ['enterprise', 'dedicated', 'cell']
+const POOL = { type: API, label: ['shared', 'pool', 'basic'] }
+const CELL = { type: API, label: CELL_WORDS }
+const CELL_DB = { type: DB, label: CELL_WORDS }
+const SHARED_DB = { type: DB, label: ['shared', 'row-level', 'tenant_id'] }
+const REGISTRY = { label: ['registry', 'tenant config'] }
+const DISPATCHER = { type: ['process-api', 'batch-job'], label: ['dispatch', 'webhook', 'sender', 'delivery'] }
+
 export default {
   id: 'ar-026',
   category: 'architecture',
@@ -5,6 +19,49 @@ export default {
   level: 'EXPERT',
   tags: ['multi-tenancy', 'sla-tiers', 'data-isolation', 'noisy-neighbour'],
   estMinutes: 40,
+  diagram: {
+    task: 'draw the "pool and cells" platform. Tenants enter through the gateway, which validates their tokens with the identity provider. Draw a shared pool Shipment API with its shared DB, an Enterprise cell Shipment API with its own dedicated DB, a tenant registry both read, and webhook queues that keep a big tenant\'s backlog away from the others.',
+    checks: [
+      { label: 'Every tenant enters through the gateway', rule: { type: 'each', of: 'partner', min: 2, edgeTo: 'api-gateway' } },
+      { label: 'The gateway validates tokens with the identity provider, so the tenant comes from the token', rule: { type: 'link', from: 'api-gateway', to: 'identity-provider' } },
+      { label: 'Tenants never reach a Shipment API without passing the gateway', rule: { type: 'no-path', from: 'partner', to: API, unless: 'api-gateway' } },
+      { label: 'The gateway routes to the shared pool', rule: { type: 'edge', from: 'api-gateway', to: POOL } },
+      { label: 'The gateway routes to the Enterprise cell', rule: { type: 'edge', from: 'api-gateway', to: CELL } },
+      { label: 'The shared pool writes to the shared DB with row-level security', rule: { type: 'edge', from: POOL, to: SHARED_DB } },
+      { label: 'The Enterprise cell writes to its own dedicated DB', rule: { type: 'edge', from: CELL, to: CELL_DB } },
+      { label: 'The shared pool never touches the Enterprise DB', rule: { type: 'no-path', from: POOL, to: CELL_DB } },
+      { label: 'Both the pool and the cell read tenant config from the registry', rule: { type: 'edge', from: API, to: REGISTRY, min: 2 } },
+      { label: 'The shared pool publishes webhook events to a queue', rule: { type: 'edge', from: POOL, to: QUEUE, kind: 'async' } },
+      { label: 'At least two webhook queues, each drained by a dispatcher, so one tenant\'s backlog does not delay the others', rule: { type: 'each', of: QUEUE, min: 2, edgeTo: DISPATCHER, kind: 'async' } },
+      { label: 'Every webhook queue is fed by a Shipment API', rule: { type: 'each', of: QUEUE, edgeFrom: API, kind: 'async' } },
+      { label: 'Every webhook dispatcher calls the tenant endpoints', rule: { type: 'each', of: DISPATCHER, edgeTo: 'external-api' } },
+      { label: 'No chain of sync calls joins the gateway to the tenant webhook endpoints', rule: { type: 'no-path', from: 'api-gateway', to: 'external-api', kind: 'sync' } },
+      { label: 'Gateway and API calls and data store reads are sync calls', rule: { type: 'lines', from: ['partner', 'api-gateway', ...API, 'system-api'], to: ['api-gateway', 'identity-provider', ...API, 'system-api', ...DB, 'cache', 'external-api'], kind: 'sync' } },
+      { label: 'Every line to or from a queue or topic is an async message', rule: { type: 'lines', touching: [...BROKER, 'dlq'], kind: 'async' } },
+    ],
+    reference: diagram(
+      {
+        ten: ['partner', 'Basic and Pro tenants (shops, forwarders)'],
+        big: ['partner', 'Big marketplaces and Enterprise tenants'],
+        gw: ['api-gateway', 'API Manager: JWT validation, SLA tier rate limits'],
+        idp: ['identity-provider', 'Company IdP (tenantId claim)'],
+        pool: ['process-api', 'Shipment API (shared pool)'],
+        cell: ['process-api', 'Shipment API (Enterprise cell, EU region)'],
+        sdb: ['database', 'Shared DB (tenant_id and row-level security)'],
+        cdb: ['database', 'Dedicated Enterprise DB (EU region)'],
+        reg: ['database', 'Tenant registry (plan, features, webhooks, limits)'],
+        qs: ['queue', 'Webhooks for most tenants'],
+        qb: ['queue', 'Webhooks for the biggest marketplace'],
+        da: ['process-api', 'Webhook dispatcher A'],
+        dbg: ['process-api', 'Webhook dispatcher B (big tenant)'],
+        wh: ['external-api', 'Tenant webhook endpoints (HMAC signed)'],
+      },
+      [
+        'ten -> gw', 'big -> gw', 'gw -> idp', 'gw -> pool', 'gw -> cell', 'pool -> sdb', 'cell -> cdb', 'pool -> reg', 'cell -> reg',
+        'pool ~> qs', 'pool ~> qb', 'cell ~> qb', 'qs ~> da', 'qb ~> dbg', 'da -> wh', 'dbg -> wh',
+      ],
+    ),
+  },
   quiz: [
     {
       type: 'single',

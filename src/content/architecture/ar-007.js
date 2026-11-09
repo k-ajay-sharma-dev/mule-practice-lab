@@ -1,3 +1,9 @@
+import { diagram } from '../../arch/dsl.js'
+
+const CLIENTS = ['mobile-app', 'web-app', 'partner']
+const V1 = { type: 'experience-api', label: 'v1' }
+const V2 = { type: 'experience-api', label: 'v2' }
+
 export default {
   id: 'ar-007',
   category: 'architecture',
@@ -5,6 +11,36 @@ export default {
   level: 'BEGINNER',
   tags: ['versioning', 'deprecation', 'api-lifecycle', 'exchange'],
   estMinutes: 15,
+  diagram: {
+    task: 'draw v1 and v2 of the Policy Experience API running side by side. Use one Experience API box for each version, with v1 or v2 in its name, and show that both call the same Process API and System API. Connect the mobile app, the broker portal and the partners.',
+    checks: [
+      { label: 'A Policy Experience API v1 box', rule: { type: 'node', match: V1 } },
+      { label: 'A Policy Experience API v2 box', rule: { type: 'node', match: V2 } },
+      { label: 'The mobile app, the broker portal and the partners each call the gateway or an Experience API', rule: { type: 'each', of: CLIENTS, min: 3, edgeTo: ['api-gateway', 'experience-api'] } },
+      { label: 'The partners can still reach v1 until they migrate', rule: { type: 'path', from: 'partner', to: V1 } },
+      { label: 'Clients can reach v2', rule: { type: 'path', from: CLIENTS, to: V2 } },
+      { label: 'Every Experience API version calls a Process API', rule: { type: 'each', of: 'experience-api', edgeTo: 'process-api' } },
+      { label: 'Both versions share one Process API, so v1 is only an older mapping', rule: { type: 'each', of: 'process-api', edgeFrom: 'experience-api', count: 2, some: true } },
+      { label: 'The Process API calls the System API', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api' } },
+      { label: 'The System API connects to the policy system', rule: { type: 'each', of: 'system-api', edgeTo: ['legacy', 'database', 'erp', 'saas', 'oracle-db', 'sql-server'] } },
+      { label: 'Experience APIs never call System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'APIs call each other with sync calls', rule: { type: 'lines', from: [...CLIENTS, 'api-gateway', 'experience-api', 'process-api'], to: ['api-gateway', 'experience-api', 'process-api', 'system-api'], kind: 'sync' } },
+    ],
+    reference: diagram(
+      {
+        mob: ['mobile-app', 'Mobile app (old and new releases)'],
+        brk: ['web-app', 'Broker portal'],
+        ptn: ['partner', '14 broker partners'],
+        gw: ['api-gateway', 'API Manager: separate v1 and v2 instances'],
+        v1: ['experience-api', 'Policy Experience API v1 (deprecated, Sunset header)'],
+        v2: ['experience-api', 'Policy Experience API v2'],
+        prc: ['process-api', 'prc-policy-api'],
+        sys: ['system-api', 'sys-policy-api'],
+        pas: ['legacy', 'Policy administration system'],
+      },
+      ['mob -> gw', 'brk -> gw', 'ptn -> gw', 'gw -> v1', 'gw -> v2', 'v1 -> prc', 'v2 -> prc', 'prc -> sys', 'sys -> pas'],
+    ),
+  },
   quiz: [
     {
       type: 'match',
