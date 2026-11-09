@@ -23,6 +23,17 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['question', 'problemId', 'rating', 'seconds', 'type', 'recordedAt']);
     }
 
+    // My Projects: your own project notes in Markdown, readable only by you.
+    match /users/{uid}/projects/{id} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['title', 'summary', 'body', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.summary is string && request.resource.data.summary.size() <= 1000
+        && request.resource.data.body is string && request.resource.data.body.size() <= 300000
+        && request.resource.data.updatedAt is string;
+    }
+
     match /users/{uid}/recordingAudio/{id} {
       allow read, delete: if isOwner(uid);
       allow create: if isOwner(uid)

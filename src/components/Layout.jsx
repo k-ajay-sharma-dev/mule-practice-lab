@@ -203,6 +203,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
           {item('/interview', 'interview', 'Interview Practice')}
           {item('/weak-areas', 'weak', 'Weak Areas')}
           {item('/readiness', 'readiness', 'Readiness')}
+          {item('/projects', 'projects', 'My Projects')}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>

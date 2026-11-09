@@ -62,6 +62,12 @@ const PATHS = {
       <path d="M14 3v5h5M9 12h7M9 16h7" />
     </>
   ),
+  projects: (
+    <>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M8 13h8" />
+    </>
+  ),
   dataweave: <path d="M8 6l-5 6 5 6M16 6l5 6-5 6M14 4l-4 16" />,
   mulesoft: (
     <>

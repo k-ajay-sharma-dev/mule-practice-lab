@@ -2186,3 +2186,53 @@
   margin: 0 0 10px;
   font-size: 1.1rem;
 }
+
+/* ---------- My Projects ---------- */
+.projects-page {
+  max-width: 1000px;
+}
+.projects-page .settings-actions {
+  margin: 14px 0;
+}
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 8px;
+}
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.project-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.project-body {
+  min-height: 55vh;
+  resize: vertical;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.project-notes {
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.project-notes table {
+  width: 100%;
+}
+.project-notes td,
+.project-notes th {
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+@media (max-width: 600px) {
+  .project-notes {
+    padding: 14px;
+  }
+}
