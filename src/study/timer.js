@@ -18,6 +18,10 @@ export const startTimer = (minutes, now) => ({ firstStartedAt: now, startedAt: n
 
 export const resetTimer = (timer, now) => ({ ...timer, startedAt: now, resets: timer.resets + 1 })
 
+// A saved attempt keeps the target it started with. When the problem's estimate changes later, the attempt moves to
+// the new target and keeps the time already spent, so the clock and the estimate on the page always agree.
+export const retargetTimer = (timer, minutes) => (minutes > 0 && timer.minutes !== minutes ? { ...timer, minutes } : timer)
+
 export const pauseTimer = (timer, now, held = false) => (timer.pausedAt ? timer : { ...timer, pausedAt: now, ...(held && { held }) })
 
 export function resumeTimer(timer, now) {

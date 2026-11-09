@@ -1,10 +1,20 @@
 // Problem timer rules: the countdown, resets that cannot hide time, what gets recorded, and bad stored data.
 import assert from 'node:assert/strict'
-import { BLINK_MS, clock, finishTimer, inTime, isStale, LOW_MS, pauseTimer, remainingMs, resetTimer, resumeTimer, startTimer, timerLevel, validTimer } from '../src/study/timer.js'
+import { BLINK_MS, clock, finishTimer, inTime, isStale, LOW_MS, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../src/study/timer.js'
 
 const at = (minutes) => new Date(Date.parse('2026-11-05T10:00:00.000Z') + minutes * 60000).toISOString()
 const ms = (minutes) => Date.parse(at(minutes))
 const t = startTimer(30, at(0))
+
+// an attempt saved under an old estimate moves to the new one and keeps the time spent
+const stale15 = startTimer(15, at(0))
+const moved = retargetTimer(stale15, 35)
+assert.equal(moved.minutes, 35)
+assert.equal(moved.startedAt, stale15.startedAt)
+assert.equal(remainingMs(moved, ms(10)), 25 * 60000)
+assert.equal(retargetTimer(stale15, 15), stale15)
+assert.equal(retargetTimer(stale15, 0), stale15)
+assert.equal(retargetTimer(resetTimer(stale15, at(5)), 35).resets, 1)
 
 // countdown
 assert.equal(remainingMs(t, ms(0)), 30 * 60000)

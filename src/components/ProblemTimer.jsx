@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getEntry, setTimer, statusOf, useEntry } from '../store/progress.js'
-import { clock, inTime, isStale, pauseTimer, remainingMs, resetTimer, resumeTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
+import { clock, inTime, isStale, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
 
 const CLOCK_CLASS = { ok: '', low: ' warn-text', last: ' err-text timer-blink', over: ' err-text' }
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
@@ -42,7 +42,11 @@ export default function ProblemTimer({ problem }) {
     const current = getEntry(id)
     const solved = statusOf(current) === 'solved'
     const active = validTimer(current.timer)
-    if (active && !isStale(active, Date.now())) resume()
+    if (active && !isStale(active, Date.now())) {
+      // an attempt saved before the estimate changed moves to the new target
+      if (retargetTimer(active, estMinutes) !== active) setTimer(id, retargetTimer(active, estMinutes))
+      resume()
+    }
     else if (!solved) setTimer(id, startTimer(estMinutes, new Date().toISOString()))
     else if (active) setTimer(id, null)
 
