@@ -1,5 +1,5 @@
-import { SidebarRoom } from './sidebar.js'
-import { useEffect, useRef, useState } from 'react'
+import { SidebarRoom, WideView } from './sidebar.js'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
@@ -12,6 +12,7 @@ import { useSyncStatus } from '../sync/status.js'
 import { useTheme } from '../theme.jsx'
 
 const SIDEBAR_KEY = 'pl.sidebar' // 'full' | 'collapsed' (icons only)
+const WIDE_KEY = 'pl.wide' // 'on' | 'off': the wider view on pages with a work area
 const readSetting = (key) => {
   try {
     return localStorage.getItem(key)
@@ -52,6 +53,36 @@ export default function Layout({ children }) {
   const folded = room && laptop && !keptOpen
   const focus = useFocusSession()
   const focusing = Boolean(focus && !focus.endedAt)
+  // the wider view: only a page that offers it (see useWideView) hides the menu and shrinks its title
+  const [wide, setWide] = useState(() => readSetting(WIDE_KEY) === 'on')
+  const [wideRoom, setWideRoom] = useState(false)
+  const wideOn = wide && wideRoom && !focusing
+  const wideView = useMemo(
+    () => ({
+      wide: wideOn,
+      setRoom: setWideRoom,
+      toggle: () =>
+        setWide((w) => {
+          saveSetting(WIDE_KEY, w ? 'off' : 'on')
+          return !w
+        }),
+    }),
+    [wideOn],
+  )
+
+  useEffect(() => {
+    if (!wideRoom) return
+    const onKey = (e) => {
+      if (!e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.key.toLowerCase() !== 'w') return
+      const t = e.target
+      // typing a capital W in an editor or a field must not change the layout
+      if (t.closest?.('input, textarea, select, [contenteditable="true"], .monaco-editor')) return
+      e.preventDefault()
+      wideView.toggle()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [wideRoom, wideView])
 
   useEffect(() => setDrawerOpen(false), [pathname])
   useEffect(() => {
@@ -76,7 +107,7 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className={`app${collapsed || folded ? ' sidebar-collapsed' : ''}${drawerOpen ? ' drawer-open' : ''}${focusing ? ' focus-mode' : ''}`}>
+    <div className={`app${collapsed || folded || wideOn ? ' sidebar-collapsed' : ''}${wideOn ? ' wide-view' : ''}${drawerOpen ? ' drawer-open' : ''}${focusing ? ' focus-mode' : ''}`}>
       {focusing ? <FocusBar key={focus.at} session={focus} /> : (
       <header className="topbar">
         <button
@@ -120,7 +151,9 @@ export default function Layout({ children }) {
         {!focusing && <Sidebar collapsed={collapsed || folded} onToggle={toggleCollapsed} onClose={() => setDrawerOpen(false)} />}
         {!focusing && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
         <main className="content">
-          <SidebarRoom.Provider value={setRoom}>{children}</SidebarRoom.Provider>
+          <SidebarRoom.Provider value={setRoom}>
+            <WideView.Provider value={wideView}>{children}</WideView.Provider>
+          </SidebarRoom.Provider>
         </main>
       </div>
       {focus?.endedAt && <FocusSummary session={focus} />}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import PastRounds, { deleteRounds } from '../components/PastRounds.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import useRemaining from '../components/useRemaining.js'
+import WideToggle from '../components/WideToggle.jsx'
 import { categoryBySlug } from '../data/categories.js'
 import { EXERCISE_LABELS, exerciseOf } from '../data/exercises.js'
 import { problemById, problems } from '../data/problems.js'
@@ -236,6 +237,7 @@ function Running({ session, progress, onSelect, onFinish }) {
         >
           Finish
         </button>
+        <WideToggle />
       </div>
       {p && (
         <>

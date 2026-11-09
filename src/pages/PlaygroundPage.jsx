@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import CodeEditor from '../components/CodeEditor.jsx'
+import WideToggle from '../components/WideToggle.jsx'
 import { CodeBlock } from '../components/CopyButton.jsx'
 import RunningMessage from '../components/RunningMessage.jsx'
 import { runScript } from '../runner/client.js'
@@ -118,6 +119,7 @@ export default function PlaygroundPage() {
           <button className="btn btn-primary" onClick={run} disabled={running || !validName}>
             {running ? 'Running…' : '▶ Run'}
           </button>
+          <WideToggle />
         </div>
       </header>
 

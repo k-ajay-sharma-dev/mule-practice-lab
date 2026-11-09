@@ -2132,3 +2132,57 @@
 .step-guide .btn {
   margin-top: 6px;
 }
+
+/* ---------- Wider view ----------
+   Pages with a work area (problems, the playground, a mock interview round, the platform lab) offer it from a small
+   button: the menu hides and the title shrinks to one line, so the work area gets the room. */
+.wide-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+@media (min-width: 1001px) {
+  .app.wide-view .sidebar {
+    display: none;
+  }
+}
+.app.wide-view .problem-head {
+  align-items: center;
+  margin-bottom: 8px;
+}
+.app.wide-view .problem-head-main {
+  min-width: 0;
+}
+.app.wide-view .problem-head .back-link,
+.app.wide-view .problem-head .problem-meta,
+.app.wide-view .problem-head .eyebrow,
+.app.wide-view .problem-head-main > p {
+  display: none;
+}
+.app.wide-view .problem-head h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app.wide-view .mock-running > p.muted {
+  display: none;
+}
+.app.wide-view .mock-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.lab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.app.wide-view .lab-page > .eyebrow,
+.app.wide-view .lab-page > p.muted {
+  display: none;
+}
+.app.wide-view .lab-head h1 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}

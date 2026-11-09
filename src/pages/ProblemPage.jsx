@@ -7,6 +7,7 @@ import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import ProblemTimer from '../components/ProblemTimer.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import ReadOnlyLock from '../components/ReadOnlyLock.jsx'
+import WideToggle from '../components/WideToggle.jsx'
 import { validTimer } from '../study/timer.js'
 import NotFound from './NotFound.jsx'
 
@@ -66,6 +67,7 @@ export default function ProblemPage() {
           ) : (
             <span className="btn btn-ghost disabled">Next →</span>
           ))}
+          {!focusing && <WideToggle />}
         </div>
       </header>
 

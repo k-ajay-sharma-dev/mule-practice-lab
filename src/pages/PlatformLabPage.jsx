@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import WideToggle from '../components/WideToggle.jsx'
 import ApiManagerScreen from './lab/ApiManagerScreen.jsx'
 import ExchangeScreen from './lab/ExchangeScreen.jsx'
 import GuidedLabsScreen from './lab/GuidedLabsScreen.jsx'
@@ -19,7 +20,10 @@ export default function PlatformLabPage() {
   return (
     <div className="lab-page">
       <p className="eyebrow">// platform lab</p>
-      <h1>Platform Lab</h1>
+      <div className="lab-head">
+        <h1>Platform Lab</h1>
+        <WideToggle />
+      </div>
       <p className="muted">
         Practise API Manager, Runtime Manager, Exchange and CI/CD tasks and see their effect. This is a simulator based on
         the MuleSoft documentation. It is not connected to Anypoint Platform and sends nothing over the network.
