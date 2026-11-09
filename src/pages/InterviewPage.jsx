@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AnswerCheck from '../components/AnswerCheck.jsx'
+import PastRounds from '../components/PastRounds.jsx'
 import Markdown from '../components/Markdown.jsx'
 import useSpeechText, { canListen } from '../components/useSpeechText.js'
 import useVoiceRecorder, { canRecord } from '../components/useVoiceRecorder.js'
@@ -189,6 +190,8 @@ export default function InterviewPage() {
       nailed: tally('nailed'),
       partly: tally('partly'),
       missed: tally('missed'),
+      // so deleting the round can take back the reviews it added
+      missedIds: [...new Set(ratings.filter((r) => r.rating === 'missed').map((r) => r.card.problem.id))],
     }
     const next = [...history, entry].slice(-MAX_HISTORY)
     setHistory(next)
@@ -325,23 +328,29 @@ export default function InterviewPage() {
 
         {history.length > 0 && (
           <>
-            <h2 className="section-heading">Recent rounds</h2>
-            <ul className="mock-history">
-              {[...history]
-                .reverse()
-                .slice(0, 5)
-                .map((h) => (
-                  <li key={h.date}>
-                    <span className="muted small">{new Date(h.date).toLocaleString()}</span>
-                    <span>
-                      {h.nailed} / {h.total}
-                    </span>
-                    <span className="muted small">
-                      {h.deck} · {h.partly} partly · {h.missed} missed
-                    </span>
-                  </li>
-                ))}
-            </ul>
+            <PastRounds
+              title="Recent rounds"
+              noun="round"
+              kind="interview"
+              history={history}
+              shown={[...history].reverse().slice(0, 5)}
+              onChange={(kept) => {
+                setHistory(kept)
+                writeLocal(HISTORY_KEY, JSON.stringify(kept))
+              }}
+            >
+              {(h) => (
+                <>
+                  <span className="muted small">{new Date(h.date).toLocaleString()}</span>
+                  <span>
+                    {h.nailed} / {h.total}
+                  </span>
+                  <span className="muted small history-detail">
+                    {h.deck} · {h.partly} partly · {h.missed} missed
+                  </span>
+                </>
+              )}
+            </PastRounds>
           </>
         )}
 

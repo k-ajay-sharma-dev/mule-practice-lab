@@ -147,9 +147,15 @@ export function scheduleReview(id, notify = true) {
 }
 
 export function removeReview(id) {
-  const { [id]: _, ...rest } = review
-  saveReview(rest)
+  removeReviews([id])
 }
+
+export function removeReviews(ids) {
+  if (!ids.length) return
+  saveReview(Object.fromEntries(Object.entries(review).filter(([id]) => !ids.includes(id))))
+}
+
+export const getReview = () => review
 
 // Records a review: success moves to the next interval (or graduates), a miss starts over.
 export function reviewOutcome(id, success, notify = true) {

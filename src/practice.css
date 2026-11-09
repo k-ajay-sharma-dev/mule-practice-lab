@@ -749,9 +749,19 @@
   padding: 0;
   list-style: none;
 }
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 10px;
+}
+.history-head .section-heading {
+  margin: 0;
+}
 .mock-history li {
   display: grid;
-  grid-template-columns: 180px 60px 1fr;
+  grid-template-columns: 180px 60px 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 9px 14px;
@@ -1277,9 +1287,10 @@
     grid-template-columns: 1fr;
   }
   .mock-history li {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
   }
-  .mock-history li > span:last-child {
+  .mock-history li > .history-detail {
+    order: 1;
     grid-column: 1 / -1;
   }
   .mock-bar {

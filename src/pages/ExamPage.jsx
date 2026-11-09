@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Markdown from '../components/Markdown.jsx'
+import PastRounds from '../components/PastRounds.jsx'
 import QuestionCard, { fitsQuestion, initialResponse } from '../components/quiz/QuestionCard.jsx'
 import useRemaining from '../components/useRemaining.js'
 import MultiPick from '../components/MultiPick.jsx'
@@ -99,14 +100,19 @@ export default function ExamPage() {
     const results = scoreExam(items, session.responses, questionOf)
     missedProblems(results).forEach((id) => scheduleReview(id))
     const { correct, total, pct, passed } = examSummary(results)
-    const entry = { date: finishedIso, focus: session.focus, correct, total, pct, passed, results: results.map(({ id, q, ok }) => ({ id, q, ok })) }
+    const entry = { date: finishedIso, focus: session.focus, correct, total, pct, passed, results: results.map(({ id, q, ok, answered }) => ({ id, q, ok, answered })) }
     const next = [entry, ...history].slice(0, MAX_HISTORY)
     setHistory(next)
     write(HISTORY_KEY, next)
     save({ ...session, items, finishedIso, results })
   }
 
-  if (!session) return <Setup history={history} onStart={save} />
+  function keepHistory(kept) {
+    setHistory(kept)
+    write(HISTORY_KEY, kept)
+  }
+
+  if (!session) return <Setup history={history} onStart={save} onHistory={keepHistory} />
   if (failed) {
     return (
       <div className="mock-page">
@@ -133,7 +139,7 @@ export default function ExamPage() {
   return <Running session={session} questionOf={questionOf} loaded={loaded} onChange={save} onFinish={finish} />
 }
 
-function Setup({ history, onStart }) {
+function Setup({ history, onStart, onHistory }) {
   const [count, setCount] = useState(LENGTHS[0])
   const [levels, setLevels] = useState(DEFAULT_LEVELS)
   const [tracks, setTracks] = useState([])
@@ -200,20 +206,17 @@ function Setup({ history, onStart }) {
       </button>
 
       {history.length > 0 && (
-        <>
-          <h2 className="section-heading">Past exams</h2>
-          <ul className="mock-history">
-            {history.map((h) => (
-              <li key={h.date}>
-                <span className="mono small">{new Date(h.date).toLocaleString()}</span>
-                <span className={h.passed ? 'ok-text' : 'err-text'}>{h.pct}%</span>
-                <span className="muted small">
-                  {h.correct} of {h.total} · {h.focus}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
+        <PastRounds title="Past exams" noun="exam" kind="exam" history={history} onChange={onHistory}>
+          {(h) => (
+            <>
+              <span className="mono small">{new Date(h.date).toLocaleString()}</span>
+              <span className={h.passed ? 'ok-text' : 'err-text'}>{h.pct}%</span>
+              <span className="muted small history-detail">
+                {h.correct} of {h.total} · {h.focus}
+              </span>
+            </>
+          )}
+        </PastRounds>
       )}
     </div>
   )

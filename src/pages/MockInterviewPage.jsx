@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PastRounds from '../components/PastRounds.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import useRemaining from '../components/useRemaining.js'
 import { categoryBySlug } from '../data/categories.js'
@@ -99,12 +100,17 @@ export default function MockInterviewPage() {
     save(done)
   }
 
-  if (!session) return <Setup history={history} onStart={(s) => save(s)} />
+  function keepHistory(kept) {
+    setHistory(kept)
+    write(HISTORY_KEY, kept)
+  }
+
+  if (!session) return <Setup history={history} onStart={(s) => save(s)} onHistory={keepHistory} />
   if (session.finishedIso) return <Summary session={session} onClose={() => save(null)} />
   return <Running session={session} progress={progress} onSelect={(i) => save({ ...session, current: i })} onFinish={() => finish()} />
 }
 
-function Setup({ history, onStart }) {
+function Setup({ history, onStart, onHistory }) {
   const progress = useProgress()
   const [minutes, setMinutes] = useState(45)
   const [levels, setLevels] = useState(DEFAULT_LEVELS)
@@ -156,24 +162,21 @@ function Setup({ history, onStart }) {
       </button>
 
       {history.length > 0 && (
-        <>
-          <h2 className="section-heading">Past rounds</h2>
-          <ul className="mock-history">
-            {history.map((h) => (
-              <li key={h.date}>
-                <span className="mono small">{new Date(h.date).toLocaleString()}</span>
-                <span className={h.score === h.total ? 'ok-text' : h.score === 0 ? 'err-text' : ''}>
-                  {h.score} / {h.total}
-                </span>
-                <span className="muted small">
-                  {h.results
-                    .map((r) => `${r.solved ? '✓' : '✗'} ${EXERCISE_LABELS[problemById.get(r.id)?.exercise] ?? r.id}`)
-                    .join('  ')}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
+        <PastRounds title="Past rounds" noun="round" kind="mock" history={history} onChange={onHistory}>
+          {(h) => (
+            <>
+              <span className="mono small">{new Date(h.date).toLocaleString()}</span>
+              <span className={h.score === h.total ? 'ok-text' : h.score === 0 ? 'err-text' : ''}>
+                {h.score} / {h.total}
+              </span>
+              <span className="muted small history-detail">
+                {h.results
+                  .map((r) => `${r.solved ? '✓' : '✗'} ${EXERCISE_LABELS[problemById.get(r.id)?.exercise] ?? r.id}`)
+                  .join('  ')}
+              </span>
+            </>
+          )}
+        </PastRounds>
       )}
     </div>
   )
