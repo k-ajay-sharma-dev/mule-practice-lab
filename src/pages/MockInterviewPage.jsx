@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import PastRounds from '../components/PastRounds.jsx'
+import PastRounds, { deleteRounds } from '../components/PastRounds.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import useRemaining from '../components/useRemaining.js'
 import { categoryBySlug } from '../data/categories.js'
@@ -106,7 +106,14 @@ export default function MockInterviewPage() {
   }
 
   if (!session) return <Setup history={history} onStart={(s) => save(s)} onHistory={keepHistory} />
-  if (session.finishedIso) return <Summary session={session} onClose={() => save(null)} />
+  function deleteThis() {
+    const kept = deleteRounds('mock', history, [session.finishedIso], 'Delete this round?')
+    if (!kept) return
+    keepHistory(kept)
+    save(null)
+  }
+
+  if (session.finishedIso) return <Summary session={session} onClose={() => save(null)} onDelete={deleteThis} />
   return <Running session={session} progress={progress} onSelect={(i) => save({ ...session, current: i })} onFinish={() => finish()} />
 }
 
@@ -245,7 +252,7 @@ function Running({ session, progress, onSelect, onFinish }) {
   )
 }
 
-function Summary({ session, onClose }) {
+function Summary({ session, onClose, onDelete }) {
   const results = session.results
   const score = results.filter((r) => r.solved).length
   const missed = results.filter((r) => !r.solved).map((r) => problemById.get(r.id)).filter(Boolean)
@@ -325,6 +332,9 @@ function Summary({ session, onClose }) {
         <Link className="btn btn-ghost" to="/review">
           Open review
         </Link>
+        <button className="btn btn-ghost" onClick={onDelete}>
+          Delete this round
+        </button>
       </div>
     </div>
   )

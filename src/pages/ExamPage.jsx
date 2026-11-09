@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Markdown from '../components/Markdown.jsx'
-import PastRounds from '../components/PastRounds.jsx'
+import PastRounds, { deleteRounds } from '../components/PastRounds.jsx'
 import QuestionCard, { fitsQuestion, initialResponse } from '../components/quiz/QuestionCard.jsx'
 import useRemaining from '../components/useRemaining.js'
 import MultiPick from '../components/MultiPick.jsx'
@@ -132,6 +132,12 @@ export default function ExamPage() {
         questionOf={questionOf}
         loaded={loaded}
         onClose={() => save(null)}
+        onDelete={() => {
+          const kept = deleteRounds('exam', history, [session.finishedIso], 'Delete this exam?')
+          if (!kept) return
+          keepHistory(kept)
+          save(null)
+        }}
         onRetake={(items) => save(newSession(items, RETAKE_FOCUS))}
       />
     )
@@ -330,7 +336,7 @@ function Running({ session, questionOf, loaded, onChange, onFinish }) {
   )
 }
 
-function Result({ session, questionOf, loaded, onClose, onRetake }) {
+function Result({ session, questionOf, loaded, onClose, onDelete, onRetake }) {
   const { results, flagged, responses } = session
   const [show, setShow] = useState(results.some((r) => !r.ok) ? 'wrong' : 'all')
   const { correct, total, pct, passed } = examSummary(results)
@@ -392,6 +398,9 @@ function Result({ session, questionOf, loaded, onClose, onRetake }) {
         <Link className="btn btn-ghost" to="/review">
           Open Review
         </Link>
+        <button className="btn btn-ghost" onClick={onDelete}>
+          Delete this exam
+        </button>
       </div>
 
       <h2 className="section-heading">Review your answers</h2>
