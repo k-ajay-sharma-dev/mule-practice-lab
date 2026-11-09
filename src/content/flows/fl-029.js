@@ -118,7 +118,7 @@ export default {
 Compliance says **audit events older than 400 days** must be removed from the \`audit_events\` table (PostgreSQL), but only **after they are archived** to the S3 bucket \`audit-archive\`.
 
 - The table gets ~1.5 million new rows per day. The first run will find ~**60 million** expired rows; after that ~1.5 million per night.
-- The purge may only run between **02:00 and 05:00**, because the table is used by reporting during the day.
+- The purge may only run between **02:00 and 05:00**, because the table is used by reporting during the day. The job starts once a night inside that window, for example at 2 a.m.
 - A row must **never be deleted unless its archive write succeeded**.
 - The DBA team wants a summary (processed / failed) every morning.
 

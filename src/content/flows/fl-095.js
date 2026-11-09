@@ -143,9 +143,9 @@ Tokens carry these claims:
 \`\`\`
 
 **Requirements**
-- Read the tenant and scope from the claims the policy validated, not from anything else in the request.
+- Read the tenant and scope from the claims the policy validated, not from anything else in the request. The policy places those claims on the authentication data of the Mule event.
 - No tenant claim: **401**. Missing scope \`statements:read\`: **403**.
-- The account must belong to the token's tenant. If it does not, the caller must not be able to tell whether the account exists: answer **404** in both cases.
+- The account must belong to the token's tenant. If it does not, the caller must not be able to tell whether the account exists: answer **404** in both cases. The app reports this with its own error type \`APP:ACCOUNT_NOT_FOUND\`.
 - Fail safely if the policy is ever removed by mistake.
 - Log refused attempts, so that probing can be spotted.
 

@@ -140,6 +140,9 @@ For each request, the DLB sends these headers to the app:
 | \`X-SSL-Issuer\` | Full distinguished name of the issuing certificate |
 | \`X-SSL-Client-Serial\` | Serial number |
 
+**Facts**
+- The \`authorised_brokers\` table has the columns \`broker_id\`, \`cert_dn\`, \`cert_serial\` and \`status\`. An active broker has the status \`ACTIVE\`.
+
 **Requirements**
 - Only \`SUCCESS\` counts as verified. Anything else gets **401**.
 - The DN **and** serial must match an active row in the \`authorised_brokers\` table. Otherwise answer **403** and log the DN and serial for investigation.

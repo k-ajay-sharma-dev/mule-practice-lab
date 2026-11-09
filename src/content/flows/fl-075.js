@@ -82,7 +82,7 @@ The legacy **ERP order gateway** only accepts its own XML format. The ERP team a
 **Requirements**
 - Orders that do not conform to the XSD, or are not well-formed XML, must be **rejected with 400** and a reason the partner can understand.
 - Valid orders are converted to the ERP format and posted to the gateway.
-- Respond with an XML acknowledgement containing the partner's order number.
+- Respond with an XML acknowledgement containing the partner's order number. In the partner XML it is the element \`/Order/Header/OrderNumber\`, and the acknowledgement carries it as \`OrderNumber\` too.
 - The security team asked how the API is protected against **XML External Entity (XXE)** attacks.
 
 **Design the flow.** Would you keep the XSLT or rewrite it in DataWeave?

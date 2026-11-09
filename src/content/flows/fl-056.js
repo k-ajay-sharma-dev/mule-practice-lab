@@ -262,6 +262,10 @@ Business rules:
 4. Duplicate submissions (same idempotency key) must not create two orders.
 5. Neither channel may call a system (or a System API) directly.
 
+**Facts**
+- \`sys-crm\` returns the account's \`creditStatus\`; an account on credit hold has \`creditStatus\` \`BLOCKED\`.
+- The custom error type for a credit hold is \`APP:CREDIT_HOLD\`.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-web/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path. Asynchronous process flows use \`prc-\` too, with an MQ source.
 
 **Design the flow(s):** the whole network — \`exp-web\`, \`exp-partner\`, \`prc-order\`, \`prc-fulfilment\`, \`sys-erp\`, \`sys-crm\`, \`sys-payment\` — with the call graph, the sync/async boundary, compensation, idempotency and error handling.

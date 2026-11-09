@@ -157,6 +157,10 @@ When an order is **confirmed**, four independent teams must react:
 
 New subscribers (e.g. a fraud team) will be added next quarter **without changing the publisher**. Each consumer is a separately deployed Mule app with its own release cycle. Peak: 80 orders/s.
 
+**Facts**
+- Every order event has a unique \`eventId\`.
+- A broker may deliver the same event more than once. No consumer may lose an event if it crashes while processing it.
+
 **Design the flow(s):** publisher, broker topology, subscribers, filtering, failure isolation, and event contract/versioning.
 `,
   answerTemplate: `## Publisher

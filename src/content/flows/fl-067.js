@@ -151,6 +151,9 @@ EDI-capable suppliers (about 600) exchange **X12 4010** files over the retailer'
 - Any rejected or changed line must reach the buyer's exception work queue \`PROC.PO.ACK.EXCEPTIONS\`.
 - Suppliers must acknowledge within **24 hours**; overdue POs must be flagged to buyers.
 
+**Facts**
+- \`PO_HEADER.STATUS\` is \`APPROVED\` when the event arrives, \`SENT\` once the supplier has the 850, and \`ACKNOWLEDGED\` or \`REJECTED\` after the 855.
+
 **Design the flow(s).**
 `,
   answerTemplate: `## Outbound 850

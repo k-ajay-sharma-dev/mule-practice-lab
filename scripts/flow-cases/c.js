@@ -290,6 +290,10 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await passes('fl-072', (d) => {
     d.flows[0].source.config.expression = '0 */10 6-19 ? * MON-FRI'
   })
+  // the weekdays as numbers: in a Quartz cron 1 is Sunday, so 2-6 is Monday to Friday
+  await passes('fl-072', (d) => {
+    d.flows[0].source.config.expression = '0 0/10 6-20 ? * 2-6'
+  })
 
   // FL-073
   await failsOn('fl-073', 'returns 400', (d) => {

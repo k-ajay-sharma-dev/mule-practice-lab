@@ -15,7 +15,7 @@ export default {
     },
     {
       label: 'The list query is paged in the database (LIMIT/OFFSET), not in memory',
-      rule: { type: 'exists', component: 'db-select', where: { sql: 'OFFSET' } },
+      rule: { type: 'exists', component: 'db-select', where: { sql: { oneOf: ['OFFSET', 'FETCH FIRST', 'FETCH NEXT'] } } },
     },
     {
       label: 'Database rows are mapped to a clean JSON model (column names do not leak)',

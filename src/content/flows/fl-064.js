@@ -113,7 +113,7 @@ Routing rules:
 2. Else if another store **within 15 km** has everything → reserve there, send it to that store, and notify the customer of the new pickup store.
 3. Otherwise → convert to **ship-to-home** (\`OMS.SHIPTOHOME.ORDERS\`) and notify the customer.
 
-An order must never be both picked in a store and shipped from the DC, and none may be lost.
+An order must never be both picked in a store and shipped from the DC, and none may be lost. Taking an order off \`OMS.BOPIS.ORDERS\` and putting it on its next queue must succeed or fail together.
 
 **Design the flow(s).**
 `,

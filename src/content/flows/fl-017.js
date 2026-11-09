@@ -181,6 +181,9 @@ A **Reporting API** generates a customer statement PDF by querying a data wareho
 - Max 5 jobs run concurrently (warehouse cost), others wait.
 - Finished files are kept 24 h.
 
+**Facts**
+- A job status is one of \`PENDING\`, \`COMPLETED\` or \`FAILED\`.
+
 **Design the API and flow(s):** endpoints, status codes, job state storage, worker flow, concurrency limit and cleanup.
 `,
   answerTemplate: `## API contract

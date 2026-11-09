@@ -153,7 +153,7 @@ The architects decided on an **Amazon SQS FIFO queue** \`shipment-status.fifo\` 
 **Requirements**
 - Events of **one order** must reach the carrier in the order they happened (\`DELIVERED\` before \`PACKED\` makes the carrier reject the shipment).
 - No event may be lost or sent twice to the carrier when Mule restarts during sending.
-- A carrier outage must not lose events; events that keep failing end up somewhere visible.
+- A carrier outage must not lose events: a message stays in SQS until the carrier has accepted it. Events that keep failing end up somewhere visible.
 - Events the carrier rejects as invalid (400) must not block other orders.
 
 **Design both flows** (outbox → SQS, SQS → carrier) and explain the FIFO-specific settings.

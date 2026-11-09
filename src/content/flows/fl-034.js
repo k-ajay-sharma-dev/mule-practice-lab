@@ -146,7 +146,7 @@ For every order the API must:
 3. **Route by ship-to country**: EU countries → **EU Fulfilment API**, US/CA → **NA Fulfilment API**. Any other country is rejected.
 4. **Respond** \`201\` with the fulfilment reference.
 
-Error responses: invalid order → **400**; unknown customer or unsupported country → **422**; a dependency down or timing out → **503**. Every error body has a code, a message and the correlation ID.
+Error responses: invalid order → **400**; unknown customer or unsupported country → **422**; a dependency down or timing out → **503**. Every error body has a code, a message and the correlation ID. Business rejections use custom error types in the \`APP\` namespace, for example \`APP:UNSUPPORTED_COUNTRY\`.
 
 The validation and enrichment logic will also be reused by a bulk-upload flow next quarter.
 

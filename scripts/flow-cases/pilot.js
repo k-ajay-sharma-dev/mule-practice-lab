@@ -53,6 +53,15 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-047', 'mapped to 503', (d) => {
     for (const f of d.flows) for (const h of f.errorHandlers) if (h.config.type.includes('DB:')) h.steps.find((n) => n.type === 'set-variable').config.value = '500'
   })
+  // the same paging written the Oracle way
+  await passes('fl-047', (d) => {
+    const select = one(d, 'db-select')
+    select.config.sql = select.config.sql.replace('LIMIT :pageSize OFFSET :offset', 'OFFSET :offset ROWS FETCH NEXT :pageSize ROWS ONLY')
+  })
+  await failsOn('fl-047', 'paged in the database', (d) => {
+    const select = one(d, 'db-select')
+    select.config.sql = select.config.sql.replace('\nLIMIT :pageSize OFFSET :offset', '')
+  })
   await passes('fl-047', (d) => {
     for (const f of d.flows) for (const h of f.errorHandlers) for (const n of h.steps) if (n.type === 'set-variable') Object.assign(n.config, { variableName: 'statusCode', value: `#[${n.config.value}]` })
   })

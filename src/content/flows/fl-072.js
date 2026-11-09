@@ -15,7 +15,7 @@ export default {
         type: 'all',
         rules: [
           { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['0/10', '*/10'] } } },
-          { type: 'source', component: 'scheduler', where: { expression: 'MON-FRI' } },
+          { type: 'source', component: 'scheduler', where: { expression: { oneOf: ['MON-FRI', '2-6'] } } },
         ],
       },
     },

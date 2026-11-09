@@ -126,6 +126,15 @@ You are building a **Shipping Process API**. Four separate requirements arrived 
 3. **Address validation:** use the primary address-validation vendor; if it fails, try a backup vendor; if both fail, accept the address unvalidated and flag it.
 4. **Label printing:** spread label-print requests evenly over **three on-prem print servers** that have no load balancer in front of them.
 
+**Facts**
+
+- Each requirement is its own endpoint on the Shipping Process API: \`POST /shipments\`, \`GET /rates\`, \`POST /addresses/validate\` and \`POST /labels\`.
+- A shipment carries the destination as \`payload.shipTo.country\`, an ISO code such as \`US\`, \`DE\` or \`FR\`. The EU countries you ship to are \`DE\`, \`FR\`, \`NL\`, \`BE\`, \`IT\` and \`ES\`.
+- The carriers are System APIs reached over HTTP: FedEx, DHL, UPS and a generic freight API. The vendors and the three print servers are HTTP endpoints too.
+- **Rate quotes:** if one carrier is down or slow, the screen still shows the quotes it has. It returns **one list of quotes sorted by price**, and a carrier that failed appears in the list as unavailable.
+- **Address validation:** when both vendors fail, return the address with the field \`validated: false\` so the order team can check it later.
+- The print servers are equal. None of them is a backup for another.
+
 **Design the flow(s):** for each requirement pick the Mule 4 router (Choice, Scatter-Gather, First Successful, Round Robin), explain why, and describe what the payload looks like after the router and how errors behave.
 `,
   answerTemplate: `## 1. Carrier selection
@@ -146,27 +155,27 @@ You are building a **Shipping Process API**. Four separate requirements arrived 
     'Label printing uses Round Robin, which sends each successive message to the next route in turn (no health checking or failover).',
   ],
   solution: `
-1. **Carrier selection – Choice router**
-   - \`<choice>\` with \`<when expression="#[payload.shipTo.country == 'US']">\` → flow-ref to FedEx request; a second \`when\` for an EU country list (\`#[['DE','FR','NL'] contains payload.shipTo.country]\` or a lookup from config); \`<otherwise>\` → generic freight.
+1. **Carrier selection: Choice router**
+   - \`<choice>\` with \`<when expression="#[payload.shipTo.country == 'US']">\` calls the FedEx System API. A second \`when\` checks the EU country list (\`#[['DE','FR','NL','BE','IT','ES'] contains payload.shipTo.country]\`, or a list from config). \`<otherwise>\` calls the generic freight API.
    - Only the **first** matching branch runs; payload after the router is whatever that branch produced.
 
-2. **Rate quotes – Scatter-Gather**
+2. **Rate quotes: Scatter-Gather**
    - Three routes, each an HTTP Request to a carrier rate API, executed **in parallel**. Set the Scatter-Gather \`timeout\` (e.g. 3000 ms) and HTTP response timeouts slightly lower.
    - Output is an object \`{ "0": Message, "1": Message, "2": Message }\`; a Transform Message (DataWeave) maps \`payload pluck $.payload\` into a single quotes array sorted by price.
    - Wrap each route in a **Try with On Error Continue** that returns \`{ carrier: "UPS", error: "unavailable" }\`, otherwise one failing carrier causes \`MULE:COMPOSITE_ROUTING\` and the whole screen fails.
 
-3. **Address validation – First Successful**
+3. **Address validation: First Successful**
    - \`<first-successful>\` with route 1 = primary vendor, route 2 = backup vendor. A route "fails" when it throws an error, so make sure HTTP status validation treats vendor errors as errors.
    - If every route fails, First Successful throws an error; wrap the router in a Try with **On Error Continue** that sets \`validated: false\` and continues.
 
-4. **Label printing – Round Robin**
+4. **Label printing: Round Robin**
    - \`<round-robin>\` with three routes, each an HTTP Request to one print server. Each new event goes to the next route in rotation.
    - Round Robin does **not** skip a dead server; if failover is needed, nest it (e.g. Round Robin inside a Try that falls back) or put a real load balancer in front.
 
 **Where DataWeave is used:** Choice conditions, merging Scatter-Gather results, building the "unvalidated" fallback payload.
 `,
   followUps: [
-    { q: 'What is the difference between Scatter-Gather and Parallel For Each?', a: 'Scatter-Gather runs a fixed set of different routes on the same payload; Parallel For Each runs the same processors once per element of a collection. Both aggregate results, and both fail with a composite error if any route/element fails.' },
+    { q: 'What is the difference between Scatter-Gather and Parallel For Each?', a: 'Scatter-Gather runs a fixed set of different routes on the same payload; Parallel For Each runs the same processors once per element of a collection. Both gather the results, and both fail with a composite error if any route or element fails.' },
     { q: 'In a Choice router, what happens if two when conditions are both true?', a: 'Only the first matching when (top to bottom) executes. If none match and there is no otherwise, the event continues unchanged.' },
     { q: 'Why not use Scatter-Gather for address validation?', a: 'It would call both vendors every time, doubling cost and load. First Successful only calls the backup when the primary fails.' },
   ],

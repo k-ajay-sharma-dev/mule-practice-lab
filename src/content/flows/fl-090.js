@@ -94,7 +94,7 @@ A manufacturer keeps its material master in **SAP S/4HANA**. Each change must re
 - Three consumers must get the data, and they must not depend on the speed of each other or of SAP.
 - The event contains the IDoc number, material, base unit, deletion flag and descriptions per language.
 - The same IDoc can be sent again by the SAP team for reprocessing. Without a real change it must not produce a second event.
-- Failures must be easy to trace to an **IDoc number**.
+- Failures must be easy to trace to an **IDoc number**. The IDoc number is the \`DOCNUM\` field of the IDoc control record.
 
 **Design the flow.** Also list what you must agree with the SAP team.
 `,

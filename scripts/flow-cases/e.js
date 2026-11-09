@@ -257,6 +257,10 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
       step('os-store', { key: 'helpdesk-tickets-watermark', value: '#[max(vars.tickets.updated_at)]', objectStore: 'ticketSyncStore' }),
     ]
   })
+  // Tickets come oldest first, so the last ticket's updated_at is the new watermark.
+  await passes('fl-119', (d) => {
+    one(d, 'set-variable', (n) => n.config.variableName === 'newWatermark').config.value = '#[payload.tickets[-1].updated_at]'
+  })
   // The route tests for an empty list the other way round.
   await passes('fl-119', (d) => {
     one(d, 'choice').routes[0].config.expression = '#[not isEmpty(payload.tickets default [])]'

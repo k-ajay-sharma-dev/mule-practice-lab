@@ -144,6 +144,10 @@ A logistics company still receives delivery status updates from **12 regional co
 
 The mailbox has a small quota and must not fill up. A previous developer copied an IMAP design and asked for "move to Processed, otherwise leave it for retry", then found that none of those operations were available for POP3.
 
+**Facts**
+- PostgreSQL has a landing table \`mail_landing\` with a unique \`message_id\` and a \`status\` column.
+- A row waiting for the tracking system has the status \`PENDING\`. A row the tracking system accepted gets the status \`DONE\`.
+
 **Requirements**
 - Every status email must reach the **tracking system** (\`POST /tracking/events\`).
 - The mailbox must be emptied as emails are read.

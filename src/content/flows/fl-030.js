@@ -47,7 +47,7 @@ export default {
       rule: { type: 'inside', component: 'mq-publish', within: 'on-error-continue', withinWhere: { type: 'NOT_FOUND' } },
     },
     {
-      label: 'When the Store Master API is down the error propagates, so the event is redelivered, not lost',
+      label: 'When the Store Master API is down the error propagates, so the event is redelivered, not lost (no IMMEDIATE acknowledgement)',
       rule: {
         type: 'all',
         rules: [

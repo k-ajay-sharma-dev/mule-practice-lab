@@ -136,6 +136,7 @@ Your company pushes **product price updates** to a marketplace partner API.
 - Usually 2–5 updates/s.
 - The pricing engine sometimes publishes **150,000 updates in 10 minutes**.
 - The integration app runs on **3 replicas**.
+- No update may be lost, even if a replica crashes while sending it.
 
 **Ordering rule**
 

@@ -93,7 +93,7 @@ The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pr
 
 **Requirements**
 - A file is loaded **completely or not at all** — the pricing engine must never see half a price list.
-- Successfully processed files go to \`/archive\` on the FTP server; files that fail go to \`/error\` so the partner manager can look at them.
+- Successfully processed files go to \`/archive\` on the FTP server; files that fail go to \`/error\` so the partner manager can look at them. A file that failed must never end up in \`/archive\`.
 - The same file must not be processed again on the next poll.
 - The partner's upload of a 3 MB file takes up to a minute over a slow line.
 - The integration runs on two clustered Mule runtimes.

@@ -106,7 +106,7 @@ export default {
 A retailer sends a nightly **4 GB CSV** (~25 million rows of store-level stock positions) to an S3 bucket. It must be loaded into a **PostgreSQL** reporting table before **06:00** (the file arrives ~01:00).
 
 **Constraints**
-- The Mule app runs on a **1 vCore / ~1.5 GB heap** worker.
+- The Mule app runs on a **1 vCore / ~1.5 GB heap** worker. The file must never be held in memory as a whole.
 - Rows with a bad quantity must be skipped and counted, not fail the load.
 - If the load fails half-way, reporting must not see a partially loaded table.
 - Throughput target: finish in under 2 hours (≈ 3,500 rows/s).

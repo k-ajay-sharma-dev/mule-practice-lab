@@ -148,7 +148,7 @@ export default {
   description: `
 The web shop needs a small **Product Lookup API** in front of the product database (Oracle, ~80,000 products).
 
-- \`GET /api/products?q=shoe&limit=20\` searches by name. \`q\` is **required** (min. 3 characters); \`limit\` is optional (default 20, max 100).
+- \`GET /api/products?q=shoe&limit=20\` searches by name. \`q\` is **required** (min. 3 characters); \`limit\` is optional (default 20, max 100). In the flow the search term is \`attributes.queryParams.q\`.
 - \`GET /api/products/{sku}\` returns one product. A SKU looks like \`ABC-12345\`.
 - Unknown SKU → **404** with a JSON error body. Bad parameters → **400**, without touching the database.
 - Expected load is ~30 requests/s, p95 under 300 ms.

@@ -120,7 +120,7 @@ Finance's archive reads the PDFs from **Azure Blob Storage**, container \`suppli
 - Pick up only emails whose subject mentions an invoice, without touching anything else in the mailbox.
 - Save **every PDF attachment** as a blob. Signature images and other files are ignored.
 - Move the email to the \`Processed\` folder **only after all of its attachments are stored**. An email in \`Processed\` is the AP team's proof that the archive is complete.
-- If one upload fails, the email must not appear in \`Processed\`, and the AP team must be able to find it.
+- If one upload fails, the email must not appear in \`Processed\`, and the AP team must be able to find it in the \`Failed\` folder.
 - An email with no PDF goes to a \`NeedsReview\` folder for a person to look at.
 
 **Design the flow.** Say where the attachments come from in the Mule message and how the email ID survives the loop.

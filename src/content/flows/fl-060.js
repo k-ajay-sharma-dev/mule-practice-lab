@@ -121,6 +121,10 @@ Your integration must load every basket into **Oracle** staging tables (\`POS_SA
 - **No basket may be lost** (sales audit and tax), and **none may be loaded twice**.
 - Oracle has a 10-minute maintenance window each night; the queue must simply back up during it.
 
+**Facts**
+- Loyalty reads \`Consumer.LOYALTY.VirtualTopic.POS.SALES\` and fraud reads \`Consumer.FRAUD.VirtualTopic.POS.SALES\`.
+- Your integration's consumer name is \`STAGING\`.
+
 **Design the flow(s):** which destination you read, acknowledgement mode, how header and lines are written, duplicates, and failure behaviour.
 `,
   answerTemplate: `## Destination (virtual topic consumer queue)

@@ -157,6 +157,10 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
 - Changes made *by the integration user itself* (ERP → Salesforce sync) must not bounce back to the ERP (loop).
 - CDC events for updates contain **only changed fields**.
 
+**Facts**
+- The event header lists the changed field names in \`ChangeEventHeader.changedFields\`.
+- When Salesforce cannot send the full change, it sends a gap event. Its \`changeType\` starts with \`GAP_\` (for example \`GAP_UPDATE\`).
+
 **Design the flow(s):** subscription, replay/resume, handling partial-field events, loop prevention, and what to do when you fall outside the retention window.
 `,
   answerTemplate: `## Subscription

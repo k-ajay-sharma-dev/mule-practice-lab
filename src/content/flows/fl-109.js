@@ -75,7 +75,7 @@ A retail website needs a list of products for one category, for example \`GET /p
 - Expose \`GET /products\` with an HTTP Listener.
 - Save the \`category\` query parameter in a variable called \`category\`. A **query parameter** is the part of the address after the \`?\`. Mule puts it in \`attributes.queryParams\`.
 - Select the matching rows, sorted by name. Use a named parameter, \`:category\`, in the SQL. The value goes in the Select's Input Parameters setting, which is not shown on the canvas: \`#[{ category: vars.category }]\`.
-- Return a JSON array with the fields \`sku\`, \`name\` and \`price\`.
+- Return a JSON array with the fields \`sku\`, \`name\` and \`price\`. In DataWeave each item looks like \`{ sku: ..., name: ..., price: ... }\`.
 
 The website should not see the table's column names.
 

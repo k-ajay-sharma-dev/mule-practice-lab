@@ -117,7 +117,7 @@ The legacy **claims system** (SOAP \`SubmitClaim\`) is slow (5–60 s) and is do
 Constraints:
 - **Anypoint MQ messages are limited to 10 MB**; large messages also slow brokers and inflate costs.
 - The portal must get an acknowledgement within **2 s**.
-- No claim may be lost; documents must arrive unaltered (integrity check required by the regulator).
+- No claim may be lost: a claim stays on the queue until the claims system has accepted it. Documents must arrive unaltered (integrity check required by the regulator).
 - Documents must be kept for 7 years anyway, in the corporate **S3** bucket \`acme-claims-documents\`.
 - ≈8,000 claims/day.
 

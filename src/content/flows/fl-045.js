@@ -170,6 +170,10 @@ An online shop reserves stock when a customer enters checkout, so items are not 
 - Checkout completion calls a **commit** endpoint; a hold that has already expired must not be committed.
 - Peak: 50 holds/s during sales events.
 
+**Facts**
+- Holds are kept in the table \`inventory_hold\` with columns \`hold_id\`, \`cart_id\`, \`status\` and \`expires_at\`.
+- A hold's \`status\` is \`PENDING\`, \`HELD\`, \`COMMITTED\`, \`RELEASED\` or \`EXPIRED\`.
+
 **Design the flow(s):** hold creation, retries, out-of-stock handling, compensation, expiry and commit.
 `,
   answerTemplate: `## Hold record and lifecycle

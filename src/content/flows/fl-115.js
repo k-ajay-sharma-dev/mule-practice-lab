@@ -54,7 +54,7 @@ A **Cache scope** keeps the result of the steps inside it. The first call runs t
 - Call the reference data API only when the cache has no entry.
 - Return only active currencies, with the code, name and number of decimals.
 - Keep the cached entry for **one hour**.
-- Write a log line each time the reference API is called, so you can see the cache working.
+- Write a log line each time the reference API is called, so you can see the cache working. The line says "cache miss".
 
 **Design the flow.** Which steps go inside the Cache scope?
 `,

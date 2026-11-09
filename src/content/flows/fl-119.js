@@ -38,6 +38,9 @@ export default {
             rules: [
               { type: 'exists', component: 'set-variable', where: { value: { all: ['max', 'updated_at'] } } },
               { type: 'exists', component: 'os-store', where: { value: { all: ['max', 'updated_at'] } } },
+              // The API returns tickets oldest first, so the last ticket also holds the highest updated_at.
+              { type: 'exists', component: 'set-variable', where: { value: { all: ['[-1]', 'updated_at'] } } },
+              { type: 'exists', component: 'os-store', where: { value: { all: ['[-1]', 'updated_at'] } } },
             ],
           },
           { type: 'absent', component: 'os-store', where: { value: 'now(' } },
@@ -108,7 +111,8 @@ Reports now miss tickets, and some runs fail with duplicate key errors.
 
 **Requirements**
 - Every changed ticket reaches PostgreSQL, even if it changed while a run was in progress.
-- A ticket seen twice must not fail the run.
+- A ticket seen twice must not fail the run. The stored row must hold the latest version of the ticket.
+- The watermark must never be later than the newest ticket the run has stored.
 - A failed run must not move the watermark.
 - A run with no changes must not move the watermark.
 - The watermark must survive a restart and a redeploy.

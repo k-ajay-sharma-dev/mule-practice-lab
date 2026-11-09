@@ -138,6 +138,9 @@ Several applications need the events through **ActiveMQ**: gate displays at each
 
 The current design sends everything with default settings. When the Frankfurt display app, which has a durable subscription, was down for an hour, it came back to a backlog of position updates that were already useless, and the screens showed old data for 20 minutes.
 
+**Facts**
+- Each published message carries two JMS properties: \`eventKind\` (the event kind) and \`hub\` (the hub code).
+
 **Requirements**
 - Publish once. Each application receives its own copy.
 - Each app sees only the kinds and hubs it needs.

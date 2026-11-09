@@ -225,6 +225,7 @@ A telecom wants a reusable **Notification API**: \`POST /notifications\` with \`
 - Send email via **SMTP** and SMS via an **SMS provider REST API** (e.g. Twilio).
 - Volume: 200k notifications on bill day within 4 hours. One channel failing must not stop the other.
 - Respond to the caller quickly with an acceptance id.
+- An accepted notification must not be lost, even if the app restarts while sending it.
 
 **Design the flow(s):** API front door, channel fan-out, templating, sending, failure handling.
 `,

@@ -123,7 +123,7 @@ A customer portal submits about **6,000 orders per day**. A System API must crea
 **Requirements**
 - \`POST /api/v1/sales-orders\` returns **201** with the order number when SAP has saved the order.
 - The order must really be saved in SAP. A previous team built a flow that returned numbers for orders that did not exist (see inc-085).
-- SAP reports business problems, such as a blocked customer or unknown material, in the BAPI's \`RETURN\` table. Those must become a **422** with the SAP message text.
+- SAP reports business problems, such as a blocked customer or unknown material, in the BAPI's \`RETURN\` table. Those must become a **422** with the SAP message text. The app reports them with its own error type \`APP:SAP-ORDER-REJECTED\`.
 - When SAP cannot be reached, is busy or times out, the portal must get a **503** so that it can retry.
 - Use the current operation, not the deprecated \`sap:sync-rfc\`. The app uses JCo 3.1.x.
 

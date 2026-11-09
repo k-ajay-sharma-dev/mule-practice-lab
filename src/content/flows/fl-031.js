@@ -156,6 +156,9 @@ Failures fall into different classes, and Finance wants each class treated diffe
 
 The DLQ messages must contain the original invoice, an error **type** and a description, so a support person can fix and replay them.
 
+**Facts**
+- Business error types use the \`APP\` namespace, for example \`APP:ERP_REJECTED\`.
+
 **Design the flow(s):**
 - How do you model these classes as Mule error types?
 - How do you turn a generic \`HTTP:BAD_REQUEST\` into a business error?

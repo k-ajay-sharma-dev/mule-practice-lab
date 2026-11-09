@@ -107,7 +107,7 @@ export default {
 A platform team wants a **weekly traffic report** for four environments, emailed every Monday at 06:00 UTC. A Mule app will call the **Anypoint Monitoring Metrics API**.
 
 **Requirements**
-- Authenticate with a **connected app** (client credentials). No personal accounts.
+- Authenticate with a **connected app** (client credentials). No personal accounts. The token endpoint returns the bearer token in the field \`access_token\`.
 - Application metrics are scoped to one environment, so query each environment on its own. Environment IDs are in the property \`report.environments\`, as a comma-separated list.
 - Use the \`mulesoft.app.inbound\` metric for traffic.
 - A previous report showed zero traffic for a busy environment, because the API returned **200 OK with \`"data": []\`** when the connected app lacked scopes for it (see inc-100). This must never happen again: an environment with no data must appear in the report as a problem, and not as zero.

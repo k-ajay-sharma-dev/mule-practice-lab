@@ -133,6 +133,8 @@ The **customer-insights** team needs:
 - Producers occasionally publish an older version after a newer one (retries on the producer side).
 - Some events are malformed (missing \`customerId\`), roughly 1 in 50,000.
 - PostgreSQL has a planned 10-minute maintenance window every month; no events may be lost.
+- The \`orders\` table has \`order_id\` as its primary key and stores the event's version in \`event_version\`.
+- The dead-letter topic is \`orders.v1.dlt\`.
 
 **Design the flow(s).**
 `,

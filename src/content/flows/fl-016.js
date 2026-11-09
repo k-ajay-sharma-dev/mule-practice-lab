@@ -167,6 +167,9 @@ Suppliers email invoices to \`invoices@company.example\` (Microsoft 365 mailbox,
 - Ignore inline images/signatures; reject unsupported types with an auto-reply to the sender.
 - Each email must be processed **once**; failures must be visible to the AP team.
 
+**Facts**
+- Every email carries a unique \`Message-ID\` header.
+
 **Design the flow(s):** mailbox trigger, extracting attachments, routing by type, idempotency and error handling.
 `,
   answerTemplate: `## Mailbox trigger

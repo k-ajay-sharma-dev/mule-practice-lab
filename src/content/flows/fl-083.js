@@ -162,7 +162,7 @@ Today the team fixes this by resetting the group's offsets with command line too
 - Replay **only** the requested range, up to **2,000 records per call**.
 - The **live consumer keeps running** and its committed offsets must not change.
 - Replaying a record that already reached the table must change nothing.
-- The response reports how many records were replayed and the last offset reached, so an operator can continue from there.
+- The response reports how many records were replayed and the last offset reached, so an operator can continue from there. The last offset is in the field \`lastOffset\`.
 
 **Design the flow.** Say which consumer configuration the operations use and how acknowledgement works here.
 `,

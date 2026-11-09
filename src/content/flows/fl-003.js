@@ -159,7 +159,7 @@ Consumers complain that today:
 - an unknown order ID returns **200 with an empty body**,
 - \`DELETE /orders/123\` returns **500** instead of a meaningful status.
 
-**Requirements:** a consistent JSON error body \`{ code, message, correlationId }\` and correct statuses: 400, 404, 405, 406, 415, 500 (and 503 if the DB is unreachable).
+**Requirements:** a consistent JSON error body \`{ code, message, correlationId }\` and correct statuses: 400, 404, 405, 406, 415, 500 (and 503 if the DB is unreachable). Error bodies must never expose internals: no stack trace and no \`error.detailedDescription\`.
 
 **Design the flows:** generated structure, routing, where validation happens, how each status is produced, and how a "not found" from the DB becomes a 404.
 `,

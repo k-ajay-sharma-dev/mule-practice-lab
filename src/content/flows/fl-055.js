@@ -239,6 +239,10 @@ The current implementation returns **500 "Internal Server Error"** for everythin
 - Slow downstream: **504** (with a hint not to resubmit blindly).
 - Anything else: **500** with a correlation id and no internals.
 
+**Facts**
+- The team's custom error types live in the \`APP\` namespace: \`APP:PAYMENT_DECLINED\` (declined card), \`APP:DUPLICATE_ORDER\` (order id already exists) and \`APP:ORDER_REJECTED\` (a business rejection passed up from the layer below).
+- Business codes in the 422 body are \`PAYMENT_DECLINED\` and \`DUPLICATE_ORDER\`.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-orders/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
 **Design the flow(s):** all four APIs, and for each layer which errors it raises, which it receives from below, and how it translates them for its caller.
