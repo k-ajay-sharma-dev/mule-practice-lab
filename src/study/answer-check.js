@@ -33,16 +33,59 @@ export const pointsOf = (answer) =>
     .map((s) => s.replace(/^[-*\s]+/, '').trim())
     .filter((s) => keywords(s).length)
 
+// Negation: "do not retry" must not earn the point "retry". Speech has no full stops, so a word counts as negated
+// when a negation word comes up to NEGATION_REACH words before it, within one clause. A clause ends at
+// punctuation or at a word that starts a new idea, such as "but" or "instead".
+const NEGATION_REACH = 6
+// "avoid retries" says the same as "never retry", so words that mean "keep from" count as negation too.
+const NEGATORS = new Set(['not', 'never', 'no', 'nor', 'neither', 'without'])
+const NEGATING_ROOTS = new Set(['avoid', 'prevent'])
+const negates = (t) => NEGATORS.has(t) || NEGATING_ROOTS.has(root(t))
+const CLAUSE_BREAKS = new Set(['but', 'instead', 'rather', 'however', 'otherwise', 'unless', 'although', 'because', 'so'])
+const expand = (text) => text.replace(/\bcannot\b/gi, 'can not').replace(/n['’]t\b/gi, ' not')
+
+// For each keyword in the text: 'neg' when it only ever appears negated, 'pos' when never, 'mixed' when both.
+function polarity(text) {
+  const seen = new Map()
+  for (const part of expand(text).split(/[,.;:!?()\n]+/)) {
+    let since = Infinity // words since the last negation in this clause
+    for (const t of words(part)) {
+      if (CLAUSE_BREAKS.has(t)) {
+        since = Infinity
+        continue
+      }
+      if (negates(t)) {
+        since = 0
+        if (NEGATORS.has(t)) continue
+      }
+      since++
+      if (STOP_WORDS.has(t)) continue
+      const key = root(t)
+      const now = since <= NEGATION_REACH ? 'neg' : 'pos'
+      const before = seen.get(key)
+      seen.set(key, before && before !== now ? 'mixed' : now)
+    }
+  }
+  return seen
+}
+const opposed = (a, b) => (a === 'neg' && b === 'pos') || (a === 'pos' && b === 'neg')
+
 export function checkAnswer(spoken, question, answer) {
   const heard = new Set(keywords(spoken))
+  const heardPolarity = polarity(spoken)
   const asked = new Set(keywords(question))
   const points = pointsOf(answer).map((text) => {
     const all = keywords(text)
     // repeating the question proves nothing, unless the point has nothing else to go on
     const fresh = all.filter((w) => !asked.has(w))
     const needed = fresh.length ? fresh : all
-    const found = needed.filter((w) => heard.has(w)).length
-    return { text, covered: found > 0 && found / needed.length >= COVER_SHARE }
+    const found = needed.filter((w) => heard.has(w))
+    const matched = found.length > 0 && found.length / needed.length >= COVER_SHARE
+    // Said the opposite: at least half the matched words are always negated in one answer and never in the other.
+    const pointPolarity = polarity(text)
+    const flipped = found.filter((w) => opposed(heardPolarity.get(w), pointPolarity.get(w))).length
+    const opposite = matched && flipped * 2 >= found.length
+    return { text, covered: matched && !opposite, opposite }
   })
   return { points, covered: points.filter((p) => p.covered).length, total: points.length }
 }

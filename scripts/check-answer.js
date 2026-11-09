@@ -24,6 +24,24 @@ assert.equal(checkAnswer('zip hides a data problem', question, 'Zip hides a data
 assert.equal(checkAnswer('merge with overwrites keys', 'q', 'Use `mergeWith` to overwrite keys.').covered, 1)
 assert.equal(checkAnswer('it retried the request', 'q', 'Retries repeat a request.').covered, 1)
 
+// saying the opposite earns nothing, in either direction, and is flagged
+const retry = checkAnswer('you should not retry a timed out payment', 'q', 'You should retry a timed out payment.')
+assert.equal(retry.covered, 0)
+assert.equal(retry.points[0].opposite, true)
+assert.equal(checkAnswer("don't retry a timed out payment", 'q', 'Retry a timed out payment.').covered, 0)
+assert.equal(checkAnswer('never retry a timed out payment', 'q', 'Retry a timed out payment.').covered, 0)
+assert.equal(checkAnswer('retry timed out payments', 'q', 'Never retry a timed out payment.').points[0].opposite, true)
+assert.equal(checkAnswer('never retry a timed out payment', 'q', 'Never retry a timed out payment.').covered, 1)
+assert.equal(checkAnswer("you can't retry a timed out payment", 'q', 'You cannot retry a timed out payment.').covered, 1)
+// "avoid", "prevent" and "without" say the same as "never" and "no"
+assert.equal(checkAnswer('avoid retrying a timed out payment', 'q', 'Never retry a timed out payment.').covered, 1)
+assert.equal(checkAnswer('the key prevents duplicate charges', 'q', 'The key means there are no duplicate charges.').covered, 1)
+assert.equal(checkAnswer('items vanish with no error', 'q', 'Items disappear without an error.').points[0].opposite, false)
+// a negation about something else, or after a comma, does not flip the point
+assert.equal(checkAnswer('retry the timed out payment, not the declined one', 'q', 'Retry a timed out payment.').covered, 1)
+assert.equal(checkAnswer('not now but later retry the timed out payment', 'q', 'Retry a timed out payment.').covered, 1)
+assert.equal(checkAnswer('use a dead letter queue no retries for bad data', 'q', 'Send bad data to a dead letter queue.').covered, 1)
+
 assert.match(speechProblem('not-allowed'), /blocked/)
 assert.match(speechProblem('network'), /connection/)
 assert.equal(speechProblem('no-speech'), null)
