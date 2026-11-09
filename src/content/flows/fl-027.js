@@ -45,7 +45,19 @@ export default {
         type: 'any',
         rules: [
           { type: 'inside', component: 'set-variable', where: { value: '404' }, within: 'choice' },
-          handlerStatus('NOT_FOUND', '404'),
+          // Or the Choice raises an error and the handler that catches that exact type sets 404.
+          {
+            type: 'linked',
+            from: { component: 'raise-error', key: 'type' },
+            to: { component: ['on-error-propagate', 'on-error-continue'], key: 'type', holding: { component: 'set-variable', where: { value: '404' } } },
+            as: 'errorType',
+          },
+          {
+            type: 'linked',
+            from: { component: 'raise-error', key: 'type' },
+            to: { component: ['on-error-propagate', 'on-error-continue'], key: 'type', holding: { component: 'transform', where: { variableName: 'status', script: '404' } } },
+            as: 'errorType',
+          },
         ],
       },
     },

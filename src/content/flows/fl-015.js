@@ -28,6 +28,17 @@ export default {
       label: 'Each channel has its own queue consumer so one failing channel does not block the other',
       rule: { type: 'exists', component: ['mq-subscriber', 'vm-listener', 'jms-listener'], min: 2 },
     },
+    {
+      label: 'A consumer listens on the same queue a flow publishes to',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'linked', from: { component: 'mq-publish', key: 'destination' }, to: { component: 'mq-subscriber', key: 'destination' } },
+          { type: 'linked', from: { component: 'vm-publish', key: 'queueName' }, to: { component: 'vm-listener', key: 'queueName' } },
+          { type: 'linked', from: { component: 'jms-publish', key: 'destination' }, to: { component: 'jms-listener', key: 'destination' } },
+        ],
+      },
+    },
     { label: 'Contact preferences are read from the Preferences DB', rule: { type: 'exists', component: 'db-select' } },
     {
       label: 'The template is read at run time, so wording changes need no release',

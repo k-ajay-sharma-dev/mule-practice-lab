@@ -34,6 +34,34 @@ export default {
       },
     },
     { label: 'The not-found error is mapped to 404', rule: handlerStatus('NOT_FOUND', '404') },
+    {
+      label: 'The handler that sets 404 catches the error the flow raises',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'linked',
+            from: { component: 'raise-error', where: { type: 'NOT_FOUND' }, key: 'type' },
+            to: { component: HANDLERS, key: 'type', holding: { component: 'set-variable', where: { value: '404' } } },
+            as: 'errorType',
+          },
+          {
+            type: 'linked',
+            from: { component: 'raise-error', where: { type: 'NOT_FOUND' }, key: 'type' },
+            to: { component: HANDLERS, key: 'type', holding: { component: 'transform', where: { variableName: 'status', script: '404' } } },
+            as: 'errorType',
+          },
+          // A Validate step raises VALIDATION errors, so a VALIDATION handler must set the 404.
+          {
+            type: 'all',
+            rules: [
+              { type: 'before', first: 'db-select', then: 'validation' },
+              handlerStatus('VALIDATION', '404'),
+            ],
+          },
+        ],
+      },
+    },
     { label: 'An unreachable database (DB:CONNECTIVITY) is mapped to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
     { label: 'A catch-all handler returns a generic 500', rule: handlerStatus('ANY', '500') },
     {

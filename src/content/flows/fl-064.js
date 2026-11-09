@@ -20,8 +20,16 @@ export default {
       rule: { type: 'exists', component: 'db-stored-procedure', where: { sql: 'RESERVE_ORDER' } },
     },
     {
-      label: 'Stock is reserved before a store is told to pick',
-      rule: { type: 'before', first: 'db-stored-procedure', then: 'jms-publish', thenWhere: { destination: 'PICKS' } },
+      label: 'Stock is reserved before a store is told to pick, on each route',
+      rule: {
+        type: 'before',
+        first: 'db-stored-procedure',
+        firstWhere: { sql: 'RESERVE_ORDER' },
+        then: 'jms-publish',
+        thenWhere: { destination: 'PICKS' },
+        every: true,
+        samePath: true,
+      },
     },
     {
       label: 'Pick requests go to the store pick queue STORE.<id>.PICKS from inside the routes',

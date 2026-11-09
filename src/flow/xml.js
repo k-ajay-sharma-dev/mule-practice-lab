@@ -150,7 +150,9 @@ export function nodeXml(n, d) {
         selector: c.selector,
         numberOfConsumers: c.numberOfConsumers === 4 ? undefined : c.numberOfConsumers,
         ...txAttrs(c),
-      })
+      }, c.durable === 'true' || c.subscriptionName
+        ? [el(d + 1, 'jms:consumer-type', {}, [el(d + 2, 'jms:topic-consumer', { durable: c.durable === 'true' ? 'true' : undefined, subscriptionName: c.subscriptionName })])]
+        : null)
     case 'vm-listener':
       return el(d, 'vm:listener', { 'config-ref': 'VM_Config', queueName: c.queueName, ...txAttrs(c) })
     case 'db-listener':
@@ -178,6 +180,7 @@ export function nodeXml(n, d) {
         directory: c.directory,
         ...postAction(c),
         watermarkEnabled: c.watermarkEnabled === 'true' ? 'true' : undefined,
+        applyPostActionWhenFailed: c.applyPostActionWhenFailed === 'false' ? 'false' : undefined,
       }, [el(d + 1, 'ftp:matcher', { filenamePattern: c.matcher })])
     case 'kafka-listener':
       // topic and group id live on the consumer configuration, not on the listener
@@ -275,7 +278,8 @@ export function nodeXml(n, d) {
     case 'db-delete':
     case 'db-stored-procedure': {
       const op = n.type.replace('db-', '')
-      return el(d, `db:${op}`, { 'config-ref': dbConfigRef(c) }, [`${pad(d + 1)}<db:sql><![CDATA[${c.sql}]]></db:sql>`])
+      const select = n.type === 'db-select' ? { fetchSize: c.fetchSize, maxRows: c.maxRows } : {}
+      return el(d, `db:${op}`, { 'config-ref': dbConfigRef(c), ...select }, [`${pad(d + 1)}<db:sql><![CDATA[${c.sql}]]></db:sql>`])
     }
     case 'sf-query':
       return el(d, 'salesforce:query', { 'config-ref': 'Salesforce_Config' }, [`${pad(d + 1)}<salesforce:salesforce-query><![CDATA[${c.soql}]]></salesforce:salesforce-query>`])
@@ -380,9 +384,14 @@ export function nodeXml(n, d) {
     case 'jms-recover-session':
       return el(d, 'jms:recover-session', { ackId: c.ackId })
     case 'jms-consume':
-      return el(d, 'jms:consume', { 'config-ref': 'JMS_Config', destination: c.destination, ackMode: c.ackMode, maximumWait: c.maximumWait === 10000 ? undefined : c.maximumWait })
+      return el(d, 'jms:consume', { 'config-ref': 'JMS_Config', destination: c.destination, ackMode: c.ackMode, maximumWait: c.maximumWait === 10000 ? undefined : c.maximumWait, selector: c.selector })
     case 'jms-publish-consume':
-      return el(d, 'jms:publish-consume', { 'config-ref': 'JMS_Config', destination: c.destination })
+      return el(
+        d,
+        'jms:publish-consume',
+        { 'config-ref': 'JMS_Config', destination: c.destination },
+        c.maximumWait && c.maximumWait !== 10000 ? [el(d + 1, 'jms:consume-configuration', { maximumWait: c.maximumWait, maximumWaitUnit: 'MILLISECONDS' })] : null,
+      )
     case 'vm-publish':
       return el(d, 'vm:publish', { 'config-ref': 'VM_Config', queueName: c.queueName })
     case 'email-send':

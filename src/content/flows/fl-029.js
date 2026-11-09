@@ -20,6 +20,11 @@ export default {
       label: 'Only expired rows are selected before processing starts',
       rule: { type: 'before', first: 'db-select', firstWhere: { sql: 'WHERE' }, then: ['batch-job', 'foreach'] },
     },
+    {
+      // The PostgreSQL driver reads the whole result into memory unless a fetch size is set.
+      label: 'The select does not load every expired row into memory at once (fetch size set)',
+      rule: { type: 'exists', component: 'db-select', where: { fetchSize: { gte: 1 } } },
+    },
     { label: 'The millions of rows are processed with a Batch Job', rule: { type: 'exists', component: 'batch-job' } },
     {
       label: 'A failed record does not stop the job (Max failed records is not 0)',
@@ -67,6 +72,8 @@ export default {
         step('set-variable', { variableName: 'runId', value: '#[now() as String { format: "yyyyMMdd" }]' }),
         step('db-select', {
           sql: 'SELECT id, account_id, event_type, payload, created_at FROM audit_events WHERE created_at < :cutoff',
+          // Rows are read 5000 per trip and streamed into the batch queue.
+          fetchSize: 5000,
         }),
         router(
           'batch-job',

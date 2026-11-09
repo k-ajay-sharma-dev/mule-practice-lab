@@ -36,6 +36,10 @@ export default {
       rule: { type: 'source', component: 'vm-listener' },
     },
     {
+      label: 'Variant B: the VM Listener reads the same queue the payment flow publishes to',
+      rule: { type: 'linked', from: { component: 'vm-publish', key: 'queueName' }, to: { component: 'vm-listener', key: 'queueName' } },
+    },
+    {
       label: 'Variant B: the compliance insert runs in the VM Listener flow',
       rule: { type: 'before', first: 'vm-listener', then: 'db-insert' },
     },

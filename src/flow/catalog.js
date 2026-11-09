@@ -230,6 +230,8 @@ export const COMPONENTS = {
       select('ackMode', 'Acknowledgement (IMMEDIATE when transacted)', ['AUTO', 'IMMEDIATE', 'MANUAL', 'DUPS_OK']),
       text('selector', 'Message selector'),
       num('numberOfConsumers', 'Number of consumers', 4),
+      select('durable', 'Durable topic subscription', ['false', 'true']),
+      text('subscriptionName', 'Subscription name'),
       select('transactionalAction', 'Transactional action', ['NONE', 'ALWAYS_BEGIN']),
       select('transactionType', 'Transaction type', ['LOCAL', 'XA']),
     ],
@@ -268,6 +270,7 @@ export const COMPONENTS = {
       text('renameTo', 'Rename to'),
       num('timeBetweenSizeCheck', 'Size check wait (ms, 0 = off)', 0),
       select('watermarkEnabled', 'Watermark (skip unchanged files)', ['false', 'true']),
+      select('applyPostActionWhenFailed', 'Run the after-reading action when processing fails', ['true', 'false']),
     ],
     summary: (c) => `${c.directory}/${c.matcher}`,
   },
@@ -555,7 +558,7 @@ export const COMPONENTS = {
     group: 'database',
     kind: 'processor',
     glyph: '⛁',
-    fields: [dbField(), area('sql', 'SQL', 'SELECT * FROM orders WHERE id = :id')],
+    fields: [dbField(), area('sql', 'SQL', 'SELECT * FROM orders WHERE id = :id'), num('fetchSize', 'Fetch size (rows read per trip)'), num('maxRows', 'Max rows')],
     summary: (c) => dbName(c) + c.sql,
   },
   'db-insert': {
@@ -721,7 +724,7 @@ export const COMPONENTS = {
     group: 'messaging',
     kind: 'processor',
     glyph: '✉',
-    fields: [text('destination', 'Destination', 'orders.dlq'), select('ackMode', 'Acknowledgement', ['IMMEDIATE', 'MANUAL']), num('maximumWait', 'Maximum wait (ms)', 10000)],
+    fields: [text('destination', 'Destination', 'orders.dlq'), select('ackMode', 'Acknowledgement', ['IMMEDIATE', 'MANUAL']), num('maximumWait', 'Maximum wait (ms)', 10000), text('selector', 'Message selector')],
     summary: (c) => c.destination,
   },
   'jms-ack': {
@@ -745,7 +748,7 @@ export const COMPONENTS = {
     group: 'messaging',
     kind: 'processor',
     glyph: '⇄',
-    fields: [text('destination', 'Destination', 'stock.check.request')],
+    fields: [text('destination', 'Destination', 'stock.check.request'), num('maximumWait', 'Maximum wait for the reply (ms)', 10000)],
     summary: (c) => c.destination,
   },
   'vm-publish': {

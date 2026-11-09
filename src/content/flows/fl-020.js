@@ -25,7 +25,8 @@ export default {
             first: 'jms-publish',
             firstWhere: { destination: 'BAL.REQ' },
             then: 'jms-consume',
-            thenWhere: { destination: 'BAL.RPLY' },
+            // On the shared reply queue only a selector makes the Consume take its own reply.
+            thenWhere: { destination: 'BAL.RPLY', selector: { set: true } },
             outside: true,
           },
         ],
@@ -58,6 +59,10 @@ export default {
     {
       label: 'Late replies are drained by a scheduled JMS Consume, not a listener that competes for live replies',
       rule: { type: 'before', first: 'scheduler', then: 'jms-consume', thenWhere: { destination: 'BAL.RPLY' } },
+    },
+    {
+      label: 'The drain Consume takes only old replies with a selector, so it never steals a live one',
+      rule: { type: 'before', first: 'scheduler', then: 'jms-consume', thenWhere: { destination: 'BAL.RPLY', selector: { set: true } } },
     },
   ],
   referenceFlow: design(

@@ -53,6 +53,14 @@ export default {
       label: 'A consumer also filters by hub, so each app receives only what it needs',
       rule: { type: 'source', component: 'jms-listener', where: { selector: 'hub' } },
     },
+    {
+      label: 'The safety alert listener has a named durable subscription, so it gets notices sent while it was offline',
+      rule: {
+        type: 'source',
+        component: 'jms-listener',
+        where: { selector: 'SAFETY', durable: { is: 'true' }, subscriptionName: { set: true } },
+      },
+    },
   ],
   referenceFlow: design(
     flow(
@@ -104,7 +112,14 @@ export default {
     flow(
       'duty-manager-alerts',
       // Durable subscription: safety notices published while this app is down are held for it.
-      source('jms-listener', { destination: 'OPS.FLIGHT.EVENTS', ackMode: 'AUTO', numberOfConsumers: 1, selector: "eventKind = 'SAFETY'" }),
+      source('jms-listener', {
+        destination: 'OPS.FLIGHT.EVENTS',
+        ackMode: 'AUTO',
+        numberOfConsumers: 1,
+        selector: "eventKind = 'SAFETY'",
+        durable: 'true',
+        subscriptionName: 'duty-manager-alerts',
+      }),
       [step('email-send', { toAddresses: 'duty-managers@company.example', subject: 'Flight safety notice', content: '#[write(payload, "application/json")]', contentType: 'text/plain' })],
     ),
   ),

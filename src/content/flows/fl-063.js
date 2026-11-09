@@ -13,6 +13,10 @@ export default {
       label: 'Live stock is requested on STORE.STOCK.REQUEST with JMS Publish-Consume',
       rule: { type: 'exists', component: 'jms-publish-consume', where: { destination: 'STORE.STOCK.REQUEST' } },
     },
+    {
+      label: 'The reply wait is capped inside the 2.5 second budget',
+      rule: { type: 'exists', component: 'jms-publish-consume', where: { maximumWait: { lte: 2500 } } },
+    },
     { label: 'The request-reply call is wrapped in a Try scope', rule: { type: 'inside', component: 'jms-publish-consume', within: 'try' } },
     {
       label: 'A reply timeout (JMS:TIMEOUT) is handled inside the Try with On Error Continue',
@@ -51,9 +55,9 @@ export default {
             step('transform', {
               script: '%dw 2.0\noutput application/json\n---\n{ storeId: vars.query.storeId, skus: vars.query.skus }',
             }),
-            // Publishes to STORE.STOCK.REQUEST with a temporary reply-to queue; consumer maximumWait 2000 ms.
+            // Publishes to STORE.STOCK.REQUEST with a temporary reply-to queue and waits at most 2000 ms.
             // Selector on JMSCorrelationID is handled by the connector.
-            step('jms-publish-consume', { destination: 'STORE.STOCK.REQUEST' }),
+            step('jms-publish-consume', { destination: 'STORE.STOCK.REQUEST', maximumWait: 2000 }),
             step('set-variable', { variableName: 'source', value: 'LIVE' }),
           ],
           {

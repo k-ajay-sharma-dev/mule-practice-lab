@@ -49,6 +49,10 @@ export default {
       rule: { type: 'source', component: 'jms-listener', where: { destination: 'RECALL' } },
     },
     {
+      label: 'The fan-out listener reads the destination the recall API publishes to',
+      rule: { type: 'linked', from: { component: 'jms-publish', key: 'destination' }, to: { component: 'jms-listener', key: 'destination' } },
+    },
+    {
       label: 'Affected locations and customers are traced in Oracle before notifying',
       rule: { type: 'before', first: ['db-stored-procedure', 'db-select'], then: 'scatter-gather' },
     },

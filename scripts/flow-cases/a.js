@@ -90,9 +90,28 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-003', 'with a correlationId', (d) => {
     flowOf(d, 'build-error-body').steps[0].config.script = '%dw 2.0\noutput application/json\n---\n{ code: error.errorType.identifier, message: error.description }'
   })
-  await passes('fl-003', (d) => {
+  const validateEmpty003 = (d) => {
     const f = flowOf(d, '(orderId)')
     f.steps.splice(1, 1, step('validation', { check: 'is-not-empty-collection', expression: '#[payload]', message: 'Order not found' }), step('transform', { script: '%dw 2.0\noutput application/json\n---\npayload[0]' }))
+  }
+  // A Validate step raises VALIDATION:EMPTY_COLLECTION, which needs its own 404 handler.
+  await passes('fl-003', (d) => {
+    validateEmpty003(d)
+    d.flows[0].errorHandlers.unshift(handler('on-error-propagate', { type: 'VALIDATION:EMPTY_COLLECTION' }, [step('set-variable', { variableName: 'httpStatus', value: '404' }), step('flow-ref', { name: 'build-error-body' })]))
+  })
+  // Without that handler the empty result falls to the catch-all and returns 500.
+  await failsOn('fl-003', 'catches the error the flow raises', validateEmpty003)
+  // The raised type is not one the 404 handler names.
+  await failsOn('fl-003', 'catches the error the flow raises', (d) => {
+    one(d, 'raise-error').config.type = 'ORDER:NOT_FOUND'
+  })
+  await failsOn('fl-003', 'catches the error the flow raises', (d) => {
+    handlerFor(d, 'APP:NOT_FOUND').config.type = 'APIKIT:NOT_FOUND, APP:MISSING'
+  })
+  // A more specific error type with a 404 handler of its own.
+  await passes('fl-003', (d) => {
+    one(d, 'raise-error').config.type = 'APP:ORDER_NOT_FOUND'
+    d.flows[0].errorHandlers.unshift(handler('on-error-propagate', { type: 'APP:ORDER_NOT_FOUND' }, [step('set-variable', { variableName: 'httpStatus', value: '404' }), step('flow-ref', { name: 'build-error-body' })]))
   })
 
   // FL-007
@@ -162,6 +181,13 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   })
   await failsOn('fl-009', 'not swallowed', (d) => {
     flowOf(d, 'audit-consumer').errorHandlers[0].type = 'on-error-continue'
+  })
+  await failsOn('fl-009', 'reads the same queue', (d) => {
+    one(d, 'vm-publish').config.queueName = 'auditQ'
+  })
+  // The queue name written as a DataWeave string still names the same queue.
+  await passes('fl-009', (d) => {
+    one(d, 'vm-publish').config.queueName = "#['auditQueue']"
   })
   // Poison messages parked after redelivery runs out are a fair use of On Error Continue.
   await passes('fl-009', (d) => {
@@ -279,6 +305,16 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   })
   await failsOn('fl-015', 'template is read at run time', (d) => {
     remove(flowOf(d, 'email-worker').steps, 'db-select')
+  })
+  // Every consumer listens on a name no flow publishes to.
+  await failsOn('fl-015', 'same queue a flow publishes to', (d) => {
+    for (const f of d.flows) if (f.source?.type === 'mq-subscriber') f.source.config.destination = f.source.config.destination.replace(/\./g, '-')
+  })
+  // Other channel queue names, used on both sides.
+  await passes('fl-015', (d) => {
+    for (const n of [...all(d, 'mq-publish'), ...d.flows.map((f) => f.source).filter((s) => s?.type === 'mq-subscriber')]) {
+      n.config.destination = n.config.destination.replace('notifications.', 'notify-')
+    }
   })
   // AUTO acknowledgement: the broker acks on success and redelivers when the error propagates.
   await passes('fl-015', (d) => {
@@ -407,12 +443,18 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-020', 'drained by a scheduled JMS Consume', (d) => {
     one(d, 'jms-consume').config.destination = 'BAL.REQ'
   })
-  // Publish, then Consume from the reply queue with a selector on the correlation id.
-  await passes('fl-020', (d) => {
+  await failsOn('fl-020', 'never steals a live one', (d) => {
+    one(d, 'jms-consume').config.selector = ''
+  })
+  const publishThenConsume020 = (selector) => (d) => {
     const steps = d.flows[0].steps
     const i = steps.findIndex((n) => n.type === 'jms-publish-consume')
-    steps.splice(i, 1, step('jms-publish', { destination: 'BAL.REQ' }), step('jms-consume', { destination: 'BAL.RPLY', maximumWait: 1200 }))
-  })
+    steps.splice(i, 1, step('jms-publish', { destination: 'BAL.REQ' }), step('jms-consume', { destination: 'BAL.RPLY', maximumWait: 1200, selector }))
+  }
+  // Publish, then Consume from the reply queue with a selector on the correlation id.
+  await passes('fl-020', publishThenConsume020("#[\"JMSCorrelationID = '\" ++ vars.requestId ++ \"'\"]"))
+  // With no selector the Consume takes whichever reply is first on the shared queue.
+  await failsOn('fl-020', 'waits for its own correlated reply', publishThenConsume020(''))
 
   // FL-021
   const throttled = (d) => handlerFor(d, 'TOO_MANY_REQUESTS')
@@ -424,6 +466,14 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     }
     const h = handlerFor(d, 'ANY')
     h.steps = [step('mq-ack', { ackToken: '#[vars.ackToken]' })]
+  })
+  // An extra ack before the call: the message is gone if the call then fails.
+  await failsOn('fl-021', 'acknowledged only after the partner call', (d) => {
+    one(d, 'choice', (n) => n.otherwise.some((s) => s.type === 'http-request')).otherwise.unshift(step('mq-ack', { ackToken: '#[vars.ackToken]' }))
+  })
+  // Acked at the top of the flow, before any route.
+  await failsOn('fl-021', 'acknowledged only after the partner call', (d) => {
+    d.flows[0].steps.splice(2, 0, step('mq-ack', { ackToken: '#[vars.ackToken]' }))
   })
   await failsOn('fl-021', 'stored only after the partner accepted it', (d) => {
     const steps = one(d, 'choice', (n) => n.otherwise.some((s) => s.type === 'http-request')).otherwise
@@ -571,6 +621,11 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-027', 'returns 400', (d) => {
     for (const f of d.flows) f.errorHandlers[0].steps[0].config.value = '#[500]'
   })
+  // The Choice raises one type, and the 404 handler catches another.
+  await failsOn('fl-027', 'unknown SKU returns 404', (d) => {
+    one(d, 'choice').routes[0].steps = [step('raise-error', { type: 'APP:SKU_UNKNOWN', description: 'No product' })]
+    byId(d).errorHandlers.push(handler('on-error-propagate', { type: 'APP:NOT_FOUND' }, [step('set-variable', { variableName: 'httpStatus', value: '404' })]))
+  })
   // A not-found error raised in the Choice and mapped to 404 by a handler.
   await passes('fl-027', (d) => {
     one(d, 'choice').routes[0].steps = [step('raise-error', { type: 'APP:NOT_FOUND', description: 'No product' })]
@@ -606,6 +661,19 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   // FL-029
   await failsOn('fl-029', '02:00 to 05:00 window', (d) => {
     d.flows[0].source.config.expression = '0 0 22 * * ?'
+  })
+  await failsOn('fl-029', 'does not load every expired row', (d) => {
+    one(d, 'db-select').config.fetchSize = ''
+  })
+  // A row limit alone still reads the whole slice into memory.
+  await failsOn('fl-029', 'does not load every expired row', (d) => {
+    Object.assign(one(d, 'db-select').config, { fetchSize: '', maxRows: 5000000 })
+  })
+  // A first catch-up run bounded to a slice, still streamed.
+  await passes('fl-029', (d) => {
+    const select = one(d, 'db-select').config
+    select.fetchSize = 2000
+    select.sql += ' FETCH FIRST 5000000 ROWS ONLY'
   })
   await failsOn('fl-029', 'does not stop the job', (d) => {
     one(d, 'batch-job').config.maxFailedRecords = 0

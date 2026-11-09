@@ -19,8 +19,16 @@ import { walk } from './model.js'
 //   { type: 'before',  first, then, firstWhere?, thenWhere?, every?, outside? }
 //                                                       `first` appears before `then` in the same flow. every: all of them
 //                                                       do. outside: `then` is on the main path, so not nested
-//                                                       inside `first` and not in an error handler.
+//                                                       inside `first` and not in an error handler. samePath: only
+//                                                       pairs that can run in one pass count, so two different routes,
+//                                                       or a route and the otherwise branch, are never compared.
 //   { type: 'handler', component, errorType?, within?, where? } error handler (optionally for an error type / inside a scope)
+//   { type: 'linked',  from: { component, where?, key }, to: { component, where?, key, holding? }, as? }
+//                                                       a setting on one component names the same thing as a setting
+//                                                       on another, such as a publish destination and a listener's
+//                                                       queue. as: 'errorType' ties a raised error to the handler
+//                                                       that names it (ANY does not count). holding: { component,
+//                                                       where } the `to` component must contain, such as the status.
 //   { type: 'flows',   kind, min }                      number of flows / sub-flows
 //   { type: 'refs' }                                    every Flow Reference points to an existing flow
 //   { type: 'any',     rules }                          one of these passes, for designs with more than one right answer
@@ -79,6 +87,18 @@ const errorTypeMatches = (configured = '', wanted) =>
     .map((t) => t.trim().toUpperCase())
     .some((t) => t === wanted.toUpperCase() || t === 'ANY')
 
+// Two settings name the same thing: a queue a publish sends to and a listener reads, or an error a Raise Error
+// throws and a handler catches. DataWeave wrapping and quotes are ignored. For error types every token of the
+// raised type must be named by the handler: ANY does not count, since it says nothing about the link.
+const bare = (value) => String(value ?? '').trim().replace(/^#\[\s*(.*?)\s*\]$/s, '$1').replace(/^(["'])(.*)\1$/s, '$2').trim().toLowerCase()
+function linkedValues(a, b, as) {
+  if (as === 'errorType') {
+    const caught = bare(b).toUpperCase().split(/[,\s]+/).filter(Boolean)
+    return bare(a).toUpperCase().split(/[,\s]+/).filter(Boolean).every((t) => caught.includes(t))
+  }
+  return bare(a) !== '' && bare(a) === bare(b)
+}
+
 // Every place a component sits: its own chain of parents, and one chain for each Flow Reference that calls
 // its flow, so a sub-flow called from a handler and from a route sits in both. Each entry is
 // { ancestors, slots }, outermost first.
@@ -92,6 +112,28 @@ function placements(entry, nodes, seen = new Set()) {
     }
   }
   return out
+}
+
+// The branch a step takes under each component it sits in: a route's id, or the slot (steps, otherwise,
+// errorHandlers, onComplete). slots holds one entry per list on the way down, so slot k+1 sits under the
+// k-th ancestor that is a component (routes are ancestors with no type and add a list of their own).
+function branches(entry) {
+  const out = new Map()
+  const slots = entry.slots ?? []
+  let depth = 0
+  entry.ancestors.forEach((a, i) => {
+    if (!a.type) return
+    depth++
+    const next = entry.ancestors[i + 1]
+    out.set(a.id, next && !next.type ? `route:${next.id}` : slots[depth] ?? 'steps')
+  })
+  return out
+}
+
+function samePath(a, b) {
+  const left = branches(a)
+  for (const [id, branch] of branches(b)) if (left.has(id) && left.get(id) !== branch) return false
+  return true
 }
 
 // One placement must hold the whole rule: the scope, the route and the slot, so a match is never pieced
@@ -181,7 +223,9 @@ function evaluate(rule, nodes, design) {
       )
       const onMainPath = (a, b) => !b.ancestors.some((x) => x === a.node || COMPONENTS[x.type]?.kind === 'handler')
       const inOrder = ([a, b]) => b.order > a.order && (!rule.outside || onMainPath(a, b))
-      return rule.every ? pairs.length > 0 && pairs.every(inOrder) : pairs.some(inOrder)
+      // samePath: steps on two different branches of one router never run one after the other, so skip them.
+      const counted = rule.samePath ? pairs.filter(([a, b]) => samePath(a, b)) : pairs
+      return rule.every ? counted.length > 0 && counted.every(inOrder) : counted.some(inOrder)
     }
     case 'handler':
       return of(rule.component, rule.where).some(
@@ -189,6 +233,12 @@ function evaluate(rule, nodes, design) {
           (!rule.errorType || errorTypeMatches(e.node.config.type, rule.errorType)) &&
           (!rule.within || e.ancestors.some((a) => anyOf(rule.within).includes(a.type))),
       )
+    case 'linked': {
+      const { from, to } = rule
+      const sources = of(from.component, from.where).filter((e) => !blank(e.node.config[from.key]))
+      const targets = of(to.component, to.where).filter((e) => !to.holding || nodes.some((n) => n.ancestors.includes(e.node) && anyOf(to.holding.component).includes(n.node.type) && matchesWhere(n.node.config, to.holding.where)))
+      return sources.some((a) => targets.some((b) => linkedValues(a.node.config[from.key], b.node.config[to.key], rule.as)))
+    }
     case 'flows':
       return design.flows.filter((f) => f.kind === rule.kind).length >= rule.min
     case 'refs': {
@@ -303,9 +353,13 @@ export function missingHint(design, rule) {
     case 'before': {
       const first = `${names(rule.first)}${withText(rule.first, rule.firstWhere)}`
       const then = `${names(rule.then)}${withText(rule.then, rule.thenWhere)}`
-      if (!of(rule.first, rule.firstWhere).length) return `Add ${first}, before ${then} in the same flow.`
-      if (!of(rule.then, rule.thenWhere).length) return `Add ${then}, after ${first} in the same flow.`
-      if (rule.every) return `Every ${first} must come before every ${then}, in the same flow.`
+      // A step that is there with the wrong settings needs fixing, not adding.
+      const missing = (component, where, other, word) =>
+        of(component).length && where ? `Your ${names(component)} needs ${whereText(component, where)}, ${word} ${other} in the same flow.` : `Add ${names(component)}${withText(component, where)}, ${word} ${other} in the same flow.`
+      if (!of(rule.first, rule.firstWhere).length) return missing(rule.first, rule.firstWhere, then, 'before')
+      if (!of(rule.then, rule.thenWhere).length) return missing(rule.then, rule.thenWhere, first, 'after')
+      if (rule.every) return `Every ${first} must come before every ${then}, in the same flow${rule.samePath ? ', on each path through it' : ''}.`
+      if (rule.samePath) return `Put ${first} before ${then} on the same path, in the same route when they sit in a router.`
       if (rule.outside) return `Put ${then} after ${first} on the main path, not inside it or in an error handler.`
       return `Put ${first} before ${then}, and keep both in the same flow.`
     }
@@ -315,6 +369,15 @@ export function missingHint(design, rule) {
       return of(rule.component).length
         ? `Your ${names(rule.component)} needs to be${within || ' set up'}${type}${withText(rule.component, rule.where)}.`
         : `Add ${names(rule.component)}${type}${within}${withText(rule.component, rule.where)}.`
+    }
+    case 'linked': {
+      const { from, to } = rule
+      const paren = (c, w) => (w ? ` (${whereText(c, w)})` : '')
+      const holding = to.holding ? ` that holds ${names(to.holding.component)}${paren(to.holding.component, to.holding.where)}` : ''
+      const target = `${names(to.component)}${paren(to.component, to.where)}${holding}`
+      const source = `${names(from.component)}${paren(from.component, from.where)}`
+      if (rule.as === 'errorType') return `The ${target} must name the error type that ${source} raises.`
+      return `${fieldLabel(from.component, from.key)} on ${source} must match ${fieldLabel(to.component, to.key)} on ${target}.`
     }
     case 'flows':
       return `Use at least ${rule.min} ${rule.kind === 'sub-flow' ? 'sub-flows' : 'flows'}. Add more with the toolbar buttons.`

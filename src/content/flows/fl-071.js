@@ -13,6 +13,10 @@ export default {
       rule: { type: 'source', component: 'ftp-listener', where: { moveTo: 'archive' } },
     },
     {
+      label: 'The listener does not archive a file whose processing failed',
+      rule: { type: 'source', component: 'ftp-listener', where: { applyPostActionWhenFailed: { is: 'false' } } },
+    },
+    {
       label: 'A file still being uploaded is not read: the listener waits for its size to stop changing',
       rule: { type: 'source', component: 'ftp-listener', where: { timeBetweenSizeCheck: { gte: 1000 } } },
     },
@@ -34,7 +38,7 @@ export default {
       rule: { type: 'inside', component: 'db-bulk-insert', within: 'try', withinWhere: { transactionalAction: 'ALWAYS_BEGIN' } },
     },
     {
-      label: 'A file that fails is moved from its saved path to /error, and the error propagates so it is not archived',
+      label: 'A file that fails is moved from its saved path to /error, and the error propagates',
       rule: { type: 'inside', component: 'ftp-move', within: 'on-error-propagate', where: { targetPath: 'error', sourcePath: 'vars.' } },
     },
   ],
@@ -43,7 +47,15 @@ export default {
       'partner-price-file-intake',
       // Listener config: outputMimeType application/csv, matcher plus timeBetweenSizeCheck on the listener (files arrive slowly),
       // applyPostActionWhenFailed="false" so a failed file is not moved to /archive, primaryNodeOnly in a cluster.
-      source('ftp-listener', { directory: '/outbound/prices', matcher: 'PRICES_*.csv', postAction: 'move', moveTo: '/archive', timeBetweenSizeCheck: 30000, watermarkEnabled: 'false' }),
+      source('ftp-listener', {
+        directory: '/outbound/prices',
+        matcher: 'PRICES_*.csv',
+        postAction: 'move',
+        moveTo: '/archive',
+        timeBetweenSizeCheck: 30000,
+        watermarkEnabled: 'false',
+        applyPostActionWhenFailed: 'false',
+      }),
       [
         step('set-variable', { variableName: 'originalPath', value: '#[attributes.path]' }),
         step('set-variable', { variableName: 'fileName', value: '#[attributes.fileName]' }),

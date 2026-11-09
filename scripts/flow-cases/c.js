@@ -59,6 +59,13 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await passes('fl-063', (d) => {
     handlerFor(d, 'JMS:TIMEOUT').config.type = 'JMS:TIMEOUT'
   })
+  // The default wait of 10 s is far past the 2.5 s the app allows.
+  await failsOn('fl-063', 'capped inside the 2.5 second budget', (d) => {
+    one(d, 'jms-publish-consume').config.maximumWait = 10000
+  })
+  await passes('fl-063', (d) => {
+    one(d, 'jms-publish-consume').config.maximumWait = 2500
+  })
 
   // FL-064
   await failsOn('fl-064', 'OMS.SHIPTOHOME.ORDERS', (d) => {
@@ -73,6 +80,17 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   // A specific rollback handler for Oracle outages in front of the catch-all.
   await passes('fl-064', (d) => {
     d.flows[0].errorHandlers.unshift(handler('on-error-propagate', { type: 'DB:CONNECTIVITY' }, [step('logger', { level: 'WARN', message: 'Oracle down, order will be redelivered' })]))
+  })
+  // The alternate store is told to pick before its stock is reserved.
+  await failsOn('fl-064', 'told to pick, on each route', (d) => {
+    const steps = one(d, 'choice').routes[1].steps
+    const pick = steps.findIndex((n) => n.type === 'jms-publish' && n.config.destination.includes('PICKS'))
+    steps.splice(1, 0, steps.splice(pick, 1)[0])
+  })
+  // The customer is told about the new store first; the pick still follows the reservation.
+  await passes('fl-064', (d) => {
+    const steps = one(d, 'choice').routes[1].steps
+    steps.unshift(steps.pop())
   })
   await failsOn('fl-064', 'STORE.<id>.PICKS', (d) => {
     for (const n of all(d, 'jms-publish')) if (n.config.destination.includes('PICKS')) n.config.destination = '#["STORE." ++ vars.fulfilStore ++ ".ORDERS"]'
@@ -187,6 +205,13 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     api.errorHandlers.splice(api.errorHandlers.findIndex((h) => h.config.type.includes('QUERY_EXECUTION')), 1)
     api.steps.splice(1, 0, step('idempotent', { idExpression: '#[payload.recallId]', objectStore: 'recalls' }))
   })
+  await failsOn('fl-069', 'reads the destination the recall API publishes to', (d) => {
+    flowOf(d, 'recall-api').steps.find((n) => n.type === 'jms-publish').config.destination = 'RECALL.RAISED'
+  })
+  await passes('fl-069', (d) => {
+    flowOf(d, 'recall-api').steps.find((n) => n.type === 'jms-publish').config.destination = 'QA.RECALL.EVENTS'
+    flowOf(d, 'recall-fanout').source.config.destination = 'QA.RECALL.EVENTS'
+  })
   await failsOn('fl-069', 'WMS.HOLD.COMMANDS', (d) => {
     one(d, 'scatter-gather').routes[1].steps.find((n) => n.type === 'jms-publish').config.destination = 'WMS.COMMANDS'
   })
@@ -221,8 +246,12 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   })
 
   // FL-071
-  await failsOn('fl-071', 'error propagates so it is not archived', (d) => {
+  await failsOn('fl-071', 'moved from its saved path to /error, and the error propagates', (d) => {
     d.flows[0].errorHandlers[0].type = 'on-error-continue'
+  })
+  // The default runs the post action on failure too, so a broken file lands in /archive.
+  await failsOn('fl-071', 'does not archive a file whose processing failed', (d) => {
+    d.flows[0].source.config.applyPostActionWhenFailed = 'true'
   })
   await failsOn('fl-071', 'from its saved path', (d) => {
     one(d, 'ftp-move').config.sourcePath = '#[attributes.path]'
@@ -572,6 +601,16 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   })
   await failsOn('fl-085', 'one consumer', (d) => {
     flowOf(d, 'gate-displays').source.config.numberOfConsumers = 4
+  })
+  await failsOn('fl-085', 'named durable subscription', (d) => {
+    flowOf(d, 'duty-manager').source.config.durable = 'false'
+  })
+  await failsOn('fl-085', 'named durable subscription', (d) => {
+    flowOf(d, 'duty-manager').source.config.subscriptionName = ''
+  })
+  // The gate displays keep their durable subscription too; time to live stops the stale backlog.
+  await passes('fl-085', (d) => {
+    Object.assign(flowOf(d, 'gate-displays').source.config, { durable: 'true', subscriptionName: 'gate-displays-fra' })
   })
   await passes('fl-085', (d) => {
     kindRoute(d, 'GATE_CHANGE').config.timeToLive = 1200000

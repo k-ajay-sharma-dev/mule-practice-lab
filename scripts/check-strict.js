@@ -129,6 +129,32 @@ assert.ok(check(twice, { type: 'inside', component: 'set-payload', within: 'choi
 assert.ok(check(twice, { type: 'inside', component: 'set-payload', within: 'on-error-continue' }))
 assert.equal(check(twice, { type: 'inside', component: 'set-payload', within: 'on-error-continue', routeWhere: { expression: 'open' } }), false)
 
+// samePath: an ack on another route does not stop "every ack after the call"
+const paths = design(
+  flow('f', step('jms-listener', { destination: 'q' }), [
+    router('choice', {}, [route({ expression: '#[stale]' }, [step('jms-ack')])], { otherwise: [step('http-request', { path: '/p' }), step('jms-ack')] }),
+  ]),
+)
+const ackAfter = { type: 'before', first: 'http-request', then: 'jms-ack', every: true }
+assert.equal(check(paths, ackAfter), false)
+assert.ok(check(paths, { ...ackAfter, samePath: true }))
+const ackFirst = design(flow('f', step('jms-listener', { destination: 'q' }), [router('choice', {}, [route({ expression: '#[stale]' }, [step('jms-ack')])], { otherwise: [step('jms-ack'), step('http-request', { path: '/p' })] })]))
+assert.equal(check(ackFirst, { ...ackAfter, samePath: true }), false)
+assert.match(hintOf(ackFirst, { ...ackAfter, samePath: true }), /each path/)
+// linked: a publish and the listener that reads it, a raised error and the handler that maps it
+const relay = (to) => design(flow('a', listener, [step('jms-publish', { destination: '#["orders.v1"]' })]), flow('b', step('jms-listener', { destination: to }), [step('logger', { message: 'm' })]))
+const sameQueue = { type: 'linked', from: { component: 'jms-publish', key: 'destination' }, to: { component: 'jms-listener', key: 'destination' } }
+assert.ok(check(relay('orders.v1'), sameQueue))
+assert.equal(check(relay('orders.v2'), sameQueue), false)
+assert.ok(!/undefined/.test(hintOf(relay('orders.v2'), sameQueue)), hintOf(relay('orders.v2'), sameQueue))
+const raised = (handlerType) =>
+  design(flow('f', listener, [step('raise-error', { type: 'APP:NOT_FOUND' })], [handler('on-error-propagate', { type: handlerType }, [step('set-variable', { variableName: 'httpStatus', value: '404' })])]))
+const mapped = { type: 'linked', as: 'errorType', from: { component: 'raise-error', key: 'type' }, to: { component: 'on-error-propagate', key: 'type', holding: { component: 'set-variable', where: { value: '404' } } } }
+assert.ok(check(raised('APP:NOT_FOUND'), mapped))
+assert.ok(check(raised('APIKIT:NOT_FOUND, APP:NOT_FOUND'), mapped))
+assert.equal(check(raised('APIKIT:NOT_FOUND'), mapped), false)
+assert.equal(check(raised('ANY'), mapped), false)
+
 // Compare view
 const model = (await load('fl-010')).referenceFlow
 const same = compareDesigns(model, model)

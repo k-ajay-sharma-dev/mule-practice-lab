@@ -20,7 +20,13 @@ export default {
     },
     {
       label: 'The message is acknowledged only after the partner call',
-      rule: { type: 'before', first: 'http-request', then: 'mq-ack', outside: true },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-request', then: 'mq-ack', outside: true },
+          { type: 'before', first: 'http-request', then: 'mq-ack', every: true, samePath: true },
+        ],
+      },
     },
     {
       label: 'The new version per SKU is stored only after the partner accepted it',
