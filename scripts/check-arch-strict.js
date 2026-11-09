@@ -6,7 +6,9 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { diagramHint, runDiagramChecks } from '../src/arch/checks.js'
 
-const load = async (id) => (await import(pathToFileURL(join(resolve('src/content/architecture'), `${id}.js`)).href)).default
+// Integration scenarios and case studies use the same diagrams, so their cases live here too.
+const FOLDERS = { ar: 'architecture', uc: 'use-cases', cs: 'case-studies' }
+const load = async (id) => (await import(pathToFileURL(resolve('src/content', FOLDERS[id.split('-')[0]], `${id}.js`)).href)).default
 
 // Changes to a copied model answer. A line is written 'a -> b', as in the content files, and is found in either kind.
 const parse = (spec) => {

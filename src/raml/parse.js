@@ -100,13 +100,39 @@ const looksLike = {
 }
 
 // Why a value does not fit a declaration, or null when it fits.
+// Splits a type expression at the | signs outside brackets: "(A | B)[]" is one list, "A | B[]" is a union.
+function unionParts(expr) {
+  const parts = ['']
+  let level = 0
+  for (const ch of expr) {
+    if (ch === '(') level++
+    if (ch === ')') level--
+    if (ch === '|' && level === 0) parts.push('')
+    else parts[parts.length - 1] += ch
+  }
+  return parts
+}
+
+// "(A | B)" is "A | B", but "(A)[] | (B)" keeps its brackets because the first one closes before the end.
+function unwrap(expr) {
+  if (!expr.startsWith('(') || !expr.endsWith(')')) return expr
+  let level = 0
+  for (let i = 0; i < expr.length - 1; i++) {
+    if (expr[i] === '(') level++
+    if (expr[i] === ')') level--
+    if (level === 0) return expr
+  }
+  return expr.slice(1, -1)
+}
+
 function misfit(value, decl, types, where, depth = 0) {
   if (depth > 12) return null
   const d = declOf(decl)
-  const expr = Array.isArray(d.type) ? null : String(d.type).replace(/\s/g, '')
+  const expr = Array.isArray(d.type) ? null : unwrap(String(d.type).replace(/\s/g, ''))
   if (expr?.endsWith('?')) return value === null ? null : misfit(value, { ...d, type: expr.slice(0, -1) }, types, where, depth + 1)
-  if (expr?.includes('|')) {
-    const fits = expr.replace(/[()]/g, '').split('|').some((t) => !misfit(value, t, types, where, depth + 1))
+  const parts = expr ? unionParts(expr) : []
+  if (parts.length > 1) {
+    const fits = parts.some((t) => !misfit(value, t, types, where, depth + 1))
     return fits ? null : `${where} does not fit ${expr}`
   }
   if (expr?.endsWith('[]') || expr === 'array') {
@@ -427,7 +453,9 @@ function merge(own, extra) {
     if (key === 'usage') continue
     const plain = key.replace(/\?$/, '')
     const twin = [key, plain, `${plain}?`].find((k) => k in out)
-    if (twin) out[twin] = merge(out[twin], value)
+    // traits listed in two places all apply: a method's own is: adds to the one from its resource type
+    if (twin && key === 'is') out[twin] = [...list(out[twin]), ...list(value).filter((t) => !list(out[twin]).some((o) => refName(o) === refName(t)))]
+    else if (twin) out[twin] = merge(out[twin], value)
     else out[key] = value
   }
   return out

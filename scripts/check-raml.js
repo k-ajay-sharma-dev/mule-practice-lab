@@ -56,6 +56,40 @@ says(`${head}types:
       { "n":
 `, /not valid JSON/)
 says(`${head}types:\n  A:\n    type: boolean\n    default: 'false'\n`, /The default must be true or false/)
+
+// A list whose items are a union, written inline: the brackets make it one list, not a union with a list in it
+const unionTypes = `${head}types:\n  E:\n    properties:\n      email: string\n  S:\n    properties:\n      phone: string\n  L:\n    type: (E | S)[]\n`
+clean(`${unionTypes}    example:\n      - email: a@example.com\n      - phone: '+441234'\n`)
+says(`${unionTypes}    example:\n      - fax: 1\n`, /does not fit/)
+says(`${unionTypes}    example:\n      email: a@example.com\n`, /must be an array/)
+clean(`${head}types:\n  N:\n    type: string | number[]\n    example: [ 1, 2 ]\n`)
+clean(`${head}types:\n  N:\n    type: string | number[]\n    example: x\n`)
+
+// Traits from a resource type and the method's own traits all apply
+const both = parseRaml(`${head}traits:
+  paged:
+    queryParameters:
+      page?: integer
+  traced:
+    headers:
+      X-Trace-Id: string
+resourceTypes:
+  collection:
+    get:
+      is: [ paged ]
+/orders:
+  type: collection
+  get:
+    is: [ traced ]
+`).model.resources[0].methods.get
+assert.deepEqual([...both.traits].sort(), ['paged', 'traced'])
+assert.ok(both.queryParameters?.['page?'] && both.headers?.['X-Trace-Id'], 'both traits add their parameters')
+
+// protocols are case-insensitive
+const https = (p) => runRamlChecks(parseRaml(`${head}protocols: [ ${p} ]\n`), [{ label: 'HTTPS only', rule: { type: 'root', key: 'protocols', want: { exactly: ['HTTPS'] } } }])[0].pass
+assert.equal(https('https'), true)
+assert.equal(https('HTTPS'), true)
+assert.equal(https('HTTP, HTTPS'), false)
 says(`${head}types:\n  A:\n    type: integer\n    format: int32\n    example: 3000000000\n`, /does not fit format int32/)
 says(`${head}types:\n  A:\n    type: string\n    example: a\n    examples:\n      b: c\n`, /not both/)
 // Valid files the parser must not reject

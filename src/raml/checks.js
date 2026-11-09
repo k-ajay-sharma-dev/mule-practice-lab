@@ -159,7 +159,8 @@ function evaluate(rule, parsed) {
   if (!model) return false
   switch (rule.type) {
     case 'root':
-      return matches(model.root[rule.key], rule.want) && list(rule.has ?? []).every((k) => hasKeyPath(model.root[rule.key], k))
+      // protocols are case-insensitive in RAML, so https and HTTPS are the same
+      return matches(rule.key === 'protocols' && Array.isArray(model.root.protocols) ? model.root.protocols.map((p) => String(p).toUpperCase()) : model.root[rule.key], rule.want) && list(rule.has ?? []).every((k) => hasKeyPath(model.root[rule.key], k))
     case 'resource':
       return Boolean(findResource(model, rule.path))
     case 'noResource':
