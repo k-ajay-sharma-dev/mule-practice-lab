@@ -18,7 +18,7 @@ export default function ProjectArchitecture({ project, onChange }) {
   const [problem, setProblem] = useState(null)
   const [busy, setBusy] = useState(false)
   const [full, setFull] = useState(false)
-  const [height, setHeight] = useState(600)
+  const [height, setHeight] = useState(() => Math.max(400, Math.round(window.innerHeight * 0.8)))
   const frame = useRef(null)
   const fileInput = useRef(null)
   const has = Boolean(project.architecture)
@@ -44,7 +44,9 @@ export default function ProjectArchitecture({ project, onChange }) {
     const onMessage = (e) => {
       if (e.source !== frame.current?.contentWindow) return
       const h = Number(e.data?.plArchHeight)
-      if (Number.isFinite(h)) setHeight(Math.min(Math.max(h, 200), 20000))
+      // many diagram pages size themselves to the window (100vh), so the frame never drops below most of it
+      const least = Math.max(400, Math.round(window.innerHeight * 0.8))
+      if (Number.isFinite(h) && h > 0) setHeight(Math.min(Math.max(h, least), 20000))
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)

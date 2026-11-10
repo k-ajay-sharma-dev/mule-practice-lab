@@ -53,6 +53,9 @@ assert.ok(fragment.startsWith('<!doctype html><html><head><meta charset="utf-8">
 assert.ok(fragment.includes('<body><header>h</header><svg></svg></body>'))
 assert.ok(!architectureDoc('<p>x</p>', { fitHeight: false }).includes('plArchHeight'))
 assert.ok(architectureDoc('<p>x</p>').includes('plArchHeight'))
-for (const rule of ["connect-src 'none'", "form-action 'none'", "frame-src 'none'", "default-src 'none'"]) assert.ok(ARCH_POLICY.includes(rule), rule)
+for (const rule of ['connect-src blob: data:', "form-action 'none'", "frame-src 'none'", "default-src 'none'"]) assert.ok(ARCH_POLICY.includes(rule), rule)
+// the page may never call out over the network
+const connect = ARCH_POLICY.split('; ').find((r) => r.startsWith('connect-src'))
+assert.ok(!/https?:|\*/.test(connect), connect)
 
 console.log('check-projects: all passed')

@@ -43,21 +43,25 @@ export function questionsIn(body) {
 
 // The page runs in a sandboxed frame with no access to this site (no same-origin), and this policy adds:
 // no network calls, no forms, no nested frames. Scripts, styles, images and fonts may come from https CDNs,
-// so diagrams drawn by libraries such as Mermaid still work.
+// so diagrams drawn by libraries such as Mermaid still work. blob: and data: are allowed because bundled pages
+// unpack their own scripts and fonts into them; both stay inside the frame and never reach the network.
 export const ARCH_POLICY = [
   "default-src 'none'",
-  "script-src 'unsafe-inline' 'unsafe-eval' https:",
-  "style-src 'unsafe-inline' https:",
+  "script-src 'unsafe-inline' 'unsafe-eval' https: blob: data:",
+  "style-src 'unsafe-inline' https: blob: data:",
   'img-src data: blob: https:',
-  'font-src data: https:',
-  "connect-src 'none'",
+  'font-src data: blob: https:',
+  'media-src data: blob:',
+  'worker-src blob:',
+  'connect-src blob: data:',
   "frame-src 'none'",
   "form-action 'none'",
   "base-uri 'none'",
 ].join('; ')
 
-// Tells the site how tall the page is, so the frame grows to fit instead of scrolling inside.
-const HEIGHT_REPORTER = `<script>(function(){function s(){parent.postMessage({plArchHeight:Math.ceil(document.documentElement.scrollHeight)},'*')}addEventListener('load',s);addEventListener('resize',s);if(window.ResizeObserver)new ResizeObserver(s).observe(document.documentElement);setTimeout(s,50);setTimeout(s,1000)})()</script>`
+// Tells the site how tall the page is, so the frame grows to fit instead of scrolling inside. It watches the
+// document itself, because bundled pages replace the whole <html> element once they have unpacked.
+const HEIGHT_REPORTER = `<script>(function(){var q=0,w=null,ro=window.ResizeObserver?new ResizeObserver(f):null;function s(){q=0;var d=document.documentElement;if(d)parent.postMessage({plArchHeight:Math.ceil(Math.max(d.scrollHeight,document.body?document.body.scrollHeight:0))},'*')}function f(){if(!q)q=requestAnimationFrame(s)}function watch(){var d=document.documentElement;if(ro&&d&&d!==w){ro.disconnect();ro.observe(d);if(document.body)ro.observe(document.body);w=d}}new MutationObserver(function(){watch();f()}).observe(document,{childList:true,subtree:true,attributes:true});addEventListener('load',function(){watch();f()});addEventListener('resize',f);watch();setTimeout(s,50);setTimeout(s,1000);setTimeout(s,3000)})()</script>`
 
 export function architectureDoc(html, { fitHeight = true } = {}) {
   const head = `<meta http-equiv="Content-Security-Policy" content="${ARCH_POLICY}"><meta name="referrer" content="no-referrer">${fitHeight ? HEIGHT_REPORTER : ''}`
