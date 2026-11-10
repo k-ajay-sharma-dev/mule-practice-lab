@@ -1002,6 +1002,33 @@ textarea:focus {
   font-size: 0.78rem;
   white-space: pre-wrap;
 }
+.test-detail {
+  margin: 6px 0 4px 18px;
+}
+.test-detail > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+.test-detail .io-block {
+  margin-top: 8px;
+}
+.test-detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.test-diff ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--danger);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.test-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 12px;
+}
 
 /* Self-assessment side */
 .reference {

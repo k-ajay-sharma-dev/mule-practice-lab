@@ -5,7 +5,7 @@ import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
 import RunningMessage from '../components/RunningMessage.jsx'
 import { runScript } from '../runner/client.js'
-import { mimeToLanguage, outputsMatch } from '../runner/grade.js'
+import { jsonDifferences, mimeToLanguage, outputsMatch } from '../runner/grade.js'
 import { scheduleReview, updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { useAutosave } from './useAutosave.js'
 
@@ -61,6 +61,10 @@ export default function DataWeaveWorkspace({ problem }) {
         name: tc.name,
         passed: r.ok && outputsMatch(r.output, tc.expected, expectedMime),
         error: r.ok ? null : r.error,
+        // kept so a failed test can show what went in, what was expected and what came out
+        inputs: tc.inputs,
+        expected: tc.expected,
+        output: r.ok ? r.output : null,
       })
     }
     const allPassed = results.every((r) => r.passed)
@@ -225,7 +229,7 @@ export default function DataWeaveWorkspace({ problem }) {
               />
             )}
             {ioTab === 'output' && <OutputView result={runResult} busy={busy === 'run'} problem={problem} />}
-            {ioTab === 'tests' && <TestsView data={testResults} busy={busy === 'submit'} total={testCases.length} />}
+            {ioTab === 'tests' && <TestsView data={testResults} busy={busy === 'submit'} total={testCases.length} mime={expectedMime} />}
           </div>
         </div>
       </section>
@@ -251,10 +255,54 @@ function OutputView({ result, busy, problem }) {
   )
 }
 
-function TestsView({ data, busy, total }) {
+// A failed test shows its input, the expected output, your output and where they differ, so you can see why.
+// The first failure opens by itself.
+function FailedTest({ result, mime, open }) {
+  const differences = result.output != null && mime.includes('json') ? jsonDifferences(result.output, result.expected) : []
+  return (
+    <details className="test-detail" open={open}>
+      <summary>Show why it failed</summary>
+      {differences.length > 0 && (
+        <div className="test-diff">
+          <div className="io-label">What is different</div>
+          <ul>
+            {differences.map((d) => (
+              <li key={d} className="mono">
+                {d}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {result.inputs.map((inp) => (
+        <div key={inp.name} className="io-block">
+          <div className="io-label">
+            Input · <span className="mono">{inp.name}</span> <span className="muted">({inp.mime})</span>
+          </div>
+          <CodeBlock>{inp.content}</CodeBlock>
+        </div>
+      ))}
+      <div className="test-compare">
+        <div className="io-block">
+          <div className="io-label">Expected output</div>
+          <CodeBlock>{result.expected}</CodeBlock>
+        </div>
+        {result.output != null && (
+          <div className="io-block">
+            <div className="io-label">Your output</div>
+            <CodeBlock>{result.output}</CodeBlock>
+          </div>
+        )}
+      </div>
+    </details>
+  )
+}
+
+function TestsView({ data, busy, total, mime }) {
   if (busy) return <RunningMessage>Running {total} tests…</RunningMessage>
   if (!data) return <div className="io-message muted">Submit runs the sample plus every hidden test.</div>
   if (data.error) return <pre className="io-message info">{data.error}</pre>
+  const firstFailure = data.results.find((r) => !r.passed)
 
   return (
     <div className="tests-view">
@@ -267,6 +315,7 @@ function TestsView({ data, busy, total }) {
           <li key={r.name} className={r.passed ? 'pass' : 'fail'}>
             <span>{r.passed ? '✓' : '✗'}</span> {r.name}
             {r.error && <pre className="test-error">{r.error}</pre>}
+            {!r.passed && <FailedTest result={r} mime={mime} open={r === firstFailure} />}
           </li>
         ))}
       </ul>
