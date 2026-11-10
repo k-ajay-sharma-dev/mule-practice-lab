@@ -32,11 +32,12 @@ export async function saveProject({ id, title, summary, body, architecture = '' 
     title: title.trim().slice(0, MAX_TITLE),
     summary: summary.trim().slice(0, MAX_SUMMARY),
     body,
-    architecture,
     updatedAt: new Date().toISOString(),
   }
+  // A notes-only project is stored without the architecture field, so saving it works under the first rules too.
+  if (architecture) saved.architecture = architecture
   await setDoc(doc(places().projects, key), saved)
-  return { id: key, ...saved }
+  return { id: key, architecture: '', ...saved }
 }
 
 export async function loadArchitecture(id) {
@@ -77,5 +78,5 @@ export async function deleteProject({ id, architecture }) {
 }
 
 function withoutId({ title, summary, body, architecture, updatedAt }) {
-  return { title, summary, body, architecture, updatedAt }
+  return architecture ? { title, summary, body, architecture, updatedAt } : { title, summary, body, updatedAt }
 }
