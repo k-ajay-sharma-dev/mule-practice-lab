@@ -66,11 +66,13 @@ export async function removeArchitecture(project) {
   return updated
 }
 
-export async function deleteProject(id) {
+// The architecture file is only touched when the project has one, so deleting a notes-only project never depends
+// on the rules for files.
+export async function deleteProject({ id, architecture }) {
   const { db, projects, files } = places()
   const batch = writeBatch(db)
   batch.delete(doc(projects, id))
-  batch.delete(doc(files, id))
+  if (architecture) batch.delete(doc(files, id))
   await batch.commit()
 }
 

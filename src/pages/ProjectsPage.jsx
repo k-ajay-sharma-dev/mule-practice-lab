@@ -119,7 +119,7 @@ export default function ProjectsPage() {
   async function remove(project) {
     if (!confirm(`Delete "${project.title}" from your account? This cannot be undone.`)) return
     try {
-      await (await api()).deleteProject(project.id)
+      await (await api()).deleteProject(project)
       setList((l) => l.filter((p) => p.id !== project.id))
       navigate('/projects')
     } catch (error) {
