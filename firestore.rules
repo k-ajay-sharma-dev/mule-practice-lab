@@ -27,11 +27,22 @@ service cloud.firestore {
     match /users/{uid}/projects/{id} {
       allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['title', 'summary', 'body', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['title', 'summary', 'body', 'architecture', 'updatedAt'])
         && request.resource.data.title is string && request.resource.data.title.size() <= 200
         && request.resource.data.summary is string && request.resource.data.summary.size() <= 1000
         && request.resource.data.body is string && request.resource.data.body.size() <= 300000
+        && request.resource.data.get('architecture', '') is string
+        && request.resource.data.get('architecture', '').size() <= 200
         && request.resource.data.updatedAt is string;
+    }
+
+    // A project's architecture page (one HTML file), apart so the project list never downloads it.
+    match /users/{uid}/projectFiles/{id} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['html'])
+        && request.resource.data.html is string
+        && request.resource.data.html.size() <= 950000;
     }
 
     match /users/{uid}/recordingAudio/{id} {

@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import Markdown from '../components/Markdown.jsx'
+import ProjectArchitecture from '../components/ProjectArchitecture.jsx'
+import { NotesView, PracticeView } from '../components/ProjectNotes.jsx'
+import { questionsIn } from '../study/project-notes.js'
 import { signIn, useSyncStatus } from '../sync/status.js'
+
+const TABS = [
+  ['notes', 'Notes'],
+  ['architecture', 'Architecture'],
+  ['practice', 'Practice'],
+]
 
 // My Projects: notes about your own real projects, to study before interviews. They live only in your Google
 // account (src/sync/projects.js), never in the site's code, so nobody else can read them.
@@ -32,6 +40,7 @@ export default function ProjectsPage() {
   const [problem, setProblem] = useState(null)
   const [draft, setDraft] = useState(null) // { id?, title, summary, body } while editing
   const [saving, setSaving] = useState(false)
+  const [tab, setTab] = useState('notes')
   const fileInput = useRef(null)
 
   useEffect(() => {
@@ -50,7 +59,10 @@ export default function ProjectsPage() {
   }, [email])
 
   // leaving a project or the editor by navigation closes the editor
-  useEffect(() => setDraft(null), [projectId])
+  useEffect(() => {
+    setDraft(null)
+    setTab('notes')
+  }, [projectId])
 
   if (sync.state === 'off') {
     return (
@@ -142,7 +154,10 @@ export default function ProjectsPage() {
             <input className="input" value={draft.summary} maxLength={1000} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} />
           </label>
           <label className="field">
-            <span className="small muted">Notes in Markdown ({draft.body.length.toLocaleString()} characters)</span>
+            <span className="small muted">
+              Notes in Markdown ({draft.body.length.toLocaleString()} characters). Each <code>## Heading</code> becomes a section
+              you can fold. A paragraph that starts with <code>**A question?**</code> becomes a practice card.
+            </span>
             <textarea className="input project-body" value={draft.body} spellCheck={false} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           </label>
           <div className="settings-actions">
@@ -186,9 +201,19 @@ export default function ProjectsPage() {
               </button>
               <span className="muted small">Updated {new Date(project.updatedAt).toLocaleString()}</span>
             </div>
-            <article className="project-notes">
-              <Markdown>{project.body}</Markdown>
-            </article>
+            <div className="project-tabs" role="tablist">
+              {TABS.map(([key, label]) => (
+                <button key={key} role="tab" aria-selected={tab === key} className={`project-tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
+                  {label}
+                  {key === 'practice' && <span className="muted"> ({questionsIn(project.body).length})</span>}
+                </button>
+              ))}
+            </div>
+            {tab === 'notes' && <NotesView body={project.body} />}
+            {tab === 'architecture' && (
+              <ProjectArchitecture project={project} onChange={(p) => setList((l) => l.map((x) => (x.id === p.id ? p : x)))} />
+            )}
+            {tab === 'practice' && <PracticeView body={project.body} />}
           </>
         )}
       </div>
@@ -221,7 +246,11 @@ export default function ProjectsPage() {
             <Link key={p.id} to={`/projects/${p.id}`} className="track-card">
               <h3>{p.title}</h3>
               <p className="muted small">{p.summary || 'No summary yet.'}</p>
-              <span className="muted small">Updated {new Date(p.updatedAt).toLocaleDateString()}</span>
+              <span className="muted small">
+                Updated {new Date(p.updatedAt).toLocaleDateString()}
+                {p.architecture && ' · architecture'}
+                {` · ${questionsIn(p.body).length} questions`}
+              </span>
             </Link>
           ))}
         </div>
