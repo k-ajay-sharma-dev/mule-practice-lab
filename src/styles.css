@@ -869,6 +869,9 @@ textarea:focus {
 .right-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) minmax(0, 38%);
+  /* the column follows the panel, never its content: the output editor keeps its popup width for a moment after the
+     popup closes, and an auto column would stay that wide and push the eye button out of sight */
+  grid-template-columns: minmax(0, 1fr);
 }
 .right-panel.self-panel {
   display: flex;
