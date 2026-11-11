@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import FlowDesigner from '../components/flow/FlowDesigner.jsx'
 import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
@@ -59,12 +59,53 @@ function DesignCompare({ design, model }) {
   )
 }
 
+function FullIcon({ open }) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+    </svg>
+  )
+}
+
+function SideIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M12 4v16" />
+    </svg>
+  )
+}
+
 // guided adds the step guide and the hints on failed checks. A mock interview turns it off.
 export default function FlowWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
   const [design, setDesign, history] = useUndo(() => restoreDesign(entry.flow))
   const [tab, setTab] = useState('scenario')
   const [results, setResults] = useState(null)
+  // full screen: null, 'reference', 'mine', or 'both' (the reference on the left, your design on the right)
+  const [full, setFull] = useState(null)
+  const hasReference = Boolean(entry.revealed && problem.referenceFlow)
+
+  useEffect(() => {
+    if (!full) return
+    // Esc inside a designer cancels placing or a selection there, so only Esc from elsewhere closes the view
+    const onKey = (e) => e.key === 'Escape' && !e.target.closest?.('.designer, input, textarea, select') && setFull(null)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [full])
+
+  const fullButton = (which, label) => (
+    <button className="btn btn-ghost btn-sm full-btn" onClick={() => setFull(full === which ? null : which)} title={full === which ? 'Close full screen (Esc)' : label} aria-label={full === which ? 'Close full screen' : label}>
+      <FullIcon open={full === which} />
+      <span>{full === which ? 'Close' : 'Full screen'}</span>
+    </button>
+  )
+  const sideButton = (
+    <button className="btn btn-ghost btn-sm full-btn" onClick={() => setFull(full === 'both' ? null : 'both')} title={full === 'both' ? 'Close side by side (Esc)' : 'The reference and your design side by side'} aria-label={full === 'both' ? 'Close side by side' : 'Open the reference and your design side by side'}>
+      {full === 'both' ? <FullIcon open /> : <SideIcon />}
+      <span>{full === 'both' ? 'Close' : 'Side by side'}</span>
+    </button>
+  )
 
   useAutosave(design, (value) => updateEntry(problem.id, { flow: value, status: workedStatus(problem.id) }))
 
@@ -90,7 +131,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const passed = results?.filter((r) => r.pass).length ?? 0
 
   return (
-    <div className="workspace flow-workspace">
+    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}`}>
       <section className="panel left-panel">
         <div className="panel-tabs">
           {TABS.map((t) => (
@@ -160,7 +201,13 @@ export default function FlowWorkspace({ problem, guided = true }) {
               <div className="reference">
                 {problem.referenceFlow && (
                   <>
-                    <div className="section-title">Reference design</div>
+                    <div className="section-title reference-title">
+                      <span>Reference design</span>
+                      <span className="full-actions">
+                        {fullButton('reference', 'Open the reference full screen')}
+                        {sideButton}
+                      </span>
+                    </div>
                     <div className="reference-canvas">
                       <FlowDesigner design={problem.referenceFlow} readOnly />
                     </div>
@@ -226,8 +273,34 @@ export default function FlowWorkspace({ problem, guided = true }) {
             }
           />
         )}
-        <FlowDesigner design={design} onChange={setDesign} history={history} />
+        <FlowDesigner
+          design={design}
+          onChange={setDesign}
+          history={history}
+          toolbarEnd={
+            <>
+              {hasReference && sideButton}
+              {full === 'both' ? null : fullButton('mine', 'Open your design full screen')}
+            </>
+          }
+        />
       </section>
+
+      {full && <div className="io-backdrop" onClick={() => setFull(null)} aria-hidden="true" />}
+      {hasReference && (full === 'reference' || full === 'both') && (
+        <section className="flow-full-ref" role="dialog" aria-label="Reference design">
+          <div className="flow-full-label">
+            <span>Reference design</span>
+            <span className="muted small">Read only. Select a component to see its settings.</span>
+          </div>
+          <FlowDesigner
+            design={problem.referenceFlow}
+            readOnly
+            settingsAside
+            toolbarEnd={full === 'reference' ? <>{sideButton}{fullButton('reference', 'Close')}</> : null}
+          />
+        </section>
+      )}
     </div>
   )
 }

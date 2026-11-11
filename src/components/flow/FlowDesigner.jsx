@@ -27,8 +27,11 @@ const Ctx = createContext(null)
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // Visual Mule flow editor. Design only: nothing here is executed.
-// Props: design, onChange(design), readOnly, history (undo and redo from useUndo)
-export default function FlowDesigner({ design, onChange, readOnly = false, history = null }) {
+// Props: design, onChange(design), readOnly, history (undo and redo from useUndo),
+// settingsAside (read-only: show a component's settings in a side panel, as the editable designer does, instead of
+// under the component), toolbarEnd (buttons at the end of the toolbar, such as full screen)
+export default function FlowDesigner({ design, onChange, readOnly = false, history = null, settingsAside = false, toolbarEnd = null }) {
+  const aside = readOnly && settingsAside
   const [selectedId, setSelectedId] = useState(null)
   const [armed, setArmed] = useState(null) // component type picked from the palette (tap-to-place)
   const [moving, setMoving] = useState(null) // id of a node being moved by tapping a slot
@@ -60,9 +63,10 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     () => ({
       design,
       readOnly,
+      inlineSettings: readOnly && !aside,
       selectedId,
       // read-only: clicking opens the settings under the component, and clicking again closes them
-      select: (id) => setSelectedId((current) => (readOnly && current === id ? null : id)),
+      select: (id) => setSelectedId((current) => (readOnly && !aside && current === id ? null : id)),
       payloadKind,
       setDrag,
       canDrop: (key) => !!payloadKind && acceptsKind(key, payloadKind),
@@ -92,7 +96,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
         setSelectedId(copy.id)
       },
     }),
-    [design, readOnly, selectedId, payload, payloadKind, onChange, touch, placing],
+    [design, readOnly, aside, selectedId, payload, payloadKind, onChange, touch, placing],
   )
 
   function importXml(text) {
@@ -187,7 +191,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     <Ctx.Provider value={ctx}>
       <div
         ref={root}
-        className={`designer ${readOnly ? 'read-only' : ''}${selectedId && !placing && !readOnly ? ' sheet-active' : ''}`}
+        className={`designer ${readOnly ? 'read-only' : ''}${aside ? ' settings-aside' : ''}${selectedId && !placing && (!readOnly || aside) ? ' sheet-active' : ''}`}
         tabIndex={-1}
         onKeyDown={onKeyDown}
       >
@@ -234,6 +238,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               </button>
             </div>
           )}
+          {toolbarEnd && <div className="designer-toolbar-end">{toolbarEnd}</div>}
         </div>
 
         {notice && view === 'design' && (
@@ -308,6 +313,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               ))}
             </div>
             {!readOnly && <Properties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
+            {aside && <ReadOnlyProperties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
           </div>
         )}
       </div>
@@ -470,7 +476,7 @@ function Slot({ containerKey, index, empty = false, label }) {
 }
 
 function NodeView({ node }) {
-  const { readOnly, selectedId, select, setDrag, design, change, touch } = useContext(Ctx)
+  const { readOnly, inlineSettings, selectedId, select, setDrag, design, change, touch } = useContext(Ctx)
   const def = COMPONENTS[node.type]
   const summary = def.summary?.(node.config, node)
 
@@ -503,7 +509,7 @@ function NodeView({ node }) {
       onDragEnd={() => setDrag(null)}
     >
       {head}
-      {readOnly && selectedId === node.id && <ConfigView fields={def.fields} values={node.config} />}
+      {inlineSettings && selectedId === node.id && <ConfigView fields={def.fields} values={node.config} />}
       {(def.kind === 'scope' || def.kind === 'handler') && (
         <div className="node-body">
           <StepList containerKey={`${node.id}:steps`} nodes={node.steps} emptyLabel="Drop steps inside" />
@@ -541,7 +547,7 @@ function NodeView({ node }) {
                     </button>
                   )}
                 </div>
-                {readOnly && selectedId === r.id && <ConfigView fields={def.routeFields} values={r.config} />}
+                {inlineSettings && selectedId === r.id && <ConfigView fields={def.routeFields} values={r.config} />}
                 <StepList containerKey={`${r.id}:steps`} nodes={r.steps} emptyLabel="Drop steps" />
               </div>
             ))}
@@ -600,6 +606,32 @@ function ConfigView({ fields = [], values }) {
 }
 
 // ---------- Properties ----------
+
+// The settings of the selected component of a read-only design, in the same side panel the editable designer uses.
+function ReadOnlyProperties({ selectedId, onDeselect }) {
+  const { design } = useContext(Ctx)
+  const found = selectedId ? findItem(design, selectedId) : null
+  if (!found || found.ctx.isFlow) {
+    return (
+      <aside className="properties">
+        <div className="properties-empty muted small">
+          <p>Select a component to see how it is configured.</p>
+        </div>
+      </aside>
+    )
+  }
+  const { item, ctx } = found
+  const def = COMPONENTS[ctx.isRoute ? ctx.parent.type : item.type]
+  return (
+    <aside className="properties sheet-open">
+      <button className="btn btn-ghost btn-sm properties-done" onClick={onDeselect}>
+        Done
+      </button>
+      <div className="properties-title">{ctx.isRoute ? `${def.label} · ${def.routeLabel}` : def.label}</div>
+      <ConfigView fields={ctx.isRoute ? def.routeFields : def.fields} values={item.config} />
+    </aside>
+  )
+}
 
 function Properties({ selectedId, onDeselect }) {
   const { design, change, touch, placing, startMove, duplicate } = useContext(Ctx)

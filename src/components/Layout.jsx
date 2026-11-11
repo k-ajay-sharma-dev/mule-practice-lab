@@ -5,9 +5,11 @@ import { CATEGORIES } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { checkRunner, getRunnerSettings, runnerMaySleep } from '../runner/client.js'
 import { useFocusSession } from '../store/focus.js'
+import { rememberOrigin } from '../store/origin.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { FocusBar, FocusSummary } from './FocusSession.jsx'
 import NavIcon from './NavIcons.jsx'
+import SaveShortcut from './SaveShortcut.jsx'
 import { useSyncStatus } from '../sync/status.js'
 import { useTheme } from '../theme.jsx'
 
@@ -42,7 +44,7 @@ function useLaptopWidth() {
 
 export default function Layout({ children }) {
   const { theme, toggle } = useTheme()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   // laptop: full or icons-only (remembered); phone/tablet: a drawer opened from the menu button
   const [collapsed, setCollapsed] = useState(() => readSetting(SIDEBAR_KEY) === 'collapsed')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -85,6 +87,14 @@ export default function Layout({ children }) {
   }, [wideRoom, wideView])
 
   useEffect(() => setDrawerOpen(false), [pathname])
+
+  // a problem's back link returns to the page you opened it from (see store/origin.js)
+  useEffect(() => {
+    const [, first, second] = pathname.split('/')
+    const category = CATEGORIES.find((c) => c.slug === first)
+    if (category && second) return // a problem page: keep the page it was opened from
+    rememberOrigin(pathname, search, category && !second ? category.label : null)
+  }, [pathname, search])
   useEffect(() => {
     if (!drawerOpen) return
     const onKey = (e) => e.key === 'Escape' && setDrawerOpen(false)
@@ -108,6 +118,7 @@ export default function Layout({ children }) {
 
   return (
     <div className={`app${collapsed || folded || wideOn ? ' sidebar-collapsed' : ''}${wideOn ? ' wide-view' : ''}${drawerOpen ? ' drawer-open' : ''}${focusing ? ' focus-mode' : ''}`}>
+      <SaveShortcut />
       {focusing ? <FocusBar key={focus.at} session={focus} /> : (
       <header className="topbar">
         <button

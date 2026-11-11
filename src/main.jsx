@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import { enableDragScroll } from './hscroll.js'
 import { startSync } from './sync/status.js'
 import { ThemeProvider } from './theme.jsx'
 import './styles.css'
@@ -30,6 +31,9 @@ window.addEventListener('load', () => {
 
 // Cloud sync (Google account) loads in the background when it's configured; the site never waits for it.
 startSync()
+
+// areas wider than their box can be dragged sideways with the mouse (scrollbars are hidden)
+enableDragScroll()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

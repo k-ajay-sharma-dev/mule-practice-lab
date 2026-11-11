@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { categoryBySlug } from '../data/categories.js'
 import { problemById, problemsFor } from '../data/problems.js'
 import { useFocusSession } from '../store/focus.js'
+import { readOrigin } from '../store/origin.js'
 import { removeReview, scheduleReview, statusOf, useEntry, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import ProblemTimer from '../components/ProblemTimer.jsx'
@@ -22,6 +23,10 @@ export default function ProblemPage() {
   const cat = categoryBySlug.get(category)
   if (!problem || !cat || problem.category !== category) return <NotFound />
 
+  // back to the page you opened it from, such as the Learning Path or Review; otherwise its category
+  const origin = readOrigin()
+  const back = origin ?? { path: `/${category}`, label: cat.label }
+
   const siblings = problemsFor(category)
   const idx = siblings.findIndex((p) => p.id === problem.id)
   const prev = siblings[idx - 1]
@@ -32,8 +37,8 @@ export default function ProblemPage() {
       <header className="problem-head">
         <div className="problem-head-main">
           {!focusing && (
-            <Link to={`/${category}`} className="back-link">
-              ← {cat.label}
+            <Link to={back.path} className="back-link">
+              ← {back.label}
             </Link>
           )}
           <h1>{problem.title}</h1>
