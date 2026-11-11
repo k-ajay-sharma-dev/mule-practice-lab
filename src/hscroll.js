@@ -23,7 +23,41 @@ function both(el) {
   return (y === 'auto' || y === 'scroll') && el.scrollHeight > el.clientHeight + 1
 }
 
+// Areas that are wider than their box get the class "x-scroll", which shows a thin scrollbar on them (styles.css).
+// Every other scrollbar stays hidden. Checked again whenever the page changes or the window is resized.
+function markWideAreas() {
+  let marked = new Set()
+  const scan = () => {
+    const now = new Set()
+    for (const el of document.body.querySelectorAll('*')) {
+      if (el.scrollWidth <= el.clientWidth + 1 || el.closest('.monaco-editor')) continue
+      const x = getComputedStyle(el).overflowX
+      if (x === 'auto' || x === 'scroll') now.add(el)
+    }
+    for (const el of marked) if (!now.has(el)) el.classList.remove('x-scroll')
+    for (const el of now) if (!marked.has(el)) el.classList.add('x-scroll')
+    marked = now
+  }
+  let timer = null
+  const later = () => {
+    clearTimeout(timer)
+    timer = setTimeout(scan, 250)
+  }
+  // the marks this file sets are page changes too, so a class change that only adds or removes them is ignored
+  const OWN = /\b(x-scroll|can-drag-scroll|drag-scrolling)\b/g
+  const plain = (cls) => (cls ?? '').replace(OWN, '').replace(/\s+/g, ' ').trim()
+  const ownOnly = (r) => r.type === 'attributes' && r.attributeName === 'class' && plain(r.oldValue) === plain(r.target.getAttribute('class'))
+  // the code editor changes all the time (its cursor blinks) and draws its own scrollbars
+  const inEditor = (r) => (r.target.nodeType === 1 ? r.target : r.target.parentElement)?.closest('.monaco-editor')
+  new MutationObserver((records) => {
+    if (!records.every((r) => ownOnly(r) || inEditor(r))) later()
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] })
+  window.addEventListener('resize', later)
+  later()
+}
+
 export function enableDragScroll() {
+  markWideAreas()
   let drag = null
 
   document.addEventListener('mousedown', (e) => {

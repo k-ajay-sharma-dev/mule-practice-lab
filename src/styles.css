@@ -53,12 +53,29 @@
   box-sizing: border-box;
 }
 
-/* No scrollbars anywhere. Everything still scrolls with the wheel, touch and keyboard. */
+/* No scrollbars, except on an area wider than its box (marked "x-scroll" by src/hscroll.js): a mouse wheel cannot
+   scroll sideways, so there a thin scrollbar shows that more is to the side and lets you drag it. */
 * {
   scrollbar-width: none;
 }
 *::-webkit-scrollbar {
   display: none;
+}
+.x-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 60%, transparent) transparent;
+}
+.x-scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+.x-scroll::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.x-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 html,
