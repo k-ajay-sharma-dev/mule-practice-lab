@@ -9,7 +9,8 @@ export default {
     {
       type: 'single',
       needsScenario: true,
-      prompt: 'The CFO asks "What have we got for this money?". Which headline best answers it?',
+      prompt:
+        'The CFO asks "What have we got for this money?". Say you have measured the programme for a few weeks; the figures below are examples of what you could find. Which kind of headline best answers the CFO?',
       options: [
         '"We built 52 APIs in 18 months."',
         '"Median lead time fell from 14 to 8 weeks, recent projects reuse about 55% of their APIs, and roughly 1.1M of build effort was avoided — assumptions in the appendix."',
