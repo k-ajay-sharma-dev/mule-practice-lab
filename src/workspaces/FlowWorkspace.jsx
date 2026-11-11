@@ -7,6 +7,7 @@ import StepGuide from '../components/StepGuide.jsx'
 import { designChecks, missingHint, runChecks } from '../flow/checks.js'
 import { compareDesigns } from '../flow/compare.js'
 import { countComponents, restoreDesign } from '../flow/model.js'
+import { systemsIn } from '../flow/systems.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { rate } from '../store/rating.js'
 import { flowSteps } from '../study/steps.js'
@@ -73,6 +74,37 @@ function SideIcon() {
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M12 4v16" />
     </svg>
+  )
+}
+
+// The systems the scenario lets you call, grouped by kind. On a real project these come as API contracts and schemas.
+function SystemsList({ design }) {
+  const groups = useMemo(() => {
+    const byKind = new Map()
+    for (const s of systemsIn(design)) byKind.set(s.kind, [...(byKind.get(s.kind) ?? []), s.name])
+    return [...byKind]
+  }, [design])
+  if (!groups.length) return null
+  return (
+    <div className="systems-list">
+      <div className="section-title">Systems you can call</div>
+      <p className="muted small">
+        These are the systems and their names, as their owners would hand them to you. Which ones you call, in what
+        order and how, is your design.
+      </p>
+      <dl>
+        {groups.map(([kind, names]) => (
+          <div key={kind} className="systems-row">
+            <dt>{kind}</dt>
+            <dd>
+              {names.map((n) => (
+                <code key={n}>{n}</code>
+              ))}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
 }
 
@@ -144,6 +176,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
           {tab === 'scenario' && (
             <>
               <Markdown>{problem.description}</Markdown>
+              <SystemsList design={problem.referenceFlow} />
               <div className="reveal-gate">
                 <p className="muted small">
                   Design the flow on the canvas. It is not executed — the design is checked against the requirements.

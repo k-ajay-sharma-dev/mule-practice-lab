@@ -5,6 +5,7 @@ import Markdown from '../components/Markdown.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
 import { diagramHint, runDiagramChecks } from '../arch/checks.js'
+import { landscapeOf } from '../arch/landscape.js'
 import { restoreDiagram } from '../arch/model.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { diagramSteps } from '../study/steps.js'
@@ -17,6 +18,34 @@ const TABS = [
   ['explain', 'Explain it'],
   ['notes', 'Notes'],
 ]
+
+// The users and systems the landscape already has, from the reference diagram (see arch/landscape.js).
+function Landscape({ reference }) {
+  const groups = useMemo(() => landscapeOf(reference), [reference])
+  if (!groups.length) return null
+  return (
+    <div className="systems-list">
+      <div className="section-title">Users and systems in this landscape</div>
+      <p className="muted small">
+        These already exist. What sits between them (API layers, queues, gateways) is your design.
+      </p>
+      <dl>
+        {groups.map((g) => (
+          <div key={g.title} className="systems-row">
+            <dt>{g.title}</dt>
+            <dd>
+              {g.items.map((i) => (
+                <code key={i.label} title={i.kind}>
+                  {i.label}
+                </code>
+              ))}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
 
 // Architecture problems with a `diagram` exercise: draw the solution on the Architecture Designer and
 // check it against the rules in `diagram.checks`.
@@ -61,6 +90,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
           {tab === 'scenario' && (
             <>
               <Markdown>{problem.description}</Markdown>
+              <Landscape reference={reference} />
               <div className="reveal-gate">
                 <p className="small">
                   <b>Your task:</b> {task ?? 'draw the architecture that meets these requirements.'}
