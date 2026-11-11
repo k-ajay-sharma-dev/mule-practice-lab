@@ -1769,10 +1769,22 @@ textarea:focus {
   background: color-mix(in srgb, var(--surface) 60%, transparent);
   border-radius: 0 0 9px 9px;
 }
+/* A wide design makes the whole canvas wider, so the canvas scrolls sideways as one area (drag it, or Shift + wheel)
+   instead of each router's routes scrolling on their own. Names and paths inside components do not widen it: they
+   shorten with "…" and show in full in the settings. */
+.canvas > .flow-box {
+  width: fit-content;
+  min-width: 100%;
+}
+.node-text,
+.route-head > span:first-child {
+  contain: inline-size;
+  flex: 1 1 0;
+  min-width: 0;
+}
 .routes {
   display: flex;
   gap: 10px;
-  overflow-x: auto;
   padding-top: 6px;
 }
 .route {

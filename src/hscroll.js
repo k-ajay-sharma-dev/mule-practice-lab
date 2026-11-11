@@ -34,7 +34,7 @@ export function enableDragScroll() {
     // a component inside the area is dragged to move it; the area itself may sit inside one (a router's routes)
     const movable = e.target.closest?.('[draggable="true"]')
     if (movable && area.contains(movable)) return
-    drag ={ area, x: e.clientX, y: e.clientY, left: area.scrollLeft, top: area.scrollTop, panY: both(area), moving: false }
+    drag = { area, x: e.clientX, y: e.clientY, left: area.scrollLeft, top: area.scrollTop, panY: both(area), moving: false }
   })
 
   // dragging inside a router's routes scrolls them, instead of picking up the whole router
@@ -48,6 +48,8 @@ export function enableDragScroll() {
 
   document.addEventListener('mousemove', (e) => {
     if (!drag) return
+    // the button is no longer down: the release happened where the page could not see it
+    if (!(e.buttons & 1)) return end()
     const dx = e.clientX - drag.x
     const dy = e.clientY - drag.y
     if (!drag.moving) {
@@ -90,6 +92,8 @@ export function enableDragScroll() {
     }
     drag = null
   }
-  document.addEventListener('mouseup', end)
+  window.addEventListener('mouseup', end, true)
+  window.addEventListener('pointerup', end, true)
+  window.addEventListener('pointercancel', end, true)
   window.addEventListener('blur', end)
 }
