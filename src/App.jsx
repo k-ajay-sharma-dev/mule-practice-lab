@@ -59,6 +59,7 @@ export default function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:projectId" element={<ProjectsPage />} />
               <Route path="/logging" element={<LoggingPage />} />
+              <Route path="/logging/:exerciseId" element={<LoggingPage />} />
               <Route path="/:category" element={<CategoryPage />} />
               <Route path="/:category/:problemId" element={<ProblemPage />} />
               <Route path="*" element={<NotFound />} />

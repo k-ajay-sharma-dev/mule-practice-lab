@@ -2461,39 +2461,41 @@
   gap: 10px 16px;
   margin: 14px 0 10px;
 }
-.logging-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* the situation is the row's title: two lines at most in the list */
+.logging-row-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 500;
 }
-.logging-dots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
+.mode-chip.logging-kind-level {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
 }
-.logging-dot {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-.logging-dot.tried {
-  border-color: var(--danger);
-}
-.logging-dot.solved {
-  border-color: var(--success);
+.mode-chip.logging-kind-choice {
+  border-color: color-mix(in srgb, #3fb950 55%, transparent);
   color: var(--success);
 }
-.logging-dot.current {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  color: var(--text);
+.mode-chip.logging-kind-multi {
+  border-color: color-mix(in srgb, #d29922 55%, transparent);
+  color: var(--warning);
+}
+.mode-chip.logging-kind-write {
+  border-color: color-mix(in srgb, #bc8cff 55%, transparent);
+  color: #bc8cff;
+}
+.logging-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 14px 0;
+}
+.logging-nav-steps {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 .logging-card {
   padding: 16px 18px;
