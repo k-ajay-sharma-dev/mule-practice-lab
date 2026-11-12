@@ -1,5 +1,6 @@
 // Generates simplified Mule 4 configuration XML from a design, to show what the canvas
 // corresponds to. Global configurations (connector configs) are omitted.
+import { COMPONENTS } from './catalog.js'
 
 const esc = (s) =>
   String(s ?? '')
@@ -106,7 +107,21 @@ const replayAttrs = (c) => ({
 // documented only by the display name Function Name, so confirm that attribute in Studio.
 const sapGateway = (c) => ({ 'config-ref': 'SAP_Config', gatewayHost: c.gatewayHost, gatewayService: c.gatewayService, programID: c.programID })
 
+// A streaming strategy other than the default is written as the first child element, as Studio does:
+// <http:request ...><repeatable-in-memory-stream/></http:request>
 export function nodeXml(n, d) {
+  const xml = elementXml(n, d)
+  const strategy = n.config?.streamingStrategy
+  const field = COMPONENTS[n.type]?.fields?.find((f) => f.key === 'streamingStrategy')
+  if (!field || !strategy || strategy === field.default) return xml
+  const [first, ...rest] = xml.split('\n')
+  const child = el(d + 1, strategy)
+  if (!first.endsWith('/>')) return [first, child, ...rest].join('\n')
+  const name = first.match(/<([\w:.-]+)/)[1]
+  return [`${first.slice(0, -2)}>`, child, `${pad(d)}</${name}>`, ...rest].join('\n')
+}
+
+function elementXml(n, d) {
   const c = n.config ?? {}
   const steps = () => list(n.steps ?? [], d + 1)
   switch (n.type) {
@@ -260,7 +275,11 @@ export function nodeXml(n, d) {
     case 'batch-job':
       return el(d, 'batch:job', { jobName: c.jobName, blockSize: c.blockSize, maxFailedRecords: c.maxFailedRecords }, [
         el(d + 1, 'batch:process-records', {}, n.routes.map((r) =>
-          el(d + 2, 'batch:step', { name: r.config.name, acceptPolicy: r.config.acceptPolicy === 'NO_FAILURES' ? undefined : r.config.acceptPolicy }, list(r.steps, d + 3)),
+          el(d + 2, 'batch:step', {
+            name: r.config.name,
+            acceptPolicy: r.config.acceptPolicy === 'NO_FAILURES' ? undefined : r.config.acceptPolicy,
+            acceptExpression: r.config.acceptExpression,
+          }, list(r.steps, d + 3)),
         )),
         el(d + 1, 'batch:on-complete', {}, list(n.onComplete ?? [], d + 2)),
       ])

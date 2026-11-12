@@ -1611,6 +1611,11 @@ textarea:focus {
   text-align: left;
   cursor: grab;
 }
+.field-help {
+  font-size: 0.74rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
 .palette-lane {
   display: block;
   color: var(--muted);

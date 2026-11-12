@@ -28,6 +28,8 @@ const expr = (key, label, value = '') => ({ key, label, type: 'expression', defa
 const num = (key, label, value) => ({ key, label, type: 'number', default: value })
 const select = (key, label, options, value = options[0]) => ({ key, label, type: 'select', options, default: value })
 const area = (key, label, value = '') => ({ key, label, type: 'textarea', default: value })
+// A line of help shown under a field in the settings panel
+const help = (field, text) => ({ ...field, help: text })
 
 const ACK_MODES = ['AUTO', 'IMMEDIATE', 'MANUAL']
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
@@ -530,7 +532,14 @@ export const COMPONENTS = {
     glyph: '▤',
     fields: [text('jobName', 'Job name', 'batch-job'), num('blockSize', 'Block size', 100), num('maxFailedRecords', 'Max failed records', 0)],
     routeLabel: 'Batch step',
-    routeFields: [text('name', 'Step name', 'step'), select('acceptPolicy', 'Accept policy', ['NO_FAILURES', 'ONLY_FAILURES', 'ALL'])],
+    routeFields: [
+      text('name', 'Step name', 'step'),
+      help(
+        select('acceptPolicy', 'Accept policy', ['NO_FAILURES', 'ONLY_FAILURES', 'ALL']),
+        'Which records this step takes: NO_FAILURES only records no earlier step failed on, ONLY_FAILURES only the failed ones (for a step that reports or retries them), ALL every record.',
+      ),
+      help(expr('acceptExpression', 'Accept expression (optional)'), 'Also takes a record only when this is true, for example #[payload.country == "US"].'),
+    ],
     defaultRoutes: 1,
     onComplete: true,
     summary: (c, n) => `${n.routes.length} step${n.routes.length === 1 ? '' : 's'}, max failed ${c.maxFailedRecords}`,
@@ -540,7 +549,13 @@ export const COMPONENTS = {
     group: 'scopes',
     kind: 'scope',
     glyph: '▦',
-    fields: [num('size', 'Size', 200), select('streaming', 'Streaming', ['false', 'true'])],
+    fields: [
+      num('size', 'Size', 200),
+      help(
+        select('streaming', 'Streaming', ['false', 'true']),
+        'In Mule this is a true or false switch on the aggregator, not a streaming strategy. true gives the steps inside every record of the job as one stream, read once and in order, and the size is not used.',
+      ),
+    ],
     summary: (c) => (c.streaming === 'true' ? 'streaming' : `size ${c.size}`),
   },
 
@@ -1201,6 +1216,26 @@ export const COMPONENTS = {
     summary: (c) => c.type || 'ANY',
   },
 }
+
+// Streaming strategies. A Mule 4 connector operation that returns a stream of bytes takes a byte strategy; one that
+// returns pages of records (a Database Select, a Salesforce query) takes an object strategy. The first one of each
+// list is the default in Mule runtime Enterprise Edition, and the exported XML leaves it out.
+export const BYTE_STRATEGIES = ['repeatable-file-store-stream', 'repeatable-in-memory-stream', 'non-repeatable-stream']
+export const OBJECT_STRATEGIES = ['repeatable-file-store-iterable', 'repeatable-in-memory-iterable', 'non-repeatable-iterable']
+const STREAMING = [
+  [
+    BYTE_STRATEGIES,
+    ['http-listener', 'http-request', 'file-listener', 'sftp-listener', 'ftp-listener', 'file-read', 'sftp-read', 'ftp-read', 's3-get', 'azure-download-blob', 'wsc-consume', 'sf-query-xml-stream'],
+    'File store keeps the first part in memory and the rest in a temporary file, so the content can be read again (for example logged, then transformed). In memory keeps it all in memory and fails when it grows past the maximum. Non-repeatable reads it once: the fastest, but a second read finds it empty.',
+  ],
+  [
+    OBJECT_STRATEGIES,
+    ['db-select', 'sf-query', 'sf-query-all'],
+    'File store keeps the first records in memory and the rest in a temporary file, so the result can be read again. In memory keeps every record in memory. Non-repeatable reads the records once, page by page: the lowest memory for a large result read by one For Each or Batch Job.',
+  ],
+]
+for (const [options, types, text] of STREAMING)
+  for (const type of types) COMPONENTS[type].fields.push(help(select('streamingStrategy', 'Streaming strategy', options), text))
 
 export function defaultsFor(fields = []) {
   return Object.fromEntries(fields.map((f) => [f.key, f.default ?? '']))

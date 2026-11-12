@@ -152,6 +152,11 @@ function configure(element, entry, ctx) {
     config.postAction = autoDelete === 'true' ? 'delete' : config.moveTo ? 'move' : config.renameTo ? 'rename' : 'none'
   }
   if (fields.has('database')) config.database = ctx.databases.get(element.attrs['config-ref']) ?? 'Generic JDBC'
+  // a streaming strategy is a child element named after the strategy
+  if (fields.has('streamingStrategy')) {
+    const strategy = element.children.find((c) => fields.get('streamingStrategy').options.includes(c.name))
+    if (strategy) config.streamingStrategy = strategy.name
+  }
   node.config = config
   return node
 }
@@ -243,7 +248,17 @@ function nodesFrom(element, ctx) {
     const records = child(element, 'batch:process-records')
     node.routes = (records?.children ?? [])
       .filter((c) => c.name === 'batch:step')
-      .map((c) => routeOf('batch-job', { name: c.attrs.name ?? '', ...(c.attrs.acceptPolicy && { acceptPolicy: c.attrs.acceptPolicy }) }, stepsIn(c.children, ctx)))
+      .map((c) =>
+        routeOf(
+          'batch-job',
+          {
+            name: c.attrs.name ?? '',
+            ...(c.attrs.acceptPolicy && { acceptPolicy: c.attrs.acceptPolicy }),
+            ...(c.attrs.acceptExpression && { acceptExpression: c.attrs.acceptExpression }),
+          },
+          stepsIn(c.children, ctx),
+        ),
+      )
     const complete = child(element, 'batch:on-complete')
     node.onComplete = complete ? stepsIn(complete.children, ctx) : []
   } else if (kind === 'router') {

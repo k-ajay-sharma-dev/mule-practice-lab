@@ -528,6 +528,7 @@ function NodeView({ node }) {
               <div key={r.id} className={`route ${selectedId === r.id ? 'selected' : ''}`}>
                 <div
                   className="route-head"
+                  title={def.routeFields.length ? `Click to set this ${def.routeLabel.toLowerCase()}` : undefined}
                   onClick={(e) => {
                     e.stopPropagation()
                     select(r.id)
@@ -538,6 +539,10 @@ function NodeView({ node }) {
                     {(r.config.expression || r.config.name) && (
                       <span className="route-sub"> · {r.config.expression || r.config.name}</span>
                     )}
+                    {r.config.acceptPolicy && r.config.acceptPolicy !== 'NO_FAILURES' && (
+                      <span className="route-sub"> · {r.config.acceptPolicy}</span>
+                    )}
+                    {r.config.acceptExpression && <span className="route-sub"> · when {r.config.acceptExpression}</span>}
                   </span>
                   {!readOnly && node.routes.length > 1 && (
                     <button
@@ -716,8 +721,19 @@ function Properties({ selectedId, onDeselect }) {
               onChange={(e) => set(f.key, f.type === 'number' ? Number(e.target.value) : e.target.value)}
             />
           )}
+          {f.help && <small className="field-help muted">{f.help}</small>}
         </label>
       ))}
+      {!ctx.isFlow && !ctx.isRoute && COMPONENTS[item.type].routeFields?.length > 0 && (
+        <p className="muted small">
+          Click a {COMPONENTS[item.type].routeLabel} header on the canvas to set{' '}
+          {COMPONENTS[item.type].routeFields
+            .map((f) => f.label.replace(/ \(optional\)$/, '').toLowerCase())
+            .join(', ')
+            .replace(/, ([^,]*)$/, ' and $1')}
+          .
+        </p>
+      )}
       <datalist id="flow-names">
         {flowNames.map((n) => (
           <option key={n} value={n} />
