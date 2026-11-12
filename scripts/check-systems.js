@@ -1,7 +1,7 @@
 // Checks the "Systems you can call" list each flow scenario shows (src/flow/systems.js).
 import { readdirSync } from 'node:fs'
 import { landscapeOf } from '../src/arch/landscape.js'
-import { systemsIn } from '../src/flow/systems.js'
+import { missingSystems, systemsIn } from '../src/flow/systems.js'
 
 const failures = []
 const fail = (msg) => failures.push(msg)
@@ -59,6 +59,22 @@ if (names(sql('{call PKG.RUN(:a)}')) !== 'PKG.RUN') fail('stored procedure not f
 if (names(sql('SELECT * FROM q FOR UPDATE SKIP LOCKED')) !== 'q') fail('SKIP after FOR UPDATE read as a table')
 const http = { flows: [{ steps: [{ type: 'http-request', config: { method: 'POST', path: '/fedex/shipments' } }, { type: 'http-request', config: { method: 'GET', path: '#[vars.url]' } }] }] }
 if (names(http) !== 'POST /fedex/shipments') fail('HTTP endpoints wrong, or a run-time path shown')
+
+// the shared check: a design must use every listed system, and may reach a path in its own way
+const given = systemsIn({
+  flows: [
+    { source: { type: 'http-listener', config: { path: '/api/orders', allowedMethods: 'GET' } }, steps: [{ type: 'http-request', config: { method: 'GET', path: '/crm/accounts/{id}?limit=10' } }, { type: 'db-select', config: { sql: 'SELECT * FROM orders' } }] },
+  ],
+})
+const call = (path) => ({ type: 'http-request', config: { method: 'GET', path } })
+const mine = (steps, source = { type: 'http-listener', config: { path: '/api/orders' } }) => ({ flows: [{ source, steps }] })
+const select = { type: 'db-select', config: { sql: 'select id from ORDERS where x = 1' } }
+const gaps = (d) => missingSystems(given, d).map((s) => s.name).join(',')
+if (gaps(mine([call('/crm/accounts/{accountId}'), select])) !== '') fail('a renamed URI parameter does not reach the listed path')
+if (gaps(mine([call('#["/crm/accounts/" ++ vars.id]'), select])) !== '') fail('a run-time path does not reach the listed path')
+if (gaps(mine([call('/crm/accounts/{id}')])) !== 'orders') fail('a missing table goes unnoticed')
+if (gaps(mine([call('/crm/contacts/{id}'), select])) !== 'GET /crm/accounts/{id}?limit=10') fail('a different path counts as the listed one')
+if (gaps(mine([call('/crm/accounts/{id}'), select], null)) !== 'GET /api/orders') fail('a missing endpoint goes unnoticed')
 
 if (failures.length) {
   console.error(failures.join('\n'))

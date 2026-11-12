@@ -2433,3 +2433,191 @@
     inset: 8px;
   }
 }
+
+/* ---------- Logging Lab ---------- */
+.logging-page {
+  max-width: 900px;
+}
+.logging-guide {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.logging-guide > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+.logging-guide table {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.logging-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 14px 0 10px;
+}
+.logging-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.logging-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.logging-dot {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.logging-dot.tried {
+  border-color: var(--danger);
+}
+.logging-dot.solved {
+  border-color: var(--success);
+  color: var(--success);
+}
+.logging-dot.current {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  color: var(--text);
+}
+.logging-card {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.logging-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.logging-solved {
+  color: var(--success);
+}
+.logging-situation {
+  margin: 8px 0 12px;
+  font-size: 1rem;
+}
+.logging-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.logging-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.logging-right {
+  border-color: var(--success) !important;
+}
+.logging-options {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.logging-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.logging-option.picked {
+  border-color: var(--accent);
+}
+.logging-option.right {
+  border-color: var(--success);
+}
+.logging-option.wrong {
+  border-color: var(--danger);
+}
+.logging-option input {
+  margin-top: 3px;
+}
+.logging-tag {
+  margin-left: auto;
+  color: var(--success);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.logging-available {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.logging-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+.logging-field .seg {
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+.logging-message {
+  width: 100%;
+  resize: vertical;
+}
+.logging-result {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: 8px;
+}
+.logging-result.pass {
+  border-left-color: var(--success);
+}
+.logging-verdict {
+  font-weight: 600;
+}
+.logging-result.pass .logging-verdict {
+  color: var(--success);
+}
+.logging-result.fail .logging-verdict {
+  color: var(--danger);
+}
+.logging-notes {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+.logging-notes li {
+  padding: 2px 0;
+}
+.logging-notes .ok > span {
+  color: var(--success);
+}
+.logging-notes .bad > span {
+  color: var(--danger);
+}
+.logging-model pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.logging-reset {
+  margin-top: 18px;
+}

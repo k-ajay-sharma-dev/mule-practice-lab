@@ -69,6 +69,12 @@ const PATHS = {
     </>
   ),
   dataweave: <path d="M8 6l-5 6 5 6M16 6l5 6-5 6M14 4l-4 16" />,
+  logging: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9h2M11 9h6M7 13h2M11 13h4M7 17h2M11 17h6" />
+    </>
+  ),
   mulesoft: (
     <>
       <rect x="3" y="4" width="18" height="7" rx="2" />

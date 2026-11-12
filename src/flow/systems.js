@@ -6,7 +6,10 @@ import { COMPONENTS } from './catalog.js'
 const OUTBOUND = new Set(['connectors', 'database', 'messaging', 'files', 'enterprise'])
 
 // a value computed at run time is not a name you could have known
-const known = (v) => typeof v === 'string' && v.trim() !== '' && !v.includes('#[') && !v.includes('${')
+const isKnown = (v) => typeof v === 'string' && v.trim() !== '' && !v.includes('#[') && !v.includes('${')
+// Reading a learner's design, a path built at run time still counts: #["/accounts/" ++ vars.id] calls /accounts/{id}.
+let known = isKnown
+const filled = (v) => typeof v === 'string' && v.trim() !== ''
 
 function tablesIn(sql = '') {
   // "call" as a word of its own: a table named RECALL is not a procedure call
@@ -65,10 +68,20 @@ function walk(nodes, found) {
   return found
 }
 
-// Every distinct system in a design, in the order the design first uses it.
+export const ENDPOINT = 'Endpoint your app exposes'
+
+// Every distinct system in a design, in the order the design first uses it: first the HTTP endpoints the app
+// exposes, then what it calls.
 export function systemsIn(design) {
   if (!design?.flows) return []
   const found = []
+  for (const f of design.flows) {
+    const s = f.source
+    if (s?.type === 'http-listener' && known(s.config?.path)) {
+      const method = String(s.config.allowedMethods ?? '').trim()
+      found.push({ kind: ENDPOINT, name: `${method ? `${method} ` : ''}${s.config.path}` })
+    }
+  }
   for (const f of design.flows) {
     walk(f.steps, found)
     walk(f.errorHandlers, found)
@@ -80,4 +93,41 @@ export function systemsIn(design) {
     seen.add(key)
     return true
   })
+}
+
+// The path of an HTTP system, without the method in front: "GET /api/orders" is /api/orders.
+const pathOf = (name) => String(name).replace(/^[A-Z][A-Z, ]*\s+(?=[/#"'$])/, '').trim().toLowerCase()
+
+// A design path reaches a listed path when the fixed parts of the listed one appear in it, in order. So
+// /accounts/{id} is reached by /accounts/{accountId} and by #["/accounts/" ++ vars.id], and a query string is
+// left aside.
+function reaches(designPath, listedPath) {
+  const pieces = pathOf(listedPath).split('?')[0].split(/\{[^}]*\}/).map((p) => p.replace(/^\/+|\/+$/g, '')).filter(Boolean)
+  let from = 0
+  const have = pathOf(designPath)
+  for (const piece of pieces) {
+    const at = have.indexOf(piece, from)
+    if (at < 0) return false
+    from = at + piece.length
+  }
+  return true
+}
+
+function sameSystem(have, want) {
+  if (have.kind !== want.kind) return false
+  if (want.kind === 'Email') return true
+  if (want.kind === 'HTTP API' || want.kind === ENDPOINT) return reaches(have.name, want.name)
+  return have.name.trim().toLowerCase() === want.name.trim().toLowerCase()
+}
+
+// The listed systems a design never uses. Run-time paths in the design count (see reaches).
+export function missingSystems(listed, design) {
+  known = filled
+  let have
+  try {
+    have = systemsIn(design)
+  } finally {
+    known = isKnown
+  }
+  return listed.filter((want) => !have.some((s) => sameSystem(s, want)))
 }

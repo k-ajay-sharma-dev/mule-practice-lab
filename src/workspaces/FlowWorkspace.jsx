@@ -89,8 +89,8 @@ function SystemsList({ design }) {
     <div className="systems-list">
       <div className="section-title">Systems you can call</div>
       <p className="muted small">
-        These are the systems and their names, as their owners would hand them to you. Which ones you call, in what
-        order and how, is your design.
+        These are the systems and their names, as their owners would hand them to you. Your design uses each of
+        them. In what order and how is up to you.
       </p>
       <dl>
         {groups.map(([kind, names]) => (

@@ -1,5 +1,6 @@
 import { COMPONENTS } from './catalog.js'
 import { walk } from './model.js'
+import { missingSystems, systemsIn } from './systems.js'
 
 // Design checks for flow problems. Each check is { label, rule } and passes or fails
 // against the user's design. Rules:
@@ -252,6 +253,8 @@ function evaluate(rule, nodes, design) {
       return rule.rules.every((r) => evaluate(r, nodes, design))
     case 'complete':
       return nodes.length > 0 && unfinished(design, nodes).length === 0
+    case 'systems':
+      return missingSystems(rule.want, design).length === 0
     default:
       return false
   }
@@ -262,11 +265,18 @@ export function runChecks(design, checks = []) {
   return checks.map((c) => ({ label: c.label, pass: evaluate(c.rule, nodes, design) }))
 }
 
-// A problem's own checks, plus the one check every problem shares. Self-assessed problems have none.
-export const designChecks = (problem) =>
-  problem.flowChecks?.length
-    ? [...problem.flowChecks, { label: 'Nothing is left blank or as a placeholder', rule: { type: 'complete' } }]
-    : []
+// A problem's own checks, plus the checks every problem shares: the design uses every system the scenario lists
+// (a problem's own checks test the key ideas, so without this a whole endpoint or query could be left out), and
+// nothing is left blank. Self-assessed problems have none.
+export function designChecks(problem) {
+  if (!problem.flowChecks?.length) return []
+  const want = systemsIn(problem.referenceFlow)
+  return [
+    ...problem.flowChecks,
+    ...(want.length ? [{ label: 'Uses every system in "Systems you can call"', rule: { type: 'systems', want } }] : []),
+    { label: 'Nothing is left blank or as a placeholder', rule: { type: 'complete' } },
+  ]
+}
 
 // Human-readable name for a component type, used in authoring tools and messages.
 export const componentLabel = (type) => COMPONENTS[type]?.label ?? type
@@ -390,6 +400,11 @@ export function missingHint(design, rule) {
     case 'all': {
       const failing = rule.rules.find((r) => !evaluate(r, nodes, design))
       return failing ? missingHint(design, failing) : 'Check this requirement against the scenario.'
+    }
+    case 'systems': {
+      const left = missingSystems(rule.want, design).map((s) => `${s.name} (${s.kind.toLowerCase()})`)
+      const more = left.length > 3 ? `, and ${left.length - 3} more` : ''
+      return `Your design never uses ${left.slice(0, 3).join(', ')}${more}. The scenario needs each of them.`
     }
     case 'complete': {
       if (!nodes.length) return 'Build the design first, then fill in each component.'

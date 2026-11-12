@@ -14,6 +14,7 @@ const LABELS = {
   '/weak-areas': 'Weak Areas',
   '/readiness': 'Readiness',
   '/projects': 'My Projects',
+  '/logging': 'Logging Lab',
   '/playground': 'Playground',
   '/platform-lab': 'Platform Lab',
   '/cheatsheets': 'Cheat Sheets',
