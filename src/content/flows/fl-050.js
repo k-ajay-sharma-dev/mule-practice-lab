@@ -61,6 +61,12 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'The scenario asks only for the unknown customer mapping. The other handlers pick 502, 503 or 500 for outages, and Mule already answers with an error status when no handler matches.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'exp-sales-portal-quotes',

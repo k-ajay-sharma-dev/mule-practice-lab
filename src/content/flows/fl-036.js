@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 const CB_STORE = 'merchant-circuit-breaker'
 const TRANSIENT = ['TIMEOUT', 'CONNECTIVITY', 'SERVICE_UNAVAILABLE', 'INTERNAL_SERVER_ERROR', 'BAD_GATEWAY']
@@ -22,6 +23,7 @@ export default {
         ],
       },
     },
+    { label: 'A webhook with an invalid signature is rejected with 401', rule: handlerStatus('VALIDATION', '401') },
     {
       label: 'A worker consumes the relay queue with manual acknowledgement',
       rule: { type: 'source', component: 'mq-subscriber', where: { acknowledgementMode: 'MANUAL' } },
@@ -86,6 +88,25 @@ export default {
         where: { destination: 'dlq' },
         withinWhere: { type: { oneOf: TRANSIENT } },
       },
+    },
+    {
+      label: 'The message is acked on every handled path: parked, delivered, dead-lettered and re-queued',
+      rule: { type: 'exists', component: 'mq-ack', min: 4 },
+    },
+    {
+      label: 'An unexpected error nacks the message so the broker redelivers it',
+      rule: { type: 'inside', component: 'mq-nack', within: HANDLERS },
+    },
+    {
+      label: 'An admin endpoint resets a merchant circuit by removing its Object Store entry',
+      rule: { type: 'exists', component: 'os-remove' },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-continue',
+      flow: 'circuit-breaker-admin',
+      why: 'This handler only lets the reset succeed when no circuit is stored for the merchant. Answering with an error in that case is also fine.',
     },
   ],
   referenceFlow: design(
@@ -206,6 +227,8 @@ You operate a **payment-event relay**. The payment provider POSTs webhooks (paym
 - Delivery must be **at least once**. Retries should continue for up to ~1 hour with growing gaps, then go to a DLQ that the merchant can replay from the portal.
 - A dead merchant must **not** consume worker threads or slow down the others. After **5 consecutive failures**, stop calling that merchant for **5 minutes** (circuit open). After that, let traffic through again: success closes the circuit, and failure opens it again.
 - The relay runs on 3 CloudHub 2.0 replicas. The circuit state must be shared.
+- Each webhook carries an HMAC signature. Reject a webhook with a bad signature with **401**.
+- Operations need an admin endpoint to reset a merchant's circuit by hand.
 
 **Design the flow(s):**
 - How do you acknowledge the provider within 1 s while keeping at-least-once delivery?

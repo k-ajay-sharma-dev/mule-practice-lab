@@ -16,6 +16,10 @@ export default {
     { label: 'The last sync time is read before calling Workday', rule: { type: 'before', first: 'os-retrieve', then: 'wd-human-resources' } },
     { label: 'Further pages are read in a loop', rule: { type: 'inside', component: 'wd-human-resources', within: 'foreach' } },
     {
+      label: 'The first page is read before the loop, so the total page count is known',
+      rule: { type: 'before', first: 'wd-human-resources', then: 'foreach' },
+    },
+    {
       label: 'Each worker is pushed with PUT /identities/{workerId} inside a loop',
       rule: { type: 'inside', component: 'http-request', within: ['foreach', 'parallel-foreach'], where: { method: 'PUT', path: 'identities' } },
     },
@@ -33,6 +37,13 @@ export default {
           { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'], withinWhere: { type: 'WORKDAY:VALIDATION_ERROR' } },
         ],
       },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'worker-sync',
+      why: 'The catch-all handler only logs the error and passes it on, which Mule does by default. The sync position is not stored, so the next run repeats the range.',
     },
   ],
   referenceFlow: design(

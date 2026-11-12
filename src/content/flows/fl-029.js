@@ -63,6 +63,13 @@ export default {
       rule: { type: 'inside', component: ['email-send', 'mq-publish', 'http-request'], within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'purge-expired-audit-events',
+      why: 'This handler only logs that the job could not start and passes the error on, which Mule does by default.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'purge-expired-audit-events',

@@ -10,6 +10,16 @@ export default {
   flowChecks: [
     { label: 'A Scheduler starts the sync', rule: { type: 'source', component: 'scheduler' } },
     { label: 'The checkpoint is read from the Object Store before rows are selected', rule: { type: 'before', first: 'os-retrieve', then: 'db-select' } },
+    {
+      label: 'The stored wait time is read before the Choice, and the checkpoint is read too',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'os-retrieve', then: 'choice' },
+          { type: 'exists', component: 'os-retrieve', min: 2 },
+        ],
+      },
+    },
     { label: 'Rows are selected in id order', rule: { type: 'exists', component: 'db-select', where: { sql: 'order by' } } },
     {
       label: 'A Choice skips the run while the wait time has not passed, so no row is read or sent then',
@@ -65,6 +75,13 @@ export default {
     {
       label: 'The handler stores the time to wait in the Object Store, so it survives a restart',
       rule: { type: 'inside', component: 'os-store', within: 'on-error-continue' },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'fleet-telemetry-sync',
+      why: 'This handler only logs the error and passes it on, which Mule does by default. The checkpoint keeps the progress, so the next run carries on.',
     },
   ],
   referenceFlow: design(

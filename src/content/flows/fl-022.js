@@ -52,18 +52,36 @@ export default {
       },
     },
     {
-      label: 'The listener hands events off to a queue for downstream workers',
-      rule: { type: 'exists', component: ['mq-publish', 'vm-publish', 'jms-publish'] },
+      label: 'Each listener hands the changes it keeps off to a queue, after the loop filter',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: ['mq-publish', 'vm-publish', 'jms-publish'], within: 'choice', min: 2 },
+          {
+            type: 'all',
+            rules: [
+              { type: 'exists', component: 'validation', where: { expression: 'commitUser' }, min: 2 },
+              { type: 'before', first: 'validation', firstWhere: { expression: 'commitUser' }, then: ['mq-publish', 'vm-publish', 'jms-publish'], every: true },
+            ],
+          },
+        ],
+      },
     },
     {
-      label: 'The replay ID is stored in an Object Store only after the hand-off',
+      label: 'Each listener stores its replay ID in an Object Store only after the hand-off',
       rule: {
-        type: 'before',
-        first: ['mq-publish', 'vm-publish', 'jms-publish', 'http-request'],
-        then: 'os-store',
-        thenWhere: { value: 'replay' },
-        every: true,
-        outside: true,
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'os-store', where: { value: 'replay' }, min: 2 },
+          {
+            type: 'before',
+            first: ['mq-publish', 'vm-publish', 'jms-publish', 'http-request'],
+            then: 'os-store',
+            thenWhere: { value: 'replay' },
+            every: true,
+            outside: true,
+          },
+        ],
       },
     },
     {
@@ -71,6 +89,10 @@ export default {
       rule: { type: 'source', component: ['mq-subscriber', 'vm-listener', 'jms-listener'] },
     },
     { label: 'The worker routes on changeType (create / update / delete / gap)', rule: { type: 'routes', component: 'choice', min: 3 } },
+    {
+      label: 'Create events send the full record to the ERP',
+      rule: { type: 'inside', component: ['http-request', 'flow-ref'], within: 'choice', routeWhere: { expression: 'CREATE' } },
+    },
     {
       label: 'Update events send only the changed fields, so missing fields do not wipe ERP data',
       rule: { type: 'inside', component: 'transform', where: { script: 'changedFields' }, within: 'choice', routeWhere: { expression: 'UPDATE' } },
@@ -82,6 +104,10 @@ export default {
     {
       label: 'The worker acknowledges a change only after ERP and Postgres are updated',
       rule: { type: 'before', first: ['http-request', 'db-insert', 'db-update'], then: ['mq-ack', 'jms-ack'], outside: true },
+    },
+    {
+      label: 'A failed change is nacked in the worker error handler, so the queue redelivers it',
+      rule: { type: 'inside', component: ['mq-nack', 'jms-recover-session'], within: ['on-error-continue', 'on-error-propagate'] },
     },
     {
       label: 'Failures in the listener flow alert and trigger a delta resync',

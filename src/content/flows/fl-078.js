@@ -82,6 +82,12 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'These handlers only log and rethrow. Mule propagates errors by default, so the relay still stops and the consumer still leaves the message in SQS for redelivery.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'shipment-outbox-relay',

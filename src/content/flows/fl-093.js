@@ -28,6 +28,12 @@ export default {
       rule: { type: 'before', first: 'http-listener', then: 'set-variable', thenWhere: { value: '202' }, outside: true },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'The 401 handler is checked on its own. The catch-all only sets 500 and a generic body, and Mule already answers 500 by default.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'partner-callback-intake',

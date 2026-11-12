@@ -44,6 +44,13 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'customer-migration',
+      why: 'This handler only logs that the wave could not start and passes the error on, which Mule does by default.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'customer-migration',

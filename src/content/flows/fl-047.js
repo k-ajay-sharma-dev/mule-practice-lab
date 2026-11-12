@@ -1,6 +1,9 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
 import { handlerStatus } from '../../flow/rules.js'
 
+// The same handler in both resource flows: each flow has its own error handling.
+const inBothFlows = (type, status) => ({ type: 'any', rules: handlerStatus(type, status).rules.map((r) => ({ ...r, min: 2 })) })
+
 export default {
   id: 'fl-047',
   category: 'flows',
@@ -12,6 +15,16 @@ export default {
     {
       label: 'The System API is a GET on its own HTTP Listener (path /sys-...)',
       rule: { type: 'source', component: 'http-listener', where: { path: 'sys-', allowedMethods: 'GET' } },
+    },
+    {
+      label: 'Each resource has its own listener: the paged list and one customer by id',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'source', component: 'http-listener', where: { path: { all: ['customers'], not: '{' } } },
+          { type: 'source', component: 'http-listener', where: { path: { all: ['customers', '{'] } } },
+        ],
+      },
     },
     {
       label: 'The list query is paged in the database (LIMIT/OFFSET), not in memory',
@@ -32,8 +45,8 @@ export default {
       },
     },
     { label: 'The not-found error is mapped to 404', rule: handlerStatus('NOT_FOUND', '404') },
-    { label: 'An unreachable database is mapped to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
-    { label: 'A catch-all handler returns a generic 500', rule: handlerStatus('ANY', '500') },
+    { label: 'In both flows an unreachable database is mapped to 503', rule: inBothFlows('DB:CONNECTIVITY', '503') },
+    { label: 'In both flows a catch-all handler returns a generic 500', rule: inBothFlows('ANY', '500') },
   ],
   referenceFlow: design(
     flow(

@@ -49,6 +49,13 @@ export default {
       rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'claims-intake-api',
+      why: 'The intake handlers only log or set 413. Mule already answers an error status and logs the failure by default, and the scenario does not ask for a specific status for a large upload.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'claims-intake-api',

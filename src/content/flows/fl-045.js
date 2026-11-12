@@ -13,7 +13,14 @@ export default {
       label: 'The hold is recorded (with an expiry) before the warehouse is called',
       rule: { type: 'before', first: ['db-insert', 'os-store'], then: ['until-successful', 'foreach', 'http-request'] },
     },
-    { label: 'Calls to the flaky WMS are retried with Until Successful', rule: { type: 'inside', component: 'http-request', within: 'until-successful' } },
+    {
+      label: 'Each reservation call to the flaky WMS is retried with Until Successful',
+      rule: { type: 'inside', component: 'http-request', where: { method: 'POST', path: 'reservations' }, within: 'until-successful' },
+    },
+    {
+      label: 'Once every line is reserved, the hold is marked HELD',
+      rule: { type: 'before', first: 'http-request', firstWhere: { method: 'POST' }, then: 'db-update', thenWhere: { sql: 'HELD' }, outside: true },
+    },
     {
       label: 'Out-of-stock is turned into a business error outside the retry scope, so it is never retried',
       rule: {

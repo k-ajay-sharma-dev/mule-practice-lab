@@ -45,6 +45,17 @@ export default {
       rule: { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: 'archive' }, outside: true },
     },
     {
+      label: 'Every processed manifest is archived, with or without rejected rows',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'file-move', where: { targetPath: 'archive' }, within: 'choice', min: 2 },
+          // One archive step after the router also covers both cases.
+          { type: 'before', first: 'choice', then: 'file-move', thenWhere: { targetPath: 'archive' }, outside: true },
+        ],
+      },
+    },
+    {
       label: 'A manifest that fails the XSD is moved to the rejects folder',
       rule: { type: 'inside', component: 'file-move', within: 'on-error-continue', where: { targetPath: 'rejects' } },
     },

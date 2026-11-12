@@ -48,12 +48,38 @@ export default {
       rule: { type: 'all', rules: [{ type: 'exists', component: 'db-update' }, { type: 'absent', component: 'db-delete' }] },
     },
     {
-      label: 'A worker acknowledges its task only after the erasure call',
-      rule: { type: 'before', first: ['http-request', 'db-update', 'sf-query'], then: 'mq-ack', outside: true },
+      label: 'Every worker acknowledges its task only after the erasure call',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: ['http-request', 'db-update', 'sf-query'], then: 'mq-ack', outside: true },
+          { type: 'exists', component: 'mq-ack', min: 4 },
+        ],
+      },
     },
     {
-      label: 'Failed worker tasks are returned to the queue for retry',
-      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+      label: 'Every worker returns a failed task to the queue for retry',
+      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'], min: 4 },
+    },
+    {
+      label: 'The intake stores every request with its status, ACCEPTED or REJECTED',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-insert', where: { sql: 'REJECTED' }, within: 'choice' },
+          { type: 'inside', component: 'db-insert', where: { sql: 'ACCEPTED' }, within: 'choice' },
+        ],
+      },
+    },
+    {
+      label: 'The Schedulers read the open tasks and the finished requests from the tracking tables',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'scheduler', then: 'db-select' },
+          { type: 'exists', component: 'db-select', min: 3 },
+        ],
+      },
     },
     {
       label: 'A Scheduler tracks asynchronous erasure jobs and completion',
@@ -72,6 +98,13 @@ export default {
     {
       label: 'An audit evidence record is written when a request completes',
       rule: { type: 'exists', component: ['db-insert', 'os-store'], where: { sql: 'audit' } },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'erasure-intake-api',
+      why: 'Returning 400 for a missing customerId is good practice, but the scenario does not ask for a status code. Without it the portal still gets an error.',
     },
   ],
   referenceFlow: design(
@@ -187,7 +220,7 @@ An insurer must honour GDPR **erasure requests** ("right to be forgotten") withi
 - **Data lake** (S3 Parquet files, handled by a separate data team via their API)
 - **Mule logs and Anypoint MQ messages** that may contain PII
 
-Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ requestId, customerId, email }\`. Legal requires **proof** of what was erased where and when, and some requests must be **blocked** (open claim, legal hold).
+Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ requestId, customerId, email }\`. Legal requires **proof** of what was erased where and when, and some requests must be **blocked** (open claim, legal hold). Every request is stored with its status, ACCEPTED or REJECTED with the reason, before the portal gets an answer.
 
 **Design the solution:** intake and checks, orchestration across systems, delete vs anonymise, async systems, retries/partial failures, audit evidence, and how the integration layer itself avoids keeping PII.
 `,

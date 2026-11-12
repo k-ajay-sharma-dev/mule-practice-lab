@@ -76,6 +76,23 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'exp-treasury-portal-rates',
+      why: 'The Process API already answers with a clear 503 when every source fails. Keeping that status in the Experience API is a good extra.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'sys-fx-primary',
+      why: 'First Successful moves to the next route on any error, so the status a System API returns does not change the fallback. Clear status codes are still good practice.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'sys-fx-secondary',
+      why: 'First Successful moves to the next route on any error, so the status a System API returns does not change the fallback. Clear status codes are still good practice.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'exp-treasury-portal-rates',

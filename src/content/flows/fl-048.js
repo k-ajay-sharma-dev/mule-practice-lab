@@ -1,4 +1,5 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-048',
@@ -45,6 +46,40 @@ export default {
     {
       label: 'Process API HTTP errors are translated into channel-friendly responses',
       rule: { type: 'exists', component: ['on-error-propagate', 'on-error-continue'], where: { type: 'HTTP:' } },
+    },
+    {
+      label: 'An unknown customer gives the mobile app an empty list (200) and partners a 404',
+      rule: {
+        type: 'all',
+        rules: [
+          {
+            type: 'any',
+            rules: [
+              handlerStatus('NOT_FOUND', '200'),
+              { type: 'inside', component: ['set-payload', 'transform'], within: 'on-error-continue', withinWhere: { type: 'NOT_FOUND' } },
+            ],
+          },
+          handlerStatus('NOT_FOUND', '404'),
+        ],
+      },
+    },
+    {
+      label: 'Both Experience APIs set their own error status when the Process API fails',
+      rule: {
+        type: 'inside',
+        component: 'set-variable',
+        where: { variableName: 'status' },
+        within: ['on-error-propagate', 'on-error-continue'],
+        withinWhere: { type: 'ANY' },
+        min: 2,
+      },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-orders-history',
+      why: 'This handler only logs and rethrows, which Mule does by default. Each Experience API turns the failure into its own response.',
     },
   ],
   referenceFlow: design(
@@ -114,7 +149,7 @@ A retailer exposes **order history** to two very different consumers:
 - **Mobile app** — small screens, slow networks: last 10 orders, a handful of fields, JSON, friendly empty state. ~200 req/s at peak, 2 s budget.
 - **B2B partners** (marketplaces) — full detail with every order line, **XML**, strict contract versioning. ~5 req/s, 5 s budget.
 
-Order data lives in the **OMS** database. The business rules ("which orders a customer may see", sorting, currency handling) must be written **once**.
+Order data lives in the **OMS** database. The business rules ("which orders a customer may see", sorting, currency handling) must be written **once**. An unknown customer should show the mobile app an empty list, while partners get a 404.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-mobile/v1/me/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 

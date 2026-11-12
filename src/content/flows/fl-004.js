@@ -47,6 +47,13 @@ export default {
       rule: { type: 'inside', component: 'os-remove', within: 'on-error-propagate' },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'payment-webhooks',
+      why: 'A missing signature also reaches the catch-all handler, which already answers with an error. A separate 401 for it is a nicety the scenario does not ask for.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'payment-webhooks',

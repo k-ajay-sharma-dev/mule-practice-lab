@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { COMPONENTS } from '../src/flow/catalog.js'
 import { designChecks, runChecks } from '../src/flow/checks.js'
 import { emptyDesign, walk } from '../src/flow/model.js'
+import { gapsOf } from './flow-gaps.js'
 
 const dir = join(import.meta.dirname, '..', 'src', 'content', 'flows')
 const onlyIds = process.argv.slice(2)
@@ -44,6 +45,13 @@ for (const file of files) {
   }
   const emptyPasses = runChecks(emptyDesign(), checks).filter((r) => r.pass)
   for (const r of emptyPasses) fail(p.id, `passes on an empty design: ${r.label}`)
+  // every component of the reference is either needed by a check or listed in optionalSteps with a reason
+  const gaps = gapsOf(p)
+  for (const g of gaps.filter((x) => !x.optional)) fail(p.id, `can be left out and every check still passes: ${g.text}`)
+  for (const o of p.optionalSteps ?? []) {
+    if (!o.why?.trim()) fail(p.id, `optionalSteps entry for ${o.type} needs a reason (why)`)
+    if (!gaps.some((g) => g.type === o.type && (!o.flow || g.flow === o.flow))) fail(p.id, `optionalSteps lists ${o.type}${o.flow ? ` in ${o.flow}` : ''}, but a check already needs it, or the reference has none`)
+  }
   console.log(`PASS  ${p.id}  ${checks.length} checks`)
 }
 

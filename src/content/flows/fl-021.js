@@ -54,6 +54,42 @@ export default {
       label: 'A 429 records a shared "pause until" so every replica backs off',
       rule: { type: 'inside', component: 'os-store', within: HANDLERS, withinWhere: { type: 'TOO_MANY_REQUESTS' } },
     },
+    {
+      label: 'Each message reads the shared "pause until" and the last-sent version before the partner call',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'os-retrieve', min: 2 },
+          {
+            type: 'all',
+            rules: [
+              { type: 'exists', component: 'os-retrieve' },
+              { type: 'exists', component: 'db-select' },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: 'While the pause is active the message goes back to the queue without calling the partner',
+      rule: { type: 'inside', component: 'mq-nack', within: 'choice' },
+    },
+    {
+      label: 'A stale update is skipped and still acknowledged, so it leaves the queue',
+      rule: { type: 'exists', component: 'mq-ack', min: 2 },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-continue',
+      flow: 'partner-price-push',
+      why: 'Without a catch-all handler other errors leave the message unacknowledged, so the broker redelivers it after the acknowledgement timeout. The Nack only brings it back sooner.',
+    },
+    {
+      type: 'mq-nack',
+      flow: 'partner-price-push',
+      why: 'This copy sits in the optional catch-all handler. The 429 handler and the pause check have their own Nack.',
+    },
   ],
   referenceFlow: design(
     flow(

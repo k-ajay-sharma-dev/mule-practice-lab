@@ -79,6 +79,13 @@ export default {
       rule: { type: 'before', first: 'http-listener', then: 'set-variable', thenWhere: { value: '202' }, outside: true },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'claims-submission',
+      why: 'The catch-all handler answers 500 and logs the error, which Mule does by default. It only adds a tidier body.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'claims-submission',

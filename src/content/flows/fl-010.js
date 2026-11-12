@@ -1,5 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
-import { handlerStatus } from '../../flow/rules.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-010',
@@ -57,6 +57,15 @@ export default {
     {
       label: 'Exhausted retries (MULE:RETRY_EXHAUSTED) are mapped to a 5xx response',
       rule: handlerStatus('RETRY_EXHAUSTED', { oneOf: ['502', '503', '504'] }),
+    },
+    {
+      label: 'The error raised for an unknown SKU is mapped to a 400 response',
+      rule: {
+        type: 'linked',
+        from: { component: 'raise-error', key: 'type' },
+        to: { component: HANDLERS, key: 'type', holding: { component: 'set-variable', where: { value: '400' } } },
+        as: 'errorType',
+      },
     },
   ],
   referenceFlow: design(

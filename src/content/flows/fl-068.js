@@ -49,6 +49,20 @@ export default {
         withinWhere: { type: { oneOf: ['RETRY_EXHAUSTED', 'ANY'] } },
       },
     },
+    {
+      label: 'Once the TMS has the alert, the excursion\'s TMS_ALERT_STATUS is set to SENT',
+      rule: { type: 'before', first: 'http-request', then: 'db-update', thenWhere: { sql: 'TMS_ALERT_STATUS' }, outside: true },
+    },
+    {
+      label: 'An in-range reading closes the open excursion',
+      rule: { type: 'inside', component: ['db-update', 'db-stored-procedure'], where: { sql: 'CLOSE' }, within: 'choice' },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'Mule propagates a database error by default, so the reading is redelivered without this handler. It only adds a log line.',
+    },
   ],
   referenceFlow: design(
     flow(
@@ -141,6 +155,7 @@ A pharma and fresh-food distributor runs **1,200 refrigerated trailers**. Each t
 
 - Allowed ranges depend on the **product class** of the load (e.g. 2–8 °C for vaccines, −25 to −18 °C for frozen), stored in **Oracle** (\`SHIPMENT_LOAD\`, \`PRODUCT_CLASS\`).
 - An out-of-range reading opens an **excursion** in Oracle; further out-of-range readings extend it; an in-range reading closes it.
+- The \`EXCURSION\` table has a \`STATUS\` (OPEN or CLOSED) and a \`TMS_ALERT_STATUS\`, which is set to SENT once the TMS has the alert.
 - The **TMS** (transport management system) must get **one alert per excursion** (plus a reminder if it lasts longer than the class limit), so dispatch can call the driver. The TMS API is flaky: timeouts and 503s several times a day, for up to a minute.
 - If the TMS cannot be reached, **QA must still be told** within 2 minutes.
 

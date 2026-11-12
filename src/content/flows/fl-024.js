@@ -70,7 +70,48 @@ export default {
       },
     },
     { label: 'Each remote step call is wrapped in a Try scope', rule: { type: 'inside', component: 'http-request', within: 'try' } },
-    { label: 'A failed step raises a custom saga error', rule: { type: 'exists', component: 'raise-error' } },
+    {
+      label: 'The reservation id and the authorisation id are saved to the saga store after their steps',
+      rule: {
+        type: 'all',
+        rules: [
+          {
+            type: 'before',
+            first: 'http-request',
+            firstWhere: { method: 'POST', path: 'reservations' },
+            then: ['db-update', 'db-insert', 'os-store'],
+            thenWhere: { sql: { not: 'COMPENSAT' } },
+          },
+          {
+            type: 'before',
+            first: 'http-request',
+            firstWhere: { method: 'POST', path: { all: ['authorisations'], not: 'void' } },
+            then: ['db-update', 'db-insert', 'os-store'],
+            thenWhere: { sql: { not: 'COMPENSAT' } },
+          },
+        ],
+      },
+    },
+    {
+      label: 'The saga is marked COMPLETED after the last step',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: ['flow-ref', 'http-request'], then: 'db-update', thenWhere: { sql: 'COMPLETED' }, outside: true },
+          { type: 'before', first: ['flow-ref', 'http-request'], then: 'os-store', thenWhere: { value: 'COMPLETED' }, outside: true },
+        ],
+      },
+    },
+    {
+      label: 'Every failed step leads to compensation: each step raises the saga error, or the orchestrator catches any error',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'raise-error', within: ['on-error-propagate', 'on-error-continue'], min: 3 },
+          { type: 'inside', component: 'flow-ref', within: ['on-error-propagate', 'on-error-continue'], withinWhere: { type: 'ANY' } },
+        ],
+      },
+    },
     {
       label: 'An error handler triggers compensation via Flow Reference',
       rule: { type: 'inside', component: 'flow-ref', within: ['on-error-propagate', 'on-error-continue'] },
@@ -88,8 +129,72 @@ export default {
       rule: { type: 'inside', component: ['mq-publish', 'vm-publish', 'jms-publish'], within: ['on-error-continue', 'on-error-propagate'] },
     },
     {
+      label: 'A failed compensation marks the saga COMPENSATION_PENDING so ops can see it',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'db-update', where: { sql: 'PENDING' }, within: ['on-error-continue', 'on-error-propagate'] },
+          { type: 'inside', component: 'os-store', where: { value: 'PENDING' }, within: ['on-error-continue', 'on-error-propagate'] },
+        ],
+      },
+    },
+    {
+      label: 'The retry worker acks a message after the compensation runs and nacks it when it fails',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'all',
+            rules: [
+              { type: 'before', first: ['flow-ref', 'http-request'], then: 'mq-ack', outside: true },
+              { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+            ],
+          },
+          {
+            type: 'all',
+            rules: [
+              { type: 'before', first: ['flow-ref', 'http-request'], then: 'jms-ack', outside: true },
+              { type: 'inside', component: 'jms-recover-session', within: ['on-error-continue', 'on-error-propagate'] },
+            ],
+          },
+          { type: 'source', component: 'vm-listener' },
+        ],
+      },
+    },
+    {
       label: 'A Scheduler recovers sagas stuck after a crash, read from the saga store',
       rule: { type: 'before', first: 'scheduler', then: ['db-select', 'os-retrieve'] },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-continue',
+      flow: 'undo-inventory',
+      why: 'Queueing a failed compensation for retry is checked once. One Try per compensation is a good habit, but a single Try around each loop pass also works.',
+    },
+    {
+      type: 'on-error-continue',
+      flow: 'undo-payment',
+      why: 'Queueing a failed compensation for retry is checked once. One Try per compensation is a good habit, but a single Try around each loop pass also works.',
+    },
+    {
+      type: 'mq-publish',
+      why: 'Queueing a failed compensation for retry is checked once. Each compensation can have its own copy, or one shared handler can do it.',
+    },
+    {
+      type: 'db-update',
+      flow: 'undo-payment',
+      why: 'Marking the saga COMPENSATION_PENDING is checked once. Each compensation can have its own copy, or one shared handler can do it.',
+    },
+    {
+      type: 'db-update',
+      flow: 'undo-inventory',
+      why: 'Marking the saga COMPENSATION_PENDING is checked once. Each compensation can have its own copy, or one shared handler can do it.',
+    },
+    {
+      type: 'db-update',
+      flow: 'step-shipping',
+      why: 'Shipping is the last step and is never compensated, so its booking id is not needed to undo anything. The saga is marked COMPLETED right after it.',
     },
   ],
   referenceFlow: design(
@@ -176,7 +281,7 @@ No distributed transaction (XA) is possible across these HTTP APIs.
 - A failure in step 3 must undo steps 1–2.
 - Compensations themselves can fail.
 - The process must survive a Mule replica crash mid-saga.
-- Ops must see stuck sagas.
+- Ops must see stuck sagas. A saga row ends as \`COMPLETED\` or \`COMPENSATED\`, and one whose compensation failed is marked \`COMPENSATION_PENDING\`.
 
 **Design the flow(s):**
 - Orchestration vs choreography

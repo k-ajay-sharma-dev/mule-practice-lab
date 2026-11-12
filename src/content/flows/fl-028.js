@@ -52,11 +52,11 @@ export default {
       },
     },
     {
-      label: 'A failing probe is caught with On Error Continue and reported as DOWN',
+      label: 'Each probe catches its own failure with On Error Continue and reports DOWN',
       rule: {
         type: 'all',
         rules: [
-          { type: 'handler', component: 'on-error-continue', within: 'try' },
+          { type: 'inside', component: 'on-error-continue', within: 'try', min: 2 },
           {
             type: 'any',
             rules: [

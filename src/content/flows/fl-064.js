@@ -36,6 +36,20 @@ export default {
       rule: { type: 'inside', component: 'jms-publish', where: { destination: 'PICKS' }, within: 'choice' },
     },
     {
+      label: 'Both store routes reserve stock and send a pick request (chosen store and alternate store)',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'db-stored-procedure', where: { sql: 'RESERVE_ORDER' }, within: 'choice', min: 2 },
+          { type: 'inside', component: 'jms-publish', where: { destination: 'PICKS' }, within: 'choice', min: 2 },
+        ],
+      },
+    },
+    {
+      label: 'The customer is notified on the alternate-store and ship-to-home paths',
+      rule: { type: 'inside', component: 'jms-publish', where: { destination: 'NOTIFICATIONS' }, within: 'choice', min: 2 },
+    },
+    {
       label: 'Orders no store can fulfil go to OMS.SHIPTOHOME.ORDERS from inside the Choice',
       rule: { type: 'inside', component: 'jms-publish', where: { destination: 'SHIPTOHOME' }, within: 'choice' },
     },
@@ -112,6 +126,8 @@ Routing rules:
 1. If the **chosen store** has all lines → reserve there and send the order to that store's pick queue \`STORE.<id>.PICKS\`.
 2. Else if another store **within 15 km** has everything → reserve there, send it to that store, and notify the customer of the new pickup store.
 3. Otherwise → convert to **ship-to-home** (\`OMS.SHIPTOHOME.ORDERS\`) and notify the customer.
+
+Customer notifications are messages on the queue \`CUSTOMER.NOTIFICATIONS\`.
 
 An order must never be both picked in a store and shipped from the DC, and none may be lost. Taking an order off \`OMS.BOPIS.ORDERS\` and putting it on its next queue must succeed or fail together.
 

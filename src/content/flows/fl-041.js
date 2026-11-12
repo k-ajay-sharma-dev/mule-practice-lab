@@ -1,4 +1,5 @@
 import { design, flow, handler, scope, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-041',
@@ -23,10 +24,18 @@ export default {
         ],
       },
     },
+    {
+      label: 'A failed archive write returns the event to the queue (Nack) from an error handler',
+      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+    },
     { label: 'An admin endpoint triggers the replay', rule: { type: 'source', component: 'http-listener' } },
     {
       label: 'Replay requests are validated (time window, allowed target queue) before the replay starts',
       rule: { type: 'before', first: 'validation', then: ['async', 'vm-publish', 'batch-job', 'foreach', 'mq-publish'] },
+    },
+    {
+      label: 'A request that fails validation is answered with 400',
+      rule: handlerStatus('VALIDATION', '400'),
     },
     {
       label: 'The replay runs in the background so the admin call returns immediately',
@@ -137,7 +146,7 @@ Order events (≈400k/day) are published to the Anypoint MQ exchange \`order-eve
 Last month the **billing** team deployed a bug and silently mis-processed six hours of events. Fixing it took days because nobody could re-send those events. Operations now wants:
 
 - A **durable archive** of every order event for 90 days (a new queue \`order-events.archive\` is already bound to the exchange).
-- An **admin-only API** to replay events of chosen types between two timestamps to **one** consumer's queue — never to all consumers.
+- An **admin-only API** to replay events of chosen types between two timestamps to **one** consumer's queue, never to all consumers. An invalid request is rejected with **400**.
 - Replays of up to ~200k events; the admin call must answer within seconds with a replay ID.
 - Replayed events must be recognisable so consumers can dedupe and audit them; every replay must be recorded (who, what, when, how many).
 

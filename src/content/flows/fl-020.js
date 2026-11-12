@@ -65,6 +65,13 @@ export default {
       rule: { type: 'before', first: 'scheduler', then: 'jms-consume', thenWhere: { destination: 'BAL.RPLY', selector: { set: true } } },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'account-balance-api',
+      why: 'The scenario only asks how a timeout is reported. Mapping an unreachable queue to 503 is a good extra, and without it the caller gets a 500.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'account-balance-api',

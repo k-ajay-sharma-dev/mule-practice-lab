@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { HANDLERS } from '../../flow/rules.js'
 
 export default {
   id: 'fl-070',
@@ -61,6 +62,36 @@ export default {
     {
       label: 'The outbox row is marked POSTED only after SAP returned the material document',
       rule: { type: 'before', first: 'http-request', firstWhere: { method: 'POST' }, then: 'db-update', thenWhere: { sql: 'POSTED' }, outside: true },
+    },
+    {
+      label: 'Each poller run claims its outbox rows before posting, so two replicas never post the same row',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'db-update', firstWhere: { sql: 'IN_PROGRESS' }, then: 'db-select' },
+          { type: 'exists', component: 'db-select', where: { sql: 'SKIP LOCKED' } },
+        ],
+      },
+    },
+    {
+      label: 'A SAP rejection raises a business error whose handler marks the row FAILED, so it is not retried',
+      rule: {
+        type: 'linked',
+        from: { component: 'raise-error', key: 'type' },
+        to: { component: HANDLERS, key: 'type', holding: { component: 'db-update', where: { sql: 'FAILED' } } },
+        as: 'errorType',
+      },
+    },
+    {
+      label: 'A transient failure marks the row RETRY and counts the attempt',
+      rule: { type: 'inside', component: 'db-update', where: { sql: { all: ['RETRY', 'ATTEMPTS'] } }, within: HANDLERS },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'dock-receipt-intake',
+      why: 'Mule propagates the error by default, so the scan is redelivered without this handler. It only adds a log line.',
     },
   ],
   referenceFlow: design(
@@ -206,6 +237,10 @@ For each pallet a **goods receipt** (movement type 101 against the PO) must be p
 - Pallets with no open ASN go to the receiving clerk's **blind-receipt** queue.
 - Quantity differences against the ASN must be recorded for supplier claims.
 - XA transactions are not allowed by the platform team.
+
+**Facts**
+- \`GR_OUTBOX\` rows have a \`STATUS\`: PENDING, IN_PROGRESS (claimed by one poller run), POSTED, FAILED (SAP rejected it, a clerk must fix it) or RETRY (a transient error, counted in \`ATTEMPTS\`).
+- Several replicas may run the poller, so each run claims its rows before posting them.
 
 **Design the flow(s).**
 `,

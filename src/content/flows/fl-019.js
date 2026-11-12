@@ -69,8 +69,12 @@ export default {
       rule: { type: 'before', first: ['http-request', 'email-send'], then: 'mq-ack', outside: true },
     },
     {
-      label: 'Failed messages are returned to the queue (Nack) from an error handler',
-      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
+      label: 'Every subscriber acks a processed event and also a duplicate, so neither stays on its queue',
+      rule: { type: 'exists', component: 'mq-ack', min: 8 },
+    },
+    {
+      label: 'Every subscriber returns a failed message to its queue (Nack) from an error handler',
+      rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'], min: 4 },
     },
     {
       label: 'The analytics subscriber only forwards orders over 100',
@@ -83,12 +87,12 @@ export default {
       },
     },
     {
-      label: 'Consumers deduplicate events on eventId',
+      label: 'Every consumer deduplicates events on eventId',
       rule: {
         type: 'any',
         rules: [
-          { type: 'exists', component: 'idempotent', where: { idExpression: 'eventId' } },
-          { type: 'exists', component: 'os-retrieve', where: { key: 'eventId' } },
+          { type: 'exists', component: 'idempotent', where: { idExpression: 'eventId' }, min: 4 },
+          { type: 'exists', component: 'os-retrieve', where: { key: 'eventId' }, min: 4 },
         ],
       },
     },
@@ -97,11 +101,18 @@ export default {
       rule: {
         type: 'any',
         rules: [
-          { type: 'inside', component: 'os-remove', within: ['on-error-continue', 'on-error-propagate'] },
+          { type: 'inside', component: 'os-remove', within: ['on-error-continue', 'on-error-propagate'], min: 4 },
           // An id stored only after success (Retrieve first, Store at the end) needs no cleanup.
           { type: 'all', rules: [{ type: 'exists', component: 'os-store' }, { type: 'absent', component: 'idempotent' }] },
         ],
       },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'order-confirmation-publisher',
+      why: 'This handler only logs the error and passes it on, which Mule does by default.',
     },
   ],
   referenceFlow: design(

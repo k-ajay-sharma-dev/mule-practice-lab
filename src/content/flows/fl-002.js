@@ -57,6 +57,13 @@ export default {
       rule: { type: 'before', first: 'parallel-foreach', then: 'transform', outside: true },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'quote-api',
+      why: 'This handler only logs the error and passes it on, which Mule does by default. The partial quote comes from the Try inside the loop.',
+    },
+  ],
   referenceFlow: design(
     flow('quote-api', source('http-listener', { path: '/quotes', allowedMethods: 'POST' }), [
       scope('parallel-foreach', { collection: '#[payload.lines]', maxConcurrency: 20, timeout: 3000 }, [

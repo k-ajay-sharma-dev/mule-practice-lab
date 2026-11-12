@@ -77,6 +77,13 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'get-account-statements',
+      why: 'Any other error already becomes a 500 by default. This catch-all only gives it a tidy body without internal details, which is a good extra.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'get-account-statements',

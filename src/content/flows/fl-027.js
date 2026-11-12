@@ -1,5 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
-import { handlerStatus } from '../../flow/rules.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-027',
@@ -66,6 +66,24 @@ export default {
       rule: { type: 'exists', component: 'set-variable', where: { variableName: 'status' } },
     },
     { label: 'Validation errors have their own handler that returns 400', rule: handlerStatus('VALIDATION', '400') },
+    {
+      label: 'The search has its own listener path, without a URI parameter',
+      rule: { type: 'source', component: 'http-listener', where: { path: { not: '{' } } },
+    },
+    {
+      label: 'The SKU flow looks the product up before the Choice decides between 200 and 404',
+      rule: { type: 'before', first: 'db-select', then: 'choice' },
+    },
+    {
+      label: 'Both flows map validation errors to 400',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'set-variable', where: { value: '400' }, within: HANDLERS, withinWhere: { type: 'VALIDATION' }, min: 2 },
+          { type: 'inside', component: 'transform', where: { variableName: 'status', script: '400' }, within: HANDLERS, withinWhere: { type: 'VALIDATION' }, min: 2 },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(

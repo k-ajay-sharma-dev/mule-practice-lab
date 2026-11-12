@@ -48,11 +48,22 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', within: 'try' },
     },
     {
-      label: 'Failures are made visible to the AP team, not only logged',
+      label: 'A failed attachment and a failed email are both reported to the AP team, not only logged',
       rule: {
         type: 'inside',
         component: ['mq-publish', 'vm-publish', 'jms-publish', 'email-send', 'db-insert'],
         within: ['on-error-continue', 'on-error-propagate'],
+        min: 2,
+      },
+    },
+    {
+      label: 'A repeated email is skipped quietly, not reported as a failure',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'on-error-continue', where: { type: 'DUPLICATE_MESSAGE' } },
+          { type: 'exists', component: 'os-store', where: { key: { oneOf: ['messageId', 'message-id'] } } },
+        ],
       },
     },
     { label: 'Senders of unsupported files get an auto-reply', rule: { type: 'exists', component: 'email-send' } },

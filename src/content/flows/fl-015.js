@@ -57,7 +57,7 @@ export default {
       },
     },
     {
-      label: 'A manual acknowledgement comes only after the email or SMS was sent',
+      label: 'A manual acknowledgement comes only after the message was passed on, or the email or SMS was sent',
       rule: {
         type: 'any',
         rules: [
@@ -66,6 +66,7 @@ export default {
             rules: [
               { type: 'before', first: 'email-send', then: ['mq-ack', 'jms-ack'], outside: true },
               { type: 'before', first: 'http-request', then: ['mq-ack', 'jms-ack'], outside: true },
+              { type: 'before', first: ['mq-publish', 'vm-publish', 'jms-publish'], then: ['mq-ack', 'jms-ack'], outside: true },
             ],
           },
           {
@@ -85,7 +86,13 @@ export default {
       rule: {
         type: 'any',
         rules: [
-          { type: 'inside', component: ['mq-nack', 'jms-recover-session'], within: ['on-error-continue', 'on-error-propagate'] },
+          {
+            type: 'inside',
+            component: ['mq-nack', 'jms-recover-session'],
+            within: ['on-error-continue', 'on-error-propagate'],
+            withinWhere: { type: 'ANY' },
+            min: 3,
+          },
           {
             type: 'all',
             rules: [
@@ -105,6 +112,43 @@ export default {
     {
       label: 'Worker failures record a status',
       rule: { type: 'inside', component: ['db-update', 'db-insert'], within: ['on-error-continue', 'on-error-propagate'] },
+    },
+    {
+      label: 'Each worker drops a redelivered duplicate and acknowledges it, so nothing is sent twice',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'exists', component: 'idempotent', min: 2 },
+          {
+            type: 'inside',
+            component: ['mq-ack', 'jms-ack'],
+            within: 'on-error-continue',
+            withinWhere: { type: 'DUPLICATE_MESSAGE' },
+            min: 2,
+          },
+        ],
+      },
+    },
+    {
+      label: 'A failed send removes its idempotency key, so the redelivery is not dropped as a duplicate',
+      rule: { type: 'inside', component: 'os-remove', within: ['on-error-continue', 'on-error-propagate'], withinWhere: { type: 'ANY' }, min: 2 },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-continue',
+      flow: 'sms-worker',
+      why: 'A separate handler for 429 and 503 only skips the FAILED status for a busy provider. The catch-all handler already removes the key and nacks the message.',
+    },
+    {
+      type: 'os-remove',
+      flow: 'sms-worker',
+      why: 'This copy sits in the optional 429 handler. The catch-all handler removes the key too.',
+    },
+    {
+      type: 'mq-nack',
+      flow: 'sms-worker',
+      why: 'This copy sits in the optional 429 handler. The catch-all handler nacks the message too.',
     },
   ],
   referenceFlow: design(
@@ -226,6 +270,7 @@ A telecom wants a reusable **Notification API**: \`POST /notifications\` with \`
 - Volume: 200k notifications on bill day within 4 hours. One channel failing must not stop the other.
 - Respond to the caller quickly with an acceptance id.
 - An accepted notification must not be lost, even if the app restarts while sending it.
+- A redelivered message must not send the same email or SMS twice.
 
 **Design the flow(s):** API front door, channel fan-out, templating, sending, failure handling.
 `,

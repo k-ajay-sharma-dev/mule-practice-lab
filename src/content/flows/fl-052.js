@@ -56,6 +56,18 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'exp-web-catalog',
+      why: 'The scenario asks for a clear error when the catalog is slow, which the timeout handler gives. Mapping an unknown category to 404 and other failures to 502 is a good extra.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-catalog-category',
+      why: 'This handler only logs the error and passes it on, which Mule does by default.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'exp-web-catalog',

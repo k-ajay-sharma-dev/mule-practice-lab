@@ -48,6 +48,13 @@ export default {
       rule: { type: 'before', first: 'foreach', then: 'email-send', outside: true },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'weekly-traffic-report',
+      why: 'This handler only logs a failure of the whole run and passes it on, which Mule does by default.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'weekly-traffic-report',

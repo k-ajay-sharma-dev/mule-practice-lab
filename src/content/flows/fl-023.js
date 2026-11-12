@@ -14,8 +14,14 @@ export default {
       rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { oneOf: ['0 0 2 ', '0 0 02 '] } } },
     },
     {
-      label: 'Paged APIs are read in a loop, page by page',
-      rule: { type: 'inside', component: 'http-request', within: ['foreach', 'parallel-foreach'] },
+      label: 'SAP and Shopify are both read page by page, in a loop or a flow that calls itself for the next page',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'http-request', where: { method: 'GET', path: 'sap/products' }, within: ['foreach', 'parallel-foreach', 'choice'] },
+          { type: 'inside', component: 'http-request', where: { method: 'GET', path: 'shopify/products' }, within: ['foreach', 'parallel-foreach', 'choice'] },
+        ],
+      },
     },
     {
       label: 'Extraction is split into separate flows called via Flow Reference',
@@ -25,6 +31,16 @@ export default {
     {
       label: 'The report is built as CSV before it is emailed',
       rule: { type: 'before', first: 'transform', firstWhere: { script: 'application/csv' }, then: 'email-send' },
+    },
+    {
+      label: 'The report is emailed on every run, outside the Choice that guards the fixes',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'email-send', then: 'choice' },
+          { type: 'before', first: 'choice', then: 'email-send', outside: true },
+        ],
+      },
     },
     {
       label: 'Price fixes run in a loop inside a Choice that enforces the nightly cap of 500',

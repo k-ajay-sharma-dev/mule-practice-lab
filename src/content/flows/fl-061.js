@@ -35,6 +35,13 @@ export default {
     { label: 'Bad input (a failed validation) returns 400', rule: handlerStatus('VALIDATION', '400') },
     { label: 'Oracle connectivity problems (DB:CONNECTIVITY) map to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'post-reservation',
+      why: 'A failed procedure call answers 500, which Mule does by default. This handler only adds a log line and a tidier body.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'post-reservation',

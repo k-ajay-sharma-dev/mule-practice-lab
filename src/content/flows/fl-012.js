@@ -66,6 +66,13 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'create-shipment',
+      why: 'A second 401 already propagates as an error by default. This handler only picks a nicer status and logs it.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'create-shipment',

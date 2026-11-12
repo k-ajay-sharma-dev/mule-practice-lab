@@ -51,6 +51,12 @@ export default {
       rule: { type: 'exists', component: ['db-update', 'db-insert'], where: { sql: 'last_modified_by' } },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'Mule propagates errors by default, so a failed change is not lost without this handler. It only adds a log line.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'sf-to-erp-account-sync',

@@ -62,6 +62,13 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'flight-event-publisher',
+      why: 'Answering 400 for an invalid event and 503 when the broker is down is good practice, but this scenario is about how events are published and consumed.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'flight-event-publisher',

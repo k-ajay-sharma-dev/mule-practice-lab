@@ -37,6 +37,13 @@ export default {
       rule: { type: 'before', first: 'try', then: 'transform', outside: true },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'get-store-stock',
+      why: 'The scenario only asks for the snapshot fallback. Returning 503 when Oracle is down too is a good extra; without it the app gets a 500.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'get-store-stock',

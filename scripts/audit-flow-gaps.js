@@ -1,29 +1,23 @@
-// For each flow problem: take one component out of the reference design and see whether every check still passes.
-// When it does, a learner can leave that component out and still be told the design is done.
+// Lists, for each flow problem, the components a design can leave out and still pass every check, and whether
+// the problem marks each one optional (see scripts/flow-gaps.js). Usage: node scripts/audit-flow-gaps.js [fl-008 ...]
+// --all also prints the ones marked optional.
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { designChecks, runChecks } from '../src/flow/checks.js'
-import { removeNode, walk } from '../src/flow/model.js'
+import { gapsOf } from './flow-gaps.js'
 
-const CORE = new Set(['logger', 'transform', 'set-payload', 'set-variable', 'flow-ref', 'raise-error', 'validation', 'parse-template'])
 const dir = join(import.meta.dirname, '..', 'src', 'content', 'flows')
-const only = process.argv.slice(2)
-let total = 0
+const args = process.argv.slice(2)
+const all = args.includes('--all')
+const only = args.filter((a) => !a.startsWith('--'))
+let open = 0
 for (const file of (await readdir(dir)).filter((f) => f.endsWith('.js')).sort()) {
   const p = (await import(pathToFileURL(join(dir, file)))).default
   if (only.length && !only.includes(p.id)) continue
-  if (!p.flowChecks?.length) continue
-  const checks = designChecks(p)
-  const gaps = []
-  walk(p.referenceFlow, (item, ctx) => {
-    if (ctx.isFlow || ctx.isRoute || CORE.has(item.type)) return
-    const without = removeNode(p.referenceFlow, item.id)
-    if (runChecks(without, checks).every((r) => r.pass)) gaps.push(`${item.type} in ${ctx.flow.name}${item.config?.sql ? ` (${item.config.sql.slice(0, 40)})` : item.config?.path ? ` (${item.config.path})` : ''}`)
-  })
-  if (gaps.length) {
-    total += gaps.length
-    console.log(`${p.id}  ${p.title}\n    ${gaps.join('\n    ')}`)
-  }
+  const gaps = gapsOf(p).filter((g) => all || !g.optional)
+  if (!gaps.length) continue
+  open += gaps.filter((g) => !g.optional).length
+  console.log(`${p.id}  ${p.title}`)
+  for (const g of gaps) console.log(`    ${g.text}${g.optional ? `   [optional: ${g.optional}]` : ''}`)
 }
-console.log(`\n${total} components can be left out unnoticed`)
+console.log(`\n${open} components can be left out unnoticed`)

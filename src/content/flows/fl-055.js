@@ -42,7 +42,29 @@ export default {
     },
     {
       label: 'Business rejections (422/409) from the layer below become typed APP errors in the process and experience layers too',
-      rule: { type: 'exists', component: 'raise-error', where: { type: 'APP:' }, min: 3 },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'prc-' }, then: 'raise-error', thenWhere: { type: 'PAYMENT_DECLINED' } },
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'prc-' }, then: 'raise-error', thenWhere: { type: 'DUPLICATE_ORDER' } },
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'exp-' }, then: 'raise-error', thenWhere: { type: 'APP:' } },
+        ],
+      },
+    },
+    {
+      label: 'Each layer turns its APP errors into a 422 for its caller',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'inside', component: 'set-variable', where: { value: '422' }, within: HANDLERS, withinWhere: { type: 'PAYMENT_DECLINED' }, min: 2 },
+          handlerStatus('DUPLICATE_ORDER', '422'),
+          handlerStatus('ORDER_REJECTED', '422'),
+        ],
+      },
+    },
+    {
+      label: 'Each layer that calls another passes an outage up as 503',
+      rule: { type: 'inside', component: 'set-variable', where: { value: '503' }, within: HANDLERS, withinWhere: { type: 'SERVICE_UNAVAILABLE' }, min: 3 },
     },
     {
       label: 'Downstream timeouts are translated (504/503), not left as 500',
@@ -78,6 +100,18 @@ export default {
           },
         ],
       },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-orders-submit',
+      why: 'The catch-all handler of the Process API only sets 500, which Mule answers by default. The edge still turns it into its own 500 with a correlation id.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'sys-payment-authorisations',
+      why: 'A PSP 401 still ends as a 500 at the edge through the catch-all handlers above it. Logging the credential problem on its own helps support but is not required.',
     },
   ],
   referenceFlow: design(

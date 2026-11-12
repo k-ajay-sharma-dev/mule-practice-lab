@@ -26,7 +26,20 @@ export default {
           { type: 'absent', component: 'on-error-continue', within: 'try', where: { type: { oneOf: ['ANY', 'BAD_REQUEST'] } } },        ],
       },
     },
-    { label: 'State transitions (and the last good score) are written back to the Object Store', rule: { type: 'exists', component: 'os-store', min: 2 } },
+    {
+      label: 'A failure, a success that closes the breaker, and the last good score are each written to the Object Store',
+      rule: { type: 'exists', component: 'os-store', min: 3 },
+    },
+    {
+      label: 'The last good score is stored after a bureau success and read back by the fallback',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-request', then: 'os-store', outside: true },
+          { type: 'exists', component: 'os-retrieve', min: 2 },
+        ],
+      },
+    },
     {
       label: 'A bureau outage counts as a failure: the handler writes the breaker state',
       rule: { type: 'inside', component: 'os-store', within: 'on-error-continue' },
@@ -54,6 +67,13 @@ export default {
       },
     },
     { label: 'Breaker logic lives in reusable flows reached via Flow Reference', rule: { type: 'refs' } },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'credit-check-api',
+      why: 'A bureau 400 already fails the request without tripping the breaker, which is what the scenario asks. Answering the caller with a clean 400 is a nicety.',
+    },
   ],
   referenceFlow: design(
     flow(

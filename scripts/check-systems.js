@@ -1,7 +1,7 @@
 // Checks the "Systems you can call" list each flow scenario shows (src/flow/systems.js).
 import { readdirSync } from 'node:fs'
 import { landscapeOf } from '../src/arch/landscape.js'
-import { missingSystems, systemsIn } from '../src/flow/systems.js'
+import { missingSystems, systemsIn, systemUsesIn, useText } from '../src/flow/systems.js'
 
 const failures = []
 const fail = (msg) => failures.push(msg)
@@ -75,6 +75,33 @@ if (gaps(mine([call('#["/crm/accounts/" ++ vars.id]'), select])) !== '') fail('a
 if (gaps(mine([call('/crm/accounts/{id}')])) !== 'orders') fail('a missing table goes unnoticed')
 if (gaps(mine([call('/crm/contacts/{id}'), select])) !== 'GET /crm/accounts/{id}?limit=10') fail('a different path counts as the listed one')
 if (gaps(mine([call('/crm/accounts/{id}'), select], null)) !== 'GET /api/orders') fail('a missing endpoint goes unnoticed')
+
+// what the design does to each system, where, and from which start
+const sub = (destination) => ({ type: 'mq-subscriber', config: { destination } })
+const upd = (s) => ({ type: 'db-update', config: { sql: s } })
+const handler = (steps) => ({ type: 'on-error-continue', config: {}, steps })
+const reference = {
+  flows: [
+    { name: 'email-worker', source: sub('email-q'), steps: [upd("UPDATE notice SET status = 'SENT'")], errorHandlers: [handler([upd("UPDATE notice SET status = 'FAILED'")])] },
+    { name: 'sms-worker', source: sub('sms-q'), steps: [{ type: 'flow-ref', config: { name: 'mark-sent' } }] },
+    { name: 'mark-sent', steps: [upd("UPDATE notice SET status = 'SENT'")] },
+    { name: 'get:\\orders:api-config', steps: [{ type: 'db-select', config: { sql: 'SELECT * FROM orders' } }] },
+  ],
+}
+const wanted = systemUsesIn(reference)
+const left = (d) => missingSystems(wanted, d).map(useText).join(' | ')
+const without = (change) => {
+  const d = structuredClone(reference)
+  change(d)
+  return left(d)
+}
+if (left(reference) !== '') fail(`the reference misses its own uses: ${left(reference)}`)
+if (!/update notice .* in an error handler/.test(without((d) => (d.flows[0].errorHandlers = [])))) fail('a missing update in an error handler goes unnoticed')
+if (!/receives from sms-q/.test(without((d) => (d.flows[1].steps = [])))) fail('a step one of two workers leaves out goes unnoticed')
+if (without((d) => (d.flows[1].steps = [upd("UPDATE notice SET status = 'SENT'")]))) fail('making the call in the flow itself, not a sub-flow, does not count')
+if (!/read orders/.test(without((d) => (d.flows[3].steps = [])))) fail('an APIkit flow missing its query goes unnoticed')
+if (!/update notice/.test(without((d) => (d.flows[0].steps = [{ type: 'db-select', config: { sql: 'SELECT * FROM notice' } }])))) fail('a read counts as the update it replaces')
+if (!/TRUNCATE|delete from stage/.test(useText(systemUsesIn({ flows: [{ steps: [upd('TRUNCATE TABLE stage')] }] })[0]))) fail('TRUNCATE is not read as a delete')
 
 if (failures.length) {
   console.error(failures.join('\n'))

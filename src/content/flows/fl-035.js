@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-035',
@@ -9,6 +10,7 @@ export default {
   estMinutes: 35,
   flowChecks: [
     { label: 'Status updates are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },
+    { label: 'An unknown status value is rejected with 400', rule: handlerStatus('VALIDATION', '400') },
     {
       label: 'Intake, status processing and notification are separate flows',
       rule: { type: 'flows', kind: 'flow', min: 3 },
@@ -72,6 +74,18 @@ export default {
     {
       label: 'The customer is emailed only when the status is SHIPPED',
       rule: { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: 'SHIPPED' } },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'order-status-apply',
+      why: 'Mule propagates errors by default, so the transaction rolls back without this handler. It only adds a log line.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'order-status-notify',
+      why: 'Mule propagates errors by default, so the message is redelivered without this handler. It only adds a log line.',
     },
   ],
   referenceFlow: design(
@@ -172,6 +186,7 @@ The warehouse management system calls a webhook for every order status change: *
 - Each accepted change must: update \`orders.status\` in the Order DB, upsert the Order in **Salesforce**, and email the customer when the order is **SHIPPED**. Salesforce sometimes takes 3–4 s.
 - The app runs on **CloudHub 2.0 with 2 replicas**. No update may be lost if a replica restarts.
 - The team does not want an external broker for this internal hand-off.
+- An unknown status value is rejected with **400**.
 
 **Design the flow(s):**
 - How do you answer the warehouse within 500 ms when Salesforce alone can take 4 s?

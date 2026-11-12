@@ -62,6 +62,10 @@ export default {
       label: 'Replay is bounded (a loop with a maximum count)',
       rule: { type: 'inside', component: 'jms-consume', within: ['foreach', 'until-successful'] },
     },
+    {
+      label: 'An empty dead-letter queue (JMS:TIMEOUT) ends the replay cleanly with On Error Continue',
+      rule: { type: 'handler', component: 'on-error-continue', errorType: 'JMS:TIMEOUT' },
+    },
   ],
   referenceFlow: design(
     flow(

@@ -51,6 +51,12 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'Mule propagates an error before the job starts by default. This handler only adds a log line.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'distribute-store-prices',

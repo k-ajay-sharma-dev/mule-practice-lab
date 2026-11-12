@@ -28,12 +28,12 @@ export default {
       rule: { type: 'exists', component: ['file-write', 'sftp-write'], where: { path: 'region' } },
     },
     {
-      label: 'Region files reach the out folder by a move or rename after they are written, so no team sees a partial file',
+      label: 'Each region file is written whole (not appended), then moved or renamed into the out folder, so no team sees a partial file',
       rule: {
         type: 'any',
         rules: [
-          { type: 'before', first: 'file-write', then: 'file-move', thenWhere: { targetPath: '/out' } },
-          { type: 'before', first: 'sftp-write', then: 'sftp-move', thenWhere: { targetPath: '/out' } },
+          { type: 'before', first: 'file-write', firstWhere: { mode: { not: 'APPEND' } }, then: 'file-move', thenWhere: { targetPath: '/out' } },
+          { type: 'before', first: 'sftp-write', firstWhere: { mode: { not: 'APPEND' } }, then: 'sftp-move', thenWhere: { targetPath: '/out' } },
         ],
       },
     },

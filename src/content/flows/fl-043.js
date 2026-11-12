@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-043',
@@ -12,6 +13,10 @@ export default {
     {
       label: 'The request size limit (max 10,000 records) is enforced up front',
       rule: { type: 'before', first: 'validation', firstWhere: { expression: '10000' }, then: ['db-insert', 'os-store', 'mq-publish', 'vm-publish'] },
+    },
+    {
+      label: 'A request outside the size limit is rejected with 413 or 400',
+      rule: handlerStatus('VALIDATION', { oneOf: ['413', '400'] }),
     },
     {
       label: 'The submit API answers with a job ID and never calls the PIM core itself',
@@ -45,6 +50,27 @@ export default {
     {
       label: 'A failed chunk is recorded in the job status instead of being lost',
       rule: { type: 'inside', component: ['db-insert', 'db-update', 'os-store'], within: ['on-error-continue', 'on-error-propagate'] },
+    },
+    {
+      label: 'Each chunk message is acked once its result is recorded, on success and on failure',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'mq-ack', min: 2 },
+          // Nacking a failed chunk and letting the DLQ policy decide is also fine.
+          { type: 'all', rules: [{ type: 'exists', component: 'mq-ack' }, { type: 'inside', component: 'mq-nack', within: HANDLERS }] },
+        ],
+      },
+    },
+    {
+      label: 'An unknown job ID returns 404',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'set-variable', where: { value: '404' }, within: 'choice' },
+          handlerStatus('NOT_FOUND', '404'),
+        ],
+      },
     },
   ],
   referenceFlow: design(
@@ -144,6 +170,7 @@ A **Product Information (PIM) API** must let retail partners submit catalogue up
 - ~200 bulk jobs/day, with bursts when a partner re-sends its whole catalogue.
 - Partners need to know whether **all** records landed, and which chunks failed, without calling support.
 - Mule runs on 2 CloudHub workers; a restart must not lose accepted work.
+- A request outside the size limit is rejected with **413** (or 400). A status request for an unknown job returns **404**.
 
 **Design the flow(s):** request contract, validation, chunking, asynchronous processing, failure handling per chunk and the status API.
 `,

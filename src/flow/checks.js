@@ -1,6 +1,6 @@
 import { COMPONENTS } from './catalog.js'
 import { walk } from './model.js'
-import { missingSystems, systemsIn } from './systems.js'
+import { missingSystems, systemUsesIn, useText } from './systems.js'
 
 // Design checks for flow problems. Each check is { label, rule } and passes or fails
 // against the user's design. Rules:
@@ -270,10 +270,10 @@ export function runChecks(design, checks = []) {
 // nothing is left blank. Self-assessed problems have none.
 export function designChecks(problem) {
   if (!problem.flowChecks?.length) return []
-  const want = systemsIn(problem.referenceFlow)
+  const want = systemUsesIn(problem.referenceFlow)
   return [
     ...problem.flowChecks,
-    ...(want.length ? [{ label: 'Uses every system in "Systems you can call"', rule: { type: 'systems', want } }] : []),
+    ...(want.length ? [{ label: 'Makes every call, read and write the scenario needs (see "Systems you can call")', rule: { type: 'systems', want } }] : []),
     { label: 'Nothing is left blank or as a placeholder', rule: { type: 'complete' } },
   ]
 }
@@ -402,9 +402,9 @@ export function missingHint(design, rule) {
       return failing ? missingHint(design, failing) : 'Check this requirement against the scenario.'
     }
     case 'systems': {
-      const left = missingSystems(rule.want, design).map((s) => `${s.name} (${s.kind.toLowerCase()})`)
+      const left = missingSystems(rule.want, design).map(useText)
       const more = left.length > 3 ? `, and ${left.length - 3} more` : ''
-      return `Your design never uses ${left.slice(0, 3).join(', ')}${more}. The scenario needs each of them.`
+      return `Your design still needs to ${left.slice(0, 3).join('; ')}${more}.`
     }
     case 'complete': {
       if (!nodes.length) return 'Build the design first, then fill in each component.'

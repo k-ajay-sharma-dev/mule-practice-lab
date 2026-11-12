@@ -46,6 +46,16 @@ export default {
       label: 'A failed or aborted job sends an alert email from the monitor flow',
       rule: { type: 'inside', component: 'email-send', within: 'choice', where: { toAddresses: { set: true } } },
     },
+    {
+      label: 'On both the finished and the failed route, the monitor clears the stored job ID so the job is reported only once',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'os-remove', within: 'choice', min: 2 },
+          { type: 'inside', component: 'os-store', within: 'choice', min: 2 },
+        ],
+      },
+    },
   ],
   referenceFlow: design(
     flow(
@@ -121,6 +131,7 @@ A retailer keeps its product data in a **PIM**. Every night at 01:00 the PIM dro
 - Salesforce processes the job in the background, and a load can take from a few minutes to over an hour. **No flow may wait** for it.
 - When the job ends, rejected rows must go to \`/pim/rejected/\` on the SFTP server for the product team. Rows Salesforce did not process must also be visible.
 - A failed or aborted job must alert the PIM support mailbox.
+- Each job that has ended is reported only once, not again on every poll.
 - A restart of the app during a running load must not lose track of the job.
 
 **Design the flows.** Say which job states you handle and how you size and schedule the polling.

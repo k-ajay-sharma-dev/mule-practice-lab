@@ -39,6 +39,20 @@ export default {
       rule: { type: 'before', first: ['os-retrieve', 'idempotent'], then: ['vm-publish', 'mq-publish', 'jms-publish'] },
     },
     {
+      label: 'A new job saves its PENDING state and the dedupe key that points to it',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: ['os-store', 'db-insert', 'db-update'], within: 'choice', min: 2 },
+          { type: 'exists', component: 'idempotent' },
+        ],
+      },
+    },
+    {
+      label: 'The status endpoint reads the job state from the store',
+      rule: { type: 'before', first: 'http-listener', firstWhere: { allowedMethods: 'GET' }, then: 'os-retrieve' },
+    },
+    {
       label: 'The job is recorded as PENDING before it is queued',
       rule: {
         type: 'any',
@@ -57,12 +71,14 @@ export default {
       rule: { type: 'exists', component: ['os-store', 'db-insert', 'db-update'], min: 3 },
     },
     {
-      label: 'The job is marked COMPLETED only after the file is stored',
+      label: 'The job is marked COMPLETED only after the PDF is uploaded',
       rule: {
         type: 'any',
         rules: [
-          { type: 'before', first: ['http-request', 's3-put'], then: 'os-store', thenWhere: { value: 'COMPLETED' }, outside: true },
-          { type: 'before', first: ['http-request', 's3-put'], then: 'db-update', thenWhere: { sql: 'COMPLETED' }, outside: true },
+          { type: 'before', first: 'http-request', firstWhere: { method: 'PUT' }, then: 'os-store', thenWhere: { value: 'COMPLETED' }, outside: true },
+          { type: 'before', first: 'http-request', firstWhere: { method: 'PUT' }, then: 'db-update', thenWhere: { sql: 'COMPLETED' }, outside: true },
+          { type: 'before', first: 's3-put', then: 'os-store', thenWhere: { value: 'COMPLETED' }, outside: true },
+          { type: 'before', first: 's3-put', then: 'db-update', thenWhere: { sql: 'COMPLETED' }, outside: true },
         ],
       },
     },
@@ -82,6 +98,13 @@ export default {
         type: 'any',
         rules: [handlerStatus('NOT_FOUND', '404'), { type: 'inside', component: 'set-variable', where: { value: '404' }, within: 'choice' }],
       },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'os-store',
+      flow: 'statement-worker',
+      why: 'The scenario lists only PENDING, COMPLETED and FAILED, so a RUNNING status while the worker runs is a nicety.',
     },
   ],
   referenceFlow: design(
@@ -180,6 +203,7 @@ A **Reporting API** generates a customer statement PDF by querying a data wareho
 - Duplicate submissions of the same request within 10 minutes should return the existing job.
 - Max 5 jobs run concurrently (warehouse cost), others wait.
 - Finished files are kept 24 h.
+- The worker uploads each finished PDF to the statements bucket with \`PUT /statements-bucket/{jobId}.pdf\`.
 
 **Facts**
 - A job status is one of \`PENDING\`, \`COMPLETED\` or \`FAILED\`.

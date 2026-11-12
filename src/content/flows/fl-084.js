@@ -40,6 +40,22 @@ export default {
       rule: { type: 'inside', component: 'jms-publish', within: 'on-error-continue', where: { destination: 'LAB.RESULTS.PARKED' } },
     },
     {
+      label: 'A result without a patient MRN or result ID is detected and sent to parking',
+      rule: {
+        type: 'any',
+        rules: [
+          {
+            type: 'linked',
+            from: { component: 'raise-error', key: 'type' },
+            to: { component: 'on-error-continue', key: 'type', holding: { component: 'jms-publish', where: { destination: 'PARKED' } } },
+            as: 'errorType',
+          },
+          { type: 'inside', component: 'jms-publish', where: { destination: 'PARKED' }, within: 'on-error-continue', withinWhere: { type: 'VALIDATION' } },
+          { type: 'inside', component: 'jms-publish', where: { destination: 'PARKED' }, within: 'choice' },
+        ],
+      },
+    },
+    {
       label: 'A parked result is acknowledged after the publish, so it neither comes back nor gets lost',
       rule: {
         type: 'all',

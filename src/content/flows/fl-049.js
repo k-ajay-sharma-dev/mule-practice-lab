@@ -1,5 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
-import { handlerStatus } from '../../flow/rules.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-049',
@@ -61,6 +61,32 @@ export default {
     {
       label: 'The Process API consumes the System API over plain REST',
       rule: { type: 'exists', component: 'http-request', where: { path: 'sys-' } },
+    },
+    {
+      label: 'A rejected session is dropped from the Object Store in the error handler, so the next call logs in again',
+      rule: { type: 'inside', component: 'os-remove', within: HANDLERS },
+    },
+    {
+      label: 'The Process API answers 422 for an unknown policy (HTTP:NOT_FOUND) and for an inactive one',
+      rule: {
+        type: 'all',
+        rules: [
+          handlerStatus('HTTP:NOT_FOUND', '422'),
+          {
+            type: 'linked',
+            from: { component: 'raise-error', key: 'type' },
+            to: { component: HANDLERS, key: 'type', holding: { component: 'set-variable', where: { value: '422' } } },
+            as: 'errorType',
+          },
+        ],
+      },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'sys-policy-get',
+      why: 'The catch-all handler only sets 500, which the HTTP Listener already returns for an unhandled error.',
     },
   ],
   referenceFlow: design(
@@ -144,7 +170,7 @@ An insurer's 20-year-old **Policy Administration System (PAS)** is only reachabl
 - Each call needs a **session id** from a \`Login\` operation; sessions last 20 minutes and the PAS allows only a handful of concurrent sessions.
 - It is slow (p95 2.5 s) and goes down for batch runs every night.
 
-A new **Claims Process API** needs policy details for ~3 claims/second. The architecture board wants the quirks hidden **once**, so no Process API ever touches SOAP again.
+A new **Claims Process API** needs policy details for ~3 claims/second. The architecture board wants the quirks hidden **once**, so no Process API ever touches SOAP again. The Claims API rejects a claim whose policy is unknown or not active with **422**.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/sys-policy/v1/policies/{policyNumber}\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 

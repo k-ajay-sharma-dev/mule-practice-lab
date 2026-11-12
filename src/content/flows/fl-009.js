@@ -63,6 +63,13 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'audit-consumer',
+      why: 'This handler only logs and rethrows, which Mule does by default. The failed insert still rolls the message back to the queue without it.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'payments-api',

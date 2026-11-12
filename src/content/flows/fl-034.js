@@ -46,6 +46,10 @@ export default {
       },
     },
     {
+      label: 'An unknown customer raises a custom APP: error right after the customer lookup',
+      rule: { type: 'before', first: 'db-select', then: 'raise-error', thenWhere: { type: 'APP:' } },
+    },
+    {
       label: 'Every downstream call has a timeout that fits the 2 s SLA',
       rule: {
         type: 'all',

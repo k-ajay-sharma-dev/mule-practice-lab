@@ -84,6 +84,13 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 's3-to-azure-scan-relay',
+      why: 'This flow handler only logs the error and passes it on, which Mule does by default. The next run picks up the files that are left.',
+    },
+  ],
   referenceFlow: design(
     flow(
       's3-to-azure-scan-relay',

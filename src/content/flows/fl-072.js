@@ -29,6 +29,10 @@ export default {
       label: 'A failed claim (another worker took the file) is handled inside a Try and skipped',
       rule: { type: 'handler', component: 'on-error-continue', within: 'try', where: { type: { oneOf: ['SFTP:', 'ANY'] } } },
     },
+    {
+      label: 'The claim and the file processing each have their own On Error Continue, so one file never stops the loop',
+      rule: { type: 'inside', component: 'on-error-continue', within: 'try', min: 2 },
+    },
     { label: 'Reading the file happens inside the loop', rule: { type: 'inside', component: 'sftp-read', within: 'foreach' } },
     {
       label: 'A file is read only when this worker claimed it (behind a Choice or in the claiming Try)',
@@ -37,6 +41,10 @@ export default {
     {
       label: 'A file is archived only after it was posted to the Treasury API',
       rule: { type: 'before', first: 'http-request', then: 'sftp-move', thenWhere: { targetPath: 'archive' }, outside: true },
+    },
+    {
+      label: 'After posting, the file is renamed with a timestamp in its name before it is archived',
+      rule: { type: 'before', first: 'http-request', then: 'sftp-rename', outside: true },
     },
     {
       label: 'A file that fails goes to the error folder',

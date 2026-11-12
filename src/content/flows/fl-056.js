@@ -1,5 +1,5 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
-import { handlerStatus } from '../../flow/rules.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-056',
@@ -72,6 +72,74 @@ export default {
     {
       label: 'Failed fulfilment messages are returned to the queue for redelivery / DLQ',
       rule: { type: 'inside', component: 'mq-nack', within: ['on-error-propagate', 'on-error-continue'] },
+    },
+    {
+      label: 'Each caller maps a 422 from the API below back to 422 (both Experience APIs and prc-order)',
+      rule: { type: 'inside', component: 'set-variable', where: { value: '422' }, within: HANDLERS, withinWhere: { when: '422' }, min: 3 },
+    },
+    { label: 'The ERP System API maps a SOAP fault to 422', rule: handlerStatus('SOAP_FAULT', '422') },
+    {
+      label: 'Each System API maps its system\'s connectivity errors to 503',
+      rule: { type: 'inside', component: 'set-variable', where: { value: '503' }, within: HANDLERS, withinWhere: { type: 'CONNECTIVITY' }, min: 3 },
+    },
+    {
+      label: 'A duplicate submission is answered with 409',
+      rule: { type: 'any', rules: [handlerStatus('DUPLICATE_MESSAGE', '409'), { type: 'exists', component: 'os-retrieve' }] },
+    },
+    {
+      label: 'The ERP System API reaches the SOAP call through APIkit or straight from its listener',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'apikit-router' },
+          { type: 'before', first: 'http-listener', firstWhere: { path: 'sys-erp' }, then: 'wsc-consume' },
+        ],
+      },
+    },
+    {
+      label: 'Fulfilment is idempotent on the event ID, so a redelivered event is not fulfilled twice',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'idempotent', where: { idExpression: 'eventId' } },
+          { type: 'exists', component: 'os-store', where: { key: 'eventId' } },
+        ],
+      },
+    },
+    {
+      label: 'The fulfilment message is acked after success and when it is a duplicate',
+      rule: { type: 'exists', component: 'mq-ack', min: 2 },
+    },
+    {
+      label: 'A failed event ID is removed from the idempotency store, so its redelivery is processed',
+      rule: { type: 'inside', component: 'os-remove', within: HANDLERS },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'exp-web-orders',
+      why: 'The 422 handler is checked on its own. The 400, 504 and catch-all 503 mappings are good practice, but Mule still fails the request without them.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'exp-partner-orders',
+      why: 'The 422 handler is checked on its own. The catch-all 503 is good practice, but Mule still fails the request without it.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-order',
+      why: 'The credit hold, 422 and duplicate mappings are checked on their own. The catch-all 503 is good practice, but Mule still fails the request without it.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'sys-payment',
+      why: 'Connectivity errors are checked on their own. Mapping other PSP errors to 502 is a nicety, since Mule still fails the call without it.',
+    },
+    {
+      type: 'on-error-continue',
+      flow: 'prc-fulfilment',
+      why: 'The duplicate handler is covered by the ack check. The handler around the remove only stops a missing ID from failing the cleanup.',
     },
   ],
   referenceFlow: design(
@@ -259,12 +327,14 @@ Business rules:
 1. Reject orders for accounts on **credit hold** (422).
 2. Card orders: authorise before creating the ERP sales order. If the ERP order cannot be created, the **authorisation must be voided** — no money reserved without an order.
 3. The caller gets an answer once the sales order exists. **Fulfilment** (ERP delivery, payment capture, CRM status update) happens **asynchronously** and must survive ERP downtime — failures are retried and end up in a DLQ, never lost.
-4. Duplicate submissions (same idempotency key) must not create two orders.
+4. Duplicate submissions (same idempotency key) must not create two orders; answer them with 409.
 5. Neither channel may call a system (or a System API) directly.
 
 **Facts**
 - \`sys-crm\` returns the account's \`creditStatus\`; an account on credit hold has \`creditStatus\` \`BLOCKED\`.
 - The custom error type for a credit hold is \`APP:CREDIT_HOLD\`.
+- A 422 from a lower API has no error type of its own: the caller's handler tests the response status code in its **When** field and passes the 422 on.
+- The Idempotent Message Validator does not release an ID when the flow fails.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-web/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path. Asynchronous process flows use \`prc-\` too, with an MQ source.
 

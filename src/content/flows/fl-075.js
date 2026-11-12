@@ -17,6 +17,20 @@ export default {
     },
     { label: 'Only validated orders are sent to the ERP', rule: { type: 'before', first: 'xml-validate', then: 'http-request' } },
     {
+      label: 'The order is converted to the ERP format (XSLT or DataWeave) before it is posted to the gateway',
+      rule: { type: 'before', first: ['xml-xslt', 'transform'], then: 'http-request' },
+    },
+    {
+      label: 'The order number is read from the partner XML before the conversion replaces the payload',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'before', first: 'xml-xpath', firstWhere: { xpath: 'OrderNumber' }, then: ['xml-xslt', 'http-request'] },
+          { type: 'before', first: 'set-variable', firstWhere: { value: 'Header.OrderNumber' }, then: ['xml-xslt', 'http-request'] },
+        ],
+      },
+    },
+    {
       label: 'An order that breaks the XSD (XML-MODULE:SCHEMA_NOT_HONOURED) is answered with 400',
       rule: handlerStatus('SCHEMA_NOT_HONOURED', '400'),
     },
@@ -33,6 +47,13 @@ export default {
           { type: 'before', first: 'http-request', then: 'set-payload', thenWhere: { value: 'OrderNumber' }, outside: true },
         ],
       },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'partner-xml-orders',
+      why: 'The scenario does not say what a partner gets when the ERP is down. Mule already answers with an error status, so a 503 with RETRY_LATER is a nicety.',
     },
   ],
   referenceFlow: design(

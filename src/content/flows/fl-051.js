@@ -47,6 +47,7 @@ export default {
         type: 'all',
         rules: [
           { type: 'handler', component: 'on-error-continue', within: 'try' },
+          { type: 'inside', component: ['set-payload', 'transform'], within: 'on-error-continue', min: 2 },
           { type: 'inside', component: 'http-request', where: { path: 'sys-cards' }, within: 'try' },
           { type: 'inside', component: 'http-request', where: { path: 'sys-loans' }, within: 'try' },
         ],
@@ -75,6 +76,17 @@ export default {
           handlerStatus('COMPOSITE_ROUTING', '503'),
         ],
       },
+    },
+    {
+      label: 'The Experience API passes the 503 on to the app',
+      rule: { type: 'any', rules: [handlerStatus('ANY', '503'), handlerStatus('SERVICE_UNAVAILABLE', '503')] },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-account-overview',
+      why: 'The catch-all handler only sets 500, which Mule answers by default for an unhandled error.',
     },
   ],
   referenceFlow: design(

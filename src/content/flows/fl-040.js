@@ -53,6 +53,18 @@ export default {
         ],
       },
     },
+    {
+      label: 'A resent webhook is answered as already in progress, not reported as a failure',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'on-error-continue', where: { type: 'DUPLICATE_MESSAGE' } },
+          // A design that looks the employee up before creating raises no duplicate error.
+          { type: 'before', first: 'os-retrieve', then: 'http-request' },
+          { type: 'before', first: 'http-request', firstWhere: { method: 'GET' }, then: 'http-request', thenWhere: { method: 'POST' } },
+        ],
+      },
+    },
     { label: 'Per-system onboarding status is persisted', rule: { type: 'exists', component: ['db-insert', 'db-update', 'os-store'] } },
     {
       label: 'Only partial failures are reported / queued for retry',

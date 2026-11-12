@@ -61,6 +61,12 @@ export default {
       rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'The handler inside the swap Try scope only logs and rethrows. Mule rolls back and propagates by default, so it adds a log line and nothing more.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'nightly-stock-load',

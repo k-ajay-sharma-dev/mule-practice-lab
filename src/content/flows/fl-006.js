@@ -1,5 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
-import { HANDLERS } from '../../flow/rules.js'
+import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-006',
@@ -11,14 +11,14 @@ export default {
   flowChecks: [
     {
       label: 'The website posts orders to an HTTP Listener front door',
-      rule: { type: 'source', component: 'http-listener', where: { path: '/orders', allowedMethods: 'POST' } },
+      rule: { type: 'source', component: 'http-listener', where: { path: { is: '/orders' }, allowedMethods: 'POST' } },
     },
     {
       label: 'The front door hands the order to Anypoint MQ and never calls SAP itself',
       rule: {
         type: 'all',
         rules: [
-          { type: 'before', first: 'http-listener', firstWhere: { path: '/orders' }, then: 'mq-publish' },
+          { type: 'before', first: 'http-listener', firstWhere: { path: { is: '/orders' } }, then: 'mq-publish' },
           { type: 'before', first: 'mq-publish', then: ['set-payload', 'transform'] },
           {
             type: 'absent',
@@ -34,7 +34,17 @@ export default {
     },
     {
       label: 'The message is acknowledged only after both SAP and WMS succeed',
-      rule: { type: 'before', first: 'http-request', then: 'mq-ack', every: true },
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'http-request', then: 'mq-ack', outside: true },
+          { type: 'before', first: 'http-request', then: 'mq-ack', every: true },
+        ],
+      },
+    },
+    {
+      label: 'If the order cannot be put on the queue, the front door returns 503',
+      rule: handlerStatus({ oneOf: ['ANYPOINT-MQ', 'ANY'] }, '503'),
     },
     {
       label: 'Transient errors Nack the message so it is redelivered (and eventually dead-lettered)',

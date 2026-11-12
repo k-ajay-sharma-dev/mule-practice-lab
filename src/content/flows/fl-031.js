@@ -78,6 +78,20 @@ export default {
       },
     },
     {
+      label: 'After the supplier lookup a Choice raises an APP: error for an unknown or a blocked supplier',
+      rule: {
+        type: 'all',
+        rules: [
+          { type: 'before', first: 'db-select', then: 'choice' },
+          { type: 'inside', component: 'raise-error', where: { type: 'APP:' }, within: 'choice', min: 2 },
+        ],
+      },
+    },
+    {
+      label: 'An ERP 422 is also re-raised as ERP_REJECTED, matched on the status code',
+      rule: { type: 'inside', component: 'raise-error', where: { type: 'ERP_REJECTED' }, within: HANDLERS, withinWhere: { when: '422' } },
+    },
+    {
       label: 'Transient failures are never dead-lettered',
       rule: {
         type: 'all',
@@ -91,6 +105,23 @@ export default {
           },
         ],
       },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-continue',
+      flow: 'process-supplier-invoices',
+      why: 'The four failure classes each have their own handler. A catch-all for anything else is good practice; without it the message is redelivered until the broker moves it to its own dead-letter queue.',
+    },
+    {
+      type: 'mq-publish',
+      flow: 'process-supplier-invoices',
+      why: 'This copy sits in the optional catch-all handler. The handler for business errors already dead-letters.',
+    },
+    {
+      type: 'mq-ack',
+      flow: 'process-supplier-invoices',
+      why: 'This copy sits in the optional catch-all handler. The handler for business errors already acknowledges.',
     },
   ],
   referenceFlow: design(
@@ -158,6 +189,7 @@ The DLQ messages must contain the original invoice, an error **type** and a desc
 
 **Facts**
 - Business error types use the \`APP\` namespace, for example \`APP:ERP_REJECTED\`.
+- HTTP 422 has no error type of its own, so a handler catches it with a \`when\` condition on the response status code.
 
 **Design the flow(s):**
 - How do you model these classes as Mule error types?

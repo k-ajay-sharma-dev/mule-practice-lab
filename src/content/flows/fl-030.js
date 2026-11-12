@@ -76,6 +76,12 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'Mule propagates the error by default, so the event is redelivered without this handler. It only adds a log line.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'enrich-sales-events',

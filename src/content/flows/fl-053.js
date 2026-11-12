@@ -65,6 +65,45 @@ export default {
       label: 'The subscriber copes with duplicate events before it acts on them',
       rule: { type: 'before', first: 'mq-subscriber', then: ['idempotent', 'os-retrieve', 'db-select'] },
     },
+    {
+      label: 'A duplicate event is dropped with On Error Continue (MULE:DUPLICATE_MESSAGE), not failed and redelivered',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'handler', component: 'on-error-continue', errorType: 'MULE:DUPLICATE_MESSAGE' },
+          // A design that checks the store itself raises no duplicate error.
+          { type: 'all', rules: [{ type: 'source', component: 'mq-subscriber' }, { type: 'absent', component: 'idempotent' }] },
+        ],
+      },
+    },
+    {
+      label: 'A failed event has its id removed from the dedupe store, so the redelivery is processed',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'inside', component: 'os-remove', within: ['on-error-continue', 'on-error-propagate'] },
+          // An id stored only after success (Retrieve first, Store at the end) needs no cleanup.
+          { type: 'all', rules: [{ type: 'exists', component: 'os-store' }, { type: 'absent', component: 'idempotent' }] },
+        ],
+      },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'exp-mobile-signup',
+      why: 'Choosing the status the app gets for a failed signup is good practice, but this scenario is about the event, not the status codes.',
+    },
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-customer-onboarding',
+      why: 'Mapping a bad request to 400, a CRM conflict to 409 and other failures to 503 is good practice, but this scenario is about the event, not the status codes.',
+    },
+    {
+      type: 'on-error-continue',
+      flow: 'prc-welcome-journey',
+      why: 'Catching OS:KEY_NOT_FOUND only covers an id that is already gone from the store. Without it no event is lost or processed twice.',
+    },
   ],
   referenceFlow: design(
     flow(

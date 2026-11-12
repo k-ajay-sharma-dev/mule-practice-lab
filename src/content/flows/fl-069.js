@@ -74,6 +74,12 @@ export default {
       rule: { type: 'before', first: 'scatter-gather', then: ['db-bulk-insert', 'db-insert'], outside: true },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'The catch-all handlers only log the error and pass it on, which Mule does by default. The duplicate recall and the failed fan-out have their own checks.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'recall-api',

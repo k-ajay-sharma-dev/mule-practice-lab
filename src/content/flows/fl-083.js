@@ -64,6 +64,13 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'KAFKA:TIMEOUT', within: 'try' },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'ledger-replay-admin',
+      why: 'The scenario asks for no status codes. A replay changes nothing for rows already written, so after a failure the operator can rerun the same range; a 400 for a bad range and the progress in the error body are good extras.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'ledger-replay-admin',

@@ -44,6 +44,13 @@ export default {
       rule: handlerStatus({ oneOf: ['AZURE', 'CONNECTIVITY'] }, '503'),
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'supplier-invoice-intake',
+      why: 'The catch-all handler answers 500 and logs the error, which Mule does by default. It only adds a tidier body.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'supplier-invoice-intake',

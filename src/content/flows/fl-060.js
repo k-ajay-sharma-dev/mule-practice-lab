@@ -23,6 +23,7 @@ export default {
         rules: [
           { type: 'source', component: 'jms-listener', where: { ackMode: 'MANUAL' } },
           { type: 'before', first: 'db-bulk-insert', then: 'jms-ack', every: true },
+          { type: 'before', first: 'db-bulk-insert', then: 'jms-ack', outside: true },
         ],
       },
     },
@@ -58,11 +59,12 @@ export default {
       },
     },
     {
-      label: 'Other failures propagate, leaving the message unacknowledged for redelivery',
+      label: 'Other failures propagate without an ack and recover the session, so the message is redelivered',
       rule: {
         type: 'all',
         rules: [
           { type: 'handler', component: 'on-error-propagate' },
+          { type: 'inside', component: 'jms-recover-session', within: 'on-error-propagate' },
           { type: 'absent', component: 'jms-ack', within: 'on-error-propagate' },
           { type: 'absent', component: 'on-error-continue', where: { type: 'ANY' } },
         ],

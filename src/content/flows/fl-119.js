@@ -59,6 +59,12 @@ export default {
       },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      why: 'Mule propagates errors by default, and the watermark is only stored on success. This handler only adds a log line.',
+    },
+  ],
   referenceFlow: design(
     flow(
       'helpdesk-ticket-sync',

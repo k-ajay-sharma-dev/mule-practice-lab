@@ -24,6 +24,20 @@ export default {
       },
     },
     {
+      label: 'An event for a PO that is no longer APPROVED is logged and dropped, not failed and redelivered',
+      rule: {
+        type: 'any',
+        rules: [
+          { type: 'exists', component: 'on-error-continue', where: { type: 'VALIDATION' } },
+          { type: 'inside', component: 'sftp-write', within: 'choice' },
+        ],
+      },
+    },
+    {
+      label: 'The interchange control number is taken from the Oracle sequence EDI_ICN_SEQ',
+      rule: { type: 'exists', component: 'db-select', where: { sql: 'EDI_ICN_SEQ' } },
+    },
+    {
       label: 'The 850 file is written with CREATE_NEW (a sent PO file is never overwritten)',
       rule: { type: 'exists', component: 'sftp-write', where: { mode: 'CREATE_NEW' } },
     },
@@ -47,6 +61,13 @@ export default {
     {
       label: 'The monitor raises overdue POs on the exceptions queue',
       rule: { type: 'before', first: 'scheduler', then: 'jms-publish', thenWhere: { destination: 'PROC.PO.ACK.EXCEPTIONS' } },
+    },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'po-to-supplier-850',
+      why: 'This handler only logs the error and passes it on, which Mule does by default.',
     },
   ],
   referenceFlow: design(
@@ -153,6 +174,7 @@ EDI-capable suppliers (about 600) exchange **X12 4010** files over the retailer'
 
 **Facts**
 - \`PO_HEADER.STATUS\` is \`APPROVED\` when the event arrives, \`SENT\` once the supplier has the 850, and \`ACKNOWLEDGED\` or \`REJECTED\` after the 855.
+- Interchange control numbers (ISA13, GS06, ST02) come from the Oracle sequence \`EDI_ICN_SEQ\`.
 
 **Design the flow(s).**
 `,

@@ -1,4 +1,5 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
+import { handlerStatus } from '../../flow/rules.js'
 
 export default {
   id: 'fl-037',
@@ -41,6 +42,16 @@ export default {
     },
     { label: 'Each layer maps to its own model with DataWeave', rule: { type: 'exists', component: 'transform', min: 3 } },
     { label: 'Errors are mapped to HTTP status codes in an error handler', rule: { type: 'handler', component: 'on-error-propagate' } },
+    { label: 'An unknown order (HTTP:NOT_FOUND) reaches the mobile app as 404', rule: handlerStatus('NOT_FOUND', '404') },
+    { label: 'Any other failure reaches the mobile app as 502', rule: handlerStatus('ANY', { oneOf: ['502', '503', '504'] }) },
+    { label: 'The ERP System API maps a SOAP fault to an HTTP status', rule: handlerStatus('WSC', { oneOf: ['404', '502'] }) },
+  ],
+  optionalSteps: [
+    {
+      type: 'on-error-propagate',
+      flow: 'prc-order-status',
+      why: 'This handler only logs the error and passes it on, which Mule does by default. The status codes are set in the other layers.',
+    },
   ],
   referenceFlow: design(
     flow(

@@ -33,6 +33,7 @@ export default {
         ],
       },
     },
+    { label: 'Both GET operations read orders from the database', rule: { type: 'exists', component: 'db-select', min: 2 } },
     { label: 'The not-found error is mapped to 404', rule: handlerStatus('NOT_FOUND', '404') },
     {
       label: 'The handler that sets 404 catches the error the flow raises',
