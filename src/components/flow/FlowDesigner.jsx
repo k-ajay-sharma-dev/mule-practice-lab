@@ -326,14 +326,16 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
 function Palette({ armed, setArmed }) {
   const { setDrag, touch } = useContext(Ctx)
   const [query, setQuery] = useState('')
-  const q = query.toLowerCase()
+  const q = query.trim().toLowerCase()
+  // A lane (Batch step, When) is not a palette item of its own, so a search for it finds the component that holds it.
+  const byLane = (c) => q && !c.label.toLowerCase().includes(q) && c.routeLabel?.toLowerCase().includes(q)
 
   return (
     <aside className="palette">
       <input className="input palette-search" placeholder="Search components" value={query} onChange={(e) => setQuery(e.target.value)} />
       <div className="palette-groups">
         {GROUPS.map((g) => {
-          const items = Object.entries(COMPONENTS).filter(([, c]) => c.group === g.id && c.label.toLowerCase().includes(q))
+          const items = Object.entries(COMPONENTS).filter(([, c]) => c.group === g.id && (c.label.toLowerCase().includes(q) || byLane(c)))
           if (!items.length) return null
           return (
             <div key={g.id} className="palette-group">
@@ -353,7 +355,10 @@ function Palette({ armed, setArmed }) {
                   title="Drag onto the canvas, or tap then tap a slot"
                 >
                   <span className="node-glyph">{c.glyph}</span>
-                  <span>{c.label}</span>
+                  <span>
+                    {c.label}
+                    {byLane(c) && <span className="palette-lane">{c.routeLabel} is inside it</span>}
+                  </span>
                 </button>
               ))}
             </div>

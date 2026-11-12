@@ -1611,6 +1611,11 @@ textarea:focus {
   text-align: left;
   cursor: grab;
 }
+.palette-lane {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
 .palette-item:hover {
   background: var(--surface-2);
   border-color: var(--border);
