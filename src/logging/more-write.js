@@ -225,7 +225,7 @@ export const MORE_WRITE = [
     model: {
       level: 'ERROR',
       message:
-        '#["Order event not processed after 5 deliveries messageId=$(vars.mqMessageId) orderId=$(vars.orderId) errorType=$(error.errorType) next=sent to DLQ correlationId=$(correlationId)"]',
+        '#["Order event not processed after 5 deliveries messageId=$(vars.mqMessageId) orderId=$(vars.orderId) errorType=$(error.errorType) reason=$(error.description) next=dlq correlationId=$(correlationId)"]',
     },
     explain:
       'The message stopped and waits for a person in the DLQ, so ERROR. The message ID lets support find it there and send it again.',

@@ -34,7 +34,9 @@ export const labelled = (key, example = `${key}=$(...)`) => ({
   say: `Label the value, such as ${example}, so it can be searched.`,
 })
 export const says = (re, what) => ({ must: re, say: `Start with what happened, such as '${what}'.` })
+// Both facts, since one without the other leaves the reader guessing: the type says which failure it was, the
+// description says what the system answered.
 export const errorFacts = {
-  must: /error\.(errorType|description|detailedDescription)/,
+  must: /(?=[\s\S]*error\.errorType)(?=[\s\S]*error\.(description|detailedDescription))/,
   say: 'Add what went wrong: error.errorType and error.description.',
 }

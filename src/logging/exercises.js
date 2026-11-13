@@ -13,6 +13,12 @@ import { MORE_CHOICE } from './more-choice.js'
 import { MORE_LEVEL } from './more-level.js'
 import { MORE_MULTI } from './more-multi.js'
 import { MORE_WRITE } from './more-write.js'
+import { SET_1 } from './sets/set-1.js'
+import { SET_2 } from './sets/set-2.js'
+import { SET_3 } from './sets/set-3.js'
+import { SET_4 } from './sets/set-4.js'
+import { SET_5 } from './sets/set-5.js'
+import { SET_6 } from './sets/set-6.js'
 
 export { KINDS, LEVELS } from './rules.js'
 
@@ -609,8 +615,11 @@ const FIRST = [
   },
 ]
 
+// Later exercises, written a set per theme (sets/set-*.js), each set holding every kind.
+const SETS = [...SET_1, ...SET_2, ...SET_3, ...SET_4, ...SET_5, ...SET_6]
+
 // In the order the page shows them: each kind together.
-const byKind = (kind, more) => [...FIRST.filter((e) => e.kind === kind), ...more]
+const byKind = (kind, more) => [...FIRST.filter((e) => e.kind === kind), ...more, ...SETS.filter((e) => e.kind === kind)]
 export const EXERCISES = [
   ...byKind('level', MORE_LEVEL),
   ...byKind('choice', MORE_CHOICE),
