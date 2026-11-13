@@ -48,15 +48,27 @@ const OPS = [
   [/(delete|delete-blob)$/, 'delete'],
 ]
 const opOf = (type) => OPS.find(([re]) => re.test(type))?.[1] ?? 'call'
+const POLLED = new Set(['db', 'file', 'sftp', 'ftp'])
+
+// Queues and topics. One that a design both sends to and receives from is a hand-off between its own flows: its
+// name and its kind (VM, Anypoint MQ, JMS) are the designer's choice, so it is not a system the scenario hands you.
+const CHANNELS = new Set(['VM queue', 'Anypoint MQ destination', 'JMS queue', 'JMS topic', 'Kafka topic', 'Amazon SQS queue'])
+// #['auditQueue'] names the same queue as auditQueue
+const channelKey = (name) => {
+  const text = String(name).trim()
+  const literal = text.match(/^#\[\s*(['"])((?:(?!\1).)*)\1\s*\]$/s)
+  return (literal ? literal[2] : text).trim().toLowerCase()
+}
 
 // what one step calls, as zero or more { kind, name, op }. HTTP Listener and Scheduler are left to systemsIn.
 function targetsOf(type, c = {}) {
   const def = COMPONENTS[type]
   if (!def || type === 'http-listener' || type === 'scheduler') return []
   if (!OUTBOUND.has(def.group) && def.kind !== 'source') return []
-  const op = opOf(type)
-  const one = (kind, name) => (known(name) ? [{ kind, name, op }] : [])
   const [family] = type.split('-')
+  // a source that polls a table, a folder or a mailbox reads it, as a Scheduler with a Select or a List would
+  const op = def.kind === 'source' && POLLED.has(family) ? 'read' : opOf(type)
+  const one = (kind, name) => (known(name) ? [{ kind, name, op }] : [])
 
   if (type === 'http-request') {
     const method = String(c.method || 'GET').toUpperCase()
@@ -73,7 +85,8 @@ function targetsOf(type, c = {}) {
   if (family === 'mq') return one('Anypoint MQ destination', c.destination)
   if (family === 'jms') {
     const kind = c.destinationType === 'TOPIC' ? 'JMS topic' : 'JMS queue'
-    if (type === 'jms-publish-consume') return known(c.destination) ? [{ kind, name: c.destination, op: 'send' }, { kind, name: c.destination, op: 'receive' }] : []
+    // the request goes to the destination; the reply comes back on a reply queue of its own
+    if (type === 'jms-publish-consume') return known(c.destination) ? [{ kind, name: c.destination, op: 'send' }] : []
     return one(kind, c.destination)
   }
   if (family === 'vm') return one('VM queue', c.queueName)
@@ -133,11 +146,30 @@ function apikitEndpoint(flowName = '') {
 
 const SCHEDULE = { kind: 'Schedule', name: 'Scheduler', op: 'run', onError: false }
 
+// The queues a design hands work over on: sent to by one of its flows and received by another (see CHANNELS).
+function internalChannels(design) {
+  const sent = new Set()
+  const received = new Set()
+  for (const f of design.flows ?? []) {
+    for (const u of walk([f.source].filter(Boolean), [])) if (CHANNELS.has(u.kind)) received.add(channelKey(u.name))
+    for (const u of walk([...(f.steps ?? []), ...(f.errorHandlers ?? [])], [])) if (CHANNELS.has(u.kind) && u.op === 'send') sent.add(channelKey(u.name))
+  }
+  return new Set([...sent].filter((k) => received.has(k)))
+}
+
 // What starts a flow: its own source, or for a flow with none, the flows that call it with Flow Reference
-// (followed back to their sources). A shared sub-flow called by three endpoints is started by all three.
+// (followed back to their sources). A shared sub-flow called by three endpoints is started by all three. A flow that
+// receives from one of the design's own hand-off queues is started by whatever starts the flows that send to it.
 function triggersOf(design) {
   const own = new Map()
   const callers = new Map()
+  const internal = internalChannels(design)
+  const senders = new Map()
+  const handedBy = new Map()
+  for (const f of design.flows) {
+    for (const u of walk([...(f.steps ?? []), ...(f.errorHandlers ?? [])], []))
+      if (CHANNELS.has(u.kind) && u.op === 'send' && internal.has(channelKey(u.name))) senders.set(channelKey(u.name), [...(senders.get(channelKey(u.name)) ?? []), f.name])
+  }
   const refsIn = (nodes, out = []) => {
     for (const n of nodes || []) {
       if (n.type === 'flow-ref' && n.config?.name) out.push(n.config.name)
@@ -151,20 +183,28 @@ function triggersOf(design) {
   for (const f of design.flows) {
     const s = f.source
     const start = s?.type === 'scheduler' ? SCHEDULE : endpointOf(s) ?? (s ? walk([s], [])[0] : null) ?? apikitEndpoint(f.name)
-    own.set(f.name, start ? [start] : [])
+    const handOff = start && CHANNELS.has(start.kind) && internal.has(channelKey(start.name))
+    // A hand-off flow also keeps its own queue as a lane, so two workers behind one endpoint stay apart.
+    own.set(f.name, start ? [handOff ? { ...start, lane: true } : start] : [])
+    if (handOff) handedBy.set(f.name, { lane: channelKey(start.name), from: senders.get(channelKey(start.name)) ?? [] })
     for (const name of [...refsIn(f.steps), ...refsIn(f.errorHandlers)]) callers.set(name, [...(callers.get(name) ?? []), f.name])
   }
+  // Flows may call each other in a loop (a worker that requeues to itself), so a result found part-way round a loop
+  // is not kept: only the full answer for the flow asked about is.
+  // A start reached through a hand-off queue is marked with that queue (through), so a check can set it aside while
+  // the design keeps the queue and the lane already tells the flows apart.
   const memo = new Map()
-  const resolve = (name, seen = new Set()) => {
-    if (memo.has(name)) return memo.get(name)
+  const collect = (name, seen) => {
     if (seen.has(name)) return []
     seen.add(name)
-    const found = [...(own.get(name) ?? []), ...(callers.get(name) ?? []).flatMap((c) => resolve(c, seen))]
-    const out = distinct(found, (t) => `${t.kind}\n${t.name}\n${t.op}`)
-    memo.set(name, out)
-    return out
+    const handed = handedBy.get(name)
+    const passed = handed ? handed.from.flatMap((c) => collect(c, seen)).map((t) => (t.through ? t : { ...t, through: handed.lane })) : []
+    return [...(own.get(name) ?? []), ...(callers.get(name) ?? []).flatMap((c) => collect(c, seen)), ...passed]
   }
-  return resolve
+  return (name) => {
+    if (!memo.has(name)) memo.set(name, distinct(collect(name, new Set()), (t) => `${t.kind}\n${t.name}\n${t.op}\n${t.through ?? ''}`))
+    return memo.get(name)
+  }
 }
 
 // Every use of a system in a design, as { kind, name, op, onError, via }, in the order the design first makes
@@ -192,15 +232,24 @@ function usesIn(design) {
       else found.push({ ...u, via: null })
     }
   }
-  return distinct(found, (s) => `${s.kind}\n${s.name}\n${s.op}\n${s.onError}\n${s.via ? `${s.via.kind} ${s.via.name}` : ''}`)
+  const internal = internalChannels(design)
+  return distinct(found, (s) => `${s.kind}\n${s.name}\n${s.op}\n${s.onError}\n${s.via ? `${s.via.kind} ${s.via.name} ${s.via.through ?? ''}` : ''}`).map((s) =>
+    CHANNELS.has(s.kind) && internal.has(channelKey(s.name)) ? { ...s, internal: true } : s,
+  )
 }
 
 // Every distinct system in a design, in the order the design first uses it. This is the list a scenario shows:
-// names only, not what the reference does with them.
-export const systemsIn = (design) => distinct(usesIn(design), (s) => `${s.kind}\n${s.name}`).map(({ kind, name }) => ({ kind, name }))
+// names only, not what the reference does with them. A hand-off queue between the design's own flows is left out:
+// what it is called, and whether it is VM or Anypoint MQ, is up to the designer.
+export const systemsIn = (design) =>
+  distinct(
+    usesIn(design).filter((s) => !s.internal),
+    (s) => `${s.kind}\n${s.name}`,
+  ).map(({ kind, name }) => ({ kind, name }))
 
 // Each read, write, send and call the reference makes, for the shared check: a design that reads a table it
 // should also update is not done.
+// A hand-off queue stays in, marked internal: it is wanted only while the design keeps that queue's name.
 export const systemUsesIn = (design) => usesIn(design)
 
 // In plain words, for a hint: "update notification_status (database table)".
@@ -237,9 +286,12 @@ function reaches(designPath, listedPath) {
 
 // Same system, and the same thing done to it when the wanted use says what (an older list holds names only).
 // An endpoint's methods are not compared: an empty Allowed methods accepts every method.
+// Marking a row done and deleting it are two ways to finish with it.
+const SAME_OP = { update: ['update', 'delete'], delete: ['update', 'delete'] }
+
 function sameSystem(have, want) {
   if (have.kind !== want.kind) return false
-  if (want.op && want.kind !== ENDPOINT && have.op !== want.op) return false
+  if (want.op && want.kind !== ENDPOINT && have.op !== want.op && !SAME_OP[want.op]?.includes(have.op)) return false
   if (want.onError !== undefined && have.onError !== want.onError) return false
   // an endpoint with no Allowed methods accepts every method
   if (want.kind === ENDPOINT && want.methods && have.methods) {
@@ -248,7 +300,41 @@ function sameSystem(have, want) {
   }
   if (want.kind === 'Email') return true
   if (want.kind === 'HTTP API' || want.kind === ENDPOINT) return reaches(have.name, want.name)
-  return have.name.trim().toLowerCase() === want.name.trim().toLowerCase()
+  if (FOLDERS.has(want.kind)) return inFolder(have.name, want.name)
+  if (want.kind === 'Database table') return namesMatch(withoutSchema(have.name), withoutSchema(want.name))
+  return namesMatch(have.name, want.name)
+}
+
+// crm.customers is the customers table in the crm schema
+const withoutSchema = (name) => String(name).replace(/^[\w$]+\./, '')
+
+// A file inside a listed folder is in that folder: /outbound/payments/run-1.csv and
+// #["/outbound/payments/" ++ vars.fileName] are both in /outbound/payments.
+const FOLDERS = new Set(['Folder or file', 'SFTP folder or file', 'FTP folder or file'])
+function inFolder(have, want) {
+  if (namesMatch(have, want)) return true
+  const folder = want.trim().toLowerCase().replace(/\/+$/, '')
+  const literal = have.trim().match(/^#\[\s*(['"])((?:(?!\1).)*)\1/s)
+  const path = (have.includes('#[') ? (literal?.[2] ?? '') : have).trim().toLowerCase()
+  return folder !== '' && path.startsWith(`${folder}/`)
+}
+
+// Starts that poll (a Scheduler, a table or folder listener) are one kind of start: a design may poll a table with
+// a Scheduler and a Select where the reference used a table listener.
+const POLLING = new Set(['Schedule', 'Database table', ...FOLDERS])
+const sameTrigger = (have, want) => sameSystem(have, want) || (POLLING.has(want.kind) && POLLING.has(have.kind))
+
+// A name written as a DataWeave string, #['auditQueue'] or #[ "auditQueue" ], is that name. A name built at run time
+// counts when the listed name is written inside it, as in #["orders-" ++ vars.region] for orders-eu.
+function namesMatch(have, want) {
+  const listed = want.trim().toLowerCase()
+  const text = have.trim()
+  const literal = text.match(/^#\[\s*(['"])((?:(?!\1).)*)\1\s*\]$/s)
+  const name = (literal ? literal[2] : text).trim().toLowerCase()
+  if (name === listed) return true
+  if (literal || !text.includes('#[')) return false
+  const pieces = [...text.matchAll(/(['"])(.*?)\1/g)].map((m) => m[2].toLowerCase()).filter(Boolean)
+  return pieces.length > 0 && listed.startsWith(pieces[0]) && pieces.every((p) => listed.includes(p))
 }
 
 // The wanted uses a design never makes. Run-time paths in the design count (see reaches).
@@ -260,7 +346,26 @@ export function missingSystems(wanted, design) {
   } finally {
     known = isKnown
   }
+  // A hand-off queue both the reference and the design keep: the flows behind it are told apart by its lane, so the
+  // starts they inherit through it are set aside on both sides. A renamed queue is checked by those starts instead.
+  const laneKeys = (uses) => new Set(uses.filter((s) => s.via?.lane).map((s) => channelKey(s.via.name)))
+  const theirs = laneKeys(wanted)
+  const kept = new Set([...laneKeys(have)].filter((k) => theirs.has(k)))
+  have = have.filter((s) => !kept.has(s.via?.through))
+  wanted = wanted.filter((s) => !kept.has(s.via?.through))
   // via: the call must be made in a flow started the same way (a flow it calls counts)
-  const sameStart = (s, want) => !want.via || (s.via && sameSystem(s.via, want.via))
-  return wanted.filter((want) => !have.some((s) => sameSystem(s, want) && sameStart(s, want)))
+  const sameStart = (s, want) => !want.via || (s.via && sameTrigger(s.via, want.via))
+  // A lane counts only when the design keeps that hand-off queue; a renamed queue is checked by what starts it.
+  const lanes = new Set(have.filter((s) => s.via?.lane).map((s) => channelKey(s.via.name)))
+  const sameLane = (s, want) => (s.via?.lane ? channelKey(s.via.name) === channelKey(want.via.name) : false)
+  const channels = new Set(have.filter((s) => CHANNELS.has(s.kind)).map((s) => channelKey(s.name)))
+  return wanted.filter((want) => {
+    if (want.internal) {
+      // a hand-off queue may be VM, Anypoint MQ or JMS: the name and the direction are what count
+      if (!channels.has(channelKey(want.name))) return false
+      return !have.some((s) => CHANNELS.has(s.kind) && channelKey(s.name) === channelKey(want.name) && s.op === want.op && (want.onError === undefined || s.onError === want.onError) && sameStart(s, want))
+    }
+    if (want.via?.lane) return lanes.has(channelKey(want.via.name)) && !have.some((s) => sameSystem(s, want) && sameLane(s, want))
+    return !have.some((s) => sameSystem(s, want) && sameStart(s, want))
+  })
 }

@@ -23,8 +23,8 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-089', '/pim/rejected/', (d) => {
     for (const w of all(d, 'sftp-write')) w.config.path = '/pim/outbound/rejected.csv'
   })
-  // Unprocessed rows logged instead of written to a file are still visible.
-  await passes('fl-089', (d) => {
+  // Unprocessed rows only logged leave out the rejected file the scenario lists.
+  await failsOn('fl-089', 'every call, read and write', (d) => {
     const done = one(d, 'choice', (c) => c.routes.some((r) => r.config.expression.includes('JobComplete'))).routes[0]
     done.steps.splice(5, 1, step('logger', { level: 'WARN', message: '#["Unprocessed rows: " ++ write(payload, "application/csv")]' }))
   })

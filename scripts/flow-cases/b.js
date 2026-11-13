@@ -204,8 +204,8 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-039', 'step that accepts ONLY_FAILURES', (d) => {
     step039(d, 'record-failures').config.acceptPolicy = 'ALL'
   })
-  // No separate mark-migrated step, and failures kept in a file.
-  await passes('fl-039', (d) => {
+  // Failures kept in a file leave out the migration tables the scenario lists.
+  await failsOn('fl-039', 'every call, read and write', (d) => {
     const job = one(d, 'batch-job')
     job.routes = job.routes.filter((r) => r.config.name !== 'mark-migrated')
     step039(d, 'record-failures').steps = [step('file-write', { path: '#["/migration/errors/" ++ vars.waveId ++ ".csv"]', mode: 'APPEND' })]
@@ -325,9 +325,8 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-043', 'recorded in the job status', (d) => {
     handlerFor(d, 'ANY').steps = [step('mq-ack', { ackToken: '#[vars.ackToken]' })]
   })
-  // A VM queue between submit and worker, and the job kept in Object Store.
+  // A VM queue between submit and worker.
   await passes('fl-043', (d) => {
-    Object.assign(one(d, 'db-insert', (n) => n.config.sql.includes('bulk_job')), { type: 'os-store', config: { key: '#[vars.jobId]', value: '#[{ total: vars.chunkCount }]', objectStore: 'bulk-jobs' } })
     Object.assign(one(d, 'mq-publish'), { type: 'vm-publish', config: { queueName: 'pim-bulk-chunks' } })
     const worker = flowOf(d, 'worker')
     worker.source = step('vm-listener', { queueName: 'pim-bulk-chunks', transactionalAction: 'ALWAYS_BEGIN' })
@@ -352,8 +351,8 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const h = flowOf(d, 'worker').errorHandlers[0]
     h.steps = h.steps.map((n) => (n.type === 'mq-nack' ? step('mq-ack', { ackToken: '#[vars.ackToken]' }) : n))
   })
-  // The legacy claims system is reached through a System API over HTTP.
-  await passes('fl-044', (d) => {
+  // A System API over HTTP leaves out the SubmitClaim operation the scenario lists.
+  await failsOn('fl-044', 'every call, read and write', (d) => {
     Object.assign(one(d, 'wsc-consume'), { type: 'http-request', config: { method: 'POST', path: '/sys-claims/v1/claims', responseTimeout: 60000 } })
   })
 

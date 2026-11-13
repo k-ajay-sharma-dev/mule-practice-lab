@@ -59,6 +59,8 @@ export default {
           { type: 'exists', component: 'mq-ack', min: 2 },
           // Nacking a failed chunk and letting the DLQ policy decide is also fine.
           { type: 'all', rules: [{ type: 'exists', component: 'mq-ack' }, { type: 'inside', component: 'mq-nack', within: HANDLERS }] },
+          // A VM queue has no ack: the message is taken once the flow ends, or returned when a transaction rolls back.
+          { type: 'all', rules: [{ type: 'source', component: 'vm-listener' }, { type: 'absent', component: 'mq-subscriber' }] },
         ],
       },
     },

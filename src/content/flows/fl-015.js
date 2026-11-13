@@ -120,11 +120,25 @@ export default {
         rules: [
           { type: 'exists', component: 'idempotent', min: 2 },
           {
-            type: 'inside',
-            component: ['mq-ack', 'jms-ack'],
-            within: 'on-error-continue',
-            withinWhere: { type: 'DUPLICATE_MESSAGE' },
-            min: 2,
+            type: 'any',
+            rules: [
+              {
+                type: 'inside',
+                component: ['mq-ack', 'jms-ack'],
+                within: 'on-error-continue',
+                withinWhere: { type: 'DUPLICATE_MESSAGE' },
+                min: 2,
+              },
+              // With AUTO acknowledgement, On Error Continue ends the flow as a success, so the broker acks the duplicate.
+              {
+                type: 'all',
+                rules: [
+                  { type: 'exists', component: 'on-error-continue', where: { type: 'DUPLICATE_MESSAGE' }, min: 2 },
+                  { type: 'absent', component: 'mq-ack' },
+                  { type: 'absent', component: 'jms-ack' },
+                ],
+              },
+            ],
           },
         ],
       },

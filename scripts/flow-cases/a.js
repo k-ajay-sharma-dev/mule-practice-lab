@@ -296,7 +296,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-015', 'as soon as it arrives', (d) => {
     flowOf(d, 'email-worker').source.config.acknowledgementMode = 'IMMEDIATE'
   })
-  await failsOn('fl-015', 'only after the email or SMS was sent', (d) => {
+  await failsOn('fl-015', 'or the email or SMS was sent', (d) => {
     const steps = flowOf(d, 'email-worker').steps
     steps.splice(1, 0, remove(steps, 'mq-ack'))
   })
@@ -344,7 +344,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-016', 'sends it to OCR', (d) => {
     typeRouter(d).routes[1].steps.pop()
   })
-  await failsOn('fl-016', 'visible to the AP team', (d) => {
+  await failsOn('fl-016', 'reported to the AP team', (d) => {
     for (const h of all(d, 'on-error-continue')) h.steps = h.steps.filter((n) => n.type !== 'mq-publish')
   })
   await passes('fl-016', (d) => {
@@ -364,7 +364,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const steps = one(d, 'choice').otherwise
     steps.splice(1, 0, remove(steps, 'vm-publish'))
   })
-  await failsOn('fl-017', 'COMPLETED only after the file is stored', (d) => {
+  await failsOn('fl-017', 'COMPLETED only after the PDF is uploaded', (d) => {
     const steps = worker(d).steps
     steps.splice(2, 0, steps.pop())
   })
@@ -413,7 +413,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-019', 'forwards orders over 100', (d) => {
     one(d, 'choice').routes[0].config.expression = '#[(attributes.properties.totalAmount as Number default 0) > 50]'
   })
-  await failsOn('fl-019', 'deduplicate events on eventId', (d) => {
+  await failsOn('fl-019', 'deduplicates events on eventId', (d) => {
     for (const n of all(d, 'idempotent')) n.config.idExpression = '#[correlationId]'
   })
   await failsOn('fl-019', 'removed from the dedupe store', (d) => {
@@ -644,7 +644,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const route = one(d, 'scatter-gather').routes[0]
     route.steps = [route.steps[0].steps[0]]
   })
-  await failsOn('fl-028', 'reported as DOWN', (d) => {
+  await failsOn('fl-028', 'reports DOWN', (d) => {
     for (const h of all(d, 'on-error-continue')) h.steps = h.steps.filter((n) => n.type === 'logger')
   })
   await failsOn('fl-028', 'decided after all probes', (d) => {

@@ -35,6 +35,17 @@ async function results(id, change) {
   return { design, checks, out: runChecks(design, checks) }
 }
 
+// Each case that does not hold is collected, so one run lists them all.
+const broken = []
+const collect = (fn) => async (id, ...rest) => {
+  try {
+    await fn(id, ...rest)
+  } catch (err) {
+    const at = new Error().stack.match(/flow-cases[\\/][\w-]+\.js:\d+/)?.[0] ?? ''
+    broken.push(`${at}  ${err.message.split('\n')[0]}`)
+  }
+}
+
 // This wrong design must fail the check whose label holds `label`, and only because of that change.
 async function failsOn(id, label, change) {
   const { design, checks, out } = await results(id, change)
@@ -50,8 +61,9 @@ async function failsOn(id, label, change) {
 
 // This different but correct design must pass everything.
 async function passes(id, change) {
-  const { out } = await results(id, change)
-  assert.deepEqual(out.filter((r) => !r.pass).map((r) => r.label), [], id)
+  const { design, checks, out } = await results(id, change)
+  const why = out.flatMap((r, i) => (r.pass ? [] : [missingHint(design, checks[i].rule)])).join(' | ')
+  assert.deepEqual(out.filter((r) => !r.pass).map((r) => r.label), [], `${id}: ${why}`)
   right++
 }
 
@@ -59,10 +71,14 @@ async function passes(id, change) {
 // Usage: node scripts/check-strict.js [pilot a b ...] runs only those files.
 const caseDir = resolve('scripts/flow-cases')
 const only = process.argv.slice(2)
-const tools = { failsOn, passes, one, all, handlerFor, flowOf, remove, step, scope, handler, subFlow, createNode }
+const tools = { failsOn: collect(failsOn), passes: collect(passes), one, all, handlerFor, flowOf, remove, step, scope, handler, subFlow, createNode }
 for (const file of readdirSync(caseDir).filter((x) => x.endsWith('.js')).sort()) {
   if (only.length && !only.includes(file.replace(/\.js$/, ''))) continue
   await (await import(pathToFileURL(join(caseDir, file)).href)).default(tools)
+}
+if (broken.length) {
+  console.error(`${broken.length} design case(s) do not hold:\n${broken.join('\n')}`)
+  process.exit(1)
 }
 
 // Shared completeness check, on a small design

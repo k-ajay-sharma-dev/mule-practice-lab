@@ -156,7 +156,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const choice = remove(steps, 'choice')
     steps.splice(2, 0, ...choice.routes[0].steps)
   })
-  await passes('fl-006', (d) => {
+  await failsOn('fl-006', 'every call, read and write', (d) => {
     const steps = flowOf(d, 'consumer').steps
     remove(steps, 'http-request')
     const choice = remove(steps, 'choice')

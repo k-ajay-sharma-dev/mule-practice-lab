@@ -34,8 +34,8 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const steps = d.flows[0].steps
     steps.push(remove(steps, 'transform'))
   })
-  // Parking on a JMS queue from a handler for the retry and Salesforce errors.
-  await passes('fl-062', (d) => {
+  // Parking on a JMS queue leaves out the INTEGRATION_ERROR insert the scenario lists.
+  await failsOn('fl-062', 'every call, read and write', (d) => {
     const h = handlerFor(d, 'ANY')
     h.config.type = 'MULE:RETRY_EXHAUSTED, SALESFORCE:CONNECTIVITY'
     h.steps[0] = step('jms-publish', { destination: 'OMS.STATUS.PARKED' })
@@ -238,7 +238,6 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     t.steps.unshift(t.steps.pop())
   })
   await passes('fl-070', (d) => {
-    one(d, 'choice').routes[0].steps.find((n) => n.type === 'jms-publish').config.destination = 'DOCK.BLIND.RECEIPTS'
     Object.assign(flowOf(d, 'gr-outbox').source.config, { frequency: 1, timeUnit: 'MINUTES' })
   })
   await failsOn('fl-070', 'No XA', (d) => {

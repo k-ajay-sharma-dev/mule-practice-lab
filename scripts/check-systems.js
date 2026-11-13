@@ -101,6 +101,14 @@ if (!/receives from sms-q/.test(without((d) => (d.flows[1].steps = [])))) fail('
 if (without((d) => (d.flows[1].steps = [upd("UPDATE notice SET status = 'SENT'")]))) fail('making the call in the flow itself, not a sub-flow, does not count')
 if (!/read orders/.test(without((d) => (d.flows[3].steps = [])))) fail('an APIkit flow missing its query goes unnoticed')
 if (!/update notice/.test(without((d) => (d.flows[0].steps = [{ type: 'db-select', config: { sql: 'SELECT * FROM notice' } }])))) fail('a read counts as the update it replaces')
+// a queue name written as a DataWeave string, or built at run time, is still that queue
+const vm = (queueName) => ({ flows: [{ steps: [{ type: 'vm-publish', config: { queueName } }] }] })
+const wantQ = systemUsesIn(vm('auditQueue'))
+if (missingSystems(wantQ, vm("#['auditQueue']")).length) fail('#[\'auditQueue\'] does not count as auditQueue')
+if (missingSystems(wantQ, vm('#[ "auditQueue" ]')).length) fail('#[ "auditQueue" ] does not count as auditQueue')
+if (missingSystems(wantQ, vm('#["audit" ++ "Queue"]')).length) fail('a queue name built from its pieces does not count')
+if (!missingSystems(wantQ, vm("#['auditQ']")).length) fail('#[\'auditQ\'] counts as auditQueue')
+if (!missingSystems(wantQ, vm('otherQueue')).length) fail('another queue counts as auditQueue')
 if (!/TRUNCATE|delete from stage/.test(useText(systemUsesIn({ flows: [{ steps: [upd('TRUNCATE TABLE stage')] }] })[0]))) fail('TRUNCATE is not read as a delete')
 
 if (failures.length) {
