@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Markdown from '../Markdown.jsx'
 import { FAILS } from '../../quiz/output-question.js'
+import { gradeWrite } from '../../logging/grade.js'
+import { LEVELS } from '../../logging/rules.js'
 import { grade, permutation } from '../../quiz/quiz.js'
 
 const TYPE_HINT = {
@@ -8,10 +10,13 @@ const TYPE_HINT = {
   multi: 'Choose all that apply',
   order: 'Put in the right order',
   match: 'Match each item',
+  level: 'Pick the level',
+  logger: 'Write the logger',
 }
 
 // Default response for a question nobody has touched yet (an order puzzle starts shuffled).
 export function initialResponse(q, seed) {
+  if (q.type === 'logger') return { level: '', message: '' }
   return q.type === 'order' ? permutation(q.items.length, seed) : q.type === 'multi' ? [] : q.type === 'match' ? {} : null
 }
 
@@ -29,6 +34,10 @@ export function fitsQuestion(q, r) {
       return Array.isArray(r) && r.length === n && new Set(r).size === n && r.every(index)
     case 'match':
       return typeof r === 'object' && !Array.isArray(r)
+    case 'level':
+      return LEVELS.includes(r)
+    case 'logger':
+      return typeof r === 'object' && typeof r.level === 'string' && typeof r.message === 'string'
     default:
       return false
   }
@@ -36,7 +45,7 @@ export function fitsQuestion(q, r) {
 
 export default function QuestionCard({ q, number, seed, response, onChange, submitted }) {
   const order = useMemo(
-    () => permutation(q.type === 'match' ? q.pairs.length : (q.options ?? q.items).length, seed),
+    () => permutation(q.type === 'match' ? q.pairs.length : (q.options ?? q.items ?? LEVELS).length, seed),
     [q, seed],
   )
   const correct = submitted && grade(q, response)
@@ -142,6 +151,21 @@ export default function QuestionCard({ q, number, seed, response, onChange, subm
         </div>
       )}
 
+      {q.type === 'level' && (
+        <div className="level-picks">
+          {LEVELS.map((l) => {
+            const state = submitted ? (q.answer.includes(l) ? 'is-answer' : response === l ? 'is-wrong' : '') : ''
+            return (
+              <button key={l} className={`btn level-pick${response === l ? ' chosen' : ''} ${state}`} disabled={submitted} onClick={() => onChange(l)}>
+                {l}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {q.type === 'logger' && <LoggerAnswer q={q} response={response} onChange={onChange} submitted={submitted} />}
+
       {submitted && (
         <div className="question-explain">
           {q.type === 'order' && !correct && (
@@ -151,6 +175,75 @@ export default function QuestionCard({ q, number, seed, response, onChange, subm
           )}
           <Markdown>{q.explain}</Markdown>
         </div>
+      )}
+    </div>
+  )
+}
+
+// Write the logger: pick its level and write its message. After Submit, every rule shows as passed or what to change,
+// with a good answer to compare.
+function LoggerAnswer({ q, response, onChange, submitted }) {
+  const saved = response ?? { level: '', message: '' }
+  // the message is typed into local state and saved after a short pause, so a key press does not redraw the app
+  const [message, setMessage] = useState(saved.message)
+  const pending = useRef(null)
+  useEffect(() => setMessage(saved.message), [saved.message])
+  useEffect(() => () => pending.current?.(), [])
+  function type(text) {
+    setMessage(text)
+    clearTimeout(pending.timer)
+    const save = () => {
+      pending.current = null
+      onChange({ ...saved, message: text })
+    }
+    pending.current = save
+    pending.timer = setTimeout(save, 400)
+  }
+  const answer = { ...saved, message }
+  const result = submitted ? gradeWrite(q, answer) : null
+  return (
+    <div className="logger-answer">
+      <div className="small muted logger-available">
+        You can use:
+        {q.available.map((a) => (
+          <code key={a}>{a}</code>
+        ))}
+      </div>
+      <div className="logger-field">
+        <span className="small">Level</span>
+        <div className="seg">
+          {LEVELS.map((l) => (
+            <button key={l} className={answer.level === l ? 'active' : ''} disabled={submitted} onClick={() => onChange({ ...answer, level: l })}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="logger-field">
+        <span className="small">Message (the message attribute of the Logger)</span>
+        <textarea
+          className="input mono logger-message"
+          rows={3}
+          spellCheck={false}
+          placeholder={'#["Order received orderId=$(vars.orderId) correlationId=$(correlationId)"]'}
+          value={answer.message}
+          readOnly={submitted}
+          onChange={(e) => type(e.target.value)}
+          onBlur={() => pending.current?.()}
+        />
+      </label>
+      {result && (
+        <>
+          <ul className="logger-notes">
+            {result.notes.map((n, i) => (
+              <li key={i} className={n.ok ? 'ok-text' : 'err-text'}>
+                {n.ok ? '✓' : '✗'} {n.text}
+              </li>
+            ))}
+          </ul>
+          <div className="small muted">A good answer ({q.model.level})</div>
+          <pre className="code-block logger-model">{q.model.message}</pre>
+        </>
       )}
     </div>
   )

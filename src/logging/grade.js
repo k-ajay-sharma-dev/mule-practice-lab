@@ -1,4 +1,4 @@
-import { LEVELS } from './exercises.js'
+import { LEVELS } from './rules.js'
 
 // Grades one answer to a Logging Lab exercise.
 // Returns { correct, notes: [{ ok, text }] }. For a write exercise every rule becomes one note, so the learner sees

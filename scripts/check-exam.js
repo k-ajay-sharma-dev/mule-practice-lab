@@ -99,7 +99,15 @@ for (const category of readdirSync(root)) {
     const answers = Object.fromEntries(
       p.quiz.map((q, i) => [
         `${p.id}:${i}`,
-        q.type === 'order' ? q.items.map((_, n) => n) : q.type === 'match' ? Object.fromEntries(q.pairs.map((_, n) => [n, n])) : q.answer,
+        q.type === 'order'
+          ? q.items.map((_, n) => n)
+          : q.type === 'match'
+            ? Object.fromEntries(q.pairs.map((_, n) => [n, n]))
+            : q.type === 'level'
+              ? q.answer[0]
+              : q.type === 'logger'
+                ? q.model
+                : q.answer,
       ]),
     )
     const scored = scoreExam(list, answers, (item) => p.quiz[item.q])

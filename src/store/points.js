@@ -1,11 +1,10 @@
 import { problems } from '../data/problems.js'
-import { useLoggingProgress } from './logging.js'
 import { statusOf, useProgress } from './progress.js'
 
-// Points and levels. Nothing extra is stored: points are counted from what is already saved (solved problems and
-// solved Logging Lab exercises), so work done before this existed counts too, and every device shows the same total.
+// Points and levels. Nothing extra is stored: points are counted from the solved problems already saved, so work
+// done before this existed counts too, and every device shows the same total. Every section, the Logging Lab
+// included, gives points by the problem's level.
 export const POINTS = { BEGINNER: 10, INTERMEDIATE: 20, ADVANCED: 30, EXPERT: 40 }
-export const LOGGING_POINTS = 5
 
 export const pointsFor = (problem) => POINTS[problem?.level] ?? 10
 
@@ -34,22 +33,18 @@ const LEVEL_NAMES = [
   'Mule Mentor',
 ]
 
-export function countPoints(progress, logging) {
-  let fromProblems = 0
-  let solvedProblems = 0
+export function countPoints(progress) {
+  let total = 0
+  let solved = 0
   for (const p of problems) {
     if (statusOf(progress[p.id]) !== 'solved') continue
-    fromProblems += pointsFor(p)
-    solvedProblems++
+    total += pointsFor(p)
+    solved++
   }
-  const solvedLogging = Object.values(logging).filter((e) => e?.solved).length
-  const fromLogging = solvedLogging * LOGGING_POINTS
-  return { total: fromProblems + fromLogging, fromProblems, solvedProblems, fromLogging, solvedLogging }
+  return { total, solved }
 }
 
 export function usePoints() {
-  const progress = useProgress()
-  const logging = useLoggingProgress()
-  const counted = countPoints(progress, logging)
+  const counted = countPoints(useProgress())
   return { ...counted, ...levelOf(counted.total) }
 }

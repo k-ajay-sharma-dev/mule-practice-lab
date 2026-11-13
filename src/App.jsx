@@ -22,7 +22,6 @@ const ReadinessPage = lazy(() => import('./pages/ReadinessPage.jsx'))
 const CheatSheetsPage = lazy(() => import('./pages/CheatSheetsPage.jsx'))
 const PlatformLabPage = lazy(() => import('./pages/PlatformLabPage.jsx'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage.jsx'))
-const LoggingPage = lazy(() => import('./pages/LoggingPage.jsx'))
 const CalmPage = lazy(() => import('./pages/CalmPage.jsx'))
 
 // A crash on one page shouldn't follow you to the next, so the boundary resets on navigation.
@@ -60,8 +59,6 @@ export default function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:projectId" element={<ProjectsPage />} />
               <Route path="/calm" element={<CalmPage />} />
-              <Route path="/logging" element={<LoggingPage />} />
-              <Route path="/logging/:exerciseId" element={<LoggingPage />} />
               <Route path="/:category" element={<CategoryPage />} />
               <Route path="/:category/:problemId" element={<ProblemPage />} />
               <Route path="*" element={<NotFound />} />

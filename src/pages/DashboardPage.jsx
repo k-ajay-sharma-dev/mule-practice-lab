@@ -8,11 +8,11 @@ import { LevelBadge, StatusBadge } from '../components/Badges.jsx'
 import Pagination, { paginate } from '../components/Pagination.jsx'
 import TodayPlan from '../components/TodayPlan.jsx'
 import { signIn, useSyncStatus } from '../sync/status.js'
-import { LOGGING_POINTS, POINTS, usePoints } from '../store/points.js'
+import { POINTS, usePoints } from '../store/points.js'
 
 // Points earned so far, the level they give, and how close the next level is.
 function PointsCard() {
-  const { total, level, name, into, need, solvedProblems, fromProblems, solvedLogging, fromLogging } = usePoints()
+  const { total, level, name, into, need, solved } = usePoints()
   const pct = Math.round((into / need) * 100)
   return (
     <section className="points-card" id="points">
@@ -33,14 +33,14 @@ function PointsCard() {
           <div style={{ width: `${pct}%` }} />
         </div>
         <div className="small muted">
-          {need - into} points to Level {level + 1}. {solvedProblems} {solvedProblems === 1 ? 'problem gives' : 'problems give'} {fromProblems} points,{' '}
-          {solvedLogging} Logging Lab {solvedLogging === 1 ? 'exercise gives' : 'exercises give'} {fromLogging}.
+          {need - into} points to Level {level + 1}. {solved} solved {solved === 1 ? 'problem' : 'problems'} so far.
         </div>
         <div className="small muted">
-          A problem gives {Object.entries(POINTS)
+          A problem gives{' '}
+          {Object.entries(POINTS)
             .map(([l, p]) => `${p} (${l.toLowerCase()})`)
             .join(', ')}
-          . A Logging Lab exercise gives {LOGGING_POINTS}.
+          .
         </div>
       </div>
       <Link to="/calm" className="btn btn-ghost btn-sm points-calm">

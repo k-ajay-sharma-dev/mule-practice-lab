@@ -4,11 +4,17 @@
 //   { type: 'multi',  prompt, options: [...], answer: [0, 3], explain }
 //   { type: 'order',  prompt, items: [...in the correct order], explain }
 //   { type: 'match',  prompt, pairs: [[left, right], ...], explain }
+//   { type: 'level',  prompt, answer: ['WARN', ...accepted levels], explain }            (Logging Lab)
+//   { type: 'logger', prompt, available, level: [...], checks, model, explain }        (Logging Lab: write the logger)
 //
 // Responses always refer to ORIGINAL indexes, so the shuffled display order never affects grading:
 //   single → index · multi → [indexes] · order → [item indexes in the learner's order] · match → { leftIndex: rightIndex }
+//   level → 'INFO' · logger → { level, message }
 
-export const QUESTION_TYPES = ['single', 'multi', 'order', 'match']
+import { gradeWrite } from '../logging/grade.js'
+import { LEVELS } from '../logging/rules.js'
+
+export const QUESTION_TYPES = ['single', 'multi', 'order', 'match', 'level', 'logger']
 
 function hash(str) {
   let h = 2166136261
@@ -36,6 +42,7 @@ export function isAnswered(q, r) {
   if (r == null) return false
   if (q.type === 'multi') return r.length > 0
   if (q.type === 'match') return q.pairs.every((_, i) => r[i] != null)
+  if (q.type === 'logger') return Boolean(r.level && r.message?.trim())
   return true
 }
 
@@ -50,6 +57,10 @@ export function grade(q, r) {
       return r.every((v, i) => v === i)
     case 'match':
       return q.pairs.every((_, i) => Number(r[i]) === i)
+    case 'level':
+      return q.answer.includes(r)
+    case 'logger':
+      return gradeWrite(q, r).correct
     default:
       return false
   }
@@ -70,6 +81,11 @@ export function validateQuestion(q) {
     if (!Array.isArray(q.answer) || !q.answer.length || q.answer.some((a) => !q.options?.[a])) errs.push('bad answer list')
   }
   if (q.type === 'order' && !(q.items?.length >= 3)) errs.push('needs 3+ items')
+  if (q.type === 'level' && !(q.answer?.length && q.answer.every((l) => LEVELS.includes(l)))) errs.push('answer must list levels')
+  if (q.type === 'logger') {
+    if (!q.checks?.length || !q.level?.length) errs.push('needs checks and accepted levels')
+    else if (!gradeWrite(q, q.model ?? {}).correct) errs.push('the model answer fails its own checks')
+  }
   if (q.type === 'match') {
     if (!(q.pairs?.length >= 3)) errs.push('needs 3+ pairs')
     if (new Set(q.pairs?.map((p) => p[1])).size !== q.pairs?.length) errs.push('right-hand values must be unique')

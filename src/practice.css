@@ -2451,174 +2451,62 @@
   width: 100%;
   overflow-wrap: anywhere;
 }
-.logging-bar {
+/* Logging Lab questions: pick the level, and write the logger (src/components/quiz/QuestionCard.jsx) */
+.level-picks {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 10px 16px;
-  margin: 14px 0 10px;
+  gap: 8px;
+  margin-top: 10px;
 }
-/* the situation is the row's title: two lines at most in the list */
-.logging-row-title {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-weight: 500;
-}
-.mode-chip.logging-kind-level {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+.level-pick.chosen {
+  border-color: var(--accent);
   color: var(--accent);
 }
-.mode-chip.logging-kind-choice {
-  border-color: color-mix(in srgb, #3fb950 55%, transparent);
-  color: var(--success);
-}
-.mode-chip.logging-kind-multi {
-  border-color: color-mix(in srgb, #d29922 55%, transparent);
-  color: var(--warning);
-}
-.mode-chip.logging-kind-write {
-  border-color: color-mix(in srgb, #bc8cff 55%, transparent);
-  color: #bc8cff;
-}
-.logging-nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  margin: 14px 0;
-}
-.logging-nav-steps {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-.logging-card {
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-.logging-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-.logging-solved {
-  color: var(--success);
-}
-.logging-situation {
-  margin: 8px 0 12px;
-  font-size: 1rem;
-}
-.logging-code {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.logging-levels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.logging-right {
-  border-color: var(--success) !important;
-}
-.logging-options {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
-}
-.logging-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 6px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-.logging-option.picked {
-  border-color: var(--accent);
-}
-.logging-option.right {
+.level-pick.is-answer {
   border-color: var(--success);
-}
-.logging-option.wrong {
-  border-color: var(--danger);
-}
-.logging-option input {
-  margin-top: 3px;
-}
-.logging-tag {
-  margin-left: auto;
   color: var(--success);
-  font-size: 0.75rem;
-  white-space: nowrap;
 }
-.logging-available {
+.level-pick.is-wrong {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.logger-answer {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+.logger-available {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
-.logging-field {
+.logger-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 12px 0;
 }
-.logging-field .seg {
+.logger-field .seg {
   align-self: flex-start;
   flex-wrap: wrap;
 }
-.logging-message {
+.logger-message {
   width: 100%;
   resize: vertical;
 }
-.logging-result {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--danger);
-  border-radius: 8px;
-}
-.logging-result.pass {
-  border-left-color: var(--success);
-}
-.logging-verdict {
-  font-weight: 600;
-}
-.logging-result.pass .logging-verdict {
-  color: var(--success);
-}
-.logging-result.fail .logging-verdict {
-  color: var(--danger);
-}
-.logging-notes {
+.logger-notes {
   list-style: none;
-  margin: 8px 0;
+  margin: 0;
   padding: 0;
   font-size: 0.88rem;
 }
-.logging-notes li {
+.logger-notes li {
   padding: 2px 0;
 }
-.logging-notes .ok > span {
-  color: var(--success);
-}
-.logging-notes .bad > span {
-  color: var(--danger);
-}
-.logging-model pre {
+.logger-model {
+  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.logging-reset {
-  margin-top: 18px;
 }
 
 /* ---------- Points and levels ---------- */

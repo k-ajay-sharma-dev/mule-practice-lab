@@ -2,13 +2,15 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { categoryBySlug, LEVELS, STATUSES } from '../data/categories.js'
 import { problemsFor } from '../data/problems.js'
 import { statusOf, useProgress } from '../store/progress.js'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import Pagination, { PAGE_SIZES, paginate } from '../components/Pagination.jsx'
 import { EXERCISE_LABELS, exerciseOf } from '../data/exercises.js'
 import NotFound from './NotFound.jsx'
 
 const SIZE_KEY = 'pl.pageSize'
+// The Logging Lab's rules for good log lines, loaded only on that section's page
+const LoggingGuide = lazy(() => import('../components/LoggingGuide.jsx'))
 
 function loadPageSize() {
   try {
@@ -116,6 +118,12 @@ export default function CategoryPage() {
           </div>
         </div>
       </section>
+
+      {category === 'logging' && (
+        <Suspense fallback={null}>
+          <LoggingGuide />
+        </Suspense>
+      )}
 
       <section className="filters">
         <input

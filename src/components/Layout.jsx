@@ -5,8 +5,6 @@ import { CATEGORIES } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { checkRunner, getRunnerSettings, runnerMaySleep } from '../runner/client.js'
 import { useFocusSession } from '../store/focus.js'
-import { LOGGING_TOTAL } from '../logging/count.js'
-import { useLoggingProgress } from '../store/logging.js'
 import { rememberOrigin } from '../store/origin.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { usePoints } from '../store/points.js'
@@ -199,8 +197,6 @@ function PointsChip() {
 function Sidebar({ collapsed, onToggle, onClose }) {
   const review = useReview()
   const progress = useProgress()
-  const logging = useLoggingProgress()
-  const loggingSolved = Object.values(logging).filter((e) => e?.solved).length
   const today = todayKey()
   const dueCount = Object.entries(review).filter(([id, r]) => r.due <= today && problemById.has(id)).length
 
@@ -253,14 +249,6 @@ function Sidebar({ collapsed, onToggle, onClose }) {
                 {counts[c.slug]?.solved ?? 0}/{counts[c.slug]?.total ?? 0}
               </span>,
             ),
-          )}
-          {item(
-            '/logging',
-            'logging',
-            'Logging Lab',
-            <span className="side-count mono" title={`${loggingSolved} of ${LOGGING_TOTAL} solved`}>
-              {loggingSolved}/{LOGGING_TOTAL}
-            </span>,
           )}
         </div>
         <div className="side-group">

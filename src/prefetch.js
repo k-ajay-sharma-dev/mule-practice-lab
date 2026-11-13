@@ -9,7 +9,6 @@ const PAGES = [
   () => import('./workspaces/SelfAssessWorkspace.jsx'),
   () => import('./workspaces/ArchWorkspace.jsx'),
   () => import('./workspaces/RamlWorkspace.jsx'),
-  () => import('./pages/LoggingPage.jsx'),
   () => import('./pages/ReviewPage.jsx'),
   () => import('./pages/TracksPage.jsx'),
   () => import('./pages/SearchPage.jsx'),

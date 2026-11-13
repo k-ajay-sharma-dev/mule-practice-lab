@@ -120,7 +120,7 @@ export const TRACKS = [
   },
 ]
 
-const CATEGORY_ORDER = ['mulesoft', 'dataweave', 'flows', 'api-design', 'architecture', 'use-cases', 'incidents', 'case-studies']
+const CATEGORY_ORDER = ['mulesoft', 'dataweave', 'flows', 'logging', 'api-design', 'architecture', 'use-cases', 'incidents', 'case-studies']
 const LEVEL_ORDER = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT']
 
 export const trackBySlug = new Map(TRACKS.map((t) => [t.slug, t]))

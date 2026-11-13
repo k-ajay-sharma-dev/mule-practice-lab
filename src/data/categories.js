@@ -60,6 +60,13 @@ export const CATEGORIES = [
     kind: 'self',
     blurb: 'Diagnose real production failures from symptoms and logs, restore service and prevent recurrence.',
   },
+  {
+    slug: 'logging',
+    eyebrow: 'pick the level · write the logger',
+    label: 'Logging Lab',
+    kind: 'self',
+    blurb: 'Practise the Mule Logger in real scenarios: which level, what to write, what never to write, and writing your own loggers.',
+  },
 ]
 
 export const categoryBySlug = new Map(CATEGORIES.map((c) => [c.slug, c]))

@@ -35,10 +35,10 @@ export default function QuizRunner({ problem, questions, logs, intro }) {
   }
 
   function retry() {
-    // keep the right answers, clear the wrong ones
+    // keep the right answers, clear the wrong ones; a written logger stays, so it can be fixed rather than retyped
     const kept = {}
     questions.forEach((q, i) => {
-      if (results[i]) kept[i] = responseOf(i)
+      if (results[i] || q.type === 'logger') kept[i] = responseOf(i)
     })
     save({ submitted: false, responses: kept, logs: logsCorrect ? pickedLogs : [] })
   }

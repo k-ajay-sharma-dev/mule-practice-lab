@@ -22,6 +22,7 @@ export const PHASES = [
       ['mulesoft', 'INTERMEDIATE'],
       ['flows', 'INTERMEDIATE'],
       ['api-design', 'BEGINNER'],
+      ['logging', 'BEGINNER'],
     ],
   },
   {
@@ -35,6 +36,7 @@ export const PHASES = [
       ['architecture', 'BEGINNER'],
       ['api-design', 'INTERMEDIATE'],
       ['incidents', 'BEGINNER'],
+      ['logging', 'INTERMEDIATE'],
     ],
   },
   {
@@ -48,6 +50,7 @@ export const PHASES = [
       ['flows', 'ADVANCED'],
       ['api-design', 'ADVANCED'],
       ['incidents', 'INTERMEDIATE'],
+      ['logging', 'ADVANCED'],
     ],
   },
   {
