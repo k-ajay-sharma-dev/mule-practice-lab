@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { finishTimer } from '../study/timer.js'
 import { writeLocal } from './local.js'
+import { noteSolve } from './solves.js'
 
 // Local progress store. Each entry is keyed by problem id:
 // { status, code, answer, notes, checkedPoints, revealed, updatedAt }
@@ -62,6 +63,7 @@ export function updateEntry(id, patch, { graded = false } = {}) {
   const day = todayKey()
   const today = activity[day] || { actions: 0, solved: 0 }
   const newlySolved = patch.status === 'solved' && prev.status !== 'solved'
+  if (solvedNow && newlySolved) noteSolve('Problem solved')
   activity = { ...activity, [day]: { actions: today.actions + 1, solved: today.solved + (newlySolved ? 1 : 0) } }
   save(ACTIVITY_KEY, activity)
 

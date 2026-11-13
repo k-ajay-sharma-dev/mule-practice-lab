@@ -9,6 +9,8 @@ import { LOGGING_TOTAL } from '../logging/count.js'
 import { useLoggingProgress } from '../store/logging.js'
 import { rememberOrigin } from '../store/origin.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
+import { usePoints } from '../store/points.js'
+import Celebration from './Celebration.jsx'
 import { FocusBar, FocusSummary } from './FocusSession.jsx'
 import NavIcon from './NavIcons.jsx'
 import SaveShortcut from './SaveShortcut.jsx'
@@ -143,6 +145,10 @@ export default function Layout({ children }) {
           <Link to="/search" className="icon-btn search-icon-link" aria-label="Search" title="Search">
             <SearchIcon />
           </Link>
+          <PointsChip />
+          <Link to="/calm" className="icon-btn calm-link" aria-label="Calm Corner: take a break" title="Calm Corner: take a break">
+            <NavIcon name="calm" />
+          </Link>
           <SyncBadge />
           <RunnerStatus />
           <button
@@ -170,7 +176,25 @@ export default function Layout({ children }) {
         </main>
       </div>
       {focus?.endedAt && <FocusSummary session={focus} />}
+      <Celebration />
     </div>
+  )
+}
+
+// Points and level in the header; opens the points card on the Learning Path.
+function PointsChip() {
+  const { total, level, name, into, need } = usePoints()
+  return (
+    <Link
+      to="/"
+      className="points-chip"
+      title={`${total} points · Level ${level}, ${name} · ${need - into} points to the next level`}
+      aria-label={`${total} points, level ${level}`}
+    >
+      <span className="points-star" aria-hidden="true">★</span>
+      <span className="mono">{total}</span>
+      <span className="points-level">Lv {level}</span>
+    </Link>
   )
 }
 
@@ -219,6 +243,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
           {item('/weak-areas', 'weak', 'Weak Areas')}
           {item('/readiness', 'readiness', 'Readiness')}
           {item('/projects', 'projects', 'My Projects')}
+          {item('/calm', 'calm', 'Calm Corner')}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>

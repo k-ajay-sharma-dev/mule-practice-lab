@@ -8,6 +8,46 @@ import { LevelBadge, StatusBadge } from '../components/Badges.jsx'
 import Pagination, { paginate } from '../components/Pagination.jsx'
 import TodayPlan from '../components/TodayPlan.jsx'
 import { signIn, useSyncStatus } from '../sync/status.js'
+import { LOGGING_POINTS, POINTS, usePoints } from '../store/points.js'
+
+// Points earned so far, the level they give, and how close the next level is.
+function PointsCard() {
+  const { total, level, name, into, need, solvedProblems, fromProblems, solvedLogging, fromLogging } = usePoints()
+  const pct = Math.round((into / need) * 100)
+  return (
+    <section className="points-card" id="points">
+      <div className="points-card-level">
+        <span className="points-badge">
+          <span className="small">Level</span>
+          <strong>{level}</strong>
+        </span>
+        <div>
+          <div className="points-name">{name}</div>
+          <div className="points-total">
+            <span className="points-star">★</span> {total} points earned
+          </div>
+        </div>
+      </div>
+      <div className="points-card-next">
+        <div className="points-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to the next level">
+          <div style={{ width: `${pct}%` }} />
+        </div>
+        <div className="small muted">
+          {need - into} points to Level {level + 1}. {solvedProblems} problems give {fromProblems} points, {solvedLogging} Logging Lab exercises give {fromLogging}.
+        </div>
+        <div className="small muted">
+          A problem gives {Object.entries(POINTS)
+            .map(([l, p]) => `${p} (${l.toLowerCase()})`)
+            .join(', ')}
+          . A Logging Lab exercise gives {LOGGING_POINTS}.
+        </div>
+      </div>
+      <Link to="/calm" className="btn btn-ghost btn-sm points-calm">
+        Need a pause? Calm Corner
+      </Link>
+    </section>
+  )
+}
 
 const PHASE_PAGE_SIZE = 10
 
@@ -72,6 +112,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <PointsCard />
 
       {sync.state === 'signed-out' && (
         <section className="sync-nudge">

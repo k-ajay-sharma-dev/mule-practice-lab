@@ -15,6 +15,7 @@ const LABELS = {
   '/readiness': 'Readiness',
   '/projects': 'My Projects',
   '/logging': 'Logging Lab',
+  '/calm': 'Calm Corner',
   '/playground': 'Playground',
   '/platform-lab': 'Platform Lab',
   '/cheatsheets': 'Cheat Sheets',

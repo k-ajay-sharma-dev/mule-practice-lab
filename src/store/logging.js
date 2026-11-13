@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { onLocalChange, writeLocal } from './local.js'
+import { noteSolve } from './solves.js'
 
 // Logging Lab progress: pl.logging = { exerciseId: { solved, tries, at } }. Saved to the account like the other
 // study data (see store/local.js).
@@ -40,6 +41,7 @@ export const useLoggingProgress = () =>
 export function recordAttempt(id, correct) {
   const all = current()
   const prev = all[id] ?? { solved: false, tries: 0 }
+  if (correct && !prev.solved) noteSolve('Logging exercise solved')
   writeLocal(LOGGING_KEY, JSON.stringify({ ...all, [id]: { solved: prev.solved || correct, tries: prev.tries + 1, at: new Date().toISOString() } }))
 }
 
