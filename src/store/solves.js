@@ -3,8 +3,9 @@
 // sets off a celebration by itself. Kept apart from store/points.js so the stores can call it without an import cycle.
 let pending = null
 
-export function noteSolve(label) {
-  pending = { label, at: Date.now() }
+// id is the problem's id; a Logging Lab exercise passes none
+export function noteSolve(label, id = null) {
+  pending = { label, id, at: Date.now() }
 }
 
 export function takeSolve() {

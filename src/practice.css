@@ -2742,15 +2742,57 @@
   cursor: pointer;
   animation: celebrate-in 0.35s ease-out;
 }
-.celebrate-card.level-up {
+.celebrate-card.centered {
   left: 50%;
   right: auto;
   bottom: auto;
-  top: 30%;
+  top: 28%;
   transform: translateX(-50%);
   text-align: center;
   padding: 22px 28px;
   animation: celebrate-pop 0.45s ease-out;
+}
+/* small: a quiet card in the corner */
+.celebrate-card.tier-small {
+  gap: 2px;
+  padding: 10px 14px;
+}
+.tier-small .celebrate-points {
+  font-size: 1.05rem;
+}
+/* advanced: a warm gold edge */
+.celebrate-card.tier-advanced {
+  border-color: #e3b341;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45), 0 0 28px rgb(227 179 65 / 0.35);
+}
+.tier-advanced .celebrate-points {
+  font-size: 1.7rem;
+}
+/* expert and a new level: the grand card */
+.celebrate-card.tier-expert,
+.celebrate-card.tier-level-up {
+  min-width: min(380px, calc(100vw - 32px));
+  border: 2px solid #f2cc60;
+  box-shadow: 0 14px 40px rgb(0 0 0 / 0.55), 0 0 44px rgb(242 204 96 / 0.45);
+}
+.tier-expert .celebrate-points {
+  font-size: 2.2rem;
+}
+.celebrate-trophy {
+  font-size: 3rem;
+  line-height: 1;
+  animation: trophy-bounce 0.9s ease-out;
+}
+@keyframes trophy-bounce {
+  0% {
+    transform: scale(0.2) rotate(-15deg);
+  }
+  60% {
+    transform: scale(1.25) rotate(6deg);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .celebrate-points {
   color: #f2cc60;
@@ -2786,6 +2828,17 @@
     right: 16px;
     left: 16px;
     max-width: none;
+  }
+  .celebrate-card.centered {
+    left: 16px;
+    transform: none;
+    min-width: 0;
+  }
+  @keyframes celebrate-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
   }
 }
 
@@ -2983,12 +3036,7 @@
   }
 }
 
-/* On phones the Calm Corner is in the menu, and the points chip gives the wordmark room */
-@media (max-width: 760px) {
-  .topbar-actions .calm-link {
-    display: none;
-  }
-}
+/* On phones the points chip gives the wordmark room */
 @media (max-width: 480px) {
   .points-chip {
     gap: 3px;

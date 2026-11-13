@@ -33,7 +33,8 @@ function PointsCard() {
           <div style={{ width: `${pct}%` }} />
         </div>
         <div className="small muted">
-          {need - into} points to Level {level + 1}. {solvedProblems} problems give {fromProblems} points, {solvedLogging} Logging Lab exercises give {fromLogging}.
+          {need - into} points to Level {level + 1}. {solvedProblems} {solvedProblems === 1 ? 'problem gives' : 'problems give'} {fromProblems} points,{' '}
+          {solvedLogging} Logging Lab {solvedLogging === 1 ? 'exercise gives' : 'exercises give'} {fromLogging}.
         </div>
         <div className="small muted">
           A problem gives {Object.entries(POINTS)

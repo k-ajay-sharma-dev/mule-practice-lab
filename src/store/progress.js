@@ -63,7 +63,7 @@ export function updateEntry(id, patch, { graded = false } = {}) {
   const day = todayKey()
   const today = activity[day] || { actions: 0, solved: 0 }
   const newlySolved = patch.status === 'solved' && prev.status !== 'solved'
-  if (solvedNow && newlySolved) noteSolve('Problem solved')
+  if (solvedNow && newlySolved) noteSolve('Problem solved', id)
   activity = { ...activity, [day]: { actions: today.actions + 1, solved: today.solved + (newlySolved ? 1 : 0) } }
   save(ACTIVITY_KEY, activity)
 

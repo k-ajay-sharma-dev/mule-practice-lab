@@ -146,9 +146,6 @@ export default function Layout({ children }) {
             <SearchIcon />
           </Link>
           <PointsChip />
-          <Link to="/calm" className="icon-btn calm-link" aria-label="Calm Corner: take a break" title="Calm Corner: take a break">
-            <NavIcon name="calm" />
-          </Link>
           <SyncBadge />
           <RunnerStatus />
           <button
