@@ -7,6 +7,7 @@ import RunningMessage from '../components/RunningMessage.jsx'
 import { runScript } from '../runner/client.js'
 import { jsonDifferences, mimeToLanguage, outputsMatch } from '../runner/grade.js'
 import { scheduleReview, updateEntry, useEntry, workedStatus } from '../store/progress.js'
+import NotesBox from './NotesBox.jsx'
 import { useAutosave } from './useAutosave.js'
 
 const LEFT_TABS = ['description', 'hints', 'solution', 'notes']
@@ -151,12 +152,7 @@ export default function DataWeaveWorkspace({ problem }) {
             ))}
 
           {leftTab === 'notes' && (
-            <textarea
-              className="notes"
-              placeholder="Your notes for this problem…"
-              value={entry.notes || ''}
-              onChange={(e) => updateEntry(problem.id, { notes: e.target.value })}
-            />
+            <NotesBox problemId={problem.id} />
           )}
         </div>
       </section>

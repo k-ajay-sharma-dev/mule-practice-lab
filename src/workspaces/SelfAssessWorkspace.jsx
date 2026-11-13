@@ -3,6 +3,7 @@ import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { rate } from '../store/rating.js'
+import NotesBox from './NotesBox.jsx'
 import { useAutosave } from './useAutosave.js'
 
 const RATINGS = [
@@ -106,12 +107,7 @@ export default function SelfAssessWorkspace({ problem }) {
           )}
 
           <div className="section-title">Notes</div>
-          <textarea
-            className="notes"
-            placeholder="Anything to remember…"
-            value={entry.notes || ''}
-            onChange={(e) => updateEntry(problem.id, { notes: e.target.value })}
-          />
+          <NotesBox problemId={problem.id} placeholder="Anything to remember…" />
         </div>
       </section>
     </div>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import index from 'virtual:problem-index'
 
-// `problems` is the lightweight index: id, category, title, level, tags, estMinutes, exercise, summary.
+// `problems` is the lightweight index: id, category, title, level, tags, estMinutes, exercise, cards. The search
+// summaries load with the Search page (src/data/search.js).
 // The full problem (description, solution, exercise data…) lives in its own chunk and is loaded on demand.
 const loaders = import.meta.glob('../content/*/*.js')
 

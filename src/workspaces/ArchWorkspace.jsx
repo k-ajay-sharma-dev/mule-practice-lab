@@ -10,6 +10,7 @@ import { restoreDiagram } from '../arch/model.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { diagramSteps } from '../study/steps.js'
 import { useAutosave } from './useAutosave.js'
+import NotesBox from './NotesBox.jsx'
 import { useUndo } from './useUndo.js'
 
 const TABS = [
@@ -151,12 +152,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
           )}
 
           {tab === 'notes' && (
-            <textarea
-              className="notes"
-              placeholder="Your notes for this problem…"
-              value={entry.notes || ''}
-              onChange={(e) => updateEntry(problem.id, { notes: e.target.value })}
-            />
+            <NotesBox problemId={problem.id} />
           )}
         </div>
       </section>

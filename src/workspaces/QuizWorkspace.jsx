@@ -2,12 +2,11 @@ import { useState } from 'react'
 import ExplainPanel from '../components/ExplainPanel.jsx'
 import Markdown from '../components/Markdown.jsx'
 import QuizRunner from '../components/quiz/QuizRunner.jsx'
-import { updateEntry, useEntry } from '../store/progress.js'
+import NotesBox from './NotesBox.jsx'
 
 // Platform quizzes (`problem.quiz`) and incident investigations (`problem.investigation`):
 // the scenario on the left, auto-graded questions on the right.
 export default function QuizWorkspace({ problem }) {
-  const entry = useEntry(problem.id)
   const [tab, setTab] = useState('scenario')
   const inv = problem.investigation
   const questions = inv ? inv.questions : problem.quiz
@@ -29,14 +28,7 @@ export default function QuizWorkspace({ problem }) {
         <div className="panel-body">
           {tab === 'scenario' && <Markdown>{problem.description}</Markdown>}
           {tab === 'explain' && <ExplainPanel problem={problem} />}
-          {tab === 'notes' && (
-            <textarea
-              className="notes"
-              placeholder="Your notes for this problem…"
-              value={entry.notes || ''}
-              onChange={(e) => updateEntry(problem.id, { notes: e.target.value })}
-            />
-          )}
+          {tab === 'notes' && <NotesBox problemId={problem.id} />}
         </div>
       </section>
 

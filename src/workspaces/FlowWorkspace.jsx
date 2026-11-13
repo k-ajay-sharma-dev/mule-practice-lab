@@ -12,6 +12,7 @@ import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { rate } from '../store/rating.js'
 import { flowSteps } from '../study/steps.js'
 import { useAutosave } from './useAutosave.js'
+import NotesBox from './NotesBox.jsx'
 import { useUndo } from './useUndo.js'
 
 const TABS = ['scenario', 'checks', 'reference', 'notes']
@@ -282,12 +283,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
             ))}
 
           {tab === 'notes' && (
-            <textarea
-              className="notes"
-              placeholder="Your notes for this problem…"
-              value={entry.notes || ''}
-              onChange={(e) => updateEntry(problem.id, { notes: e.target.value })}
-            />
+            <NotesBox problemId={problem.id} />
           )}
         </div>
       </section>

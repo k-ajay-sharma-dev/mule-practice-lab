@@ -1,5 +1,6 @@
 import { categoryBySlug } from './categories.js'
 import { problems } from './problems.js'
+import summaries from 'virtual:problem-summaries'
 
 // Every word of the query must appear somewhere in the problem; matches in the id, title and tags
 // rank higher than matches in the summary.
@@ -12,7 +13,7 @@ export function searchProblems(query) {
     const title = p.title.toLowerCase()
     const tags = p.tags.join(' ').toLowerCase()
     const cat = (categoryBySlug.get(p.category)?.label ?? '').toLowerCase()
-    const summary = (p.summary ?? '').toLowerCase()
+    const summary = (summaries[p.id] ?? '').toLowerCase()
     let score = 0
     let all = true
     for (const w of words) {

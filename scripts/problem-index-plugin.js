@@ -7,6 +7,9 @@ import { pathToFileURL } from 'node:url'
 
 const VIRTUAL_ID = 'virtual:problem-index'
 const RESOLVED_ID = '\0' + VIRTUAL_ID
+// The summaries are only for search, so they live in a module of their own that loads with the Search page.
+const SUMMARIES_ID = 'virtual:problem-summaries'
+const RESOLVED_SUMMARIES_ID = '\0' + SUMMARIES_ID
 
 // Plain-text opening of the description, for search results.
 function summaryOf(markdown = '') {
@@ -62,6 +65,7 @@ async function buildIndex(root, strict) {
 export default function problemIndex() {
   let root = process.cwd()
   let strict = true
+  let built = null
   return {
     name: 'problem-index',
     configResolved(config) {
@@ -70,16 +74,24 @@ export default function problemIndex() {
     },
     resolveId(id) {
       if (id === VIRTUAL_ID) return RESOLVED_ID
+      if (id === SUMMARIES_ID) return RESOLVED_SUMMARIES_ID
     },
     async load(id) {
-      if (id !== RESOLVED_ID) return
-      return `export default ${JSON.stringify(await buildIndex(root, strict))}`
+      if (id !== RESOLVED_ID && id !== RESOLVED_SUMMARIES_ID) return
+      // both modules come from one pass over the content, kept until a content file changes
+      built ??= buildIndex(root, strict)
+      const items = await built
+      if (id === RESOLVED_SUMMARIES_ID) return `export default ${JSON.stringify(Object.fromEntries(items.map((p) => [p.id, p.summary])))}`
+      return `export default ${JSON.stringify(items.map(({ summary, ...rest }) => rest))}`
     },
     configureServer(server) {
       const refresh = (file) => {
         if (!file.replace(/\\/g, '/').includes('/src/content/')) return
-        const mod = server.moduleGraph.getModuleById(RESOLVED_ID)
-        if (mod) server.reloadModule(mod)
+        built = null
+        for (const id of [RESOLVED_ID, RESOLVED_SUMMARIES_ID]) {
+          const mod = server.moduleGraph.getModuleById(id)
+          if (mod) server.reloadModule(mod)
+        }
       }
       server.watcher.on('change', refresh)
       server.watcher.on('add', refresh)
