@@ -23,12 +23,12 @@ export default {
       {
         sup: ['partner', 'Suppliers (EDI 856)'],
         expb: ['experience-api', 'exp-b2b-asn'],
-        qasn: ['queue', 'XDOCK.ASN.IN'],
+        qasn: ['queue', 'XDOCK.ASN.IN', { maxRedelivery: 10 }],
         qrcv: ['queue', 'XDOCK.RECEIPTS'],
         dlq: ['dlq', 'DLQ.XDOCK'],
         prc: ['process-api', 'prc-crossdock-planning'],
         job: ['batch-job', 'Re-plan scheduler (30 min)'],
-        tplan: ['topic', 'XDOCK.PLAN.EVENTS'],
+        tplan: ['topic', 'XDOCK.PLAN.EVENTS', { maxRedelivery: 60 }],
         sdb: ['system-api', 'sys-xdock-db'],
         salloc: ['system-api', 'sys-merch-allocations'],
         swms: ['system-api', 'sys-wms'],
@@ -43,6 +43,26 @@ export default {
         'prc ~> tplan', 'tplan ~> swms', 'tplan ~> stms', 'sdb -> ora', 'salloc -> merch', 'swms -> wms', 'stms -> tms',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 300 }],
+      tests: [
+        {
+          name: 'The WMS is down for 30 minutes',
+          about: 'The planner publishes 2 plan changes a second while the WMS is down for 30 minutes. The topic keeps them for the WMS and retries, so no plan change is lost or sent to the DLQ.',
+          traffic: [{ name: 'plan changes', from: 'batch-job', rps: 2, to: 'wms', kind: 'write' }],
+          incidents: [{ down: 'wms', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+        {
+          name: 'ASNs the planner always rejects',
+          about: 'Suppliers send 1 ASN a second, and 1 in 50 has an SSCC the planner rejects every time. Those ASNs go to the DLQ after 10 tries, and the others keep flowing.',
+          traffic: [{ name: 'ASNs', from: 'partner', rps: 1, to: 'database', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: { label: 'XDOCK.ASN.IN' }, maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A grocery and general-merchandise retailer wants its new regional DC to **cross-dock** fast-moving goods: inbound pallets go from the receiving door straight to outbound store trailers without being put away. Target dwell time: **< 4 hours**.
@@ -59,6 +79,7 @@ Facts and constraints:
 - Reality differs: trucks are late, ASNs are short, a pallet is damaged. When actual receipts differ, the plan for the affected stores must be **recomputed within 10 minutes**.
 - Store trailers depart on fixed times; goods that miss a trailer go to stock (put-away) instead.
 - WMS and TMS must work from the **same version** of the plan.
+- ASNs arrive at up to 1 a second and about 1 in 50 has an SSCC the planner rejects. Plan changes go out at about 2 a second, and the WMS can be down for 30 minutes.
 
 **Questions:**
 1. Draw the architecture and describe the planning flow.

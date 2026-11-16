@@ -24,7 +24,7 @@ export default {
         cdc: ['event-stream', 'Salesforce CDC / Platform Events'],
         ssf: ['system-api', 'sys-salesforce-consent-api'],
         sfmc: ['saas', 'Marketing Cloud (SFMC)'],
-        ssfmc: ['system-api', 'sys-sfmc-api'],
+        ssfmc: ['system-api', 'sys-sfmc-api', { retries: 3 }],
         poll: ['batch-job', 'SFMC unsubscribe poller (every few min)'],
         q: ['queue', 'consent-changes-q'],
         p: ['process-api', 'prc-consent-sync (opt-out wins)'],
@@ -32,6 +32,30 @@ export default {
       },
       ['sf ~> cdc', 'cdc ~> ssf', 'ssf ~> q', 'poll -> ssfmc', 'ssfmc -> sfmc', 'poll ~> q', 'q ~> p', 'p -> ssf', 'p -> ssfmc', 'ssf -> sf', 'p -> log'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 300, maxRps: 50 },
+        { match: 'saas', latencyMs: 400 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Salesforce is down for 30 minutes',
+          about: 'After a big campaign the poller finds 6 unsubscribes a second while Salesforce is down for 30 minutes. The changes wait in the queue, none is lost, and all are applied soon after Salesforce is back.',
+          traffic: [{ name: 'unsubscribes', from: 'batch-job', rps: 6, to: 'crm', kind: 'write' }],
+          incidents: [{ down: 'crm', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The SFMC API drops some calls',
+          about: 'The poller reads new unsubscribes from SFMC 2 times a second, and SFMC fails 1 call in 5. The System API retries a failed call, so no unsubscribe is missed.',
+          traffic: [{ name: 'polls', from: 'batch-job', rps: 2, to: 'saas' }],
+          incidents: [{ errors: 'saas', rate: 0.2 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer stores customers in **Salesforce Sales/Service Cloud** and sends campaigns from **Salesforce Marketing Cloud (SFMC)**. Consent can change in both places:
@@ -42,6 +66,7 @@ A fashion retailer stores customers in **Salesforce Sales/Service Cloud** and se
 
 Facts:
 - 3 million contacts; ~20,000 consent changes/day; after a big campaign up to 50,000 unsubscribes in an hour.
+- Salesforce can be down for 30 minutes, and the SFMC API can fail 1 call in 5.
 - Legal requirement (GDPR/ePrivacy): an **unsubscribe must be honoured within 24 hours** and no marketing email may go to a contact who opted out; the company wants it within **15 minutes**.
 - Auditors want to see **who changed consent, when, through which channel**.
 

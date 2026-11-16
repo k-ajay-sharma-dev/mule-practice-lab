@@ -34,14 +34,36 @@ export default {
         amz: ['external-api', 'Amazon marketplace'],
         store: ['database', 'Inventory store (latest per SKU+warehouse)'],
         kiosk: ['device', 'In-store kiosk'],
-        ek: ['experience-api', 'exp-kiosk-api'],
-        pinv: ['process-api', 'prc-inventory-api'],
+        ek: ['experience-api', 'exp-kiosk-api', { vCores: '0.5' }],
+        pinv: ['process-api', 'prc-inventory-api', { vCores: '0.5' }],
       },
       [
         'wms ~> wq', 'wq ~> cap', 'cap ~> ex', 'cap -> store', 'ex ~> qs', 'ex ~> qa', 'qs ~> ps', 'qa ~> pa',
         'ps -> ss', 'pa -> sa', 'ss -> shop', 'sa -> amz', 'kiosk -> ek', 'ek -> pinv', 'pinv -> store',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'saas', latencyMs: 300, maxRps: 40 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Morning picking peak',
+          about: 'The WMS sends 10 stock changes a second, and 50 a second for 10 minutes of morning picking. Shopify takes at most 40 calls a second. The changes wait in the queues, Shopify is never pushed over its limit, and nothing is lost.',
+          traffic: [{ name: 'stock changes', from: 'legacy', rps: 10, to: ['saas', 'external-api'], kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 50 }] }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'saas', max: 40 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Saturday kiosk lookups',
+          about: 'Kiosks in all stores ask for stock 200 times a second on a Saturday. They read the inventory store, never the WMS, and answer within half a second.',
+          traffic: [{ name: 'kiosk', from: 'device', rps: 200, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }], notReached: [{ node: 'legacy' }] },
+        },
+      ],
+    },
   },
   description: `
 A sporting goods retailer runs a **Manhattan-style WMS** in two warehouses. Stock must be visible on three sales channels:
@@ -53,6 +75,7 @@ A sporting goods retailer runs a **Manhattan-style WMS** in two warehouses. Stoc
 Facts:
 - The WMS emits an inventory change message (SKU, warehouse, on-hand qty, timestamp) to a JMS/MQ topic on every pick, receipt or adjustment: **~300k messages/day**, peaks of 50/s during morning picking.
 - A single hot SKU can change 20 times in a minute.
+- Shopify takes at most 40 calls a second, and kiosks in all stores ask for stock up to 200 times a second on a Saturday.
 - The business wants channels updated **within 2 minutes** and to sell no more than **available-to-sell = on-hand − safety stock (per channel)**.
 
 **Design the integration:**

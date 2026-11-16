@@ -22,7 +22,7 @@ export default {
     reference: diagram(
       {
         sfcc: ['saas', 'Salesforce Commerce Cloud'],
-        eord: ['experience-api', 'exp-order-intake-api'],
+        eord: ['experience-api', 'exp-order-intake-api', { replicas: 2 }],
         oq: ['queue', 'order-placed-q'],
         orch: ['process-api', 'prc-order-to-cash (saga)'],
         track: ['database', 'Order tracking store'],
@@ -39,6 +39,29 @@ export default {
         'sapev ~> orch', 'orch -> sady', 'sady -> adyen', 'orch -> ssfcc', 'ssfcc -> sfcc', 'recon -> sady', 'recon -> ssap',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 600, maxRps: 15 },
+        { match: 'saas', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'Black Friday peak',
+          about: 'On Black Friday SFCC sends 30 orders a second for 30 minutes. SAP takes at most 15 a second. Every order is accepted at once and waits in the queue until SAP has it, and none is lost.',
+          traffic: [{ name: 'orders', from: 'saas', rps: 30, forMin: 30, to: 'erp', kind: 'write' }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 15 }], backlog: [{ queue: { type: 'queue', label: 'order-placed' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A zone goes down on Black Friday',
+          about: 'SFCC sends 10 orders a second while one availability zone is down for 15 minutes. The order intake API keeps taking orders, so no order is refused or lost.',
+          traffic: [{ name: 'orders', from: 'saas', rps: 10, to: 'erp', kind: 'write' }],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'order-placed' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A consumer electronics brand sells through **Salesforce Commerce Cloud (SFCC)**. Orders must flow to **SAP S/4HANA** (sales order, delivery, billing) and payments are handled by **Adyen** (card authorisation at checkout, **capture on shipment**).
@@ -50,6 +73,7 @@ Current pain (point-to-point scripts):
 
 Facts and constraints:
 - 25k orders/day, Black Friday peak **10×** for 48 hours. SAP can take ~15 orders/second.
+- On Black Friday SFCC can send 30 orders a second for half an hour, and the platform must keep taking orders when one availability zone is down for 15 minutes.
 - Card authorisations **expire after ~7 days**; some items are pre-orders shipping in 3–4 weeks.
 - Partial shipments are common (multiple deliveries per order) and each must capture only its share.
 - Order status must be visible to customers in SFCC within 15 minutes of each change.

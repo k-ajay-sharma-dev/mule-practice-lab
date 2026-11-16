@@ -21,10 +21,10 @@ export default {
     reference: diagram(
       {
         pos: ['pos', 'Store POS (420 stores)'],
-        gw: ['api-gateway', 'Gateway (client ID, mTLS)'],
+        gw: ['api-gateway', 'Gateway (client ID, mTLS)', { auth: 'client-id' }],
         exp: ['experience-api', 'exp-pos-returns'],
         prc: ['process-api', 'prc-cross-channel-returns'],
-        t: ['topic', 'RETURN.COMPLETED (ActiveMQ)'],
+        t: ['topic', 'RETURN.COMPLETED (ActiveMQ)', { maxRedelivery: 90 }],
         qoff: ['queue', 'POS.RETURNS.OFFLINE'],
         soms: ['system-api', 'sys-oms-orders'],
         spay: ['system-api', 'sys-psp-refunds'],
@@ -40,6 +40,31 @@ export default {
         'soms -> oms', 'spay -> psp', 'ssi -> ora', 'sgl -> ebs',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300 },
+        { match: 'payment', latencyMs: 800 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a client ID',
+          about: 'The store tills send 2 refunds a second with their client IDs, and a device on a store network sends 10 a second without one. The gateway refuses that device, so no refund goes out for it.',
+          traffic: [
+            { name: 'tills', from: 'pos', rps: 2, to: 'payment', kind: 'write' },
+            { name: 'unknown device', from: 'pos', rps: 10, to: 'payment', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'tills', minSuccess: 0.99, maxMs: 2000 }, { flow: 'unknown device', minRefused: 0.99 }] },
+        },
+        {
+          name: 'Oracle EBS is down for 45 minutes',
+          about: 'Completed returns publish 2 events a second while Oracle EBS is down for 45 minutes. The topic keeps the finance copies and retries for 90 minutes, so no entry is lost.',
+          traffic: [{ name: 'return events', from: { label: 'prc-cross-channel-returns' }, rps: 2, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 45 }],
+          durationMin: 90,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A sportswear retailer lets customers **return online orders in any of its 420 stores** (BORIS — buy online, return in store). Today store staff cannot see online orders, so they issue store credit and finance fixes things manually.
@@ -56,6 +81,7 @@ Rules and facts:
 - Eligible: within 30 days, not final-sale, not already returned. Response at the till in **< 2 seconds**.
 - Refund must be issued at the till (customer gets confirmation immediately); finance entries can follow within an hour.
 - ~6,000 store returns of online orders/day; peak in January.
+- Tills send up to 2 refunds a second. Oracle EBS can be down for 45 minutes, and devices on store networks without a client ID must not reach the API.
 - If the online lookup is unavailable, a manager can approve an **offline return** (store credit only) that must be reconciled later.
 
 **Questions:**

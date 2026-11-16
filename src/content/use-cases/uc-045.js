@@ -22,7 +22,7 @@ export default {
     reference: diagram(
       {
         ehr: ['legacy', 'EHR (HL7 v2 ADT)'],
-        ing: ['system-api', 'sys-adt-ingest (MLLP)'],
+        ing: ['system-api', 'sys-adt-ingest (MLLP)', { vCores: '0.5' }],
         k: ['event-stream', 'adt.events (key = patientId)'],
         reg: ['database', 'Subscription registry'],
         hold: ['database', 'Per-patient hold store'],
@@ -41,6 +41,29 @@ export default {
         'alab -> lab', 'apor -> portal', 'aana -> dw', 'ahie -> hie',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 100 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Morning admissions peak',
+          about: 'In the morning the EHR sends 80 ADT messages a second for 30 minutes. The ingest API takes every message at once, and the lab gets all of them.',
+          traffic: [{ name: 'ADT messages', from: 'legacy', rps: 80, forMin: 30, to: { type: 'saas', label: 'lab' }, kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The lab system is down for 3 hours',
+          about: 'The EHR sends 5 ADT messages a second while the lab system is down for 3 hours of maintenance. The messages wait in the event log, and the lab gets every one once it is back.',
+          traffic: [{ name: 'ADT messages', from: 'legacy', rps: 5, to: { type: 'saas', label: 'lab' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'lab' }, at: 5, forMin: 180 }],
+          durationMin: 240,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A hospital network (6 hospitals) is replacing its old interface engine. The central **EHR** emits **HL7 v2 ADT** messages (admit, transfer, discharge, registration updates, merges) that **~20 downstream systems** need: lab, radiology, pharmacy, bed management, dietary, billing, nurse call, the patient portal (FHIR), a regional health information exchange and an analytics platform.
@@ -51,6 +74,7 @@ Facts:
 - Formats: most consumers want HL7 v2 (some with custom Z-segments, different versions 2.3–2.5.1), the portal wants **FHIR R4**, analytics wants JSON events.
 - **Patient merges (A40)** must be handled carefully: consumers need to re-link records from the old MRN to the surviving MRN.
 - Consumers are sometimes down for maintenance for hours; when back, they must receive everything missed, in order.
+- The design must take 80 messages a second for a 30 minute morning peak, and keep 5 messages a second for the lab while it is down for 3 hours.
 - The old engine has **~150 point-to-point interfaces** with logic nobody fully understands. Migration must happen **without downtime** to clinical systems.
 - Platform: Anypoint Platform with Runtime Fabric on-prem (patient data must stay in the data centre).
 

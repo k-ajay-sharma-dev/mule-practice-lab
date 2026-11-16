@@ -20,8 +20,8 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'FX rates job (17:05 CET, retries to 18:00)'],
-        sfx: ['system-api', 'sys-fx-provider-api'],
+        job: ['batch-job', 'FX rates job (17:05 CET, retries to 18:00)', { onFailure: 'partial answer' }],
+        sfx: ['system-api', 'sys-fx-provider-api', { retries: 3 }],
         fx: ['external-api', 'Market-data FX provider'],
         os: ['cache', 'Rates by date (persistent Object Store)'],
         ssap: ['system-api', 'sys-sap-fx-api'],
@@ -33,6 +33,30 @@ export default {
       },
       ['job -> sfx', 'sfx -> fx', 'job -> os', 'job -> ssap', 'ssap -> sap', 'job -> secom', 'secom -> ecom', 'job -> s3', 'job -> alert'],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 800 },
+        { match: 'erp', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'The provider is late',
+          about: 'The job pushes 1 rate set a second to SAP, and the FX provider is down for the whole run. SAP still gets yesterday\'s rates, marked as a partial run, so invoicing can start.',
+          traffic: [{ name: 'rate sets', from: 'batch-job', rps: 1, to: ['external-api', 'erp'], kind: 'write' }],
+          incidents: [{ down: 'external-api' }],
+          durationMin: 5,
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.9 }] },
+        },
+        {
+          name: 'The provider drops some calls',
+          about: 'The job pushes 1 rate set a second, and the FX provider fails 1 call in 4. Retries get today\'s rates for nearly every set, so fewer than 1 set in 100 falls back to yesterday\'s rate.',
+          traffic: [{ name: 'rate sets', from: 'batch-job', rps: 1, to: ['external-api', 'erp'], kind: 'write' }],
+          incidents: [{ errors: 'external-api', rate: 0.25 }],
+          durationMin: 5,
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.01 }] },
+        },
+      ],
+    },
   },
   description: `
 A retail group sells in 14 currencies. Treasury buys a **foreign-exchange rates feed** from a market-data provider (REST API, JSON). Several internal systems need the rates every business day.
@@ -46,6 +70,7 @@ A retail group sells in 14 currencies. Treasury buys a **foreign-exchange rates 
 Facts:
 - The provider publishes end-of-day rates at **17:00 CET**; the API is sometimes late by up to an hour and has a limit of **100 calls/day**.
 - ERP must have the rates **before 18:30 CET**, when the nightly invoicing run starts.
+- The job pushes about 1 rate set a second. On a bad day the provider fails 1 call in 4, or is down for the whole run.
 - If today's rate is missing, finance prefers to **keep yesterday's rate** rather than fail invoicing — but they must know about it.
 
 **Describe your solution:**

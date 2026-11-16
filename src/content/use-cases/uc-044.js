@@ -22,16 +22,16 @@ export default {
     reference: diagram(
       {
         web: ['web-app', 'Seat map (web / app)'],
-        wr: ['api-gateway', 'Waiting room + bot management'],
-        exp: ['experience-api', 'exp-shop-api (admission token)'],
-        hold: ['process-api', 'prc-hold-api'],
-        po: ['process-api', 'prc-purchase-orchestrator'],
+        wr: ['api-gateway', 'Waiting room + bot management', { auth: 'jwt', rateLimit: 150 }],
+        exp: ['experience-api', 'exp-shop-api (admission token)', { vCores: '0.5' }],
+        hold: ['process-api', 'prc-hold-api', { vCores: '0.5' }],
+        po: ['process-api', 'prc-purchase-orchestrator', { vCores: '0.5' }],
         cu: ['process-api', 'prc-availability-updater'],
         cache: ['cache', 'Seat availability + per-customer counters'],
         state: ['database', 'Saga state per order'],
         t: ['topic', 'seat-events'],
         q: ['queue', 'order-confirmed'],
-        score: ['system-api', 'sys-ticketing-core-api'],
+        score: ['system-api', 'sys-ticketing-core-api', { vCores: '1' }],
         spsp: ['system-api', 'sys-psp-api'],
         siss: ['system-api', 'sys-ticket-issuing-api'],
         core: ['legacy', 'Ticketing core (≈400 req/s)'],
@@ -43,6 +43,25 @@ export default {
         'po ~> q', 'q ~> siss', 'siss -> iss', 'score -> core', 'spsp -> psp', 'score ~> t', 't ~> cu', 'cu -> cache',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 50, maxRps: 400 }],
+      tests: [
+        {
+          name: 'The on-sale opens',
+          about: 'When the on-sale opens 2,000 fans a second try to hold seats. The waiting room lets 150 a second through and asks the others to wait, so the ticketing core stays under its 400 calls a second and nobody gets an error.',
+          traffic: [{ name: 'fans', from: 'web-app', rps: 2000, forMin: 10, to: 'legacy', kind: 'write' }],
+          durationMin: 15,
+          expect: { answers: [{ maxFailed: 0.01 }], peakRps: [{ node: 'legacy', max: 400 }] },
+        },
+        {
+          name: 'Bots without an admission token',
+          about: 'Bots send 200 hold requests a second without an admission token from the waiting room. Every one of them is refused before it reaches the shop API.',
+          traffic: [{ name: 'bots', from: 'web-app', rps: 200, to: 'legacy', kind: 'write', auth: 'none' }],
+          durationMin: 10,
+          expect: { answers: [{ minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A ticketing company sells concerts and sports events. For a stadium tour on-sale, **400,000 fans** are expected in the first 10 minutes for **60,000 seats per show**.
@@ -55,6 +74,7 @@ Facts:
 - Bots and resellers aggressively try to buy; the business wants a **fair virtual waiting room**.
 - Today's architecture: the web app calls the ticketing core directly; it **crashed during the last big on-sale**.
 - Integration platform: Anypoint Platform (CloudHub 2.0), API Manager, Anypoint MQ; a managed Redis-compatible cache is available.
+- At the start about 2,000 fans a second try to hold seats, and bots send about 200 requests a second without an admission token. The waiting room should admit about 150 fans a second.
 
 **Describe your solution:**
 - What is the end-to-end architecture from waiting room to ticket issue?

@@ -18,7 +18,7 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Nightly product sync (Batch Job, aggregator 500)'],
+        job: ['batch-job', 'Nightly product sync (Batch Job, aggregator 500)', { timeoutMs: 30000, retries: 2 }],
         wm: ['cache', 'Watermark (persistent Object Store)'],
         erp: ['erp', 'ERP products DB'],
         shop: ['saas', 'E-commerce platform (bulk upsert)'],
@@ -26,6 +26,29 @@ export default {
       },
       ['job -> wm', 'job -> erp', 'job -> shop', 'job -> rep'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 200 },
+        { match: 'saas', latencyMs: 12000 },
+      ],
+      tests: [
+        {
+          name: 'A normal night',
+          about: 'The job sends 1 bulk call of 500 products a second for 30 minutes. Each bulk upsert takes the platform about 12 seconds, so every chunk must be written.',
+          traffic: [{ name: 'chunks', from: 'batch-job', rps: 1, forMin: 30, to: ['erp', 'saas'], kind: 'write' }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The platform fails some calls',
+          about: 'For the whole run the e-commerce platform answers 1 bulk call in 10 with an error. Retrying a failed chunk is safe because the target is an upsert, and almost every chunk gets in.',
+          traffic: [{ name: 'chunks', from: 'batch-job', rps: 1, forMin: 30, to: ['erp', 'saas'], kind: 'write' }],
+          incidents: [{ errors: 'saas', rate: 0.1 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 The e-commerce site must show the latest **price and stock** for ~200k products held in an ERP database.
@@ -33,6 +56,7 @@ The e-commerce site must show the latest **price and stock** for ~200k products 
 - The ERP has a \`last_modified\` column on the products table.
 - The e-commerce platform has a bulk REST endpoint accepting up to 500 products per call.
 - The sync must finish within 1 hour, nightly.
+- A bulk call of 500 products takes the platform about 12 seconds, the job sends 1 a second, and about 1 call in 10 fails with an error on a bad night.
 
 **Describe your solution:** how you detect changes, how you move the data, and how you recover if the job fails halfway.
 `,

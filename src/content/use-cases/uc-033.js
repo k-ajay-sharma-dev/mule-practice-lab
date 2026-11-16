@@ -22,15 +22,15 @@ export default {
       {
         oms: ['legacy', 'OMS (outage management)'],
         t: ['topic', 'outage-events'],
-        prc: ['process-api', 'prc-outage-notification-api'],
+        prc: ['process-api', 'prc-outage-notification-api', { vCores: '1' }],
         idx: ['cache', 'Node→customer index + notification state'],
         scis: ['system-api', 'sys-cis-api'],
         cis: ['erp', 'CIS (customers, preferences)'],
         qs: ['queue', 'notify-sms'],
         qe: ['queue', 'notify-email'],
         qp: ['queue', 'notify-push'],
-        ssms: ['system-api', 'sys-sms-api (100 msg/s)'],
-        smail: ['system-api', 'sys-email-api'],
+        ssms: ['system-api', 'sys-sms-api (100 msg/s)', { vCores: '0.5', rateLimit: 100 }],
+        smail: ['system-api', 'sys-email-api', { vCores: '0.5' }],
         spush: ['system-api', 'sys-push-api'],
         sms: ['notification', 'SMS provider'],
         mail: ['notification', 'Email provider'],
@@ -45,6 +45,32 @@ export default {
         'ssms -> sms', 'smail -> mail', 'spush -> push', 'prc -> scrm', 'scrm -> crm', 'job -> prc',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'notification', label: 'sms' }, latencyMs: 100, maxRps: 100 },
+        { match: { type: 'notification', label: 'email' }, latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'A storm',
+          about: 'A storm makes 300 SMS updates a second for 10 minutes, and the SMS provider takes 100 a second. The notification API keeps up with the outage events, the SMS queue holds the rest, and every SMS is sent within 45 minutes without going over the contract limit.',
+          traffic: [{ name: 'SMS updates', from: 'legacy', rps: 300, forMin: 10, to: { type: 'notification', label: 'sms' }, kind: 'write' }],
+          durationMin: 45,
+          expect: { peakRps: [{ node: { type: 'notification', label: 'sms' }, max: 100 }], backlog: [{ queue: ['topic', 'queue'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The SMS provider is down for 20 minutes',
+          about: 'An outage makes 50 SMS and 100 email updates a second while the SMS provider is down for 20 minutes. Emails keep going, and the SMS updates wait in their own queue until the provider is back.',
+          traffic: [
+            { name: 'SMS updates', from: 'legacy', rps: 50, to: { type: 'notification', label: 'sms' }, kind: 'write' },
+            { name: 'email updates', from: 'legacy', rps: 100, to: { type: 'notification', label: 'email' }, kind: 'write' },
+          ],
+          incidents: [{ down: { type: 'notification', label: 'sms' }, at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { backlog: [{ queue: ['topic', 'queue'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An electricity distributor serving **1.8 million customers** wants to proactively tell customers about outages by **SMS, email and app push**, and update them as the restoration estimate changes.
@@ -54,6 +80,7 @@ Facts:
 - The **customer information system (CIS)** knows which premises (and customers) are connected to which node, plus contact preferences and language.
 - A storm can create **hundreds of outages in an hour**, affecting up to **300,000 customers**; ETRs may change many times.
 - SMS provider: **100 messages/second** contract limit. Email and push providers are much faster.
+- In a storm the platform can make 300 SMS updates a second for 10 minutes, and the SMS provider can be down for 20 minutes.
 - Regulation: **planned outages** must be notified **at least 48 hours** in advance; **medically vulnerable customers** (life-support register) must be phoned by the call centre, not just messaged.
 - Customers complained about receiving 7 updates in one evening.
 

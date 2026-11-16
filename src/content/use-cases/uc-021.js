@@ -25,7 +25,7 @@ export default {
         q: ['queue', 'closed-won-q'],
         p: ['process-api', 'prc-subscription-api'],
         ssf: ['system-api', 'sys-salesforce-cpq-api'],
-        sbill: ['system-api', 'sys-billing-api'],
+        sbill: ['system-api', 'sys-billing-api', { retries: 3 }],
         bill: ['saas', 'Subscription billing (Zuora-like)'],
         sprod: ['system-api', 'sys-product-platform-api (entitlements, usage)'],
         prod: ['saas', 'Product platform'],
@@ -41,6 +41,27 @@ export default {
         'usage -> sbill', 'bill ~> bq', 'bq ~> dun', 'dun -> sbill', 'dun -> sprod', 'fin -> sbill', 'fin -> sns', 'sns -> ns',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 400 }],
+      tests: [
+        {
+          name: 'The product platform is down for 10 minutes',
+          about: 'At quarter end Salesforce closes 1 deal a second while the product platform is down for 10 minutes. The deals wait in the queue, none is lost, and every tenant is provisioned once the platform is back.',
+          traffic: [{ name: 'closed-won deals', from: 'crm', rps: 1, to: [{ type: 'saas', label: 'product' }, { type: 'saas', label: 'billing' }], kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'product' }, at: 5, forMin: 10 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'closed-won' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Billing drops some usage uploads',
+          about: 'The usage job uploads 10 usage records a second for 20 minutes, and the billing platform fails 1 call in 10. Retries get every record billed.',
+          traffic: [{ name: 'usage uploads', from: { type: 'batch-job', label: 'usage' }, rps: 10, forMin: 20, to: { type: 'saas', label: 'billing' }, kind: 'write' }],
+          incidents: [{ errors: { type: 'saas', label: 'billing' }, rate: 0.1 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A B2B software company sells **annual and monthly subscriptions** with usage-based add-ons (API calls above an included quota).
@@ -53,6 +74,7 @@ Systems:
 
 Requirements:
 - When a deal is closed-won, the customer must be **provisioned within 15 minutes** and billing must start on the contract start date.
+- At quarter end Salesforce can close 1 deal a second, and the product platform can be down for 10 minutes. The daily usage upload sends about 10 records a second, and the billing platform fails about 1 call in 10.
 - Mid-term upgrades are **prorated**; downgrades take effect at renewal.
 - Usage over quota is billed **monthly in arrears**.
 - If an invoice is unpaid for 30 days, the product must switch the tenant to **read-only**; payment restores it.

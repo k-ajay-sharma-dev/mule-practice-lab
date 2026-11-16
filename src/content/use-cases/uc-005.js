@@ -24,7 +24,7 @@ export default {
         sup: ['partner', 'EDI suppliers (AS2)'],
         sedi: ['system-api', 'sys-as2-x12-api (997 back)'],
         mail: ['saas', 'invoices@ mailbox (IMAP)'],
-        job: ['batch-job', 'Mailbox poller'],
+        job: ['batch-job', 'Mailbox poller', { timeoutMs: 30000 }],
         idp: ['external-api', 'IDP / OCR service'],
         docs: ['file-store', 'Original documents'],
         inq: ['queue', 'invoice-intake-q'],
@@ -42,6 +42,28 @@ export default {
         'pval -> ssap', 'pval -> exc', 'exc ~> inq', 'pval ~> postq', 'postq ~> post', 'postq ~> dlq', 'post -> ssap', 'ssap -> sap',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 500, maxRps: 10 },
+        { match: 'external-api', latencyMs: 15000 },
+      ],
+      tests: [
+        {
+          name: 'Month-end EDI peak',
+          about: 'At month end EDI suppliers send 12 invoices a second for 20 minutes. Each invoice needs a PO check and a posting in SAP, and SAP takes at most 10 calls a second. Every supplier gets its acknowledgement, and the invoices wait in the queue until SAP has them all.',
+          traffic: [{ name: 'EDI invoices', from: 'partner', rps: 12, forMin: 20, to: 'erp', kind: 'write' }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 10 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Scanned PDFs at month end',
+          about: 'The mailbox poller sends 2 PDFs a second to the extraction service, which needs about 15 seconds for a scanned invoice. Every PDF is read and reaches SAP.',
+          traffic: [{ name: 'PDF invoices', from: 'batch-job', rps: 2, forMin: 20, to: ['external-api', 'erp'], kind: 'write' }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A manufacturer receives **~12,000 supplier invoices/month** and wants them posted to **SAP S/4HANA** automatically (three-way match: PO, goods receipt, invoice).
@@ -55,6 +77,7 @@ Rules:
 - **Duplicate invoices** (same supplier + invoice number) must never be posted twice — suppliers often resend.
 - Invoices failing validation go to the **AP team** for manual handling, with a clear reason; AP wants to fix and resubmit without asking the supplier again.
 - Month-end peak: 40% of volume arrives in the last 3 days. SAP posting must stay below 10 invoices/second.
+- At month end EDI suppliers can send 12 invoices a second for 20 minutes, and the extraction service needs about 15 seconds for a scanned PDF.
 
 **Describe your solution:**
 - How do you ingest each channel and convert it to one internal format?

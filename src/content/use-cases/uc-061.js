@@ -21,13 +21,13 @@ export default {
     reference: diagram(
       {
         shop: ['saas', 'Shopify Plus'],
-        hook: ['experience-api', 'exp-shopify-webhooks'],
+        hook: ['experience-api', 'exp-shopify-webhooks', { vCores: '0.5' }],
         qord: ['queue', 'd2c-orders'],
         prc: ['process-api', 'prc-d2c-fulfilment'],
         stg: ['database', 'Order staging'],
         b940: ['batch-job', '940 batch builder (15 min)'],
         p945: ['batch-job', '945 / 846 poller (10 min)'],
-        qshp: ['queue', 'd2c-shipments'],
+        qshp: ['queue', 'd2c-shipments', { maxRedelivery: 120 }],
         s3pl: ['system-api', 'sys-3pl-edi'],
         sftp: ['file-store', '3PL SFTP (in / out)'],
         tpl: ['wms', '3PL WMS'],
@@ -40,6 +40,26 @@ export default {
         'p945 -> s3pl', 'p945 ~> qshp', 'qshp ~> prc', 'prc -> sshop', 'prc -> sns', 'sshop -> shop', 'sns -> ns',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 600 }],
+      tests: [
+        {
+          name: 'November promotion launch',
+          about: 'When the November promotion opens, Shopify sends 80 order webhooks a second for 10 minutes. The webhook API answers each one at once and queues it, and every order reaches the staging table.',
+          traffic: [{ name: 'order webhooks', from: 'saas', rps: 80, forMin: 10, to: 'database', kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: { label: 'd2c-orders' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'NetSuite is down for 30 minutes',
+          about: 'The 945 poller queues 2 shipments a second while NetSuite is down for 30 minutes. The shipments wait in the queue and are retried, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'shipments', from: { label: '945' }, rps: 2, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: { label: 'd2c-shipments' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A direct-to-consumer skincare brand sells on **Shopify Plus** and keeps finance and inventory valuation in **NetSuite**. It has just outsourced warehousing to a **3PL**. The 3PL WMS only speaks **X12 EDI files over SFTP**:
@@ -56,6 +76,7 @@ Volumes and SLAs:
 - Orders paid before **14:00** must ship the same day (3PL cut-off for the last 940 file: 14:15).
 - Customers must get a shipping email with tracking within **1 hour** of the 945.
 - Orders can be **cancelled or edited** in Shopify until they are sent to the 3PL.
+- When the promotion opens Shopify can send 80 order webhooks a second for 10 minutes. Shipments come back at about 2 a second, and NetSuite can be down for 30 minutes.
 
 **Questions:**
 1. Describe the flows for orders, shipments, inventory and receipts.

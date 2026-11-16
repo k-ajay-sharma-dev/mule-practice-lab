@@ -21,7 +21,7 @@ export default {
     reference: diagram(
       {
         sup: ['partner', 'API suppliers (35)'],
-        gw: ['api-gateway', 'Gateway (OAuth client credentials, rate limit)'],
+        gw: ['api-gateway', 'Gateway (OAuth client credentials, rate limit)', { auth: 'jwt', rateLimit: 25 }],
         expp: ['experience-api', 'exp-supplier-vmi'],
         job: ['batch-job', 'Nightly VMI extract (02:00)'],
         prc: ['process-api', 'prc-vmi-feed'],
@@ -40,6 +40,26 @@ export default {
         'sinv -> ora', 'sedi -> van', 'prcpo -> serp', 'serp -> ebs',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 400, maxRps: 30 }],
+      tests: [
+        {
+          name: 'A caller without a token',
+          about: 'API suppliers pull 5 feed pages a second with their tokens, and an unknown caller asks for 20 a second without one. The gateway refuses the unknown caller, so no supplier data leaves.',
+          traffic: [
+            { name: 'suppliers', from: 'partner', rps: 5, to: 'database' },
+            { name: 'unknown caller', from: 'partner', rps: 20, to: 'database', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'suppliers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A supplier script runs wild',
+          about: 'Suppliers pull 10 feed pages a second, and for 5 minutes a broken script pushes this to 200 a second. The inventory mart takes about 30 queries a second. The gateway answers 429 above 25 a second, so the mart is never over its limit.',
+          traffic: [{ name: 'suppliers', from: 'partner', rps: 10, to: 'database', spikes: [{ at: 3, forMin: 5, rps: 200 }] }],
+          expect: { peakRps: [{ node: 'database', max: 30 }], answers: [{ minLimited: 0.5 }] },
+        },
+      ],
+    },
   },
   description: `
 A pharmacy chain with **300 stores and 2 DCs** wants its top **120 suppliers** to manage replenishment themselves (vendor-managed inventory). Every night each supplier must receive, for its own items only:
@@ -58,6 +78,7 @@ Facts:
 - Suppliers must have the data by **05:00**; their orders must create POs in EBS by **09:00** so DCs can schedule receipts.
 - A supplier must **never** see another supplier's data.
 - Supplier orders must respect min/max levels agreed in the VMI contract; orders outside the limits need buyer approval.
+- The inventory mart takes about 30 queries a second at 400 ms. API suppliers pull about 10 feed pages a second, and a broken script could send 200.
 
 **Questions:**
 1. How do you extract and deliver the feed efficiently?

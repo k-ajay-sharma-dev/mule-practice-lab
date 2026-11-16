@@ -26,7 +26,7 @@ export default {
         esn: ['experience-api', 'exp-servicenow-events-api'],
         ej: ['experience-api', 'exp-jira-webhooks-api'],
         qp: ['queue', 'incident-sync-p1-q'],
-        q: ['queue', 'incident-sync-q'],
+        q: ['queue', 'incident-sync-q', { maxRedelivery: 30 }],
         dlq: ['dlq', 'incident-sync-dlq'],
         p: ['process-api', 'prc-incident-sync'],
         map: ['database', 'Incident ↔ Jira key mapping'],
@@ -39,6 +39,30 @@ export default {
         'p -> sj', 'ssn -> sn', 'sj -> jira', 'recon -> ssn', 'recon -> sj',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { label: 'servicenow' }, latencyMs: 500 },
+        { match: { label: 'jira' }, latencyMs: 400 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'ServiceNow is down for 20 minutes',
+          about: 'During a major incident Jira sends 3 comment and status webhooks a second while ServiceNow is down for 20 minutes. Each update is tried for 30 minutes, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'Jira updates', from: { type: 'saas', label: 'jira' }, rps: 3, to: { type: 'saas', label: 'servicenow' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'servicenow' }, at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'incident-sync-q' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Updates ServiceNow always rejects',
+          about: 'Jira sends 3 updates a second, and 1 in 50 maps to a status ServiceNow rejects every time. Those go to the DLQ for a person to fix, and the other updates keep flowing.',
+          traffic: [{ name: 'Jira updates', from: { type: 'saas', label: 'jira' }, rps: 3, to: { type: 'saas', label: 'servicenow' }, kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'incident-sync-q' }, maxEnd: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 An insurance company's IT support uses **ServiceNow** (ITSM) for incidents. Development teams work in **Jira Cloud**. When an incident needs a code fix, support assigns it to a "Dev" assignment group and today they copy it into Jira by hand.
@@ -50,6 +74,7 @@ Requirements:
 - Priority P1 incidents must appear in Jira within **1 minute**.
 - ~400 incidents/month go to Dev; comment volume is low, but bursts happen during major incidents.
 - Jira Cloud rate-limits API calls; ServiceNow is reachable only through its REST API with an integration user.
+- During a major incident Jira can send 3 updates a second, ServiceNow can be down for 20 minutes, and about 1 update in 50 maps to a status ServiceNow rejects.
 
 **Describe your solution:**
 - How do you trigger the sync in each direction?

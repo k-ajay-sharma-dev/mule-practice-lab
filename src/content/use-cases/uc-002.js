@@ -22,7 +22,7 @@ export default {
       {
         pg: ['payment', 'Payment gateway (webhooks)'],
         wh: ['experience-api', 'exp-payment-webhook-api (HMAC check)'],
-        q: ['queue', 'payment-events-q'],
+        q: ['queue', 'payment-events-q', { maxRedelivery: 30 }],
         dlq: ['dlq', 'payment-events-dlq'],
         prc: ['process-api', 'prc-payment-events'],
         idem: ['cache', 'Processed event IDs (Object Store)'],
@@ -32,6 +32,26 @@ export default {
       },
       ['pg -> wh', 'wh ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> idem', 'prc -> sdb', 'sdb -> db', 'prc -> mail'],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 5000 }],
+      tests: [
+        {
+          name: 'The order DB is down for 20 minutes',
+          about: 'The gateway sends 5 webhooks a second while the order DB is down for 20 minutes. Every webhook gets its 200 at once, each event is tried for 30 minutes, and no good event is lost or sent to the DLQ.',
+          traffic: [{ name: 'webhooks', from: 'payment', rps: 5, to: 'database', kind: 'write' }],
+          incidents: [{ down: 'database', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some events cannot be processed',
+          about: 'The gateway sends 5 webhooks a second, and 1 event in 100 has data the order DB rejects every time. Those events go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'webhooks', from: 'payment', rps: 5, to: 'database', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 An online ticket shop uses a payment gateway (Stripe-like). When a payment succeeds, fails or is refunded, the gateway sends a **webhook** (HTTP POST, JSON) to your Mule app.
@@ -42,6 +62,8 @@ Gateway behaviour:
 - Each event has a unique \`event.id\`.
 
 Your job: update the order in the **order DB** and trigger the ticket email. The order DB sometimes takes 5+ seconds under load.
+
+- The gateway sends about 5 webhooks a second. The order DB can be down for 20 minutes, and about 1 event in 100 has data it rejects every time.
 
 **Describe your solution:**
 - How do you verify that a webhook really comes from the gateway?

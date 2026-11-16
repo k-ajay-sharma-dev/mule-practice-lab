@@ -26,7 +26,7 @@ export default {
         ga: ['partner', 'Google Ads lead webhook'],
         ew: ['experience-api', 'exp-web-leads-api'],
         ea: ['experience-api', 'exp-ad-lead-webhooks'],
-        q: ['queue', 'canonical-leads'],
+        q: ['queue', 'canonical-leads', { maxRedelivery: 40 }],
         dlq: ['dlq', 'canonical-leads-dlq'],
         prc: ['process-api', 'prc-lead-api'],
         job: ['batch-job', 'Trade-show CSV batch'],
@@ -37,6 +37,26 @@ export default {
       },
       ['web -> ew', 'li -> ea', 'ga -> ea', 'ew ~> q', 'ea ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> ssf', 'ssf -> sf', 'job -> fs', 'job -> ssf', 'job -> mail'],
     ),
+    simulation: {
+      systems: [{ match: 'crm', latencyMs: 300 }],
+      tests: [
+        {
+          name: 'Salesforce is down for 30 minutes',
+          about: 'During a webinar campaign the website sends 2 leads a second while Salesforce is down for 30 minutes. The website gets its 202 at once, each lead is tried for 40 minutes, and no lead is lost or sent to the DLQ.',
+          traffic: [{ name: 'web leads', from: 'web-app', rps: 2, to: 'crm', kind: 'write' }],
+          incidents: [{ down: 'crm', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some leads cannot be processed',
+          about: 'The website sends 2 leads a second, and 2 leads in 100 have data Salesforce rejects every time. Those leads go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'web leads', from: 'web-app', rps: 2, to: 'crm', kind: 'write', poison: 0.02 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 150 }] },
+        },
+      ],
+    },
   },
   description: `
 A B2B software company gets leads from several sources and wants them all in **Salesforce** quickly, without duplicates.
@@ -54,6 +74,7 @@ Facts:
 - Marketing needs the **source and campaign** on every lead, and existing records should get a new **Campaign Member** entry rather than being overwritten.
 - Form data is messy: free-text country, personal email addresses, phone numbers in any format.
 - Leads without marketing consent may be stored but must not be emailed.
+- During a campaign the website can send 2 leads a second. Salesforce can be down for 30 minutes, and about 2 leads in 100 have data Salesforce rejects every time.
 
 **Describe your solution:**
 - How do you receive leads from all sources into one flow?

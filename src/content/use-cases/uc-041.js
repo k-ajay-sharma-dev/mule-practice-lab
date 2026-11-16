@@ -21,8 +21,8 @@ export default {
     reference: diagram(
       {
         pe: ['saas', 'Pricing engine'],
-        hook: ['experience-api', 'exp-price-change-webhook'],
-        prc: ['process-api', 'prc-price-distribution-api'],
+        hook: ['experience-api', 'exp-price-change-webhook', { vCores: '0.5' }],
+        prc: ['process-api', 'prc-price-distribution-api', { vCores: '0.5' }],
         spe: ['system-api', 'sys-pricing-engine-api'],
         claim: ['file-store', 'Change-set payloads (claim check)'],
         k: ['event-stream', 'price-changes (key = storeId)'],
@@ -41,6 +41,30 @@ export default {
         'sw -> spos', 'spos -> pos', 'sw -> sesl', 'sesl -> esl', 'sw -> state', 'ow -> secom', 'secom -> ecom',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'saas', label: 'pricing' }, latencyMs: 200 },
+        { match: 'legacy', latencyMs: 500, maxRps: 30 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The 18:00 markdown run',
+          about: 'The 18:00 markdown run sends 100 store change sets a second for 10 minutes. The store servers take at most 30 a second in all, so the stream holds the rest and every store gets its prices within the hour.',
+          traffic: [{ name: 'change sets', from: { type: 'saas', label: 'pricing' }, rps: 100, forMin: 10, to: 'legacy', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'legacy', max: 30 }], backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some stores are offline',
+          about: 'The pricing engine sends 10 store change sets a second, and 1 delivery in 20 fails because the store is offline. Each change set waits in the stream and is tried again until its store is back, so none is lost.',
+          traffic: [{ name: 'change sets', from: { type: 'saas', label: 'pricing' }, rps: 10, forMin: 30, to: 'legacy', kind: 'write' }],
+          incidents: [{ errors: 'legacy', rate: 0.05 }],
+          durationMin: 45,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A supermarket chain introduces a **pricing engine** that recalculates prices based on demand, competitor prices and expiry dates. Prices must reach **800 stores** (POS and electronic shelf labels) and the **online shop**.
@@ -52,6 +76,7 @@ Facts:
 - **Legal constraint:** the price on the shelf label must equal the price charged at the POS. Changes must be applied in the store **POS first, then ESL**, or both at an agreed effective time.
 - Some prices are **store-specific** (regional zones), others national. Online uses the national price plus delivery zone overrides.
 - Head office needs to know, per store, which change set is active.
+- A markdown run sends about 100 store change sets a second for 10 minutes, and the store servers take at most 30 a second in all. About 1 delivery in 20 fails because a store is offline.
 
 **Describe your solution:**
 - How do you distribute change sets to 800 stores efficiently?

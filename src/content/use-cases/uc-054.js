@@ -25,9 +25,9 @@ export default {
         agg: ['partner', 'Aggregators (x3)'],
         dw: ['web-app', 'Direct website'],
         eb: ['experience-api', 'exp-broker-portal'],
-        ea: ['experience-api', 'exp-aggregator-quotes'],
+        ea: ['experience-api', 'exp-aggregator-quotes', { vCores: '0.5', rateLimit: 150 }],
         ed: ['experience-api', 'exp-direct-web'],
-        pq: ['process-api', 'prc-home-quote'],
+        pq: ['process-api', 'prc-home-quote', { vCores: '0.5' }],
         pp: ['process-api', 'prc-home-policy'],
         pd: ['process-api', 'prc-policy-documents'],
         t: ['topic', 'PolicyBound'],
@@ -49,6 +49,27 @@ export default {
         'sqs -> qdb', 'srate -> rate', 'spc -> pc', 'spay -> psp', 'sdoc -> doc',
       ],
     ),
+    simulation: {
+      systems: [{ match: { label: 'Rating engine' }, latencyMs: 250, maxRps: 50 }],
+      cache: { hitRatio: 0.8 },
+      tests: [
+        {
+          name: 'Aggregator evening peak',
+          about: 'The aggregators send 120 quotes a second. The rating engine takes about 50 a second and answers in 250 ms. The cache answers most quotes, so every price comes back within 2 seconds.',
+          traffic: [{ name: 'aggregator quotes', from: 'partner', rps: 120, to: { label: 'Rating engine' } }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], peakRps: [{ node: { label: 'Rating engine' }, max: 50 }] },
+        },
+        {
+          name: 'An aggregator floods the quote API',
+          about: 'Brokers send 5 quotes a second while a bug at one aggregator sends 400 a second for 5 minutes. The aggregator API answers 429 above 150 a second, so the broker quotes still get through.',
+          traffic: [
+            { name: 'broker quotes', from: { label: 'Broker portal' }, rps: 5, to: { label: 'Rating engine' } },
+            { name: 'aggregator quotes', from: 'partner', rps: 100, to: { label: 'Rating engine' }, spikes: [{ at: 3, forMin: 5, rps: 400 }] },
+          ],
+          expect: { answers: [{ flow: 'broker quotes', minSuccess: 0.99 }], peakRps: [{ node: { label: 'Rating engine' }, max: 50 }] },
+        },
+      ],
+    },
   },
   description: `
 A property insurer wants to sell **home insurance** through two new channels, using one API network.
@@ -73,6 +94,7 @@ Constraints:
 - Each aggregator has a **commission and pricing agreement**: the price may differ per channel (channel loading).
 - A quote is guaranteed for **30 days**; bind must use exactly the quoted price unless risk details changed.
 - Broker portal: brokers bind on behalf of customers; commission recorded per broker.
+- The rating engine takes about 50 calls a second at 250 ms. Aggregators peak at 120 quotes a second, and a faulty aggregator could send 400 a second while brokers send 5.
 
 **Questions:**
 1. Decompose into APIs per layer (names, resources, consumers). Where does the existing direct website fit?

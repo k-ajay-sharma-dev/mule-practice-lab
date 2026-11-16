@@ -24,7 +24,7 @@ export default {
         truck: ['device', 'Truck gateways (MQTT)'],
         mqtt: ['topic', 'MQTT broker / IoT hub'],
         kraw: ['event-stream', 'Kafka telemetry.raw (by truck)'],
-        det: ['process-api', 'Excursion detector (stream processing)'],
+        det: ['process-api', 'Excursion detector (stream processing)', { vCores: '1' }],
         kal: ['event-stream', 'Kafka telemetry.alerts'],
         alert: ['process-api', 'prc-alert-enrichment (Mule)'],
         stms: ['system-api', 'sys-tms-api'],
@@ -41,12 +41,31 @@ export default {
         'kraw ~> arch', 'kraw ~> ts', 'tmsjob -> ts', 'tmsjob -> stms', 'portal -> eh', 'eh -> ts',
       ],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Trucks come out of a tunnel area',
+          about: 'The trucks send 250 messages a second, and for 5 minutes buffered backlogs push it to 750 a second. Kafka holds what the detector cannot take at once, and the detector catches up within the half hour.',
+          traffic: [{ name: 'telemetry', from: 'device', rps: 250, to: { type: 'process-api', label: 'excursion' }, kind: 'write', spikes: [{ at: 5, forMin: 5, rps: 750 }] }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'event-stream', label: 'raw' }, maxEnd: 1000 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The detector restarts',
+          about: 'The trucks send 250 messages a second while the detector is down for 10 minutes. Kafka keeps the messages, and the detector reads them all once it is back.',
+          traffic: [{ name: 'telemetry', from: 'device', rps: 250, to: { type: 'process-api', label: 'excursion' }, kind: 'write' }],
+          incidents: [{ down: { type: 'process-api', label: 'excursion' }, at: 5, forMin: 10 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'event-stream', label: 'raw' }, maxEnd: 1000 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A cold-chain logistics company runs **2,500 refrigerated trucks**. Each truck has a gateway that sends telemetry over **MQTT**: temperature (per compartment), door open/closed, GPS position and engine status.
 
 Facts:
-- Each truck sends one message every **10 seconds** (≈ 250 msg/s, ~22 million/day).
+- Each truck sends one message every **10 seconds** (≈ 250 msg/s, ~22 million/day). When many trucks reconnect at once, backlogs can push this to 750 msg/s for 5 minutes.
 - Trucks lose connectivity in tunnels and rural areas. They then send **buffered backlogs** (out of order, up to 6 hours old).
 - Pharmaceutical customers require an **alert within 2 minutes** when a compartment is outside its range (e.g. 2–8 °C) for more than 5 consecutive minutes.
 - Raw data must be retained **5 years** for audits (GDP, Good Distribution Practice).

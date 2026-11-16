@@ -24,16 +24,39 @@ export default {
         web: ['web-app', 'Web shop'],
         mob: ['mobile-app', 'Mobile app'],
         eck: ['experience-api', 'exp-checkout-loyalty-api'],
-        p: ['process-api', 'prc-loyalty-api'],
-        q: ['queue', 'basket-accrual-q'],
+        p: ['process-api', 'prc-loyalty-api', { vCores: '0.5' }],
+        q: ['queue', 'basket-accrual-q', { maxRedelivery: 5 }],
         dlq: ['dlq', 'basket-accrual-dlq'],
-        acc: ['process-api', 'prc-accrual-consumer (< 200 req/s)'],
+        acc: ['process-api', 'prc-accrual-consumer (< 200 req/s)', { vCores: '0.5' }],
         keys: ['cache', 'Processed basket keys'],
-        sl: ['system-api', 'sys-loyalty-engine-api'],
+        sl: ['system-api', 'sys-loyalty-engine-api', { vCores: '0.5' }],
         le: ['saas', 'Loyalty engine'],
       },
       ['pos -> p', 'p ~> q', 'q ~> acc', 'q ~> dlq', 'acc -> keys', 'acc -> sl', 'web -> eck', 'mob -> eck', 'eck -> p', 'p -> sl', 'sl -> le'],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 150, maxRps: 200 }],
+      tests: [
+        {
+          name: 'Saturday morning peak',
+          about: 'The POS hub sends 120 baskets a second while web and mobile checkouts redeem points 30 times a second. Every basket is taken at once, the accrual consumer keeps up, and every redemption is answered.',
+          traffic: [
+            { name: 'baskets', from: 'device', rps: 120, to: { type: ['cache', 'database'], label: ['key', 'processed'] }, kind: 'write' },
+            { name: 'web redemptions', from: 'web-app', rps: 15, to: 'saas', kind: 'write' },
+            { name: 'app redemptions', from: 'mobile-app', rps: 15, to: 'saas', kind: 'write' },
+          ],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 100 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Malformed baskets',
+          about: 'The POS hub sends 40 baskets a second, and 1 basket in 200 is malformed and fails every time. Those baskets go to the DLQ after a few tries, and the others keep flowing.',
+          traffic: [{ name: 'baskets', from: 'device', rps: 40, to: { type: ['cache', 'database'], label: ['key', 'processed'] }, kind: 'write', poison: 0.005 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A supermarket chain is launching a loyalty programme. A SaaS **loyalty engine** holds member accounts and point balances (REST API). Points are earned and spent in:
@@ -47,6 +70,7 @@ Rules and facts:
 - Returns must **reverse** the points earned on the returned items.
 - A member must never be able to spend the same points twice (two devices checking out at once).
 - The loyalty engine API allows 200 requests/second and is unavailable ~1 hour/month for maintenance.
+- On a Saturday morning the hub sends 120 baskets a second while checkouts redeem points 30 times a second. About 1 basket in 200 is malformed.
 
 **Describe your solution:**
 - How do points get from POS baskets into the loyalty engine?

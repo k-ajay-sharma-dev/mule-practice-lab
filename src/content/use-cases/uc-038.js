@@ -21,8 +21,8 @@ export default {
     reference: diagram(
       {
         chk: ['web-app', 'Checkout microservice'],
-        prc: ['process-api', 'prc-checkout-api'],
-        sfr: ['system-api', 'sys-fraud-api'],
+        prc: ['process-api', 'prc-checkout-api', { replicas: 2, vCores: '0.5', timeoutMs: 300, circuitBreaker: 'on', onFailure: 'partial answer' }],
+        sfr: ['system-api', 'sys-fraud-api', { replicas: 2, vCores: '0.5' }],
         fv: ['external-api', 'Fraud vendor POST /score'],
         prof: ['cache', 'Customer risk profile store'],
         rules: ['database', 'Fraud rules / thresholds'],
@@ -38,6 +38,26 @@ export default {
         'prc -> soms', 'soms -> oms', 'ev ~> pu', 'pu -> prof',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 180 }],
+      tests: [
+        {
+          name: 'Black Friday peak',
+          about: 'On Black Friday checkout asks for 150 fraud checks a second. The vendor answers in about 180 ms, and each check must add at most 300 ms to checkout.',
+          traffic: [{ name: 'checkouts', from: 'web-app', rps: 150, to: 'external-api', kind: 'write' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }] },
+        },
+        {
+          name: 'The fraud vendor stops answering',
+          about: 'Checkout asks for 20 fraud checks a second and the vendor stops answering for 30 minutes. Checkout never waits more than 300 ms for the vendor, and orders go on without a score.',
+          traffic: [{ name: 'checkouts', from: 'web-app', rps: 20, to: 'external-api', kind: 'write' }],
+          incidents: [{ hang: 'external-api', at: 5, forMin: 30 }],
+          durationMin: 45,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 400 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion e-commerce company (≈ €600M/year online) wants every order checked by an external **fraud-scoring service** before payment is captured.
@@ -50,6 +70,7 @@ Facts:
 - The business rule for vendor failure: **"never block checkout because of the fraud vendor"**, but orders above **€1,000** placed while the vendor was unavailable must be reviewed manually.
 - Customer history (orders, chargebacks) lives in the order database and the CRM; fetching it is slow (~400 ms).
 - Fraud analysts change thresholds several times a month.
+- The design must carry 150 checks a second within 300 ms, and keep checkout going at 20 checks a second when the vendor stops answering for 30 minutes.
 
 **Describe your solution:**
 - Where does the fraud check sit in the checkout sequence?

@@ -24,13 +24,13 @@ export default {
         part: ['partner', 'E-commerce partners'],
         portal: ['web-app', 'Developer portal (API Experience Hub)'],
         idp: ['identity-provider', 'OAuth IdP (client management)'],
-        gw: ['api-gateway', 'API Manager: OAuth + SLA tier rate limiting'],
-        lgw: ['api-gateway', 'Legacy API-key proxy (migration)'],
-        eship: ['experience-api', 'exp-shipments-api'],
+        gw: ['api-gateway', 'API Manager: OAuth + SLA tier rate limiting', { auth: 'oauth2', rateLimit: 50 }],
+        lgw: ['api-gateway', 'Legacy API-key proxy (migration)', { auth: 'client-id', rateLimit: 50 }],
+        eship: ['experience-api', 'exp-shipments-api', { vCores: '0.5' }],
         etrack: ['experience-api', 'exp-tracking-api'],
-        p: ['process-api', 'prc-shipments-api'],
+        p: ['process-api', 'prc-shipments-api', { vCores: '0.5' }],
         map: ['cache', 'Client ID → partner number map'],
-        sship: ['system-api', 'sys-shipment-platform-api'],
+        sship: ['system-api', 'sys-shipment-platform-api', { vCores: '0.5' }],
         core: ['legacy', 'Shipment platform'],
         onb: ['batch-job', 'Onboarding automation'],
         anyp: ['external-api', 'Anypoint Platform APIs (contracts)'],
@@ -42,6 +42,27 @@ export default {
         'lgw -> eship', 'eship -> p', 'etrack -> p', 'p -> map', 'p -> sship', 'sship -> core', 'onb -> anyp', 'onb -> ssf', 'ssf -> sf',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 150, maxRps: 150 }],
+      tests: [
+        {
+          name: 'A revoked partner calls',
+          about: 'Partners create 10 shipments a second with valid credentials, and a revoked partner keeps calling 5 times a second without a valid token. The gateways refuse the revoked partner before anything reaches the shipment platform.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 10, to: 'legacy', kind: 'write', via: { type: 'experience-api', label: 'shipment' } },
+            { name: 'revoked partner', from: 'partner', rps: 5, to: 'legacy', kind: 'write', via: { type: 'experience-api', label: 'shipment' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'partners', minSuccess: 0.99 }, { flow: 'revoked partner', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A partner floods the API',
+          about: 'Partners send 20 requests a second, and for 3 minutes a partner with a bug pushes it to 300 a second. The shipment platform takes about 150 a second. The rate limits answer the extra with 429, so the platform is never over its limit.',
+          traffic: [{ name: 'partners', from: 'partner', rps: 20, to: 'legacy', kind: 'write', via: { type: 'experience-api', label: 'shipment' }, spikes: [{ at: 4, forMin: 3, rps: 300 }] }],
+          durationMin: 30,
+          expect: { peakRps: [{ node: 'legacy', max: 150 }], answers: [{ minSuccess: 0.3, minLimited: 0.4 }] },
+        },
+      ],
+    },
   },
   description: `
 A parcel delivery company wants **e-commerce partners** (webshops, marketplaces, software vendors) to integrate with its APIs: *Shipments*, *Tracking*, *Pickup Points* and *Rates*. Today onboarding takes **6 weeks** of emails, manual credential creation and spreadsheets.
@@ -50,6 +71,7 @@ Target:
 - A **developer portal** where partners register, read docs, try APIs in a sandbox and request production access.
 - Sandbox access **instantly**; production access after a **commercial contract check** in Salesforce (account must have an active contract) and a short certification test.
 - **Tiers**: Free (Tracking only, 10 req/s), Business (all APIs, 50 req/s), Enterprise (200 req/s, custom).
+- The shipment platform takes about 150 requests a second. A partner with a bug could send 300 a second, and a revoked partner may keep calling.
 - Partners must only see and act on **their own** shipments.
 - ~300 new partners/year, 1,200 existing partners to migrate from old API keys within 6 months.
 - Security team requires OAuth 2.0, secret rotation and the ability to revoke a partner immediately.

@@ -20,10 +20,10 @@ export default {
     reference: diagram(
       {
         cmp: ['partner', 'Comparison sites (x5)'],
-        gw: ['api-gateway', 'API Manager: client ID + SLA rate limiting'],
-        e: ['experience-api', 'exp-quotes-api'],
-        p: ['process-api', 'prc-quote-api (validation, capped concurrency)'],
-        srat: ['system-api', 'sys-rating-engine-api'],
+        gw: ['api-gateway', 'API Manager: client ID + SLA rate limiting', { auth: 'client-id', rateLimit: 60 }],
+        e: ['experience-api', 'exp-quotes-api', { vCores: '0.5' }],
+        p: ['process-api', 'prc-quote-api (validation, capped concurrency)', { vCores: '0.5' }],
+        srat: ['system-api', 'sys-rating-engine-api', { vCores: '0.5' }],
         rat: ['legacy', 'Rating engine (SOAP)'],
         sveh: ['system-api', 'sys-vehicle-lookup-api'],
         veh: ['external-api', 'Vehicle lookup'],
@@ -33,6 +33,31 @@ export default {
       },
       ['cmp -> gw', 'gw -> e', 'e -> p', 'p -> srat', 'srat -> rat', 'p -> sveh', 'sveh -> veh', 'p -> cache', 'p -> qdb', 'purge -> qdb'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 600, maxRps: 60 },
+        { match: 'external-api', latencyMs: 200 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      cache: { hitRatio: 0.7 },
+      tests: [
+        {
+          name: 'A caller without a client ID',
+          about: 'The sites send 30 quotes a second with their client IDs, and an unknown caller sends 10 a second without one. The gateway refuses the unknown caller before anything reaches the rating engine.',
+          traffic: [
+            { name: 'sites', from: 'partner', rps: 30, to: ['legacy', 'external-api', 'database'], kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: ['legacy', 'external-api', 'database'], kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'sites', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+        {
+          name: 'One site floods the API',
+          about: 'The sites send 30 quotes a second, and for 3 minutes a site with a bug pushes the total to 120 a second. The rating engine takes about 60 a second. The gateway answers the extra with 429, so the rating engine is never over its limit.',
+          traffic: [{ name: 'sites', from: 'partner', rps: 30, to: ['legacy', 'external-api', 'database'], kind: 'write', spikes: [{ at: 4, forMin: 3, rps: 120 }] }],
+          expect: { peakRps: [{ node: 'legacy', max: 60 }], answers: [{ minSuccess: 0.6, minLimited: 0.2 }] },
+        },
+      ],
+    },
   },
   description: `
 An insurer wants to sell car insurance through **price comparison websites**. Each site will call a public **Quote API** with driver and vehicle details and display the premium.
@@ -42,7 +67,7 @@ Backend:
 - A **vehicle lookup** REST service returns make/model/value from a registration number.
 
 Requirements:
-- 5 comparison sites at launch; one site alone can send **30 quotes/second** at evening peaks.
+- 5 comparison sites at launch; one site alone can send **30 quotes/second** at evening peaks. The rating engine takes about 60 quotes a second, and a site with a bug could send 120 a second.
 - Each quote must be stored with a **quote reference** valid for 30 days, so the customer can buy it later at the same price.
 - Invalid requests (driver under 17, missing licence date) must get a clear 400 error, not reach the rating engine.
 - Each site must only see its own quotes.

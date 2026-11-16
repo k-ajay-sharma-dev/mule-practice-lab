@@ -27,11 +27,11 @@ export default {
         ew: ['experience-api', 'exp-web-orders'],
         em: ['experience-api', 'exp-mobile-orders'],
         ea: ['experience-api', 'exp-agent-orders'],
-        prc: ['process-api', 'prc-order-status'],
+        prc: ['process-api', 'prc-order-status', { onFailure: 'partial answer' }],
         soms: ['system-api', 'sys-oms-orders'],
         swms: ['system-api', 'sys-wms-shipments'],
         scar: ['system-api', 'sys-carrier-tracking'],
-        cache: ['cache', 'Tracking cache (TTL 5–10 min)'],
+        cache: ['cache', 'Tracking cache (TTL 5–10 min)', { ttlSec: 600 }],
         oms: ['erp', 'Order management system'],
         wms: ['legacy', 'WMS (SOAP)'],
         car: ['external-api', 'Carrier aggregator (20 req/s)'],
@@ -41,6 +41,33 @@ export default {
         'prc -> soms', 'prc -> swms', 'prc -> scar', 'scar -> cache', 'soms -> oms', 'swms -> wms', 'scar -> car',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 400, maxRps: 20 },
+        { match: 'erp', latencyMs: 150 },
+      ],
+      cache: { hitRatio: 0.7, atTtlSec: 600 },
+      tests: [
+        {
+          name: 'Black Friday refresh peak',
+          about: 'On Black Friday customers keep refreshing: the website asks for 30 tracking lookups a second and the app for 15. With a 10 minute cache 7 lookups in 10 are answered from the cache, so the carrier aggregator stays under its 20 calls a second.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 30, forMin: 15, to: 'external-api', kind: 'read' },
+            { name: 'mobile', from: 'mobile-app', rps: 15, forMin: 15, to: 'external-api', kind: 'read' },
+          ],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'external-api', max: 20 }] },
+        },
+        {
+          name: 'The carrier aggregator is down',
+          about: 'The website asks for 10 order statuses a second while the carrier aggregator is down for 20 minutes. Customers still see the order status, without the tracking events.',
+          traffic: [{ name: 'web', from: 'web-app', rps: 10, to: ['erp', 'external-api'], kind: 'read' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 20 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer receives ~40% of its contact-centre calls asking **"where is my order?" (WISMO)**. It wants one order-status capability used by three channels.
@@ -60,6 +87,7 @@ A fashion retailer receives ~40% of its contact-centre calls asking **"where is 
 Facts:
 - ~15,000 WISMO lookups/hour at peak (Black Friday 3×).
 - Target **< 1 s p95** for web and app.
+- On Black Friday refreshes can bring 30 web and 15 app tracking lookups a second. A 10 minute cache answers about 7 lookups in 10, and the carrier aggregator can be down for 20 minutes.
 - Guests must not be able to enumerate other people's orders.
 - Agents need extra fields customers must **not** see.
 

@@ -25,7 +25,7 @@ export default {
         gw: ['api-gateway', 'Gateway (OAuth, per-vendor SLA tier)'],
         expo: ['experience-api', 'exp-order-intake'],
         expv: ['experience-api', 'exp-vendor-portal-api'],
-        qd: ['queue', 'DROPSHIP.ORDERS (ActiveMQ)'],
+        qd: ['queue', 'DROPSHIP.ORDERS (ActiveMQ)', { maxRedelivery: 60 }],
         dlq: ['dlq', 'DLQ.DROPSHIP.ORDERS'],
         prc: ['process-api', 'prc-dropship'],
         sla: ['batch-job', 'SLA watchdog (15 min)'],
@@ -42,6 +42,26 @@ export default {
         'prc -> sedi', 'prc -> sfile', 'prc -> soms', 'sedi -> van', 'sfile -> sftp', 'soms -> oms', 'sla -> prc',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 700 }],
+      tests: [
+        {
+          name: 'The VAN is down for 30 minutes',
+          about: 'The OMS sends 1 drop-ship order a second for the EDI vendors while the VAN is down for 30 minutes. The orders wait in the queue and are retried, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'drop-ship orders', from: 'erp', rps: 1, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+        {
+          name: 'Orders the VAN always rejects',
+          about: 'The OMS sends 1 drop-ship order a second, and 1 in 100 has a vendor item the VAN rejects every time. Those orders go to the DLQ after their retries, and the others keep flowing.',
+          traffic: [{ name: 'drop-ship orders', from: 'erp', rps: 1, to: 'external-api', kind: 'write', poison: 0.01 }],
+          durationMin: 120,
+          expect: { dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A home-goods retailer sells **180,000 drop-ship SKUs** online that it never stocks; the vendor ships directly to the customer. Orders come from **Salesforce Commerce Cloud** and are owned by the retailer's **OMS**.
@@ -58,6 +78,7 @@ Volumes and rules:
 - Vendor stock (846 / API / CSV) must hide out-of-stock items on the website within **4 hours**.
 - Invoices are paid only if they match the shipped quantity and agreed cost (2-way match against the drop-ship PO + 856).
 - The customer must see one consolidated order with tracking per vendor shipment.
+- Orders reach the integration at up to 1 a second. The VAN can be down for 30 minutes, and about 1 order in 100 has an item the VAN rejects every time.
 
 **Questions:**
 1. Draw the architecture. How do you support three vendor channels without three copies of the business logic?

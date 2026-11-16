@@ -21,7 +21,7 @@ export default {
     reference: diagram(
       {
         poll: ['batch-job', 'Mention poller (every 2 min)'],
-        ssoc: ['system-api', 'sys-social-listening-api'],
+        ssoc: ['system-api', 'sys-social-listening-api', { rateLimit: 1 }],
         soc: ['external-api', 'Social listening API (60 req/min)'],
         os: ['cache', 'Watermark, seen IDs, case keys'],
         q: ['queue', 'mentions'],
@@ -41,6 +41,30 @@ export default {
         'prc ~> qs', 'prc ~> qi', 'prc ~> ql', 'qs ~> szd', 'szd -> zd', 'qi ~> sslack', 'sslack -> slack', 'ql ~> lw', 'lw -> lake',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'saas', latencyMs: 400 },
+        { match: 'cache', hitRatio: 0 }, // the watermark store does not answer searches
+      ],
+      tests: [
+        {
+          name: 'Launch-day catch-up',
+          about: 'On launch day the poller falls behind and asks for 3 pages of mentions a second for 10 minutes. The listening platform allows 60 requests a minute, so it must never get more than 1 call a second.',
+          traffic: [{ name: 'mention pages', from: 'batch-job', rps: 3, forMin: 10, to: 'external-api', kind: 'read' }],
+          durationMin: 15,
+          expect: { peakRps: [{ node: 'external-api', max: 1 }] },
+        },
+        {
+          name: 'Zendesk is down for 30 minutes',
+          about: 'At a launch the poller publishes 2 complaint mentions a second while Zendesk is down for 30 minutes. The mentions wait in the support queue, and every one becomes a ticket once Zendesk is back.',
+          traffic: [{ name: 'complaints', from: 'batch-job', rps: 2, to: { type: 'saas', label: 'zendesk' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'zendesk' }, at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'route-support' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A consumer electronics brand wants to react faster to what people say about it online.
@@ -55,6 +79,7 @@ Facts:
   - All mentions → the marketing data lake (daily partitioned JSON files) for reporting.
   - Same author posting 5 times about the same issue → one case, not five.
 - The brand's own posts must be ignored.
+- On launch day the poller can fall behind and want 3 pages a second, and about 2 complaint mentions a second can arrive while Zendesk is down for 30 minutes.
 
 **Describe your solution:**
 - How do you get mentions reliably without webhooks?

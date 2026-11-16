@@ -22,14 +22,14 @@ export default {
     reference: diagram(
       {
         mob: ['mobile-app', 'Claims mobile app'],
-        exp: ['experience-api', 'exp-claims-mobile-api'],
+        exp: ['experience-api', 'exp-claims-mobile-api', { replicas: 2 }],
         cb: ['experience-api', 'exp-assessment-callback'],
-        prc: ['process-api', 'prc-claims-api'],
+        prc: ['process-api', 'prc-claims-api', { replicas: 2 }],
         doc: ['process-api', 'prc-claim-documents'],
         q: ['queue', 'upload-completed'],
         os: ['file-store', 'EU object storage (pre-signed URLs)'],
         spol: ['system-api', 'sys-policy-api'],
-        sclm: ['system-api', 'sys-claims-core-api'],
+        sclm: ['system-api', 'sys-claims-core-api', { replicas: 2 }],
         secm: ['system-api', 'sys-ecm-api'],
         sai: ['system-api', 'sys-damage-assessment-api'],
         pol: ['legacy', 'Policy system'],
@@ -42,6 +42,29 @@ export default {
         'spol -> pol', 'sclm -> clm', 'secm -> ecm', 'sai -> ai', 'ai -> cb', 'cb -> prc',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 800 },
+        { match: { type: 'file-store', label: 'ecm' }, latencyMs: 500, maxRps: 15 },
+      ],
+      tests: [
+        {
+          name: 'Uploads during a storm',
+          about: 'During a storm object storage reports 20 finished uploads a second for 20 minutes. The ECM stores at most 15 documents a second, so the events wait in the queue and every photo is stored.',
+          traffic: [{ name: 'uploads', from: { type: 'file-store', label: 'object' }, rps: 20, forMin: 20, to: { type: 'file-store', label: 'ecm' }, kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: { type: 'file-store', label: 'ecm' }, max: 15 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A zone goes down during a storm',
+          about: 'Customers file 5 claims a second while one availability zone is down for 15 minutes. The claim APIs keep running in the other zone, so no claim fails.',
+          traffic: [{ name: 'claims', from: 'mobile-app', rps: 5, to: { type: 'legacy', label: 'claims' }, kind: 'write' }],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A motor insurer wants customers to file car-damage claims from its mobile app, including **photos and videos**, and get a first **repair estimate** quickly.
@@ -51,6 +74,7 @@ Facts:
 - The **claims system** (Guidewire-style core system, on-prem, SOAP/REST APIs) creates the claim and must store references to all documents, but cannot store large binaries itself; documents go to the **enterprise content management (ECM)** system.
 - A third-party **AI damage-assessment** service accepts photo URLs and returns damaged parts, severity and an estimated repair cost in **2–15 minutes** (async with callback).
 - ~3,000 claims/day; storms produce 10× peaks.
+- In a storm about 20 uploads finish each second, while the ECM stores at most 15 documents a second. Customers file 5 claims a second, and the claims path must survive one availability zone going down for 15 minutes.
 - Rules: estimates under **€2,500** with high confidence and no fraud flags can be **auto-approved** for repair at a partner garage; others go to an adjuster.
 - Photos contain **number plates and faces**; GDPR applies. Policy and claim data must not leave the EU.
 

@@ -22,8 +22,8 @@ export default {
       {
         car: ['partner', 'Carriers (5 webhooks)'],
         mob: ['mobile-app', 'Customer app'],
-        gw: ['api-gateway', 'Gateway (HMAC / IP allow-list)'],
-        exph: ['experience-api', 'exp-carrier-webhooks'],
+        gw: ['api-gateway', 'Gateway (HMAC / IP allow-list)', { auth: 'client-id' }],
+        exph: ['experience-api', 'exp-carrier-webhooks', { vCores: '0.5' }],
         expm: ['experience-api', 'exp-mobile-tracking'],
         t: ['topic', 'TRACKING.EVENTS (ActiveMQ)'],
         prc: ['process-api', 'prc-tracking-events'],
@@ -38,6 +38,27 @@ export default {
         'mob -> expm', 'expm -> prcq', 'prcq -> stk',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 30 }],
+      tests: [
+        {
+          name: 'Morning van loading burst',
+          about: 'When the vans are loaded the carriers send 50 events a second for 15 minutes, with 90 a second for 2 minutes. Every webhook gets its 2xx within a second, and every event reaches the tracking store.',
+          traffic: [{ name: 'carrier events', from: 'partner', rps: 50, forMin: 15, to: 'database', kind: 'write', spikes: [{ at: 5, forMin: 2, rps: 90 }] }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+        {
+          name: 'A caller that is not a carrier',
+          about: 'The carriers send 5 events a second with their credentials, and an unknown caller posts 20 fake events a second without any. The gateway refuses the fake events, so none reaches the tracking store.',
+          traffic: [
+            { name: 'carriers', from: 'partner', rps: 5, to: 'database', kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 20, to: 'database', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'carriers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An online furniture retailer ships through **five carriers** (two parcel, three two-man furniture carriers). Each carrier can call a **webhook** on every scan, but each uses its own JSON format and status codes ("OFD", "Out for delivery", "DLV-ATT"…).
@@ -51,6 +72,7 @@ Facts:
 - Carriers retry a webhook if they do not get a **2xx within 5 seconds**, and the same event may arrive twice.
 - Events can arrive out of order (a "Delivered" before the last "In transit").
 - Orders and shipments are already in an **Oracle** database owned by the order team.
+- The morning burst can reach 90 events a second for 2 minutes. The webhook URL is public, so expect callers that are not carriers.
 
 **Questions:**
 1. Describe the APIs.

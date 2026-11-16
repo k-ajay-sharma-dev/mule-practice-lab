@@ -26,7 +26,7 @@ export default {
         voice: ['chatbot', 'Voice platform (Alexa / Google)'],
         ep: ['experience-api', 'exp-customer-portal'],
         emob: ['experience-api', 'exp-customer-mobile'],
-        ev: ['experience-api', 'exp-voice-assistant (NEW)'],
+        ev: ['experience-api', 'exp-voice-assistant (NEW)', { auth: 'jwt' }],
         pb: ['process-api', 'prc-billing-account (v1.1)'],
         pm: ['process-api', 'prc-meter-reading'],
         sb: ['system-api', 'sys-sap-isu-billing (v1.1)'],
@@ -40,6 +40,26 @@ export default {
         'pb -> sb', 'pm -> sm', 'sb -> sap', 'sm -> sap', 'sid -> okta',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 300 }],
+      tests: [
+        {
+          name: 'A caller without a linked account',
+          about: 'The voice platform sends 5 requests a second without an Okta access token, because the customer never linked the account. Every one is refused.',
+          traffic: [{ name: 'unlinked', from: 'chatbot', rps: 5, to: 'erp', kind: 'read', auth: 'none' }],
+          durationMin: 10,
+          expect: { answers: [{ minRefused: 0.99 }] },
+        },
+        {
+          name: 'Okta is down for 15 minutes',
+          about: 'Linked customers ask 5 questions a second while Okta is down for 15 minutes. Their tokens are checked from their signature, so every question is answered.',
+          traffic: [{ name: 'voice', from: 'chatbot', rps: 5, to: 'erp', kind: 'read' }],
+          incidents: [{ down: 'identity-provider', at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An energy supplier delivered **Project 1** last year: a customer self-service web portal and mobile app. The application network built then is:
@@ -59,7 +79,7 @@ An energy supplier delivered **Project 1** last year: a customer self-service we
 - *"Submit a meter reading of 4 5 2 1 9."* Confirm back.
 - *"When is my next bill?"* This is **new**. It needs the next bill date, which no API returns today. SAP IS-U holds it on the contract account's billing schedule.
 
-The voice platform handles account linking with the supplier's identity provider (Okta) over OAuth. Expected volume is small (≤ 5 req/s).
+The voice platform handles account linking with the supplier's identity provider (Okta) over OAuth. Expected volume is small (≤ 5 req/s). Requests without an Okta token must be refused, and linked customers must still get answers when Okta is down for 15 minutes.
 
 **Questions:**
 1. Which existing APIs are reused as-is?

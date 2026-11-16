@@ -26,11 +26,11 @@ export default {
         dms: ['partner', 'Dealer-group DMS (phase 2)'],
         ep: ['experience-api', 'exp-dealer-portal'],
         eo: ['experience-api', 'exp-salesops'],
-        eb: ['experience-api', 'exp-dealer-b2b (NEW in phase 2)'],
+        eb: ['experience-api', 'exp-dealer-b2b (NEW in phase 2)', { auth: 'client-id' }],
         pprice: ['process-api', 'prc-parts-availability-pricing'],
         porder: ['process-api', 'prc-dealer-orders'],
         pwar: ['process-api', 'prc-warranty-claims'],
-        cache: ['cache', 'Dealer price cache (15 min)'],
+        cache: ['cache', 'Dealer price cache (15 min)', { ttlSec: 900 }],
         smat: ['system-api', 'sys-sap-materials'],
         sprc: ['system-api', 'sys-sap-pricing'],
         sso: ['system-api', 'sys-sap-sales-orders'],
@@ -46,6 +46,26 @@ export default {
         'smat -> sap', 'sprc -> sap', 'sso -> sap', 'ssf -> sf', 'swar -> war',
       ],
     ),
+    simulation: {
+      systems: [{ match: { type: 'system-api', label: 'sap-pricing' }, latencyMs: 1500 }], // the SAP pricing simulation
+      cache: { hitRatio: 0.8, atTtlSec: 900 },
+      tests: [
+        {
+          name: 'Monday morning price checks',
+          about: 'On Monday morning dealers send 20 price checks a second. SAP pricing takes about 1.5 seconds, so with a 15 minute cache 8 checks in 10 are answered from the cache, the average answer takes under 600 ms and SAP pricing gets at most 5 calls a second.',
+          traffic: [{ name: 'price checks', from: 'web-app', rps: 20, forMin: 15, to: { type: 'system-api', label: 'sap-pricing' }, kind: 'read' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 600 }], peakRps: [{ node: { type: 'system-api', label: 'sap-pricing' }, max: 5 }] },
+        },
+        {
+          name: 'A DMS without a client ID',
+          about: 'A system that is not a registered dealer group sends 5 price checks a second to the B2B API. Every one is refused.',
+          traffic: [{ name: 'unknown system', from: 'partner', rps: 5, to: { type: 'system-api', label: 'sap-pricing' }, kind: 'read', auth: 'none' }],
+          durationMin: 10,
+          expect: { answers: [{ minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An agricultural machinery manufacturer sells through **1,100 independent dealers** in 25 countries. Dealers today phone and email for stock, prices and warranty claims. The company wants a **dealer portal** and, later, a direct API for large dealer groups' own DMS (dealer management systems).
@@ -67,6 +87,7 @@ Facts:
 - ~50,000 availability/price checks/day; ~4,000 parts orders/day; ~600 warranty claims/day.
 - Pricing comes from SAP condition records (pricing simulation is ~1.5 s per call).
 - Dealers must only see their **own** prices and orders; dealer groups see all their member dealers.
+- On Monday mornings dealers send about 20 price checks a second. A 15 minute cache answers about 8 in 10, and only registered dealer-group systems may call the B2B API.
 
 **Questions:**
 1. Decompose into Experience, Process and System APIs.

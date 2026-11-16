@@ -24,20 +24,20 @@ export default {
         web: ['web-app', 'Public tracking page / app'],
         shipper: ['partner', 'Shipper systems (pull + webhooks)'],
         ops: ['internal-app', 'Ops control tower'],
-        epub: ['experience-api', 'exp-public-tracking'],
+        epub: ['experience-api', 'exp-public-tracking', { replicas: 2, vCores: '1' }],
         eb2b: ['experience-api', 'exp-b2b-tracking'],
         eops: ['experience-api', 'exp-ops-control-tower'],
-        ptrk: ['process-api', 'prc-shipment-tracking (query)'],
+        ptrk: ['process-api', 'prc-shipment-tracking (query)', { replicas: 2, vCores: '1' }],
         pevt: ['process-api', 'prc-tracking-events (normaliser)'],
-        pnot: ['process-api', 'prc-tracking-notifications'],
-        ms: ['topic', 'ShipmentMilestoneReached'],
+        pnot: ['process-api', 'prc-tracking-notifications', { vCores: '0.5' }],
+        ms: ['topic', 'ShipmentMilestoneReached', { maxRedelivery: 1440 }],
         dlq: ['dlq', 'webhook-dlq'],
         scans: ['event-stream', 'Kafka scans topic'],
         scanner: ['device', 'Handheld scanners'],
         sscan: ['system-api', 'sys-scan-events'],
         sedi: ['system-api', 'sys-carrier-edi'],
         stms: ['system-api', 'sys-tms-shipments'],
-        sstore: ['system-api', 'sys-tracking-store'],
+        sstore: ['system-api', 'sys-tracking-store', { replicas: 2, vCores: '1' }],
         carriers: ['external-api', 'Subcontracted carriers (AS2 / EDI)'],
         tms: ['database', 'TMS (Oracle)'],
         rm: ['database', 'Tracking read model'],
@@ -48,6 +48,28 @@ export default {
         'pevt -> sstore', 'sstore -> rm', 'pevt ~> ms', 'ms ~> pnot', 'pnot -> shipper', 'pnot ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { label: 'TMS' }, latencyMs: 200, maxRps: 50 },
+        { match: { label: 'Tracking read model' }, latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Public lookup peak',
+          about: 'Consignees send 900 lookups a second. Each one is answered from the read model, and not one reaches the TMS, which takes only 50 queries a second.',
+          traffic: [{ name: 'lookups', from: 'web-app', rps: 900, to: { label: 'Tracking read model' } }],
+          expect: { answers: [{ minSuccess: 0.99 }], notReached: [{ node: { label: 'TMS' } }] },
+        },
+        {
+          name: 'Shipper endpoints are down for 30 minutes',
+          about: 'Milestones go to shipper webhooks at 30 a second while the shipper endpoints are down for 30 minutes. Each webhook is retried for 24 hours, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'milestones', from: 'device', rps: 30, to: 'partner', kind: 'write' }],
+          incidents: [{ down: 'partner', at: 5, forMin: 30 }],
+          durationMin: 120,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 2000 }] },
+        },
+      ],
+    },
   },
   description: `
 A European freight and parcel logistics company wants a single **shipment tracking** capability. Today each channel queries the back ends directly and they report different statuses for the same shipment.
@@ -71,6 +93,7 @@ Constraints:
 - Status visible to customers within **2 minutes** of a scan.
 - B2B shippers must only access their own shipments; webhooks must be reliable (at-least-once, retries for 24 h).
 - TMS cannot handle query load beyond ~50 queries/s.
+- Public lookups peak at 900 a second. Milestone webhooks go out at about 30 a second, and a shipper endpoint can be down for 30 minutes.
 
 **Questions:**
 1. Design the application network. Which APIs are request/response, which are event-driven?

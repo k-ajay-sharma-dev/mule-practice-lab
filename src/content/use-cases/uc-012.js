@@ -21,7 +21,7 @@ export default {
     reference: diagram(
       {
         wms: ['internal-app', 'Warehouse WMS (packing station)'],
-        p: ['process-api', 'prc-shipping-api'],
+        p: ['process-api', 'prc-shipping-api', { timeoutMs: 2500, circuitBreaker: 'on' }],
         rules: ['database', 'Carrier selection rules'],
         labels: ['database', 'Shipments (parcel ID → label)'],
         health: ['cache', 'Carrier health (circuit breaker)'],
@@ -41,6 +41,33 @@ export default {
         'scour -> cour', 'p ~> q', 'q ~> trk', 'trk -> secom', 'secom -> ecom',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 800 },
+        { match: 'database', latencyMs: 20 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'DHL stops answering at the peak',
+          about: 'At the evening peak the WMS asks for 10 DHL labels and 6 UPS labels a second, and DHL stops answering for the whole run. A short timeout and a circuit breaker stop the waiting DHL calls from using up the Shipping API, so UPS labels still print within a second.',
+          traffic: [
+            { name: 'DHL parcels', from: 'internal-app', rps: 10, to: { type: 'external-api', label: 'dhl' }, kind: 'write' },
+            { name: 'UPS parcels', from: 'internal-app', rps: 6, to: { type: 'external-api', label: 'ups' }, kind: 'write' },
+          ],
+          incidents: [{ hang: { type: 'external-api', label: 'dhl' } }],
+          expect: { answers: [{ flow: 'UPS parcels', minSuccess: 0.99, maxMs: 1000 }] },
+        },
+        {
+          name: 'The e-commerce platform is down',
+          about: 'The WMS asks for 3 labels a second while the e-commerce platform is down for 30 minutes. Labels still print, and the tracking numbers wait in the queue until the platform is back.',
+          traffic: [{ name: 'parcels', from: 'internal-app', rps: 3, to: [{ type: 'external-api', label: 'ups' }, 'saas'], kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An online home-goods retailer ships ~15,000 parcels/day from 2 warehouses using **three carriers** (e.g. DHL, UPS and a regional courier). Today each warehouse system has hard-coded carrier calls.
@@ -50,6 +77,7 @@ The business wants a single **Shipping API**:
 - Carrier choice depends on destination country, weight, service level (standard/express) and current carrier cost table.
 - Each carrier has its own API: different auth (OAuth 2.0, API key), payload formats (JSON, one uses SOAP/XML), label formats (PDF, ZPL).
 - Carriers occasionally have outages of 10–60 minutes; packing must not stop.
+- At the evening peak the WMS asks for up to 16 labels a second, and the e-commerce platform can be down for 30 minutes.
 - Tracking numbers must be sent back to the **e-commerce platform** so customers get a tracking email.
 - A fourth carrier will be added next year.
 

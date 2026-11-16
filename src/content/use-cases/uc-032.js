@@ -22,14 +22,35 @@ export default {
         lis: ['legacy', 'LIS (HL7 v2 over MLLP)'],
         mllp: ['system-api', 'sys-lis-mllp-listener'],
         q: ['queue', 'lab-results (FIFO per MRN)'],
-        prc: ['process-api', 'prc-lab-results-api'],
+        prc: ['process-api', 'prc-lab-results-api', { timeoutMs: 20000 }],
         hold: ['database', 'Hold / pending-patient store'],
         job: ['batch-job', 'Release job (72 h)'],
-        sfhir: ['system-api', 'sys-portal-fhir-api'],
+        sfhir: ['system-api', 'sys-portal-fhir-api', { timeoutMs: 20000 }],
         portal: ['saas', 'Patient portal FHIR R4'],
       },
       ['lis -> mllp', 'mllp ~> q', 'q ~> prc', 'prc -> hold', 'prc -> sfhir', 'job -> hold', 'job -> sfhir', 'sfhir -> portal'],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 600 }],
+      tests: [
+        {
+          name: 'The portal is down for 30 minutes',
+          about: 'The LIS sends 1 result message a second while the portal FHIR API is down for 30 minutes. Each message gets its ACK at once, waits in the queue, and reaches the portal once it is back.',
+          traffic: [{ name: 'results', from: 'legacy', rps: 1, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The portal FHIR API is slow',
+          about: 'The LIS sends 1 result message a second, and a 40-observation bundle takes the portal 12 seconds. Timeouts longer than that let every result reach the portal, and the queue empties.',
+          traffic: [{ name: 'results', from: 'legacy', rps: 1, forMin: 30, to: 'saas', kind: 'write' }],
+          incidents: [{ slow: 'saas', latencyMs: 12000 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A hospital group wants patients to see their **laboratory results** in its patient portal and mobile app.
@@ -38,6 +59,7 @@ Facts:
 - The **laboratory information system (LIS)** sends results as **HL7 v2 ORU^R01** messages over **MLLP** (TCP) to the integration layer. It expects an **ACK** for every message.
 - The patient portal vendor exposes a **FHIR R4 API** (\`Observation\`, \`DiagnosticReport\`, \`Patient\`).
 - ~25,000 result messages/day; a message can contain a panel of up to 40 observations.
+- At peak the LIS sends about 1 message a second. The portal can take 12 seconds for a large bundle, or be down for 30 minutes.
 - Results can be **preliminary**, **final** or **corrected**; a correction must replace the earlier value, not add a second one.
 - Clinical rule: some sensitive results (e.g. HIV, genetic tests, certain oncology) must be **held for 72 hours** or until a clinician releases them; the list of test codes is maintained by the medical board.
 - Patients are identified in the LIS by the hospital's medical record number (MRN); the portal uses its own patient ID.

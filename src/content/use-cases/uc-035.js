@@ -22,7 +22,7 @@ export default {
       {
         bot: ['chatbot', 'Chat / chatbot platform (webhook)'],
         hook: ['experience-api', 'exp-chat-closed-webhook'],
-        q: ['queue', 'closed-conversations'],
+        q: ['queue', 'closed-conversations', { maxRedelivery: 30 }],
         dlq: ['dlq', 'closed-conversations-dlq'],
         prc: ['process-api', 'prc-conversation-archive-api'],
         schat: ['system-api', 'sys-chat-platform-api'],
@@ -33,6 +33,29 @@ export default {
       },
       ['bot -> hook', 'hook ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> schat', 'schat -> chat', 'prc -> ssf', 'ssf -> sf', 'prc -> dw'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 300 },
+        { match: 'saas', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'Salesforce is down for 20 minutes',
+          about: 'At the evening peak the chat platform closes 1 conversation a second while Salesforce is down for 20 minutes. Every webhook gets its 200 at once, each conversation is tried for 30 minutes, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'closed chats', from: 'chatbot', rps: 1, to: 'crm', kind: 'write' }],
+          incidents: [{ down: 'crm', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some transcripts cannot be stored',
+          about: 'The chat platform closes 1 conversation a second, and 1 in 100 has a transcript Salesforce rejects every time. Those conversations go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'closed chats', from: 'chatbot', rps: 1, to: 'crm', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 10 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 50 }] },
+        },
+      ],
+    },
   },
   description: `
 An online bank uses a third-party **live chat / chatbot platform** on its website and app. Service agents work in **Salesforce Service Cloud**. Today, agents copy-paste chat text into cases by hand.
@@ -46,6 +69,7 @@ Facts:
   - **Card numbers, IBANs and passwords** typed by customers must be **masked** before storing.
   - Anonymous website chats are stored only if they contain an email the customer gave voluntarily; otherwise only statistics are kept.
 - Attachments (screenshots, PDFs, up to 10 MB) must be kept with the case.
+- At the evening peak about 1 conversation closes each second. Salesforce can be down for 20 minutes, and about 1 transcript in 100 is rejected by Salesforce every time.
 
 **Describe your solution:**
 - How do you receive and fetch transcripts?

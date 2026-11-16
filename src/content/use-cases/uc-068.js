@@ -20,17 +20,37 @@ export default {
     reference: diagram(
       {
         hh: ['device', 'Store handhelds (Zebra)'],
-        exp: ['experience-api', 'exp-store-counts'],
+        exp: ['experience-api', 'exp-store-counts', { replicas: 2, vCores: '0.5' }],
         q: ['queue', 'STORE.COUNTS.SUBMITTED'],
-        prc: ['process-api', 'prc-cycle-count'],
+        prc: ['process-api', 'prc-cycle-count', { replicas: 2, vCores: '0.5' }],
         job: ['batch-job', 'Nightly count-task generator'],
-        ssi: ['system-api', 'sys-store-inventory'],
+        ssi: ['system-api', 'sys-store-inventory', { replicas: 2, vCores: '0.5' }],
         sebs: ['system-api', 'sys-oracle-ebs-inventory'],
         ora: ['database', 'Store inventory (Oracle)'],
         ebs: ['erp', 'Oracle EBS Inventory'],
       },
       ['hh -> exp', 'exp -> prc', 'exp ~> q', 'q ~> prc', 'prc -> ssi', 'prc -> sebs', 'job -> ssi', 'ssi -> ora', 'sebs -> ebs'],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 50 }],
+      tests: [
+        {
+          name: 'Morning count rush',
+          about: 'From 07:00 the handhelds in 600 stores read count lists and book stock at 80 requests a second for 2 hours. The store APIs have the capacity, so every request is answered in under a second.',
+          traffic: [{ name: 'handheld reads', from: 'device', rps: 80, to: 'database' }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }] },
+        },
+        {
+          name: 'A zone goes down during counting',
+          about: 'The handhelds send 40 requests a second while one availability zone is down for 20 minutes. The store APIs run 2 replicas each, so the counts go on.',
+          traffic: [{ name: 'handheld reads', from: 'device', rps: 40, to: 'database' }],
+          incidents: [{ zone: true, at: 5, forMin: 20 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A DIY retailer with **600 stores** replaces its yearly stock-take with **daily cycle counts**: every night ~50 items per store are selected for counting (high value, high shrink, or negative stock). Next morning associates count them with **handheld scanners** before opening.
@@ -47,6 +67,8 @@ Rules:
 - Stores have Wi-Fi but it drops in the back rooms.
 
 Volumes: 600 stores × 50 items = 30,000 counts/day, mostly 07:00–09:00.
+
+- From 07:00 the handhelds read count lists and book stock at about 80 requests a second, and counting must go on when one availability zone is down.
 
 **Questions:**
 1. Which APIs do you build?

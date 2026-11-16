@@ -23,13 +23,35 @@ export default {
         wm: ['cache', 'Watermark (persistent Object Store)'],
         ssis: ['system-api', 'sys-sis-enrolments-api'],
         sis: ['database', 'SIS (Oracle) ENROLMENT_AUDIT'],
-        slms: ['system-api', 'sys-lms-api (≤ 10 req/s)'],
+        slms: ['system-api', 'sys-lms-api (≤ 10 req/s)', { rateLimit: 10 }],
         lms: ['saas', 'LMS (Moodle)'],
         err: ['database', 'Error report table'],
         mail: ['notification', 'Morning summary email'],
       },
       ['job -> wm', 'job -> ssis', 'ssis -> sis', 'job -> slms', 'slms -> lms', 'job -> err', 'job -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 100 },
+        { match: 'saas', latencyMs: 300, maxRps: 10 },
+      ],
+      tests: [
+        {
+          name: 'A night in add/drop',
+          about: 'The job sends 6 LMS calls a second for 20 minutes. The LMS allows 10 a second, so every change is in place by the morning.',
+          traffic: [{ name: 'changes', from: 'batch-job', rps: 6, forMin: 20, to: 'saas', kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Too many threads in the job',
+          about: 'A change to the job sends 25 LMS calls a second for 10 minutes. The System API answers what is over 10 a second with 429, so the LMS never sees more than its limit.',
+          traffic: [{ name: 'changes', from: 'batch-job', rps: 25, forMin: 10, to: 'saas', kind: 'write' }],
+          durationMin: 15,
+          expect: { peakRps: [{ node: 'saas', max: 10 }], answers: [{ minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 A university keeps students, courses and enrolments in its **Student Information System (SIS)** (an Oracle database). Teaching happens in a **Moodle-style LMS** that exposes a REST API.
@@ -38,6 +60,7 @@ Facts:
 - ~40,000 students, ~2,500 course sections, ~180,000 enrolment rows per semester.
 - During the 3-week **add/drop period**, ~5,000 enrolment changes happen per day; otherwise a few hundred.
 - The LMS API can create/update users, create course sections and enrol/unenrol a user in a section. It allows **10 requests/second** per API token.
+- On an add/drop night the job sends about 6 LMS calls a second. A wrong thread setting in the job could send 25 a second.
 - Students must see a new course in the LMS **by the next morning** at the latest; drops must remove access the same way.
 - The SIS has an \`ENROLMENT_AUDIT\` table recording inserts, updates and deletes with a timestamp.
 

@@ -22,17 +22,17 @@ export default {
     reference: diagram(
       {
         web: ['web-app', 'Website / app'],
-        gw: ['api-gateway', 'Rate limiting / bot protection'],
-        es: ['experience-api', 'exp-search-api'],
+        gw: ['api-gateway', 'Rate limiting / bot protection', { auth: 'client-id' }],
+        es: ['experience-api', 'exp-search-api', { vCores: '1', calls: 'in parallel' }],
         eb: ['experience-api', 'exp-booking-api'],
-        pfs: ['process-api', 'prc-flight-search'],
-        phs: ['process-api', 'prc-hotel-search'],
+        pfs: ['process-api', 'prc-flight-search', { vCores: '1' }],
+        phs: ['process-api', 'prc-hotel-search', { vCores: '1' }],
         pbo: ['process-api', 'prc-booking-orchestrator'],
         cache: ['cache', 'Search cache (Redis, short TTL)'],
         map: ['database', 'Hotel mapping (supplier → master ID)'],
         bstate: ['database', 'Booking state'],
-        sgds: ['system-api', 'sys-gds-api'],
-        sbed: ['system-api', 'sys-bedbank-api'],
+        sgds: ['system-api', 'sys-gds-api', { vCores: '0.5' }],
+        sbed: ['system-api', 'sys-bedbank-api', { vCores: '0.5' }],
         spsp: ['system-api', 'sys-psp-api'],
         gds: ['external-api', 'GDS (SOAP)'],
         bed: ['external-api', 'Bed banks'],
@@ -43,6 +43,30 @@ export default {
         'phs -> sbed', 'eb -> pbo', 'pbo -> bstate', 'pbo -> sgds', 'pbo -> sbed', 'pbo -> spsp', 'sgds -> gds', 'sbed -> bed', 'spsp -> psp',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'external-api', label: 'gds' }, latencyMs: 2000, maxRps: 100 },
+        { match: { type: 'external-api', label: 'bed' }, latencyMs: 800 },
+      ],
+      cache: { hitRatio: 0.8 },
+      tests: [
+        {
+          name: 'Peak searches',
+          about: 'Users send 400 searches a second. The GDS answers in 2 s and allows 100 calls a second, the bed banks answer in 0.8 s, and 4 searches in 5 come from the cache. Results come back in under 3 seconds and the GDS stays within its limit.',
+          traffic: [{ name: 'searches', from: 'web-app', rps: 400, to: 'external-api', via: { type: 'experience-api', label: 'search' } }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3000 }], peakRps: [{ node: { type: 'external-api', label: 'gds' }, max: 100 }] },
+        },
+        {
+          name: 'A bot scrapes prices',
+          about: 'Users send 100 searches a second, and a bot without the app client ID sends 500 a second. The gateway refuses the bot, so users still get their results and the GDS stays within its limit.',
+          traffic: [
+            { name: 'users', from: 'web-app', rps: 100, to: 'external-api', via: { type: 'experience-api', label: 'search' } },
+            { name: 'bot', from: 'web-app', rps: 500, to: 'external-api', via: { type: 'experience-api', label: 'search' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'users', minSuccess: 0.99 }, { flow: 'bot', minRefused: 0.99 }], peakRps: [{ node: { type: 'external-api', label: 'gds' }, max: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 An online travel agency sells **flight + hotel packages**. Content comes from several suppliers:
@@ -54,6 +78,7 @@ An online travel agency sells **flight + hotel packages**. Content comes from se
 Facts and constraints:
 - **Search**: ~400 searches/second at peak; look-to-book ratio ~1,000:1. Users expect results in **< 3 seconds**; supplier response times vary from 300 ms to 8 s.
 - GDS charges per search transaction and enforces a look-to-book limit in the contract.
+- The GDS answers in about 2 s and allows 100 calls a second; the bed banks answer in about 0.8 s. About 4 searches in 5 can come from a cache, and bots without the app client ID can send 500 searches a second.
 - Prices and availability change constantly; the price shown must be **re-validated before payment**.
 - A package booking involves flight + hotel: if the hotel fails after the flight is ticketed, the customer must not end up with half a package (flight tickets may be voidable only within 24 hours).
 - Different suppliers return the same hotel under different IDs and names.

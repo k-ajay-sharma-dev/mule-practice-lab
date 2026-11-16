@@ -20,7 +20,7 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Daily sales export (03:00)'],
+        job: ['batch-job', 'Daily sales export (03:00)', { onFailure: 'partial answer' }],
         pos: ['database', 'POS transactions (PostgreSQL)'],
         smenu: ['system-api', 'sys-menu-store-api'],
         menu: ['external-api', 'Menu & store master API'],
@@ -30,6 +30,30 @@ export default {
       },
       ['job -> pos', 'job -> smenu', 'smenu -> menu', 'job -> s3', 's3 -> dw', 'job -> dw', 'job -> mon'],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 2000 },
+        { match: 'external-api', latencyMs: 300 },
+        { match: 'file-store', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'A normal night',
+          about: 'The job reads 2 pages of 1,000 POS rows a second for 15 minutes, adds store data from the menu API and writes each page to S3. A page read takes about 2 seconds.',
+          traffic: [{ name: 'pages', from: 'batch-job', rps: 2, forMin: 15, to: ['database', 'external-api', 'file-store'], kind: 'write' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.01 }] },
+        },
+        {
+          name: 'The menu API is down',
+          about: 'The menu and store API fails for the whole run. The sales rows still reach S3 on time, with store data from the last good copy, and the gap is reported.',
+          traffic: [{ name: 'pages', from: 'batch-job', rps: 2, forMin: 15, to: ['database', 'external-api', 'file-store'], kind: 'write' }],
+          incidents: [{ down: 'external-api' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.5 }] },
+        },
+      ],
+    },
   },
   description: `
 A restaurant chain with 300 locations wants a daily copy of operational data in **Snowflake** for BI dashboards.
@@ -37,6 +61,7 @@ A restaurant chain with 300 locations wants a daily copy of operational data in 
 Sources:
 - **POS transactions** in a central PostgreSQL database: ~1.5 million rows/day.
 - **Menu and store master data** from a REST API (small, changes rarely).
+- The job reads about 2 pages of 1,000 POS rows a second, and a page read takes about 2 seconds. The menu API is sometimes down for the whole night.
 
 Requirements:
 - Data for "yesterday" (store local time, stores span 3 time zones) must be available in Snowflake by **06:00**.

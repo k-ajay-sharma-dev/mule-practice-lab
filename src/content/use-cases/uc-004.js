@@ -24,7 +24,7 @@ export default {
         app: ['internal-app', 'Call-centre app'],
         idp: ['identity-provider', 'Identity provider (JWT with roles)'],
         e: ['experience-api', 'exp-call-centre-api'],
-        p: ['process-api', 'prc-customer-360-api'],
+        p: ['process-api', 'prc-customer-360-api', { calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 2000 }],
         cache: ['cache', 'Profile / invoice cache'],
         ssf: ['system-api', 'sys-salesforce-customer-api'],
         sbil: ['system-api', 'sys-billing-api'],
@@ -35,6 +35,29 @@ export default {
       },
       ['app -> idp', 'app -> e', 'e -> p', 'p -> cache', 'p -> ssf', 'p -> sbil', 'p -> szd', 'ssf -> sf', 'sbil -> ora', 'szd -> zd'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 600 },
+        { match: 'database', latencyMs: 800 },
+        { match: 'saas', latencyMs: 500 },
+      ],
+      cache: { hitRatio: 0.5 },
+      tests: [
+        {
+          name: 'Peak lookups',
+          about: 'Agents open 40 customers a second. Salesforce answers in 600 ms, billing in 800 ms and Zendesk in 500 ms. Called in parallel, with half the lookups from the cache, an answer takes under 800 ms on average.',
+          traffic: [{ name: 'lookups', from: 'internal-app', rps: 40, to: ['crm', 'database', 'saas'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 800 }] },
+        },
+        {
+          name: 'Zendesk is down',
+          about: 'Zendesk fails for the whole run while agents open 40 customers a second. Agents still see profile and billing, without the tickets.',
+          traffic: [{ name: 'lookups', from: 'internal-app', rps: 40, to: ['crm', 'database', 'saas'] }],
+          incidents: [{ down: 'saas' }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.1 }] },
+        },
+      ],
+    },
   },
   description: `
 A telecom company wants a **Customer 360** screen in the call-centre app. When an agent opens a customer, they need:
@@ -45,6 +68,7 @@ A telecom company wants a **Customer 360** screen in the call-centre app. When a
 
 Facts and constraints:
 - ~1,500 agents, peak **40 lookups/second**. Target response **< 2 s at p95**.
+- Salesforce answers in about 600 ms and Zendesk in about 500 ms. Half the lookups can be answered from a cache.
 - Customer IDs differ per system: Salesforce Account ID, billing account number, Zendesk organisation ID. Salesforce holds a billing account number field; Zendesk organisations have an external_id = Salesforce Account ID.
 - If Zendesk is down, agents still want to see profile and billing.
 - Billing data is sensitive: only agents with the **billing role** may see invoice amounts.

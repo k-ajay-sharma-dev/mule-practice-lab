@@ -23,9 +23,9 @@ export default {
       {
         qa: ['internal-app', 'Recall console (QA)'],
         expr: ['experience-api', 'exp-recall-console'],
-        prc: ['process-api', 'prc-recall-orchestrator'],
-        prcc: ['process-api', 'prc-recall-customer-notify'],
-        t: ['topic', 'RECALL.EVENTS (virtual topic)'],
+        prc: ['process-api', 'prc-recall-orchestrator', { vCores: '1' }],
+        prcc: ['process-api', 'prc-recall-customer-notify', { vCores: '0.5' }],
+        t: ['topic', 'RECALL.EVENTS (virtual topic)', { maxRedelivery: 240 }],
         qack: ['queue', 'RECALL.STORE.ACK'],
         qcust: ['queue', 'RECALL.CUSTOMER.NOTIFY'],
         dlq: ['dlq', 'DLQ.RECALL'],
@@ -33,7 +33,7 @@ export default {
         stms: ['system-api', 'sys-tms'],
         spos: ['system-api', 'sys-store-pos'],
         stx: ['system-api', 'sys-sales-history'],
-        snot: ['system-api', 'sys-notifications'],
+        snot: ['system-api', 'sys-notifications', { vCores: '0.5' }],
         state: ['database', 'Recall case & ack tracker (Oracle)'],
         wms: ['wms', 'WMS (4 DCs)'],
         tms: ['tms', 'TMS'],
@@ -46,6 +46,26 @@ export default {
         'pos ~> qack', 'qack ~> prc', 'prc -> stx', 'stx -> dw', 'prc ~> qcust', 'qcust ~> prcc', 'qcust ~> dlq', 'prcc -> snot', 'snot -> notif',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'notification', latencyMs: 300, maxRps: 100 }],
+      tests: [
+        {
+          name: 'Notify 180,000 customers',
+          about: 'The orchestrator queues 200 customer notices a second for 15 minutes. The provider takes at most 100 a second. The queue holds the rest, and every notice is sent within 40 minutes without going over the provider limit.',
+          traffic: [{ name: 'customer notices', from: { label: 'prc-recall-orchestrator' }, rps: 200, forMin: 15, to: 'notification', kind: 'write' }],
+          durationMin: 40,
+          expect: { delivered: [{ to: 'notification', min: 0.99 }], peakRps: [{ node: 'notification', max: 100 }], lost: { max: 0 }, backlog: [{ queue: { label: 'RECALL.CUSTOMER.NOTIFY' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'Stores are offline for 30 minutes',
+          about: 'The console raises recall blocks at 1 a second while the store links are down for 30 minutes. The topic keeps each block for the stores and retries for 4 hours, so none is lost.',
+          traffic: [{ name: 'recall blocks', from: 'internal-app', rps: 1, to: 'pos', kind: 'write' }],
+          incidents: [{ down: 'pos', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A national grocery retailer (**900 stores, 4 DCs, 6 million loyalty members**) must be able to execute a **food-safety recall** in hours, not days. Today recalls are run by phone and email and a recent audit found recalled product still on shelves 3 days later.
@@ -65,6 +85,7 @@ Facts:
 - Lots are captured at goods receipt in the WMS; stores only know item level, so **customer matching** uses item + store + date window from the sales history (Oracle data warehouse fed nightly by POS).
 - ActiveMQ Artemis is the enterprise broker; stores connect over unreliable links; up to 5 % of stores are offline at any time.
 - A recall can be **extended** (more lots) or **withdrawn** while in progress.
+- The email/SMS provider takes at most 100 messages a second. A large recall can queue 200 notices a second for 15 minutes, and store links can be down for 30 minutes.
 - Every action must be **auditable** (who, what, when) for the regulator.
 - Customer contact must respect marketing consent rules — recall notices are a legal/safety exception, but only for customers whose contact details may be used for safety notices.
 

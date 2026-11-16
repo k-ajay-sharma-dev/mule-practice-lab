@@ -23,7 +23,7 @@ export default {
       {
         web: ['web-app', 'Website / app review form'],
         exp: ['experience-api', 'exp-reviews-api'],
-        q: ['queue', 'reviews-to-moderate'],
+        q: ['queue', 'reviews-to-moderate', { maxRedelivery: 30 }],
         dlq: ['dlq', 'reviews-dlq'],
         prc: ['process-api', 'prc-review-moderation-api'],
         rec: ['database', 'Moderation record + audit log'],
@@ -43,12 +43,36 @@ export default {
         'stxt -> txt', 'simg -> img', 'sord -> ord', 'srev -> rp', 'scase -> case',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 800 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Text moderation is down for 20 minutes',
+          about: 'After the holidays customers send 4 reviews a second while the text moderation API is down for 20 minutes. Every review is accepted at once, is tried for 30 minutes, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'reviews', from: 'web-app', rps: 4, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'text' }, at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some reviews cannot be moderated',
+          about: 'Customers send 4 reviews a second, and 1 in 100 has a photo the image service rejects every time. Those reviews go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'reviews', from: 'web-app', rps: 4, to: 'external-api', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 40 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 150 }] },
+        },
+      ],
+    },
   },
   description: `
 A marketplace receives customer **product reviews** (text + up to 5 photos) on its website and app. Reviews must be moderated before they are published.
 
 Facts:
 - ~40,000 reviews/day, peaks after holiday deliveries of 15,000/hour.
+- At the peak about 4 reviews arrive each second. The text moderation API can be down for 20 minutes, and about 1 review in 100 has a photo the image service rejects every time.
 - Today a team of 10 moderators approves everything manually; backlog is **4 days**. Target: **90% published or rejected automatically within 10 minutes**, the rest reviewed by humans within 24 hours.
 - Checks required:
   - profanity/abuse and personal data (phone numbers, emails) in text;

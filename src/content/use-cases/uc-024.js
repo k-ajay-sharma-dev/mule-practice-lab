@@ -22,17 +22,17 @@ export default {
     reference: diagram(
       {
         portal: ['saas', 'Privacy portal (OneTrust-like)'],
-        p: ['process-api', 'prc-dsr-api'],
+        p: ['process-api', 'prc-dsr-api', { timeoutMs: 30000 }],
         state: ['database', 'DSR state per request/system'],
         pol: ['database', 'Retention policy table'],
         audit: ['database', 'Audit log (no personal data)'],
         mdm: ['database', 'MDM / customer cross-reference'],
         q: ['queue', 'erasure-tasks-q'],
-        ssf: ['system-api', 'sys-dsr-salesforce'],
+        ssf: ['system-api', 'sys-dsr-salesforce', { retries: 3 }],
         sf: ['crm', 'Salesforce'],
         ssap: ['system-api', 'sys-dsr-sap'],
         sap: ['erp', 'SAP S/4HANA (anonymise)'],
-        sdw: ['system-api', 'sys-dsr-warehouse'],
+        sdw: ['system-api', 'sys-dsr-warehouse', { timeoutMs: 30000 }],
         dw: ['data-warehouse', 'Snowflake / data lake'],
         stask: ['system-api', 'sys-dsr-manual-tasks'],
         tick: ['saas', 'Ticketing (manual tasks)'],
@@ -42,12 +42,35 @@ export default {
         'q ~> ssap', 'q ~> sdw', 'q ~> stask', 'ssf -> sf', 'ssap -> sap', 'sdw -> dw', 'stask -> tick',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 400 },
+        { match: 'data-warehouse', latencyMs: 2000 },
+      ],
+      tests: [
+        {
+          name: 'Salesforce drops some calls',
+          about: 'After a campaign the portal sends 2 erasure requests a second for 10 minutes, and Salesforce fails 1 call in 5. Retries erase every record.',
+          traffic: [{ name: 'erasures', from: { type: 'saas', label: 'privacy' }, rps: 2, forMin: 10, to: 'crm', kind: 'write' }],
+          incidents: [{ errors: 'crm', rate: 0.2 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The data warehouse is slow',
+          about: 'The portal sends 1 erasure request a second, and each delete in Snowflake takes 20 seconds while a large load runs. Timeouts longer than that still erase every record.',
+          traffic: [{ name: 'erasures', from: { type: 'saas', label: 'privacy' }, rps: 1, to: 'data-warehouse', kind: 'write' }],
+          incidents: [{ slow: 'data-warehouse', latencyMs: 20000 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A European online travel and insurance group must handle **data subject requests (DSRs)**, especially the **right to erasure** (GDPR Art. 17). Customer data is spread over ~15 systems:
 
 - **Salesforce** (CRM), **SFMC** (marketing), **Zendesk** (support), **Shopify-like web shop**, **SAP S/4HANA** (invoices), a policy administration system (insurance policies, on-prem Oracle DB), a **data warehouse** (Snowflake), **S3 data lake**, call recordings in a telephony SaaS, and several smaller apps.
 - Requests come from a **privacy portal** (OneTrust-like) — ~1,500 erasure requests/month.
+- After a campaign the portal can send 2 requests a second. Salesforce can fail 1 call in 5, and a delete in Snowflake can take 20 seconds while a large load runs.
 - Legal must respond within **one month** (extendable in some cases), and must prove what was erased and where.
 - Some data must be **retained**: invoices (10 years for tax law), active insurance policies and claims, records under fraud investigation or litigation hold.
 - Some systems support deletion via API, some only **anonymisation**, some (backups, data lake files) neither in real time.

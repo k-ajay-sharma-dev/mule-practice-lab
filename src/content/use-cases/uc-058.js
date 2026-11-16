@@ -25,19 +25,19 @@ export default {
         inter: ['partner', 'Intermediaries (charities, municipalities)'],
         agency: ['partner', 'Tax authority / municipalities'],
         cw: ['internal-app', 'Caseworker workbench'],
-        gw: ['api-gateway', 'WAF + Flex Gateway (public edge)'],
+        gw: ['api-gateway', 'WAF + Flex Gateway (public edge)', { auth: 'jwt' }],
         sts: ['identity-provider', 'eID provider / agency STS'],
-        ec: ['experience-api', 'exp-citizen-benefits'],
+        ec: ['experience-api', 'exp-citizen-benefits', { vCores: '0.5' }],
         ei: ['experience-api', 'exp-intermediary-benefits'],
         ea: ['experience-api', 'exp-agency-gateway'],
         ecw: ['experience-api', 'exp-caseworker'],
-        pel: ['process-api', 'prc-eligibility'],
+        pel: ['process-api', 'prc-eligibility', { vCores: '0.5' }],
         pcl: ['process-api', 'prc-benefit-claims'],
         pdel: ['process-api', 'prc-delegation'],
         pinc: ['process-api', 'prc-income-changes'],
         q: ['queue', 'income-change-notifications'],
         smf: ['system-api', 'sys-benefits-mainframe'],
-        sreg: ['system-api', 'sys-citizen-register'],
+        sreg: ['system-api', 'sys-citizen-register', { vCores: '0.5' }],
         spay: ['system-api', 'sys-payments'],
         sdoc: ['system-api', 'sys-documents'],
         mf: ['legacy', 'Benefits mainframe (CICS)'],
@@ -51,6 +51,27 @@ export default {
         'pcl -> pdel', 'pcl -> pel', 'pel -> sreg', 'pcl -> smf', 'pcl -> spay', 'pcl -> sdoc', 'smf -> mf', 'sreg -> db2', 'spay -> tre', 'sdoc -> ecm',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 50 }],
+      tests: [
+        {
+          name: 'Calls without a token',
+          about: 'Citizens send 10 eligibility checks a second with their eID tokens, and a bot sends 30 a second without one. The edge gateway refuses the bot, so nothing it sends reaches the internal zone.',
+          traffic: [
+            { name: 'citizens', from: 'web-app', rps: 10, to: 'database', via: { label: 'exp-citizen-benefits' } },
+            { name: 'bot', from: 'web-app', rps: 30, to: 'database', via: { label: 'exp-citizen-benefits' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'citizens', minSuccess: 0.99 }, { flow: 'bot', minRefused: 0.99 }] },
+        },
+        {
+          name: 'Eligibility peak after a TV campaign',
+          about: 'After a TV campaign citizens send 50 eligibility checks a second for 20 minutes. The citizen API, the eligibility API and the register API have the capacity, so every check is answered.',
+          traffic: [{ name: 'citizens', from: 'web-app', rps: 50, forMin: 20, to: 'database', via: { label: 'exp-citizen-benefits' } }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A national social-security agency is building a digital platform for **benefit claims** (first: housing benefit). Security architecture mandates **three network zones**, and data classification rules are strict.
@@ -78,6 +99,8 @@ A national social-security agency is building a digital platform for **benefit c
 | National eID provider | External | OIDC |
 
 Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 50/s), 6,000 applications/day, 40,000 documents/day.
+
+- Expect bots on the public edge: one can send 30 calls a second with no token while citizens send 10.
 
 **Questions:**
 1. Design the API-led network and **place every API in a zone**. What runtime/deployment model do you use (CloudHub 2.0, Runtime Fabric, Flex Gateway, hybrid)?

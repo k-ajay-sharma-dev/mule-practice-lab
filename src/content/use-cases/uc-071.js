@@ -25,14 +25,14 @@ export default {
         web: ['web-app', 'Website checkout'],
         mob: ['mobile-app', 'Mobile app'],
         gw: ['api-gateway', 'Gateway (mTLS, rate limits)'],
-        expp: ['experience-api', 'exp-pos-giftcard'],
-        expd: ['experience-api', 'exp-digital-giftcard'],
-        prc: ['process-api', 'prc-giftcard'],
+        expp: ['experience-api', 'exp-pos-giftcard', { vCores: '1' }],
+        expd: ['experience-api', 'exp-digital-giftcard', { vCores: '0.5', rateLimit: 150 }],
+        prc: ['process-api', 'prc-giftcard', { replicas: 2, vCores: '1' }],
         job: ['batch-job', 'Daily settlement reconciliation'],
         idem: ['cache', 'Idempotency store (Object Store)'],
         rq: ['queue', 'GIFTCARD.REVERSALS'],
         tt: ['topic', 'GIFTCARD.TRANSACTIONS'],
-        sgc: ['system-api', 'sys-giftcard-processor'],
+        sgc: ['system-api', 'sys-giftcard-processor', { replicas: 2, vCores: '1' }],
         sled: ['system-api', 'sys-giftcard-ledger'],
         gc: ['external-api', 'Gift card processor'],
         ora: ['database', 'Gift card ledger (Oracle)'],
@@ -43,6 +43,32 @@ export default {
         'prc ~> rq', 'rq ~> prc', 'prc ~> tt', 'tt ~> sled', 'sled -> ora', 'job -> sftp', 'job -> sled',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 300, maxRps: 500 },
+        { match: 'cache', hitRatio: 0 }, // the idempotency store never answers a balance check
+      ],
+      tests: [
+        {
+          name: 'December peak',
+          about: 'In December the tills send 300 gift card transactions a second and the website and app 100. Every transaction is answered within 800 ms.',
+          traffic: [
+            { name: 'tills', from: 'pos', rps: 300, to: 'external-api', kind: 'write', via: { label: 'exp-pos-giftcard' } },
+            { name: 'digital', from: ['web-app', 'mobile-app'], rps: 100, to: 'external-api', kind: 'write', via: { label: 'exp-digital-giftcard' } },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 800 }] },
+        },
+        {
+          name: 'Brute force from the website',
+          about: 'The tills send 300 transactions a second while a bot tries 1,000 card numbers a second on the website. The processor takes at most 500 a second. The digital API answers 429 above 150 a second, so the tills keep working.',
+          traffic: [
+            { name: 'tills', from: 'pos', rps: 300, to: 'external-api', kind: 'write', via: { label: 'exp-pos-giftcard' } },
+            { name: 'bot', from: 'web-app', rps: 1000, to: 'external-api', via: { label: 'exp-digital-giftcard' } },
+          ],
+          expect: { answers: [{ flow: 'tills', minSuccess: 0.99 }], peakRps: [{ node: 'external-api', max: 500 }] },
+        },
+      ],
+    },
   },
   description: `
 A department-store group sells and accepts **gift cards** in 800 stores, on the website, in the app and at the call centre. Card balances are held by an external **gift-card processor** (stored-value platform); the group must keep its own **ledger in Oracle** for finance (outstanding liability, breakage, inter-company settlement between brands).
@@ -55,6 +81,7 @@ Facts and NFRs:
 - POS terminals retry automatically if they get no answer in 5 seconds — today this sometimes **redeems twice**.
 - If a redemption times out, the processor rules say the merchant must send a **timeout reversal** within 60 seconds and retry it until accepted.
 - Card number + PIN are sensitive: they must never appear in logs and must be protected against **brute-force balance checking** from the website.
+- The processor accepts at most 500 calls a second. At the December peak the tills send 300 transactions a second and digital 100, and a bot could try 1,000 card numbers a second.
 - Each night the processor drops a **settlement file** on SFTP with every transaction; finance must reconcile it with the Oracle ledger.
 
 **Questions:**

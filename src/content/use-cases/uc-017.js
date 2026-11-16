@@ -23,7 +23,7 @@ export default {
       {
         shop: ['saas', 'Shopify Plus'],
         e: ['experience-api', 'exp-returns-api'],
-        p: ['process-api', 'prc-returns-api'],
+        p: ['process-api', 'prc-returns-api', { calls: 'in parallel' }],
         rma: ['database', 'RMA state store'],
         sd365: ['system-api', 'sys-d365-api'],
         d365: ['erp', 'Dynamics 365 F&O'],
@@ -31,7 +31,7 @@ export default {
         car: ['external-api', 'Carrier label API'],
         job: ['batch-job', 'Inspection file processor (every 2 h)'],
         sftp: ['file-store', '3PL SFTP (inspection CSV)'],
-        sshop: ['system-api', 'sys-shopify-api (refunds, gift cards)'],
+        sshop: ['system-api', 'sys-shopify-api (refunds, gift cards)', { retries: 3 }],
         cnq: ['queue', 'credit-note-q'],
         cn: ['process-api', 'prc-credit-note'],
         recon: ['batch-job', 'Daily refund ↔ credit note reconciliation'],
@@ -41,6 +41,28 @@ export default {
         'p -> sshop', 'sshop -> shop', 'p ~> cnq', 'cnq ~> cn', 'cn -> sd365', 'recon -> sshop', 'recon -> sd365',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 1500 },
+        { match: 'erp', latencyMs: 800 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'After-Christmas returns',
+          about: 'After Christmas customers start 5 returns a second. The carrier label API takes 1.5 s and D365 0.8 s. Asked at the same time, the customer gets the label in under 2 seconds.',
+          traffic: [{ name: 'returns', from: 'saas', rps: 5, to: ['external-api', 'erp'], kind: 'write' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }] },
+        },
+        {
+          name: 'Shopify drops some refund calls',
+          about: 'The inspection file sends 10 refunds a second for 5 minutes, and Shopify fails 1 call in 10. With retries on the same idempotency key, every refund goes through once.',
+          traffic: [{ name: 'refunds', from: { type: 'batch-job', label: 'inspection' }, rps: 10, forMin: 5, to: 'saas', kind: 'write' }],
+          incidents: [{ errors: 'saas', rate: 0.1 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A sportswear brand sells online and is introducing a new returns process.
@@ -59,6 +81,7 @@ The new returns process:
 
 Facts:
 - ~2,000 returns/day, 4,000 after Christmas.
+- At peak customers start 5 returns a second and want the label within 2 seconds. The carrier label API takes about 1.5 s, D365 about 0.8 s, and Shopify fails about 1 call in 10 during a refund run.
 - The 3PL sends inspection results as a **CSV file every 2 hours**.
 - Customers complain today about refunds taking 3 weeks and about being refunded twice by mistake.
 

@@ -20,16 +20,35 @@ export default {
     reference: diagram(
       {
         pos: ['pos', 'Store POS servers (350 stores)'],
-        q: ['queue', 'POS.SALES (ActiveMQ Artemis)'],
+        q: ['queue', 'POS.SALES (ActiveMQ Artemis)', { maxRedelivery: 5 }],
         dlq: ['dlq', 'DLQ.POS.SALES'],
-        prc: ['process-api', 'prc-pos-sales'],
+        prc: ['process-api', 'prc-pos-sales', { vCores: '0.5' }],
         eod: ['batch-job', 'End-of-day totals check (23:30)'],
-        sys: ['system-api', 'sys-merch-sales'],
+        sys: ['system-api', 'sys-merch-sales', { vCores: '0.5' }],
         stg: ['database', 'Oracle SALES_STG tables'],
         merch: ['erp', 'Merchandising system (Oracle)'],
       },
       ['pos ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> sys', 'sys -> stg', 'stg -> merch', 'eod -> sys'],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 40 }],
+      tests: [
+        {
+          name: 'Saturday afternoon peak',
+          about: 'The stores publish 150 sales a second for 2 hours. The sales consumers and the staging API keep up, so the queue never holds more than 2 minutes of sales and every sale reaches the staging tables.',
+          traffic: [{ name: 'sales', from: 'pos', rps: 150, to: 'database', kind: 'write' }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'database', min: 0.99 }], backlog: [{ queue: 'queue', maxPeak: 20000 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Sales the staging tables reject',
+          about: 'The stores publish 20 sales a second, and 1 in 1,000 has data the staging tables reject every time. Those go to the DLQ after 5 tries, and the other sales keep flowing.',
+          traffic: [{ name: 'sales', from: 'pos', rps: 20, to: 'database', kind: 'write', poison: 0.001 }],
+          durationMin: 60,
+          expect: { dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 1500 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer has **350 stores**. Each store server runs the POS and already publishes every completed transaction (sale, return, void) as an XML message to the central **ActiveMQ Artemis** broker on the queue \`POS.SALES\`. Messages are queued locally in the store when the WAN link is down and forwarded later.
@@ -39,6 +58,7 @@ The **merchandising system** (on Oracle 19c) needs the sales to update stock, op
 Facts:
 - ~1.2 million transactions/day; peak Saturday 14:00–16:00: **150 messages/second**.
 - Average 3 lines per transaction.
+- About 1 sale in 1,000 has data the staging tables reject every time.
 - A store can come back online after an outage and forward **thousands** of messages at once.
 - Stores send an end-of-day total (count and amount per register) at closing.
 - Finance must be able to prove that every store's sales reached the merchandising system.

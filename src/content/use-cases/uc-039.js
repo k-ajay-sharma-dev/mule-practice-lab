@@ -23,8 +23,8 @@ export default {
         chk: ['web-app', 'Cart / checkout service'],
         oms: ['internal-app', 'Order management'],
         q: ['queue', 'order-lifecycle-events'],
-        prc: ['process-api', 'prc-tax-api'],
-        cache: ['cache', 'Estimate cache (hash key, 30 min TTL)'],
+        prc: ['process-api', 'prc-tax-api', { vCores: '0.5', onFailure: 'partial answer' }],
+        cache: ['cache', 'Estimate cache (hash key, 30 min TTL)', { ttlSec: 1800 }],
         fb: ['database', 'Fallback rate table (by ZIP)'],
         stax: ['system-api', 'sys-tax-engine-api'],
         sns: ['system-api', 'sys-netsuite-api'],
@@ -34,6 +34,27 @@ export default {
       },
       ['chk -> prc', 'oms ~> q', 'q ~> prc', 'prc -> cache', 'prc -> fb', 'prc -> stax', 'stax -> tax', 'prc -> sns', 'sns -> ns', 'rec -> stax', 'rec -> sns'],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 250 }],
+      cache: { hitRatio: 0.7, atTtlSec: 1800 },
+      tests: [
+        {
+          name: 'Evening cart peak',
+          about: 'At the evening peak carts ask for 150 tax estimates a second. With a 30 minute cache 7 in 10 estimates are answered from the cache, so the tax engine gets at most 50 billed calls a second and no cart falls back to the rate table.',
+          traffic: [{ name: 'estimates', from: 'web-app', rps: 150, to: 'saas', kind: 'read' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.01 }], peakRps: [{ node: 'saas', max: 50 }] },
+        },
+        {
+          name: 'The tax engine is down for 20 minutes',
+          about: 'Carts ask for 30 tax estimates a second while the tax engine is down for 20 minutes. Checkout goes on with an estimate from the fallback rate table, so no cart fails.',
+          traffic: [{ name: 'estimates', from: 'web-app', rps: 30, to: 'saas', kind: 'read' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 20 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A US-based online retailer now has to collect **sales tax in 40+ states** and is adopting a SaaS **tax engine** (e.g. Avalara- or Vertex-style).
@@ -45,6 +66,7 @@ Facts:
 - The **ERP** (NetSuite) posts the tax liability; finance must be able to reconcile ERP tax vs the tax engine monthly.
 - Products have **tax codes** (clothing is exempt in some states); some B2B customers have **exemption certificates**.
 - Business rule: if the tax engine is down, **checkout must continue**.
+- At the evening peak carts ask for 150 estimates a second, and the tax engine should get at most 50 calls a second. A 30 minute cache answers about 7 estimates in 10. The engine can be down for 20 minutes.
 
 **Describe your solution:**
 - What APIs do you build and where are they called from?

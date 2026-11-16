@@ -23,18 +23,38 @@ export default {
       {
         banks: ['partner', 'Banks (5, host-to-host)'],
         sftp: ['file-store', 'Bank SFTP drop (camt.053 / MT940)'],
-        ing: ['batch-job', 'Statement ingestion (PGP decrypt, normalise)'],
+        ing: ['batch-job', 'Statement ingestion (PGP decrypt, normalise)', { timeoutMs: 30000 }],
         arch: ['file-store', 'Immutable raw archive'],
         stmt: ['database', 'Processed statements & balances'],
-        p: ['process-api', 'prc-payment-matching'],
+        p: ['process-api', 'prc-payment-matching', { timeoutMs: 30000 }],
         rules: ['database', 'Matching rules & IBAN map'],
-        sns: ['system-api', 'sys-netsuite-api'],
+        sns: ['system-api', 'sys-netsuite-api', { timeoutMs: 30000, retries: 2 }],
         ns: ['erp', 'Oracle NetSuite'],
         wq: ['database', 'Exception work queue'],
         rep: ['notification', 'Daily report & missing-statement alerts'],
       },
       ['banks -> sftp', 'ing -> sftp', 'ing -> arch', 'ing -> stmt', 'ing -> p', 'p -> rules', 'p -> sns', 'sns -> ns', 'p -> wq', 'p -> rep'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 1500 }],
+      tests: [
+        {
+          name: 'NetSuite drops some calls',
+          about: 'The nightly run posts 3 payment lines a second for 50 minutes, and NetSuite fails 1 call in 10. Retries post every line before 08:00.',
+          traffic: [{ name: 'payment lines', from: { type: 'batch-job', label: 'statement' }, rps: 3, forMin: 50, to: 'erp', kind: 'write' }],
+          incidents: [{ errors: 'erp', rate: 0.1 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'NetSuite is slow at night',
+          about: 'The nightly run posts 3 payment lines a second, and during NetSuite maintenance each call takes 15 seconds. Timeouts longer than that still post every line.',
+          traffic: [{ name: 'payment lines', from: { type: 'batch-job', label: 'statement' }, rps: 3, to: 'erp', kind: 'write' }],
+          incidents: [{ slow: 'erp', latencyMs: 15000 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A wholesale distributor operating in 8 countries banks with **5 different banks**. Finance wants incoming payments matched automatically to open invoices in **Oracle NetSuite** (ERP).
@@ -43,6 +63,7 @@ Facts:
 - Banks deliver **end-of-day statements**: 3 banks send **ISO 20022 camt.053** (XML), 2 still send **SWIFT MT940** (text). Two banks also offer **intraday camt.052** via API.
 - Statements arrive via the banks' **SFTP/host-to-host** channels between 22:00 and 04:00.
 - ~9,000 incoming payment lines/day. Customers often pay **several invoices in one transfer**, short-pay (deduct fees or disputed amounts) or write only a vague reference ("INV 2231 + 2240", or the PO number).
+- The nightly run posts about 3 lines a second to NetSuite. NetSuite fails about 1 call in 10 at night, and during its maintenance a call can take 15 seconds.
 - Finance target: **85% auto-matched**; the rest must be in a work queue by 08:00 with suggestions.
 - A statement must never be posted twice; the closing balance of one statement must equal the opening balance of the next.
 

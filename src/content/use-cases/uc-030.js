@@ -20,9 +20,9 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Approved-expense poller (hourly)'],
+        job: ['batch-job', 'Approved-expense poller (hourly)', { timeoutMs: 30000 }],
         sexp: ['system-api', 'sys-expense-tool-api'],
-        serp: ['system-api', 'sys-d365-finance-api'],
+        serp: ['system-api', 'sys-d365-finance-api', { timeoutMs: 30000, retries: 3 }],
         exp: ['saas', 'Expense management tool'],
         erp: ['erp', 'Dynamics 365 Finance'],
         map: ['database', 'Category → GL mapping table'],
@@ -30,6 +30,25 @@ export default {
       },
       ['job -> sexp', 'sexp -> exp', 'job -> map', 'job -> serp', 'serp -> erp', 'job -> mail'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 1200 }],
+      tests: [
+        {
+          name: 'D365 drops some calls',
+          about: 'At month end the poller posts 2 reports a second for 5 minutes, and D365 fails 1 call in 5. Retries post every journal and payable before the Thursday run.',
+          traffic: [{ name: 'reports', from: 'batch-job', rps: 2, forMin: 5, to: 'erp', kind: 'write' }],
+          incidents: [{ errors: 'erp', rate: 0.2 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'D365 is slow at month end',
+          about: 'The poller posts 2 reports a second, and during month-end close each D365 posting takes 15 seconds. Timeouts longer than that still post every report.',
+          traffic: [{ name: 'reports', from: 'batch-job', rps: 2, forMin: 5, to: 'erp', kind: 'write' }],
+          incidents: [{ slow: 'erp', latencyMs: 15000 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A consulting firm with 1,200 employees uses a SaaS **expense management tool**. When a manager approves an expense report, finance must **book it in the ERP** (Microsoft Dynamics 365 Finance) and **reimburse the employee** in the next payment run.
@@ -37,6 +56,7 @@ A consulting firm with 1,200 employees uses a SaaS **expense management tool**. 
 Facts:
 - The expense tool has a REST API: list reports by status and approval date; each report has lines (category, amount, currency, VAT, project code, receipt URL).
 - ~250 approved reports/week, average 6 lines; month end can see 600 in two days.
+- The poller posts about 2 reports a second. During month-end close D365 can fail 1 call in 5, and a posting can take 15 seconds.
 - Finance wants: one **journal** per report (expense accounts by category, VAT, cost centre/project) and one **vendor invoice / employee payable** so the employee is paid in the Thursday payment run.
 - Expense categories must be mapped to general-ledger accounts; finance changes this mapping a few times a year.
 - After posting, the expense tool should show the report as **"Exported"** so it cannot be edited.

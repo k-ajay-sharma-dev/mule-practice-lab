@@ -23,7 +23,7 @@ export default {
         job: ['batch-job', 'Pick-release poller (2 min)'],
         qout: ['queue', 'WMS.ORDER.RELEASE'],
         wms: ['wms', 'DC WMS'],
-        qin: ['queue', 'WMS.SHIP.CONFIRM'],
+        qin: ['queue', 'WMS.SHIP.CONFIRM', { maxRedelivery: 60 }],
         dlq: ['dlq', 'DLQ.WMS.SHIP.CONFIRM'],
         prc: ['process-api', 'prc-shipment-confirmation'],
         log: ['database', 'INT_MESSAGE_LOG (Oracle)'],
@@ -32,6 +32,26 @@ export default {
       },
       ['job -> sys', 'job ~> qout', 'qout ~> wms', 'wms ~> qin', 'qin ~> prc', 'qin ~> dlq', 'prc -> log', 'prc -> sys', 'sys -> ebs'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 500 }],
+      tests: [
+        {
+          name: 'Bad confirmations',
+          about: 'The WMS sends 0.5 confirmations a second, and 1 in 500 has a lot number EBS does not know. Those go to the DLQ after their retries, and the other confirmations keep flowing.',
+          traffic: [{ name: 'confirmations', from: 'wms', rps: 0.5, to: 'erp', kind: 'write', poison: 0.002 }],
+          durationMin: 180,
+          expect: { dlq: { min: 3 }, lost: { max: 0 }, backlog: [{ queue: { label: 'WMS.SHIP.CONFIRM' }, maxEnd: 20 }] },
+        },
+        {
+          name: 'EBS fails and the broker restarts',
+          about: 'The WMS sends 0.5 confirmations a second while EBS is down for 30 minutes, and the broker restarts in the middle. The queue keeps its messages, so no confirmation is lost or sent to the DLQ.',
+          traffic: [{ name: 'confirmations', from: 'wms', rps: 0.5, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }, { restart: 'queue', at: 20 }],
+          durationMin: 60,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: { label: 'WMS.SHIP.CONFIRM' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A distributor of electrical supplies runs **Oracle EBS Order Management** and one central **DC WMS**. The WMS vendor supports only **JMS messaging via ActiveMQ Classic** (XML messages), no REST API.
@@ -44,6 +64,7 @@ Facts:
 - The WMS sometimes resends the same confirmation after a restart.
 - EBS is down for patching every second Sunday for 4 hours; the WMS keeps working.
 - About 1 in 500 confirmations has an error (e.g. lot number unknown to EBS).
+- Confirmations arrive at up to 0.5 a second. Outside patching, EBS can fail for 30 minutes, and the broker can restart while it does.
 
 **Design both flows:**
 - Which queues and which Mule components do you use?

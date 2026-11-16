@@ -25,14 +25,14 @@ export default {
         hpos: ['internal-app', 'HomeCo store POS'],
         bapp: ['mobile-app', 'BuildIt app'],
         trade: ['web-app', 'Trade portal'],
-        eh: ['experience-api', 'exp-homeco-app'],
+        eh: ['experience-api', 'exp-homeco-app', { replicas: 2 }],
         ep: ['experience-api', 'exp-homeco-pos'],
-        eb: ['experience-api', 'exp-buildit-app (same contract)'],
+        eb: ['experience-api', 'exp-buildit-app (same contract)', { replicas: 2 }],
         et: ['experience-api', 'exp-trade-portal'],
-        pcust: ['process-api', 'prc-customer-profile v3'],
+        pcust: ['process-api', 'prc-customer-profile v3', { replicas: 2, vCores: '0.5' }],
         ploy: ['process-api', 'prc-loyalty v2'],
         ptrade: ['process-api', 'prc-trade-accounts'],
-        ssf: ['system-api', 'sys-salesforce-customers v3'],
+        ssf: ['system-api', 'sys-salesforce-customers v3', { replicas: 2, vCores: '0.5' }],
         sxref: ['system-api', 'sys-customer-xref'],
         sloy: ['system-api', 'sys-loyalty-engine'],
         sf: ['crm', 'Salesforce (customer master)'],
@@ -44,6 +44,32 @@ export default {
         'pcust -> ssf', 'pcust -> sxref', 'ploy -> sloy', 'ploy -> sxref', 'ptrade -> ssf', 'ssf -> sf', 'sxref -> xref', 'sloy -> loy',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'crm', latencyMs: 150 }],
+      tests: [
+        {
+          name: 'Both brands on a Saturday peak',
+          about: 'The HomeCo app sends 60 profile reads a second, the BuildIt app 30 and the store tills 40. All of them go through the one shared customer profile API, which must carry 130 a second.',
+          traffic: [
+            { name: 'HomeCo app', from: { label: 'HomeCo app' }, rps: 60, to: 'crm' },
+            { name: 'BuildIt app', from: { label: 'BuildIt app' }, rps: 30, to: 'crm' },
+            { name: 'store tills', from: 'internal-app', rps: 40, to: 'crm' },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'A zone goes down',
+          about: 'The HomeCo app sends 30 profile reads a second and the BuildIt app 15 while one availability zone is down for 15 minutes. The shared APIs run 2 replicas, so neither brand loses its customer view.',
+          traffic: [
+            { name: 'HomeCo app', from: { label: 'HomeCo app' }, rps: 30, to: 'crm' },
+            { name: 'BuildIt app', from: { label: 'BuildIt app' }, rps: 15, to: 'crm' },
+          ],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **HomeCo**, a home-improvement retailer, has acquired its competitor **BuildIt**. Both were MuleSoft customers with their own Anypoint organisations and API-led networks. The board wants **one customer and loyalty experience within 18 months**, while both brands keep trading during the transition.
@@ -77,6 +103,7 @@ Facts:
 - Dynamics and the BuildIt rewards DB are decommissioned at month 15. SAP ECC stays until a later ERP project.
 - Different naming conventions, different error models, different security (HomeCo: OAuth via Okta; BuildIt: client ID/secret only), and two Anypoint orgs.
 - Brand apps must keep working throughout; app releases need ~6 weeks for store approval and user adoption.
+- On a Saturday peak the HomeCo app reads 60 profiles a second, the BuildIt app 30 and the store tills 40. Both brands must keep their customer view when one availability zone is down.
 
 **Questions:**
 1. Describe the **target** application network for customer and loyalty (APIs per layer).

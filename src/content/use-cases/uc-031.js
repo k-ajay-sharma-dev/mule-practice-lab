@@ -22,7 +22,7 @@ export default {
       {
         proc: ['saas', 'Procurement tool (webhook + REST)'],
         hook: ['experience-api', 'exp-procurement-webhook'],
-        q: ['queue', 'approved-prs'],
+        q: ['queue', 'approved-prs', { maxRedelivery: 45 }],
         dlq: ['dlq', 'approved-prs-dlq'],
         prc: ['process-api', 'prc-procurement-api'],
         job: ['batch-job', 'Master data + PO status sync'],
@@ -32,12 +32,33 @@ export default {
       },
       ['proc -> hook', 'hook ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> ssap', 'prc -> sproc', 'ssap -> sap', 'sproc -> proc', 'job -> ssap', 'job -> sproc'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 800 }],
+      tests: [
+        {
+          name: 'SAP is down for 30 minutes',
+          about: 'The tool sends 1 approved PR a second while SAP is down for 30 minutes for maintenance. Each PR is tried each minute for 45 minutes, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'approved PRs', from: 'saas', rps: 1, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'PRs SAP always rejects',
+          about: 'The tool sends 1 approved PR a second, and 1 in 50 has a cost centre SAP rejects every time. Those go to the DLQ for the buying team, and the others keep flowing.',
+          traffic: [{ name: 'approved PRs', from: 'saas', rps: 1, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A manufacturer uses a cloud **procurement/spend tool** where employees raise purchase requisitions (PRs) and managers approve them. Purchase orders (POs), goods receipts and invoices live in **SAP S/4HANA**.
 
 Facts:
 - ~1,800 approved PRs/week, 1–40 lines each. The procurement tool sends an **"approved" webhook** and has a REST API.
+- At busy times the tool sends 1 approved PR a second. SAP can be down for 30 minutes for maintenance, and about 1 PR in 50 has a cost centre SAP rejects.
 - In SAP, an approved PR must become a **purchase order** (for catalog items with a contracted supplier) or a **SAP purchase requisition** for the buying team (for free-text items).
 - Master data (suppliers, material groups, cost centres, GL accounts) is owned by SAP and must be **valid in the procurement tool** before employees can select it.
 - Users want to see the **PO number and status** (ordered, partially received, invoiced) back in the procurement tool within **15 minutes**.

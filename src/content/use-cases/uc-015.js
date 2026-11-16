@@ -24,7 +24,7 @@ export default {
         web: ['web-app', 'Patient website'],
         mob: ['mobile-app', 'Patient app'],
         e: ['experience-api', 'exp-booking-api'],
-        p: ['process-api', 'prc-booking-api'],
+        p: ['process-api', 'prc-booking-api', { calls: 'in parallel', timeoutMs: 1800, onFailure: 'partial answer' }],
         cache: ['cache', 'Availability cache (1-2 min TTL)'],
         lock: ['database', 'Bookings table (slot lock / unique key)'],
         spms: ['system-api', 'sys-pms-api'],
@@ -40,6 +40,28 @@ export default {
         'p ~> ev', 'ev ~> nproc', 'nproc -> send',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'saas', label: 'practice' }, latencyMs: 1500 },
+        { match: { type: 'saas', label: 'graph' }, latencyMs: 1200 },
+      ],
+      cache: { hitRatio: 0.2 },
+      tests: [
+        {
+          name: 'Monday morning searches',
+          about: 'Patients send 15 searches a second. The PMS answers in 1.5 s and Microsoft Graph in 1.2 s, and only 1 search in 5 is in the cache. Asked at the same time, both answer in under 2 seconds on average.',
+          traffic: [{ name: 'searches', from: ['web-app', 'mobile-app'], rps: 15, to: 'saas' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }] },
+        },
+        {
+          name: 'Microsoft Graph is slow',
+          about: 'Patients send 15 searches a second and Microsoft Graph takes 10 seconds for the whole run. A short timeout and a partial answer still show the PMS slots in under 2 seconds.',
+          traffic: [{ name: 'searches', from: ['web-app', 'mobile-app'], rps: 15, to: 'saas' }],
+          incidents: [{ slow: { type: 'saas', label: 'graph' }, latencyMs: 10000 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000, minDegraded: 0.5 }] },
+        },
+      ],
+    },
   },
   description: `
 A chain of 60 physiotherapy clinics wants patients to **book appointments online** (web and mobile). Availability lives in different places:
@@ -51,6 +73,7 @@ A chain of 60 physiotherapy clinics wants patients to **book appointments online
 Requirements:
 - Patients search by clinic, treatment type (30 or 60 minutes) and date; results in **under 2 seconds**.
 - ~3,000 searches/hour, ~400 bookings/day; Monday mornings are busy.
+- On Monday morning patients send up to 15 searches a second. The PMS answers in about 1.5 s and Microsoft Graph in about 1.2 s, and only 1 search in 5 can come from the cache.
 - **No double bookings** — two patients may try the same slot at the same moment.
 - Booking confirmation by email/SMS; cancellations up to 24 hours before must free the slot everywhere.
 - Patient data is health-related (special category data under GDPR).

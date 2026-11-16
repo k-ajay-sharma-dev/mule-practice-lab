@@ -24,14 +24,14 @@ export default {
         web: ['web-app', 'Website'],
         mob: ['mobile-app', 'Mobile app'],
         lb: ['load-balancer', 'CDN / WAF / bot protection'],
-        gw: ['api-gateway', 'Gateway (spike control, rate limit)'],
-        exp: ['experience-api', 'exp-flash-checkout'],
-        prc: ['process-api', 'prc-flash-reservation'],
+        gw: ['api-gateway', 'Gateway (spike control, rate limit)', { rateLimit: 300 }],
+        exp: ['experience-api', 'exp-flash-checkout', { vCores: '1' }],
+        prc: ['process-api', 'prc-flash-reservation', { vCores: '1' }],
         prco: ['process-api', 'prc-order-submit'],
         job: ['batch-job', 'Reservation expiry sweeper (30 s)'],
         q: ['queue', 'FLASH.ORDERS (ActiveMQ)'],
         dlq: ['dlq', 'DLQ.FLASH.ORDERS'],
-        sres: ['system-api', 'sys-inventory-reservations'],
+        sres: ['system-api', 'sys-inventory-reservations', { vCores: '1' }],
         spay: ['system-api', 'sys-payments'],
         soms: ['system-api', 'sys-oms'],
         cache: ['cache', 'Product & stock-count cache'],
@@ -44,6 +44,27 @@ export default {
         'q ~> prco', 'q ~> dlq', 'prco -> soms', 'sres -> ora', 'spay -> pay', 'soms -> oms', 'job -> sres',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 40, maxRps: 300 },
+        { match: 'erp', latencyMs: 300, maxRps: 50 },
+      ],
+      tests: [
+        {
+          name: 'The drop opens',
+          about: 'Shoppers send 100 reservations a second, and 500 a second for the first 3 minutes of the drop. The Oracle stock rows take about 300 a second. The gateway answers 429 above 300 a second, so Oracle is never over its limit and each admitted reservation is answered within 500 ms.',
+          traffic: [{ name: 'reservations', from: ['web-app', 'mobile-app'], rps: 100, to: 'database', kind: 'write', spikes: [{ at: 2, forMin: 3, rps: 500 }] }],
+          expect: { peakRps: [{ node: 'database', max: 300 }], answers: [{ minSuccess: 0.6, maxMs: 500 }] },
+        },
+        {
+          name: 'Paid orders pile up',
+          about: 'Payments confirm 120 orders a second for 5 minutes. The OMS takes at most 50 a second. The queue holds the rest and feeds the OMS at its pace, so no order is lost.',
+          traffic: [{ name: 'paid orders', from: ['web-app', 'mobile-app'], rps: 120, forMin: 5, to: 'erp', kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 50 }], lost: { max: 0 }, backlog: [{ queue: { label: 'FLASH.ORDERS' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A sneaker retailer runs monthly **flash drops**: a limited edition (e.g. **5,000 pairs** across 12 sizes) goes on sale at **12:00:00**. Last time the site crashed, 700 pairs were **oversold**, and bots bought a third of the stock.
@@ -56,6 +77,7 @@ Constraints and targets:
 - Checkout must still feel fast: reservation answer in **< 500 ms p95**.
 - The rest of the website (normal products) must not be affected.
 - Payments: card authorisation through the PSP (3-D Secure possible, may take a minute).
+- The bucketed Oracle stock rows take about 300 reservations a second. Reserves peak at 500 a second for the first 3 minutes, and payments can confirm 120 orders a second for 5 minutes.
 
 **Questions:**
 1. Draw the architecture and the request path from "Reserve" to "Order confirmed".

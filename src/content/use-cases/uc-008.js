@@ -19,10 +19,10 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Payroll export (cron on the 20th)'],
-        swd: ['system-api', 'sys-workday-workers-api'],
+        job: ['batch-job', 'Payroll export (cron on the 20th)', { timeoutMs: 60000 }],
+        swd: ['system-api', 'sys-workday-workers-api', { timeoutMs: 60000 }],
         wd: ['saas', 'Workday'],
-        stime: ['system-api', 'sys-time-tracking-api'],
+        stime: ['system-api', 'sys-time-tracking-api', { retries: 3 }],
         time: ['saas', 'Time-tracking system'],
         sftp: ['file-store', 'Provider SFTP (PGP-encrypted fixed-width file)'],
         resp: ['batch-job', 'Response file poller'],
@@ -30,6 +30,29 @@ export default {
       },
       ['job -> swd', 'swd -> wd', 'job -> stime', 'stime -> time', 'job -> sftp', 'resp -> sftp', 'resp -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: { label: 'workday' }, latencyMs: 20000 },
+        { match: { label: 'time-tracking system' }, latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The Workday report is slow',
+          about: 'The job reads workers and hours in pages, 1 page a second for 10 minutes. A Workday report page takes about 20 seconds, so the calls must wait longer than the default 10 seconds.',
+          traffic: [{ name: 'pages', from: 'batch-job', rps: 1, forMin: 10, to: 'saas' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The time system drops some calls',
+          about: 'On export day the time-tracking API fails 1 call in 5. The System API retries a failed call, so almost every page of hours arrives.',
+          traffic: [{ name: 'pages', from: 'batch-job', rps: 1, forMin: 10, to: 'saas' }],
+          incidents: [{ errors: { label: 'time-tracking system' }, rate: 0.2 }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A retail company with **6,000 employees** keeps HR data in **Workday**. Payroll is outsourced to an external provider that only accepts a **fixed-width file** delivered by **SFTP**, encrypted with the provider's **PGP public key**.
@@ -39,6 +62,7 @@ Requirements:
 - The provider publishes a strict file spec: header record, one detail record per employee, trailer with record count and total gross amount.
 - The provider drops a **response file** (accepted/rejected lines) in an outbound SFTP folder within 2 hours.
 - Payroll data is highly sensitive (salary, bank account numbers).
+- A page of the Workday report takes about 20 seconds, and the time-tracking API can fail 1 call in 5 on export day.
 
 **Describe your solution:**
 - How do you build and deliver the file?

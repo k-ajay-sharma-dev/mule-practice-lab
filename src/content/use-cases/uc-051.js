@@ -24,13 +24,13 @@ export default {
         portal: ['web-app', 'Student portal'],
         mob: ['mobile-app', 'Student mobile app'],
         adv: ['internal-app', 'Adviser dashboard'],
-        ep: ['experience-api', 'exp-student-portal'],
+        ep: ['experience-api', 'exp-student-portal', { vCores: '0.5' }],
         em: ['experience-api', 'exp-student-mobile'],
         ea: ['experience-api', 'exp-adviser-dashboard'],
         pcat: ['process-api', 'prc-module-catalogue'],
-        preg: ['process-api', 'prc-course-registration'],
+        preg: ['process-api', 'prc-course-registration', { vCores: '0.5' }],
         pful: ['process-api', 'prc-registration-fulfilment'],
-        ex: ['topic', 'RegistrationCreated exchange'],
+        ex: ['topic', 'RegistrationCreated exchange', { maxRedelivery: 30 }],
         dlq: ['dlq', 'fulfilment-dlq'],
         cache: ['cache', 'Module + seat cache'],
         ssis: ['system-api', 'sys-sis-academics'],
@@ -46,6 +46,25 @@ export default {
         'pful -> slms', 'pful -> sfin', 'ssis -> sis', 'sfin -> fin', 'slms -> lms',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 2000, maxRps: 30 }],
+      tests: [
+        {
+          name: 'Registration opens at 09:00',
+          about: 'At 09:00 students send 80 registrations a second for 5 minutes. Canvas takes at most 30 enrolments a second and answers in about 2 seconds, so registration answers at once and every student is in Canvas within 15 minutes.',
+          traffic: [{ name: 'registrations', from: 'web-app', rps: 80, forMin: 5, to: 'saas', kind: 'write' }],
+          durationMin: 25,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }], peakRps: [{ node: 'saas', max: 30 }], backlog: [{ queue: 'topic', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some enrolments always fail',
+          about: 'Students send 10 registrations a second, and 1 in 100 is for a section Canvas does not know, so it fails every time. Those go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'registrations', from: 'web-app', rps: 10, to: 'saas', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 300 }] },
+        },
+      ],
+    },
   },
   description: `
 A university with 35,000 students is replacing a batch-driven registration process. Students should register for modules in real time and have access in the LMS within minutes.
@@ -68,6 +87,7 @@ Facts:
 - Registration must be blocked if the student has a **finance hold** or misses **prerequisites** (unless an adviser has approved an override).
 - LMS enrolment must follow within **15 minutes**; the LMS being slow must **not** slow registration.
 - Fees for extra modules are calculated in the finance system after registration.
+- Canvas takes at most 30 enrolments a second and answers in about 2 seconds. About 1 registration in 100 is for a section Canvas does not know.
 
 **Questions:**
 1. Decompose the API network.

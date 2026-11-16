@@ -24,17 +24,17 @@ export default {
         app: ['mobile-app', 'My Account app'],
         web: ['web-app', 'Website'],
         store: ['internal-app', 'Retail store tablet'],
-        ea: ['experience-api', 'exp-myaccount-app'],
+        ea: ['experience-api', 'exp-myaccount-app', { replicas: 2 }],
         ew: ['experience-api', 'exp-web-selfservice'],
-        es: ['experience-api', 'exp-retail-store'],
+        es: ['experience-api', 'exp-retail-store', { auth: 'client-id' }],
         pel: ['process-api', 'prc-plan-eligibility'],
-        pchg: ['process-api', 'prc-plan-change'],
+        pchg: ['process-api', 'prc-plan-change', { replicas: 2 }],
         state: ['database', 'Plan-change saga state'],
         t: ['topic', 'plan-changed'],
         ssf: ['system-api', 'sys-salesforce-customer'],
         sbill: ['system-api', 'sys-billing-subscriptions'],
         scat: ['system-api', 'sys-product-catalogue'],
-        sprov: ['system-api', 'sys-network-provisioning'],
+        sprov: ['system-api', 'sys-network-provisioning', { replicas: 2 }],
         sf: ['crm', 'Salesforce'],
         bill: ['legacy', 'Billing (SOAP)'],
         cat: ['saas', 'Product catalogue'],
@@ -46,6 +46,26 @@ export default {
         'ssf -> sf', 'sbill -> bill', 'scat -> cat', 'sprov -> oss', 'oss ~> pchg',
       ],
     ),
+    simulation: {
+      systems: [{ match: { type: 'legacy', label: 'oss' }, latencyMs: 300 }],
+      tests: [
+        {
+          name: 'A zone goes down',
+          about: 'App users start 5 plan changes a second while one availability zone is down for 15 minutes. The plan-change APIs keep running in the other zone, so no change fails.',
+          traffic: [{ name: 'plan changes', from: 'mobile-app', rps: 5, to: { type: 'legacy', label: 'oss' }, kind: 'write' }],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'A tablet without a client ID',
+          about: 'A device that is not a registered store tablet sends 2 plan changes a second to the store API. Every one is refused.',
+          traffic: [{ name: 'unknown device', from: 'internal-app', rps: 2, to: { type: 'legacy', label: 'oss' }, kind: 'write', auth: 'none' }],
+          durationMin: 10,
+          expect: { answers: [{ minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A mobile operator wants customers to **change their tariff plan** themselves, instead of calling the contact centre.
@@ -68,6 +88,7 @@ Business rules:
 - Customers with **debt > 30 days** cannot change plan.
 - Billing must be updated **before** provisioning; if provisioning fails, the billing change must be **compensated** and the customer told.
 - ~8,000 plan changes/day, browsing eligible plans ~30 req/s.
+- Plan changes (about 5 a second at the peak) must keep working when one availability zone is down for 15 minutes, and only registered store tablets may call the store API.
 
 **Questions:**
 1. Decompose into Experience, Process and System APIs (names, resources).

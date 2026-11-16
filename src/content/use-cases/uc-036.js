@@ -21,10 +21,10 @@ export default {
     reference: diagram(
       {
         s3: ['file-store', 'S3 supplier uploads'],
-        job: ['batch-job', 'Catalog import batch job'],
+        job: ['batch-job', 'Catalog import batch job', { timeoutMs: 30000 }],
         prof: ['database', 'Supplier mapping profiles'],
         hash: ['cache', 'Product hash store (per SKU)'],
-        spim: ['system-api', 'sys-pim-api'],
+        spim: ['system-api', 'sys-pim-api', { timeoutMs: 30000 }],
         pim: ['saas', 'PIM (bulk import)'],
         rep: ['notification', 'Error report to supplier'],
         q: ['queue', 'image-jobs'],
@@ -33,6 +33,28 @@ export default {
       },
       ['job -> s3', 'job -> prof', 'job -> hash', 'job -> spim', 'spim -> pim', 'job -> rep', 'job ~> q', 'q ~> img', 'img -> dam', 'img -> spim'],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 15000 },
+        { match: { type: 'file-store', label: 'dam' }, latencyMs: 8000 },
+      ],
+      tests: [
+        {
+          name: 'A 50,000-row file',
+          about: 'The job sends 1 bulk call of 1,000 products every 2 seconds, 50 calls in all. Each bulk import takes the PIM about 15 seconds, so every call must wait long enough to be written.',
+          traffic: [{ name: 'bulk calls', from: 'batch-job', rps: 0.5, forMin: 2, to: 'saas', kind: 'write' }],
+          durationMin: 10,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Images are slow to process',
+          about: 'The job hands off 5 images a second for 30 minutes, and each takes the DAM about 8 seconds. The job hands each image off in under a second, and every image reaches the DAM.',
+          traffic: [{ name: 'images', from: 'batch-job', rps: 5, forMin: 30, to: { type: 'file-store', label: 'dam' }, kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A home-improvement retailer onboards products from **~900 suppliers** into its **Product Information Management (PIM)** system, which feeds the website and stores.
@@ -43,6 +65,7 @@ Facts:
 - The PIM has a REST API with a **bulk import endpoint** (max 1,000 products per call) and requires: GTIN (valid check digit), supplier SKU, title, category, net weight in kg, dimensions in cm, and image URLs.
 - Category managers want an **error report back to the supplier within 1 hour** listing exactly which rows and fields are wrong.
 - A new file from the same supplier usually contains **mostly unchanged products**.
+- One bulk import of 1,000 products takes the PIM about 15 seconds. A large file brings 5 images a second for half an hour, and each takes the DAM about 8 seconds.
 
 **Describe your solution:**
 - How do you handle different column layouts and units per supplier?

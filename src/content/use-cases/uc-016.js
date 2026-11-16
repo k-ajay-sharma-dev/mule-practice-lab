@@ -23,12 +23,12 @@ export default {
       {
         los: ['legacy', 'Loan origination system (LOS)'],
         evq: ['queue', 'loan-approved-q'],
-        p: ['process-api', 'prc-loan-esignature'],
+        p: ['process-api', 'prc-loan-esignature', { timeoutMs: 20000 }],
         slos: ['system-api', 'sys-los-api'],
-        sds: ['system-api', 'sys-docusign-api'],
+        sds: ['system-api', 'sys-docusign-api', { timeoutMs: 20000 }],
         ds: ['saas', 'DocuSign'],
         wh: ['experience-api', 'exp-docusign-connect-api (HMAC)'],
-        dsq: ['queue', 'docusign-events-q'],
+        dsq: ['queue', 'docusign-events-q', { maxRedelivery: 90 }],
         sshp: ['system-api', 'sys-sharepoint-api'],
         sp: ['file-store', 'SharePoint library'],
         spay: ['system-api', 'sys-payout-api'],
@@ -41,6 +41,31 @@ export default {
         'sshp -> sp', 'p -> spay', 'spay -> pay', 'p -> track', 'poll -> sds',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 800 },
+        { match: 'file-store', latencyMs: 500 },
+        { match: 'payment', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'SharePoint is down for an hour',
+          about: 'DocuSign reports 2 completed signatures a second while SharePoint is down for 60 minutes. Each event gets its answer at once, waits in the queue and is tried each minute, and none is lost.',
+          traffic: [{ name: 'signed events', from: 'saas', rps: 2, to: ['file-store', 'payment'], kind: 'write' }],
+          incidents: [{ down: 'file-store', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: { type: 'queue', label: 'docusign' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'DocuSign is slow at month end',
+          about: 'The LOS approves 1 loan a second, and at month end DocuSign takes 12 seconds to create an envelope. With timeouts longer than that, every contract is still sent and the queue empties.',
+          traffic: [{ name: 'approved loans', from: 'legacy', rps: 1, forMin: 30, to: 'saas', kind: 'write' }],
+          incidents: [{ slow: 'saas', latencyMs: 12000 }],
+          durationMin: 45,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'approved' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A consumer-finance company approves personal loans in its **loan origination system (LOS)** (Java app with REST API). After approval, the customer must **sign the loan contract electronically** before money is paid out.
@@ -51,6 +76,7 @@ Requirements:
 - When signing completes: store the **signed PDF and certificate of completion** in the document management system (**SharePoint** library), update the LOS status to *Signed*, and trigger payout.
 - If not signed within **14 days**, void the envelope and set the loan to *Expired*.
 - ~1,500 contracts/day. Payout must **never** happen twice or without a completed signature.
+- At month end DocuSign can take 12 seconds to create an envelope, and SharePoint can be down for an hour.
 
 **Describe your solution:**
 - What is the end-to-end flow and which system owns the status?

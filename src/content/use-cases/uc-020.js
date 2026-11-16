@@ -28,7 +28,7 @@ export default {
         app: ['database', 'Application state + audit log'],
         q: ['queue', 'kyc-results-q'],
         wh: ['system-api', 'sys-idv-vendor-api (webhook + fetch)'],
-        sscr: ['system-api', 'sys-screening-api'],
+        sscr: ['system-api', 'sys-screening-api', { retries: 3 }],
         scr: ['external-api', 'Sanctions / PEP screening'],
         sbur: ['system-api', 'sys-credit-bureau-api'],
         bur: ['legacy', 'Credit bureau (SOAP)'],
@@ -44,6 +44,29 @@ export default {
         'scase ~> q', 'timer -> wh',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'external-api', label: 'screening' }, latencyMs: 1000 },
+        { match: { type: 'legacy', label: 'bureau' }, latencyMs: 2000 },
+      ],
+      tests: [
+        {
+          name: 'The credit bureau is down for 20 minutes',
+          about: 'The vendor sends 2 identity results a second while the credit bureau is down for 20 minutes. The results wait in the queue, nothing is lost, and every application gets its address check once the bureau is back.',
+          traffic: [{ name: 'identity results', from: { type: 'external-api', label: 'verification' }, rps: 2, to: { type: 'legacy', label: 'bureau' }, kind: 'write' }],
+          incidents: [{ down: { type: 'legacy', label: 'bureau' }, at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Screening drops some calls',
+          about: 'During a campaign the app sends 5 applications a second, and the screening provider fails 1 call in 5. Retries get every screening done, so no applicant is turned away because of the provider.',
+          traffic: [{ name: 'applications', from: 'mobile-app', rps: 5, to: { type: 'external-api', label: 'screening' }, kind: 'write' }],
+          incidents: [{ errors: { type: 'external-api', label: 'screening' }, rate: 0.2 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A digital bank lets customers **open an account in its mobile app**. Before activation, regulations require **KYC/AML checks**:
@@ -55,6 +78,7 @@ A digital bank lets customers **open an account in its mobile app**. Before acti
 
 Constraints:
 - 5,000 applications/day, marketing campaigns can bring 5× peaks.
+- In a campaign the app sends up to 5 applications a second. The screening provider can fail 1 call in 5, and the credit bureau can be down for 20 minutes.
 - Applicants must see progress in the app; ~80% should be approved **within 10 minutes**.
 - Any "possible match" on sanctions/PEP or a vendor "review" result goes to the **compliance team's case tool**; compliance decisions must be fed back.
 - Personal data and ID images are highly sensitive.

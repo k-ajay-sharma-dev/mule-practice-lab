@@ -24,7 +24,7 @@ export default {
         cwms: ['saas', 'Cloud WMS (3 DCs)'],
         hook: ['experience-api', 'exp-wms-webhook-listener'],
         poll: ['batch-job', 'Legacy confirmation file poller'],
-        q: ['queue', 'sto-events'],
+        q: ['queue', 'sto-events', { maxRedelivery: 40 }],
         err: ['dlq', 'sto-error-queue'],
         prc: ['process-api', 'prc-stock-transfer-api'],
         state: ['database', 'STO state table'],
@@ -40,6 +40,29 @@ export default {
         'ssap -> sap', 'swh -> cwms', 'swh -> ftp', 'lwms -> ftp', 'rec -> ssap', 'rec -> swh',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 500 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'SAP is down for 30 minutes',
+          about: 'The cloud WMS sends 1 goods issue or receipt a second while SAP is down for 30 minutes. Each confirmation is tried for 40 minutes, so none is lost or sent to the error queue.',
+          traffic: [{ name: 'confirmations', from: 'saas', rps: 1, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some receipts cannot be posted',
+          about: 'The cloud WMS sends 1 confirmation a second, and 2 in 100 refer to a batch SAP does not know, so SAP rejects them every time. Those go to the error queue for a person, and the others keep flowing.',
+          traffic: [{ name: 'confirmations', from: 'saas', rps: 1, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A grocery wholesaler runs **4 distribution centres (DCs)**. Three use a modern cloud **WMS**; the oldest DC still runs a legacy **on-prem WMS** that only exchanges **fixed-width flat files over FTP**. Stock and finance are in **SAP S/4HANA**.
@@ -51,6 +74,7 @@ Facts:
 - Chilled goods have **batch numbers and best-before dates** that must travel with the stock.
 - Cloud WMS: REST APIs + webhooks. Legacy WMS: drops files every 15 minutes, reads inbound files every 15 minutes.
 - Finance requires that at month end every unit shipped is either received or explained.
+- The cloud WMS sends about 1 confirmation a second. SAP can be down for 30 minutes, and about 2 confirmations in 100 carry data SAP rejects every time.
 
 **Describe your solution:**
 - What messages and APIs are needed through the STO lifecycle?

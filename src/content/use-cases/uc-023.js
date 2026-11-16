@@ -21,7 +21,7 @@ export default {
     reference: diagram(
       {
         sap: ['erp', 'SAP S/4HANA PM'],
-        ssap: ['system-api', 'sys-sap-pm-api (IDoc / BAPI)'],
+        ssap: ['system-api', 'sys-sap-pm-api (IDoc / BAPI)', { vCores: '0.5' }],
         ord: ['queue', 'sap-orders-q'],
         pfs: ['process-api', 'prc-field-service-api'],
         ssf: ['system-api', 'sys-salesforce-fs-api'],
@@ -38,12 +38,35 @@ export default {
         'ssap -> sap', 'pwo -> track', 'pwo -> ssf', 'load -> ssap', 'load -> ssf', 'recon -> ssap', 'recon -> ssf',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 500 },
+        { match: 'crm', latencyMs: 300, maxRps: 15 },
+      ],
+      tests: [
+        {
+          name: 'The morning order release',
+          about: 'SAP releases the preventive orders at 60 IDocs a second for 1 minute, and Salesforce takes about 15 calls a second. Every IDoc is taken at once, waits in the queue, and reaches Field Service within 10 minutes.',
+          traffic: [{ name: 'maintenance orders', from: 'erp', rps: 60, forMin: 1, to: 'crm', kind: 'write' }],
+          durationMin: 10,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'crm', max: 15 }], backlog: [{ queue: { type: 'queue', label: 'sap-orders' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'SAP is down for 30 minutes',
+          about: 'Technicians complete 2 jobs a second while SAP is down for 30 minutes. The confirmations wait in the queue, none is lost, and all reach SAP once it is back.',
+          traffic: [{ name: 'completions', from: 'crm', rps: 2, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'work-order' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An elevator maintenance company has **1,800 technicians**. Asset and maintenance planning lives in **SAP S/4HANA Plant Maintenance (PM)** (equipment, maintenance plans, maintenance orders, spare parts stock, costs). Technicians use **Salesforce Field Service** (mobile app, scheduling and dispatch).
 
 Flows required:
-- SAP generates **preventive maintenance orders** (~3,000/day) from maintenance plans.
+- SAP generates **preventive maintenance orders** (~3,000/day) from maintenance plans. The morning release can send 60 IDocs a second for a minute; Salesforce takes about 15 calls a second, and SAP can be down for 30 minutes.
 - The call centre logs breakdown calls in Salesforce (~600/day). These need an SAP order for cost collection.
 - Orders must appear in Field Service as **work orders** with the equipment, location, operations and planned parts, so dispatchers can schedule them.
 - Technicians record **time, parts used, readings and completion notes**, sometimes offline in elevator shafts. The data must flow back to SAP (confirmations, goods issues, measurement documents).

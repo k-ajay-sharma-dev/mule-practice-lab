@@ -23,16 +23,42 @@ export default {
       {
         mob: ['mobile-app', 'Mobile banking app'],
         bot: ['chatbot', 'Chatbot platform'],
-        em: ['experience-api', 'exp-mobile-banking'],
-        eb: ['experience-api', 'exp-chatbot-banking'],
-        prc: ['process-api', 'prc-customer-accounts'],
-        score: ['system-api', 'sys-core-banking'],
-        sprof: ['system-api', 'sys-customer-profile'],
+        em: ['experience-api', 'exp-mobile-banking', { replicas: 2, vCores: '1' }],
+        eb: ['experience-api', 'exp-chatbot-banking', { vCores: '0.5' }],
+        prc: ['process-api', 'prc-customer-accounts', { replicas: 2, vCores: '1', calls: 'in parallel' }],
+        score: ['system-api', 'sys-core-banking', { replicas: 2, vCores: '1' }],
+        sprof: ['system-api', 'sys-customer-profile', { replicas: 2, vCores: '1' }],
         mf: ['legacy', 'Core banking mainframe (MQ/CICS)'],
         db: ['database', 'Customer profile DB (PostgreSQL)'],
       },
       ['mob -> em', 'bot -> eb', 'em -> prc', 'eb -> prc', 'prc -> score', 'prc -> sprof', 'score -> mf', 'sprof -> db'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Payday morning peak',
+          about: 'On payday morning the mobile app asks for 600 balances a second and the chatbot for 50. Each answer needs the core and the profile DB, and must come within 800 ms.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 600, forMin: 15, to: ['legacy', 'database'], kind: 'read' },
+            { name: 'chatbot', from: 'chatbot', rps: 50, forMin: 15, to: ['legacy', 'database'], kind: 'read' },
+          ],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 800 }] },
+        },
+        {
+          name: 'A zone goes down',
+          about: 'The mobile app asks for 200 balances a second while one availability zone is down for 15 minutes. The APIs keep running in the other zone, so no request fails.',
+          traffic: [{ name: 'mobile', from: 'mobile-app', rps: 200, to: ['legacy', 'database'], kind: 'read' }],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A retail bank wants customers to see their **account balances and last 10 transactions** in two channels. This is the classic interview whiteboard question: *decompose the requirement into an API-led application network.*
@@ -51,6 +77,7 @@ Facts:
 - 1.2 M mobile users; peak **600 balance requests/s** on payday mornings. Chatbot peak ~50 req/s.
 - Target: **< 800 ms p95** for mobile, **< 1.5 s** for chatbot.
 - A customer must only ever see **their own** accounts.
+- The design must carry 600 mobile and 50 chatbot requests a second, and keep 200 mobile requests a second working when one availability zone is down for 15 minutes.
 - The bank plans a **voice assistant** and an **open-banking (PSD2) API** next year.
 
 **Questions:**

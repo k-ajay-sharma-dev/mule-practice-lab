@@ -26,8 +26,8 @@ export default {
         partner: ['partner', 'Partner airlines (x4)'],
         em: ['experience-api', 'exp-mobile-checkin v1.1'],
         ek: ['experience-api', 'exp-kiosk-checkin v1'],
-        ep: ['experience-api', 'exp-partner-checkin (NEW)'],
-        pv2: ['process-api', 'prc-checkin v2'],
+        ep: ['experience-api', 'exp-partner-checkin (NEW)', { auth: 'client-id', rateLimit: 20 }],
+        pv2: ['process-api', 'prc-checkin v2', { vCores: '0.2' }],
         pv1: ['process-api', 'prc-checkin v1 (deprecated)'],
         ptrip: ['process-api', 'prc-trip-details'],
         spss: ['system-api', 'sys-pss-reservations v1.1'],
@@ -45,6 +45,29 @@ export default {
         'spss -> pss', 'sdcs -> dcs', 'sapis -> gov', 'sloy -> loy',
       ],
     ),
+    simulation: {
+      systems: [{ match: { label: 'DCS' }, latencyMs: 300, maxRps: 40 }],
+      tests: [
+        {
+          name: 'A caller without partner credentials',
+          about: 'The partner airlines send 5 check-ins a second with their client IDs, and an unknown caller sends 10 a second without one. The partner API refuses the unknown caller before it reaches the DCS.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 5, to: { label: 'DCS' }, kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: { label: 'DCS' }, kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'partners', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A partner sends a burst',
+          about: 'The mobile app sends 15 check-ins a second. For 5 minutes a partner with a bug sends 100 a second. The partner API answers 429 above 20 a second, so the DCS stays under its 40 a second and mobile check-ins go on.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 15, to: { label: 'DCS' }, kind: 'write' },
+            { name: 'partners', from: 'partner', rps: 5, to: { label: 'DCS' }, kind: 'write', spikes: [{ at: 3, forMin: 5, rps: 100 }] },
+          ],
+          expect: { answers: [{ flow: 'mobile', minSuccess: 0.99 }], peakRps: [{ node: { label: 'DCS' }, max: 40 }] },
+        },
+      ],
+    },
   },
   description: `
 An airline built **Project 1** two years ago: online check-in for its **mobile app** and **airport kiosks**. The existing application network:
@@ -69,6 +92,8 @@ Partner needs:
 - Expected volume: ~30,000 check-ins/day from partners; each partner is a separate company with its own SLA and security review.
 
 Also: the mobile team wants per-passenger check-in too ("check in only me, not my colleague").
+
+- The DCS takes about 40 calls a second. The mobile app sends 15 check-ins a second at peak, partners about 5, and a partner with a bug could send 100.
 
 **Questions:**
 1. Which APIs are **reused as-is**, which are **new**, and which **change**?

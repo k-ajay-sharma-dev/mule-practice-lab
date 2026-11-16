@@ -24,16 +24,16 @@ export default {
         web: ['web-app', 'Website'],
         mob: ['mobile-app', 'Mobile app'],
         app: ['internal-app', 'Store associate app'],
-        exps: ['experience-api', 'exp-storefront'],
+        exps: ['experience-api', 'exp-storefront', { replicas: 2, vCores: '1' }],
         expst: ['experience-api', 'exp-store-ops'],
-        prca: ['process-api', 'prc-store-availability'],
+        prca: ['process-api', 'prc-store-availability', { replicas: 2, vCores: '1' }],
         prco: ['process-api', 'prc-bopis-order'],
         q: ['queue', 'STORE.PICK.TASKS (ActiveMQ)'],
-        ssi: ['system-api', 'sys-store-inventory'],
+        ssi: ['system-api', 'sys-store-inventory', { vCores: '0.5' }],
         soms: ['system-api', 'sys-oms'],
         spay: ['system-api', 'sys-payments'],
         snot: ['system-api', 'sys-notifications'],
-        cache: ['cache', 'Availability cache (60 s)'],
+        cache: ['cache', 'Availability cache (60 s)', { ttlSec: 60 }],
         ora: ['database', 'Store stock (Oracle)'],
         oms: ['erp', 'OMS'],
         pay: ['payment', 'Payment provider'],
@@ -45,6 +45,26 @@ export default {
         'soms -> oms', 'spay -> pay', 'prco -> snot', 'snot -> notif',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 60, maxRps: 200 }],
+      cache: { hitRatio: 0.9, atTtlSec: 60 },
+      tests: [
+        {
+          name: 'Product page peak',
+          about: 'The availability API gets 800 lookups a second from the product pages. The store stock database takes about 200 queries a second. The 60 second cache answers 9 lookups in 10, so every lookup is answered within 300 ms.',
+          traffic: [{ name: 'availability', from: { label: 'prc-store-availability' }, rps: 800, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], peakRps: [{ node: 'database', max: 200 }] },
+        },
+        {
+          name: 'The store app back end is down',
+          about: 'Customers place 1 order a second while the store app back end is down for 30 minutes. Each order is answered at once, pick tasks wait in the queue, and every store gets its tasks and none is lost.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 1, to: { label: 'exp-store-ops' }, kind: 'write' }],
+          incidents: [{ down: { label: 'exp-store-ops' }, at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 An electronics retailer with **180 stores** launches **click-and-collect**: customers see which nearby stores have the item, order online, and collect within 2 hours.
@@ -62,6 +82,8 @@ Requirements:
 - Not collected within **5 days** → back to shelf, authorisation released / refund.
 
 Volumes: ~9,000 BOPIS orders/day, peaks of 1,500/hour.
+
+- The store stock database takes about 200 queries a second, and the store app back end can be down for 30 minutes during a release.
 
 **Questions:**
 1. Draw the APIs and messaging.

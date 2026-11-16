@@ -23,14 +23,14 @@ export default {
       {
         mob: ['mobile-app', 'Mobile banking'],
         br: ['internal-app', 'Branch system'],
-        em: ['experience-api', 'exp-mobile-banking-api'],
+        em: ['experience-api', 'exp-mobile-banking-api', { replicas: 2, vCores: '0.5' }],
         eb: ['experience-api', 'exp-branch-api'],
-        pacc: ['process-api', 'prc-accounts-api'],
-        ppay: ['process-api', 'prc-payments-api'],
+        pacc: ['process-api', 'prc-accounts-api', { replicas: 2, vCores: '0.5' }],
+        ppay: ['process-api', 'prc-payments-api', { replicas: 2, vCores: '0.5' }],
         route: ['database', 'Routing table (customer → core, by wave)'],
         rec: ['batch-job', 'Parallel-run reconciliation'],
         ev: ['event-stream', 'canonical-core-events'],
-        sold: ['system-api', 'sys-mainframe-core-api'],
+        sold: ['system-api', 'sys-mainframe-core-api', { replicas: 2, vCores: '0.5' }],
         snew: ['system-api', 'sys-new-core-api'],
         mf: ['legacy', 'Mainframe core (CICS via MQ)'],
         nc: ['saas', 'New cloud core'],
@@ -42,6 +42,30 @@ export default {
         'sold ~> ev', 'snew ~> ev', 'ev ~> dw', 'rec -> sold', 'rec -> snew',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 200 },
+        { match: 'saas', latencyMs: 150 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Payday morning peak',
+          about: 'On payday morning the mobile app asks for 150 balances a second for customers still on the mainframe. Every answer must come within 500 ms.',
+          traffic: [{ name: 'balances', from: 'mobile-app', rps: 150, forMin: 15, to: 'legacy', kind: 'read' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }] },
+        },
+        {
+          name: 'A zone goes down',
+          about: 'The mobile app asks for 30 balances a second while one availability zone is down for 15 minutes. The APIs keep running in the other zone, so no inquiry fails.',
+          traffic: [{ name: 'balances', from: 'mobile-app', rps: 30, to: 'legacy', kind: 'read' }],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A mid-size retail bank is replacing its **20-year-old mainframe core banking system** with a **modern cloud core** (vendor SaaS). About **60 channels and internal systems** use the mainframe today: mobile app, online banking, branch system, card processor, payments hub, CRM, AML monitoring, data warehouse, regulatory reporting.
@@ -53,6 +77,7 @@ Facts:
 - Regulator requirement: before each wave, a **parallel run** showing that interest, fees and balances computed by the new core match the old core (within agreed tolerance) for at least one full month-end cycle.
 - **Zero tolerance** for lost or duplicated payments. Mobile banking target: 99.95% availability, p95 < 500 ms for balance inquiries.
 - Night batch window on the mainframe ends at 05:00; the new core is API-first with events.
+- On payday morning the mobile app asks for about 150 balances a second, and the mainframe answers in about 200 ms. Mobile banking must keep working when one availability zone is down for 15 minutes.
 
 **Describe your solution:**
 - What integration architecture lets channels stay unaware of the migration?

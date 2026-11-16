@@ -20,14 +20,14 @@ export default {
     ],
     reference: diagram(
       {
-        tstock: ['topic', 'INVENTORY.CHANGED (ActiveMQ)'],
+        tstock: ['topic', 'INVENTORY.CHANGED (ActiveMQ)', { maxRedelivery: 120 }],
         tship: ['topic', 'SHIPMENT.CONFIRMED'],
         qord: ['queue', 'MARKETPLACE.ORDERS'],
         prcst: ['process-api', 'prc-marketplace-stock'],
         prcord: ['process-api', 'prc-marketplace-orders'],
         job: ['batch-job', 'Order poller (every 5 min)'],
         flush: ['batch-job', 'Stock flush (every 10 min)'],
-        sinv: ['system-api', 'sys-inventory-atp'],
+        sinv: ['system-api', 'sys-inventory-atp', { vCores: '0.5' }],
         sa: ['system-api', 'sys-marketplace-a'],
         sb: ['system-api', 'sys-marketplace-b'],
         serp: ['system-api', 'sys-oracle-ebs-om'],
@@ -43,6 +43,26 @@ export default {
         'prcord -> sa', 'prcord -> sb', 'sa -> mpa', 'sb -> mpb',
       ],
     ),
+    simulation: {
+      systems: [{ match: { label: 'Marketplace A' }, latencyMs: 400, maxRps: 20 }],
+      tests: [
+        {
+          name: 'Busy day stock changes',
+          about: 'Stock changes for Marketplace A arrive at 5 a second, and a bulk stock adjustment pushes them to 100 a second for 5 minutes. Marketplace A accepts at most 20 calls a second. The ATP API publishes every change, the topic holds the extra, and the marketplace is never called above its limit.',
+          traffic: [{ name: 'stock changes', from: { label: 'sys-inventory-atp' }, rps: 5, to: { label: 'Marketplace A' }, kind: 'write', spikes: [{ at: 5, forMin: 5, rps: 100 }] }],
+          durationMin: 90,
+          expect: { delivered: [{ to: { label: 'Marketplace A' }, min: 0.99 }], peakRps: [{ node: { label: 'Marketplace A' }, max: 20 }], lost: { max: 0 }, backlog: [{ queue: { label: 'INVENTORY.CHANGED' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'Marketplace A is down for an hour',
+          about: 'Stock changes for Marketplace A arrive at 2 a second while the marketplace is down for 60 minutes. The changes wait on the topic and are retried for 2 hours, so none is lost.',
+          traffic: [{ name: 'stock changes', from: { label: 'sys-inventory-atp' }, rps: 2, to: { label: 'Marketplace A' }, kind: 'write' }],
+          incidents: [{ down: { label: 'Marketplace A' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: { label: 'INVENTORY.CHANGED' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 An outdoor-equipment retailer sells **60,000 SKUs** on its own website and on **two marketplaces** (one Amazon-style, one eBay-style). Stock is shared: the same units can sell on any channel. Orders are fulfilled from the retailer's DCs and booked in **Oracle EBS Order Management**. Available-to-promise (ATP) quantities live in **Oracle** tables updated by EBS and the WMS.
@@ -53,6 +73,7 @@ Marketplace rules:
 - **Orders** must be pulled (polling every few minutes) and **acknowledged within 1 hour**, otherwise the marketplace may cancel them.
 - **Shipment confirmation** with carrier and tracking within **24 hours** of dispatch.
 - Each marketplace has its own SKU IDs, order format and status model.
+- Marketplace A accepts at most 20 calls a second. A bulk stock adjustment can push 100 changes a second for 5 minutes.
 
 **Questions:**
 1. Draw the architecture.

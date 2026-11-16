@@ -27,7 +27,7 @@ export default {
         state: ['cache', 'Latest status per pupil+date'],
         job: ['batch-job', 'Debounce run (09:30, then every 10 min)'],
         ssms: ['system-api', 'sys-sms-guardians-api'],
-        nq: ['queue', 'parent-notifications-q'],
+        nq: ['queue', 'parent-notifications-q', { maxRedelivery: 30 }],
         send: ['process-api', 'prc-notification-sender'],
         idem: ['cache', 'Sent-notification keys'],
         sapp: ['system-api', 'sys-parent-app-api'],
@@ -39,6 +39,26 @@ export default {
         'nq ~> dlq', 'send -> idem', 'send -> sapp', 'sapp -> app',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 300 }],
+      tests: [
+        {
+          name: 'The parent app is down for 20 minutes',
+          about: 'The debounce run sends 3 notifications a second while the parent app vendor is down for 20 minutes. Each notification is tried each minute for 30 minutes, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'notifications', from: 'batch-job', rps: 3, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Guardians the vendor rejects',
+          about: 'The debounce run sends 3 notifications a second, and 1 in 100 names a guardian the vendor rejects every time. Those go to the DLQ for the school office, and the others keep flowing.',
+          traffic: [{ name: 'notifications', from: 'batch-job', rps: 3, to: 'external-api', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { dlq: { min: 40 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A school district with **60 schools and 45,000 pupils** wants parents to be notified when their child is marked **absent or late** in morning registration.
@@ -47,6 +67,7 @@ Facts:
 - Teachers take attendance in the **school management system (SMS)**. It can send a **webhook** (JSON) whenever an attendance mark is saved or changed; it also has a REST API to read pupils and their guardians.
 - The **parent app** is a mobile app run by a vendor; it exposes \`POST /notifications\` (by guardian ID) and handles push delivery itself.
 - Morning registration closes at **09:15**; ~1,500 absences/day, with a peak of ~600 webhooks in 10 minutes.
+- The debounce run sends about 3 notifications a second. The parent app vendor can be down for 20 minutes, and about 1 notification in 100 names a guardian the vendor rejects.
 - Teachers often correct marks ("absent" → "present, arrived late") within minutes. Parents complained in a pilot that they got **two contradictory messages**.
 - A pupil can have up to **4 guardians**; some must not be contacted (court orders flagged in the SMS).
 

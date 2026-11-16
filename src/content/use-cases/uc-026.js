@@ -23,10 +23,10 @@ export default {
       {
         rms: ['saas', 'Revenue management system (RMS)'],
         pms: ['saas', 'OPERA Cloud PMS'],
-        srms: ['system-api', 'sys-rms-api'],
+        srms: ['system-api', 'sys-rms-api', { vCores: '0.5' }],
         spms: ['system-api', 'sys-opera-pms-api'],
         ariq: ['event-stream', 'ARI changes (partitioned by hotel+room)'],
-        ari: ['process-api', 'prc-ari-distribution (coalesce, fast lane)'],
+        ari: ['process-api', 'prc-ari-distribution (coalesce, fast lane)', { vCores: '0.5' }],
         store: ['database', 'Central ARI store'],
         resq: ['queue', 'reservations-q'],
         resp: ['process-api', 'prc-reservation-delivery'],
@@ -44,6 +44,29 @@ export default {
         'resp -> spms', 'spms -> pms', 'resp -> store', 'resp ~> ariq', 'recon -> cbk', 'recon -> cexp', 'recon -> spms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 300, maxRps: 80 },
+        { match: { type: 'saas', label: 'opera' }, latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'The RMS re-pricing run',
+          about: 'A re-pricing run sends 100 coalesced ARI updates a second for 10 minutes, and each OTA takes about 80 a second. Every update is taken at once, waits in the stream, and reaches the OTAs within the half hour without going over their limits.',
+          traffic: [{ name: 'ARI updates', from: { type: 'saas', label: 'revenue' }, rps: 100, forMin: 10, to: 'external-api', kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'external-api', max: 80 }], backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'OPERA is down for 20 minutes',
+          about: 'Booking.com sends 2 reservations a second while OPERA is down for 20 minutes. Each reservation is accepted at once, waits in the queue, and is confirmed in OPERA once it is back.',
+          traffic: [{ name: 'reservations', from: { type: 'external-api', label: 'booking.com' }, rps: 2, to: { type: 'saas', label: 'opera' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'opera' }, at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A hotel group with **120 hotels** wants to replace its third-party channel manager with its own integration hub. Each hotel runs a **PMS** (Oracle OPERA Cloud in 90 hotels, a smaller cloud PMS in 30). Rates are set by a **revenue management system (RMS)**. Rooms are sold on:
@@ -56,6 +79,7 @@ Facts and constraints:
 - ~25,000 reservations/day across channels including modifications and cancellations.
 - Channels must reflect availability changes within **60 seconds**. Every minute of stale availability risks **overbooking**.
 - OTAs rate-limit ARI updates.
+- After coalescing, a re-pricing run still sends about 100 updates a second for 10 minutes; each OTA takes about 80 a second. OPERA can be down for 20 minutes.
 - OTAs **penalise** (ranking, fees) failed or late reservation confirmations.
 - Reservations must be confirmed with a PMS confirmation number.
 - Last room on a busy night may be booked on two channels within seconds.

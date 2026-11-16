@@ -19,12 +19,12 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Daily reminder job (07:00)'],
+        job: ['batch-job', 'Daily reminder job (07:00)', { onFailure: 'partial answer' }],
         digest: ['batch-job', 'Weekly legal digest (Monday)'],
         sclm: ['system-api', 'sys-clm-api'],
         clm: ['saas', 'CLM tool'],
         sent: ['cache', 'Sent milestones per contract + term'],
-        ssf: ['system-api', 'sys-salesforce-opportunity-api'],
+        ssf: ['system-api', 'sys-salesforce-opportunity-api', { retries: 3 }],
         sf: ['crm', 'Salesforce'],
         sdir: ['system-api', 'sys-directory-api'],
         dir: ['saas', 'HR / identity directory'],
@@ -32,6 +32,28 @@ export default {
       },
       ['job -> sclm', 'sclm -> clm', 'job -> sent', 'job -> ssf', 'ssf -> sf', 'job -> sdir', 'sdir -> dir', 'job -> mail', 'digest -> sclm', 'digest -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 400 },
+        { match: { type: 'saas', label: 'directory' }, latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'Salesforce drops some calls',
+          about: 'The morning run handles 2 contracts a second, and Salesforce fails 1 call in 5. Retries create every renewal Opportunity and the reminders go out.',
+          traffic: [{ name: 'reminders', from: { type: 'batch-job', label: 'reminder' }, rps: 2, forMin: 5, to: ['crm', 'notification'], kind: 'write' }],
+          incidents: [{ errors: 'crm', rate: 0.2 }],
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.01 }] },
+        },
+        {
+          name: 'The directory is down',
+          about: 'The morning run handles 2 contracts a second while the HR directory is down. The job still sends every reminder to the owner on file, without the manager check.',
+          traffic: [{ name: 'reminders', from: { type: 'batch-job', label: 'reminder' }, rps: 2, forMin: 5, to: [{ type: 'saas', label: 'directory' }, 'notification'], kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'directory' } }],
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'notification', min: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A B2B services company manages ~6,000 customer and supplier contracts in a **contract lifecycle management (CLM)** tool. Contracts often **auto-renew** unless notice is given, and the company has lost money by missing notice periods.
@@ -44,6 +66,7 @@ Facts:
   - For customer contracts, create a **renewal Opportunity** in Salesforce at the 90-day point, assigned to the account owner.
   - A weekly digest to the legal team listing everything due in the next 30 days.
 - Owners leave the company; ~3% of contracts have an owner that no longer exists.
+- The morning run handles about 2 contracts a second. Salesforce can fail 1 call in 5, and the HR directory can be down during the run.
 
 **Describe your solution:**
 - How do you find which contracts need a reminder today?

@@ -24,7 +24,7 @@ export default {
         sup: ['partner', 'Suppliers (420, AS2/VAN)'],
         expb: ['experience-api', 'exp-b2b-edi-inbound (AS2)'],
         poll: ['batch-job', 'Approved-PO poller (5 min)'],
-        qin: ['queue', 'EDI.INBOUND (ActiveMQ)'],
+        qin: ['queue', 'EDI.INBOUND (ActiveMQ)', { maxRedelivery: 60 }],
         dlq: ['dlq', 'DLQ.EDI.INBOUND'],
         prc: ['process-api', 'prc-supplier-po'],
         trk: ['database', 'EDI tracking table (Oracle)'],
@@ -40,6 +40,26 @@ export default {
         'sebs -> ebs', 'sedi -> van', 'swms -> wms', 'wms ~> qin',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 800 }],
+      tests: [
+        {
+          name: 'Oracle EBS is down for 30 minutes',
+          about: 'Suppliers send 3 EDI documents a second while Oracle EBS is down for 30 minutes. Every document gets its MDN at once and waits in the queue, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'EDI documents', from: 'partner', rps: 3, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Documents EBS always rejects',
+          about: 'Suppliers send 3 EDI documents a second, and 1 in 50 refers to a PO that does not exist, so EBS rejects it every time. Those documents go to the DLQ after their retries, and the others keep flowing.',
+          traffic: [{ name: 'EDI documents', from: 'partner', rps: 3, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 300 }] },
+        },
+      ],
+    },
   },
   description: `
 A home-improvement retailer buys from **420 suppliers**. Purchasing runs on **Oracle E-Business Suite (EBS) 12.2** on an Oracle 19c database. The two regional DCs run a modern **WMS** that publishes events to **ActiveMQ Artemis**.
@@ -59,6 +79,7 @@ Constraints:
 - The DC needs the ASN **at least 2 hours before the truck arrives** to plan dock doors.
 - Receipts must post in EBS within **15 minutes** of unload so stock becomes sellable.
 - Duplicated or out-of-order documents are common (an 856 arriving before the 855).
+- Inbound documents arrive at about 3 a second. EBS can be down for 30 minutes, and about 1 document in 50 refers to a PO EBS rejects every time.
 
 **Questions:**
 1. Which APIs and flows do you build for each step?

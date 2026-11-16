@@ -25,7 +25,7 @@ export default {
         exps: ['experience-api', 'exp-store-fulfilment'],
         prc: ['process-api', 'prc-store-fulfilment'],
         job: ['batch-job', 'Task SLA watchdog (5 min)'],
-        qrel: ['queue', 'ORDER.RELEASED'],
+        qrel: ['queue', 'ORDER.RELEASED', { maxRedelivery: 30 }],
         qst: ['queue', 'STORE.FULFIL.TASKS'],
         dlq: ['dlq', 'DLQ.STORE.FULFIL'],
         soms: ['system-api', 'sys-oms'],
@@ -42,6 +42,26 @@ export default {
         'app -> exps', 'exps -> prc', 'prc -> stms', 'stms -> tms', 'prc -> soms', 'soms -> oms', 'job -> prc',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'pos', latencyMs: 400 }],
+      tests: [
+        {
+          name: 'Store stock is down for 20 minutes',
+          about: 'On Black Friday the OMS releases 3 order lines a second while the central store stock service is down for 20 minutes. The lines wait in the queue and are tried for 30 minutes, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'released lines', from: { label: 'sys-oms' }, rps: 3, to: 'pos', kind: 'write' }],
+          incidents: [{ down: 'pos', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: { label: 'ORDER.RELEASED' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'Lines that cannot be sourced',
+          about: 'The OMS releases 3 order lines a second, and 1 in 200 has a SKU the sourcing rules reject every time. Those lines go to the DLQ after 30 tries, and the others keep flowing.',
+          traffic: [{ name: 'released lines', from: { label: 'sys-oms' }, rps: 3, to: 'pos', kind: 'write', poison: 0.005 }],
+          durationMin: 90,
+          expect: { dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: { label: 'ORDER.RELEASED' }, maxEnd: 600 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer wants its **450 stores** to fulfil online orders (ship-from-store) to cut delivery times and sell store stock before markdown.
@@ -55,6 +75,7 @@ Systems:
 
 Requirements:
 - ~25,000 order lines/day sourced from stores (40 % of online), 4× on Black Friday.
+- On Black Friday lines are released at about 3 a second. The central store stock service can be down for 20 minutes, and about 1 line in 200 has a SKU the sourcing rules reject every time.
 - Store must accept and pick within **45 minutes**; otherwise re-source to the next best store (or DC).
 - **Not found** (stock inaccuracy) → re-source within 5 minutes; after 3 failed stores, fall back to the DC.
 - A store must never get more orders than its hourly capacity.

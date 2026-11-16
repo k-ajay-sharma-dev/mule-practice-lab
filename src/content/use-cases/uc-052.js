@@ -26,8 +26,8 @@ export default {
         clinic: ['partner', 'Partner clinic systems (FHIR)'],
         ek: ['experience-api', 'exp-kiosk'],
         ef: ['experience-api', 'exp-frontdesk'],
-        ep: ['experience-api', 'exp-partner-fhir'],
-        pchk: ['process-api', 'prc-patient-checkin'],
+        ep: ['experience-api', 'exp-partner-fhir', { auth: 'jwt' }],
+        pchk: ['process-api', 'prc-patient-checkin', { onFailure: 'partial answer' }],
         preg: ['process-api', 'prc-patient-registration'],
         sempi: ['system-api', 'sys-empi'],
         sehr: ['system-api', 'sys-ehr-patients'],
@@ -46,6 +46,30 @@ export default {
         'sempi -> empi', 'sehr -> ehr', 'sins -> ins', 'sappt -> appt',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 2000 },
+        { match: 'saas', latencyMs: 200 },
+        { match: 'legacy', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The clearing house is down',
+          about: 'In the morning rush kiosks send 3 check-ins a second while the insurance clearing house is down for 30 minutes. Check-in still completes within 3 seconds, and the insurance is checked later at the desk.',
+          traffic: [{ name: 'check-ins', from: 'device', rps: 3, to: ['saas', 'external-api'], kind: 'read' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 30 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3000 }] },
+        },
+        {
+          name: 'A clinic system without a token',
+          about: 'A system that is not a registered partner clinic sends 2 patient lookups a second to the FHIR API. Every one is refused.',
+          traffic: [{ name: 'unknown clinic', from: 'partner', rps: 2, to: { type: 'legacy', label: 'empi' }, kind: 'read', auth: 'none' }],
+          durationMin: 10,
+          expect: { answers: [{ minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A regional hospital group (4 hospitals) wants one way to **register patients** and find existing patient records, used by three channels.
@@ -68,6 +92,7 @@ Facts and constraints:
 - **Duplicates** are a patient-safety risk: new registrations must search the EMPI first (probabilistic match) before creating a patient.
 - Partner clinics are external: they must only see patients they referred, through a standards-based (FHIR) interface.
 - Health data (PHI) must be protected end to end and every access audited.
+- In the morning rush kiosks send about 3 check-ins a second, and check-in must still work when the clearing house is down for 30 minutes. Systems that are not registered clinics must be refused.
 
 **Questions:**
 1. Design the application network (APIs per layer with resources).
