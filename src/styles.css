@@ -1579,7 +1579,19 @@ textarea:focus {
 }
 .designer-xml {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   min-height: 300px;
+}
+.designer-xml-editor {
+  flex: 1;
+  min-height: 0;
+}
+.designer-xml-status {
+  flex: none;
+  margin: 0;
+  padding: 4px 10px;
+  border-top: 1px solid var(--border);
 }
 .designer-body {
   flex: 1;

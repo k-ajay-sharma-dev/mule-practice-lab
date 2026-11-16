@@ -254,9 +254,8 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
         )}
 
         {view === 'xml' ? (
-          <div className="designer-xml">
-            <CodeEditor value={toXml(design)} language="xml" readOnly />
-          </div>
+          <XmlView design={design} readOnly={readOnly} onChange={onChange} />
+
         ) : view === 'paste' ? (
           <div className="designer-paste">
             <p className="muted small">
@@ -479,6 +478,58 @@ function Slot({ containerKey, index, empty = false, label }) {
       }}
     >
       {empty ? <span>{label}</span> : <span className="slot-plus">+</span>}
+    </div>
+  )
+}
+
+// The XML tab is a live editor: after a short pause the typed XML becomes the design. While the XML does not parse,
+// the design stays as it was and the error shows under the editor.
+function XmlView({ design, readOnly, onChange }) {
+  const generated = toXml(design)
+  const [text, setText] = useState(generated)
+  const [status, setStatus] = useState(null) // { text, warn }
+  const mine = useRef(generated) // the XML of the design this editor last produced
+
+  // a change made elsewhere (undo, the canvas) replaces the text; our own change does not
+  useEffect(() => {
+    if (generated !== mine.current) {
+      mine.current = generated
+      setText(generated)
+      setStatus(null)
+    }
+  }, [generated])
+
+  useEffect(() => {
+    if (readOnly || text === mine.current) return
+    const t = setTimeout(() => {
+      let result
+      try {
+        result = fromXml(text)
+      } catch (error) {
+        setStatus({ text: error.message, warn: true })
+        return
+      }
+      mine.current = toXml(result.design)
+      onChange(result.design)
+      const left = result.skipped.map((s) => s.name).join(', ')
+      setStatus({
+        text: `Flow updated: ${plural(result.flows, 'flow')}, ${plural(result.components, 'component')}.${left ? ` Left out: ${left}.` : ''}`,
+        warn: Boolean(left),
+      })
+    }, 600)
+    return () => clearTimeout(t)
+  }, [text, readOnly, onChange])
+
+  return (
+    <div className="designer-xml">
+      <div className="designer-xml-editor">
+        <CodeEditor value={text} language="xml" readOnly={readOnly} onChange={(v) => setText(v ?? '')} />
+      </div>
+      {!readOnly && (
+        <p className={`designer-xml-status small ${status?.warn ? 'warn-text' : 'muted'}`}>
+          {status?.text ?? 'Edit or paste Mule XML here. The flow updates as you type.'}
+        </p>
+      )}
     </div>
   )
 }
