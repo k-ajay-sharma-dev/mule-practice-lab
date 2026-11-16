@@ -45,6 +45,16 @@ export default {
     },
     { label: 'A second Logger records that the response is ready', rule: { type: 'before', first: ['set-payload', 'transform'], then: 'logger' } },
   ],
+  simulation: {
+    tests: [
+      {
+        name: 'The website asks for the opening hours',
+        about: 'The website calls GET /store/hours and gets the fixed hours of the Main Street store.',
+        trigger: { http: { method: 'GET', path: '/store/hours' } },
+        expect: { status: 200, body: { store: 'Main Street', opens: '09:00', closes: '18:00' }, logs: [{}], noError: true },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('get-store-hours', source('http-listener', { path: '/store/hours', allowedMethods: 'GET' }), [
       step('logger', { level: 'INFO', message: 'Opening hours requested' }),

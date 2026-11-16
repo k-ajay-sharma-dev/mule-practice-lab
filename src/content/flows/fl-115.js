@@ -32,6 +32,86 @@ export default {
       rule: { type: 'inside', component: 'logger', within: 'cache', where: { message: 'miss' } },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/reference/v1/currencies',
+          latencyMs: 1200,
+          respond: {
+            status: 200,
+            body: {
+              items: [
+                { isoCode: 'EUR', displayName: 'Euro', minorUnits: 2, active: true, numericCode: '978', symbol: '€' },
+                { isoCode: 'JPY', displayName: 'Japanese Yen', minorUnits: 0, active: true, numericCode: '392', symbol: '¥' },
+                { isoCode: 'DEM', displayName: 'Deutsche Mark', minorUnits: 2, active: false, numericCode: '276', symbol: 'DM' },
+                { isoCode: 'NZD', displayName: 'New Zealand Dollar', minorUnits: 2, active: true, numericCode: '554', symbol: '$' },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'The picker asks for the currency list',
+        about: 'The cache is empty, so the reference API is called once and only the active currencies come back.',
+        trigger: { http: { method: 'GET', path: '/currencies' } },
+        expect: {
+          status: 200,
+          bodyHas: [
+            { code: 'EUR', name: 'Euro' },
+            { code: 'JPY', name: 'Japanese Yen' },
+            { code: 'NZD', name: 'New Zealand Dollar' },
+          ],
+          bodyLacks: [{ code: 'DEM' }],
+          calls: [{ method: 'GET', path: '/reference/v1/currencies', count: 1 }],
+          logs: [{ has: 'cache miss' }],
+        },
+      },
+      {
+        name: 'A second request comes from the cache',
+        about: 'Two searches ask for the list one second apart. The reference API is called for the first one only.',
+        triggers: [{ http: { method: 'GET', path: '/currencies' } }, { http: { method: 'GET', path: '/currencies' }, afterMs: 1000 }],
+        expect: {
+          status: 200,
+          bodyHas: [
+            { code: 'EUR', name: 'Euro' },
+            { code: 'NZD', name: 'New Zealand Dollar' },
+          ],
+          bodyLacks: [{ code: 'DEM' }],
+          calls: [{ method: 'GET', path: '/reference/v1/currencies', count: 1 }],
+        },
+      },
+      {
+        name: 'The reference API is down on the first request',
+        about: 'The first call fails, so nothing is cached and the next request calls the reference API again.',
+        triggers: [{ http: { method: 'GET', path: '/currencies' } }, { http: { method: 'GET', path: '/currencies' }, afterMs: 5000 }],
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'GET',
+                path: '/reference/v1/currencies',
+                latencyMs: 1200,
+                responses: [
+                  { fault: 'CONNECTIVITY' },
+                  { status: 200, body: { items: [{ isoCode: 'EUR', displayName: 'Euro', minorUnits: 2, active: true }, { isoCode: 'DEM', displayName: 'Deutsche Mark', minorUnits: 2, active: false }] } },
+                ],
+              },
+            ],
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: [{ code: 'EUR', name: 'Euro' }],
+          bodyLacks: [{ code: 'DEM' }],
+          calls: [{ method: 'GET', path: '/reference/v1/currencies', count: 2 }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('currencies-api', source('http-listener', { path: '/currencies', allowedMethods: 'GET' }), [
       scope('cache', { cachingStrategy: 'currencyListCache' }, [

@@ -43,7 +43,12 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     one(d, 'validation', (n) => n.config.check === 'is-email').config.expression = '#[payload.name]'
   })
   await passes('fl-112', (d) => {
+    // is-not-blank-string raises VALIDATION:BLANK_STRING, so the handler must name it too
     one(d, 'validation', (n) => n.config.check === 'is-not-null').config.check = 'is-not-blank-string'
+    one(d, 'on-error-propagate', (n) => n.config.type.includes('VALIDATION:NULL')).config.type = 'VALIDATION:BLANK_STRING, VALIDATION:INVALID_EMAIL'
+  })
+  await passes('fl-112', (d) => {
+    one(d, 'on-error-propagate', (n) => n.config.type.includes('VALIDATION:NULL')).config.type = 'VALIDATION:VALIDATION'
   })
 
   // FL-047

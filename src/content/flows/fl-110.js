@@ -41,6 +41,52 @@ export default {
       },
     },
   ],
+  simulation: {
+    tests: [
+      {
+        name: 'An order is put on the queue',
+        about: 'The warehouse gets the order ID and the items, with no payment details, and the shop gets RECEIVED.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/orders',
+            body: {
+              orderId: 'ORD-5001',
+              items: [
+                { sku: 'TENT-2P', quantity: 1 },
+                { sku: 'MAT-FOAM', quantity: 2 },
+              ],
+              payment: { method: 'CARD', cardLast4: '4242', amount: 214.9 },
+            },
+          },
+        },
+        expect: {
+          status: 200,
+          body: { orderId: 'ORD-5001', status: 'RECEIVED' },
+          sent: [
+            {
+              destination: 'warehouse-orders',
+              count: 1,
+              has: { orderId: 'ORD-5001', items: [{ sku: 'TENT-2P', quantity: 1 }, { sku: 'MAT-FOAM', quantity: 2 }], payment: undefined },
+            },
+          ],
+        },
+      },
+      {
+        name: 'The queue cannot be reached',
+        about: 'Anypoint MQ refuses the publish, so the shop must not hear that the order was received.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/orders',
+            body: { orderId: 'ORD-5002', items: [{ sku: 'STOVE-GAS', quantity: 1 }], payment: { method: 'CARD', cardLast4: '1881', amount: 79 } },
+          },
+        },
+        overrides: { systems: { queues: { 'warehouse-orders': { fault: true } } } },
+        expect: { error: 'ANYPOINT-MQ:CONNECTIVITY', bodyLacks: { status: 'RECEIVED' }, notSent: ['warehouse-orders'] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('order-intake', source('http-listener', { path: '/orders', allowedMethods: 'POST' }), [
       step('set-variable', { variableName: 'orderId', value: '#[payload.orderId]' }),

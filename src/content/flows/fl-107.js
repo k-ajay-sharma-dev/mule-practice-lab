@@ -57,6 +57,33 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/core-banking/transfers', latencyMs: 240, respond: { status: 200, body: { transferId: 'T-1001' } } }],
+    },
+    tests: [
+      {
+        name: 'A transfer goes through',
+        about: 'Core banking accepts the transfer and answers with its ID.',
+        trigger: { http: { method: 'POST', path: '/transfers', body: { fromAccount: 'GB-1001', toAccount: 'GB-2002', amount: 250 } } },
+        expect: { status: 200, body: { transferId: 'T-1001', status: 'COMPLETED' }, calls: [{ method: 'POST', path: '/core-banking/transfers', count: 1 }] },
+      },
+      {
+        name: 'Core banking is down',
+        about: 'The connection to core banking is refused.',
+        trigger: { http: { method: 'POST', path: '/transfers', body: { fromAccount: 'GB-1001', toAccount: 'GB-2002', amount: 250 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/core-banking/transfers', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 503, bodyLacks: { status: 'COMPLETED' }, logs: [{ level: ['ERROR', 'WARN'] }] },
+      },
+      {
+        name: 'Core banking does not answer in time',
+        about: 'Core banking takes 15 seconds, longer than any sensible timeout.',
+        trigger: { http: { method: 'POST', path: '/transfers', body: { fromAccount: 'GB-1001', toAccount: 'GB-2002', amount: 250 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/core-banking/transfers', latencyMs: 15000, respond: { status: 200, body: { transferId: 'T-1001' } } }] } },
+        expect: { status: 503, bodyLacks: { status: 'COMPLETED' }, logs: [{ level: ['ERROR', 'WARN'] }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'money-transfer',

@@ -23,6 +23,7 @@ const FLOW_STAGES = [
   { key: 'logic', title: 'Build the main logic' },
   { key: 'errors', title: 'Handle errors' },
   { key: 'final', title: 'Final checks' },
+  { key: 'run', title: 'Run it' },
 ]
 
 const componentsIn = (rule) =>
@@ -30,6 +31,7 @@ const componentsIn = (rule) =>
 const isErrorPart = (type) => type.startsWith('on-error') || type === 'raise-error' || type === 'try'
 
 function flowStage(rule) {
+  if (rule.type === 'runs') return 'run'
   if (rule.rules && rule.rules.every((r) => r.type === 'source')) return 'start'
   if (rule.type === 'source' || rule.type === 'flows') return 'start'
   if (rule.type === 'absent' || rule.type === 'refs' || rule.type === 'complete') return 'final'

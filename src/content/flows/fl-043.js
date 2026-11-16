@@ -82,7 +82,7 @@ export default {
       [
         step('validation', {
           check: 'is-true',
-          expression: '#[not isEmpty(payload.items default []) and sizeOf(payload.items default []) <= 10000]',
+          expression: '#[(not isEmpty(payload.items default [])) and sizeOf(payload.items default []) <= 10000]',
           message: 'items must contain between 1 and 10000 records',
         }),
         step('set-variable', { variableName: 'jobId', value: '#[uuid()]' }),

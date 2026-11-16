@@ -1,5 +1,8 @@
 import { design, flow, source, step } from '../../flow/dsl.js'
 
+const YESTERDAY_LIST = 'employeeId,name,department\nE-1001,Anna Berg,Finance\nE-1002,Tom Okafor,Sales\nE-1003,Priya Nair,HR\n'
+const TODAY_LIST = `${YESTERDAY_LIST}E-1004,Luis Ortega,IT\n`
+
 export default {
   id: 'fl-108',
   category: 'flows',
@@ -40,6 +43,53 @@ export default {
       rule: { type: 'before', first: 'file-write', then: 'logger' },
     },
   ],
+  simulation: {
+    systems: { files: {} },
+    tests: [
+      {
+        name: 'The first morning backup runs',
+        about: 'At 06:00 the staff list is copied to the empty backup folder.',
+        trigger: { schedule: {} },
+        overrides: { systems: { files: { '/data/hr/in/employees.csv': YESTERDAY_LIST } } },
+        expect: {
+          noError: true,
+          files: {
+            '/data/hr/backup/employees.csv': { exists: true, has: 'E-1003,Priya Nair,HR' },
+            '/data/hr/in/employees.csv': { exists: true },
+          },
+          logs: [{}],
+        },
+      },
+      {
+        name: "Yesterday's copy is replaced",
+        about: "The backup folder already holds yesterday's copy. Today's list takes its place.",
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            files: {
+              '/data/hr/in/employees.csv': TODAY_LIST,
+              '/data/hr/backup/employees.csv': YESTERDAY_LIST,
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          files: {
+            '/data/hr/backup/employees.csv': { exists: true, has: 'E-1004,Luis Ortega,IT' },
+            '/data/hr/in/employees.csv': { exists: true },
+          },
+          logs: [{}],
+        },
+      },
+      {
+        name: 'The staff list has not arrived',
+        about: "There is no file to read, so the flow stops and yesterday's copy stays in place.",
+        trigger: { schedule: {} },
+        overrides: { systems: { files: { '/data/hr/backup/employees.csv': YESTERDAY_LIST } } },
+        expect: { error: 'FILE:ILLEGAL_PATH', files: { '/data/hr/backup/employees.csv': { exists: true, has: 'E-1003,Priya Nair,HR' } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('hr-file-backup', source('scheduler', { strategy: 'cron', expression: '0 0 6 * * ?' }), [
       step('file-read', { path: '/data/hr/in/employees.csv' }),

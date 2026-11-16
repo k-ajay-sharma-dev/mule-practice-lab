@@ -49,6 +49,30 @@ export default {
       rule: { type: 'before', first: 'transform', then: 'logger', thenWhere: { message: 'fullName' } },
     },
   ],
+  simulation: {
+    tests: [
+      {
+        name: 'A new hire is reshaped for payroll',
+        about: 'The HR portal sends Asha Rao from the FIN department.',
+        trigger: { http: { method: 'POST', path: '/employees', body: { employeeId: 'E1042', firstName: 'Asha', lastName: 'Rao', dept: 'FIN', startDate: '2026-12-01' } } },
+        expect: {
+          status: 200,
+          body: { employeeId: 'E1042', fullName: 'Asha Rao', department: 'FIN', startDate: '2026-12-01' },
+          logs: [{ has: 'E1042' }, { has: 'Asha Rao' }],
+        },
+      },
+      {
+        name: 'Another new hire is reshaped the same way',
+        about: 'Marco Bianchi joins the OPS department in January.',
+        trigger: { http: { method: 'POST', path: '/employees', body: { employeeId: 'E1077', firstName: 'Marco', lastName: 'Bianchi', dept: 'OPS', startDate: '2027-01-04' } } },
+        expect: {
+          status: 200,
+          body: { employeeId: 'E1077', fullName: 'Marco Bianchi', department: 'OPS', startDate: '2027-01-04' },
+          logs: [{ has: 'E1077' }, { has: 'Marco Bianchi' }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('create-employee', source('http-listener', { path: '/employees', allowedMethods: 'POST' }), [
       step('logger', { level: 'INFO', message: '#["New hire received: " ++ payload.employeeId]' }),

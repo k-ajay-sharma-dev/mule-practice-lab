@@ -55,6 +55,51 @@ export default {
       rule: { type: 'exists', component: 'transform', where: { script: 'application/json' } },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        latencyMs: 12,
+        tables: {
+          products: {
+            key: 'sku',
+            rows: [
+              { sku: 'SH-204', product_name: 'Trail Runner', unit_price: 89.99, category: 'shoes' },
+              { sku: 'SH-117', product_name: 'City Loafer', unit_price: 74.5, category: 'shoes' },
+              { sku: 'BG-310', product_name: 'Canvas Tote', unit_price: 24.0, category: 'bags' },
+              { sku: 'SH-152', product_name: 'Rain Boot', unit_price: 59.0, category: 'shoes' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'The shoes are listed by name',
+        about: 'Three products are in the shoes category. They come back sorted by name with the API field names.',
+        trigger: { http: { method: 'GET', path: '/products?category=shoes' } },
+        expect: {
+          status: 200,
+          body: [
+            { sku: 'SH-117', name: 'City Loafer', price: 74.5 },
+            { sku: 'SH-152', name: 'Rain Boot', price: 59.0 },
+            { sku: 'SH-204', name: 'Trail Runner', price: 89.99 },
+          ],
+        },
+      },
+      {
+        name: 'A category with no products',
+        about: 'Nothing is in the hats category, so the answer is an empty list.',
+        trigger: { http: { method: 'GET', path: '/products?category=hats' } },
+        expect: { status: 200, body: [] },
+      },
+      {
+        name: 'A category with SQL text in it',
+        about: 'The value is only data for the :category parameter, so it matches no product.',
+        trigger: { http: { method: 'GET', path: '/products', query: { category: "shoes' OR '1'='1" } } },
+        expect: { status: 200, body: [] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('list-products', source('http-listener', { path: '/products', allowedMethods: 'GET' }), [
       step('set-variable', { variableName: 'category', value: '#[attributes.queryParams.category]' }),

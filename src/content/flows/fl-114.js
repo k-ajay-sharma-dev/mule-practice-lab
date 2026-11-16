@@ -31,9 +31,53 @@ export default {
     },
     { label: 'The API response is built after the VM Publish', rule: { type: 'before', first: 'vm-publish', then: 'transform', outside: true } },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          customers: { columns: ['customer_id', 'email', 'first_name', 'country'], key: 'customer_id', rows: [{ customer_id: 1, email: 'tane@example.com', first_name: 'Tane', country: 'NZ' }] },
+        },
+        latencyMs: 14,
+      },
+    },
+    tests: [
+      {
+        name: 'A customer signs up',
+        about: 'The customer is saved, the form gets its answer at once, and the second flow sends the welcome email.',
+        trigger: { http: { method: 'POST', path: '/signups', body: { email: 'maya@example.com', firstName: 'Maya', country: 'NZ' } } },
+        expect: {
+          status: 200,
+          bodyHas: { email: 'maya@example.com', status: 'REGISTERED' },
+          db: { customers: { count: 2, has: [{ email: 'maya@example.com', first_name: 'Maya' }] } },
+          sent: [{ destination: 'welcome-emails', count: 1 }],
+          emails: [{ to: 'maya@example.com', count: 1 }],
+          maxMs: 100,
+        },
+      },
+      {
+        name: 'The mail server is down',
+        about: 'The welcome email fails in the second flow, but the signup still answers REGISTERED.',
+        trigger: { http: { method: 'POST', path: '/signups', body: { email: 'leo@example.com', firstName: 'Leo', country: 'AU' } } },
+        overrides: { systems: { email: { fault: true } } },
+        expect: {
+          status: 200,
+          bodyHas: { email: 'leo@example.com', status: 'REGISTERED' },
+          db: { customers: { has: [{ email: 'leo@example.com' }] } },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The database is down',
+        about: 'The customer cannot be saved, so nothing goes on the queue and no welcome email is sent.',
+        trigger: { http: { method: 'POST', path: '/signups', body: { email: 'maya@example.com', firstName: 'Maya', country: 'NZ' } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', bodyLacks: { status: 'REGISTERED' }, notSent: ['welcome-emails'], noEmails: true },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('customer-signup-api', source('http-listener', { path: '/signups', allowedMethods: 'POST' }), [
-      step('db-insert', { database: 'PostgreSQL', sql: 'INSERT INTO customers (email, first_name, country) VALUES (:email, :firstName, :country)' }),
+      step('db-insert', { database: 'PostgreSQL', sql: 'INSERT INTO customers (email, first_name, country) VALUES (:email, :firstName, :country)', target: 'insertResult' }),
       step('vm-publish', { queueName: 'welcome-emails' }),
       step('transform', { script: '%dw 2.0\noutput application/json\n---\n{ email: payload.email, status: "REGISTERED" }' }),
     ]),
@@ -74,13 +118,14 @@ A **VM queue** is a queue inside the Mule app. One flow puts a message on it wit
     'The VM Listener in the second flow starts once for each message on the queue.',
     'The queue name in VM Publish and in VM Listener must be the same, and the queue is declared in the VM config.',
     'Save first, then publish, so an email is never sent for a customer that was not saved.',
+    'Database Insert replaces the payload with its result. Set its Target variable, or keep the body in a variable first, so the signup body reaches the queue.',
     'A slow or broken mail server no longer slows down or breaks the signup.',
     'VM queues live inside one Mule app, or inside a shared domain on a customer-hosted runtime. They are not a way to talk between apps on CloudHub.',
   ],
   solution: `
 **Flow 1: customer-signup-api**
 1. **HTTP Listener**, path \`/signups\`, method \`POST\`.
-2. **Database Insert** into \`customers\`.
+2. **Database Insert** into \`customers\`, with **Target variable** set to \`insertResult\`. Without it, the insert replaces the payload with its result (\`affectedRows\` and \`generatedKeys\`) and the signup body is gone.
 3. **VM Publish** to the queue \`welcome-emails\`. The payload is still the signup body, so the email flow gets the email and first name.
 4. **Transform Message** that returns \`{ email, status: "REGISTERED" }\`.
 
@@ -105,6 +150,10 @@ Declare the queue in the **VM config**. Choose a **persistent** queue type if a 
     {
       q: 'Can a second Mule app read the welcome-emails queue?',
       a: 'Only if both apps share a domain on the same customer-hosted runtime. CloudHub does not support shared domains. Use Anypoint MQ or JMS to pass messages between apps.',
+    },
+    {
+      q: 'The welcome email goes to nobody and the API answers without an email. What went wrong?',
+      a: 'Database Insert put its result in the payload, so the VM Publish sent { affectedRows, generatedKeys } instead of the signup. Set the Target variable on the insert, or save the body with Set Variable before it and put it back with Set Payload.',
     },
     {
       q: 'Why save the customer before the VM Publish?',

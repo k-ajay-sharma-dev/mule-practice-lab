@@ -28,6 +28,40 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'GET', path: '/v1/rates/EUR', latencyMs: 180, respond: { status: 200, body: { base: 'EUR', quote: 'USD', rate: 1.08, asOf: '2026-11-06' } } }],
+    },
+    tests: [
+      {
+        name: 'The app asks for the euro rate',
+        about: 'The provider answers with the rate of the day.',
+        trigger: { http: { method: 'GET', path: '/exchange-rates/eur' } },
+        expect: {
+          status: 200,
+          body: { currency: 'EUR', usdRate: 1.08, asOf: '2026-11-06' },
+          calls: [{ method: 'GET', path: '/v1/rates/EUR', count: 1 }],
+          logs: [{}],
+        },
+      },
+      {
+        name: 'The provider has a new rate',
+        about: 'The provider now answers 1.11 for the next day. The answer follows the provider.',
+        trigger: { http: { method: 'GET', path: '/exchange-rates/eur' } },
+        overrides: {
+          systems: { http: [{ method: 'GET', path: '/v1/rates/EUR', latencyMs: 180, respond: { status: 200, body: { base: 'EUR', quote: 'USD', rate: 1.11, asOf: '2026-11-07' } } }] },
+        },
+        expect: { status: 200, body: { currency: 'EUR', usdRate: 1.11, asOf: '2026-11-07' } },
+      },
+      {
+        name: 'The provider answers 404',
+        about: 'The HTTP Request raises HTTP:NOT_FOUND and the steps after it do not run.',
+        trigger: { http: { method: 'GET', path: '/exchange-rates/eur' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/v1/rates/EUR', latencyMs: 60, respond: { status: 404, body: { message: 'No rate for EUR' } } }] } },
+        expect: { error: 'HTTP:NOT_FOUND', bodyLacks: { usdRate: 1.08 }, calls: [{ method: 'GET', path: '/v1/rates/EUR', count: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('get-eur-rate', source('http-listener', { path: '/exchange-rates/eur', allowedMethods: 'GET' }), [
       step('logger', { level: 'INFO', message: 'EUR rate requested' }),

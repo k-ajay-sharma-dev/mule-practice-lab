@@ -3153,3 +3153,44 @@ textarea:focus {
   background: var(--code-bg);
   overflow-x: auto;
 }
+
+/* ---------- Flow simulator: the Run tab ---------- */
+.run-panel .match-banner { margin: 8px 0; border: 1px solid var(--border); border-radius: 8px; }
+.sim-tests { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+.sim-test { display: flex; gap: 8px; width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 0.86rem; text-align: left; cursor: pointer; }
+.sim-test:hover { border-color: var(--accent); }
+.sim-test.active { border-color: var(--accent); background: var(--surface-2); }
+.sim-test .mark { width: 14px; flex-shrink: 0; }
+.sim-test.pass .mark { color: var(--success); }
+.sim-test.fail .mark { color: var(--danger); }
+.sim-trigger code { font-size: 0.85rem; }
+.sim-trigger .btn { margin-top: 6px; }
+.sim-json { margin: 6px 0; padding: 8px 10px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); font-size: 0.78rem; white-space: pre-wrap; word-break: break-word; }
+.sim-status { margin: 4px 0; font-weight: 600; font-size: 0.9rem; }
+.sim-status.good { color: var(--success); }
+.sim-status.bad { color: var(--danger); }
+.sim-limit { padding: 8px 10px; border: 1px solid var(--warning); border-radius: 6px; color: var(--warning); font-size: 0.85rem; }
+.sim-steps { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.sim-step { border-bottom: 1px solid var(--border); }
+.sim-step:last-child { border-bottom: none; }
+.sim-step-head { display: flex; flex-wrap: wrap; gap: 4px 10px; width: 100%; padding: 6px 10px 6px 0; border: none; background: none; color: var(--text); font: inherit; font-size: 0.83rem; text-align: left; cursor: pointer; }
+.sim-step-head:disabled { cursor: default; }
+.sim-step-head:not(:disabled):hover { background: var(--surface-2); }
+.sim-t { width: 58px; flex-shrink: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sim-text { flex: 1; min-width: 0; }
+.sim-err { flex-basis: 100%; padding-left: 68px; color: var(--danger); font-size: 0.78rem; }
+.sim-step.flow .sim-text { color: var(--accent); font-weight: 600; }
+.sim-step.route .sim-text { color: var(--muted); }
+.sim-step.handler .sim-text { color: var(--warning); }
+.sim-step.error .sim-text { color: var(--danger); }
+.sim-data { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 10px 8px; }
+.sim-data-col { min-width: 0; }
+.sim-label { margin-top: 4px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.sim-console { margin: 6px 0; padding: 8px 10px; max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); font-size: 0.76rem; white-space: pre-wrap; word-break: break-word; }
+.sim-log.error { color: var(--danger); }
+.sim-log.warn { color: var(--warning); }
+.sim-log.debug { color: var(--muted); }
+.sim-effects { margin: 6px 0; padding-left: 18px; font-size: 0.83rem; }
+.sim-effects li { margin: 3px 0; word-break: break-word; }
+.sim-input { width: 100%; margin: 6px 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); color: var(--text); font-family: var(--mono, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; }
+@media (max-width: 700px) { .sim-data { grid-template-columns: 1fr; } }

@@ -1,6 +1,7 @@
 import { COMPONENTS } from './catalog.js'
 import { walk } from './model.js'
 import { missingSystems, systemUsesIn, useText } from './systems.js'
+import { runTest, testChecks, testHint } from '../sim/tests.js'
 
 // Design checks for flow problems. Each check is { label, rule } and passes or fails
 // against the user's design. Rules:
@@ -255,6 +256,8 @@ function evaluate(rule, nodes, design) {
       return nodes.length > 0 && unfinished(design, nodes).length === 0
     case 'systems':
       return missingSystems(rule.want, design).length === 0
+    case 'runs':
+      return runTest(design, rule.scenario, rule.test).pass
     default:
       return false
   }
@@ -275,6 +278,8 @@ export function designChecks(problem) {
     ...problem.flowChecks,
     ...(want.length ? [{ label: 'Makes every call, read and write the scenario needs (see "Systems you can call")', rule: { type: 'systems', want } }] : []),
     { label: 'Nothing is left blank or as a placeholder', rule: { type: 'complete' } },
+    // a problem with a simulation also checks how the design behaves when it runs
+    ...testChecks(problem),
   ]
 }
 
@@ -401,6 +406,8 @@ export function missingHint(design, rule) {
       const failing = rule.rules.find((r) => !evaluate(r, nodes, design))
       return failing ? missingHint(design, failing) : 'Check this requirement against the scenario.'
     }
+    case 'runs':
+      return testHint(design, rule)
     case 'systems': {
       const left = missingSystems(rule.want, design).map(useText)
       const more = left.length > 3 ? `, and ${left.length - 3} more` : ''

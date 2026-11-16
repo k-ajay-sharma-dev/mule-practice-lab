@@ -59,6 +59,56 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/loyalty/points', latencyMs: 180, respond: { status: 200, body: { customerId: 'C-4417', pointsAdded: 90, balance: 1340 } } }],
+      db: { tables: { orders: { columns: ['order_id', 'customer_id', 'total'], key: 'order_id', rows: [{ order_id: 'ORD-7000', customer_id: 'C-2080', total: 42 }] } }, latencyMs: 12 },
+    },
+    tests: [
+      {
+        name: 'An order is confirmed and earns points',
+        about: 'The order is saved, the loyalty service adds the points, and the caller gets CONFIRMED.',
+        trigger: { http: { method: 'POST', path: '/orders', body: { orderId: 'ORD-7001', customerId: 'C-4417', total: 89.5 } } },
+        expect: {
+          status: 200,
+          body: { orderId: 'ORD-7001', status: 'CONFIRMED' },
+          db: { orders: { count: 2, has: [{ order_id: 'ORD-7001', customer_id: 'C-4417', total: 89.5 }] } },
+          calls: [{ method: 'POST', path: '/loyalty/points', count: 1 }],
+        },
+      },
+      {
+        name: 'The loyalty service is down',
+        about: 'The connection to the loyalty service is refused. The order still goes through, with a warning in the log.',
+        trigger: { http: { method: 'POST', path: '/orders', body: { orderId: 'ORD-7002', customerId: 'C-5120', total: 24.99 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/loyalty/points', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          status: 200,
+          body: { orderId: 'ORD-7002', status: 'CONFIRMED' },
+          db: { orders: { has: [{ order_id: 'ORD-7002', customer_id: 'C-5120' }] } },
+          logs: [{ level: 'WARN' }],
+        },
+      },
+      {
+        name: 'The loyalty service answers with a server error',
+        about: 'The loyalty service answers 500. That must not fail the order either.',
+        trigger: { http: { method: 'POST', path: '/orders', body: { orderId: 'ORD-7003', customerId: 'C-0931', total: 150 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/loyalty/points', respond: { status: 500, body: { message: 'Points ledger unavailable' } } }] } },
+        expect: {
+          status: 200,
+          body: { orderId: 'ORD-7003', status: 'CONFIRMED' },
+          db: { orders: { has: [{ order_id: 'ORD-7003' }] } },
+          logs: [{ level: 'WARN' }],
+        },
+      },
+      {
+        name: 'The database is down',
+        about: 'The order cannot be saved, so it does not exist. The caller must not get CONFIRMED and no points are added.',
+        trigger: { http: { method: 'POST', path: '/orders', body: { orderId: 'ORD-7004', customerId: 'C-4417', total: 61.2 } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', bodyLacks: { status: 'CONFIRMED' }, calls: [{ method: 'POST', path: '/loyalty/points', count: 0 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('confirm-order', source('http-listener', { path: '/orders', allowedMethods: 'POST' }), [
       step('set-variable', { variableName: 'order', value: '#[payload]' }),

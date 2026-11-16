@@ -28,6 +28,83 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'POST',
+          path: '/inventory/reservations',
+          latencyMs: 90,
+          respond: (req) => ({ status: 201, body: { reservationId: `R-${req.body?.sku}`, sku: req.body?.sku, quantity: req.body?.quantity } }),
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'An order with two lines is reserved',
+        about: 'The inventory system is called once for TEA-100 and once for MUG-220.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/orders/lines/reserve',
+            body: { orderId: 'ORD-7001', lines: [{ sku: 'TEA-100', quantity: 2 }, { sku: 'MUG-220', quantity: 1 }] },
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: { orderId: 'ORD-7001', status: 'RESERVED' },
+          calls: [{ method: 'POST', path: '/inventory/reservations', count: 2 }],
+          logs: [{ has: 'TEA-100' }, { has: 'MUG-220' }],
+        },
+      },
+      {
+        name: 'An order with three lines makes three calls',
+        about: 'One reservation per line, never one for the whole order.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/orders/lines/reserve',
+            body: {
+              orderId: 'ORD-7002',
+              lines: [
+                { sku: 'TEA-100', quantity: 1 },
+                { sku: 'MUG-220', quantity: 4 },
+                { sku: 'POT-310', quantity: 1 },
+              ],
+            },
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: { orderId: 'ORD-7002', status: 'RESERVED' },
+          calls: [{ method: 'POST', path: '/inventory/reservations', count: 3 }],
+          logs: [{ has: 'TEA-100' }, { has: 'MUG-220' }, { has: 'POT-310' }],
+        },
+      },
+      {
+        name: 'The inventory system fails on the second line',
+        about: 'For Each stops at the failed line, so the third line is never sent and the order is not reported as reserved.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/orders/lines/reserve',
+            body: {
+              orderId: 'ORD-7003',
+              lines: [
+                { sku: 'TEA-100', quantity: 2 },
+                { sku: 'MUG-220', quantity: 1 },
+                { sku: 'POT-310', quantity: 1 },
+              ],
+            },
+          },
+        },
+        overrides: {
+          systems: { http: [{ method: 'POST', path: '/inventory/reservations', responses: [{ status: 201, body: { reservationId: 'R-TEA-100', sku: 'TEA-100', quantity: 2 } }, { fault: 'CONNECTIVITY' }] }] },
+        },
+        expect: { error: 'HTTP:CONNECTIVITY', bodyLacks: { status: 'RESERVED' }, calls: [{ method: 'POST', path: '/inventory/reservations', count: 2 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('reserve-order-lines', source('http-listener', { path: '/orders/lines/reserve', allowedMethods: 'POST' }), [
       scope('foreach', { collection: '#[payload.lines]' }, [

@@ -42,6 +42,34 @@ export default {
     { label: 'The response is built once, after the Choice', rule: { type: 'before', first: 'choice', then: 'transform', outside: true } },
     { label: 'The response holds the shipmentId and the service', rule: { type: 'exists', component: 'transform', where: { script: 'vars.service' } } },
   ],
+  simulation: {
+    tests: [
+      {
+        name: 'A 12 kg shipment goes as PARCEL',
+        about: 'The shipment from the example weighs 12 kg.',
+        trigger: { http: { method: 'POST', path: '/shipments/service', body: { shipmentId: 'SHP-204', weightKg: 12 } } },
+        expect: { status: 200, bodyHas: { shipmentId: 'SHP-204', service: 'PARCEL' } },
+      },
+      {
+        name: 'A 2 kg shipment goes as LETTER',
+        about: 'Exactly 2 kg is still a letter, even though it also passes the 30 kg test.',
+        trigger: { http: { method: 'POST', path: '/shipments/service', body: { shipmentId: 'SHP-205', weightKg: 2 } } },
+        expect: { status: 200, bodyHas: { shipmentId: 'SHP-205', service: 'LETTER' } },
+      },
+      {
+        name: 'A 30 kg shipment goes as PARCEL',
+        about: 'Exactly 30 kg is the heaviest parcel.',
+        trigger: { http: { method: 'POST', path: '/shipments/service', body: { shipmentId: 'SHP-206', weightKg: 30 } } },
+        expect: { status: 200, bodyHas: { shipmentId: 'SHP-206', service: 'PARCEL' } },
+      },
+      {
+        name: 'A 45 kg shipment goes as FREIGHT',
+        about: 'No condition matches, so the default route picks the service.',
+        trigger: { http: { method: 'POST', path: '/shipments/service', body: { shipmentId: 'SHP-207', weightKg: 45 } } },
+        expect: { status: 200, bodyHas: { shipmentId: 'SHP-207', service: 'FREIGHT' } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('pick-shipping-service', source('http-listener', { path: '/shipments/service', allowedMethods: 'POST' }), [
       router(

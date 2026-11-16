@@ -49,6 +49,34 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: { employees: { columns: ['employee_id', 'full_name', 'email'], key: 'employee_id', rows: [{ employee_id: 1, full_name: 'Tom Becker', email: 'tom.becker@example.com' }] } },
+        latencyMs: 10,
+      },
+    },
+    tests: [
+      {
+        name: 'A new employee is added',
+        about: 'The body has a name and a valid email, so the employee is saved.',
+        trigger: { http: { method: 'POST', path: '/employees', body: { fullName: 'Asha Rao', email: 'asha@example.com' } } },
+        expect: { status: 200, body: { status: 'CREATED' }, db: { employees: { count: 2, has: [{ full_name: 'Asha Rao', email: 'asha@example.com' }] } } },
+      },
+      {
+        name: 'The email is missing',
+        about: 'The body has no email at all.',
+        trigger: { http: { method: 'POST', path: '/employees', body: { fullName: 'Ben Okafor' } } },
+        expect: { status: 400, body: { code: 'BAD_REQUEST', message: 'email is required' }, db: { employees: { count: 1 } } },
+      },
+      {
+        name: 'The email is not a valid address',
+        about: 'The email has no @ sign.',
+        trigger: { http: { method: 'POST', path: '/employees', body: { fullName: 'Asha Rao', email: 'asha.example.com' } } },
+        expect: { status: 400, body: { code: 'BAD_REQUEST', message: 'email is not a valid address' }, db: { employees: { count: 1 } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'create-employee',

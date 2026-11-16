@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import FlowDesigner from '../components/flow/FlowDesigner.jsx'
+import RunPanel from '../components/flow/RunPanel.jsx'
 import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
@@ -15,7 +16,7 @@ import { useAutosave } from './useAutosave.js'
 import NotesBox from './NotesBox.jsx'
 import { useUndo } from './useUndo.js'
 
-const TABS = ['scenario', 'checks', 'reference', 'notes']
+const TABS = ['scenario', 'checks', 'run', 'reference', 'notes']
 const RATINGS = [
   { status: 'solved', label: 'Solved' },
   { status: 'attempted', label: 'Partial' },
@@ -167,7 +168,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
     <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}`}>
       <section className="panel left-panel">
         <div className="panel-tabs">
-          {TABS.map((t) => (
+          {TABS.filter((t) => t !== 'run' || problem.simulation?.tests?.length).map((t) => (
             <button key={t} className={`panel-tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
               {t === 'checks' && checks.length ? `Checks (${checks.length})` : t[0].toUpperCase() + t.slice(1)}
             </button>
@@ -180,7 +181,9 @@ export default function FlowWorkspace({ problem, guided = true }) {
               <SystemsList design={problem.referenceFlow} />
               <div className="reveal-gate">
                 <p className="muted small">
-                  Design the flow on the canvas. It is not executed — the design is checked against the requirements.
+                  {problem.simulation?.tests?.length
+                    ? 'Design the flow on the canvas. It is checked against the requirements, and the Run tab runs it against test messages, including ones where a system fails.'
+                    : 'Design the flow on the canvas. It is not executed. The design is checked against the requirements.'}
                 </p>
                 {checks.length > 0 && (
                   <button className="btn btn-primary" onClick={checkDesign} disabled={!countComponents(design)}>
@@ -281,6 +284,8 @@ export default function FlowWorkspace({ problem, guided = true }) {
                 </div>
               </div>
             ))}
+
+          {tab === 'run' && <RunPanel design={design} simulation={problem.simulation} />}
 
           {tab === 'notes' && (
             <NotesBox problemId={problem.id} />

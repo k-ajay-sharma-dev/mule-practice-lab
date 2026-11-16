@@ -46,6 +46,16 @@ export default {
       rule: { type: 'exists', component: 'logger', where: { level: 'INFO', message: 'payload' } },
     },
   ],
+  simulation: {
+    tests: [
+      {
+        name: 'The Scheduler fires and a heartbeat is logged',
+        about: 'One run of the Scheduler writes an INFO line with the service name and the status ALIVE.',
+        trigger: { schedule: {} },
+        expect: { noError: true, logs: [{ level: 'INFO', has: 'order-sync' }, { level: 'INFO', has: 'ALIVE' }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('order-sync-heartbeat', source('scheduler', { strategy: 'fixed-frequency', frequency: 5, timeUnit: 'MINUTES' }), [
       step('set-variable', { variableName: 'serviceName', value: 'order-sync' }),

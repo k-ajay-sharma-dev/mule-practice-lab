@@ -41,6 +41,34 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'GET', path: '/employees/E1042/manager', latencyMs: 140, respond: { status: 200, body: { name: 'Lena Berg', email: 'lena.berg@example.com' } } }],
+    },
+    tests: [
+      {
+        name: 'A leave request names the manager as approver',
+        about: 'E1042 asks for 3 days and the HR system names Lena Berg as the manager.',
+        trigger: { http: { method: 'POST', path: '/leave-requests', body: { employeeId: 'E1042', days: 3 } } },
+        expect: {
+          status: 200,
+          bodyHas: { employeeId: 'E1042', days: 3, approver: 'lena.berg@example.com' },
+          calls: [{ method: 'GET', path: '/employees/E1042/manager', count: 1 }],
+        },
+      },
+      {
+        name: 'Another employee gets their own manager',
+        about: 'E2077 asks for 5 days and the HR system names Tomas Novak.',
+        trigger: { http: { method: 'POST', path: '/leave-requests', body: { employeeId: 'E2077', days: 5 } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/employees/E2077/manager', latencyMs: 140, respond: { status: 200, body: { name: 'Tomas Novak', email: 'tomas.novak@example.com' } } }] } },
+        expect: {
+          status: 200,
+          bodyHas: { employeeId: 'E2077', days: 5, approver: 'tomas.novak@example.com' },
+          calls: [{ method: 'GET', path: '/employees/E2077/manager', count: 1 }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('submit-leave-request', source('http-listener', { path: '/leave-requests', allowedMethods: 'POST' }), [
       step('logger', { level: 'INFO', message: '#["Leave request from " ++ payload.employeeId]' }),

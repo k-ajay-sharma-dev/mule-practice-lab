@@ -100,7 +100,7 @@ export default {
         // Skip "folder" placeholder keys, limit the slice per run.
         step('transform', {
           script:
-            '%dw 2.0\nimport take from dw::core::Arrays\noutput application/java\n---\ntake(payload filter ((o) -> not (o.key endsWith "/") and o.size > 0) map ((o) -> { key: o.key, size: o.size }), 200)',
+            '%dw 2.0\nimport take from dw::core::Arrays\noutput application/java\n---\ntake(payload filter ((o) -> (not (o.key endsWith "/")) and o.size > 0) map ((o) -> { key: o.key, size: o.size }), 200)',
         }),
         scope('foreach', { collection: '#[payload]' }, [
           step('set-variable', { variableName: 'obj', value: '#[payload]' }),

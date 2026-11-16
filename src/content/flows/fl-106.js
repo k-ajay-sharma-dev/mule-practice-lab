@@ -59,6 +59,33 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'GET', path: '/carrier/estimate', latencyMs: 220, respond: { status: 200, body: { estimatedDays: 2 } } }],
+    },
+    tests: [
+      {
+        name: 'The carrier gives an estimate',
+        about: 'The carrier answers 2 days and the shop shows it.',
+        trigger: { http: { method: 'GET', path: '/delivery-estimate' } },
+        expect: { status: 200, body: { days: 2, source: 'carrier' }, calls: [{ method: 'GET', path: '/carrier/estimate', count: 1 }], noLogs: [{ level: 'WARN' }] },
+      },
+      {
+        name: 'The carrier is down',
+        about: 'The connection to the carrier is refused. Checkout still gets an answer.',
+        trigger: { http: { method: 'GET', path: '/delivery-estimate' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/carrier/estimate', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 200, body: { days: 5, source: 'standard' }, noError: true, logs: [{ level: 'WARN' }] },
+      },
+      {
+        name: 'The carrier takes 3 seconds to answer',
+        about: 'The flow gives up after 2 seconds and answers with the standard estimate.',
+        trigger: { http: { method: 'GET', path: '/delivery-estimate' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/carrier/estimate', latencyMs: 3000, respond: { status: 200, body: { estimatedDays: 2 } } }] } },
+        expect: { status: 200, body: { days: 5, source: 'standard' }, noError: true, logs: [{ level: 'WARN' }], maxMs: 2500 },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'delivery-estimate',

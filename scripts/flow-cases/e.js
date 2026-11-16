@@ -34,6 +34,17 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     flowOf(d, 'welcome').source.config.queueName = 'emails'
   })
   // The email flow first loads a template.
+  // No Target variable: the insert result replaces the signup, so the queue and the answer lose the email.
+  await failsOn('fl-114', 'Run: A customer signs up', (d) => {
+    one(d, 'db-insert').config.target = ''
+  })
+  // Keep the body in a variable before the insert and put it back after, instead of a Target variable.
+  await passes('fl-114', (d) => {
+    one(d, 'db-insert').config.target = ''
+    const steps = flowOf(d, 'signup').steps
+    steps.splice(0, 0, step('set-variable', { variableName: 'signup', value: '#[payload]' }))
+    steps.splice(2, 0, step('set-payload', { value: '#[vars.signup]' }))
+  })
   await passes('fl-114', (d) => {
     flowOf(d, 'welcome').steps.splice(1, 0, step('parse-template', { location: 'templates/welcome.html' }))
     one(d, 'email-send').config.contentType = 'text/html'

@@ -56,6 +56,44 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: { tables: { parcel_returns: { columns: ['return_id', 'order_id', 'email'], key: 'return_id', rows: [{ return_id: 'RET-3000', order_id: 'ORD-0998', email: 'sam.k@example.com' }] } }, latencyMs: 12 },
+    },
+    tests: [
+      {
+        name: 'A return is booked',
+        about: 'The return is saved, the customer gets the reply at once, and the email follows.',
+        trigger: { http: { method: 'POST', path: '/returns', body: { returnId: 'RET-3001', orderId: 'ORD-1001', email: 'li.wei@example.com' } } },
+        expect: {
+          status: 200,
+          body: { returnId: 'RET-3001', status: 'RECEIVED' },
+          db: { parcel_returns: { count: 2, has: [{ return_id: 'RET-3001', order_id: 'ORD-1001', email: 'li.wei@example.com' }] } },
+          emails: [{ to: 'li.wei@example.com', count: 1 }],
+          maxMs: 100,
+        },
+      },
+      {
+        name: 'The mail server is down',
+        about: 'The email cannot be sent, but the return is saved and the customer still gets RECEIVED.',
+        trigger: { http: { method: 'POST', path: '/returns', body: { returnId: 'RET-3002', orderId: 'ORD-1017', email: 'carla.m@example.com' } } },
+        overrides: { systems: { email: { fault: true } } },
+        expect: {
+          status: 200,
+          body: { returnId: 'RET-3002', status: 'RECEIVED' },
+          db: { parcel_returns: { has: [{ return_id: 'RET-3002' }] } },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The database is down',
+        about: 'The return cannot be saved, so the reply must not say RECEIVED and no email goes out.',
+        trigger: { http: { method: 'POST', path: '/returns', body: { returnId: 'RET-3003', orderId: 'ORD-1020', email: 'li.wei@example.com' } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', bodyLacks: { status: 'RECEIVED' }, noEmails: true },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('create-return', source('http-listener', { path: '/returns', allowedMethods: 'POST' }), [
       step('set-variable', { variableName: 'returnRequest', value: '#[payload]' }),

@@ -298,7 +298,7 @@ function elementXml(n, d) {
     case 'db-stored-procedure': {
       const op = n.type.replace('db-', '')
       const select = n.type === 'db-select' ? { fetchSize: c.fetchSize, maxRows: c.maxRows } : {}
-      return el(d, `db:${op}`, { 'config-ref': dbConfigRef(c), ...select }, [`${pad(d + 1)}<db:sql><![CDATA[${c.sql}]]></db:sql>`])
+      return el(d, `db:${op}`, { 'config-ref': dbConfigRef(c), ...select, target: c.target || undefined }, [`${pad(d + 1)}<db:sql><![CDATA[${c.sql}]]></db:sql>`])
     }
     case 'sf-query':
       return el(d, 'salesforce:query', { 'config-ref': 'Salesforce_Config' }, [`${pad(d + 1)}<salesforce:salesforce-query><![CDATA[${c.soql}]]></salesforce:salesforce-query>`])

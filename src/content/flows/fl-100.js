@@ -31,6 +31,36 @@ export default {
     },
     { label: 'A log line contains the order ID', rule: { type: 'exists', component: 'logger', where: { message: 'vars.orderId' } } },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/warehouse/reservations', latencyMs: 180, respond: { status: 200, body: { reservationId: 'RES-880' } } }],
+    },
+    tests: [
+      {
+        name: 'Stock is reserved for the order',
+        about: 'The warehouse reserves two TEA-100 for ORD-5521 and answers RES-880.',
+        trigger: { http: { method: 'POST', path: '/orders/reserve', body: { orderId: 'ORD-5521', sku: 'TEA-100', quantity: 2 } } },
+        expect: {
+          status: 200,
+          bodyHas: { orderId: 'ORD-5521', reservationId: 'RES-880' },
+          calls: [{ method: 'POST', path: '/warehouse/reservations', count: 1 }],
+          logs: [{ has: 'ORD-5521' }],
+        },
+      },
+      {
+        name: 'Another order keeps its own ID',
+        about: 'A second order, ORD-5530, gets reservation RES-881 and the answer names ORD-5530.',
+        trigger: { http: { method: 'POST', path: '/orders/reserve', body: { orderId: 'ORD-5530', sku: 'MUG-210', quantity: 1 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/warehouse/reservations', latencyMs: 180, respond: { status: 200, body: { reservationId: 'RES-881' } } }] } },
+        expect: {
+          status: 200,
+          bodyHas: { orderId: 'ORD-5530', reservationId: 'RES-881' },
+          calls: [{ method: 'POST', path: '/warehouse/reservations', count: 1 }],
+          logs: [{ has: 'ORD-5530' }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('reserve-stock', source('http-listener', { path: '/orders/reserve', allowedMethods: 'POST' }), [
       step('set-variable', { variableName: 'orderId', value: '#[payload.orderId]' }),
