@@ -33,16 +33,16 @@ export default {
       {
         web: ['web-app', 'Web storefront'],
         mob: ['mobile-app', 'Mobile app'],
-        gw: ['api-gateway', 'Spike control + rate limit per client'],
-        exp: ['experience-api', 'exp-checkout-api'],
-        pchk: ['process-api', 'prc-checkout (validate, reserve, authorise)'],
+        gw: ['api-gateway', 'Spike control + rate limit per client', { rateLimit: 1500 }],
+        exp: ['experience-api', 'exp-checkout-api', { replicas: 4, vCores: '1' }],
+        pchk: ['process-api', 'prc-checkout (validate, reserve, authorise)', { replicas: 4, vCores: '1' }],
         cache: ['cache', 'ATP cache'],
-        spay: ['system-api', 'sys-payment'],
+        spay: ['system-api', 'sys-payment', { replicas: 4, vCores: '1' }],
         pay: ['payment', 'Payment provider'],
         q: ['queue', 'orders.accepted (persistent)'],
-        ping: ['process-api', 'prc-order-ingest (bounded concurrency)'],
-        sord: ['system-api', 'sys-oracle-orders'],
-        db: ['database', 'Oracle order DB (~150 orders/s)'],
+        ping: ['process-api', 'prc-order-ingest (bounded concurrency)', { vCores: '1' }],
+        sord: ['system-api', 'sys-oracle-orders', { vCores: '1', rateLimit: 450 }],
+        db: ['database', 'Oracle order DB (bulk inserts, ~600 orders/s)'],
         dlq: ['dlq', 'orders.accepted DLQ'],
       },
       [
@@ -50,6 +50,44 @@ export default {
         'pchk ~> q', 'q ~> ping', 'ping -> sord', 'sord -> db', 'ping ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'payment', latencyMs: 300, maxRps: 2000 },
+        { match: 'database', latencyMs: 50, maxRps: 600 },
+      ],
+      tests: [
+        {
+          name: 'The doorbuster burst',
+          about: 'For 15 minutes the web sends 800 checkouts a second and the app 400, then 200 and 100 for the rest of the sale. Every customer gets an order number within 3 seconds, Oracle stays at 500 orders a second or less, and the queue is empty before the run ends.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 200, to: ['payment', 'database'], kind: 'write', spikes: [{ at: 0, forMin: 15, rps: 800 }] },
+            { name: 'mobile', from: 'mobile-app', rps: 100, to: ['payment', 'database'], kind: 'write', spikes: [{ at: 0, forMin: 15, rps: 400 }] },
+          ],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3000 }], peakRps: [{ node: 'database', max: 500 }], backlog: [{ queue: 'queue', maxEnd: 1000 }], lost: { max: 0 }, vCores: { max: 16 } },
+        },
+        {
+          name: 'Oracle is down and the broker restarts',
+          about: 'During the sale (300 checkouts a second) Oracle is down for 20 minutes, and the broker restarts in the middle of it. Customers still get their order numbers, no order is lost, and the backlog drains once Oracle is back.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 200, to: ['payment', 'database'], kind: 'write' },
+            { name: 'mobile', from: 'mobile-app', rps: 100, to: ['payment', 'database'], kind: 'write' },
+          ],
+          incidents: [{ down: 'database', at: 5, forMin: 20 }, { restart: 'queue', at: 15 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 1000 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Bots push past the tested capacity',
+          about: 'For two minutes bots push the web to 2,500 checkouts a second on top of 300 from the app. The gateway answers 429 to what is over 1,500 a second, so the APIs never fail with 503.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 600, to: ['payment', 'database'], kind: 'write', spikes: [{ at: 3, forMin: 2, rps: 2500 }] },
+            { name: 'mobile', from: 'mobile-app', rps: 300, to: ['payment', 'database'], kind: 'write' },
+          ],
+          expect: { answers: [{ maxFailed: 0.01, minSuccess: 0.6 }] },
+        },
+      ],
+    },
   },
   description: `
 An electronics retailer expects **10× normal traffic on Black Friday**: up to **1,200 checkouts/s** for the first 15 minutes of the doorbuster sale, then ~300/s for hours.
@@ -67,6 +105,14 @@ Facts:
 - The card must be **authorised** before confirming (the payment provider handles 2,000 TPS).
 - The WMS starts picking 30 minutes after order creation anyway.
 - ActiveMQ and Anypoint MQ are both available.
+
+Numbers for sizing:
+- In the doorbuster the web sends **800 checkouts a second** and the app **400**, for 15 minutes. Then **200** and **100** for hours.
+- The payment provider answers in about 300 ms.
+- With bulk inserts and slimmer triggers the DBA can raise Oracle to about **600 orders a second** (50 ms each); keep the ingest at **500 or less**. The queue must be empty again within two hours.
+- Oracle can be down for **20 minutes** during the sale, and the broker can restart; no accepted order may be lost.
+- Load tests proved **1,500 checkouts a second**. Bots can push far past that for minutes.
+- The budget for the Mule apps is **16 vCores**.
 
 **Questions:**
 - Which steps must stay synchronous and which can be deferred?
@@ -88,6 +134,7 @@ Facts:
     'Backpressure at the edge: spike control/rate limiting returns 429 rather than letting threads and pools pile up; sized connection pools and timeouts inside.',
     'Generate the order number upfront (UUID or pre-allocated range) so the customer gets it without waiting for Oracle sequences.',
     'Idempotent ingest (order number as key), DLQ for poison orders, and monitoring of queue depth and age to show how far behind Oracle is.',
+    'Size the front for the peak, cap the gateway at the tested capacity, and size the ingest (with a rate limit) to Oracle, so the backlog drains in the time the business accepts.',
   ],
   solution: `
 \`\`\`
@@ -112,6 +159,12 @@ Do the arithmetic in the interview: at 150/s, the 15-minute burst alone leaves r
 - Queue limits and alerts on depth/age; the ingest consumer never scales beyond what Oracle can take.
 
 **Order numbers.** Generate the order id in \`prc-checkout\` (UUID or pre-allocated ranges) and use it as the idempotency key in Oracle (unique constraint / MERGE), so redelivered messages do not create duplicates.
+
+**Sizing.**
+- \`exp-checkout-api\`, \`prc-checkout\` and \`sys-payment\` each run 4 replicas of 1 vCore (about 2,000 requests a second), so 1,200 a second keeps them under 70% busy.
+- The gateway rate limit of 1,500 a second matches the tested capacity: what is over it gets 429, and nothing behind it fails with 503.
+- \`prc-order-ingest\` and \`sys-oracle-orders\` run on 1 vCore each, with a rate limit of 450 a second on the System API. The doorbuster leaves about 675,000 orders queued; they drain at about 150 a second over the 300 that still arrive, in a little over an hour.
+- The queue is persistent, so a broker restart during an Oracle outage loses nothing. In total 14 vCores, inside the 16 vCore budget.
 
 **Trade-offs:** order status queries must handle "accepted but not yet in Oracle" (read from the queue-side status or a small status store); more moving parts to monitor; a backlog means downstream reports lag.
 `,

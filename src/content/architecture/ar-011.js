@@ -4,6 +4,7 @@ const BROKER = ['queue', 'topic', 'cloud-queue', 'event-stream']
 const BACKEND = ['crm', 'saas', 'external-api', 'legacy', 'database', 'oracle-db', 'sql-server', 'erp']
 const APIS = ['experience-api', 'process-api', 'system-api']
 const SPLUNK = { type: 'monitoring', label: ['splunk', 'log'] }
+const DOC = { type: 'process-api', label: 'document' }
 
 export default {
   id: 'ar-011',
@@ -30,10 +31,10 @@ export default {
     reference: diagram(
       {
         web: ['web-app', 'Web and mobile channel'],
-        exp: ['experience-api', 'exp-loan-api (accepts or creates X-Correlation-ID)'],
-        prc: ['process-api', 'prc-loan-api'],
+        exp: ['experience-api', 'exp-loan-api (accepts or creates X-Correlation-ID)', { vCores: '0.2' }],
+        prc: ['process-api', 'prc-loan-api', { vCores: '0.2' }],
         scu: ['system-api', 'sys-customer-api'],
-        scb: ['system-api', 'sys-credit-bureau-api'],
+        scb: ['system-api', 'sys-credit-bureau-api', { timeoutMs: 5000, circuitBreaker: 'on' }],
         sco: ['system-api', 'sys-core-banking-api'],
         sf: ['crm', 'Salesforce'],
         cb: ['external-api', 'Credit bureau'],
@@ -48,6 +49,38 @@ export default {
         'exp -> splunk', 'prc -> splunk', 'scu -> splunk', 'scb -> splunk', 'sco -> splunk', 'doc -> splunk', 'prc -> am',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 300 },
+        { match: 'external-api', latencyMs: 1500 },
+        { match: 'legacy', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'The credit bureau hangs',
+          about: 'The credit bureau takes 40 seconds to answer for the whole run. Loan submissions fail fast, and the 40 status checks a second that only need Salesforce stay quick.',
+          traffic: [
+            { name: 'submissions', from: 'web-app', rps: 10, kind: 'write', to: ['crm', 'external-api', 'legacy', DOC] },
+            { name: 'status checks', from: 'web-app', rps: 40, to: 'crm' },
+          ],
+          incidents: [{ slow: 'external-api', latencyMs: 40000 }],
+          expect: { answers: [{ flow: 'status checks', minSuccess: 0.99, maxMs: 1000 }], vCores: { max: 2 } },
+        },
+        {
+          name: 'The document consumer is down',
+          about: 'The document consumer is down for five minutes while customers submit 10 loans a second. Submissions are still answered, LoanSubmitted waits in the queue, and every document is made once the consumer is back.',
+          traffic: [{ name: 'submissions', from: 'web-app', rps: 10, kind: 'write', to: ['crm', 'external-api', 'legacy', DOC] }],
+          incidents: [{ down: DOC, at: 2, forMin: 5 }],
+          durationMin: 15,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: DOC, min: 0.99 }],
+            backlog: [{ queue: BROKER, minPeak: 1000, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -143,6 +176,8 @@ Problems reported:
 - The security team already uses **Splunk** for all other systems and wants Mule logs there.
 - Management wants a dashboard of loan submissions per hour and error rate per API.
 
+Load and timings: customers submit up to **10 loans a second** and the channel makes **40 status checks a second**, which only read Salesforce. Salesforce answers in about 300 ms, the credit bureau in 1.5 s (but it sometimes hangs for 40 s) and core banking in 200 ms. Status checks must stay under 1 s even when the bureau hangs. The document consumer can be down for a few minutes. The budget for the APIs is **2 vCores**.
+
 **Questions:**
 - How do you make one request traceable across all hops, including the async MQ hop?
 - What is your logging standard (format, levels, what never to log)?
@@ -164,6 +199,7 @@ Problems reported:
     'Logs forwarded to the central SIEM/log platform (Splunk) via a Log4j2 appender or log forwarding, while Anypoint Monitoring covers built-in metrics and dashboards.',
     'Distributed tracing (e.g. OpenTelemetry) or at least per-hop duration logging makes latency attributable to a specific hop.',
     'Alerts on symptoms (error rate, p95 latency, DLQ depth, no messages processed) rather than on single log lines, routed to an on-call channel.',
+    'The slow hop the logs find also needs a fix: a 5 s timeout and a circuit breaker on the Credit Bureau System API, so a hanging bureau cannot hold every thread of the Process and Experience APIs (0.2 vCore each).',
   ],
   solution: `
 **Correlation across hops.**
@@ -187,6 +223,8 @@ Problems reported:
 - Alerts on **symptoms**: 5xx rate > threshold, p95 latency > SLA, DLQ message count > 0, "no LoanSubmitted processed in 30 min during business hours", replicas restarting.
 - Business dashboard in Splunk from the structured logs (loan submissions per hour, by channel).
 - Route alerts to on-call (PagerDuty/Teams), each linked to a runbook.
+
+**Fixing the slow hop.** Tracing tells you the credit bureau was the slow hop; the design should also stop it from taking the whole chain down. While the bureau hangs, every submission holds a thread in the Experience, Process and Credit Bureau APIs for as long as the timeout. With the default 10 s timeout the threads run out and the status checks, which never touch the bureau, fail with 503 too. The Credit Bureau System API gets a **5 s timeout and a circuit breaker**: once most bureau calls fail, it fails them at once, the threads are free, and status checks stay around 400 ms. The Experience and Process APIs run on 0.2 vCore each, about 0.8 vCores in total, inside the 2 vCore budget. LoanSubmitted goes through Anypoint MQ, so when the document consumer is down the submissions are still answered and the messages wait in the queue.
 
 **Result:** the "40 seconds at 14:02" question becomes one search on the correlation ID showing a span/log per hop with durations — minutes instead of two days.
 `,

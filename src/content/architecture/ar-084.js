@@ -40,14 +40,14 @@ export default {
         pub: ['load-balancer', 'Private space ingress: public endpoints'],
         int: ['load-balancer', 'Private space ingress: internal endpoints (443)'],
         idp: ['identity-provider', 'Hospital identity provider'],
-        expPortal: ['experience-api', 'exp-patient-portal'],
-        expLabs: ['experience-api', 'exp-lab-partners'],
-        prcAppt: ['process-api', 'prc-patient-records'],
-        prcResults: ['process-api', 'prc-lab-results'],
+        expPortal: ['experience-api', 'exp-patient-portal', { replicas: 2, vCores: '0.2', auth: 'jwt' }],
+        expLabs: ['experience-api', 'exp-lab-partners', { replicas: 2, auth: 'client-id' }],
+        prcAppt: ['process-api', 'prc-patient-records', { replicas: 2, vCores: '0.2', onFailure: 'partial answer' }],
+        prcResults: ['process-api', 'prc-lab-results', { replicas: 2 }],
         q: ['queue', 'lab.results'],
         dlq: ['dlq', 'lab.results.dlq'],
-        sysPat: ['system-api', 'sys-patients-oracle (via VPN)'],
-        sysBill: ['system-api', 'sys-billing-mainframe (via VPN)'],
+        sysPat: ['system-api', 'sys-patients-oracle (via VPN)', { replicas: 2, vCores: '0.2' }],
+        sysBill: ['system-api', 'sys-billing-mainframe (via VPN)', { replicas: 2 }],
         ora: ['oracle-db', 'Patient administration (data centre)'],
         mf: ['legacy', 'Billing mainframe (data centre)'],
         os: ['cache', 'Object Store v2'],
@@ -59,6 +59,38 @@ export default {
         'q ~> prcAppt', 'prcAppt -> sysPat', 'prcAppt -> sysBill', 'prcAppt -> os', 'sysPat -> ora', 'sysBill -> mf', 'prcAppt -> mon',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'oracle-db', latencyMs: 80 },
+        { match: 'legacy', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Ward apps at clinic opening with a zone down',
+          about: 'At clinic opening the ward apps read 30 patient records a second through the internal ingress. One availability zone is lost for the whole run. Every app on the route keeps a replica in another zone, so the reads are still answered in full.',
+          traffic: [{ name: 'wards', from: 'internal-app', rps: 30, to: 'oracle-db' }],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.05 }] },
+        },
+        {
+          name: 'Tokens while the identity provider is down',
+          about: 'Patients with a token read 40 records a second and a caller without one sends 5 a second. The identity provider is down for the whole run. Tokens are still checked, so patients are answered and the caller without one is refused.',
+          traffic: [
+            { name: 'patients', from: 'web-app', via: { label: 'portal' }, rps: 40, to: 'oracle-db' },
+            { name: 'no token', from: 'web-app', via: { label: 'portal' }, rps: 5, to: 'oracle-db', auth: 'none' },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ flow: 'patients', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }] },
+        },
+        {
+          name: 'Ward reads during the mainframe batch',
+          about: 'Ward apps read 30 patient records a second, each with its billing status from the mainframe. The mainframe is closed for its batch the whole run. The ward still gets every patient record, without the billing part when the mainframe cannot give it.',
+          traffic: [{ name: 'wards', from: 'internal-app', rps: 30, to: ['oracle-db', 'legacy'] }],
+          incidents: [{ down: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A regional hospital group is moving its integrations to CloudHub 2.0. The patient administration system (Oracle) and a billing mainframe stay in its data centre. Other systems are SaaS. Volumes: about 200,000 API calls per day, peaks at clinic opening time, and 30,000 lab results per day from partner laboratories.
@@ -70,6 +102,12 @@ Constraints:
 - One data centre, with two internet gateways. There is no AWS footprint, so no transit gateway exists.
 - The billing mainframe closes for a nightly batch, so lab results must not be lost while it is down.
 - Production and test must be isolated from each other.
+
+Numbers to design for:
+- At clinic opening the ward apps read 30 patient records a second and the portal 40. Oracle answers in about 80 ms and the mainframe in 300 ms.
+- A ward read shows the billing status from the mainframe. During the batch window the ward must still get the patient record.
+- Every app must survive the loss of one availability zone.
+- Portal calls carry a token. Callers without one are refused, and the portal must keep working when the identity provider is down.
 
 **Questions:**
 - Draw the target architecture.
@@ -97,6 +135,7 @@ Constraints:
     'Lab results go through a queue, so they survive the mainframe batch window, with a DLQ for repeated failures.',
     'State lives in Object Store v2 or a database, because replica storage is cleared on restart.',
     'Use separate private spaces for production and non-production.',
+    'Settings: 2 replicas per app for zone outages, 0.2 vCore where the ward and portal reads meet, JWT validation on the portal so tokens are checked without the identity provider, and a partial answer when the mainframe is closed.',
   ],
   solution: `
 **Architecture.**
@@ -133,6 +172,11 @@ The catalogue has no "private space" component: the two ingress nodes and everyt
 - Local disk is cleared on restart, so keep state in Object Store v2, Anypoint MQ or the database.
 - \`prc-lab-results\` publishes to \`lab.results\` and the consumer retries. When the mainframe is closed, messages wait; repeated failures go to \`lab.results.dlq\`.
 - Design for routine restarts: patching, rebalancing and, in private spaces, weekly node consolidation.
+
+**Settings that matter.**
+- Every app runs 2 replicas. \`prc-patient-records\` and \`sys-patients-oracle\` carry the ward and portal reads, so they get 0.2 vCore per replica; one zone outage leaves enough capacity in the other.
+- \`exp-patient-portal\` validates JWTs. The signature is checked locally, so an identity provider outage does not stop patients who already hold a token. Token introspection (oauth2) would ask the identity provider about every call. \`exp-lab-partners\` enforces client id.
+- \`prc-patient-records\` gives a partial answer when the mainframe is closed: the ward sees the patient record without the billing status.
 `,
   followUps: [
     { q: 'What would change if the group later adopted AWS with Direct Connect?', a: 'Use a transit gateway attachment. It must be in the same region as the private space and is highly available by design, so no redundant attachment is needed. Direct Connect is not attached to the private space itself.' },

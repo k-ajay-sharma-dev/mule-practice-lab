@@ -30,16 +30,51 @@ export default {
         web: ['web-app', 'Web portal'],
         mkt: ['partner', 'Marketplace partner (M2M, 50 rps)'],
         idp: ['identity-provider', 'Customer IdP (OAuth 2.0 / OIDC)'],
-        em: ['experience-api', 'exp-mobile-api (BFF: last 10 orders)'],
-        ew: ['experience-api', 'exp-web-api (BFF: full history)'],
-        ep: ['experience-api', 'exp-partner-order-api (client creds, SLA tier)'],
-        cache: ['cache', 'Order list cache (short TTL)'],
-        po: ['process-api', 'prc-order-api (return eligibility, status)'],
-        so: ['system-api', 'sys-order-api'],
+        em: ['experience-api', 'exp-mobile-api (BFF: last 10 orders)', { auth: 'oauth2', vCores: '0.2' }],
+        ew: ['experience-api', 'exp-web-api (BFF: full history)', { auth: 'oauth2' }],
+        ep: ['experience-api', 'exp-partner-order-api (client creds, SLA tier)', { auth: 'client-id', rateLimit: 50, vCores: '0.2' }],
+        cache: ['cache', 'Order list cache (short TTL)', { ttlSec: 60 }],
+        po: ['process-api', 'prc-order-api (return eligibility, status)', { vCores: '0.5' }],
+        so: ['system-api', 'sys-order-api', { vCores: '0.5' }],
         erp: ['erp', 'Order system of record'],
       },
       ['mob -> idp', 'web -> idp', 'mob -> em', 'web -> ew', 'mkt -> ep', 'em -> cache', 'em -> po', 'ew -> po', 'ep -> po', 'po -> so', 'so -> erp'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 200, maxRps: 200 }],
+      cache: { hitRatio: 0.5, atTtlSec: 60 },
+      tests: [
+        {
+          name: 'Partner bursts over its contract',
+          about: 'The mobile app asks for order lists 80 times a second and the web portal 30, while the partner sends 200 against its contract of 50. The partner gets 429 for the extra calls, both customer channels are answered, and the order system stays well under its 200 a second.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 80, to: 'erp' },
+            { name: 'web', from: 'web-app', rps: 30, to: 'erp' },
+            { name: 'partner', from: 'partner', rps: 200, to: 'erp' },
+          ],
+          expect: {
+            answers: [{ flow: 'mobile', minSuccess: 0.99 }, { flow: 'web', minSuccess: 0.99 }, { flow: 'partner', minLimited: 0.6 }],
+            peakRps: [{ node: 'erp', max: 180 }],
+          },
+        },
+        {
+          name: 'Callers without credentials',
+          about: 'Next to normal mobile traffic, a script calls the web Experience API without logging in and an unknown client calls the partner API without a client ID. Both must be refused.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 20, to: 'erp' },
+            { name: 'web without login', from: 'web-app', rps: 5, to: 'erp', auth: 'none' },
+            { name: 'partner without client ID', from: 'partner', rps: 5, to: 'erp', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'mobile', minSuccess: 0.99 },
+              { flow: 'web without login', minRefused: 0.99 },
+              { flow: 'partner without client ID', minRefused: 0.99 },
+            ],
+          },
+        },
+      ],
+    },
   },
   description: `
 A retailer has a working \`prc-order-api\`. Three consumers now want order data:
@@ -49,6 +84,8 @@ A retailer has a working \`prc-order-api\`. Three consumers now want order data:
 | **Mobile app** | Last 10 orders with status and thumbnail; small payloads (poor networks); one call per screen; end users log in |
 | **Web portal** | Full order history with filters, invoices, return eligibility; end users log in |
 | **Marketplace partner** | Orders they sold, in their own field naming; strict SLA; machine-to-machine; 50 rps contracted |
+
+At peak the mobile app asks for order lists **80 times a second** and the web portal 30. The partner has sent bursts of **200 a second**, far over its contract. The order system answers in about 200 ms and takes at most **200 calls a second**. A short TTL of one minute on the mobile order list answers about half of the mobile reads.
 
 **Questions:**
 1. One Experience API or several? Defend your choice using the **Backend-for-Frontend (BFF)** idea.
@@ -70,6 +107,7 @@ A retailer has a working \`prc-order-api\`. Three consumers now want order data:
     'The partner Experience API differs in security (client credentials/OAuth scopes, client-id enforcement with SLA tiers), naming, versioning stability and rate limits.',
     'Experience APIs only shape, secure and cache; business rules (e.g. return eligibility) stay in Process APIs so all channels agree.',
     'GraphQL can be an Experience-layer interface over the same Process APIs; it does not replace the lower layers.',
+    'In settings: client ID enforcement and a 50 a second rate limit on the partner API, an OAuth 2.0 policy on the mobile and web APIs, a one minute cache on the mobile order list, and 0.5 vCore for the shared Process and System APIs.',
   ],
   solution: `
 **How many?** Two or three, decided by differences — not by count of consumers:
@@ -90,6 +128,12 @@ A retailer has a working \`prc-order-api\`. Three consumers now want order data:
 | Versioning | Can move faster (app version gating) | Moderate | Slow, long deprecation windows |
 
 **What stays out:** return-eligibility rules, pricing, status derivation, cross-system orchestration — all in \`prc-order-api\`. If the mobile Experience API computes "can return" and the web one computes it differently, customers get different answers. Experience APIs also never call System APIs to "fill gaps" without a deliberate decision.
+
+**Settings that matter.**
+- \`exp-partner-order-api\`: **client ID enforcement** and a **rate limit of 50 a second**, the contracted tier. A burst of 200 gets 429 for the extra 150, so the shared \`prc-order-api\` and the order system never see it. Without the limit the burst would push the order system past its 200 a second and mobile and web customers would get errors.
+- \`exp-mobile-api\` and \`exp-web-api\`: an **OAuth 2.0 policy**, so calls without a logged-in user are refused before they reach the order rules.
+- The mobile order list cache with a **TTL of 60 s** answers about half of the mobile reads. With it the order system gets about 120 calls a second at peak; without it, 160, which leaves little room.
+- Sizing: \`prc-order-api\` and \`sys-order-api\` carry every channel, so they get 0.5 vCore each. The mobile and partner Experience APIs get 0.2, the web one stays at 0.1: 1.5 vCores in total.
 
 **GraphQL.** It is a **consumer-facing interface style**, so it fits at the Experience layer: a GraphQL endpoint whose resolvers call Process APIs. MuleSoft offers APIkit for GraphQL to implement a GraphQL API in a Mule app, and Anypoint DataGraph historically offered a unified graph over REST APIs. Check current product availability. The System and Process layers stay REST. Mind: query-complexity limits, caching is harder than with GET URLs, and policies apply per endpoint rather than per resource.
 `,

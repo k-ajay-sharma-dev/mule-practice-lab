@@ -30,15 +30,50 @@ export default {
         ptn: ['partner', 'Partners (WS-Security, 2-way TLS)'],
         rtr: ['api-gateway', 'Routing layer (moves traffic service by service)'],
         esb: ['legacy', 'Legacy ESB (unmigrated services)'],
-        soap: ['experience-api', 'exp-customer-soap-facade (same WSDL)'],
-        prc: ['process-api', 'prc-customer-api (one, not 6 variants)'],
-        sdb: ['system-api', 'sys-customer-db-api'],
-        ssap: ['system-api', 'sys-sap-customer-api'],
+        soap: ['experience-api', 'exp-customer-soap-facade (same WSDL)', { replicas: 2, vCores: '0.2' }],
+        prc: ['process-api', 'prc-customer-api (one, not 6 variants)', { replicas: 2, vCores: '0.2' }],
+        sdb: ['system-api', 'sys-customer-db-api', { replicas: 2, vCores: '0.2' }],
+        ssap: ['system-api', 'sys-sap-customer-api', { replicas: 2, vCores: '0.2' }],
         db: ['database', 'Customer DB (stored procedures)'],
         sap: ['erp', 'SAP'],
       },
       ['apps -> rtr', 'ptn -> rtr', 'rtr -> esb', 'rtr -> soap', 'soap -> prc', 'prc -> sdb', 'prc -> ssap', 'sdb -> db', 'ssap -> sap', 'esb -> db', 'esb -> sap'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 400 },
+        { match: 'database', latencyMs: 60 },
+        { match: 'erp', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Peak on the migrated customer service',
+          about: 'Internal apps send 60 customer calls a second and partners 20, all to the service already moved to Mule. Every call is answered by the new APIs, within the 2 vCore budget.',
+          traffic: [
+            { name: 'internal apps', from: 'internal-app', rps: 60, to: 'system-api' },
+            { name: 'partners', from: 'partner', rps: 20, to: 'system-api' },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'system-api', min: 0.99 }], vCores: { max: 2 } },
+        },
+        {
+          name: 'The ESB fails during a wave',
+          about: 'The old ESB is down for the whole run. The migrated customer service keeps answering, because the routing layer sends it to Mule and nothing on that route depends on the ESB.',
+          traffic: [{ name: 'internal apps', from: 'internal-app', rps: 40, to: 'system-api' }],
+          incidents: [{ down: { type: 'legacy', label: 'esb' } }],
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'system-api', min: 0.99 }] },
+        },
+        {
+          name: 'One availability zone goes down',
+          about: 'A CloudHub 2.0 zone fails for the whole run at peak traffic. Each new API still has a replica in another zone, so the migrated service keeps answering.',
+          traffic: [
+            { name: 'internal apps', from: 'internal-app', rps: 60, to: 'system-api' },
+            { name: 'partners', from: 'partner', rps: 20, to: 'system-api' },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -126,6 +161,12 @@ A utilities company runs a 12-year-old ESB (not MuleSoft) with:
 
 Leadership wants to move to MuleSoft with API-led connectivity, REST/JSON as the target style, and **no big-bang cutover**. Partners cannot be forced to change their integration within 18 months.
 
+Numbers for the first wave, the consolidated GetCustomer service:
+- At peak, internal apps send **60 calls a second** and partners **20**.
+- The old ESB has had outages. A service already moved to Mule must keep answering when the ESB is down.
+- The new APIs run on CloudHub 2.0 and must survive the loss of **one availability zone**.
+- The budget for the new APIs is **2 vCores**.
+
 **Questions:**
 - How do you discover, assess and prioritise the 180 services?
 - Describe the migration approach (patterns, waves) that meets the deadline without breaking partners.
@@ -150,6 +191,7 @@ Leadership wants to move to MuleSoft with API-led connectivity, REST/JSON as the
     'Business rules hidden in the ESB are extracted to their proper owner (Process APIs, the system of record, or a rules engine) rather than copied blindly; XSLT can be reused temporarily but is typically rewritten in DataWeave with test parity.',
     'Each migrated service is validated by parallel run or response comparison against the ESB before cutover, with a quick rollback path in the router.',
     'Waves are prioritised by business value, risk and the licence deadline, with a tracked burn-down of services migrated, retired and remaining.',
+    'Size the new APIs for the migrated traffic: 80 calls a second needs 2 replicas of 0.2 vCore on each of the four APIs (1.6 vCores), which also survives a zone outage. Nothing on the migrated route may depend on the ESB.',
   ],
   solution: `
 **Discovery and assessment.**
@@ -179,6 +221,11 @@ Leadership wants to move to MuleSoft with API-led connectivity, REST/JSON as the
 - Wave 2–3: core domains and partner services; leave complex transactional orchestrations for when the team is experienced, but before month 15 to keep buffer.
 - Risk controls: parallel run, feature-flag routing, cutover windows, rollback rehearsed, performance tests against ESB baselines.
 - Track: services retired/migrated/remaining, % of traffic on Mule, defects after cutover, partner readiness. Make the licence end date a visible milestone with contingency (short ESB support extension negotiated early as insurance).
+
+**Sizing and failure handling for the first wave.**
+- The facade, the Process API and both System APIs each carry all 80 calls a second. One 0.1 vCore replica serves about 50, so each API gets **2 replicas of 0.2 vCore**: 4 × 0.4 = 1.6 vCores, inside the 2 vCore budget.
+- Two replicas spread over availability zones keep each API answering when one zone fails. With one zone gone, each API still has 100 calls a second of capacity.
+- The facade calls the new Process API, never the ESB, so an ESB outage does not touch a migrated service. Only the services still on the ESB fail, which is one more reason to move in waves.
 `,
   followUps: [
     { q: 'Why not migrate each SOAP service one-to-one to Mule first and redesign later?', a: 'It is fast but carries over duplication and ESB-specific design, and "later" rarely comes. A hybrid works best: lift simple or low-value services, but consolidate duplicates and design the System/Process layer properly for core domains.' },

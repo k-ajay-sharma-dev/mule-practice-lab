@@ -22,18 +22,43 @@ export default {
       {
         web: ['web-app', 'Web store'],
         mob: ['mobile-app', 'Mobile app'],
-        ew: ['experience-api', 'exp-web-api'],
-        em: ['experience-api', 'exp-mobile-api'],
-        prc: ['process-api', 'prc-stock-api'],
-        sys: ['system-api', 'sys-inventory-api'],
+        ew: ['experience-api', 'exp-web-api', { replicas: 2 }],
+        em: ['experience-api', 'exp-mobile-api', { replicas: 2, vCores: '0.2' }],
+        prc: ['process-api', 'prc-stock-api', { replicas: 2, vCores: '0.5' }],
+        sys: ['system-api', 'sys-inventory-api', { replicas: 2, vCores: '0.5' }],
       },
       ['web -> ew', 'mob -> em', 'ew -> prc', 'em -> prc', 'prc -> sys'],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Both channels at peak',
+          about: 'The web store sends 40 stock lookups a second and the mobile app 80, for ten minutes. The shared Process API and System API carry both channels, and the design stays inside 3 vCores.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 40, to: 'system-api' },
+            { name: 'mobile', from: 'mobile-app', rps: 80, to: 'system-api' },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], vCores: { max: 3 } },
+        },
+        {
+          name: 'One zone goes down',
+          about: 'One availability zone fails for the whole run at peak traffic. Every API keeps a replica in another zone, and both channels still get their stock levels.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 40, to: 'system-api' },
+            { name: 'mobile', from: 'mobile-app', rps: 80, to: 'system-api' },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.97 }] },
+        },
+      ],
+    },
   },
   description: `
 A grocery chain shows stock levels in its web store and its mobile app. A **channel** is one way customers reach the business, so these are two channels.
 
 The web store shows full product details. The mobile app needs a much smaller response. The stock rule is the same for both: items in other baskets do not count as available.
+
+At peak the web store sends **40** stock lookups a second and the mobile app **80**. Stock levels must keep working when one availability zone goes down. The budget for the APIs is **3 vCores**.
 
 An **Experience API** shapes data for one kind of client. A **Process API** holds the business rules. A **System API** talks to the backend system.
 
@@ -49,6 +74,8 @@ An **Experience API** shapes data for one kind of client. A **Process API** hold
     'Each channel gets its own Experience API, because each one needs a different response.',
     'The business rule lives once, in the shared Process API.',
     'A new channel needs a new Experience API, and it reuses the Process API.',
+    'The shared Process API and System API carry the sum of both channels, so size them for 120 lookups a second, not 80.',
+    'Two replicas of each API keep stock levels working when one zone goes down.',
   ],
   solution: `
 **Design.**
@@ -59,6 +86,8 @@ An **Experience API** shapes data for one kind of client. A **Process API** hold
 \`\`\`
 
 **Shared and separate.** The stock rule is shared, so it sits in \`prc-stock-api\`. If the rule changes, the team changes it once and both channels get the new result. The response shape is separate. Each Experience API returns what its own screen needs.
+
+**Sizing.** Each API runs two replicas, so one zone going down leaves one replica of each. That replica must carry the whole load on its own. \`exp-web-api\` takes 40 a second, so 0.1 vCore per replica is enough. \`exp-mobile-api\` takes 80, so it gets 0.2. The shared \`prc-stock-api\` and \`sys-inventory-api\` take both channels, 120 a second, so they get 0.5 each. That is 2.6 vCores in all, inside the budget of 3.
 `,
   followUps: [
     {

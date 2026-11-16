@@ -1,6 +1,14 @@
 // Wrong and other correct diagrams for batch B. See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // AR-068
+  await failsOn('ar-068', 'Run: A store replays a week of sales', (d) => set(d, 'prc', { vCores: undefined }))
+  // No rate limit: the hub drains straight into Oracle at its full 100 a second.
+  await failsOn('ar-068', 'Run: A store replays a week of sales', (d) => set(d, 'serp', { rateLimit: undefined }))
+  await failsOn('ar-068', 'Run: Oracle is down and the brokers restart', (d) => set(d, 'hq', { persistent: 'no' }))
+  // A redelivery limit with no DLQ on the hub queue drops sales while Oracle is down.
+  await failsOn('ar-068', 'Run: Oracle is down and the brokers restart', (d) => set(d, 'hq', { maxRedelivery: 3 }))
+  await failsOn('ar-068', 'Run: Price changes reach an offline store', (d) => set(d, 'spq', { persistent: 'no' }))
+  await failsOn('ar-068', 'Run: Price changes reach an offline store', (d) => set(d, 'price', { vCores: undefined }))
   await failsOn('ar-068', 'store broker and then the HQ hub', (d) => cut(d, 'sq ~> hq'))
   // One HQ broker over the WAN: a reboot or outage at the store loses sales again.
   await failsOn('ar-068', 'store broker and then the HQ hub', (d) => {
@@ -25,6 +33,13 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-069
+  await failsOn('ar-069', 'Run: Checkout spike on Black Friday', (d) => set(d, 'sinv', { rateLimit: undefined }))
+  // Every API on 4 × 4 vCores "to be safe" blows the budget.
+  await failsOn('ar-069', 'Run: Checkout spike on Black Friday', (d) => {
+    for (const id of ['ecom', 'resv', 'sinv']) set(d, id, { replicas: 4, vCores: '4' })
+  })
+  await failsOn('ar-069', 'Run: Stock events keep availability fresh', (d) => set(d, 'atp', { replicas: undefined, vCores: undefined }))
+  await failsOn('ar-069', 'Run: A zone goes down during checkout', (d) => set(d, 'resv', { replicas: undefined }))
   await failsOn('ar-069', 'Reservations go synchronously', (d) => swap(d, 'resv -> sinv'))
   await failsOn('ar-069', 'Availability reads never call Oracle', (d) => draw(d, 'atp -> sinv'))
   await failsOn('ar-069', 'reads availability from the ATP', (d) => cut(d, 'estore -> atp'))
@@ -49,6 +64,15 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-070
+  await failsOn('ar-070', 'Run: A runaway store report', (d) => set(d, 'estore', { rateLimit: undefined }))
+  await failsOn('ar-070', 'Run: The finance warehouse is down', (d) => set(d, 'pfin', { vCores: undefined }))
+  // A redelivery limit with no DLQ drops the changes finance needs.
+  await failsOn('ar-070', 'Run: The finance warehouse is down', (d) => set(d, 'topic', { maxRedelivery: 3 }))
+  // The System API feeds the warehouse in the request, so a warehouse outage fails checkout.
+  await failsOn('ar-070', 'Run: The finance warehouse is down', (d) => {
+    cut(d, 'sinv ~> topic')
+    draw(d, 'sinv -> dw')
+  })
   await failsOn('ar-070', 'called by a Process API', (d) => cut(d, 'prc -> swms'))
   await failsOn('ar-070', 'not from a direct feed', (d) => draw(d, 'sinv -> dw'))
   await failsOn('ar-070', 'fed from events', (d) => cut(d, 'topic ~> pfin'))
@@ -71,6 +95,14 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-070', (d) => rename(d, 'topic', 'stock-events'))
 
   // AR-071
+  // The canonical events go on a queue: Shopify and Salesforce compete for them, so each gets about half.
+  await failsOn('ar-071', 'Run: Every change reaches all three consumers', (d) => {
+    d.nodes.find((n) => n.id === 'canon').type = 'queue'
+  })
+  await failsOn('ar-071', 'Run: Salesforce is down for 30 minutes', (d) => set(d, 'pcrm', { vCores: undefined }))
+  await failsOn('ar-071', 'Run: Salesforce is down for 30 minutes', (d) => set(d, 'canon', { maxRedelivery: 5 }))
+  await failsOn('ar-071', 'Run: A vendor batch job changes 72,000 rows', (d) => set(d, 'prc', { vCores: undefined }))
+  await failsOn('ar-071', 'Run: A vendor batch job changes 72,000 rows', (d) => set(d, 'pecom', { vCores: undefined }))
   // A consumer reads raw row changes, the coupling the question warns about.
   await failsOn('ar-071', 'never the raw rows', (d) => {
     cut(d, 'canon ~> pecom')
@@ -87,7 +119,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     draw(d, 'canon ~> dw')
   })
   await passes('ar-071', (d) => {
-    box(d, 'pdw', 'process-api', 'prc-lake-loader')
+    // The loader takes every raw change, a vendor batch burst included, so it needs 0.5 vCore.
+    box(d, 'pdw', 'process-api', 'prc-lake-loader', { vCores: '0.5' })
     cut(d, 'raw ~> dw')
     draw(d, 'raw ~> pdw', 'pdw -> dw')
   })
@@ -96,6 +129,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-073
+  await failsOn('ar-073', 'Run: A zone fails at peak', (d) => set(d, 'soms', { replicas: undefined }))
+  await failsOn('ar-073', 'Run: Peak day orders and an unknown caller', (d) => set(d, 'emkt', { auth: undefined }))
+  await failsOn('ar-073', 'Run: A zone fails at peak', (d) => set(d, 'pcap', { replicas: undefined }))
+  // A redelivery limit with no DLQ drops the releases for an offline store.
+  await failsOn('ar-073', 'Run: A store system is offline', (d) => set(d, 'topic', { maxRedelivery: 3 }))
   await failsOn('ar-073', 'hands its orders to a Process API', (d) => cut(d, 'estore -> pcap'))
   await failsOn('ar-073', 'DC WMS and the stores', (d) => cut(d, 'pful -> swms'))
   await failsOn('ar-073', 'go back to the OMS', (d) => cut(d, 'pful -> soms'))
@@ -132,6 +170,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     unbox(d, 'estore')
     unbox(d, 'emkt')
     draw(d, 'store -> ecom', 'mkt -> ecom')
+    // Marketplaces now call the shared Experience API, so it enforces client ids.
+    set(d, 'ecom', { auth: 'client-id' })
   })
   await passes('ar-073', (d) => {
     box(d, 'q', 'queue', 'fulfilment-q')
@@ -140,6 +180,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-074
+  await failsOn('ar-074', 'Run: A caller without a client id', (d) => set(d, 'gw', { auth: undefined }))
+  await failsOn('ar-074', 'Run: A supplier script floods the portal', (d) => set(d, 'esup', { rateLimit: undefined }))
+  await failsOn('ar-074', 'Run: The TMS hangs', (d) => set(d, 'pful', { onFailure: undefined }))
+  // A partial answer with the default 10 second timeout: staff wait 10 seconds for every screen.
+  await failsOn('ar-074', 'Run: The TMS hangs', (d) => set(d, 'pful', { timeoutMs: undefined, circuitBreaker: undefined }))
   await failsOn('ar-074', 'never bypass the gateway', (d) => draw(d, 'sup -> esup'))
   await failsOn('ar-074', 'Supplier requests reach both Oracle and the WMS', (d) => cut(d, 'psup -> swms'))
   await failsOn('ar-074', 'Oracle, the WMS and the TMS', (d) => cut(d, 'pful -> stms'))
@@ -150,11 +195,23 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-074', (d) => {
     cut(d, 'store -> estore')
     draw(d, 'store -> gw', 'gw -> estore')
+    // Staff traffic now passes the gateway too, so exp-store-app gets its own rate limit, like every API the gateway exposes.
+    set(d, 'estore', { rateLimit: 25 })
   })
   await passes('ar-074', (d) => draw(d, 'psup -> stms'))
   await passes('ar-074', (d) => rename(d, 'sinv', 'sys-ebs-inventory'))
 
   // AR-075
+  // The ingest on 0.1 vCore cannot drain the doorbuster backlog in two hours.
+  await failsOn('ar-075', 'Run: The doorbuster burst', (d) => set(d, 'ping', { vCores: undefined }))
+  // "Scale everything": 8 replicas per front API blows the budget.
+  await failsOn('ar-075', 'Run: The doorbuster burst', (d) => {
+    for (const id of ['exp', 'pchk', 'spay']) set(d, id, { replicas: 8 })
+  })
+  await failsOn('ar-075', 'Run: Oracle is down and the broker restarts', (d) => set(d, 'q', { persistent: 'no' }))
+  // A redelivery limit on the queue with the DLQ drawn only from the ingest app: orders are dropped while Oracle is down.
+  await failsOn('ar-075', 'Run: Oracle is down and the broker restarts', (d) => set(d, 'q', { maxRedelivery: 3 }))
+  await failsOn('ar-075', 'Run: Bots push past the tested capacity', (d) => set(d, 'gw', { rateLimit: undefined }))
   await failsOn('ar-075', 'No chain of sync calls', (d) => draw(d, 'exp -> sord'))
   await failsOn('ar-075', 'does not write orders to Oracle synchronously', (d) => draw(d, 'pchk -> sord'))
   await failsOn('ar-075', 'through the queue', (d) => cut(d, 'ping -> sord'))
@@ -174,6 +231,13 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-075', (d) => rename(d, 'pchk', 'prc-order-capture'))
 
   // AR-077
+  await failsOn('ar-077', 'Run: A busy day of lot movements', (d) => set(d, 'ping', { vCores: undefined }))
+  await failsOn('ar-077', 'Run: A busy day of lot movements', (d) => set(d, 'swms', { vCores: undefined }))
+  // The System API on 0.1 vCore cannot catch up after the outage.
+  await failsOn('ar-077', 'Run: The traceability store is down for an hour', (d) => set(d, 'strace', { vCores: undefined }))
+  // A redelivery limit with no DLQ drops movements while the store is down.
+  await failsOn('ar-077', 'Run: The traceability store is down for an hour', (d) => set(d, 'tev', { maxRedelivery: 5 }))
+  await failsOn('ar-077', 'Run: A recall while customer alerts are down', (d) => set(d, 'prec', { onFailure: undefined }))
   await failsOn('ar-077', 'WMS lot events reach', (d) => cut(d, 'swms ~> tev'))
   await failsOn('ar-077', 'Supplier ASN lots reach', (d) => cut(d, 'pasn ~> tev'))
   await failsOn('ar-077', 'Every Experience API calls a Process API', (d) => cut(d, 'erec -> prec'))
@@ -191,6 +255,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-080
+  // The EU sales process also writes to the US loyalty System API.
+  await failsOn('ar-080', 'Run: Peak trading stays in each region', (d) => draw(d, 'peu -> sus'))
+  await failsOn('ar-080', 'Run: Peak trading stays in each region', (d) => set(d, 'peu', { vCores: undefined }))
+  await failsOn('ar-080', 'Run: Global analytics is down for an hour', (d) => set(d, 'pg', { vCores: undefined }))
+  // A redelivery limit with no DLQ drops aggregates while the warehouse is down.
+  await failsOn('ar-080', 'Run: Global analytics is down for an hour', (d) => set(d, 'g', { maxRedelivery: 3 }))
   await failsOn('ar-080', 'publish aggregated', (d) => cut(d, 'peu ~> g'))
   await failsOn('ar-080', 'processed into the customer store of each region', (d) => cut(d, 'qeu ~> peu'))
   await failsOn('ar-080', 'No route carries regional customer data', (d) => draw(d, 'dbus ~> dw'))
@@ -218,6 +288,23 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-081
+  // The loader keeps 0.1 vCore: it takes 50 records a second and the queue never drains.
+  await failsOn('ar-081', 'Run: Morning file burst', (d) => set(d, 'load', { vCores: undefined }))
+  // The intake keeps 0.1 vCore and cannot read the burst.
+  await failsOn('ar-081', 'Run: Morning file burst', (d) => set(d, 'job', { vCores: undefined }))
+  // Oversized intake: over the 2 vCore budget.
+  await failsOn('ar-081', 'Run: Morning file burst', (d) => set(d, 'job', { vCores: '2' }))
+  // The intake loads records straight into the Process API, so the burst hits Oracle.
+  await failsOn('ar-081', 'Run: Morning file burst', (d) => {
+    cut(d, 'job ~> q')
+    draw(d, 'job -> load')
+  })
+  // A redelivery limit of 3 parks records in the DLQ during a routine maintenance window.
+  await failsOn('ar-081', 'Run: Oracle maintenance window', (d) => set(d, 'q', { maxRedelivery: 3 }))
+  // No redelivery limit: records Oracle keeps rejecting are retried forever.
+  await failsOn('ar-081', 'Run: Oracle rejects every record', (d) => set(d, 'q', { maxRedelivery: undefined }))
+  // A limit but no DLQ drawn: the failing records are dropped.
+  await failsOn('ar-081', 'Run: Oracle rejects every record', (d) => cut(d, 'q ~> dlq'))
   await failsOn('ar-081', 'Every partner delivers', (d) => cut(d, 'p2 -> ftp'))
   await failsOn('ar-081', 'picks up from every file server', (d) => cut(d, 'job -> ftp'))
   await failsOn('ar-081', 'both Oracle and SQL Server through the queue', (d) => cut(d, 'q ~> load'))
@@ -235,14 +322,32 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     unbox(d, 'ftp')
     draw(d, 'p2 -> sftp')
   })
-  // A loader per database.
-  await passes('ar-081', (d) => {
+  // A loader per database on one shared queue. The loaders compete for every record, so the billing loader takes
+  // order records it cannot load and acknowledges them: orders that failed against Oracle never get there.
+  // (This used to be listed as a correct design; the run shows why each loader needs its own queue.)
+  await failsOn('ar-081', 'Run: Oracle maintenance window', (d) => {
     box(d, 'load2', 'process-api', 'prc-partner-billing')
     cut(d, 'load -> sbil')
     draw(d, 'q ~> load2', 'load2 -> sbil')
   })
+  // A loader per database, each with its own queue and the same redelivery limit.
+  await passes('ar-081', (d) => {
+    box(d, 'load2', 'process-api', 'prc-partner-billing')
+    box(d, 'q2', 'queue', 'partner.billing.records', { maxRedelivery: 20 })
+    cut(d, 'load -> sbil')
+    draw(d, 'job ~> q2', 'q2 ~> load2', 'q2 ~> dlq', 'load2 -> sbil')
+  })
 
   // AR-082
+  // The archive Process API keeps 0.1 vCore and fails a third of the storm surge.
+  await failsOn('ar-082', 'Run: Claims surge after a storm', (d) => set(d, 'prc', { vCores: undefined }))
+  await failsOn('ar-082', 'Run: Claims surge after a storm', (d) => set(d, 'sidx', { vCores: undefined }))
+  // The S3 copy is made in the user's request: an S3 outage fails the uploads.
+  await failsOn('ar-082', 'Run: S3 is down for 30 minutes', (d) => draw(d, 'prc -> ss3'))
+  // A redelivery limit of 5 parks thousands of good requests during a normal outage.
+  await failsOn('ar-082', 'Run: S3 is down for 30 minutes', (d) => set(d, 'q', { maxRedelivery: 5 }))
+  // No redelivery limit: refused copies are retried forever and never reach the DLQ.
+  await failsOn('ar-082', 'Run: S3 refuses every copy', (d) => set(d, 'q', { maxRedelivery: undefined }))
   await failsOn('ar-082', 'stored in Azure Blob in the user', (d) => cut(d, 'prc -> sblob'))
   await failsOn('ar-082', 'indexed in the user', (d) => cut(d, 'prc -> sidx'))
   await failsOn('ar-082', 'No chain of sync calls', (d) => draw(d, 'prc -> ss3'))
@@ -264,6 +369,13 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-082', (d) => draw(d, 'job ~> q'))
 
   // AR-083
+  // The apply Process API keeps 0.1 vCore: Kafka falls further behind every minute.
+  await failsOn('ar-083', 'Run: Dual run at peak', (d) => set(d, 'sync', { vCores: undefined }))
+  // 0.2 vCore for the SQL Server System API is still under 120 changes a second.
+  await failsOn('ar-083', 'Run: Dual run at peak', (d) => set(d, 'smss', { vCores: '0.2' }))
+  await failsOn('ar-083', 'Run: SQL Server is down for 15 minutes', (d) => set(d, 'sync', { vCores: '0.2' }))
+  // A broker that does not keep its events loses the waiting changes on a restart.
+  await failsOn('ar-083', 'Run: Kafka restarts while changes wait', (d) => set(d, 'cdc', { persistent: 'no' }))
   await failsOn('ar-083', 'still reach Oracle in sync calls', (d) => cut(d, 'prc -> sora'))
   await failsOn('ar-083', 'route channel requests to SQL Server', (d) => cut(d, 'prc -> smss'))
   // The System API reads Kafka itself, so nobody maps the Oracle types.
@@ -285,6 +397,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-086
+  // No token policy on the gateway.
+  await failsOn('ar-086', 'Run: Calls without a valid token', (d) => set(d, 'gw', { auth: undefined }))
+  // Client ID Enforcement instead of token enforcement lets a bare client id through.
+  await failsOn('ar-086', 'Run: Calls without a valid token', (d) => set(d, 'gw', { auth: 'client-id' }))
+  // The default 10 second timeout waits for slow core banking on every call.
+  await failsOn('ar-086', 'Run: Core banking slows down', (d) => set(d, 'sc', { timeoutMs: undefined, circuitBreaker: undefined }))
   await failsOn('ar-086', 'Every Experience API is reached through the gateway', (d) => cut(d, 'gw -> ep'))
   await failsOn('ar-086', 'Every Experience API calls a Process API', (d) => cut(d, 'ep -> pp'))
   await failsOn('ar-086', 'Every Process API calls a System API', (d) => cut(d, 'pp -> sc'))
@@ -302,6 +420,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-087
+  // The app never checks the client certificate the DLB reports.
+  await failsOn('ar-087', 'Run: Callers without a client certificate', (d) => set(d, 'exp', { auth: undefined }))
+  // An API key check instead of the certificate check.
+  await failsOn('ar-087', 'Run: Callers without a client certificate', (d) => set(d, 'exp', { auth: 'client-id' }))
+  // Policy admin and sanctions called one after the other: about 1.5 seconds.
+  await failsOn('ar-087', 'Run: Treaty requests at peak', (d) => set(d, 'prc', { calls: undefined }))
   await failsOn('ar-087', 'called by a Process API', (d) => cut(d, 'prc -> sb'))
   await failsOn('ar-087', 'sanctions service end to end', (d) => cut(d, 'prc -> sb'))
   await failsOn('ar-087', 'Every hop is a live HTTPS call', (d) => swap(d, 'exp -> prc'))
@@ -309,14 +433,25 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await failsOn('ar-087', 'never call System APIs directly', (d) => draw(d, 'exp -> sl'))
   await failsOn('ar-087', 'connects to its backend', (d) => cut(d, 'sl -> leg'))
   // A Process API per backend.
+  // The Experience API now makes the two calls, so it calls them in parallel to stay under 1.2 seconds.
   await passes('ar-087', (d) => {
     box(d, 'prc2', 'process-api', 'prc-sanctions')
     cut(d, 'prc -> sb')
     draw(d, 'exp -> prc2', 'prc2 -> sb')
+    set(d, 'exp', { calls: 'in parallel' })
   })
   await passes('ar-087', (d) => rename(d, 'lb', 'DLB with client cert validation'))
 
   // AR-088
+  // No SLA limit: the partner's 300 a second overload the APIs and fail with 503.
+  await failsOn('ar-088', 'Run: A partner goes over its plan', (d) => set(d, 'gw', { rateLimit: undefined }))
+  // A Premium plan of 100 a second with the shared Process API left at 0.1 vCore.
+  await failsOn('ar-088', 'Run: A partner goes over its plan', (d) => {
+    set(d, 'pr', { vCores: undefined })
+    set(d, 'gw', { rateLimit: 100 })
+  })
+  // No Client ID Enforcement: calls with no contract get through.
+  await failsOn('ar-088', 'Run: Calls without a client id', (d) => set(d, 'gw', { auth: undefined }))
   await failsOn('ar-088', 'called by a Process API', (d) => cut(d, 'pr -> st'))
   await failsOn('ar-088', 'Transport management is reached only', (d) => draw(d, 'pr -> tms'))
   await failsOn('ar-088', 'connects to its backend', (d) => cut(d, 'st -> tms'))
@@ -339,6 +474,14 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
 
   // AR-089
+  // No quota on the claims proxy: bursts reach the vendor and fail.
+  await failsOn('ar-089', 'Run: Partners flood the claims service', (d) => set(d, 'gw1', { rateLimit: undefined }))
+  // A server group: each of four nodes counts 100 on its own, so 400 a second can reach the vendor.
+  await failsOn('ar-089', 'Run: Partners flood the claims service', (d) => set(d, 'gw1', { rateLimit: 400 }))
+  // No spike control on the quotes proxy.
+  await failsOn('ar-089', 'Run: A burst of quote requests', (d) => set(d, 'gw2', { rateLimit: undefined }))
+  // No Client ID Enforcement on the claims proxy.
+  await failsOn('ar-089', 'Run: Calls without a client id', (d) => set(d, 'gw1', { auth: undefined }))
   await failsOn('ar-089', 'Every proxy is reached through the load balancer', (d) => cut(d, 'lb -> gw2'))
   await failsOn('ar-089', 'both enter through the load balancer', (d) => cut(d, 'i -> lb'))
   await failsOn('ar-089', 'Every proxy sends its monitoring data', (d) => cut(d, 'gw2 -> mon'))
@@ -353,6 +496,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-089', (d) => rename(d, 'lb', 'F5 load balancer'))
 
   // AR-095
+  // A migrated app left with one replica stops the chain when its zone fails.
+  await failsOn('ar-095', 'Run: One availability zone fails', (d) => set(d, 'pr', { replicas: undefined }))
+  // The CloudHub 1.0 portal API kept on one worker.
+  await failsOn('ar-095', 'Run: One availability zone fails', (d) => set(d, 'e2', { replicas: undefined }))
+  // The partner API moved without its client certificate check.
+  await failsOn('ar-095', 'Run: Partner calls without a client certificate', (d) => set(d, 'e1', { auth: undefined }))
   await failsOn('ar-095', 'reaches SAP back through the DLB', (d) => cut(d, 'dlb -> s1'))
   await failsOn('ar-095', 'calls back through the DLB', (d) => cut(d, 'pr -> dlb'))
   await failsOn('ar-095', 'directly or through ingress', (d) => cut(d, 'e2 -> ing'))

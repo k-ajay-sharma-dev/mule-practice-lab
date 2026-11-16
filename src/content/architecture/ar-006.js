@@ -35,20 +35,52 @@ export default {
     reference: diagram(
       {
         ph: ['partner', 'Pharmacies'],
-        gtm: ['load-balancer', 'Global traffic manager (DNS failover for api.distributor.eu, TTL 60 s)'],
+        gtm: ['load-balancer', 'Global traffic manager (DNS failover for api.distributor.eu, TTL 60 s)', { mode: 'failover' }],
         ingW: ['load-balancer', 'EU-West ingress'],
         ingC: ['load-balancer', 'EU-Central ingress'],
-        ordW: ['experience-api', 'Order capture API (EU-West, active)'],
-        ordC: ['experience-api', 'Order capture API (EU-Central, hot standby)'],
+        ordW: ['experience-api', 'Order capture API (EU-West, active)', { replicas: 2 }],
+        ordC: ['experience-api', 'Order capture API (EU-Central, hot standby)', { replicas: 2 }],
         db: ['database', 'Order DB with outbox (EU-West primary)'],
         dbr: ['database', 'Order DB replica (EU-Central)'],
         q: ['queue', 'Order events (Anypoint MQ, replayed from the outbox)'],
-        erpf: ['process-api', 'Order to ERP flow (warm standby in EU-Central)'],
-        ssap: ['system-api', 'sys-sap-orders'],
+        erpf: ['process-api', 'Order to ERP flow (warm standby in EU-Central)', { replicas: 2 }],
+        ssap: ['system-api', 'sys-sap-orders', { replicas: 2 }],
         sap: ['erp', 'SAP S/4HANA (own DR site, about 30 min)'],
       },
       ['ph -> gtm', 'gtm -> ingW', 'gtm -> ingC', 'ingW -> ordW', 'ingC -> ordC', 'ordW -> db', 'ordC -> dbr', 'db -> dbr', 'ordW ~> q', 'q ~> erpf', 'erpf -> ssap', 'ssap -> sap'],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 30 },
+        { match: 'erp', latencyMs: 800 },
+      ],
+      tests: [
+        {
+          name: 'SAP fails over to its DR site',
+          about: 'Pharmacies send 200 orders a minute while SAP is unavailable for 30 minutes. Every order is still accepted, the orders wait in the queue, and all of them reach SAP once it is back.',
+          traffic: [{ name: 'orders', from: 'partner', rps: 3.4, kind: 'write', to: [DB, 'erp'] }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: 'erp', min: 0.99 }],
+            backlog: [{ queue: BROKER, minPeak: 3000, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+        {
+          name: 'One availability zone goes down',
+          about: 'A zone in the region is lost for the whole run. In-region HA covers it: with 2 replicas of each app, orders are still accepted and still reach SAP, with no DR failover.',
+          traffic: [{ name: 'orders', from: 'partner', rps: 3.4, kind: 'write', to: [DB, 'erp'] }],
+          incidents: [{ zone: true }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: 'erp', min: 0.95 }],
+            vCores: { max: 1.5 },
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -152,7 +184,9 @@ Other facts:
 - Apps use **Object Store v2** for watermarks and idempotency keys.
 - Secrets are in secure properties.
 - Consumers reach APIs through a single hostname \`api.distributor.eu\`.
-- Budget is limited. The CFO will not pay for a fully active-active second region for everything.
+- Budget is limited. The CFO will not pay for a fully active-active second region for everything. The apps in this design get at most **1.5 vCores**.
+- Order capture must also survive the loss of one **availability zone** inside the region, without a DR failover.
+- The order DB answers in about 30 ms and SAP in about 800 ms. While SAP fails over (30 min), every accepted order must still reach SAP afterwards.
 
 **Design the DR strategy:**
 - What is the deployment topology per tier (active-active, warm standby, pilot light, backup & redeploy)?
@@ -180,6 +214,7 @@ Other facts:
     'Object Store v2 and Anypoint MQ are regional: state does not follow automatically; idempotency keys/watermarks need a replicated store (e.g. the DB) or a documented tolerance for re-processing.',
     'RPO ≈ 0 for orders requires synchronous persistence to a replicated store before acknowledging the order; async DB replication alone implies some loss — the gap is stated explicitly.',
     'Infrastructure/config as code via CI/CD (Maven/Mule deploy, API Manager config, secrets per region) and regular DR drills that measure the actual RTO/RPO.',
+    'Settings that matter: 2 replicas for the order capture APIs, the order to ERP flow and the SAP System API (a zone outage leaves one), and a persistent queue with no redelivery limit, so 30 minutes of SAP failover loses no order. 0.1 vCore each is enough for 200 orders a minute.',
   ],
   solution: `
 **Start with in-region HA.** Every Tier 1/2 app runs **≥ 2 replicas** (CloudHub 2.0 spreads replicas across availability zones in a region), with rolling updates for zero-downtime deployments. Many "outages" are covered here; DR is only for losing the region or a critical dependency.
@@ -198,6 +233,8 @@ Other facts:
 - **Anypoint MQ:** queues are regional. In-flight messages in a lost region may be unavailable until it recovers. Options: check whether Anypoint MQ's cross-region failover feature fits your queue types and region pair; otherwise make producers able to **republish from the source of truth** (e.g. an outbox table in the order DB with a "sent" flag) so the RPO of 5 min is met by replay, not by the queue.
 - **Object Store v2:** regional and not replicated to the DR region. Watermarks and idempotency keys used for DR-critical flows should live in the replicated DB, or the design must tolerate a reset (start from a safe earlier watermark, rely on idempotent targets).
 - **SAP:** its own DR takes ~30 min, so Tier 2 flows to SAP must **buffer** (queue/outbox) during SAP failover; the effective RTO of order-to-ERP is bounded by SAP, not by Mule.
+
+**Sizing and settings.** 200 orders a minute is about 3.4 a second, so 0.1 vCore per replica is plenty. What matters is the replica count: the order capture APIs, the order to ERP flow and the SAP System API each run **2 replicas**, so losing a zone leaves one running. That is 0.8 vCores in total, well inside the 1.5 vCore budget. The order events queue is **persistent** and has no redelivery limit (or a DLQ behind it), so 30 minutes of SAP failover holds about 6,000 orders and then drains them. A low Deliveries before the DLQ with no DLQ would drop those orders.
 
 **Keeping regions in sync.** Everything through **CI/CD**: one pipeline deploys the same artifact to both regions (Mule Maven plugin / Anypoint CLI), API Manager instances and policies managed as code (e.g. via the API Manager REST APIs or Terraform-style tooling), region-specific properties files, secrets present in both regions' secret stores. Client applications/contracts must be valid in both environments. Drift checks after each release.
 

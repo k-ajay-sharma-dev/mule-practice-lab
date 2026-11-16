@@ -10,7 +10,9 @@ const CELL = { type: API, label: CELL_WORDS }
 const CELL_DB = { type: DB, label: CELL_WORDS }
 const SHARED_DB = { type: DB, label: ['shared', 'row-level', 'tenant_id'] }
 const REGISTRY = { label: ['registry', 'tenant config'] }
-const DISPATCHER = { type: ['process-api', 'batch-job'], label: ['dispatch', 'webhook', 'sender', 'delivery'] }
+const SMALL = { type: 'partner', label: 'basic' }
+const BIG = { type: 'partner', label: 'marketplace' }
+const DISPATCHER ={ type: ['process-api', 'batch-job'], label: ['dispatch', 'webhook', 'sender', 'delivery'] }
 
 export default {
   id: 'ar-026',
@@ -43,10 +45,10 @@ export default {
       {
         ten: ['partner', 'Basic and Pro tenants (shops, forwarders)'],
         big: ['partner', 'Big marketplaces and Enterprise tenants'],
-        gw: ['api-gateway', 'API Manager: JWT validation, SLA tier rate limits'],
+        gw: ['api-gateway', 'API Manager: JWT validation, SLA tier rate limits', { auth: 'jwt' }],
         idp: ['identity-provider', 'Company IdP (tenantId claim)'],
-        pool: ['process-api', 'Shipment API (shared pool)'],
-        cell: ['process-api', 'Shipment API (Enterprise cell, EU region)'],
+        pool: ['process-api', 'Shipment API (shared pool)', { replicas: 2, vCores: '0.5' }],
+        cell: ['process-api', 'Shipment API (Enterprise cell, EU region)', { replicas: 2, vCores: '1', rateLimit: 600 }],
         sdb: ['database', 'Shared DB (tenant_id and row-level security)'],
         cdb: ['database', 'Dedicated Enterprise DB (EU region)'],
         reg: ['database', 'Tenant registry (plan, features, webhooks, limits)'],
@@ -61,6 +63,39 @@ export default {
         'pool ~> qs', 'pool ~> qb', 'cell ~> qb', 'qs ~> da', 'qb ~> dbg', 'da -> wh', 'dbg -> wh',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: CELL_DB, latencyMs: 20, maxRps: 800 },
+        { match: DB, latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Black Friday at the big marketplaces',
+          about: 'Small tenants send 150 requests a second. The big marketplaces send 400, rising to 1,000 for three minutes. The cell answers 429 above the 600 a second Enterprise tier, never 503, and small tenants do not notice.',
+          traffic: [
+            { name: 'small tenants', from: SMALL, rps: 150, kind: 'write', to: SHARED_DB },
+            { name: 'big marketplaces', from: BIG, rps: 400, kind: 'write', to: CELL_DB, spikes: [{ at: 3, forMin: 3, rps: 1000 }] },
+          ],
+          expect: {
+            answers: [
+              { flow: 'small tenants', minSuccess: 0.99, maxMs: 200 },
+              { flow: 'big marketplaces', minSuccess: 0.7, maxFailed: 0.01 },
+            ],
+            vCores: { max: 4 },
+          },
+        },
+        {
+          name: 'The identity provider is down',
+          about: 'The IdP is down for the whole run. The gateway checks JWT signatures with keys it already has, so tenants with a token are still answered, and a caller with no token is refused.',
+          traffic: [
+            { name: 'small tenants', from: SMALL, rps: 150, kind: 'write', to: SHARED_DB },
+            { name: 'no token', from: SMALL, rps: 10, kind: 'write', to: SHARED_DB, auth: 'none' },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ flow: 'small tenants', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -141,6 +176,8 @@ A logistics SaaS company is building a **shipment tracking & booking API** on An
 - Tenants want to configure webhooks for status updates.
 - One big marketplace's **Black Friday** traffic last year slowed the old system down for everyone.
 
+Numbers for sizing: all the small (Basic and Pro) tenants together send about **150 requests a second**. The big marketplaces send about **400**, and up to **1,000 a second** on Black Friday. Their Enterprise tier allows **600 a second**, and the dedicated Enterprise DB handles about 800 a second. The DBs answer in about 20 ms. Requests must keep working when the company IdP is down. The budget for the Shipment APIs is **4 vCores**.
+
 **Questions:**
 - How do you identify the tenant on every request, and why must it not come from a free-form header?
 - What isolation model do you choose (shared everything, shared apps with separate data, dedicated deployments), and for which tenants?
@@ -165,6 +202,7 @@ A logistics SaaS company is building a **shipment tracking & booking API** on An
     'Noisy neighbours are contained by per-tenant rate limits, separate queues or consumer pools for large tenants, and scaling shared capacity on aggregate load.',
     'Tenant configuration (features, webhooks, limits) lives in a tenant registry/config store with self-service onboarding via APIs, not in per-tenant code or properties.',
     'Data isolation is enforced centrally: every data access filtered by the authenticated tenant ID in a shared component, database-level controls (e.g. row-level security or separate schemas), and automated cross-tenant access tests.',
+    'Settings: JWT validation at the gateway (it keeps working while the IdP is down, unlike a call to the IdP per token), the shared pool on 2 × 0.5 vCore, and the Enterprise cell on 2 × 1 vCore with a 600 a second limit that answers 429 before its DB is overloaded. No single gateway wide limit, which would throttle small tenants during a big tenant\'s peak.',
   ],
   solution: `
 **Tenant identification.** Each tenant registers client applications (Exchange/API portal) → OAuth 2.0 client credentials from the company's IdP, with a **tenantId claim** in the token (or a mapping client_id → tenant). The gateway validates the token (JWT Validation / OAuth policy); the API reads tenantId **from the validated token** and ignores any tenant value in headers or body. If tenant came from a header, any tenant could read another's data by changing it.
@@ -181,6 +219,12 @@ The same artifact is deployed in both models; only configuration differs (deploy
 - **Protect shared resources:** per-tenant quotas in front of the DB and async processing; for event/webhook processing, **separate queues or consumer pools** for big tenants so a Black Friday backlog from one marketplace doesn't delay others' webhooks.
 - Big marketplaces → move to Enterprise/dedicated cells, or at least their own replicas for heavy endpoints.
 - Capacity planning on aggregate load plus the largest tenant's peak; monitor **per-tenant** metrics (requests, latency, errors) via structured logs with tenantId.
+
+**Sizing and settings.**
+- The **shared pool** runs 2 replicas of 0.5 vCore for the 150 requests a second of small tenants. The **Enterprise cell** runs 2 replicas of 1 vCore, about 3.2 vCores in total, inside the 4 vCore budget.
+- The cell has its own **rate limit of 600 a second**, the Enterprise tier. On Black Friday the big marketplaces get 429 above it, a clear signal to back off, instead of 503 from an overloaded dedicated DB (about 800 a second). The small tenants run on other replicas and another DB, so they do not notice.
+- A single rate limit for the whole gateway would be wrong: during the peak it would answer 429 to small tenants too. Limits belong to each client application (SLA tier), and in the model to each deployment.
+- The gateway uses **JWT validation**, which checks the signature with keys it already has. If it asked the IdP about every token (OAuth introspection), an IdP outage would stop every tenant.
 
 **Tenant config and onboarding.** A **Tenant Registry** (DB + Tenant Management API): plan, features, webhook URLs + secrets (encrypted), limits, region/cell. Onboarding is an API/portal flow: create tenant, register client app, assign SLA tier, configure webhooks — automated, no redeploy. Apps cache tenant config with a short TTL. Webhooks are delivered by a queue-based dispatcher with signing (HMAC), retries with backoff, per-tenant DLQ and auto-disable after repeated failures.
 

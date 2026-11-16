@@ -31,15 +31,37 @@ export default {
         mob: ['mobile-app', 'Mobile app (old and new releases)'],
         brk: ['web-app', 'Broker portal'],
         ptn: ['partner', '14 broker partners'],
-        gw: ['api-gateway', 'API Manager: separate v1 and v2 instances'],
+        gw: ['api-gateway', 'API Manager: separate v1 and v2 instances', { auth: 'client-id' }],
         v1: ['experience-api', 'Policy Experience API v1 (deprecated, Sunset header)'],
-        v2: ['experience-api', 'Policy Experience API v2'],
+        v2: ['experience-api', 'Policy Experience API v2', { vCores: '0.5' }],
         prc: ['process-api', 'prc-policy-api'],
         sys: ['system-api', 'sys-policy-api'],
         pas: ['legacy', 'Policy administration system'],
       },
       ['mob -> gw', 'brk -> gw', 'ptn -> gw', 'gw -> v1', 'gw -> v2', 'v1 -> prc', 'v2 -> prc', 'prc -> sys', 'sys -> pas'],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Mobile app and broker portal move to v2',
+          about: 'The mobile app sends 120 requests a second and the broker portal 30, all to v2. The v2 instance must answer them all, and the APIs stay inside the 1.5 vCore budget.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 120, to: V2 },
+            { name: 'brokers', from: 'web-app', rps: 30, to: V2 },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 1.5 } },
+        },
+        {
+          name: 'Partners stay on v1',
+          about: 'The partners send 15 requests a second to v1 with their registered client IDs, and they are answered. A caller with no client ID sends 5 a second and is refused.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 15, to: V1 },
+            { name: 'unknown caller', from: 'partner', rps: 5, to: V1, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'partners', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -126,6 +148,8 @@ The product team now wants to:
 
 Constraints: partners release their software only **twice a year**; the mobile app has users on old versions for months; operations does not want to run many versions forever.
 
+Traffic once v2 is live: the mobile app sends **120 requests a second** and the broker portal **30**, both to v2. The partners still send **15 a second** to v1 until they migrate. Every caller must present a registered **client ID**. The budget for the APIs is **1.5 vCores**.
+
 **Questions:**
 - Which of the three changes are breaking, and what version number does each lead to?
 - Where does the version live (URL, header, Exchange asset version), and why?
@@ -145,6 +169,7 @@ Constraints: partners release their software only **twice a year**; the mobile a
     'v1 and v2 run as separate API instances in API Manager, ideally backed by the same Process/System APIs so only the Experience mapping differs.',
     'Deprecation is communicated with a dated sunset policy (e.g. 6–12 months), Exchange/API Manager deprecation status, and Deprecation/Sunset response headers.',
     'Retirement is driven by data: API analytics show which client apps still call v1, and those owners are contacted before shutdown.',
+    'Size each version for its own traffic: v2 carries 150 requests a second and needs 0.5 vCore, while v1 with 15 a second stays on 0.1 vCore. Client ID enforcement on both instances refuses unknown callers.',
   ],
   solution: `
 **Breaking vs non-breaking.**
@@ -162,6 +187,8 @@ A useful trick: avoid breaking changes where you can. For the rename you could *
 - Document a compatibility rule: "within a major version we only add optional fields and endpoints; clients must ignore unknown fields."
 
 **Side by side.** Create a **separate API instance** in API Manager for v2 (own policies, own client contracts). Implementation options: one Mule app serving both base paths, or a second app. Preferably both versions call the **same Process/System APIs** — v1 is just an old mapping in the Experience layer, so the cost of keeping it alive is small.
+
+**Sizing and policies.** Each version is sized for the traffic it carries. v2 takes the mobile app and the broker portal, 150 requests a second, so it gets 0.5 vCore. v1 only serves the 15 partner requests a second, so 0.1 vCore is enough, and the shared Process and System APIs need no copy. That stays well inside the 1.5 vCore budget. Client ID enforcement on the gateway (or on each instance through Autodiscovery) refuses any caller without a registered client ID, and the per-client contracts are what the analytics later use to find who still calls v1.
 
 **Deprecation plan.**
 1. Publish v2, mark v1 as **deprecated** in Exchange and in API Manager (stops new client applications from requesting access to v1).

@@ -29,14 +29,51 @@ export default {
         p: ['partner', 'Partner systems'],
         i: ['internal-app', 'Branch applications'],
         lb: ['load-balancer', 'Data centre load balancer'],
-        gw1: ['api-gateway', 'claims-soap-proxy (WSDL proxy, Mule cluster)'],
-        gw2: ['api-gateway', 'quotes-proxy (OAS proxy, Mule cluster)'],
-        q: ['system-api', 'quotes-service (Spring Boot, unchanged)'],
+        gw1: ['api-gateway', 'claims-soap-proxy (WSDL proxy, Mule cluster)', { auth: 'client-id', rateLimit: 100 }],
+        gw2: ['api-gateway', 'quotes-proxy (OAS proxy, Mule cluster)', { auth: 'client-id', rateLimit: 200 }],
+        q: ['system-api', 'quotes-service (Spring Boot, unchanged)', { vCores: '0.5' }],
         v: ['legacy', 'Vendor claims SOAP service'],
         mon: ['monitoring', 'Anypoint Monitoring (agent on every server)'],
       },
       ['p -> lb', 'i -> lb', 'lb -> gw1', 'lb -> gw2', 'gw1 -> v', 'gw2 -> q', 'gw1 -> mon', 'gw2 -> mon'],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 300, maxRps: 120 }],
+      tests: [
+        {
+          name: 'Partners flood the claims service',
+          about: 'Partners call claims 60 times a second, and 300 a second for 5 minutes. The shared quota of 100 a second answers 429 to the rest, so the vendor service never gets more than it can take and no call fails with an error.',
+          durationMin: 20,
+          traffic: [{ name: 'claims', from: 'partner', rps: 60, to: 'legacy', spikes: [{ at: 5, forMin: 5, rps: 300 }] }],
+          expect: {
+            answers: [{ maxFailed: 0.01, minLimited: 0.1 }],
+            peakRps: [{ node: 'legacy', max: 110 }],
+          },
+        },
+        {
+          name: 'A burst of quote requests',
+          about: 'Branches and partners ask for 100 quotes a second, and 500 a second for 5 minutes. The spike limit of 200 a second keeps quotes-service inside its 250, so calls get 429, not errors.',
+          durationMin: 20,
+          traffic: [{ name: 'quotes', from: 'internal-app', rps: 100, to: 'system-api', spikes: [{ at: 5, forMin: 5, rps: 500 }] }],
+          expect: { answers: [{ maxFailed: 0.01, minLimited: 0.1 }] },
+        },
+        {
+          name: 'Calls without a client id',
+          about: 'Partners with a contract call claims with their client id. Callers with no client id are refused at the proxy, so no anonymous call reaches the vendor.',
+          traffic: [
+            { name: 'contract', from: 'partner', rps: 30, to: 'legacy', auth: 'client-id' },
+            { name: 'no client id', from: 'partner', rps: 10, to: 'legacy', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'contract', minSuccess: 0.99 },
+              { flow: 'no client id', minRefused: 0.99 },
+            ],
+            notReached: [{ flow: 'no client id', node: 'legacy' }],
+          },
+        },
+      ],
+    },
   },
   description: `
 An insurer must stay in its data centre for regulatory reasons, and it runs Mule on-premises, managed from Runtime Manager. Security wants all access to two services to be governed:
@@ -51,6 +88,11 @@ Other facts:
 - Each partner's quota must hold across all servers, because the vendor charges for every call.
 - A proxy outage must not expose the services without policies after a restart.
 - Operations want metrics and logs from all four servers, and a view of who calls what.
+
+Numbers for sizing:
+- Partners call \`claims\` about 60 times a second, with bursts of 300 a second for a few minutes. The vendor service takes at most 120 calls a second (about 300 ms each), and the partners' shared quota is 100 a second across all servers.
+- Branches and partners ask \`quotes\` for about 100 quotes a second, with bursts of 500. \`quotes-service\` handles up to 250 a second. (In the designer it is a System API box with 0.5 vCore, which stands for that capacity.)
+- Calls over a limit must get 429, not errors, and calls without a client id must be refused.
 
 **Questions:**
 - Draw the runtime path.
@@ -81,6 +123,7 @@ Other facts:
     'Spike Control cannot be clustered, so divide the backend limit between the nodes.',
     'Gatekeeper returns 503 after a restart until policies apply. The flexible level uses the local cache if the platform cannot be reached.',
     'Install the Anypoint Monitoring agent on each server. API Visualizer on standalone Mule also needs header injection, set at server level.',
+    'Settings that matter: Client ID Enforcement on both proxies; a cluster-wide quota of 100 a second on claims, below the vendor\'s 120; spike control adding up to 200 a second on quotes, below the 250 that quotes-service can take.',
   ],
   solution: `
 **Architecture.**
@@ -106,6 +149,11 @@ Multicast is blocked, so use a **unicast** cluster. It needs fixed IP addresses,
 - **Rate Limiting SLA**, with Distributed, gives one quota per contract across the cluster. Distributed counters can add latency, so prefer windows longer than one minute.
 - **Spike Control** works per gateway instance and cannot be clustered. If \`quotes-service\` can take 200 requests per second, set about 50 per node on four nodes.
 - **Client ID Enforcement** identifies the partners. Each client application has a contract with the instance.
+
+**Limits in numbers.**
+- \`claims-soap-proxy\`: Client ID Enforcement, and a Distributed Rate Limiting SLA quota of 100 a second across the cluster. A burst of 300 a second gets 429 for what is over the quota, and the vendor never sees more than 100, below its 120. On a server group each of the four nodes would count 100 on its own, so up to 400 a second could reach the vendor and calls would fail.
+- \`quotes-proxy\`: Client ID Enforcement and Spike Control at 50 a second per node, 200 in all, below the 250 that \`quotes-service\` takes. Without it a burst of 500 a second overloads the service and a third of the calls fail with errors.
+- A call without a client id is refused at the proxy, so no anonymous call reaches either service.
 
 **Restart and platform outages.** Gatekeeper is engaged on restart or redeploy, and the proxy returns **503** until all policies apply without errors. So a restart cannot expose a service without its policies. The default level from Mule 4.1.0 is **flexible**: if the platform cannot be reached, Mule uses its local cache of policies, and a resource stays blocked only if there is no cache. **Strict** stays blocked until the connection returns. Choose strict if an outage should fail closed. Do not use disabled here.
 

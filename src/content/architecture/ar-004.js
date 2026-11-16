@@ -33,9 +33,9 @@ export default {
         bat: ['internal-app', 'Nightly reconciliation job'],
         idp: ['identity-provider', 'Bank IdP / authorization server'],
         lb: ['load-balancer', 'Partner ingress (mTLS)'],
-        gw: ['api-gateway', 'API Manager policies (JWT, SLA tiers, JSON threat)'],
-        api: ['experience-api', 'exp-payments-status-api'],
-        sp: ['system-api', 'sys-payments-api'],
+        gw: ['api-gateway', 'API Manager policies (JWT, SLA tiers, JSON threat)', { auth: 'jwt', rateLimit: 150 }],
+        api: ['experience-api', 'exp-payments-status-api', { vCores: '0.5' }],
+        sp: ['system-api', 'sys-payments-api', { vCores: '0.5' }],
         core: ['database', 'Payments store'],
       },
       [
@@ -45,6 +45,51 @@ export default {
         'gw -> api', 'api -> sp', 'sp -> core',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 20, maxRps: 200 }],
+      tests: [
+        {
+          name: 'Callers without a valid token',
+          about: 'Partners send 60 requests a second with tokens and the mobile backend 40. A client also sends 10 a second with no token. Those must all be refused, while the callers with tokens are answered.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 60, to: 'database' },
+            { name: 'mobile', from: 'mobile-app', rps: 40, to: 'database' },
+            { name: 'no token', from: 'partner', rps: 10, auth: 'none', to: 'database' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'partners', minSuccess: 0.99 },
+              { flow: 'mobile', minSuccess: 0.99 },
+              { flow: 'no token', minRefused: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'The identity provider is down',
+          about: 'The bank identity provider is down for the whole run. Tokens already issued are still valid, so partners (60 a second), the mobile backend (40) and the batch job (20) must still be answered.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 60, to: 'database' },
+            { name: 'mobile', from: 'mobile-app', rps: 40, to: 'database' },
+            { name: 'batch', from: { type: 'internal-app', label: 'reconciliation' }, rps: 20, to: 'database' },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'A partner floods the API',
+          about: 'A partner bug sends 600 requests a second for three minutes. Requests over the limit get 429, nothing fails with an error, and the payments store never gets more than its 200 a second, inside the 2 vCore budget.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 60, to: 'database', spikes: [{ at: 3, forMin: 3, rps: 600 }] },
+            { name: 'mobile', from: 'mobile-app', rps: 40, to: 'database' },
+          ],
+          expect: {
+            answers: [{ flow: 'partners', maxFailed: 0.02, minLimited: 0.1 }],
+            peakRps: [{ node: 'database', max: 200 }],
+            vCores: { max: 2 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A bank exposes a **Payments Status API** (Mule 4, deployed to CloudHub 2.0, managed in API Manager). Three kinds of consumers:
@@ -54,6 +99,8 @@ A bank exposes a **Payments Status API** (Mule 4, deployed to CloudHub 2.0, mana
 - **Internal batch reconciliation job** — runs nightly inside the corporate network.
 
 Constraints: partners are on contract tiers (Gold 50 rps, Silver 10 rps). The security team wants tokens validated **without** a call to the IdP on every request, and payloads must be protected against oversized/malicious JSON.
+
+Numbers for sizing: at peak partners send 60 requests a second in total, the mobile backend 40 and the batch job 20. The payments store answers in about 20 ms and takes at most 200 requests a second. A partner bug once sent 600 requests a second for several minutes. The IdP has had outages, and the API must keep answering through them. The budget for the APIs is 2 vCores.
 
 **Questions:**
 - Which authentication mechanism do you use for each consumer type, and why?
@@ -80,6 +127,7 @@ Constraints: partners are on contract tiers (Gold 50 rps, Silver 10 rps). The se
     'mTLS for partners at the ingress (client certificates validated against a trusted CA), giving strong client authentication on top of the token.',
     'Rate Limiting - SLA based with Gold/Silver tiers tied to client applications, plus JSON threat protection.',
     'Data-level authorization in the API: derive the partner ID from the token (client_id/claim), never from a request parameter, and filter queries by it.',
+    'Settings that matter: JWT validation on the gateway (it keeps working while the IdP is down, where token introspection would not), a rate limit of about 150 a second in front of a store that takes 200, and 0.5 vCore on each API for 120 requests a second.',
   ],
   solution: `
 **Partners — OAuth 2.0 client credentials + mTLS.** Each partner gets a client registered in the bank's authorization server and obtains tokens with the **client credentials grant**. Tokens are JWTs with scopes such as \`payments:read\`.
@@ -96,6 +144,11 @@ On top of that, require **mutual TLS**: the partner presents a client certificat
 4. **Rate Limiting - SLA based** — Gold/Silver SLA tiers in API Manager; each partner's client application is approved on a tier, so limits follow the contract.
 5. **JSON Threat Protection** — max depth, string length, array size.
 6. Spike Control in front of fragile backends.
+
+**Sizing and failure handling.**
+- JWT validation checks the signature with cached keys, so tokens already issued keep working while the IdP is down. A policy that introspects each token with the IdP would refuse every caller during the outage.
+- A rate limit of 150 a second on the gateway answers 429 to a flooding partner and keeps the payments store under its 200 a second. Without it the flood reaches the API, which runs out of capacity and fails with 503 for everyone. Per-client SLA tiers go further and keep one partner from using the others' share.
+- 120 requests a second is more than 0.1 vCore carries (about 50). 0.5 vCore on the Experience and System API is enough, 1 vCore in all.
 
 **Data-level authorization.** Policies prove *who* is calling; the API must still enforce *what* they can see. Take the partner ID from the validated token (\`client_id\` or a custom claim), never from a query parameter, and filter every query by it. Return 404 (not 403) for other partners' payment IDs to avoid leaking existence. Log access with the client ID for audit.
 `,

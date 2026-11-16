@@ -21,16 +21,41 @@ export default {
       {
         app: ['internal-app', 'Dispatch app'],
         idp: ['identity-provider', 'Identity provider'],
-        gw: ['api-gateway', 'API gateway'],
+        gw: ['api-gateway', 'API gateway', { auth: 'jwt' }],
         exp: ['experience-api', 'exp-dispatch-api'],
       },
       ['app -> idp', 'app -> gw', 'gw -> idp', 'gw -> exp'],
     ),
+    simulation: {
+      systems: [],
+      tests: [
+        {
+          name: 'A request without a token',
+          about: 'The dispatch app sends 20 requests a second with valid tokens. A tool on the network sends 15 a second with no token. The gateway refuses the tool, and the Experience API never sees it.',
+          traffic: [
+            { name: 'dispatch', from: 'internal-app', rps: 20, to: 'experience-api' },
+            { name: 'no token', from: 'internal-app', rps: 15, auth: 'none', to: 'experience-api' },
+          ],
+          expect: { answers: [{ flow: 'dispatch', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }], notReached: [{ flow: 'no token', node: 'experience-api' }] },
+        },
+        {
+          name: 'The identity provider is down',
+          about: 'The identity provider is down for the whole run. Tokens already issued are valid for an hour, so dispatch keeps working.',
+          traffic: [{ name: 'dispatch', from: 'internal-app', rps: 20, to: 'experience-api' }],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A shipping company has a dispatch app for its staff. The app calls an Experience API, and security wants proof of who is calling.
 
 An **identity provider** is a service that confirms who a caller is and issues tokens. A **token** is a digital pass with a time limit. The app sends it with each request, and an **API gateway** checks it.
+
+Some numbers for the design:
+- The dispatch app sends about 20 requests a second. A token is valid for an hour.
+- The identity provider is a hosted service that has had outages. Dispatch must keep working while it is down, with the tokens the app already holds.
 
 **Questions:**
 - Draw how the token is issued and checked.
@@ -45,6 +70,7 @@ An **identity provider** is a service that confirms who a caller is and issues t
     'The app gets a token first, then sends it with each request.',
     'The gateway checks the token before the request reaches the API.',
     'A request with a missing or invalid token is rejected at the gateway.',
+    'JWT Validation checks the signature with the provider public keys, so it keeps working while the provider is down. Introspection asks the provider about every token and stops when the provider stops.',
   ],
   solution: `
 **Design.**
@@ -57,6 +83,8 @@ An **identity provider** is a service that confirms who a caller is and issues t
 **A bad token.** The gateway rejects the request, usually with HTTP status 401 (unauthorized), and the Experience API never sees it. An expired token fails in the same way, so the app has to get a new one.
 
 **Which policy?** OAuth 2.0 is the common standard for this exchange. In API Manager, the JWT Validation policy checks a signed token (a JWT). Other policies, such as OAuth 2.0 Token Introspection, ask the provider about the token. Which ones you can apply depends on the gateway you use.
+
+**When the identity provider is down.** Here the choice matters. JWT Validation reads the public keys of the provider once and keeps them, which is the line from the gateway to the provider. It then checks each signature locally, so tokens already issued keep working during an outage. Introspection asks the provider about each token, so every request fails while the provider is down. For this dispatch app, choose JWT Validation.
 `,
   followUps: [
     {

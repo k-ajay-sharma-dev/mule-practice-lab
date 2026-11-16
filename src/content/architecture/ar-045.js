@@ -24,15 +24,46 @@ export default {
       {
         web: ['web-app', 'Customer web app'],
         low: ['internal-app', 'Low-value internal app (own client, narrow scopes)'],
-        gw: ['api-gateway', 'Gateway (OAuth, JWT validation)'],
+        gw: ['api-gateway', 'Gateway (OAuth, JWT validation)', { auth: 'jwt' }],
         idp: ['identity-provider', 'Enterprise IdP (one OAuth client per app)'],
-        exp: ['experience-api', 'exp-banking-api (token exchange for the user)'],
-        prc: ['process-api', 'prc-payments-api'],
-        sys: ['system-api', 'sys-payments-api (allow-list: prc-payments-api only)'],
+        exp: ['experience-api', 'exp-banking-api (token exchange for the user)', { vCores: '0.5' }],
+        prc: ['process-api', 'prc-payments-api', { vCores: '0.5' }],
+        sys: ['system-api', 'sys-payments-api (allow-list: prc-payments-api only)', { vCores: '0.5' }],
         core: ['legacy', 'Core banking payments'],
       },
       ['web -> idp', 'web -> gw', 'gw -> exp', 'exp -> idp', 'exp -> prc', 'prc -> idp', 'prc -> sys', 'sys -> core', 'low -> idp'],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 300, maxRps: 200 }],
+      tests: [
+        {
+          name: 'Callers without a valid token',
+          about: 'Customers with tokens make 40 payments a second while a script without a token tries 5 a second. The compromised low-value app tries to reach the Payments System API. Only the customers get through.',
+          traffic: [
+            { name: 'customers', from: 'web-app', rps: 40, to: 'legacy' },
+            { name: 'no token', from: 'web-app', rps: 5, to: 'legacy', auth: 'none' },
+            { name: 'compromised app', from: 'internal-app', rps: 5, to: { type: 'system-api', label: 'payment' } },
+          ],
+          expect: {
+            answers: [{ flow: 'customers', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }],
+            notReached: [{ flow: 'compromised app', node: { type: 'system-api', label: 'payment' } }],
+          },
+        },
+        {
+          name: 'The identity provider is down',
+          about: 'The IdP is down for the whole run. Tokens already issued are still valid, and the gateway checks their signature with cached keys, so customers keep paying.',
+          traffic: [{ name: 'customers', from: 'web-app', rps: 40, to: 'legacy' }],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Month-end payment peak',
+          about: 'Customers make 120 payments a second for the whole run. Every payment is answered in under a second on average, within the 2 vCore budget.',
+          traffic: [{ name: 'customers', from: 'web-app', rps: 120, to: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], vCores: { max: 2 } },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -116,6 +147,9 @@ A financial services company has ~150 Mule APIs across CloudHub 2.0 (private spa
 - Any app in the network can call the Payments System API directly.
 - A penetration test showed that a compromised low-value app could call the Payments System API and move money.
 - Auditors require knowing **which service and which end user** triggered each payment.
+- Customers make about **40 payments a second**, and **120 a second** at month end. Core banking answers in about 300 ms.
+- The identity provider has had short outages. Payments must keep working while it is down.
+- The budget for the payment chain is **2 vCores**.
 
 The CISO mandates a **zero-trust** model: "never trust the network; authenticate and authorize every call."
 
@@ -143,6 +177,7 @@ The CISO mandates a **zero-trust** model: "never trust the network; authenticate
     'Authorization is enforced at each API (gateway policies plus in-app checks), based on caller identity and scopes per operation, with an allow-list of which clients may call sensitive System APIs.',
     'End-user identity is propagated as a verifiable token (token exchange or a signed internal token) rather than a plain header, so downstream services can authorize and audit on the real user.',
     'Rollout is incremental: inventory call graphs, enable policies in monitor/permissive mode, onboard critical APIs first, automate credential and certificate rotation.',
+    'Validate JWTs locally at the gateway with cached signing keys. Token introspection (oauth2) on every request makes the IdP a single point of failure for payments.',
   ],
   solution: `
 **Principles applied.**
@@ -174,6 +209,11 @@ The CISO mandates a **zero-trust** model: "never trust the network; authenticate
 4. Order: Payments and other high-risk System APIs first, then remaining System APIs, then Process APIs.
 5. Make "authenticated by default" part of the API template and governance rules so new APIs are compliant from day one.
 6. Monitor rejected calls and token errors; alert on spikes.
+
+**Settings that matter.**
+- The gateway uses **JWT validation**: it checks the signature with the IdP keys it has cached. Requests without a valid token are refused before they reach an API. Introspecting every token at the IdP would stop all payments during an IdP outage.
+- The Payments System API has no route from the low-value app at all, and its allow-list accepts only the Payments Process API.
+- Sizing: at 120 payments a second each of the three APIs needs more than 0.1 vCore. 0.5 vCore each is 1.5 vCores, inside the budget.
 `,
   followUps: [
     { q: 'Does mTLS alone satisfy zero trust?', a: 'It authenticates the workload and encrypts traffic, but by itself says little about which operations the caller may perform or on behalf of which user. Combining mTLS with scoped tokens and user identity propagation gives authorization and audit.' },

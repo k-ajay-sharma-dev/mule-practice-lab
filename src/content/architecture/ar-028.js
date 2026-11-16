@@ -3,6 +3,8 @@ import { diagram } from '../../arch/dsl.js'
 const BROKER = ['topic', 'queue', 'event-stream', 'cloud-queue']
 const BACKEND = ['legacy', 'database', 'erp', 'saas', 'crm', 'oracle-db', 'sql-server', 'payment']
 const APIS = ['experience-api', 'process-api', 'system-api']
+const AGG = { type: 'partner', label: 'aggregator' }
+const BROKER_PORTAL = { type: ['web-app', 'partner'], label: 'broker' }
 
 export default {
   id: 'ar-028',
@@ -32,13 +34,13 @@ export default {
         mob: ['mobile-app', 'Mobile app'],
         brk: ['web-app', 'Legacy broker portal (WSDL, WS-Security)'],
         agg: ['partner', 'Partner aggregators'],
-        emob: ['experience-api', 'exp-policy-mobile (REST, shaped for the screen)'],
+        emob: ['experience-api', 'exp-policy-mobile (REST, shaped for the screen)', { vCores: '0.2' }],
         esoap: ['experience-api', 'exp-quote-soap (SOAP facade)'],
-        eagg: ['experience-api', 'exp-quotes-partner (REST, spec in Exchange)'],
-        prc: ['process-api', 'prc-policy-api (owns the logic)'],
-        spol: ['system-api', 'sys-policy-api'],
-        sclm: ['system-api', 'sys-claims-api'],
-        spay: ['system-api', 'sys-payments-api'],
+        eagg: ['experience-api', 'exp-quotes-partner (REST, spec in Exchange)', { vCores: '0.2', rateLimit: 80 }],
+        prc: ['process-api', 'prc-policy-api (owns the logic)', { vCores: '0.5' }],
+        spol: ['system-api', 'sys-policy-api', { vCores: '0.5' }],
+        sclm: ['system-api', 'sys-claims-api', { vCores: '0.2' }],
+        spay: ['system-api', 'sys-payments-api', { vCores: '0.2' }],
         pol: ['legacy', 'Policy system'],
         clm: ['database', 'Claims system'],
         pay: ['erp', 'Payments system'],
@@ -47,6 +49,42 @@ export default {
       },
       ['mob -> emob', 'brk -> esoap', 'agg -> eagg', 'emob -> prc', 'esoap -> prc', 'eagg -> prc', 'prc -> spol', 'prc -> sclm', 'prc -> spay', 'spol -> pol', 'sclm -> clm', 'spay -> pay', 'prc ~> ev', 'ev ~> dw'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 200, maxRps: 200 },
+        { match: 'database', latencyMs: 100 },
+        { match: 'erp', latencyMs: 150 },
+        { match: 'data-warehouse', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Partner aggregators send a burst',
+          about: 'The mobile app reads 50 policy summaries a second. The aggregators ask for 60 quotes a second, then 400 for three minutes. The policy system takes at most 200 a second, so the partner facade limits the aggregators and mobile users do not notice.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 50, to: ['legacy', 'database', 'erp'] },
+            { name: 'aggregators', from: AGG, rps: 60, to: 'legacy', spikes: [{ at: 3, forMin: 3, rps: 400 }] },
+          ],
+          expect: {
+            answers: [{ flow: 'mobile', minSuccess: 0.99 }, { flow: 'aggregators', maxFailed: 0.01 }],
+            peakRps: [{ node: 'legacy', max: 200 }],
+            vCores: { max: 2.5 },
+          },
+        },
+        {
+          name: 'Analytics is down',
+          about: 'The analytics platform is down for ten minutes while brokers change 10 policies a second. The brokers are still answered, PolicyChanged waits on the topic, and analytics gets every event once it is back.',
+          traffic: [{ name: 'policy changes', from: BROKER_PORTAL, rps: 10, kind: 'write', to: ['legacy', 'data-warehouse'] }],
+          incidents: [{ down: 'data-warehouse', at: 2, forMin: 10 }],
+          durationMin: 20,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: 'data-warehouse', min: 0.99 }],
+            backlog: [{ queue: BROKER, minPeak: 1000, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -134,6 +172,8 @@ An insurance company is opening its **Policy** capabilities to several consumers
 | Internal pricing microservices (Java/Go) | Very high call volume, low latency, strongly typed contracts |
 | Data/analytics team | Wants to know whenever a policy changes, no need for an immediate answer |
 
+Load: the mobile app reads about **50 policy summaries a second**, and brokers change about 10 policies a second through the portal. The aggregators ask for about **60 quotes a second**, with bursts of 400. The policy system answers in 200 ms and takes at most **200 requests a second**; claims answer in 100 ms and payments in 150 ms. The analytics platform can be down for maintenance for ten minutes. The budget for the APIs is **2.5 vCores**.
+
 **Questions:**
 - Which style would you choose for each consumer and why?
 - What are the costs of offering several styles from the same platform?
@@ -154,6 +194,7 @@ An insurance company is opening its **Policy** capabilities to several consumers
     'gRPC suits high-volume internal service-to-service calls with strongly typed contracts, but is a poor fit for browsers and external partners.',
     'Events/messaging suit consumers that need to be notified of changes without blocking the producer.',
     'Each extra style adds governance, security and skills cost, so the same underlying capability should be exposed through thin facades over shared Process/System APIs.',
+    'Each facade gets its own policies and size: a rate limit of 80 a second on the partner REST facade keeps aggregator bursts away from the policy system that the mobile app also needs, and the shared Process and policy System APIs get 0.5 vCore for the combined load.',
   ],
   solution: `
 **Choice per consumer.**
@@ -173,6 +214,8 @@ An insurance company is opening its **Policy** capabilities to several consumers
 - **Events**: eventual consistency, need for schema governance and DLQs.
 
 **Cost of multiple styles.** Each style needs its own security policies, documentation, testing, monitoring and skills. Contain it: one **Process API** owns the logic; Experience-layer facades (REST, SOAP, GraphQL) are thin translations.
+
+**Sizing and policies.** A thin facade per style also means a policy per consumer. The partner REST facade has a **rate limit of 80 requests a second**: a burst of 400 quotes gets 429 at the facade, and the policy system (200 a second at most) still has room for the mobile app. The shared Process API and the policy System API carry everyone, about 140 requests a second, so they get 0.5 vCore each; the mobile and partner facades and the claims and payments System APIs get 0.2. That is 1.9 vCores, inside the 2.5 budget. PolicyChanged goes on a topic, so when analytics is down the brokers are still answered and the events wait for it.
 
 **Where MuleSoft fits.** Natural for REST/SOAP facades, orchestration and event publishing/consumption. Not the natural hop for low-latency gRPC calls between internal microservices — adding an integration layer there adds latency without adding value.
 `,

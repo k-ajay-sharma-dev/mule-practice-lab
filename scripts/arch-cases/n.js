@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for batch N (ar-136, ar-138, ar-139). See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // AR-136
   // The old setup: partners still call a service through its own public address.
   await failsOn('ar-136', 'reached only through Flex Gateway', (d) => draw(d, 'prt -> rat'))
@@ -34,7 +34,15 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'flex2', 'api-gateway', 'Flex Gateway for partners')
     cut(d, 'flex -> rat', 'flex -> lab')
     draw(d, 'lb -> flex2', 'flex2 -> rat', 'flex2 -> lab', 'flex2 -> idp', 'flex2 -> mon')
+    // The partner gateway applies the same JWT Validation policy.
+    set(d, 'flex2', { auth: 'jwt' })
   })
+  // No token policy on the gateway.
+  await failsOn('ar-136', 'Run: Calls without a valid token', (d) => set(d, 'flex', { auth: undefined }))
+  // A partner keeps its old direct line to the rates service.
+  await failsOn('ar-136', 'Run: Calls without a valid token', (d) => draw(d, 'prt -> rat'))
+  // Every token is introspected at the identity provider.
+  await failsOn('ar-136', 'Run: The identity provider is down', (d) => set(d, 'flex', { auth: 'oauth2' }))
 
   // AR-138
   // Everything on Kafka: the command goes to the topic and the worker reads it from there.
@@ -72,6 +80,19 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'job', 'batch-job', 'Hourly lake loader')
     draw(d, 'topic ~> job')
     rename(d, 'topic', 'fulfilment events topic, partitioned by order')
+  })
+  // prc-order calls the worker over HTTP, so checkout waits for the WMS.
+  await failsOn('ar-138', 'Run: Sale peak of 40 commands a second', (d) => {
+    cut(d, 'prc ~> cmd')
+    draw(d, 'prc -> wrk')
+  })
+  // No delivery limit: failing commands are retried forever.
+  await failsOn('ar-138', 'Run: The WMS rejects commands for 20 minutes', (d) => set(d, 'cmd', { maxRedelivery: undefined }))
+  // A delivery limit but no dead-letter queue: failing commands are dropped.
+  await failsOn('ar-138', 'Run: The WMS rejects commands for 20 minutes', (d) => unbox(d, 'dlq'))
+  // Events on a shared queue: the consumers compete for each event.
+  await failsOn('ar-138', 'Run: Every consumer gets each event', (d) => {
+    d.nodes.find((n) => n.id === 'topic').type = 'queue'
   })
 
   // AR-139
@@ -118,4 +139,9 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     unbox(d, 'mon')
     rename(d, 'sysW', 'sys-erp-orders (standby)')
   })
+  await failsOn('ar-139', 'Run: Sale peak in eu-central', (d) => set(d, 'expE', { vCores: undefined }))
+  // The standby region on the smallest size.
+  await failsOn('ar-139', 'Run: eu-central is lost', (d) => set(d, 'expW', { vCores: undefined }))
+  // Non-persistent queues: the stranded orders are lost when the region's broker restarts.
+  await failsOn('ar-139', 'Run: eu-central is lost', (d) => set(d, 'qE', { persistent: 'no' }))
 }

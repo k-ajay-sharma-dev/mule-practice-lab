@@ -4,6 +4,7 @@ const BROKER = ['topic', 'queue', 'event-stream', 'cloud-queue']
 const SYSTEMS = ['erp', 'crm', 'saas', 'legacy', 'database', 'oracle-db', 'sql-server']
 const XREF = { label: ['cross-ref', 'cross ref', 'xref', 'mdm', 'key map', 'id map'] }
 const APIS = ['experience-api', 'process-api', 'system-api']
+const SUPPORT = { type: 'saas', label: 'support' }
 
 export default {
   id: 'ar-031',
@@ -31,15 +32,15 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app'],
         ptl: ['partner', 'Partner portal'],
-        emob: ['experience-api', 'exp-customer-mobile (8 fields)'],
+        emob: ['experience-api', 'exp-customer-mobile (8 fields)', { vCores: '0.2' }],
         eptl: ['experience-api', 'exp-customer-partner (20 fields)'],
-        prc: ['process-api', 'prc-customer (Customer domain model, customerId)'],
+        prc: ['process-api', 'prc-customer (Customer domain model, customerId)', { vCores: '0.5', calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 3000 }],
         xref: ['database', 'Customer cross-reference (customerId to KUNNR, Account Id, customer_ref, email)'],
         ev: ['topic', 'CustomerUpdated (domain model)'],
-        ssap: ['system-api', 'sys-sap-customer (cleaned, SAP-shaped)'],
-        ssf: ['system-api', 'sys-salesforce-account'],
-        sbil: ['system-api', 'sys-billing-customer'],
-        ssup: ['system-api', 'sys-support-contact'],
+        ssap: ['system-api', 'sys-sap-customer (cleaned, SAP-shaped)', { vCores: '0.2' }],
+        ssf: ['system-api', 'sys-salesforce-account', { vCores: '0.2' }],
+        sbil: ['system-api', 'sys-billing-customer', { vCores: '0.2' }],
+        ssup: ['system-api', 'sys-support-contact', { vCores: '0.2' }],
         sap: ['erp', 'SAP (KUNNR)'],
         sf: ['crm', 'Salesforce (Account Id)'],
         bil: ['saas', 'Billing SaaS (customer_ref)'],
@@ -50,6 +51,31 @@ export default {
         'prc -> ssap', 'prc -> ssf', 'prc -> sbil', 'prc -> ssup', 'ssap -> sap', 'ssf -> sf', 'sbil -> bil', 'ssup -> sup',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 800 },
+        { match: 'crm', latencyMs: 300 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Customer lookups at peak',
+          about: 'The mobile app looks up 60 customers a second and the partner portal 20. Each lookup reads all four systems, and the answer must take under 1.2 s on average within the 2 vCore budget.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 60, to: ['erp', 'crm', 'saas'] },
+            { name: 'partners', from: 'partner', rps: 20, to: ['erp', 'crm', 'saas'] },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.01, maxMs: 1200 }], vCores: { max: 2 } },
+        },
+        {
+          name: 'The support tool is down',
+          about: 'The support tool is down for the whole run. Customers are still answered from the other three systems, without the support contacts.',
+          traffic: [{ name: 'mobile', from: 'mobile-app', rps: 60, to: ['erp', 'crm', 'saas'] }],
+          incidents: [{ down: SUPPORT }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.9 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -141,6 +167,8 @@ Two camps in the architecture team:
 
 Constraints: 12 integration flows exist today, 25 more planned; three delivery teams; the enterprise data team has no capacity to own a global model.
 
+Load: the mobile app looks up about **60 customers a second** and the partner portal about **20**. A full customer view reads all four systems. SAP answers in about 800 ms, Salesforce, billing and support in about 300 ms. A lookup must take under **1.2 s** on average, and still answer when one source such as the support tool is down. The budget for the APIs is **2 vCores**.
+
 **Questions:**
 - What are the real benefits and costs of a canonical model?
 - What is the problem with pure pass-through in API-led connectivity?
@@ -162,6 +190,7 @@ Constraints: 12 integration flows exist today, 25 more planned; three delivery t
     'A pragmatic approach is a domain (bounded-context) model owned by the Process API of that domain. System APIs expose a cleaned version of each system, and Experience APIs shape for the channel.',
     'Cross-reference of identifiers (SAP KUNNR ↔ Salesforce Id ↔ customer_ref) is needed regardless and should be owned explicitly (e.g. an MDM or cross-reference service).',
     'Shared models are published as versioned fragments/types in Exchange with additive, backward-compatible change rules.',
+    'The Customer Process API that owns the domain model reads the four System APIs in parallel (about 870 ms, not 1.8 s one after another) and gives a partial answer when one source is down, with 0.5 vCore for itself and 0.2 for each System API.',
   ],
   solution: `
 **Canonical model — benefits.**
@@ -182,6 +211,8 @@ Constraints: 12 integration flows exist today, 25 more planned; three delivery t
 - **Experience APIs:** shape the domain model for each channel (mobile needs 8 fields, partner portal 20).
 - **Events:** use the domain model for business events (CustomerUpdated), so consumers do not depend on the source system.
 - **Identifiers:** a cross-reference store/MDM maps \`customerId\` ↔ KUNNR ↔ Account Id ↔ customer_ref.
+
+**Sizing and failure handling.** Building the domain model means one call to each of the four System APIs per lookup. One after another that is about 1.8 s; the Customer Process API makes them **in parallel** (Scatter-Gather), so a lookup takes about as long as SAP, around 870 ms. It has a 3 s timeout for its calls and gives a **partial answer** when one source fails: with the support tool down, customers still get the SAP, Salesforce and billing data. At 80 lookups a second the Process API gets 0.5 vCore, the mobile Experience API and each System API 0.2, and the partner Experience API 0.1. That is 1.6 vCores, inside the 2 vCore budget.
 
 **Governance and versioning.**
 - Publish the domain types as a RAML library / JSON Schema / OAS component in **Exchange**, owned by the Customer domain team.

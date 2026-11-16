@@ -30,13 +30,13 @@ export default {
         mob: ['mobile-app', 'Mobile app'],
         ptn: ['partner', 'Partners'],
         bo: ['internal-app', 'Back-office app'],
-        edig: ['experience-api', 'exp-digital-channels-api'],
-        eptn: ['experience-api', 'exp-partner-api'],
-        p360: ['process-api', 'prc-customer-360-api'],
-        pon: ['process-api', 'prc-customer-onboarding-api'],
-        scrm: ['system-api', 'sys-crm-customer-api'],
-        sbil: ['system-api', 'sys-billing-account-api'],
-        snet: ['system-api', 'sys-network-subscription-api'],
+        edig: ['experience-api', 'exp-digital-channels-api', { replicas: 2, vCores: '0.2' }],
+        eptn: ['experience-api', 'exp-partner-api', { replicas: 2, vCores: '0.1', auth: 'client-id' }],
+        p360: ['process-api', 'prc-customer-360-api', { replicas: 2, vCores: '0.2', calls: 'in parallel', timeoutMs: 2000, circuitBreaker: 'on', onFailure: 'partial answer' }],
+        pon: ['process-api', 'prc-customer-onboarding-api', { replicas: 2, vCores: '0.2' }],
+        scrm: ['system-api', 'sys-crm-customer-api', { replicas: 2, vCores: '0.2' }],
+        sbil: ['system-api', 'sys-billing-account-api', { replicas: 2, vCores: '0.2' }],
+        snet: ['system-api', 'sys-network-subscription-api', { replicas: 2, vCores: '0.2' }],
         sf: ['crm', 'Salesforce'],
         bil: ['saas', 'Billing platform'],
         net: ['legacy', 'Network subscription system'],
@@ -50,6 +50,52 @@ export default {
         'scrm -> sf', 'sbil -> bil', 'snet -> net',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 250 },
+        { match: 'saas', latencyMs: 200 },
+        { match: 'legacy', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'Busy hour on a 3 vCore budget',
+          about: 'Web sends 20 customer requests a second, mobile 20 and partners 10, for ten minutes. All of them are answered, and the whole domain uses at most 3 vCores.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 20, to: ['crm', 'saas', 'legacy'] },
+            { name: 'mobile', from: 'mobile-app', rps: 20, to: ['crm', 'saas', 'legacy'] },
+            { name: 'partners', from: 'partner', rps: 10, to: ['crm', 'saas', 'legacy'] },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 3 } },
+        },
+        {
+          name: 'A zone goes down at the busy hour',
+          about: 'One availability zone is lost for the whole run. Every API must keep a replica in another zone, so customers are still answered.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 20, to: ['crm', 'saas', 'legacy'] },
+            { name: 'mobile', from: 'mobile-app', rps: 20, to: ['crm', 'saas', 'legacy'] },
+            { name: 'partners', from: 'partner', rps: 10, to: ['crm', 'saas', 'legacy'] },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.97 }] },
+        },
+        {
+          name: 'Partners need a client id',
+          about: 'Partners with their client id send 10 requests a second. A caller without one sends 5 a second and must be refused at the partner API.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 10, to: ['crm', 'saas', 'legacy'] },
+            { name: 'no client id', from: 'partner', rps: 5, to: ['crm', 'saas', 'legacy'], auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'partners', minSuccess: 0.99 }, { flow: 'no client id', minRefused: 0.99 }] },
+        },
+        {
+          name: 'The network system hangs',
+          about: 'The network subscription system stops answering. Partners still get the customer view within a second, without the subscription part.',
+          traffic: [{ name: 'partners', from: 'partner', rps: 10, to: ['crm', 'saas', 'legacy'] }],
+          incidents: [{ hang: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }] },
+        },
+      ],
+    },
   },
   description: `
 A telecom company adopted API-led connectivity two years ago. An audit of Exchange shows:
@@ -58,6 +104,13 @@ A telecom company adopted API-led connectivity two years ago. An audit of Exchan
 - Examples: \`sfdc-account-sapi\`, \`sfdc-account-v2-sapi\`, \`sfdc-contact-sapi\`, \`sfdc-account-contact-sapi\`, \`get-customer-by-email-papi\`, \`get-customer-by-phone-papi\`, \`mobile-customer-eapi\`, \`mobile-customer-lite-eapi\`.
 - Many Process APIs simply **pass through** to one System API with no logic.
 - Each API runs as its own app with 2 replicas → the vCore bill keeps growing; teams complain that finding the right API takes longer than building a new one.
+
+For the consolidated Customer domain, plan for these numbers:
+- At the busy hour web sends 20 customer requests a second, mobile 20 and partners 10.
+- Salesforce answers in about 250 ms, billing in 200 ms and the network subscription system in 400 ms. The network system sometimes stops answering; partners should then still get the customer view within a second, without the subscriptions.
+- Partners must present a client id. Callers without one are refused.
+- The APIs must survive the loss of one availability zone.
+- The budget for the whole domain is 3 vCores.
 
 **Questions:**
 - What went wrong, and what *should* decide the boundary and size of an API?
@@ -81,6 +134,8 @@ A telecom company adopted API-led connectivity two years ago. An audit of Exchan
     'A Process API must add value (orchestration, rules, aggregation across systems); a pass-through Process API is removed or merged.',
     'Experience APIs exist only when a channel truly needs a different shape/security; otherwise channels share one, or use field selection/query parameters.',
     'Consolidation uses facade/redirect: new consolidated APIs, old ones deprecated with a sunset date, consumers migrated using analytics; deployment can also co-locate small APIs to save vCores.',
+    'Seven small APIs at 2 replicas of 0.1 or 0.2 vCore survive a zone outage and stay near 2.6 vCores, inside the 3 vCore budget.',
+    'The partner API enforces client ids, and the Customer 360 API uses a short timeout, a circuit breaker and a partial answer when the network system hangs.',
   ],
   solution: `
 **Diagnosis.** APIs were cut by **operation** (\`get-customer-by-email\`), by **version as a new asset** (\`-v2-sapi\`) and by **consumer variant** (\`-lite\`). The layers were applied mechanically ("every flow needs three APIs"), so Process APIs became pass-throughs. Result: sprawl, duplicate logic, and discovery cost higher than build cost — the opposite of reuse.
@@ -107,6 +162,11 @@ A telecom company adopted API-led connectivity two years ago. An audit of Exchan
 3. Migrate consumers domain by domain, starting with the highest cost/lowest traffic.
 4. Short term cost relief: low-traffic APIs can run on smaller replicas, and a single app can host several related API instances — trade-off: shared deployment/blast radius.
 5. Prevent recurrence: design review via the C4E/architecture board before a new API asset is created; naming standards; "search Exchange first".
+
+**Sizing and failure handling**
+- Every API runs 2 replicas, so a zone outage leaves one in another zone. The System APIs and Process APIs get 0.2 vCore per replica because each System API carries the reads of both Process APIs. The partner API stays at 0.1. The total is 2.6 vCores, inside the 3 vCore budget. The old 180 APIs at 2 replicas each could never fit it.
+- The partner Experience API enforces client id, which is one reason partners get their own API.
+- The Customer 360 Process API calls its System APIs in parallel, with a 2 s timeout and a circuit breaker. When the network system hangs it answers with the account and billing data and leaves out the subscriptions.
 `,
   followUps: [
     { q: 'Doesn\'t one bigger System API become a bottleneck for team autonomy?', a: 'It can if many teams change it. Keep each API owned by one team aligned to the system/domain; split when there are genuinely different owners or change rates, not per query.' },

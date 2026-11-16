@@ -26,9 +26,9 @@ export default {
     ],
     reference: diagram(
       {
-        psum: ['process-api', 'prc-trip-summary-api (aggregation, Scatter-Gather)'],
+        psum: ['process-api', 'prc-trip-summary-api (aggregation, Scatter-Gather)', { calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 2000 }],
         pbook: ['process-api', 'prc-book-trip-api (orchestration, compensation)'],
-        pcust: ['process-api', 'prc-customer-lookup-api (enrichment)'],
+        pcust: ['process-api', 'prc-customer-lookup-api (enrichment)', { onFailure: 'partial answer' }],
         state: ['database', 'Book trip saga state'],
         lcache: ['cache', 'Loyalty tier cache (TTL)'],
         sbook: ['system-api', 'sys-booking-api'],
@@ -51,6 +51,37 @@ export default {
         'sbook -> db', 'sair -> air', 'shot -> hot', 'spay -> pay', 'scrm -> crm', 'sloy -> loy',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'database', label: 'booking db' }, latencyMs: 50 },
+        { match: { type: 'external-api', label: 'airline' }, latencyMs: 600 },
+        { match: { type: 'external-api', label: 'hotel' }, latencyMs: 500 },
+        { match: 'crm', latencyMs: 150 },
+        { match: { type: 'saas', label: 'loyalty' }, latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Trip summary is fast',
+          about: 'Customers open 20 trip summaries a second. Each one reads the Booking DB, the airline and the hotel, and the average answer must take no more than 900 ms.',
+          traffic: [{ name: 'trip summary', from: { type: 'process-api', label: 'summary' }, rps: 20, to: [{ type: 'database', label: 'booking db' }, 'external-api'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 900 }] },
+        },
+        {
+          name: 'The airline API hangs',
+          about: 'The airline API stops answering for the whole run. Within about 2 seconds customers still see their trip summary with the booking and the hotel, and without the flight status.',
+          traffic: [{ name: 'trip summary', from: { type: 'process-api', label: 'summary' }, rps: 20, to: [{ type: 'database', label: 'booking db' }, 'external-api'] }],
+          incidents: [{ hang: { type: 'external-api', label: 'airline' } }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.9, maxMs: 2500 }] },
+        },
+        {
+          name: 'The loyalty system is down',
+          about: 'The loyalty system fails for the whole run. Customer lookups still return the customer record, and leave out the tier when it is not in the cache.',
+          traffic: [{ name: 'customer lookup', from: { type: 'process-api', label: 'customer' }, rps: 20, to: ['crm', { type: 'saas', label: 'loyalty' }] }],
+          incidents: [{ down: { type: 'saas', label: 'loyalty' } }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.1 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -134,6 +165,8 @@ An interviewer asks you to explain the different **kinds of work** a Process API
 | **Book trip**: reserve flight → reserve hotel → take payment → confirm booking | Airline, hotel, payment gateway, Booking DB |
 | **Customer lookup**: customer record enriched with loyalty tier and lifetime value | CRM, loyalty system |
 
+Numbers: about **20 trip summaries** and **20 customer lookups** a second. The Booking DB answers in about 50 ms, the airline API in 600 ms, the hotel API in 500 ms, the CRM in 150 ms and the loyalty system in 300 ms. A trip summary must answer in **900 ms or less** on average. The airline API sometimes stops answering, and the loyalty system has outages. The business prefers a partial answer within 2.5 seconds to an error.
+
 **Questions:**
 1. Classify each need as **aggregation**, **orchestration** or **enrichment**, and explain the difference.
 2. Which Mule 4 constructs would you use for each (and why)?
@@ -154,6 +187,7 @@ An interviewer asks you to explain the different **kinds of work** a Process API
     'Enrichment: a primary record augmented with data from secondary sources (sequential lookup, often cacheable reference data).',
     'Process APIs should be stateless so any replica can serve any request and scale horizontally; durable process state lives in a database, persistent Object Store or a queue, not in memory.',
     'Smells: pass-through with no logic, one Process API per consumer, direct backend connectors, channel-specific formatting.',
+    'Settings follow the kind of work: an aggregation calls in parallel with a timeout and returns a partial answer when one route fails; an enrichment returns the primary record when the secondary source is down.',
   ],
   solution: `
 **Classification.**
@@ -181,6 +215,11 @@ An interviewer asks you to explain the different **kinds of work** a Process API
 3. Uses the **SAP/JDBC connector directly** instead of a System API.
 4. Returns UI-ready labels or mobile-specific fields.
 5. Deep synchronous chains (Process → Process → Process) that blow the latency budget.
+
+**Settings that matter.**
+- \`prc-trip-summary-api\` calls its three System APIs **in parallel**. One after another they take 50 + 600 + 500 ms plus the hops, about 1.2 s. In parallel the airline at 600 ms sets the time, about 650 ms.
+- It answers with a **partial answer** when a route fails, and its calls have a **2 s timeout**, so an airline API that hangs gives a summary without flight status after 2 seconds, instead of an error after the default 10 seconds.
+- \`prc-customer-lookup-api\` also returns a **partial answer**: the customer record without the tier when the loyalty system is down. The tier cache still answers most lookups in full.
 `,
   followUps: [
     { q: 'Scatter-Gather or async scope for aggregation?', a: 'Scatter-Gather waits for all routes and gives you their results, which aggregation needs. The async scope is fire-and-forget; it does not return results to the main flow.' },

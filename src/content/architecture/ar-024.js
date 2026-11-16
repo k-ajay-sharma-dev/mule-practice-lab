@@ -4,6 +4,8 @@ const BROKER = ['queue', 'topic', 'cloud-queue', 'event-stream']
 const STATE = ['database', 'sql-server', 'oracle-db']
 const BACKEND = ['crm', 'external-api', 'oracle-db', 'database', 'erp', 'legacy', 'payment', 'saas']
 const APIS = ['experience-api', 'process-api', 'system-api']
+const SAGA_STATE = { type: STATE, label: 'saga state' }
+const HA = () => ({ replicas: 2 })
 
 export default {
   id: 'ar-024',
@@ -32,29 +34,60 @@ export default {
     reference: diagram(
       {
         web: ['web-app', 'Online shop (sees order in progress)'],
-        exp: ['experience-api', 'exp-subscription-orders (202 Accepted and a status endpoint)'],
-        orc: ['process-api', 'prc-subscription-saga (orchestrator)'],
+        exp: ['experience-api', 'exp-subscription-orders (202 Accepted and a status endpoint)', HA()],
+        orc: ['process-api', 'prc-subscription-saga (orchestrator)', HA()],
         state: ['database', 'Saga state per order (step, status, external IDs)'],
-        q: ['queue', 'Saga steps (Anypoint MQ)'],
+        q: ['queue', 'Saga steps (Anypoint MQ)', { maxRedelivery: 5 }],
         dlq: ['dlq', 'Compensation DLQ (alert and manual task)'],
-        scr: ['system-api', 'sys-credit-bureau'],
+        scr: ['system-api', 'sys-credit-bureau', HA()],
         cb: ['external-api', 'Credit bureau'],
-        ssf: ['system-api', 'sys-salesforce-customer'],
+        ssf: ['system-api', 'sys-salesforce-customer', HA()],
         sf: ['crm', 'Salesforce'],
-        snum: ['system-api', 'sys-number-inventory'],
+        snum: ['system-api', 'sys-number-inventory', HA()],
         num: ['oracle-db', 'Number inventory (on-prem Oracle)'],
-        spay: ['system-api', 'sys-payments (authorize, then capture last)'],
+        spay: ['system-api', 'sys-payments (authorize, then capture last)', HA()],
         pay: ['payment', 'Payment provider'],
-        sbil: ['system-api', 'sys-billing-contract'],
+        sbil: ['system-api', 'sys-billing-contract', HA()],
         brim: ['erp', 'SAP BRIM'],
-        sprov: ['system-api', 'sys-provisioning'],
+        sprov: ['system-api', 'sys-provisioning', HA()],
         net: ['legacy', 'Network provisioning (callback in 1 to 10 min)'],
       },
       [
-        'web -> exp', 'exp -> orc', 'orc -> state', 'orc ~> q', 'q ~> orc', 'orc ~> dlq',
+        'web -> exp', 'exp -> orc', 'orc -> state', 'orc ~> q', 'q ~> orc', 'orc ~> dlq', 'q ~> dlq',
         'orc -> scr', 'scr -> cb', 'orc -> ssf', 'ssf -> sf', 'orc -> snum', 'snum -> num', 'orc -> spay', 'spay -> pay', 'orc -> sbil', 'sbil -> brim', 'orc -> sprov', 'sprov -> net',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 20 },
+        { match: 'erp', latencyMs: 3000 },
+      ],
+      tests: [
+        {
+          name: 'An orchestrator replica crashes',
+          about: 'A zone with one replica of each app is lost while the shop sends 5 orders a second. The other replicas accept the orders, take the step messages and update the saga state, and no step is lost.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 5, kind: 'write', to: SAGA_STATE }],
+          incidents: [{ zone: true }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            backlog: [{ queue: BROKER, maxEnd: 50 }],
+            lost: { max: 0 },
+          },
+        },
+        {
+          name: 'A compensation keeps failing',
+          about: 'Billing rejects every cancel contract step for 20 minutes. Each step message is tried 5 times and then moves to the compensation DLQ for a person to handle. No step is lost or left looping in the queue.',
+          traffic: [{ name: 'cancel steps', from: 'web-app', rps: 1, kind: 'write', to: 'erp' }],
+          incidents: [{ errors: 'erp', rate: 1, at: 0, forMin: 20 }],
+          durationMin: 30,
+          expect: {
+            dlq: { min: 100 },
+            backlog: [{ queue: BROKER, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -144,6 +177,8 @@ A telecom operator sells a **new mobile subscription** online. One customer orde
 5. **Activate the SIM** in the network provisioning system (async, completes in 1–10 minutes, sends a callback).
 6. Charge the **first month** via the payment provider.
 
+On launch day the shop sends about **5 orders a second**. The saga state DB answers in 20 ms and SAP BRIM in about 3 s. Every app must survive the loss of one availability zone, and billing can reject cancel requests for 20 minutes at a time.
+
 Today a single Mule flow calls them in sequence. When step 5 fails, the customer is billed for a contract with no working SIM, and the reserved number is never released. A developer proposes "use XA transactions so it is all-or-nothing".
 
 **Questions:**
@@ -169,6 +204,7 @@ Today a single Mule flow calls them in sequence. When step 5 fails, the customer
     'Steps are ordered to do cheap, reversible or risk-reducing steps first (credit check, reservations) and hard-to-undo ones (payment capture, activation) last; each step has a defined compensating action.',
     'Saga state is persisted in a durable store per order with each step\'s status; steps and compensations are idempotent and retried, so the orchestrator can resume after a crash.',
     'Failed compensations go to a retry queue and then to manual handling with alerting; the customer sees an "order in progress" status rather than a false success or failure.',
+    'Settings that matter: 2 replicas of every app, so a crash or zone loss leaves another replica to take the step messages, and Deliveries before the DLQ of 5 on the saga steps queue with a DLQ drawn from it, so a step that keeps failing ends with a person and never loops or disappears.',
   ],
   solution: `
 **Why not 2PC/XA.** XA needs every participant to be an **XA resource manager** coordinated by one transaction manager (prepare/commit). Salesforce, the credit bureau, SAP BRIM's API, the payment provider and an async provisioning callback are **HTTP services**, not XA resources — they cannot join a transaction. Even if they could, holding locks for 30 s to 10 minutes would destroy availability. XA in Mule (via the Bitronix-based transaction manager) is for **local resources**: e.g. consume from IBM MQ/JMS and write to a database atomically. Here: not applicable.
@@ -189,6 +225,8 @@ Today a single Mule flow calls them in sequence. When step 5 fails, the customer
 Moving charge from "early" to authorize-then-capture-at-the-end fixes the "billed but no SIM" incident.
 
 **Saga state and recovery.** Persist a saga record per order in a **durable database** (orderId, current step, per-step status, external IDs, attempts, timestamps) — written **before** and **after** each step. Drive steps via **Anypoint MQ** messages (one message per next step) so a crashed replica's work is redelivered to another. Each step call is **idempotent** (idempotency keys/external IDs), so re-executing after a crash is safe. The async SIM callback is correlated by orderId; a scheduler detects sagas stuck past their timeout and triggers compensation or retry.
+
+**Settings.** Every app runs **2 replicas** (0.1 vCore each is enough for 5 orders a second), so when a replica or a whole zone is lost, the other replica accepts orders, takes the step messages from the queue and resumes from the saga state. The saga steps queue is persistent and has **Deliveries before the DLQ set to 5**, with the compensation DLQ drawn from it. A cancel that billing keeps rejecting is tried 5 times, about once a minute, and then moves to the DLQ. With no limit it would loop in the queue for as long as billing fails; with a limit but no DLQ it would be dropped.
 
 **Failed compensations and the customer.**
 - Compensations are retried with backoff; if they still fail (e.g. billing down) → **compensation DLQ + alert + manual task** with all context. Never silently drop.

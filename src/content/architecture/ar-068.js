@@ -32,10 +32,10 @@ export default {
         sq: ['queue', 'Store ActiveMQ: store.sales.out (KahaDB)'],
         hq: ['queue', 'HQ ActiveMQ hub: hq.store.sales'],
         dlq: ['dlq', 'hq.store.sales DLQ'],
-        prc: ['process-api', 'prc-store-sales'],
-        serp: ['system-api', 'sys-oracle-retail'],
+        prc: ['process-api', 'prc-store-sales', { vCores: '0.2' }],
+        serp: ['system-api', 'sys-oracle-retail', { vCores: '0.2', rateLimit: 80 }],
         erp: ['erp', 'Oracle Retail (sales, stock)'],
-        price: ['process-api', 'prc-price-distribution'],
+        price: ['process-api', 'prc-price-distribution', { vCores: '0.2' }],
         pq: ['queue', 'Hub: store.<id>.prices (per-store, durable)'],
         spq: ['queue', 'Store ActiveMQ: store.prices.in'],
       },
@@ -44,6 +44,34 @@ export default {
         'price -> serp', 'price ~> pq', 'pq ~> spq', 'spq ~> pos',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 200, maxRps: 100 }],
+      tests: [
+        {
+          name: 'A store replays a week of sales',
+          about: 'The stores send 30 sales a second. For five minutes a store with a bug replays its sales at 300 a second more. The hub absorbs the flood, Oracle never gets more than the 90 writes a second the DBA allows, and the backlog is gone before the run ends.',
+          traffic: [{ name: 'sales', from: 'pos', rps: 30, to: 'erp', kind: 'write', spikes: [{ at: 2, forMin: 5, rps: 330 }] }],
+          durationMin: 45,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 90 }], vCores: { max: 2 }, backlog: [{ queue: 'queue', maxEnd: 100 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Oracle is down and the brokers restart',
+          about: 'Oracle Retail is down for 20 minutes, and in the middle of it the brokers restart for patching. The tills keep selling, no sale is lost, and the backlog reaches Oracle once it is back.',
+          traffic: [{ name: 'sales', from: 'pos', rps: 30, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 20 }, { restart: 'queue', at: 15 }],
+          durationMin: 50,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 100 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Price changes reach an offline store',
+          about: 'HQ publishes the nightly price changes at 80 a second for ten minutes while the store is offline for 30 minutes, and its broker restarts. Every price change still reaches the store POS.',
+          traffic: [{ name: 'prices', from: { type: 'process-api', label: 'price' }, rps: 80, forMin: 10, to: 'pos', kind: 'write' }],
+          incidents: [{ down: 'pos', forMin: 30 }, { restart: 'queue', at: 20 }],
+          durationMin: 45,
+          expect: { delivered: [{ to: 'pos', min: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 100 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer runs **400 stores across 3 countries**. Each store has a back-office server, a POS system and a **4G-backup broadband link** that drops several times a week (from seconds to a full day). HQ runs **Oracle Retail** and an **ActiveMQ** cluster.
@@ -55,6 +83,13 @@ Requirements:
 - Price and promotion changes (up to 50,000 per night) must reach **every** store, including stores offline at the time.
 - A single store that floods the hub (bug, replay of a week of data) must not slow down the other 399.
 - Store IT is minimal: anything at the store must be zero-touch.
+
+Numbers for sizing:
+- At peak the stores send **30 sales a second** in total. A store with a bug once replayed a week of sales at **300 a second** on top of that for five minutes.
+- Oracle Retail takes about **200 ms** per write and accepts at most **100 writes a second**. The DBA wants the integration to stay at **90 a second or less**, so Oracle keeps room for its own jobs.
+- Oracle can be down for **20 minutes**, and the brokers restart for patching.
+- The nightly price run publishes **80 changes a second** for ten minutes; a store can be offline for 30 minutes of it.
+- The budget for the HQ Mule apps is **2 vCores**.
 
 **Questions:**
 - Draw the topology: what runs in the store, what runs at HQ, how they are connected.
@@ -78,6 +113,7 @@ Requirements:
     'HQ consumes from the hub with Mule jms:listener, writes through sys-oracle-retail, and makes the write idempotent (sale id) because forwarding is at-least-once.',
     'Downstream traffic uses durable per-store destinations; price messages carry versions/effective dates so late arrivals do not overwrite newer prices.',
     'Isolation: per-store destinations or message groups, producer flow control and per-store limits, and a DLQ so one bad store or message cannot block the rest.',
+    'Persistent queues survive broker restarts; a rate limit on the Oracle System API makes the hub drain a flood at a pace Oracle can take.',
   ],
   solution: `
 \`\`\`
@@ -102,6 +138,12 @@ Requirements:
 - One store's backlog lives in **its own** destination or is spread with message groups (\`JMSXGroupID\` = store id) so a flood from one store cannot starve the others' ordering.
 - Producer flow control and memory/store limits on the hub, plus per-store monitoring of forward backlog age.
 - The HQ consumer has bounded concurrency; Oracle is protected by the System API.
+
+**Sizing and failure handling.**
+- Every broker queue is **persistent**, so a broker restart during an outage loses nothing.
+- \`prc-store-sales\` and \`sys-oracle-retail\` run on 0.2 vCore each (about 100 requests a second). A rate limit of 80 a second on \`sys-oracle-retail\` keeps Oracle under the 90 writes a second the DBA allows, so a replay drains from the hub at about 50 sales a second over the normal load instead of hitting Oracle at once.
+- \`prc-price-distribution\` needs 0.2 vCore for 80 price changes a second. The per-store queues hold them while a store is offline.
+- In total 0.6 vCore, well inside the 2 vCore budget.
 
 **Trade-offs:** 400 brokers to monitor (automate with templates and central metrics), duplicate deliveries to handle, and network-of-brokers tuning (TTL/hops, duplex, conduit subscriptions) that the team must learn.
 `,

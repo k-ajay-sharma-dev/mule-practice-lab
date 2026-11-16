@@ -38,14 +38,14 @@ export default {
         glb: ['load-balancer', 'Global load balancer (Route 53, health checks)'],
         ingP: ['load-balancer', 'Ingress: private space us-east-2 (primary)'],
         ingB: ['load-balancer', 'Ingress: private space us-west-2 (hot standby)'],
-        expP: ['experience-api', 'exp-claims (primary)'],
-        expB: ['experience-api', 'exp-claims (backup)'],
+        expP: ['experience-api', 'exp-claims (primary)', { replicas: 2, vCores: '0.2' }],
+        expB: ['experience-api', 'exp-claims (backup)', { replicas: 2, vCores: '0.2' }],
         q: ['queue', 'claims.intake (us-east-2)'],
         qfb: ['queue', 'claims.intake_fb (fallback, us-west-2)'],
-        prcP: ['process-api', 'prc-claims (primary)'],
-        prcB: ['process-api', 'prc-claims (backup)'],
-        sysP: ['system-api', 'sys-claims-db (primary)'],
-        sysB: ['system-api', 'sys-claims-db (backup)'],
+        prcP: ['process-api', 'prc-claims (primary)', { replicas: 2, vCores: '0.2' }],
+        prcB: ['process-api', 'prc-claims (backup)', { replicas: 2, vCores: '0.2' }],
+        sysP: ['system-api', 'sys-claims-db (primary)', { replicas: 2, vCores: '0.2' }],
+        sysB: ['system-api', 'sys-claims-db (backup)', { replicas: 2, vCores: '0.2' }],
         db: ['database', 'Claims database (cross-region, owned by the DBA team)'],
         jobP: ['batch-job', 'prc-reconciliation (primary, DR flag on)'],
         jobB: ['batch-job', 'prc-reconciliation (backup, DR flag off)'],
@@ -61,6 +61,34 @@ export default {
         'expP -> mon', 'expB -> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 150 }],
+      tests: [
+        {
+          name: 'A zone fails at the month end peak',
+          about: 'Hospitals and clearing houses submit 40 claims a second at the month end peak, and one availability zone is lost for the whole run. Each region keeps a replica of every app in another zone, so claims are still accepted and stored.',
+          traffic: [{ name: 'claims', from: 'partner', rps: 40, kind: 'write', to: 'database' }],
+          incidents: [{ zone: true }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: 'database', min: 0.97 }],
+            backlog: [{ queue: 'queue', maxEnd: 100 }],
+          },
+        },
+        {
+          name: 'The claims database is down for ten minutes',
+          about: 'Claims arrive at 10 a second. The claims database is down from minute 2 to minute 12, and the broker restarts at minute 6. Claims are still accepted, none is lost, and the queues are empty again by minute 30.',
+          traffic: [{ name: 'claims', from: 'partner', rps: 10, kind: 'write', to: 'database' }],
+          incidents: [{ down: 'database', at: 2, forMin: 10 }, { restart: 'queue', at: 6 }],
+          durationMin: 30,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            backlog: [{ queue: 'queue', maxEnd: 100 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A health insurer runs its claims platform on **CloudHub 2.0**, on the **US Cloud** control plane. After a regional cloud outage at a competitor, the board asks for a cross-region design. Hospitals and clearing houses submit about 60,000 claims a day through an API, and members use a portal.
@@ -75,6 +103,8 @@ Requirements:
 - Tokens for an outbound clearing house API are cached in an object store.
 - The APIs use rate-limiting policies, agreed per partner.
 - The organization has the **Global Deployment** entitlement. Finance wants to pay for standby capacity only where it is justified.
+- At the month end peak claims arrive at 40 a second. Each region must keep accepting them when one of its availability zones fails.
+- The claims database answers in about 150 ms and has outages of up to ten minutes. No claim may be lost meanwhile, even if the broker restarts.
 
 **Questions:**
 - Draw the target architecture for claims submission.
@@ -105,6 +135,7 @@ Requirements:
     'Rate-limiting policies apply at the replica level, so a DR playbook must cover rate limits.',
     'For schedulers in a hot standby, externalize a DR flag and enable or disable flows in the runtime plane with a Groovy script.',
     'Canada and Japan do not support cross-region runtime plane DR.',
+    'Sizing: 2 replicas of 0.2 vCore for every claims app in both regions, so a zone outage leaves each region able to take the 40 claims a second; persistent queues hold claims while the database is down.',
   ],
   solution: `
 **Architecture.**
@@ -131,6 +162,10 @@ Requirements:
 **Failover.** Health checks detect the outage, and the load balancer switches routing. For \`prc-reconciliation\`, a Groovy script flips the externalized DR flag in the runtime plane, so that activation does not depend on the control plane. Capture recovery points in logs and monitoring so that systems can resend in-flight data.
 
 **Failback.** Let fallback queues drain, confirm which region owns the job, reverse the flag, then switch routing. Rehearse the whole cycle.
+
+**Sizing and settings.**
+- Every claims app runs 2 replicas of 0.2 vCore in each region. One replica serves about 100 requests a second, so a zone outage still leaves room for the 40 claims a second. The backup region is sized like the primary, because fully scaled hot standby must take the whole load at once.
+- The intake queues keep persistent messages and have no redelivery limit. During a ten minute database outage the claims wait in the queue, survive a broker restart, and drain once the database is back.
 `,
   followUps: [
     { q: 'What does hot standby cost under usage-based pricing?', a: 'It consumes no messages or throughput until traffic switches, and it consumes fewer flows with CPU-based HPA. Flows are still counted for running replicas. Without usage-based pricing, it consumes extra vCores.' },

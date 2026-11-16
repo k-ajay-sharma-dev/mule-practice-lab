@@ -29,7 +29,7 @@ export default {
       {
         sup: ['partner', '300 suppliers (AS2 / SFTP / VAN)'],
         gw: ['api-gateway', 'B2B gateway: AS2 endpoint + SFTP (DMZ)'],
-        pin: ['process-api', 'prc-b2b-inbound (envelope, parse X12, 997)'],
+        pin: ['process-api', 'prc-b2b-inbound (envelope, parse X12, 997)', { vCores: '0.5' }],
         prof: ['database', 'Partner profiles, control numbers, 997 tracking'],
         fs: ['file-store', 'Raw EDI archive (7 yrs)'],
         inq: ['queue', 'b2b.inbound.canonical'],
@@ -49,6 +49,29 @@ export default {
         'serp ~> outq', 'outq ~> pout', 'pout -> prof', 'pout -> fs', 'pout -> gw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'wms', latencyMs: 300, maxRps: 25 },
+        { match: 'erp', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'Monday morning ASN burst',
+          about: 'Suppliers send 80 ASNs a second for 15 minutes. The WMS takes at most 25 a second. Every supplier gets its 997 at once, and the ASNs wait in the queue until the WMS has them all.',
+          traffic: [{ name: 'ASNs', from: 'partner', rps: 80, forMin: 15, to: 'wms', kind: 'write' }],
+          durationMin: 75,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Oracle EBS is down for 30 minutes',
+          about: 'Suppliers send 5 invoices a second while Oracle EBS is down for 30 minutes. The invoices wait in the queue and none is lost.',
+          traffic: [{ name: 'invoices', from: 'partner', rps: 5, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A DIY retailer buys from **300 suppliers**. Today a VAN mailbox and a 15-year-old translator handle EDI, and onboarding a supplier takes **6 weeks**. You are asked to design a Mule-based B2B gateway.
@@ -58,7 +81,7 @@ Facts:
 - 40 large suppliers use **AS2**; 230 use **SFTP** (some push to us, some expect us to pull); 30 small suppliers will use a web portal (out of scope here).
 - Each supplier has its own ISA/GS IDs, X12 version (4010 or 5010), separators, and some send non-standard segments.
 - **Oracle EBS** owns POs and invoices; the **WMS** needs ASNs before trucks arrive.
-- Volume: 20,000 documents/day, peaks of 2,000/hour on Monday mornings.
+- Volume: 20,000 documents/day, peaks of 2,000/hour on Monday mornings. For the Run tab: suppliers can push 80 ASNs a second for 15 minutes when a batch of SFTP files lands, the WMS takes at most 25 a second, and Oracle EBS can be down for 30 minutes. In this lab 0.1 vCore carries about 50 requests a second.
 - Audit requires the raw files for 7 years. Buyers complain they never know when a supplier "did not get" a PO.
 
 **Questions:**

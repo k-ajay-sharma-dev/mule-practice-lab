@@ -35,13 +35,13 @@ export default {
         brk: ['partner', 'Broker portal'],
         cc: ['internal-app', 'Call centre app'],
         em: ['experience-api', 'exp-mobile-api'],
-        eb: ['experience-api', 'exp-broker-api'],
+        eb: ['experience-api', 'exp-broker-api', { auth: 'client-id' }],
         ec: ['experience-api', 'exp-callcenter-api'],
-        pp: ['process-api', 'prc-policy-api (premium rules once)'],
-        pcl: ['process-api', 'prc-claims-api (eligibility)'],
+        pp: ['process-api', 'prc-policy-api (premium rules once)', { vCores: '0.2' }],
+        pcl: ['process-api', 'prc-claims-api (eligibility)', { vCores: '0.2' }],
         ev: ['topic', 'ClaimSubmitted / PolicyChanged'],
         pn: ['process-api', 'prc-notification (async subscriber)'],
-        sp: ['system-api', 'sys-policy-api'],
+        sp: ['system-api', 'sys-policy-api', { vCores: '0.5' }],
         scl: ['system-api', 'sys-claims-api'],
         scrm: ['system-api', 'sys-crm-customer-api'],
         smsg: ['system-api', 'sys-messaging-api'],
@@ -56,6 +56,49 @@ export default {
         'pp ~> ev', 'pcl ~> ev', 'ev ~> pn', 'pn -> smsg', 'smsg -> sms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'database', latencyMs: 50 },
+        { match: 'crm', latencyMs: 200 },
+        { match: 'notification', latencyMs: 3000 },
+      ],
+      tests: [
+        {
+          name: 'Policy screens at peak on a 3 vCore budget',
+          about: 'Mobile reads 30 policies a second, brokers 20 and the call centre 10, for ten minutes. Each answer takes under a second, and the whole domain uses at most 3 vCores.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 30, to: 'legacy' },
+            { name: 'brokers', from: 'partner', rps: 20, to: 'legacy' },
+            { name: 'call centre', from: 'internal-app', rps: 10, to: 'legacy' },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], vCores: { max: 3 } },
+        },
+        {
+          name: 'Claims are submitted without waiting for the SMS',
+          about: 'Mobile users submit 10 claims a second. The SMS provider takes 3 seconds, but the claim is answered in under a second and the SMS still goes out.',
+          traffic: [{ name: 'claims', from: 'mobile-app', rps: 10, kind: 'write', to: ['database', 'notification'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], delivered: [{ to: 'notification', min: 0.95 }] },
+        },
+        {
+          name: 'The SMS provider is down',
+          about: 'The SMS and email provider is down from minute 2 to minute 7. Claims are still taken, and the waiting notifications go out once it is back, with none lost.',
+          traffic: [{ name: 'claims', from: 'mobile-app', rps: 10, kind: 'write', to: ['database', 'notification'] }],
+          incidents: [{ down: 'notification', at: 2, forMin: 5 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 100 }] },
+        },
+        {
+          name: 'Brokers need a client id',
+          about: 'Brokers with a client id read 20 policies a second. A caller without one sends 5 a second and must be refused at the broker API.',
+          traffic: [
+            { name: 'brokers', from: 'partner', rps: 20, to: 'legacy' },
+            { name: 'no client id', from: 'partner', rps: 5, to: 'legacy', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'brokers', minSuccess: 0.99 }, { flow: 'no client id', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 You join an insurer as lead architect. The previous vendor delivered "API-led". Here is the inventory for the Policy & Claims domain:
@@ -80,6 +123,13 @@ You join an insurer as lead architect. The previous vendor delivered "API-led". 
 
 Symptoms: mobile policy screen takes 3–4 s; a premium rule change took 3 releases and still differs between web and broker; a SQL injection finding on #5; 15 apps × 2 replicas × 1 vCore.
 
+Numbers for the target design:
+- At peak, mobile reads 30 policies a second, brokers 20 and the call centre 10. Mobile users also submit 10 claims a second.
+- The mainframe answers in about 300 ms, the claims database in 50 ms and CRM in 200 ms. The SMS / email provider takes 3 s and has outages of several minutes.
+- Policy screens and claim submissions must answer in under a second, and no notification may be lost.
+- Brokers must present a client id; callers without one are refused.
+- The budget for the domain is 3 vCores.
+
 **Deliver:**
 1. Identify each **smell**, mapped to API numbers, and explain why it hurts.
 2. Propose the **target architecture** for this domain.
@@ -100,6 +150,7 @@ Symptoms: mobile policy screen takes 3–4 s; a premium rule change took 3 relea
     'Layer violations: a System API calling another (6→1), an Experience API orchestrating six System APIs with business rules (11), and bypassing the System layer to the mainframe (14).',
     'Security/design defects: generic SQL-passing API (5) and a pass-through Process API (10); synchronous notifications on the critical path (15) should become asynchronous events.',
     'Remediation is risk- and value-ordered: fix the security hole first, then the shared Process API behind existing Experience contracts (strangler/facade), then consolidation and retirement driven by traffic analytics, with governance gates to prevent recurrence.',
+    'Right-size by load: 0.1 vCore for most apps, 0.2 for the two Process APIs and 0.5 for the Policy System API that every read reaches, about 1.6 vCores instead of 30. Client id enforcement on the broker API.',
   ],
   solution: `
 **Smells and impact.**
@@ -134,6 +185,12 @@ System:   sys-policy-api (/policies/{id}, /coverages, /insured, /premium)       
 - \`prc-claims-api\` gets real responsibility: claim eligibility moves here from 11 and 13.
 - Notifications become **asynchronous** (events/queue), off the critical path.
 - Experience APIs only shape and secure; 14 calls Process APIs.
+
+**Sizing and failure handling.**
+- At peak about 60 policy reads a second reach both Process APIs, and \`sys-policy-api\` carries the reads of both. 0.2 vCore for each Process API and 0.5 for \`sys-policy-api\` carry it; the other apps stay at 0.1. The domain uses about 1.6 vCores, inside a 3 vCore budget, against 30 today.
+- A policy screen makes one call to the mainframe through one System API and answers in about 0.7 s.
+- A claim is answered once it is stored and the event is published, in well under a second. The SMS goes out from the subscriber. When the provider is down, events wait on the persistent topic and go out once it is back.
+- \`exp-broker-api\` enforces client id, so a caller without one never reaches the domain.
 
 **Remediation roadmap.**
 - **Phase 0 (immediately, 1–2 weeks):** close the SQL injection in #5 — restrict to parameterised named queries / allowlisted operations; apply client-id enforcement and restrict callers. Security first.

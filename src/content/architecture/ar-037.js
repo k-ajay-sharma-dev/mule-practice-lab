@@ -33,15 +33,15 @@ export default {
         mob: ['mobile-app', 'Mobile banking app'],
         idp: ['identity-provider', 'Cloud IdP (OIDC, auth code + PKCE)'],
         waf: ['load-balancer', 'CDN / WAF'],
-        gw: ['api-gateway', 'API gateway (JWT validation, per-user rate limit)'],
-        exp: ['experience-api', 'exp-mobile-banking-api (BFF, GET /home)'],
+        gw: ['api-gateway', 'API gateway (JWT validation, per-user rate limit)', { auth: 'jwt' }],
+        exp: ['experience-api', 'exp-mobile-banking-api (BFF, GET /home)', { replicas: 2, vCores: '0.5', calls: 'in parallel', timeoutMs: 1000, circuitBreaker: 'on', onFailure: 'partial answer' }],
         cache: ['cache', 'Profile / product metadata cache'],
-        pacc: ['process-api', 'prc-accounts-api'],
-        pcard: ['process-api', 'prc-cards-api'],
+        pacc: ['process-api', 'prc-accounts-api', { replicas: 2, vCores: '0.5' }],
+        pcard: ['process-api', 'prc-cards-api', { replicas: 2, vCores: '0.5' }],
         pnot: ['process-api', 'prc-notification-api'],
         ev: ['topic', 'TransactionPosted events'],
-        score: ['system-api', 'sys-core-banking-api'],
-        scard: ['system-api', 'sys-card-processor-api'],
+        score: ['system-api', 'sys-core-banking-api', { replicas: 2, vCores: '0.5' }],
+        scard: ['system-api', 'sys-card-processor-api', { replicas: 2, vCores: '0.5' }],
         spush: ['system-api', 'sys-push-api'],
         core: ['legacy', 'Core banking (on-prem)'],
         card: ['saas', 'Card processor SaaS'],
@@ -53,6 +53,39 @@ export default {
         'pacc ~> ev', 'ev ~> pnot', 'pnot -> spush', 'spush -> push',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 500, maxRps: 300 },
+        { match: 'saas', latencyMs: 400 },
+        { match: 'notification', latencyMs: 200 },
+        { match: 'cache', hitRatio: 0.2 },
+      ],
+      tests: [
+        {
+          name: 'Salary day peak',
+          about: 'On salary day the home screen is opened 200 times a second for ten minutes. It must load in full, in 750 ms on average, so nearly every load stays under a second. Core banking must stay under its 300 calls a second, and the APIs must fit the 6 vCore budget.',
+          traffic: [{ name: 'home', from: 'mobile-app', rps: 200, to: ['legacy', 'saas'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.05, maxMs: 750 }], peakRps: [{ node: 'legacy', max: 300 }], vCores: { max: 6 } },
+        },
+        {
+          name: 'The card processor hangs',
+          about: 'The card processor stops answering for the whole run while the home screen is opened 100 times a second. The home screen still loads in 750 ms on average, with accounts and balances but without the cards part.',
+          traffic: [{ name: 'home', from: 'mobile-app', rps: 100, to: ['legacy', 'saas'] }],
+          incidents: [{ hang: 'saas' }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.5, maxMs: 750 }] },
+        },
+        {
+          name: 'Identity provider outage',
+          about: 'The identity provider is down for the whole run. Customers whose app already holds a token keep using the app, and calls without a token are still refused.',
+          traffic: [
+            { name: 'customers', from: 'mobile-app', rps: 100, to: ['legacy', 'saas'] },
+            { name: 'no token', from: 'mobile-app', rps: 10, to: ['legacy', 'saas'], auth: 'none' },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ flow: 'customers', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A bank is launching a new **mobile banking app** (iOS/Android). Backends:
@@ -68,6 +101,12 @@ Requirements:
 - Customers must only ever see their own data.
 - Expected 500,000 users, peaks at salary day (10× normal).
 - Mobile app releases are slow (app-store review, users not updating), so old app versions stay in use for months.
+
+Numbers to design for:
+- The home screen is opened about 20 times a second normally and **200 times a second** on salary day. It should load in **750 ms** on average, so nearly every load stays under a second.
+- Core banking answers in about 500 ms and takes at most **300 calls a second**. The card processor answers in about 400 ms, and has had incidents where it stops answering altogether. The push provider takes about 200 ms.
+- The identity provider has had outages. Customers who are already logged in must keep using the app during one, and calls without a valid token must always be refused.
+- The budget for the Mule apps is **6 vCores**.
 
 **Questions:**
 - Draw the layers from the device to the backends and explain responsibilities.
@@ -92,6 +131,7 @@ Requirements:
     'The home screen uses one aggregated call that runs backend calls in parallel (Scatter-Gather), with short timeouts, partial responses and caching of slow-changing data.',
     'Old app versions are supported by additive API changes, versioned Experience APIs and a minimum supported version check that can force an upgrade.',
     'Peaks are absorbed by gateway rate/spike policies, horizontal scaling of the Experience/Process layers and protecting the core banking system.',
+    'Settings: JWT validation at the gateway checks tokens without calling the IdP, so an IdP outage does not stop logged-in customers. The BFF calls in parallel with a 1 s timeout, a circuit breaker and partial answers; the APIs on the home path run 2 replicas of 0.5 vCore (5.2 vCores in total).',
   ],
   solution: `
 **Layers.**
@@ -127,6 +167,11 @@ Mobile app
 - Feature flags (server-driven) to switch features without app releases.
 
 **Peaks.** Rate limit per user/device to stop abusive clients; pre-scale Experience/Process apps before salary day; protect core banking with spike control and caching; asynchronous handling for non-urgent actions (statements, notification preferences).
+
+**Settings that matter.**
+- **Gateway: JWT validation.** The signature is checked locally with the IdP's published keys, so customers with a token keep working while the IdP is down. Token introspection (OAuth 2.0 enforcement) would ask the IdP about every call and fail with it. Calls without a token are refused either way.
+- **BFF: calls in parallel, a 1000 ms timeout, a circuit breaker and partial answers.** In parallel the home screen takes the time of the slowest backend (about half a second), not the sum. When the card processor hangs, the breaker fails those calls at once and the screen shows accounts and balances without cards, instead of every request waiting for the timeout.
+- **Sizing for salary day:** the five APIs on the home path run **2 replicas of 0.5 vCore**, about half busy at 200 screens a second. With the notification apps that is 5.2 vCores, inside the budget of 6. Core banking gets about 160 calls a second, well under its 300.
 `,
   followUps: [
     { q: 'Why not let the app call the Process APIs directly?', a: 'The app would make many calls over a slow network, receive more data than needed and couple itself to internal APIs; the Experience API reduces round trips and lets internal APIs change without app releases.' },

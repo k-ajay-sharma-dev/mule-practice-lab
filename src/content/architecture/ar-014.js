@@ -35,15 +35,66 @@ export default {
         waf: ['load-balancer', 'CDN and WAF (OWASP, bots, DDoS)'],
         pub: ['load-balancer', 'Private Space public ingress'],
         prv: ['load-balancer', 'Private ingress (no public DNS)'],
-        mp: ['experience-api', 'Partner Mule APIs (Autodiscovery policies)'],
-        mi: ['process-api', 'Internal Mule APIs (Autodiscovery policies)'],
-        fk: ['api-gateway', 'Flex Gateway in the Kubernetes cluster (connected mode)'],
+        mp: ['experience-api', 'Partner Mule APIs (Autodiscovery policies)', { auth: 'client-id' }],
+        mi: ['process-api', 'Internal Mule APIs (Autodiscovery policies)', { auth: 'jwt' }],
+        fk: ['api-gateway', 'Flex Gateway in the Kubernetes cluster (connected mode)', { auth: 'client-id', rateLimit: 80 }],
         k8s: ['external-api', 'Spring Boot and Node.js microservices on Kubernetes'],
-        fd: ['api-gateway', 'Flex Gateway in the DMZ (connected mode)'],
+        fd: ['api-gateway', 'Flex Gateway in the DMZ (connected mode)', { auth: 'client-id', rateLimit: 15 }],
         soap: ['legacy', '.NET SOAP service'],
       },
       ['ptn -> waf', 'waf -> pub', 'pub -> mp', 'waf -> fk', 'fk -> k8s', 'waf -> fd', 'fd -> soap', 'int -> prv', 'prv -> mi'],
     ),
+    simulation: {
+      systems: [
+        { match: WAF, latencyMs: 20 },
+        { match: 'external-api', latencyMs: 80, maxRps: 100 },
+        { match: 'legacy', latencyMs: 400, maxRps: 20 },
+      ],
+      tests: [
+        {
+          name: 'Partners without a client ID',
+          about: 'Registered partners call the microservices 40 times a second. Callers with no client ID try the microservices, the SOAP service and the partner Mule APIs. Every one of those is refused.',
+          traffic: [
+            { name: 'registered partners', from: 'partner', rps: 40, to: 'external-api' },
+            { name: 'no ID to microservices', from: 'partner', rps: 10, to: 'external-api', auth: 'none' },
+            { name: 'no ID to SOAP', from: 'partner', rps: 5, to: 'legacy', auth: 'none' },
+            { name: 'no ID to Mule APIs', from: 'partner', rps: 10, to: 'experience-api', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'registered partners', minSuccess: 0.99 },
+              { flow: 'no ID to microservices', minRefused: 0.99 },
+              { flow: 'no ID to SOAP', minRefused: 0.99 },
+              { flow: 'no ID to Mule APIs', minRefused: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'A partner floods the microservices',
+          about: 'For three minutes partners send 300 requests a second to the microservices, which handle about 100. The Flex Gateway rate limit keeps them under that, and SOAP callers are not affected.',
+          traffic: [
+            { name: 'microservices', from: 'partner', rps: 40, to: 'external-api', spikes: [{ at: 3, forMin: 3, rps: 300 }] },
+            { name: 'SOAP', from: 'partner', rps: 8, to: 'legacy' },
+          ],
+          expect: {
+            answers: [{ flow: 'SOAP', minSuccess: 0.99 }, { flow: 'microservices', maxFailed: 0.01 }],
+            peakRps: [{ node: 'external-api', max: 100 }],
+          },
+        },
+        {
+          name: 'Internal apps call internal APIs',
+          about: 'Internal apps call the internal Mule APIs 30 times a second with a JWT, and a script with no token tries too. The internal calls skip the WAF, and the script is refused.',
+          traffic: [
+            { name: 'internal apps', from: 'internal-app', rps: 30, to: 'process-api' },
+            { name: 'script with no token', from: 'internal-app', rps: 5, to: 'process-api', auth: 'none' },
+          ],
+          expect: {
+            answers: [{ flow: 'internal apps', minSuccess: 0.99, maxMs: 200 }, { flow: 'script with no token', minRefused: 0.99 }],
+            notReached: [{ node: WAF }],
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -126,6 +177,8 @@ A logistics company has a mixed landscape:
 - A legacy **.NET SOAP service** on a Windows server in the data center that partners call through an old reverse proxy.
 - Security requires a **WAF** for all internet traffic and wants one place to see "who calls what" across all APIs.
 
+Numbers: the microservices handle about **100 requests a second** (80 ms each), and partners normally send 40, with bursts of 300. The SOAP service answers in 400 ms and handles about 20 a second. The WAF adds about 20 ms. Internal apps call the internal Mule APIs about 30 times a second with a JWT from the corporate IdP. Every caller, inside or outside, must prove who it is.
+
 **Questions:**
 - For each group of APIs, where would you enforce API policies: inside the Mule runtime (Mule gateway / autodiscovery), a Mule API proxy, or **Flex Gateway** — and where would that gateway run?
 - How do internet (north-south) and internal (east-west) traffic differ in your design?
@@ -147,6 +200,7 @@ A logistics company has a mixed landscape:
     'Flex Gateway in connected mode is managed from API Manager, so policies, contracts and analytics are visible in one place alongside Mule APIs.',
     'Internet traffic passes a WAF/edge layer (DDoS, OWASP filtering) before the gateway; the gateway handles API-level concerns (client ID, OAuth, rate limiting, SLA tiers).',
     'Internal east-west traffic still has identity and policies but lighter ones (e.g. client ID or JWT, no WAF), and internal APIs are not reachable from the internet at the network level.',
+    'Policy settings: client ID enforcement on both Flex Gateways and the partner Mule APIs, JWT validation on the internal APIs, and a rate limit of 80 a second on the Kubernetes Flex Gateway (15 on the SOAP one) so a burst never reaches the services.',
   ],
   solution: `
 **Mule APIs on CloudHub 2.0.** Use **API Autodiscovery**: policies from API Manager run inside the Mule runtime itself (the "Mule gateway"). No separate proxy, no extra network hop. A Mule **API proxy app** is only useful when you cannot change the implementation or want policies isolated from the implementation lifecycle — not needed here.
@@ -160,6 +214,8 @@ A logistics company has a mixed landscape:
 - *Internal:* internal-only endpoints (private ingress/internal load balancer, VPN/transit connectivity), no public DNS. Still enforce identity (client ID or JWT from the corporate IdP) so you know which app calls which API, but lighter policies and no WAF hop for latency.
 
 **Central management.** One **API Manager** organisation/business groups for Mule APIs and Flex Gateway APIs: same client applications and contracts, same Exchange catalogue, analytics in one place. Policy definitions are reused (automated policies per environment for baseline controls like logging or header injection where appropriate).
+
+**Policy settings.** Each gateway enforces the policies of the APIs behind it. The Kubernetes Flex Gateway has client ID enforcement and a rate limit of 80 requests a second, below the 100 a second the microservices can take, so a 300 a second burst gets 429 at the gateway instead of 503 from the services. The DMZ Flex Gateway has client ID enforcement and a limit of 15 a second for the SOAP service. The partner Mule APIs enforce client ID through Autodiscovery, and the internal Mule APIs validate the JWT of each internal caller, so a script with no token is refused even though it never passes the WAF.
 
 **Trade-offs.** Flex Gateway adds a component to operate (versions, scaling, HA with at least 2 replicas). Embedding policies in Mule apps avoids a hop but couples policy upgrades to the runtime. The decision is per workload: *Mule app → embedded; non-Mule → Flex*.
 `,

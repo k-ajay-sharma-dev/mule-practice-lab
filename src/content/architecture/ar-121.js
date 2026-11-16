@@ -19,13 +19,37 @@ export default {
     ],
     reference: diagram(
       {
-        ord: ['process-api', 'prc-orders-api'],
-        ret: ['process-api', 'prc-returns-api'],
-        sys: ['system-api', 'sys-customers-api'],
+        ord: ['process-api', 'prc-orders-api', { replicas: 2 }],
+        ret: ['process-api', 'prc-returns-api', { replicas: 2 }],
+        sys: ['system-api', 'sys-customers-api', { replicas: 2, vCores: '0.2' }],
         db: ['database', 'Customer database'],
       },
       ['ord -> sys', 'ret -> sys', 'sys -> db'],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 30 }],
+      tests: [
+        {
+          name: 'Both teams at peak',
+          about: 'The orders API sends 40 customer lookups a second and the returns API 20, for ten minutes. The shared System API carries both, and the APIs stay inside 1 vCore.',
+          traffic: [
+            { name: 'orders', from: { type: 'process-api', label: 'orders' }, rps: 40, to: 'database' },
+            { name: 'returns', from: { type: 'process-api', label: 'returns' }, rps: 20, to: 'database' },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], peakRps: [{ node: 'system-api', min: 55 }], vCores: { max: 1 } },
+        },
+        {
+          name: 'A zone goes down',
+          about: 'One availability zone fails for the whole run at peak load. Both teams depend on the shared System API, so every API must keep answering.',
+          traffic: [
+            { name: 'orders', from: { type: 'process-api', label: 'orders' }, rps: 40, to: 'database' },
+            { name: 'returns', from: { type: 'process-api', label: 'returns' }, rps: 20, to: 'database' },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A shoe retailer keeps its customers in one database. The orders team and the returns team each wrote code that connects to it, so one table change breaks both.
@@ -33,6 +57,11 @@ A shoe retailer keeps its customers in one database. The orders team and the ret
 A **System API** gives access to one backend system and hides its details. A **Process API** applies business rules and calls System APIs.
 
 The plan: both Process APIs stop connecting to the database and share one System API.
+
+Some numbers for the design:
+- At peak the orders API looks up 40 customers a second and the returns API 20. A database query takes about 30 ms.
+- Both teams now depend on one System API, so it must survive the loss of one availability zone.
+- The budget for the three APIs is 1 vCore.
 
 **Questions:**
 - Draw the design.
@@ -46,6 +75,7 @@ The plan: both Process APIs stop connecting to the database and share one System
     'A System API gives access to one backend system and hides its details.',
     'Only the System API connects to the database. Everything else calls the System API.',
     'A table change is fixed in one place, and the API contract stays the same for its callers.',
+    'A shared System API carries the load of all its callers, so size it for the sum. It is also a single point of failure, so run two replicas.',
   ],
   solution: `
 **Design.**
@@ -56,6 +86,8 @@ The plan: both Process APIs stop connecting to the database and share one System
 \`\`\`
 
 **When a table changes.** The team updates the System API only. The Process APIs keep calling the same operations and receive the same response, so they do not change. Before this design, the same fix was needed in two places.
+
+**Sizing.** The System API carries both teams, 60 lookups a second. 0.1 vCore serves about 50 a second, so each replica gets 0.2 vCore. Two replicas sit in different availability zones, so one zone going down leaves 0.2 vCore, still enough for 60 a second. The Process APIs carry 40 and 20 a second and run two replicas of 0.1 vCore each. The total is 0.8 vCore, inside the budget.
 `,
   followUps: [
     {

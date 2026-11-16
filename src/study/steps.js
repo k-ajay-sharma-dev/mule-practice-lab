@@ -43,9 +43,11 @@ const DIAGRAM_STAGES = [
   { key: 'boxes', title: 'Add the boxes' },
   { key: 'lines', title: 'Connect them' },
   { key: 'limits', title: 'Keep the boundaries' },
+  { key: 'run', title: 'Run it under load and outages' },
 ]
 
 function diagramStage(rule) {
+  if (rule.type === 'runs') return 'run'
   if (rule.type === 'node') return 'boxes'
   if (['edge', 'each', 'path', 'link', 'lines'].includes(rule.type)) return 'lines'
   return 'limits'

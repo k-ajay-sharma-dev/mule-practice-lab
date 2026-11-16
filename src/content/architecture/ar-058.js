@@ -26,18 +26,40 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app (product search)'],
         lb: ['load-balancer', 'Public load balancer (mobile traffic only)'],
-        exp: ['experience-api', 'exp-mobile-api'],
-        prc: ['process-api', 'prc-product-api (Scatter-Gather, calls in parallel)'],
+        exp: ['experience-api', 'exp-mobile-api', { vCores: '0.5' }],
+        prc: ['process-api', 'prc-product-api (Scatter-Gather, calls in parallel)', { vCores: '0.5', calls: 'in parallel' }],
         cache: ['cache', 'Product and price cache (Object Store, TTL)'],
-        spim: ['system-api', 'sys-pim-api'],
-        sprice: ['system-api', 'sys-price-api'],
-        sstock: ['system-api', 'sys-stock-api'],
+        spim: ['system-api', 'sys-pim-api', { vCores: '0.2' }],
+        sprice: ['system-api', 'sys-price-api', { vCores: '0.2' }],
+        sstock: ['system-api', 'sys-stock-api', { vCores: '0.2' }],
         pim: ['saas', 'PIM'],
         pdb: ['database', 'Pricing DB'],
         wms: ['wms', 'WMS'],
       },
       ['mob -> lb', 'lb -> exp', 'exp -> prc', 'prc -> cache', 'prc -> spim', 'prc -> sprice', 'prc -> sstock', 'spim -> pim', 'sprice -> pdb', 'sstock -> wms'],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 250 },
+        { match: 'database', latencyMs: 120 },
+        { match: 'wms', latencyMs: 400 },
+      ],
+      cache: { hitRatio: 0.3 },
+      tests: [
+        {
+          name: 'Search within 500 ms',
+          about: 'The mobile app sends 40 product searches a second. Each search needs the PIM, the pricing DB and the WMS, and the average answer must take no more than 500 ms.',
+          traffic: [{ name: 'search', from: 'mobile-app', rps: 40, to: ['saas', 'database', 'wms'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }] },
+        },
+        {
+          name: 'Evening peak',
+          about: 'In the evening the mobile app sends 80 searches a second for the whole run. Every search is answered, and the chain fits in 2 vCores.',
+          traffic: [{ name: 'search', from: 'mobile-app', rps: 80, to: ['saas', 'database', 'wms'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 800 }], vCores: { max: 2 } },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -121,6 +143,9 @@ Facts:
 - Each Mule app runs separately on CloudHub 2.0 (0.2 vCore, 1 replica).
 - The Process API calls the three System APIs **sequentially**.
 - Every call goes through the public load balancer because developers used the public URLs.
+- Normal traffic is **40 searches a second**, and the evening peak is **80 a second**.
+- About **30%** of searches can be answered from a product and price cache. Stock must stay live.
+- The budget for the whole chain is **2 vCores**.
 
 A senior developer says: *"API-led is too slow — let's have the mobile app call the databases directly."*
 
@@ -143,6 +168,7 @@ A senior developer says: *"API-led is too slow — let's have the mobile app cal
     'Each hop adds network, TLS, policy and serialization overhead; routing internal calls via public endpoints adds more — use internal/private endpoints within the same region/space.',
     'Cache at the right layer for the data\'s volatility: product content (long TTL) near the System/Process layer, price (medium), stock (short or none); HTTP caching at the Experience layer for anonymous data.',
     'Undersized replicas (0.2 vCore) under load add queueing latency; right-size and scale out before redesigning.',
+    'Settings that fix this chain: calls in parallel on the Process API, a cache in front of it, and 0.5 vCore on the Experience and Process APIs that carry every search. The System APIs stay at 0.2 vCore, 1.6 vCores in all.',
     'API-led layers are design boundaries; a thin layer can be co-deployed (e.g. as a separate flow/module in the same app) to remove a hop, at the cost of independent scaling, deployment and fault isolation.',
   ],
   solution: `
@@ -184,6 +210,10 @@ Rule: cache **closest to the consumer that can accept the staleness**, and as lo
 - **Co-deployed**: e.g. a thin Experience API and its Process API in one Mule app, with the Experience flows calling Process logic via \`flow-ref\` (or the Process API's flows packaged as a shared module). The Process API can still also be exposed on its own HTTP listener with its own API Manager instance for other consumers.
 - When: tight latency budgets, very thin layers, small team, low reuse, cost pressure.
 - What you lose: independent scaling/deploys, blast-radius isolation, per-layer policy enforcement for internal calls (in-process calls bypass the gateway), and it is easy to leak logic across the boundary. Keep the code structured (separate modules/flows, separate specs) so you can split later.
+
+**Settings that matter.**
+- \`prc-product-api\` calls in **parallel**: about 400 ms for the backends instead of 770 ms. With a cache that answers 30% of searches, the average search takes well under 500 ms.
+- At 80 searches a second the Experience and Process APIs need more than 0.2 vCore, which serves about 100 a second and gets slow near the top. 0.5 vCore each gives room. The System APIs see fewer calls thanks to the cache and stay at 0.2 vCore. The total is 1.6 vCores.
 
 **Answer to the senior developer:** direct DB access from mobile removes security, decoupling and reuse to save ~100 ms that can be recovered by parallelism, internal routing and caching.
 `,

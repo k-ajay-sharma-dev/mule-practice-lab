@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
-import { addEdge, addNode, duplicateNode, removeEdge, removeNode, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
+import { addEdge, addNode, duplicateNode, removeEdge, removeNode, setNodeSetting, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
+import { configOf, settingsBadge, settingsOf } from '../../arch/settings.js'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 
 const PALETTE = LANES.map((lane) => ({
@@ -33,7 +34,8 @@ function edgePath(s, t) {
   return `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`
 }
 
-export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null }) {
+// overlay: optional { [nodeId]: { text, level: 'ok' | 'warn' | 'bad' } } from a test run, shown on each box
+export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null, overlay = null }) {
   const [selected, setSelected] = useState(null) // { kind: 'node' | 'edge', id }
   const [connectFrom, setConnectFrom] = useState(null)
   const [newKind, setNewKind] = useState('sync')
@@ -332,11 +334,13 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                   {lane.nodes.map((n) => {
                     const t = NODE_TYPES[n.type]
                     const isSel = selNode?.id === n.id
+                    const badge = settingsBadge(n)
+                    const mark = overlay?.[n.id]
                     return (
                       <div
                         key={n.id}
                         data-node-id={n.id}
-                        className={`arch-node${isSel ? ' selected' : ''}${connectFrom && connectFrom !== n.id ? ' connect-target' : ''}`}
+                        className={`arch-node${isSel ? ' selected' : ''}${connectFrom && connectFrom !== n.id ? ' connect-target' : ''}${mark ? ` run-${mark.level}` : ''}`}
                         onClick={(e) => {
                           e.stopPropagation()
                           clickNode(n.id)
@@ -347,6 +351,8 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                         <span className="arch-node-text">
                           <span className="arch-node-label">{n.label}</span>
                           {n.label !== t?.label && <span className="arch-node-type">{t?.label}</span>}
+                          {badge && <span className="arch-node-settings">{badge}</span>}
+                          {mark && <span className={`arch-node-run ${mark.level}`}>{mark.text}</span>}
                         </span>
                         {!readOnly && (
                           <span
@@ -394,6 +400,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                 newKind={newKind}
                 setNewKind={setNewKind}
                 onLabel={(label) => change(updateNode(diagram, selNode.id, { label }))}
+                onSetting={(field, value) => change(setNodeSetting(diagram, selNode.id, field.key, value, field.default))}
                 onConnect={(to) => connect(selNode.id, to)}
                 onStartConnect={() => setConnectFrom(selNode.id)}
                 onEdgeKind={(id, kind) => change(updateEdge(diagram, id, { kind }))}
@@ -443,6 +450,41 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   )
 }
 
+// How the box is deployed, protected or kept, for the Run tab's simulation (see arch/settings.js).
+function NodeSettings({ node, onSetting }) {
+  const fields = settingsOf(node.type)
+  if (!fields.length) return null
+  const config = configOf(node)
+  return (
+    <details className="props-settings" open={Boolean(node.config)}>
+      <summary className="props-subtitle">Settings</summary>
+      {fields.map((f) => (
+        <label key={f.key} className="field small">
+          {f.label}
+          {f.type === 'select' ? (
+            <select className="input" value={String(config[f.key])} onChange={(e) => onSetting(f, e.target.value)}>
+              {f.options.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="input"
+              type="number"
+              min="0"
+              value={config[f.key]}
+              onChange={(e) => onSetting(f, e.target.value === '' ? undefined : Number(e.target.value))}
+            />
+          )}
+          {f.help && <span className="muted small field-help">{f.help}</span>}
+        </label>
+      ))}
+    </details>
+  )
+}
+
 function KindToggle({ value, onChange }) {
   return (
     <div className="seg">
@@ -455,7 +497,7 @@ function KindToggle({ value, onChange }) {
   )
 }
 
-function NodeProps({ onDuplicate, node, diagram, nodeById, newKind, setNewKind, onLabel, onConnect, onStartConnect, onEdgeKind, onEdgeRemove, onShift, onDelete }) {
+function NodeProps({ onSetting, onDuplicate, node, diagram, nodeById, newKind, setNewKind, onLabel, onConnect, onStartConnect, onEdgeKind, onEdgeRemove, onShift, onDelete }) {
   const [target, setTarget] = useState('')
   const out = diagram.edges.filter((e) => e.from === node.id)
   const inc = diagram.edges.filter((e) => e.to === node.id)
@@ -470,6 +512,7 @@ function NodeProps({ onDuplicate, node, diagram, nodeById, newKind, setNewKind, 
         <input className="input" value={node.label} onChange={(e) => onLabel(e.target.value)} placeholder={type?.label} />
       </label>
       {type?.api && <p className="muted small">Tip: name APIs by layer, e.g. exp-mobile-api, prc-order-api, sys-sap-api.</p>}
+      <NodeSettings node={node} onSetting={onSetting} />
 
       <div className="props-subtitle">Calls / sends to</div>
       <KindToggle value={newKind} onChange={setNewKind} />

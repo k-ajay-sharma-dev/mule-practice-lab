@@ -28,15 +28,15 @@ export default {
     reference: diagram(
       {
         dev: ['device', 'Depot scanners'],
-        exp: ['experience-api', 'exp-scan-events-api'],
+        exp: ['experience-api', 'exp-scan-events-api', { replicas: 2, vCores: '2' }],
         ex: ['topic', 'parcel-scan-events'],
-        tq: ['queue', 'tracking-q'],
-        bq: ['queue', 'billing-q'],
-        aq: ['queue', 'analytics-q'],
-        dlq: ['dlq', 'Dead-letter queues (max delivery 5)'],
-        trk: ['process-api', 'prc-tracking-consumer'],
-        bil: ['process-api', 'prc-billing-consumer'],
-        ana: ['process-api', 'prc-analytics-loader'],
+        tq: ['queue', 'tracking-q', { maxRedelivery: 10 }],
+        bq: ['queue', 'billing-q', { maxRedelivery: 10 }],
+        aq: ['queue', 'analytics-q', { maxRedelivery: 10 }],
+        dlq: ['dlq', 'Dead-letter queues (max delivery 10)'],
+        trk: ['process-api', 'prc-tracking-consumer', { replicas: 2, vCores: '1' }],
+        bil: ['process-api', 'prc-billing-consumer', { replicas: 2, vCores: '1' }],
+        ana: ['process-api', 'prc-analytics-loader', { replicas: 2, vCores: '1' }],
         tdb: ['database', 'Tracking DB (status rank)'],
         os: ['cache', 'Idempotency store (persistent)'],
         bdb: ['database', 'Billing DB (unique parcelId + event)'],
@@ -49,6 +49,40 @@ export default {
         'trk -> tdb', 'bil -> os', 'bil -> bdb', 'ana -> lake',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 10 },
+        { match: 'data-warehouse', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'Morning scan peak',
+          about: 'Scanners send 400 events a second, and 1,500 a second for ten minutes of the morning peak. Every scan is accepted, each consumer works through its own backlog, and all three queues are empty within the hour, inside a 12 vCore budget.',
+          durationMin: 60,
+          traffic: [{ name: 'scans', from: 'device', rps: 400, kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 1500 }], to: ['database', 'data-warehouse'] }],
+          expect: {
+            answers: [{ minSuccess: 0.99, maxMs: 200 }],
+            backlog: [{ queue: 'queue', maxEnd: 0 }],
+            lost: { max: 0 },
+            vCores: { max: 12 },
+          },
+        },
+        {
+          name: 'Tracking DB maintenance',
+          about: 'The tracking DB is down for 5 minutes while scans arrive at 400 a second. Tracking messages are tried again each minute and wait in tracking-q. None may end up in the DLQ or be lost, and the backlog drains once the DB is back.',
+          durationMin: 30,
+          traffic: [{ name: 'scans', from: 'device', rps: 400, kind: 'write', to: ['database', 'data-warehouse'] }],
+          incidents: [{ down: { type: 'database', label: 'tracking' }, at: 5, forMin: 5 }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: { type: 'database', label: 'tracking' }, min: 0.99 }],
+            backlog: [{ queue: { type: 'queue', label: 'tracking' }, maxEnd: 0 }],
+            dlq: { max: 0 },
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A logistics company tracks parcels. Scanners in 40 depots send **scan events** (\`RECEIVED\`, \`SORTED\`, \`LOADED\`, \`DELIVERED\`) to a Mule Experience API at peaks of **~1,500 events/second**.
@@ -59,6 +93,8 @@ Consumers:
 - **Analytics** — loads everything into the data lake; order does not matter.
 
 Constraints: some events are malformed (bad parcel IDs); the tracking DB occasionally has 5-minute maintenance windows.
+
+Numbers for sizing: outside the peak, scanners send about 400 events a second; the 1,500 a second peak lasts about ten minutes each morning. Each queue should be empty again within the hour. A message that fails is tried again about once a minute. The budget for the APIs is 12 vCores.
 
 **Design the messaging layer with Anypoint MQ:**
 - Queues vs exchanges — what do you create and how are they bound?
@@ -81,6 +117,8 @@ Constraints: some events are malformed (bad parcel IDs); the tracking DB occasio
     'Billing deduplicates on a business key (parcelId + DELIVERED) e.g. idempotent message validator with persistent Object Store or a unique DB constraint.',
     'MANUAL acknowledgement: ack after successful processing, nack (or let lock expire) on transient errors so the message is redelivered.',
     'Each queue has a dead letter queue with a max delivery count; malformed messages go to the DLQ, which is monitored and can be replayed.',
+    'The max delivery count must outlast a planned outage: with a retry about once a minute, a count of 5 sends good messages to the DLQ during a 5 minute DB window, so use 10.',
+    'Sizing: 1,500 events a second needs 2 replicas of 2 vCores on the scan API; each consumer runs 2 replicas of 1 vCore so its backlog drains after the peak.',
   ],
   solution: `
 **Topology.** The Experience API validates the payload shape and publishes each scan to an **exchange** \`parcel-scan-events\`. Three queues are bound to it: \`tracking-q\`, \`billing-q\`, \`analytics-q\`. Each consumer app subscribes to its own queue, so a slow consumer (analytics) builds its own backlog without affecting the others. A fourth consumer later = one more bound queue.
@@ -89,8 +127,11 @@ Constraints: some events are malformed (bad parcel IDs); the tracking DB occasio
 
 **Ack, redelivery, DLQ.**
 - Subscriber with **MANUAL acknowledgement**: ack only after the DB write succeeds; on a transient error (tracking DB maintenance) nack or let the lock time out so the message comes back. Add reconnection / backoff so the app does not spin during a 5-minute outage — messages simply wait in the queue.
-- Configure each queue with a **dead letter queue** and a **max delivery count** (e.g. 5). Validation failures (bad parcel ID) should be routed to the DLQ quickly, not retried forever.
+- Configure each queue with a **dead letter queue** and a **max delivery count**. Validation failures (bad parcel ID) should be routed to the DLQ quickly, not retried forever.
+- Pick the count with the outages in mind. With a retry about once a minute, a count of 5 moves good tracking messages to the DLQ during a 5 minute DB window. A count of 10 rides it out, and the backlog drains when the DB is back.
 - Alert on DLQ depth; provide a replay process (move messages back after a fix).
+
+**Sizing.** One vCore serves about 500 events a second, so the scan API needs 3 vCores for the 1,500 a second peak; 2 replicas of 2 vCores give room above the peak. Each consumer gets 2 replicas of 1 vCore: during the peak its queue grows, and afterwards it takes 1,000 a second against 400 arriving, so the backlog is gone within the hour. In all 10 vCores, inside the budget of 12.
 
 **Ordering and duplicates.**
 - *Tracking:* store the current status with a rank (\`RECEIVED\`=1 … \`DELIVERED\`=4) and the event timestamp. Update only if the incoming event is newer/higher — a conditional update (\`UPDATE … WHERE rank < :newRank\`). Out-of-order and duplicate events then become no-ops.

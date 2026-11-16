@@ -29,7 +29,7 @@ export default {
     reference: diagram(
       {
         tpl: ['partner', '3PL partner'],
-        papi: ['experience-api', 'partner-api (spec, client-id, rate limit)'],
+        papi: ['experience-api', 'partner-api (spec, client-id, rate limit)', { auth: 'client-id', rateLimit: 30 }],
         ord: ['process-api', 'order-sync-app'],
         cus: ['batch-job', 'customer-sync-app'],
         fin: ['batch-job', 'finance-sync-app'],
@@ -42,6 +42,30 @@ export default {
       },
       ['tpl -> papi', 'papi -> ord', 'ord -> ssf', 'ord -> sns', 'ord -> shop', 'cus -> ssf', 'cus -> pg', 'fin -> sns', 'ssf -> sf', 'sns -> ns'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 200 },
+        { match: 'erp', latencyMs: 300, maxRps: 40 },
+        { match: 'saas', latencyMs: 150 },
+      ],
+      tests: [
+        {
+          name: 'The 3PL partner at its peak',
+          about: 'The 3PL partner sends 20 order updates a second with its client ID, and a misconfigured script sends 2 a second without one. The partner is answered, the script is refused, and the whole estate fits in 1.5 vCores.',
+          traffic: [
+            { name: '3PL', from: 'partner', rps: 20, to: ['crm', 'erp', 'saas'], kind: 'write' },
+            { name: 'no client id', from: 'partner', rps: 2, to: ['crm', 'erp', 'saas'], kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: '3PL', minSuccess: 0.99 }, { flow: 'no client id', minRefused: 0.99 }], vCores: { max: 1.5 } },
+        },
+        {
+          name: 'The partner floods the API',
+          about: 'A retry loop at the 3PL sends 150 requests a second for three minutes. The rate limit on the partner API answers 429 to what is over it, so NetSuite never sees more than its 40 calls a second.',
+          traffic: [{ name: '3PL', from: 'partner', rps: 15, to: ['crm', 'erp', 'saas'], kind: 'write', spikes: [{ at: 3, forMin: 3, rps: 150 }] }],
+          expect: { answers: [{ minLimited: 0.4 }], peakRps: [{ node: 'erp', max: 40 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -131,6 +155,11 @@ A senior interviewer plays devil's advocate:
 
 Constraints: limited vCores/capacity, no C4E, one team owns everything, only one external consumer (a 3PL partner).
 
+Numbers:
+- The 3PL partner sends up to **20 order updates a second**. Each one touches Salesforce, NetSuite and Shopify. A retry loop on its side has sent **150 a second** before.
+- NetSuite allows about **40 calls a second** for the integration and answers in about 300 ms.
+- The budget for the whole estate is **1.5 vCores**.
+
 **Questions:**
 1. What are the genuine **costs** of full API-led for this team? Quantify where you can.
 2. Where does API-led **still** add value here?
@@ -154,6 +183,7 @@ Constraints: limited vCores/capacity, no C4E, one team owns everything, only one
     'Right-size: System APIs only where reused, sync jobs as Process-layer apps calling connectors or System APIs, one partner-facing API, co-located deployments, shared templates — keep logical layering in code even when physically merged.',
     'Grow when there are new channels/consumers, more teams, a backend replacement on the roadmap, duplicated logic appearing, or external consumers multiplying.',
     'Frame it as "API-led is a set of principles applied proportionately" — show judgement, not rejection.',
+    'The one partner API carries the policies that matter: client-id enforcement and a rate limit of 30 a second, which keeps a misbehaving partner from flooding NetSuite. Six small apps at 0.1 vCore fit the budget with room to spare.',
   ],
   solution: `
 **Costs of full API-led here.**
@@ -182,6 +212,8 @@ Constraints: limited vCores/capacity, no C4E, one team owns everything, only one
 - Inside each app, keep **logical layers**: separate flows/files for connectivity (system), orchestration (process) and output mapping (experience); shared DataWeave and error-handling modules. Splitting later is then a refactor, not a rewrite.
 - One project template, one error contract, one logging standard — cheap and valuable.
 - Document the decision in an **ADR** with the triggers for revisiting.
+- **Policies on the partner API**: client-id enforcement refuses callers without a registered ID, and a rate limit of **30 a second** answers 429 to the rest of a flood. NetSuite then sees at most 30 of its 40 calls a second, even when the 3PL retries in a loop.
+- **Sizing**: at these volumes every app runs on one 0.1 vCore replica, 0.6 vCores for the six apps. The consultant's 36 apps would need 3.6 vCores at the same size before any traffic.
 
 **Signals to grow.**
 - A second and third consumer for the same data (mobile app, another partner, analytics).

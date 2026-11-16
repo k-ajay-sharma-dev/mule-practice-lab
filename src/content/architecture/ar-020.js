@@ -27,13 +27,13 @@ export default {
         portal: ['web-app', 'Customer portal'],
         brk: ['partner', 'Brokers'],
         ep: ['experience-api', 'exp-customer-portal-api'],
-        eb: ['experience-api', 'exp-broker-api'],
+        eb: ['experience-api', 'exp-broker-api', { rateLimit: 15 }],
         pp: ['process-api', 'prc-policy-claims-api'],
-        spol: ['system-api', 'sys-policy-api (canonical JSON)'],
+        spol: ['system-api', 'sys-policy-api (canonical JSON)', { rateLimit: 20 }],
         rs: ['database', 'Policy read store'],
         mf: ['legacy', 'Mainframe (CICS / DB2)'],
         cdc: ['event-stream', 'CDC change stream'],
-        upd: ['process-api', 'prc-read-store-sync'],
+        upd: ['process-api', 'prc-read-store-sync', { vCores: '0.5' }],
       },
       [
         'portal -> ep', 'brk -> eb', 'ep -> pp', 'eb -> pp', 'pp -> spol',
@@ -41,6 +41,53 @@ export default {
         'mf ~> cdc', 'cdc ~> upd', 'upd -> rs',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 800 },
+        { match: ['database', 'cache'], latencyMs: 10, maxRps: 2000 },
+      ],
+      tests: [
+        {
+          name: 'The nightly batch floods the change stream',
+          about: 'The mainframe changes 20 policies a second, and 400 a second for 20 minutes while the COBOL batch runs. The read store must get every change, and the change stream must be empty again within the hour.',
+          durationMin: 90,
+          traffic: [{ name: 'policy changes', from: 'legacy', rps: 20, kind: 'write', spikes: [{ at: 5, forMin: 20, rps: 400 }], to: { type: ['database', 'cache'] } }],
+          expect: {
+            delivered: [{ to: ['database', 'cache'], min: 0.99 }],
+            backlog: [{ queue: ['event-stream', 'queue', 'topic'], maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+        {
+          name: 'The read store is down for 15 minutes',
+          about: 'The mainframe changes 30 policies a second while the read store is down from minute 5 to minute 20. The changes wait in the stream, none is lost or dead-lettered, and the read store catches up.',
+          durationMin: 60,
+          traffic: [{ name: 'policy changes', from: 'legacy', rps: 30, kind: 'write', to: { type: ['database', 'cache'] } }],
+          incidents: [{ down: ['database', 'cache'], at: 5, forMin: 15 }],
+          expect: {
+            delivered: [{ to: ['database', 'cache'], min: 0.99 }],
+            backlog: [{ queue: ['event-stream', 'queue', 'topic'], maxEnd: 0 }],
+            dlq: { max: 0 },
+            lost: { max: 0 },
+          },
+        },
+        {
+          name: 'Brokers send a bulk address update',
+          about: 'Brokers push 45 address changes a second while customers make 5 a second in the portal. The mainframe team allows at most 25 transactions a second. Brokers over their share get 429, and customers are still served.',
+          traffic: [
+            { name: 'portal', from: 'web-app', rps: 5, kind: 'write', to: 'legacy' },
+            { name: 'brokers', from: 'partner', rps: 45, kind: 'write', to: 'legacy' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'portal', minSuccess: 0.99 },
+              { flow: 'brokers', maxFailed: 0.02 },
+            ],
+            peakRps: [{ node: 'legacy', max: 25 }],
+          },
+        },
+      ],
+    },
   },
   description: `
 A regional insurer's **policy administration** runs on an IBM z/OS mainframe (CICS transactions, DB2, COBOL batch). The business wants a modern **customer portal** and a **broker API** showing policies and claims, and allowing address changes.
@@ -50,6 +97,7 @@ Facts:
 - Existing interfaces: a few CICS transactions (COMMAREA, fixed-width records described by **COBOL copybooks**), **IBM MQ** queues used by an older system, and nightly **fixed-width files** via SFTP.
 - The mainframe team has 3 people, a 6-month change backlog and releases quarterly.
 - The mainframe will be replaced "in about 5 years".
+- Numbers for sizing: CICS transactions take about 800 ms, and the mainframe team allows at most 25 a second from the new channels. Customers make about 5 address changes a second; brokers sometimes push bulk updates at 45 a second. The mainframe changes about 20 to 30 policies a second, and 400 a second for 20 minutes while the nightly COBOL batch runs; the read store should catch up within the hour. The read store has had outages of 15 minutes.
 
 **Questions:**
 - Which integration options do you consider (CICS calls, IBM MQ, DB2 direct, files, CDC), and which do you pick for reads vs writes?
@@ -73,6 +121,7 @@ Facts:
     'Writes (address change) go to the mainframe as the system of record through an existing transaction/MQ interface, never by writing DB2 tables directly.',
     'Copybook-based fixed-width records are parsed/generated in DataWeave (flat file schema from the copybook) inside a Mainframe System API, which exposes a canonical JSON model.',
     'The System API contract hides all mainframe concepts so the future replacement only changes the System API implementation (strangler pattern).',
+    'Settings that matter: the read store sync consumer is sized for the batch burst (0.5 vCore), the change stream keeps changes while the read store is down, and rate limits on the broker API (15 a second) and the Policy System API (20 a second) keep CICS under the agreed 25.',
   ],
   solution: `
 **Options.**
@@ -89,6 +138,9 @@ Facts:
 - **Writes (address change)** go to the mainframe as the **system of record**, via an existing CICS transaction or MQ request (async with confirmation). After success, update the read store (or let CDC bring it back). Never write DB2 tables directly — business rules live in COBOL.
 
 **Controlling load and cost.** The read store absorbs portal and broker traffic; the mainframe sees only writes and CDC. Add **rate limiting** on the System API paths that hit CICS, and caching for reference data. Measure MIPS before/after with the mainframe team.
+- A rate limit of 20 a second on the Policy System API keeps CICS under the agreed 25. On its own it would refuse customers too when brokers push a bulk update, so the broker Experience API gets its own limit of 15 a second. Brokers over it get 429 and retry later; customers are still served.
+- The nightly batch changes 400 policies a second for 20 minutes. The read store sync consumer at 0.1 vCore moves about 50 a second and would still be behind the next day. At 0.5 vCore it moves about 250 a second, and the stream is empty within the hour.
+- When the read store is down, the sync consumer fails and the changes wait in the change stream. Leave the delivery limit unlimited (or long enough for the outage), or the changes are dropped and the read store stays wrong until the next full load.
 
 **Insulating consumers.**
 - A **Policy System API** (and Claims SAPI) exposes canonical JSON resources (\`/policies/{id}\`, \`/policies/{id}/address\`). Copybook fixed-width ↔ JSON conversion happens inside it with DataWeave flat-file schemas generated from the **COBOL copybooks** (watch EBCDIC encoding, packed decimals/COMP-3, signed fields — test with real samples).

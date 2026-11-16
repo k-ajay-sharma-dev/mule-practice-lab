@@ -1,5 +1,9 @@
 import { diagram } from '../../arch/dsl.js'
 
+// Traffic starts where the public gateway hands it to each Experience API, so mobile and partner calls stay apart.
+const MOBILE = { type: 'experience-api', label: ['mobile', 'customer', 'app'] }
+const PARTNER = { type: 'experience-api', label: ['partner', 'fintech'] }
+
 export default {
   id: 'ar-056',
   category: 'architecture',
@@ -30,19 +34,67 @@ export default {
         fin: ['partner', 'Partner fintech (M2M)'],
         idp: ['identity-provider', 'Bank IdP (OAuth 2.0 / OIDC)'],
         gw: ['api-gateway', 'Public ingress + API Manager policies'],
-        em: ['experience-api', 'exp-mobile-api (token enforcement, spike control)'],
-        ep: ['experience-api', 'exp-partner-api (client creds, SLA tiers, IP allowlist)'],
-        pa: ['process-api', 'prc-accounts-api (private, client-id enforcement)'],
-        score: ['system-api', 'sys-core-account-api (secure properties)'],
-        scrm: ['system-api', 'sys-crm-customer-api'],
+        em: ['experience-api', 'exp-mobile-api (token enforcement, spike control)', { auth: 'jwt', vCores: '0.2' }],
+        ep: ['experience-api', 'exp-partner-api (client creds, SLA tiers, IP allowlist)', { auth: 'jwt', rateLimit: 30 }],
+        pa: ['process-api', 'prc-accounts-api (private, client-id enforcement)', { auth: 'client-id', vCores: '0.2' }],
+        score: ['system-api', 'sys-core-account-api (secure properties)', { auth: 'client-id', vCores: '0.2' }],
+        scrm: ['system-api', 'sys-crm-customer-api', { auth: 'client-id', vCores: '0.2' }],
         core: ['legacy', 'Core banking (on-prem via VPN)'],
         crm: ['crm', 'CRM'],
       },
       ['mob -> idp', 'mob -> gw', 'fin -> gw', 'gw -> em', 'gw -> ep', 'em -> pa', 'ep -> pa', 'pa -> score', 'pa -> scrm', 'score -> core', 'scrm -> crm'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 300, maxRps: 100 },
+        { match: 'crm', latencyMs: 150 },
+      ],
+      tests: [
+        {
+          name: 'Callers without a token',
+          about: 'Next to normal customer traffic, a copied app and a partner script call from the internet without a token. Both must be refused at the Experience layer, and customers must still be answered.',
+          traffic: [
+            { name: 'customers', from: MOBILE, rps: 30, to: ['legacy', 'crm'] },
+            { name: 'app without token', from: MOBILE, rps: 5, to: ['legacy', 'crm'], auth: 'none' },
+            { name: 'partner without token', from: PARTNER, rps: 5, to: ['legacy', 'crm'], auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'customers', minSuccess: 0.99 },
+              { flow: 'app without token', minRefused: 0.99 },
+              { flow: 'partner without token', minRefused: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'Identity provider outage',
+          about: 'The bank identity provider is down for the whole run. Customers and partners that already hold a token must keep being answered.',
+          traffic: [
+            { name: 'customers', from: MOBILE, rps: 30, to: ['legacy', 'crm'] },
+            { name: 'partners', from: PARTNER, rps: 10, to: ['legacy', 'crm'] },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'A partner floods the API',
+          about: 'One partner sends 200 requests a second against an SLA tier of 30, while customers send 40. The partner gets 429 for the extra calls, customers are not affected, and core banking stays under its 100 a second.',
+          traffic: [
+            { name: 'customers', from: MOBILE, rps: 40, to: ['legacy', 'crm'] },
+            { name: 'partner', from: PARTNER, rps: 200, to: ['legacy', 'crm'] },
+          ],
+          expect: {
+            answers: [{ flow: 'customers', minSuccess: 0.99 }, { flow: 'partner', minLimited: 0.7 }],
+            peakRps: [{ node: 'legacy', max: 100 }],
+          },
+        },
+      ],
+    },
   },
   description: `
 A bank's API-led estate runs on CloudHub 2.0 in a **Private Space** with a VPN to on-prem. Consumers: a mobile app (customers log in), partner fintechs (machine-to-machine), and internal apps.
+
+Customers send about 40 requests a second. Each partner has an SLA tier of **30 a second**, and one partner has sent bursts of 200. Core banking answers in about 300 ms and takes at most **100 calls a second**; the CRM answers in about 150 ms. The bank identity provider has had outages, and callers that already hold a token must keep working during one. (In the Run tab, traffic starts at the mobile and partner Experience APIs, where the public gateway hands it over.)
 
 An auditor asks: *"Show me how each layer is secured, how the layers trust each other, and what is reachable from the internet."*
 
@@ -68,6 +120,7 @@ An auditor asks: *"Show me how each layer is secured, how the layers trust each 
     'End-user identity is propagated as validated claims (e.g. a forwarded/derived JWT or customer id header set by the trusted Experience API), and authorisation on data ownership happens where the data is resolved.',
     'Only Experience APIs are exposed via public ingress; Process and System apps use private/internal endpoints reachable only inside the Private Space/VPC or via VPN.',
     'Backend credentials exist only in System API apps, stored as secure (encrypted) properties or in a secrets manager — never in upper layers.',
+    'In settings: JWT validation on both Experience APIs (no call to the IdP per request), a 30 a second rate limit on the partner Experience API, and client ID enforcement on the Process and System APIs.',
   ],
   solution: `
 \`\`\`
@@ -98,6 +151,12 @@ Internet ──TLS──> [public ingress] ──> exp-mobile-api   (OAuth2/OIDC
 - Only Experience APIs on the **public** ingress (public endpoint / load balancer).
 - Process and System APIs on **private ingress/internal endpoints** reachable only inside the Private Space (and from on-prem over VPN if needed). Even if a client id leaked, the API is not reachable from the internet.
 - Firewall rules on the Private Space and on-prem limit which CIDR ranges reach backends.
+
+**Settings that matter.**
+- \`exp-mobile-api\` and \`exp-partner-api\`: **JWT validation**. The gateway checks the token signature with the IdP's published keys, so a caller without a token is refused, and callers with a token keep working while the IdP is down. Introspecting every token with the IdP (OAuth 2.0 enforcement) would stop all traffic during an IdP outage.
+- \`exp-partner-api\`: a **rate limit of 30 a second**, the SLA tier. A partner bursting to 200 gets 429 for the extra calls, so the shared \`prc-accounts-api\` and core banking (at most 100 a second) stay safe, and customers are not affected.
+- \`prc-accounts-api\` and the System APIs: **client ID enforcement**. They are only called by the layer above, so the policy identifies those apps; outside callers never reach them.
+- Sizing: the mobile Experience API, the Process API and both System APIs get 0.2 vCore each; the partner API stays at 0.1 because its limit caps what it carries.
 
 **Backend credentials.** Only System API apps hold SAP/DB credentials, stored as **secure properties** (encrypted in config, key supplied at deploy time as a protected property) or fetched from a vault/secrets manager. Process and Experience apps never hold backend credentials — that is one of the security benefits of the System layer.
 `,

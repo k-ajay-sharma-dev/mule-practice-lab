@@ -26,7 +26,7 @@ export default {
         ship: ['internal-app', 'Shipping support agent'],
         inv: ['internal-app', 'Invoice agent'],
         idp: ['identity-provider', 'Identity provider'],
-        pol: ['api-gateway', 'Policies: JWT Validation, Rogue Agent Detection, Agent Kill Switch'],
+        pol: ['api-gateway', 'Policies: JWT Validation, Rogue Agent Detection, Agent Kill Switch', { auth: 'jwt' }],
         proxy: ['api-gateway', 'Model Proxy on Omni Gateway'],
         oai: ['external-api', 'OpenAI models'],
         ant: ['external-api', 'Anthropic models'],
@@ -38,6 +38,30 @@ export default {
         'pol -> proxy', 'proxy -> oai', 'proxy -> ant', 'proxy -> bud',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'external-api', label: 'openai' }, latencyMs: 2000 },
+        { match: { type: 'external-api', label: 'anthropic' }, latencyMs: 2000 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a token',
+          about: 'The three agents send 5 prompts a second in all, each with its JWT. A script that found the endpoint sends 20 a second with no token. The policies refuse the script, and the agents get their answers.',
+          traffic: [
+            { name: 'agents', from: 'internal-app', rps: 5, to: { label: 'openai' } },
+            { name: 'script', from: 'internal-app', rps: 20, auth: 'none', to: { label: 'openai' } },
+          ],
+          expect: { answers: [{ flow: 'agents', minSuccess: 0.99 }, { flow: 'script', minRefused: 0.99 }], notReached: [{ flow: 'script', node: 'external-api' }] },
+        },
+        {
+          name: 'The identity provider is down',
+          about: 'The identity provider is down for the whole run. Tokens already issued are valid for an hour, so the agents keep calling the models.',
+          traffic: [{ name: 'agents', from: 'internal-app', rps: 5, to: { label: 'anthropic' } }],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A logistics company has three internal **agents**, AI powered services that carry out tasks: an HR assistant, a shipping support agent and an invoice agent. Each one calls an **LLM** (large language model, an AI model that reads and writes text).
@@ -48,7 +72,12 @@ Today each agent holds its own provider keys and calls the provider directly. Th
 - **Availability:** when one provider blocks or fails a request, the agent has no other route.
 - **Security:** nobody can tell which agent sent a prompt, or stop an agent that behaves badly.
 
-The company wants a single governed endpoint in front of two providers, with a spending cap for each agent and a way to contain a risky agent. It has an identity provider that issues a JWT (a signed token) to each agent.
+The company wants a single governed endpoint in front of two providers, with a spending cap for each agent and a way to contain a risky agent. It has an identity provider that issues a JWT (a signed token) to each agent. A token is valid for an hour.
+
+Some numbers for the design:
+- The three agents send about 5 prompts a second in all. A model answers in about 2 seconds.
+- A script that found the old endpoint has sent 20 prompts a second with no token.
+- The identity provider has had outages. The agents must keep working while it is down, with the tokens they already hold.
 
 **Questions:**
 - Draw the target design.
@@ -73,6 +102,7 @@ The company wants a single governed endpoint in front of two providers, with a s
     'At the limit the proxy blocks requests for that provider and model, or sends them to the next model when a fallback route exists. Budgets are approximate.',
     'JWT Validation provides the verified claims that Rogue Agent Detection and Agent Kill Switch use.',
     'Rogue Agent Detection flags risky behaviour for review. Containment through Agent Kill Switch happens only after human review.',
+    'JWT Validation checks the signature locally, so a caller without a token is refused and an identity provider outage does not stop agents that hold a valid token. Introspection on every call would.',
   ],
   solution: `
 **Target design.**
@@ -96,6 +126,8 @@ In the product the policies are attached to the model proxy and are not a separa
 | Agent Kill Switch | Blocks a quarantined agent identity from the model proxy |
 
 The Agent Identity Selector must match in Rogue Agent Detection and Agent Kill Switch, and each agent needs its own non human identity provider account. Otherwise you cannot tell the agents apart.
+
+**When the identity provider is down.** JWT Validation checks the token signature with the public keys of the provider, which the gateway keeps. It does not ask the provider about each call, so agents with a valid token keep working during an outage. A policy that asks the provider about every token (introspection) would stop all three agents. The script without a token is refused at the policies and never reaches a provider, so it costs nothing.
 
 **Wallet setup.** Wallets identify callers from the JWT, so the docs have you disable the default Client ID Enforcement and DataWeave Headers Transformation policies on the proxy, and add JWT Validation.
 `,

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { diagramHint, runDiagramChecks } from '../src/arch/checks.js'
+import { archChecks, diagramHint, runDiagramChecks } from '../src/arch/checks.js'
 
 // Integration scenarios and case studies use the same diagrams, so their cases live here too.
 const FOLDERS = { ar: 'architecture', uc: 'use-cases', cs: 'case-studies' }
@@ -35,10 +35,17 @@ const swap = (d, spec) => {
 const draw = (d, ...specs) => {
   for (const spec of specs) d.edges.push({ id: `x${d.edges.length}`, ...parse(spec) })
 }
-const box = (d, id, type, label) => d.nodes.push({ id, type, label })
+const box = (d, id, type, label, config) => d.nodes.push({ id, type, label, ...(config ? { config } : {}) })
 const unbox = (d, id) => {
   d.nodes = d.nodes.filter((n) => n.id !== id)
   d.edges = d.edges.filter((e) => e.from !== id && e.to !== id)
+}
+// Changes a box's settings (arch/settings.js); a key set to undefined goes back to its default.
+const set = (d, id, config) => {
+  const node = d.nodes.find((n) => n.id === id)
+  assert.ok(node, `no box ${id}`)
+  node.config = { ...node.config, ...config }
+  for (const [k, v] of Object.entries(node.config)) if (v === undefined) delete node.config[k]
 }
 const rename = (d, id, label) => {
   d.nodes.find((n) => n.id === id).label = label
@@ -48,7 +55,9 @@ let wrong = 0
 let right = 0
 
 async function results(id, change) {
-  const { checks, reference } = (await load(id)).diagram
+  const problem = await load(id)
+  const checks = archChecks(problem)
+  const reference = problem.diagram.reference
   const design = structuredClone(reference)
   change(design)
   return { design, checks, out: runDiagramChecks(design, checks) }
@@ -78,7 +87,7 @@ async function passes(id, change) {
 // Usage: node scripts/check-arch-strict.js [pilot a b ...] runs only those files.
 const caseDir = resolve('scripts/arch-cases')
 const only = process.argv.slice(2)
-const tools = { failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }
+const tools = { failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }
 for (const file of readdirSync(caseDir).filter((x) => x.endsWith('.js')).sort()) {
   if (only.length && !only.includes(file.replace(/\.js$/, ''))) continue
   await (await import(pathToFileURL(join(caseDir, file)).href)).default(tools)

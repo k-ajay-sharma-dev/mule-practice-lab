@@ -28,14 +28,14 @@ export default {
       {
         db: ['database', 'Oracle (INV_ONHAND, ORDERS)'],
         raw: ['event-stream', 'Kafka cdc.raw.* (GoldenGate / Debezium)'],
-        prc: ['process-api', 'prc-inventory-events (map rows to events)'],
+        prc: ['process-api', 'prc-inventory-events (map rows to events)', { vCores: '1' }],
         canon: ['topic', 'inventory.changed / order.updated'],
         dlq: ['dlq', 'cdc mapping DLQ'],
-        pecom: ['process-api', 'prc-ecommerce-stock-sync'],
-        sshop: ['system-api', 'sys-shopify'],
+        pecom: ['process-api', 'prc-ecommerce-stock-sync', { vCores: '0.5' }],
+        sshop: ['system-api', 'sys-shopify', { vCores: '0.5' }],
         shop: ['saas', 'Shopify'],
-        pcrm: ['process-api', 'prc-crm-order-sync'],
-        scrm: ['system-api', 'sys-salesforce'],
+        pcrm: ['process-api', 'prc-crm-order-sync', { vCores: '0.5' }],
+        scrm: ['system-api', 'sys-salesforce', { vCores: '0.5' }],
         crm: ['crm', 'Salesforce'],
         dw: ['data-warehouse', 'Analytics lake'],
       },
@@ -44,6 +44,35 @@ export default {
         'canon ~> pecom', 'pecom -> sshop', 'sshop -> shop', 'canon ~> pcrm', 'pcrm -> scrm', 'scrm -> crm',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300, maxRps: 100 },
+        { match: 'crm', latencyMs: 400, maxRps: 100 },
+      ],
+      tests: [
+        {
+          name: 'Every change reaches all three consumers',
+          about: 'Oracle commits 30 stock and order changes a second. Each one reaches Shopify, Salesforce and the analytics lake, and nothing waits at the end.',
+          traffic: [{ name: 'changes', from: 'database', rps: 30, to: ['saas', 'crm', 'data-warehouse'], kind: 'write' }],
+          expect: { delivered: [{ to: 'saas', min: 0.99 }, { to: 'crm', min: 0.99 }, { to: 'data-warehouse', min: 0.99 }], backlog: [{ queue: ['topic', 'queue', 'event-stream'], maxEnd: 200 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Salesforce is down for 30 minutes',
+          about: 'Salesforce is down for 30 minutes. Shopify and the lake keep up, and the Salesforce backlog drains once it is back, with no change lost.',
+          traffic: [{ name: 'changes', from: 'database', rps: 30, to: ['saas', 'crm', 'data-warehouse'], kind: 'write' }],
+          incidents: [{ down: 'crm', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { delivered: [{ to: 'saas', min: 0.99 }, { to: 'crm', min: 0.99 }], backlog: [{ queue: ['topic', 'queue', 'event-stream'], maxEnd: 200 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A vendor batch job changes 72,000 rows',
+          about: 'For four minutes a vendor batch job adds 300 changes a second to the normal 30. The mapper and both sync flows work through the burst within the run, inside the 4 vCore budget.',
+          traffic: [{ name: 'changes', from: 'database', rps: 30, to: ['saas', 'crm', 'data-warehouse'], kind: 'write', spikes: [{ at: 2, forMin: 4, rps: 330 }] }],
+          durationMin: 40,
+          expect: { delivered: [{ to: 'saas', min: 0.99 }, { to: 'crm', min: 0.99 }], backlog: [{ queue: ['topic', 'queue', 'event-stream'], maxEnd: 200 }], lost: { max: 0 }, vCores: { max: 4 } },
+        },
+      ],
+    },
   },
   description: `
 A home-improvement retailer keeps stock and orders in a **legacy Oracle 19c** application. The vendor will not add APIs or events. Three consumers need changes:
@@ -58,6 +87,12 @@ The first implementation is a Mule \`db:listener\` polling \`INV_ONHAND\` every 
 - Two updates within the same second sometimes produce only one event.
 
 The DBA offers **Oracle GoldenGate**; a platform engineer suggests **Debezium** (LogMiner-based) into Kafka.
+
+Numbers for sizing:
+- Oracle commits about **30 stock and order changes a second**. Vendor batch jobs add up to **300 a second** for a few minutes (about 72,000 rows).
+- Shopify answers in about 300 ms and accepts **100 calls a second**; Salesforce answers in about 400 ms and accepts **100 calls a second**.
+- Salesforce has maintenance windows of **30 minutes**; no change may be lost.
+- The budget for the Mule apps is **4 vCores**.
 
 **Questions:**
 - Compare db:listener polling with log-based CDC for this case. When is polling still the right choice?
@@ -79,6 +114,7 @@ The DBA offers **Oracle GoldenGate**; a platform engineer suggests **Debezium** 
     'Raw CDC records mirror the vendor schema; a Mule Process API maps them to canonical business events so consumers are decoupled from table design.',
     'Publish once to a topic/stream and fan out to independent consumers (Shopify sync, Salesforce sync, analytics), each behind System APIs.',
     'CDC brings new concerns: supplemental logging, DBA privileges, schema-change handling, lag monitoring and initial snapshots.',
+    'Size each sync flow to send faster than changes arrive, so its copy of the events drains after a batch burst or a Salesforce outage.',
   ],
   solution: `
 **Polling vs CDC.**
@@ -110,6 +146,12 @@ Polling remains a good choice for **small tables you own**, with an indexed wate
 - **Lag monitoring** (capture and consumer lag) and alerts.
 - Schema changes in the source tables can break the connector or mapping — version the canonical event instead.
 - Delivery is at-least-once: consumers must be idempotent.
+
+**Sizing and failure handling.**
+- The canonical events go on a **topic**, so each sync flow gets its own copy. On a queue, Shopify and Salesforce would compete and each would see about half of the changes.
+- \`prc-inventory-events\` runs on 1 vCore to keep up with a batch burst. Each sync flow (\`prc-ecommerce-stock-sync\` with \`sys-shopify\`, \`prc-crm-order-sync\` with \`sys-salesforce\`) runs on 0.5 vCore per app, so it can send at the full 100 calls a second and catch up after a burst or an outage.
+- While Salesforce is down, its copy of the events waits on the topic; Shopify is not affected. No redelivery limit is set on the topic itself, because a long outage would push good events out after a few tries.
+- In total 3 vCores, inside the 4 vCore budget.
 `,
   followUps: [
     { q: 'You cannot get GoldenGate or Kafka approved this year. How do you make polling safer?', a: 'Ask for (or add) a trigger-fed change table or an indexed, reliably maintained watermark, and poll that small table instead of the big one. Use soft deletes or a deletion log, and use idColumn plus the watermark to avoid duplicates.' },

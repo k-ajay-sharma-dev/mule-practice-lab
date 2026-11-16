@@ -1,4 +1,5 @@
 import { NODE_TYPES } from './catalog.js'
+import { archTestChecks, archTestHint, runArchTest } from './tests.js'
 
 // Rule-based checks for Architecture Designer diagrams.
 //
@@ -116,6 +117,11 @@ const RULES = {
 
 export const RULE_TYPES = Object.keys(RULES)
 
+// Every check of an architecture problem: the drawing rules, then one per test in its simulation.
+export function archChecks(problem) {
+  return [...(problem.diagram?.checks ?? []), ...archTestChecks(problem)]
+}
+
 // The same rule with its direction flipped, for spotting arrows drawn the wrong way round.
 function reversedRule(r) {
   if (r.type === 'edge' || r.type === 'path') return { ...r, from: r.to, to: r.from }
@@ -127,6 +133,8 @@ function reversedRule(r) {
 export function runDiagramChecks(diagram, checks) {
   const g = graph(diagram)
   return checks.map((c) => {
+    // a test run: the diagram has to behave as the test expects when traffic and incidents go through it
+    if (c.rule.type === 'runs') return { label: c.label, pass: runArchTest(diagram, c.rule.simulation, c.rule.test).pass, reversed: false }
     const pass = Boolean(RULES[c.rule.type]?.(g, c.rule))
     const rev = !pass && reversedRule(c.rule)
     return { label: c.label, pass, reversed: Boolean(rev && RULES[rev.type](g, rev)) }
@@ -155,6 +163,7 @@ const aKind = (kind) => `${kind === 'async' ? 'an' : 'a'} ${kindName(kind)}`
 
 // Says in plain words what a failing check still needs, reading the diagram so it can name what is already there.
 export function diagramHint(diagram, rule) {
+  if (rule.type === 'runs') return archTestHint(diagram, rule)
   const g = graph(diagram)
   const from = matcherName(rule.from)
   const to = matcherName(rule.to)

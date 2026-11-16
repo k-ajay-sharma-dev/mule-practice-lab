@@ -28,22 +28,58 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app'],
         web: ['web-app', 'Web portal'],
-        em: ['experience-api', 'exp-mobile-api'],
+        em: ['experience-api', 'exp-mobile-api', { vCores: '0.5' }],
         ew: ['experience-api', 'exp-web-api'],
-        prc: ['process-api', 'prc-order-status-api'],
+        prc: ['process-api', 'prc-order-status-api', { vCores: '0.5', calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 3000 }],
         cache: ['cache', 'Order status cache (TTL 5 min)'],
-        ssap: ['system-api', 'sys-sap-order-api'],
+        ssap: ['system-api', 'sys-sap-order-api', { rateLimit: 20 }],
         scar: ['system-api', 'sys-carrier-tracking-api'],
         sap: ['erp', 'SAP (orders)'],
         car: ['external-api', 'Carrier REST API'],
       },
       ['mob -> em', 'web -> ew', 'em -> prc', 'ew -> prc', 'prc -> cache', 'prc -> ssap', 'prc -> scar', 'ssap -> sap', 'scar -> car'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 1500, maxRps: 20 },
+        { match: 'external-api', latencyMs: 300 },
+      ],
+      cache: { hitRatio: 0.8 },
+      tests: [
+        {
+          name: 'Peak traffic from both channels',
+          about: 'The mobile app sends 30 order status requests a second and the web portal 20, for ten minutes. SAP must stay under its 20 a second.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 30, to: ['erp', 'external-api'] },
+            { name: 'web', from: 'web-app', rps: 20, to: ['erp', 'external-api'] },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxDegraded: 0.01, maxMs: 800 }], peakRps: [{ node: 'erp', max: 20 }], vCores: { max: 2 } },
+        },
+        {
+          name: 'A marketing push brings a spike',
+          about: 'For two minutes the mobile app sends 200 requests a second. The rate limit on the SAP System API keeps SAP safe, and most customers still get an answer.',
+          traffic: [
+            { name: 'mobile', from: 'mobile-app', rps: 30, to: ['erp', 'external-api'], spikes: [{ at: 4, forMin: 2, rps: 200 }] },
+            { name: 'web', from: 'web-app', rps: 20, to: ['erp', 'external-api'] },
+          ],
+          expect: { answers: [{ flow: 'mobile', minSuccess: 0.85 }, { flow: 'web', minSuccess: 0.9 }], peakRps: [{ node: 'erp', max: 20 }] },
+        },
+        {
+          name: 'The carrier API is down',
+          about: 'The carrier API fails for the whole run. Customers still see their order status, without the tracking part.',
+          traffic: [{ name: 'mobile', from: 'mobile-app', rps: 30, to: ['erp', 'external-api'] }],
+          incidents: [{ down: 'external-api' }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.1 }] },
+        },
+      ],
+    },
   },
   description: `
 A retailer wants customers to see order status in a **mobile app** and a **web portal**.
 
 Order data lives in **SAP** (header and lines) and shipment tracking in a **carrier REST API**. SAP calls are slow (1–2 s) and the SAP team limits you to 20 requests/second.
+
+At peak the mobile app sends 30 order status requests a second and the web portal 20. Marketing pushes can bring short spikes of 200 a second. The carrier API has outages, and customers should still see their order status when it is down. The budget for the APIs is 2 vCores.
 
 **Design the APIs** using API-led connectivity:
 - Which Experience, Process and System APIs do you create?
@@ -81,5 +117,11 @@ Order data lives in **SAP** (header and lines) and shipment tracking in a **carr
 - Apply a **Rate Limiting / Spike Control** policy on the SAP System API (≤ 20 rps), returning 429 upstream.
 - **Cache** order status in the Process API (Object Store, TTL ~5 min); delivered orders can be cached longer.
 - Timeouts and a circuit breaker / until-successful with backoff so slow SAP calls do not pile up threads.
+
+**When the carrier API is down**
+- The Process API answers with the order status and leaves out the tracking (a partial answer), instead of failing the whole request.
+
+**Sizing**
+- At 50 requests a second the Process API needs more than 0.1 vCore. 0.5 vCore for it and for the mobile Experience API keeps the total at 1.3 vCores, inside the budget.
 `,
 }

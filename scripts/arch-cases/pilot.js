@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for the pilot problems. See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // AR-064
   await failsOn('ar-064', 'one Policy Process API', (d) => cut(d, 'ec -> pp'))
   await failsOn('ar-064', 'one Policy System API', (d) => cut(d, 'pp -> sp'))
@@ -25,6 +25,15 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     unbox(d, 'smsg')
     draw(d, 'pn -> sms')
   })
+  await failsOn('ar-064', 'Run: Policy screens at peak on a 3 vCore budget', (d) => set(d, 'sp', { vCores: undefined }))
+  // The old sizing: every app on 2 replicas of 1 vCore.
+  await failsOn('ar-064', 'Run: Policy screens at peak on a 3 vCore budget', (d) => {
+    for (const id of ['em', 'eb', 'ec', 'pp', 'pcl', 'sp']) set(d, id, { replicas: 2, vCores: '1' })
+  })
+  // The old smell: the policy API waits for the 3 second SMS.
+  await failsOn('ar-064', 'Run: Claims are submitted without waiting for the SMS', (d) => draw(d, 'pp -> pn'))
+  await failsOn('ar-064', 'Run: The SMS provider is down', (d) => set(d, 'ev', { maxRedelivery: 3 }))
+  await failsOn('ar-064', 'Run: Brokers need a client id', (d) => set(d, 'eb', { auth: undefined }))
 
   // AR-110
   await failsOn('ar-110', 'routes to the ingress in each region', (d) => flip(d, 'glb -> ingP'))
@@ -47,7 +56,14 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'intake', 'process-api', 'prc-claims-intake')
     cut(d, 'expP ~> q')
     draw(d, 'expP -> intake', 'intake ~> q')
+    // Like the other claims apps, it needs a replica in a second zone.
+    set(d, 'intake', { replicas: 2 })
   })
+  // A scaled-down standby: the backup Process API runs one replica.
+  await failsOn('ar-110', 'Run: A zone fails at the month end peak', (d) => set(d, 'prcB', { replicas: undefined }))
+  await failsOn('ar-110', 'Run: A zone fails at the month end peak', (d) => set(d, 'sysP', { replicas: 1, vCores: '1' }))
+  await failsOn('ar-110', 'Run: The claims database is down for ten minutes', (d) => set(d, 'q', { persistent: 'no' }))
+  await failsOn('ar-110', 'Run: The claims database is down for ten minutes', (d) => set(d, 'qfb', { maxRedelivery: 3 }))
   await passes('ar-110', (d) => rename(d, 'glb', 'DNS failover with health checks'))
 
   // AR-084
@@ -75,6 +91,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'expWard', 'experience-api', 'exp-ward')
     cut(d, 'int -> prcAppt')
     draw(d, 'int -> expWard', 'pub -> expWard', 'expWard -> prcAppt')
+    // Like every app on the ward route, it needs a replica in a second zone.
+    set(d, 'expWard', { replicas: 2 })
   })
   // A separate worker drains the queue.
   await passes('ar-084', (d) => {
@@ -82,6 +100,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     cut(d, 'q ~> prcAppt')
     draw(d, 'q ~> wk', 'wk -> sysBill')
   })
+  await failsOn('ar-084', 'Run: Ward apps at clinic opening with a zone down', (d) => set(d, 'prcAppt', { replicas: undefined }))
+  await failsOn('ar-084', 'Run: Ward apps at clinic opening with a zone down', (d) => set(d, 'sysPat', { replicas: 1, vCores: '0.5' }))
+  // Token introspection asks the identity provider about every call, so its outage stops the portal.
+  await failsOn('ar-084', 'Run: Tokens while the identity provider is down', (d) => set(d, 'expPortal', { auth: 'oauth2' }))
+  await failsOn('ar-084', 'Run: Ward reads during the mainframe batch', (d) => set(d, 'prcAppt', { onFailure: undefined }))
 
   // AR-059
   await failsOn('ar-059', 'created in SAP synchronously', (d) => swap(d, 'po -> ssap'))
@@ -119,7 +142,15 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'pn', 'process-api', 'prc-notify')
     box(d, 'mail', 'notification', 'Email provider')
     draw(d, 'ex ~> pn', 'pn -> mail')
+    // The email subscriber takes 60 orders a second too, more than 0.1 vCore can, so it is sized like the others.
+    set(d, 'pn', { vCores: '0.2' })
   })
+  await failsOn('ar-059', 'Run: Orders at peak', (d) => set(d, 'exp', { vCores: undefined }))
+  // The old design: the order waits for the 2 second loyalty call.
+  await failsOn('ar-059', 'Run: Orders at peak', (d) => draw(d, 'po -> sloy'))
+  await failsOn('ar-059', 'Run: Loyalty is down and the broker restarts', (d) => set(d, 'ql', { persistent: 'no' }))
+  await failsOn('ar-059', 'Run: Loyalty is down and the broker restarts', (d) => set(d, 'ql', { maxRedelivery: 3 }))
+  await failsOn('ar-059', 'Run: Loyalty is down and the broker restarts', (d) => set(d, 'pl', { vCores: '0.1' }))
 
   // AR-085
   await failsOn('ar-085', 'Every client enters', (d) => unbox(d, 'portal'))
@@ -146,6 +177,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     unbox(d, 'expPlant')
     draw(d, 'expDealer -> prcStatus')
   })
+  await failsOn('ar-085', 'Run: A data centre hall goes down', (d) => set(d, 'sysSap', { replicas: undefined }))
+  await failsOn('ar-085', 'Run: A data centre hall goes down', (d) => set(d, 'sysPlant', { replicas: 1, vCores: '1' }))
+  await failsOn('ar-085', 'Run: Dealers need a token', (d) => set(d, 'expDealer', { auth: undefined }))
+  // Token introspection asks the identity provider about every call, so its outage stops the dealers.
+  await failsOn('ar-085', 'Run: Dealers need a token', (d) => set(d, 'expDealer', { auth: 'oauth2' }))
 
   // AR-013
   await failsOn('ar-013', 'Partners get their own', (d) => {
@@ -163,6 +199,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-013', (d) => cut(d, 'p360 -> snet', 'pon -> scrm'))
   await passes('ar-013', (d) => swap(d, 'snet -> net'))
   await passes('ar-013', (d) => rename(d, 'eptn', 'exp-b2b-api'))
+  await failsOn('ar-013', 'Run: Busy hour on a 3 vCore budget', (d) => set(d, 'scrm', { replicas: undefined, vCores: undefined }))
+  await failsOn('ar-013', 'Run: Busy hour on a 3 vCore budget', (d) => set(d, 'edig', { vCores: '1' }))
+  await failsOn('ar-013', 'Run: A zone goes down at the busy hour', (d) => set(d, 'p360', { replicas: 1, vCores: '0.5' }))
+  await failsOn('ar-013', 'Run: Partners need a client id', (d) => set(d, 'eptn', { auth: undefined }))
+  await failsOn('ar-013', 'Run: The network system hangs', (d) => set(d, 'p360', { onFailure: undefined }))
+  await failsOn('ar-013', 'Run: The network system hangs', (d) => set(d, 'p360', { circuitBreaker: undefined, timeoutMs: undefined }))
 
   // AR-105
   await failsOn('ar-105', 'Every client enters', (d) => unbox(d, 'branch'))
@@ -189,6 +231,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'web', 'web-app', 'Online banking')
     draw(d, 'web -> lb')
   })
+  await failsOn('ar-105', 'Run: A server fails at peak', (d) => set(d, 'prcA', { replicas: undefined }))
+  // Sized for half the load per site: fine while both sites and all servers run, not after a server loss.
+  await failsOn('ar-105', 'Run: A server fails at peak', (d) => set(d, 'sysB', { vCores: '0.5' }))
+  await failsOn('ar-105', 'Run: Peak within the vCore licence', (d) => {
+    for (const id of ['expA', 'expB', 'prcA', 'prcB', 'sysA', 'sysB']) set(d, id, { replicas: 3 })
+  })
 
   // AR-117
   await failsOn('ar-117', 'routes to the ingress in each region', (d) => flip(d, 'glb -> ingB'))
@@ -207,6 +255,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-117', (d) => swap(d, 'job -> store'))
   await passes('ar-117', (d) => {
     d.nodes.find((n) => n.id === 'store').type = 's3-bucket'
+  })
+  // A scaled-down standby: region B runs one replica of its Experience API.
+  await failsOn('ar-117', 'Run: A zone fails at the claims peak', (d) => set(d, 'expB', { replicas: undefined }))
+  await failsOn('ar-117', 'Run: A zone fails at the claims peak', (d) => set(d, 'sysA', { replicas: 1, vCores: '1' }))
+  await failsOn('ar-117', 'Run: Claims peak within the budget', (d) => {
+    for (const id of ['expA', 'expB', 'prcA', 'prcB', 'sysA', 'sysB']) set(d, id, { vCores: '1' })
   })
 
   // AR-072
@@ -249,4 +303,9 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-061', (d) => {
     d.nodes.find((n) => n.id === 'state').type = 'cache'
   })
+  // The card call stays in the request: the app waits 6 seconds for it.
+  await failsOn('ar-061', 'Run: Account openings at peak', (d) => draw(d, 'prc -> scard'))
+  await failsOn('ar-061', 'Run: The card processor fails for six minutes', (d) => set(d, 'q', { maxRedelivery: undefined }))
+  await failsOn('ar-061', 'Run: The card processor fails for six minutes', (d) => set(d, 'q', { persistent: 'no' }))
+  await failsOn('ar-061', 'Run: The card processor fails for six minutes', (d) => unbox(d, 'dlq'))
 }

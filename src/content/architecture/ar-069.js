@@ -32,16 +32,16 @@ export default {
         web: ['web-app', 'E-commerce site'],
         mob: ['mobile-app', 'Mobile app'],
         store: ['internal-app', 'Store associate app'],
-        ecom: ['experience-api', 'exp-commerce-api'],
+        ecom: ['experience-api', 'exp-commerce-api', { replicas: 2, vCores: '1' }],
         estore: ['experience-api', 'exp-store-app-api'],
-        atp: ['process-api', 'prc-atp (availability)'],
+        atp: ['process-api', 'prc-atp (availability)', { replicas: 2, vCores: '1' }],
         cache: ['cache', 'ATP read model (per SKU x node, Object Store / Redis)'],
-        resv: ['process-api', 'prc-reservation'],
-        sinv: ['system-api', 'sys-oracle-inventory'],
+        resv: ['process-api', 'prc-reservation', { replicas: 2, vCores: '0.5' }],
+        sinv: ['system-api', 'sys-oracle-inventory', { replicas: 2, vCores: '0.5', rateLimit: 250 }],
         db: ['database', 'Oracle inventory (system of record)'],
-        swms: ['system-api', 'sys-wms'],
+        swms: ['system-api', 'sys-wms', { vCores: '1' }],
         wms: ['wms', 'WMS (DC stock)'],
-        spos: ['system-api', 'sys-pos-sales'],
+        spos: ['system-api', 'sys-pos-sales', { vCores: '0.5' }],
         pos: ['pos', 'Store POS'],
         topic: ['topic', 'inventory.changed'],
       },
@@ -51,6 +51,33 @@ export default {
         'sinv ~> topic', 'swms ~> topic', 'spos ~> topic', 'topic ~> atp',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 40, maxRps: 300 }],
+      tests: [
+        {
+          name: 'Checkout spike on Black Friday',
+          about: 'Checkouts reserve 100 times a second, and for two minutes 600 times a second. Oracle must stay at 280 reservations a second or less, and most reservations still go through.',
+          traffic: [{ name: 'reservations', from: 'web-app', rps: 100, to: 'database', kind: 'write', spikes: [{ at: 4, forMin: 2, rps: 600 }] }],
+          expect: { answers: [{ minSuccess: 0.55 }], peakRps: [{ node: 'database', max: 280 }], vCores: { max: 10 } },
+        },
+        {
+          name: 'Stock events keep availability fresh',
+          about: 'The WMS publishes 300 stock changes a second and the stores 200. Every change reaches the ATP read model, and the topic is empty again at the end.',
+          traffic: [
+            { name: 'wms', from: { type: 'system-api', label: 'wms' }, rps: 300, to: 'cache', kind: 'write' },
+            { name: 'pos', from: { type: 'system-api', label: 'pos' }, rps: 200, to: 'cache', kind: 'write' },
+          ],
+          expect: { delivered: [{ to: 'cache', min: 0.99 }], backlog: [{ queue: ['topic', 'queue', 'event-stream'], maxEnd: 1000 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A zone goes down during checkout',
+          about: 'One availability zone fails while checkouts reserve 100 times a second. Every API on the reservation path still has a replica running, so reservations keep working.',
+          traffic: [{ name: 'reservations', from: 'web-app', rps: 100, to: 'database', kind: 'write' }],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An omnichannel retailer sells through **web, mobile app and 250 stores** (BOPIS and ship-from-store). Stock lives in several places:
@@ -62,6 +89,13 @@ Problems today:
 - Product pages call Oracle directly for availability (**8,000 reads/s at peak**), and Oracle is at 90% CPU.
 - The web team now wants to cache stock in their own Redis.
 - During the last sale, 3% of orders were **oversold** because two channels sold the last unit at the same time.
+
+Numbers for sizing:
+- Checkouts reserve stock **100 times a second**, and up to **600 a second** for the first two minutes of a sale.
+- A reservation in Oracle takes about 40 ms. With its ERP jobs, Oracle can take about **300 reservations a second**; the DBA wants **280 or less**.
+- The WMS publishes about **300 stock changes a second** at peak and the stores **200**.
+- Reservations must keep working when one availability zone fails.
+- The budget for the reservation and stock event APIs is **10 vCores** (the read path is sized on its own).
 
 **Questions:**
 - Should there be ONE source of truth for inventory, or should each channel hold its own availability? Defend your answer.
@@ -85,6 +119,7 @@ Problems today:
     'Reservations are synchronous and atomic against the system of record (conditional update / reservation row), which is where overselling is prevented.',
     'WMS, POS and Oracle changes are published as events; the ATP service applies them per SKU-location in order and tolerates seconds of staleness.',
     'Safety stock / low-stock thresholds and "confirm at checkout" turn read staleness into a business rule rather than a bug.',
+    'A rate limit on the Oracle System API protects Oracle in a checkout spike; 2 replicas on the reservation path survive a zone outage; the ATP consumer is sized for the stock event rate.',
   ],
   solution: `
 **Decision: single source of truth for the ledger, distributed availability for reads.**
@@ -107,6 +142,12 @@ Letting each channel keep its own stock (the web team's Redis) creates N truths 
 **Freshness.** \`sys-wms\`, \`sys-pos-sales\` and \`sys-oracle-inventory\` publish \`inventory.changed\` events (SKU, location, new quantity, sequence). \`prc-atp\` consumes them and updates the read model, ignoring events with a lower sequence than already applied. Target staleness: seconds; documented in the API contract.
 
 **Overselling.** Remaining risk comes from POS sales not yet reported (store stock). Mitigate with per-location safety stock, excluding stores whose last update is too old from BOPIS, and confirming at reservation time.
+
+**Sizing and failure handling.**
+- A rate limit of 250 a second on \`sys-oracle-inventory\` keeps Oracle under 280 reservations a second in a spike. Over the limit a checkout gets 429 and can retry, instead of Oracle slowing down for everyone.
+- \`exp-commerce-api\`, \`prc-reservation\` and \`sys-oracle-inventory\` run 2 replicas each, so a zone outage leaves one running.
+- \`prc-atp\` runs 2 × 1 vCore and consumes the 500 stock changes a second with room to spare; \`sys-wms\` (1 vCore) and \`sys-pos-sales\` (0.5 vCore) publish them.
+- In total about 7.6 vCores, inside the 10 vCore budget.
 
 **Trade-offs:** the read model is eventually consistent (accepted); one more service (ATP) to run; Oracle remains a write bottleneck, but writes are ~100× fewer than reads.
 `,

@@ -1,5 +1,8 @@
 import { diagram } from '../../arch/dsl.js'
 
+const ECC = { type: 'erp', label: 'ecc' }
+const S4 = { type: 'erp', label: ['s/4', 's4'] }
+
 export default {
   id: 'ar-062',
   category: 'architecture',
@@ -28,13 +31,13 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app'],
         pa: ['partner', 'Partner A'],
-        em: ['experience-api', 'exp-mobile-api'],
-        ep: ['experience-api', 'exp-partner-a-api'],
-        po: ['process-api', 'prc-order-api'],
+        em: ['experience-api', 'exp-mobile-api', { vCores: '0.2' }],
+        ep: ['experience-api', 'exp-partner-a-api', { vCores: '0.2' }],
+        po: ['process-api', 'prc-order-api', { vCores: '0.5' }],
         pf: ['process-api', 'prc-fulfilment-api'],
         idoc: ['batch-job', 'Former IDoc integration (re-platformed)'],
-        so: ['system-api', 'sys-sap-order-api (routes by company code)'],
-        sm: ['system-api', 'sys-sap-material-api'],
+        so: ['system-api', 'sys-sap-order-api (routes by company code)', { replicas: 2, vCores: '0.5', timeoutMs: 2000, circuitBreaker: 'on' }],
+        sm: ['system-api', 'sys-sap-material-api', { vCores: '0.5', timeoutMs: 2000, circuitBreaker: 'on' }],
         rt: ['database', 'Routing table + ECC/S4 id cross-reference'],
         ecc: ['erp', 'SAP ECC'],
         s4: ['erp', 'SAP S/4HANA'],
@@ -44,6 +47,34 @@ export default {
         'so -> rt', 'so -> ecc', 'so -> s4', 'sm -> ecc', 'sm -> s4',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: ECC, latencyMs: 300, maxRps: 200 },
+        { match: S4, latencyMs: 250 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Orders during coexistence',
+          about: 'Orders for countries still on ECC come in at 60 a second and orders for countries already on S/4HANA at 30, from the app and the partner. The System API sends each order to the system that owns its company code, everything is answered in under a second on average, and the APIs fit the 4 vCore budget.',
+          traffic: [
+            { name: 'ECC orders', from: ['mobile-app', 'partner'], rps: 60, to: [ECC, 'database'] },
+            { name: 'S/4 orders', from: ['mobile-app', 'partner'], rps: 30, to: [S4, 'database'] },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], vCores: { max: 4 } },
+        },
+        {
+          name: 'S/4HANA hangs during a cutover',
+          about: 'During a cutover weekend S/4HANA stops answering for the whole run. Orders for countries still on ECC must keep being answered in under a second, even though they go through the same System APIs.',
+          traffic: [
+            { name: 'ECC orders', from: ['mobile-app', 'partner'], rps: 60, to: [ECC, 'database'] },
+            { name: 'S/4 orders', from: ['mobile-app', 'partner'], rps: 30, to: [S4, 'database'] },
+          ],
+          incidents: [{ hang: S4 }],
+          expect: { answers: [{ flow: 'ECC orders', minSuccess: 0.99, maxMs: 1000 }] },
+        },
+      ],
+    },
   },
   description: `
 The business is migrating from **SAP ECC** to **SAP S/4HANA** over 18 months, **by company code** (country by country). During the migration, some orders live in ECC and some in S/4.
@@ -57,6 +88,8 @@ Current estate:
 | \`prc-order-api\`, \`prc-pricing-api\`, \`prc-fulfilment-api\` | Consume the System APIs |
 | 4 Experience APIs | Mobile, web, 2 partners |
 | 2 legacy integrations | Call ECC **directly** via IDocs, bypassing System APIs |
+
+During coexistence, orders for countries still on ECC arrive at about **60 a second** and orders for countries already on S/4HANA at about 30, from the app and the partner. ECC answers in about 300 ms and takes at most 200 calls a second; S/4HANA answers in about 250 ms. The routing table answers in about 10 ms. Orders should be answered in under a second on average, and the budget for the APIs is **4 vCores**. On cutover weekends S/4HANA can stop answering for hours, and ECC countries must not notice.
 
 **Questions:**
 1. What changes in **which layer**? What should *not* change?
@@ -78,6 +111,7 @@ Current estate:
     'During coexistence the System API routes by a business key (company code, order number range) to ECC or S/4 — a strangler facade — with a routing table in configuration.',
     'Integrations that bypassed the System layer must be rebuilt or redirected; the migration is the business case to bring them into API-led.',
     'Risks: leaked SoR semantics (codes, number formats, statuses), process changes in S/4, data migration timing (an order moving systems), and performance/limits of the new interface.',
+    'The System APIs in front of both SAP systems need a short timeout (2 s) and a circuit breaker, so a hanging S/4HANA does not use up the threads that ECC orders also need. The order System API runs 2 replicas of 0.5 vCore.',
   ],
   solution: `
 **Impact per layer.**
@@ -103,6 +137,10 @@ System      [sys-sap-order-api]  [sys-sap-material-api]                 IMPLEMEN
 - Same contract, two implementations behind one API: consumers never learn about the migration.
 
 **Integrations that bypass the System layer.** IDoc integrations straight into ECC must be rebuilt for S/4 anyway. Use the migration as the business case to re-platform them onto \`sys-sap-*\` APIs (or to have the System layer own IDoc/event handling for S/4), so next time they are protected too. Add them to the migration plan explicitly — they are typically where cut-over weekends go wrong.
+
+**Settings that matter during coexistence.**
+- One System API now serves two backends, so a problem in one can reach orders for the other. When S/4HANA hangs, every call to it would hold a thread of \`sys-sap-order-api\` for the default 10 s timeout, and the app soon has no threads left for ECC orders either. A **2000 ms timeout** and a **circuit breaker** on \`sys-sap-order-api\` and \`sys-sap-material-api\` make those calls fail at once, so ECC countries keep being answered in well under a second.
+- Sizing: \`sys-sap-order-api\` carries every order (2 replicas of 0.5 vCore), \`prc-order-api\` and \`sys-sap-material-api\` 0.5 vCore each, and the two Experience APIs 0.2 each. With the other apps that is 2.6 vCores, inside the budget of 4.
 
 **Where the promise breaks down.**
 1. **Leaked semantics:** if v1 exposed ECC status codes, document types or 10-digit padded ids, consumers depend on them. Mitigate: map S/4 values back to the published enums; fix the contract in a later version.

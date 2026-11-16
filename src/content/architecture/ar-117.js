@@ -36,12 +36,12 @@ export default {
         glb: ['load-balancer', 'Global load balancer (your own)'],
         ingA: ['load-balancer', 'Region A ingress'],
         ingB: ['load-balancer', 'Region B ingress'],
-        expA: ['experience-api', 'exp-claims (region A fabric)'],
-        expB: ['experience-api', 'exp-claims (region B fabric)'],
-        prcA: ['process-api', 'prc-claims (region A fabric)'],
-        prcB: ['process-api', 'prc-claims (region B fabric)'],
-        sysA: ['system-api', 'sys-policy (region A fabric)'],
-        sysB: ['system-api', 'sys-policy (region B fabric)'],
+        expA: ['experience-api', 'exp-claims (region A fabric)', { replicas: 2, vCores: '0.2' }],
+        expB: ['experience-api', 'exp-claims (region B fabric)', { replicas: 2, vCores: '0.2' }],
+        prcA: ['process-api', 'prc-claims (region A fabric)', { replicas: 2, vCores: '0.2' }],
+        prcB: ['process-api', 'prc-claims (region B fabric)', { replicas: 2, vCores: '0.2' }],
+        sysA: ['system-api', 'sys-policy (region A fabric)', { replicas: 2, vCores: '0.2' }],
+        sysB: ['system-api', 'sys-policy (region B fabric)', { replicas: 2, vCores: '0.2' }],
         erp: ['erp', 'Policy administration ERP'],
         db: ['database', 'Replicated claims database'],
         job: ['batch-job', 'rtfctl backup, hourly'],
@@ -54,6 +54,27 @@ export default {
         'prcA -> db', 'prcB -> db', 'job -> store', 'prcA -> mon', 'prcB -> mon',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 400 },
+        { match: 'database', latencyMs: 50 },
+      ],
+      tests: [
+        {
+          name: 'A zone fails at the claims peak',
+          about: 'Broker partners submit 60 claims a second at peak, and one availability zone is lost for the whole run. Every app keeps a replica in another zone, so claims are still answered.',
+          traffic: [{ name: 'claims', from: 'partner', rps: 60, kind: 'write', to: ['erp', 'database'] }],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Claims peak within the budget',
+          about: 'The same 60 claims a second with every zone up. Every claim is answered, and the claims stack in both regions uses at most 4 vCores.',
+          traffic: [{ name: 'claims', from: 'partner', rps: 60, kind: 'write', to: ['erp', 'database'] }],
+          expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 4 } },
+        },
+      ],
+    },
   },
   description: `
 A reinsurer runs **Runtime Fabric on managed Kubernetes in one region**, with about 90 apps. The board asks for a plan to survive the loss of that region.
@@ -65,7 +86,9 @@ Tiering from the business:
 
 Current facts:
 - Apps use Persistence Gateway with PostgreSQL for dedup keys and watermarks, and the claims database has cross-region replication available.
-- The ERP is hosted separately and remains reachable from both regions.
+- The ERP is hosted separately and remains reachable from both regions. It answers in about 400 ms, and the claims database in 50 ms.
+- At peak broker partners submit 60 claims a second. Each region must keep serving them when one of its availability zones fails.
+- Finance caps the claims stack at 4 vCores across both regions.
 - An engineer proposes VM snapshots of worker nodes. Another proposes restoring last night's \`rtfctl\` backup into region B now and running both copies, "so that we have a hot standby for free".
 
 **Questions:**
@@ -101,6 +124,7 @@ Current facts:
     'Back up Anypoint configuration with the Anypoint CLI or platform APIs; application metrics are not restored.',
     'Keep integrations stateless, and put state in an external store with its own replication.',
     'Test restore procedures regularly and measure actual RTO.',
+    'Sizing: 2 replicas of 0.2 vCore per claims app in each region survive a zone outage at 60 claims a second, and the stack uses about 2.5 vCores, inside the 4 vCore cap.',
   ],
   solution: `
 **Target architecture.**
@@ -121,6 +145,8 @@ The global load balancer is your own. Each region has its ingress and a fabric. 
 | Active-active | Both fabrics serve traffic | None | Only if the state design allows it |
 
 Tier 1, with a 15-minute RTO, should not rely on a restore, which takes several minutes before deployments even synchronize. It needs a separately activated fabric, kept current by the release pipeline. Size region B for the load that it will take.
+
+**Sizing.** In the model answer every claims app runs 2 replicas of 0.2 vCore in each region. One replica serves about 100 requests a second, so losing a zone still leaves room for 60 claims a second. Region B is sized like region A, because a hot standby must take the whole load at once; a scaled-down standby with one replica fails at the first zone outage. The stack uses about 2.5 vCores, inside the 4 vCore cap.
 
 **What a backup covers.** Cluster configuration: services, secrets, ingress and ConfigMaps, plus data in the Runtime Fabric and application namespaces. With \`rtfctl\` 1.0.70 and later and an agent above 2.6.52, Mule app deployments are not in the bundle; they are synchronized from the control plane on restore. Not covered: application state, Ops Center data and control plane data. Changes stored outside the control plane, like updated cluster configuration and agent upgrades, must be reapplied. The docs differ on apps: the HA page says created and deleted apps are reconciled on restore, while the backup page lists them among changes that are not restored, so check every deployment after a restore. Application monitoring metrics are not restored. Anypoint configuration, such as connections, is backed up separately with the Anypoint CLI or platform APIs.
 

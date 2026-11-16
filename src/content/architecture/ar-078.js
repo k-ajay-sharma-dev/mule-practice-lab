@@ -30,7 +30,7 @@ export default {
       {
         wms: ['wms', 'WMS'],
         inq: ['queue', 'wms.receipts'],
-        gr: ['process-api', 'prc-goods-receipt (ack after commit)'],
+        gr: ['process-api', 'prc-goods-receipt (ack after commit)', { vCores: '0.5' }],
         ora: ['oracle-db', 'Oracle: GOODS_RECEIPT, PO lines and OUTBOX in one local transaction'],
         relay: ['batch-job', 'outbox-relay (publish, then mark sent)'],
         top: ['topic', 'receipt.posted'],
@@ -40,6 +40,38 @@ export default {
       },
       ['wms ~> inq', 'inq ~> gr', 'gr -> ora', 'relay -> ora', 'relay ~> top', 'top ~> ap', 'top ~> rep', 'top ~> portal'],
     ),
+    simulation: {
+      systems: [{ match: 'oracle-db', latencyMs: 40, maxRps: 150 }],
+      tests: [
+        {
+          name: 'Oracle fails for ten minutes',
+          about: 'The WMS posts 5 receipts a second, and Oracle is down for ten minutes. Each receipt that fails is delivered again, so none is lost, and the backlog is cleared by the end of the run.',
+          traffic: [{ name: 'receipts', from: 'wms', rps: 5, to: 'oracle-db', kind: 'write' }],
+          incidents: [{ down: 'oracle-db', at: 5, forMin: 10 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'wms.receipts' }, maxEnd: 10 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Every subscriber gets each event',
+          about: 'The outbox relay publishes 5 receipt.posted events a second. AP, replenishment and the supplier portal each get every event.',
+          traffic: [{ name: 'events', from: { type: ['batch-job', 'process-api'], label: ['relay', 'outbox'] }, rps: 5, to: ['process-api', 'web-app'], kind: 'write' }],
+          expect: {
+            delivered: [
+              { to: { label: 'ap 3-way' }, min: 0.99 },
+              { to: { label: 'replenishment' }, min: 0.99 },
+              { to: { label: 'supplier portal' }, min: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'Catch-up after a stock take',
+          about: 'After a stock take the WMS posts 80 receipts a second for 20 minutes. prc-goods-receipt keeps up, so the queue is empty again by the end of the run and nothing is lost.',
+          traffic: [{ name: 'receipts', from: 'wms', rps: 80, to: 'oracle-db', kind: 'write', forMin: 20 }],
+          durationMin: 30,
+          expect: { backlog: [{ queue: { type: 'queue', label: 'wms.receipts' }, maxEnd: 100 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -126,6 +158,8 @@ Problems seen:
 - A crash between steps 2 and 3 left receipts in Oracle **without** the event — AP could not match invoices.
 - Another time, Oracle failed after the message had already been acknowledged on receipt, and the receipt was **lost**.
 - Volume: 300 receipts/minute at peak; Mule runs on 2 on-prem nodes; the DBA dislikes long-held locks.
+- After a stock take the WMS can post **80 receipts a second** for 20 minutes. Oracle takes up to **150 writes a second** and answers in about 40 ms.
+- Oracle has had outages of **ten minutes**. No receipt may be lost when it is down.
 
 The team debates: **XA transaction** (Bitronix) spanning the JMS listener, Oracle and the publish, or a **transactional outbox**.
 
@@ -148,6 +182,7 @@ The team debates: **XA transaction** (Bitronix) spanning the JMS listener, Oracl
     'Outbox: one local Oracle transaction writes the receipt and an OUTBOX row; a relay publishes later — simpler and faster, but at-least-once.',
     'Inbound idempotency (unique key on ASN/receipt line) plus ack-after-commit covers the consuming side without XA.',
     'Whatever you choose, downstream consumers must be idempotent because brokers deliver at least once.',
+    'Ack after commit means a failed receipt is delivered again, so an Oracle outage only delays receipts. Size prc-goods-receipt above the peak (0.5 vCore here) so a stock take does not leave a growing backlog.',
   ],
   solution: `
 **What goes wrong.** Two independent writes (Oracle and ActiveMQ) without a shared transaction: a crash between them leaves one done and the other not. With IMMEDIATE ack the inbound message is acknowledged as soon as it is consumed, so when processing fails it is never redelivered. (AUTO would ack only if the flow completes successfully — but an on-error-continue handler also counts as success.)
@@ -167,6 +202,11 @@ The team debates: **XA transaction** (Bitronix) spanning the JMS listener, Oracl
 - Outbound: the relay publishes in order and marks rows; a crash may publish twice.
 
 **Recommendation.** At 300/minute both work; the **outbox** is simpler to operate on two nodes, avoids XA recovery, keeps lock times short and is independent of broker XA support. Choose XA when the team already runs it well and strict atomicity without a relay delay is required.
+
+**Settings that matter.**
+- The inbound queue redelivers a receipt until Oracle commits it. Acknowledging on receipt, or a delivery limit with no dead-letter queue, drops the receipts that fail during an outage.
+- \`receipt.posted\` is a **topic**, so each of the three subscribers gets every event. On one shared queue they would compete, and each would see only a third.
+- \`prc-goods-receipt\` gets 0.5 vCore. At 0.1 vCore it moves about 50 receipts a second, so 80 a second for 20 minutes leaves a backlog of tens of thousands.
 
 **Consumers.** AP, replenishment and the portal deduplicate on \`receiptId\`/event id — in both options, because delivery is at least once.
 `,

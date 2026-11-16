@@ -28,14 +28,14 @@ export default {
     reference: diagram(
       {
         mob: ['mobile-app', 'Mobile banking app'],
-        eh: ['experience-api', 'exp-mobile-home-api'],
-        ph: ['process-api', 'prc-customer-home-api (query)'],
-        pp: ['process-api', 'prc-payments-api (command)'],
+        eh: ['experience-api', 'exp-mobile-home-api', { vCores: '0.2' }],
+        ph: ['process-api', 'prc-customer-home-api (query)', { replicas: 3, vCores: '2' }],
+        pp: ['process-api', 'prc-payments-api (command)', { vCores: '0.2' }],
         rs: ['database', 'Customer home read store'],
-        proj: ['process-api', 'prc-read-model-projector'],
+        proj: ['process-api', 'prc-read-model-projector', { vCores: '1' }],
         recon: ['batch-job', 'Nightly reconciliation'],
         ev: ['event-stream', 'Account / card / CRM change events'],
-        score: ['system-api', 'sys-core-banking-api'],
+        score: ['system-api', 'sys-core-banking-api', { vCores: '0.2' }],
         core: ['legacy', 'Core banking'],
         card: ['saas', 'Card management'],
         crm: ['crm', 'CRM'],
@@ -46,6 +46,55 @@ export default {
         'recon -> score', 'recon -> rs',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 400 },
+        { match: 'saas', latencyMs: 250 },
+        { match: 'crm', latencyMs: 300 },
+        { match: 'database', latencyMs: 5, maxRps: 20000 },
+      ],
+      tests: [
+        {
+          name: 'Salary day morning',
+          about: 'The home query API gets 2,500 reads a second, and customers make 50 payments a second. Reads come from the read store, never from core banking, which stays under its licence of 300 calls a second. All within a 10 vCore budget.',
+          traffic: [
+            { name: 'home reads', from: { type: 'process-api', label: 'query' }, rps: 2500, to: 'database' },
+            { name: 'payments', from: 'mobile-app', rps: 50, kind: 'write', to: 'legacy' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'home reads', minSuccess: 0.99, maxMs: 100 },
+              { flow: 'payments', minSuccess: 0.99, maxMs: 1000 },
+            ],
+            notReached: [{ flow: 'home reads', node: 'legacy' }],
+            peakRps: [{ node: 'legacy', max: 300 }],
+            vCores: { max: 10 },
+          },
+        },
+        {
+          name: 'Core banking is down',
+          about: 'Core banking is down for the whole run while the home query API gets 1,000 reads a second. The home screen still loads from the read model; only payments wait for core banking.',
+          traffic: [{ name: 'home reads', from: { type: 'process-api', label: 'query' }, rps: 1000, to: 'database' }],
+          incidents: [{ down: 'legacy' }],
+          expect: { answers: [{ flow: 'home reads', minSuccess: 0.99 }] },
+        },
+        {
+          name: 'End of day posting',
+          about: 'Core banking posts 20 changes a second, and 1,000 a second for ten minutes of end of day posting, while cards and CRM send 10 a second each. The projector must apply every change and be caught up within the hour.',
+          durationMin: 60,
+          traffic: [
+            { name: 'core changes', from: 'legacy', rps: 20, kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 1000 }], to: 'database' },
+            { name: 'card changes', from: 'saas', rps: 10, kind: 'write', to: 'database' },
+            { name: 'CRM changes', from: 'crm', rps: 10, kind: 'write', to: 'database' },
+          ],
+          expect: {
+            delivered: [{ to: 'database', min: 0.99 }],
+            backlog: [{ queue: ['event-stream', 'queue', 'topic'], maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A bank exposes a **Customer Accounts** API used by mobile banking (3 million users). The home screen shows: account list, balances, last 10 transactions, and card status.
@@ -60,6 +109,8 @@ Problems:
 - Core banking throttles, p95 latency is 4 s, and the app shows errors.
 
 Writes (payments, card block) are much rarer than reads (≈ 1:50).
+
+Numbers for sizing: on salary day the home screen needs 2,500 reads a second and customers make about 50 payments a second. Core banking posts about 20 changes a second, and 1,000 a second for ten minutes of end of day posting; cards and CRM send about 10 a second each. The read model should be caught up within the hour. Core banking has planned downtime, and the home screen must still load. The budget for the APIs is 10 vCores.
 
 **Questions:**
 - Would a simple cache (Object Store with TTL) solve this? Why or why not?
@@ -83,6 +134,7 @@ Writes (payments, card block) are much rarer than reads (≈ 1:50).
     'The read model is updated by events/CDC from the systems of record (balance and transaction changes), with an initial bulk load and periodic reconciliation.',
     'Writes still go to the system of record (command side); the read side is eventually consistent, with freshness exposed (e.g. asOf timestamp).',
     'Read-your-own-writes is handled by updating the read model or overlaying the pending change after a successful write. The API can fall back to a live call for a single customer if data is stale.',
+    'Sizing: the query API carries 2,500 reads a second on 3 replicas of 2 vCores; the projector gets 1 vCore so an end of day burst is applied within the hour; the payment path needs only 0.2 vCore per API for 50 a second.',
   ],
   solution: `
 **Cache vs read model.** An Object Store/TTL cache is **cache-aside**: the first request per customer still triggers the fan-out. On salary day, hundreds of thousands of distinct users open the app in a short window → mostly cache **misses** → core banking still sees > 300 calls/s. Also a TTL forces a trade-off between freshness and hit rate. A cache is good for reference data; it does not change *where the load lands*.
@@ -102,6 +154,11 @@ Writes (payments, card block) are much rarer than reads (≈ 1:50).
 - If the read store is down: fall back to a **rate-limited live path** (for a small share of traffic) or return the last known data with a warning. This is decided with the business, as banking UX rules may require it.
 
 **Read-your-own-writes.** After a payment succeeds, the Payment Process API **updates the read model immediately** (write-through of the pending transaction and new available balance). Or it returns the new balance in the payment response so the app shows it. When the core's posting event arrives, it overwrites with the authoritative state.
+
+**Sizing.**
+- One vCore serves about 500 simple reads a second, so 2,500 a second needs 5. Three replicas of 2 vCores give 3,000 a second of room. Core banking then sees only the 50 payments a second, far under its 300, and the home screen keeps loading when core banking is down.
+- The projector takes the change events at up to 500 a second on 1 vCore. During ten minutes of end of day posting the stream builds a backlog, and the projector clears it in about ten more minutes. At 0.1 vCore it would still be behind the next morning.
+- Payments go through the Experience API, the payment Process API and the core banking System API at 0.2 vCore each. In all 7.7 vCores, inside the budget of 10.
 
 **Trade-offs.** CQRS adds a datastore, event pipelines, reconciliation and the complexity of eventual consistency. It is justified here by a 50:1 read/write ratio, a hard licence limit and salary-day peaks; for a low-traffic API, a cache or direct calls are simpler.
 `,

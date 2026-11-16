@@ -28,15 +28,15 @@ export default {
       {
         web: ['web-app', 'E-commerce site'],
         store: ['internal-app', 'Store ops app'],
-        eweb: ['experience-api', 'exp-ecommerce-api'],
-        estore: ['experience-api', 'exp-store-ops-api'],
-        prc: ['process-api', 'prc-stock-api'],
-        sinv: ['system-api', 'sys-oracle-inventory'],
+        eweb: ['experience-api', 'exp-ecommerce-api', { vCores: '0.5' }],
+        estore: ['experience-api', 'exp-store-ops-api', { rateLimit: 40 }],
+        prc: ['process-api', 'prc-stock-api', { vCores: '0.5' }],
+        sinv: ['system-api', 'sys-oracle-inventory', { vCores: '0.5' }],
         swms: ['system-api', 'sys-wms'],
         db: ['database', 'Oracle inventory schema (owned by inventory team)'],
         wms: ['wms', 'WMS'],
         topic: ['topic', 'inventory.changed'],
-        pfin: ['process-api', 'prc-finance-feed'],
+        pfin: ['process-api', 'prc-finance-feed', { vCores: '0.5' }],
         dw: ['data-warehouse', 'Finance analytics'],
       },
       [
@@ -44,6 +44,28 @@ export default {
         'sinv -> db', 'swms -> wms', 'sinv ~> topic', 'topic ~> pfin', 'pfin -> dw',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 30, maxRps: 300 }],
+      tests: [
+        {
+          name: 'A runaway store report',
+          about: 'E-commerce reads stock 100 times a second. For five minutes a bad store report sends 400 requests a second. The report gets 429 from a rate limit, checkout reads still work, and Oracle stays at 250 a second or less.',
+          traffic: [
+            { name: 'ecommerce', from: 'web-app', rps: 100, to: 'database' },
+            { name: 'store ops', from: 'internal-app', rps: 20, to: 'database', spikes: [{ at: 3, forMin: 5, rps: 400 }] },
+          ],
+          expect: { answers: [{ flow: 'ecommerce', minSuccess: 0.99 }, { flow: 'store ops', minLimited: 0.5 }], peakRps: [{ node: 'database', max: 250 }], vCores: { max: 3 } },
+        },
+        {
+          name: 'The finance warehouse is down',
+          about: 'Checkouts write 50 reservations a second while the finance warehouse is down for 30 minutes. Checkout does not notice, and finance gets every change once it is back.',
+          traffic: [{ name: 'reservations', from: 'web-app', rps: 50, to: ['database', 'data-warehouse'], kind: 'write' }],
+          incidents: [{ down: 'data-warehouse', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'data-warehouse', min: 0.99 }], backlog: [{ queue: ['topic', 'queue', 'event-stream'], maxEnd: 500 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A retailer's **Oracle database** has become the integration hub. Over 15 years:
@@ -58,6 +80,12 @@ What is wrong now:
 - **Six teams** say this will break them.
 - Nobody knows all the readers.
 - A bad query from the store app locked \`RESERVATIONS\` for 20 minutes last month.
+
+Numbers for sizing:
+- E-commerce reads stock **100 times a second** and writes **50 reservations a second** at peak. The store ops app normally sends **20 requests a second**, but a runaway report can send **400 a second** for minutes.
+- An Oracle call takes about 30 ms. Oracle can take about **300 requests a second**; the inventory team wants integrations at **250 or less**.
+- The finance warehouse can be down for **30 minutes** during its loads, and finance needs every change.
+- The budget for these APIs is **3 vCores**.
 
 **Questions:**
 - Why is "integrate through a shared database" an anti-pattern here? Name at least three concrete problems from the scenario.
@@ -79,6 +107,7 @@ What is wrong now:
     'Target: the inventory team owns the schema, exposed only through sys-oracle-inventory (and a WMS System API); consumers use APIs or events.',
     'Change propagation (finance, analytics) uses published events instead of triggers and staging tables.',
     'Migrate consumer by consumer (strangler): build the System API, move readers and writers one at a time, then revoke direct grants.',
+    'A rate limit per consumer (the store ops Experience API) replaces "one bad query locks everyone"; an event feed sized to drain its backlog keeps finance off the checkout path.',
   ],
   solution: `
 **Why it is an anti-pattern.**
@@ -103,6 +132,12 @@ What is wrong now:
 2. Move consumers one at a time, starting with the riskiest writer (e-commerce reservations); monitor database audit logs to find hidden readers.
 3. Replace the finance trigger with events published by the System API (or CDC while migrating).
 4. Revoke direct grants and database links per consumer; only then refactor the schema behind the API.
+
+**Sizing and protection.**
+- A rate limit of 40 a second on \`exp-store-ops-api\` answers 429 to a runaway report, so it can no longer hurt checkout. This is the API-led version of "one bad query locks everyone".
+- \`exp-ecommerce-api\`, \`prc-stock-api\` and \`sys-oracle-inventory\` run on 0.5 vCore each for the checkout load.
+- \`prc-finance-feed\` runs on 0.5 vCore, so after a warehouse outage it drains the topic faster than new changes arrive. The topic is persistent, so nothing is lost while the warehouse is down.
+- In total 2.2 vCores, inside the 3 vCore budget.
 
 **Trade-off:** an extra hop and an API to maintain, in exchange for the freedom to change the schema and protect Oracle.
 `,

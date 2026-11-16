@@ -31,14 +31,14 @@ export default {
       {
         web: ['web-app', 'B2B order portal'],
         cs: ['internal-app', 'Customer service console'],
-        exp: ['experience-api', 'exp-orders'],
-        prc: ['process-api', 'prc-orders (routing switch: Oracle / SQL Server)'],
-        sora: ['system-api', 'sys-orders-oracle'],
-        smss: ['system-api', 'sys-orders-sqlserver'],
+        exp: ['experience-api', 'exp-orders', { vCores: '0.2' }],
+        prc: ['process-api', 'prc-orders (routing switch: Oracle / SQL Server)', { vCores: '0.2' }],
+        sora: ['system-api', 'sys-orders-oracle', { vCores: '0.2' }],
+        smss: ['system-api', 'sys-orders-sqlserver', { vCores: '0.5' }],
         ora: ['oracle-db', 'Oracle 12c orders (system of record until cut-over)'],
         mss: ['sql-server', 'SQL Server 2022 orders (target)'],
         cdc: ['event-stream', 'Kafka: oracle.orders.changes (CDC)'],
-        sync: ['process-api', 'prc-orders-cdc-apply'],
+        sync: ['process-api', 'prc-orders-cdc-apply', { vCores: '0.5' }],
         dlq: ['dlq', 'orders.cdc.dlq'],
         rec: ['batch-job', 'Hourly reconciliation job'],
         mon: ['monitoring', 'Dual-run drift dashboard'],
@@ -49,6 +49,57 @@ export default {
         'rec -> sora', 'rec -> smss', 'rec -> mon',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'oracle-db', latencyMs: 30 },
+        { match: 'sql-server', latencyMs: 20, maxRps: 300 },
+      ],
+      tests: [
+        {
+          name: 'Dual run at peak',
+          about: 'The portal writes 40 orders a second and customer service 10, all to Oracle. The CDC tool publishes 120 row changes a second, and every one is applied to SQL Server with no backlog left.',
+          durationMin: 30,
+          traffic: [
+            { name: 'portal', from: 'web-app', rps: 40, to: 'oracle-db', kind: 'write' },
+            { name: 'service', from: 'internal-app', rps: 10, to: 'oracle-db', kind: 'write' },
+            { name: 'changes', from: 'oracle-db', rps: 120, to: 'sql-server', kind: 'write' },
+          ],
+          expect: {
+            answers: [{ flow: 'portal', minSuccess: 0.99 }, { flow: 'service', minSuccess: 0.99 }],
+            delivered: [{ flow: 'changes', to: 'sql-server', min: 0.99 }],
+            backlog: [{ queue: ['event-stream', 'queue', 'topic', 'cloud-queue'], maxEnd: 500 }],
+            vCores: { max: 2.5 },
+          },
+        },
+        {
+          name: 'SQL Server is down for 15 minutes',
+          about: 'SQL Server fails for 15 minutes during the dual run. Channel orders still go to Oracle, the changes wait in Kafka, and every change is applied once SQL Server is back.',
+          durationMin: 60,
+          traffic: [
+            { name: 'portal', from: 'web-app', rps: 40, to: 'oracle-db', kind: 'write' },
+            { name: 'changes', from: 'oracle-db', rps: 120, to: 'sql-server', kind: 'write' },
+          ],
+          incidents: [{ down: 'sql-server', at: 5, forMin: 15 }],
+          expect: {
+            answers: [{ flow: 'portal', minSuccess: 0.99 }],
+            delivered: [{ flow: 'changes', to: 'sql-server', min: 0.99 }],
+            backlog: [{ queue: ['event-stream', 'queue', 'topic', 'cloud-queue'], maxEnd: 500 }],
+            lost: { max: 0 },
+          },
+        },
+        {
+          name: 'Kafka restarts while changes wait',
+          about: 'SQL Server is down for 15 minutes and a Kafka broker restarts in the middle of it. The waiting changes must survive the restart, so no change is lost.',
+          durationMin: 60,
+          traffic: [{ name: 'changes', from: 'oracle-db', rps: 120, to: 'sql-server', kind: 'write' }],
+          incidents: [{ down: 'sql-server', at: 5, forMin: 15 }, { restart: ['event-stream', 'queue', 'topic', 'cloud-queue'], at: 12 }],
+          expect: {
+            delivered: [{ flow: 'changes', to: 'sql-server', min: 0.99 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A wholesaler is moving its **order database from Oracle 12c to SQL Server 2022** as part of a data-centre exit. The Oracle schema (180 tables, 2.4 billion order lines) is used by:
@@ -61,6 +112,12 @@ Constraints:
 - A **dual-run period of 6 weeks** where both databases are kept in sync and compared, so the cut-over can be rolled back.
 - The DBAs will run a change data capture (CDC) tool that publishes Oracle row changes to **Kafka**.
 - Data types differ: Oracle \`NUMBER\`, \`DATE\`, \`VARCHAR2\` (empty string is NULL) vs SQL Server \`DECIMAL\`, \`DATETIME2\`, \`NVARCHAR\`; sequences vs \`IDENTITY\`.
+
+Numbers for sizing:
+- At peak the B2B portal writes 40 orders a second and customer service 10. The CDC tool publishes about 120 row changes a second.
+- Oracle answers in about 30 ms. SQL Server takes a write in about 20 ms and up to 300 a second.
+- SQL Server may be down for up to 15 minutes during the dual run, and a Kafka broker may restart at any time. No change may be lost.
+- The budget for the migration apps is 2.5 vCores.
 
 **Questions:**
 - Draw the migration architecture during the dual run.
@@ -85,6 +142,8 @@ Constraints:
     'Type mapping is explicit: NUMBER → DECIMAL, DATE → DATETIME2, empty VARCHAR2 = NULL, sequences → keep source ids during migration.',
     'Hourly reconciliation compares counts and checksums per key range through both System APIs; drift is visible on a dashboard.',
     'Cut-over: short read-only window, drain CDC, final reconcile, flip the switch; rollback by reverse sync or flipping back while Oracle is still current.',
+    'Sizing: the apply path (prc-orders-cdc-apply and sys-orders-sqlserver) gets 0.5 vCore each, so it applies 120 changes a second and catches up after a 15 minute SQL Server outage. 0.2 vCore is not enough.',
+    'Kafka keeps the change events (retention), so a broker restart while SQL Server is down loses nothing.',
   ],
   solution: `
 **Architecture (dual run).**
@@ -99,6 +158,13 @@ Constraints:
 **Step 0 — decouple.** Move the 6 APIs with direct SQL onto \`sys-orders-oracle\`. Until no consumer depends on Oracle-specific SQL, a database switch is impossible.
 
 **Change flow.** Initial bulk load (DBA tooling) to a known position, then CDC from that position. The CDC tool publishes each row change to Kafka **keyed by order id**, so all changes of an order stay in one partition and in order. \`prc-orders-cdc-apply\` maps types and calls \`sys-orders-sqlserver\`, which upserts with a **MERGE** keyed on the business key. It only applies a change if its source sequence/SCN is newer than the stored one, so replays and duplicates are harmless. Failures after retries go to \`orders.cdc.dlq\` and alert; the consumer continues.
+
+**Sizing and failures.**
+- The channel path (\`exp-orders\`, \`prc-orders\`, \`sys-orders-oracle\`) carries 50 writes a second, so 0.2 vCore each leaves room.
+- The apply path takes 120 changes a second. At 0.2 vCore it tops out near 100 and Kafka falls further behind every minute, so \`prc-orders-cdc-apply\` and \`sys-orders-sqlserver\` get 0.5 vCore each. After a 15 minute SQL Server outage about 108,000 changes wait in Kafka, and the spare capacity applies them in about 15 minutes.
+- Channel orders never wait for SQL Server, since they reach it only through CDC.
+- The topic keeps its events (retention on), so a broker restart during the outage loses nothing. A non-persistent broker would drop the waiting changes and SQL Server would drift from Oracle.
+- Total: 1.7 vCores, inside the budget of 2.5.
 
 **Reconciliation.** Every hour, per key range: row counts and checksums of normalised columns via both System APIs; deep compare on mismatch. Results on the drift dashboard; dual-run exit criterion: zero unexplained drift for two weeks.
 

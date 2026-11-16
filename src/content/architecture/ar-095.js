@@ -36,11 +36,11 @@ export default {
         web: ['web-app', 'Customer web portal'],
         dlb: ['load-balancer', 'DLB on api.example.com (CloudHub 1.0 VPC)'],
         ing: ['load-balancer', 'Private space ingress (CloudHub 2.0)'],
-        e1: ['experience-api', 'exp-partner-orders (migrated, CloudHub 2.0)'],
-        e2: ['experience-api', 'exp-portal (still CloudHub 1.0)'],
-        pr: ['process-api', 'prc-orders (migrated, CloudHub 2.0)'],
-        s1: ['system-api', 'sys-sap-orders (still CloudHub 1.0)'],
-        s2: ['system-api', 'sys-customers (migrated, CloudHub 2.0)'],
+        e1: ['experience-api', 'exp-partner-orders (migrated, CloudHub 2.0)', { replicas: 2, auth: 'mtls' }],
+        e2: ['experience-api', 'exp-portal (still CloudHub 1.0)', { replicas: 2 }],
+        pr: ['process-api', 'prc-orders (migrated, CloudHub 2.0)', { replicas: 2, vCores: '0.2' }],
+        s1: ['system-api', 'sys-sap-orders (still CloudHub 1.0)', { replicas: 2 }],
+        s2: ['system-api', 'sys-customers (migrated, CloudHub 2.0)', { replicas: 2, vCores: '0.2' }],
         erp: ['erp', 'SAP (on-premises)'],
         db: ['database', 'Customer database (on-premises)'],
         mon: ['monitoring', 'Log platform and wave dashboards'],
@@ -50,6 +50,35 @@ export default {
         'pr -> dlb', 'dlb -> s1', 'pr -> s2', 's1 -> erp', 's2 -> db', 'e1 -> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 50 }],
+      tests: [
+        {
+          name: 'One availability zone fails',
+          about: 'Partners send 5 customer lookups a second and the portal 10, while one availability zone is down for the whole run. Apps on both platforms run two replicas in different zones, so every call is still answered.',
+          traffic: [
+            { name: 'partners', from: 'partner', via: { label: 'exp-partner' }, rps: 5, to: 'database' },
+            { name: 'portal', from: 'web-app', via: { label: 'exp-portal' }, rps: 10, to: 'database' },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Partner calls without a client certificate',
+          about: 'Partners call with their client certificates, and some callers come without one. After the move, the migrated partner API still refuses those callers, as the DLB did before.',
+          traffic: [
+            { name: 'partners', from: 'partner', via: { label: 'exp-partner' }, rps: 5, to: 'database' },
+            { name: 'no certificate', from: 'partner', via: { label: 'exp-partner' }, rps: 2, to: 'database', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'partners', minSuccess: 0.99 },
+              { flow: 'no certificate', minRefused: 0.99 },
+            ],
+          },
+        },
+      ],
+    },
   },
   description: `
 An energy supplier runs 48 applications on **CloudHub 1.0** in one Anypoint VPC. It must move to **CloudHub 2.0** in four waves over eight months, because the business will not accept a single cutover.
@@ -64,6 +93,10 @@ Constraints:
 - In every wave, some layers have moved and some have not, so calls run in both directions between the platforms.
 - SAP allowlists source IPs, and the SAP team needs two weeks of notice for each firewall change.
 - The team chose a manually created private space, to test it ahead of the first wave.
+- No wave may lower availability: the service must survive the loss of one availability zone on either platform.
+- Partners must still be refused without a valid client certificate after their API has moved.
+
+For the Run tab: partners make about 5 customer lookups a second and the portal 10, and the customer database answers in about 50 ms.
 
 **Questions:**
 - Draw the mid-migration state, with one migrated and one remaining Experience API.
@@ -90,6 +123,8 @@ Constraints:
     'A manually created private space has its own CIDR and needs a new Transit Gateway attachment alongside the existing one.',
     'Outbound static IPs are per private space; keep old and new in SAP allowlists until decommissioning.',
     'Mapping rules become per-app Ingress settings, and mTLS moves to TLS contexts at the private space.',
+    'Every app runs two replicas (two workers on CloudHub 1.0) in different availability zones, in every wave, so a zone outage on either platform leaves the other copy serving.',
+    'The migrated partner API still demands a client certificate (mtls), so moving it does not open it to callers without one.',
   ],
   solution: `
 **Architecture.**
@@ -107,6 +142,11 @@ Constraints:
 **DLB features.** For each app that moves, turn mapping rules into path and path rewrite on the Ingress tab. Set up mTLS in a TLS context and truststore, with Forward SSL Session where the app needs client certificate details. Use custom TLS contexts for cipher suites. To switch at the DLB, remove the default endpoint from the CloudHub 1.0 app, so that the switch does not happen at the shared load balancer. Vanity domains must match on both platforms. The application upgrade tool works only in private spaces upgraded from a VPC, so with a manually created private space, confirm with MuleSoft how the switch applies before you plan on it.
 
 **On-premises connectivity.** The private space has a different CIDR block and inherits no Transit Gateway connections, so you run both attachments during the migration. Add the private space outbound IPs to the SAP allowlist ahead of each wave, and keep the old ones.
+
+**Availability and security during the waves.**
+- Each app keeps two replicas in different availability zones, on CloudHub 1.0 (two workers) and on CloudHub 2.0 (two replicas). Calls cross the platforms in both directions, so one app with a single replica in the failed zone stops the whole chain, whichever platform it is on.
+- \`prc-orders\` and \`sys-customers\` are called on several routes (from both Experience APIs, directly and through ingress), so they get 0.2 vCore; the others stay at 0.1.
+- \`exp-partner-orders\` keeps the client certificate check (mtls) when it moves, through the TLS context on the private space and Forward SSL Session. A partner call with no certificate is refused, as it was at the DLB.
 
 **Waves.** Build the private space and connectivity first, then move apps with few dependencies, and leave heavily shared APIs until their consumers are ready. Keep each CloudHub 1.0 app STARTED until the app link is established. Decommission the DLB and VPC only when no app, partner or allowlist depends on them.
 `,

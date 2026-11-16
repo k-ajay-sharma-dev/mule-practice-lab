@@ -28,10 +28,10 @@ export default {
       {
         store: ['internal-app', 'Store associate app'],
         sup: ['partner', 'Supplier portal users'],
-        gw: ['api-gateway', 'API Manager: client-id + rate limit'],
+        gw: ['api-gateway', 'API Manager: client-id + rate limit', { auth: 'client-id' }],
         estore: ['experience-api', 'exp-store-app'],
-        esup: ['experience-api', 'exp-supplier-portal'],
-        pful: ['process-api', 'prc-fulfilment'],
+        esup: ['experience-api', 'exp-supplier-portal', { rateLimit: 25 }],
+        pful: ['process-api', 'prc-fulfilment', { timeoutMs: 2000, circuitBreaker: 'on', onFailure: 'partial answer' }],
         psup: ['process-api', 'prc-supplier-collaboration'],
         sinv: ['system-api', 'sys-oracle-inventory'],
         swms: ['system-api', 'sys-wms'],
@@ -46,6 +46,40 @@ export default {
         'sinv -> erp', 'swms -> wms', 'stms -> tms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 300, maxRps: 60 },
+        { match: 'wms', latencyMs: 200 },
+        { match: 'tms', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a client id',
+          about: 'Suppliers send 10 requests a second with their client id. Another caller sends 5 a second with none. The gateway refuses every one of those, and suppliers are all answered.',
+          traffic: [
+            { name: 'suppliers', from: 'partner', rps: 10, to: ['erp', 'wms'] },
+            { name: 'no client id', from: 'partner', rps: 5, to: ['erp', 'wms'], auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'suppliers', minSuccess: 0.99 }, { flow: 'no client id', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A supplier script floods the portal',
+          about: 'Store staff send 20 requests a second. For three minutes a supplier script sends 200 a second. The script gets 429 from a rate limit, and Oracle EBS, which staff also need, stays at 55 requests a second or less.',
+          traffic: [
+            { name: 'staff', from: 'internal-app', via: { label: 'store' }, rps: 20, to: ['erp', 'wms', 'tms'] },
+            { name: 'suppliers', from: 'partner', rps: 10, to: ['erp', 'wms'], spikes: [{ at: 3, forMin: 3, rps: 200 }] },
+          ],
+          expect: { answers: [{ flow: 'suppliers', minLimited: 0.5 }], peakRps: [{ node: 'erp', max: 55 }] },
+        },
+        {
+          name: 'The TMS hangs',
+          about: 'The TMS stops answering. Staff still see stock and transfers, without the truck tracking, in about a second.',
+          traffic: [{ name: 'staff', from: 'internal-app', via: { label: 'store' }, rps: 20, to: ['erp', 'wms', 'tms'] }],
+          incidents: [{ hang: 'tms' }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.9, maxMs: 1500 }] },
+        },
+      ],
+    },
   },
   description: `
 A regional retailer is starting its first MuleSoft programme. Two projects arrive at once:
@@ -59,6 +93,12 @@ Backends:
 - **TMS** — loads and truck tracking.
 
 The CIO wants the second project to be faster because of the first.
+
+Numbers for sizing:
+- Store staff send about **20 requests a second**; suppliers about **10 a second**. A supplier script once sent **200 a second** for minutes.
+- Oracle EBS answers in about 300 ms and accepts **60 requests a second**; keep it at **55 or less**. The WMS answers in about 200 ms and the TMS in about 400 ms.
+- The TMS sometimes stops answering. Staff should still see stock and transfers within **1.5 seconds**.
+- Every supplier has a client id. Calls without one must be refused.
 
 **Questions:**
 - Which Experience, Process and System APIs do you create? Use the names \`exp-store-app\`, \`exp-supplier-portal\`, \`prc-fulfilment\`, \`sys-oracle-inventory\`, \`sys-wms\`, \`sys-tms\` and add what you need.
@@ -82,6 +122,7 @@ The CIO wants the second project to be faster because of the first.
     'Experience APIs shape data for one consumer: exp-store-app for staff, exp-supplier-portal for suppliers (filtered to their own data).',
     'Project 2 reuses sys-oracle-inventory and sys-wms, so only a new Process and Experience API are built — the speed-up the CIO wants.',
     'External suppliers go through API Manager policies (client ID enforcement / OAuth, rate limiting) and see only their own POs and products.',
+    'A rate limit on the supplier Experience API protects the shared System APIs; a timeout, circuit breaker and partial answer in prc-fulfilment keep staff working when the TMS hangs.',
   ],
   solution: `
 \`\`\`
@@ -108,6 +149,11 @@ The CIO wants the second project to be faster because of the first.
 **Reuse.** Project 2 builds only one Process and one Experience API; the System APIs already exist, tested and documented in Exchange.
 
 **Security.** Staff calls are internal (SSO token). Supplier calls pass an API gateway with OAuth/client-ID enforcement and rate limits; the supplier identity from the token drives filtering in the Process API so a supplier never sees another supplier's POs.
+
+**Policies and failure handling.**
+- The gateway enforces client ids, so a caller without one is refused before it reaches any API.
+- A rate limit of 25 a second on \`exp-supplier-portal\` answers 429 to a runaway supplier script. Oracle EBS stays under its limit, and staff, who share \`sys-oracle-inventory\` and \`sys-wms\`, are not affected.
+- \`prc-fulfilment\` calls with a 2 second timeout and a circuit breaker, and gives a partial answer when one call fails: if the TMS hangs, staff still see stock and transfers without the truck tracking.
 `,
   followUps: [
     { q: 'Could exp-store-app call sys-wms directly to save a hop?', a: 'It works technically, but the business rules (which DCs, transfer limits) would end up in the Experience API and be duplicated by other channels. Keep them in the Process API unless the call is a pure pass-through read.' },

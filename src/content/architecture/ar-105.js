@@ -34,13 +34,13 @@ export default {
         branch: ['internal-app', 'Branch teller app'],
         mobile: ['mobile-app', 'Banking mobile app'],
         lb: ['load-balancer', 'Global load balancer'],
-        expA: ['experience-api', 'exp-payments (site A cluster)'],
-        expB: ['experience-api', 'exp-payments (site B cluster)'],
-        prcA: ['process-api', 'prc-payments (site A cluster)'],
-        prcB: ['process-api', 'prc-payments (site B cluster)'],
+        expA: ['experience-api', 'exp-payments (site A cluster)', { replicas: 2, vCores: '1' }],
+        expB: ['experience-api', 'exp-payments (site B cluster)', { replicas: 2, vCores: '1' }],
+        prcA: ['process-api', 'prc-payments (site A cluster)', { replicas: 2, vCores: '1' }],
+        prcB: ['process-api', 'prc-payments (site B cluster)', { replicas: 2, vCores: '1' }],
         broker: ['queue', 'External broker: payment.events'],
-        sysA: ['system-api', 'sys-core-banking (site A cluster)'],
-        sysB: ['system-api', 'sys-core-banking (site B cluster)'],
+        sysA: ['system-api', 'sys-core-banking (site A cluster)', { replicas: 2, vCores: '1' }],
+        sysB: ['system-api', 'sys-core-banking (site B cluster)', { replicas: 2, vCores: '1' }],
         core: ['legacy', 'Core banking'],
         state: ['database', 'Replicated state database'],
         logs: ['monitoring', 'Central log platform'],
@@ -52,6 +52,32 @@ export default {
         'prcA -> state', 'prcB -> state', 'prcA -> logs', 'prcB -> logs',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 200 }],
+      tests: [
+        {
+          name: 'A server fails at peak',
+          about: 'Partners send 150 payments a second, branches 100 and the mobile app 150. In each site one server is lost for the whole run, and from minute 5 site A is lost too. Site B must then carry the full 400 a second on the servers it has left.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 150, to: 'legacy' },
+            { name: 'branches', from: 'internal-app', rps: 100, to: 'legacy' },
+            { name: 'mobile', from: 'mobile-app', rps: 150, to: 'legacy' },
+          ],
+          incidents: [{ zone: true }, { down: { label: 'site A' }, at: 5 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }] },
+        },
+        {
+          name: 'Peak within the vCore licence',
+          about: 'The same 400 payments a second with every server up. Every payment is answered, and both sites together use at most the 16 vCores the bank has licensed.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 150, to: 'legacy' },
+            { name: 'branches', from: 'internal-app', rps: 100, to: 'legacy' },
+            { name: 'mobile', from: 'mobile-app', rps: 150, to: 'legacy' },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 16 } },
+        },
+      ],
+    },
   },
   description: `
 A regional bank must keep Mule in its own two data centres, 60 km apart, with a measured latency of 12 ms between them. It will manage the runtimes from Anypoint Platform as Hybrid Standalone instances. Twelve apps handle payments for partners, branch staff and a mobile app, at about 400 requests per second at peak.
@@ -62,6 +88,8 @@ Requirements and constraints:
 - **State:** two apps use idempotency, and one runs a nightly reconciliation job.
 - **Budget:** the CFO asks why the second site cannot simply stay switched off.
 - **Proposal from the infrastructure team:** one six-node cluster, three nodes per site.
+- **Load:** at peak partners send 150 payments a second, branches 100 and the mobile app 150. Core banking answers in about 200 ms. Each site must carry the full 400 a second on its own, even after one of its servers fails.
+- **Licence:** the bank has 16 vCores for both sites together.
 
 **Questions:**
 - Draw the target architecture.
@@ -92,6 +120,7 @@ Requirements and constraints:
     'On customer-hosted runtimes, you own DR. MuleSoft keeps the control plane available, and that plane holds no business data.',
     'Keep integrations stateless and externalise state. Object Store persistence does not support one database across clusters.',
     'A cluster has no built-in load balancer. Test failover and restore regularly, and size each site for full load if the SLA requires it.',
+    'Sizing: two nodes of 1 vCore per app in each site. One node alone serves about 500 requests a second, so a server loss still carries 400; the estate uses 12 of the 16 licensed vCores.',
   ],
   solution: `
 **Target architecture.**
@@ -123,6 +152,7 @@ The CFO's option is cold standby. It costs the least but takes the longest, and 
 - For idempotency across sites, use a table in the replicated database, not the Object Store. Object Store persistence does not support one database across different clusters.
 - Each cluster has its own primary, so a Scheduler would run in both sites. Enable the reconciliation job in one site, with a runbook step or property to move it. Make it idempotent as well.
 - Each node must be able to absorb the load after failure. The guide's sizing example shows that if the acceptable impact matches normal operation, you need more nodes. Size each site for the full 400 requests per second if a site loss must not degrade service.
+- In the model answer each app runs on two nodes of 1 vCore in each site. One node serves about 500 requests a second, so a site that loses a server still carries all 400. The three apps drawn, on two nodes in each of two sites, use 12 vCores, inside the 16 licensed. Nodes of 0.5 vCore would cost less but fail at peak once a server is lost, and a third node everywhere would break the licence.
 
 **Proving it.**
 - The HA guide says to test failover and restore procedures regularly.

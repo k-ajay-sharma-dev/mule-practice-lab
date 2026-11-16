@@ -27,19 +27,46 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app'],
         gw: ['api-gateway', 'API Manager policies (HTTP caching on GET /products only)'],
-        exp: ['experience-api', 'exp-account-api'],
-        prc: ['process-api', 'prc-account-api'],
-        pcache: ['cache', 'CRM profile cache (per customerId, TTL 5 min)'],
-        scat: ['system-api', 'sys-catalogue-api'],
-        sbil: ['system-api', 'sys-billing-api'],
-        scrm: ['system-api', 'sys-crm-api'],
-        ccache: ['cache', 'Catalogue cache (Object Store v2, TTL 30 min + eviction)'],
+        exp: ['experience-api', 'exp-account-api', { replicas: 3, vCores: '0.2' }],
+        prc: ['process-api', 'prc-account-api', { replicas: 3, vCores: '0.2' }],
+        pcache: ['cache', 'CRM profile cache (per customerId, TTL 5 min)', { ttlSec: 300 }],
+        scat: ['system-api', 'sys-catalogue-api', { replicas: 3 }],
+        sbil: ['system-api', 'sys-billing-api', { replicas: 3 }],
+        scrm: ['system-api', 'sys-crm-api', { replicas: 3 }],
+        ccache: ['cache', 'Catalogue cache (Object Store v2, TTL 30 min + eviction)', { ttlSec: 1800 }],
         pim: ['saas', 'Vendor PIM (pay per call)'],
         bil: ['database', 'Billing system (balance)'],
         crm: ['crm', 'CRM (customer profile)'],
       },
       ['mob -> gw', 'gw -> exp', 'exp -> prc', 'prc -> pcache', 'prc -> scat', 'prc -> sbil', 'prc -> scrm', 'scat -> ccache', 'scat -> pim', 'sbil -> bil', 'scrm -> crm'],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 1500, maxRps: 20 },
+        { match: 'database', latencyMs: 50 },
+        { match: 'crm', latencyMs: 200 },
+        { match: { type: 'cache', label: 'catalogue' }, hitRatio: 0.95 },
+        { match: { type: 'cache', label: 'profile' }, hitRatio: 0.3 },
+      ],
+      tests: [
+        {
+          name: 'Product pages at peak',
+          about: 'The app asks for product details 150 times a second for ten minutes. The PIM must stay within its allowance of 10 calls a second, pages must load fast, and the APIs must fit the 3 vCore budget.',
+          traffic: [{ name: 'products', from: 'mobile-app', rps: 150, to: 'saas' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 400 }], peakRps: [{ node: 'saas', max: 10 }], vCores: { max: 3 } },
+        },
+        {
+          name: 'A zone goes down',
+          about: 'Account screens come in at 100 a second and product pages at 50, and one availability zone fails for four minutes. With three replicas per app, both keep being answered.',
+          traffic: [
+            { name: 'accounts', from: 'mobile-app', rps: 100, to: ['database', 'crm'] },
+            { name: 'products', from: 'mobile-app', rps: 50, to: 'saas' },
+          ],
+          incidents: [{ zone: true, at: 3, forMin: 4 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A telecom has a **Product Catalogue** and **Customer Account** chain:
@@ -55,7 +82,10 @@ Observations:
 - 70% of calls fetch the same ~300 products.
 - The PIM vendor charges per API call above a monthly allowance.
 - Balance must never be stale by more than a few seconds; a stale balance led to complaints before.
-- APIs are managed in API Manager; apps run with 3 replicas each on CloudHub 2.0.
+- APIs are managed in API Manager; apps run with 3 replicas each on CloudHub 2.0, spread over availability zones. The budget for the APIs is **3 vCores**.
+- At peak the app asks for product details **150 times a second** and opens account screens 100 times a second. Product pages should load in well under half a second.
+- The PIM allowance works out to about **10 calls a second**, and the PIM refuses more than 20. Billing answers in about 50 ms and the CRM in about 200 ms.
+- A catalogue cache kept for 30 minutes answers about 95% of product reads. A profile cache keyed per customer answers far fewer, about 30%, because each customer opens the app only now and then.
 
 **Questions:**
 - What would you cache, where (client, gateway, Experience, Process, System), and with what TTL?
@@ -78,6 +108,7 @@ Observations:
     'Personalised responses must never be cached under a key that ignores the caller identity, or one customer can see another customer\'s data.',
     'Invalidation is TTL-based by default, with event-driven eviction when the source can notify changes.',
     'With several replicas, use a shared persistent Object Store (or accept per-replica caches) and be aware of consistency and cold-start behaviour.',
+    'Sizing: with a 30 minute catalogue cache the PIM gets a few calls a second at a peak of 150. The Experience and Process APIs need 3 replicas of 0.2 vCore, the System APIs 3 of 0.1: 2.1 vCores, and a zone outage still leaves two replicas of each.',
   ],
   solution: `
 **What and where.**
@@ -107,6 +138,10 @@ Observations:
 - In-memory caches are per replica: three replicas = three copies and three cache misses. Acceptable for small reference data.
 - For shared, consistent state, use a **persistent Object Store** (Object Store v2 on CloudHub) — slower than memory but shared across replicas and restarts. Or an external cache (e.g. Redis) if latency and volume justify it.
 - Document TTLs as part of the API contract so consumers know data may be up to N minutes old.
+
+**Sizing.**
+- Without the catalogue cache, 150 product reads a second would send over 100 calls a second to a PIM that takes 1.5 s and allows 10: pages fail and the bill grows. With a TTL of 30 minutes about 95% are answered from the cache, so the PIM sees about 5 calls a second and pages load in about a tenth of a second.
+- \`exp-account-api\` and \`prc-account-api\` carry every request, so each runs **3 replicas of 0.2 vCore**. The System APIs carry less and stay at 3 replicas of 0.1 vCore. That is 2.1 vCores in total, and losing a zone leaves two thirds of the capacity, which is still enough.
 `,
   followUps: [
     { q: 'How do you stop many concurrent misses hitting the PIM after expiry (cache stampede)?', a: 'Refresh proactively before expiry (scheduled warm-up), add small random jitter to TTLs, or serialise refresh per key so only one request calls the backend while others wait or get the stale value.' },

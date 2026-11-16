@@ -30,12 +30,12 @@ export default {
         web: ['web-app', 'Customer portal (Authorization Code)'],
         par: ['partner', 'Partner servers (Client Credentials)'],
         idp: ['identity-provider', 'Corporate IdP: OIDC, Dynamic Client Registration'],
-        gw: ['api-gateway', 'Mule Gateway: OpenID Connect OAuth 2.0 Token Enforcement, Rate Limiting: SLA-Based'],
-        ec: ['experience-api', 'exp-customer-accounts'],
-        ep: ['experience-api', 'exp-partner-payments'],
-        pa: ['process-api', 'prc-accounts'],
-        pp: ['process-api', 'prc-payments'],
-        sc: ['system-api', 'sys-core-banking'],
+        gw: ['api-gateway', 'Mule Gateway: OpenID Connect OAuth 2.0 Token Enforcement, Rate Limiting: SLA-Based', { auth: 'oauth2' }],
+        ec: ['experience-api', 'exp-customer-accounts', { vCores: '0.2' }],
+        ep: ['experience-api', 'exp-partner-payments', { vCores: '0.2' }],
+        pa: ['process-api', 'prc-accounts', { vCores: '0.2' }],
+        pp: ['process-api', 'prc-payments', { vCores: '0.2' }],
+        sc: ['system-api', 'sys-core-banking', { vCores: '0.5', timeoutMs: 2000, circuitBreaker: 'on' }],
         core: ['legacy', 'Core banking'],
         mon: ['monitoring', 'API analytics and audit logs'],
       },
@@ -44,6 +44,41 @@ export default {
         'ec -> pa', 'ep -> pp', 'pa -> sc', 'pp -> sc', 'sc -> core', 'gw -> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: ['legacy', 'erp'], latencyMs: 200 }],
+      tests: [
+        {
+          name: 'Calls without a valid token',
+          about: 'Customers and partners call with valid tokens. Some callers send no token, and some send only a client id. The gateway refuses those, and answers the others.',
+          traffic: [
+            { name: 'customers', from: 'web-app', rps: 30, to: { type: ['legacy', 'erp'] } },
+            { name: 'partners', from: 'partner', rps: 20, to: { type: ['legacy', 'erp'] } },
+            { name: 'no token', from: 'partner', rps: 5, to: { type: ['legacy', 'erp'] }, auth: 'none' },
+            { name: 'client id only', from: 'partner', rps: 5, to: { type: ['legacy', 'erp'] }, auth: 'client-id' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'customers', minSuccess: 0.99 },
+              { flow: 'partners', minSuccess: 0.99 },
+              { flow: 'no token', minRefused: 0.99 },
+              { flow: 'client id only', minRefused: 0.99 },
+            ],
+            vCores: { max: 2 },
+          },
+        },
+        {
+          name: 'Core banking slows down',
+          about: 'For 10 minutes core banking takes 8 seconds to answer. Calls to it must give up after 2 seconds, so the APIs keep their threads and answer fast again once core banking recovers.',
+          durationMin: 30,
+          traffic: [
+            { name: 'customers', from: 'web-app', rps: 30, to: { type: ['legacy', 'erp'] } },
+            { name: 'partners', from: 'partner', rps: 20, to: { type: ['legacy', 'erp'] } },
+          ],
+          incidents: [{ slow: { type: ['legacy', 'erp'] }, latencyMs: 8000, at: 10, forMin: 10 }],
+          expect: { answers: [{ minSuccess: 0.6, maxMs: 1000 }] },
+        },
+      ],
+    },
   },
   description: `
 A bank is replacing an old Mule OAuth provider with its **corporate identity provider**, which supports OpenID Connect and Dynamic Client Registration. The same IdP will serve:
@@ -56,6 +91,11 @@ Constraints:
 - Partners request access in the API portal, and must not wait for a ticket to the IdP team.
 - The IdP team worries about load. The security team wants revoked tokens to stop working within 5 minutes.
 - APIs run on Mule Gateway, and the core banking system is only reachable through a System API.
+
+Numbers for sizing:
+- At peak the portal makes 30 calls a second and the partners 20. Some callers send no token, or only a client id, and they must be refused at the gateway.
+- Core banking answers in about 200 ms, but during its batch runs it can take 8 seconds for 10 minutes at a time. Calls to it must give up after 2 seconds, so an average answer stays under 1 second.
+- The budget for the APIs is 2 vCores.
 
 **Questions:**
 - Draw the target architecture.
@@ -83,6 +123,8 @@ Constraints:
     'Keep client ID validation on, so a token must belong to a client with an approved contract.',
     'Apply Rate Limiting: SLA-Based after token enforcement, with Client ID Expression #[authentication.principal] and no secret expression.',
     'Validated tokens are cached until expiry. Set anypoint.platform.max_federation_expiration_time=300 to meet the 5 minute target.',
+    'The token policy sits on the gateway, where callers come in, so a call with no token or only a client id is refused before it uses an API thread.',
+    'sys-core-banking calls core banking with a 2 second timeout and a circuit breaker, so a slow core system cannot hold every thread. 0.2 vCore per Experience and Process API and 0.5 for the System API keep the total at 1.3 vCores.',
   ],
   solution: `
 **Architecture.**
@@ -114,6 +156,11 @@ Constraints:
 The policy asks the validation endpoint for metadata, then checks the client ID against the contracts it holds locally. Skip Client Id Validation stays off.
 
 **Load and revocation.** Tokens are cached until expiry by default, which is good for the IdP and bad for revocation. \`anypoint.platform.max_federation_expiration_time=300\` gives at most one validation per token every 5 minutes on each runtime, since the cache is in memory. Check that the IdP returns expiry information, because without it tokens are not cached at all, and every request hits the IdP. If the validation endpoint cannot be reached, the policy returns 401, so include the IdP in your availability planning.
+
+**Sizing and slow core banking.**
+- The OpenID Connect token policy runs on the gateway. A call with no token, or with only a client id, gets 401 there and never reaches an Experience API.
+- \`sys-core-banking\` sets a 2 second timeout on its calls and a circuit breaker. When core banking takes 8 seconds, calls fail after 2 seconds instead of holding a thread for 8, and the breaker then fails them at once. With the default 10 second timeout, every answer waits for the slow system and the average climbs towards 2 seconds.
+- 0.2 vCore for each Experience and Process API and 0.5 for \`sys-core-banking\` carry the 50 calls a second: 1.3 vCores, inside the budget of 2.
 
 **Audit.** Track who changed policies and client providers through audit logs, and use API analytics for traffic.
 `,

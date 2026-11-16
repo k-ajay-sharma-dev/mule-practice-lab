@@ -21,17 +21,36 @@ export default {
       {
         web: ['web-app', 'Shop website'],
         lb: ['load-balancer', 'Load balancer'],
-        c1: ['experience-api', 'Checkout API copy 1'],
-        c2: ['experience-api', 'Checkout API copy 2'],
-        prc: ['process-api', 'Order Process API'],
+        c1: ['experience-api', 'Checkout API copy 1', { vCores: '0.2' }],
+        c2: ['experience-api', 'Checkout API copy 2', { vCores: '0.2' }],
+        prc: ['process-api', 'Order Process API', { vCores: '0.5' }],
       },
       ['web -> lb', 'lb -> c1', 'lb -> c2', 'c1 -> prc', 'c2 -> prc'],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Sale peak',
+          about: 'During the sale the website sends 150 checkouts a second. The load balancer shares them, so each copy takes about 75, and every checkout is answered.',
+          traffic: [{ name: 'checkouts', from: 'web-app', rps: 150, to: 'process-api', kind: 'write' }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: { label: 'copy' }, max: 90 }] },
+        },
+        {
+          name: 'One copy stops',
+          about: 'On a normal day the website sends 80 checkouts a second. Copy 1 stops for the whole run. The load balancer sends every checkout to copy 2, and customers can still pay.',
+          traffic: [{ name: 'checkouts', from: 'web-app', rps: 80, to: 'process-api', kind: 'write' }],
+          incidents: [{ down: { label: 'copy 1' } }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A retailer runs one copy of its checkout API. During sales it gets overloaded, and if it stops, nobody can pay.
 
 The team runs two copies of the same API behind a **load balancer**. A load balancer receives every request and passes each one to a healthy copy, so the work is shared.
+
+During a sale the website sends 150 checkouts a second; on a normal day it sends 80. In this lab one copy at 0.2 vCore carries about 100 a second, so one copy alone can carry a normal day but not the sale.
 
 **Questions:**
 - Draw the design.

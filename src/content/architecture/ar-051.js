@@ -27,12 +27,12 @@ export default {
     reference: diagram(
       {
         dash: ['internal-app', 'A: HR dashboard'],
-        gw: ['api-gateway', 'Gateway (client-id enforcement)'],
+        gw: ['api-gateway', 'Gateway (client-id enforcement)', { auth: 'client-id' }],
         swd: ['system-api', 'sys-workday-worker-api'],
         wd: ['saas', 'Workday'],
         mob: ['mobile-app', 'B: Mobile app'],
         emob: ['experience-api', 'exp-mobile-api'],
-        pprd: ['process-api', 'prc-product-api (aggregates)'],
+        pprd: ['process-api', 'prc-product-api (aggregates)', { calls: 'in parallel' }],
         smat: ['system-api', 'sys-sap-material-api'],
         spim: ['system-api', 'sys-pim-api'],
         swms: ['system-api', 'sys-wms-stock-api'],
@@ -44,7 +44,7 @@ export default {
         sf: ['crm', 'Salesforce'],
         dw: ['data-warehouse', 'Data warehouse'],
         ptn: ['partner', 'D: Partner'],
-        eptn: ['experience-api', 'exp-partner-api'],
+        eptn: ['experience-api', 'exp-partner-api', { auth: 'client-id' }],
         sord: ['system-api', 'sys-sap-order-api'],
       },
       [
@@ -54,6 +54,40 @@ export default {
         'ptn -> eptn', 'eptn -> sord', 'sord -> sap',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 300 },
+        { match: { type: 'saas', label: 'pim' }, latencyMs: 200 },
+        { match: { type: 'saas', label: 'workday' }, latencyMs: 400 },
+        { match: 'wms', latencyMs: 250 },
+      ],
+      tests: [
+        {
+          name: 'Product details within 600 ms',
+          about: 'The mobile app asks for 30 product details a second. Each one needs SAP, the PIM and the WMS, and the average answer must take no more than 600 ms.',
+          traffic: [{ name: 'product details', from: 'mobile-app', rps: 30, to: ['erp', { type: 'saas', label: 'pim' }, 'wms'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 600 }] },
+        },
+        {
+          name: 'Callers without a client ID',
+          about: 'The HR dashboard and the partner call with their client IDs, while a script on each side calls without one. The callers with an ID are answered and the others are refused.',
+          traffic: [
+            { name: 'dashboard', from: 'internal-app', rps: 10, to: { type: 'saas', label: 'workday' } },
+            { name: 'dashboard without id', from: 'internal-app', rps: 2, to: { type: 'saas', label: 'workday' }, auth: 'none' },
+            { name: 'partner', from: 'partner', rps: 10, to: 'erp' },
+            { name: 'partner without id', from: 'partner', rps: 2, to: 'erp', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'dashboard', minSuccess: 0.99 },
+              { flow: 'partner', minSuccess: 0.99 },
+              { flow: 'dashboard without id', minRefused: 0.99 },
+              { flow: 'partner without id', minRefused: 0.99 },
+            ],
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -143,6 +177,10 @@ Evaluate these four cases:
 | C | A nightly batch syncs Salesforce accounts into the data warehouse. No consumer UI. |
 | D | A partner needs order status. Today it comes only from SAP, but next year shipment data from a carrier will be added. |
 
+Numbers for case B: the mobile app asks for **30 product details a second**, and the screen needs the answer in **600 ms or less** on average. SAP answers in about 300 ms, the PIM in 200 ms and the WMS in 250 ms. Workday answers in about 400 ms.
+
+Every caller must present a **client ID**: the HR dashboard and the partner are refused without one.
+
 **Questions:**
 1. For each case: which layers do you build, and why?
 2. What are the **risks** of Experience → System directly, and of Process-only (no Experience)?
@@ -166,6 +204,7 @@ Evaluate these four cases:
     'Process-only (no Experience layer) is fine for internal or system-to-system consumers (batch, events) where no channel-specific shaping or external security is needed.',
     'When composition is known to be coming soon, introducing the Process API early avoids a later breaking change for consumers — a judgement on likelihood and cost.',
     'The policy should be explicit and documented (ADR), with the default being "build the layer only when it has a responsibility".',
+    'Where a Process API aggregates, it calls the System APIs in parallel (Scatter-Gather), so the slowest system sets the time. Client-id enforcement sits wherever the caller comes in: the gateway for case A, the partner Experience API for case D.',
   ],
   solution: `
 **Case A — HR dashboard, Workday only.** Build \`sys-workday-worker-api\` and let the dashboard call it (via the gateway with client-id enforcement). No Process API: there is no orchestration. An Experience API is only needed if the dashboard needs a materially different shape or different security (e.g. external users). **Exp → Sys (or consumer → Sys) is fine.**
@@ -193,6 +232,11 @@ Either is defensible; the key point is the Experience API protects the external 
 2. A **Process API** is built only when there is orchestration, aggregation across systems, or business rules shared by more than one consumer.
 3. An **Experience API** is built when the consumer is external, needs a different security model, or needs a materially different shape/protocol. Internal trusted consumers may call Process or System APIs directly.
 4. Every skip is recorded in an ADR so it is a decision, not an accident; revisit when a second consumer or second system appears.
+
+**Settings that matter.**
+- Case B: \`prc-product-api\` calls the three System APIs **in parallel**. One after another they take 300 + 200 + 250 ms plus the hops, well over 600 ms. In parallel the slowest call, SAP at 300 ms, sets the time, and the answer comes in under 450 ms.
+- Case A: the gateway enforces **client-id**, so only the registered dashboard reads Workday. If you drop the gateway, put the policy on the System API instead.
+- Case D: the partner Experience API enforces **client-id**. It is the boundary for the external caller, which is one more reason to keep it.
 `,
   followUps: [
     { q: 'Isn\'t skipping a layer going to cause rework later?', a: 'Sometimes, but rework in one Experience API is usually cheaper than building and running pass-through layers everywhere for requirements that may never come (YAGNI). The Experience API already shields external consumers from the change.' },

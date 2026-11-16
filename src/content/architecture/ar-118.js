@@ -24,8 +24,8 @@ export default {
     reference: diagram(
       {
         chat: ['chatbot', 'Customer chat assistant'],
-        ing: ['api-gateway', 'Ingress Omni Gateway'],
-        brk: ['experience-api', 'Agent Broker'],
+        ing: ['api-gateway', 'Ingress Omni Gateway', { auth: 'client-id' }],
+        brk: ['experience-api', 'Agent Broker', { vCores: '0.5' }],
         ret: ['process-api', 'Returns agent'],
         dlv: ['process-api', 'Delivery agent'],
         mcp: ['system-api', 'MCP server: order tools'],
@@ -33,6 +33,29 @@ export default {
       },
       ['chat -> ing', 'ing -> brk', 'brk -> ret', 'brk -> dlv', 'brk -> mcp', 'mcp -> api'],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 200 }],
+      tests: [
+        {
+          name: 'A busy evening',
+          about: 'The chat assistant sends 30 return questions and 40 late parcel questions a second for ten minutes. The Agent Broker routes every one of them, and the APIs stay inside 1 vCore.',
+          traffic: [
+            { name: 'returns', from: 'chatbot', rps: 30, to: { label: 'returns' } },
+            { name: 'late parcels', from: 'chatbot', rps: 40, to: { label: 'delivery' } },
+          ],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], vCores: { max: 1 } },
+        },
+        {
+          name: 'Callers without a client id',
+          about: 'A script on the internet sends 400 requests a second with no client id, while customers ask 25 questions a second. The ingress gateway refuses the script, and every customer still gets an answer.',
+          traffic: [
+            { name: 'customers', from: 'chatbot', rps: 25, to: { label: 'delivery' } },
+            { name: 'script', from: 'chatbot', rps: 400, auth: 'none', to: { label: 'delivery' } },
+          ],
+          expect: { answers: [{ flow: 'customers', minSuccess: 0.99 }, { flow: 'script', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A retailer wants one chat assistant on its website for support questions. Today every question lands with a human.
@@ -47,7 +70,8 @@ The plan:
 - A **Returns agent** handles return requests, and a **Delivery agent** handles late parcels. Both are A2A compliant.
 - An **Agent Broker** picks the right agent for each task.
 - Order data lives behind an existing **Order API**. It must appear as MCP tools, and only read operations should be offered.
-- Security wants policies applied to all traffic that enters from the website.
+- Security wants policies applied to all traffic that enters from the website. The chat assistant sends a client id with each request. Scripts on the internet have sent up to 400 requests a second with none.
+- On a busy evening the chat assistant sends 30 return questions and 40 late parcel questions a second. The Order API answers in about 200 ms. The budget for the APIs is 1 vCore.
 
 **Questions:**
 - Draw the agent network.
@@ -70,6 +94,7 @@ The plan:
     'Brokers and their nodes are defined in Agent Script, a graph that mixes deterministic and non deterministic actions.',
     'MCP Bridge turns an existing API into an MCP server without custom code, and only the checked tools are exposed.',
     'Agents call `tools/list` and `tools/call`, and the bridge translates each call to an HTTP request to the API.',
+    'Client ID Enforcement on the ingress gateway refuses callers without a client id before they reach the broker. The broker carries every question, so it gets 0.5 vCore.',
   ],
   solution: `
 **Agent network.**
@@ -85,6 +110,8 @@ The broker graph describes the orchestration of agents, tools and LLMs, so the d
 **Agent Broker.** It sends each task to the best suited A2A compliant agent. You define it in Agent Script, in an \`.agent\` file, as a graph that can mix fixed steps with steps the model decides. In this case a late parcel goes to the Delivery agent, and a return goes to the Returns agent. Published brokers appear in the Agent Registry, and other brokers can reuse them.
 
 **Order API as MCP tools.** Use MCP Bridge, as the API already exists and needs no custom logic. Each operation you select becomes an MCP tool, and only checked tools are exposed. In Select Tools, clear the checkbox for each write operation and confirm that only read operations stay selected, so agents cannot find or call the others. Choose the MCP Connector instead if a tool needs custom Mule logic.
+
+**Sizing and policies.** Every question passes through the Agent Broker, 70 a second on a busy evening. 0.1 vCore carries about 50 a second, so the broker gets 0.5 vCore. Each agent carries 40 a second or less and stays at 0.1 vCore, which keeps the total at 0.8 vCore. Client ID Enforcement on the ingress gateway refuses a script that sends no client id, so its 400 requests a second never reach the broker.
 
 **Deployment.** The project holds \`agent-network.yaml\`, \`exchange.json\` and the \`.agent\` files. Publishing it to Exchange registers the assets defined in the project as agents or MCP servers, and brokers are published with the agent asset type.
 `,

@@ -30,7 +30,7 @@ export default {
         sml: ['partner', 'Small retailers (CSV portal)'],
         gw: ['api-gateway', 'B2B gateway (AS2/SFTP, MDN, Partner Manager)'],
         edi: ['experience-api', 'exp-b2b-inbound (parse, 997/CONTRL, map)'],
-        pq: ['queue', 'canonical-po-q'],
+        pq: ['queue', 'canonical-po-q', { maxRedelivery: 30 }],
         dlq: ['dlq', 'po-dlq'],
         po: ['process-api', 'prc-order-api (dedupe partner + PO)'],
         ssap: ['system-api', 'sys-sap-order-api'],
@@ -45,6 +45,33 @@ export default {
         'sap ~> ssap', 'ssap ~> oq', 'oq ~> ob', 'ob -> gw', 'ob -> trk',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 400, maxRps: 5 }],
+      tests: [
+        {
+          name: 'Holiday peak',
+          about: 'Before the holidays retailers send 10 POs a second for 30 minutes. SAP posts at most 5 a second. Every retailer gets its acknowledgement at once, and the POs wait in the queue until SAP has them all.',
+          traffic: [{ name: 'POs', from: 'partner', rps: 10, forMin: 30, to: 'erp', kind: 'write' }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'SAP is down for 20 minutes',
+          about: 'Retailers send 2 POs a second while SAP is down for 20 minutes. Each PO is tried for 30 minutes before it goes to the DLQ, so no good PO reaches the DLQ and none is lost.',
+          traffic: [{ name: 'POs', from: 'partner', rps: 2, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'A retailer sends broken POs',
+          about: 'Retailers send 2 POs a second, and 1 in 50 has a product code SAP rejects every time. Those go to the DLQ for a person to fix, and the other POs keep flowing.',
+          traffic: [{ name: 'POs', from: 'partner', rps: 2, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A consumer-goods manufacturer sells to **120 retailers**. Retailers send **purchase orders** and expect **order acknowledgements, advance ship notices (ASN) and invoices** back.
@@ -53,7 +80,7 @@ A consumer-goods manufacturer sells to **120 retailers**. Retailers send **purch
 - An old EDI VAN contract is expensive and ends in 9 months.
 - The ERP is **SAP** (orders created via IDoc/BAPI).
 - Retailers impose **chargebacks** if ASNs are late or wrong. Onboarding a new retailer currently takes 6 weeks.
-- Volume: ~8,000 POs/day, peaks of 5× before holidays.
+- Volume: ~8,000 POs/day, peaks of 5× before holidays. Before the holidays retailers can send 10 POs a second for half an hour, and SAP posts at most 5 a second. SAP can be down for 20 minutes, and about 1 PO in 50 has a product code SAP rejects every time.
 
 **Questions:**
 - What is the end-to-end architecture for inbound POs and outbound ASNs/invoices?

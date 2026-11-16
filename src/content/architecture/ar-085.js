@@ -35,13 +35,13 @@ export default {
         portal: ['web-app', 'Service portal'],
         ing: ['load-balancer', 'Customer ingress controller (TLS)'],
         idp: ['identity-provider', 'Corporate identity provider'],
-        expDealer: ['experience-api', 'exp-dealer-orders'],
-        expPlant: ['experience-api', 'exp-plant-status'],
-        prcOrders: ['process-api', 'prc-order-fulfilment'],
-        prcStatus: ['process-api', 'prc-production-status'],
+        expDealer: ['experience-api', 'exp-dealer-orders', { replicas: 2, auth: 'jwt' }],
+        expPlant: ['experience-api', 'exp-plant-status', { replicas: 2 }],
+        prcOrders: ['process-api', 'prc-order-fulfilment', { replicas: 2 }],
+        prcStatus: ['process-api', 'prc-production-status', { replicas: 2 }],
         q: ['queue', 'order.events'],
-        sysSap: ['system-api', 'sys-sap-orders'],
-        sysPlant: ['system-api', 'sys-plant-sqlserver'],
+        sysSap: ['system-api', 'sys-sap-orders', { replicas: 2 }],
+        sysPlant: ['system-api', 'sys-plant-sqlserver', { replicas: 2 }],
         sap: ['erp', 'SAP S/4HANA'],
         plant: ['sql-server', 'Plant SQL Server'],
         pg: ['database', 'PostgreSQL for Persistence Gateway'],
@@ -54,6 +54,34 @@ export default {
         'prcOrders -> pg', 'prcOrders -> logs', 'prcStatus -> logs',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 500 },
+        { match: 'sql-server', latencyMs: 50 },
+      ],
+      tests: [
+        {
+          name: 'A data centre hall goes down',
+          about: 'Dealers place 2 orders a second and the MES client reads plant status 15 times a second. One of the two halls is lost for the whole run. Every app keeps a replica in the other hall, so orders and reads are still answered.',
+          traffic: [
+            { name: 'dealer orders', from: 'partner', rps: 2, kind: 'write', to: 'erp' },
+            { name: 'plant status', from: 'internal-app', rps: 15, to: 'sql-server' },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Dealers need a token',
+          about: 'Dealers with a token place 2 orders a second. A caller without one sends 1 a second and must be refused at the dealer API. The identity provider is down for the whole run, and dealers holding a token still get through.',
+          traffic: [
+            { name: 'dealers', from: 'partner', rps: 2, kind: 'write', to: 'erp' },
+            { name: 'no token', from: 'partner', rps: 1, kind: 'write', to: 'erp', auth: 'none' },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ flow: 'dealers', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A heavy-equipment manufacturer must keep plant integration inside its own network: a plant outage cannot depend on a path through the public cloud for runtime traffic. It already runs a production Kubernetes platform (RKE2) in two data-centre halls, with a separate platform team. It will use Runtime Fabric for 20 Mule apps, managed from Anypoint Platform.
@@ -64,6 +92,12 @@ Traffic and systems:
 - **SAP S/4HANA** holds orders, and a **plant SQL Server** holds production data.
 - Some apps need an idempotency store that survives pod restarts and is shared between replicas.
 - Operations already run a central log platform, and production and test must be strictly separated.
+
+Numbers to design for:
+- At peak dealers place 2 orders a second, and the MES client reads plant status 15 times a second.
+- SAP answers in about 500 ms and the plant SQL Server in 50 ms.
+- The cluster must keep serving when one of the two halls is lost.
+- Dealers present a token, callers without one are refused, and dealers holding a token must still get through when the corporate identity provider is down.
 
 **Questions:**
 - Draw the target architecture with API-led layers.
@@ -93,6 +127,7 @@ Traffic and systems:
     'Runtime Fabric does not forward logs to external systems, so you install a forwarder such as Fluent Bit or use Log4j appenders.',
     'Run at least two replicas per app, spread across zones. Production needs a Runtime Fabric instance separate from non-production.',
     'The agent reaches the control plane through an outbound mTLS connection, and all nodes need outbound 443 to the listed hostnames.',
+    'Settings: 2 replicas of every app, one per hall, and JWT validation on the dealer API so tokens are checked without calling the identity provider.',
   ],
   solution: `
 **Architecture.**
@@ -128,6 +163,8 @@ Between layers, use in-cluster names rather than going back out through the ingr
 - Run at least two replicas of each app. Spread replicas across halls with zone labels, or use **Enforce deploying replicas across nodes**, and make sure there are enough nodes or replicas stay Pending.
 - Size reserved and limit CPU per layer from load tests. Experience and Process APIs often suit bursting, whereas latency-critical System APIs can use guaranteed CPU. Allow for sidecars and Runtime Fabric services on each node.
 - You own backup and restore: schedule \`rtfctl\` backups to external storage and test restores.
+- In the model answer every app runs 2 replicas, one in each hall, so losing a hall leaves each app running. One replica, however large, stops when its hall goes.
+- \`exp-dealer-orders\` validates JWTs locally against the identity provider's keys. Dealers holding a token keep working during an identity provider outage, which token introspection on every call would not allow. Callers without a token are refused.
 
 **Firewall.** All nodes need outbound 443 to Anypoint Platform services, plus the control-plane hostnames on the network configuration page. The agent communicates with the control plane through an mTLS outbound connection established at startup. Consumers need 443 to the ingress, and the cluster needs access to the PostgreSQL port. If policy forbids direct image pulls, use a local registry, and plan it at installation, because the change is one-way.
 `,

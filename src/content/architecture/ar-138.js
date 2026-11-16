@@ -38,9 +38,9 @@ export default {
         web: ['web-app', 'Checkout web app'],
         exp: ['experience-api', 'exp-checkout'],
         prc: ['process-api', 'prc-order'],
-        cmd: ['queue', 'fulfil-order commands (Anypoint MQ)'],
+        cmd: ['queue', 'fulfil-order commands (Anypoint MQ)', { maxRedelivery: 5 }],
         dlq: ['dlq', 'fulfil-order DLQ'],
-        wrk: ['process-api', 'prc-fulfilment worker'],
+        wrk: ['process-api', 'prc-fulfilment worker', { replicas: 2 }],
         sys: ['system-api', 'sys-wms'],
         wms: ['wms', 'Warehouse management system'],
         topic: ['event-stream', 'order-fulfilment-events (Kafka, key orderId)'],
@@ -53,6 +53,36 @@ export default {
         'wrk ~> topic', 'topic ~> ntf', 'ntf -> msg', 'topic ~> lake',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'wms', latencyMs: 200, maxRps: 25 },
+        { match: 'notification', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'Sale peak of 40 commands a second',
+          about: 'Checkout sends 5 orders a second, and 40 a second for ten minutes of a sale. The WMS takes only 25 a second, so the command queue holds the rest. Checkout is answered at once, and the backlog is cleared within the hour.',
+          traffic: [{ name: 'checkout', from: 'web-app', rps: 5, to: 'wms', kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 40 }] }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], backlog: [{ queue: { type: 'queue', label: 'fulfil' }, maxEnd: 100 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The WMS rejects commands for 20 minutes',
+          about: 'A WMS fault rejects every command for 20 minutes while checkout sends 4 orders a second. After five failed deliveries a command moves to the dead-letter queue for a person to look at, so the queue does not fill up and no command is lost.',
+          traffic: [{ name: 'checkout', from: 'web-app', rps: 4, to: 'wms', kind: 'write' }],
+          incidents: [{ errors: 'wms', rate: 1, at: 5, forMin: 20 }],
+          durationMin: 40,
+          expect: { dlq: { min: 1000 }, backlog: [{ queue: { type: 'queue', label: 'fulfil' }, maxPeak: 2500 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Every consumer gets each event',
+          about: 'Checkout sends 10 orders a second. The worker publishes a fulfilment event for each one, and both customer notifications and the analytics lake get every event.',
+          traffic: [{ name: 'checkout', from: 'web-app', rps: 10, to: ['wms', 'notification', { label: 'lake' }], kind: 'write' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'notification', min: 0.99 }, { to: { label: 'lake' }, min: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An online furniture retailer is rebuilding fulfilment. The architecture board must decide where **Anypoint MQ** and where **Kafka** fit. Both are already licensed: Anypoint MQ for the Mule estate, and a managed Kafka cluster that the data team uses.
@@ -63,6 +93,7 @@ Two kinds of messages:
 - About **12,000 a day**, with peaks of **40 a second** during sales.
 - Each command must be done **once**, by one worker. Several worker replicas share the load.
 - A command that fails five times must be set aside for a person to look at, without blocking the others.
+- The WMS takes at most **25 commands a second** and answers in about 200 ms.
 
 **2. Fulfilment events.** "Order 81723 was picked", "...was shipped".
 - About **60,000 a day**.
@@ -100,6 +131,7 @@ A developer proposes putting everything on Kafka, "because it is faster". Anothe
     'Kafka has no per-message acknowledgement or built-in dead-letter queue. A poison message must be handled by the consumer.',
     'Anypoint MQ deletes a message once it is acknowledged, so it cannot replay history to a new consumer.',
     'The worker publishes events after the WMS update. Notifications read the events, so a slow email never holds up fulfilment.',
+    'Settings that matter: a maximum of 5 deliveries on the command queue with a dead-letter queue drawn from it, and persistent commands. The queue absorbs a sale peak above the 25 a second the WMS takes.',
   ],
   solution: `
 **Platform**
@@ -111,6 +143,8 @@ Checkout ─► exp-checkout ─► prc-order ~► fulfil-order queue (Anypoint 
 \`\`\`
 
 **Commands on Anypoint MQ.** \`prc-order\` publishes a fulfil command and answers checkout at once. The worker runs several replicas, all subscribed to the same queue, so each command goes to one of them. The worker acknowledges after the WMS confirms. The queue has a dead-letter queue and a maximum delivery count of 5, so a failing command moves aside and the rest keep flowing. Make the worker idempotent on the order ID, because a lost acknowledgement means one more delivery.
+
+**Sizing and failure handling.** During a sale checkout sends 40 orders a second and the WMS takes 25. The queue holds the difference, about 9,000 commands after ten minutes, and the worker clears it within about ten minutes once the peak ends. When the WMS rejects every command, each one is delivered five times and then moves to the dead-letter queue. Without that limit the failing commands are retried forever, the queue grows for the whole fault, and they use up WMS capacity the new commands need. Without a dead-letter queue drawn from the command queue, they would be dropped.
 
 **Events on Kafka.** The worker publishes \`OrderPicked\` and \`OrderShipped\` to \`order-fulfilment-events\` with the order ID as the key. Each consumer has its own consumer group and its own offsets. Retention is at least 7 days. A new consumer, such as the returns service, starts from the earliest offset, and the analytics team resets its group offset to replay.
 

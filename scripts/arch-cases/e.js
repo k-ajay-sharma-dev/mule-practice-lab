@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for batch E. See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // AR-044
   // A partner moved to the new Mule endpoint, which partners cannot be forced to do.
   await failsOn('ar-044', 'only through the routing layer', (d) => draw(d, 'ptn -> soap'))
@@ -28,6 +28,16 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'rest', 'experience-api', 'exp-customer-rest-api')
     draw(d, 'web -> rest', 'rest -> prc')
   })
+  // The Process API left on one small replica.
+  await failsOn('ar-044', 'Run: Peak on the migrated customer service', (d) => set(d, 'prc', { replicas: undefined, vCores: undefined }))
+  // A facade far bigger than the traffic needs.
+  await failsOn('ar-044', 'Run: Peak on the migrated customer service', (d) => set(d, 'soap', { vCores: '2' }))
+  // The facade forwards to the ESB instead of the new Process API.
+  await failsOn('ar-044', 'Run: The ESB fails during a wave', (d) => {
+    cut(d, 'soap -> prc')
+    draw(d, 'soap -> esb')
+  })
+  await failsOn('ar-044', 'Run: One availability zone goes down', (d) => set(d, 'sdb', { replicas: 1 }))
 
   // AR-045
   // The penetration test finding: the low-value app calls Payments directly.
@@ -50,6 +60,13 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     cut(d, 'web -> idp')
   })
   await passes('ar-045', (d) => rename(d, 'sys', 'sys-payments-api'))
+  // No token check at the gateway.
+  await failsOn('ar-045', 'Run: Callers without a valid token', (d) => set(d, 'gw', { auth: undefined }))
+  // The pen-test finding: a line from the low-value app to Payments.
+  await failsOn('ar-045', 'Run: Callers without a valid token', (d) => draw(d, 'low -> sys'))
+  // Every token is introspected at the IdP.
+  await failsOn('ar-045', 'Run: The identity provider is down', (d) => set(d, 'gw', { auth: 'oauth2' }))
+  await failsOn('ar-045', 'Run: Month-end payment peak', (d) => set(d, 'sys', { vCores: undefined }))
 
   // AR-047
   // One shared Experience API for both portals.
@@ -81,6 +98,14 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'pcl', 'process-api', 'prc-claims-api')
     draw(d, 'ew -> pcl', 'pcl -> sp', 'pcl -> sc')
   })
+  // No rate limit in front of the mainframe.
+  await failsOn('ar-047', 'Run: Broker launch spike', (d) => set(d, 'sp', { rateLimit: undefined }))
+  // A second integration to the mainframe goes around the limit.
+  await failsOn('ar-047', 'Run: Broker launch spike', (d) => {
+    box(d, 'sp2', 'system-api', 'sys-policy-broker-api', { vCores: '0.2' })
+    draw(d, 'pq -> sp2', 'sp2 -> mf')
+  })
+  await failsOn('ar-047', 'Run: Both portals at peak', (d) => set(d, 'pq', { vCores: '2', replicas: 2 }))
 
   // AR-051
   // Case A with a pass-through Process API.
@@ -121,7 +146,13 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     draw(d, 'eptn -> pst', 'pst -> sord')
     unbox(d, 'gw')
     draw(d, 'dash -> swd')
+    // Without the gateway, client-id enforcement moves to the System API.
+    set(d, 'swd', { auth: 'client-id' })
   })
+  // The Process API calls one System API after another.
+  await failsOn('ar-051', 'Run: Product details within 600 ms', (d) => set(d, 'pprd', { calls: undefined }))
+  await failsOn('ar-051', 'Run: Callers without a client ID', (d) => set(d, 'gw', { auth: undefined }))
+  await failsOn('ar-051', 'Run: Callers without a client ID', (d) => set(d, 'eptn', { auth: undefined }))
 
   // AR-053
   // The pass-through smell: the summary reads only the Booking DB.
@@ -143,6 +174,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     draw(d, 'sloy -> lcache')
   })
   await passes('ar-053', (d) => unbox(d, 'lcache'))
+  await failsOn('ar-053', 'Run: Trip summary is fast', (d) => set(d, 'psum', { calls: undefined }))
+  // The default 10 second timeout on the airline call.
+  await failsOn('ar-053', 'Run: The airline API hangs', (d) => set(d, 'psum', { timeoutMs: undefined }))
+  // Scatter-Gather errors are not caught, so one failed route fails the summary.
+  await failsOn('ar-053', 'Run: The airline API hangs', (d) => set(d, 'psum', { onFailure: undefined }))
+  await failsOn('ar-053', 'Run: The loyalty system is down', (d) => set(d, 'pcust', { onFailure: undefined }))
 
   // AR-058
   // The senior developer's idea: the mobile app calls the database.
@@ -169,4 +206,10 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     unbox(d, 'lb')
     draw(d, 'mob -> exp')
   })
+  // The three System API calls stay one after another.
+  await failsOn('ar-058', 'Run: Search within 500 ms', (d) => set(d, 'prc', { calls: undefined }))
+  // The Process API kept at its old small size.
+  await failsOn('ar-058', 'Run: Evening peak', (d) => set(d, 'prc', { vCores: undefined }))
+  // Scaling out far beyond the budget.
+  await failsOn('ar-058', 'Run: Evening peak', (d) => set(d, 'exp', { vCores: '2', replicas: 2 }))
 }

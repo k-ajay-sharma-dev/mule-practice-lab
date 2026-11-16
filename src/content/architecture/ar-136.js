@@ -26,7 +26,7 @@ export default {
         mob: ['mobile-app', 'Courier mobile app'],
         prt: ['partner', 'Retail partners (40 systems)'],
         lb: ['load-balancer', 'Cloud load balancer (TLS)'],
-        flex: ['api-gateway', 'Flex Gateway, Connected Mode, 2 replicas'],
+        flex: ['api-gateway', 'Flex Gateway, Connected Mode, 2 replicas', { auth: 'jwt' }],
         idp: ['identity-provider', 'OpenID Connect provider'],
         trk: ['system-api', 'tracking-service (Node.js)'],
         rat: ['system-api', 'rates-service (Spring Boot)'],
@@ -39,6 +39,34 @@ export default {
         'flex -> idp', 'flex -> trk', 'flex -> rat', 'flex -> lab', 'trk -> db', 'flex -> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 30 }],
+      tests: [
+        {
+          name: 'Calls without a valid token',
+          about: 'Couriers track 30 parcels a second and partners ask for 20 rates a second, all with valid tokens. A partner script without a token calls the rates service 5 times a second. The gateway refuses it before it reaches the service.',
+          traffic: [
+            { name: 'tracking', from: 'mobile-app', rps: 30, to: { label: 'tracking' } },
+            { name: 'rates', from: 'partner', rps: 20, to: { type: 'system-api', label: 'rates' } },
+            { name: 'no token', from: 'partner', rps: 5, to: { type: 'system-api', label: 'rates' }, auth: 'none' },
+          ],
+          expect: {
+            answers: [{ flow: 'tracking', minSuccess: 0.99 }, { flow: 'rates', minSuccess: 0.99 }, { flow: 'no token', minRefused: 0.99 }],
+            notReached: [{ flow: 'no token', node: { type: 'system-api', label: 'rates' } }],
+          },
+        },
+        {
+          name: 'The identity provider is down',
+          about: 'The OpenID Connect provider is down for the whole run. Tokens already issued are still valid, and the gateway checks them with the signing keys it has cached, so tracking and rates keep working.',
+          traffic: [
+            { name: 'tracking', from: 'mobile-app', rps: 30, to: { label: 'tracking' } },
+            { name: 'rates', from: 'partner', rps: 20, to: { type: 'system-api', label: 'rates' } },
+          ],
+          incidents: [{ down: 'identity-provider' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A parcel delivery company runs three services on its own Kubernetes cluster in AWS. None of them is a Mule app:
@@ -56,6 +84,9 @@ The security team wants:
 - Tokens from the company's **OpenID Connect provider** checked before a request reaches a service.
 - A **rate limit per partner** of 50 requests per second.
 - Traffic data in **Anypoint Monitoring** next to the Mule APIs.
+- Calls keep working during a short outage of the identity provider, using tokens already issued.
+
+At peak the courier app tracks about **30 parcels a second** and partners ask for about **20 rates a second**.
 
 The platform team proposes **Flex Gateway** in **Connected Mode**, installed in the same cluster, with policies managed in **API Manager**.
 
@@ -85,6 +116,7 @@ The platform team proposes **Flex Gateway** in **Connected Mode**, installed in 
     'Remove the old public load balancers and keep the services on internal cluster addresses, with network policies that allow traffic only from the gateway.',
     'Rate limit counters are kept per replica unless the gateway is given shared storage, so plan for that with two replicas.',
     'Flex Gateway sends API analytics to Anypoint Monitoring, so partner traffic shows up next to the Mule APIs.',
+    'Check tokens locally (JWT Validation with cached keys) rather than introspecting each token at the identity provider, so an identity provider outage does not stop the services.',
   ],
   solution: `
 **Runtime path**
@@ -100,6 +132,8 @@ Flex Gateway ─► Anypoint Monitoring
 **What the gateway does.** Flex Gateway runs as a deployment in the cluster with two replicas. Each service is registered in API Manager as an API instance on that gateway, with its own upstream URL. Policies applied there: **JWT Validation** for every API, **Client ID Enforcement** or **Rate Limiting SLA** for partners, and a rate limit of 50 requests per second per partner. Only identity and traffic rules move to the gateway. Business rules, such as which parcels a partner may see, stay in the services.
 
 **Checking tokens.** Clients get a token from the identity provider with the client credentials flow, or the authorization code flow for the courier app. The gateway reads the provider's public keys from its JWKS URL and caches them. It checks the signature, expiry, issuer and audience before the request goes on. The services no longer talk to the identity provider for each call.
+
+**JWT Validation, not introspection.** The gateway policy is JWT Validation, which checks each token on the gateway itself. An OAuth introspection policy would ask the identity provider about every request, so an outage there would stop all three services even for callers with valid tokens.
 
 **No way around the gateway.**
 - Delete the three old public load balancers.

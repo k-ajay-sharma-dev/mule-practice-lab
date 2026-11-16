@@ -28,8 +28,8 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app'],
         web: ['web-app', 'Web'],
-        ec: ['experience-api', 'exp-claims-api (issues upload URLs)'],
-        pc: ['process-api', 'prc-claims-api (verifies objects)'],
+        ec: ['experience-api', 'exp-claims-api (issues upload URLs)', { replicas: 2, vCores: '0.5' }],
+        pc: ['process-api', 'prc-claims-api (verifies objects)', { replicas: 2, vCores: '0.5' }],
         fs: ['file-store', 'Claim attachments bucket (private)'],
         ex: ['topic', 'claim-submitted'],
         fq: ['queue', 'fraud-q'],
@@ -48,6 +48,46 @@ export default {
         'di -> fs', 'scc -> fs', 'scc -> core',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'file-store', latencyMs: 80 },
+        { match: 'legacy', latencyMs: 300, maxRps: 40 },
+      ],
+      tests: [
+        {
+          name: 'Storm day peak and a zone outage',
+          about: 'After a storm, 60 claims a second come in from the app and the web for ten minutes, and one availability zone fails for three of them. Claims must still be taken, within the 3 vCore budget.',
+          traffic: [{ name: 'claims', from: ['mobile-app', 'web-app'], rps: 60, kind: 'write' }],
+          incidents: [{ zone: true, at: 4, forMin: 3 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], vCores: { max: 3 } },
+        },
+        {
+          name: 'Every consumer gets ClaimSubmitted',
+          about: 'Claims come in at 20 a second. Fraud check, document indexing and the core claims system must each get every ClaimSubmitted event, not a share of them.',
+          traffic: [{ name: 'claims', from: ['mobile-app', 'web-app'], rps: 20, kind: 'write' }],
+          expect: {
+            delivered: [
+              { to: { type: 'process-api', label: 'fraud' }, min: 0.99 },
+              { to: { type: 'process-api', label: 'index' }, min: 0.99 },
+              { to: 'legacy', min: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'Core claims system down and a broker restart',
+          about: 'The core claims system is down for 15 minutes and the broker restarts in the middle of it. Claims are still taken, the broker keeps every event for the core claims system, and the backlog drains once the system is back.',
+          durationMin: 45,
+          traffic: [{ name: 'claims', from: ['mobile-app', 'web-app'], rps: 20, kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 2, forMin: 15 }, { restart: ['queue', 'topic'], at: 10 }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            lost: { max: 0 },
+            delivered: [{ to: 'legacy', min: 0.98 }],
+            backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }],
+          },
+        },
+      ],
+    },
   },
   description: `
 An insurer's claims platform must process **claim submissions** that include documents:
@@ -57,6 +97,8 @@ An insurer's claims platform must process **claim submissions** that include doc
 - Flow: Mobile/Web → Claims Experience API → Claims Process API → publishes ClaimSubmitted to a message broker → three consumers (fraud check, document indexing, core claims system).
 - Mule apps run on CloudHub 2.0 with small replicas (0.5 vCore).
 - The broker has a maximum message size far below 200 MB, and large messages hurt broker throughput anyway.
+- After a storm, claims peak at **60 a second** for about ten minutes; on a normal busy day they come in at 20 a second. The APIs that take claims must keep working when one availability zone fails. The budget for the Mule apps is **3 vCores**.
+- Reading or checking an object in storage takes about 80 ms. The core claims system takes up to **40 claims a second** at about 300 ms each, and has maintenance windows of **15 minutes**. Claims sent during a window must not be lost, even if the broker restarts.
 
 The first prototype base64-encoded the attachments into the JSON and published them on the queue. It failed with out-of-memory errors and rejected messages.
 
@@ -81,6 +123,7 @@ The first prototype base64-encoded the attachments into the JSON and published t
     'When Mule must move files, use streaming (repeatable file-store or non-repeatable streams) and avoid DataWeave operations that load the full content.',
     'References must be secured (no public URLs, short-lived signed links, encryption at rest) and stored objects need retention and cleanup rules.',
     'Write the file first and publish the event only after storage succeeded, so a consumer never receives a dangling reference.',
+    'Sizing: the Experience and Process APIs that take claims run 2 replicas of 0.5 vCore, so a storm peak survives a zone outage within the budget. A topic with one persistent queue per consumer gives each consumer every event and keeps them through a broker restart.',
   ],
   solution: `
 **Why the prototype failed.**
@@ -107,6 +150,12 @@ The first prototype base64-encoded the attachments into the JSON and published t
 - Bucket is private; encryption at rest; access via IAM roles of the consuming apps or short-lived signed URLs — never a permanent public link in a message.
 - Lifecycle policy: delete orphaned uploads (no claim after 24 h); retain claim documents per regulatory retention.
 - Ordering: **store first, publish second**. If publishing fails after storing, retry publish (the orphan cleanup handles the rare leftover). Include a checksum so consumers can verify integrity.
+
+**Sizing and failure handling.**
+- Because the files never pass through Mule, the claim APIs only handle small JSON. \`exp-claims-api\` and \`prc-claims-api\` each run **2 replicas of 0.5 vCore**: 60 claims a second fit with room to spare, and one zone going down leaves a replica in the other zone. With the small consumers that is 2.3 vCores, inside the budget of 3.
+- Each consumer has **its own queue bound to the topic**, so each one gets every ClaimSubmitted. Consumers that shared one queue would each get only a part of the events.
+- The queues are **persistent**: when the core claims system is down, its queue holds the events, a broker restart does not lose them, and the backlog drains at up to 40 a second once the system is back. Fraud check and indexing are not held up meanwhile.
+- On a storm peak the small consumers fall a few minutes behind and catch up afterwards. That is fine, because the customer already has an answer.
 `,
   followUps: [
     { q: 'What if a consumer is outside your cloud and cannot reach the bucket?', a: 'Expose a download API that streams the object after authorizing the caller, or generate a short-lived signed URL per request; do not widen bucket access.' },

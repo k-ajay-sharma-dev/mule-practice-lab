@@ -33,20 +33,55 @@ export default {
     reference: diagram(
       {
         mob: ['mobile-app', 'Mobile app (one Idempotency-Key per payment)'],
-        exp: ['experience-api', 'exp-payments-api (requires the key)'],
-        prc: ['process-api', 'prc-payments-api (2 replicas)'],
+        exp: ['experience-api', 'exp-payments-api (requires the key)', { replicas: 2, vCores: '0.2' }],
+        prc: ['process-api', 'prc-payments-api (2 replicas)', { replicas: 2, vCores: '0.2' }],
         keys: ['cache', 'Idempotency records (persistent Object Store v2, 48 h)'],
-        spay: ['system-api', 'sys-payment-provider-api'],
+        spay: ['system-api', 'sys-payment-provider-api', { replicas: 2, vCores: '0.2' }],
         prov: ['payment', 'Payment provider (Idempotency-Key, 24 h)'],
-        sbil: ['system-api', 'sys-billing-api'],
+        sbil: ['system-api', 'sys-billing-api', { replicas: 2, vCores: '0.2' }],
         bdb: ['database', 'Billing DB (conditional update)'],
         q: ['queue', 'PaymentCompleted (Anypoint MQ)'],
-        rc: ['process-api', 'prc-receipts (consumer)'],
+        rc: ['process-api', 'prc-receipts (consumer)', { replicas: 2 }],
         seen: ['cache', 'Processed paymentIds (persistent Object Store)'],
         mail: ['notification', 'Email provider'],
       },
       ['mob -> exp', 'exp -> prc', 'prc -> keys', 'prc -> spay', 'spay -> prov', 'prc -> sbil', 'sbil -> bdb', 'prc ~> q', 'q ~> rc', 'rc -> seen', 'rc -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'payment', latencyMs: 2000 },
+        { match: 'database', latencyMs: 50 },
+        { match: 'notification', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'Due date peak',
+          about: 'On the bill due date customers make 40 payments a second for ten minutes. Every payment is answered, and the APIs stay inside the 2.5 vCore budget.',
+          traffic: [{ name: 'payments', from: 'mobile-app', rps: 40, kind: 'write', to: ['payment', 'database', 'notification'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3500 }], vCores: { max: 2.5 } },
+        },
+        {
+          name: 'One availability zone goes down',
+          about: 'A zone is lost for the whole run while customers pay 40 times a second. Each API keeps a replica in another zone, so payments are still answered.',
+          traffic: [{ name: 'payments', from: 'mobile-app', rps: 40, kind: 'write', to: ['payment', 'database', 'notification'] }],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The email provider is down',
+          about: 'The email provider is down for five minutes. Payments are still answered, the receipts wait in the queue, and every receipt is sent once it is back.',
+          traffic: [{ name: 'payments', from: 'mobile-app', rps: 40, kind: 'write', to: ['payment', 'database', 'notification'] }],
+          incidents: [{ down: 'notification', at: 2, forMin: 5 }],
+          durationMin: 15,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: 'notification', min: 0.99 }],
+            backlog: [{ queue: BROKER, minPeak: 1000, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -139,6 +174,12 @@ Incidents in the last quarter:
 
 The Process API runs on **2 replicas** on CloudHub 2.0. The payment provider supports an \`Idempotency-Key\` request header (keys kept 24 h).
 
+Numbers for sizing:
+- On the bill due date customers make up to **40 payments a second**.
+- The payment provider answers in about **2 s**, the billing DB in 50 ms, and the email provider in 500 ms.
+- Every app must survive the loss of one **availability zone**, and the email provider can be down for a few minutes.
+- The budget for all the Mule apps is **2.5 vCores**.
+
 **Design idempotency end to end:**
 - Where is the idempotency key created, and how does it flow through every hop?
 - How does the Process API detect a duplicate, including one that arrives **while the first request is still in flight**?
@@ -163,6 +204,7 @@ The Process API runs on **2 replicas** on CloudHub 2.0. The payment provider sup
     'Completed results are stored with the key so a retry returns the original response (same status and body) instead of reprocessing.',
     'The same key is passed to the provider as Idempotency-Key, so a retry after a timeout cannot double-charge; unknown outcomes are resolved by retry-with-same-key or a status query.',
     'The billing update and receipts consumer are idempotent too (conditional update on invoice; dedupe on paymentId with the idempotent message validator) because MQ is at-least-once.',
+    'Sizing: every app runs 2 replicas so a zone outage leaves one, with 0.2 vCore for the payment chain because each request holds a thread for the 2 s provider call. Receipts go through the queue, so an email outage never fails a payment.',
   ],
   solution: `
 **Key generation and propagation.** The mobile app creates an \`Idempotency-Key\` (UUID v4) when the user confirms a payment and **reuses it on every retry** of that payment. The Experience API requires the header (400 if missing) and passes it unchanged to the Process API. The Process API derives keys for downstream calls from it (e.g. the same value to the provider, \`paymentId\` to billing). Also log it as part of the correlation ID for traceability.
@@ -182,5 +224,10 @@ The Process API runs on **2 replicas** on CloudHub 2.0. The payment provider sup
 **Downstream consumers.**
 - *Billing:* conditional update — \`UPDATE invoice SET status='PAID', payment_id=:id WHERE id=:inv AND status<>'PAID'\`; re-running it is harmless.
 - *Receipts:* Anypoint MQ is at-least-once, so the consumer uses an **Idempotent Message Validator** on \`paymentId\` with a persistent Object Store (TTL of a few days). It acks only after the email is sent. Accept that the tiny window between "email sent" and "key stored" can still produce a rare duplicate; exactly-once across an external email system is not achievable, only effectively-once.
+
+**Sizing and failure handling.**
+- Each payment holds a thread in the Experience, Process and provider System APIs for about 2 s. At 40 payments a second, 0.2 vCore per replica gives enough threads. The billing System API gets 0.2 vCore too.
+- Every app runs **2 replicas**, so losing one availability zone still leaves a replica that can carry the full load on its own. That is about 1.8 vCores in total, inside the 2.5 vCore budget.
+- Receipts are not sent inside the payment request. When the email provider is down, payments are still answered and the receipts wait in the queue. Leave Deliveries before the DLQ at no limit here (or add a DLQ), so an outage of a few minutes loses no receipt. The receipts consumer also runs 2 replicas, which gives it spare capacity to clear the backlog once email is back.
 `,
 }

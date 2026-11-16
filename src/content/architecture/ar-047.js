@@ -27,17 +27,44 @@ export default {
         web: ['web-app', 'Web portal'],
         brk: ['partner', 'Broker portal'],
         ew: ['experience-api', 'exp-web-api'],
-        eb: ['experience-api', 'exp-broker-api'],
-        pq: ['process-api', 'prc-quote-api'],
-        sp: ['system-api', 'sys-policy-api'],
-        sc: ['system-api', 'sys-customer-api'],
-        sb: ['system-api', 'sys-billing-api'],
+        eb: ['experience-api', 'exp-broker-api', { vCores: '0.2' }],
+        pq: ['process-api', 'prc-quote-api', { vCores: '0.2' }],
+        sp: ['system-api', 'sys-policy-api', { vCores: '0.2', rateLimit: 35 }],
+        sc: ['system-api', 'sys-customer-api', { vCores: '0.2' }],
+        sb: ['system-api', 'sys-billing-api', { vCores: '0.2' }],
         mf: ['legacy', 'Policy admin (mainframe)'],
         crm: ['crm', 'CRM (Salesforce)'],
         bil: ['oracle-db', 'Billing (Oracle DB)'],
       },
       ['web -> ew', 'brk -> eb', 'ew -> pq', 'eb -> pq', 'pq -> sp', 'pq -> sc', 'pq -> sb', 'sp -> mf', 'sc -> crm', 'sb -> bil'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 400, maxRps: 40 },
+        { match: 'crm', latencyMs: 200 },
+        { match: 'oracle-db', latencyMs: 50 },
+      ],
+      tests: [
+        {
+          name: 'Both portals at peak',
+          about: 'The web portal asks for 12 quotes a second and the broker portal for 8. Every quote is answered, the mainframe stays under its 40 calls a second, and the APIs fit in 1.5 vCores.',
+          traffic: [
+            { name: 'web', from: { type: 'web-app', label: 'web portal' }, rps: 12, to: ['legacy', 'crm', 'oracle-db'] },
+            { name: 'broker', from: { type: ['partner', 'web-app', 'internal-app', 'mobile-app'], label: 'broker' }, rps: 8, to: ['legacy', 'crm', 'oracle-db'] },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'legacy', max: 40 }], vCores: { max: 1.5 } },
+        },
+        {
+          name: 'Broker launch spike',
+          about: 'On launch day the broker portal sends 60 quotes a second for two minutes. The one shared Policy System API holds the mainframe under 40 calls a second, and most quotes from both portals are still answered.',
+          traffic: [
+            { name: 'web', from: { type: 'web-app', label: 'web portal' }, rps: 12, to: ['legacy', 'crm', 'oracle-db'] },
+            { name: 'broker', from: { type: ['partner', 'web-app', 'internal-app', 'mobile-app'], label: 'broker' }, rps: 8, to: ['legacy', 'crm', 'oracle-db'], spikes: [{ at: 4, forMin: 2, rps: 60 }] },
+          ],
+          expect: { answers: [{ flow: 'web', minSuccess: 0.8 }, { flow: 'broker', minSuccess: 0.6 }], peakRps: [{ node: 'legacy', max: 40 }] },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -130,6 +157,11 @@ Context for your answer — a mid-size insurer today has:
 
 Every new channel project (e.g. a broker portal) takes 6+ months because each team re-builds integrations to the same backends.
 
+Numbers for the application network after the broker portal project:
+- At peak the web portal asks for **12 quotes a second** and the broker portal for **8**. On launch day the broker portal can reach **60 a second** for a few minutes.
+- The mainframe takes at most **40 calls a second** and answers in about 400 ms. The CRM answers in about 200 ms and billing in about 50 ms.
+- The budget for all the APIs is **1.5 vCores**.
+
 **Questions:**
 1. Define API-led connectivity in two or three sentences.
 2. Compare it with **point-to-point** integration and a **centralised ESB hub**. What problem does each approach have?
@@ -150,6 +182,7 @@ Every new channel project (e.g. a broker portal) takes 6+ months because each te
     'API-led decentralises delivery: APIs are products discoverable in Exchange and governed by policies, so other teams can self-serve and reuse them.',
     'The application network is the growing graph of reusable APIs; each project adds assets so later projects are faster (reuse compounds).',
     'The promise is faster delivery through reuse and decoupling of consumers from backends — not zero cost: extra hops, more deployables and governance overhead are real.',
+    'One shared System API per backend is also the one place to protect it: a rate limit of 35 a second on the Policy System API keeps the mainframe under its 40, whichever portal calls.',
   ],
   solution: `
 **Definition.** API-led connectivity is MuleSoft's methodical approach to integration where capabilities are exposed as **reusable, managed APIs** grouped into three layers:
@@ -185,6 +218,10 @@ Point-to-point grows roughly as N×(N−1)/2 links. The ESB solved the spaghetti
 **Benefits and honest limits.**
 - Promise: faster delivery for subsequent projects, backends replaceable without breaking consumers, consistent security/monitoring, visibility of what exists.
 - Do not promise: that the first project is cheaper (it is usually slightly more expensive — you build reusable assets), or that three layers are free (latency per hop, more deployables, governance effort). Reuse only happens if APIs are designed well and discoverable.
+
+**Sizing and protecting the mainframe.**
+- The shared Quote Process API and the three System APIs carry both portals: 20 quotes a second normally and 72 in the launch spike. 0.2 vCore each serves about 100 a second. The broker Experience API gets 0.2 vCore for its spike, and the web one stays at 0.1. That is 1.1 vCores in all.
+- A **rate limit of 35 a second** on the Policy System API answers 429 to what is over it, so the mainframe never sees more than its 40. Without it, the spike sends all 72 to the mainframe. Because every consumer reuses that one System API, the limit covers them all. A second integration to the mainframe would go around it.
 `,
   followUps: [
     { q: 'Isn\'t API-led just an ESB with a new name?', a: 'The runtime can look similar, but the difference is the operating model: APIs are products with contracts, discoverable in Exchange and built by many teams under central governance, rather than services hidden inside one team\'s hub.' },

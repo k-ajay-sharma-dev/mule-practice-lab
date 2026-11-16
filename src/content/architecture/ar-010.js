@@ -32,15 +32,15 @@ export default {
         job: ['batch-job', 'Nightly price sync (22:00, watermark)'],
         mer: ['erp', 'Merchandising system'],
         fs: ['file-store', 'Per-store price files (SFTP)'],
-        es: ['experience-api', 'exp-store-stock-api'],
-        ss: ['system-api', 'sys-store-inventory-api'],
+        es: ['experience-api', 'exp-store-stock-api', { vCores: '1' }],
+        ss: ['system-api', 'sys-store-inventory-api', { vCores: '1', timeoutMs: 1000, circuitBreaker: 'on', onFailure: 'partial answer' }],
         ora: ['database', 'Inventory DB (Oracle)'],
-        c: ['cache', 'Stock cache (short TTL)'],
+        c: ['cache', 'Stock cache (short TTL)', { ttlSec: 60 }],
         tp: ['topic', 'pos-sales-events'],
         lq: ['queue', 'loyalty-q'],
         fq: ['queue', 'finance-q'],
         dlq: ['dlq', 'sales DLQ'],
-        loy: ['process-api', 'prc-loyalty-points'],
+        loy: ['process-api', 'prc-loyalty-points', { vCores: '0.5' }],
         fin: ['process-api', 'prc-finance-load'],
         lsys: ['saas', 'Loyalty platform'],
         fsys: ['erp', 'Finance system'],
@@ -52,6 +52,71 @@ export default {
         'loy -> lsys', 'fin -> fsys',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: ['database', 'oracle-db'], latencyMs: 50, maxRps: 100 },
+        { match: { type: 'saas', label: 'loyalty' }, latencyMs: 200 },
+        { match: { type: 'erp', label: 'finance' }, latencyMs: 300 },
+      ],
+      cache: { hitRatio: 0.9, atTtlSec: 60 },
+      tests: [
+        {
+          name: 'Stock checks at peak',
+          about: 'The website sends 300 stock checks a second for ten minutes. The Oracle inventory DB takes at most 100 queries a second, so the stock cache must take most of the reads.',
+          traffic: [{ name: 'stock', from: 'web-app', rps: 300, to: { type: ['database', 'oracle-db'] } }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 200 }], peakRps: [{ node: ['database', 'oracle-db'], max: 100 }] },
+        },
+        {
+          name: 'The inventory DB hangs',
+          about: 'The Oracle DB stops answering while the website sends 300 stock checks a second. Reads the cache does not have must fail fast and come back as "stock unavailable", so every product page still loads quickly.',
+          traffic: [{ name: 'stock', from: 'web-app', rps: 300, to: { type: ['database', 'oracle-db'] } }],
+          incidents: [{ hang: ['database', 'oracle-db'] }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.05, maxMs: 300 }] },
+        },
+        {
+          name: 'Saturday sales peak',
+          about: 'Stores send 20 sales a second, and 80 a second for half an hour of the Saturday peak. Loyalty points must keep up, so five minutes after the peak nearly every sale has reached the loyalty platform.',
+          durationMin: 40,
+          traffic: [
+            {
+              name: 'sales',
+              from: 'device',
+              rps: 20,
+              kind: 'write',
+              spikes: [{ at: 5, forMin: 30, rps: 80 }],
+              to: [{ type: 'saas', label: 'loyalty' }, { type: 'erp', label: 'finance' }],
+            },
+          ],
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: { type: 'saas', label: 'loyalty' }, min: 0.97 }] },
+        },
+        {
+          name: 'Finance is down for an hour',
+          about: 'The finance system is down for an hour during the Saturday peak. Finance may lag, but by the next morning it has every sale, nothing goes to the DLQ and nothing is lost.',
+          durationMin: 240,
+          traffic: [
+            {
+              name: 'sales',
+              from: 'device',
+              rps: 20,
+              kind: 'write',
+              spikes: [{ at: 10, forMin: 30, rps: 80 }],
+              to: [{ type: 'saas', label: 'loyalty' }, { type: 'erp', label: 'finance' }],
+            },
+          ],
+          incidents: [{ down: { type: 'erp', label: 'finance' }, at: 10, forMin: 60 }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [
+              { to: { type: 'saas', label: 'loyalty' }, min: 0.99 },
+              { to: { type: 'erp', label: 'finance' }, min: 0.99 },
+            ],
+            backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }],
+            dlq: { max: 0 },
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A grocery chain with 400 stores is replacing its old integration scripts. Three data flows must be designed:
@@ -59,6 +124,8 @@ A grocery chain with 400 stores is replacing its old integration scripts. Three 
 1. **Price updates** from the merchandising system to all store POS systems. ~200,000 price changes are approved each evening; new prices must be active when stores open at 07:00.
 2. **Stock level** checks for the e-commerce site: when a customer opens a product page, show whether the nearest store has stock. Store inventory DB is central (Oracle).
 3. **Sales transactions** from POS to the finance system and the loyalty program. Each store sends ~3,000 transactions/day; loyalty points should appear within a few minutes; finance only needs data by the next morning.
+
+Numbers for sizing: at peak the website sends 300 stock checks a second. The Oracle inventory DB answers in about 50 ms and takes at most 100 queries a second; a stock answer may be up to a minute old. Sales arrive at about 20 a second, and 80 a second for half an hour of the Saturday peak. The finance system has had outages of an hour.
 
 **Questions:**
 - For each flow: batch, near-real-time (event/stream), or real-time request/reply? Justify.
@@ -79,6 +146,7 @@ A grocery chain with 400 stores is replacing its old integration scripts. Three 
     'Sales: event-driven near-real-time (queue/stream per transaction) for loyalty; finance can consume the same events or an aggregated daily batch.',
     'The choice is driven by latency need, volume, whether a complete set is needed, and who is waiting for the result.',
     'Each design has explicit failure handling: batch record-level errors and rerun, sync errors returned to caller, async retries with a DLQ.',
+    'Settings that matter: a 60 s stock cache keeps Oracle under 100 queries a second; a 1 s timeout, a circuit breaker and a "stock unavailable" partial answer keep pages fast when Oracle hangs; the loyalty consumer is sized for the peak while the finance consumer may lag.',
   ],
   solution: `
 **Flow 1 — Price updates: batch.** The business need is "complete set active by 07:00", not "each change in seconds". A **Scheduler** at e.g. 22:00 reads approved changes (watermark on approval timestamp), and a **Batch Job** (or a set-based file per store over SFTP if POS systems accept files) delivers them. Batch gives record-level error handling, step-by-step processing and a summary in the On Complete phase. Size the window: 200k records over 400 stores must finish well before 07:00 with time for a rerun.
@@ -91,6 +159,10 @@ A grocery chain with 400 stores is replacing its old integration scripts. Three 
 - *Batch:* failed records collected (accept policy, failed-record report), job is **rerunnable/idempotent** (upsert prices by SKU+store+effective date); alert if not finished by e.g. 05:00.
 - *Real-time:* return a clear error/degraded response (e.g. "stock unavailable") instead of hanging; circuit breaker if Oracle is down.
 - *Events:* retries with backoff, **dead-letter queue** after N attempts, idempotent consumers (transaction ID) because delivery is at-least-once.
+
+**Sizing and settings.**
+- *Stock:* 300 checks a second needs 1 vCore on the stock Experience and System APIs. A cache with a 60 s TTL answers about 90% of reads, so Oracle sees about 30 queries a second, well under its 100. When Oracle hangs, a 1 s timeout and a circuit breaker on the System API fail the misses fast, and a partial answer ("stock unavailable") keeps the page loading.
+- *Sales:* at 80 a second the loyalty consumer needs more than 0.1 vCore (about 50 a second), so give it 0.5 and loyalty keeps up. The finance consumer can stay at 0.1 vCore: during the peak or an outage its queue grows, and it catches up long before morning. Keep the max delivery count unlimited (or long enough) on finance-q, or an hour of outage sends good sales to the DLQ.
 
 **Rule of thumb:** *who waits* (a user → real-time), *how fresh* (minutes → events), *how much and must it be complete* (large set with deadline → batch).
 `,

@@ -41,16 +41,16 @@ export default {
         glb: ['load-balancer', 'Global load balancer (DNS failover, health checks)'],
         ingE: ['load-balancer', 'Ingress: private space eu-central (active)'],
         ingW: ['load-balancer', 'Ingress: private space eu-west (passive)'],
-        expE: ['experience-api', 'exp-orders (eu-central)'],
-        expW: ['experience-api', 'exp-orders (eu-west)'],
-        qE: ['queue', 'orders-submitted (eu-central)'],
-        qW: ['queue', 'orders-submitted (eu-west)'],
+        expE: ['experience-api', 'exp-orders (eu-central)', { vCores: '0.5' }],
+        expW: ['experience-api', 'exp-orders (eu-west)', { vCores: '0.5' }],
+        qE: ['queue', 'orders-submitted (eu-central)', { maxRedelivery: 10 }],
+        qW: ['queue', 'orders-submitted (eu-west)', { maxRedelivery: 10 }],
         dlqE: ['dlq', 'orders-submitted DLQ (eu-central)'],
         dlqW: ['dlq', 'orders-submitted DLQ (eu-west)'],
-        prcE: ['process-api', 'prc-order-fulfilment (eu-central)'],
-        prcW: ['process-api', 'prc-order-fulfilment (eu-west)'],
-        sysE: ['system-api', 'sys-erp-orders (eu-central)'],
-        sysW: ['system-api', 'sys-erp-orders (eu-west)'],
+        prcE: ['process-api', 'prc-order-fulfilment (eu-central)', { vCores: '0.2' }],
+        prcW: ['process-api', 'prc-order-fulfilment (eu-west)', { vCores: '0.2' }],
+        sysE: ['system-api', 'sys-erp-orders (eu-central)', { vCores: '0.2' }],
+        sysW: ['system-api', 'sys-erp-orders (eu-west)', { vCores: '0.2' }],
         erp: ['erp', 'SAP S/4HANA (own DR)'],
         idem: ['database', 'Idempotency keys (replicated database)'],
         drain: ['batch-job', 'Drain job: eu-central queue to eu-west, run after recovery'],
@@ -63,11 +63,45 @@ export default {
         'qE ~> drain', 'drain ~> qW', 'prcE -> mon', 'prcW -> mon',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 300, maxRps: 60 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Sale peak in eu-central',
+          about: 'The active region takes 30 orders a second, and 150 a second for five minutes of a sale. Every order is accepted at once, SAP works through the queue at its own 60 a second, and the queue is empty again within the hour.',
+          traffic: [{ name: 'orders', from: { type: 'load-balancer', label: 'eu-central' }, rps: 30, to: ['erp', { label: 'idempot' }], kind: 'write', spikes: [{ at: 5, forMin: 5, rps: 150 }] }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], backlog: [{ queue: { type: 'queue', label: 'eu-central' }, maxEnd: 100 }], lost: { max: 0 }, vCores: { max: 3 } },
+        },
+        {
+          name: 'eu-central is lost',
+          about: 'eu-central takes 80 orders a second. SAP is unavailable from minute 2, so orders wait in its queue, and then eu-central fails at minute 5 and stays down for 30 minutes, with its broker restarting. Traffic moves to eu-west, which takes 55 orders a second. The orders stranded in eu-central are not lost, and both queues are empty by the end of the run.',
+          traffic: [
+            { name: 'before failover', from: { type: 'load-balancer', label: 'eu-central' }, rps: 80, to: ['erp', { label: 'idempot' }], kind: 'write', forMin: 5 },
+            { name: 'after failover', from: { type: 'load-balancer', label: 'eu-west' }, rps: 55, to: ['erp', { label: 'idempot' }], kind: 'write', at: 5 },
+          ],
+          incidents: [
+            { down: 'erp', at: 2, forMin: 3 },
+            { down: { label: 'eu-central' }, at: 5, forMin: 30 },
+            { restart: { type: 'queue', label: 'eu-central' }, at: 5 },
+          ],
+          durationMin: 120,
+          expect: {
+            answers: [{ flow: 'after failover', minSuccess: 0.99 }],
+            backlog: [{ queue: { type: 'queue', label: 'eu-central' }, maxEnd: 100 }, { queue: { type: 'queue', label: 'eu-west' }, maxEnd: 100 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A European fashion retailer takes orders through an API-led pipeline on **CloudHub 2.0**. \`exp-orders\` accepts an order, puts it on the Anypoint MQ queue \`orders-submitted\`, and answers **202 Accepted**. \`prc-order-fulfilment\` reads the queue and creates the sales order in SAP S/4HANA through \`sys-erp-orders\`.
 
-Volumes: about **80,000 orders a day**, peaks of **150 a second** during sales. The queue normally holds fewer than 200 messages.
+Volumes: about **80,000 orders a day**, peaks of **150 a second** during sales. The queue normally holds fewer than 200 messages. SAP creates at most **60 sales orders a second** and takes about 300 ms for each, so during a sale peak the queue holds thousands of orders and drains afterwards. The budget for the APIs in both regions is **3 vCores**.
 
 The board wants the pipeline to survive the loss of the **eu-central** region:
 - **RTO 30 minutes:** orders must be accepted again within 30 minutes.
@@ -110,6 +144,7 @@ Facts the team found:
     'Keep the eu-west Experience API taking no traffic before failover, but its Process API may run against its own empty queue.',
     'The ERP is the last line of defence: send an external reference so SAP can reject a duplicate.',
     'RTO is met by moving traffic. The stranded messages are a separate, slower recovery that the business accepts.',
+    'Size the passive region like the active one. Its Experience API must take the full order rate the moment traffic moves, so a standby on the smallest size fails at the worst time.',
     'Anypoint MQ also offers cross-region failover for some queue types. Check its current limits before relying on it, and keep the idempotency design either way.',
   ],
   solution: `
@@ -142,6 +177,12 @@ orders-submitted (eu-central) ~► drain job ~► orders-submitted (eu-west)
 2. Run the drain job from eu-central to eu-west, and watch the idempotency hits.
 3. Move traffic back to eu-central at a quiet hour, let the eu-west queue empty, and only then return to normal.
 4. Check the dead-letter queues in both regions.
+
+**Settings that matter.**
+- \`exp-orders\` gets 0.5 vCore **in both regions**. It must accept 150 orders a second during a sale, and the eu-west copy must take the full load the moment the global load balancer moves traffic.
+- The queues keep **persistent** messages, as Anypoint MQ does. Orders stranded when eu-central fails survive its restart and are drained when the region is back.
+- The Process and System APIs get 0.2 vCore in each region. SAP is the limit at 60 a second, so a bigger consumer would not clear the queue faster. Both regions together use 1.9 vCores, inside the 3 vCore budget.
+- Each queue redelivers a failing order up to 10 times and then moves it to its dead-letter queue.
 
 **Testing.** Run a failover in a test environment with real volumes, measure the time to accept orders again, and count orders in, orders in SAP and duplicates rejected.
 `,

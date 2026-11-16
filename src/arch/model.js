@@ -32,6 +32,22 @@ export function updateNode(diagram, id, patch) {
   return { ...diagram, nodes: diagram.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }
 }
 
+// Sets one of a box's settings (see arch/settings.js). A value equal to the default is removed, so the box keeps only
+// what was changed.
+export function setNodeSetting(diagram, id, key, value, fallback) {
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((n) => {
+      if (n.id !== id) return n
+      const config = { ...n.config }
+      if (value === undefined || value === '' || String(value) === String(fallback)) delete config[key]
+      else config[key] = value
+      const { config: _old, ...rest } = n
+      return Object.keys(config).length ? { ...rest, config } : rest
+    }),
+  }
+}
+
 export function removeNode(diagram, id) {
   return {
     nodes: diagram.nodes.filter((n) => n.id !== id),

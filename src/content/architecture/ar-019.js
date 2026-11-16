@@ -5,6 +5,8 @@ const CLOUD = ['private space', 'cloudhub', 'ch2']
 const EHR = ['database', 'oracle-db', 'sql-server', 'legacy']
 const BACKEND = [...EHR, 'crm', 'saas', 'erp']
 const APIS = ['experience-api', 'process-api', 'system-api']
+const LAB = { type: ['legacy', 'device'], label: 'lab' }
+const HL7 = { type: ['process-api', 'system-api'], label: 'hl7' }
 
 export default {
   id: 'ar-019',
@@ -35,7 +37,7 @@ export default {
       {
         mob: ['mobile-app', 'Mobile app'],
         exp: ['experience-api', 'exp-patient-mobile (Private Space, in-country region)'],
-        prc: ['process-api', 'prc-patient-360 (Private Space)'],
+        prc: ['process-api', 'prc-patient-360 (Private Space)', { calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 2000 }],
         ssf: ['system-api', 'sys-salesforce (Private Space)'],
         sf: ['crm', 'Salesforce Health Cloud'],
         ing: ['load-balancer', 'RTF ingress over the VPN (allows only the Private Space CIDR)'],
@@ -48,6 +50,36 @@ export default {
       },
       ['mob -> exp', 'exp -> prc', 'prc -> ssf', 'ssf -> sf', 'prc -> ing', 'ing -> sehr', 'sehr -> ehr', 'lab -> hl7', 'img -> files'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 250 },
+        { match: EHR, latencyMs: 200 },
+        { match: 'load-balancer', latencyMs: 25 },
+        { match: 'file-store', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'Clinician lookups under 500 ms',
+          about: 'Clinicians look up 40 patients a second. Each lookup needs Salesforce (250 ms) and the EHR (200 ms plus the VPN), and must take under 500 ms end to end on average.',
+          traffic: [{ name: 'lookups', from: 'mobile-app', rps: 40, to: ['crm', EHR] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }] },
+        },
+        {
+          name: 'The VPN goes down',
+          about: 'The VPN to the data center is down for ten minutes. Lookups still answer with the Salesforce part, and the HL7 feeds and the imaging flow on-prem keep running.',
+          traffic: [
+            { name: 'lookups', from: 'mobile-app', rps: 40, to: ['crm', EHR] },
+            { name: 'HL7 feeds', from: LAB, rps: 20, to: HL7 },
+            { name: 'imaging files', from: 'batch-job', rps: 5, kind: 'write', to: 'file-store' },
+          ],
+          incidents: [{ down: 'load-balancer', at: 2, forMin: 10 }],
+          durationMin: 15,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+          },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -136,6 +168,7 @@ A hospital group is moving integrations to Anypoint Platform. Systems:
 - **Regulation:** patient data must stay within the country; the security team does not allow any inbound connections from the internet to the data center and wants all traffic encrypted and auditable.
 - Some flows are **latency-sensitive** (clinicians' lookups < 500 ms end to end); one flow moves **large imaging metadata files** nightly.
 - The data center already has an **AWS Direct Connect**/VPN setup for other projects and runs a VMware/Kubernetes platform.
+- Timings: Salesforce answers in about 250 ms, the EHR database in 200 ms, and the VPN adds about 25 ms. Clinicians make about **40 lookups a second**. The lab sends about 20 HL7 messages a second, and the imaging flow writes 5 files a second at night. The VPN can drop for several minutes.
 
 **Questions:**
 - Which deployment model(s) do you use: CloudHub 2.0 in a Private Space with private connectivity, Runtime Fabric on-prem, standalone hybrid Mule runtimes — or a mix? Why?
@@ -157,6 +190,7 @@ A hospital group is moving integrations to Anypoint Platform. Systems:
     'Firewall rules allow only the Private Space CIDR to specific on-prem hosts/ports; internal DNS resolution of on-prem hostnames is configured for the Private Space.',
     'The control plane (Anypoint management, API Manager) is separate from the runtime plane; with on-prem runtimes, patient payloads stay on-prem and only metadata/metrics go to the control plane — residency of the control plane region must still be checked.',
     'On-prem runtimes (RTF/hybrid) shift responsibility for infrastructure, scaling, patching and HA to the customer team — the cost of control.',
+    'Patient 360 calls Salesforce and the EHR in parallel, so a lookup takes the slower of the two (about 330 ms) and not the sum (about 580 ms). When the VPN drops it answers with the Salesforce part, and the on-prem HL7 and imaging flows do not depend on the VPN at all.',
   ],
   solution: `
 **Deployment model — a mix.**
@@ -178,6 +212,8 @@ A hospital group is moving integrations to Anypoint Platform. Systems:
 | EHR System API, HL7 MLLP | RTF on-prem | Residency, latency, inbound from devices |
 | Imaging metadata nightly | RTF on-prem | Large files stay local |
 Latency check: clinician lookup = cloud Process API + VPN round trip (~10–30 ms in-country) + EHR — feasible under 500 ms. If clinicians are on-prem, they can call an on-prem Experience API instead.
+
+**Settings that keep it under 500 ms.** The Patient 360 Process API calls the Salesforce and EHR System APIs **in parallel** (Scatter-Gather). One after another, a lookup costs about 580 ms on average (250 ms Salesforce plus 25 ms VPN plus 200 ms EHR, plus the hops). In parallel it costs about 330 ms, the slower branch only. It has a 2 s timeout for its calls, and when the VPN drops it gives a **partial answer**: the Salesforce part with a clear notice that EHR data is unavailable, not an error for the whole lookup. The HL7 listener and the imaging flow run on-prem, so they keep working while the VPN is down.
 
 **Control plane.** Runtime Manager, API Manager and Monitoring live in the Anypoint control plane (e.g. the US or EU hosted control plane; Anypoint Platform Private Cloud Edition exists if even the control plane must be on-prem — check what the regulation requires). Payload data processed by on-prem runtimes stays on-prem; metrics/logs sent to the control plane must be reviewed (disable/forward logs locally if they could contain patient data).
 

@@ -29,12 +29,12 @@ export default {
       {
         p: ['partner', 'Partner apps (one client app, one group contract)'],
         portal: ['web-app', 'Exchange public portal: API Group assets'],
-        gw: ['api-gateway', 'Mule Gateway: Rate Limiting SLA on each API instance'],
-        et: ['experience-api', 'exp-tracking'],
-        er: ['experience-api', 'exp-rates'],
-        es: ['experience-api', 'exp-shipments'],
-        pr: ['process-api', 'prc-shipment'],
-        st: ['system-api', 'sys-tms'],
+        gw: ['api-gateway', 'Mule Gateway: Rate Limiting SLA on each API instance', { auth: 'client-id', rateLimit: 50 }],
+        et: ['experience-api', 'exp-tracking', { vCores: '0.2' }],
+        er: ['experience-api', 'exp-rates', { vCores: '0.2' }],
+        es: ['experience-api', 'exp-shipments', { vCores: '0.2' }],
+        pr: ['process-api', 'prc-shipment', { vCores: '0.5' }],
+        st: ['system-api', 'sys-tms', { vCores: '0.5' }],
         se: ['system-api', 'sys-erp-billing'],
         tms: ['tms', 'Transport management'],
         erp: ['erp', 'ERP billing'],
@@ -45,6 +45,31 @@ export default {
         'pr -> st', 'pr -> se', 'st -> tms', 'se -> erp', 'gw -> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'tms', latencyMs: 150 }],
+      tests: [
+        {
+          name: 'A partner goes over its plan',
+          about: 'A partner on the Base plan sends 300 calls a second, far more than its 50. The calls over the plan get 429, and the rest are answered. Nothing fails with an error.',
+          traffic: [{ name: 'base plan', from: 'partner', rps: 300, to: 'tms', auth: 'client-id' }],
+          expect: { answers: [{ minLimited: 0.7, maxFailed: 0.01 }] },
+        },
+        {
+          name: 'Calls without a client id',
+          about: 'Partners with a contract call at 30 a second with their client id. Callers with no client id are refused, because every call must belong to an application with a contract.',
+          traffic: [
+            { name: 'contract', from: 'partner', rps: 30, to: 'tms', auth: 'client-id' },
+            { name: 'no client id', from: 'partner', rps: 10, to: 'tms', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'contract', minSuccess: 0.99 },
+              { flow: 'no client id', minRefused: 0.99 },
+            ],
+          },
+        },
+      ],
+    },
   },
   description: `
 A parcel carrier has five APIs in API Manager: **Tracking**, **Rates**, **Shipments**, **Pickup Points** and **Returns**. Partners complain that they must find each API, request access to each one, and manage five contracts.
@@ -62,6 +87,11 @@ Constraints:
 - Two APIs use an external identity provider for client management, and the others use Anypoint.
 - 300 partners already have direct contracts with Tracking at 100 per second.
 - The team wants a Sandbox version of each plan, promoted later to Production.
+
+For the Run tab:
+- A Base partner may call at 50 per second. A partner that sends 120 a second must get 429 for the calls over its plan, not 503 errors from overloaded APIs.
+- Every call must carry the client id of an application with a contract; a call without one is refused.
+- The TMS answers in about 150 ms.
 
 **Questions:**
 - Draw the runtime path for partners and say where API Groups fit.
@@ -88,6 +118,7 @@ Constraints:
     'If an app has several contracts with the same API, only one is Applied: the least restrictive approved contract.',
     'Promotion needs the APIs in the destination first, and it copies only the default limits of tiers.',
     'Deprecating a group instance stops new contracts, and it does not deprecate the Exchange asset.',
+    'At run time the SLA limit answers 429 to calls over the plan before they reach the APIs, and Client ID Enforcement refuses calls with no client id. Size the APIs for what the plan lets through, not for what a partner sends.',
   ],
   solution: `
 **Architecture.**
@@ -110,6 +141,8 @@ If a Rate Limiting policy is also on an API instance, the group administrator mu
 **Constraints.** A group instance can hold only instances from the same environment type and the **same identity provider**. The two APIs with an external IdP cannot share a group instance with the others. So either align the client provider or build separate groups. For the second business group, use **Add Organization** to select instances from it. The API Group Administrator permission is set at business group level.
 
 **Direct and group contracts.** An app can have a direct contract and a group contract on the same API. Only one is **Applied**: the **least restrictive** approved contract. If a partner has Tracking at 100 per second directly and a Base contract at 50 per second, then the direct contract stays applied for Tracking. Moving them to the plan does not lower their limit. To enforce the plan, the direct contract must be revoked, because a revoked contract cannot be applied.
+
+**At run time.** The gateway enforces the contract: Client ID Enforcement refuses a call with no client id, and the SLA limit (50 per second for Base) answers 429 to what is over the plan. Without the limit, a partner sending 120 a second pushes the Experience APIs over capacity and most calls fail with 503, for that partner and for everyone sharing \`prc-shipment\`. The APIs are sized for what the plans let through: 0.2 vCore for each Experience API and 0.5 for \`prc-shipment\` and \`sys-tms\`, which every Experience API calls.
 
 **Promotion and retirement.** Promote with **API Groups > Promote from environment**. The APIs must already exist in the destination. To include tiers, tick **Import default limits from existent SLA Tiers**, but only the **default limits** are promoted, so individual limits such as Shipments must be set again. To retire a plan, deprecate the group instance: new contracts stop. This does not deprecate the Exchange asset, which you do separately.
 `,

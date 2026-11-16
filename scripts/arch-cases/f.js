@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for batch F. See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // AR-060
   // Replacing v1 on one release date: everyone moved and v1 is gone.
   await failsOn('ar-060', 'v1 System API still runs', (d) => {
@@ -37,6 +37,9 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'ext', 'partner', '40 external consumers')
     draw(d, 'ext -> ep', 'ep -> pord')
   })
+  // v1 has no limit of its own, so the bulk sync uses up the Salesforce limit.
+  await failsOn('ar-060', 'Run: Marketing bulk sync on v1', (d) => set(d, 'sv1', { rateLimit: undefined }))
+  await failsOn('ar-060', 'Run: Customer 360 at peak', (d) => set(d, 'p360', { vCores: undefined }))
 
   // AR-066
   // The consultant's design: an Experience API in front of every sync.
@@ -76,6 +79,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     rename(d, 'sf', 'SFDC')
     d.nodes.find((n) => n.id === 'sf').type = 'saas'
   })
+  // The partner API with no client-id enforcement.
+  await failsOn('ar-066', 'Run: The 3PL partner at its peak', (d) => set(d, 'papi', { auth: undefined }))
+  // Two large replicas for an order sync that needs a fraction of one.
+  await failsOn('ar-066', 'Run: The 3PL partner at its peak', (d) => set(d, 'ord', { replicas: 2, vCores: '1' }))
+  await failsOn('ar-066', 'Run: The partner floods the API', (d) => set(d, 'papi', { rateLimit: undefined }))
 
   // AR-067
   // The POS calls HQ over HTTPS with retries: nothing survives a long outage.
@@ -117,6 +125,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     cut(d, 'ps ~> kafka')
     draw(d, 'hSales ~> br', 'br ~> kafka')
   })
+  // The POS also calls HQ over HTTPS, so sales fail while HQ is unreachable.
+  await failsOn('ar-067', 'Run: HQ cannot take sales for two hours', (d) => draw(d, 'pos -> ps'))
+  // The HQ consumer only keeps up with the normal rate, so the backlog never clears.
+  await failsOn('ar-067', 'Run: HQ cannot take sales for two hours', (d) => set(d, 'ps', { vCores: undefined }))
+  await failsOn('ar-067', 'Run: The hub broker restarts', (d) => set(d, 'hSales', { persistent: 'no' }))
+  await failsOn('ar-067', 'Run: A store is offline when prices change', (d) => set(d, 'sIn', { persistent: 'no' }))
 
   // AR-078
   // Today's dual write: the receipt app publishes right after the insert.
@@ -150,4 +164,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     rename(d, 'relay', 'prc-outbox-publisher')
     d.nodes.find((n) => n.id === 'relay').type = 'process-api'
   })
+  // Like IMMEDIATE ack: one delivery and no dead-letter queue, so receipts that fail are dropped.
+  await failsOn('ar-078', 'Run: Oracle fails for ten minutes', (d) => set(d, 'inq', { maxRedelivery: 1 }))
+  // receipt.posted on a queue: the three subscribers compete for each event.
+  await failsOn('ar-078', 'Run: Every subscriber gets each event', (d) => {
+    d.nodes.find((n) => n.id === 'top').type = 'queue'
+  })
+  await failsOn('ar-078', 'Run: Catch-up after a stock take', (d) => set(d, 'gr', { vCores: undefined }))
 }

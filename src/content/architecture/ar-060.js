@@ -28,16 +28,36 @@ export default {
         ew: ['experience-api', 'exp-web-api (contract unchanged)'],
         em: ['experience-api', 'exp-mobile-api (contract unchanged)'],
         ep: ['experience-api', 'exp-partner-api (contract unchanged)'],
-        p360: ['process-api', 'prc-customer-360 (moved to v2, own contract stable)'],
+        p360: ['process-api', 'prc-customer-360 (moved to v2, own contract stable)', { vCores: '0.2' }],
         pord: ['process-api', 'prc-order'],
         ponb: ['process-api', 'prc-onboarding'],
         pmkt: ['process-api', 'prc-marketing-sync'],
-        sv1: ['system-api', 'sys-sfdc-customer-api v1 (deprecated, address = primary)'],
-        sv2: ['system-api', 'sys-sfdc-customer-api v2 (addresses[])'],
+        sv1: ['system-api', 'sys-sfdc-customer-api v1 (deprecated, address = primary)', { rateLimit: 20 }],
+        sv2: ['system-api', 'sys-sfdc-customer-api v2 (addresses[])', { vCores: '0.2' }],
         sf: ['crm', 'Salesforce'],
       },
       ['ew -> p360', 'em -> p360', 'ep -> p360', 'p360 -> sv2', 'pord -> sv1', 'ponb -> sv1', 'pmkt -> sv1', 'sv1 -> sf', 'sv2 -> sf'],
     ),
+    simulation: {
+      systems: [{ match: 'crm', latencyMs: 200, maxRps: 70 }],
+      tests: [
+        {
+          name: 'Marketing bulk sync on v1',
+          about: 'Customer 360 reads 40 customers a second through v2 while the marketing sync pushes 45 updates a second through v1. Salesforce stays under its 70 calls a second, and every Customer 360 read is answered.',
+          traffic: [
+            { name: 'customer 360', from: { type: 'process-api', label: '360' }, rps: 40, to: 'crm' },
+            { name: 'marketing sync', from: { type: 'process-api', label: 'marketing' }, rps: 45, to: 'crm', kind: 'write' },
+          ],
+          expect: { answers: [{ flow: 'customer 360', minSuccess: 0.99 }], peakRps: [{ node: 'crm', max: 70 }] },
+        },
+        {
+          name: 'Customer 360 at peak',
+          about: 'The Experience APIs drive 60 Customer 360 reads a second for the whole run. Every read is answered through v2, and all the APIs fit in 1.5 vCores.',
+          traffic: [{ name: 'customer 360', from: { type: 'process-api', label: '360' }, rps: 60, to: 'crm' }],
+          expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 1.5 } },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -123,6 +143,12 @@ The Salesforce team restructures data:
 
 The Experience layer has 3 APIs and ~40 external consumers. The business does not want *any* external consumer to change.
 
+Numbers for the run-both period:
+- Salesforce allows **70 API calls a second** for this integration user, shared by v1 and v2, and answers in about 200 ms.
+- \`prc-customer-360\` (already on v2) reads up to **60 customers a second** at peak.
+- \`prc-marketing-sync\` (still on v1) runs bulk updates of **45 a second**. It can wait, the Customer 360 reads cannot.
+- The budget for all the APIs is **1.5 vCores**.
+
 **Questions:**
 1. Which of these changes are breaking and which are not?
 2. How do you introduce **v2 of the System API** without forcing all four Process APIs to migrate on the same day? Describe the run-both period.
@@ -143,6 +169,7 @@ The Experience layer has 3 APIs and ~40 external consumers. The business does no
     'If a v2 is needed, run v1 and v2 side by side (separate base path and API instance), possibly with v1 implemented as an adapter over v2 logic. Migrate Process APIs independently.',
     'Process APIs absorb System changes: their own contracts to Experience APIs stay stable, which is the point of layering.',
     'Exchange semantic versions, deprecation markers, API Manager analytics per client id to find remaining v1 consumers, consumer contract tests in CI, and a published sunset date.',
+    'Each major version is its own API instance with its own policies. A rate limit on v1 keeps the bulk callers that have not moved from using up the Salesforce limit that v2 callers need.',
   ],
   solution: `
 **Breaking vs non-breaking.**
@@ -175,6 +202,8 @@ sys-sfdc-customer-api
 - **Exchange**: semantic versioning (major in the base path, minor/patch for additive changes), deprecation status, change log in the documentation page.
 - **API Manager**: separate instances per major version; analytics/contracts show which client apps still call v1.
 - **Contract tests**: each Process API has tests against the System API spec (mocking service or MUnit with recorded responses); governance rulesets can flag breaking changes in specs during review.
+- **Policies per version**: v1 and v2 have their own API instances, so each gets its own limits. A rate limit of 20 a second on v1 holds the marketing sync to its share, and Salesforce sees at most 60 of its 70 calls a second. Without it, the bulk sync and Customer 360 together go over the limit and Customer 360 reads fail.
+- **Sizing**: v2 and \`prc-customer-360\` carry 60 reads a second at peak, more than one 0.1 vCore replica serves. 0.2 vCore each is enough, 1.1 vCores for all the APIs.
 - **Policy**: a written versioning standard (what counts as breaking, minimum deprecation period, max concurrent majors e.g. 2).
 `,
   followUps: [

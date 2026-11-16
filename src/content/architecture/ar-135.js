@@ -22,17 +22,41 @@ export default {
       {
         ptr: ['partner', 'Supplier'],
         sftp: ['sftp-server', 'SFTP server: inbound folder'],
-        job: ['batch-job', 'Hourly file job'],
-        sys: ['system-api', 'Stock System API'],
+        job: ['batch-job', 'Hourly file job', { vCores: '0.5' }],
+        sys: ['system-api', 'Stock System API', { vCores: '0.5', retries: 2 }],
         wms: ['wms', 'WMS'],
       },
       ['ptr -> sftp', 'job -> sftp', 'job -> sys', 'sys -> wms'],
     ),
+    simulation: {
+      systems: [
+        { match: 'wms', latencyMs: 150, maxRps: 150 },
+        { match: 'sftp-server', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'A stock count file',
+          about: 'After a stock count the file is large, and the job sends 120 rows a second for twenty minutes. Every row reaches the WMS, and the APIs stay inside 1.5 vCores.',
+          traffic: [{ name: 'rows', from: 'batch-job', rps: 120, to: ['sftp-server', 'wms'], kind: 'write' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'wms', max: 150 }], vCores: { max: 1.5 } },
+        },
+        {
+          name: 'The WMS has lock errors',
+          about: 'The job sends 40 rows a second, and the WMS rejects about one write in twenty with a short lock error. A second try works, so almost every row must still arrive.',
+          traffic: [{ name: 'rows', from: 'batch-job', rps: 40, to: ['sftp-server', 'wms'], kind: 'write' }],
+          incidents: [{ errors: 'wms', rate: 0.05 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A supplier cannot call APIs, but it can send a stock file. It puts the file in a folder on an **SFTP server**, a server for moving files securely.
 
 A **scheduled job** checks the folder every hour. This regular checking is called **polling**. The job sends the stock data to the **WMS**, the warehouse management system.
+
+A normal file is sent at about **40** rows a second. After a stock count the file is large, and the job sends **120** rows a second for twenty minutes. The WMS takes at most **150** writes a second and answers in about **150 ms**. It rejects about **one write in twenty** with a short lock error that goes away on a second try. The budget for the APIs is **1.5 vCores**.
 
 **Questions:**
 - Draw the design.
@@ -47,6 +71,7 @@ A **scheduled job** checks the folder every hour. This regular checking is calle
     'The job pulls the file. The partner does not push it to the job.',
     'The job reaches the WMS through a System API.',
     'Moving a file to an archive folder after reading stops the job reading it twice.',
+    'Size the job and the System API for the largest file, and retry short WMS lock errors on the System API.',
   ],
   solution: `
 **Design.**
@@ -56,6 +81,8 @@ A **scheduled job** checks the folder every hour. This regular checking is calle
 Both lines point at the SFTP server, because both sides start their own connection to it.
 
 **Reading each file once.** After a file is processed, the job moves it to an archive folder. The next run sees only new files, and the archive keeps a copy for support. In Mule, the SFTP connector's \`On New or Updated File\` source can poll the folder on a schedule.
+
+**Sizing and failure handling.** The stock count file runs at 120 rows a second. The job and the System API get 0.5 vCore each, 1 vCore in all, because 0.2 vCore handles only about 100. The WMS rejects about one write in twenty with a lock error. Two retries on the System API turn that into about one in eight thousand, so the rows are not lost.
 `,
   followUps: [
     {

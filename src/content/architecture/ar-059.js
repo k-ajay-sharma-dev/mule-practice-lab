@@ -29,17 +29,17 @@ export default {
     reference: diagram(
       {
         web: ['web-app', 'Web shop'],
-        exp: ['experience-api', 'exp-web-api'],
-        po: ['process-api', 'prc-order-api'],
-        ssap: ['system-api', 'sys-sap-order-api'],
+        exp: ['experience-api', 'exp-web-api', { vCores: '0.2' }],
+        po: ['process-api', 'prc-order-api', { vCores: '0.2' }],
+        ssap: ['system-api', 'sys-sap-order-api', { vCores: '0.2' }],
         sap: ['erp', 'SAP'],
         ex: ['topic', 'OrderCreated exchange'],
         qf: ['queue', 'fulfilment-q'],
         ql: ['queue', 'loyalty-q'],
-        pf: ['process-api', 'prc-fulfilment'],
-        pl: ['process-api', 'prc-loyalty'],
-        swms: ['system-api', 'sys-wms-api'],
-        sloy: ['system-api', 'sys-loyalty-api'],
+        pf: ['process-api', 'prc-fulfilment', { vCores: '0.2' }],
+        pl: ['process-api', 'prc-loyalty', { vCores: '0.5' }],
+        swms: ['system-api', 'sys-wms-api', { vCores: '0.2' }],
+        sloy: ['system-api', 'sys-loyalty-api', { vCores: '0.5' }],
         wms: ['legacy', 'WMS'],
         loy: ['saas', 'Loyalty platform'],
         ssf: ['system-api', 'sys-sfdc-customer-api (CDC listener)'],
@@ -52,6 +52,37 @@ export default {
         'pf -> swms', 'swms -> wms', 'pl -> sloy', 'sloy -> loy', 'ssf -> sfdc', 'ssf ~> cev', 'cev ~> pcs', 'pcs -> sloy',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 400 },
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'saas', latencyMs: 2000, maxRps: 150 },
+      ],
+      tests: [
+        {
+          name: 'Orders at peak',
+          about: 'The web shop places 60 orders a second for ten minutes. Each order is answered in under a second, and both the warehouse and the loyalty platform get every order.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 60, kind: 'write', to: ['erp', 'legacy', 'saas'] }],
+          expect: {
+            answers: [{ minSuccess: 0.99, maxMs: 1000 }],
+            delivered: [{ to: 'legacy', min: 0.97 }, { to: 'saas', min: 0.97 }],
+          },
+        },
+        {
+          name: 'Loyalty is down and the broker restarts',
+          about: 'The loyalty platform is down from minute 3 to minute 8, and the broker restarts at minute 6. Orders are still taken, no loyalty message is lost, and the backlog is gone by minute 20.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 60, kind: 'write', to: ['erp', 'legacy', 'saas'] }],
+          incidents: [{ down: 'saas', at: 3, forMin: 5 }, { restart: ['queue', 'topic'], at: 6 }],
+          durationMin: 20,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: 'saas', min: 0.97 }],
+            backlog: [{ queue: ['queue', 'topic'], maxEnd: 100 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 An interviewer challenges you: *"API-led is all synchronous request/response. Real enterprises are event-driven. How do events fit into the three layers?"*
@@ -64,6 +95,12 @@ What is wrong today:
 - The POST fails if loyalty is down.
 
 Also, customer master data changes directly in Salesforce (by sales users), and three systems need those changes.
+
+Numbers to design for:
+- At peak the web shop places 60 orders a second.
+- SAP creates an order in about 400 ms and the WMS answers in 300 ms. The loyalty platform takes about 2 s per call and takes at most 150 calls a second.
+- The order POST must answer in under a second, even when the loyalty platform is down for several minutes.
+- No loyalty or warehouse message may be lost, even if the broker restarts while messages wait.
 
 **Questions:**
 1. Redesign order creation using events. Which layer **publishes** and which layers **subscribe**?
@@ -85,6 +122,8 @@ Also, customer master data changes directly in Salesforce (by sales users), and 
     'The System layer captures changes made inside a SoR (Salesforce CDC/Platform Events, DB CDC, polling with watermark) and publishes normalised system-level events, which Process apps may turn into business events.',
     'Events are contracts: versioned schemas documented with AsyncAPI in Exchange, with thin-vs-fat payload chosen consciously.',
     'Events bring eventual consistency, duplicate/out-of-order delivery (idempotent consumers), dead-letter queues and harder tracing (correlation ids in message headers).',
+    'Sizing: 0.2 vCore for the order path at 60 orders a second; 0.5 vCore for the loyalty subscriber and its System API, because 2 s calls hold threads and the backlog must drain after an outage.',
+    'Persistent queues keep waiting messages through a broker restart. A redelivery limit without a DLQ drops messages while a subscriber is down.',
   ],
   solution: `
 **Order creation with events.**
@@ -128,6 +167,11 @@ exp-*  --POST /orders-->  prc-order-api --> sys-sap-order-api  (sync: must succe
 | Poison messages | Bounded redelivery, DLQ, alerting and replay tooling |
 | Tracing | Correlation id in message properties, logged by every consumer |
 | Hidden coupling via schema | Versioned schemas, additive changes only |
+
+**Sizing and failure handling.**
+- At 60 orders a second, 0.1 vCore (about 50 requests a second) is not enough, so the Experience, order Process and SAP System APIs get 0.2 vCore each. The order POST takes about 0.5 s because it waits for SAP only.
+- The loyalty subscriber and \`sys-loyalty-api\` get 0.5 vCore. Each loyalty call takes 2 s and holds a thread, and after a 5 minute outage they must take the 60 new orders a second plus the backlog of 18,000 messages.
+- The queues keep persistent messages, so a broker restart during the outage loses nothing. With no redelivery limit, messages wait while loyalty is down instead of being dropped; when you set a limit, draw a DLQ from the queue.
 `,
   followUps: [
     { q: 'Should the Experience API publish events?', a: 'Rarely. Business events should come from the layer that knows the business fact has happened (Process or System); an Experience API publishing domain events usually means business logic leaked into it.' },

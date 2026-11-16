@@ -25,8 +25,8 @@ export default {
     reference: diagram(
       {
         app: ['internal-app', 'Service desk app'],
-        ing: ['api-gateway', 'Ingress Omni Gateway'],
-        brk: ['experience-api', 'Agent Broker'],
+        ing: ['api-gateway', 'Ingress Omni Gateway', { auth: 'jwt' }],
+        brk: ['experience-api', 'Agent Broker', { timeoutMs: 5000, circuitBreaker: 'on' }],
         egr: ['api-gateway', 'Egress Omni Gateway'],
         brg: ['api-gateway', 'A2A Bridge on Omni Gateway'],
         af: ['crm', 'Agentforce agent'],
@@ -38,6 +38,34 @@ export default {
         'brg ~> reg', 'vx ~> reg',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 3000 },
+        { match: 'external-api', latencyMs: 2500 },
+      ],
+      tests: [
+        {
+          name: 'Calls without a staff token',
+          about: 'Staff send 10 care questions and 10 fraud reviews a second. A test tool left running sends 30 requests a second with no token. The ingress gateway refuses it, and staff get every answer.',
+          traffic: [
+            { name: 'care', from: 'internal-app', rps: 10, to: 'crm' },
+            { name: 'fraud', from: 'internal-app', rps: 10, to: 'external-api' },
+            { name: 'test tool', from: 'internal-app', rps: 30, auth: 'none', to: 'external-api' },
+          ],
+          expect: { answers: [{ flow: 'care', minSuccess: 0.99 }, { flow: 'fraud', minSuccess: 0.99 }, { flow: 'test tool', minRefused: 0.99 }] },
+        },
+        {
+          name: 'Agentforce stops answering',
+          about: 'The Agentforce agent hangs for the whole run while staff send 10 care questions and 10 fraud reviews a second. Fraud reviews must still be answered in under 4 seconds.',
+          traffic: [
+            { name: 'care', from: 'internal-app', rps: 10, to: 'crm' },
+            { name: 'fraud', from: 'internal-app', rps: 10, to: 'external-api' },
+          ],
+          incidents: [{ hang: 'crm' }],
+          expect: { answers: [{ flow: 'fraud', minSuccess: 0.98, maxMs: 4000 }] },
+        },
+      ],
+    },
   },
   description: `
 A bank has two **agents**, AI powered services that carry out tasks, on two different platforms.
@@ -54,6 +82,11 @@ Some terms first:
 - **Portfolio** is the set of services registered in your organization. It is organized into catalogs, such as the **Agents catalog**.
 
 The source platforms belong to other teams, and the Agentforce agent must not be changed.
+
+Some numbers for the design:
+- Staff send about 10 care questions and 10 fraud reviews a second. Agentforce answers in about 3 seconds, and Vertex AI in about 2.5 seconds.
+- Staff sign in, and the app sends a JWT with each request. A test tool once sent 30 requests a second with no token.
+- Agentforce has had hours where it stopped answering. Fraud reviews must still be answered in under 4 seconds when that happens.
 
 **Questions:**
 - Draw the target design.
@@ -81,6 +114,7 @@ The source platforms belong to other teams, and the Agentforce agent must not be
     'The bridge derives an agent card and publishes it to the Agents catalog in Portfolio.',
     'Platforms already A2A compliant, such as Amazon Bedrock AgentCore and Google Vertex AI, are registered directly.',
     'Inbound auth is how clients authenticate to the bridge. Upstream auth is how the bridge authenticates to the source.',
+    'JWT Validation at the ingress gateway refuses callers without a token. A timeout and a circuit breaker on the broker stop a hanging agent from holding all its threads, so the other agent keeps answering.',
   ],
   solution: `
 **Target design.**
@@ -103,6 +137,8 @@ The dashed lines are registration, not runtime calls. The egress gateway sits on
 | Upstream | The bridge authenticates to the source | Salesforce org details with a client id and secret |
 
 **Becoming findable.** You create the bridge from the source agent's page in the Agents catalog, so the Agentforce agent must be registered in Portfolio first. The bridge then derives an agent card from it and publishes that card to the Agents catalog. For Vertex AI, use manual registration and upload its agent card file. Teams can then find both agents and reuse them, which answers the rebuilding problem.
+
+**Failure handling.** Each call the broker makes holds a thread until it returns. If Agentforce hangs and the broker waits the default 10 seconds, care questions use up its threads, and fraud reviews fail with 503 too. A 5 second timeout and a circuit breaker on the broker make calls to a hanging agent fail fast, so fraud reviews keep their 2.5 second answers. JWT Validation on the ingress gateway refuses callers without a token before they reach the broker.
 `,
   followUps: [
     {

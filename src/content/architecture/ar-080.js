@@ -37,14 +37,14 @@ export default {
         ploy: ['process-api', 'prc-loyalty-eu'],
         qeu: ['queue', 'EU broker: eu.store.sales'],
         qus: ['queue', 'US broker: us.store.sales'],
-        peu: ['process-api', 'prc-store-sales-eu (EU runtime)'],
-        pus: ['process-api', 'prc-store-sales-us (US runtime)'],
-        seu: ['system-api', 'sys-loyalty-eu'],
-        sus: ['system-api', 'sys-loyalty-us'],
+        peu: ['process-api', 'prc-store-sales-eu (EU runtime)', { vCores: '0.5' }],
+        pus: ['process-api', 'prc-store-sales-us (US runtime)', { vCores: '0.5' }],
+        seu: ['system-api', 'sys-loyalty-eu', { vCores: '0.5' }],
+        sus: ['system-api', 'sys-loyalty-us', { vCores: '0.5' }],
         dbeu: ['database', 'EU loyalty and sales DB (EU region)'],
         dbus: ['database', 'US loyalty and sales DB (US region)'],
         g: ['topic', 'global.sales.aggregates (no PII)'],
-        pg: ['process-api', 'prc-global-sales'],
+        pg: ['process-api', 'prc-global-sales', { vCores: '1' }],
         dw: ['data-warehouse', 'Global analytics'],
       },
       [
@@ -53,6 +53,45 @@ export default {
         'peu ~> g', 'pus ~> g', 'g ~> pg', 'pg -> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: ['database', 'crm'], latencyMs: 40 },
+        { match: 'data-warehouse', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'Peak trading stays in each region',
+          about: 'EU stores send 80 sales a second, US stores 120, and EU members check points 30 times a second. Each sale is stored in its own region and its aggregate reaches global analytics. No EU sale reaches the US database, and the APIs fit the 4 vCore budget.',
+          traffic: [
+            { name: 'EU sales', from: { type: 'pos', label: 'eu' }, rps: 80, to: [{ type: ['database', 'crm'] }, 'data-warehouse'], kind: 'write' },
+            { name: 'US sales', from: { type: 'pos', label: 'us' }, rps: 120, to: [{ type: ['database', 'crm'] }, 'data-warehouse'], kind: 'write' },
+            { name: 'loyalty app', from: 'mobile-app', rps: 30, to: { type: ['database', 'crm'] } },
+          ],
+          expect: {
+            answers: [{ flow: 'loyalty app', minSuccess: 0.99 }],
+            delivered: [{ flow: 'EU sales', to: ['database', 'crm'], min: 0.99 }, { flow: 'US sales', to: ['database', 'crm'], min: 0.99 }, { flow: 'EU sales', to: 'data-warehouse', min: 0.99 }, { flow: 'US sales', to: 'data-warehouse', min: 0.99 }],
+            notReached: [{ flow: 'EU sales', node: { type: ['database', 'crm'], label: ['us region', 'us loyalty', 'us db', 'us customer'] } }],
+            backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 500 }],
+            vCores: { max: 4 },
+          },
+        },
+        {
+          name: 'Global analytics is down for an hour',
+          about: 'The global warehouse is down for an hour. Both regions keep storing their sales, the aggregates wait on the topic, and they all reach analytics once it is back.',
+          traffic: [
+            { name: 'EU sales', from: { type: 'pos', label: 'eu' }, rps: 80, to: [{ type: ['database', 'crm'] }, 'data-warehouse'], kind: 'write' },
+            { name: 'US sales', from: { type: 'pos', label: 'us' }, rps: 120, to: [{ type: ['database', 'crm'] }, 'data-warehouse'], kind: 'write' },
+          ],
+          incidents: [{ down: 'data-warehouse', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: {
+            delivered: [{ to: ['database', 'crm'], min: 0.99 }, { to: 'data-warehouse', min: 0.99 }],
+            backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 500 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 A sports retailer operates **650 stores in 9 countries** (Germany, France, Netherlands, UK, US, Canada, India, UAE, Australia). It runs a single global integration platform in the US.
@@ -69,6 +108,12 @@ Legal has flagged:
 - Integration logs (which include payloads) are currently shipped to a US logging service.
 
 The platform runs on **CloudHub 2.0** (US control plane) and on-prem Mule runtimes in some countries; stores use local ActiveMQ brokers.
+
+Numbers for sizing:
+- At peak, EU stores send **80 sales a second** and US stores **120**. EU loyalty members check their points **30 times a second** in the app.
+- A regional database write takes about 40 ms; a load into the global warehouse about 100 ms.
+- The global warehouse can be down for **an hour**. The regions must keep working, and no aggregate may be lost.
+- The budget for these Mule apps is **4 vCores**.
 
 **Questions:**
 - Which data must stay in-region, and which can be global? Classify the flows.
@@ -93,6 +138,7 @@ The platform runs on **CloudHub 2.0** (US control plane) and on-prem Mule runtim
     'Only aggregated or pseudonymised events cross borders to the global layer; tokenisation keys stay in-region.',
     'Logs and monitoring must follow the same rules: mask payloads or keep log stores in-region; the control-plane location matters too.',
     'Same APIs and templates deployed per region preserve reuse; the cost is more environments, duplicated operations and regional release management.',
+    'The global layer hangs off a persistent topic, so a warehouse outage never stops a region; size the global consumer to catch up after it.',
   ],
   solution: `
 **Classification.**
@@ -119,6 +165,12 @@ The platform runs on **CloudHub 2.0** (US control plane) and on-prem Mule runtim
 **Global analytics.** Regional Process APIs publish **aggregates** (store/day/SKU) and **pseudonymised** member metrics (token, tier, spend band). The re-identification key never leaves the region. The global warehouse is fed only from that stream — never directly from regional System APIs.
 
 **Logs and monitoring.** Payload logging is the most common leak: mask or omit personal fields in logs, keep detailed logs in regional log stores, and send only metrics and correlation ids to global monitoring.
+
+**Sizing and failure handling.**
+- The regional sales Process and System APIs run on 0.5 vCore each, enough for 80 (EU) and 120 (US) sales a second; \`sys-loyalty-eu\` also carries the app's 30 reads a second.
+- \`prc-global-sales\` runs on 1 vCore. After an hour of warehouse downtime (about 720,000 waiting aggregates) it catches up at about 300 a second over the new ones, in well under an hour.
+- The aggregate topic is persistent and has no redelivery limit without a DLQ, so nothing is lost while the warehouse is down, and the regional cells never wait for it.
+- In total 3.2 vCores, inside the 4 vCore budget.
 
 **Trade-offs.** More environments and pipelines, duplicated broker operations, regional release coordination, and cross-region features (a US member shopping in Paris) need explicit, lawful exchange APIs. In return: a clear compliance story and smaller blast radius per region.
 `,

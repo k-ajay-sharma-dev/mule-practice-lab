@@ -29,15 +29,15 @@ export default {
       {
         qa: ['internal-app', 'Quality / food safety team'],
         erec: ['experience-api', 'exp-recall-console'],
-        prec: ['process-api', 'prc-recall'],
-        strace: ['system-api', 'sys-traceability'],
+        prec: ['process-api', 'prc-recall', { onFailure: 'partial answer', timeoutMs: 3000 }],
+        strace: ['system-api', 'sys-traceability', { vCores: '0.5' }],
         tdb: ['database', 'Traceability store (lot lineage, 3 yrs)'],
         sup: ['partner', 'Suppliers (856 ASN with lot)'],
         pasn: ['process-api', 'prc-b2b-asn'],
-        swms: ['system-api', 'sys-wms'],
+        swms: ['system-api', 'sys-wms', { vCores: '0.2' }],
         wms: ['wms', 'WMS (receipts, picks, shipments by lot)'],
         tev: ['event-stream', 'trace.events'],
-        ping: ['process-api', 'prc-trace-ingest'],
+        ping: ['process-api', 'prc-trace-ingest', { vCores: '0.5' }],
         rtopic: ['topic', 'recall.notices'],
         pstore: ['process-api', 'prc-store-recall'],
         spos: ['system-api', 'sys-store-systems'],
@@ -50,6 +50,41 @@ export default {
         'prec ~> rtopic', 'rtopic ~> pstore', 'pstore -> spos', 'spos -> pos', 'prec -> notif',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 30, maxRps: 200 },
+        { match: 'notification', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'A busy day of lot movements',
+          about: 'The WMS publishes 60 lot movements a second and supplier ASNs add 10. Every one is written to the traceability store, and the stream is empty again at the end.',
+          traffic: [
+            { name: 'wms', from: { type: 'system-api', label: 'wms' }, rps: 60, to: 'database', kind: 'write' },
+            { name: 'asn', from: 'partner', rps: 10, to: 'database', kind: 'write' },
+          ],
+          expect: { delivered: [{ to: 'database', min: 0.99 }], backlog: [{ queue: ['event-stream', 'queue', 'topic'], maxEnd: 500 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The traceability store is down for an hour',
+          about: 'The traceability store is down for an hour while lot movements keep coming. They wait in the stream, and every one is written once the store is back, before the run ends.',
+          traffic: [
+            { name: 'wms', from: { type: 'system-api', label: 'wms' }, rps: 60, to: 'database', kind: 'write' },
+            { name: 'asn', from: 'partner', rps: 10, to: 'database', kind: 'write' },
+          ],
+          incidents: [{ down: 'database', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'database', min: 0.99 }], backlog: [{ queue: ['event-stream', 'queue', 'topic'], maxEnd: 500 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A recall while customer alerts are down',
+          about: 'The quality team runs 2 recall steps a second while the customer alert service is down. The recall still answers and every store still gets its notice. Customers are alerted later.',
+          traffic: [{ name: 'recall', from: 'internal-app', rps: 2, to: ['database', 'pos', 'notification'] }],
+          incidents: [{ down: 'notification' }],
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'pos', min: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A grocery chain (2 DCs, 300 stores) must be able to answer, **within 4 hours**, the regulator's recall questions: *"For lot L-4471 of supplier X's spinach, which DCs received it, which stores did it ship to, how much is still on hand, and which loyalty customers bought it?"* Today this takes **3 days** of spreadsheets.
@@ -60,6 +95,11 @@ Where the data is:
 - **Oracle EBS** has POs and item masters (no lots).
 - **Store POS** records sales by item (GTIN), not by lot; loyalty data links sales to customers.
 - Records must be kept for 3 years.
+
+Numbers for sizing:
+- On a busy day the WMS records about **60 lot movements a second** and supplier ASNs add **10**.
+- A write to the traceability store takes about 30 ms; it accepts **200 writes a second**. It can be down for **an hour** for maintenance, and no movement may be lost.
+- During a recall the quality team runs about **2 recall steps a second**. The customer alert service (500 ms a call) can be down; blocking the stores must not wait for it.
 
 **Questions:**
 - What data model lets you trace a lot one step back and one step forward (supplier → DC → store)?
@@ -81,6 +121,7 @@ Where the data is:
     'The recall Process API queries lineage, then fans out blocking instructions to stores asynchronously and notifies affected customers.',
     'POS sales have no lot, so store-level exposure is inferred from shipments to the store and the time window, then matched to loyalty purchases of that item.',
     'Keep records for the retention period and practise mock recalls to prove the 4-hour target.',
+    'Size the ingest to catch up after a store outage, and let the recall give a partial answer when customer alerts fail, so stores are still blocked.',
   ],
   solution: `
 **Data model.** An append-only **traceability store** of events:
@@ -105,6 +146,11 @@ Ingest is idempotent (event id), tolerant of order (store events, compute lineag
 5. Everything is logged for the regulator.
 
 **No lot at POS.** Exposure per store = shipments of the lot to that store and the sell-through window (receipt date to best-before). Customer notification is therefore **probable exposure**; that is the accepted practice, and it is why the window must be accurate.
+
+**Sizing and failure handling.**
+- \`sys-wms\` runs on 0.2 vCore to publish 60 movements a second. \`prc-trace-ingest\` and \`sys-traceability\` run on 0.5 vCore each, so after an hour of store downtime (about 250,000 waiting movements) they catch up at about 130 a second over the new ones, in about half an hour.
+- The event stream keeps the movements while the store is down, so nothing is lost.
+- \`prc-recall\` gives a partial answer when the alert call fails (3 second timeout): the stores still get their notices, and customer alerts are sent again later.
 
 **Trade-offs:** another data store to own and secure (loyalty data is PII); it is only as good as supplier ASN quality; an append-only model grows quickly — partition by date and archive after 3 years.
 `,

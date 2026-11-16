@@ -36,7 +36,7 @@ export default {
         oc: ['process-api', 'prc-order-sync (batches via Collections)'],
         cc: ['process-api', 'prc-customer-sync (upsert by external ID)'],
         job: ['batch-job', 'Nightly invoice load (Bulk API 2.0)'],
-        ssf: ['system-api', 'sys-salesforce-api'],
+        ssf: ['system-api', 'sys-salesforce-api', { rateLimit: 20 }],
         sf: ['crm', 'Salesforce'],
         c: ['cache', 'Reference data + throttle flag'],
         mon: ['monitoring', 'Limits usage alerts (60% / 80%)'],
@@ -47,6 +47,41 @@ export default {
         'ssf -> sf', 'oc -> c', 'cc -> c', 'ssf -> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'crm', latencyMs: 400 }],
+      tests: [
+        {
+          name: 'Sale day burst',
+          about: 'Order events jump from 5 to 50 a second for five minutes while customer updates go on at 2 a second. Salesforce must never get more than its 20 calls a second, and the queue must be empty again before the run ends.',
+          durationMin: 30,
+          traffic: [
+            { name: 'orders', from: { type: 'saas', label: 'e-commerce' }, rps: 5, spikes: [{ at: 2, forMin: 5, rps: 50 }], to: 'crm', kind: 'write' },
+            { name: 'customer updates', from: { type: 'saas', label: 'support' }, rps: 2, to: 'crm', kind: 'write' },
+          ],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            peakRps: [{ node: 'crm', max: 25 }],
+            backlog: [{ queue: { type: 'queue', label: 'order' }, maxEnd: 0 }],
+          },
+        },
+        {
+          name: 'Salesforce refuses calls for 15 minutes',
+          about: 'The allocation runs out and Salesforce answers REQUEST_LIMIT_EXCEEDED for 15 minutes. Order events wait in the queue, nothing is lost, and every event reaches Salesforce once it accepts calls again.',
+          durationMin: 45,
+          traffic: [
+            { name: 'orders', from: { type: 'saas', label: 'e-commerce' }, rps: 10, to: 'crm', kind: 'write' },
+            { name: 'customer updates', from: { type: 'saas', label: 'support' }, rps: 2, to: 'crm', kind: 'write' },
+          ],
+          incidents: [{ down: 'crm', at: 2, forMin: 15 }],
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            lost: { max: 0 },
+            delivered: [{ to: 'crm', min: 0.98 }],
+            backlog: [{ queue: 'queue', maxEnd: 0 }],
+          },
+        },
+      ],
+    },
   },
   description: `
 A subscription business syncs data into **Salesforce** from several sources through Mule:
@@ -59,6 +94,8 @@ A subscription business syncs data into **Salesforce** from several sources thro
 | Ad-hoc data fixes by admins | unpredictable | Any time |
 
 The org has a **daily API request allocation** and concurrency limits on long-running requests (exact numbers depend on edition and licences). Last month the allocation was exhausted at 16:00 on a sale day; all integrations — including the critical order flow — started failing with \`REQUEST_LIMIT_EXCEEDED\`.
+
+For this design, assume a Salesforce call takes about 400 ms and Mule may send Salesforce at most **20 calls a second** in total, which keeps a sale day inside the allocation. On a sale day order events run at 5 a second with bursts of **50 a second for five minutes**, and customer updates arrive at about 2 a second. When the allocation runs out, Salesforce refuses calls for up to **15 minutes**. No order event may be lost.
 
 **Questions:**
 - How do you reduce the number of API calls for each flow?
@@ -81,6 +118,7 @@ The org has a **daily API request allocation** and concurrency limits on long-ru
     'Handle limit errors explicitly: classify them as retryable-later, back off, and do not hammer the API with immediate retries.',
     'Monitor remaining allocation (Salesforce returns limit usage; the Limits REST resource exposes it) and alert at thresholds like 60% and 80%.',
     'Avoid needless calls: upsert by external ID instead of query-then-update, cache reference data, skip unchanged records.',
+    'A rate limit of 20 calls a second on the Salesforce System API sets the pace of the queue consumers. Persistent queues with no redelivery cap (or a cap with a DLQ) keep every order while Salesforce refuses calls.',
   ],
   solution: `
 **Reduce calls per flow.**
@@ -105,6 +143,11 @@ The org has a **daily API request allocation** and concurrency limits on long-ru
 - Dashboard of calls per integration user to find the noisy consumer.
 
 **Result:** a sale-day burst becomes a longer queue, not an outage, and the critical flow keeps its budget.
+
+**Settings that matter.**
+- A **rate limit of 20 a second** on \`sys-salesforce-api\`. The consumers take messages only as fast as that limit allows, so a burst of 50 a second waits in the queue and drains in about a quarter of an hour. Without it the consumers pass the burst straight on to Salesforce.
+- **Persistent queues** that keep redelivering while Salesforce refuses calls. A redelivery cap with no dead-letter queue would drop orders during a 15 minute refusal; if you cap redelivery, draw a DLQ and size the cap well beyond the outage.
+- The consumers stay small (0.1 vCore each): the limit, not their size, sets the pace.
 `,
   followUps: [
     { q: 'Why not just buy more API capacity?', a: 'Sometimes it is the right answer, but it raises cost every year and hides inefficient design. Batching and Bulk API usually reduce calls by an order of magnitude first; buy capacity for genuine growth.' },

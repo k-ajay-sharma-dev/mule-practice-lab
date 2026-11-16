@@ -30,14 +30,49 @@ export default {
         sIn: ['queue', 'Store broker: prices'],
         hSales: ['queue', 'HQ hub: store.sales'],
         hPrices: ['queue', 'HQ hub: store.<id>.prices (durable per store)'],
-        ps: ['process-api', 'prc-store-sales (jms:listener)'],
+        ps: ['process-api', 'prc-store-sales (jms:listener)', { vCores: '0.5' }],
         pp: ['process-api', 'prc-price-distribution'],
-        so: ['system-api', 'sys-oracle-retail'],
+        so: ['system-api', 'sys-oracle-retail', { vCores: '0.5' }],
         ora: ['erp', 'Oracle Retail'],
         kafka: ['event-stream', 'Kafka (analytics fan-out and replay, optional)'],
       },
       ['pos ~> sOut', 'sOut ~> hSales', 'hSales ~> ps', 'ps -> so', 'so -> ora', 'ps ~> kafka', 'pp ~> hPrices', 'hPrices ~> sIn', 'sIn ~> pos'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 80, maxRps: 150 }],
+      tests: [
+        {
+          name: 'HQ cannot take sales for two hours',
+          about: 'The stores send 50 sales a second in all. For two hours HQ cannot take them. Every POS still gets its sale accepted, nothing is lost, and the backlog is cleared within the four hour run.',
+          traffic: [{ name: 'sales', from: 'pos', rps: 50, to: 'erp', kind: 'write' }],
+          incidents: [{ down: { type: 'process-api', label: 'store-sales' }, at: 10, forMin: 120 }],
+          durationMin: 240,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'store.sales' }, maxEnd: 100 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The hub broker restarts',
+          about: 'HQ stops taking sales for 30 minutes, and halfway through the hub broker restarts. The sales waiting in the hub survive the restart and reach Oracle Retail afterwards.',
+          traffic: [{ name: 'sales', from: 'pos', rps: 50, to: 'erp', kind: 'write' }],
+          incidents: [
+            { down: { type: 'process-api', label: 'store-sales' }, at: 5, forMin: 30 },
+            { restart: { type: 'queue', label: 'store.sales' }, at: 20 },
+          ],
+          durationMin: 90,
+          expect: { backlog: [{ queue: { type: 'queue', label: 'store.sales' }, maxEnd: 100 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A store is offline when prices change',
+          about: 'HQ sends 2 price changes a second while a store is offline for an hour, and its broker restarts in that hour. When the store is back it gets every price change, and none is lost.',
+          traffic: [{ name: 'prices', from: { type: 'process-api', label: 'price' }, rps: 2, to: 'pos', kind: 'write' }],
+          incidents: [
+            { down: 'pos', at: 0, forMin: 60 },
+            { restart: { type: 'queue', label: 'store broker: prices' }, at: 30 },
+          ],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'pos', min: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'store broker: prices' }, maxEnd: 10 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   quiz: [
     {
@@ -122,6 +157,9 @@ The business wants:
 Facts:
 - Store WAN links are cheap broadband: **outages of minutes to hours** happen weekly.
 - A small central integration team (4 people) and one store-IT team.
+- All 400 stores together send about **50 sales a second**. HQ has been unable to take them for up to **two hours** at a time.
+- Oracle Retail takes up to **150 sales a second** and answers in about 80 ms.
+- HQ sends about **2 price changes a second**. A store can be offline for an hour, and store brokers sometimes restart.
 
 Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS), **Anypoint MQ**, and **Kafka** (the analytics team wants it).
 
@@ -144,6 +182,7 @@ Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS
     'Anypoint MQ suits cloud-to-cloud decoupling between CloudHub apps but is a cloud service — it cannot replace a local buffer.',
     'Kafka fits HQ for high-volume fan-out and replay to analytics, not as a cluster in every store.',
     'HQ-to-store messages need durable per-store delivery (queue per store or virtual topic), not a non-durable topic.',
+    'Persistent messages on every broker, so a restart loses nothing, and an HQ consumer sized well above the normal rate, so a backlog from an outage drains in about an hour.',
   ],
   solution: `
 **Recommendation: use each broker where its strengths matter.**
@@ -166,6 +205,10 @@ Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS
 - **Kafka** is justified if analytics need high-volume fan-out and **replay**; a Mule app (or a broker bridge) can publish canonical sales events from the hub into Kafka. Running Kafka in every store would be heavy to operate.
 
 **HQ → stores.** Price changes go to a **durable per-store destination**: a queue per store, or a virtual topic where each store has its own consumer queue. Changes are forwarded when the store reconnects. A non-durable topic loses messages for offline stores; one shared queue gives each message to only one store.
+
+**Settings that matter.**
+- Every queue keeps **persistent** messages. A broker that restarts while it holds a backlog, at the store or at HQ, keeps every sale and every price change.
+- After two hours without HQ, about 360,000 sales wait in the hub. \`prc-store-sales\` and \`sys-oracle-retail\` get 0.5 vCore each, so the consumer can move up to Oracle Retail's 150 a second: 100 a second above the normal rate, which clears the backlog in about an hour. At 0.1 vCore it would only keep up with the 50 a second arriving and never catch up.
 
 **Trade-offs to state:** two broker technologies to run instead of one; network-of-brokers configuration needs care (duplex connectors, TTLs on price messages so stale prices are not applied, monitoring of forward backlogs per store).
 `,

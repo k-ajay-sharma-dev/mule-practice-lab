@@ -3154,6 +3154,30 @@ textarea:focus {
   overflow-x: auto;
 }
 
+/* ---------- Architecture simulator: box settings and the Run tab ---------- */
+.arch-node-settings { margin-top: 2px; font-size: 0.68rem; color: var(--accent); overflow-wrap: anywhere; }
+.arch-node-run { margin-top: 3px; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-variant-numeric: tabular-nums; align-self: flex-start; }
+.arch-node-run.ok { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.arch-node-run.warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.arch-node-run.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.arch-node.run-bad { border-color: color-mix(in srgb, var(--danger) 60%, var(--border)); }
+.arch-node.run-warn { border-color: color-mix(in srgb, var(--warning) 50%, var(--border)); }
+.props-settings { margin: 8px 0; }
+.props-settings > summary { cursor: pointer; list-style: revert; }
+.props-settings .field { margin-top: 6px; }
+.props-settings .field-help { display: block; margin-top: 2px; font-weight: 400; }
+.arch-run-list { margin: 4px 0 8px; padding-left: 18px; }
+.arch-run-list li { margin: 2px 0; }
+.arch-run-table { overflow-x: auto; margin: 4px 0 8px; border: 1px solid var(--border); border-radius: 8px; }
+.arch-run-table table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.arch-run-table th, .arch-run-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.arch-run-table th:first-child, .arch-run-table td:first-child { text-align: left; white-space: normal; min-width: 120px; }
+.arch-run-table th { color: var(--muted); font-weight: 600; background: var(--surface-2); }
+.arch-run-table tr:last-child td { border-bottom: none; }
+.arch-run-table td.good { color: var(--success); }
+.arch-run-table td.warn { color: var(--warning); }
+.arch-run-table td.bad { color: var(--danger); }
+
 /* ---------- Flow simulator: the Run tab ---------- */
 .run-panel .match-banner { margin: 8px 0; border: 1px solid var(--border); border-radius: 8px; }
 .sim-tests { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }

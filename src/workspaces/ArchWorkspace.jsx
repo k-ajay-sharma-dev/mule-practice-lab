@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import ArchDesigner from '../components/arch/ArchDesigner.jsx'
+import ArchRunPanel, { runOverlay } from '../components/arch/ArchRunPanel.jsx'
 import ExplainPanel from '../components/ExplainPanel.jsx'
 import Markdown from '../components/Markdown.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
-import { diagramHint, runDiagramChecks } from '../arch/checks.js'
+import { archChecks, diagramHint, runDiagramChecks } from '../arch/checks.js'
+import { runArchTest } from '../arch/tests.js'
 import { landscapeOf } from '../arch/landscape.js'
 import { restoreDiagram } from '../arch/model.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
@@ -16,6 +18,7 @@ import { useUndo } from './useUndo.js'
 const TABS = [
   ['scenario', 'Scenario'],
   ['checks', 'Checks'],
+  ['run', 'Run'],
   ['explain', 'Explain it'],
   ['notes', 'Notes'],
 ]
@@ -55,7 +58,12 @@ export default function ArchWorkspace({ problem, guided = true }) {
   const [diagram, setDiagram, history] = useUndo(() => restoreDiagram(entry.diagram))
   const [tab, setTab] = useState('scenario')
   const [results, setResults] = useState(null)
-  const { checks, reference, task } = problem.diagram
+  const [picked, setPicked] = useState(0)
+  const { reference, task, simulation } = problem.diagram
+  const checks = useMemo(() => archChecks(problem), [problem])
+  const hasRuns = Boolean(simulation?.tests?.length)
+  // on the Run tab the boxes show how busy they were in the chosen test
+  const overlay = useMemo(() => (tab === 'run' && hasRuns ? runOverlay(runArchTest(diagram, simulation, simulation.tests[picked] ?? simulation.tests[0]).result) : null), [tab, hasRuns, diagram, simulation, picked])
   const steps = useMemo(() => diagramSteps(checks), [checks])
   const live = useMemo(() => runDiagramChecks(diagram, checks), [diagram, checks])
 
@@ -81,7 +89,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
     <div className="workspace flow-workspace">
       <section className="panel left-panel">
         <div className="panel-tabs">
-          {TABS.map(([key, label]) => (
+          {TABS.filter(([key]) => key !== 'run' || hasRuns).map(([key, label]) => (
             <button key={key} className={`panel-tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
               {key === 'checks' ? `${label} (${checks.length})` : label}
             </button>
@@ -98,8 +106,9 @@ export default function ArchWorkspace({ problem, guided = true }) {
                 </p>
                 <p className="muted small">
                   Add the components and connect them with sync calls or async messages. Name each one after the real
-                  system or API in the scenario (e.g. sys-sap-order-api, SAP, order-events queue) — some checks look
+                  system or API in the scenario (e.g. sys-sap-order-api, SAP, order-events queue). Some checks look
                   for those names. The diagram is checked against the requirements.
+                  {hasRuns && ' The Run tab also sends traffic through it and plays outages, so give the boxes settings (replicas, policies, timeouts) that carry the load.'}
                 </p>
                 {checkButton}
               </div>
@@ -138,6 +147,8 @@ export default function ArchWorkspace({ problem, guided = true }) {
             </div>
           )}
 
+          {tab === 'run' && <ArchRunPanel diagram={diagram} simulation={simulation} picked={picked} onPick={setPicked} />}
+
           {tab === 'explain' && (
             <ExplainPanel problem={problem}>
               {reference && (
@@ -167,7 +178,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
             finish={checkButton}
           />
         )}
-        <ArchDesigner diagram={diagram} onChange={setDiagram} history={history} />
+        <ArchDesigner diagram={diagram} onChange={setDiagram} history={history} overlay={overlay} />
       </section>
     </div>
   )

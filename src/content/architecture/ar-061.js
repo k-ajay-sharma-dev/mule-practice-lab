@@ -35,7 +35,7 @@ export default {
         prc: ['process-api', 'prc-account-opening-api (saga coordinator)'],
         state: ['database', 'Saga state (sagaId, steps, status)'],
         rec: ['batch-job', 'Saga recovery / reconciliation job'],
-        q: ['queue', 'card-issuance-q'],
+        q: ['queue', 'card-issuance-q', { maxRedelivery: 5 }],
         dlq: ['dlq', 'card-issuance-dlq'],
         wk: ['process-api', 'prc-account-opening card worker'],
         scrm: ['system-api', 'sys-crm-customer-api'],
@@ -50,6 +50,29 @@ export default {
         'wk -> scard', 'wk -> state', 'rec -> state', 'scrm -> crm', 'score -> core', 'scard -> card',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 300 },
+        { match: 'legacy', latencyMs: 500 },
+        { match: 'external-api', latencyMs: 6000, errorRate: 0.02 },
+      ],
+      tests: [
+        {
+          name: 'Account openings at peak',
+          about: 'The mobile app opens 20 accounts a second for ten minutes. The app gets its answer in under 2 seconds, and nearly every card is issued in the same run.',
+          traffic: [{ name: 'openings', from: 'mobile-app', rps: 20, kind: 'write', to: ['crm', 'legacy', 'external-api'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], delivered: [{ to: 'external-api', min: 0.9 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The card processor fails for six minutes',
+          about: 'From minute 2 to minute 8 every card call fails, and the broker restarts at minute 4. Accounts are still opened, card requests that keep failing move to the DLQ, and none is lost.',
+          traffic: [{ name: 'openings', from: 'mobile-app', rps: 20, kind: 'write', to: ['crm', 'legacy', 'external-api'] }],
+          incidents: [{ errors: 'external-api', rate: 1, at: 2, forMin: 6 }, { restart: 'queue', at: 4 }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 1000 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 \`prc-account-opening-api\` must, for a new bank customer:
@@ -60,6 +83,11 @@ export default {
 4. Mark the CRM customer as "onboarded"
 
 Each system has its own database; there is no shared transaction. Last month, step 3 failed for 2% of requests and left customers with an account but no card and CRM still "pending". Support fixes them manually.
+
+Numbers to design for:
+- At peak the mobile app opens 20 accounts a second, and the app must get its answer in under 2 seconds.
+- CRM answers in about 300 ms and core banking in 500 ms. The card processor takes about 6 s and fails 2% of calls.
+- The card processor sometimes fails every call for several minutes. Card requests that keep failing must be kept for support, never lost, even if the broker restarts meanwhile.
 
 **Questions:**
 1. Why can't you wrap these four calls in one transaction (XA / Mule \`try\` with transactions)?
@@ -81,6 +109,7 @@ Each system has its own database; there is no shared transaction. Last month, st
     'Each step has a compensation (close account, deactivate customer) or a forward-recovery path (retry card issuance later) chosen by business rules.',
     'Unknown outcomes are resolved with idempotency keys and status queries before retrying or compensating — never by blind retry.',
     'For slow/unreliable steps, accept the request (202 or 201 with status PENDING), persist saga state, and complete asynchronously via queues; the Experience API exposes status.',
+    'The card queue is persistent and allows 5 deliveries before the DLQ, so a card request that keeps failing is parked for support instead of retried forever or dropped.',
   ],
   solution: `
 **Why not one transaction.** Two-phase commit needs every participant to support a transaction protocol coordinated by one manager. CRM (SaaS), core banking via API and an external card processor over HTTPS do not. In Mule 4, XA covers transactional connectors (JMS, JDBC, VM) — not HTTP calls to other APIs. Holding locks across slow external calls would also hurt availability. So you accept **eventual consistency** and manage it explicitly.
@@ -113,6 +142,10 @@ prc-account-opening-api (owns saga state: sagaId, step, status)
 - Step 3 is slow/unreliable: put a message on a queue (Anypoint MQ) and process asynchronously with retries and DLQ.
 - The Experience API returns **201 Created** with \`accountStatus: ACTIVE, cardStatus: PENDING\` (or **202 Accepted** with a status URL if even the account is created async). The app polls \`GET /me/onboarding/{id}\` or receives a push notification.
 - The Experience API stays thin: it never coordinates the saga, it only exposes the status the Process API owns.
+
+**Settings that matter.**
+- The mobile request waits only for CRM and core banking, about 0.9 s. With the card call in the request it would take about 7 s.
+- \`card-issuance-q\` keeps persistent messages, so a broker restart loses nothing. It allows 5 deliveries, one a minute, and then moves the message to \`card-issuance-dlq\`. A card outage of six minutes parks the requests from its first minutes there; requests that arrive later go through once the processor is back. Without the limit they would be retried forever, and with a limit but no DLQ they would be dropped.
 `,
   followUps: [
     { q: 'Orchestrated saga or choreographed saga?', a: 'Orchestrated (Process API as coordinator) is easier to reason about, monitor and change for a 3–5 step business process. Choreography via events suits loosely coupled domains but makes the overall flow harder to see.' },

@@ -28,11 +28,11 @@ export default {
     reference: diagram(
       {
         cli: ['internal-app', 'Customer channel / caller'],
-        prc: ['process-api', 'prc-customer-api'],
+        prc: ['process-api', 'prc-customer-api', { replicas: 2, vCores: '0.2' }],
         db: ['database', 'PostgreSQL: customer + outbox (one local transaction)'],
         relay: ['batch-job', 'Outbox relay (Scheduler, every 1–2 s)'],
         ex: ['topic', 'CustomerUpdated exchange (Anypoint MQ)'],
-        q: ['queue', 'loyalty-customer-updated'],
+        q: ['queue', 'loyalty-customer-updated', { maxRedelivery: 5 }],
         dlq: ['dlq', 'loyalty-customer-updated-dlq'],
         ploy: ['process-api', 'prc-loyalty-sync (idempotent on eventId)'],
         sloy: ['system-api', 'sys-loyalty-api'],
@@ -40,6 +40,37 @@ export default {
       },
       ['cli -> prc', 'prc -> db', 'relay -> db', 'relay ~> ex', 'ex ~> q', 'q ~> ploy', 'q ~> dlq', 'ploy -> sloy', 'sloy -> loy'],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 15 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Broker down at peak',
+          about: 'Customer updates come in at 80 a second and the broker is down for five minutes. Every update must still be saved and answered, because the request never waits for the broker.',
+          traffic: [{ name: 'updates', from: ['internal-app', 'web-app', 'mobile-app', 'partner', 'experience-api'], rps: 80, kind: 'write' }],
+          incidents: [{ down: 'topic', at: 2, forMin: 5 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }] },
+        },
+        {
+          name: 'Loyalty rejects every event for ten minutes',
+          about: 'The relay publishes 20 events a second and a bad release makes the loyalty platform reject every update for ten minutes. Events that keep failing are parked in the dead-letter queue, none are lost, and the queue is empty at the end.',
+          durationMin: 30,
+          traffic: [{ name: 'events', from: 'batch-job', rps: 20, to: 'saas', kind: 'write' }],
+          incidents: [{ errors: 'saas', rate: 1, at: 3, forMin: 10 }],
+          expect: { lost: { max: 0 }, backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 0 }] },
+        },
+        {
+          name: 'Broker restart while loyalty is down',
+          about: 'The loyalty platform is down for four minutes and the broker restarts in the middle of it. The events waiting in the queue survive, and every event reaches the loyalty platform once it is back.',
+          durationMin: 20,
+          traffic: [{ name: 'events', from: 'batch-job', rps: 20, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 2, forMin: 4 }, { restart: 'queue', at: 4 }],
+          expect: { lost: { max: 0 }, delivered: [{ to: 'saas', min: 0.98 }], backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A **Customer Process API** (Mule 4) updates a customer in its own PostgreSQL database and then publishes **CustomerUpdated** to Anypoint MQ:
@@ -54,6 +85,10 @@ Observed issues in production:
 - Occasionally the DB update succeeds but publishing fails (MQ timeout, app restart between steps) → downstream systems never learn about the change.
 - After a retry was added around the whole flow, some events were published twice and one consumer double-counted loyalty points.
 - A developer proposed an XA transaction spanning the DB and the broker; the broker in use does not participate in XA.
+
+Numbers to design for:
+- Customer updates peak at **80 a second**. A database write takes about 15 ms. The broker has had outages of **five minutes**, and updates must keep working through one.
+- The relay publishes up to **20 events a second**. The loyalty platform answers in about 300 ms. It has been down for a few minutes at a time, and a bad release once made it reject every update for **ten minutes**. No event may be lost, even if the broker restarts.
 
 **Questions:**
 - What is the "dual write" problem here?
@@ -78,6 +113,7 @@ Observed issues in production:
     'The relay gives at-least-once delivery: an event may be published twice if the relay fails after publishing but before marking the row, so consumers must be idempotent using the event ID.',
     'Per-entity ordering is kept by publishing in outbox sequence per aggregate and using FIFO/partitioned delivery keyed by customer ID.',
     'Published outbox rows are purged or archived, and outbox age/backlog is monitored and alerted on.',
+    'Settings: the Process API runs 2 replicas of 0.2 vCore for 80 updates a second. The loyalty queue is persistent and allows 5 deliveries before the DLQ, so short outages are retried and a long run of failures is parked, not lost.',
   ],
   solution: `
 **Dual write.** The DB commit and the MQ publish are independent. Crash after step 1 → change without event. Publish then fail to commit → event about a change that never happened. Wrapping both in a retry duplicates events. XA would need both resources to support it and adds coupling and latency; here it is not even available.
@@ -100,6 +136,10 @@ outbox(id UUID, aggregate_type, aggregate_id, event_type, payload JSON,
 **Ordering.** Publish rows in \`sequence\` order; for strict per-customer order use a **FIFO** queue or partition key = customerId, and have consumers ignore events with a version lower than what they have already applied.
 
 **Cleanup and monitoring.** Purge or archive published rows older than N days (scheduled job). Metrics: count of unpublished rows, age of the oldest unpublished row — alert if it exceeds e.g. 5 minutes (relay stuck or broker down).
+
+**Settings that matter.**
+- \`prc-customer-api\` runs **2 replicas of 0.2 vCore**: 80 updates a second use under half of it. Because the request only writes to its own database, a broker outage does not touch it. A Process API that also published to the broker would fail every update while the broker is down.
+- The loyalty queue is **persistent** and allows **5 deliveries before the DLQ**. A loyalty outage of a few minutes is retried until it succeeds, and a broker restart keeps the waiting events. When loyalty rejects everything for ten minutes, the events that fail five times move to the dead-letter queue to be replayed later. A redelivery cap without a DLQ would drop them.
 `,
   followUps: [
     { q: 'How is this different from the inbox pattern?', a: 'The inbox is the consumer-side counterpart: the consumer records received event IDs in its own database in the same transaction as its state change, which gives effectively-once processing on top of at-least-once delivery.' },

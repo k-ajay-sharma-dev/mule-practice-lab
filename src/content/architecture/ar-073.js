@@ -31,17 +31,17 @@ export default {
         web: ['web-app', 'Web / app storefront'],
         store: ['internal-app', 'Store associate app (BOPIS, endless aisle)'],
         mkt: ['partner', 'Marketplaces'],
-        ecom: ['experience-api', 'exp-commerce-api'],
-        estore: ['experience-api', 'exp-store-app'],
-        emkt: ['experience-api', 'exp-marketplace-api'],
-        pcap: ['process-api', 'prc-order-capture (validate, price, pay auth)'],
-        soms: ['system-api', 'sys-oms'],
+        ecom: ['experience-api', 'exp-commerce-api', { replicas: 2 }],
+        estore: ['experience-api', 'exp-store-app', { replicas: 2 }],
+        emkt: ['experience-api', 'exp-marketplace-api', { replicas: 2, auth: 'client-id' }],
+        pcap: ['process-api', 'prc-order-capture (validate, price, pay auth)', { replicas: 2 }],
+        soms: ['system-api', 'sys-oms', { replicas: 2, vCores: '0.2' }],
         oms: ['saas', 'OMS (order management: lifecycle, sourcing)'],
         topic: ['topic', 'order.events (released, shipped, cancelled)'],
-        pful: ['process-api', 'prc-fulfilment'],
-        swms: ['system-api', 'sys-wms'],
+        pful: ['process-api', 'prc-fulfilment', { replicas: 2 }],
+        swms: ['system-api', 'sys-wms', { replicas: 2 }],
         wms: ['wms', 'DC WMS'],
-        spos: ['system-api', 'sys-store-fulfilment'],
+        spos: ['system-api', 'sys-store-fulfilment', { replicas: 2 }],
         pos: ['pos', 'Store systems (ship-from-store, pick-up)'],
       },
       [
@@ -49,6 +49,51 @@ export default {
         'pcap -> soms', 'soms -> oms', 'soms ~> topic', 'topic ~> pful', 'pful -> swms', 'swms -> wms', 'pful -> spos', 'spos -> pos', 'pful -> soms',
       ],
     ),
+    simulation: {
+      systems: [{ match: { type: ['saas', 'erp'], label: ['oms', 'order management'] }, latencyMs: 600, maxRps: 100 }],
+      tests: [
+        {
+          name: 'Peak day orders and an unknown caller',
+          about: 'Web sends 20 orders a second, stores 4 and marketplaces 6, and every order goes through in under 2 seconds on average. A caller with no client id also sends 5 orders a second to the marketplace API, and all of them are refused.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 20, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+            { name: 'stores', from: 'internal-app', rps: 4, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+            { name: 'marketplaces', from: 'partner', rps: 6, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 5, to: { type: 'saas', label: 'oms' }, kind: 'write', auth: 'none' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'web', minSuccess: 0.99, maxMs: 2000 },
+              { flow: 'stores', minSuccess: 0.99, maxMs: 2000 },
+              { flow: 'marketplaces', minSuccess: 0.99, maxMs: 2000 },
+              { flow: 'unknown caller', minRefused: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'A zone fails at peak',
+          about: 'One availability zone fails while the channels send 30 orders a second. Every API on the order capture and fulfilment paths keeps a replica running, inside the 2.5 vCore budget.',
+          traffic: [
+            { name: 'web', from: 'web-app', rps: 20, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+            { name: 'stores', from: 'internal-app', rps: 4, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+            { name: 'marketplaces', from: 'partner', rps: 6, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+          ],
+          incidents: [{ zone: true }],
+          expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 2.5 } },
+        },
+        {
+          name: 'A store system is offline',
+          about: 'The OMS releases 8 orders a second to the DCs and 4 to stores. The store systems are offline for 20 minutes. DC releases carry on, and store releases wait and arrive once the stores are back, with none lost.',
+          traffic: [
+            { name: 'DC releases', from: { type: 'system-api', label: 'oms' }, rps: 8, to: 'wms', kind: 'write' },
+            { name: 'store releases', from: { type: 'system-api', label: 'oms' }, rps: 4, to: 'pos', kind: 'write' },
+          ],
+          incidents: [{ down: 'pos', at: 5, forMin: 20 }],
+          durationMin: 45,
+          expect: { delivered: [{ flow: 'DC releases', to: 'wms', min: 0.99 }, { flow: 'store releases', to: 'pos', min: 0.99 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A department-store group (web, app, **180 stores**, and 3 **marketplaces**) is replacing its order flow.
@@ -72,6 +117,14 @@ Constraints:
 - The business expects to tweak sourcing rules monthly.
 - Finance needs every state change for revenue recognition.
 
+Numbers for sizing:
+- In the busiest minutes of peak day, web sends **20 orders a second**, stores **4** and marketplaces **6**. Each order is captured into the OMS, and its fulfilment update goes back to the OMS too.
+- The OMS answers in about 600 ms and accepts **100 calls a second**.
+- Marketplaces call with a client id. Calls without one must be refused.
+- The OMS releases about **8 orders a second** to the DCs and **4** to stores. Store systems can be offline for **20 minutes**, and no release may be lost.
+- Order capture must keep working when one availability zone fails.
+- The budget for the Mule apps is **2.5 vCores**.
+
 **Questions:**
 - Which camp do you side with, and where exactly is the boundary between OMS and Mule?
 - Draw the architecture: channels, order capture, OMS, event distribution, fulfilment to DCs and stores.
@@ -92,6 +145,7 @@ Constraints:
     'The OMS publishes lifecycle events; Mule fans them out to fulfilment, finance and customer notifications asynchronously.',
     'Short, stateless orchestration (capture: validate, price, authorise, submit) is a fine Process API; long-running sagas with business-tunable rules are not.',
     'Building the OMS in Mule is justified only for simple, stable flows or when no product fits — and then it needs its own persistent state and team.',
+    'Two replicas per API survive a zone outage; client id enforcement guards the marketplace API; size the OMS System API for capture plus fulfilment updates; a persistent topic holds releases for an offline store.',
   ],
   solution: `
 **Recommendation: Camp B, with a sharp boundary.** The OMS is the **system of record for order state** and runs sourcing; Mule is the **connectivity and event layer** around it.
@@ -120,6 +174,12 @@ Constraints:
 **Why not Camp A.** In 11 months, 8 people would have to build sourcing, split shipments, returns and a state store on top of Mule. That is effectively writing an OMS, with flows as the place for business rules. It also turns every rule change into a deployment.
 
 **When Camp A fits.** One channel, simple linear flows, rules that rarely change, or an OMS too costly for the volume. Even then, put state in a database owned by an order service, not in flow variables.
+
+**Sizing and failure handling.**
+- Every API runs 2 replicas, so a zone outage leaves one of each running and capture keeps working.
+- \`exp-marketplace-api\` enforces client ids, so a caller without one is refused before it reaches order capture.
+- \`sys-oms\` carries both the captured orders and the fulfilment updates (about 60 calls a second at peak), so it runs 2 × 0.2 vCore. The other APIs fit on 0.1 vCore per replica. In total 1.8 vCores, inside the 2.5 vCore budget.
+- The order events topic is persistent and keeps retrying a release while a store is offline. Do not set a redelivery limit without a dead-letter queue, or releases for an offline store are dropped.
 
 **Trade-offs:** OMS licence cost and vendor lock-in; the OMS becomes a critical dependency (capture must queue orders if the OMS is down); data model mapping effort into and out of the OMS.
 `,

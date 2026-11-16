@@ -28,8 +28,8 @@ export default {
       {
         par: ['partner', 'Reinsurers (client certificates)'],
         lb: ['load-balancer', 'Dedicated Load Balancer: mutual TLS, CA list, CRL, allowlist'],
-        exp: ['experience-api', 'exp-reinsurance (HTTPS, reads X-SSL headers)'],
-        prc: ['process-api', 'prc-treaties (HTTPS)'],
+        exp: ['experience-api', 'exp-reinsurance (HTTPS, reads X-SSL headers)', { auth: 'mtls' }],
+        prc: ['process-api', 'prc-treaties (HTTPS)', { calls: 'in parallel' }],
         sl: ['system-api', 'sys-policy-admin (truststore: private CA)'],
         sb: ['system-api', 'sys-sanctions (keystore: client certificate)'],
         leg: ['legacy', 'Policy admin (private CA certificate)'],
@@ -37,6 +37,36 @@ export default {
       },
       ['par -> lb', 'lb -> exp', 'exp -> prc', 'prc -> sl', 'prc -> sb', 'sl -> leg', 'sb -> ext'],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 800 },
+        { match: 'external-api', latencyMs: 600 },
+      ],
+      tests: [
+        {
+          name: 'Callers without a client certificate',
+          about: 'Reinsurers call with their client certificates. Some callers come without one, or with only an API key. They are refused, and the reinsurers are answered.',
+          traffic: [
+            { name: 'reinsurers', from: 'partner', rps: 20, to: ['legacy', 'external-api'] },
+            { name: 'no certificate', from: 'partner', rps: 5, to: ['legacy', 'external-api'], auth: 'none' },
+            { name: 'API key only', from: 'partner', rps: 5, to: ['legacy', 'external-api'], auth: 'client-id' },
+          ],
+          expect: {
+            answers: [
+              { flow: 'reinsurers', minSuccess: 0.99 },
+              { flow: 'no certificate', minRefused: 0.99 },
+              { flow: 'API key only', minRefused: 0.99 },
+            ],
+          },
+        },
+        {
+          name: 'Treaty requests at peak',
+          about: 'Reinsurers send 20 treaty requests a second. Each needs the policy admin data (800 ms) and a sanctions check (600 ms), and the answer must come within 1.2 seconds on average.',
+          traffic: [{ name: 'reinsurers', from: 'partner', rps: 20, to: ['legacy', 'external-api'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1200 }] },
+        },
+      ],
+    },
   },
   description: `
 An insurer exposes a **Reinsurance API** to 25 reinsurers. Apps run on CloudHub in an Anypoint VPC, behind a **Dedicated Load Balancer (DLB)**. The security standard says:
@@ -46,6 +76,8 @@ An insurer exposes a **Reinsurance API** to 25 reinsurers. Apps run on CloudHub 
 3. The legacy **policy admin** system has a certificate from the insurer's **private CA**.
 4. A third-party **sanctions screening** service requires a **client certificate** from the caller.
 5. Only TLS 1.2 or later is acceptable, and each certificate needs a named owner and an expiry alert.
+
+At peak the reinsurers send 20 treaty requests a second. Each one needs data from policy admin (about 800 ms) and a sanctions check (about 600 ms), and partners expect an answer within 1.2 seconds on average. Callers with no client certificate, or with only an API key, must be refused.
 
 An earlier design said "TLS is handled at the load balancer", and nobody could say which certificate lives where. A previous project lost a day because a certificate was uploaded with no intermediate, and another used \`insecure="true"\` in production.
 
@@ -75,6 +107,8 @@ An earlier design said "TLS is handled at the load balancer", and nobody could s
     'Private CA backend: a tls:trust-store on that HTTP Request, never insecure="true". The third party: a tls:key-store on that HTTP Request.',
     'The default Java truststore is fine for public CAs, and custom truststores must be maintained by you.',
     'Keep a certificate register. On CloudHub 2.0, mutual TLS moves to TLS contexts and truststores in the private space.',
+    'exp-reinsurance enforces the client certificate check (mtls in the designer), so a caller with no certificate or only an API key is refused at the edge.',
+    'prc-treaties calls policy admin and sanctions in parallel (Scatter-Gather): about 860 ms instead of about 1.5 seconds one after the other.',
   ],
   solution: `
 **TLS per hop.**
@@ -96,6 +130,11 @@ An earlier design said "TLS is handled at the load balancer", and nobody could s
 - Client CA certificates in a single PEM file. Certificates in a chain must be concatenated.
 - CRLs concatenated into one PEM file, added with \`--crl\` on creation or through the CloudHub API.
 - Cipher suites are managed through the CloudHub API. An allowlist of partner addresses adds a second layer.
+
+**Settings that matter at run time.**
+- \`exp-reinsurance\` has the mtls policy: it accepts a request only when the DLB reports a verified client certificate that is on the authorised list. A request with no certificate, or with an API key alone, is refused there.
+- \`prc-treaties\` calls the two System APIs in parallel. The slowest call (policy admin, 800 ms) sets the time, so an answer takes about 860 ms. One after the other it takes about 1.5 seconds, over the 1.2 second target.
+- At 20 requests a second, 0.1 vCore per API is enough. The calls are slow but few.
 
 **App-side TLS.** Define each \`tls:context\` globally, with passwords in secure properties, and set \`enabledProtocols\` where the standard needs it. Remember that the app can only narrow what the runtime allows. Never use \`insecure="true"\`.
 
