@@ -71,6 +71,148 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          POS_SALE_HDR: {
+            columns: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE', 'ENDED_AT', 'CASHIER_ID', 'TOTAL_AMOUNT', 'TENDER_TYPE', 'LOYALTY_ID'],
+            key: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE'],
+            rows: [],
+          },
+          POS_SALE_LINE: {
+            columns: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE', 'LINE_NO', { name: 'SKU', notNull: true }, 'QTY', 'UNIT_PRICE', 'DISCOUNT'],
+            key: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE', 'LINE_NO'],
+            rows: [],
+          },
+        },
+        latencyMs: 20,
+      },
+    },
+    tests: [
+      {
+        name: 'A basket is delivered again',
+        about: 'The basket is already staged. The redelivery is acknowledged as done and nothing is written twice.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'Consumer.STAGING.VirtualTopic.POS.SALES',
+            deliveryCount: 2,
+            payload: {
+              storeId: 'S0412',
+              registerId: 'R07',
+              transactionNumber: 88120,
+              businessDate: '2026-11-14',
+              endDateTime: '2026-11-14T15:31:02Z',
+              cashier: { id: 'C3381' },
+              total: 9.99,
+              tenders: [{ type: 'CASH', amount: 10 }],
+              lines: [{ sku: 'TAPE-50M', quantity: 1, unitPrice: 9.99 }],
+            },
+          },
+        },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                POS_SALE_HDR: {
+                  columns: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE', 'ENDED_AT', 'CASHIER_ID', 'TOTAL_AMOUNT', 'TENDER_TYPE', 'LOYALTY_ID'],
+                  key: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE'],
+                  rows: [{ STORE_ID: 'S0412', REGISTER_ID: 'R07', TXN_NO: 88120, BUSINESS_DATE: '2026-11-14', ENDED_AT: '2026-11-14T15:31:02Z', CASHIER_ID: 'C3381', TOTAL_AMOUNT: 9.99, TENDER_TYPE: 'CASH', LOYALTY_ID: null }],
+                },
+                POS_SALE_LINE: {
+                  columns: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE', 'LINE_NO', { name: 'SKU', notNull: true }, 'QTY', 'UNIT_PRICE', 'DISCOUNT'],
+                  key: ['STORE_ID', 'REGISTER_ID', 'TXN_NO', 'BUSINESS_DATE', 'LINE_NO'],
+                  rows: [{ STORE_ID: 'S0412', REGISTER_ID: 'R07', TXN_NO: 88120, BUSINESS_DATE: '2026-11-14', LINE_NO: 1, SKU: 'TAPE-50M', QTY: 1, UNIT_PRICE: 9.99, DISCOUNT: 0 }],
+                },
+              },
+            },
+          },
+        },
+        expect: { ack: 'acked', db: { POS_SALE_HDR: { count: 1 }, POS_SALE_LINE: { count: 1 } } },
+      },
+      {
+        name: 'A line cannot be stored',
+        about: 'A line has no SKU, so the line insert fails after the header. The header is rolled back and the basket is not acknowledged.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'Consumer.STAGING.VirtualTopic.POS.SALES',
+            payload: {
+              storeId: 'S0733',
+              registerId: 'R03',
+              transactionNumber: 51007,
+              businessDate: '2026-11-14',
+              endDateTime: '2026-11-14T16:02:40Z',
+              cashier: { id: 'C2055' },
+              total: 31.5,
+              tenders: [{ type: 'CARD', amount: 31.5 }],
+              lines: [
+                { sku: 'GLUE-WOOD-250', quantity: 1, unitPrice: 6.5 },
+                { quantity: 1, unitPrice: 25.0 },
+              ],
+            },
+          },
+        },
+        expect: { ack: 'returned', db: { POS_SALE_HDR: { count: 0 }, POS_SALE_LINE: { count: 0 } } },
+      },
+      {
+        name: 'A basket is staged',
+        about: 'The header and both lines are written, then the message is acknowledged.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'Consumer.STAGING.VirtualTopic.POS.SALES',
+            payload: {
+              storeId: 'S0412',
+              registerId: 'R07',
+              transactionNumber: 88123,
+              businessDate: '2026-11-14',
+              endDateTime: '2026-11-14T15:42:10Z',
+              cashier: { id: 'C3381' },
+              total: 57.4,
+              tenders: [{ type: 'CARD', amount: 57.4 }],
+              loyalty: { cardNumber: 'LY-55120091' },
+              lines: [
+                { sku: 'PAINT-WHT-5L', quantity: 1, unitPrice: 42.0 },
+                { sku: 'ROLLER-230', quantity: 2, unitPrice: 7.7, discount: 0 },
+              ],
+            },
+          },
+        },
+        expect: {
+          ack: 'acked',
+          db: {
+            POS_SALE_HDR: { count: 1, has: [{ STORE_ID: 'S0412', REGISTER_ID: 'R07', TXN_NO: 88123 }] },
+            POS_SALE_LINE: { count: 2, has: [{ TXN_NO: 88123, SKU: 'PAINT-WHT-5L' }, { TXN_NO: 88123, SKU: 'ROLLER-230', QTY: 2 }] },
+          },
+        },
+      },
+      {
+        name: 'Oracle is in maintenance',
+        about: 'The insert cannot connect. The basket is not acknowledged, so the broker delivers it again later.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'Consumer.STAGING.VirtualTopic.POS.SALES',
+            payload: {
+              storeId: 'S0918',
+              registerId: 'R02',
+              transactionNumber: 40571,
+              businessDate: '2026-11-14',
+              endDateTime: '2026-11-14T23:58:44Z',
+              cashier: { id: 'C1022' },
+              total: 12.99,
+              tenders: [{ type: 'CASH', amount: 20 }],
+              lines: [{ sku: 'SCREW-4X40-200', quantity: 1, unitPrice: 12.99 }],
+            },
+          },
+        },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { ack: 'returned', db: { POS_SALE_HDR: { count: 0 }, POS_SALE_LINE: { count: 0 } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'pos-basket-to-staging',
@@ -86,13 +228,17 @@ export default {
             '%dw 2.0\noutput application/java\nvar key = {\n  storeId: payload.storeId,\n  registerId: payload.registerId,\n  txnNo: payload.transactionNumber,\n  businessDate: payload.businessDate as Date\n}\n---\n{\n  header: key ++ {\n    endedAt: payload.endDateTime as DateTime,\n    cashierId: payload.cashier.id,\n    totalAmount: payload.total as Number,\n    tenderType: payload.tenders[0].\"type\",\n    loyaltyId: payload.loyalty.cardNumber default null\n  },\n  lines: payload.lines map (l, i) -> key ++ {\n    lineNo: i + 1,\n    sku: l.sku,\n    qty: l.quantity as Number,\n    unitPrice: l.unitPrice as Number,\n    discount: (l.discount default 0) as Number\n  }\n}',
         }),
         scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
+          // The insert's named parameters come from the header map, not from the raw basket JSON.
+          step('set-payload', { value: '#[vars.basket.header]' }),
           // PK (STORE_ID, REGISTER_ID, TXN_NO, BUSINESS_DATE) makes a redelivered basket fail with ORA-00001.
           step('db-insert', {
+            database: 'Oracle',
             sql: 'INSERT INTO POS_SALE_HDR (STORE_ID, REGISTER_ID, TXN_NO, BUSINESS_DATE, ENDED_AT, CASHIER_ID, TOTAL_AMOUNT, TENDER_TYPE, LOYALTY_ID)\nVALUES (:storeId, :registerId, :txnNo, :businessDate, :endedAt, :cashierId, :totalAmount, :tenderType, :loyaltyId)',
           }),
           // Bulk Insert reads its rows from #[payload] by default.
           step('set-payload', { value: '#[vars.basket.lines]' }),
           step('db-bulk-insert', {
+            database: 'Oracle',
             sql: 'INSERT INTO POS_SALE_LINE (STORE_ID, REGISTER_ID, TXN_NO, BUSINESS_DATE, LINE_NO, SKU, QTY, UNIT_PRICE, DISCOUNT)\nVALUES (:storeId, :registerId, :txnNo, :businessDate, :lineNo, :sku, :qty, :unitPrice, :discount)',
           }),
         ]),
@@ -154,7 +300,7 @@ Your integration must load every basket into **Oracle** staging tables (\`POS_SA
 1. **JMS On New Message** on that queue, **ackMode MANUAL**, no transaction. The POS gateway is not a Mule app, so set **Inbound Content-Type** \`application/json\`: the config default for a message that does not state its type is \`*/*\`, and DataWeave selectors need JSON. Concurrency (number of consumers) sized for 300/s, e.g. 8–16, bounded by the Oracle pool size.
 2. **Set Variable** \`ackId = attributes.ackId\`.
 3. **Transform Message** → \`vars.basket\` = \`{ header, lines[] }\`, each carrying the natural key.
-4. **Try (ALWAYS_BEGIN)** — **Database Insert** header, **Database Bulk Insert** lines. Commit at the end of the Try.
+4. **Try (ALWAYS_BEGIN)** — **Database Insert** header (its parameters come from \`vars.basket.header\`, set as the payload first), **Database Bulk Insert** lines (\`vars.basket.lines\`). Commit at the end of the Try.
 5. **JMS Ack** with \`#[vars.ackId]\`.
 
 **Errors**

@@ -76,6 +76,49 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/stores/S-0042', latencyMs: 250, respond: { status: 200, body: { id: 'S-0042', name: 'Wellington Central', region: 'NZ-North', currency: 'NZD' } } },
+        { method: 'GET', path: '/stores/S-9999', latencyMs: 250, respond: { status: 404, body: { message: 'Store S-9999 not found' } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'A sale is enriched',
+        about: 'The store is known, so the sale goes to sales-enriched with the store region and the message is acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'pos-sales', payload: { saleId: 'SL-1001', storeId: 'S-0042', amount: 42.5 } } },
+        expect: {
+          calls: [{ method: 'GET', path: '/stores/S-0042', count: 1 }],
+          sent: [{ destination: 'sales-enriched', count: 1, has: { saleId: 'SL-1001', amount: 42.5 } }],
+          ack: 'acked',
+          maxMs: 2000,
+        },
+      },
+      {
+        name: 'Two sales from one store',
+        about: 'The second sale finds the store in the cache, so the Store Master API is called once.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'pos-sales', payload: { saleId: 'SL-1001', storeId: 'S-0042', amount: 42.5 } } },
+          { afterMs: 300, message: { kind: 'mq', destination: 'pos-sales', payload: { saleId: 'SL-1002', storeId: 'S-0042', amount: 9.9 } } },
+        ],
+        expect: { calls: [{ method: 'GET', path: '/stores/S-0042', count: 1 }], sent: [{ destination: 'sales-enriched', count: 2 }] },
+      },
+      {
+        name: 'An unknown store',
+        about: 'The Store Master API answers 404. The sale is still published and the message is acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'pos-sales', payload: { saleId: 'SL-1003', storeId: 'S-9999', amount: 15 } } },
+        expect: { sent: [{ destination: 'sales-enriched', count: 1, has: { saleId: 'SL-1003' } }], ack: 'acked' },
+      },
+      {
+        name: 'The Store Master API is down',
+        about: 'The connection is refused. Nothing is published and the message goes back to the queue.',
+        trigger: { message: { kind: 'mq', destination: 'pos-sales', payload: { saleId: 'SL-1004', storeId: 'S-0042', amount: 18 } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/stores/S-0042', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { notSent: ['sales-enriched'], ack: 'returned' },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -90,7 +133,8 @@ export default {
         step('set-variable', { variableName: 'sale', value: '#[payload]' }),
         step('set-payload', { value: '#[vars.sale.storeId]' }),
         scope('cache', { cachingStrategy: 'store-reference-cache' }, [
-          step('http-request', { method: 'GET', path: '/stores/{storeId}', responseTimeout: 2000 }),
+          // The payload is the storeId here, so the path is built from it.
+          step('http-request', { method: 'GET', path: '#["/stores/" ++ payload]', responseTimeout: 2000 }),
           step('transform', {
             script: '%dw 2.0\noutput application/java\n---\n{ storeId: payload.id, region: payload.region, storeName: payload.name, currency: payload.currency }',
           }),
@@ -153,7 +197,7 @@ Downstream analytics needs each event enriched with the **store's name, region a
 3. **Cache scope** with caching strategy \`store-reference-cache\`:
    - key generation expression \`#[payload]\` (the storeId)
    - **Object Store** \`entryTtl = 12 h\`, on Object Store v2 so all replicas and restarts share it (Max Entries is not configurable on Object Store v2; use \`maxEntries\` only on a local store)
-   - inside: **HTTP Request** \`GET /stores/{storeId}\` → Transform to a small Java map (no streams, which cannot be cached)
+   - inside: **HTTP Request** \`GET /stores/{storeId}\` (the payload is the storeId, so the path can be \`#["/stores/" ++ payload]\` or a URI parameter set from \`payload\`) → Transform to a small Java map (no streams, which cannot be cached)
 4. **Transform** \`vars.sale ++ { store: payload }\` → **MQ Publish** \`sales-enriched\`.
 5. **Errors:**
    - \`HTTP:NOT_FOUND\` → **On Error Continue**: log WARN, publish the event with \`enrichmentStatus: "UNKNOWN_STORE"\`.

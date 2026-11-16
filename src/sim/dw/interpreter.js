@@ -195,7 +195,13 @@ export class Runtime {
     const ctx = this.ctx
     const root = new Scope(null)
     const lazy = (name, fn) => root.define(name, new Lazy(fn))
-    lazy('payload', () => importValue(ctx.payload ?? null))
+    lazy('payload', () => {
+      const p = importValue(ctx.payload ?? null)
+      // payload.^raw is the text the message arrived as, while the payload is still that message
+      const u = unwrap(p)
+      if (ctx.payloadRaw !== undefined && u !== null && typeof u === 'object') (this.rawOf ??= new WeakMap()).set(u, ctx.payloadRaw)
+      return p
+    })
     lazy('attributes', () => importValue(ctx.attributes ?? null))
     lazy('vars', () => importValue(ctx.vars ?? {}))
     lazy('error', () => importError(ctx.error))
@@ -473,7 +479,7 @@ export class Runtime {
         return attrValue(v, sel.name)
       case 'meta': {
         const u = unwrap(v)
-        if (sel.name === 'raw') return u
+        if (sel.name === 'raw') return (u !== null && typeof u === 'object' ? this.rawOf?.get(u) : undefined) ?? u
         if (sel.name === 'mimeType' || sel.name === 'mediaType') return null
         if (sel.name === 'contentLength') return typeof u === 'string' ? u.length : null
         return null

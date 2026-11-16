@@ -54,6 +54,61 @@ export default {
     { label: 'One cutoff timestamp is fixed in a variable before the SQL runs', rule: { type: 'before', first: 'set-variable', then: 'db-update' } },
     { label: 'A failed run is logged and left for the next tick (error handler)', rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] } },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          STOCK_RESERVATION: {
+            columns: ['RESERVATION_ID', 'SKU', 'LOCATION_ID', 'QTY', 'STATUS', 'EXPIRES_AT'],
+            key: 'RESERVATION_ID',
+            rows: [
+              { RESERVATION_ID: 9101, SKU: 'MILK-2L', LOCATION_ID: 'DC-NORTH', QTY: 2, STATUS: 'HELD', EXPIRES_AT: '2026-11-13T09:52:00Z' },
+              { RESERVATION_ID: 9102, SKU: 'MILK-2L', LOCATION_ID: 'DC-NORTH', QTY: 1, STATUS: 'HELD', EXPIRES_AT: '2026-11-13T09:58:30Z' },
+              { RESERVATION_ID: 9103, SKU: 'MILK-2L', LOCATION_ID: 'DC-NORTH', QTY: 3, STATUS: 'HELD', EXPIRES_AT: '2026-11-13T10:14:00Z' },
+              { RESERVATION_ID: 9104, SKU: 'BREAD-WM', LOCATION_ID: 'DC-NORTH', QTY: 1, STATUS: 'CONFIRMED', EXPIRES_AT: '2026-11-13T09:50:00Z' },
+              { RESERVATION_ID: 9105, SKU: 'EGGS-12', LOCATION_ID: 'DC-SOUTH', QTY: 4, STATUS: 'HELD', EXPIRES_AT: '2026-11-13T09:55:00Z' },
+            ],
+          },
+          STOCK_AVAILABILITY: {
+            columns: ['SKU', 'LOCATION_ID', 'ON_HAND_QTY', 'RESERVED_QTY'],
+            key: ['SKU', 'LOCATION_ID'],
+            rows: [
+              { SKU: 'MILK-2L', LOCATION_ID: 'DC-NORTH', ON_HAND_QTY: 120, RESERVED_QTY: 6 },
+              { SKU: 'BREAD-WM', LOCATION_ID: 'DC-NORTH', ON_HAND_QTY: 40, RESERVED_QTY: 1 },
+              { SKU: 'EGGS-12', LOCATION_ID: 'DC-SOUTH', ON_HAND_QTY: 75, RESERVED_QTY: 4 },
+            ],
+          },
+        },
+        latencyMs: 30,
+      },
+    },
+    tests: [
+      {
+        name: 'Expired holds are released',
+        about: 'Three holds have expired. Their stock comes back and their rows go. The live hold and the confirmed one stay.',
+        trigger: { schedule: {} },
+        expect: {
+          db: {
+            STOCK_RESERVATION: { count: 2, has: [{ RESERVATION_ID: 9103, STATUS: 'HELD' }, { RESERVATION_ID: 9104, STATUS: 'CONFIRMED' }], lacks: [{ RESERVATION_ID: 9101 }, { RESERVATION_ID: 9102 }, { RESERVATION_ID: 9105 }] },
+            STOCK_AVAILABILITY: {
+              has: [
+                { SKU: 'MILK-2L', LOCATION_ID: 'DC-NORTH', RESERVED_QTY: 3 },
+                { SKU: 'BREAD-WM', LOCATION_ID: 'DC-NORTH', RESERVED_QTY: 1 },
+                { SKU: 'EGGS-12', LOCATION_ID: 'DC-SOUTH', RESERVED_QTY: 0 },
+              ],
+            },
+          },
+        },
+      },
+      {
+        name: 'Oracle is down',
+        about: 'The run fails. The failure is logged and the holds wait for the next run.',
+        trigger: { schedule: {} },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { logs: [{ level: ['ERROR', 'WARN'] }], db: { STOCK_RESERVATION: { count: 5 } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'release-expired-reservations',

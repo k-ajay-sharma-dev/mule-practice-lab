@@ -67,7 +67,13 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const select = one(d, 'db-select')
     select.config.sql = select.config.sql.replace('\nLIMIT :pageSize OFFSET :offset', '')
   })
+  // The statuses written as DataWeave numbers instead of text.
   await passes('fl-047', (d) => {
+    for (const f of d.flows) for (const h of f.errorHandlers) for (const n of h.steps) if (n.type === 'set-variable') n.config.value = `#[${n.config.value}]`
+  })
+  // The status goes into vars.statusCode, but the listener's error response reads vars.httpStatus (its status is
+  // #[vars.httpStatus default 500]), so every error would still answer 500.
+  await failsOn('fl-047', 'An unknown customer id', (d) => {
     for (const f of d.flows) for (const h of f.errorHandlers) for (const n of h.steps) if (n.type === 'set-variable') Object.assign(n.config, { variableName: 'statusCode', value: `#[${n.config.value}]` })
   })
 
@@ -180,11 +186,15 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-025', 'to TRADES.RISK', (d) => {
     one(d, 'jms-publish').config.destination = 'TRADES.OUT'
   })
+  // The duplicate test written as a Choice inside the handler. Its default route raises an error again: without that,
+  // On Error Continue would commit every other query error and the trade would be lost.
   await passes('fl-025', (d) => {
     const h = one(d, 'on-error-continue')
     h.config.when = ''
-    h.steps = [createNode('choice')]
-    h.steps[0].routes.forEach((r, i) => (r.config.expression = `#[error.description contains "ORA-0000${i}"]`))
+    const choice = createNode('choice')
+    choice.routes = [{ ...choice.routes[0], config: { ...choice.routes[0].config, expression: '#[error.description contains "ORA-00001"]' }, steps: h.steps }]
+    choice.otherwise = [step('raise-error', { type: 'APP:TRADE_NOT_SAVED', description: '#[error.description]' })]
+    h.steps = [choice]
   })
 
   // FL-049
@@ -203,14 +213,20 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const f = flowOf(d, 'sys-')
     f.steps = f.steps.filter((n) => n.type !== 'os-retrieve')
   })
+  // The result codes tested another way. (XML element names are case-sensitive: a test on resultCode would read
+  // null and treat every answer as an error.)
   await passes('fl-049', (d) => {
     const steps = flowOf(d, 'sys-').steps
+    const exprs = ['#[trim(payload.body.GetPolicyDetailsResponse.ResultCode) == "E404"]', '#[not (payload.body.GetPolicyDetailsResponse.ResultCode == "0000")]']
     steps[steps.length - 1] = {
       ...steps[steps.length - 1],
-      routes: steps[steps.length - 1].routes.map((r) => ({ ...r, config: { expression: '#[payload.body.GetPolicyDetailsResponse.resultCode != "0000"]' } })),
+      routes: steps[steps.length - 1].routes.map((r, i) => ({ ...r, config: { expression: exprs[i] } })),
     }
   })
-  await passes('fl-049', (d) => {
+  // A Cache scope around the policy call instead of a stored session. It logs in on every call, so the session is
+  // not reused, and the handler's Object Store Remove finds no session to drop: OS:KEY_NOT_FOUND replaces the
+  // back-end error and the caller gets 500 instead of 502.
+  await failsOn('fl-049', 'The PAS reports an internal error', (d) => {
     const f = flowOf(d, 'sys-')
     const steps = f.steps
     const call = steps.findIndex((n) => n.type === 'wsc-consume')

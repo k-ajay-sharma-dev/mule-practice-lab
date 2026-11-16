@@ -81,12 +81,25 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     handlerFor(d, 'HTTP:').steps.find((n) => n.type === 'set-variable').config.value = '#[500]'
   })
   // Customer lookup and pricing run in parallel, as the solution suggests when latency is tight.
+  // In Mule a Scatter-Gather replaces the payload with its route results and wraps a route's error in
+  // MULE:COMPOSITE_ROUTING. So the order is kept in a variable and put back after the scope, and two handlers map the
+  // wrapped error: a failed route with an APP: error is 422, anything else (pricing down or slow) is 503. Without
+  // these, the order was lost and an unknown customer or a pricing timeout came back as 500.
   await passes('fl-034', (d) => {
-    const steps = flowOf(d, 'post-order').steps
+    const main = flowOf(d, 'post-order')
+    const steps = main.steps
     const gather = createNode('scatter-gather')
     gather.routes[0].steps = [steps[1]]
     gather.routes[1].steps = [steps[2]]
-    steps.splice(1, 2, gather)
+    steps.splice(1, 2, step('set-variable', { variableName: 'order', value: '#[payload]' }), gather, step('set-payload', { value: '#[vars.order]' }))
+    const body = (code) => step('transform', { script: `%dw 2.0\noutput application/json\n---\n{ code: "${code}", message: error.description, correlationId: correlationId }` })
+    main.errorHandlers.push(
+      handler('on-error-propagate', { type: 'MULE:COMPOSITE_ROUTING', when: '#[valuesOf(error.errorMessage.payload.failures) map $.errorType.namespace contains "APP"]' }, [
+        step('set-variable', { variableName: 'httpStatus', value: '#[422]' }),
+        body('ORDER_NOT_PROCESSABLE'),
+      ]),
+      handler('on-error-propagate', { type: 'MULE:COMPOSITE_ROUTING' }, [step('set-variable', { variableName: 'httpStatus', value: '#[503]' }), body('DEPENDENCY_UNAVAILABLE')]),
+    )
   })
 
   // FL-035
@@ -174,11 +187,16 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     steps.splice(steps.findIndex((n) => n.type === 'sftp-write'), 0, update)
   })
   // A .tmp file in the pickup folder renamed when complete, and rows locked as IN_PROGRESS first.
+  // The lock now runs before the select, and the select reads both states. Placed after the select, the update
+  // replaced the selected rows with its own result (so the payment IDs were lost), and it also locked rows approved
+  // after the select, which no run would ever export. Reading IN_PROGRESS too lets the next night pick up rows a
+  // failed run left locked.
   await passes('fl-038', (d) => {
     const steps = d.flows[0].steps
     one(d, 'sftp-write').config.path = '#["/outbound/payments/" ++ vars.fileName ++ ".tmp"]'
     steps[steps.findIndex((n) => n.type === 'sftp-move')] = step('sftp-rename', { path: '#["/outbound/payments/" ++ vars.fileName ++ ".tmp"]', to: '#[vars.fileName]' })
-    steps.splice(2, 0, step('db-update', { sql: "UPDATE payments SET status = 'IN_PROGRESS' WHERE status = 'APPROVED'" }))
+    steps.splice(1, 0, step('db-update', { sql: "UPDATE payments SET status = 'IN_PROGRESS' WHERE status = 'APPROVED'" }))
+    one(d, 'db-select').config.sql = "SELECT payment_id, beneficiary_iban, amount, currency FROM payments WHERE status IN ('APPROVED', 'IN_PROGRESS') ORDER BY payment_id"
   })
 
   // FL-039
@@ -225,11 +243,18 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     const gather = one(d, 'scatter-gather')
     gather.routes.unshift({ ...gather.routes[0], id: 'okta-route', steps: [okta] })
   })
-  // Look the user up in Okta before creating it, instead of an Idempotent Message Validator.
+  // Look the user up in Okta before creating it, instead of an Idempotent Message Validator. The create runs only
+  // when the lookup finds nobody; a lookup followed by an unconditional create would still make a second account.
   await passes('fl-040', (d) => {
     const steps = d.flows[0].steps
     remove(steps, 'idempotent')
-    steps.splice(steps.findIndex((n) => n.type === 'http-request'), 0, step('http-request', { method: 'GET', path: '/okta/api/v1/users?search=employeeNumber', responseTimeout: 5000 }))
+    const i = steps.findIndex((n) => n.type === 'http-request')
+    const create = steps[i]
+    const found = createNode('choice')
+    found.routes[0].config.expression = '#[isEmpty(payload)]'
+    found.routes[0].steps = [step('set-payload', { value: '#[vars.hire]' }), create]
+    found.otherwise = [step('set-payload', { value: '#[payload[0]]' })]
+    steps.splice(i, 1, step('http-request', { method: 'GET', path: '/okta/api/v1/users?search=employeeNumber', responseTimeout: 5000 }), found)
   })
 
   // FL-041
@@ -262,17 +287,26 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-041', 'never to the order-events exchange', (d) => {
     one(d, 'mq-publish').config.destination = '#["order-events"]'
   })
-  // The queue name is built from the chosen consumer.
+  // The queue name is built from the chosen consumer. The request names the target queue
+  // (order-events.billing), so the consumer is its last part; a request field the API does not have would give null.
   await passes('fl-041', (d) => {
-    one(d, 'mq-publish').config.destination = '#["order-events." ++ vars.request.consumer]'
+    one(d, 'mq-publish').config.destination = '#["order-events." ++ ((vars.request.targetQueue splitBy ".")[-1])]'
   })
-  // The replay is handed to a VM queue and a worker flow publishes the events.
+  // The replay is handed to a VM queue and a worker flow publishes the events. Variables do not cross a VM queue,
+  // so the message carries the request and the replay ID, and the worker sets its variables from it.
   await passes('fl-041', (d) => {
     const steps = flowOf(d, 'replay-api').steps
     const i = steps.findIndex((n) => n.type === 'async')
     const work = steps[i].steps
-    steps[i] = step('vm-publish', { queueName: 'replay-jobs' })
-    d.flows.push({ ...d.flows[0], id: 'replay-worker', name: 'replay-worker', source: step('vm-listener', { queueName: 'replay-jobs' }), steps: work, errorHandlers: [] })
+    steps.splice(i, 1,
+      step('set-payload', { value: '#[vars.request ++ { replayId: vars.replayId, eventTypesCsv: vars.eventTypesCsv }]' }),
+      step('vm-publish', { queueName: 'replay-jobs' }))
+    const carried = [
+      step('set-variable', { variableName: 'request', value: '#[payload]' }),
+      step('set-variable', { variableName: 'replayId', value: '#[payload.replayId]' }),
+      step('set-variable', { variableName: 'eventTypesCsv', value: '#[payload.eventTypesCsv]' }),
+    ]
+    d.flows.push({ ...d.flows[0], id: 'replay-worker', name: 'replay-worker', source: step('vm-listener', { queueName: 'replay-jobs' }), steps: [...carried, ...work], errorHandlers: [] })
   })
 
   // FL-042
@@ -416,18 +450,25 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-046', 'within the 2 s SLA', (d) => {
     one(d, 'http-request').config.responseTimeout = 30000
   })
-  // The handler names each outage type on its own, and the open-circuit fallback is built inline.
+  // The handler names each outage type on its own, and the open-circuit fallback is built inline. The bureau fails
+  // with 503 as well as hanging, so HTTP:SERVICE_UNAVAILABLE must be one of them or the caller gets an error page.
   await passes('fl-046', (d) => {
-    bureauHandler(d).config.type = 'HTTP:TIMEOUT, HTTP:CONNECTIVITY'
+    bureauHandler(d).config.type = 'HTTP:TIMEOUT, HTTP:CONNECTIVITY, HTTP:SERVICE_UNAVAILABLE'
     const route = flowOf(d, 'credit-check-api').steps.find((n) => n.type === 'choice').routes[0]
     route.steps = [step('set-payload', { value: '#[output application/json --- { customerId: vars.customerId, decision: "MANUAL_REVIEW", source: "FALLBACK" }]' })]
   })
-  // The open route tests a flag, and the handler builds the fallback inline after recording the failure.
+  // The open route tests a flag worked out before the Choice, and the handler builds the fallback inline after
+  // recording the failure. The flag must come from the stored state (a field the state does not have would never
+  // open the circuit), and the inline fallback must still look for a cached score.
   await passes('fl-046', (d) => {
-    flowOf(d, 'credit-check-api').steps.find((n) => n.type === 'choice').routes[0].config.expression = '#[vars.cb.isOpen]'
+    const steps = flowOf(d, 'credit-check-api').steps
+    const choice = steps.find((n) => n.type === 'choice')
+    steps.splice(steps.indexOf(choice), 0, step('set-variable', { variableName: 'circuitOpen', value: '#[vars.cb.state == "OPEN" and ((vars.cb.openedAt as DateTime) + |PT1M|) > now()]' }))
+    choice.routes[0].config.expression = '#[vars.circuitOpen]'
     bureauHandler(d).steps = [
       step('flow-ref', { name: 'cb-record-failure' }),
-      step('set-payload', { value: '#[output application/json --- { customerId: vars.customerId, decision: "MANUAL_REVIEW", source: "FALLBACK" }]' }),
+      step('os-retrieve', { key: '#["score:" ++ vars.customerId]', defaultValue: '#[{}]', objectStore: 'last-good-scores' }),
+      step('set-payload', { value: '#[output application/json --- if (payload.score != null) { customerId: vars.customerId, score: payload.score, source: "CACHED" } else { customerId: vars.customerId, decision: "MANUAL_REVIEW", source: "FALLBACK" }]' }),
     ]
   })
 
@@ -544,9 +585,22 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     remove(flowOf(d, 'welcome').steps, 'idempotent')
   })
   // The subscriber checks a processed-events table, and the relay deletes rows it has sent.
+  // The lookup alone dropped nothing, so a duplicate still reached marketing: a Choice now skips an event that is
+  // already in the table, and the event id is written there only after marketing accepted it.
   await passes('fl-053', (d) => {
     const welcome = flowOf(d, 'welcome').steps
-    welcome[welcome.findIndex((n) => n.type === 'idempotent')] = step('db-select', { sql: 'SELECT 1 FROM processed_events WHERE event_id = :eventId' })
+    const at = welcome.findIndex((n) => n.type === 'idempotent')
+    const call = welcome.splice(at + 1, 1)[0]
+    const c = createNode('choice')
+    c.routes = [
+      {
+        ...c.routes[0],
+        config: { expression: '#[isEmpty(vars.seen)]' },
+        steps: [call, step('db-insert', { sql: 'INSERT INTO processed_events (event_id) VALUES (:eventId)', target: 'insertResult' })],
+      },
+    ]
+    c.otherwise = [step('logger', { level: 'DEBUG', message: '#["Duplicate event ignored"]' })]
+    welcome.splice(at, 1, step('db-select', { sql: 'SELECT 1 FROM processed_events WHERE event_id = :eventId', target: 'seen' }), c)
     const loop = flowOf(d, 'outbox-relay').steps.find((n) => n.type === 'foreach')
     loop.steps[loop.steps.findIndex((n) => n.type === 'db-update')] = step('db-delete', { sql: 'DELETE FROM event_outbox WHERE event_id = :eventId' })
   })
@@ -727,12 +781,14 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     handlerFor(d, 'ANY').steps = [step('jms-ack', { ackId: '#[vars.ackId]' })]
   })
   // The duplicate check is a Choice inside the handler instead of a when condition.
+  // Its other route recovers the session before failing: without that, a failed line insert left the message
+  // unacknowledged and never redelivered, since the catch-all handler that recovers the session does not run.
   await passes('fl-060', (d) => {
     const h = handlerFor(d, 'QUERY_EXECUTION')
     h.config.when = ''
     const c = createNode('choice')
     c.routes = [{ ...c.routes[0], config: { expression: '#[error.description contains "ORA-00001"]' }, steps: h.steps }]
-    c.otherwise = [step('raise-error', { type: 'APP:STAGING_FAILED', description: '#[error.description]' })]
+    c.otherwise = [step('jms-recover-session', { ackId: '#[vars.ackId]' }), step('raise-error', { type: 'APP:STAGING_FAILED', description: '#[error.description]' })]
     h.steps = [c]
   })
 }

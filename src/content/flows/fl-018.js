@@ -1,5 +1,15 @@
 import { design, flow, handler, scope, source, step } from '../../flow/dsl.js'
 
+const STOCK_CSV = [
+  'store_id,sku,quantity',
+  'S-001,SKU-100,38',
+  'S-001,SKU-200,12',
+  'S-014,SKU-BAD,abc',
+  'S-014,SKU-300,0',
+  'S-020,SKU-EMPTY,',
+  'S-020,SKU-100,5',
+].join('\n')
+
 export default {
   id: 'fl-018',
   category: 'flows',
@@ -61,6 +71,80 @@ export default {
       rule: { type: 'handler', component: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  // A small sample of the nightly file. The S3 export answers both as an HTTP endpoint and as the S3 Get Object operation.
+  simulation: {
+    systems: {
+      http: [{ method: 'GET', path: '/stock-exports/stock-positions.csv', latencyMs: 900, respond: { status: 200, body: STOCK_CSV } }],
+      calls: { 's3-get': { payload: STOCK_CSV } },
+      db: {
+        tables: {
+          stock_staging: { columns: ['store_id', 'sku', 'quantity'], rows: [{ store_id: 'S-001', sku: 'OLD-1', quantity: 1 }] },
+          stock_positions: {
+            columns: ['store_id', 'sku', 'quantity'],
+            key: ['store_id', 'sku'],
+            rows: [
+              { store_id: 'S-001', sku: 'SKU-100', quantity: 40 },
+              { store_id: 'S-001', sku: 'SKU-OLD', quantity: 7 },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'The nightly file is loaded',
+        about: 'Four rows are good and two have a bad quantity. Reporting ends up with exactly the four good rows.',
+        trigger: { schedule: {} },
+        expect: {
+          db: {
+            stock_positions: {
+              count: 4,
+              has: [{ store_id: 'S-001', sku: 'SKU-100', quantity: 38 }, { store_id: 'S-014', sku: 'SKU-300', quantity: 0 }],
+              lacks: [{ sku: 'SKU-OLD' }, { sku: 'SKU-BAD' }, { sku: 'SKU-EMPTY' }],
+            },
+          },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The export is missing',
+        about: 'The file is not in the bucket tonight. The load fails, ops are alerted, and reporting keeps yesterday\'s data.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [{ method: 'GET', path: '/stock-exports/stock-positions.csv', respond: { status: 404, body: { message: 'NoSuchKey' } } }],
+            calls: { 's3-get': { fault: { type: 'S3:NO_SUCH_KEY', description: 'The specified key does not exist.' } } },
+          },
+        },
+        expect: {
+          db: { stock_positions: { count: 2, has: [{ sku: 'SKU-OLD' }] } },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'The swap fails half-way',
+        about: 'The file repeats a store and SKU, so copying staging into the reporting table breaks its key after the old rows were deleted. The delete must roll back.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [{ method: 'GET', path: '/stock-exports/stock-positions.csv', respond: { status: 200, body: `${STOCK_CSV}\nS-001,SKU-100,41` } }],
+            calls: { 's3-get': { payload: `${STOCK_CSV}\nS-001,SKU-100,41` } },
+          },
+        },
+        expect: {
+          db: { stock_positions: { count: 2, has: [{ sku: 'SKU-OLD' }, { sku: 'SKU-100', quantity: 40 }] } },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'The database is down',
+        about: 'PostgreSQL does not answer, so the load fails and ops are alerted.',
+        trigger: { schedule: {} },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { emails: [{ count: 1 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -76,7 +160,7 @@ export default {
         step('http-request', { method: 'GET', path: '/stock-exports/stock-positions.csv', responseTimeout: 60000 }),
         step('transform', {
           script:
-            '%dw 2.0\ninput payload application/csv streaming=true\noutput application/java deferred=true\n---\npayload\n  filter ((row) -> (row.quantity as Number default -1) >= 0)\n  map ((row) -> {\n    storeId: row.store_id,\n    sku: row.sku,\n    quantity: row.quantity as Number\n  })',
+            '%dw 2.0\ninput payload application/csv streaming=true\noutput application/java deferred=true\n---\npayload\n  filter ((row) -> (row.quantity default "") matches /\\d+/)\n  map ((row) -> {\n    storeId: row.store_id,\n    sku: row.sku,\n    quantity: row.quantity as Number\n  })',
         }),
         scope('foreach', { collection: '#[payload]', batchSize: 2000 }, [
           step('db-bulk-insert', {
@@ -142,7 +226,7 @@ A retailer sends a nightly **4 GB CSV** (~25 million rows of store-level stock p
 1. **Trigger:** Scheduler at 01:15 (or an S3 event notification via SQS) → **Amazon S3 Get Object** returns a stream. For local/SFTP sources, use the connector's read with streaming enabled.
 2. **Parse:** Transform Message with \`input payload application/csv streaming=true\` and \`output application/java deferred=true\` that maps each row (\`payload map ...\`) to a DB-ready object and filters invalid rows. The aim is a lazy result that For Each pulls from. The docs show \`deferred=true\` on outputs such as \`application/json\`, but the Java format page does not list it, so test this on your runtime with a large file and watch the heap.
 3. **Chunk:** **For Each** with \`batchSize="2000"\` — each iteration receives a list of 2000 records → **Database Bulk Insert** into \`stock_staging\` with parameterised SQL. Alternatively a **Batch Job** (block size tuned, Batch Aggregator size 2000) which adds per-record failure tracking and parallel blocks at the cost of disk I/O for its persistent queues.
-4. **Bad rows:** filter them out in DataWeave and increment a counter. CSV values are Strings, so \`is Number\` is always false here: coerce first, as in \`(row.quantity as Number default -1) >= 0\`. Alternatively route them to a reject file written as a separate stream. Don't throw an error per row — exceptions are expensive at 25M rows.
+4. **Bad rows:** filter them out in DataWeave and increment a counter. CSV values are Strings, so \`is Number\` is always false here. Check the text instead, as in \`(row.quantity default "") matches /\\d+/\`: \`matches\` must cover the whole value, so \`abc\`, \`-3\` and an empty value are all skipped, and the \`as Number\` in the map only ever sees digits. Alternatively route them to a reject file written as a separate stream. Don't throw an error per row — exceptions are expensive at 25M rows.
 5. **Consistency:** before the load, \`TRUNCATE stock_staging\`. After the loop, in a single **Try scope with a transaction** (Database), run the swap: \`DELETE\`/\`INSERT ... SELECT\` or a table rename (\`ALTER TABLE ... RENAME\`). Reporting sees either the old or the new full data set.
 6. **Throughput tuning:** larger bulk sizes, DB connection pool, and disabling indexes on staging during load. Run multiple For Each chunks concurrently only if row order doesn't matter (Batch Job or Parallel For Each over chunk lists with bounded concurrency).
 7. **Pitfalls that break streaming:** logging \`#[payload]\`, \`sizeOf(payload)\`, \`groupBy\`/\`orderBy\` on the whole file, reading the payload twice with a non-repeatable stream, or a DataWeave script that references \`payload\` in two places.

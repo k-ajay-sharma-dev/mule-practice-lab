@@ -84,6 +84,68 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      calls: {
+        's3-list': {
+          payload: [
+            { key: 'outbound/', size: 0 },
+            { key: 'outbound/CLM-2026-118201.pdf', size: 1843322 },
+            { key: 'outbound/CLM-2026-118202.pdf', size: 40112876 },
+            { key: 'outbound/CLM-2026-118207.pdf', size: 233190 },
+          ],
+        },
+        's3-get': { payload: '%PDF-1.7 scanned claim document' },
+        // Upload Blob answers true when the blob was written.
+        'azure-upload-blob': { payload: true },
+      },
+    },
+    tests: [
+      {
+        name: 'Three scans are relayed',
+        about: 'Every document in outbound/ is copied to Azure and removed from S3, and the folder placeholder is skipped.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          noLogs: [{ level: 'ERROR' }],
+          connector: [
+            { type: 'azure-upload-blob', settings: { container: 'claims-scans' }, count: 3 },
+            { type: 's3-delete', settings: { bucket: 'acme-claims-scans-export' }, count: 3 },
+            { type: 's3-delete', settings: { key: 'outbound/' }, count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'One scan cannot be stored',
+        about: 'Upload Blob returns false for the second document. It is logged and left in S3, and the run goes on with the third.',
+        trigger: { schedule: {} },
+        overrides: { systems: { calls: { 'azure-upload-blob': [{ payload: true }, { payload: false }, { payload: true }] } } },
+        expect: {
+          noError: true,
+          logs: [{ level: ['ERROR', 'WARN'] }],
+          connector: [
+            { type: 's3-delete', settings: { key: 'outbound/CLM-2026-118202.pdf' }, count: 0 },
+            { type: 's3-delete', settings: { key: 'outbound/CLM-2026-118207.pdf' }, count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'Azure Storage is down',
+        about: 'The storage account does not answer. The run stops at the first document instead of failing every one, and the next run catches up.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: { calls: { 'azure-upload-blob': { fault: { type: 'AZURE-STORAGE:CONNECTIVITY', description: 'Unable to connect to acmeclaims.blob.core.windows.net' } } } },
+        },
+        expect: {
+          error: 'AZURE-STORAGE:CONNECTIVITY',
+          connector: [
+            { type: 'azure-upload-blob', count: 1 },
+            { type: 's3-delete', count: 0 },
+          ],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

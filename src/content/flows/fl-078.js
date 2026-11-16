@@ -82,6 +82,96 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/carrier/v2/shipment-events', latencyMs: 350, respond: { status: 202, body: { eventId: 'CE-99120431', accepted: true } } }],
+      db: {
+        tables: {
+          SHIPMENT_OUTBOX: {
+            key: 'OUTBOX_ID',
+            rows: [
+              { OUTBOX_ID: 88120, ORDER_ID: 'SO-551207', EVENT_TYPE: 'PICKED', PAYLOAD: '{"orderId":"SO-551207","eventType":"PICKED","occurredAt":"2026-11-13T09:41:00Z","warehouse":"WH-ROT"}', STATUS: 'SENT', SENT_AT: '2026-11-13T09:41:10Z' },
+              { OUTBOX_ID: 88131, ORDER_ID: 'SO-551207', EVENT_TYPE: 'PACKED', PAYLOAD: '{"orderId":"SO-551207","eventType":"PACKED","occurredAt":"2026-11-13T09:55:00Z","warehouse":"WH-ROT"}', STATUS: 'PENDING', SENT_AT: null },
+              { OUTBOX_ID: 88134, ORDER_ID: 'SO-551388', EVENT_TYPE: 'PICKED', PAYLOAD: '{"orderId":"SO-551388","eventType":"PICKED","occurredAt":"2026-11-13T09:56:00Z","warehouse":"WH-ROT"}', STATUS: 'PENDING', SENT_AT: null },
+              { OUTBOX_ID: 88140, ORDER_ID: 'SO-551207', EVENT_TYPE: 'DISPATCHED', PAYLOAD: '{"orderId":"SO-551207","eventType":"DISPATCHED","occurredAt":"2026-11-13T09:58:00Z","warehouse":"WH-ROT"}', STATUS: 'PENDING', SENT_AT: null },
+            ],
+          },
+          CARRIER_REJECTION: { columns: ['ORDER_ID', 'EVENT_TYPE', 'REASON', 'REJECTED_AT'], rows: [] },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'Pending events go to the queue',
+        about: 'The three PENDING rows are sent to the FIFO queue in outbox order and marked SENT. The row already sent is left alone.',
+        trigger: { schedule: { flow: 'shipment-outbox-relay' } },
+        expect: {
+          noError: true,
+          sent: [{ destination: 'https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo', count: 3 }],
+          db: { SHIPMENT_OUTBOX: { lacks: { STATUS: 'PENDING' } } },
+        },
+      },
+      {
+        name: 'SQS refuses the send',
+        about: 'The queue cannot be reached. No row is marked SENT, so the events go out in order on a later run.',
+        trigger: { schedule: { flow: 'shipment-outbox-relay' } },
+        overrides: { systems: { queues: { 'https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo': { fault: true } } } },
+        expect: {
+          db: {
+            SHIPMENT_OUTBOX: {
+              has: [
+                { OUTBOX_ID: 88131, STATUS: 'PENDING' },
+                { OUTBOX_ID: 88134, STATUS: 'PENDING' },
+                { OUTBOX_ID: 88140, STATUS: 'PENDING' },
+              ],
+            },
+          },
+        },
+      },
+      {
+        name: 'The carrier accepts an event',
+        about: 'The PACKED event is mapped to the carrier format and posted once, with nothing recorded as rejected.',
+        trigger: {
+          message: {
+            kind: 'sqs',
+            destination: 'https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo',
+            payload: '{"orderId":"SO-551207","eventType":"PACKED","occurredAt":"2026-11-13T09:55:00Z","warehouse":"WH-ROT"}',
+          },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/carrier/v2/shipment-events', count: 1 }], db: { CARRIER_REJECTION: { count: 0 } } },
+      },
+      {
+        name: 'The carrier rejects an event',
+        about: 'The carrier answers 400. The rejection is recorded for support and the message is consumed, so the order does not block.',
+        trigger: {
+          message: {
+            kind: 'sqs',
+            destination: 'https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo',
+            payload: '{"orderId":"SO-551388","eventType":"DELIVERED","occurredAt":"2026-11-13T09:57:00Z","warehouse":"WH-ROT"}',
+          },
+        },
+        overrides: {
+          systems: { http: [{ method: 'POST', path: '/carrier/v2/shipment-events', respond: { status: 400, body: { message: 'Shipment SO-551388 was never dispatched' } } }] },
+        },
+        expect: { noError: true, db: { CARRIER_REJECTION: { has: { ORDER_ID: 'SO-551388' } } } },
+      },
+      {
+        name: 'The carrier is down',
+        about: 'The carrier answers 503. The flow fails, so the message stays in SQS for redelivery and nothing is recorded as rejected.',
+        trigger: {
+          message: {
+            kind: 'sqs',
+            destination: 'https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo',
+            payload: '{"orderId":"SO-551207","eventType":"DISPATCHED","occurredAt":"2026-11-13T09:58:00Z","warehouse":"WH-ROT"}',
+          },
+        },
+        overrides: {
+          systems: { http: [{ method: 'POST', path: '/carrier/v2/shipment-events', respond: { status: 503, body: { message: 'Service Unavailable' } } }] },
+        },
+        expect: { error: 'HTTP:SERVICE_UNAVAILABLE', db: { CARRIER_REJECTION: { count: 0 } } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -101,6 +191,7 @@ export default {
         // No Try: the first failure stops the loop, so later events of the same order are never sent ahead of it.
         scope('foreach', { collection: '#[payload]' }, [
           step('set-variable', { variableName: 'row', value: '#[payload]' }),
+          step('set-variable', { variableName: 'outboxId', value: '#[payload.OUTBOX_ID]' }),
           step('sqs-send', { queueUrl: 'https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo', body: '#[payload.PAYLOAD]', groupId: '#[payload.ORDER_ID]', deduplicationId: '#[payload.OUTBOX_ID as String]' }),
           step('db-update', {
             database: 'SQL Server',
@@ -137,6 +228,10 @@ export default {
       [
         // Never succeeds on retry: record for the support team, consume the message so the group is not blocked.
         handler('on-error-continue', { type: 'HTTP:BAD_REQUEST' }, [
+          step('transform', {
+            script:
+              '%dw 2.0\noutput application/java\n---\n{\n  orderId: vars.evt.orderId,\n  eventType: vars.evt.eventType,\n  reason: (error.errorMessage.payload.message default error.description) as String\n}',
+          }),
           step('db-insert', {
             database: 'SQL Server',
             sql: 'INSERT INTO dbo.CARRIER_REJECTION (ORDER_ID, EVENT_TYPE, REASON, REJECTED_AT) VALUES (:orderId, :eventType, :reason, SYSUTCDATETIME())',

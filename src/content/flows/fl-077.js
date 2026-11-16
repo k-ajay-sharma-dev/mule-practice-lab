@@ -65,30 +65,123 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          orders: {
+            key: 'order_id',
+            rows: [
+              { order_id: 'ORD-7781204', customer_id: 'CUS-201877', status: 'CREATED', total_amount: 129.9, currency: 'EUR', event_version: 1, occurred_at: '2026-11-13T09:52:11Z', raw_event: '{}' },
+              { order_id: 'ORD-7779950', customer_id: 'CUS-104420', status: 'SHIPPED', total_amount: 54.0, currency: 'EUR', event_version: 5, occurred_at: '2026-11-13T09:40:02Z', raw_event: '{}' },
+            ],
+          },
+          customers: {
+            key: 'customer_id',
+            rows: [
+              { customer_id: 'CUS-201877', segment: 'GOLD', region: 'DE-SOUTH', lifetime_value: 4820.55 },
+              { customer_id: 'CUS-104420', segment: 'STANDARD', region: 'NL', lifetime_value: 310.2 },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'An order is paid',
+        about: 'Version 2 of the order replaces version 1 in PostgreSQL, and one enriched event goes out.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'orders.v1',
+            key: 'ORD-7781204',
+            payload: '{"type":"OrderPaid","orderId":"ORD-7781204","customerId":"CUS-201877","status":"PAID","total":{"amount":129.9,"currency":"EUR"},"version":2,"occurredAt":"2026-11-13T09:58:40Z"}',
+          },
+        },
+        expect: {
+          noError: true,
+          db: { orders: { count: 2, has: { order_id: 'ORD-7781204', status: 'PAID', event_version: 2 } } },
+          sent: [{ destination: 'orders.enriched.v1', count: 1 }],
+          notSent: ['orders.v1.dlt'],
+        },
+      },
+      {
+        name: 'An old version arrives late',
+        about: 'Version 3 of an order that is already at version 5 changes nothing and is not published again.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'orders.v1',
+            key: 'ORD-7779950',
+            payload: '{"type":"OrderPaid","orderId":"ORD-7779950","customerId":"CUS-104420","status":"PAID","total":{"amount":54.0,"currency":"EUR"},"version":3,"occurredAt":"2026-11-13T09:31:00Z"}',
+          },
+        },
+        expect: {
+          noError: true,
+          db: { orders: { has: { order_id: 'ORD-7779950', status: 'SHIPPED', event_version: 5 } } },
+          notSent: ['orders.enriched.v1', 'orders.v1.dlt'],
+        },
+      },
+      {
+        name: 'An event has no customer',
+        about: 'A malformed event goes to the dead-letter topic and the stream moves on. Nothing is written or published.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'orders.v1',
+            key: 'ORD-7781300',
+            payload: '{"type":"OrderCreated","orderId":"ORD-7781300","status":"CREATED","total":{"amount":18.5,"currency":"EUR"},"version":1,"occurredAt":"2026-11-13T09:59:01Z"}',
+          },
+        },
+        expect: {
+          noError: true,
+          sent: [{ destination: 'orders.v1.dlt', count: 1 }],
+          notSent: ['orders.enriched.v1'],
+          db: { orders: { count: 2 } },
+        },
+      },
+      {
+        name: 'PostgreSQL is in maintenance',
+        about: 'The database does not answer. The event is not parked on the dead-letter topic; the flow fails so the offset is not committed.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'orders.v1',
+            key: 'ORD-7781204',
+            payload: '{"type":"OrderShipped","orderId":"ORD-7781204","customerId":"CUS-201877","status":"SHIPPED","total":{"amount":129.9,"currency":"EUR"},"version":3,"occurredAt":"2026-11-13T09:59:20Z"}',
+          },
+        },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', notSent: ['orders.v1.dlt', 'orders.enriched.v1'] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'order-events-projection',
       // Consumer config: topic orders.v1, group order-projection; AUTO commit only after the flow succeeds.
       source('kafka-listener', { topic: 'orders.v1', groupId: 'order-projection', ackMode: 'AUTO' }),
       [
+        // The typed event becomes the payload, so the upsert and the customer lookup take their :named values from it.
         step('transform', {
-          target: 'variable',
-          variableName: 'evt',
           script:
             '%dw 2.0\noutput application/java\nvar doc = read(payload, "application/json")\n---\n{\n  orderId: doc.orderId,\n  customerId: doc.customerId,\n  status: doc.status,\n  totalAmount: doc.total.amount as Number,\n  currency: doc.total.currency,\n  eventVersion: doc.version as Number,\n  occurredAt: doc.occurredAt as DateTime,\n  raw: write(doc, "application/json")\n}',
         }),
+        step('set-variable', { variableName: 'evt', value: '#[payload]' }),
         step('validation', { check: 'is-true', expression: '#[vars.evt.orderId != null and vars.evt.customerId != null]', message: 'Order event without orderId/customerId' }),
         // Same version is re-applied (affects 1 row) so a redelivery after a failed publish publishes again;
         // only strictly older versions are ignored (0 rows).
         step('db-insert', {
           database: 'PostgreSQL',
           sql: 'INSERT INTO orders (order_id, customer_id, status, total_amount, currency, event_version, occurred_at, raw_event)\nVALUES (:orderId, :customerId, :status, :totalAmount, :currency, :eventVersion, :occurredAt, CAST(:raw AS jsonb))\nON CONFLICT (order_id) DO UPDATE SET\n  status = EXCLUDED.status, total_amount = EXCLUDED.total_amount, currency = EXCLUDED.currency,\n  event_version = EXCLUDED.event_version, occurred_at = EXCLUDED.occurred_at, raw_event = EXCLUDED.raw_event\nWHERE orders.event_version <= EXCLUDED.event_version',
+          // The row count goes to a variable, so the payload keeps the event for the customer lookup.
+          target: 'upsert',
         }),
         router(
           'choice',
           {},
           [
-            route({ expression: '#[payload.affectedRows > 0]' }, [
+            route({ expression: '#[vars.upsert.affectedRows > 0]' }, [
               step('db-select', {
                 database: 'PostgreSQL',
                 sql: 'SELECT segment, region, lifetime_value FROM customers WHERE customer_id = :customerId',
@@ -161,11 +254,11 @@ The **customer-insights** team needs:
   solution: `
 **Flow \`order-events-projection\`**
 1. **Kafka Message Listener** — consumer config with topic \`orders.v1\` and group \`order-projection\`; AUTO acknowledgement so offsets are committed after successful processing. Up to 12 consumers in total (one per partition) across replicas.
-2. **Transform** the event into typed values, parsing it with \`read(payload, "application/json")\` because the listener's output is Binary; **Validate** \`orderId\` and \`customerId\` are present.
-3. **Database Insert** (PostgreSQL via generic JDBC connection) with \`ON CONFLICT (order_id) DO UPDATE ... WHERE orders.event_version <= EXCLUDED.event_version\`, all values as \`:named\` parameters (the raw event stored as \`jsonb\`).
+2. **Transform** the event into typed values, parsing it with \`read(payload, "application/json")\` because the listener's output is Binary. Keep it as the payload and in \`vars.evt\`; **Validate** \`orderId\` and \`customerId\` are present.
+3. **Database Insert** (PostgreSQL via generic JDBC connection) with \`ON CONFLICT (order_id) DO UPDATE ... WHERE orders.event_version <= EXCLUDED.event_version\`, all values as \`:named\` parameters (the raw event stored as \`jsonb\`). Its result goes to a target variable (\`vars.upsert\`), so the payload still holds the event for the customer lookup.
    - Newer or equal version → 1 row affected.
    - Older version → 0 rows: the event is stale.
-4. **Choice** \`affectedRows > 0\` → **Select** the customer → **Transform** the enriched event → **Kafka Publish** \`orders.enriched.v1\` **key = customerId**. Otherwise log and skip.
+4. **Choice** \`vars.upsert.affectedRows > 0\` → **Select** the customer → **Transform** the enriched event → **Kafka Publish** \`orders.enriched.v1\` **key = customerId**. Otherwise log and skip.
 5. **Error handling**
    - \`DB:CONNECTIVITY\` / \`KAFKA:CONNECTIVITY\` → **On Error Propagate**: the offset is not committed. The docs do not say how the listener then re-reads the record, so test it, because no event may be lost during the maintenance window. Configure reconnection with back-off and alert on consumer lag.
    - Anything else (validation, bad data, \`DB:QUERY_EXECUTION\` from a constraint) → **On Error Continue**: publish \`{ error, original }\` to \`orders.v1.dlt\` and commit, so one bad record does not stop the partition.

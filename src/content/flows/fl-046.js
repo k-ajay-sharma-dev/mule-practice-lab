@@ -68,6 +68,69 @@ export default {
     },
     { label: 'Breaker logic lives in reusable flows reached via Flow Reference', rule: { type: 'refs' } },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/bureau/v2/scores', latencyMs: 300, respond: (req) => ({ status: 200, body: { customerId: req.body?.customerId, score: 712, scoredAt: '2026-11-13T10:00:00Z' } }) }],
+    },
+    tests: [
+      {
+        name: 'The bureau answers',
+        about: 'A normal day: the score comes straight from the bureau.',
+        trigger: { http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: 'CU-7781', amount: 15000 } } },
+        expect: { status: 200, bodyHas: { customerId: 'CU-7781', score: 712 }, maxMs: 2000 },
+      },
+      {
+        name: 'The bureau hangs for a known customer',
+        about: 'The customer was scored earlier today, so the second request gets that score marked CACHED within the 2 s SLA.',
+        triggers: [
+          { http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: 'CU-7781', amount: 15000 } } },
+          { afterMs: 600000, http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: 'CU-7781', amount: 9000 } } },
+        ],
+        overrides: { systems: { http: [{ method: 'POST', path: '/bureau/v2/scores', responses: [{ latencyMs: 300, status: 200, body: { customerId: 'CU-7781', score: 712, scoredAt: '2026-11-13T10:00:00Z' } }, { latencyMs: 30000, status: 200, body: {} }] }] } },
+        expect: { status: 200, bodyHas: { score: 712, source: 'CACHED' }, bodyLacks: { decision: 'MANUAL_REVIEW' } },
+      },
+      {
+        name: 'The bureau is down for a new customer',
+        about: 'No score is known for this customer, so the answer is MANUAL_REVIEW, never an error page.',
+        trigger: { http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: 'CU-9054', amount: 4000 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/bureau/v2/scores', respond: { status: 503, body: { message: 'Service degraded' } } }] } },
+        expect: { status: 200, bodyHas: { decision: 'MANUAL_REVIEW' }, maxMs: 2000 },
+      },
+      {
+        name: 'The circuit opens',
+        about: 'Fifteen requests arrive one second apart while the bureau hangs. The breaker stops calling it after a few failures, and every answer is still a fallback.',
+        triggers: Array.from({ length: 15 }, (_, i) => ({ afterMs: i ? 1000 : 0, http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: `CU-${8100 + i}`, amount: 5000 } } })),
+        overrides: { systems: { http: [{ method: 'POST', path: '/bureau/v2/scores', latencyMs: 30000, respond: { status: 200, body: {} } }] } },
+        expect: { status: 200, bodyHas: { decision: 'MANUAL_REVIEW' }, calls: [{ method: 'POST', path: '/bureau/v2/scores', max: 10 }] },
+      },
+      {
+        name: 'The bureau recovers',
+        about: 'After an outage the bureau is healthy again. Five minutes later a trial call gets through and the breaker lets traffic back.',
+        triggers: [
+          ...Array.from({ length: 5 }, (_, i) => ({ afterMs: i ? 1000 : 0, http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: `CU-${8200 + i}`, amount: 5000 } } })),
+          { afterMs: 300000, http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: 'CU-8301', amount: 7000 } } },
+          { afterMs: 1000, http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: 'CU-7781', amount: 7000 } } },
+        ],
+        overrides: {
+          systems: {
+            http: [{ method: 'POST', path: '/bureau/v2/scores', responses: [...Array(5).fill({ latencyMs: 30000, status: 200, body: {} }), { latencyMs: 300, status: 200, body: { customerId: 'CU-8301', score: 655 } }, { latencyMs: 300, status: 200, body: { customerId: 'CU-7781', score: 712 } }] }],
+          },
+        },
+        expect: { status: 200, bodyHas: { customerId: 'CU-7781', score: 712 }, bodyLacks: { source: 'CACHED' }, calls: [{ method: 'POST', path: '/bureau/v2/scores', count: 7 }] },
+      },
+      {
+        name: 'Bad requests do not trip the breaker',
+        about: 'The bureau rejects eight requests with 400 for bad input. The ninth valid request still reaches the bureau and gets a real score.',
+        triggers: Array.from({ length: 9 }, (_, i) => ({ afterMs: i ? 1000 : 0, http: { method: 'POST', path: '/risk/v1/credit-checks', body: { customerId: i < 8 ? `CU-BAD-${i}` : 'CU-7781', amount: 5000 } } })),
+        overrides: {
+          systems: {
+            http: [{ method: 'POST', path: '/bureau/v2/scores', responses: [...Array(8).fill({ latencyMs: 200, status: 400, body: { message: 'Invalid national ID' } }), { latencyMs: 300, status: 200, body: { customerId: 'CU-7781', score: 712, scoredAt: '2026-11-13T10:00:00Z' } }] }],
+          },
+        },
+        expect: { status: 200, bodyHas: { customerId: 'CU-7781', score: 712 }, calls: [{ method: 'POST', path: '/bureau/v2/scores', count: 9 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -134,7 +197,7 @@ export default {
         target: 'variable',
         variableName: 'cbNext',
         script:
-          '%dw 2.0\noutput application/java\nvar failures = (vars.cbNow.failures default 0) + 1\n---\nif (vars.cbNow.state == "OPEN" or failures >= 5)\n  { state: "OPEN", failures: failures, openedAt: now() }\nelse\n  { state: "CLOSED", failures: failures, openedAt: null }',
+          '%dw 2.0\noutput application/java\nvar failures = (vars.cbNow.failures default 0) + 1\n---\nif (vars.cbNow.state == "OPEN" or failures >= 5)\n  { state: "OPEN", failures: failures, openedAt: now() as String }\nelse\n  { state: "CLOSED", failures: failures, openedAt: null }',
       }),
       step('os-store', { key: BREAKER_KEY, value: '#[vars.cbNext]', objectStore: 'circuit-breakers' }),
       router(
@@ -209,7 +272,7 @@ There is no circuit-breaker policy available on this deployment. Mule runs on **
     'Acknowledges limits: Object Store updates are not atomic, so counts are approximate under concurrency — acceptable for a breaker; an API Gateway / service mesh breaker is preferable if available.',
   ],
   solution: `
-**State** — key \`cb:credit-bureau\` in a persistent Object Store (shared across replicas on CloudHub): \`{ state, failures, openedAt }\`.
+**State** — key \`cb:credit-bureau\` in a persistent Object Store (shared across replicas on CloudHub): \`{ state, failures, openedAt }\`. Store \`openedAt\` as text (\`now() as String\`) and read it back with \`as DateTime\`: a plain string survives the Object Store's serialisation on every replica.
 
 **credit-check-api**
 1. Save the request; **Flow Reference** \`cb-get-state\` with **target** \`cb\` (reads the Object Store without overwriting the payload).

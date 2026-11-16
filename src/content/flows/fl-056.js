@@ -115,6 +115,156 @@ export default {
       rule: { type: 'inside', component: 'os-remove', within: HANDLERS },
     },
   ],
+  simulation: {
+    systems: {
+      schemas: {
+        'web-order.json': {
+          type: 'object',
+          required: ['customerId', 'payment', 'lines'],
+          properties: { customerId: { type: 'string' }, payment: { type: 'object', required: ['method'] }, lines: { type: 'array', minItems: 1 } },
+        },
+      },
+      http: [
+        { method: 'POST', path: '/prc-order/v1/orders', latencyMs: 3500, respond: { status: 201, body: { orderId: 'SO-4500123', status: 'ACCEPTED', promiseDate: '2026-11-20' } } },
+        { method: 'GET', path: '/sys-crm/v1/accounts/{customerId}', latencyMs: 300, respond: (req) => ({ status: 200, body: { id: req.params.customerId, name: 'Harbour Outfitters', creditStatus: 'OK' } }) },
+        {
+          method: 'POST',
+          path: '/sys-payment/v1/authorisations',
+          latencyMs: 700,
+          // The PSP needs the order (customer and amount), not the CRM account.
+          respond: (req) => (req.body?.customerId && req.body?.payment ? { status: 200, body: { id: 'AUTH-9001', status: 'AUTHORISED' } } : { status: 400, body: { message: 'An order is required' } }),
+        },
+        { method: 'POST', path: '/sys-payment/v1/authorisations/{id}/void', latencyMs: 400, respond: { status: 200, body: { id: 'AUTH-9001', status: 'VOIDED' } } },
+        {
+          method: 'POST',
+          path: '/sys-erp/v1/sales-orders',
+          latencyMs: 2000,
+          // The ERP needs the order lines, not the payment answer.
+          respond: (req) => (Array.isArray(req.body?.lines) ? { status: 201, body: { orderId: 'SO-4500123', promiseDate: '2026-11-20' } } : { status: 422, body: { message: 'Sales order has no lines' } }),
+        },
+        { method: 'POST', path: '/sys-erp/v1/deliveries', latencyMs: 1500, respond: { status: 201, body: { deliveryId: 'DL-8000412' } } },
+        { method: 'POST', path: '/sys-payment/v1/captures', latencyMs: 600, respond: { status: 200, body: { id: 'CAP-5521', status: 'CAPTURED' } } },
+        { method: 'PATCH', path: '/sys-crm/v1/orders/{orderId}/status', latencyMs: 250, respond: { status: 200, body: { updated: true } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'A card order is accepted',
+        about: 'Credit is fine, the card is authorised, the ERP creates the sales order and OrderAccepted is published.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/prc-order/v1/orders',
+            headers: { 'Idempotency-Key': 'WEB-7781' },
+            body: { customerId: '001RS000004AbCd', channel: 'WEB', payment: { method: 'CARD', token: 'tok_4242', amount: 249.0 }, lines: [{ sku: 'PUMP-200', quantity: 1 }] },
+          },
+        },
+        expect: {
+          bodyHas: { orderId: 'SO-4500123' },
+          noError: true,
+          sent: [{ destination: 'order-events-exchange', count: 1, has: { eventType: 'OrderAccepted', data: { orderId: 'SO-4500123' } } }],
+          calls: [
+            { method: 'POST', path: '/sys-payment/v1/authorisations', count: 1 },
+            { method: 'POST', path: '/sys-payment/v1/authorisations/{id}/void', count: 0 },
+          ],
+          maxMs: 10000,
+        },
+      },
+      {
+        name: 'The account is on credit hold',
+        about: 'The CRM says BLOCKED. The order is rejected with 422 before any money is reserved.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/prc-order/v1/orders',
+            headers: { 'Idempotency-Key': 'WEB-7782' },
+            body: { customerId: '001RS000009XyZq', channel: 'WEB', payment: { method: 'CARD', token: 'tok_1881', amount: 99.0 }, lines: [{ sku: 'VALVE-10', quantity: 4 }] },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-crm/v1/accounts/{customerId}', respond: { status: 200, body: { id: '001RS000009XyZq', name: 'Coastline Supply', creditStatus: 'BLOCKED' } } }] } },
+        expect: {
+          status: 422,
+          calls: [
+            { method: 'POST', path: '/sys-payment/v1/authorisations', count: 0 },
+            { method: 'POST', path: '/sys-erp/v1/sales-orders', count: 0 },
+          ],
+          notSent: ['order-events-exchange'],
+        },
+      },
+      {
+        name: 'The web order has no lines',
+        about: 'The order fails the schema, so the shop gets 400 and the order Process API is never called.',
+        trigger: { http: { method: 'POST', path: '/exp-web/v1/orders', body: { customerId: '001RS000004AbCd', payment: { method: 'CARD', token: 'tok_4242', amount: 0 }, lines: [] } } },
+        expect: { status: 400, calls: [{ method: 'POST', path: '/prc-order/v1/orders', count: 0 }] },
+      },
+      {
+        name: 'The web shop hears of a credit hold',
+        about: 'The order Process API answers 422. The web Experience API passes the 422 on instead of turning it into a 503.',
+        trigger: { http: { method: 'POST', path: '/exp-web/v1/orders', body: { customerId: '001RS000009XyZq', payment: { method: 'CARD', token: 'tok_1881', amount: 99.0 }, lines: [{ sku: 'VALVE-10', quantity: 4 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/prc-order/v1/orders', respond: { status: 422, body: { code: 'CREDIT_HOLD', message: 'Account is on credit hold' } } }] } },
+        expect: { status: 422 },
+      },
+      {
+        name: 'The ERP is down after authorisation',
+        about: 'The card is authorised but the sales order cannot be created, so the authorisation is voided and no event goes out.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/prc-order/v1/orders',
+            headers: { 'Idempotency-Key': 'WEB-7783' },
+            body: { customerId: '001RS000004AbCd', channel: 'WEB', payment: { method: 'CARD', token: 'tok_5005', amount: 560.0 }, lines: [{ sku: 'MOTOR-3P', quantity: 1 }] },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'POST', path: '/sys-erp/v1/sales-orders', respond: { status: 503, body: { message: 'ERP maintenance' } } }] } },
+        expect: {
+          calls: [{ method: 'POST', path: '/sys-payment/v1/authorisations/{id}/void', count: 1 }],
+          notSent: ['order-events-exchange'],
+          bodyLacks: { status: 'ACCEPTED' },
+        },
+      },
+      {
+        name: 'A partner resubmits the same order',
+        about: 'The same idempotency key arrives twice. Only one sales order is created and the repeat is answered with 409.',
+        triggers: [
+          {
+            http: {
+              method: 'POST',
+              path: '/prc-order/v1/orders',
+              headers: { 'Idempotency-Key': 'PO-2026-0418' },
+              body: { externalRef: 'PO-2026-0418', customerId: '001RS00000PaRt1', channel: 'PARTNER', payment: { method: 'INVOICE' }, lines: [{ sku: 'PUMP-200', quantity: 20 }] },
+            },
+          },
+          {
+            afterMs: 12000,
+            http: {
+              method: 'POST',
+              path: '/prc-order/v1/orders',
+              headers: { 'Idempotency-Key': 'PO-2026-0418' },
+              body: { externalRef: 'PO-2026-0418', customerId: '001RS00000PaRt1', channel: 'PARTNER', payment: { method: 'INVOICE' }, lines: [{ sku: 'PUMP-200', quantity: 20 }] },
+            },
+          },
+        ],
+        expect: { status: 409, calls: [{ method: 'POST', path: '/sys-erp/v1/sales-orders', count: 1 }], sent: [{ destination: 'order-events-exchange', count: 1 }] },
+      },
+      {
+        name: 'The ERP is down during fulfilment',
+        about: 'The first delivery call fails and the message goes back to the queue. The redelivery is fulfilled, not dropped as a duplicate.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'fulfilment-queue', payload: { eventId: 'EV-61001', eventType: 'OrderAccepted', data: { orderId: 'SO-4500123', customerId: '001RS000004AbCd', authorisationId: 'AUTH-9001', lines: [{ sku: 'PUMP-200', quantity: 1 }] } } } },
+          { afterMs: 30000, message: { kind: 'mq', destination: 'fulfilment-queue', deliveryCount: 2, payload: { eventId: 'EV-61001', eventType: 'OrderAccepted', data: { orderId: 'SO-4500123', customerId: '001RS000004AbCd', authorisationId: 'AUTH-9001', lines: [{ sku: 'PUMP-200', quantity: 1 }] } } } },
+        ],
+        overrides: { systems: { http: [{ method: 'POST', path: '/sys-erp/v1/deliveries', responses: [{ status: 503, body: { message: 'ERP maintenance' } }, { status: 201, body: { deliveryId: 'DL-8000412' } }] }] } },
+        expect: {
+          ack: 'returned',
+          calls: [
+            { method: 'POST', path: '/sys-erp/v1/deliveries', count: 2 },
+            { method: 'POST', path: '/sys-payment/v1/captures', count: 1 },
+            { method: 'PATCH', path: '/sys-crm/v1/orders/{orderId}/status', count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -148,7 +298,7 @@ export default {
       'exp-web-orders',
       source('http-listener', { path: '/exp-web/v1/orders', allowedMethods: 'POST' }),
       [
-        step('validation', { check: 'json-schema', expression: '#[payload]', message: 'Invalid web order' }),
+        step('validation', { check: 'json-schema', expression: 'schemas/web-order.json', message: 'Invalid web order' }),
         step('http-request', { method: 'POST', path: '/prc-order/v1/orders', responseTimeout: 9000 }),
         step('transform', {
           script: '%dw 2.0\noutput application/json\n---\n{ orderNumber: payload.orderId, status: payload.status, estimatedShipDate: payload.promiseDate default null }',
@@ -193,6 +343,8 @@ export default {
           {},
           [route({ expression: '#[payload.creditStatus == "BLOCKED"]' }, [step('raise-error', { type: 'APP:CREDIT_HOLD', description: 'Account is on credit hold' })])],
         ),
+        // The CRM lookup replaced the payload with the account, so the order goes back into the payload for the next calls.
+        step('set-payload', { value: '#[vars.order]' }),
         router(
           'choice',
           {},
@@ -203,7 +355,8 @@ export default {
             ]),
           ],
         ),
-        scope('try', {}, [step('http-request', { method: 'POST', path: '/sys-erp/v1/sales-orders', responseTimeout: 3000 })], {
+        // After a card authorisation the payload is the PSP answer, so the ERP gets the order from vars.order.
+        scope('try', {}, [step('set-payload', { value: '#[vars.order]' }), step('http-request', { method: 'POST', path: '/sys-erp/v1/sales-orders', responseTimeout: 3000 })], {
           errorHandlers: [
             handler('on-error-propagate', { type: 'ANY' }, [
               router(
@@ -243,6 +396,7 @@ export default {
         // Each HTTP Request replaces payload and attributes, so keep the ack token and the event in variables.
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
         step('set-variable', { variableName: 'event', value: '#[payload]' }),
+        step('set-variable', { variableName: 'orderId', value: '#[payload.data.orderId]' }),
         step('idempotent', { idExpression: '#[vars.event.eventId]', objectStore: 'fulfilment-processed' }),
         step('http-request', { method: 'POST', path: '/sys-erp/v1/deliveries', responseTimeout: 5000 }),
         router(
@@ -398,7 +552,7 @@ Business rules:
 **prc-order (sync):**
 1. Idempotent Message Validator on the key → duplicate → 409 (or return the stored result). The docs do not say the key is released when the flow fails, so remove it on failure if a caller must be able to retry a failed order.
 2. \`sys-crm\` credit status → \`BLOCKED\` → \`APP:CREDIT_HOLD\` → 422.
-3. Card orders → \`sys-payment\` authorise, keep \`vars.authorisationId\`.
+3. Card orders → \`sys-payment\` authorise, keep \`vars.authorisationId\`. Each HTTP Request replaces the payload with its answer, so the order is kept in \`vars.order\` and set back as the payload before the payment and ERP calls.
 4. **Try** around \`sys-erp\` sales-order creation; its **On Error Propagate** calls \`sys-payment .../void\` when an authorisation exists, then the error continues up (503/422).
 5. Build and publish **OrderAccepted** to \`order-events-exchange\`; reply with order id and promise date.
 

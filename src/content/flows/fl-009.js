@@ -63,6 +63,45 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/processor/payments', latencyMs: 110, respond: { status: 201, body: { id: 'PAY-88120', amount: 49.99, currency: 'EUR', status: 'AUTHORISED' } } }],
+      db: {
+        latencyMs: 300,
+        tables: {
+          analytics_audit: { rows: [] },
+          compliance_audit: { rows: [] },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A payment is accepted',
+        about: 'The audit inserts take 300 ms, yet the caller gets the answer within 200 ms. Both audit tables get the record afterwards.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_visa_4242', merchantId: 'M-2207' } } },
+        expect: {
+          status: 200,
+          maxMs: 200,
+          sent: [{ destination: 'auditQueue', count: 1, has: { paymentId: 'PAY-88120' } }],
+          db: { compliance_audit: { count: 1, has: [{ payment_id: 'PAY-88120' }] }, analytics_audit: { count: 1, has: [{ payment_id: 'PAY-88120' }] } },
+        },
+      },
+      {
+        name: 'The audit database is down',
+        about: 'No audit insert can run. The payment answer is not affected, and the compliance record waits on the queue.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_visa_4242', merchantId: 'M-2207' } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 200, maxMs: 200, sent: [{ destination: 'auditQueue', count: 1 }] },
+      },
+      {
+        name: 'The payment processor fails',
+        about: 'The payment is not accepted, so no compliance audit record is handed over.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_visa_4242', merchantId: 'M-2207' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/processor/payments', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { notSent: ['auditQueue'], db: { compliance_audit: { count: 0 } }, calls: [{ method: 'POST', path: '/processor/payments', count: 1 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -75,7 +114,7 @@ export default {
       'payments-api',
       source('http-listener', { path: '/payments', allowedMethods: 'POST' }),
       [
-        step('validation', { check: 'json-schema', expression: '#[payload]', message: 'Invalid payment request' }),
+        step('validation', { check: 'is-true', expression: '#[(payload.amount default 0) > 0]', message: 'Invalid payment request' }),
         step('http-request', { method: 'POST', path: '/processor/payments', responseTimeout: 150 }),
         step('transform', {
           target: 'variable',
@@ -86,6 +125,8 @@ export default {
         // Variant A (analytics): fire-and-forget on a separate thread, losing records on a crash is acceptable
         scope('async', { maxConcurrency: 8 }, [
           scope('try', {}, [
+            // the insert reads its values from the audit record, not from the processor's answer
+            step('set-payload', { value: '#[vars.auditRecord]' }),
             step('db-insert', {
               sql: 'INSERT INTO analytics_audit (payment_id, amount, status, correlation_id) VALUES (:paymentId, :amount, :status, :correlationId)',
             }),

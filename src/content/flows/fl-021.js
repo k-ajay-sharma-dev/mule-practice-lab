@@ -79,6 +79,63 @@ export default {
       rule: { type: 'exists', component: 'mq-ack', min: 2 },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'PUT', path: '/prices/{sku}', latencyMs: 200, respond: { status: 200, body: { accepted: true } } }],
+    },
+    tests: [
+      {
+        name: 'A price update goes through',
+        about: 'The partner accepts the price, then the message is acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-8812', price: 19.99, effectiveAt: '2026-11-13T09:55:00Z' } } },
+        expect: { calls: [{ method: 'PUT', path: '/prices/SKU-8812', has: { price: 19.99 }, count: 1 }], ack: 'acked' },
+      },
+      {
+        name: 'An older price arrives late',
+        about: 'The 09:58 price was sent first. The 09:50 price for the same SKU comes after it, must not overwrite it, and still leaves the queue.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-8812', price: 18.49, effectiveAt: '2026-11-13T09:58:00Z' } } },
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-8812', price: 21.0, effectiveAt: '2026-11-13T09:50:00Z' } }, afterMs: 1000 },
+        ],
+        expect: { calls: [{ method: 'PUT', path: '/prices/SKU-8812', has: { price: 18.49 }, count: 1 }], ack: ['acked', 'acked'] },
+      },
+      {
+        name: 'The partner answers 429',
+        about: 'The partner asks for 30 seconds. An update 10 seconds later goes back to the queue without a call; one after the 30 seconds is sent.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-8812', price: 19.99, effectiveAt: '2026-11-13T09:55:00Z' } } },
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-4410', price: 5.25, effectiveAt: '2026-11-13T09:55:01Z' } }, afterMs: 10000 },
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-5120', price: 7.8, effectiveAt: '2026-11-13T09:55:02Z' } }, afterMs: 25000 },
+        ],
+        overrides: {
+          systems: {
+            http: [
+              { method: 'PUT', path: '/prices/{sku}', responses: [{ status: 429, headers: { 'retry-after': '30' }, body: { message: 'Rate limit exceeded' } }, { status: 200, body: { accepted: true } }] },
+            ],
+          },
+        },
+        expect: {
+          calls: [
+            { method: 'PUT', path: '/prices/{sku}', count: 2 },
+            { method: 'PUT', path: '/prices/SKU-4410', count: 0 },
+            { method: 'PUT', path: '/prices/SKU-5120', count: 1 },
+          ],
+          ack: ['returned', 'returned', 'acked'],
+        },
+      },
+      {
+        name: 'The partner is down once',
+        about: 'The first try fails, so the message is not acknowledged and comes back. The redelivery is sent, not skipped as already done.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-8812', price: 19.99, effectiveAt: '2026-11-13T09:55:00Z' } } },
+          { message: { kind: 'mq', destination: 'price-updates', payload: { sku: 'SKU-8812', price: 19.99, effectiveAt: '2026-11-13T09:55:00Z' }, deliveryCount: 2 }, afterMs: 5000 },
+        ],
+        overrides: { systems: { http: [{ method: 'PUT', path: '/prices/{sku}', responses: [{ fault: 'CONNECTIVITY' }, { status: 200, body: { accepted: true } }] }] } },
+        // A Nack or no acknowledgement at all both bring the message back, so the outcome of the first try is not checked.
+        expect: { calls: [{ method: 'PUT', path: '/prices/SKU-8812', count: 2 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-continue',
@@ -130,7 +187,9 @@ export default {
                 ],
                 {
                   otherwise: [
-                    step('http-request', { method: 'PUT', path: '/prices/{sku}', responseTimeout: 5000 }),
+                    // The Retrieve above replaced the payload with the last-sent version, so build the partner body from the update.
+                    step('set-payload', { value: '#[output application/json --- { price: vars.update.price, effectiveAt: vars.update.effectiveAt }]' }),
+                    step('http-request', { method: 'PUT', path: '#["/prices/" ++ vars.update.sku]', responseTimeout: 5000 }),
                     step('os-store', {
                       key: '#["last-sent-" ++ vars.update.sku]',
                       value: '#[vars.update.effectiveAt]',
@@ -148,7 +207,7 @@ export default {
         handler('on-error-continue', { type: 'HTTP:TOO_MANY_REQUESTS' }, [
           step('os-store', {
             key: 'partner-pause-until',
-            value: '#[now() + (("PT" ++ (error.errorMessage.attributes.headers."retry-after" default "1") ++ "S") as Period)]',
+            value: '#[(now() + (("PT" ++ (error.errorMessage.attributes.headers."retry-after" default "1") ++ "S") as Period)) as String]',
             objectStore: 'partner-throttle',
           }),
           step('mq-nack', { ackToken: '#[vars.ackToken]' }),
@@ -167,12 +226,14 @@ Your company pushes **product price updates** to a marketplace partner API.
 - **Max 20 requests/second** and **max 5 concurrent connections** per client ID.
 - Violations return **429 Too Many Requests** with a \`Retry-After\` header.
 - Repeated abuse suspends the account.
+- One price is sent with \`PUT /prices/{sku}\`.
 
 **Load**
 - Usually 2–5 updates/s.
 - The pricing engine sometimes publishes **150,000 updates in 10 minutes**.
 - The integration app runs on **3 replicas**.
 - No update may be lost, even if a replica crashes while sending it.
+- Each update is \`{ sku, price, effectiveAt }\`. Buffer them in an Anypoint MQ queue named \`price-updates\`.
 
 **Ordering rule**
 
@@ -202,6 +263,7 @@ Updates for the same SKU must not be applied out of order (an older price must n
     'Rate is paced to stay below 20/s overall (budget split per replica, or batching updates where the partner supports bulk).',
     'A 429 response is not counted as a failure: the message is retried after Retry-After (Nack/redelivery or delayed requeue), and consumption slows.',
     'Out-of-order updates are prevented with a version/timestamp per SKU (skip stale updates) or by coalescing to the latest price per SKU.',
+    'Object Store Retrieve replaces the payload with the stored value, so the update is kept in a variable and the partner body is built from it before the PUT.',
   ],
   solution: `
 1. **Buffer:** pricing engine → **Anypoint MQ** queue \`price-updates\` (via a small ingest API or direct publish). 150k messages wait in the queue instead of hitting the partner.

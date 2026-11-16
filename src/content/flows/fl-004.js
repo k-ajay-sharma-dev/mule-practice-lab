@@ -47,6 +47,105 @@ export default {
       rule: { type: 'inside', component: 'os-remove', within: 'on-error-propagate' },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', latencyMs: 600, respond: { status: 200, body: { invoiceId: 'INV-2041', status: 'PAID' } } }],
+    },
+    tests: [
+      {
+        name: 'A new event is processed',
+        about: 'The invoice is updated once, one notification is published, and the provider gets a 2xx.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/webhooks/payments',
+            headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+            body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
+          },
+        },
+        expect: {
+          status: 200,
+          calls: [{ method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', count: 1 }],
+          sent: [{ destination: 'payment-notifications', count: 1 }],
+        },
+      },
+      {
+        name: 'The same event arrives twice',
+        about: 'The provider sends the event again a few milliseconds later. The second copy gets a 2xx and changes nothing.',
+        triggers: [
+          {
+            http: {
+              method: 'POST',
+              path: '/webhooks/payments',
+              headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+              body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
+            },
+          },
+          {
+            afterMs: 5,
+            http: {
+              method: 'POST',
+              path: '/webhooks/payments',
+              headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+              body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
+            },
+          },
+        ],
+        expect: {
+          status: 200,
+          calls: [{ method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', count: 1 }],
+          sent: [{ destination: 'payment-notifications', count: 1 }],
+        },
+      },
+      {
+        name: 'NetSuite is down',
+        about: 'The invoice update fails, so no notification goes out and the provider does not get a 2xx.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/webhooks/payments',
+            headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+            body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { error: 'HTTP:CONNECTIVITY', bodyLacks: { received: true }, notSent: ['payment-notifications'] },
+      },
+      {
+        name: 'The retry after a failure is processed',
+        about: 'NetSuite fails the first time. When the provider sends the same event again, it must not be dropped as a duplicate.',
+        triggers: [
+          {
+            http: {
+              method: 'POST',
+              path: '/webhooks/payments',
+              headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+              body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
+            },
+          },
+          {
+            afterMs: 60000,
+            http: {
+              method: 'POST',
+              path: '/webhooks/payments',
+              headers: { 'stripe-signature': 't=1731492060,v1=8f14e45fceea167a5a36dedd4bea2543c4ab0d1e2f7a8b9c0d1e2f3a4b5c6d7e' },
+              body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
+            },
+          },
+        ],
+        overrides: {
+          systems: {
+            http: [{ method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', responses: [{ status: 503, body: { message: 'Service Unavailable' } }, { status: 200, body: { invoiceId: 'INV-2041', status: 'PAID' } }] }],
+          },
+        },
+        expect: {
+          status: 200,
+          calls: [{ method: 'PATCH', path: '/netsuite/invoices/{invoiceId}', count: 2 }],
+          sent: [{ destination: 'payment-notifications', count: 1 }],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

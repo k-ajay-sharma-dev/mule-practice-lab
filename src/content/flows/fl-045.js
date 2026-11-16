@@ -72,6 +72,102 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'POST', path: '/wms/api/reservations', latencyMs: 180, respond: (req) => ({ status: 201, body: { reservationId: `RSV-${req.body?.sku ?? 'X'}` } }) },
+        { method: 'DELETE', path: '/wms/api/reservations/{reservationId}', latencyMs: 120, respond: { status: 204, body: null } },
+        { method: 'POST', path: '/wms/api/reservations/commit', latencyMs: 200, respond: { status: 200, body: { committed: true } } },
+      ],
+      db: {
+        tables: {
+          inventory_hold: {
+            key: 'hold_id',
+            columns: ['hold_id', 'cart_id', 'status', 'expires_at', 'wms_refs', 'committed_at'],
+            rows: [
+              { hold_id: 'H-3101', cart_id: 'CART-551', status: 'HELD', expires_at: '2026-11-13T10:09:00Z', wms_refs: ['RSV-BOOT-42', 'RSV-SOCK-3P'] },
+              { hold_id: 'H-3102', cart_id: 'CART-552', status: 'HELD', expires_at: '2026-11-13T09:51:00Z', wms_refs: ['RSV-JACKET-M', 'RSV-HAT-W'] },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'Every line is reserved',
+        about: 'Both cart lines are reserved and the hold becomes HELD.',
+        trigger: { http: { method: 'POST', path: '/inventory/v1/holds', body: { cartId: 'CART-600', lines: [{ sku: 'TENT-2P', quantity: 1 }, { sku: 'LAMP-LED', quantity: 2 }] } } },
+        expect: {
+          status: 201,
+          calls: [{ method: 'POST', path: '/wms/api/reservations', count: 2 }, { method: 'DELETE', path: '/wms/api/reservations/{reservationId}', count: 0 }],
+          db: { inventory_hold: { has: { cart_id: 'CART-600', status: 'HELD' } } },
+        },
+      },
+      {
+        name: 'The WMS fails once',
+        about: 'A single 503 is retried, so the hold still goes through.',
+        trigger: { http: { method: 'POST', path: '/inventory/v1/holds', body: { cartId: 'CART-601', lines: [{ sku: 'TENT-2P', quantity: 1 }, { sku: 'LAMP-LED', quantity: 2 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/wms/api/reservations', responses: [{ status: 503, body: { message: 'busy' } }, { status: 201, body: { reservationId: 'RSV-TENT-2P' } }, { status: 201, body: { reservationId: 'RSV-LAMP-LED' } }] }] } },
+        expect: { status: 201, db: { inventory_hold: { has: { cart_id: 'CART-601', status: 'HELD' } } } },
+      },
+      {
+        name: 'The second line is out of stock',
+        about: 'The WMS answers 409 for the lamp. That is not retried: the tent is released again and the shop gets 409.',
+        trigger: { http: { method: 'POST', path: '/inventory/v1/holds', body: { cartId: 'CART-602', lines: [{ sku: 'TENT-2P', quantity: 1 }, { sku: 'LAMP-LED', quantity: 40 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/wms/api/reservations', responses: [{ status: 201, body: { reservationId: 'RSV-TENT-2P' } }, { status: 409, body: { message: 'Insufficient stock for LAMP-LED' } }] }] } },
+        // Two calls only: a 409 is a business answer and is never retried.
+        expect: {
+          status: 409,
+          calls: [{ method: 'POST', path: '/wms/api/reservations', count: 2 }, { method: 'DELETE', path: '/wms/api/reservations/RSV-TENT-2P', count: 1 }],
+          db: { inventory_hold: { has: { cart_id: 'CART-602' }, lacks: { cart_id: 'CART-602', status: 'HELD' } } },
+        },
+      },
+      {
+        name: 'The WMS stays down',
+        about: 'The second line cannot be reserved after the retries, so the first one is released and the shop gets 409.',
+        trigger: { http: { method: 'POST', path: '/inventory/v1/holds', body: { cartId: 'CART-603', lines: [{ sku: 'TENT-2P', quantity: 1 }, { sku: 'LAMP-LED', quantity: 2 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/wms/api/reservations', responses: [{ status: 201, body: { reservationId: 'RSV-TENT-2P' } }, { status: 503, body: { message: 'WMS unavailable' } }] }] } },
+        expect: {
+          status: 409,
+          calls: [{ method: 'DELETE', path: '/wms/api/reservations/RSV-TENT-2P', count: 1 }],
+          db: { inventory_hold: { lacks: { cart_id: 'CART-603', status: 'HELD' } } },
+        },
+      },
+      {
+        name: 'Checkout commits a live hold',
+        about: 'The hold has not expired, so it becomes COMMITTED and the WMS is told.',
+        trigger: { http: { method: 'POST', path: '/inventory/v1/holds/H-3101/commit' } },
+        expect: {
+          noError: true,
+          calls: [{ method: 'POST', path: '/wms/api/reservations/commit', count: 1 }],
+          db: { inventory_hold: { has: { hold_id: 'H-3101', status: 'COMMITTED' } } },
+        },
+      },
+      {
+        name: 'Checkout comes after the expiry',
+        about: 'The hold expired nine minutes ago, so it must not be committed.',
+        trigger: { http: { method: 'POST', path: '/inventory/v1/holds/H-3102/commit' } },
+        expect: {
+          bodyLacks: '~No listener for endpoint',
+          calls: [{ method: 'POST', path: '/wms/api/reservations/commit', count: 0 }],
+          db: { inventory_hold: { lacks: { hold_id: 'H-3102', status: 'COMMITTED' } } },
+        },
+      },
+      {
+        name: 'The sweeper frees an expired hold',
+        about: 'Both reservations of the expired hold are released, and the live hold is left alone.',
+        trigger: { schedule: {} },
+        expect: {
+          calls: [
+            { method: 'DELETE', path: '/wms/api/reservations/RSV-JACKET-M', count: 1 },
+            { method: 'DELETE', path: '/wms/api/reservations/RSV-HAT-W', count: 1 },
+            { method: 'DELETE', path: '/wms/api/reservations/RSV-BOOT-42', count: 0 },
+          ],
+          db: { inventory_hold: { has: [{ hold_id: 'H-3102', status: 'EXPIRED' }, { hold_id: 'H-3101', status: 'HELD' }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'create-hold',
@@ -85,7 +181,8 @@ export default {
         }),
         scope('foreach', { collection: '#[vars.cart.lines]', batchSize: 1 }, [
           scope('until-successful', { maxRetries: 3, millisBetweenRetries: 2000 }, [
-            step('http-request', { method: 'POST', path: '/wms/api/reservations', responseTimeout: 3000 }),
+            // 409 (out of stock) is let through as a normal answer, so Until Successful does not retry it.
+            step('http-request', { method: 'POST', path: '/wms/api/reservations', responseTimeout: 3000, successStatusCodes: '200..299,409' }),
           ]),
           router(
             'choice',
@@ -115,6 +212,7 @@ export default {
     ),
     subFlow('release-reservations', [
       scope('foreach', { collection: '#[vars.reserved]', batchSize: 1 }, [
+        step('set-variable', { variableName: 'reservationId', value: '#[payload]' }),
         scope('try', { transactionalAction: 'INDIFFERENT' }, [
           scope('until-successful', { maxRetries: 3, millisBetweenRetries: 2000 }, [
             step('http-request', { method: 'DELETE', path: '/wms/api/reservations/{reservationId}', responseTimeout: 3000 }),

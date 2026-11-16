@@ -1,5 +1,26 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
 
+// The claim the portal sends, and the claim-check ticket for it on the queue.
+const claimDoc = {
+  policyNo: 'POL-88120417',
+  claimant: { name: 'Daniel Okafor', email: 'd.okafor@example.com' },
+  incidentDate: '2026-11-09',
+  documents: [
+    { name: 'front-bumper.jpg', base64: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT' },
+    { name: 'repair-estimate.pdf', base64: 'JVBERi0xLjcKJcfsj6IKNSAwIG9iago8PC9MZW5ndGggNiAwIFIvRmlsdGVyIC9GbGF0ZURlY29kZT4+CnN0cmVhbQp4nCWLsQ' },
+  ],
+}
+// SHA-256 of claimDoc written as JSON, the way the intake flow computes it.
+const claimSha = '6ade6a60a9d4cf5c2ca367b23fce5748d4197b0e1b5e503f2ab18cf762ed0f4a'
+const ticket = (sha256) => ({
+  claimId: '7f3c9a10-5d2e-4b8a-9c61-2e0f4d8b7a35',
+  policyNo: 'POL-88120417',
+  bucket: 'acme-claims-documents',
+  key: 'claims/2026/11/13/7f3c9a10-5d2e-4b8a-9c61-2e0f4d8b7a35.json',
+  sha256,
+  receivedAt: '2026-11-13T09:59:58Z',
+})
+
 export default {
   id: 'fl-044',
   category: 'flows',
@@ -49,6 +70,45 @@ export default {
       rule: { type: 'inside', component: 'mq-nack', within: ['on-error-continue', 'on-error-propagate'] },
     },
   ],
+  simulation: {
+    systems: {
+      calls: {
+        's3-get': { payload: claimDoc },
+        'wsc-consume': { latencyMs: 12000, payload: { SubmitClaimResponse: { ClaimRef: 'LC-2026-118204', Status: 'ACCEPTED' } } },
+      },
+    },
+    tests: [
+      {
+        name: 'The portal submits a claim',
+        about: 'The portal gets its answer within 2 s, and the queue gets a small ticket without the documents.',
+        trigger: { http: { method: 'POST', path: '/claims/v1/submissions', headers: { 'content-length': '2400000' }, body: claimDoc } },
+        expect: {
+          status: 202,
+          maxMs: 2000,
+          sent: [{ destination: 'claims-intake', count: 1, has: { policyNo: 'POL-88120417', documents: undefined } }],
+        },
+      },
+      {
+        name: 'The claims system accepts the claim',
+        about: 'The worker reads the document back, checks it and submits it, then acknowledges the message.',
+        trigger: { message: { kind: 'mq', destination: 'claims-intake', payload: ticket(claimSha) } },
+        expect: { ack: 'acked' },
+      },
+      {
+        name: 'The claims system is in maintenance',
+        about: 'SubmitClaim fails, so the message goes back to the queue and the claim is not lost.',
+        trigger: { message: { kind: 'mq', destination: 'claims-intake', payload: ticket(claimSha) } },
+        overrides: { systems: { calls: { 'wsc-consume': { fault: { type: 'WSC:CONNECTIVITY', description: 'Connection refused: claims system in maintenance' } } } } },
+        expect: { ack: 'returned' },
+      },
+      {
+        name: 'The stored document was altered',
+        about: 'The checksum in the ticket does not match the document, so the claim is not submitted and the message is not acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'claims-intake', payload: ticket('0'.repeat(64)) } },
+        expect: { ack: 'returned' },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -70,7 +130,7 @@ export default {
         step('set-variable', { variableName: 's3Key', value: '#["claims/" ++ (now() as String {format: "yyyy/MM/dd"}) ++ "/" ++ vars.claimId ++ ".json"]' }),
         step('set-variable', {
           variableName: 'sha256',
-          value: '#[dw::core::Binaries::toHex(dw::Crypto::hashWith(payload.^raw as Binary, "SHA-256"))]',
+          value: '#[dw::core::Binaries::toHex(dw::Crypto::hashWith(write(payload, "application/json") as Binary, "SHA-256"))]',
         }),
         step('set-variable', { variableName: 'policyNo', value: '#[payload.policyNo]' }),
         // Put Object outputs a Put Object Response, so the ticket below reads the saved variable.
@@ -98,7 +158,7 @@ export default {
         step('s3-get', { bucket: 'acme-claims-documents', key: '#[vars.ticket.key]' }),
         step('validation', {
           check: 'is-true',
-          expression: '#[dw::core::Binaries::toHex(dw::Crypto::hashWith(payload.^raw as Binary, "SHA-256")) == vars.ticket.sha256]',
+          expression: '#[dw::core::Binaries::toHex(dw::Crypto::hashWith(write(payload, "application/json") as Binary, "SHA-256")) == vars.ticket.sha256]',
           message: 'Document checksum mismatch',
         }),
         step('transform', {
@@ -152,7 +212,7 @@ Constraints:
   solution: `
 **Intake flow** — \`POST /claims/v1/submissions\`
 1. **Validate** size (≤ 50 MB) and mandatory fields.
-2. Generate \`claimId\`; compute **SHA-256** of the raw body (\`payload.^raw\`), and save \`policyNo\` in a variable.
+2. Generate \`claimId\`; compute **SHA-256** of the claim written as JSON (\`write(payload, "application/json")\`), and save \`policyNo\` in a variable. The worker hashes the document it reads back the same way, so equal hashes prove nothing changed. Hashing the raw bytes (\`payload.^raw\`) at both ends works too.
 3. **S3 Put Object** \`claims/yyyy/MM/dd/{claimId}.json\` in \`acme-claims-documents\` (the "claim"). This also satisfies the 7-year retention requirement. Its output is a Put Object Response, not your claim, which is why step 2 saved what the ticket needs.
 4. DataWeave builds the small **claim-check** message: \`{ claimId, policyNo, bucket, key, sha256, receivedAt }\` (< 1 KB).
 5. **Anypoint MQ Publish** \`claims-intake\` (queue with DLQ, max deliveries e.g. 10) → respond **202**.

@@ -84,6 +84,86 @@ export default {
       why: 'Any other error already becomes a 500 by default. This catch-all only gives it a tidy body without internal details, which is a good extra.',
     },
   ],
+  // Each test's authentication is what the JWT Validation policy leaves on the event for a valid token.
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          accounts: {
+            key: 'account_id',
+            rows: [
+              { account_id: 'ACC-100234', tenant_id: 'T-77', name: 'Acme ERP operating account' },
+              { account_id: 'ACC-200871', tenant_id: 'T-12', name: 'Globex payroll account' },
+            ],
+          },
+          statements: {
+            key: 'statement_id',
+            rows: [
+              { statement_id: 'ST-9001', account_id: 'ACC-100234', tenant_id: 'T-77', period: '2026-10', closing_balance: 182400.55 },
+              { statement_id: 'ST-9002', account_id: 'ACC-200871', tenant_id: 'T-12', period: '2026-10', closing_balance: 96310.2 },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A tenant reads its own account',
+        about: 'Acme\'s token asks for Acme\'s account and gets its statements.',
+        trigger: {
+          http: {
+            method: 'GET',
+            path: '/api/v1/accounts/ACC-100234/statements',
+            authentication: { principal: 'svc-acme-erp', properties: { claims: { sub: 'svc-acme-erp', tenant_id: 'T-77', scope: 'profile statements:read', aud: 'statements-api' } } },
+          },
+        },
+        expect: { status: 200, bodyHas: { accountId: 'ACC-100234', statements: [{ statementId: 'ST-9001' }] } },
+      },
+      {
+        name: 'Another tenant\'s account',
+        about: 'Acme\'s token asks for a Globex account and also sends Globex\'s tenant in a header. The answer is 404, as if the account did not exist, and the attempt is logged.',
+        trigger: {
+          http: {
+            method: 'GET',
+            path: '/api/v1/accounts/ACC-200871/statements?tenant_id=T-12',
+            headers: { 'x-tenant-id': 'T-12' },
+            authentication: { principal: 'svc-acme-erp', properties: { claims: { sub: 'svc-acme-erp', tenant_id: 'T-77', scope: 'profile statements:read', aud: 'statements-api' } } },
+          },
+        },
+        expect: { status: 404, bodyLacks: { statements: [{ statementId: 'ST-9002' }] }, logs: [{ has: 'ACC-200871' }] },
+      },
+      {
+        name: 'An account that does not exist',
+        about: 'The answer is the same 404, so account numbers cannot be found by trying them. The attempt is logged too.',
+        trigger: {
+          http: {
+            method: 'GET',
+            path: '/api/v1/accounts/ACC-999999/statements',
+            authentication: { principal: 'svc-acme-erp', properties: { claims: { sub: 'svc-acme-erp', tenant_id: 'T-77', scope: 'profile statements:read', aud: 'statements-api' } } },
+          },
+        },
+        expect: { status: 404, logs: [{ has: 'ACC-999999' }] },
+      },
+      {
+        name: 'The token lacks the scope',
+        about: 'A valid token for the right tenant, but with only the profile scope. The answer is 403.',
+        trigger: {
+          http: {
+            method: 'GET',
+            path: '/api/v1/accounts/ACC-100234/statements',
+            authentication: { principal: 'svc-acme-portal', properties: { claims: { sub: 'svc-acme-portal', tenant_id: 'T-77', scope: 'profile', aud: 'statements-api' } } },
+          },
+        },
+        expect: { status: 403, bodyLacks: { statements: [{ statementId: 'ST-9001' }] } },
+      },
+      {
+        name: 'The policy was removed',
+        about: 'The request arrives with no validated token, only a tenant in a header. There is no tenant claim, so the answer is 401.',
+        trigger: { http: { method: 'GET', path: '/api/v1/accounts/ACC-200871/statements', headers: { 'x-tenant-id': 'T-12', 'x-scope': 'statements:read' } } },
+        expect: { status: 401, bodyLacks: { statements: [{ statementId: 'ST-9002' }] } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'get-account-statements',
@@ -148,6 +228,8 @@ Tokens carry these claims:
 \`\`\`json
 { "sub": "svc-acme-erp", "tenant_id": "T-77", "scope": "profile statements:read", "aud": "statements-api" }
 \`\`\`
+
+The database has an \`accounts\` table (\`account_id\`, \`tenant_id\`) and a \`statements\` table (\`statement_id\`, \`account_id\`, \`tenant_id\`, \`period\`, \`closing_balance\`).
 
 **Requirements**
 - Read the tenant and scope from the claims the policy validated, not from anything else in the request. The policy places those claims on the authentication data of the Mule event.

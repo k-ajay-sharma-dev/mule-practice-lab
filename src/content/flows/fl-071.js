@@ -42,6 +42,95 @@ export default {
       rule: { type: 'inside', component: 'ftp-move', within: 'on-error-propagate', where: { targetPath: 'error', sourcePath: 'vars.' } },
     },
   ],
+  simulation: {
+    systems: {
+      // The listener reads the file as CSV with ; as the separator; these are the rows it gives the flow.
+      files: {
+        '/outbound/prices/PRICES_20261113_0600.csv': [
+          { ITEM_NO: '400-1187', UNIT_PRICE: '12.40', CURR: 'EUR', VALID_FROM: '14.11.2026' },
+          { ITEM_NO: '400-2230', UNIT_PRICE: '3.95', CURR: 'EUR', VALID_FROM: '14.11.2026' },
+          { ITEM_NO: '400-3051', UNIT_PRICE: '149.00', CURR: 'EUR', VALID_FROM: '01.12.2026' },
+        ],
+        '/outbound/prices/PRICES_20261113_1800.csv': [
+          { ITEM_NO: '400-1187', UNIT_PRICE: '12.10', CURR: 'EUR', VALID_FROM: '15.11.2026' },
+          { ITEM_NO: '400-2230', UNIT_PRICE: 'n/a', CURR: 'EUR', VALID_FROM: '15.11.2026' },
+        ],
+      },
+      db: {
+        tables: {
+          PARTNER_PRICE_STAGING: { columns: ['SOURCE_FILE', 'SKU', 'PRICE', 'CURRENCY', 'VALID_FROM'], rows: [] },
+          PARTNER_PRICE: {
+            key: 'SKU',
+            rows: [{ SKU: '400-1187', PRICE: 11.9, CURRENCY: 'EUR', VALID_FROM: '2026-10-01', SOURCE_FILE: 'PRICES_20261001_0600.csv' }],
+          },
+        },
+        procedures: {
+          // MERGE of the file's staging rows into dbo.PARTNER_PRICE.
+          'dbo.usp_ApplyPartnerPrices': (args, db) => {
+            const target = db.tables.PARTNER_PRICE.rows
+            for (const s of db.tables.PARTNER_PRICE_STAGING.rows.filter((r) => r.SOURCE_FILE === args.fileName)) {
+              const row = { SKU: s.SKU, PRICE: s.PRICE, CURRENCY: s.CURRENCY, VALID_FROM: s.VALID_FROM, SOURCE_FILE: s.SOURCE_FILE }
+              const i = target.findIndex((t) => t.SKU === s.SKU)
+              if (i >= 0) target[i] = row
+              else target.push(row)
+            }
+            return {}
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A price file is loaded',
+        about: 'All three prices reach dbo.PARTNER_PRICE as numbers, and the file stays out of the error folder.',
+        trigger: { file: { path: '/outbound/prices/PRICES_20261113_0600.csv' } },
+        expect: {
+          noError: true,
+          db: {
+            PARTNER_PRICE: {
+              count: 3,
+              has: [
+                { SKU: '400-1187', PRICE: 12.4, CURRENCY: 'EUR' },
+                { SKU: '400-2230', PRICE: 3.95, CURRENCY: 'EUR' },
+                { SKU: '400-3051', PRICE: 149 },
+              ],
+            },
+          },
+          files: { '/error/PRICES_20261113_0600.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'A price in the file is not a number',
+        about: 'One row says n/a. No price from the file is loaded and the file goes to /error.',
+        trigger: { file: { path: '/outbound/prices/PRICES_20261113_1800.csv' } },
+        expect: {
+          db: { PARTNER_PRICE: { count: 1, has: { SKU: '400-1187', PRICE: 11.9 } } },
+          files: { '/error/PRICES_20261113_1800.csv': { exists: true }, '/outbound/prices/PRICES_20261113_1800.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'The load fails halfway',
+        about: 'The rows are staged but the step that applies them fails. Everything written for the file is rolled back, so the pricing engine never sees half a list, and the file goes to /error.',
+        trigger: { file: { path: '/outbound/prices/PRICES_20261113_0600.csv' } },
+        // the apply procedure is missing, so its call fails with DB:QUERY_EXECUTION
+        overrides: { systems: { db: { procedures: { 'dbo.usp_ApplyPartnerPrices': null } } } },
+        expect: {
+          db: { PARTNER_PRICE_STAGING: { count: 0 }, PARTNER_PRICE: { count: 1, has: { SKU: '400-1187', PRICE: 11.9 } } },
+          files: { '/error/PRICES_20261113_0600.csv': { exists: true } },
+        },
+      },
+      {
+        name: 'SQL Server is down',
+        about: 'The database cannot be reached, so nothing is loaded and the file is moved to /error for the partner manager.',
+        trigger: { file: { path: '/outbound/prices/PRICES_20261113_0600.csv' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: {
+          error: 'DB:CONNECTIVITY',
+          files: { '/error/PRICES_20261113_0600.csv': { exists: true }, '/outbound/prices/PRICES_20261113_0600.csv': { exists: false } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'partner-price-file-intake',
@@ -66,7 +155,8 @@ export default {
         step('validation', { check: 'is-not-empty-collection', expression: '#[payload]', message: 'Price file contains no rows' }),
         scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
           // A re-delivered file replaces its own earlier staging rows.
-          step('db-delete', { database: 'SQL Server', sql: 'DELETE FROM dbo.PARTNER_PRICE_STAGING WHERE SOURCE_FILE = :fileName' }),
+          // The result goes to a target variable: without it the delete count replaces the mapped rows in the payload.
+          step('db-delete', { database: 'SQL Server', sql: 'DELETE FROM dbo.PARTNER_PRICE_STAGING WHERE SOURCE_FILE = :fileName', target: 'staleRows' }),
           scope('foreach', { collection: '#[payload]', batchSize: 1000 }, [
             step('db-bulk-insert', {
               database: 'SQL Server',
@@ -125,7 +215,7 @@ The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pr
 2. **Set Variable** \`originalPath = attributes.path\` and \`fileName\` — later operations replace \`attributes\`.
 3. **Transform**: CSV rows → \`{ sourceFile, sku, price as Number, currency, validFrom as Date {format: "dd.MM.yyyy"} }\`. A malformed number or date fails here, before anything is written. Validate the list is not empty.
 4. **Try (ALWAYS_BEGIN)** on the SQL Server config:
-   - **Delete** earlier staging rows for the same file name (makes a re-delivery safe).
+   - **Delete** earlier staging rows for the same file name (makes a re-delivery safe). Give it a **target variable**: a Database operation replaces the payload with its result, so without one the For Each would loop over the delete count instead of the price rows.
    - **For Each** (\`batchSize\` 1000) → **Bulk Insert** into \`dbo.PARTNER_PRICE_STAGING\` with \`:named\` parameters.
    - **Stored Procedure** \`dbo.usp_ApplyPartnerPrices(:fileName)\` runs a \`MERGE\` into \`dbo.PARTNER_PRICE\`.
    Commit at the end of the Try; any error rolls the whole file back.

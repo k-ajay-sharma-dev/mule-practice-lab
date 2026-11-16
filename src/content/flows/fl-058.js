@@ -59,6 +59,58 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          ITEM_PRICE: {
+            columns: ['SKU', 'PRICE_ZONE', 'PRICE', 'EFFECTIVE_FROM', 'CHANGED_BY', 'CHANGED_AT'],
+            key: ['SKU', 'PRICE_ZONE'],
+            rows: [
+              { SKU: 'DRS-1042-BLK', PRICE_ZONE: 'UK', PRICE: 49.99, EFFECTIVE_FROM: '2026-09-01', CHANGED_BY: 'buyer.amir', CHANGED_AT: '2026-08-28T15:02:00Z' },
+              { SKU: 'DRS-1042-BLK', PRICE_ZONE: 'IE', PRICE: 54.99, EFFECTIVE_FROM: '2026-09-01', CHANGED_BY: 'buyer.amir', CHANGED_AT: '2026-08-28T15:02:00Z' },
+            ],
+          },
+        },
+        latencyMs: 25,
+      },
+    },
+    tests: [
+      {
+        name: 'A price is marked down',
+        about: 'The UK price row is updated and one change event goes to the topic.',
+        trigger: { http: { method: 'POST', path: '/api/prices', body: { sku: 'DRS-1042-BLK', zone: 'UK', price: 39.99, currency: 'GBP', effectiveFrom: '2026-11-14', changedBy: 'buyer.jane' } } },
+        expect: {
+          status: 200,
+          db: { ITEM_PRICE: { has: [{ SKU: 'DRS-1042-BLK', PRICE_ZONE: 'UK', PRICE: 39.99 }, { PRICE_ZONE: 'IE', PRICE: 54.99 }] } },
+          sent: [{ destination: 'retail.price.changed', count: 1, has: { sku: 'DRS-1042-BLK', zone: 'UK', price: 39.99 } }],
+          maxMs: 1000,
+        },
+      },
+      {
+        name: 'The price is zero',
+        about: 'Bad input gets 400. Oracle is not touched and nothing is announced.',
+        trigger: { http: { method: 'POST', path: '/api/prices', body: { sku: 'DRS-1042-BLK', zone: 'UK', price: 0, currency: 'GBP', effectiveFrom: '2026-11-14', changedBy: 'buyer.jane' } } },
+        expect: { status: 400, db: { ITEM_PRICE: { lacks: [{ PRICE: 0 }] } }, notSent: ['retail.price.changed'] },
+      },
+      {
+        name: 'The SKU is not priced in that zone',
+        about: 'After a good UK change, a change for zone FR matches no row. The tool gets 404 and only the UK change is announced.',
+        triggers: [
+          { http: { method: 'POST', path: '/api/prices', body: { sku: 'DRS-1042-BLK', zone: 'UK', price: 39.99, currency: 'GBP', effectiveFrom: '2026-11-14', changedBy: 'buyer.jane' } } },
+          { http: { method: 'POST', path: '/api/prices', body: { sku: 'DRS-1042-BLK', zone: 'FR', price: 44.99, currency: 'EUR', effectiveFrom: '2026-11-14', changedBy: 'buyer.jane' } } },
+        ],
+        expect: { status: 404, sent: [{ destination: 'retail.price.changed', count: 1 }, { destination: 'retail.price.changed', count: 0, has: { zone: 'FR' } }] },
+      },
+      {
+        name: 'The broker is down',
+        about: 'The price is saved but the event cannot be published, so the tool gets 503 and retries.',
+        trigger: { http: { method: 'POST', path: '/api/prices', body: { sku: 'DRS-1042-BLK', zone: 'IE', price: 44.99, currency: 'EUR', effectiveFrom: '2026-11-14', changedBy: 'buyer.jane' } } },
+        overrides: { systems: { queues: { 'retail.price.changed': { fault: true } } } },
+        expect: { status: 503, db: { ITEM_PRICE: { has: [{ PRICE_ZONE: 'IE', PRICE: 44.99 }] } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'post-price-change',

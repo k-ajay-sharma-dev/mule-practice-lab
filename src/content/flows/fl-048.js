@@ -75,6 +75,84 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/prc-orders/v1/customers/{customerId}/orders',
+          latencyMs: 240,
+          respond: {
+            status: 200,
+            body: {
+              orders: [
+                { orderId: 'SO-88412', orderDate: '2026-11-08', status: 'SHIPPED', total: { amount: 129.9, currency: 'EUR' }, lines: [{ sku: 'BOOT-42', quantity: 1, unitPrice: 129.9, imageUrl: 'https://cdn.example.com/boot-42.jpg' }] },
+                { orderId: 'SO-87120', orderDate: '2026-10-21', status: 'DELIVERED', total: { amount: 45.5, currency: 'EUR' }, lines: [{ sku: 'SOCK-3P', quantity: 2, unitPrice: 22.75, imageUrl: 'https://cdn.example.com/sock-3p.jpg' }] },
+              ],
+            },
+          },
+        },
+        {
+          method: 'GET',
+          path: '/sys-oms/v1/orders',
+          latencyMs: 120,
+          respond: {
+            status: 200,
+            body: [
+              { orderId: 'SO-87120', orderDate: '2026-10-21', status: 'DELIVERED', total: { amount: 45.5, currency: 'EUR' }, lines: [] },
+              { orderId: 'SO-88412', orderDate: '2026-11-08', status: 'SHIPPED', total: { amount: 129.9, currency: 'EUR' }, lines: [] },
+            ],
+          },
+        },
+      ],
+      db: {
+        tables: {
+          oms_order: {
+            key: 'order_no',
+            rows: [
+              { order_no: 'SO-87120', customer_id: 'C-100231', created_ts: '2026-10-21', status: 'DELIVERED', total_amt: 45.5, currency_cd: 'EUR' },
+              { order_no: 'SO-88412', customer_id: 'C-100231', created_ts: '2026-11-08', status: 'SHIPPED', total_amt: 129.9, currency_cd: 'EUR' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'The mobile app lists orders',
+        about: 'The mobile Experience API gets the orders from the Process API and answers 200 within its 2 s budget.',
+        trigger: { http: { method: 'GET', path: '/exp-mobile/v1/me/orders', headers: { authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.mobile', 'x-customer-id': 'C-100231' } } },
+        expect: { status: 200, maxMs: 2000, calls: [{ method: 'GET', path: '/prc-orders/v1/customers/{customerId}/orders', count: 1 }, { method: 'GET', path: '/sys-oms/v1/orders', count: 0 }] },
+      },
+      {
+        name: 'A partner lists orders',
+        about: 'The partner Experience API calls the same Process API, not the System API.',
+        trigger: { http: { method: 'GET', path: '/exp-partner/v1/orders', query: { customerId: 'C-100231' } } },
+        expect: { status: 200, calls: [{ method: 'GET', path: '/prc-orders/v1/customers/{customerId}/orders', count: 1 }, { method: 'GET', path: '/sys-oms/v1/orders', count: 0 }] },
+      },
+      {
+        name: 'The mobile app asks for an unknown customer',
+        about: 'The Process API answers 404, and the app gets 200 with an empty list instead of an error.',
+        trigger: { http: { method: 'GET', path: '/exp-mobile/v1/me/orders', headers: { authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.mobile', 'x-customer-id': 'C-100231' } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/prc-orders/v1/customers/{customerId}/orders', respond: { status: 404, body: { message: 'Customer not found' } } }] } },
+        expect: { status: 200 },
+      },
+      {
+        name: 'A partner asks for an unknown customer',
+        about: 'The Process API answers 404, and the partner gets 404 too.',
+        trigger: { http: { method: 'GET', path: '/exp-partner/v1/orders', query: { customerId: 'C-404404' } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/prc-orders/v1/customers/{customerId}/orders', respond: { status: 404, body: { message: 'Customer not found' } } }] } },
+        expect: { status: 404, bodyLacks: '~No listener for endpoint' },
+      },
+      {
+        name: 'The Process API reads the OMS',
+        about: 'The Process API gets the orders through the System API, never from the database itself.',
+        trigger: { http: { method: 'GET', path: '/prc-orders/v1/customers/C-100231/orders' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 200, calls: [{ method: 'GET', path: '/sys-oms/v1/orders', count: 1 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -87,6 +165,8 @@ export default {
       'exp-mobile-orders',
       source('http-listener', { path: '/exp-mobile/v1/me/orders', allowedMethods: 'GET' }),
       [
+        // The JWT policy on this API has validated the token and passes its subject on as a header.
+        step('set-variable', { variableName: 'customerId', value: '#[attributes.headers."x-customer-id"]' }),
         step('http-request', { method: 'GET', path: '/prc-orders/v1/customers/{customerId}/orders?limit=10', responseTimeout: 2000 }),
         step('transform', {
           script:

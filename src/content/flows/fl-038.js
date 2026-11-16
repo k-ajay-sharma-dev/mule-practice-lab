@@ -40,6 +40,61 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          payments: {
+            key: 'payment_id',
+            columns: ['payment_id', 'beneficiary_iban', 'amount', 'currency', 'status', 'export_file'],
+            rows: [
+              { payment_id: 'P-70011', beneficiary_iban: 'DE89370400440532013000', amount: 1250.0, currency: 'EUR', status: 'APPROVED', export_file: null },
+              { payment_id: 'P-70012', beneficiary_iban: 'FR1420041010050500013M02606', amount: 310.75, currency: 'EUR', status: 'APPROVED', export_file: null },
+              { payment_id: 'P-70013', beneficiary_iban: 'NL91ABNA0417164300', amount: 99.0, currency: 'EUR', status: 'PENDING', export_file: null },
+              { payment_id: 'P-69990', beneficiary_iban: 'DE89370400440532013000', amount: 40.0, currency: 'EUR', status: 'EXPORTED', export_file: 'PAY_20261112.txt' },
+            ],
+          },
+        },
+        latencyMs: 30,
+      },
+    },
+    tests: [
+      {
+        name: 'The nightly file is published',
+        about: 'The two approved payments go into the file in the pickup folder, with a header and a trailer that counts and totals them. They are then marked EXPORTED; the pending one is left alone.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          files: {
+            '/outbound/payments/PAY_20261113.txt': { exists: true, has: 'T|2|1560.75|' },
+            '/outbound/payments/PAY_*.txt': { count: 1, has: 'H|ACME-CORP|20261113|' },
+            '/outbound/staging/PAY_20261113.txt': { exists: false },
+          },
+          db: {
+            payments: {
+              has: [
+                { payment_id: 'P-70011', status: 'EXPORTED' },
+                { payment_id: 'P-70012', status: 'EXPORTED' },
+                { payment_id: 'P-70013', status: 'PENDING' },
+              ],
+            },
+          },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The SFTP server is down',
+        about: 'The upload fails. The payments team is emailed and no payment is marked EXPORTED.',
+        trigger: { schedule: {} },
+        overrides: { systems: { files: { fault: true, faultOn: 'sftp' } } },
+        expect: {
+          emails: [{ to: 'payments-ops@example.com', count: 1 }],
+          files: { '/outbound/payments/PAY_20261113.txt': { exists: false } },
+          db: { payments: { lacks: [{ payment_id: 'P-70011', status: 'EXPORTED' }, { payment_id: 'P-70012', status: 'EXPORTED' }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'payments-file-export',

@@ -62,6 +62,31 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/displays/fra/events', latencyMs: 40, respond: { status: 204, body: null } }],
+    },
+    tests: [
+      {
+        name: 'A gate change is published once',
+        about: 'One message goes to the topic, whatever the number of consumers.',
+        trigger: { http: { method: 'POST', path: '/api/v1/flight-events', body: { kind: 'GATE_CHANGE', hub: 'FRA', flight: 'XY204', gate: 'B44', previousGate: 'B20' } } },
+        expect: { sent: [{ destination: 'OPS.FLIGHT.EVENTS', count: 1, has: { kind: 'GATE_CHANGE', flight: 'XY204' } }] },
+      },
+      {
+        name: 'A safety notice is published once',
+        about: 'The safety notice goes to the topic as one message, and the duty manager alert app receives its copy and sends the alert.',
+        trigger: { http: { method: 'POST', path: '/api/v1/flight-events', body: { kind: 'SAFETY', hub: 'MUC', flight: 'XY771', notice: 'Runway 26R closed for inspection' } } },
+        expect: { sent: [{ destination: 'OPS.FLIGHT.EVENTS', count: 1, has: { kind: 'SAFETY', flight: 'XY771' } }], emails: [{ has: 'XY771', count: 1 }] },
+      },
+      {
+        name: 'A position update is published once',
+        about: 'The most common event goes out through the default route.',
+        trigger: { http: { method: 'POST', path: '/api/v1/flight-events', body: { kind: 'POSITION', hub: 'FRA', flight: 'XY318', lat: 50.03, lon: 8.57, eta: '2026-11-13T10:42:00Z' } } },
+        expect: { sent: [{ destination: 'OPS.FLIGHT.EVENTS', count: 1, has: { kind: 'POSITION', flight: 'XY318' } }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

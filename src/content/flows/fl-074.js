@@ -32,6 +32,66 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          SETTLEMENT_BATCH: {
+            key: 'BATCH_ID',
+            rows: [
+              { BATCH_ID: 9311, BUSINESS_DATE: '2026-11-11', STATUS: 'EXPORTED', EXPORTED_AT: '2026-11-12T02:41:00Z', FILE_NAME: 'SETTLEMENT_20261111.csv' },
+              { BATCH_ID: 9312, BUSINESS_DATE: '2026-11-12', STATUS: 'PREPARED', EXPORTED_AT: null, FILE_NAME: null },
+            ],
+          },
+          SETTLEMENT_EXPORT: {
+            rows: [
+              { BATCH_ID: 9311, MERCHANT_ID: 'M-100233', TERMINAL_ID: 'T-0001', TXN_COUNT: 512, GROSS_AMOUNT: 20411.9, FEE_AMOUNT: 306.18, NET_AMOUNT: 20105.72, CURRENCY: 'EUR' },
+              { BATCH_ID: 9312, MERCHANT_ID: 'M-100233', TERMINAL_ID: 'T-0001', TXN_COUNT: 488, GROSS_AMOUNT: 19207.4, FEE_AMOUNT: 288.11, NET_AMOUNT: 18919.29, CURRENCY: 'EUR' },
+              { BATCH_ID: 9312, MERCHANT_ID: 'M-100871', TERMINAL_ID: 'T-0003', TXN_COUNT: 61, GROSS_AMOUNT: 1450, FEE_AMOUNT: 21.75, NET_AMOUNT: 1428.25, CURRENCY: 'EUR' },
+            ],
+          },
+        },
+        // The procedure has already aggregated yesterday into batch 9312; it hands back the batch and its row count.
+        procedures: { 'PKG_SETTLEMENT.PREPARE_DAILY': () => ({ p_batch_id: 9312, p_row_count: 2 }) },
+      },
+    },
+    tests: [
+      {
+        name: 'The nightly export',
+        about: 'Yesterday\'s settlement file is on the bank\'s SFTP server under its final name, and the batch is marked EXPORTED.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          files: {
+            '/inbound/settlement/SETTLEMENT_20261112.csv': { exists: true, has: 'M-100871' },
+          },
+          db: { SETTLEMENT_BATCH: { has: { BATCH_ID: 9312, STATUS: 'EXPORTED' } } },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The SFTP server is down',
+        about: 'The file cannot be written, so the batch is not marked EXPORTED and operations are emailed in time to rerun it.',
+        trigger: { schedule: {} },
+        overrides: { systems: { files: { fault: 'CONNECTIVITY' } } },
+        expect: {
+          db: { SETTLEMENT_BATCH: { has: { BATCH_ID: 9312, STATUS: 'PREPARED' } } },
+          files: { '/inbound/settlement/SETTLEMENT_20261112.csv': { exists: false } },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'Oracle cannot be reached',
+        about: 'The procedure cannot run, so no file reaches the bank and operations are emailed.',
+        trigger: { schedule: {} },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: {
+          files: { '/inbound/settlement/SETTLEMENT_20261112.csv': { exists: false } },
+          emails: [{ count: 1 }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'nightly-settlement-export',

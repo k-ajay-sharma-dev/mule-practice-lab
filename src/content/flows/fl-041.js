@@ -84,12 +84,103 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          event_archive: {
+            key: 'event_id',
+            rows: [
+              { event_id: 'EV-9001', event_type: 'OrderCreated', occurred_at: '2026-11-10T08:15:00Z', body: '{"eventId":"EV-9001","eventType":"OrderCreated","orderId":"SO-51001","total":129.5}' },
+              { event_id: 'EV-9002', event_type: 'OrderPaid', occurred_at: '2026-11-10T09:02:00Z', body: '{"eventId":"EV-9002","eventType":"OrderPaid","orderId":"SO-51001","amount":129.5}' },
+              { event_id: 'EV-9003', event_type: 'OrderCreated', occurred_at: '2026-11-10T11:40:00Z', body: '{"eventId":"EV-9003","eventType":"OrderCreated","orderId":"SO-51002","total":48}' },
+              { event_id: 'EV-9004', event_type: 'OrderCreated', occurred_at: '2026-11-11T07:30:00Z', body: '{"eventId":"EV-9004","eventType":"OrderCreated","orderId":"SO-51003","total":310}' },
+            ],
+          },
+          replay_job: { key: 'replay_id', columns: ['replay_id', 'target_queue', 'from_ts', 'to_ts', 'requested_by', 'status', 'events', 'finished_at'], rows: [] },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'An event is archived',
+        about: 'The event is stored, then the message is acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9105', eventType: 'OrderShipped', occurredAt: '2026-11-13T09:55:00Z', orderId: 'SO-51001', carrier: 'DHL' } } },
+        expect: { db: { event_archive: { count: 5, has: { event_id: 'EV-9105', event_type: 'OrderShipped' } } }, ack: 'acked' },
+      },
+      {
+        name: 'The archive database is down',
+        about: 'The write fails, so the event goes back to the queue instead of being lost.',
+        trigger: { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9106', eventType: 'OrderShipped', occurredAt: '2026-11-13T09:56:00Z', orderId: 'SO-51002', carrier: 'UPS' } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { ack: 'returned' },
+      },
+      {
+        name: 'Anypoint MQ redelivers an event',
+        about: 'The same event arrives a second time. It is stored once and the redelivery does not fail.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9107', eventType: 'OrderPaid', occurredAt: '2026-11-13T09:57:00Z', orderId: 'SO-51004', amount: 75 } } },
+          { afterMs: 30000, message: { kind: 'mq', destination: 'order-events.archive', deliveryCount: 2, payload: { eventId: 'EV-9107', eventType: 'OrderPaid', occurredAt: '2026-11-13T09:57:00Z', orderId: 'SO-51004', amount: 75 } } },
+        ],
+        expect: { noError: true, db: { event_archive: { count: 5, has: { event_id: 'EV-9107' } } } },
+      },
+      {
+        name: 'A billing replay is started',
+        about: 'The admin gets an answer at once, and the matching events go to the billing queue only.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/admin/v1/replays',
+            headers: { 'x-requested-by': 'ops.lead@example.com' },
+            body: { from: '2026-11-10T06:00:00Z', to: '2026-11-10T12:00:00Z', eventTypes: ['OrderCreated'], targetQueue: 'order-events.billing' },
+          },
+        },
+        expect: {
+          noError: true,
+          maxMs: 2000,
+          sent: [
+            { destination: 'order-events.billing', count: 2 },
+            { destination: 'order-events.billing', count: 1, has: { orderId: 'SO-51002' } },
+          ],
+          notSent: ['order-events', 'order-events.warehouse', 'order-events.crm'],
+          db: { replay_job: { count: 1, has: { target_queue: 'order-events.billing' } } },
+        },
+      },
+      {
+        name: 'A replay to the exchange is refused',
+        about: 'Sending to order-events would reach every consumer, so the request gets 400 and nothing is sent.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/admin/v1/replays',
+            headers: { 'x-requested-by': 'ops.lead@example.com' },
+            body: { from: '2026-11-10T06:00:00Z', to: '2026-11-10T12:00:00Z', eventTypes: ['OrderCreated'], targetQueue: 'order-events' },
+          },
+        },
+        expect: { status: 400, notSent: ['order-events', 'order-events.billing'] },
+      },
+      {
+        name: 'The window ends before it starts',
+        about: 'A replay window with to before from is rejected with 400.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/admin/v1/replays',
+            headers: { 'x-requested-by': 'ops.lead@example.com' },
+            body: { from: '2026-11-10T12:00:00Z', to: '2026-11-10T06:00:00Z', eventTypes: ['OrderCreated'], targetQueue: 'order-events.billing' },
+          },
+        },
+        expect: { status: 400, notSent: ['order-events.billing'] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'order-events-archiver',
       source('mq-subscriber', { destination: 'order-events.archive', acknowledgementMode: 'MANUAL' }),
       [
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
+        step('set-variable', { variableName: 'body', value: '#[write(payload, "application/json")]' }),
         step('db-insert', {
           sql: 'INSERT INTO event_archive (event_id, event_type, occurred_at, body) VALUES (:eventId, :eventType, :occurredAt, :body) ON CONFLICT (event_id) DO NOTHING',
         }),
@@ -113,13 +204,18 @@ export default {
         }),
         step('set-variable', { variableName: 'replayId', value: '#[uuid()]' }),
         step('set-variable', { variableName: 'request', value: '#[payload]' }),
+        step('set-variable', { variableName: 'user', value: '#[attributes.headers."x-requested-by" default "unknown"]' }),
+        step('set-variable', { variableName: 'eventTypesCsv', value: '#[(payload.eventTypes default []) joinBy ","]' }),
         step('db-insert', {
           sql: "INSERT INTO replay_job (replay_id, target_queue, from_ts, to_ts, requested_by, status) VALUES (:replayId, :targetQueue, :from, :to, :user, 'RUNNING')",
+          // The insert result goes to a variable, so the payload is still the replay request the Async scope reads.
+          target: 'jobInsert',
         }),
         scope('async', { maxConcurrency: 1 }, [
           step('db-select', {
             sql: 'SELECT event_id, event_type, body FROM event_archive WHERE occurred_at >= :from AND occurred_at < :to AND event_type = ANY(string_to_array(:eventTypesCsv, \',\')) ORDER BY occurred_at',
           }),
+          step('set-variable', { variableName: 'count', value: '#[sizeOf(payload)]' }),
           scope('foreach', { collection: '#[payload]', batchSize: 1 }, [
             step('transform', {
               script:
@@ -176,13 +272,13 @@ Last month the **billing** team deployed a bug and silently mis-processed six ho
 
 **Replay API** — \`POST /admin/v1/replays { from, to, eventTypes, targetQueue }\`, protected by an API Manager policy (client ID + admin role).
 1. **Validate** the window (positive, max 2 days per request) and that \`targetQueue\` is in an **allow-list** of single consumer queues. Publishing to the exchange would re-send to *every* consumer.
-2. Insert a \`replay_job\` row (who, window, target, status RUNNING).
+2. Insert a \`replay_job\` row (who, window, target, status RUNNING). Give the insert a **Target** variable: a Database Insert otherwise replaces the payload with its row count, and the replay still needs the request.
 3. **Async** scope (max concurrency 1, so replays do not compete): Database Select (streaming, ordered by time) → **For Each** → DataWeave adds \`replay: { replayId, originalEventId }\` → **Anypoint MQ Publish** to the target queue. Update the job row with count and COMPLETED.
 4. Respond **202** \`{ replayId }\`; a \`GET /admin/v1/replays/{id}\` can read the job row.
 
 **Consumers** treat \`originalEventId\` as the idempotency key, so replaying events they already processed correctly is harmless.
 
-**Scale note:** for 200k events, a VM queue or Batch Job instead of Async gives persistence across restarts; Async is simplest but a crash mid-replay leaves a RUNNING job that must be re-requested.
+**Scale note:** for 200k events, a VM queue or Batch Job instead of Async gives persistence across restarts; Async is simplest but a crash mid-replay leaves a RUNNING job that must be re-requested. Variables do not cross a VM queue, so a VM worker needs the request and the replay ID inside the message it receives.
 `,
   followUps: [
     {

@@ -34,6 +34,105 @@ export default {
       why: 'The 401 handler is checked on its own. The catch-all only sets 500 and a generic body, and Mule already answers 500 by default.',
     },
   ],
+  // The run starts at 2026-11-13T10:00:00Z, which is 1794564000 in unix seconds. Each signature below is the real
+  // HMAC-SHA256 of "<t>.<rawBody>" with the key named in the test. The raw text has spaces, so an HMAC over the
+  // payload written out again does not match.
+  simulation: {
+    properties: {
+      'secure::partner.callback.key.current': '4f9c2e71b8a35d06e1f7a9c4b2d80e5f',
+      'secure::partner.callback.key.previous': 'a17d3b9e05c84f2a6e91d7b3c0f45a28',
+    },
+    tests: [
+      {
+        name: 'A signed update arrives',
+        about: 'Signed 20 seconds ago with the current key. The event goes on the queue and the partner gets 202.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/callbacks/shipments',
+            body: { eventId: 'EV-58210', shipmentId: 'SHP-330918', status: 'DELIVERED', occurredAt: '2026-11-13T09:58:41Z' },
+            // The exact bytes the partner signed, with spaces that JSON.stringify of the body would not give.
+            rawBody: '{"eventId": "EV-58210", "shipmentId": "SHP-330918", "status": "DELIVERED", "occurredAt": "2026-11-13T09:58:41Z"}',
+            headers: { 'X-Partner-Signature': 't=1794563980,v1=4d885b05e7829b9912f6890db0b2b4d3de8e6a93f179e81250677f59135dbdbf' },
+          },
+        },
+        expect: { status: 202, sent: [{ destination: 'shipment.callbacks', count: 1, has: { shipmentId: 'SHP-330918', status: 'DELIVERED' } }] },
+      },
+      {
+        name: 'Signed with the old key',
+        about: 'During a rotation the partner still signs with the previous key. It must be accepted.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/callbacks/shipments',
+            body: { eventId: 'EV-58210', shipmentId: 'SHP-330918', status: 'DELIVERED', occurredAt: '2026-11-13T09:58:41Z' },
+            // The exact bytes the partner signed.
+            rawBody: '{"eventId": "EV-58210", "shipmentId": "SHP-330918", "status": "DELIVERED", "occurredAt": "2026-11-13T09:58:41Z"}',
+            headers: { 'X-Partner-Signature': 't=1794563980,v1=b738a12aa71115a43e57b4c2e7e5cce2477b2577c02bfc80f384547fa202e577' },
+          },
+        },
+        expect: { status: 202, sent: [{ destination: 'shipment.callbacks', count: 1 }] },
+      },
+      {
+        name: 'The body was changed',
+        about: 'Someone changed the status in a captured request and kept the signature. The answer is 401 and nothing is published.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/callbacks/shipments',
+            body: { eventId: 'EV-58210', shipmentId: 'SHP-330918', status: 'RETURNED', occurredAt: '2026-11-13T09:58:41Z' },
+            // The exact bytes the partner signed.
+            rawBody: '{"eventId": "EV-58210", "shipmentId": "SHP-330918", "status": "RETURNED", "occurredAt": "2026-11-13T09:58:41Z"}',
+            headers: { 'X-Partner-Signature': 't=1794563980,v1=4d885b05e7829b9912f6890db0b2b4d3de8e6a93f179e81250677f59135dbdbf' },
+          },
+        },
+        expect: { status: 401, notSent: ['shipment.callbacks'], bodyLacks: '~signature' },
+      },
+      {
+        name: 'The request is 10 minutes old',
+        about: 'The signature is correct, but the timestamp is outside the 5 minute window. The answer is 401.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/callbacks/shipments',
+            body: { eventId: 'EV-58210', shipmentId: 'SHP-330918', status: 'DELIVERED', occurredAt: '2026-11-13T09:58:41Z' },
+            // The exact bytes the partner signed.
+            rawBody: '{"eventId": "EV-58210", "shipmentId": "SHP-330918", "status": "DELIVERED", "occurredAt": "2026-11-13T09:58:41Z"}',
+            headers: { 'X-Partner-Signature': 't=1794563400,v1=855c5aa549e8b6fb4cadfd0fcd9a960bf68516726e24a23237c3a300412008c7' },
+          },
+        },
+        expect: { status: 401, notSent: ['shipment.callbacks'] },
+      },
+      {
+        name: 'The same request comes twice',
+        about: 'The partner retries 30 seconds later with the same signed request. The second one gets 200 and is not published again.',
+        triggers: [
+          {
+            http: {
+              method: 'POST',
+              path: '/callbacks/shipments',
+              body: { eventId: 'EV-58210', shipmentId: 'SHP-330918', status: 'DELIVERED', occurredAt: '2026-11-13T09:58:41Z' },
+              // The exact bytes the partner signed.
+              rawBody: '{"eventId": "EV-58210", "shipmentId": "SHP-330918", "status": "DELIVERED", "occurredAt": "2026-11-13T09:58:41Z"}',
+              headers: { 'X-Partner-Signature': 't=1794563980,v1=4d885b05e7829b9912f6890db0b2b4d3de8e6a93f179e81250677f59135dbdbf' },
+            },
+          },
+          {
+            afterMs: 30000,
+            http: {
+              method: 'POST',
+              path: '/callbacks/shipments',
+              body: { eventId: 'EV-58210', shipmentId: 'SHP-330918', status: 'DELIVERED', occurredAt: '2026-11-13T09:58:41Z' },
+              // The exact bytes the partner signed.
+              rawBody: '{"eventId": "EV-58210", "shipmentId": "SHP-330918", "status": "DELIVERED", "occurredAt": "2026-11-13T09:58:41Z"}',
+              headers: { 'X-Partner-Signature': 't=1794563980,v1=4d885b05e7829b9912f6890db0b2b4d3de8e6a93f179e81250677f59135dbdbf' },
+            },
+          },
+        ],
+        expect: { status: 200, sent: [{ destination: 'shipment.callbacks', count: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'partner-callback-intake',

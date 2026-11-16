@@ -57,6 +57,52 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        // The ERP stopped writing half-way through the night's file, so the XML is cut off.
+        '/data/sales/in/sales_20261112.xml':
+          '<sales>\n  <sale region="EMEA" id="S-1"><amount>120.00</amount></sale>\n  <sale region="APAC" id="S-2"><amount>75.50</amount></sale>\n  <sale region="EMEA" id="S-3"><amou',
+      },
+    },
+    tests: [
+      {
+        name: 'The file is split by region',
+        about: 'Three sales from two regions. Each region gets one valid XML file in out, and the input is archived.',
+        trigger: {
+          file: {
+            path: '/data/sales/in/sales_20261112.xml',
+            content:
+              '<sales>\n  <sale region="EMEA" id="S-1"><amount>120.00</amount></sale>\n  <sale region="APAC" id="S-2"><amount>75.50</amount></sale>\n  <sale region="EMEA" id="S-3"><amount>18.20</amount></sale>\n</sales>',
+          },
+        },
+        expect: {
+          noError: true,
+          files: {
+            '/data/sales/out/EMEA/sales_20261112.xml': { exists: true, has: 'S-3' },
+            '/data/sales/out/APAC/sales_20261112.xml': { exists: true, has: 'S-2' },
+            '/data/sales/archive/sales_20261112.xml': { exists: true },
+            '/data/sales/in/sales_20261112.xml': { exists: false },
+            '/data/sales/error/sales_20261112.xml': { exists: false },
+          },
+        },
+      },
+      {
+        name: 'A broken file goes to the error folder',
+        about: 'The XML is cut off. The input moves to /data/sales/error, it is not archived, and no region file appears in out.',
+        trigger: { file: { path: '/data/sales/in/sales_20261112.xml' } },
+        expect: {
+          files: {
+            '/data/sales/error/sales_20261112.xml': { exists: true },
+            '/data/sales/in/sales_20261112.xml': { exists: false },
+            '/data/sales/archive/sales_20261112.xml': { exists: false },
+            '/data/sales/out/EMEA/sales_20261112.xml': { exists: false },
+            '/data/sales/out/APAC/sales_20261112.xml': { exists: false },
+          },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'split-sales-by-region',

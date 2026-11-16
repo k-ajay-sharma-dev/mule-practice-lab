@@ -38,6 +38,54 @@ export default {
       rule: handlerStatus('COMPOSITE_ROUTING', '502'),
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/salesforce/accounts/{id}', latencyMs: 300, respond: { status: 200, body: { Id: '0015g00000XyZAB', Name: 'Northwind Traders', Segment__c: 'Gold' } } },
+        {
+          method: 'GET',
+          path: '/sap/customers/{id}/finance',
+          latencyMs: 800,
+          respond: { status: 200, body: { invoices: [{ number: '9000123', amount: 1840.5, dueDate: '2026-11-30' }], creditLimit: 25000 } },
+        },
+        {
+          method: 'GET',
+          path: '/zendesk/users/{id}/tickets',
+          latencyMs: 500,
+          respond: { status: 200, body: { tickets: [{ id: 48211, subject: 'Late delivery', status: 'open' }] } },
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'All three systems answer',
+        about: 'The profile, invoices and tickets come back together within the 2 second SLA.',
+        trigger: { http: { method: 'GET', path: '/customers/0015g00000XyZAB/360' } },
+        expect: { status: 200, bodyHas: { customerId: '0015g00000XyZAB' }, maxMs: 2000 },
+      },
+      {
+        name: 'SAP hangs',
+        about: 'SAP takes 30 seconds. The agent still gets the profile and tickets within 2 seconds.',
+        trigger: { http: { method: 'GET', path: '/customers/0015g00000XyZAB/360' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sap/customers/{id}/finance', latencyMs: 30000, respond: { status: 200, body: { invoices: [], creditLimit: 0 } } }] } },
+        expect: { status: 200, bodyHas: { customerId: '0015g00000XyZAB' }, maxMs: 2000 },
+      },
+      {
+        name: 'Zendesk returns 500',
+        about: 'The ticket system fails. The call still succeeds with the profile and finance data.',
+        trigger: { http: { method: 'GET', path: '/customers/0015g00000XyZAB/360' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/zendesk/users/{id}/tickets', respond: { status: 500, body: { error: 'Internal Server Error' } } }] } },
+        expect: { status: 200, bodyHas: { customerId: '0015g00000XyZAB' }, maxMs: 2000 },
+      },
+      {
+        name: 'Salesforce is down',
+        about: 'The mandatory profile cannot be read, so the answer is 502.',
+        trigger: { http: { method: 'GET', path: '/customers/0015g00000XyZAB/360' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/salesforce/accounts/{id}', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 502, bodyLacks: { customerId: '0015g00000XyZAB' } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'customer-360',

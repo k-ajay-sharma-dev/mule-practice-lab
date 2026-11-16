@@ -58,6 +58,98 @@ export default {
       rule: { type: 'inside', component: ['db-update', 'db-stored-procedure'], where: { sql: 'CLOSE' }, within: 'choice' },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/tms/v1/loads/alerts', respond: { status: 201, body: { alertId: 'TMS-AL-55021', status: 'OPEN' } } }],
+      db: {
+        tables: {
+          PRODUCT_CLASS: {
+            key: 'CLASS_CODE',
+            rows: [
+              { CLASS_CODE: 'VACCINE', MIN_TEMP_C: 2, MAX_TEMP_C: 8, MAX_EXCURSION_MIN: 30 },
+              { CLASS_CODE: 'FROZEN', MIN_TEMP_C: -25, MAX_TEMP_C: -18, MAX_EXCURSION_MIN: 60 },
+            ],
+          },
+          SHIPMENT_LOAD: {
+            key: 'LOAD_ID',
+            rows: [
+              { LOAD_ID: 'LD-30417', TMS_LOAD_REF: 'TMS-889201', PRODUCT_CLASS: 'VACCINE', TRAILER_ID: 'TR-0612' },
+              { LOAD_ID: 'LD-30422', TMS_LOAD_REF: 'TMS-889240', PRODUCT_CLASS: 'FROZEN', TRAILER_ID: 'TR-0377' },
+            ],
+          },
+          EXCURSION: {
+            key: 'EXCURSION_ID',
+            rows: [
+              { EXCURSION_ID: 9001, LOAD_ID: 'LD-30422', DEVICE_ID: 'DEV-0377-A', STATUS: 'OPEN', OPENED_AT: '2026-11-13T09:41:00Z', LAST_TEMP_C: -14.5, TMS_ALERT_STATUS: 'SENT', TMS_ALERT_AT: '2026-11-13T09:41:20Z', CLOSED_AT: null },
+            ],
+          },
+        },
+        // Opens an excursion for the load, or extends the open one. alertNeeded is Y only when it was opened now.
+        procedures: {
+          'COLDCHAIN_PKG.RECORD_EXCURSION': (args, db) => {
+            const rows = db.tables.EXCURSION.rows
+            const open = rows.find((r) => r.LOAD_ID === args.loadId && r.STATUS === 'OPEN')
+            if (open) {
+              open.LAST_TEMP_C = args.tempC
+              return { excursionId: open.EXCURSION_ID, alertNeeded: 'N' }
+            }
+            const id = Math.max(9000, ...rows.map((r) => r.EXCURSION_ID)) + 1
+            rows.push({ EXCURSION_ID: id, LOAD_ID: args.loadId, DEVICE_ID: args.deviceId, STATUS: 'OPEN', OPENED_AT: args.readAt, LAST_TEMP_C: args.tempC, TMS_ALERT_STATUS: 'PENDING', TMS_ALERT_AT: null, CLOSED_AT: null })
+            return { excursionId: id, alertNeeded: 'Y' }
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A vaccine load gets too warm',
+        about: 'A reading of 11.4 °C on a 2 to 8 °C load opens an excursion, the TMS gets one alert, and the excursion is marked SENT.',
+        trigger: { message: { kind: 'jms', destination: 'COLDCHAIN.TELEMETRY', payload: { loadId: 'LD-30417', deviceId: 'DEV-0612-A', tempC: 11.4, lat: 52.37, lon: 4.9, readAt: '2026-11-13T09:59:00Z' } } },
+        expect: {
+          ack: 'acked',
+          calls: [{ method: 'POST', path: '/tms/v1/loads/alerts', count: 1 }],
+          db: { EXCURSION: { has: { LOAD_ID: 'LD-30417', STATUS: 'OPEN', TMS_ALERT_STATUS: 'SENT' } } },
+        },
+      },
+      {
+        name: 'The excursion goes on',
+        about: 'The frozen load is still too warm a minute later. The open excursion was already alerted, so the TMS is not called again.',
+        trigger: { message: { kind: 'jms', destination: 'COLDCHAIN.TELEMETRY', payload: { loadId: 'LD-30422', deviceId: 'DEV-0377-A', tempC: -13.9, lat: 51.92, lon: 4.48, readAt: '2026-11-13T09:59:00Z' } } },
+        expect: { ack: 'acked', calls: [{ path: '/tms/v1/loads/alerts', count: 0 }], db: { EXCURSION: { count: 1 } } },
+      },
+      {
+        name: 'The TMS answers on a retry',
+        about: 'The first alert call gets a 503. The retry gets through, so the alert is marked SENT.',
+        trigger: { message: { kind: 'jms', destination: 'COLDCHAIN.TELEMETRY', payload: { loadId: 'LD-30417', deviceId: 'DEV-0612-A', tempC: 9.2, lat: 52.37, lon: 4.9, readAt: '2026-11-13T09:59:00Z' } } },
+        overrides: {
+          systems: { http: [{ method: 'POST', path: '/tms/v1/loads/alerts', responses: [{ status: 503, body: { message: 'Service Unavailable' } }, { status: 201, body: { alertId: 'TMS-AL-55022', status: 'OPEN' } }] }] },
+        },
+        expect: {
+          ack: 'acked',
+          calls: [{ method: 'POST', path: '/tms/v1/loads/alerts', count: 2 }],
+          db: { EXCURSION: { has: { LOAD_ID: 'LD-30417', TMS_ALERT_STATUS: 'SENT' } } },
+        },
+      },
+      {
+        name: 'The TMS stays down',
+        about: 'Every alert call times out. The flow stops retrying in time to tell QA within 2 minutes, and the reading is not redelivered.',
+        trigger: { message: { kind: 'jms', destination: 'COLDCHAIN.TELEMETRY', payload: { loadId: 'LD-30417', deviceId: 'DEV-0612-A', tempC: 12.8, lat: 52.37, lon: 4.9, readAt: '2026-11-13T09:59:00Z' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/tms/v1/loads/alerts', latencyMs: 60000, respond: { status: 201, body: {} } }] } },
+        expect: {
+          ack: 'acked',
+          calls: [{ method: 'POST', path: '/tms/v1/loads/alerts', min: 3 }],
+          db: { EXCURSION: { lacks: { LOAD_ID: 'LD-30417', TMS_ALERT_STATUS: 'SENT' } } },
+          maxMs: 120000,
+        },
+      },
+      {
+        name: 'The load is cold again',
+        about: 'An in-range reading of -21 °C closes the open excursion of the frozen load.',
+        trigger: { message: { kind: 'jms', destination: 'COLDCHAIN.TELEMETRY', payload: { loadId: 'LD-30422', deviceId: 'DEV-0377-A', tempC: -21, lat: 51.92, lon: 4.48, readAt: '2026-11-13T09:59:00Z' } } },
+        expect: { ack: 'acked', calls: [{ path: '/tms/v1/loads/alerts', count: 0 }], db: { EXCURSION: { has: { EXCURSION_ID: 9001, STATUS: 'CLOSED' } } } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -78,6 +170,8 @@ export default {
           }),
         ]),
         step('set-variable', { variableName: 'range', value: '#[payload[0]]' }),
+        // The reading again, so the database steps below take :loadId, :tempC and :readAt from it.
+        step('set-payload', { value: '#[vars.reading]' }),
         router(
           'choice',
           {},
@@ -181,7 +275,7 @@ A pharma and fresh-food distributor runs **1,200 refrigerated trailers**. Each t
   ],
   solution: `
 1. **JMS On New Message** \`COLDCHAIN.TELEMETRY\` (AUTO ack, several consumers), with **Inbound Content-Type** \`application/json\` if the IoT gateway does not state the message type (the config default is \`*/*\`).
-2. **Cache** scope (key: \`loadId\`, TTL 30 min) → **Database Select** load + product-class range.
+2. **Cache** scope (key: \`loadId\`, TTL 30 min) → **Database Select** load + product-class range. Keep the range in a variable and set the payload back to the reading, so the database steps that follow take the load, device, temperature and time from it.
 3. **Choice**
    - **Out of range** → **Stored Procedure** \`COLDCHAIN_PKG.RECORD_EXCURSION\` (IN: load, device, temp, time; OUT: excursionId, alertNeeded). Doing open-or-extend in PL/SQL with a unique "one open excursion per load" constraint makes it safe with several concurrent consumers and with duplicate readings.
      - **Choice** \`alertNeeded == "Y"\` → Transform alert JSON → **Try** { **Until Successful** (4 × 15 s) → **HTTP Request** POST TMS alert → **Database Update** \`TMS_ALERT_STATUS = 'SENT'\` }.

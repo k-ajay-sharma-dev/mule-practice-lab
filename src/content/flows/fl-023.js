@@ -1,5 +1,24 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
 
+// Run scenario data: one SAP page and two Shopify pages, then a night with more than 500 price mismatches.
+const sapPage = (items) => ({ status: 200, body: { items } })
+const shopifyPage = (products, hasNextPage, endCursor) => ({ status: 200, body: { products, pageInfo: { hasNextPage, endCursor } } })
+const SAP_ITEMS = [
+  { sku: 'SKU-A', price: '10.00', stock: '5' },
+  { sku: 'SKU-B', price: '20.00', stock: '10' },
+  { sku: ' sku-c ', price: '30.00', stock: '3' },
+  { sku: 'SKU-D', price: '5.00', stock: '1' },
+]
+const SHOPIFY_PAGE_1 = [
+  { sku: 'SKU-A', price: '10.00', inventoryQuantity: 5 },
+  { sku: 'SKU-B', price: '18.00', inventoryQuantity: 10 },
+]
+const SHOPIFY_PAGE_2 = [
+  { sku: 'SKU-C', price: '30.00', inventoryQuantity: 9 },
+  { sku: 'SKU-E', price: '7.00', inventoryQuantity: 2 },
+]
+const MANY = Array.from({ length: 501 }, (_, i) => `SKU-M${String(i + 1).padStart(3, '0')}`)
+
 export default {
   id: 'fl-023',
   category: 'flows',
@@ -72,6 +91,55 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/sap/products/count', respond: { status: 200, body: { total: 4 } } },
+        { method: 'GET', path: '/sap/products', latencyMs: 600, respond: sapPage(SAP_ITEMS) },
+        { method: 'GET', path: '/shopify/products', latencyMs: 400, responses: [shopifyPage(SHOPIFY_PAGE_1, true, 'cur-2'), shopifyPage(SHOPIFY_PAGE_2, false, null)] },
+        { method: 'PUT', path: '/shopify/products/{sku}/price', respond: { status: 200, body: { updated: true } } },
+        { method: 'PUT', path: '/recon-reports/*', respond: { status: 200, body: { stored: true } } },
+      ],
+      calls: { 's3-put': { payload: { eTag: '"r-1"' } } },
+      db: { tables: { recon_sap: { columns: ['sku', 'price', 'stock'], rows: [] }, recon_shopify: { columns: ['sku', 'price', 'stock'], rows: [] } } },
+    },
+    tests: [
+      {
+        name: 'A normal night',
+        about: 'SKU-B has the wrong price in Shopify, SKU-C has a stock gap, SKU-D is missing in Shopify and SKU-E in SAP. Only the price of SKU-B is fixed.',
+        trigger: { schedule: {} },
+        expect: {
+          emails: [{ to: 'finance', has: 'SKU-D', count: 1 }],
+          calls: [
+            { method: 'PUT', path: '/shopify/products/SKU-B/price', count: 1 },
+            { method: 'PUT', path: '/shopify/products/{sku}/price', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'Too many prices differ',
+        about: '501 prices differ, which is over the cap of 500. Nothing is fixed and an alert goes out with the report.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'GET', path: '/sap/products/count', respond: { status: 200, body: { total: 501 } } },
+              { method: 'GET', path: '/sap/products', respond: sapPage(MANY.map((sku) => ({ sku, price: '12.00', stock: '4' }))) },
+              { method: 'GET', path: '/shopify/products', responses: [shopifyPage(MANY.map((sku) => ({ sku, price: '11.00', inventoryQuantity: 4 })), false, null)] },
+            ],
+          },
+        },
+        expect: { calls: [{ method: 'PUT', path: '/shopify/products/{sku}/price', count: 0 }], emails: [{ count: 2 }] },
+      },
+      {
+        name: 'SAP is down',
+        about: 'The SAP extract fails, so no report is sent and no price is changed. Only an alert goes out.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sap/products/count', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { calls: [{ method: 'PUT', path: '/shopify/products/{sku}/price', count: 0 }], emails: [{ count: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'nightly-reconciliation',
@@ -94,8 +162,9 @@ export default {
           script:
             '%dw 2.0\noutput application/csv\n---\nflatten([\n  vars.recon.missingInShopify map ((r) -> { issue: "MISSING_IN_SHOPIFY", sku: r.sku, sap: r.sap_price, shopify: null }),\n  vars.recon.missingInSap map ((r) -> { issue: "MISSING_IN_SAP", sku: r.sku, sap: null, shopify: r.shop_price }),\n  vars.recon.priceMismatch map ((r) -> { issue: "PRICE_MISMATCH", sku: r.sku, sap: r.sap_price, shopify: r.shop_price }),\n  vars.recon.stockMismatch map ((r) -> { issue: "STOCK_MISMATCH", sku: r.sku, sap: r.sap_stock, shopify: r.shop_stock })\n])',
         }),
-        step('http-request', { method: 'PUT', path: '/recon-reports/{runDate}.csv' }),
+        // Email first: the HTTP Request replaces the payload with the storage answer, and the email body is the CSV.
         step('email-send', { toAddresses: 'finance@example.com', subject: 'Nightly SAP / Shopify reconciliation' }),
+        step('http-request', { method: 'PUT', path: '/recon-reports/{runDate}.csv' }),
         router(
           'choice',
           {},
@@ -190,7 +259,7 @@ Real-time sync between **SAP** (master for prices and stock) and **Shopify** (st
 5. **Compare:**
    - If staged in a DB: SQL \`FULL OUTER JOIN\` on SKU does the heavy lifting.
    - If in memory (300k small records fits a few hundred MB): DataWeave builds an index (\`groupBy\` on sku, giving an object keyed by SKU) for O(1) lookups, or uses \`outerJoin\` from \`dw::core::Arrays\`. Classify into \`missingInShopify\`, \`missingInSap\`, \`priceMismatch\`, \`stockMismatch\` (abs difference > 2).
-6. **Report:** DataWeave \`output application/csv\` → Amazon S3 Put Object (lifecycle rule 90 days) → **Email Send** to finance with summary counts in the body and the CSV attached (or a link if large).
+6. **Report:** DataWeave \`output application/csv\` → Amazon S3 Put Object (lifecycle rule 90 days) → **Email Send** to finance with summary counts in the body and the CSV attached (or a link if large). The upload's answer replaces the payload, so send the email first or put the upload's answer in a target variable; otherwise finance receives the storage receipt instead of the report.
 7. **Auto-fix:** Choice: \`sizeOf(priceMismatch) <= 500\` → For Each (or batched calls) to the Shopify System API to set SAP price, record results. Else → skip fixes and send a high-priority alert.
 8. **Errors:** if either extraction fails, do **not** produce a report (a partial extract would show thousands of false "missing" items) — alert instead.
 `,

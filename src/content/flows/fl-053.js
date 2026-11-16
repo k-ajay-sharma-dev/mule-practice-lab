@@ -88,6 +88,109 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      schemas: {
+        'customer.json': {
+          type: 'object',
+          required: ['email', 'firstName', 'country'],
+          properties: { email: { type: 'string' }, firstName: { type: 'string' }, country: { type: 'string' }, marketingOptIn: { type: 'boolean' } },
+        },
+      },
+      http: [
+        {
+          method: 'POST',
+          path: '/sys-crm/v1/customers',
+          latencyMs: 450,
+          respond: (req) => ({ status: 201, body: { id: 'CUS-880412', email: req.body?.email, country: req.body?.country, marketingOptIn: req.body?.marketingOptIn ?? false } }),
+        },
+        { method: 'POST', path: '/sys-marketing/v1/contacts', latencyMs: 300, respond: { status: 201, body: { contactId: 'MC-5521' } } },
+      ],
+      db: {
+        tables: {
+          event_outbox: {
+            columns: ['event_id', 'event_type', 'body', 'published', 'created_at'],
+            key: 'event_id',
+            rows: [],
+          },
+          processed_events: { columns: ['event_id'], key: 'event_id', rows: [] },
+        },
+        latencyMs: 10,
+      },
+    },
+    tests: [
+      {
+        name: 'A customer signs up',
+        about: 'The CRM creates the customer, the app gets 201 with the id, and one CustomerCreated event goes to the exchange.',
+        trigger: { http: { method: 'POST', path: '/prc-customers/v1/customers', body: { email: 'aroha@example.com', firstName: 'Aroha', country: 'NZ', marketingOptIn: true } } },
+        expect: {
+          status: 201,
+          bodyHas: { customerId: 'CUS-880412' },
+          calls: [{ method: 'POST', path: '/sys-crm/v1/customers', count: 1 }],
+          sent: [{ destination: 'customer-events-exchange', count: 1, has: { eventType: 'CustomerCreated', data: { customerId: 'CUS-880412' } } }],
+          maxMs: 2000,
+        },
+      },
+      {
+        name: 'Anypoint MQ is down',
+        about: 'The customer is already in the CRM, so the app still gets 201 and the event is parked in the outbox.',
+        trigger: { http: { method: 'POST', path: '/prc-customers/v1/customers', body: { email: 'liam@example.com', firstName: 'Liam', country: 'IE', marketingOptIn: false } } },
+        overrides: { systems: { queues: { 'customer-events-exchange': { fault: true } } } },
+        expect: {
+          status: 201,
+          bodyHas: { customerId: 'CUS-880412' },
+          db: { event_outbox: { count: 1, has: [{ event_type: 'CustomerCreated', published: false }] } },
+        },
+      },
+      {
+        name: 'The relay sends parked events',
+        about: 'MQ is back. The relay publishes each parked event and no event is left unpublished.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                event_outbox: {
+                  columns: ['event_id', 'event_type', 'body', 'published', 'created_at'],
+                  key: 'event_id',
+                  rows: [
+                    { event_id: 'EV-1001', event_type: 'CustomerCreated', body: '{"eventId":"EV-1001","eventType":"CustomerCreated","data":{"customerId":"CUS-880101"}}', published: false, created_at: '2026-11-13T09:40:00Z' },
+                    { event_id: 'EV-1002', event_type: 'CustomerCreated', body: '{"eventId":"EV-1002","eventType":"CustomerCreated","data":{"customerId":"CUS-880102"}}', published: false, created_at: '2026-11-13T09:41:00Z' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        expect: {
+          sent: [
+            { destination: 'customer-events-exchange', count: 2 },
+            { destination: 'customer-events-exchange', count: 1, has: { eventId: 'EV-1001', data: { customerId: 'CUS-880101' } } },
+          ],
+          db: { event_outbox: { lacks: [{ published: false }] } },
+        },
+      },
+      {
+        name: 'The same event arrives twice',
+        about: 'The relay and MQ redelivery can both send an event again. Marketing hears about the customer once.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'welcome-journey-queue', payload: { eventId: 'EV-2001', eventType: 'CustomerCreated', data: { customerId: 'CUS-880412', email: 'aroha@example.com' } } } },
+          { message: { kind: 'mq', destination: 'welcome-journey-queue', payload: { eventId: 'EV-2001', eventType: 'CustomerCreated', data: { customerId: 'CUS-880412', email: 'aroha@example.com' } } } },
+        ],
+        expect: { calls: [{ method: 'POST', path: '/sys-marketing/v1/contacts', count: 1 }], noError: true },
+      },
+      {
+        name: 'Marketing fails the first time',
+        about: 'The first delivery fails and goes back to the queue. The redelivery is processed, not dropped as a duplicate.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'welcome-journey-queue', payload: { eventId: 'EV-3001', eventType: 'CustomerCreated', data: { customerId: 'CUS-880413', email: 'mere@example.com' } } } },
+          { message: { kind: 'mq', destination: 'welcome-journey-queue', deliveryCount: 2, payload: { eventId: 'EV-3001', eventType: 'CustomerCreated', data: { customerId: 'CUS-880413', email: 'mere@example.com' } } } },
+        ],
+        overrides: { systems: { http: [{ method: 'POST', path: '/sys-marketing/v1/contacts', responses: [{ status: 503, body: { message: 'Service unavailable' } }, { status: 201, body: { contactId: 'MC-5522' } }] }] } },
+        expect: { calls: [{ method: 'POST', path: '/sys-marketing/v1/contacts', count: 2 }], ack: 'returned', noError: true },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -119,7 +222,7 @@ export default {
       'prc-customer-onboarding',
       source('http-listener', { path: '/prc-customers/v1/customers', allowedMethods: 'POST' }),
       [
-        step('validation', { check: 'json-schema', expression: '#[payload]', message: 'Invalid customer' }),
+        step('validation', { check: 'json-schema', expression: 'schemas/customer.json', message: 'Invalid customer' }),
         step('http-request', { method: 'POST', path: '/sys-crm/v1/customers', responseTimeout: 3000 }),
         step('set-variable', { variableName: 'customer', value: '#[payload]' }),
         step('transform', {
@@ -133,6 +236,8 @@ export default {
           errorHandlers: [
             handler('on-error-continue', { type: 'ANYPOINT-MQ:CONNECTIVITY, ANYPOINT-MQ:PUBLISHING, ANYPOINT-MQ:RETRY_EXHAUSTED' }, [
               step('logger', { level: 'WARN', message: '#["Event parked in outbox: " ++ vars.event.eventId]' }),
+              // The outbox keeps the whole event as JSON text, so the relay can publish it again unchanged.
+              step('set-variable', { variableName: 'body', value: '#[write(vars.event, "application/json")]' }),
               step('db-insert', {
                 sql: 'INSERT INTO event_outbox (event_id, event_type, body, published) VALUES (:eventId, :eventType, :body, false)',
               }),
@@ -236,7 +341,7 @@ New target design:
 
 **Event:** Transform to \`vars.event\` — \`{ eventId, eventType: "CustomerCreated", version, occurredAt, correlationId, data: {...} }\`. Publish to an **exchange**; each consumer binds its own queue (with its own DLQ).
 
-**No lost events:** the CRM commit already happened, so a publish failure must not turn into a 5xx (the app would retry and create a duplicate customer). The **Try** catches \`ANYPOINT-MQ:*\` errors with **On Error Continue** and inserts the event into \`event_outbox\`. A **Scheduler** relay re-publishes unpublished rows and marks them published. (A stricter variant writes *every* event to the outbox and only the relay publishes.)
+**No lost events:** the CRM commit already happened, so a publish failure must not turn into a 5xx (the app would retry and create a duplicate customer). The **Try** catches \`ANYPOINT-MQ:*\` errors with **On Error Continue** and inserts the event, written as JSON text, into \`event_outbox\`. A **Scheduler** relay re-publishes unpublished rows and marks them published. (A stricter variant writes *every* event to the outbox and only the relay publishes.)
 
 **Subscribers:** \`prc-welcome-journey\` (MQ Subscriber) calls \`sys-marketing\`; billing and loyalty are the same pattern. Each is **idempotent on eventId**, because the relay and MQ redelivery give at-least-once delivery. The docs do not say the Idempotent Message Validator releases an ID when the flow fails, so the error handler removes it from the store; otherwise a redelivered event could be dropped as a duplicate before it was ever processed.
 `,

@@ -82,6 +82,88 @@ export default {
       rule: { type: 'any', rules: [handlerStatus('ANY', '503'), handlerStatus('SERVICE_UNAVAILABLE', '503')] },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/sys-core-banking/v1/accounts', latencyMs: 800, respond: { status: 200, body: { totalBalance: 18420.55, accounts: [{ iban: 'DE89370400440532013000', type: 'CURRENT', balance: 2420.55 }, { iban: 'DE02120300000000202051', type: 'SAVINGS', balance: 16000 }] } } },
+        { method: 'GET', path: '/sys-cards/v1/cards', latencyMs: 1200, respond: { status: 200, body: [{ cardId: 'tok_4f9a', last4: '4417', status: 'ACTIVE' }] } },
+        { method: 'GET', path: '/sys-loans/v1/loans', latencyMs: 900, respond: { status: 200, body: [{ loanId: 'MTG-20931', type: 'MORTGAGE', outstanding: 212000 }] } },
+        { method: 'GET', path: '/card-processor/api/v3/cardholders/cards', latencyMs: 700, respond: { status: 200, body: { cards: [{ token: 'tok_4f9a', pan_last4: '4417', state: 'ACTIVE' }] } } },
+        { method: 'GET', path: '/prc-accounts/v1/customers/{customerId}/overview', latencyMs: 1300, respond: { status: 200, body: { accounts: { totalBalance: 18420.55 }, cards: [{ cardId: 'tok_4f9a', last4: '4417', status: 'ACTIVE' }], loans: null, unavailable: ['loans'], complete: false } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'Every source answers',
+        about: 'Accounts, cards and loans all come back, in parallel, inside the 2.5 s budget.',
+        trigger: { http: { method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview' } },
+        expect: {
+          status: 200,
+          maxMs: 2500,
+          calls: [
+            { method: 'GET', path: '/sys-core-banking/v1/accounts', count: 1 },
+            { method: 'GET', path: '/sys-cards/v1/cards', count: 1 },
+            { method: 'GET', path: '/sys-loans/v1/loans', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'The cards vendor is down',
+        about: 'Cards fail, but the customer still gets the overview with accounts and loans.',
+        trigger: { http: { method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-cards/v1/cards', respond: { status: 503, body: { message: 'Vendor maintenance' } } }] } },
+        expect: { status: 200, maxMs: 2500, calls: [{ method: 'GET', path: '/sys-loans/v1/loans', count: 1 }] },
+      },
+      {
+        name: 'The cards vendor hangs',
+        about: 'A slow cards call is cut off by its timeout, so the overview still answers inside 2.5 s.',
+        trigger: { http: { method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-cards/v1/cards', latencyMs: 30000, respond: { status: 200, body: [] } }] } },
+        expect: { status: 200, maxMs: 2500 },
+      },
+      {
+        name: 'Cards and loans are both down',
+        about: 'Both optional sources fail. The accounts still come back with 200.',
+        trigger: { http: { method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview' } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'GET', path: '/sys-cards/v1/cards', respond: { fault: 'CONNECTIVITY' } },
+              { method: 'GET', path: '/sys-loans/v1/loans', respond: { status: 500, body: { message: 'Internal error' } } },
+            ],
+          },
+        },
+        expect: { status: 200 },
+      },
+      {
+        name: 'Core banking is down',
+        about: 'Without balances the overview is useless, so the Process API answers 503.',
+        trigger: { http: { method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-core-banking/v1/accounts', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 503 },
+      },
+      {
+        name: 'Core banking hangs',
+        about: 'Core banking does not answer at all. The app must hear 503 inside the 2.5 s budget, not wait.',
+        trigger: { http: { method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-core-banking/v1/accounts', latencyMs: 60000, respond: { status: 200, body: {} } }] } },
+        expect: { status: 503, maxMs: 2500 },
+      },
+      {
+        name: 'The app opens its home screen',
+        about: 'The Experience API gets the overview from the Process API within its 3 s budget.',
+        trigger: { http: { method: 'GET', path: '/exp-mobile-banking/v1/me/overview', headers: { 'x-customer-id': 'CU-310877' } } },
+        expect: { status: 200, maxMs: 3000, calls: [{ method: 'GET', path: '/prc-accounts/v1/customers/CU-310877/overview', count: 1 }, { method: 'GET', path: '/sys-core-banking/v1/accounts', count: 0 }] },
+      },
+      {
+        name: 'The app during a core banking outage',
+        about: 'The Process API answers 503, and the Experience API passes the 503 on to the app.',
+        trigger: { http: { method: 'GET', path: '/exp-mobile-banking/v1/me/overview', headers: { 'x-customer-id': 'CU-310877' } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/prc-accounts/v1/customers/{customerId}/overview', respond: { status: 503, body: { code: 'CORE_UNAVAILABLE' } } }] } },
+        expect: { status: 503 },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -94,6 +176,8 @@ export default {
       'exp-mobile-banking-overview',
       source('http-listener', { path: '/exp-mobile-banking/v1/me/overview', allowedMethods: 'GET' }),
       [
+        // The JWT policy on this API has validated the token and passes its subject on as a header.
+        step('set-variable', { variableName: 'customerId', value: '#[attributes.headers."x-customer-id"]' }),
         step('http-request', { method: 'GET', path: '/prc-accounts/v1/customers/{customerId}/overview', responseTimeout: 3000 }),
         step('transform', {
           script:

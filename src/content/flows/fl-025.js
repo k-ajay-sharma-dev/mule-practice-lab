@@ -1,5 +1,16 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
 
+const TRADE = {
+  tradeId: 'TR-20261113-0042',
+  isin: 'DE0001102580',
+  quantity: '500',
+  price: '99.85',
+  legs: [
+    { account: 'ACC-PRIME-01', amount: '49925.00' },
+    { account: 'ACC-CLIENT-77', amount: '-49925.00' },
+  ],
+}
+
 export default {
   id: 'fl-025',
   category: 'flows',
@@ -49,12 +60,70 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          TRADES: { columns: ['TRADE_ID', 'ISIN', 'QUANTITY', 'PRICE'], key: 'TRADE_ID', rows: [] },
+          TRADE_LEGS: {
+            columns: ['TRADE_ID', 'LEG_NO', { name: 'ACCOUNT', notNull: true }, 'AMOUNT'],
+            key: ['TRADE_ID', 'LEG_NO'],
+            rows: [],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A trade is confirmed',
+        about: 'The trade and both legs are saved, and one risk message goes out.',
+        trigger: { message: { kind: 'jms', destination: 'TRADES.IN', payload: TRADE } },
+        expect: {
+          db: { TRADES: { count: 1, has: [{ TRADE_ID: 'TR-20261113-0042', ISIN: 'DE0001102580' }] }, TRADE_LEGS: { count: 2 } },
+          sent: [{ destination: 'TRADES.RISK', count: 1, has: { tradeId: 'TR-20261113-0042' } }],
+          ack: 'acked',
+        },
+      },
+      {
+        name: 'Oracle is down',
+        about: 'Nothing can be saved, so no risk message goes out and the trade goes back to TRADES.IN.',
+        trigger: { message: { kind: 'jms', destination: 'TRADES.IN', payload: TRADE } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { notSent: ['TRADES.RISK'], db: { TRADES: { count: 0 } }, ack: 'returned' },
+      },
+      {
+        name: 'The risk queue is down',
+        about: 'The trade is saved but the risk message cannot be sent, so the whole unit rolls back and the trade goes back to TRADES.IN.',
+        trigger: { message: { kind: 'jms', destination: 'TRADES.IN', payload: TRADE } },
+        overrides: { systems: { queues: { 'TRADES.RISK': { fault: true } } } },
+        expect: { notSent: ['TRADES.RISK'], db: { TRADES: { count: 0 }, TRADE_LEGS: { count: 0 } }, ack: 'returned' },
+      },
+      {
+        name: 'A leg has no account',
+        about: 'Oracle rejects the second leg. That is not a duplicate, so the trade row rolls back too and the message goes back.',
+        trigger: {
+          message: { kind: 'jms', destination: 'TRADES.IN', payload: { ...TRADE, legs: [TRADE.legs[0], { account: null, amount: '-49925.00' }] } },
+        },
+        expect: { notSent: ['TRADES.RISK'], db: { TRADES: { count: 0 }, TRADE_LEGS: { count: 0 } }, ack: 'returned' },
+      },
+      {
+        name: 'The same trade arrives twice',
+        about: 'The second copy hits the unique key on TRADE_ID. It is treated as already done: committed, with no second risk message.',
+        triggers: [
+          { message: { kind: 'jms', destination: 'TRADES.IN', payload: TRADE } },
+          { message: { kind: 'jms', destination: 'TRADES.IN', payload: TRADE }, afterMs: 2000 },
+        ],
+        expect: { db: { TRADES: { count: 1 }, TRADE_LEGS: { count: 2 } }, sent: [{ destination: 'TRADES.RISK', count: 1 }], ack: ['acked', 'acked'] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'trade-confirmations',
       // The listener begins the XA transaction (Bitronix transaction manager, XA connection factory and
       // XA data source); every operation below joins it. Broker max delivery attempts 5 → TRADES.DLQ.
-      source('jms-listener', { destination: 'TRADES.IN', ackMode: 'IMMEDIATE', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'XA' }),
+      // No ack mode is set: in a transaction the commit or rollback decides what happens to the message.
+      source('jms-listener', { destination: 'TRADES.IN', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'XA' }),
       [
         step('transform', {
           target: 'variable',
@@ -63,9 +132,13 @@ export default {
             '%dw 2.0\noutput application/java\n---\n{\n  tradeId: payload.tradeId,\n  isin: payload.isin,\n  quantity: payload.quantity as Number,\n  price: payload.price as Number,\n  legs: payload.legs map ((leg, i) -> {\n    tradeId: payload.tradeId,\n    legNo: i + 1,\n    account: leg.account,\n    amount: leg.amount as Number\n  })\n}',
         }),
         step('db-insert', {
+          database: 'Oracle',
           sql: 'INSERT INTO TRADES (TRADE_ID, ISIN, QUANTITY, PRICE) VALUES (:tradeId, :isin, :quantity, :price)',
         }),
+        // Bulk Insert takes its records from the payload, which the Insert above replaced with its result.
+        step('set-payload', { value: '#[vars.trade.legs]' }),
         step('db-bulk-insert', {
+          database: 'Oracle',
           sql: 'INSERT INTO TRADE_LEGS (TRADE_ID, LEG_NO, ACCOUNT, AMOUNT) VALUES (:tradeId, :legNo, :account, :amount)',
         }),
         step('transform', {
@@ -126,7 +199,7 @@ A trading back-office receives **trade confirmations** on an **ActiveMQ Artemis*
 1. Configure the **Bitronix transaction manager** (\`bti:transaction-manager\`) and an XA-capable **JMS connection factory** (Artemis XA factory) and **Oracle XA data source** (\`bti:xa-data-source-pool\` referenced by the Database config).
 2. **JMS On New Message** listener on \`TRADES.IN\` with \`transactionalAction="ALWAYS_BEGIN"\` and \`transactionType="XA"\`.
 3. Transform Message (DataWeave) → trade row and legs list.
-4. **Database Insert** (trade) and **Bulk Insert** (legs) — both join the transaction by default (\`JOIN_IF_POSSIBLE\`).
+4. **Database Insert** (trade) and **Bulk Insert** (legs) — both join the transaction by default (\`JOIN_IF_POSSIBLE\`). The Insert replaces the payload with its result and Bulk Insert reads its records from the payload, so set the payload to the legs list (or point the Bulk Insert's input at \`vars.trade.legs\`) before it.
 5. DataWeave enriches the message → **JMS Publish** to \`TRADES.RISK\` (joins the transaction).
 6. Flow completes → transaction manager runs two-phase commit across Artemis and Oracle.
 7. Avoid async boundaries inside the transaction (Async scope, Parallel For Each, VM to another flow) — the transaction is bound to the thread/flow.

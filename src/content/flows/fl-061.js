@@ -35,6 +35,77 @@ export default {
     { label: 'Bad input (a failed validation) returns 400', rule: handlerStatus('VALIDATION', '400') },
     { label: 'Oracle connectivity problems (DB:CONNECTIVITY) map to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          STOCK_LEVEL: {
+            columns: ['SKU', 'LOCATION_ID', 'AVAILABLE_QTY'],
+            key: ['SKU', 'LOCATION_ID'],
+            rows: [
+              { SKU: 'CONSOLE-X2', LOCATION_ID: 'DC-01', AVAILABLE_QTY: 5 },
+              { SKU: 'CTRL-X2-BLK', LOCATION_ID: 'DC-01', AVAILABLE_QTY: 1 },
+            ],
+          },
+          STOCK_RESERVATION: { columns: ['RESERVATION_ID', 'ORDER_ID', 'SKU', 'LOCATION_ID', 'QTY'], key: 'RESERVATION_ID', rows: [] },
+        },
+        // INV_PKG.RESERVE_STOCK as the DBA team wrote it: lock, check, reserve, and report through the OUT parameters.
+        procedures: {
+          'INV_PKG.RESERVE_STOCK': (p, db) => {
+            const row = db.tables.STOCK_LEVEL.rows.find((r) => r.SKU === p.sku && r.LOCATION_ID === p.locationId)
+            if (!row) return { reservationId: null, status: 'UNKNOWN_SKU', availableQty: 0 }
+            if (row.AVAILABLE_QTY < Number(p.qty)) return { reservationId: null, status: 'INSUFFICIENT', availableQty: row.AVAILABLE_QTY }
+            row.AVAILABLE_QTY -= Number(p.qty)
+            const id = `RSV-${String(db.tables.STOCK_RESERVATION.rows.length + 70001)}`
+            db.tables.STOCK_RESERVATION.rows.push({ RESERVATION_ID: id, ORDER_ID: p.orderId, SKU: p.sku, LOCATION_ID: p.locationId, QTY: Number(p.qty) })
+            return { reservationId: id, status: 'RESERVED', availableQty: row.AVAILABLE_QTY }
+          },
+        },
+        latencyMs: 25,
+      },
+    },
+    tests: [
+      {
+        name: 'Stock is reserved',
+        about: 'Two consoles are free, so the reservation is made and checkout gets 201 with its id.',
+        trigger: { http: { method: 'POST', path: '/api/reservations', body: { orderId: 'ORD-55120', sku: 'CONSOLE-X2', locationId: 'DC-01', qty: 2, ttlMinutes: 20 } } },
+        expect: {
+          status: 201,
+          bodyHas: { reservationId: 'RSV-70001' },
+          db: { STOCK_LEVEL: { has: [{ SKU: 'CONSOLE-X2', AVAILABLE_QTY: 3 }] }, STOCK_RESERVATION: { count: 1, has: [{ ORDER_ID: 'ORD-55120', QTY: 2 }] } },
+          maxMs: 300,
+        },
+      },
+      {
+        name: 'Not enough stock',
+        about: 'Only one controller is left, so checkout gets 409 and nothing is reserved.',
+        trigger: { http: { method: 'POST', path: '/api/reservations', body: { orderId: 'ORD-55121', sku: 'CTRL-X2-BLK', locationId: 'DC-01', qty: 3, ttlMinutes: 20 } } },
+        expect: { status: 409, db: { STOCK_LEVEL: { has: [{ SKU: 'CTRL-X2-BLK', AVAILABLE_QTY: 1 }] }, STOCK_RESERVATION: { count: 0 } } },
+      },
+      {
+        name: 'The SKU is unknown',
+        about: 'After one good reservation, a request for an SKU the procedure does not know gets 404 and reserves nothing.',
+        triggers: [
+          { http: { method: 'POST', path: '/api/reservations', body: { orderId: 'ORD-55125', sku: 'CONSOLE-X2', locationId: 'DC-01', qty: 1, ttlMinutes: 20 } } },
+          { http: { method: 'POST', path: '/api/reservations', body: { orderId: 'ORD-55122', sku: 'CONSOLE-X9', locationId: 'DC-01', qty: 1, ttlMinutes: 20 } } },
+        ],
+        expect: { status: 404, db: { STOCK_RESERVATION: { count: 1, lacks: [{ ORDER_ID: 'ORD-55122' }] } } },
+      },
+      {
+        name: 'The quantity is zero',
+        about: 'Bad input gets 400 and Oracle is not called.',
+        trigger: { http: { method: 'POST', path: '/api/reservations', body: { orderId: 'ORD-55123', sku: 'CONSOLE-X2', locationId: 'DC-01', qty: 0, ttlMinutes: 20 } } },
+        expect: { status: 400, db: { STOCK_LEVEL: { has: [{ SKU: 'CONSOLE-X2', AVAILABLE_QTY: 5 }] }, STOCK_RESERVATION: { count: 0 } } },
+      },
+      {
+        name: 'Oracle cannot be reached',
+        about: 'The connection fails, so checkout gets 503 and can try again.',
+        trigger: { http: { method: 'POST', path: '/api/reservations', body: { orderId: 'ORD-55124', sku: 'CONSOLE-X2', locationId: 'DC-01', qty: 1, ttlMinutes: 20 } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 503 },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

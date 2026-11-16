@@ -37,6 +37,51 @@ export default {
       rule: { type: 'before', first: 'try', then: 'transform', outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      calls: {
+        'jms-publish-consume': {
+          latencyMs: 450,
+          payload: { storeId: '0101', items: [{ sku: 'TV-55-OLED', qty: 4 }, { sku: 'SOUNDBAR-3', qty: 0 }] },
+        },
+      },
+      db: {
+        tables: {
+          STORE_STOCK_SNAPSHOT: {
+            columns: ['STORE_ID', 'SKU', 'ON_HAND_QTY', 'SNAPSHOT_TS'],
+            key: ['STORE_ID', 'SKU'],
+            rows: [
+              { STORE_ID: '0101', SKU: 'TV-55-OLED', ON_HAND_QTY: 6, SNAPSHOT_TS: '2026-11-13T02:00:00Z' },
+              { STORE_ID: '0101', SKU: 'SOUNDBAR-3', ON_HAND_QTY: 1, SNAPSHOT_TS: '2026-11-13T02:00:00Z' },
+              { STORE_ID: '0101', SKU: 'HDMI-2M', ON_HAND_QTY: 30, SNAPSHOT_TS: '2026-11-13T02:00:00Z' },
+              { STORE_ID: '0233', SKU: 'TV-55-OLED', ON_HAND_QTY: 2, SNAPSHOT_TS: '2026-11-13T02:00:00Z' },
+            ],
+          },
+        },
+        latencyMs: 35,
+      },
+    },
+    tests: [
+      {
+        name: 'The store answers live',
+        about: 'The store server replies in time, so the app gets live quantities well inside 2.5 seconds.',
+        trigger: { http: { method: 'GET', path: '/api/stores/0101/stock?skus=TV-55-OLED,SOUNDBAR-3' } },
+        expect: {
+          status: 200,
+          noError: true,
+          maxMs: 2500,
+          connector: [{ type: 'jms-publish-consume', settings: { destination: 'STORE.STOCK.REQUEST' }, has: { storeId: '0101' }, count: 1 }],
+        },
+      },
+      {
+        name: 'The store does not reply',
+        about: 'No reply comes in 2 seconds. The app still gets an answer from the snapshot within 2.5 seconds.',
+        trigger: { http: { method: 'GET', path: '/api/stores/0101/stock?skus=TV-55-OLED,SOUNDBAR-3' } },
+        overrides: { systems: { calls: { 'jms-publish-consume': { latencyMs: 2000, fault: { type: 'JMS:TIMEOUT', description: 'Timeout: no reply received on the temporary queue' } } } } },
+        expect: { status: 200, noError: true, maxMs: 2500 },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -71,8 +116,9 @@ export default {
             errorHandlers: [
               handler('on-error-continue', { type: 'JMS:TIMEOUT, JMS:CONNECTIVITY' }, [
                 step('logger', { level: 'WARN', message: '#["Store " ++ vars.query.storeId ++ " did not answer, using snapshot"]' }),
+                step('set-variable', { variableName: 'skuCsv', value: '#[vars.query.skus joinBy ","]' }),
                 step('db-select', {
-                  // inputParameters: { storeId: vars.query.storeId, skuCsv: vars.query.skus joinBy "," }
+                  // inputParameters: { storeId: vars.query.storeId, skuCsv: vars.skuCsv }
                   sql: "SELECT SKU, ON_HAND_QTY AS QTY, SNAPSHOT_TS\nFROM STORE_STOCK_SNAPSHOT\nWHERE STORE_ID = :storeId\n  AND SKU IN (SELECT REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) FROM DUAL\n              CONNECT BY REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) IS NOT NULL)",
                 }),
                 step('set-variable', { variableName: 'source', value: 'SNAPSHOT' }),

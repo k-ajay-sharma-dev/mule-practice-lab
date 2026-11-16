@@ -37,6 +37,78 @@ export default {
       rule: { type: 'inside', component: 'sftp-move', where: { targetPath: 'error' }, within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        '/counts/inbound/STORE_0042_20261102.csv': 'SKU,LOCATION,QTY\nSKU-100231,AISLE-04,12\nSKU-100245,,30\nSKU-200871,BACKROOM,6',
+      },
+      db: {
+        tables: {
+          STORE_COUNT_BATCH: {
+            columns: ['STORE_ID', 'COUNT_DATE', 'FILE_NAME', 'LINE_COUNT', 'LOADED_AT'],
+            key: ['STORE_ID', 'COUNT_DATE'],
+            rows: [{ STORE_ID: '0017', COUNT_DATE: '2026-11-02', FILE_NAME: 'STORE_0017_20261102.csv', LINE_COUNT: 2810, LOADED_AT: '2026-11-02T21:14:00Z' }],
+          },
+          STORE_COUNT_STG: { columns: ['STORE_ID', 'COUNT_DATE', 'SKU', 'LOCATION_CODE', 'COUNTED_QTY'], key: ['STORE_ID', 'COUNT_DATE', 'SKU', 'LOCATION_CODE'], rows: [] },
+        },
+        latencyMs: 40,
+      },
+    },
+    tests: [
+      {
+        name: 'A count file is loaded',
+        about: 'Store 0042 uploads three counted lines. The header and the lines are loaded and the file is archived.',
+        trigger: { file: { path: '/counts/inbound/STORE_0042_20261102.csv' } },
+        expect: {
+          noError: true,
+          db: {
+            STORE_COUNT_BATCH: { count: 2, has: [{ STORE_ID: '0042', FILE_NAME: 'STORE_0042_20261102.csv', LINE_COUNT: 3 }] },
+            STORE_COUNT_STG: { count: 3, has: [{ STORE_ID: '0042', SKU: 'SKU-100231', COUNTED_QTY: 12 }, { SKU: 'SKU-200871', COUNTED_QTY: 6 }] },
+          },
+          files: { '/counts/archive/STORE_0042_20261102.csv': { exists: true }, '/counts/inbound/STORE_0042_20261102.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'A line has a bad quantity',
+        about: 'One quantity is not a number. Nothing from the file is loaded and the file goes to the error folder.',
+        trigger: { file: { path: '/counts/inbound/STORE_0108_20261102.csv' } },
+        overrides: { systems: { files: { '/counts/inbound/STORE_0108_20261102.csv': 'SKU,LOCATION,QTY\nSKU-100231,AISLE-02,8\nSKU-100245,AISLE-02,twelve' } } },
+        expect: {
+          db: { STORE_COUNT_BATCH: { count: 1 }, STORE_COUNT_STG: { count: 0 } },
+          files: { '/counts/error/STORE_0108_20261102.csv': { exists: true }, '/counts/archive/STORE_0108_20261102.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'A store re-uploads its count',
+        about: 'Store 0017 sends its count for 2 November again. Nothing is loaded twice and the file goes to the error folder.',
+        trigger: { file: { path: '/counts/inbound/STORE_0017_20261102.csv' } },
+        overrides: { systems: { files: { '/counts/inbound/STORE_0017_20261102.csv': 'SKU,LOCATION,QTY\nSKU-100231,AISLE-01,9\nSKU-300112,AISLE-07,14' } } },
+        expect: {
+          db: { STORE_COUNT_BATCH: { count: 1 }, STORE_COUNT_STG: { count: 0 } },
+          files: { '/counts/error/STORE_0017_20261102.csv': { exists: true }, '/counts/archive/STORE_0017_20261102.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'The lines fail after the header',
+        about: 'A line appears twice and breaks the staging key during the load. The header already written is rolled back too, so no half count is left.',
+        trigger: { file: { path: '/counts/inbound/STORE_0219_20261102.csv' } },
+        overrides: { systems: { files: { '/counts/inbound/STORE_0219_20261102.csv': 'SKU,LOCATION,QTY\nSKU-100231,AISLE-04,12\nSKU-200871,BACKROOM,6\nSKU-100231,AISLE-04,12' } } },
+        expect: {
+          db: { STORE_COUNT_BATCH: { count: 1, lacks: [{ STORE_ID: '0219' }] }, STORE_COUNT_STG: { count: 0 } },
+          files: { '/counts/error/STORE_0219_20261102.csv': { exists: true } },
+        },
+      },
+      {
+        name: 'Oracle is down',
+        about: 'The database does not answer. The file goes to the error folder so store support can see it.',
+        trigger: { file: { path: '/counts/inbound/STORE_0042_20261102.csv' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: {
+          files: { '/counts/error/STORE_0042_20261102.csv': { exists: true }, '/counts/archive/STORE_0042_20261102.csv': { exists: false } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'store-count-to-oracle',
@@ -57,6 +129,7 @@ export default {
             '%dw 2.0\noutput application/java\n---\npayload map (r) -> {\n  storeId: vars.storeId,\n  countDate: vars.countDate,\n  sku: trim(r.SKU),\n  location: if (isEmpty(r.LOCATION)) "SALES_FLOOR" else r.LOCATION,\n  countedQty: r.QTY as Number\n}',
         }),
         step('set-variable', { variableName: 'lines', value: '#[payload]' }),
+        step('set-variable', { variableName: 'lineCount', value: '#[sizeOf(payload)]' }),
         scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
           // Unique key (STORE_ID, COUNT_DATE) stops the same count being loaded twice.
           step('db-insert', {
@@ -119,7 +192,7 @@ The counts must be loaded into **Oracle** staging tables before the 01:00 stock-
   ],
   solution: `
 1. **SFTP On New or Updated File** on \`/counts/inbound\`, pattern \`STORE_*.csv\`, output MIME type \`application/csv\`. Keep the polling frequency modest (e.g. 1 minute) and set a **time-between-size-check** so a file still being uploaded is not read half-written.
-2. **Set Variable** — \`fileName\`, \`filePath\` (\`attributes.path\`, because later operations replace the attributes and a bare name resolves against the working directory), \`storeId\` and \`countDate\` parsed from the file name.
+2. **Set Variable** — \`fileName\`, \`filePath\` (\`attributes.path\`, because later operations replace the attributes and a bare name resolves against the working directory), \`storeId\` and \`countDate\` parsed from the file name. After the Transform, \`lines\` keeps the mapped list and \`lineCount\` its size for the header row.
 3. **Validate** the file is not empty.
 4. **Transform Message** — CSV rows → \`application/java\` list of maps (\`storeId, countDate, sku, location, countedQty\`). Keys match the \`:named\` parameters of the SQL.
 5. **Try** (transactional action **ALWAYS_BEGIN**) containing:

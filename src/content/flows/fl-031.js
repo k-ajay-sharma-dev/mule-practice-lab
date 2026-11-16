@@ -107,6 +107,64 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          suppliers: {
+            key: 'SUPPLIER_ID',
+            rows: [
+              { SUPPLIER_ID: 501, VAT_ID: 'DE811907980', ERP_VENDOR_NO: 'V-77012', STATUS: 'ACTIVE' },
+              { SUPPLIER_ID: 502, VAT_ID: 'FR40303265045', ERP_VENDOR_NO: 'V-77013', STATUS: 'BLOCKED' },
+            ],
+          },
+        },
+        latencyMs: 12,
+      },
+      schemas: {
+        'invoice.json': {
+          type: 'object',
+          required: ['invoiceNo', 'vatId', 'total', 'currency'],
+          properties: { invoiceNo: { type: 'string' }, vatId: { type: 'string' }, total: { type: 'number' }, currency: { type: 'string' } },
+        },
+      },
+      http: [{ method: 'POST', path: '/erp/ap-invoices', latencyMs: 300, respond: { status: 201, body: { documentId: 'AP-2026-118204' } } }],
+    },
+    tests: [
+      {
+        name: 'An invoice is posted',
+        about: 'The supplier is active and the ERP accepts the document, so the message is acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'supplier-invoices', payload: { invoiceNo: 'INV-88120', vatId: 'DE811907980', total: 1840.5, currency: 'EUR' } } },
+        expect: { calls: [{ method: 'POST', path: '/erp/ap-invoices', count: 1 }], notSent: ['invoices-dlq'], ack: 'acked' },
+      },
+      {
+        name: 'A malformed invoice',
+        about: 'The invoice has no total. It goes to the dead-letter queue, is acknowledged and never reaches the ERP.',
+        trigger: { message: { kind: 'mq', destination: 'supplier-invoices', payload: { invoiceNo: 'INV-88121', vatId: 'DE811907980', currency: 'EUR' } } },
+        expect: { calls: [{ path: '/erp/ap-invoices', count: 0 }], sent: [{ destination: 'invoices-dlq', count: 1 }], ack: 'acked' },
+      },
+      {
+        name: 'An unknown supplier',
+        about: 'No supplier has this VAT id, so the invoice is dead-lettered and acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'supplier-invoices', payload: { invoiceNo: 'INV-88122', vatId: 'NL999999999B01', total: 310, currency: 'EUR' } } },
+        expect: { calls: [{ path: '/erp/ap-invoices', count: 0 }], sent: [{ destination: 'invoices-dlq', count: 1 }], ack: 'acked' },
+      },
+      {
+        name: 'The ERP rejects the invoice',
+        about: 'The ERP answers 422. The invoice is dead-lettered and acknowledged, not retried.',
+        trigger: { message: { kind: 'mq', destination: 'supplier-invoices', payload: { invoiceNo: 'INV-88123', vatId: 'DE811907980', total: 99, currency: 'EUR' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/erp/ap-invoices', respond: { status: 422, body: { message: 'Document date is in a closed period' } } }] } },
+        expect: { sent: [{ destination: 'invoices-dlq', count: 1 }], ack: 'acked' },
+      },
+      {
+        name: 'The ERP is down',
+        about: 'The connection is refused. Nothing is dead-lettered and the invoice goes back to the queue.',
+        trigger: { message: { kind: 'mq', destination: 'supplier-invoices', payload: { invoiceNo: 'INV-88124', vatId: 'DE811907980', total: 1200, currency: 'EUR' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/erp/ap-invoices', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { notSent: ['invoices-dlq'], ack: 'returned' },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-continue',
@@ -218,7 +276,7 @@ The DLQ messages must contain the original invoice, an error **type** and a desc
 **Flow \`process-supplier-invoices\`**: MQ Subscriber \`supplier-invoices\`, acknowledgement **MANUAL**.
 
 1. Save \`ackToken\` and the original \`invoice\` in variables.
-2. **Validate json-schema** (JSON module \`json:validate-schema\`) → raises \`JSON:SCHEMA_NOT_HONOURED\`.
+2. **Validate json-schema** (JSON module \`json:validate-schema\` with \`schemas/invoice.json\`) → raises \`JSON:SCHEMA_NOT_HONOURED\`.
 3. **Database Select** supplier by VAT id → **Choice**:
    - empty → **Raise Error \`APP:UNKNOWN_SUPPLIER\`**
    - status BLOCKED → **Raise Error \`APP:SUPPLIER_BLOCKED\`**

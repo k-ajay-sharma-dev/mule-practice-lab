@@ -57,6 +57,63 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        '/pim/outbound/products.json':
+          '[{ "id": "PIM-100201", "name": "Cordless drill 18V", "sku": "DR-18V", "status": "ACTIVE" }, { "id": "PIM-100202", "name": "Drill bit set", "sku": "DB-SET-12", "status": "ACTIVE" }, { "id": "PIM-100203", "name": "Old drill 12V", "sku": "DR-12V", "status": "DISCONTINUED" }]',
+      },
+      calls: {
+        'sf-create-job-v2': { payload: { id: '7505g00000Xq1AbAAJ', object: 'Product2', operation: 'upsert', state: 'UploadComplete' } },
+        'sf-get-job-state-v2': { payload: { id: '7505g00000Xq1AbAAJ', state: 'JobComplete', numberRecordsProcessed: 3, numberRecordsFailed: 1 } },
+        'sf-retrieve-failed-v2': { payload: [{ sf__Id: '', sf__Error: 'REQUIRED_FIELD_MISSING:Required fields are missing: [Family]', PIM_Product_Id__c: 'PIM-100203' }] },
+        'sf-retrieve-unprocessed-v2': { payload: [{ PIM_Product_Id__c: 'PIM-100299', Name: 'Hammer', ProductCode: 'HM-1', IsActive: 'true' }] },
+      },
+    },
+    tests: [
+      {
+        name: 'The job ends with rejected rows',
+        about: 'The submit flow starts the job, and the next poll finds it complete and writes the rejected and unprocessed rows.',
+        triggers: [
+          { schedule: { flow: 'product-load-submit' } },
+          { afterMs: 300000, schedule: { flow: 'product-load-monitor' } },
+        ],
+        expect: {
+          noEmails: true,
+          files: {
+            '/pim/rejected/products-failed.csv': { exists: true, has: 'PIM-100203' },
+            '/pim/rejected/products-unprocessed.csv': { exists: true, has: 'PIM-100299' },
+          },
+          connector: [
+            { type: 'sf-create-job-v2', settings: { objectType: 'Product2', operation: 'upsert', externalIdFieldName: 'PIM_Product_Id__c' }, count: 1 },
+            { type: 'sf-get-job-state-v2', settings: { jobId: '7505g00000Xq1AbAAJ' }, min: 1 },
+            { type: 'sf-retrieve-failed-v2', settings: { jobId: '7505g00000Xq1AbAAJ' }, count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'The job is still running',
+        about: 'Salesforce is still processing, so the poll does nothing and waits for the next one.',
+        triggers: [
+          { schedule: { flow: 'product-load-submit' } },
+          { afterMs: 300000, schedule: { flow: 'product-load-monitor' } },
+        ],
+        overrides: { systems: { calls: { 'sf-get-job-state-v2': { payload: { id: '7505g00000Xq1AbAAJ', state: 'InProgress' } } } } },
+        expect: { noEmails: true, files: { '/pim/rejected/products-failed.csv': { exists: false } } },
+      },
+      {
+        name: 'The job fails',
+        about: 'Salesforce marks the job Failed. Support gets one alert, and the next poll does not send it again.',
+        triggers: [
+          { schedule: { flow: 'product-load-submit' } },
+          { afterMs: 300000, schedule: { flow: 'product-load-monitor' } },
+          { afterMs: 300000, schedule: { flow: 'product-load-monitor' } },
+        ],
+        overrides: { systems: { calls: { 'sf-get-job-state-v2': { payload: { id: '7505g00000Xq1AbAAJ', state: 'Failed', errorMessage: 'InvalidBatch: Field name not found' } } } } },
+        expect: { emails: [{ count: 1 }], files: { '/pim/rejected/products-failed.csv': { exists: false } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'product-load-submit',
@@ -123,18 +180,18 @@ export default {
     ),
   ),
   description: `
-A retailer keeps its product data in a **PIM**. Every night at 01:00 the PIM drops a JSON export of about **350,000 products** on an SFTP server. Salesforce needs these as \`Product2\` records for sales and service teams.
+A retailer keeps its product data in a **PIM**. Every night at 01:00 the PIM drops a JSON export of about **350,000 products** on an SFTP server, at \`/pim/outbound/products.json\`. Salesforce needs these as \`Product2\` records for sales and service teams.
 
 **Requirements**
 - Create or update products in **one idempotent load**, keyed on the external ID field \`PIM_Product_Id__c\`.
 - Use the connector's **Bulk API v2** operations. The team has been told not to use a For Each with single-record calls.
 - Salesforce processes the job in the background, and a load can take from a few minutes to over an hour. **No flow may wait** for it.
-- When the job ends, rejected rows must go to \`/pim/rejected/\` on the SFTP server for the product team. Rows Salesforce did not process must also be visible.
+- When the job ends, rejected rows must go to \`/pim/rejected/products-failed.csv\` on the SFTP server for the product team. Rows Salesforce did not process must also be visible, in \`/pim/rejected/products-unprocessed.csv\`.
 - A failed or aborted job must alert the PIM support mailbox.
 - Each job that has ended is reported only once, not again on every poll.
 - A restart of the app during a running load must not lose track of the job.
 
-**Design the flows.** Say which job states you handle and how you size and schedule the polling.
+**Design the flows.** Name the flow that starts the load \`product-load-submit\` and the flow that watches the job \`product-load-monitor\`. Say which job states you handle and how you size and schedule the polling.
 `,
   answerTemplate: `## Submitting the job
 

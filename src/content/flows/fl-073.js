@@ -44,6 +44,62 @@ export default {
       rule: handlerStatus({ oneOf: ['AZURE', 'CONNECTIVITY'] }, '503'),
     },
   ],
+  simulation: {
+    systems: {
+      // Upload Blob answers true when the blob was written.
+      calls: { 'azure-upload-blob': { payload: true } },
+    },
+    tests: [
+      {
+        name: 'A valid invoice is stored',
+        about: 'The invoice lands in the date folder of today (UTC) under the supplier and invoice number, and the blob name is logged.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/v1/invoices',
+            body: { supplierId: 'SUP-0042', invoiceNumber: 'INV-88731', invoiceDate: '2026-11-12', currency: 'EUR', totalAmount: 1840.5, lines: [{ description: 'Pallet wrap', quantity: 40, unitPrice: 46.0125 }] },
+          },
+        },
+        expect: {
+          noError: true,
+          connector: [{ type: 'azure-upload-blob', settings: { container: 'supplier-invoices', fileName: '2026/11/13/SUP-0042-INV-88731.json' }, count: 1 }],
+          logs: [{ has: '2026/11/13/SUP-0042-INV-88731.json' }],
+        },
+      },
+      {
+        name: 'The supplier sends the invoice again',
+        about: 'The same invoice arrives twice on one day. It is stored under the same blob name, so no second copy is made.',
+        triggers: [
+          { http: { method: 'POST', path: '/api/v1/invoices', body: { supplierId: 'SUP-0042', invoiceNumber: 'INV-88731', invoiceDate: '2026-11-12', currency: 'EUR', totalAmount: 1840.5 } } },
+          { afterMs: 120000, http: { method: 'POST', path: '/api/v1/invoices', body: { supplierId: 'SUP-0042', invoiceNumber: 'INV-88731', invoiceDate: '2026-11-12', currency: 'EUR', totalAmount: 1840.5 } } },
+        ],
+        expect: {
+          connector: [
+            { type: 'azure-upload-blob', settings: { container: 'supplier-invoices', fileName: '2026/11/13/SUP-0042-INV-88731.json' }, min: 1 },
+            { type: 'azure-upload-blob', settings: { fileName: '~INV-88731' }, max: 2 },
+          ],
+        },
+      },
+      {
+        name: 'The invoice breaks the schema',
+        about: 'The invoice number is missing, so the schema check fails and the supplier gets a 400.',
+        trigger: { http: { method: 'POST', path: '/api/v1/invoices', body: { supplierId: 'SUP-0042', invoiceDate: '2026-11-12', totalAmount: 'about 1800' } } },
+        overrides: {
+          systems: { calls: { 'json-validate': { fault: { type: 'JSON:SCHEMA_NOT_HONOURED', description: 'Input JSON does not comply with the schema: required property invoiceNumber is missing' } } } },
+        },
+        expect: { status: 400, connector: [{ type: 'azure-upload-blob', count: 0 }] },
+      },
+      {
+        name: 'The storage account cannot be reached',
+        about: 'Azure Storage does not answer, so the supplier gets a 503 telling it to retry later.',
+        trigger: { http: { method: 'POST', path: '/api/v1/invoices', body: { supplierId: 'SUP-0042', invoiceNumber: 'INV-88732', invoiceDate: '2026-11-12', currency: 'EUR', totalAmount: 96 } } },
+        overrides: {
+          systems: { calls: { 'azure-upload-blob': { fault: { type: 'AZURE-STORAGE:CONNECTIVITY', description: 'Unable to connect to acmefinance.blob.core.windows.net' } } } },
+        },
+        expect: { status: 503 },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

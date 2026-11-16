@@ -51,6 +51,87 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          PRICE_CHANGE: {
+            key: 'CHANGE_ID',
+            rows: [
+              { CHANGE_ID: 7001, PRICE_ZONE: 'Z03', SKU: 'DRILL-18V', NEW_PRICE: 89.99, PROMO_ID: null, EFFECTIVE_FROM: '2026-11-14' },
+              { CHANGE_ID: 7002, PRICE_ZONE: 'Z03', SKU: 'PAINT-5L-WHT', NEW_PRICE: 24.5, PROMO_ID: 'PRM-118', EFFECTIVE_FROM: '2026-11-14' },
+            ],
+          },
+          STORE_PRICE_CHANGE: {
+            key: ['CHANGE_ID', 'STORE_ID'],
+            rows: [
+              { CHANGE_ID: 7001, STORE_ID: 112, DIST_STATUS: 'PENDING', SENT_AT: null, ERROR_TEXT: null },
+              { CHANGE_ID: 7001, STORE_ID: 245, DIST_STATUS: 'PENDING', SENT_AT: null, ERROR_TEXT: null },
+              { CHANGE_ID: 7002, STORE_ID: 112, DIST_STATUS: 'FAILED', SENT_AT: null, ERROR_TEXT: 'Broker link down' },
+              { CHANGE_ID: 7002, STORE_ID: 245, DIST_STATUS: 'SENT', SENT_AT: '2026-11-13T01:52:00Z', ERROR_TEXT: null },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A night of price changes',
+        about: 'Pending and failed store prices go out as one message per store, are marked SENT, and ops get one summary email.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          sent: [
+            { destination: 'STORE.112.PRICES', count: 1 },
+            { destination: 'STORE.245.PRICES', count: 1 },
+          ],
+          db: { STORE_PRICE_CHANGE: { lacks: [{ DIST_STATUS: 'PENDING' }, { DIST_STATUS: 'FAILED' }] } },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'Everything was sent already',
+        about: 'A re-run after a good night finds no PENDING or FAILED rows, so no store gets its prices a second time.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                STORE_PRICE_CHANGE: {
+                  key: ['CHANGE_ID', 'STORE_ID'],
+                  rows: [
+                    { CHANGE_ID: 7001, STORE_ID: 112, DIST_STATUS: 'SENT', SENT_AT: '2026-11-13T01:50:00Z', ERROR_TEXT: null },
+                    { CHANGE_ID: 7001, STORE_ID: 245, DIST_STATUS: 'SENT', SENT_AT: '2026-11-13T01:50:00Z', ERROR_TEXT: null },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        expect: { notSent: ['STORE.112.PRICES', 'STORE.245.PRICES'] },
+      },
+      {
+        name: 'One store cannot be reached',
+        about: 'The broker link to store 245 is down. Store 112 still gets its prices, the rows of store 245 are not marked SENT, so they can be sent again, and the summary still goes out.',
+        trigger: { schedule: {} },
+        overrides: { systems: { queues: { 'STORE.245.PRICES': { fault: true } } } },
+        expect: {
+          sent: [{ destination: 'STORE.112.PRICES', count: 1 }],
+          db: {
+            STORE_PRICE_CHANGE: { lacks: { CHANGE_ID: 7001, STORE_ID: 245, DIST_STATUS: 'SENT' } },
+          },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'Oracle cannot be reached',
+        about: 'The pricing database is down at 01:30, so the run fails where monitoring can see it and no summary claims success.',
+        trigger: { schedule: {} },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', noEmails: true },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -95,7 +176,7 @@ export default {
             ]),
             route({ name: 'record-failures', acceptPolicy: 'ONLY_FAILURES' }, [
               step('db-update', {
-                sql: "UPDATE STORE_PRICE_CHANGE\nSET DIST_STATUS = 'FAILED', ERROR_TEXT = :errorText\nWHERE CHANGE_ID = :CHANGE_ID AND STORE_ID = :STORE_ID",
+                sql: "UPDATE STORE_PRICE_CHANGE\nSET DIST_STATUS = 'FAILED', ERROR_TEXT = 'Store queue publish failed'\nWHERE CHANGE_ID = :CHANGE_ID AND STORE_ID = :STORE_ID",
               }),
             ]),
           ],
@@ -155,7 +236,7 @@ A home-improvement chain changes prices and promotions every night.
     'Scheduler (cron) → streaming Database Select ordered by store → Batch Job with max failed records -1 so bad records/stores do not abort the run.',
     'Batch Aggregator (e.g. 1,000 records) + DataWeave groupBy store → one JMS message per store chunk, published to a dynamic destination STORE.<id>.PRICES.',
     'A second step flags rows SENT with a Database Bulk Update; the source query only picks PENDING/FAILED rows, so re-runs do not re-send.',
-    'An ONLY_FAILURES step marks rows FAILED with the error text so one store can be re-sent later.',
+    'An ONLY_FAILURES step marks rows FAILED so one store can be re-sent later. The step sees the record, not the error that failed it, so the row gets a fixed reason and the details stay in the log.',
     'On Complete uses totalRecords / successfulRecords / failedRecords to email a summary.',
     'Set a JMS time-to-live and persistent delivery so prices that miss their day expire instead of applying late.',
   ],
@@ -165,7 +246,7 @@ A home-improvement chain changes prices and promotions every night.
 3. **Batch Job** \`store-price-distribution\`, block size 500, **max failed records -1**.
    - **publish-to-stores** (NO_FAILURES): **Batch Aggregator size 1,000** → DataWeave groups the chunk by store → **For Each** store group → keep \`storeId\` in a variable, set the payload to the JSON body → **JMS Publish** to \`#["STORE." ++ vars.storeId ++ ".PRICES"]\` (persistent, TTL ~20 h). 1,000 prices × ~150 bytes ≈ 150 KB per message.
    - **mark-sent** (NO_FAILURES): Batch Aggregator 2,000 → **Database Bulk Update** \`SET DIST_STATUS = 'SENT'\` by change ID + store ID.
-   - **record-failures** (ONLY_FAILURES): **Database Update** \`DIST_STATUS = 'FAILED'\` with the error text.
+   - **record-failures** (ONLY_FAILURES): **Database Update** \`DIST_STATUS = 'FAILED'\` with a fixed reason; this step gets the record, not the error, so the details stay in the log.
    - **On Complete**: summary text from the BatchJobResult → **Email Send**.
 
 **Why per-store queues?** One topic with 500 subscribers filtering by selector would push all 1.5 M rows through every store link; per-store queues send each store only its data and let a store that is offline catch up later.

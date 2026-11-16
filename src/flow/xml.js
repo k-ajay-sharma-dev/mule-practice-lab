@@ -288,7 +288,14 @@ function elementXml(n, d) {
 
     // Connectors
     case 'http-request':
-      return el(d, 'http:request', { method: c.method, 'config-ref': 'HTTP_Request_config', path: c.path, responseTimeout: c.responseTimeout })
+      return el(
+        d,
+        'http:request',
+        { method: c.method, 'config-ref': 'HTTP_Request_config', path: c.path, responseTimeout: c.responseTimeout },
+        String(c.successStatusCodes ?? '').trim()
+          ? [el(d + 1, 'http:response-validator', {}, [el(d + 2, 'http:success-status-code-validator', { values: c.successStatusCodes })])]
+          : undefined,
+      )
     case 'db-select':
     case 'db-insert':
     case 'db-bulk-insert':
@@ -298,7 +305,8 @@ function elementXml(n, d) {
     case 'db-stored-procedure': {
       const op = n.type.replace('db-', '')
       const select = n.type === 'db-select' ? { fetchSize: c.fetchSize, maxRows: c.maxRows } : {}
-      return el(d, `db:${op}`, { 'config-ref': dbConfigRef(c), ...select, target: c.target || undefined }, [`${pad(d + 1)}<db:sql><![CDATA[${c.sql}]]></db:sql>`])
+      const params = String(c.inputParameters ?? '').trim() ? [`${pad(d + 1)}<db:input-parameters><![CDATA[${c.inputParameters}]]></db:input-parameters>`] : []
+      return el(d, `db:${op}`, { 'config-ref': dbConfigRef(c), ...select, target: c.target || undefined }, [`${pad(d + 1)}<db:sql><![CDATA[${c.sql}]]></db:sql>`, ...params])
     }
     case 'sf-query':
       return el(d, 'salesforce:query', { 'config-ref': 'Salesforce_Config' }, [`${pad(d + 1)}<salesforce:salesforce-query><![CDATA[${c.soql}]]></salesforce:salesforce-query>`])

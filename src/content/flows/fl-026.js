@@ -5,7 +5,11 @@ const worker = (system, steps) =>
   flow(
     `gdpr-${system}-worker`,
     source('mq-subscriber', { destination: `gdpr.${system}`, acknowledgementMode: 'MANUAL' }),
-    [step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }), ...steps, step('mq-ack', { ackToken: '#[vars.ackToken]' })],
+    [
+      step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
+      // The task status updates read :taskId after the erasure call has replaced the payload.
+      step('set-variable', { variableName: 'taskId', value: '#[payload.taskId]' }),
+      ...steps, step('mq-ack', { ackToken: '#[vars.ackToken]' })],
     [
       handler('on-error-continue', { type: 'ANY' }, [
         step('logger', { level: 'ERROR', message: `#["${system} erasure task " ++ (payload.taskId default "") ++ " failed: " ++ error.errorType.identifier]` }),
@@ -100,6 +104,90 @@ export default {
       rule: { type: 'exists', component: ['db-insert', 'os-store'], where: { sql: 'audit' } },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          customer_flags: {
+            columns: ['customer_id', 'legal_hold', 'open_claims'],
+            key: 'customer_id',
+            rows: [
+              { customer_id: 'CUST-4471', legal_hold: 'N', open_claims: 0 },
+              { customer_id: 'CUST-9020', legal_hold: 'Y', open_claims: 0 },
+            ],
+          },
+          policy_holder: {
+            columns: ['customer_id', 'name', 'email', 'phone', 'pseudonym'],
+            key: 'customer_id',
+            rows: [
+              { customer_id: 'CUST-4471', name: 'Jana Novak', email: 'jana.novak@example.com', phone: '+420 601 555 010', pseudonym: null },
+              { customer_id: 'CUST-9020', name: 'Tom Berg', email: 'tom.berg@example.com', phone: '+46 70 555 0101', pseudonym: null },
+            ],
+          },
+          erasure_request: { columns: ['request_id', 'customer_hash', 'status', 'reason', 'received_at', 'completed_at'], key: 'request_id', rows: [] },
+          erasure_task: { columns: ['task_id', 'request_id', 'system', 'status', 'action', 'job_id', 'done_at'], key: 'task_id', rows: [] },
+          erasure_audit: { columns: ['request_id', 'customer_hash', 'system', 'action', 'result', 'done_at'], rows: [] },
+        },
+      },
+      calls: { 'sf-query': { payload: [{ Id: '0035g00000KLMNO' }, { Id: '0035g00000PQRST' }] } },
+      http: [
+        { method: 'DELETE', path: '/services/data/v60.0/sobjects/Contact/{id}', respond: { status: 204, body: null } },
+        { method: 'POST', path: '/marketing/bulk-deletes', respond: { status: 202, body: { jobId: 'MKT-JOB-551' } } },
+        { method: 'POST', path: '/datalake/erasures', respond: { status: 202, body: { jobId: 'DL-REQ-88' } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'An erasure request is accepted',
+        about: 'No hold or claim. The request is stored as ACCEPTED, the policy holder is anonymised but kept, and every system gets its task.',
+        trigger: { http: { method: 'POST', path: '/erasure-requests', body: { requestId: 'ER-1001', customerId: 'CUST-4471', email: 'jana.novak@example.com' } } },
+        expect: {
+          status: 202,
+          bodyHas: { requestId: 'ER-1001' },
+          db: {
+            erasure_request: { has: [{ request_id: 'ER-1001', status: 'ACCEPTED' }] },
+            policy_holder: { count: 2, has: [{ customer_id: 'CUST-4471', email: null, phone: null }], lacks: [{ name: 'Jana Novak' }] },
+          },
+          calls: [
+            { method: 'DELETE', path: '/services/data/v60.0/sobjects/Contact/{id}', count: 2 },
+            { method: 'POST', path: '/marketing/bulk-deletes', count: 1 },
+            { method: 'POST', path: '/datalake/erasures', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'A legal hold blocks the request',
+        about: 'The customer is under legal hold, so the request is stored as REJECTED and nothing is erased.',
+        trigger: { http: { method: 'POST', path: '/erasure-requests', body: { requestId: 'ER-1002', customerId: 'CUST-9020', email: 'tom.berg@example.com' } } },
+        expect: {
+          bodyLacks: { status: 'ACCEPTED' },
+          db: {
+            erasure_request: { has: [{ request_id: 'ER-1002', status: 'REJECTED' }] },
+            policy_holder: { has: [{ customer_id: 'CUST-9020', name: 'Tom Berg', email: 'tom.berg@example.com' }] },
+          },
+          calls: [
+            { path: '/services/data/v60.0/sobjects/Contact/{id}', count: 0 },
+            { path: '/marketing/bulk-deletes', count: 0 },
+            { path: '/datalake/erasures', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The marketing platform is down',
+        about: 'One system failing must not stop the others: Salesforce, the policy DB and the data lake are still handled.',
+        trigger: { http: { method: 'POST', path: '/erasure-requests', body: { requestId: 'ER-1003', customerId: 'CUST-4471', email: 'jana.novak@example.com' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/marketing/bulk-deletes', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          status: 202,
+          db: { policy_holder: { has: [{ customer_id: 'CUST-4471', email: null }] } },
+          calls: [
+            { method: 'DELETE', path: '/services/data/v60.0/sobjects/Contact/{id}', count: 2 },
+            { method: 'POST', path: '/datalake/erasures', count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -114,14 +202,18 @@ export default {
       [
         step('validation', { check: 'is-not-blank-string', expression: '#[payload.customerId]', message: 'customerId is required' }),
         step('set-variable', { variableName: 'request', value: '#[payload]' }),
+        // Only a hash of the customer is kept in the tracking tables.
+        step('set-variable', { variableName: 'customerHash', value: '#[dw::Crypto::SHA1(payload.customerId as Binary)]' }),
+        // The result goes to a variable, so the payload still holds the request for the inserts below.
         step('db-select', {
-          sql: "SELECT COUNT(*) AS blockers FROM customer_flags WHERE customer_id = :customerId AND (legal_hold = 'Y' OR open_claims > 0)",
+          target: 'flags',
+          sql: "SELECT COUNT(*) AS BLOCKERS FROM customer_flags WHERE customer_id = :customerId AND (legal_hold = 'Y' OR open_claims > 0)",
         }),
         router(
           'choice',
           {},
           [
-            route({ expression: '#[payload[0].BLOCKERS > 0]' }, [
+            route({ expression: '#[vars.flags[0].BLOCKERS > 0]' }, [
               step('db-insert', {
                 sql: "INSERT INTO erasure_request (request_id, customer_hash, status, reason) VALUES (:requestId, :customerHash, 'REJECTED', 'LEGAL_HOLD_OR_OPEN_CLAIM')",
               }),
@@ -141,7 +233,9 @@ export default {
                   '%dw 2.0\noutput application/json\n---\n["salesforce", "policydb", "marketing", "datalake"] map ((system) -> {\n  taskId: vars.request.requestId ++ "-" ++ system,\n  requestId: vars.request.requestId,\n  customerId: vars.request.customerId,\n  system: system\n})',
               }),
               scope('foreach', { collection: '#[payload]', batchSize: 1 }, [
+                // The target keeps the task as the payload, so the publish below sends the task to its system's queue.
                 step('db-insert', {
+                  target: 'taskRow',
                   sql: "INSERT INTO erasure_task (task_id, request_id, system, status) VALUES (:taskId, :requestId, :system, 'PENDING')",
                 }),
                 step('mq-publish', { destination: '#["gdpr." ++ payload.system]' }),
@@ -222,6 +316,11 @@ An insurer must honour GDPR **erasure requests** ("right to be forgotten") withi
 
 Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ requestId, customerId, email }\`. Legal requires **proof** of what was erased where and when, and some requests must be **blocked** (open claim, legal hold). Every request is stored with its status, ACCEPTED or REJECTED with the reason, before the portal gets an answer.
 
+**Facts**
+- Blockers are in the table \`customer_flags (customer_id, legal_hold, open_claims)\`: a legal hold is \`legal_hold = 'Y'\`, an open claim is \`open_claims > 0\`.
+- Policy holders are in \`policy_holder (customer_id, name, email, phone, pseudonym)\`. Requests are stored in \`erasure_request (request_id, customer_hash, status, reason, received_at)\`.
+- Salesforce Contacts carry the customer in \`Customer_Id__c\`. The marketing platform starts a bulk delete with \`POST /marketing/bulk-deletes\` and answers \`{ jobId }\`. The data team's erasure API is \`POST /datalake/erasures\`.
+
 **Design the solution:** intake and checks, orchestration across systems, delete vs anonymise, async systems, retries/partial failures, audit evidence, and how the integration layer itself avoids keeping PII.
 `,
   answerTemplate: `## Intake and eligibility checks
@@ -248,7 +347,7 @@ Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ reque
   ],
   solution: `
 1. **Intake (Process API):** HTTP Listener → validate → **eligibility checks**: Policy DB query for open claims / legal hold flag. If blocked → store request as \`REJECTED\` with reason and return 200/422 to the portal. Otherwise store request \`ACCEPTED\` (DB table \`erasure_request\`) with a **hashed** identifier and return **202** \`{ requestId }\`.
-2. **Fan-out tasks:** create one row per target system in \`erasure_task\` (\`PENDING\`) and publish a message per task to Anypoint MQ queues (\`gdpr.salesforce\`, \`gdpr.policydb\`, \`gdpr.marketing\`, \`gdpr.datalake\`), each with its own DLQ. Messages carry \`requestId\` + system-specific keys, not more PII than needed.
+2. **Fan-out tasks:** create one row per target system in \`erasure_task\` (\`PENDING\`) and publish a message per task to Anypoint MQ queues (\`gdpr.salesforce\`, \`gdpr.policydb\`, \`gdpr.marketing\`, \`gdpr.datalake\`), each with its own DLQ. Messages carry \`requestId\` + system-specific keys, not more PII than needed. Give the task Insert a target variable: otherwise its result replaces the task, and the publish sends the insert count instead of the task. The legal-hold Select gets a target variable for the same reason, so the request is still the payload for the inserts that follow.
 3. **Per-system workers:**
    - **Salesforce:** Query Contact/Cases by external ID → **Delete** (or anonymise fields where cases must remain). Deleted records sit in the Recycle Bin, so agree with the Salesforce admins how they are purged (e.g. hard delete or an emptying job) if policy requires it.
    - **Policy DB:** single DB transaction: \`UPDATE\` personal columns to anonymised values (DataWeave builds the pseudonymised values) keyed by customerId; policy numbers and amounts stay.

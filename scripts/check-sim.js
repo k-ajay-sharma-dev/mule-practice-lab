@@ -128,6 +128,144 @@ rule('an Async scope does not hold up the answer', () => {
   assert.ok(checkExpectations(r, { maxMs: 500, calls: [{ path: '/slow', count: 1 }] }).every((l) => l.ok))
 })
 
+rule('database Input parameters give the :names their values, and a Target variable keeps the payload', () => {
+  const d = design(flow('f', listener('/a'), [step('db-insert', { sql: 'INSERT INTO t (id, name) VALUES (:id, :name)', inputParameters: '#[{ id: 7, name: payload.n }]', target: 'res' })]))
+  const r = simulate(d, { systems: { db: { tables: { t: { rows: [] } } } } }, post('/a', { n: 'Ann' }))
+  assert.deepEqual(r.response.body, { n: 'Ann' })
+  assert.ok(checkExpectations(r, { db: { t: { has: { id: 7, name: 'Ann' } } } }).every((l) => l.ok))
+})
+rule('an HTTP trigger can carry the authentication an API policy would set', () => {
+  const d = design(flow('f', listener('/a'), [step('set-payload', { value: '#[authentication.properties.claims.scope]' })]))
+  const r = simulate(d, {}, { trigger: { http: { method: 'GET', path: '/a', authentication: { principal: 'b-1', properties: { claims: { scope: 'read' } } } } } })
+  assert.equal(r.response.body, 'read')
+})
+rule('connector calls can be checked by their settings, and files by a name pattern', () => {
+  const d = design(flow('f', listener('/a'), [step('file-write', { path: '#["/archive/orders-" ++ payload.id ++ ".csv"]' }), step('s3-put', { bucket: '#[payload.bucket]', key: 'x' })]))
+  const r = simulate(d, {}, post('/a', { bucket: 'invoices', id: 'A1' }))
+  const lines = checkExpectations(r, { connector: [{ type: 's3-put', settings: { bucket: 'invoices' }, count: 1 }], files: { '/archive/orders-*.csv': { count: 1 } } })
+  assert.ok(lines.every((l) => l.ok), JSON.stringify(lines))
+})
+rule('a Try that begins a transaction undoes its database writes when the error propagates, and keeps them on Continue', () => {
+  const body = (handlerType) =>
+    design(
+      flow('f', listener('/a'), [
+        scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [step('db-insert', { sql: 'INSERT INTO t (id) VALUES (:id)' }), step('jms-publish', { destination: 'out' }), step('raise-error', { type: 'APP:BAD', description: 'x' })], {
+          errorHandlers: [handler(handlerType, {}, [step('logger', { message: 'failed' })])],
+        }),
+      ]),
+    )
+  const sc = { systems: { db: { tables: { t: { key: 'id', rows: [] } } } } }
+  // a Try's LOCAL transaction is bound to the first resource it used (the database here), so the JMS message stays
+  const rolled = simulate(body('on-error-propagate'), sc, post('/a', { id: 1 }))
+  assert.ok(checkExpectations(rolled, { db: { t: { count: 0 } }, sent: [{ destination: 'out', count: 1 }] }).every((l) => l.ok))
+  // a transacted JMS listener: XA undoes the database and the publish; LOCAL undoes the publish only
+  const listenerTx = (type) =>
+    design(flow('l', step('jms-listener', { destination: 'in', transactionalAction: 'ALWAYS_BEGIN', transactionType: type }), [step('db-insert', { sql: 'INSERT INTO t (id) VALUES (:id)' }), step('jms-publish', { destination: 'out' }), step('raise-error', { type: 'APP:BAD' })]))
+  const msg = { trigger: { message: { kind: 'jms', destination: 'in', payload: { id: 1 } } } }
+  assert.ok(checkExpectations(simulate(listenerTx('XA'), sc, msg), { db: { t: { count: 0 } }, notSent: ['out'], ack: 'returned' }).every((l) => l.ok))
+  assert.ok(checkExpectations(simulate(listenerTx('LOCAL'), sc, msg), { db: { t: { count: 1 } }, notSent: ['out'], ack: 'returned' }).every((l) => l.ok))
+  // db.failWhen fails one statement only
+  const two = design(flow('f', listener('/a'), [step('db-insert', { sql: 'INSERT INTO t (id) VALUES (:id)' }), step('db-delete', { sql: 'DELETE FROM t WHERE id = 99' })]))
+  const half = simulate(two, { systems: { db: { tables: { t: { key: 'id', rows: [] } }, failWhen: [{ match: 'DELETE FROM t' }] } } }, post('/a', { id: 1 }))
+  assert.equal(half.error?.type, 'DB:QUERY_EXECUTION')
+  assert.ok(checkExpectations(half, { db: { t: { count: 1 } } }).every((l) => l.ok))
+  const kept = simulate(body('on-error-continue'), sc, post('/a', { id: 1 }))
+  assert.ok(checkExpectations(kept, { db: { t: { count: 1 } }, sent: [{ destination: 'out', count: 1 }] }).every((l) => l.ok))
+})
+rule('a duplicate key raises DB:QUERY_EXECUTION with the database text', () => {
+  const d = design(flow('f', listener('/a'), [step('db-insert', { database: 'Oracle', sql: 'INSERT INTO t (id) VALUES (:id)' })]))
+  const r = simulate(d, { systems: { db: { tables: { t: { key: 'id', rows: [{ id: 1 }] } } } } }, post('/a', { id: 1 }))
+  assert.equal(r.error?.type, 'DB:QUERY_EXECUTION')
+  assert.match(r.response.body, /ORA-00001/)
+})
+rule('Success status codes let a 422 through as an answer', () => {
+  const d = design(flow('f', listener('/a'), [step('http-request', { method: 'POST', path: '/psp', successStatusCodes: '200..299,422' }), step('set-payload', { value: '#[attributes.statusCode]' })]))
+  const r = simulate(d, { systems: { http: [{ method: 'POST', path: '/psp', respond: { status: 422, body: { declined: true } } }] } }, post('/a', {}))
+  assert.equal(r.response.body, 422)
+})
+rule('a Batch Aggregator gets the records in groups of its size', () => {
+  const d = design(
+    flow('f', listener('/a'), [
+      scope('batch-job', { jobName: 'j' }, [], { routes: [route({ name: 's1' }, [step('logger', { message: '#[payload.id]' }), scope('batch-aggregator', { size: 2 }, [step('logger', { message: '#["group " ++ sizeOf(payload)]' })])])] }),
+    ]),
+  )
+  const r = simulate(d, {}, post('/a', [{ id: 1 }, { id: 2 }, { id: 3 }]))
+  const groups = r.logs.filter((l) => /^group/.test(l.message)).map((l) => l.message)
+  assert.deepEqual(groups, ['group 2', 'group 1'])
+})
+rule('Validate schema checks the payload against the scenario schema', () => {
+  const d = design(flow('f', listener('/a'), [step('validation', { check: 'json-schema', expression: 'schemas/order.json' }), step('set-payload', { value: 'ok' })]))
+  const sc = { systems: { schemas: { 'order.json': { type: 'object', required: ['orderId'], properties: { qty: { type: 'integer', minimum: 1 } } } } } }
+  assert.equal(simulate(d, sc, post('/a', { orderId: 'A', qty: 2 })).response.body, 'ok')
+  assert.equal(simulate(d, sc, post('/a', { qty: 0 })).error?.type, 'JSON:SCHEMA_NOT_HONOURED')
+})
+rule('payload.^raw is the text the message arrived as, and an XML file is read as XML', () => {
+  const d = design(flow('f', listener('/a'), [step('set-payload', { value: '#[payload.^raw]' })]))
+  assert.equal(simulate(d, {}, { trigger: { http: { method: 'POST', path: '/a', body: { a: 1 }, rawBody: '{ "a": 1 }' } } }).response.body, '{ "a": 1 }')
+  const f = design(flow('f', step('file-listener', { directory: '/in' }), [step('logger', { message: '#[payload.order.id]' })]))
+  const r = simulate(f, {}, { trigger: { file: { path: '/in/o.xml', content: '<order><id>A-1</id></order>' } } })
+  assert.ok(r.logs.some((l) => l.message === 'A-1'), JSON.stringify(r.logs))
+})
+rule('a Transform writer option stays with the payload when it is written to a file', () => {
+  const d = design(flow('f', listener('/a'), [step('transform', { script: '%dw 2.0\noutput application/csv separator="|", header=false\n---\npayload' }), step('file-write', { path: '/out/x.txt' })]))
+  const r = simulate(d, {}, post('/a', [{ a: 1, b: 2 }]))
+  assert.ok(checkExpectations(r, { files: { '/out/x.txt': { has: '1|2' } } }).every((l) => l.ok), JSON.stringify(r.effects.files))
+})
+rule('an Anypoint MQ exchange copies the message to its bound queues; Parse Template fills its template', () => {
+  const d = design(
+    flow('a', listener('/a'), [step('mq-publish', { destination: 'ex' })]),
+    flow('b', step('mq-subscriber', { destination: 'q1' }), [step('parse-template', { location: 'templates/t.txt' }), step('logger', { message: '#[payload]' })]),
+    flow('c', step('mq-subscriber', { destination: 'q2' }), [step('logger', { message: '#["q2 " ++ payload.id]' })]),
+  )
+  const r = simulate(d, { systems: { exchanges: { ex: ['q1', 'q2'] }, templates: { 't.txt': 'Hi #[payload.id]' } } }, post('/a', { id: 'X' }))
+  assert.ok(r.logs.some((l) => l.message === 'Hi X') && r.logs.some((l) => l.message === 'q2 X'), JSON.stringify(r.logs.map((l) => l.message)))
+})
+rule('a Kafka MANUAL listener commits only with a Commit; Scatter-Gather timeout and Parallel For Each concurrency count', () => {
+  const k = (steps) => design(flow('k', step('kafka-listener', { topic: 't', ackMode: 'MANUAL' }), steps))
+  const msg = { trigger: { message: { kind: 'kafka', destination: 't', payload: { a: 1 } } } }
+  assert.ok(checkExpectations(simulate(k([step('kafka-commit', { consumerCommitKey: '#[attributes.consumerCommitKey]' })]), {}, msg), { ack: 'acked' }).every((l) => l.ok))
+  assert.ok(checkExpectations(simulate(k([step('logger', { message: 'x' })]), {}, msg), { ack: 'not-acked' }).every((l) => l.ok))
+  const sg = design(flow('f', listener('/a'), [router('scatter-gather', { timeout: 1000 }, [route({}, [step('http-request', { path: '/slow' })]), route({}, [step('set-payload', { value: 'B' })])])]))
+  const slow = { systems: { http: [{ path: '/slow', latencyMs: 3000, respond: { status: 200 } }] } }
+  const r = simulate(sg, slow, post('/a', {}))
+  assert.equal(r.response.error.type, 'MULE:COMPOSITE_ROUTING')
+  assert.ok(r.elapsedMs <= 1100, String(r.elapsedMs))
+  const pf = design(flow('f', listener('/a'), [scope('parallel-foreach', { collection: '#[payload]', maxConcurrency: 2 }, [step('http-request', { path: '/s' })])]))
+  const r2 = simulate(pf, { systems: { http: [{ path: '/s', latencyMs: 100, respond: { status: 200 } }] } }, post('/a', [1, 2, 3, 4]))
+  assert.equal(r2.elapsedMs, 200)
+})
+rule('XML attributes survive a For Each, and readUrl reads a scenario file', () => {
+  const d = design(
+    flow('f', step('file-listener', { directory: '/in' }), [
+      scope('foreach', { collection: '#[payload.sales.*sale]' }, [step('logger', { message: '#[payload.@region ++ " " ++ payload.id]' })]),
+      step('logger', { message: '#[readUrl("classpath://regions.json", "application/json").EMEA]' }),
+    ]),
+  )
+  const r = simulate(d, { systems: { files: { 'regions.json': '{"EMEA":"Europe"}' } } }, { trigger: { file: { path: '/in/s.xml', content: '<sales><sale region="EMEA"><id>S-1</id></sale><sale region="APAC"><id>S-2</id></sale></sales>' } } })
+  const lines = r.logs.map((l) => l.message)
+  assert.deepEqual(lines, ['EMEA S-1', 'APAC S-2', 'Europe'], JSON.stringify(lines))
+})
+rule('stored and notStored read the Object Store after the run', () => {
+  const d = design(flow('f', listener('/a'), [step('os-store', { key: 'watermark', value: '#[payload.at]' })]))
+  const r = simulate(d, {}, post('/a', { at: '2026-11-13' }))
+  assert.ok(checkExpectations(r, { stored: [{ key: 'watermark', value: '2026-11-13' }], notStored: ['other'] }).every((l) => l.ok))
+})
+rule('the APIkit Router picks the flow for the method and resource, with the URI parameters', () => {
+  const d = design(
+    flow('api-main', listener('/api/*'), [step('apikit-router', { config: 'cfg' })], [
+      handler('on-error-propagate', { type: 'APIKIT:NOT_FOUND' }, [step('set-variable', { variableName: 'httpStatus', value: '404' })]),
+      handler('on-error-propagate', { type: 'APIKIT:METHOD_NOT_ALLOWED' }, [step('set-variable', { variableName: 'httpStatus', value: '405' })]),
+    ]),
+    flow('get:\\orders\\(orderId):cfg', null, [step('set-payload', { value: '#[attributes.uriParams.orderId]' })]),
+    flow('post:\\orders:application\\json:cfg', null, [step('set-payload', { value: 'created' })]),
+  )
+  const get = (path, method = 'GET') => simulate(d, {}, { trigger: { http: { method, path } } }).response
+  assert.equal(get('/api/orders/A-7').body, 'A-7')
+  assert.equal(get('/api/orders', 'POST').body, 'created')
+  assert.equal(get('/api/orders/A-7', 'DELETE').status, 405)
+  assert.equal(get('/api/nothing').status, 404)
+})
+
 for (const [name, fn] of cases) {
   try {
     fn()
@@ -137,10 +275,13 @@ for (const [name, fn] of cases) {
 }
 
 // ---------- 2. problems with a simulation ----------
+// Usage: node scripts/check-sim.js [fl-012 fl-013 ...] checks only those problems.
 const dir = resolve('src/content/flows')
+const onlyProblems = process.argv.slice(2)
 let withSim = 0
 let testRuns = 0
 for (const file of readdirSync(dir).filter((f) => /^fl-\d+\.js$/.test(f)).sort()) {
+  if (onlyProblems.length && !onlyProblems.includes(file.replace(/\.js$/, ''))) continue
   const p = (await import(pathToFileURL(join(dir, file)).href)).default
   const sim = p.simulation
   if (!sim) continue

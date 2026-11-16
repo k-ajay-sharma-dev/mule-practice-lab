@@ -13,21 +13,35 @@
 //     HTTP error for that status, with the body in error.errorMessage.payload. A path no endpoint has answers 404.
 //
 //     db: { tables: { products: { key: 'sku', rows: [{ sku: 'P-1', category: 'tools' }] } }, latencyMs: 8, fault: 'CONNECTIVITY' },
+//     db.failWhen: [{ match: 'DELETE FROM holds', fault: 'QUERY_EXECUTION' }] fails only the statements whose SQL
+//     contains `match` (fault CONNECTIVITY or QUERY_EXECUTION, optional description), so a later step can fail alone.
 //     A :name in SQL takes its value from vars.name, then payload.name, then the URI and query parameters.
 //     snake_case names also look for the camelCase name (:order_id finds orderId).
 //
 //     queues: { 'orders-dlq': { fault: true } },         a publish to this destination fails with <NS>:CONNECTIVITY
+//     templates: { 'welcome.html': '<p>Hello #[payload.firstName]</p>' },   what Parse Template fills in
+//     exchanges: { 'order-events': ['wms-orders', 'analytics-orders'] },   an Anypoint MQ exchange and its bound queues
 //     files: { '/data/in/orders.csv': 'id,total\n1,20' },  files the File, FTP and SFTP operations see
+//     fileTimes: { '/data/in/orders.csv': '2026-11-13T09:59:58Z' },   when a file last changed (default an hour
+//       before the run); List and Read give it as attributes.timestamp and lastModifiedTime, with attributes.size
 //     objectStore: { 'watermarks': { last: '2026-11-12T00:00:00Z' } },
 //     email: { fault: true },                            the mail server is down
+//     schemas: { 'order-schema.json': { type: 'object', required: ['orderId'], properties: {...} } },
+//     the JSON schemas a Validate schema step checks the payload against (by file name, or the only one given).
+//     A failure raises JSON:SCHEMA_NOT_HONOURED.
+//     Expect keys stored / notStored check the Object Store after the run. Database operations take Input parameters
+//     (#[{ id: vars.orderId }]); with them set, only those values fill the :names, as in Mule.
 //     calls: { 'sf-upsert': { payload: {...} } | [{ fault: { type: 'SALESFORCE:CONNECTIVITY', description: '...' } }, { payload }] },
 //       Salesforce, SAP, Workday, SOAP and other connectors answer from here, by component type or by operation.
+//       An answer may also give attributes ({ payload, attributes: { partition: 0, offset: 42 } }).
 //   },
 //   tests: [
 //     {
 //       name: 'A transfer goes through',                 short, plain words; shown as "Run: <name>" in the checks
 //       about: 'Core banking accepts the transfer.',     optional, one line under the name in the Run tab
 //       trigger: { http: { method: 'POST', path: '/transfers', body: {...}, headers: {...}, query: {...} } },
+//         an HTTP trigger may carry authentication: { principal: 'broker-17', properties: { claims: { scope: 'claims:write' } } },
+//         which is what an API policy (JWT, OAuth, client ID) leaves for the flow to read as authentication
 //         or { message: { kind: 'mq' | 'jms' | 'vm' | 'kafka' | 'sqs', destination, payload, properties, deliveryCount } }
 //         or { schedule: {} } or { schedule: { flow: 'nightly-export' } }
 //         or { file: { path: '/data/in/orders.csv', content: '...' } }

@@ -74,6 +74,128 @@ export default {
       rule: { type: 'before', first: 'scatter-gather', then: ['db-bulk-insert', 'db-insert'], outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/notifications/v1/campaigns', latencyMs: 2500, respond: { status: 202, body: { campaignId: 'CMP-20931', status: 'QUEUED' } } }],
+      db: {
+        tables: {
+          RECALL: { key: 'RECALL_ID', columns: ['RECALL_ID', 'SKU', 'LOT_LIST', 'REASON', 'SEVERITY', 'STATUS', 'RAISED_BY', 'RAISED_AT', 'NOTIFIED_AT'], rows: [] },
+          RECALL_NOTIFICATION: { columns: ['RECALL_ID', 'TARGET', 'STATUS', 'ERROR_TEXT', 'NOTIFIED_AT'], rows: [] },
+          STOCK_LOT: {
+            key: ['LOCATION_ID', 'SKU', 'LOT_NO'],
+            rows: [
+              { LOCATION_ID: 'DC-01', LOCATION_TYPE: 'DC', SKU: 'SPIN-BAG-250', LOT_NO: 'L2611A', QTY: 840, STATUS: 'AVAILABLE' },
+              { LOCATION_ID: '0117', LOCATION_TYPE: 'STORE', SKU: 'SPIN-BAG-250', LOT_NO: 'L2611A', QTY: 36, STATUS: 'AVAILABLE' },
+              { LOCATION_ID: '0242', LOCATION_TYPE: 'STORE', SKU: 'SPIN-BAG-250', LOT_NO: 'L2611B', QTY: 24, STATUS: 'AVAILABLE' },
+              { LOCATION_ID: '0242', LOCATION_TYPE: 'STORE', SKU: 'SPIN-BAG-250', LOT_NO: 'L2609C', QTY: 30, STATUS: 'AVAILABLE' },
+            ],
+          },
+        },
+        procedures: {
+          // Blocks the lots everywhere and reports how much stock and how many locations it blocked.
+          'TRACE_PKG.QUARANTINE_LOTS': (args, db) => {
+            const lots = String(args.lotCsv ?? '').split(',')
+            const hit = db.tables.STOCK_LOT.rows.filter((r) => r.SKU === args.sku && lots.includes(r.LOT_NO))
+            for (const r of hit) r.STATUS = 'QUARANTINE'
+            return { quarantinedQty: hit.reduce((n, r) => n + r.QTY, 0), locationCount: new Set(hit.map((r) => r.LOCATION_ID)).size }
+          },
+          // The stores, DCs and customers that have the quarantined lots.
+          'TRACE_PKG.AFFECTED_PARTIES': (args, db) => ({
+            locations: db.tables.STOCK_LOT.rows.filter((r) => r.STATUS === 'QUARANTINE').map((r) => ({ LOCATION_ID: r.LOCATION_ID, LOCATION_TYPE: r.LOCATION_TYPE, LOT_NO: r.LOT_NO, QTY: r.QTY })),
+            customers: [
+              { CUSTOMER_ID: 'C-5520193', PREFERRED_CHANNEL: 'EMAIL', ORDER_ID: 'WEB-771045' },
+              { CUSTOMER_ID: 'C-6100877', PREFERRED_CHANNEL: 'SMS', ORDER_ID: null },
+            ],
+          }),
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'QA raises a recall',
+        about: 'Two lots are blocked in Oracle and QA hears back at once. Then the stores, the WMS and the customers are told, and each outcome is recorded.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/recalls',
+            body: { recallId: 'RC-2026-031', sku: 'SPIN-BAG-250', lots: ['L2611A', 'L2611B'], reason: 'Possible Listeria contamination', severity: 'CLASS_I', raisedBy: 'qa.lead@example.com' },
+          },
+        },
+        expect: {
+          status: 202,
+          maxMs: 5000,
+          db: {
+            RECALL: { has: { RECALL_ID: 'RC-2026-031' } },
+            STOCK_LOT: { has: [{ LOT_NO: 'L2611A', STATUS: 'QUARANTINE' }, { LOT_NO: 'L2611B', STATUS: 'QUARANTINE' }], lacks: { LOT_NO: 'L2609C', STATUS: 'QUARANTINE' } },
+            RECALL_NOTIFICATION: { has: { RECALL_ID: 'RC-2026-031' } },
+          },
+          sent: [
+            { destination: 'STORE.0117.RECALL', count: 1 },
+            { destination: 'STORE.0242.RECALL', count: 1 },
+            { destination: 'WMS.HOLD.COMMANDS', count: 1 },
+          ],
+          calls: [{ method: 'POST', path: '/notifications/v1/campaigns', count: 1 }],
+        },
+      },
+      {
+        name: 'The same recall is sent twice',
+        about: 'The QA portal submits the recall again. It is not executed a second time, so nobody is notified twice.',
+        triggers: [
+          { http: { method: 'POST', path: '/api/recalls', body: { recallId: 'RC-2026-031', sku: 'SPIN-BAG-250', lots: ['L2611A'], reason: 'Possible Listeria contamination', severity: 'CLASS_I', raisedBy: 'qa.lead@example.com' } } },
+          { afterMs: 60000, http: { method: 'POST', path: '/api/recalls', body: { recallId: 'RC-2026-031', sku: 'SPIN-BAG-250', lots: ['L2611A'], reason: 'Possible Listeria contamination', severity: 'CLASS_I', raisedBy: 'qa.lead@example.com' } } },
+        ],
+        expect: {
+          db: { RECALL: { count: 1 } },
+          sent: [
+            { destination: 'STORE.0117.RECALL', count: 1 },
+            { destination: 'WMS.HOLD.COMMANDS', count: 1 },
+          ],
+          calls: [{ method: 'POST', path: '/notifications/v1/campaigns', count: 1 }],
+        },
+      },
+      {
+        name: 'The quarantine fails',
+        about: 'The quarantine procedure fails in Oracle. The request fails, the recall record is rolled back with it, and nobody is notified.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/recalls',
+            body: { recallId: 'RC-2026-033', sku: 'SPIN-BAG-250', lots: ['L2611B'], reason: 'Label shows the wrong allergens', severity: 'CLASS_II', raisedBy: 'qa.lead@example.com' },
+          },
+        },
+        // the procedure is not there, so the call fails with DB:QUERY_EXECUTION
+        overrides: { systems: { db: { procedures: { 'TRACE_PKG.QUARANTINE_LOTS': null } } } },
+        expect: {
+          error: 'DB:QUERY_EXECUTION',
+          db: { RECALL: { count: 0 }, STOCK_LOT: { lacks: { STATUS: 'QUARANTINE' } } },
+          notSent: ['WMS.HOLD.COMMANDS', 'STORE.0242.RECALL'],
+          calls: [{ path: '/notifications/v1/campaigns', count: 0 }],
+        },
+      },
+      {
+        name: 'The notification service stays down',
+        about: 'Customers cannot be told. QA still gets the quick answer, the stores and the WMS are told, the service is tried again, and the failure is recorded for the audit.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/recalls',
+            body: { recallId: 'RC-2026-032', sku: 'SPIN-BAG-250', lots: ['L2609C'], reason: 'Foreign body found', severity: 'CLASS_II', raisedBy: 'qa.lead@example.com' },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'POST', path: '/notifications/v1/campaigns', respond: { status: 503, body: { message: 'Service Unavailable' } } }] } },
+        expect: {
+          status: 202,
+          maxMs: 5000,
+          sent: [
+            { destination: 'STORE.0242.RECALL', count: 1 },
+            { destination: 'WMS.HOLD.COMMANDS', count: 1 },
+          ],
+          calls: [{ method: 'POST', path: '/notifications/v1/campaigns', min: 2 }],
+          db: { RECALL_NOTIFICATION: { has: { RECALL_ID: 'RC-2026-032' } } },
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -87,10 +209,14 @@ export default {
       [
         step('validation', { check: 'is-not-empty-collection', expression: '#[payload.lots]', message: 'At least one lot is required' }),
         step('set-variable', { variableName: 'recall', value: '#[payload]' }),
+        step('set-variable', { variableName: 'lotCsv', value: '#[payload.lots joinBy ","]' }),
         scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
           // PK RECALL_ID: the same recall submitted twice fails with ORA-00001 → 409.
           step('db-insert', {
+            database: 'Oracle',
             sql: "INSERT INTO RECALL (RECALL_ID, SKU, LOT_LIST, REASON, SEVERITY, STATUS, RAISED_BY, RAISED_AT)\nVALUES (:recallId, :sku, :lotCsv, :reason, :severity, 'QUARANTINING', :raisedBy, SYSTIMESTAMP)",
+            // Kept aside, so the procedure still reads the recall from the payload.
+            target: 'recallInsert',
           }),
           // Sets STOCK_LOT.STATUS = 'QUARANTINE' everywhere (DCs, stores, in transit) and blocks sales; no COMMIT inside.
           step('db-stored-procedure', {
@@ -172,6 +298,7 @@ export default {
       [
         // MULE:COMPOSITE_ROUTING when a route fails: record what failed, then propagate → redelivery.
         handler('on-error-propagate', { type: 'MULE:COMPOSITE_ROUTING' }, [
+          step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
           step('db-insert', {
             sql: "INSERT INTO RECALL_NOTIFICATION (RECALL_ID, TARGET, STATUS, ERROR_TEXT, NOTIFIED_AT)\nVALUES (:recallId, 'FANOUT', 'PARTIAL_FAILURE', :errorText, SYSTIMESTAMP)",
           }),
@@ -226,7 +353,7 @@ Data in **Oracle**:
   solution: `
 **Flow 1 — \`recall-api\`** (target < 5 s)
 1. **HTTP Listener** \`POST /api/recalls\`; validate lots.
-2. **Try (ALWAYS_BEGIN)** — **Database Insert** \`RECALL\` (PK \`RECALL_ID\`) + **Stored Procedure** \`TRACE_PKG.QUARANTINE_LOTS\` (OUT quantity and location count). The procedure must not COMMIT itself; the Try commits both.
+2. **Try (ALWAYS_BEGIN)** — **Database Insert** \`RECALL\` (PK \`RECALL_ID\`) + **Stored Procedure** \`TRACE_PKG.QUARANTINE_LOTS\` (OUT quantity and location count). The procedure must not COMMIT itself; the Try commits both. The lots go in as one comma-separated value kept in a variable, and the Insert puts its result in a target variable, so the procedure still reads the recall from the payload.
 3. **JMS Publish** \`RECALL.ISSUED\` → **202** with the quarantine summary.
 4. ORA-00001 → **409** (recall already exists). If the publish fails after the commit, a 500 tells QA to retry; with the 409 path that would block the retry, so an outbox (event row in the same transaction + poller) is the robust choice.
 

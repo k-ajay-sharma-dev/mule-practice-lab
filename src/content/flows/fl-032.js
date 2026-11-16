@@ -3,6 +3,10 @@ import { design, flow, handler, source, step } from '../../flow/dsl.js'
 const jsonLog = (event, extra = '') =>
   `#[write({ event: "${event}", correlationId: correlationId, flow: flow.name${extra} }, "application/json", { indent: false })]`
 
+// The consumer logs the ID the message carries, so it does not depend on what the MQ connector propagates.
+const consumerLog = (event) =>
+  `#[write({ event: "${event}", correlationId: vars.confirmation.correlationId default correlationId, flow: flow.name, orderId: vars.confirmation.orderId }, "application/json", { indent: false })]`
+
 export default {
   id: 'fl-032',
   category: 'flows',
@@ -90,6 +94,47 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'POST', path: '/process/payments', latencyMs: 420, respond: { status: 200, body: { orderId: 'ORD-55120', paymentId: 'PAY-90311', status: 'AUTHORISED' } } },
+        { method: 'POST', path: '/notifications/order-confirmation', latencyMs: 150, respond: { status: 202, body: { queued: true } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'A checkout goes through',
+        about: 'The web shop sends X-Correlation-ID chk-7f3a91. The payment is taken, the confirmation is queued and the log lines carry the ID.',
+        trigger: { http: { method: 'POST', path: '/api/checkout', headers: { 'x-correlation-id': 'chk-7f3a91' }, body: { cartId: 'CART-3301', amount: 64.9 } } },
+        expect: {
+          status: 200,
+          bodyHas: { orderId: 'ORD-55120' },
+          sent: [{ destination: 'order-confirmed', count: 1 }],
+          calls: [{ method: 'POST', path: '/notifications/order-confirmation', count: 1 }],
+          logs: [{ level: 'INFO', has: 'chk-7f3a91' }],
+        },
+      },
+      {
+        name: 'The Payment API is down',
+        about: 'The payment call fails. The ERROR log line and the error body both carry chk-7f3a91, and nothing is queued.',
+        trigger: { http: { method: 'POST', path: '/api/checkout', headers: { 'x-correlation-id': 'chk-7f3a91' }, body: { cartId: 'CART-3301', amount: 64.9 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/process/payments', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          bodyHas: { correlationId: 'chk-7f3a91' },
+          bodyLacks: { status: 'CONFIRMED' },
+          logs: [{ level: 'ERROR', has: 'chk-7f3a91' }],
+          notSent: ['order-confirmed'],
+        },
+      },
+      {
+        name: 'The Notification API is down',
+        about: 'The notification flow fails on its own. The customer still gets the confirmed checkout.',
+        trigger: { http: { method: 'POST', path: '/api/checkout', headers: { 'x-correlation-id': 'chk-80c2d4' }, body: { cartId: 'CART-3302', amount: 12 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/notifications/order-confirmation', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 200, bodyHas: { orderId: 'ORD-55120' }, sent: [{ destination: 'order-confirmed', count: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'checkout-api',
@@ -123,9 +168,11 @@ export default {
       ],
     ),
     flow('order-confirmed-consumer', source('mq-subscriber', { destination: 'order-confirmed', acknowledgementMode: 'AUTO' }), [
-      step('logger', { level: 'INFO', message: jsonLog('confirmation.received', ', orderId: payload.orderId') }),
+      // The HTTP Request below replaces the payload, so keep the confirmation for the last log line.
+      step('set-variable', { variableName: 'confirmation', value: '#[payload]' }),
+      step('logger', { level: 'INFO', message: consumerLog('confirmation.received') }),
       step('http-request', { method: 'POST', path: '/notifications/order-confirmation', responseTimeout: 5000 }),
-      step('logger', { level: 'INFO', message: jsonLog('confirmation.sent', ', orderId: payload.orderId') }),
+      step('logger', { level: 'INFO', message: consumerLog('confirmation.sent') }),
     ]),
   ),
   description: `
@@ -169,7 +216,7 @@ All logs go to Splunk. Support wants to type **one ID** and see every log line f
 5. **Logger** \`checkout.completed\` with \`orderId\` and \`durationMs\` (from \`vars.startedAt\`).
 6. **Error handler:** Logger ERROR \`{ event: "checkout.failed", correlationId, errorType, error }\` → status 502/500 → body \`{ code, message, correlationId }\`. Never return stack traces to the customer.
 
-**Flow \`order-confirmed-consumer\`**: **MQ Subscriber** \`order-confirmed\`. The Anypoint MQ docs do not describe correlation ID propagation, so check that the event \`correlationId\` here matches \`payload.correlationId\`. If it does not, log \`payload.correlationId\` or set it with the Tracing module's \`with-correlation-id\` scope, so \`confirmation.received\` / \`confirmation.sent\` share the same ID and Splunk can join all four log lines.
+**Flow \`order-confirmed-consumer\`**: **MQ Subscriber** \`order-confirmed\`. The Anypoint MQ docs do not describe correlation ID propagation, so the consumer does not rely on the event \`correlationId\`: it keeps the message in \`vars.confirmation\` and logs \`vars.confirmation.correlationId\` (the Tracing module's \`with-correlation-id\` scope is another way to set it). Keeping the message in a variable also matters because the HTTP Request to the Notification API replaces the payload, so \`payload.orderId\` would be null in the \`confirmation.sent\` line. Now \`confirmation.received\` / \`confirmation.sent\` share the same ID and Splunk can join all four log lines.
 
 To keep every application consistent, use a JSON logger component or a log4j2 \`JsonLayout\` with the correlation ID in the MDC, rather than hand-built strings in each Logger.
 `,

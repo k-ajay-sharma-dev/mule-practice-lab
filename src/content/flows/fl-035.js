@@ -76,6 +76,67 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: 'choice', routeWhere: { expression: 'SHIPPED' } },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          orders: {
+            key: 'ORDER_ID',
+            rows: [
+              { ORDER_ID: 'ORD-1001', STATUS: 'PICKED', STATUS_CHANGED_AT: '2026-11-13T07:40:00Z', TRACKING_NO: null, CUSTOMER_EMAIL: 'ana@example.com' },
+              { ORDER_ID: 'ORD-1002', STATUS: 'PACKED', STATUS_CHANGED_AT: '2026-11-13T08:05:00Z', TRACKING_NO: null, CUSTOMER_EMAIL: 'ben@example.com' },
+              { ORDER_ID: 'ORD-1003', STATUS: 'SHIPPED', STATUS_CHANGED_AT: '2026-11-13T09:15:00Z', TRACKING_NO: '1Z999AA10123456784', CUSTOMER_EMAIL: 'cleo@example.com' },
+            ],
+          },
+        },
+        latencyMs: 12,
+      },
+      templates: { 'order-shipped.html': '<p>Good news: order #[vars.update.orderId] is on its way. Tracking number #[vars.update.trackingNo].</p>' },
+      calls: { 'sf-upsert': { latencyMs: 3500, payload: { successful: true, items: [{ id: '801RS00000Q7x2YAC', successful: true }] } } },
+    },
+    tests: [
+      {
+        name: 'A status update is applied',
+        about: 'PICKED moves to PACKED. The warehouse gets 202 at once, and the order row changes after it.',
+        trigger: { http: { method: 'POST', path: '/api/orders/ORD-1001/status', body: { status: 'PACKED', occurredAt: '2026-11-13T09:58:00Z' } } },
+        expect: {
+          status: 202,
+          maxMs: 500,
+          db: { orders: { has: [{ order_id: 'ORD-1001', status: 'PACKED' }] } },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The order ships',
+        about: 'PACKED moves to SHIPPED, so the customer gets an email with the tracking number.',
+        trigger: { http: { method: 'POST', path: '/api/orders/ORD-1002/status', body: { status: 'SHIPPED', occurredAt: '2026-11-13T09:59:00Z', trackingNo: '1Z999AA10123456791' } } },
+        expect: {
+          status: 202,
+          db: { orders: { has: [{ order_id: 'ORD-1002', status: 'SHIPPED' }] } },
+          emails: [{ to: 'ben@example.com', has: '1Z999AA10123456791', count: 1 }],
+        },
+      },
+      {
+        name: 'An update arrives out of order',
+        about: 'ORD-1003 is already SHIPPED when a late PACKED arrives. The status stays SHIPPED and nobody is emailed.',
+        trigger: { http: { method: 'POST', path: '/api/orders/ORD-1003/status', body: { status: 'PACKED', occurredAt: '2026-11-13T08:50:00Z' } } },
+        expect: { status: 202, db: { orders: { has: [{ order_id: 'ORD-1003', status: 'SHIPPED' }], lacks: [{ order_id: 'ORD-1003', status: 'PACKED' }] } }, noEmails: true },
+      },
+      {
+        name: 'An unknown status',
+        about: 'LOST is not a status the pipeline knows, so the answer is 400 and nothing is queued.',
+        trigger: { http: { method: 'POST', path: '/api/orders/ORD-1001/status', body: { status: 'LOST', occurredAt: '2026-11-13T09:58:00Z' } } },
+        expect: { status: 400, notSent: ['order-status-in'], db: { orders: { has: [{ order_id: 'ORD-1001', status: 'PICKED' }] } } },
+      },
+      {
+        name: 'Salesforce is down',
+        about: 'The Salesforce upsert fails. The warehouse still gets 202 and the status update is kept.',
+        trigger: { http: { method: 'POST', path: '/api/orders/ORD-1002/status', body: { status: 'SHIPPED', occurredAt: '2026-11-13T09:59:00Z', trackingNo: '1Z999AA10123456791' } } },
+        overrides: { systems: { calls: { 'sf-upsert': { fault: { type: 'SALESFORCE:CONNECTIVITY', description: 'Unable to reach login.salesforce.com' } } } } },
+        expect: { status: 202, maxMs: 500, db: { orders: { has: [{ order_id: 'ORD-1002', status: 'SHIPPED' }] } } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -118,11 +179,12 @@ export default {
       source('vm-listener', { queueName: 'order-status-in', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'LOCAL' }),
       [
         step('set-variable', { variableName: 'update', value: '#[payload]' }),
-        step('db-select', { sql: 'SELECT status, status_changed_at FROM orders WHERE order_id = :orderId FOR UPDATE' }),
+        // Target variable: the payload stays the update, so the UPDATE below still has its :status and :orderId values.
+        step('db-select', { sql: 'SELECT status, status_changed_at FROM orders WHERE order_id = :orderId FOR UPDATE', target: 'current' }),
         step('set-variable', {
           variableName: 'allowed',
           value:
-            '#[do { var order = ["NEW", "PICKED", "PACKED", "SHIPPED", "DELIVERED"] --- (order indexOf vars.update.status) > (order indexOf payload[0].STATUS) }]',
+            '#[do { var order = ["NEW", "PICKED", "PACKED", "SHIPPED", "DELIVERED"] --- (order indexOf vars.update.status) > (order indexOf (vars.current[0].STATUS default "NEW")) }]',
         }),
         router(
           'choice',
@@ -164,8 +226,10 @@ export default {
           {},
           [
             route({ expression: '#[vars.update.status == "SHIPPED"]' }, [
+              // The webhook does not carry the customer's address, so it is read from the order.
+              step('db-select', { sql: 'SELECT customer_email FROM orders WHERE order_id = :orderId', inputParameters: '#[{ orderId: vars.update.orderId }]', target: 'order' }),
               step('parse-template', { location: 'templates/order-shipped.html' }),
-              step('email-send', { toAddresses: '#[vars.customerEmail]', subject: 'Your order is on its way' }),
+              step('email-send', { toAddresses: '#[vars.order[0].CUSTOMER_EMAIL]', subject: 'Your order is on its way' }),
             ]),
           ],
           { otherwise: [step('logger', { level: 'DEBUG', message: '#["No customer notification for status " ++ vars.update.status]' })] },
@@ -218,7 +282,7 @@ The warehouse management system calls a webhook for every order status change: *
   (On CloudHub 2.0, enable **clustering** for the app: persistent queues are not available there as a disk store, but in cluster mode VM queues are kept in the shared memory grid, so a single replica restart loses nothing.)
 
 **2. \`order-status-apply\`**: **VM Listener** \`order-status-in\`, \`transactionalAction=ALWAYS_BEGIN\` (LOCAL):
-- **Database Select** current status \`FOR UPDATE\`.
+- **Database Select** current status \`FOR UPDATE\`, with **Target variable** \`current\`. Without the target the select replaces the payload, and the update loses the \`status\`, \`orderId\` and \`trackingNo\` values it writes.
 - **Choice**: only if the new status is *later* in \`NEW < PICKED < PACKED < SHIPPED < DELIVERED\` → **Database Update** and **VM Publish** \`order-status-changed\`. A duplicate or older status → log WARN and drop it (still a successful commit).
 - Any error → On Error Propagate → the VM transaction rolls back, and the message is redelivered.
   (A VM transaction and a DB connection are different resources. For strict atomicity you would need XA. In practice the idempotent "only move forward" check makes a redelivery safe. \`FOR UPDATE\` only holds its lock inside a database transaction, so without one treat it as a hint, not a guarantee.)
@@ -226,7 +290,7 @@ The warehouse management system calls a webhook for every order status change: *
 **3. \`order-status-notify\`**: **VM Listener** \`order-status-changed\`, also \`transactionalAction=ALWAYS_BEGIN\` so a failure redelivers instead of losing the update:
 - Keep the update in \`vars.update\`, because the upsert replaces the payload.
 - **Salesforce Upsert** Order on \`Order_Number__c\` (idempotent).
-- **Choice**: SHIPPED → Parse Template → **Email Send**.
+- **Choice**: SHIPPED → **Database Select** the customer's email from \`orders\` (target \`order\`; the webhook does not carry it) → Parse Template → **Email Send**.
 
 Using separate queues means a Salesforce outage only delays notifications. It never blocks status updates or the warehouse webhook.
 `,

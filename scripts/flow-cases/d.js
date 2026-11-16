@@ -161,11 +161,13 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-094', 'logs the serial', (d) => {
     handlerFor(d, 'EMPTY_COLLECTION').steps.find((n) => n.type === 'logger').config.message = 'Certificate not authorised'
   })
-  // All headers kept in one variable before the lookup.
+  // All headers kept in one variable before the lookup, and the input parameters read from it.
   await passes('fl-094', (d) => {
     const steps = d.flows[0].steps
     d.flows[0].steps = steps.filter((n) => !['clientDn', 'clientSerial'].includes(n.config.variableName))
     d.flows[0].steps.splice(1, 0, step('set-variable', { variableName: 'certHeaders', value: '#[attributes.headers]' }))
+    one(d, 'db-select').config.inputParameters =
+      '#[{ clientDn: vars.certHeaders."x-ssl-client-dn" default "", clientSerial: vars.certHeaders."x-ssl-client-serial" default "" }]'
     handlerFor(d, 'EMPTY_COLLECTION').steps.find((n) => n.type === 'logger').config.message =
       '#["Certificate not authorised: DN " ++ vars.certHeaders."x-ssl-client-dn" ++ " serial " ++ vars.certHeaders."x-ssl-client-serial"]'
   })

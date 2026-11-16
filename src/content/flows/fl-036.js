@@ -102,6 +102,81 @@ export default {
       rule: { type: 'exists', component: 'os-remove' },
     },
   ],
+  simulation: {
+    properties: { 'provider.secret': 'whsec_5f2c9a' },
+    systems: {
+      http: [{ method: 'POST', path: '/merchant-webhook', latencyMs: 180, respond: { status: 200, body: { received: true } } }],
+    },
+    tests: [
+      {
+        name: 'A signed webhook is relayed',
+        about: 'The signature matches the raw body. The provider gets 202 at once, and the worker then delivers the event to the merchant.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/webhooks/M-204',
+            headers: { 'x-signature': '7147c5b88c1ab675caca90ee9032ad5dc034761c9cbf047389e1cfc720c568bb' },
+            body: { id: 'evt_3Kt5', type: 'payment.succeeded', amount: 4999 },
+            rawBody: '{"id":"evt_3Kt5","type":"payment.succeeded","amount":4999}',
+          },
+        },
+        expect: {
+          status: 202,
+          maxMs: 1000,
+          sent: [{ destination: 'webhook-relay', count: 1, has: { merchantId: 'M-204', eventId: 'evt_3Kt5' } }],
+          calls: [{ method: 'POST', path: '/merchant-webhook', count: 1 }],
+          notSent: ['webhook-relay-dlq'],
+        },
+      },
+      {
+        name: 'A webhook with a bad signature',
+        about: 'The signature does not match the body, so the answer is 401 and nothing is queued.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/webhooks/M-204',
+            headers: { 'x-signature': '0000000000000000000000000000000000000000000000000000000000000000' },
+            body: { id: 'evt_3Kt6', type: 'refund.created', amount: 99999 },
+            rawBody: '{"id":"evt_3Kt6","type":"refund.created","amount":99999}',
+          },
+        },
+        expect: { status: 401, notSent: ['webhook-relay'], calls: [{ path: '/merchant-webhook', count: 0 }] },
+      },
+      {
+        name: 'The merchant endpoint is misconfigured',
+        about: 'The merchant answers 404. The event goes to the DLQ at once and is not retried.',
+        trigger: { message: { kind: 'mq', destination: 'webhook-relay', payload: { merchantId: 'M-311', eventId: 'evt_3Kr1', attempt: 1, body: { id: 'evt_3Kr1', type: 'refund.created', amount: 1200 } } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/merchant-webhook', respond: { status: 404, body: 'Not Found' } }] } },
+        expect: { calls: [{ method: 'POST', path: '/merchant-webhook', count: 1 }], sent: [{ destination: 'webhook-relay-dlq', count: 1 }], ack: 'acked' },
+      },
+      {
+        name: 'The merchant is down',
+        about: 'Every call is refused. The event is re-queued and acknowledged, and after 5 failures in a row the circuit opens, so the merchant is not called again.',
+        trigger: { message: { kind: 'mq', destination: 'webhook-relay', payload: { merchantId: 'M-118', eventId: 'evt_3Kr7', attempt: 1, body: { id: 'evt_3Kr7', type: 'chargeback.opened', amount: 8900 } } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/merchant-webhook', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          sent: [{ destination: 'webhook-relay', has: { eventId: 'evt_3Kr7', attempt: 2 } }],
+          calls: [{ method: 'POST', path: '/merchant-webhook', min: 5 }, { method: 'POST', path: '/merchant-webhook', max: 5 }],
+          ack: 'acked',
+        },
+      },
+      {
+        name: 'An open circuit and a reset',
+        about: 'The circuit of M-118 is open until 10:05, so an event is parked without calling the merchant. Operations then reset the circuit, and the next event is delivered.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'webhook-relay', payload: { merchantId: 'M-118', eventId: 'evt_3Ks1', attempt: 1, body: { id: 'evt_3Ks1', type: 'payment.succeeded', amount: 1800 } } } },
+          { http: { method: 'DELETE', path: '/admin/circuits/M-118' } },
+          { message: { kind: 'mq', destination: 'webhook-relay', payload: { merchantId: 'M-118', eventId: 'evt_3Ks2', attempt: 1, body: { id: 'evt_3Ks2', type: 'payment.succeeded', amount: 2500 } } } },
+        ],
+        overrides: { systems: { objectStore: { 'merchant-circuit-breaker': { 'cb-M-118': { state: 'OPEN', failures: 5, openUntil: '2026-11-13T10:05:00Z' } } } } },
+        expect: {
+          calls: [{ method: 'POST', path: '/merchant-webhook', count: 1 }, { method: 'POST', path: '/merchant-webhook', has: { id: 'evt_3Ks1' }, count: 0 }],
+          sent: [{ destination: 'webhook-relay', has: { eventId: 'evt_3Ks1' } }],
+          ack: 'acked',
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-continue',
@@ -185,7 +260,7 @@ export default {
             target: 'variable',
             variableName: 'circuit',
             script:
-              '%dw 2.0\noutput application/java\nvar failures = (vars.circuit.failures default 0) + 1\n---\nif (failures >= 5) { state: "OPEN", failures: failures, openUntil: now() + |PT5M| } else { state: "CLOSED", failures: failures, openUntil: null }',
+              '%dw 2.0\noutput application/java\nvar failures = (vars.circuit.failures default 0) + 1\n---\nif (failures >= 5) { state: "OPEN", failures: failures, openUntil: (now() + |PT5M|) as String } else { state: "CLOSED", failures: failures, openUntil: null }',
           }),
           step('os-store', { key: '#["cb-" ++ vars.msg.merchantId]', value: '#[vars.circuit]', objectStore: CB_STORE }),
           router(
@@ -267,7 +342,7 @@ You operate a **payment-event relay**. The payment provider POSTs webhooks (paym
    - **Otherwise** (CLOSED, or OPEN past \`openUntil\` = **half-open trial**) → **HTTP Request** to the merchant with \`responseTimeout 5000\` → on success **Object Store Store** \`{ CLOSED, 0 }\` → **ack**.
 3. **Error handlers**
    - \`HTTP:BAD_REQUEST / UNAUTHORIZED / FORBIDDEN / NOT_FOUND\` → non-retryable → **MQ Publish \`webhook-relay-dlq\`** with the reason → ack. These do not count against the circuit (the merchant is up, just misconfigured).
-   - \`HTTP:CONNECTIVITY / TIMEOUT / 5xx\` → Transform \`failures + 1\`. At 5, set \`OPEN, openUntil = now() + 5 min\` → **Object Store Store**. Then, if \`attempt >= 12\` → DLQ, else re-publish with \`attempt + 1\` and a growing delivery delay (30 s, 1 min, 2 min, 5 min ... about 1 h in total) → ack.
+   - \`HTTP:CONNECTIVITY / TIMEOUT / 5xx\` → Transform \`failures + 1\`. At 5, set \`OPEN, openUntil = now() + 5 min\` (kept as an ISO date-time string, so the stored entry is plain data any replica can read back) → **Object Store Store**. Then, if \`attempt >= 12\` → DLQ, else re-publish with \`attempt + 1\` and a growing delivery delay (30 s, 1 min, 2 min, 5 min ... about 1 h in total) → ack.
    - \`ANY\` → **nack** (the broker redelivers; the queue's max-deliveries + DLQ catch bugs).
 
 **Flow \`circuit-breaker-admin\`**: \`DELETE /admin/circuits/{merchantId}\` → Object Store Remove → 204. Operations can close a circuit by hand after a merchant confirms a fix.

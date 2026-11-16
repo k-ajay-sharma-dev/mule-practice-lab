@@ -89,6 +89,63 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'PUT', path: '/emr/observations/{resultId}', latencyMs: 180, respond: { status: 200, body: { id: 'OBS-88120', status: 'final' } } }],
+    },
+    tests: [
+      {
+        name: 'The EMR accepts a result',
+        about: 'The result is stored in the EMR and only then acknowledged.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'LAB.RESULTS',
+            payload: { resultId: 'LR-2026-551093', patientMrn: 'MRN-0042817', testCode: 'HBA1C', value: 6.1, unit: '%', resultedAt: '2026-11-13T07:42:00Z' },
+          },
+        },
+        expect: { ack: 'acked', calls: [{ method: 'PUT', path: '/emr/observations/LR-2026-551093', count: 1 }], notSent: ['LAB.RESULTS.PARKED'] },
+      },
+      {
+        name: 'The EMR is restarting',
+        about: 'The EMR answers 503, so the result is not acknowledged and comes back for another attempt.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'LAB.RESULTS',
+            payload: { resultId: 'LR-2026-551094', patientMrn: 'MRN-0042817', testCode: 'K', value: 4.2, unit: 'mmol/L', resultedAt: '2026-11-13T07:43:00Z' },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'PUT', path: '/emr/observations/{resultId}', respond: { status: 503, body: { message: 'Service restarting' } } }] } },
+        expect: { ack: 'returned', notSent: ['LAB.RESULTS.PARKED'] },
+      },
+      {
+        name: 'The EMR cannot be reached',
+        about: 'The connection is refused, so the result goes back for redelivery.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'LAB.RESULTS',
+            payload: { resultId: 'LR-2026-551095', patientMrn: 'MRN-0051120', testCode: 'NA', value: 139, unit: 'mmol/L', resultedAt: '2026-11-13T07:44:00Z' },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'PUT', path: '/emr/observations/{resultId}', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { ack: 'returned', notSent: ['LAB.RESULTS.PARKED'] },
+      },
+      {
+        name: 'A result has no patient MRN',
+        about: 'This result can never succeed, so it is parked and acknowledged, and the EMR is not called.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'LAB.RESULTS',
+            payload: { resultId: 'LR-2026-551096', patientMrn: '', testCode: 'CRP', value: 12, unit: 'mg/L', resultedAt: '2026-11-13T07:45:00Z' },
+          },
+        },
+        expect: { ack: 'acked', sent: [{ destination: 'LAB.RESULTS.PARKED', count: 1 }], calls: [{ method: 'PUT', path: '/emr/observations/{id}', count: 0 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'lab-results-to-emr',

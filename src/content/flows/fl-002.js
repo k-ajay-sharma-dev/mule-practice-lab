@@ -57,6 +57,96 @@ export default {
       rule: { type: 'before', first: 'parallel-foreach', then: 'transform', outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/prices/{sku}',
+          latencyMs: 400,
+          respond: (req) => {
+            const prices = { 'TENT-2P': 120, 'MAT-FOAM': 15, 'STOVE-GAS': 45 }
+            const sku = req.params.sku
+            return sku in prices ? { status: 200, body: { sku, price: prices[sku], currency: 'EUR' } } : { status: 200, body: { sku, price: 10, currency: 'EUR' } }
+          },
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'Every line gets a price',
+        about: 'Three lines are priced and the total is quantity times price over all lines.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/quotes',
+            body: {
+              quoteId: 'Q-7001',
+              lines: [
+                { lineNo: 1, sku: 'TENT-2P', quantity: 1 },
+                { lineNo: 2, sku: 'MAT-FOAM', quantity: 2 },
+                { lineNo: 3, sku: 'STOVE-GAS', quantity: 1 },
+              ],
+            },
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: {
+            lines: [
+              { sku: 'TENT-2P', price: 120 },
+              { sku: 'MAT-FOAM', price: 15 },
+              { sku: 'STOVE-GAS', price: 45 },
+            ],
+            total: 195,
+          },
+          calls: [{ method: 'GET', path: '/prices/{sku}', count: 3 }],
+        },
+      },
+      {
+        name: 'One price lookup fails',
+        about: 'The Pricing API cannot be reached for one SKU. The quote still comes back with the other lines priced.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/quotes',
+            body: {
+              quoteId: 'Q-7002',
+              lines: [
+                { lineNo: 1, sku: 'TENT-2P', quantity: 1 },
+                { lineNo: 2, sku: 'STOVE-GAS', quantity: 1 },
+              ],
+            },
+          },
+        },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'GET',
+                path: '/prices/{sku}',
+                latencyMs: 400,
+                respond: (req) => (req.params.sku === 'STOVE-GAS' ? { fault: 'CONNECTIVITY' } : { status: 200, body: { sku: req.params.sku, price: 120, currency: 'EUR' } }),
+              },
+            ],
+          },
+        },
+        expect: { status: 200, bodyHas: { lines: [{ sku: 'TENT-2P', price: 120 }, { sku: 'STOVE-GAS' }], total: 120 } },
+      },
+      {
+        name: 'A 300 line order answers in time',
+        about: 'Each price call takes 400 ms. One after the other would take two minutes, and the target is under 10 seconds.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/quotes',
+            body: { quoteId: 'Q-7003', lines: Array.from({ length: 300 }, (_, i) => ({ lineNo: i + 1, sku: `SKU-${i + 1}`, quantity: 1 })) },
+          },
+        },
+        expect: { status: 200, bodyHas: { total: 3000 }, maxMs: 10000 },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

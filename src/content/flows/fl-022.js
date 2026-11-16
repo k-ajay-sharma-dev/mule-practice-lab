@@ -27,6 +27,17 @@ const cdcListener = (object) =>
     ],
   )
 
+// Run scenario data: an Account change event as the Salesforce listener delivers it.
+const INTEGRATION_USER = '005INT0000000AB'
+const REP_USER = '005REP0000000CD'
+const ACCOUNT_ID = '0015g00000ABCDE'
+const NEW_ACCOUNT_ID = '0015g00000FGHIJ'
+const cdcEvent = (header, fields) => ({
+  source: 'sf-listener',
+  payload: { ChangeEventHeader: { entityName: 'Account', recordIds: [ACCOUNT_ID], ...header }, ...fields },
+  attributes: { replayId: '48211' },
+})
+
 // What the skip or the hand-off route of the loop-prevention Choice may hold.
 const LISTENER_STEPS = ['logger', 'mq-publish', 'vm-publish', 'jms-publish', 'flow-ref', 'set-variable']
 
@@ -114,6 +125,82 @@ export default {
       rule: { type: 'inside', component: ['flow-ref', 'email-send'], within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  simulation: {
+    properties: { 'sfdc.integrationUserId': INTEGRATION_USER },
+    systems: {
+      http: [
+        { method: 'POST', path: '/erp/customers', respond: { status: 201, body: { customerNo: 'C-88001' } } },
+        { method: 'PATCH', path: '/erp/customers/{sfId}', respond: { status: 200, body: { updated: true } } },
+        { method: 'PUT', path: '/erp/customers/{sfId}', respond: { status: 200, body: { replaced: true } } },
+        { method: 'POST', path: '/erp/customers/{sfId}/deactivate', respond: { status: 200, body: { active: false } } },
+      ],
+      calls: { 'sf-query': { payload: [{ Id: ACCOUNT_ID, Name: 'Acme GmbH', BillingCountry: 'AT', Phone: '+43 1 555 0100' }] } },
+      db: {
+        tables: {
+          account_report: { columns: ['sf_id', 'name', 'country', 'updated_at'], key: 'sf_id', rows: [{ sf_id: ACCOUNT_ID, name: 'Acme GmbH', country: 'DE', updated_at: '2026-11-12T08:00:00Z' }] },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A rep changes a phone number',
+        about: 'Only the phone changed, so the ERP gets a PATCH and the report keeps the account name.',
+        trigger: cdcEvent({ changeType: 'UPDATE', changedFields: ['Phone', 'LastModifiedDate'], commitUser: REP_USER }, { Phone: '+49 30 555 0199', LastModifiedById: REP_USER }),
+        expect: {
+          calls: [
+            { method: 'PATCH', path: `/erp/customers/${ACCOUNT_ID}`, has: { Phone: '+49 30 555 0199' }, count: 1 },
+            { method: 'PUT', path: '/erp/customers/{sfId}', count: 0 },
+          ],
+          db: { account_report: { count: 1, has: [{ sf_id: ACCOUNT_ID, name: 'Acme GmbH', country: 'DE' }] } },
+        },
+      },
+      {
+        name: 'A rep creates an account',
+        about: 'The full record goes to the ERP and a new row appears in the report.',
+        trigger: cdcEvent(
+          { changeType: 'CREATE', changedFields: [], commitUser: REP_USER, recordIds: [NEW_ACCOUNT_ID] },
+          { Name: 'Bolt Parts Ltd', BillingCountry: 'GB', Phone: '+44 20 7946 0000', LastModifiedById: REP_USER },
+        ),
+        expect: {
+          calls: [{ method: 'POST', path: '/erp/customers', count: 1 }],
+          db: { account_report: { count: 2, has: [{ sf_id: NEW_ACCOUNT_ID, name: 'Bolt Parts Ltd', country: 'GB' }] } },
+        },
+      },
+      {
+        name: 'The integration user made the change',
+        about: 'The ERP sync wrote this change, so it must not go back to the ERP.',
+        trigger: cdcEvent({ changeType: 'UPDATE', changedFields: ['Phone'], commitUser: INTEGRATION_USER }, { Phone: '+49 30 555 0123', LastModifiedById: INTEGRATION_USER }),
+        expect: {
+          calls: [
+            { path: '/erp/customers', count: 0 },
+            { path: '/erp/customers/*', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'A gap event arrives',
+        about: 'Salesforce could not send the change, so the full record is read again and sent to the ERP.',
+        trigger: cdcEvent({ changeType: 'GAP_UPDATE', changedFields: [], commitUser: REP_USER }, {}),
+        expect: {
+          calls: [{ method: 'PUT', path: `/erp/customers/${ACCOUNT_ID}`, count: 1 }],
+          db: { account_report: { has: [{ sf_id: ACCOUNT_ID, country: 'AT' }] } },
+        },
+      },
+      {
+        name: 'The ERP is down',
+        about: 'The worker cannot update the ERP, so the change goes back to the queue.',
+        trigger: {
+          message: {
+            kind: 'mq',
+            destination: 'sfdc.account.changes',
+            payload: { ChangeEventHeader: { entityName: 'Account', changeType: 'UPDATE', changedFields: ['Phone'], recordIds: [ACCOUNT_ID], commitUser: REP_USER }, Phone: '+49 30 555 0199' },
+          },
+        },
+        overrides: { systems: { http: [{ method: 'PATCH', path: '/erp/customers/{sfId}', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { ack: 'returned' },
+      },
+    ],
+  },
   referenceFlow: design(
     cdcListener('Account'),
     cdcListener('Opportunity'),
@@ -123,6 +210,9 @@ export default {
       [
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
         step('set-variable', { variableName: 'header', value: '#[payload.ChangeEventHeader]' }),
+        // The ERP paths read {sfId}, and the Postgres write needs the record after the ERP call has replaced the payload.
+        step('set-variable', { variableName: 'sfId', value: '#[vars.header.recordIds[0]]' }),
+        step('set-variable', { variableName: 'change', value: '#[payload]' }),
         router(
           'choice',
           {},
@@ -146,13 +236,22 @@ export default {
             ]),
             route({ expression: '#[vars.header.changeType startsWith "GAP"]' }, [
               step('sf-query', { soql: 'SELECT Id, Name, BillingCountry, Phone FROM Account WHERE Id IN :recordIds' }),
+              step('set-variable', { variableName: 'change', value: '#[payload[0]]' }),
+              step('transform', {
+                script:
+                  '%dw 2.0\noutput application/json\n---\n{\n  sfId: vars.sfId,\n  name: vars.change.Name,\n  country: vars.change.BillingCountry,\n  phone: vars.change.Phone\n}',
+              }),
               step('http-request', { method: 'PUT', path: '/erp/customers/{sfId}' }),
             ]),
           ],
           { otherwise: [step('logger', { level: 'WARN', message: '#["Unhandled changeType " ++ vars.header.changeType]' })] },
         ),
+        // An update event holds only the changed fields, so a missing name or country keeps the stored value.
+        step('transform', {
+          script: '%dw 2.0\noutput application/java\n---\n{ sfId: vars.sfId, name: vars.change.Name, country: vars.change.BillingCountry }',
+        }),
         step('db-insert', {
-          sql: 'INSERT INTO account_report (sf_id, name, country, updated_at) VALUES (:sfId, :name, :country, now()) ON CONFLICT (sf_id) DO UPDATE SET name = EXCLUDED.name, country = EXCLUDED.country, updated_at = now()',
+          sql: 'INSERT INTO account_report (sf_id, name, country, updated_at) VALUES (:sfId, :name, :country, now()) ON CONFLICT (sf_id) DO UPDATE SET name = COALESCE(EXCLUDED.name, account_report.name), country = COALESCE(EXCLUDED.country, account_report.country), updated_at = now()',
         }),
         step('mq-ack', { ackToken: '#[vars.ackToken]' }),
       ],
@@ -186,6 +285,9 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
 **Facts**
 - The event header lists the changed field names in \`ChangeEventHeader.changedFields\`.
 - When Salesforce cannot send the full change, it sends a gap event. Its \`changeType\` starts with \`GAP_\` (for example \`GAP_UPDATE\`).
+- The header's \`commitUser\` is the ID of the user who made the change. The integration user's ID is in the property \`sfdc.integrationUserId\`.
+- The ERP customer API: \`POST /erp/customers\` creates, \`PATCH /erp/customers/{sfId}\` changes some fields, \`PUT /erp/customers/{sfId}\` replaces the record and \`POST /erp/customers/{sfId}/deactivate\` deactivates it.
+- The Postgres reporting table is \`account_report (sf_id, name, country, updated_at)\`. Account changes are handed to the Anypoint MQ queue \`sfdc.account.changes\`.
 
 **Design the flow(s):** subscription, replay/resume, handling partial-field events, loop prevention, and what to do when you fall outside the retention window.
 `,
@@ -214,7 +316,7 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
 2. **Subscriber flow:** Salesforce connector **Replay channel listener** on \`/data/AccountChangeEvent\`. The name may differ by connector version; it is a streaming/subscribe channel source. Use replay option "from replay ID" with the stored value, or "only new" for first start. A second flow (or a custom channel) for Opportunity.
 3. **Resume:** after an event is processed successfully, **Object Store Store** \`replayId\` per channel (persistent OS). On restart the listener resumes from that ID, so a 6-hour outage replays everything missed (within retention).
 4. **Hand-off:** to keep up with 500k bursts, the listener does minimal work: dedupe + publish to **Anypoint MQ** (\`sfdc.account.changes\`), then store the replay ID. Downstream workers update ERP and Postgres independently with their own retries/DLQ.
-5. **Process change events (DataWeave):** read \`ChangeEventHeader.changeType\` (CREATE/UPDATE/DELETE/UNDELETE/GAP_*), \`recordIds\` (may be multiple — fan out per ID), \`changedFields\`. For UPDATE, map only changed fields into a PATCH for the ERP; for CREATE send the full record; DELETE → deactivate in ERP.
+5. **Process change events (DataWeave):** read \`ChangeEventHeader.changeType\` (CREATE/UPDATE/DELETE/UNDELETE/GAP_*), \`recordIds\` (may be multiple — fan out per ID), \`changedFields\`. For UPDATE, map only changed fields into a PATCH for the ERP; for CREATE send the full record; DELETE → deactivate in ERP. Keep the record ID and the event fields in variables first: the ERP call replaces the payload, and the Postgres upsert still needs them. That upsert uses \`COALESCE(EXCLUDED.name, account_report.name)\` so a field the update event does not carry keeps its stored value instead of becoming null.
 6. **GAP / overflow events:** for \`GAP_*\` or overflow change types, re-query the record from Salesforce (Query by ID) and sync the full state.
 7. **Loop prevention:** skip events where \`commitUser\` equals the integration user's ID, or set a "last updated by integration" marker.
 8. **Beyond retention:** the connector docs do not state what happens when the stored replay ID is too old. Errors at the source sit outside \`ANY\`, so a flow error handler alone may never see it. Monitor the subscription (for example alert when no events arrive), then start from "only new" and trigger a delta resync job (SOQL on \`LastModifiedDate\` since the last processed time, via Bulk API).

@@ -63,6 +63,49 @@ export default {
       rule: { type: 'inside', component: ['email-send', 'mq-publish', 'http-request'], within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          audit_events: {
+            key: 'id',
+            rows: [
+              { id: 1, account_id: 'AC-100', event_type: 'LOGIN', payload: '{}', created_at: '2025-01-04T08:00:00Z' },
+              { id: 2, account_id: 'AC-101', event_type: 'TRANSFER', payload: '{}', created_at: '2025-03-19T12:30:00Z' },
+              { id: 3, account_id: 'AC-100', event_type: 'LOGOUT', payload: '{}', created_at: '2026-10-30T17:45:00Z' },
+            ],
+          },
+        },
+        latencyMs: 25,
+      },
+    },
+    tests: [
+      {
+        name: 'Expired events are archived and purged',
+        about: 'Two events are older than 400 days and one is from last month. The old ones are written to audit-archive and deleted; the recent one stays.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          connector: [{ type: 's3-put', settings: { bucket: 'audit-archive' }, min: 1 }],
+          db: { audit_events: { count: 1, has: [{ id: 3, event_type: 'LOGOUT' }] } },
+        },
+      },
+      {
+        name: 'The archive bucket is down',
+        about: 'Every S3 put fails, so no event may be deleted.',
+        trigger: { schedule: {} },
+        overrides: { systems: { calls: { 's3-put': { fault: { type: 'S3:CONNECTIVITY', description: 'Unable to reach the audit-archive bucket.' } } } } },
+        expect: { db: { audit_events: { count: 3 } } },
+      },
+      {
+        name: 'The database is down',
+        about: 'The select cannot get a connection, so the job never starts and no report goes out.',
+        trigger: { schedule: {} },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', noEmails: true },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -98,7 +141,8 @@ export default {
                 }),
                 // Reached only if the put succeeded: processors in the aggregator run in order.
                 step('set-payload', { value: '#[vars.chunk]' }),
-                step('db-delete', { sql: 'DELETE FROM audit_events WHERE id = :id' }),
+                // One statement for the whole chunk: the chunk's ids are bound as one PostgreSQL array.
+                step('db-delete', { sql: 'DELETE FROM audit_events WHERE id = ANY(:ids)', inputParameters: '#[{ ids: payload.id }]' }),
               ]),
             ]),
           ],
@@ -149,7 +193,7 @@ Compliance says **audit events older than 400 days** must be removed from the \`
     'A cron Scheduler (e.g. 0 0 2 * * ?) triggers the job in the maintenance window; the cutoff date is computed once in a variable.',
     'A streaming Database Select feeds a Batch Job, so records are queued to disk instead of being held in memory.',
     'One Batch Aggregator archives a chunk to S3 and then deletes that same chunk: its processors run in order, so a failed S3 put stops the delete for the chunk.',
-    'Deletes run inside a Batch Aggregator as a bulk statement (db:bulk-delete / batched DELETE ... WHERE id = :id) instead of one round trip per row.',
+    'Deletes run inside a Batch Aggregator as one statement per chunk (DELETE ... WHERE id = ANY(:ids), or db:bulk-delete) instead of one round trip per row.',
     'On Complete logs totalRecords / successfulRecords / failedRecords and notifies the team; maxFailedRecords stops the job if far too many records fail.',
   ],
   solution: `
@@ -157,7 +201,7 @@ Compliance says **audit events older than 400 days** must be removed from the \`
 1. **Scheduler** with cron \`0 0 2 * * ?\` (02:00 daily). Use a cluster-aware/primary-node-only schedule so only one replica runs it.
 2. \`vars.cutoff = now() - |P400D|\`, then a **Database Select** \`... WHERE created_at < :cutoff\` with streaming (\`fetchSize\`) so rows flow straight into the batch queue.
 3. **Batch Job** \`purge-audit-events\` (blockSize 500, maxFailedRecords 1000):
-   - **Step \`archive-and-delete\`**: **Batch Aggregator** size 5000 → keep the chunk in a variable → Transform to JSON (or NDJSON/Parquet) → **S3 Put Object** \`audit_events/<runId>/<uuid>.json\` → restore the chunk → bulk **DELETE FROM audit_events WHERE id = :id** (in Mule this is \`db:bulk-delete\`; modelled here as Database Delete). If the put fails, the processors after it do not run, so those rows stay in the table and the next run selects them again. If the delete fails, the chunk is archived twice on the next run, which is harmless.
+   - **Step \`archive-and-delete\`**: **Batch Aggregator** size 5000 → keep the chunk in a variable → Transform to JSON (or NDJSON/Parquet) → **S3 Put Object** \`audit_events/<runId>/<uuid>.json\` → restore the chunk → one **Database Delete** \`DELETE FROM audit_events WHERE id = ANY(:ids)\` with Input parameters \`#[{ ids: payload.id }]\`, so the chunk's ids go to PostgreSQL as one array and the whole chunk is removed in one statement. Inside an aggregator the payload is a list, so a plain \`WHERE id = :id\` has no single id to bind. The connector's **Bulk Delete** (\`db:bulk-delete\`, one parameter set per row, sent as one JDBC batch) is the other way; the canvas does not offer it. If the put fails, the processors after it do not run, so those rows stay in the table and the next run selects them again. If the delete fails, the chunk is archived twice on the next run, which is harmless.
    - **Why one step:** the docs say the next Batch Step starts on records as soon as they return to the stepping queue. They do not say how a fixed-size aggregator failure marks its records. A separate delete step would rest on that undocumented behaviour.
    - **On Complete**: log totals from the batch job report and email the DBA team.
 4. **Time window:** the first catch-up run (60M rows) is split by adding \`FETCH FIRST 5000000 ROWS ONLY\` to the select. Each night removes a slice until the backlog is gone.

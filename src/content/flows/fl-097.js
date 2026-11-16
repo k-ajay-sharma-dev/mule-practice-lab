@@ -84,6 +84,91 @@ export default {
       why: 'This handler only logs the error and passes it on, which Mule does by default. The checkpoint keeps the progress, so the next run carries on.',
     },
   ],
+  simulation: {
+    systems: {
+      // A previous run stopped after row 1042. Its wait ended an hour ago.
+      objectStore: { fleetSyncStore: { 'fleet-sync-last-id': 1042, 'fleet-sync-not-before': '2026-11-13T09:00:00Z' } },
+      db: {
+        tables: {
+          telemetry_outbox: {
+            key: 'id',
+            rows: [
+              { id: 1041, vehicle_id: 'TRK-207', reading: '{"odometerKm":184220,"fuelPct":61}' },
+              { id: 1042, vehicle_id: 'TRK-311', reading: '{"odometerKm":90412,"fuelPct":34}' },
+              { id: 1043, vehicle_id: 'TRK-207', reading: '{"odometerKm":184251,"fuelPct":58}' },
+              { id: 1044, vehicle_id: 'VAN-018', reading: '{"odometerKm":40377,"fuelPct":80}' },
+              { id: 1045, vehicle_id: 'TRK-311', reading: '{"odometerKm":90440,"fuelPct":31}' },
+            ],
+          },
+        },
+      },
+      http: [{ method: 'POST', path: '/fleet/v1/readings', latencyMs: 90, respond: { status: 201, body: { accepted: true } } }],
+    },
+    tests: [
+      {
+        name: 'The sync carries on from the checkpoint',
+        about: 'Rows up to 1042 were sent before, so only the three rows after it are sent.',
+        trigger: { schedule: {} },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/fleet/v1/readings', count: 3 }] },
+      },
+      {
+        name: 'The daily quota runs out',
+        about: 'The second row gets 429 with no X-RateLimit-Reset header. The run stops at once without failing the job, and a run a minute later does not call the API.',
+        triggers: [{ schedule: {} }, { schedule: {}, afterMs: 60000 }],
+        overrides: {
+          systems: {
+            http: [{ method: 'POST', path: '/fleet/v1/readings', responses: [{ status: 201, body: { accepted: true } }, { status: 429, body: { message: 'Quota exceeded' } }] }],
+          },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/fleet/v1/readings', count: 2 }] },
+      },
+      {
+        name: 'The header says one hour',
+        about: 'The 429 carries X-RateLimit-Reset of one hour. A run 30 minutes later sends nothing, and a run after the hour carries on from the row that got 429.',
+        triggers: [{ schedule: {} }, { schedule: {}, afterMs: 1800000 }, { schedule: {}, afterMs: 1860000 }],
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'POST',
+                path: '/fleet/v1/readings',
+                responses: [
+                  { status: 201, body: { accepted: true } },
+                  { status: 429, body: { message: 'Quota exceeded' }, headers: { 'x-ratelimit-limit': '10000', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '3600000' } },
+                  { status: 201, body: { accepted: true } },
+                ],
+              },
+            ],
+          },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/fleet/v1/readings', count: 4 }] },
+      },
+      {
+        name: 'The sync resumes after the reset',
+        about: 'A run the next day sends the rest, starting with the row that got 429. No row is sent twice.',
+        triggers: [{ schedule: {} }, { schedule: {}, afterMs: 90000000 }],
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'POST',
+                path: '/fleet/v1/readings',
+                responses: [{ status: 201, body: { accepted: true } }, { status: 429, body: { message: 'Quota exceeded' } }, { status: 201, body: { accepted: true } }],
+              },
+            ],
+          },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/fleet/v1/readings', count: 4 }] },
+      },
+      {
+        name: 'The wait has not passed',
+        about: 'A stored wait runs until 11:00, so a run at 10:00 sends nothing.',
+        trigger: { schedule: {} },
+        overrides: { systems: { objectStore: { fleetSyncStore: { 'fleet-sync-not-before': '2026-11-13T11:00:00Z' } } } },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/fleet/v1/readings', count: 0 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'fleet-telemetry-sync',

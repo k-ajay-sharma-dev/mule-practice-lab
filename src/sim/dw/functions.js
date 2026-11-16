@@ -4,7 +4,7 @@ import { DwError, SimUnsupported } from '../errors.js'
 import { DwTemporal, DwPeriod, diffTemporal, convertTemporal } from './dates.js'
 import {
   DwKey, DwBinary, DwFn, makeObject, entriesOf, entry, isPlainObject, unwrap, typeOf, describe, coerceString,
-  coerceNumber, equals, compare, sortCompare, isEmptyValue, fixNumber, decimalOp, bytesToBase64, base64ToBytes, utf8,
+  coerceNumber, equals, compare, sortCompare, isEmptyValue, fixNumber, decimalOp, bytesToBase64, base64ToBytes, utf8, importValue,
 } from './values.js'
 import { readValue, render } from './formats.js'
 import { hash, hmac, toHex } from './crypto.js'
@@ -346,8 +346,17 @@ export const CORE = {
   read(rt, v, mime = 'application/json', opts = null) {
     return readValue(v, coerceString(mime), opts ? plainOptions(opts) : {})
   },
-  readUrl(rt, url) {
-    throw new SimUnsupported('the function readUrl (reading files or URLs)')
+  // file:// and classpath:// read the scenario's files (classpath:// by its path or its file name); http URLs are
+  // not fetched
+  readUrl(rt, url, mime = 'application/json', opts = null) {
+    const u = coerceString(url)
+    if (!/^(file|classpath):\/\//i.test(u)) throw new SimUnsupported('readUrl on an http URL')
+    const files = rt.ctx.files || {}
+    const path = u.replace(/^(file|classpath):\/\//i, '')
+    const hit = [path, `/${path}`, u].find((p) => Object.prototype.hasOwnProperty.call(files, p)) ?? Object.keys(files).find((p) => p.endsWith(`/${path.replace(/^.*\//, '')}`))
+    if (hit === undefined) throw new DwError(`Unable to read ${u}: no such file`)
+    const content = files[hit]
+    return typeof content === 'string' ? readValue(content, coerceString(mime), opts ? plainOptions(opts) : {}) : importValue(content)
   },
   p: (rt, key) => rt.property(str(key, 'p', [key])),
   indexOf(rt, a, x) {

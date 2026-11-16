@@ -37,6 +37,72 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      calls: {
+        GetPolicy: [
+          {
+            latencyMs: 400,
+            payload: {
+              body: {
+                GetPolicyResponse: {
+                  policy: { number: 'POL-100234', status: 'ACTIVE', holderName: 'Grace Okafor', startDate: '2024-03-01', internalRiskScore: 17 },
+                },
+              },
+            },
+          },
+          {
+            latencyMs: 400,
+            payload: {
+              body: {
+                GetPolicyResponse: {
+                  policy: { number: 'POL-200567', status: 'LAPSED', holderName: 'Marco Bianchi', startDate: '2019-07-15', internalRiskScore: 42 },
+                },
+              },
+            },
+          },
+        ],
+        UpdateBeneficiary: { latencyMs: 450, payload: { body: { UpdateBeneficiaryResponse: { result: 'OK' } } } },
+      },
+    },
+    tests: [
+      {
+        name: 'Two policies are read',
+        about: 'Two different policies are asked for in a row. Each caller gets its own policy as clean JSON, not a cached answer for the other one.',
+        triggers: [{ http: { method: 'GET', path: '/api/policies/POL-100234' } }, { afterMs: 2000, http: { method: 'GET', path: '/api/policies/POL-200567' } }],
+        expect: { status: 200, bodyHas: { policyNumber: 'POL-200567', status: 'LAPSED' }, maxMs: 800, connector: [{ type: 'wsc-consume', operation: 'GetPolicy', count: 2 }] },
+      },
+      {
+        name: 'An unknown policy',
+        about: 'The SOAP service answers with a POLICY_NOT_FOUND fault, which becomes 404.',
+        trigger: { http: { method: 'GET', path: '/api/policies/POL-999999', headers: { 'x-correlation-id': 'corr-pol-404' } } },
+        overrides: { systems: { calls: { GetPolicy: { fault: { type: 'WSC:SOAP_FAULT', description: 'POLICY_NOT_FOUND: no policy POL-999999' } } } } },
+        expect: { status: 404, bodyHas: { code: '~', correlationId: 'corr-pol-404' }, bodyLacks: { status: 'ACTIVE' } },
+      },
+      {
+        name: 'The beneficiary is updated',
+        about: 'PATCH sends UpdateBeneficiary and the caller gets 204 No Content.',
+        trigger: { http: { method: 'PATCH', path: '/api/policies/POL-100234/beneficiary', body: { beneficiaryName: 'Daniel Okafor', relationship: 'SPOUSE' } } },
+        expect: { status: 204, noError: true, connector: [{ type: 'wsc-consume', operation: 'UpdateBeneficiary', count: 1 }] },
+      },
+      {
+        name: 'A locked policy',
+        about: 'The policy is being changed by another process. The POLICY_LOCKED fault becomes 409.',
+        trigger: {
+          http: { method: 'PATCH', path: '/api/policies/POL-100234/beneficiary', headers: { 'x-correlation-id': 'corr-pol-409' }, body: { beneficiaryName: 'Daniel Okafor', relationship: 'SPOUSE' } },
+        },
+        overrides: { systems: { calls: { UpdateBeneficiary: { fault: { type: 'WSC:SOAP_FAULT', description: 'POLICY_LOCKED: policy POL-100234 is locked' } } } } },
+        expect: { status: 409, bodyHas: { code: '~', correlationId: 'corr-pol-409' } },
+      },
+      {
+        name: 'The SOAP service is down',
+        about: 'No connection can be made to the Policy Admin system. The caller gets a JSON error, not a policy.',
+        trigger: { http: { method: 'GET', path: '/api/policies/POL-100234', headers: { 'x-correlation-id': 'corr-pol-503' } } },
+        overrides: { systems: { calls: { GetPolicy: { fault: { type: 'WSC:CONNECTIVITY', description: 'Connection refused' } } } } },
+        expect: { bodyHas: { code: '~', correlationId: 'corr-pol-503' }, bodyLacks: { status: 'ACTIVE' } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'policy-api-main',
@@ -77,6 +143,8 @@ export default {
     flow('get-policy', null, [
       // The listener path is a wildcard, so there is no uriParams entry: take the number from the request path.
       step('set-variable', { variableName: 'policyNumber', value: '#[(attributes.requestPath splitBy "/")[3]]' }),
+      // the Cache scope keys on the payload by default, and a GET has none: the policy number becomes the key
+      step('set-payload', { value: '#[vars.policyNumber]' }),
       scope('cache', { cachingStrategy: 'policy-cache-60s' }, [
         step('transform', {
           script:
@@ -109,6 +177,8 @@ Mobile and web teams want a clean JSON REST API:
 
 SLA: p95 < 800 ms; the SOAP service averages 400 ms.
 
+A successful \`PATCH\` answers **204 No Content**. Every error answer is JSON with a \`code\` and the request's \`correlationId\`.
+
 **Design the flow(s):** API spec, how SOAP is invoked, request/response mapping, SOAP Fault → HTTP status mapping, and security.
 `,
   answerTemplate: `## API spec and routing
@@ -137,9 +207,9 @@ SLA: p95 < 800 ms; the SOAP service averages 400 ms.
    - Transform Message builds the request: \`%dw 2.0 output application/xml ns pol http://bank.example/policy\` → \`{ pol#GetPolicyRequest: { pol#policyNumber: attributes.uriParams.policyNumber } }\`.
    - **Consume** operation \`GetPolicy\`. Response is in \`payload.body\`.
    - Transform Message maps the XML (namespaced selectors) to the JSON contract — flatten, rename, format dates, drop internal fields.
-4. **PATCH flow:** validate the JSON body (APIkit), map to \`UpdateBeneficiaryRequest\`, Consume, return 200/204.
+4. **PATCH flow:** validate the JSON body (APIkit), map to \`UpdateBeneficiaryRequest\`, Consume, return 204 No Content.
 5. **Error handling:** On Error Propagate for \`WSC:SOAP_FAULT\` → DataWeave reads the fault code (the reference flow searches \`error.description\`; check how your connector version exposes the fault detail) and sets \`httpStatus\`: \`POLICY_NOT_FOUND\` → 404, \`POLICY_LOCKED\` → 409, unknown → 502. \`WSC:CONNECTIVITY\`/\`WSC:TIMEOUT\` → 503/504. APIkit errors (bad request, not found) keep their default mappings.
-6. **Performance:** connection pooling is handled by the WSC's HTTP transport; optionally a **Cache scope** for GET with a short TTL if the data tolerates staleness. Key the caching strategy on the policy number: the default key is a SHA-256 of the payload, which is the same for every GET.
+6. **Performance:** connection pooling is handled by the WSC's HTTP transport; optionally a **Cache scope** for GET with a short TTL if the data tolerates staleness. Key the caching strategy on the policy number: the default key is a SHA-256 of the payload, which is the same for every GET. The reference sets the payload to the policy number just before the Cache scope, so each policy gets its own entry.
 7. **Security on the REST side:** apply API Manager policies (client ID enforcement or OAuth 2.0) — the mobile app never sees SOAP credentials.
 `,
   followUps: [

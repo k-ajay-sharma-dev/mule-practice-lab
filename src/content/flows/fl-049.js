@@ -82,6 +82,115 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/sys-policy/v1/policies/{policyNumber}',
+          latencyMs: 2500,
+          respond: { status: 200, body: { policyNumber: 'PL-55012', holderName: 'Maria Lopez', startDate: '2026-03-01', endDate: '2027-02-28', premium: 1234.56, active: true } },
+        },
+      ],
+      calls: {
+        Login: { latencyMs: 600, payload: { body: { LoginResponse: { SessionId: 'PAS-SESS-7F21C9' } } } },
+        GetPolicyDetails: {
+          latencyMs: 2300,
+          payload: {
+            body: {
+              GetPolicyDetailsResponse: {
+                ResultCode: '0000',
+                Policy: { PolicyNo: 'PL-55012    ', HolderNm: 'Maria Lopez         ', StartDt: '01/03/2026', EndDt: '28/02/2027', Premium: '1.234,56', StatusFlg: 'Y' },
+              },
+            },
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A policy is found',
+        about: 'The PAS answers 0000, and the caller gets the policy as clean JSON.',
+        trigger: { http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+        expect: { status: 200, bodyLacks: { ResultCode: '0000' } },
+      },
+      {
+        name: 'An unknown policy',
+        about: 'The PAS answers HTTP 200 with ResultCode E404, which must become a 404.',
+        trigger: { http: { method: 'GET', path: '/sys-policy/v1/policies/PL-00000' } },
+        overrides: { systems: { calls: { GetPolicyDetails: { latencyMs: 900, payload: { body: { GetPolicyDetailsResponse: { ResultCode: 'E404' } } } } } } },
+        // The System API must give the 404 itself, not a missing endpoint.
+        expect: { status: 404, bodyLacks: '~No listener for endpoint' },
+      },
+      {
+        name: 'The PAS reports an internal error',
+        about: 'ResultCode E999 inside an HTTP 200 is a back-end failure, answered with 502.',
+        trigger: { http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+        overrides: { systems: { calls: { GetPolicyDetails: { latencyMs: 900, payload: { body: { GetPolicyDetailsResponse: { ResultCode: 'E999' } } } } } } },
+        expect: { status: 502 },
+      },
+      {
+        name: 'The PAS is down for its batch run',
+        about: 'The SOAP service cannot be reached, so callers get 503 and know to try later.',
+        trigger: { http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+        overrides: { systems: { calls: { GetPolicyDetails: { fault: { type: 'WSC:CONNECTIVITY', description: 'Connection refused: PAS batch window' } } } } },
+        expect: { status: 503 },
+      },
+      {
+        name: 'Two lookups share one session',
+        about: 'The second lookup a minute later reuses the stored session, so the PAS sees one Login.',
+        triggers: [
+          { http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+          { afterMs: 60000, http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+        ],
+        expect: {
+          status: 200,
+          connector: [
+            { type: 'wsc-consume', operation: 'Login', count: 1 },
+            { type: 'wsc-consume', operation: 'GetPolicyDetails', count: 2 },
+          ],
+        },
+      },
+      {
+        name: 'A rejected session is replaced',
+        about: 'The PAS answers E999 on the second lookup. The session is dropped, so the third lookup logs in again and works.',
+        triggers: [
+          { http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+          { afterMs: 60000, http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+          { afterMs: 60000, http: { method: 'GET', path: '/sys-policy/v1/policies/PL-55012' } },
+        ],
+        overrides: {
+          systems: {
+            // Every SOAP call in order: Login, lookup, failed lookup, new Login, lookup.
+            calls: {
+              'wsc-consume': [
+                { latencyMs: 600, payload: { body: { LoginResponse: { SessionId: 'PAS-SESS-7F21C9' } } } },
+                { latencyMs: 2300, payload: { body: { GetPolicyDetailsResponse: { ResultCode: '0000', Policy: { PolicyNo: 'PL-55012    ', HolderNm: 'Maria Lopez         ', StartDt: '01/03/2026', EndDt: '28/02/2027', Premium: '1.234,56', StatusFlg: 'Y' } } } } },
+                { latencyMs: 900, payload: { body: { GetPolicyDetailsResponse: { ResultCode: 'E999' } } } },
+                { latencyMs: 600, payload: { body: { LoginResponse: { SessionId: 'PAS-SESS-8A02D4' } } } },
+                { latencyMs: 2300, payload: { body: { GetPolicyDetailsResponse: { ResultCode: '0000', Policy: { PolicyNo: 'PL-55012    ', HolderNm: 'Maria Lopez         ', StartDt: '01/03/2026', EndDt: '28/02/2027', Premium: '1.234,56', StatusFlg: 'Y' } } } } },
+              ],
+            },
+          },
+        },
+        expect: { status: 200, connector: [{ type: 'wsc-consume', operation: 'Login', count: 2 }] },
+      },
+      {
+        name: 'A claim on an inactive policy',
+        about: 'The System API says the policy is not active, so the Claims API answers 422.',
+        trigger: { http: { method: 'POST', path: '/prc-claims/v1/claims', body: { policyNumber: 'PL-31877', incidentDate: '2026-11-10', amount: 2400 } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-policy/v1/policies/{policyNumber}', respond: { status: 200, body: { policyNumber: 'PL-31877', holderName: 'Jon Berg', premium: 880, active: false } } }] } },
+        expect: { status: 422 },
+      },
+      {
+        name: 'A claim on an unknown policy',
+        about: 'The System API answers 404, and the Claims API turns it into 422.',
+        trigger: { http: { method: 'POST', path: '/prc-claims/v1/claims', body: { policyNumber: 'PL-00000', incidentDate: '2026-11-10', amount: 2400 } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-policy/v1/policies/{policyNumber}', respond: { status: 404, body: { message: 'Policy not found' } } }] } },
+        expect: { status: 422 },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

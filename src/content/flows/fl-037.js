@@ -46,6 +46,69 @@ export default {
     { label: 'Any other failure reaches the mobile app as 502', rule: handlerStatus('ANY', { oneOf: ['502', '503', '504'] }) },
     { label: 'The ERP System API maps a SOAP fault to an HTTP status', rule: handlerStatus('WSC', { oneOf: ['404', '502'] }) },
   ],
+  // Each layer is its own Mule application, so each test calls one layer and the layer below it answers as a
+  // deployed API would.
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/process/v1/orders/{orderId}/status',
+          latencyMs: 600,
+          respond: (req) =>
+            req.params.orderId === 'SO-4471'
+              ? { status: 200, body: { orderId: 'SO-4471', status: 'SHIPPED', shipment: { trackingUrl: 'https://track.example.com/1Z84', estimatedDelivery: '2026-11-15' } } }
+              : { status: 404, body: { message: 'Order not found' } },
+        },
+        { method: 'GET', path: '/sys/erp/v1/orders/{orderId}', latencyMs: 700, respond: { status: 200, body: { orderId: 'SO-4471', status: 'SHIPPED' } } },
+        { method: 'GET', path: '/sys/shipping/v1/shipments', latencyMs: 400, respond: { status: 200, body: [{ trackingUrl: 'https://track.example.com/1Z84', estimatedDelivery: '2026-11-15' }] } },
+        { method: 'GET', path: '/carrier/api/consignments', latencyMs: 350, respond: { status: 200, body: { consignments: [{ links: { tracking: 'https://track.example.com/1Z84' }, eta: '2026-11-15' }] } } },
+      ],
+      calls: {
+        'wsc-consume': { latencyMs: 900, payload: { body: { GetSalesOrderResponse: { Order: { Number: 'SO-4471', Status: 'SHIPPED' } } } } },
+      },
+    },
+    tests: [
+      {
+        name: 'The mobile app gets the status',
+        about: 'The Experience API asks the Process API and answers the app inside 3 seconds.',
+        trigger: { http: { method: 'GET', path: '/mobile/v1/orders/SO-4471' } },
+        expect: { status: 200, bodyHas: { status: 'SHIPPED' }, calls: [{ method: 'GET', path: '/process/v1/orders/SO-4471/status', count: 1 }], maxMs: 3000 },
+      },
+      {
+        name: 'An unknown order',
+        about: 'The Process API answers 404, and the app gets 404 too.',
+        trigger: { http: { method: 'GET', path: '/mobile/v1/orders/SO-0000' } },
+        expect: { status: 404, calls: [{ method: 'GET', path: '/process/v1/orders/SO-0000/status', count: 1 }] },
+      },
+      {
+        name: 'The Process API is down',
+        about: 'The connection to the Process API is refused, so the app gets 502.',
+        trigger: { http: { method: 'GET', path: '/mobile/v1/orders/SO-4471' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/process/v1/orders/{orderId}/status', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 502, bodyLacks: { status: 'SHIPPED' } },
+      },
+      {
+        name: 'The Process API asks both systems',
+        about: 'The Process API calls the ERP System API and the shipping System API once each and merges the answers.',
+        trigger: { http: { method: 'GET', path: '/process/v1/orders/SO-4471/status' } },
+        expect: {
+          status: 200,
+          calls: [
+            { method: 'GET', path: '/sys/erp/v1/orders/SO-4471', count: 1 },
+            { method: 'GET', path: '/sys/shipping/v1/shipments', count: 1 },
+          ],
+          maxMs: 2500,
+        },
+      },
+      {
+        name: 'The ERP System API speaks SOAP',
+        about: 'GetSalesOrder answers in SOAP, and the System API returns the order as JSON.',
+        trigger: { http: { method: 'GET', path: '/sys/erp/v1/orders/SO-4471' } },
+        expect: { status: 200, bodyHas: { status: 'SHIPPED' } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

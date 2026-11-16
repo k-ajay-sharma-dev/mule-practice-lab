@@ -87,6 +87,162 @@ export default {
       rule: { type: 'inside', component: 'db-update', where: { sql: { all: ['RETRY', 'ATTEMPTS'] } }, within: HANDLERS },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', respond: { status: 200, body: { d: { results: [] } } } },
+        { method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', latencyMs: 4000, respond: { status: 201, body: { d: { MaterialDocument: '5000412877', MaterialDocumentYear: '2026' } } } },
+      ],
+      db: {
+        tables: {
+          ASN: {
+            key: 'ASN_NO',
+            rows: [
+              { ASN_NO: 'ASN-77310', PO_NUMBER: '4500093121', SUPPLIER_ID: 'V-20418', PLANT: '1100', STORAGE_LOC: '0001', STATUS: 'OPEN' },
+              { ASN_NO: 'ASN-77002', PO_NUMBER: '4500092870', SUPPLIER_ID: 'V-20418', PLANT: '1100', STORAGE_LOC: '0001', STATUS: 'CLOSED' },
+            ],
+          },
+          ASN_LINE: {
+            key: ['ASN_NO', 'LINE_NO'],
+            rows: [
+              { ASN_NO: 'ASN-77310', LINE_NO: 1, PO_LINE: 10, SKU: 'MAT-100245', EXPECTED_QTY: 48, UOM: 'CS' },
+              { ASN_NO: 'ASN-77002', LINE_NO: 1, PO_LINE: 10, SKU: 'MAT-100245', EXPECTED_QTY: 48, UOM: 'CS' },
+            ],
+          },
+          ASN_PALLET: {
+            key: 'SSCC',
+            rows: [
+              { SSCC: '003456789012345678', ASN_NO: 'ASN-77310', LINE_NO: 1 },
+              { SSCC: '003456789012340001', ASN_NO: 'ASN-77002', LINE_NO: 1 },
+            ],
+          },
+          GOODS_RECEIPT: {
+            key: 'SSCC',
+            columns: ['SSCC', 'ASN_NO', 'PO_NUMBER', 'PO_LINE', 'SKU', 'RECEIVED_QTY', 'QTY_VARIANCE', 'DOCK', 'SCANNED_AT'],
+            rows: [],
+          },
+          GR_OUTBOX: {
+            key: 'OUTBOX_ID',
+            rows: [
+              {
+                OUTBOX_ID: 501,
+                SSCC: '003456789012349999',
+                PAYLOAD: '{"PostingDate":"2026-11-13","GoodsMovementCode":"01","MaterialDocumentHeaderText":"003456789012349999","to_MaterialDocumentItem":[{"Material":"MAT-100245","Plant":"1100","StorageLocation":"0001","GoodsMovementType":"101","PurchaseOrder":"4500093121","PurchaseOrderItem":"10","QuantityInEntryUnit":"48","EntryUnit":"CS"}]}',
+                STATUS: 'PENDING',
+                ATTEMPTS: 0,
+                CLAIM_ID: null,
+                CLAIMED_AT: null,
+                SAP_MAT_DOC: null,
+                POSTED_AT: null,
+                LAST_ERROR: null,
+                CREATED_AT: '2026-11-13T09:58:10Z',
+              },
+            ],
+          },
+        },
+        sequences: { GR_OUTBOX_SEQ: 501 },
+      },
+    },
+    tests: [
+      {
+        name: 'A pallet with an open ASN is scanned',
+        about: 'The receipt with its quantity difference and a PENDING outbox row are written in Oracle. SAP is not called by the dock flow.',
+        trigger: { message: { kind: 'jms', destination: 'DOCK.RECEIPTS', payload: { sscc: '003456789012345678', qty: 46, dock: 'D-07', scannedAt: '2026-11-13T09:59:30Z' } } },
+        expect: {
+          ack: 'acked',
+          db: {
+            GOODS_RECEIPT: { has: { SSCC: '003456789012345678', RECEIVED_QTY: 46, QTY_VARIANCE: -2 } },
+            GR_OUTBOX: { count: 2, has: { SSCC: '003456789012345678', STATUS: 'PENDING' } },
+          },
+          calls: [{ path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', count: 0 }],
+        },
+      },
+      {
+        name: 'A pallet with no open ASN',
+        about: 'The ASN of this pallet is closed, so nothing is received and the scan goes to the receiving clerk instead.',
+        trigger: { message: { kind: 'jms', destination: 'DOCK.RECEIPTS', payload: { sscc: '003456789012340001', qty: 48, dock: 'D-02', scannedAt: '2026-11-13T09:59:40Z' } } },
+        expect: { ack: 'acked', db: { GOODS_RECEIPT: { count: 0 }, GR_OUTBOX: { count: 1 } } },
+      },
+      {
+        name: 'The same pallet is scanned again',
+        about: 'The pallet was received already. No second receipt or outbox row is written, and the scan is acknowledged so it is not redelivered.',
+        trigger: { message: { kind: 'jms', destination: 'DOCK.RECEIPTS', payload: { sscc: '003456789012345678', qty: 46, dock: 'D-07', scannedAt: '2026-11-13T09:59:50Z' }, deliveryCount: 2 } },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                GOODS_RECEIPT: {
+                  key: 'SSCC',
+                  columns: ['SSCC', 'ASN_NO', 'PO_NUMBER', 'PO_LINE', 'SKU', 'RECEIVED_QTY', 'QTY_VARIANCE', 'DOCK', 'SCANNED_AT'],
+                  rows: [{ SSCC: '003456789012345678', ASN_NO: 'ASN-77310', PO_NUMBER: '4500093121', PO_LINE: 10, SKU: 'MAT-100245', RECEIVED_QTY: 46, QTY_VARIANCE: -2, DOCK: 'D-07', SCANNED_AT: '2026-11-13T09:59:30Z' }],
+                },
+              },
+            },
+          },
+        },
+        expect: { ack: 'acked', db: { GOODS_RECEIPT: { count: 1 }, GR_OUTBOX: { count: 1 } } },
+      },
+      {
+        name: 'The outbox posts a receipt to SAP',
+        about: 'SAP has no document for the pallet yet, so the receipt is posted and the outbox row is marked POSTED with the material document.',
+        trigger: { schedule: { flow: 'gr-outbox-to-sap' } },
+        expect: {
+          calls: [{ method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', count: 1 }],
+          db: { GR_OUTBOX: { has: { OUTBOX_ID: 501, STATUS: 'POSTED', SAP_MAT_DOC: '5000412877' } } },
+        },
+      },
+      {
+        name: 'SAP lost the last answer',
+        about: 'An earlier post went through but its answer never arrived. SAP already has the document, so it is not posted again.',
+        trigger: { schedule: { flow: 'gr-outbox-to-sap' } },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'GET',
+                path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader',
+                respond: { status: 200, body: { d: { results: [{ MaterialDocument: '5000412790', MaterialDocumentYear: '2026', MaterialDocumentHeaderText: '003456789012349999' }] } } },
+              },
+            ],
+          },
+        },
+        expect: {
+          calls: [{ method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', count: 0 }],
+          db: { GR_OUTBOX: { has: { OUTBOX_ID: 501, STATUS: 'POSTED', SAP_MAT_DOC: '5000412790' } } },
+        },
+      },
+      {
+        name: 'SAP rejects the receipt',
+        about: 'SAP answers 400 because the PO line is closed. The post is not retried, and the row is marked FAILED for the clerk.',
+        trigger: { schedule: { flow: 'gr-outbox-to-sap' } },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'POST',
+                path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader',
+                respond: { status: 400, body: { error: { code: 'M7/022', message: { value: 'PO item 4500093121 00010 is closed' } } } },
+              },
+            ],
+          },
+        },
+        expect: {
+          calls: [{ method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', count: 1 }],
+          db: { GR_OUTBOX: { has: { OUTBOX_ID: 501, STATUS: 'FAILED' } } },
+        },
+      },
+      {
+        name: 'SAP is in maintenance',
+        about: 'Every post fails to connect. The row is set to RETRY with one attempt counted, and is not marked POSTED.',
+        trigger: { schedule: { flow: 'gr-outbox-to-sap' } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          calls: [{ method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', min: 2 }],
+          db: { GR_OUTBOX: { has: { OUTBOX_ID: 501, STATUS: 'RETRY', ATTEMPTS: 1 }, lacks: { STATUS: 'POSTED' } } },
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -117,9 +273,8 @@ export default {
           ],
           {
             otherwise: [
+              // The receipt row becomes the payload: both inserts read their :named values from it.
               step('transform', {
-                target: 'variable',
-                variableName: 'gr',
                 script:
                   '%dw 2.0\noutput application/java\nvar asn = payload[0]\n---\n{\n  sscc: vars.scan.sscc,\n  asnNo: asn.ASN_NO,\n  poNumber: asn.PO_NUMBER,\n  poLine: asn.PO_LINE,\n  sku: asn.SKU,\n  receivedQty: vars.scan.qty as Number,\n  qtyVariance: (vars.scan.qty as Number) - asn.EXPECTED_QTY,\n  plant: asn.PLANT,\n  storageLoc: asn.STORAGE_LOC,\n  dock: vars.scan.dock,\n  scannedAt: vars.scan.scannedAt as DateTime,\n  outboxPayload: write({\n    PostingDate: (vars.scan.scannedAt as DateTime) as Date as String {format: "yyyy-MM-dd"},\n    GoodsMovementCode: "01",\n    MaterialDocumentHeaderText: vars.scan.sscc,\n    to_MaterialDocumentItem: [{\n      Material: asn.SKU,\n      Plant: asn.PLANT,\n      StorageLocation: asn.STORAGE_LOC,\n      GoodsMovementType: "101",\n      PurchaseOrder: asn.PO_NUMBER,\n      PurchaseOrderItem: asn.PO_LINE as String,\n      QuantityInEntryUnit: vars.scan.qty as String,\n      EntryUnit: asn.UOM\n    }]\n  }, "application/json")\n}',
               }),
@@ -129,10 +284,14 @@ export default {
                 [
                   // GOODS_RECEIPT.SSCC is unique → a redelivered scan fails here and nothing else is written.
                   step('db-insert', {
+                    database: 'Oracle',
                     sql: 'INSERT INTO GOODS_RECEIPT (SSCC, ASN_NO, PO_NUMBER, PO_LINE, SKU, RECEIVED_QTY, QTY_VARIANCE, DOCK, SCANNED_AT)\nVALUES (:sscc, :asnNo, :poNumber, :poLine, :sku, :receivedQty, :qtyVariance, :dock, :scannedAt)',
+                    target: 'receiptInsert',
                   }),
                   step('db-insert', {
+                    database: 'Oracle',
                     sql: "INSERT INTO GR_OUTBOX (OUTBOX_ID, SSCC, PAYLOAD, STATUS, ATTEMPTS, CREATED_AT)\nVALUES (GR_OUTBOX_SEQ.NEXTVAL, :sscc, :outboxPayload, 'PENDING', 0, SYSTIMESTAMP)",
+                    target: 'outboxInsert',
                   }),
                 ],
                 {
@@ -165,6 +324,7 @@ export default {
         step('db-select', { sql: 'SELECT OUTBOX_ID, SSCC, PAYLOAD, ATTEMPTS FROM GR_OUTBOX WHERE CLAIM_ID = :claimId ORDER BY OUTBOX_ID' }),
         scope('foreach', { collection: '#[payload]' }, [
           step('set-variable', { variableName: 'row', value: '#[payload]' }),
+          step('set-variable', { variableName: 'outboxId', value: '#[payload.OUTBOX_ID]' }),
           scope(
             'try',
             { transactionalAction: 'INDIFFERENT' },
@@ -172,7 +332,7 @@ export default {
               // Lost-response guard: was this SSCC already posted? (header text = SSCC)
               step('http-request', {
                 method: 'GET',
-                path: "/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader?$filter=MaterialDocumentHeaderText eq '{sscc}'",
+                path: "#[\"/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader?\\$filter=MaterialDocumentHeaderText eq '\" ++ vars.row.SSCC ++ \"'\"]",
                 responseTimeout: 10000,
               }),
               router(
@@ -191,7 +351,7 @@ export default {
                     // Response validator values="200..299,400": a 400 inside Until Successful would be retried and
                     // come out as MULE:RETRY_EXHAUSTED, so treat it as a response and raise a business error after the scope.
                     scope('until-successful', { maxRetries: 3, millisBetweenRetries: 10000 }, [
-                      step('http-request', { method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', responseTimeout: 30000 }),
+                      step('http-request', { method: 'POST', path: '/sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader', responseTimeout: 30000, successStatusCodes: '200..299,400' }),
                     ]),
                     router('choice', {}, [
                       route({ expression: '#[attributes.statusCode == 400]' }, [
@@ -210,11 +370,13 @@ export default {
               errorHandlers: [
                 // Business rejections (HTTP 400, e.g. PO line closed) → FAILED for the receiving clerk; transient → RETRY.
                 handler('on-error-continue', { type: 'APP:SAP_REJECTED' }, [
+                  step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
                   step('db-update', {
                     sql: "UPDATE GR_OUTBOX SET STATUS = 'FAILED', LAST_ERROR = :errorText WHERE OUTBOX_ID = :outboxId",
                   }),
                 ]),
                 handler('on-error-continue', { type: 'ANY' }, [
+                  step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
                   step('db-update', {
                     sql: "UPDATE GR_OUTBOX SET STATUS = 'RETRY', ATTEMPTS = ATTEMPTS + 1, LAST_ERROR = :errorText WHERE OUTBOX_ID = :outboxId",
                   }),
@@ -269,7 +431,7 @@ For each pallet a **goods receipt** (movement type 101 against the PO) must be p
 1. **JMS On New Message** \`DOCK.RECEIPTS\`, AUTO ack, no transaction (XA not allowed), with **Inbound Content-Type** \`application/json\` if the scanning system does not state the message type (the config default is \`*/*\`).
 2. **Database Select** the open ASN line for the SSCC.
 3. **Choice**: no match → **JMS Publish** \`DOCK.RECEIPTS.UNMATCHED\` (blind receipt). Otherwise → DataWeave builds the receipt row (including qty variance) and the SAP request body.
-4. **Try (ALWAYS_BEGIN)** — **Insert** \`GOODS_RECEIPT\` (unique SSCC) + **Insert** \`GR_OUTBOX\` (PENDING). Both commit or neither.
+4. **Try (ALWAYS_BEGIN)** — **Insert** \`GOODS_RECEIPT\` (unique SSCC) + **Insert** \`GR_OUTBOX\` (PENDING). Both commit or neither. Each insert puts its result in a target variable, so the second one still reads the receipt row from the payload.
 5. The Try's **On Error Continue** for ORA-00001 → "already received", message acknowledged.
 6. Anything else → On Error Propagate → redelivery (DLQ after N attempts).
 

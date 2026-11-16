@@ -76,6 +76,117 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/sys-fx-primary/v1/rates',
+          latencyMs: 180,
+          respond: { status: 200, body: { base: 'EUR', asOf: '2026-11-13T09:59:30Z', rates: { USD: 1.0842, GBP: 0.8571, JPY: 163.42 } } },
+        },
+        {
+          method: 'GET',
+          path: '/sys-fx-secondary/v1/rates',
+          latencyMs: 220,
+          respond: { status: 200, body: { base: 'EUR', asOf: '2026-11-12', rates: { USD: 1.0815, GBP: 0.8563, JPY: 162.9 } } },
+        },
+        {
+          method: 'GET',
+          path: '/marketdata/v2/spot',
+          latencyMs: 140,
+          respond: {
+            status: 200,
+            body: {
+              baseCcy: 'EUR',
+              timestamp: '2026-11-13T09:59:30Z',
+              quotes: [
+                { ccy: 'USD', bid: 1.0841, ask: 1.0843, mid: 1.0842 },
+                { ccy: 'GBP', bid: 0.857, ask: 0.8572, mid: 0.8571 },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'The primary answers',
+        about: 'The vendor rate comes back and the secondary is never called.',
+        trigger: { http: { method: 'GET', path: '/prc-fx/v1/rates?base=EUR' } },
+        expect: {
+          status: 200,
+          bodyHas: { rates: { USD: 1.0842, GBP: 0.8571 } },
+          calls: [
+            { method: 'GET', path: '/sys-fx-primary/v1/rates', count: 1 },
+            { method: 'GET', path: '/sys-fx-secondary/v1/rates', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The primary is down',
+        about: 'The vendor System API answers 503 after its retries, so the Process API falls back to the central bank.',
+        trigger: { http: { method: 'GET', path: '/prc-fx/v1/rates?base=EUR' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-fx-primary/v1/rates', latencyMs: 2400, respond: { status: 503, body: { code: 'PROVIDER_UNAVAILABLE' } } }] } },
+        expect: {
+          status: 200,
+          bodyHas: { rates: { USD: 1.0815 } },
+          calls: [{ method: 'GET', path: '/sys-fx-secondary/v1/rates', count: 1 }],
+          maxMs: 5000,
+        },
+      },
+      {
+        name: 'Both providers go down',
+        about: 'A first call is served fresh. When both providers fail on the next call, the last rate served comes back instead of an error.',
+        triggers: [
+          { http: { method: 'GET', path: '/prc-fx/v1/rates?base=EUR' } },
+          { afterMs: 60000, http: { method: 'GET', path: '/prc-fx/v1/rates?base=EUR' } },
+        ],
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'GET',
+                path: '/sys-fx-primary/v1/rates',
+                latencyMs: 180,
+                responses: [{ status: 200, body: { base: 'EUR', asOf: '2026-11-13T09:59:30Z', rates: { USD: 1.0842, GBP: 0.8571, JPY: 163.42 } } }, { fault: 'CONNECTIVITY' }],
+              },
+              { method: 'GET', path: '/sys-fx-secondary/v1/rates', respond: { fault: 'CONNECTIVITY' } },
+            ],
+          },
+        },
+        expect: { status: 200, bodyHas: { rates: { USD: 1.0842, GBP: 0.8571 } }, calls: [{ method: 'GET', path: '/sys-fx-secondary/v1/rates', count: 1 }] },
+      },
+      {
+        name: 'The vendor blips once',
+        about: 'The vendor answers 502 once. The primary System API retries and returns the rate.',
+        trigger: { http: { method: 'GET', path: '/sys-fx-primary/v1/rates?base=EUR' } },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'GET',
+                path: '/marketdata/v2/spot',
+                latencyMs: 140,
+                responses: [
+                  { status: 502, body: { message: 'Bad gateway' } },
+                  { status: 200, body: { baseCcy: 'EUR', timestamp: '2026-11-13T10:00:01Z', quotes: [{ ccy: 'USD', bid: 1.0843, ask: 1.0845, mid: 1.0844 }] } },
+                ],
+              },
+            ],
+          },
+        },
+        expect: { status: 200, bodyHas: { rates: { USD: 1.0844 } }, calls: [{ method: 'GET', path: '/marketdata/v2/spot', count: 2 }] },
+      },
+      {
+        name: 'The vendor stays down',
+        about: 'Every vendor call times out. The System API gives up after a few quick retries instead of retrying for minutes.',
+        trigger: { http: { method: 'GET', path: '/sys-fx-primary/v1/rates?base=EUR' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/marketdata/v2/spot', latencyMs: 30000, respond: { status: 200, body: {} } }] } },
+        expect: { error: 'MULE:RETRY_EXHAUSTED', calls: [{ method: 'GET', path: '/marketdata/v2/spot', min: 2, max: 4 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

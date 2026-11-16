@@ -72,6 +72,85 @@ export default {
       rule: handlerStatus({ oneOf: ['TIMEOUT', 'CONNECTIVITY', 'SERVICE_UNAVAILABLE'] }, '503'),
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          customers: {
+            key: 'CUSTOMER_ID',
+            rows: [
+              { CUSTOMER_ID: 'C-1042', TIER: 'GOLD', CREDIT_BLOCKED: 0 },
+              { CUSTOMER_ID: 'C-2077', TIER: 'STANDARD', CREDIT_BLOCKED: 0 },
+            ],
+          },
+        },
+        latencyMs: 15,
+      },
+      schemas: {
+        'order.json': {
+          type: 'object',
+          required: ['orderId', 'customerId', 'shipTo', 'lines'],
+          properties: {
+            orderId: { type: 'string' },
+            customerId: { type: 'string' },
+            shipTo: { type: 'object', required: ['country'], properties: { country: { type: 'string' } } },
+            lines: { type: 'array', items: { type: 'object', required: ['sku', 'qty'], properties: { sku: { type: 'string' }, qty: { type: 'integer' } } } },
+          },
+        },
+      },
+      http: [
+        { method: 'POST', path: '/pricing/quote', latencyMs: 300, respond: { status: 200, body: { lines: [{ sku: 'BRK-220', qty: 4, unitPrice: 38.5 }], total: 154.0, currency: 'EUR' } } },
+        { method: 'POST', path: '/eu-fulfilment/orders', latencyMs: 450, respond: (req) => ({ status: 201, body: { orderId: req.body?.orderId, reference: 'EU-FUL-77310' } }) },
+        { method: 'POST', path: '/na-fulfilment/orders', latencyMs: 450, respond: (req) => ({ status: 201, body: { orderId: req.body?.orderId, reference: 'NA-FUL-12008' } }) },
+      ],
+    },
+    tests: [
+      {
+        name: 'An EU order is accepted',
+        about: 'A known customer ships to Germany, so the order goes to EU Fulfilment and the portal gets 201 inside the SLA.',
+        trigger: { http: { method: 'POST', path: '/api/orders', body: { orderId: 'PO-9001', customerId: 'C-1042', shipTo: { country: 'DE' }, lines: [{ sku: 'BRK-220', qty: 4 }] } } },
+        expect: {
+          status: 201,
+          calls: [
+            { method: 'POST', path: '/eu-fulfilment/orders', count: 1 },
+            { method: 'POST', path: '/na-fulfilment/orders', count: 0 },
+          ],
+          maxMs: 2000,
+        },
+      },
+      {
+        name: 'An order with no lines',
+        about: 'The lines list is empty, so the answer is 400 and no fulfilment system is called.',
+        trigger: { http: { method: 'POST', path: '/api/orders', body: { orderId: 'PO-9002', customerId: 'C-1042', shipTo: { country: 'DE' }, lines: [] } } },
+        expect: { status: 400, calls: [{ path: '/eu-fulfilment/orders', count: 0 }] },
+      },
+      {
+        name: 'An unknown customer',
+        about: 'No customer C-5555 exists, so the answer is 422 and nothing is sent for fulfilment.',
+        trigger: { http: { method: 'POST', path: '/api/orders', body: { orderId: 'PO-9003', customerId: 'C-5555', shipTo: { country: 'US' }, lines: [{ sku: 'BRK-220', qty: 1 }] } } },
+        expect: { status: 422, calls: [{ path: '/na-fulfilment/orders', count: 0 }] },
+      },
+      {
+        name: 'An unsupported country',
+        about: 'The order ships to Japan, which neither fulfilment system serves, so the answer is 422.',
+        trigger: { http: { method: 'POST', path: '/api/orders', body: { orderId: 'PO-9004', customerId: 'C-2077', shipTo: { country: 'JP' }, lines: [{ sku: 'BRK-220', qty: 2 }] } } },
+        expect: {
+          status: 422,
+          calls: [
+            { path: '/eu-fulfilment/orders', count: 0 },
+            { path: '/na-fulfilment/orders', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The Pricing API hangs',
+        about: 'Pricing takes 6 seconds. The portal gets 503 with its correlation ID inside the 2 second SLA.',
+        trigger: { http: { method: 'POST', path: '/api/orders', headers: { 'x-correlation-id': 'po-9005-trace' }, body: { orderId: 'PO-9005', customerId: 'C-1042', shipTo: { country: 'FR' }, lines: [{ sku: 'BRK-220', qty: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/pricing/quote', latencyMs: 6000, respond: { status: 200, body: {} } }] } },
+        expect: { status: 503, bodyHas: { correlationId: 'po-9005-trace' }, calls: [{ path: '/eu-fulfilment/orders', count: 0 }], maxMs: 2000 },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'post-order',
@@ -179,10 +258,10 @@ The validation and enrichment logic will also be reused by a bulk-upload flow ne
   ],
   solution: `
 **Flow \`post-order\`** (HTTP Listener \`POST /api/orders\`):
-1. **Flow Ref \`validate-order\`**: sub-flow with **Validate json-schema** (JSON module, raises \`JSON:SCHEMA_NOT_HONOURED\`) and **Validate is-true** (1–200 lines, raises \`VALIDATION:INVALID_BOOLEAN\`).
+1. **Flow Ref \`validate-order\`**: sub-flow with **Validate json-schema** (JSON module, \`schemas/order.json\`, raises \`JSON:SCHEMA_NOT_HONOURED\`) and **Validate is-true** (1–200 lines, raises \`VALIDATION:INVALID_BOOLEAN\`).
 2. **Flow Ref \`lookup-customer\`**, \`target="customer"\`: Database Select → Choice: empty → **Raise Error \`APP:CUSTOMER_NOT_FOUND\`**, else return \`{ id, tier }\`.
 3. **Flow Ref \`price-order\`**, \`target="pricing"\`: HTTP Request \`POST /pricing/quote\`, \`responseTimeout 800\`.
-   Steps 2 and 3 are independent. If latency is tight, run them in a **Scatter-Gather** instead.
+   Steps 2 and 3 are independent. If latency is tight, run them in a **Scatter-Gather** instead. Two things change then: the Scatter-Gather replaces the payload with its route results, so keep the order in a variable and put it back after the scope; and a failing route surfaces as \`MULE:COMPOSITE_ROUTING\`, so the handlers must look at \`error.errorMessage.payload.failures\` to tell an \`APP:\` rejection (422) from a dependency outage (503).
 4. **Transform**: merge order + customer tier + priced lines.
 5. **Choice** on \`payload.shipTo.country\`:
    - EU list → HTTP Request EU Fulfilment (\`responseTimeout 1000\`)

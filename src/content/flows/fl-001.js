@@ -62,6 +62,64 @@ export default {
       rule: { type: 'inside', component: 'sftp-move', where: { targetPath: 'error' }, within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        '/inbound/contacts/contacts-2026-11-12.csv':
+          'externalId,firstName,lastName,email\nC-1001,Asha,Patel,asha.patel@example.com\nC-1002,Tom,Reyes,tom.reyes@example.com\nC-1003,Lena,Fischer,lena.fischer@example.com',
+      },
+    },
+    tests: [
+      {
+        name: 'A clean file is imported',
+        about: 'Every row is valid. The ops team gets one summary and the file goes to /archive.',
+        trigger: { file: { path: '/inbound/contacts/contacts-2026-11-12.csv' } },
+        expect: {
+          noError: true,
+          emails: [{ count: 1 }],
+          connector: [
+            { type: 'sf-upsert', settings: { objectType: 'Contact', externalIdField: 'External_Id__c' }, has: [{ externalId: 'C-1001' }], min: 1 },
+            { type: 'sf-upsert', has: [{ externalId: 'C-1003' }], min: 1 },
+          ],
+          files: { '/archive/contacts-2026-11-12.csv': { exists: true }, '/inbound/contacts/contacts-2026-11-12.csv': { exists: false }, '/error/contacts-2026-11-12.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'Some rows are invalid',
+        about: 'One row has a bad email and one has no externalId. The job still finishes, sends one summary and archives the file.',
+        trigger: { file: { path: '/inbound/contacts/contacts-2026-11-12.csv' } },
+        overrides: {
+          systems: {
+            files: {
+              '/inbound/contacts/contacts-2026-11-12.csv':
+                'externalId,firstName,lastName,email\nC-1001,Asha,Patel,asha.patel@example.com\nC-1002,Tom,Reyes,tom.reyes.example.com\n,Lena,Fischer,lena.fischer@example.com\nC-1004,Ravi,Kumar,ravi.kumar@example.com',
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          emails: [{ count: 1 }],
+          connector: [
+            { type: 'sf-upsert', settings: { objectType: 'Contact', externalIdField: 'External_Id__c' }, has: [{ externalId: 'C-1001' }, { externalId: 'C-1004' }], min: 1 },
+            { type: 'sf-upsert', has: [{ externalId: 'C-1002' }], count: 0 },
+            { type: 'sf-upsert', has: [{ firstName: 'Lena' }], count: 0 },
+          ],
+          files: { '/archive/contacts-2026-11-12.csv': { exists: true }, '/error/contacts-2026-11-12.csv': { exists: false } },
+        },
+      },
+      {
+        name: 'Salesforce rejects the upsert',
+        about: 'The bulk upsert fails for the whole chunk. Those rows count as failed, and the job still sends one summary and archives the file.',
+        trigger: { file: { path: '/inbound/contacts/contacts-2026-11-12.csv' } },
+        overrides: { systems: { calls: { 'sf-upsert': { fault: { type: 'SALESFORCE:CONNECTIVITY', description: 'Unable to reach the Salesforce bulk API' } } } } },
+        expect: {
+          noError: true,
+          emails: [{ count: 1 }],
+          files: { '/archive/contacts-2026-11-12.csv': { exists: true }, '/error/contacts-2026-11-12.csv': { exists: false } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'contacts-sftp-import',

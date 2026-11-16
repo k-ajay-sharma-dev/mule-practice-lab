@@ -71,6 +71,107 @@ export default {
       rule: { type: 'inside', component: ['email-send', 'mq-publish', 'vm-publish', 'sf-create'], within: 'choice' },
     },
   ],
+  optionalSteps: [
+    {
+      type: 'on-error-continue',
+      flow: 'onboarding-orchestrator',
+      why: 'It matters only when a request fails before its employee ID was stored, such as a webhook without employeeId. Object Store Remove then finds no key, and this handler stops that from hiding the first error.',
+    },
+  ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/okta/api/v1/users', responses: [{ status: 200, body: [] }, { status: 200, body: [{ id: '00u8f2k1', status: 'ACTIVE', profile: { login: 'priya.nair@example.com', employeeNumber: 'E-20417' } }] }] },
+        { method: 'POST', path: '/okta/api/v1/users', latencyMs: 900, respond: { status: 200, body: { id: '00u8f2k1', status: 'ACTIVE', profile: { login: 'priya.nair@example.com', employeeNumber: 'E-20417' } } } },
+        { method: 'POST', path: '/graph/v1.0/users/{login}/assignLicense', latencyMs: 2400, respond: { status: 200, body: { id: 'm365-77a1' } } },
+        { method: 'POST', path: '/servicenow/api/now/table/sc_request', latencyMs: 1800, respond: { status: 201, body: { id: 'REQ0049121' } } },
+        { method: 'POST', path: '/slack/scim/v2/Users', latencyMs: 700, respond: { status: 201, body: { id: 'U07PNAIR' } } },
+      ],
+      db: { tables: { onboarding_status: { rows: [] } } },
+      objectStore: { 'onboarding-started': {} },
+    },
+    tests: [
+      {
+        name: 'Every system is set up',
+        about: 'Okta, Microsoft 365, ServiceNow and Slack all answer, so nobody in IT needs an email.',
+        trigger: { http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+        expect: {
+          noError: true,
+          calls: [
+            { method: 'POST', path: '/okta/api/v1/users', count: 1 },
+            { method: 'POST', path: '/graph/v1.0/users/{login}/assignLicense', count: 1 },
+            { method: 'POST', path: '/servicenow/api/now/table/sc_request', count: 1 },
+            { method: 'POST', path: '/slack/scim/v2/Users', count: 1 },
+          ],
+          noEmails: true,
+        },
+      },
+      {
+        name: 'Slack is down',
+        about: 'One system failing must not block the others, and IT is told about the failure.',
+        trigger: { http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/slack/scim/v2/Users', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          noError: true,
+          calls: [
+            { method: 'POST', path: '/graph/v1.0/users/{login}/assignLicense', count: 1 },
+            { method: 'POST', path: '/servicenow/api/now/table/sc_request', count: 1 },
+          ],
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'Okta is down',
+        about: 'Without a login the other systems cannot be set up, so none is called and the request fails.',
+        trigger: { http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/okta/api/v1/users', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          error: 'HTTP:CONNECTIVITY',
+          calls: [
+            { method: 'POST', path: '/graph/v1.0/users/{login}/assignLicense', count: 0 },
+            { method: 'POST', path: '/servicenow/api/now/table/sc_request', count: 0 },
+            { method: 'POST', path: '/slack/scim/v2/Users', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'Workday sends the hire twice',
+        about: 'The second webhook must not create a second Okta account.',
+        triggers: [
+          { http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+          { afterMs: 60000, http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+        ],
+        expect: {
+          noError: true,
+          calls: [{ method: 'POST', path: '/okta/api/v1/users', count: 1 }],
+        },
+      },
+      {
+        name: 'Okta is back when Workday retries',
+        about: 'The first webhook fails at Okta. The resent one must be onboarded, not refused as a duplicate.',
+        triggers: [
+          { http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+          { afterMs: 300000, http: { method: 'POST', path: '/hr/v1/hires', body: { employeeId: 'E-20417', name: 'Priya Nair', department: 'Finance', startDate: '2026-12-01', manager: 'E-10022' } } },
+        ],
+        overrides: {
+          systems: {
+            http: [
+              { method: 'GET', path: '/okta/api/v1/users', respond: { status: 200, body: [] } },
+              { method: 'POST', path: '/okta/api/v1/users', responses: [{ fault: 'CONNECTIVITY' }, { status: 200, body: { id: '00u8f2k1', status: 'ACTIVE', profile: { login: 'priya.nair@example.com', employeeNumber: 'E-20417' } } }] },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          calls: [
+            { method: 'POST', path: '/okta/api/v1/users', count: 2 },
+            { method: 'POST', path: '/graph/v1.0/users/{login}/assignLicense', count: 1 },
+            { method: 'POST', path: '/slack/scim/v2/Users', count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'onboarding-orchestrator',
@@ -91,6 +192,7 @@ export default {
             '%dw 2.0\noutput application/json\nvar results = valuesOf(payload) map $.payload\n---\n{\n  employeeId: vars.hire.employeeId,\n  login: vars.login,\n  results: [{ system: "Okta", status: "OK" }] ++ results,\n  failed: results filter ($.status == "FAILED")\n}',
         }),
         step('set-variable', { variableName: 'outcome', value: '#[payload]' }),
+        step('set-variable', { variableName: 'resultJson', value: '#[write(payload.results, "application/json")]' }),
         step('db-insert', {
           sql: 'INSERT INTO onboarding_status (employee_id, login, result_json, created_at) VALUES (:employeeId, :login, :resultJson, CURRENT_TIMESTAMP)',
         }),
@@ -116,6 +218,10 @@ export default {
         ]),
         handler('on-error-propagate', { type: 'ANY' }, [
           step('logger', { level: 'ERROR', message: '#["Onboarding failed before provisioning: " ++ error.description]' }),
+          // Free the employee ID so the webhook Workday resends is processed, not answered as a duplicate.
+          scope('try', {}, [step('os-remove', { key: '#[vars.hire.employeeId]', objectStore: 'onboarding-started' })], {
+            errorHandlers: [handler('on-error-continue', { type: 'OS:KEY_NOT_FOUND' }, [step('logger', { level: 'DEBUG', message: 'No onboarding-started entry to free' })])],
+          }),
           step('email-send', { toAddresses: 'it-onboarding@example.com', subject: 'Onboarding FAILED (identity not created)' }),
         ]),
       ],

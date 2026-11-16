@@ -148,6 +148,73 @@ export default {
       rule: { type: 'inside', component: 'os-remove', within: ['on-error-continue', 'on-error-propagate'], withinWhere: { type: 'ANY' }, min: 2 },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          contact_preferences: {
+            columns: ['customer_id', 'channel', 'language', 'email', 'phone'],
+            rows: [
+              { customer_id: 'C-100', channel: 'EMAIL', language: 'en', email: 'maria.lopez@example.com', phone: '+15550100' },
+              { customer_id: 'C-100', channel: 'SMS', language: 'en', email: 'maria.lopez@example.com', phone: '+15550100' },
+              { customer_id: 'C-200', channel: 'EMAIL', language: 'fr', email: 'luc.martin@example.com', phone: '+33612345678' },
+            ],
+          },
+          notification_templates: {
+            columns: ['event_type', 'channel', 'language', 'subject', 'body'],
+            rows: [
+              { event_type: 'BILL_READY', channel: 'EMAIL', language: 'en', subject: 'Your bill is ready', body: '<p>Your bill of {{amount}} is due on {{dueDate}}.</p>' },
+              { event_type: 'BILL_READY', channel: 'SMS', language: 'en', subject: null, body: 'Your bill of {{amount}} is ready.' },
+              { event_type: 'BILL_READY', channel: 'EMAIL', language: 'fr', subject: 'Votre facture est prête', body: '<p>Votre facture de {{amount}} est due le {{dueDate}}.</p>' },
+            ],
+          },
+          notification_status: { columns: ['id', 'channel', 'status', 'reason'], rows: [] },
+        },
+      },
+      http: [{ method: 'POST', path: '/v1/messages', latencyMs: 180, respond: { status: 201, body: { sid: 'SM-10001', status: 'queued' } } }],
+    },
+    tests: [
+      {
+        name: 'Email and SMS both go out',
+        about: 'The customer wants both channels. The caller gets 202 at once, then one email and one SMS are sent.',
+        trigger: { http: { method: 'POST', path: '/notifications', body: { customerId: 'C-100', eventType: 'BILL_READY', data: { amount: '42.10 USD', dueDate: '2026-11-30' } } } },
+        expect: {
+          status: 202,
+          emails: [{ to: 'maria.lopez@example.com', has: '42.10 USD', count: 1 }],
+          calls: [{ method: 'POST', path: '/v1/messages', has: { To: '+15550100' }, count: 1 }],
+        },
+      },
+      {
+        name: 'The SMS provider is down',
+        about: 'The SMS cannot be sent, but the email still goes out.',
+        trigger: { http: { method: 'POST', path: '/notifications', body: { customerId: 'C-100', eventType: 'BILL_READY', data: { amount: '42.10 USD', dueDate: '2026-11-30' } } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/v1/messages', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 202, emails: [{ to: 'maria.lopez@example.com', count: 1 }] },
+      },
+      {
+        name: 'The mail server is down',
+        about: 'The email cannot be sent, but the SMS still goes out.',
+        trigger: { http: { method: 'POST', path: '/notifications', body: { customerId: 'C-100', eventType: 'BILL_READY', data: { amount: '42.10 USD', dueDate: '2026-11-30' } } } },
+        overrides: { systems: { email: { fault: true } } },
+        expect: { status: 202, noEmails: true, calls: [{ method: 'POST', path: '/v1/messages', count: 1 }] },
+      },
+      {
+        name: 'The customer wants no messages',
+        about: 'The customer has no contact preferences, so nothing is sent.',
+        trigger: { http: { method: 'POST', path: '/notifications', body: { customerId: 'C-300', eventType: 'BILL_READY', data: { amount: '9.99 USD', dueDate: '2026-11-30' } } } },
+        expect: { status: 202, noEmails: true, calls: [{ method: 'POST', path: '/v1/messages', count: 0 }] },
+      },
+      {
+        name: 'A request is delivered twice',
+        about: 'The queued request reaches the dispatcher a second time after a restart. The customer still gets one email.',
+        triggers: [
+          { source: 'mq-subscriber', payload: { notificationId: 'N-5001', customerId: 'C-200', eventType: 'BILL_READY', data: { amount: '18.00 EUR', dueDate: '2026-12-01' } }, attributes: { messageId: 'm-1', ackToken: 'ack-m-1' } },
+          { source: 'mq-subscriber', payload: { notificationId: 'N-5001', customerId: 'C-200', eventType: 'BILL_READY', data: { amount: '18.00 EUR', dueDate: '2026-12-01' } }, attributes: { messageId: 'm-1', ackToken: 'ack-m-1' }, afterMs: 30000 },
+        ],
+        expect: { emails: [{ to: 'luc.martin@example.com', count: 1 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-continue',
@@ -188,11 +255,12 @@ export default {
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
         step('set-variable', { variableName: 'request', value: '#[payload]' }),
         scope('cache', { cachingStrategy: 'preferences-cache-10min' }, [
-          step('db-select', { sql: 'SELECT channel, language FROM contact_preferences WHERE customer_id = :customerId' }),
+          step('db-select', { sql: 'SELECT channel, language, email, phone FROM contact_preferences WHERE customer_id = :customerId' }),
         ]),
+        // The request carries only customerId, eventType and data, so the address and phone number come from the preferences.
         step('transform', {
           script:
-            '%dw 2.0\noutput application/json\n---\npayload map (pref) -> vars.request ++ { channel: pref.channel, language: pref.language }',
+            '%dw 2.0\noutput application/json\n---\npayload map (pref) -> vars.request ++ { channel: pref.channel, language: pref.language, email: pref.email, phone: pref.phone }',
         }),
         scope('foreach', { collection: '#[payload]' }, [
           router(
@@ -215,6 +283,8 @@ export default {
       [
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
         step('set-variable', { variableName: 'message', value: '#[payload]' }),
+        // The status updates below read :notificationId and :reason from these variables.
+        step('set-variable', { variableName: 'notificationId', value: '#[vars.message.notificationId]' }),
         step('idempotent', { idExpression: '#[vars.message.notificationId ++ "-EMAIL"]', objectStore: 'sent-notifications' }),
         step('db-select', {
           sql: 'SELECT subject, body FROM notification_templates WHERE event_type = :eventType AND channel = \'EMAIL\' AND language = :language',
@@ -231,6 +301,7 @@ export default {
       [
         handler('on-error-continue', { type: 'MULE:DUPLICATE_MESSAGE' }, [step('mq-ack', { ackToken: '#[vars.ackToken]' })]),
         handler('on-error-continue', { type: 'ANY' }, [
+          step('set-variable', { variableName: 'reason', value: '#[error.description]' }),
           step('db-update', {
             sql: "UPDATE notification_status SET status = 'FAILED', reason = :reason WHERE id = :notificationId AND channel = 'EMAIL'",
           }),
@@ -246,6 +317,8 @@ export default {
       [
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
         step('set-variable', { variableName: 'message', value: '#[payload]' }),
+        // The status updates below read :notificationId and :reason from these variables.
+        step('set-variable', { variableName: 'notificationId', value: '#[vars.message.notificationId]' }),
         step('idempotent', { idExpression: '#[vars.message.notificationId ++ "-SMS"]', objectStore: 'sent-notifications' }),
         step('db-select', {
           sql: 'SELECT body FROM notification_templates WHERE event_type = :eventType AND channel = \'SMS\' AND language = :language',
@@ -265,6 +338,7 @@ export default {
           step('mq-nack', { ackToken: '#[vars.ackToken]' }),
         ]),
         handler('on-error-continue', { type: 'ANY' }, [
+          step('set-variable', { variableName: 'reason', value: '#[error.description]' }),
           step('db-update', {
             sql: "UPDATE notification_status SET status = 'FAILED', reason = :reason WHERE id = :notificationId AND channel = 'SMS'",
           }),
@@ -309,7 +383,7 @@ A telecom wants a reusable **Notification API**: \`POST /notifications\` with \`
   ],
   solution: `
 1. **Front door:** HTTP Listener → APIkit validation → generate \`notificationId\` → **Anypoint MQ Publish** to \`notifications.requested\` → **202** \`{ notificationId }\`.
-2. **Dispatcher flow:** Anypoint MQ Subscriber → **Database Select** preferences (inside a **Cache scope**, TTL 10 min) → DataWeave builds one message per enabled channel → Publish to \`notifications.email\` and/or \`notifications.sms\`. Separate queues give each channel its own retry/DLQ and concurrency.
+2. **Dispatcher flow:** Anypoint MQ Subscriber → **Database Select** preferences: channel, language, email address and phone number (inside a **Cache scope**, TTL 10 min) → DataWeave builds one message per enabled channel, carrying the address or number the worker needs → Publish to \`notifications.email\` and/or \`notifications.sms\`. Separate queues give each channel its own retry/DLQ and concurrency.
 3. **Templating:** templates (subject/body per \`eventType\` + language) stored in a DB table or object storage, loaded via a cached lookup. Render with DataWeave (string interpolation of \`data\` fields) or the **Parse Template** component (\`#[...]\` expressions inside an HTML template). Escape user data in HTML emails.
 4. **Email worker:** subscriber on \`notifications.email\` → render → **Email connector Send** (SMTP config) with HTML body. Ack on success.
 5. **SMS worker:** subscriber on \`notifications.sms\` → render (short text, max length check in DataWeave) → HTTP Request to the SMS provider (or its Exchange connector). Handle **429** with backoff.

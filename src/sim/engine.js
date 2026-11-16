@@ -94,7 +94,12 @@ class Run {
       vars: event.vars,
       error: event.error ? errorValue(event.error) : undefined,
       correlationId: event.correlationId,
+      // what an API policy (JWT, OAuth, client ID) put on the event; a test gives it as trigger.http.authentication
+      authentication: event.authentication,
+      // the text the message arrived as, while the payload is still the value read from it
+      payloadRaw: event.raw && event.raw.of === event.payload ? event.raw.text : undefined,
       properties: this.scenario.properties ?? {},
+      files: this.files,
       now: new Date(START + this.t),
       flowName: flow?.name,
       uuidSeed: this.uuidSeed,
@@ -134,19 +139,62 @@ class Run {
 
   // Runs one flow from its source event, handling errors with the flow's handlers.
   // Returns { event, error } where error is the Mule error the flow ended with, if any.
+  // ---------- transactions ----------
+  // The resources a transaction can hold are the database and JMS / VM publishes; Anypoint MQ, Kafka, SQS, HTTP and
+  // files are not transactional, so they stay done. An XA transaction holds all of them. A LOCAL one holds a single
+  // resource: a transacted JMS or VM listener holds its own kind, and a Try holds the first one used inside it, so in
+  // Mule a database write next to a LOCAL JMS transaction is not rolled back with it. On a rollback what the
+  // transaction holds goes back to how it was when it began, including writes made by an On Error Propagate inside it.
+  // `resource` is 'xa', 'jms', 'vm' or null (a Try: bound on first use).
+  beginTx(resource = null) {
+    this.txDepth = (this.txDepth ?? 0) + 1
+    return { resource, db: copy(this.db), dbLog: this.effects.db.length, sent: this.effects.sent.length, pending: this.pending.length }
+  }
+
+  endTx(tx, rollback, flow, depth) {
+    this.txDepth--
+    if (!rollback) return
+    let held = tx.resource
+    if (!held) {
+      // a Try is bound to whichever transactional resource it used first
+      const db = this.effects.db[tx.dbLog]
+      const msg = this.effects.sent.slice(tx.sent).find((m) => ['jms', 'vm'].includes(m.kind))
+      held = db && (!msg || db.t <= msg.t) ? 'db' : msg ? msg.kind : null
+    }
+    if (!held) return
+    const kinds = held === 'xa' ? ['jms', 'vm'] : held === 'db' ? [] : [held]
+    const undoesDb = held === 'xa' || held === 'db'
+    if (undoesDb) this.db = tx.db
+    const undone = (m, i) => i >= tx.sent && kinds.includes(m.kind)
+    const removed = this.effects.sent.filter(undone).length
+    this.effects.sent = this.effects.sent.filter((m, i) => !undone(m, i))
+    this.pending = this.pending.filter((m, i) => !(i >= tx.pending && kinds.includes(m.kind)))
+    const what = [undoesDb ? 'database changes' : null, removed ? `${removed} ${kinds.join('/').toUpperCase()} message(s)` : null].filter(Boolean).join(' and ') || 'nothing it held'
+    this.record({ kind: 'step', flow: flow.name, depth, text: `The ${held === 'xa' ? 'XA' : 'LOCAL'} transaction is rolled back: ${what} undone` })
+  }
+
   runFlow(flow, event, depth = 0) {
     const run = { flow: flow.name, start: this.t, ok: true }
     this.runs.push(run)
     this.record({ kind: 'flow-start', flow: flow.name, depth, text: `Flow ${flow.name} starts`, ...this.snapshot(event) })
+    // a JMS or VM listener with Transactional action ALWAYS_BEGIN runs the whole flow in one transaction
+    const sc = flow.source?.config
+    const listenerKind = { 'jms-listener': 'jms', 'vm-listener': 'vm' }[flow.source?.type]
+    const tx = depth === 0 && sc?.transactionalAction === 'ALWAYS_BEGIN' ? this.beginTx(sc.transactionType === 'XA' ? 'xa' : (listenerKind ?? 'xa')) : null
     try {
       const out = this.list(flow.steps, event, flow, depth + 1)
       this.record({ kind: 'flow-end', flow: flow.name, depth, text: `Flow ${flow.name} ends`, ...this.snapshot(out) })
       run.end = this.t
+      if (tx) this.endTx(tx, false, flow, depth)
       return { event: out }
     } catch (e) {
-      if (!(e instanceof MuleError)) throw e
+      if (!(e instanceof MuleError)) {
+        if (tx) this.txDepth--
+        throw e
+      }
       const handled = this.handle(flow.errorHandlers ?? [], e, flow, depth + 1, flow.kind !== 'sub-flow')
       run.end = this.t
+      if (tx) this.endTx(tx, !handled.continued, flow, depth)
       if (handled.continued) {
         this.record({ kind: 'flow-end', flow: flow.name, depth, text: `Flow ${flow.name} ends as a success (error handled)`, ...this.snapshot(handled.event) })
         return { event: handled.event }
@@ -251,6 +299,8 @@ class Run {
         return this.cacheScope(node, event, flow, depth, base)
       case 'batch-job':
         return this.batchJob(node, event, flow, depth, base)
+      case 'apikit-router':
+        return this.apikit(node, event, flow, depth, base)
       default: {
         const behaviour = BEHAVIOURS[node.type]
         if (!behaviour) return done(event, `${base.label}: the simulator passes the message on unchanged, because it does not model this component yet.`, { note: 'not simulated' })
@@ -281,6 +331,36 @@ class Run {
     return out
   }
 
+  // APIkit Router: picks the flow named method:\resource[:content type]:config for the request, as APIkit does.
+  // The resource is the request path after the listener's base path. It does not check the body against the spec.
+  apikit(node, event, flow, depth, base) {
+    const a = event.attributes ?? {}
+    const method = String(a.method ?? 'GET').toLowerCase()
+    const listenerBase = String(a.listenerPath ?? '').replace(/\/?\*$/, '')
+    let resource = String(a.requestPath ?? '/')
+    if (listenerBase && resource.toLowerCase().startsWith(listenerBase.toLowerCase())) resource = resource.slice(listenerBase.length)
+    if (!resource.startsWith('/')) resource = `/${resource}`
+    const config = String(node.config?.config ?? '').trim()
+    const routes = this.design.flows
+      .filter((f) => f.kind !== 'sub-flow' && !f.source)
+      .map((f) => ({ f, m: String(f.name).match(/^(get|post|put|patch|delete|head|options):(\\[^:]*)(?::([^:]+))?:([^:]+)$/i) }))
+      .filter(({ m }) => m && (!config || m[4] === config))
+      .map(({ f, m }) => ({ f, method: m[1].toLowerCase(), path: m[2].replace(/\\/g, '/') }))
+    let pathMatched = false
+    for (const r of routes) {
+      const params = matchPath(r.path, resource)
+      if (!params) continue
+      pathMatched = true
+      if (r.method !== method) continue
+      this.record({ ...base, kind: 'step', text: `APIkit Router sends ${method.toUpperCase()} ${resource} to flow ${r.f.name}` })
+      const res = this.runFlow(r.f, { ...event, attributes: { ...a, uriParams: { ...(a.uriParams ?? {}), ...params } } }, depth + 1)
+      if (res.error) throw withEvent(res.error, res.event)
+      return res.event
+    }
+    if (pathMatched) throw new MuleError('APIKIT:METHOD_NOT_ALLOWED', `HTTP method ${method.toUpperCase()} not allowed for: ${resource}`)
+    throw new MuleError('APIKIT:NOT_FOUND', `No listener for endpoint: ${resource}`)
+  }
+
   choice(node, event, flow, depth, base) {
     for (const [i, route] of (node.routes ?? []).entries()) {
       const expr = route.config?.expression
@@ -300,20 +380,23 @@ class Run {
     const failures = {}
     let vars = { ...event.vars }
     const start = this.t
-    let longest = 0
+    const timeout = Number(node.config?.timeout) || 0
+    const took = []
     for (const [i, route] of node.routes.entries()) {
       this.t = start
       try {
         const out = this.list(route.steps, { ...event, vars: { ...event.vars } }, flow, depth + 1)
+        if (timeout && this.t - start > timeout) throw new MuleError('MULE:TIMEOUT', `Route ${i} took longer than the Scatter-Gather timeout of ${timeout} ms`)
         results[i] = { payload: out.payload, attributes: out.attributes }
         vars = { ...vars, ...out.vars }
       } catch (e) {
         if (!(e instanceof MuleError)) throw e
         failures[i] = errorValue(e)
       }
-      longest = Math.max(longest, this.t - start)
+      took.push(timeout ? Math.min(this.t - start, timeout) : this.t - start)
     }
-    this.t = start + longest // the routes run at the same time, so the scope takes as long as the slowest
+    // the routes run at the same time (at most Max concurrency at once), so the scope takes as long as the slowest
+    this.t = start + spread(took, Number(node.config?.maxConcurrency) || 0)
     if (Object.keys(failures).length) {
       throw new MuleError('MULE:COMPOSITE_ROUTING', `Exception(s) were found for route(s): ${Object.keys(failures).join(', ')}`, {
         errorMessage: { payload: { results, failures } },
@@ -360,19 +443,24 @@ class Run {
     const results = []
     const failures = {}
     const start = this.t
-    let longest = 0
+    const timeout = Number(node.config?.timeout) || 0
+    const took = []
     items.forEach((item, i) => {
       this.t = start
       try {
         const out = this.list(node.steps, { ...event, payload: copy(item), vars: { ...event.vars } }, flow, depth + 1)
+        if (timeout && this.t - start > timeout) throw new MuleError('MULE:TIMEOUT', `Item ${i} took longer than the Parallel For Each timeout of ${timeout} ms`)
         results.push({ payload: out.payload, attributes: out.attributes })
       } catch (e) {
         if (!(e instanceof MuleError)) throw e
         failures[i] = errorValue(e)
       }
-      longest = Math.max(longest, this.t - start)
+      took.push(timeout ? Math.min(this.t - start, timeout) : this.t - start)
     })
-    this.t = start + longest
+    // Max concurrency copies run at once; the rest wait for a free slot
+    const max = Number(node.config?.maxConcurrency) || 0
+    this.t = start + spread(took, max)
+    if (max && items.length > max) this.record({ ...base, kind: 'step', text: `At most ${max} copies run at once, so the ${items.length} items take ${this.t - start} ms` })
     if (Object.keys(failures).length) {
       throw new MuleError('MULE:COMPOSITE_ROUTING', `Exception(s) were found for route(s): ${Object.keys(failures).join(', ')}`, { errorMessage: { payload: { results, failures } } })
     }
@@ -383,11 +471,20 @@ class Run {
   }
 
   tryScope(node, event, flow, depth, base) {
+    const action = node.config?.transactionalAction
+    const tx = action === 'ALWAYS_BEGIN' || (action === 'BEGIN_OR_JOIN' && !this.txDepth) ? this.beginTx() : null
+    if (tx) this.record({ ...base, kind: 'route', text: 'Try begins a transaction' })
     try {
-      return this.list(node.steps, event, flow, depth + 1)
+      const out = this.list(node.steps, event, flow, depth + 1)
+      if (tx) this.endTx(tx, false, flow, depth + 1)
+      return out
     } catch (e) {
-      if (!(e instanceof MuleError)) throw e
+      if (!(e instanceof MuleError)) {
+        if (tx) this.txDepth--
+        throw e
+      }
       const handled = this.handle(node.errorHandlers ?? [], e, flow, depth + 1, false)
+      if (tx) this.endTx(tx, !handled.continued, flow, depth + 1)
       if (handled.continued) {
         this.record({ ...base, kind: 'step', text: 'Try handled the error, so the flow carries on after the Try', ...this.snapshot(handled.event) })
         return handled.event
@@ -448,27 +545,58 @@ class Run {
           const stepName = route.config?.name || 'step'
           const policy = route.config?.acceptPolicy || 'NO_FAILURES'
           const counts = { successfulRecords: 0, failedRecords: 0 }
+          // a Batch Aggregator (the last thing in a step) gets the records in groups of its size, or all at once when
+          // streaming; the steps before it run once per record
+          const steps = route.steps ?? []
+          const aggAt = steps.findIndex((s) => s.type === 'batch-aggregator')
+          const agg = aggAt >= 0 ? steps[aggAt] : null
+          const perRecord = agg ? steps.slice(0, aggAt) : steps
+          const size = agg && agg.config?.streaming !== 'true' ? Math.max(1, Number(agg.config?.size) || 200) : Infinity
+          let group = []
+          const fail = (rec, e) => {
+            if (!rec.failed) failedCount++
+            rec.failed = errorValue(e)
+            counts.failedRecords++
+            if (max >= 0 && failedCount > max && !stopped) {
+              stopped = true
+              this.log('ERROR', `Batch job ${name} stopped: ${failedCount} failed record(s) is more than Max failed records (${max})`, flow.name, 'runtime')
+            }
+          }
+          const flush = () => {
+            if (!group.length) return
+            const members = group
+            group = []
+            this.record({ ...base, kind: 'route', depth: depth + 1, text: `Batch Aggregator in ${stepName} gets ${members.length} record(s) as one list` })
+            try {
+              this.list(agg.steps ?? [], { ...event, payload: members.map((r) => copy(r.payload)), vars: { ...event.vars } }, flow, depth + 1)
+            } catch (e) {
+              if (!(e instanceof MuleError)) throw e
+              for (const rec of members) {
+                counts.successfulRecords--
+                fail(rec, e)
+              }
+            }
+          }
           for (const rec of state) {
             if (stopped) break
             const accepted = policy === 'ALL' || (policy === 'NO_FAILURES' ? !rec.failed : Boolean(rec.failed))
             if (!accepted) continue
             if (route.config?.acceptExpression && !truthy(this.value(route.config.acceptExpression, { ...event, payload: rec.payload, vars: rec.vars }, flow))) continue
             try {
-              const out = this.list(route.steps, { ...event, payload: rec.payload, vars: rec.vars }, flow, depth + 1)
+              const out = this.list(perRecord, { ...event, payload: rec.payload, vars: rec.vars }, flow, depth + 1)
               rec.payload = out.payload
               rec.vars = out.vars
               counts.successfulRecords++
+              if (agg) {
+                group.push(rec)
+                if (group.length >= size) flush()
+              }
             } catch (e) {
               if (!(e instanceof MuleError)) throw e
-              if (!rec.failed) failedCount++
-              rec.failed = errorValue(e)
-              counts.failedRecords++
-              if (max >= 0 && failedCount > max) {
-                stopped = true
-                this.log('ERROR', `Batch job ${name} stopped: ${failedCount} failed record(s) is more than Max failed records (${max})`, flow.name, 'runtime')
-              }
+              fail(rec, e)
             }
           }
+          if (agg && !stopped) flush()
           stepResults[stepName] = counts
         }
         const result = {
@@ -511,10 +639,30 @@ class Run {
       const msg = this.pending.shift()
       deliver(this, msg)
     }
+    if (this.later.length || this.pending.length) {
+      // a message that keeps coming back (redelivered at once, or re-queued with no delay) would loop for ever
+      this.log('WARN', `The run stops here: ${MAX_FOLLOW_ON} follow-on runs (messages, Async scopes, batch jobs) is the most one test makes. ${this.pending.length} message(s) were still waiting.`, 'simulator', 'runtime')
+      this.record({ kind: 'step', flow: 'simulator', depth: 0, text: `The simulator stops after ${MAX_FOLLOW_ON} follow-on runs; a message kept coming back` })
+      this.later = []
+      this.pending = []
+    }
   }
 }
 
 // ---------- helpers ----------
+
+// How long work of these durations takes when at most `max` run at once (0 means all at once): each piece starts in
+// the slot that frees up first.
+function spread(durations, max) {
+  if (!durations.length) return 0
+  if (!max || max >= durations.length) return Math.max(...durations)
+  const slots = new Array(max).fill(0)
+  for (const d of durations) {
+    const i = slots.indexOf(Math.min(...slots))
+    slots[i] += d
+  }
+  return Math.max(...slots)
+}
 
 function mergeScenario(scenario = {}, overrides = {}) {
   const base = copy(scenario) ?? {}
@@ -580,12 +728,27 @@ const errorBrief = (e) => ({ type: e.type, description: e.description })
 // ---------- triggers ----------
 
 // Hands a message that was put on a queue to the flow of this design that listens on it.
+// A queue gives each message to one listener. A JMS topic gives every subscriber a copy, and a Kafka topic gives one
+// copy to each consumer group.
 function deliver(run, msg) {
-  const flow = run.design.flows.find((f) => f.source && listensOn(f.source, msg))
-  if (!flow) return
-  const event = sourceEvent(flow.source, { kind: msg.kind, destination: msg.destination, payload: msg.payload, mime: msg.mime, properties: msg.properties }, run)
-  const r = run.runFlow(flow, event)
-  if (msg.kind === 'vm' && r.error) run.log('ERROR', `The message on ${msg.destination} failed. ${r.error.type}`, flow.name, 'runtime')
+  const listening = run.design.flows.filter((f) => f.source && listensOn(f.source, msg))
+  if (!listening.length) return
+  let flows = [listening[0]]
+  if (msg.topic && msg.kind === 'jms') flows = listening
+  if (msg.kind === 'kafka') {
+    const groups = new Set()
+    flows = listening.filter((f) => {
+      const g = String(f.source.config?.groupId ?? '')
+      if (groups.has(g)) return false
+      groups.add(g)
+      return true
+    })
+  }
+  for (const flow of flows) {
+    const event = sourceEvent(flow.source, { kind: msg.kind, destination: msg.destination, payload: copy(msg.payload), mime: msg.mime, properties: msg.properties }, run)
+    const r = run.runFlow(flow, event)
+    if (msg.kind === 'vm' && r.error) run.log('ERROR', `The message on ${msg.destination} failed. ${r.error.type}`, flow.name, 'runtime')
+  }
 }
 
 const SOURCE_KEYS = { 'vm-listener': ['vm', 'queueName'], 'mq-subscriber': ['mq', 'destination'], 'jms-listener': ['jms', 'destination'], 'kafka-listener': ['kafka', 'topic'], 'kafka-batch-listener': ['kafka', 'topic'], 'sqs-receive': ['sqs', 'queueUrl'] }
@@ -656,16 +819,34 @@ function finish(run, trigger, flow, r) {
     return { status, reason: reasonPhrase(status), body: copy(r.event.payload), mime: r.event.mime }
   }
   const m = trigger.message
+  // only the acks made while this message's flow ran count for it
+  const mine = run.effects.acks.slice(run.ackMark ?? 0)
   if (m && ['mq-subscriber', 'jms-listener'].includes(flow.source.type)) {
     const mode = flow.source.config?.acknowledgementMode ?? flow.source.config?.ackMode ?? 'AUTO'
     const manual = mode === 'MANUAL'
-    const acked = run.effects.acks.some((a) => a.op === 'ack')
-    const nacked = run.effects.acks.some((a) => a.op === 'nack')
+    const acked = mine.some((a) => a.op === 'ack')
+    const nacked = mine.some((a) => a.op === 'nack')
     let outcome
-    if (mode === 'IMMEDIATE') outcome = 'acked'
+    // a transacted listener commits or rolls back the receive with the transaction
+    if (flow.source.config?.transactionalAction === 'ALWAYS_BEGIN') outcome = r.error ? 'returned' : 'acked'
+    else if (mode === 'IMMEDIATE') outcome = 'acked'
     else if (manual) outcome = acked ? 'acked' : nacked ? 'returned' : 'not-acked'
     else outcome = r.error ? 'returned' : 'acked'
     run.effects.acks.push({ op: 'outcome', destination: m.destination, outcome })
+  }
+  // Kafka: MANUAL needs a Commit, otherwise the offset is not committed; AUTO commits when the flow succeeds
+  if (m && ['kafka-listener', 'kafka-batch-listener'].includes(flow.source.type)) {
+    const mode = flow.source.config?.ackMode ?? 'AUTO'
+    const committed = mine.some((a) => a.by === 'kafka-commit')
+    const outcome = mode === 'MANUAL' ? (committed ? 'acked' : 'not-acked') : mode === 'IMMEDIATE' || mode === 'DUPS_OK' ? 'acked' : r.error ? 'returned' : 'acked'
+    run.effects.acks.push({ op: 'outcome', destination: m.destination, outcome })
+  }
+  // SQS: without Preserve messages the message is deleted as soon as it is read; with it, only Delete Message removes
+  // it, and otherwise it shows again after the visibility timeout
+  if (m && flow.source.type === 'sqs-receive') {
+    const preserved = String(flow.source.config?.preserveMessages) === 'true'
+    const deleted = mine.some((a) => a.by === 'sqs-delete')
+    run.effects.acks.push({ op: 'outcome', destination: m.destination, outcome: !preserved || deleted ? 'acked' : 'returned' })
   }
   return null
 }
@@ -697,6 +878,7 @@ export function simulate(design, scenario = {}, test = {}) {
         missing = s.missing
         break
       }
+      run.ackMark = run.effects.acks.length
       const r = run.runFlow(s.flow, s.event)
       const response = finish(run, trigger, s.flow, r)
       if (response) responses.push(response)

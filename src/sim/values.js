@@ -6,16 +6,17 @@ export function copy(value) {
   if (value === null || typeof value !== 'object') return value
   if (Array.isArray(value)) return value.map(copy)
   if (value instanceof Date) return new Date(value.getTime())
+  // values that are not plain data (a DataWeave DateTime, a Uint8Array of bytes) are kept as they are: they are not
+  // changed in place, and a structured clone would turn a DataWeave value into a plain object
   const proto = Object.getPrototypeOf(value)
-  if (proto !== Object.prototype && proto !== null) {
-    try {
-      return structuredClone(value)
-    } catch {
-      return value
-    }
-  }
+  if (proto !== Object.prototype && proto !== null) return value
+  // hidden keys (DataWeave's entry list and XML attributes) stay hidden in the copy
   const out = {}
-  for (const k of Reflect.ownKeys(value)) out[k] = copy(value[k])
+  for (const k of Reflect.ownKeys(value)) {
+    const d = Object.getOwnPropertyDescriptor(value, k)
+    if (d.enumerable) out[k] = copy(value[k])
+    else Object.defineProperty(out, k, { value: copy(value[k]), enumerable: false, writable: true, configurable: true })
+  }
   return out
 }
 

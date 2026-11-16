@@ -62,18 +62,139 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', within: 'foreach' },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          mail_landing: {
+            key: 'message_id',
+            columns: ['message_id', 'sender', 'subject', 'body', { name: 'status', default: 'PENDING' }, 'received_at', { name: 'attempts', default: 0 }, 'last_error', 'done_at'],
+            rows: [],
+          },
+        },
+        latencyMs: 6,
+      },
+      http: [{ method: 'POST', path: '/tracking/events', latencyMs: 120, respond: { status: 202, body: { accepted: true } } }],
+    },
+    tests: [
+      {
+        name: 'A courier sends the email twice',
+        about: 'The email is stored once as PENDING. The repeat with the same Message-ID changes nothing, and tracking is not called from the mailbox flow.',
+        triggers: [
+          {
+            source: 'email-listener-pop3',
+            payload: { body: 'AWB: 7712093\nSTATUS: DELIVERED\nLOCATION: LYON' },
+            attributes: { subject: 'Status 7712093', fromAddresses: ['updates@rhone-couriers.example'], headers: { 'Message-ID': '<c7712093.1@rhone-couriers.example>' } },
+          },
+          {
+            afterMs: 30000,
+            source: 'email-listener-pop3',
+            payload: { body: 'AWB: 7712093\nSTATUS: DELIVERED\nLOCATION: LYON' },
+            attributes: { subject: 'Status 7712093', fromAddresses: ['updates@rhone-couriers.example'], headers: { 'Message-ID': '<c7712093.1@rhone-couriers.example>' } },
+          },
+        ],
+        expect: {
+          noError: true,
+          db: { mail_landing: { count: 1, has: [{ message_id: '<c7712093.1@rhone-couriers.example>', status: 'PENDING' }] } },
+          calls: [{ method: 'POST', path: '/tracking/events', count: 0 }],
+        },
+      },
+      {
+        name: 'PostgreSQL restarts during intake',
+        about: 'The insert fails after the email left the mailbox, so the email is spooled to /data/mail-spool instead of being lost.',
+        trigger: {
+          source: 'email-listener-pop3',
+          payload: { body: 'AWB: 5520018\nSTATUS: PICKED_UP\nLOCATION: TOULOUSE' },
+          attributes: { subject: 'Status 5520018', fromAddresses: ['noreply@garonne-fret.example'], headers: { 'Message-ID': '<g5520018.3@garonne-fret.example>' } },
+        },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { noError: true, files: { '/data/mail-spool/*': { count: 1, has: '5520018' } } },
+      },
+      {
+        name: 'A spooled email is reloaded',
+        about: 'An email spooled during a database restart is loaded into the table, and only then is its spool file deleted.',
+        trigger: {
+          file: {
+            path: '/data/mail-spool/5b0e2c1a.json',
+            content: '{ "messageId": "<c8810442.7@alpes-express.example>", "sender": "ops@alpes-express.example", "subject": "Status 8810442", "body": "AWB: 8810442\\nSTATUS: OUT_FOR_DELIVERY\\nLOCATION: GRENOBLE" }',
+          },
+        },
+        overrides: {
+          systems: {
+            files: {
+              '/data/mail-spool/5b0e2c1a.json':
+                '{ "messageId": "<c8810442.7@alpes-express.example>", "sender": "ops@alpes-express.example", "subject": "Status 8810442", "body": "AWB: 8810442\\nSTATUS: OUT_FOR_DELIVERY\\nLOCATION: GRENOBLE" }',
+            },
+          },
+        },
+        expect: {
+          db: { mail_landing: { has: [{ message_id: '<c8810442.7@alpes-express.example>', status: 'PENDING' }] } },
+          files: { '/data/mail-spool/5b0e2c1a.json': { exists: false } },
+        },
+      },
+      {
+        name: 'The database is still down at reload',
+        about: 'The insert fails again, so the spool file stays on disk and the email is not lost.',
+        trigger: { file: { path: '/data/mail-spool/5b0e2c1a.json' } },
+        overrides: {
+          systems: {
+            db: { fault: 'CONNECTIVITY' },
+            files: {
+              '/data/mail-spool/5b0e2c1a.json':
+                '{ "messageId": "<c8810442.7@alpes-express.example>", "sender": "ops@alpes-express.example", "subject": "Status 8810442", "body": "AWB: 8810442\\nSTATUS: OUT_FOR_DELIVERY\\nLOCATION: GRENOBLE" }',
+            },
+          },
+        },
+        expect: { files: { '/data/mail-spool/5b0e2c1a.json': { exists: true } } },
+      },
+      {
+        name: 'Tracking refuses one event',
+        about: 'The first row fails and stays PENDING for a retry, and the second row still reaches tracking and is marked DONE.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                mail_landing: {
+                  key: 'message_id',
+                  columns: ['message_id', 'sender', 'subject', 'body', { name: 'status', default: 'PENDING' }, 'received_at', { name: 'attempts', default: 0 }, 'last_error', 'done_at'],
+                  rows: [
+                    { message_id: '<c7712093.1@rhone-couriers.example>', sender: 'updates@rhone-couriers.example', subject: 'Status 7712093', body: 'AWB: 7712093\nSTATUS: DELIVERED\nLOCATION: LYON', status: 'PENDING', received_at: '2026-11-13T09:50:00Z', attempts: 0, last_error: null, done_at: null },
+                    { message_id: '<c8810442.7@alpes-express.example>', sender: 'ops@alpes-express.example', subject: 'Status 8810442', body: 'AWB: 8810442\nSTATUS: OUT_FOR_DELIVERY\nLOCATION: GRENOBLE', status: 'PENDING', received_at: '2026-11-13T09:52:00Z', attempts: 0, last_error: null, done_at: null },
+                  ],
+                },
+              },
+            },
+            http: [{ method: 'POST', path: '/tracking/events', responses: [{ status: 503, body: { message: 'Maintenance window' } }, { status: 202, body: { accepted: true } }] }],
+          },
+        },
+        expect: {
+          calls: [{ method: 'POST', path: '/tracking/events', count: 2 }],
+          db: {
+            mail_landing: {
+              has: [
+                { message_id: '<c7712093.1@rhone-couriers.example>', status: 'PENDING', attempts: 1 },
+                { message_id: '<c8810442.7@alpes-express.example>', status: 'DONE' },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'courier-mailbox-intake',
       // POP3S on port 995. No move, mark-as-read or expunge exists for POP3: deletion is the only way to remove a message.
       source('email-listener-pop3', { folder: 'INBOX', deleteAfterRetrieve: 'true' }),
       [
+        // The mapped email becomes the payload, so the Insert's :messageId, :sender, :subject and :body find their values.
         step('transform', {
-          target: 'variable',
-          variableName: 'mail',
           script:
             '%dw 2.0\noutput application/json\n---\n{\n  messageId: attributes.headers["Message-ID"] default uuid(),\n  sender: attributes.fromAddresses[0],\n  subject: attributes.subject,\n  body: payload.body as String\n}',
         }),
+        // A copy for the error handler: the Insert replaces the payload.
+        step('set-variable', { variableName: 'mail', value: '#[payload]' }),
         // The only job of this flow: get the email into storage we control.
         step('db-insert', {
           database: 'PostgreSQL',
@@ -127,6 +248,8 @@ export default {
             {
               errorHandlers: [
                 handler('on-error-continue', { type: 'ANY' }, [
+                  // :errorText needs a value, so the error text is put in a variable first.
+                  step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
                   step('db-update', {
                     database: 'PostgreSQL',
                     sql: 'UPDATE mail_landing SET attempts = attempts + 1, last_error = :errorText WHERE message_id = :messageId',
@@ -147,6 +270,7 @@ The mailbox has a small quota and must not fill up. A previous developer copied 
 **Facts**
 - PostgreSQL has a landing table \`mail_landing\` with a unique \`message_id\` and a \`status\` column.
 - A row waiting for the tracking system has the status \`PENDING\`. A row the tracking system accepted gets the status \`DONE\`.
+- The worker has a local disk folder, \`/data/mail-spool\`, that survives restarts and can hold emails as JSON files.
 
 **Requirements**
 - Every status email must reach the **tracking system** (\`POST /tracking/events\`).
@@ -184,13 +308,13 @@ The mailbox has a small quota and must not fill up. A previous developer copied 
 
 **Flow 1, \`courier-mailbox-intake\`:**
 1. **On New Email (POP3)**, POP3S on port 995, \`deleteAfterRetrieve="true"\`.
-2. **Transform** to \`{ messageId, sender, subject, body }\` in a variable.
+2. **Transform** to \`{ messageId, sender, subject, body }\` as the payload, so the Insert's named parameters find their values, and keep a copy in \`vars.mail\` because the Insert replaces the payload.
 3. **Insert** into \`mail_landing\` with \`ON CONFLICT (message_id) DO NOTHING\`. No HTTP call happens here, so a tracking outage cannot touch this flow.
 4. **On Error Continue** writes the JSON to \`/data/mail-spool\`. The spool sits on a disk that survives a worker restart.
 
 **Flow 2, \`mail-spool-reload\`:** **File Listener** on the spool, **Insert**, then **File Delete** with the path saved in a variable. If the insert fails the file stays on disk, so the content is safe. Auto Delete on the listener would be wrong here because Apply Post Action When Failed defaults to true. The listener documentation does not spell out when a file left in place is picked up again, so test that before relying on it. Also alert on the age of the oldest spool file.
 
-**Flow 3, \`courier-status-processor\`:** **Scheduler** every minute, **Select** PENDING rows, **For Each** with a **Try**: parse the lines, **POST** to tracking, **Update** to DONE. On failure the attempt counter goes up and the row stays PENDING, so a one-hour maintenance window only delays events. Rows that reach five attempts stop being selected and show up on the support dashboard.
+**Flow 3, \`courier-status-processor\`:** **Scheduler** every minute, **Select** PENDING rows, **For Each** with a **Try**: parse the lines, **POST** to tracking, **Update** to DONE. On failure the handler puts \`error.description\` in \`vars.errorText\` for the \`:errorText\` parameter, the attempt counter goes up and the row stays PENDING, so a one-hour maintenance window only delays events. Rows that reach five attempts stop being selected and show up on the support dashboard.
 
 **Duplicates.** The Message-ID is the key of the landing table, so a repeated email or a reload is ignored. If a courier re-sends with a new Message-ID, the tracking system needs to accept repeats of the same AWB and status.
 

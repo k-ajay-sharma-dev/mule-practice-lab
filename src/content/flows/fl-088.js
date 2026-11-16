@@ -60,6 +60,84 @@ export default {
       rule: { type: 'inside', component: 'file-move', within: 'on-error-continue', where: { targetPath: 'rejects' } },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        '/data/manifests/in/M-20261103-118.xml':
+          '<Manifest id="M-20261103-118"><Shipment><TrackingNo>ZX100</TrackingNo><WeightKg>12.4</WeightKg><Destination>NL</Destination></Shipment><Shipment><TrackingNo>ZX101</TrackingNo><WeightKg>3.1</WeightKg><Destination>BE</Destination></Shipment></Manifest>',
+        '/data/manifests/in/M-20261103-119.xml':
+          '<Manifest id="M-20261103-119"><Shipment><TrackingNo>ZX200</TrackingNo><WeightKg>8.0</WeightKg><Destination>DE</Destination></Shipment><Shipment><TrackingNo></TrackingNo><WeightKg>5.5</WeightKg><Destination>FR</Destination></Shipment><Shipment><TrackingNo>ZX202</TrackingNo><WeightKg>0</WeightKg><Destination>NL</Destination></Shipment></Manifest>',
+      },
+    },
+    tests: [
+      {
+        name: 'A clean manifest',
+        about: 'Every shipment is valid, so both outputs are written, no reject file appears, and the manifest is archived.',
+        trigger: { file: { path: '/data/manifests/in/M-20261103-118.xml' } },
+        expect: {
+          noError: true,
+          files: {
+            '/data/manifests/out/json/M-20261103-118.json': { exists: true, has: 'ZX101' },
+            '/data/manifests/out/csv/M-20261103-118.csv': { exists: true, has: 'ZX100' },
+            '/data/manifests/out/rejects/M-20261103-118.rejects.csv': { exists: false },
+            '/data/manifests/in/M-20261103-118.xml': { exists: false },
+            '/data/manifests/archive/*M-20261103-118*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'Some shipments are invalid',
+        about: 'One shipment has no tracking number and one weighs 0 kg. They go to the reject file and the good one still goes through.',
+        trigger: { file: { path: '/data/manifests/in/M-20261103-119.xml' } },
+        expect: {
+          noError: true,
+          files: {
+            '/data/manifests/out/json/M-20261103-119.json': { exists: true, has: 'ZX200' },
+            '/data/manifests/out/csv/M-20261103-119.csv': { exists: true, has: 'ZX200' },
+            '/data/manifests/out/rejects/M-20261103-119.rejects.csv': { exists: true, has: 'ZX202' },
+            '/data/manifests/in/M-20261103-119.xml': { exists: false },
+            '/data/manifests/archive/*M-20261103-119*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'A carrier re-sends a manifest',
+        about: 'Billing has already invoiced from the outputs of M-20261103-118, so they stay as they are and the manifest leaves the inbound folder.',
+        trigger: { file: { path: '/data/manifests/in/M-20261103-118.xml' } },
+        overrides: {
+          systems: {
+            files: {
+              '/data/manifests/out/json/M-20261103-118.json': '{ "manifestId": "M-20261103-118", "shipments": [], "note": "INVOICED-COPY" }',
+              '/data/manifests/out/csv/M-20261103-118.csv': 'trackingNo,weightKg,destination\nINVOICED-COPY,1,NL\n',
+            },
+          },
+        },
+        expect: {
+          files: {
+            '/data/manifests/out/json/M-20261103-118.json': { has: 'INVOICED-COPY' },
+            '/data/manifests/out/csv/M-20261103-118.csv': { has: 'INVOICED-COPY' },
+            '/data/manifests/in/M-20261103-118.xml': { exists: false },
+            '/data/manifests/duplicates/*M-20261103-118*': { count: 1 },
+            '/data/manifests/archive/*': { count: 0 },
+          },
+        },
+      },
+      {
+        name: 'A manifest breaks the XSD',
+        about: 'The file fails carrier-manifest-v3.xsd, so nothing is written and the whole file leaves the inbound folder.',
+        trigger: { file: { path: '/data/manifests/in/M-20261103-118.xml' } },
+        overrides: { systems: { calls: { 'xml-validate': { fault: { type: 'XML-MODULE:SCHEMA_NOT_HONOURED', description: "cvc-complex-type.2.4.a: Invalid content was found starting with element 'Weight'." } } } } },
+        expect: {
+          files: {
+            '/data/manifests/out/json/M-20261103-118.json': { exists: false },
+            '/data/manifests/out/csv/M-20261103-118.csv': { exists: false },
+            '/data/manifests/in/M-20261103-118.xml': { exists: false },
+            '/data/manifests/rejects/*M-20261103-118*': { count: 1 },
+          },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'carrier-manifest-converter',

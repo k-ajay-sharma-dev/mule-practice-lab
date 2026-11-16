@@ -63,6 +63,145 @@ export default {
       rule: { type: 'before', first: 'scheduler', then: 'jms-publish', thenWhere: { destination: 'PROC.PO.ACK.EXCEPTIONS' } },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          SUPPLIER: {
+            key: 'SUPPLIER_ID',
+            rows: [{ SUPPLIER_ID: 'S-4410', NAME: 'Northfield Dairy', EDI_ISA_ID: 'NORTHFIELD', EDI_GS_ID: 'NFD', SFTP_FOLDER: '/suppliers/S-4410' }],
+          },
+          PO_HEADER: {
+            key: 'PO_NUMBER',
+            rows: [
+              { PO_NUMBER: 'PO-88120', PO_DATE: '2026-11-13', SUPPLIER_ID: 'S-4410', SHIP_TO_DC: 'DC-EAST', CURRENCY: 'USD', STATUS: 'APPROVED', EDI_ICN: null, SENT_AT: null, ACK_DUE_AT: null, ACK_AT: null },
+              { PO_NUMBER: 'PO-88090', PO_DATE: '2026-11-12', SUPPLIER_ID: 'S-4410', SHIP_TO_DC: 'DC-EAST', CURRENCY: 'USD', STATUS: 'SENT', EDI_ICN: 412, SENT_AT: '2026-11-12T08:15:00Z', ACK_DUE_AT: '2026-11-13T08:15:00Z', ACK_AT: null },
+              { PO_NUMBER: 'PO-88101', PO_DATE: '2026-11-13', SUPPLIER_ID: 'S-4410', SHIP_TO_DC: 'DC-WEST', CURRENCY: 'USD', STATUS: 'SENT', EDI_ICN: 415, SENT_AT: '2026-11-13T07:40:00Z', ACK_DUE_AT: '2026-11-14T07:40:00Z', ACK_AT: null },
+              { PO_NUMBER: 'PO-88055', PO_DATE: '2026-11-11', SUPPLIER_ID: 'S-4410', SHIP_TO_DC: 'DC-EAST', CURRENCY: 'USD', STATUS: 'ACKNOWLEDGED', EDI_ICN: 398, SENT_AT: '2026-11-11T09:00:00Z', ACK_DUE_AT: '2026-11-12T09:00:00Z', ACK_AT: '2026-11-11T15:20:00Z' },
+            ],
+          },
+          PO_LINE: {
+            key: ['PO_NUMBER', 'LINE_NO'],
+            rows: [
+              { PO_NUMBER: 'PO-88120', LINE_NO: 1, SKU: 'MILK-2L', SUPPLIER_ITEM: 'NF-2001', QTY: 400, UOM: 'CA', UNIT_PRICE: 18.4, NEED_BY_DATE: '2026-11-16', ACK_CODE: null, ACK_QTY: null, ACK_DATE: null, ACK_AT: null },
+              { PO_NUMBER: 'PO-88120', LINE_NO: 2, SKU: 'YOG-500', SUPPLIER_ITEM: 'NF-3150', QTY: 250, UOM: 'CA', UNIT_PRICE: 22.1, NEED_BY_DATE: '2026-11-16', ACK_CODE: null, ACK_QTY: null, ACK_DATE: null, ACK_AT: null },
+              { PO_NUMBER: 'PO-88101', LINE_NO: 1, SKU: 'BUTTER-250', SUPPLIER_ITEM: 'NF-4100', QTY: 120, UOM: 'CA', UNIT_PRICE: 31.0, NEED_BY_DATE: '2026-11-17', ACK_CODE: null, ACK_QTY: null, ACK_DATE: null, ACK_AT: null },
+              { PO_NUMBER: 'PO-88101', LINE_NO: 2, SKU: 'CREAM-1L', SUPPLIER_ITEM: 'NF-4210', QTY: 80, UOM: 'CA', UNIT_PRICE: 27.5, NEED_BY_DATE: '2026-11-17', ACK_CODE: null, ACK_QTY: null, ACK_DATE: null, ACK_AT: null },
+            ],
+          },
+        },
+        sequences: { EDI_ICN_SEQ: 415 },
+      },
+    },
+    tests: [
+      {
+        name: 'An approved PO goes to the supplier',
+        about: 'The 850 is written to the supplier folder and the PO is marked SENT with its control number.',
+        trigger: { message: { kind: 'jms', destination: 'PROC.PO.APPROVED', payload: { poNumber: 'PO-88120' } } },
+        expect: {
+          noError: true,
+          ack: 'acked',
+          db: { PO_HEADER: { has: { PO_NUMBER: 'PO-88120', STATUS: 'SENT' } } },
+        },
+      },
+      {
+        name: 'The event comes again after the PO was sent',
+        about: 'The broker redelivers the event for a PO that is already SENT. Nothing is sent again and the message is not redelivered forever.',
+        trigger: { message: { kind: 'jms', destination: 'PROC.PO.APPROVED', payload: { poNumber: 'PO-88101' }, deliveryCount: 2 } },
+        expect: {
+          ack: 'acked',
+          db: { PO_HEADER: { has: { PO_NUMBER: 'PO-88101', STATUS: 'SENT', EDI_ICN: 415 } } },
+        },
+      },
+      {
+        name: 'The SFTP server is down',
+        about: 'The 850 cannot be written, so the PO is not marked SENT and the event goes back to the broker for another try.',
+        trigger: { message: { kind: 'jms', destination: 'PROC.PO.APPROVED', payload: { poNumber: 'PO-88120' } } },
+        overrides: { systems: { files: { fault: 'CONNECTIVITY' } } },
+        expect: {
+          ack: 'returned',
+          db: { PO_HEADER: { lacks: { PO_NUMBER: 'PO-88120', STATUS: 'SENT' } } },
+        },
+      },
+      {
+        name: 'A supplier changes and rejects lines',
+        about: 'The 855 accepts line 1 with a smaller quantity and rejects line 2. The codes are stored and the buyers get the PO on their exception queue.',
+        trigger: {
+          file: {
+            path: '/edi/inbound/855/NFD_855_20261113_0912.edi',
+            // what the X12 Read operation makes of the file
+            content: {
+              TransactionSets: {
+                v004010: {
+                  855: [
+                    {
+                      Heading: { '020_BAK': { BAK01: '00', BAK02: 'AC', BAK03: 'PO-88101', BAK04: '2026-11-13' } },
+                      Detail: {
+                        '010_PO1_Loop': [
+                          { '010_PO1': { PO101: '1', PO102: 120 }, '270_ACK_Loop': [{ '270_ACK': { ACK01: 'IQ', ACK02: 90, ACK05: '2026-11-17' } }] },
+                          { '010_PO1': { PO101: '2', PO102: 80 }, '270_ACK_Loop': [{ '270_ACK': { ACK01: 'IR', ACK02: 0, ACK05: '2026-11-17' } }] },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          db: {
+            PO_LINE: {
+              has: [
+                { PO_NUMBER: 'PO-88101', LINE_NO: 1, ACK_CODE: 'IQ', ACK_QTY: 90 },
+                { PO_NUMBER: 'PO-88101', LINE_NO: 2, ACK_CODE: 'IR' },
+              ],
+            },
+            PO_HEADER: { has: { PO_NUMBER: 'PO-88101', STATUS: 'ACKNOWLEDGED' } },
+          },
+          sent: [{ destination: 'PROC.PO.ACK.EXCEPTIONS', count: 1 }],
+        },
+      },
+      {
+        name: 'A supplier accepts every line',
+        about: 'An 855 with every line accepted is stored, and nothing is raised to the buyers.',
+        trigger: {
+          file: {
+            path: '/edi/inbound/855/NFD_855_20261113_0915.edi',
+            content: {
+              TransactionSets: {
+                v004010: {
+                  855: [
+                    {
+                      Heading: { '020_BAK': { BAK01: '00', BAK02: 'AD', BAK03: 'PO-88101', BAK04: '2026-11-13' } },
+                      Detail: {
+                        '010_PO1_Loop': [
+                          { '010_PO1': { PO101: '1', PO102: 120 }, '270_ACK_Loop': [{ '270_ACK': { ACK01: 'IA', ACK02: 120, ACK05: '2026-11-17' } }] },
+                          { '010_PO1': { PO101: '2', PO102: 80 }, '270_ACK_Loop': [{ '270_ACK': { ACK01: 'IA', ACK02: 80, ACK05: '2026-11-17' } }] },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          db: { PO_LINE: { has: [{ PO_NUMBER: 'PO-88101', LINE_NO: 1, ACK_CODE: 'IA' }, { PO_NUMBER: 'PO-88101', LINE_NO: 2, ACK_CODE: 'IA' }] } },
+          notSent: ['PROC.PO.ACK.EXCEPTIONS'],
+        },
+      },
+      {
+        name: 'A supplier has not answered in 24 hours',
+        about: 'The hourly check finds the one PO whose acknowledgement is overdue and raises it to the buyers.',
+        trigger: { schedule: { flow: 'overdue-855-monitor' } },
+        expect: { sent: [{ destination: 'PROC.PO.ACK.EXCEPTIONS', count: 1 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -121,6 +260,8 @@ export default {
         step('db-bulk-update', {
           sql: 'UPDATE PO_LINE SET ACK_CODE = :ackCode, ACK_QTY = :ackQty, ACK_DATE = :ackDate, ACK_AT = SYSTIMESTAMP\nWHERE PO_NUMBER = :poNumber AND LINE_NO = :lineNo',
         }),
+        // The header update takes :ackType and :poNumber from the 855 summary, not from the Bulk Update's row counts.
+        step('set-payload', { value: '#[vars.ack]' }),
         step('db-update', {
           sql: "UPDATE PO_HEADER SET STATUS = CASE WHEN :ackType = 'RJ' THEN 'REJECTED' ELSE 'ACKNOWLEDGED' END, ACK_AT = SYSTIMESTAMP\nWHERE PO_NUMBER = :poNumber",
         }),
@@ -209,7 +350,7 @@ If the update fails after the file was written, the redelivered event would prod
 **Flow 2 — \`supplier-855-inbound\`**
 1. **SFTP listener** \`/edi/inbound/855\`, move to archive after success. Set **Apply Post Action When Failed** to false (the default is true), or failed files are archived too.
 2. **X12 Read** (validates envelopes; produce a **997** back to the supplier) → DataWeave → \`vars.ack\` (PO number, BAK02, lines with ACK01/ACK02/ACK05).
-3. **Database Bulk Update** \`PO_LINE\` ack columns; **Database Update** header status.
+3. **Database Bulk Update** \`PO_LINE\` ack columns; **Database Update** header status, with the PO number and BAK02 taken from \`vars.ack\` (the Bulk Update left only row counts in the payload).
 4. **Choice**: RJ or any line ≠ IA → JMS Publish exception summary to \`PROC.PO.ACK.EXCEPTIONS\`.
 5. Errors → move the file to \`/edi/error/855\`.
 

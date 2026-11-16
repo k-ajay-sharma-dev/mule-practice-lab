@@ -51,6 +51,71 @@ export default {
       rule: { type: 'exists', component: ['db-update', 'db-insert'], where: { sql: 'last_modified_by' } },
     },
   ],
+  // The ERP side is not run here: it may start from a table listener or from a Scheduler, and one test trigger
+  // cannot start both.
+  simulation: {
+    properties: { 'sf.integrationUserId': '005Hp00000MULE01', 'sf.username': 'mule.sync@example.com' },
+    systems: {
+      db: {
+        tables: {
+          customers: {
+            key: 'customer_no',
+            rows: [
+              { customer_no: 'C-40017', name: 'Harbor Freight Ltd', phone: '+44 20 7946 0101', updated_at: '2026-11-12T16:20:00Z', last_modified_by: 'BACKOFFICE' },
+              { customer_no: 'C-40018', name: 'Northwind Traders', phone: '+44 161 496 0202', updated_at: '2026-11-12T17:05:00Z', last_modified_by: 'MULE_SYNC' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A sales rep edits an Account',
+        about: 'The new phone number reaches the ERP, stamped as written by the integration.',
+        trigger: {
+          source: 'sf-listener',
+          payload: {
+            Id: '001Hp00002Xk9QAA',
+            Name: 'Harbor Freight Ltd',
+            Phone: '+44 20 7946 0199',
+            ERP_Customer_No__c: 'C-40017',
+            LastModifiedById: '005Hp00000REP042',
+            LastModifiedBy: { Username: 'amira.khan@example.com' },
+            LastModifiedDate: '2026-11-13T09:58:00Z',
+          },
+        },
+        expect: {
+          noError: true,
+          db: { customers: { has: { customer_no: 'C-40017', phone: '+44 20 7946 0199', last_modified_by: 'MULE_SYNC' } } },
+          // Nothing is written back to Salesforce, or the change would bounce between the systems.
+          connector: [
+            { type: 'sf-upsert', count: 0 },
+            { type: 'sf-create', count: 0 },
+            { type: 'sf-update', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'Our own write comes back',
+        about: 'The Account change was made by the integration user, so it is dropped and the ERP is not touched.',
+        trigger: {
+          source: 'sf-listener',
+          payload: {
+            Id: '001Hp00002Xk9QAB',
+            Name: 'Northwind Traders',
+            Phone: '+44 161 496 0202',
+            ERP_Customer_No__c: 'C-40018',
+            LastModifiedById: '005Hp00000MULE01',
+            LastModifiedBy: { Username: 'mule.sync@example.com' },
+            LastModifiedDate: '2026-11-13T09:58:30Z',
+          },
+        },
+        // A database that does not answer shows whether the flow tries to write to the ERP at all.
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { noError: true },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

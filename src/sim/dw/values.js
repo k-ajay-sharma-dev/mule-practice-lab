@@ -10,6 +10,9 @@ import { DwTemporal, DwPeriod, DwTimeZone } from './dates.js'
 export const META = Symbol('dw.entries')
 // A plain object that should print as a fixed string when coerced, such as error.errorType.
 export const AS_STRING = Symbol('dw.asString')
+// The XML attributes of an object that left DataWeave (a For Each item selected with *sale), so that `.@region`
+// still works when the value comes back in.
+export const OWN_ATTRS = Symbol('dw.ownAttrs')
 
 export class DwKey {
   constructor(name, attrs = null, ns = null) {
@@ -123,6 +126,13 @@ export function importValue(v) {
     return changed ? out : v
   }
   if (!isPlainObject(v)) return v
+  if (v[OWN_ATTRS]) {
+    const bare = Object.assign({}, v)
+    delete bare[OWN_ATTRS]
+    if (v[META]) Object.defineProperty(bare, META, { value: v[META], enumerable: false })
+    if (v[AS_STRING]) Object.defineProperty(bare, AS_STRING, { value: v[AS_STRING], enumerable: false })
+    return new DwAttr(importValue(bare), v[OWN_ATTRS])
+  }
   if (v[META]) return v
   const hasOwnToString = Object.prototype.hasOwnProperty.call(v, 'toString') && typeof v.toString === 'function'
   let changed = hasOwnToString
@@ -146,7 +156,15 @@ export function importValue(v) {
 
 // Convert a result for the outside world: keys become strings, attribute wrappers are dropped.
 export function exportValue(v) {
-  if (v instanceof DwAttr) return exportValue(v.value)
+  if (v instanceof DwAttr) {
+    const inner = exportValue(v.value)
+    if (!isPlainObject(inner) || !v.attrs) return inner
+    const out = Object.assign({}, inner)
+    if (inner[META]) Object.defineProperty(out, META, { value: inner[META], enumerable: false })
+    if (inner[AS_STRING]) Object.defineProperty(out, AS_STRING, { value: inner[AS_STRING], enumerable: false })
+    Object.defineProperty(out, OWN_ATTRS, { value: v.attrs, enumerable: false })
+    return out
+  }
   if (v instanceof DwKey) return v.name
   if (Array.isArray(v)) return v.map(exportValue)
   if (isPlainObject(v)) {

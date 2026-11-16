@@ -55,6 +55,100 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: ['on-error-continue', 'on-error-propagate'] },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        '/data/sales/in/sales_20261103.csv':
+          'region,storeId,saleDate,sku,qty,amount\nNORTH,S-101,2026-11-03,SKU-7781,2,19.98\nNORTH,S-104,2026-11-03,SKU-1203,1,4.50\nSOUTH,S-220,2026-11-03,SKU-7781,5,49.95\nSOUTH,S-231,2026-11-03,SKU-3310,1,129.00\nWEST,S-305,2026-11-03,SKU-1203,3,13.50\nWEST,S-310,2026-11-03,SKU-9002,1,8.25\nTRAILER,6,,,,',
+      },
+    },
+    tests: [
+      {
+        name: 'A complete file is split',
+        about: 'The trailer says 6 rows and the file has 6, so each region gets its own file with a header and no trailer.',
+        trigger: { file: { path: '/data/sales/in/sales_20261103.csv' } },
+        expect: {
+          noError: true,
+          noEmails: true,
+          files: {
+            '/data/sales/regional/2026-11-03/NORTH.csv': { exists: true, has: 'S-104' },
+            '/data/sales/regional/2026-11-03/SOUTH.csv': { exists: true, has: 'storeId' },
+            '/data/sales/regional/2026-11-03/WEST.csv': { exists: true, has: 'S-310' },
+            '/data/sales/regional/2026-11-03/TRAILER.csv': { exists: false },
+            '/data/sales/in/sales_20261103.csv': { exists: false },
+            '/data/sales/archive/*sales_20261103.csv*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'The transfer was cut off',
+        about: 'The trailer says 9 rows but only 6 arrived, so no region file is written and the team gets an email.',
+        trigger: { file: { path: '/data/sales/in/sales_20261103.csv' } },
+        overrides: {
+          systems: {
+            files: {
+              '/data/sales/in/sales_20261103.csv':
+                'region,storeId,saleDate,sku,qty,amount\nNORTH,S-101,2026-11-03,SKU-7781,2,19.98\nNORTH,S-104,2026-11-03,SKU-1203,1,4.50\nSOUTH,S-220,2026-11-03,SKU-7781,5,49.95\nSOUTH,S-231,2026-11-03,SKU-3310,1,129.00\nWEST,S-305,2026-11-03,SKU-1203,3,13.50\nWEST,S-310,2026-11-03,SKU-9002,1,8.25\nTRAILER,9,,,,',
+            },
+          },
+        },
+        expect: {
+          emails: [{ count: 1 }],
+          files: {
+            '/data/sales/regional/2026-11-03/NORTH.csv': { exists: false },
+            '/data/sales/regional/2026-11-03/SOUTH.csv': { exists: false },
+            '/data/sales/in/sales_20261103.csv': { exists: false },
+            '/data/sales/rejected/*sales_20261103.csv*': { count: 1 },
+            '/data/sales/archive/*': { count: 0 },
+          },
+        },
+      },
+      {
+        name: 'The trailer is missing',
+        about: 'The file stops before its control record, which counts as a mismatch too.',
+        trigger: { file: { path: '/data/sales/in/sales_20261103.csv' } },
+        overrides: {
+          systems: {
+            files: {
+              '/data/sales/in/sales_20261103.csv':
+                'region,storeId,saleDate,sku,qty,amount\nNORTH,S-101,2026-11-03,SKU-7781,2,19.98\nNORTH,S-104,2026-11-03,SKU-1203,1,4.50\nSOUTH,S-220,2026-11-03,SKU-7781,5,49.95',
+            },
+          },
+        },
+        expect: {
+          emails: [{ count: 1 }],
+          files: {
+            '/data/sales/regional/2026-11-03/NORTH.csv': { exists: false },
+            '/data/sales/in/sales_20261103.csv': { exists: false },
+            '/data/sales/rejected/*sales_20261103.csv*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'Operations reruns the file',
+        about: 'The dated folder and region files are already there from the first run. The rerun replaces them and finishes.',
+        trigger: { file: { path: '/data/sales/in/sales_20261103.csv' } },
+        overrides: {
+          systems: {
+            files: {
+              '/data/sales/regional/2026-11-03/NORTH.csv': 'region,storeId,saleDate,sku,qty,amount\nNORTH,S-101,2026-11-03,SKU-7781,2,19.98\nNORTH,S-104,2026-11-03,SKU-1203,1,4.50\n',
+              '/data/sales/regional/2026-11-03/SOUTH.csv': 'region,storeId,saleDate,sku,qty,amount\nSOUTH,S-220,2026-11-03,SKU-7781,5,49.95\nSOUTH,S-231,2026-11-03,SKU-3310,1,129.00\n',
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          noEmails: true,
+          files: {
+            '/data/sales/regional/2026-11-03/WEST.csv': { exists: true },
+            '/data/sales/regional/2026-11-03/NORTH.csv': { has: 'S-104' },
+            '/data/sales/in/sales_20261103.csv': { exists: false },
+            '/data/sales/archive/*sales_20261103.csv*': { count: 1 },
+          },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'daily-sales-splitter',
@@ -70,7 +164,7 @@ export default {
           target: 'variable',
           variableName: 'sales',
           script:
-            '%dw 2.0\noutput application/java\nvar all = read(payload.^raw, "application/csv")\nvar trailer = (all filter ($.region == "TRAILER"))[0]\nvar rows = all filter ($.region != "TRAILER")\n---\n{\n  expected: trailer.storeId as Number default -1,\n  actual: sizeOf(rows),\n  regions: (rows groupBy $.region) pluck ((regionRows, region) -> { region: region as String, rows: regionRows })\n}',
+            '%dw 2.0\noutput application/java\nvar all = read(payload.^raw, "application/csv")\nvar trailer = (all filter ($.region == "TRAILER"))[0]\nvar rows = all filter ($.region != "TRAILER")\n---\n{\n  expected: (trailer.storeId default -1) as Number,\n  actual: sizeOf(rows),\n  regions: (rows groupBy $.region) pluck ((regionRows, region) -> { region: region as String, rows: regionRows })\n}',
         }),
         router(
           'choice',
@@ -160,7 +254,7 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
     'The size check protects against reading a file that is still arriving, and the trailer protects against a file that was cut off before it arrived. They catch different failures.',
     'The trailer is separated from the data with a filter, compared with sizeOf(rows), and removed from the output.',
     'The check runs before any output is written, so a bad file produces no region files at all.',
-    'A missing trailer must also fail. The default value makes that a mismatch rather than a null comparison.',
+    'A missing trailer must also fail. The default goes before the coercion, (trailer.storeId default -1) as Number, because null as Number raises an error of its own. The -1 then makes it a mismatch.',
     'groupBy gives one entry per region, and pluck turns it into a list that For Each can loop over.',
     'The docs disagree on file:write: the reference lists Create Parent Directories as true by default, while the File Write page says a write fails by default if directories are missing. The explicit Create Directory step removes the doubt and makes the folder part of the contract, and FILE:FILE_ALREADY_EXISTS is handled for reruns.',
     'OVERWRITE mode makes a rerun replace the files. APPEND would double the data, and CREATE_NEW would fail on the existing file.',
@@ -169,7 +263,7 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
 1. **File Listener** on \`/data/sales/in\`, \`sales_*.csv\`, \`timeBetweenSizeCheck\` of 5 seconds, no post action.
 2. **Set Variables** for the file name and path, plus \`runDate\` taken from the file name, so a late file still lands in the correct day's folder. Do not use \`now()\` for this.
 3. **Transform** to \`vars.sales\`: read the CSV with \`read(payload.^raw, "application/csv")\`. A \`.csv\` file may already be typed from its extension, and \`read\` accepts only a String or Binary. Find the trailer row, filter it out, and build \`{ expected, actual, regions }\`. The trailer has the same number of columns as the data, so the CSV reader treats it as an ordinary row with \`storeId\` holding the count.
-4. **Choice**: if \`expected\` differs from \`actual\`, **Raise Error** \`APP:CONTROL_COUNT_MISMATCH\`. A missing trailer gives \`-1\`, which never matches.
+4. **Choice**: if \`expected\` differs from \`actual\`, **Raise Error** \`APP:CONTROL_COUNT_MISMATCH\`. A missing trailer gives \`-1\`, which never matches. Write it as \`(trailer.storeId default -1) as Number\`: the other order, \`trailer.storeId as Number default -1\`, coerces null first and fails with "Cannot coerce Null to Number" before the default can help.
 5. **Try** with **File Create Directory**. On Error Continue for \`FILE:FILE_ALREADY_EXISTS\` lets a rerun carry on. The rest of the flow continues after the Try.
 6. **For Each** region: add to the \`written\` counter, **Transform** to \`application/csv\` (the header is included by default) and **File Write** with mode OVERWRITE.
 7. **File Move** the source to the archive with a timestamped Rename To, and log the totals.

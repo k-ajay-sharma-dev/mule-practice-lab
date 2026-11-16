@@ -3,6 +3,17 @@ import { design, flow, handler, scope, source, step, subFlow } from '../../flow/
 const getWorkersRequest = (page) =>
   `%dw 2.0\noutput application/xml\nns wd urn:com.workday/bsvc\n---\n{\n  wd#Get_Workers_Request @(wd#version: "v44.0"): {\n    wd#Request_Criteria: {\n      wd#Transaction_Log_Criteria_Data: {\n        wd#Transaction_Date_Range_Data: {\n          wd#Updated_From: vars.syncFrom,\n          wd#Updated_Through: vars.syncTo\n        }\n      }\n    },\n    wd#Response_Filter: { wd#Page: ${page}, wd#Count: 200 },\n    wd#Response_Group: { wd#Include_Personal_Information: true, wd#Include_Employment_Information: true }\n  }\n}`
 
+// A Get_Workers answer as the connector gives it: XML bytes, which the flow reads as application/xml.
+const workersPage = (page, totalPages, workers) =>
+  new TextEncoder().encode(
+    `<?xml version="1.0" encoding="UTF-8"?><wd:Get_Workers_Response xmlns:wd="urn:com.workday/bsvc" wd:version="v44.0"><wd:Response_Results><wd:Total_Results>${totalPages === 1 ? workers.length : 3}</wd:Total_Results><wd:Total_Pages>${totalPages}</wd:Total_Pages><wd:Page_Results>${workers.length}</wd:Page_Results><wd:Page>${page}</wd:Page></wd:Response_Results><wd:Response_Data>${workers
+      .map(
+        ([id, user, active]) =>
+          `<wd:Worker><wd:Worker_Data><wd:Worker_ID>${id}</wd:Worker_ID><wd:User_ID>${user}</wd:User_ID><wd:Employment_Data><wd:Worker_Status_Data><wd:Active>${active}</wd:Active></wd:Worker_Status_Data></wd:Employment_Data></wd:Worker_Data></wd:Worker>`,
+      )
+      .join('')}</wd:Response_Data></wd:Get_Workers_Response>`,
+  )
+
 export default {
   id: 'fl-092',
   category: 'flows',
@@ -39,6 +50,73 @@ export default {
       },
     },
   ],
+  // The tests start the sync with a Scheduler tick.
+  simulation: {
+    systems: {
+      objectStore: { workerSyncStore: { 'worker-sync-from': '2026-11-13T09:45:00Z' } },
+      calls: {
+        'wd-human-resources': [
+          {
+            latencyMs: 2400,
+            payload: workersPage(1, 2, [
+              ['21001', 'asmith', '1'],
+              ['21002', 'bjones', '0'],
+            ]),
+          },
+          { latencyMs: 1900, payload: workersPage(2, 2, [['21003', 'cokafor', '1']]) },
+        ],
+      },
+      http: [{ method: 'PUT', path: '/identities/{workerId}', latencyMs: 120, respond: { status: 200, body: { updated: true } } }],
+    },
+    tests: [
+      {
+        name: 'Two pages of changed workers',
+        about: 'A joiner and a leaver on page 1 and a mover on page 2. Every worker reaches the identity platform.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          calls: [
+            { method: 'PUT', path: '/identities/21001', count: 1 },
+            { method: 'PUT', path: '/identities/21002', count: 1 },
+            { method: 'PUT', path: '/identities/21003', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'Only one page',
+        about: 'A quiet quarter of an hour: Workday reports one page, so no further page is asked for.',
+        trigger: { schedule: {} },
+        overrides: { systems: { calls: { 'wd-human-resources': [{ payload: workersPage(1, 1, [['21007', 'dlee', '1']]) }] } } },
+        expect: { noError: true, calls: [{ method: 'PUT', path: '/identities/{workerId}', count: 1 }, { method: 'PUT', path: '/identities/21007', count: 1 }] },
+      },
+      {
+        name: 'Workday rejects the request',
+        about: 'The integration user lacks access to a domain, so Get_Workers fails validation. HRIS support gets an email and no identity is touched.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            calls: {
+              'wd-human-resources': [
+                { fault: { type: 'WORKDAY:VALIDATION_ERROR', description: 'Validation error occurred. The task submitted is not authorized.' } },
+              ],
+            },
+          },
+        },
+        expect: {
+          emails: [{ count: 1 }],
+          calls: [{ method: 'PUT', path: '/identities/{workerId}', count: 0 }],
+          stored: [{ key: 'worker-sync-from', value: '2026-11-13T09:45:00Z' }],
+        },
+      },
+      {
+        name: 'The identity platform is down',
+        about: 'Every PUT is refused. The sync position stays where it was, so the next run repeats the same range.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'PUT', path: '/identities/{workerId}', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { stored: [{ key: 'worker-sync-from', value: '2026-11-13T09:45:00Z' }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -97,7 +175,7 @@ A healthcare group with **22,000 workers** uses **Workday** as its HR system. Th
 **Requirements**
 - Every 15 minutes, read the workers that changed since the last successful run. Normally that is 20 to 100 workers, but a reorganisation can change thousands at once.
 - Use the connector's **Human Resources** operation with \`Get_Workers\`, and read the results **page by page**.
-- Store the sync position only when all workers in the run are processed. A failed run must be repeated by the next one.
+- Store the sync position only when all workers in the run are processed. A failed run must be repeated by the next one. Keep it in the Object Store under the key \`worker-sync-from\`.
 - A rejected Workday request (a mapping or security problem) must alert the HRIS support mailbox, because a retry will not help.
 - The integration uses its own **integration system user**.
 
@@ -123,7 +201,7 @@ A healthcare group with **22,000 workers** uses **Workday** as its HR system. Th
     'On Modified Objects with Watermark Enabled is the alternative: less code, but the docs say less about what it delivers.',
   ],
   solution: `
-**Trigger.** A **Scheduler** every 15 minutes with a stored position gives explicit control: the range is visible, repeatable and can be reset for a resync. **On Modified Objects** (\`WORKERS\`, Watermark Enabled set to \`true\`) is a valid alternative and the checks accept it. It takes less code, but its payload shape is not documented, so inspect it first.
+**Trigger.** A **Scheduler** every 15 minutes with a stored position gives explicit control: the range is visible, repeatable and can be reset for a resync. **On Modified Objects** (\`WORKERS\`, Watermark Enabled set to \`true\`) is a valid alternative and the design checks accept it. It takes less code, but its payload shape is not documented, so inspect it first. The Run tests start the sync with a Scheduler tick, so they only run a Scheduler design.
 
 **Sync window.**
 - **Object Store Retrieve** gets \`syncFrom\`, with a default for the first run.

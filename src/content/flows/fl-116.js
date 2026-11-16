@@ -43,6 +43,96 @@ export default {
       rule: { type: 'before', first: 'parallel-foreach', then: 'db-bulk-update', outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          slot_updates: {
+            key: 'update_id',
+            rows: [
+              { update_id: 'U-501', store_id: 'S-101', slots_json: '{"date":"2026-11-14","slots":["09:00","11:00"]}', status: 'PENDING', created_at: '2026-11-13T09:55:00Z', sent_at: null },
+              { update_id: 'U-502', store_id: 'S-118', slots_json: '{"date":"2026-11-14","slots":["10:00"]}', status: 'PENDING', created_at: '2026-11-13T09:56:00Z', sent_at: null },
+              { update_id: 'U-503', store_id: 'S-240', slots_json: '{"date":"2026-11-14","slots":["13:00","15:00"]}', status: 'PENDING', created_at: '2026-11-13T09:57:00Z', sent_at: null },
+              { update_id: 'U-490', store_id: 'S-101', slots_json: '{"date":"2026-11-13","slots":["17:00"]}', status: 'SENT', created_at: '2026-11-13T09:40:00Z', sent_at: '2026-11-13T09:45:00Z' },
+            ],
+          },
+        },
+      },
+      http: [{ method: 'PUT', path: '/franchise/v1/stores/{storeId}/delivery-slots', latencyMs: 2000, respond: { status: 200, body: { accepted: true } } }],
+    },
+    tests: [
+      {
+        name: 'Every store takes its update',
+        about: 'Three pending rows go to their stores and are all marked as sent.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          calls: [{ method: 'PUT', path: '/franchise/v1/stores/{storeId}/delivery-slots', count: 3 }],
+          db: { slot_updates: { has: [{ update_id: 'U-501', status: 'SENT' }, { update_id: 'U-502', status: 'SENT' }, { update_id: 'U-503', status: 'SENT' }] } },
+        },
+      },
+      {
+        name: 'One store is offline',
+        about: 'The second store refuses the connection. The other two still get their update, and its row stays pending.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'PUT',
+                path: '/franchise/v1/stores/{storeId}/delivery-slots',
+                latencyMs: 2000,
+                responses: [{ status: 200, body: { accepted: true } }, { fault: 'CONNECTIVITY' }, { status: 200, body: { accepted: true } }],
+              },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          calls: [{ method: 'PUT', path: '/franchise/v1/stores/{storeId}/delivery-slots', count: 3 }],
+          db: {
+            slot_updates: {
+              has: [{ update_id: 'U-501', status: 'SENT' }, { update_id: 'U-502', status: 'PENDING' }, { update_id: 'U-503', status: 'SENT' }],
+            },
+          },
+        },
+      },
+      {
+        name: 'One store hangs',
+        about: 'The first store takes 20 seconds to answer. Its call times out, its row stays pending, and the others are sent.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'PUT',
+                path: '/franchise/v1/stores/{storeId}/delivery-slots',
+                responses: [{ status: 200, body: { accepted: true }, latencyMs: 20000 }, { status: 200, body: { accepted: true }, latencyMs: 2000 }],
+              },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          db: {
+            slot_updates: {
+              has: [{ update_id: 'U-501', status: 'PENDING' }, { update_id: 'U-502', status: 'SENT' }, { update_id: 'U-503', status: 'SENT' }],
+            },
+          },
+        },
+      },
+      {
+        name: 'The gateway turns the run away',
+        about: 'Every store call gets 503 from the partner gateway. The run still ends cleanly and no row is marked as sent.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'PUT', path: '/franchise/v1/stores/{storeId}/delivery-slots', respond: { status: 503, body: { message: 'Too many connections' } } }] } },
+        expect: {
+          noError: true,
+          db: { slot_updates: { lacks: [{ update_id: 'U-501', status: 'SENT' }, { update_id: 'U-502', status: 'SENT' }, { update_id: 'U-503', status: 'SENT' }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'push-delivery-slots',
@@ -80,7 +170,7 @@ export default {
     ),
   ),
   description: `
-A grocery chain has **250 franchise stores**. Each store runs its own click-and-collect system behind a partner gateway. When delivery slots change, a row is written to the \`slot_updates\` table in SQL Server, and Mule must push it with \`PUT /franchise/v1/stores/{storeId}/delivery-slots\`.
+A grocery chain has **250 franchise stores**. Each store runs its own click-and-collect system behind a partner gateway. When delivery slots change, a row with the status \`PENDING\` is written to the \`slot_updates\` table in SQL Server (\`update_id\`, \`store_id\`, \`slots_json\`, \`status\`), and Mule must push it with \`PUT /franchise/v1/stores/{storeId}/delivery-slots\`.
 
 Facts:
 - A run every 5 minutes finds up to **250 pending rows**.
@@ -96,7 +186,7 @@ The first version used For Each. It took over 8 minutes, so runs overlapped. A d
 - Send each pending row to its store.
 - Respect the gateway limit and still finish in 90 seconds.
 - One slow or failed store must not stop the others.
-- Mark the rows that were sent, and leave failed rows as pending for the next run.
+- Set the status of the rows that were sent to \`SENT\`, and leave failed rows as \`PENDING\` for the next run.
 
 **Design the flow.** What value do you choose for max concurrency, and why?
 `,

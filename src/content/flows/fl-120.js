@@ -59,6 +59,72 @@ export default {
       rule: { type: 'before', first: 'async', then: 'transform', outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'POST',
+          path: '/psp/v3/authorisations',
+          latencyMs: 180,
+          respond: { status: 200, body: { paymentId: 'PAY-7731902', cardHash: 'c9f1e2a7', amount: 64.5, currency: 'EUR', status: 'AUTHORISED' } },
+        },
+        { method: 'POST', path: '/fraud/v1/signals', latencyMs: 600, respond: { status: 202, body: { received: true } } },
+      ],
+      db: { tables: { fraud_signal_parking: { key: 'payment_id', rows: [] } } },
+    },
+    tests: [
+      {
+        name: 'A payment is authorised',
+        about: 'The caller gets the authorisation at once, and the fraud signal is sent afterwards.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { cardToken: 'tok_4f8a', amount: 64.5, currency: 'EUR', merchantId: 'M-2207' } } },
+        expect: {
+          status: 200,
+          bodyHas: { paymentId: 'PAY-7731902', status: 'AUTHORISED' },
+          maxMs: 300,
+          calls: [{ method: 'POST', path: '/fraud/v1/signals', count: 1 }],
+          notSent: ['fraud-signal-retry'],
+          db: { fraud_signal_parking: { count: 0 } },
+        },
+      },
+      {
+        name: 'The fraud service is slow',
+        about: 'Each fraud call takes 30 seconds. The caller still gets an answer within 300 ms.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { cardToken: 'tok_4f8a', amount: 64.5, currency: 'EUR', merchantId: 'M-2207' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/fraud/v1/signals', latencyMs: 30000, respond: { status: 202, body: { received: true } } }] } },
+        expect: { status: 200, bodyHas: { paymentId: 'PAY-7731902', status: 'AUTHORISED' }, maxMs: 300 },
+      },
+      {
+        name: 'One fraud call fails',
+        about: 'The first fraud call fails and the retry flow sends the signal a little later, so nothing is parked.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { cardToken: 'tok_4f8a', amount: 64.5, currency: 'EUR', merchantId: 'M-2207' } } },
+        overrides: {
+          systems: {
+            http: [{ method: 'POST', path: '/fraud/v1/signals', responses: [{ status: 503, body: { message: 'Busy' } }, { status: 202, body: { received: true } }] }],
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: { paymentId: 'PAY-7731902', status: 'AUTHORISED' },
+          sent: [{ destination: 'fraud-signal-retry', count: 1, has: { paymentId: 'PAY-7731902' } }],
+          calls: [{ method: 'POST', path: '/fraud/v1/signals', count: 2 }],
+          db: { fraud_signal_parking: { count: 0 } },
+        },
+      },
+      {
+        name: 'The fraud service is down for an hour',
+        about: 'Every fraud call is refused. The caller is not affected, and after the retries the signal is parked for replay.',
+        trigger: { http: { method: 'POST', path: '/payments', body: { cardToken: 'tok_4f8a', amount: 64.5, currency: 'EUR', merchantId: 'M-2207' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/fraud/v1/signals', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          status: 200,
+          bodyHas: { paymentId: 'PAY-7731902', status: 'AUTHORISED' },
+          maxMs: 300,
+          sent: [{ destination: 'fraud-signal-retry', count: 1 }],
+          db: { fraud_signal_parking: { count: 1, has: [{ payment_id: 'PAY-7731902', signal_json: '~c9f1e2a7' }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('authorise-payment-api', source('http-listener', { path: '/payments', allowedMethods: 'POST' }), [
       step('http-request', { method: 'POST', path: '/psp/v3/authorisations', responseTimeout: 4000 }),
@@ -95,6 +161,8 @@ export default {
               step('db-insert', {
                 database: 'Oracle',
                 sql: 'INSERT INTO fraud_signal_parking (payment_id, signal_json, parked_at) VALUES (:paymentId, :signal, SYSTIMESTAMP)',
+                // The payload is still the signal. It is kept as JSON text for the signal_json column.
+                inputParameters: '#[{ paymentId: payload.paymentId, signal: write(payload, "application/json") }]',
               }),
               step('logger', { level: 'ERROR', message: '#["Fraud signal parked for " ++ payload.paymentId]' }),
             ]),
@@ -120,7 +188,7 @@ An **Async scope** runs its steps on another thread while the flow carries on. E
 - The caller never waits for the fraud service.
 - A fraud slowdown must not take threads from the payment calls.
 - No signal is lost when the fraud service fails, and failures are retried for a while.
-- Signals that still fail are kept somewhere a person can replay them.
+- Signals that still fail are kept somewhere a person can replay them: the Oracle table \`fraud_signal_parking\`, with the columns \`payment_id\`, \`signal_json\` and \`parked_at\`.
 
 **Design the flows.**
 `,
@@ -163,7 +231,7 @@ An **Async scope** runs its steps on another thread while the flow carries on. E
 **Flow 2: retry-fraud-signals**
 1. **VM Listener** on \`fraud-signal-retry\`, a persistent queue.
 2. **Try** with **Until Successful**, 5 retries, 20 seconds apart, around the same fraud call.
-3. **On Error Continue** for \`MULE:RETRY_EXHAUSTED\`: **Database Insert** into \`fraud_signal_parking\` and log an error.
+3. **On Error Continue** for \`MULE:RETRY_EXHAUSTED\`: **Database Insert** into \`fraud_signal_parking\`, with the input parameters \`paymentId\` and \`signal\` (the signal written as JSON text with \`write(payload, "application/json")\`), and log an error.
 
 **Sizing max concurrency.** With a 3 second timeout, one copy lives at most about 3 seconds. At 10 payments per second that is at most about 30 copies at once, even when every call times out. A limit of 32 is never reached in normal running, and it still stops a runaway if the timeout is ever removed. Test the limit under load before going live.
 

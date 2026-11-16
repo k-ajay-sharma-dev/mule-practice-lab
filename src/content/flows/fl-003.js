@@ -64,8 +64,7 @@ export default {
       },
     },
     { label: 'An unreachable database (DB:CONNECTIVITY) is mapped to 503', rule: handlerStatus('DB:CONNECTIVITY', '503') },
-    { label: 'A catch-all handler returns a generic 500', rule: handlerStatus('ANY', '500') },
-    {
+    { label: 'A catch-all handler returns a generic 500', rule: handlerStatus('ANY', '500') },    {
       label: 'Error responses carry the JSON body with a correlationId',
       rule: {
         type: 'any',
@@ -87,6 +86,64 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          orders: {
+            key: 'id',
+            rows: [
+              { id: '7f3c2a10-4b6e-4d8a-9c1f-2e5b8a7d6c01', customer_id: 'CUST-310', total: 129.5, status: 'OPEN' },
+              { id: 'a1b2c3d4-0000-4e5f-8a9b-0c1d2e3f4a5b', customer_id: 'CUST-422', total: 54, status: 'SHIPPED' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'An order is found',
+        about: 'GET /orders/{orderId} returns the order from the database.',
+        trigger: { http: { method: 'GET', path: '/api/orders/7f3c2a10-4b6e-4d8a-9c1f-2e5b8a7d6c01' } },
+        expect: { status: 200, bodyHas: { id: '7f3c2a10-4b6e-4d8a-9c1f-2e5b8a7d6c01', total: 129.5 } },
+      },
+      {
+        name: 'An unknown order',
+        about: 'No row has this ID, so the answer is 404 with the JSON error body, not 200 with an empty body.',
+        trigger: { http: { method: 'GET', path: '/api/orders/00000000-0000-4000-8000-000000000000', headers: { 'x-correlation-id': 'corr-404-01' } } },
+        expect: { status: 404, bodyHas: { correlationId: 'corr-404-01', code: '~', message: '~' } },
+      },
+      {
+        name: 'A DELETE is not allowed',
+        about: 'The spec has no DELETE on /orders/{orderId}, so the answer is 405, not 500.',
+        trigger: { http: { method: 'DELETE', path: '/api/orders/123', headers: { 'x-correlation-id': 'corr-405-01' } } },
+        expect: { status: 405, bodyHas: { correlationId: 'corr-405-01' } },
+      },
+      {
+        name: 'The database is down',
+        about: 'No connection can be made to PostgreSQL, so the answer is 503.',
+        trigger: { http: { method: 'GET', path: '/api/orders/7f3c2a10-4b6e-4d8a-9c1f-2e5b8a7d6c01', headers: { 'x-correlation-id': 'corr-503-01' } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 503, bodyHas: { correlationId: 'corr-503-01' } },
+      },
+      {
+        name: 'An order is created',
+        about: 'POST /orders writes the order to the database and answers with its ID.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/orders',
+            body: { id: 'c9d8e7f6-1111-4222-8333-944455566677', customerId: 'CUST-510', total: 75.25, status: 'OPEN' },
+          },
+        },
+        expect: {
+          noError: true,
+          bodyHas: { id: 'c9d8e7f6-1111-4222-8333-944455566677' },
+          db: { orders: { count: 3, has: [{ id: 'c9d8e7f6-1111-4222-8333-944455566677', customer_id: 'CUST-510' }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'orders-api-main',
@@ -138,8 +195,9 @@ export default {
       ], { otherwise: [step('transform', { script: '%dw 2.0\noutput application/json\n---\npayload[0]' })] }),
     ]),
     flow('post:\\orders:application\\json:orders-api-config', null, [
-      step('db-insert', { sql: 'INSERT INTO orders (id, customer_id, total, status) VALUES (:id, :customerId, :total, :status)' }),
-      step('transform', { script: '%dw 2.0\noutput application/json\n---\n{ id: vars.orderId }' }),
+      // target keeps the order as the payload: the Insert result (affected rows) would otherwise replace it
+      step('db-insert', { sql: 'INSERT INTO orders (id, customer_id, total, status) VALUES (:id, :customerId, :total, :status)', target: 'insertResult' }),
+      step('transform', { script: '%dw 2.0\noutput application/json\n---\n{ id: payload.id }' }),
     ]),
     subFlow('build-error-body', [
       step('transform', {
@@ -206,6 +264,8 @@ Consumers complain that today:
 Each handler sets \`vars.httpStatus\` and the payload. The listener error response uses \`statusCode = vars.httpStatus default 500\`.
 
 **Business 404:** after \`db:select\` in \`get:\\orders\\(orderId)\`, check \`isEmpty(payload)\` and \`raise error\` \`APP:NOT_FOUND\` (or use a Validation \`is-not-empty-collection\` with a custom error type). Map \`APP:NOT_FOUND\` → 404 in the main error handler (or a shared global error handler).
+
+**Create:** in \`post:\\orders\`, the Database Insert keeps its result in a target variable (\`target="insertResult"\`). Without it the Insert result (the affected row count) replaces the payload, and the reply could no longer read the order's \`id\`.
 
 **DB unavailable:** map \`DB:CONNECTIVITY\` → 503 (optionally with a \`Retry-After\` header).
 

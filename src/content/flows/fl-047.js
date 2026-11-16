@@ -48,6 +48,60 @@ export default {
     { label: 'In both flows an unreachable database is mapped to 503', rule: inBothFlows('DB:CONNECTIVITY', '503') },
     { label: 'In both flows a catch-all handler returns a generic 500', rule: inBothFlows('ANY', '500') },
   ],
+  simulation: {
+    systems: {
+      db: {
+        latencyMs: 25,
+        tables: {
+          cust_master: {
+            key: 'customer_id',
+            rows: [
+              { customer_id: 'C-100231', first_nm: 'Ana', last_nm: 'Ribeiro', email_addr: 'ana.ribeiro@example.com', status_cd: 'A' },
+              { customer_id: 'C-100232', first_nm: 'Tomasz', last_nm: 'Nowak', email_addr: 't.nowak@example.com', status_cd: 'A' },
+              { customer_id: 'C-100233', first_nm: 'Grace', last_nm: 'Mensah', email_addr: 'grace.mensah@example.com', status_cd: 'I' },
+              { customer_id: 'C-100234', first_nm: 'Kenji', last_nm: 'Sato', email_addr: 'kenji.sato@example.com', status_cd: 'A' },
+              { customer_id: 'C-100235', first_nm: 'Leila', last_nm: 'Haddad', email_addr: 'leila.haddad@example.com', status_cd: 'A' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A page of customers',
+        about: 'The second page of two customers comes back as 200.',
+        trigger: { http: { method: 'GET', path: '/sys-customers/v1/customers?page=2&pageSize=2' } },
+        expect: { status: 200, maxMs: 300 },
+      },
+      {
+        name: 'One customer',
+        about: 'The customer is found, and the answer does not show the column names.',
+        trigger: { http: { method: 'GET', path: '/sys-customers/v1/customers/C-100233' } },
+        expect: { status: 200, bodyLacks: { first_nm: 'Grace' }, maxMs: 300 },
+      },
+      {
+        name: 'An unknown customer id',
+        about: 'No row has this id, so the answer is 404, not 200 with an empty list.',
+        trigger: { http: { method: 'GET', path: '/sys-customers/v1/customers/C-999999' } },
+        // The API must give the 404 itself, not a missing endpoint.
+        expect: { status: 404, bodyLacks: '~No listener for endpoint' },
+      },
+      {
+        name: 'The database is in maintenance',
+        about: 'A caller asking for one customer gets 503, so it knows to try later.',
+        trigger: { http: { method: 'GET', path: '/sys-customers/v1/customers/C-100231' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 503 },
+      },
+      {
+        name: 'The list during maintenance',
+        about: 'The paged list also answers 503 while the database cannot be reached.',
+        trigger: { http: { method: 'GET', path: '/sys-customers/v1/customers?page=1&pageSize=50' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 503 },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'sys-customers-list',

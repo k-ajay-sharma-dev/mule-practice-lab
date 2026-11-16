@@ -132,9 +132,11 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-007', 'capped at the UI wait', (d) => {
     one(d, 'scatter-gather').config.timeout = 10000
   })
+  // The flag kept in a variable first. The reply must still carry validated: false, so the payload adds it from
+  // the variable (setting only the variable would return the address without the flag the order team needs).
   await passes('fl-007', (d) => {
     const tryScope = flowOf(d, 'validate-address').steps.find((n) => n.type === 'try')
-    tryScope.errorHandlers[0].steps = [step('set-variable', { variableName: 'validated', value: '#[false]' }), step('set-payload', { value: '#[vars.address]' })]
+    tryScope.errorHandlers[0].steps = [step('set-variable', { variableName: 'validated', value: '#[false]' }), step('set-payload', { value: '#[vars.address ++ { validated: vars.validated }]' })]
   })
 
   // FL-008
@@ -627,9 +629,16 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     byId(d).errorHandlers.push(handler('on-error-propagate', { type: 'APP:NOT_FOUND' }, [step('set-variable', { variableName: 'httpStatus', value: '404' })]))
   })
   // A not-found error raised in the Choice and mapped to 404 by a handler.
+  // The handler also builds the JSON error body the scenario asks for; without it the 404 carried the empty
+  // select result ([]) as its body.
   await passes('fl-027', (d) => {
     one(d, 'choice').routes[0].steps = [step('raise-error', { type: 'APP:NOT_FOUND', description: 'No product' })]
-    byId(d).errorHandlers.push(handler('on-error-propagate', { type: 'APP:NOT_FOUND' }, [step('set-variable', { variableName: 'httpStatus', value: '404' })]))
+    byId(d).errorHandlers.push(
+      handler('on-error-propagate', { type: 'APP:NOT_FOUND' }, [
+        step('set-variable', { variableName: 'httpStatus', value: '404' }),
+        step('set-payload', { value: '#[output application/json --- { error: error.description }]' }),
+      ]),
+    )
   })
 
   // FL-028
@@ -652,10 +661,22 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     steps.unshift(remove(steps, 'choice'))
   })
   // Probes run one after the other, each in its own Try, instead of in a Scatter-Gather.
+  // Without the Scatter-Gather there is no { "0": ..., "1": ... } result to read, so each Try keeps its check in a
+  // variable and the Transform builds the body from those. (Moving the Trys alone left the Transform reading
+  // valuesOf(payload) from the last probe's object, which fails in Mule too.)
   await passes('fl-028', (d) => {
     const steps = ready(d).steps
     const gather = remove(steps, 'scatter-gather')
-    steps.unshift(...gather.routes.map((r) => r.steps[0]))
+    const tries = gather.routes.map((r) => r.steps[0])
+    tries.forEach((t, i) => {
+      for (const list of [t.steps, t.errorHandlers[0].steps]) {
+        const k = list.findIndex((n) => n.type === 'set-payload')
+        list[k] = step('set-variable', { variableName: `check${i}`, value: list[k].config.value })
+      }
+    })
+    steps.unshift(...tries)
+    one(d, 'transform').config.script =
+      '%dw 2.0\nimport some from dw::core::Arrays\noutput application/json\nvar checks = [vars.check0, vars.check1]\n---\n{ status: if (checks some ($.status == "DOWN")) "DOWN" else "UP", checks: checks }'
   })
 
   // FL-029
@@ -724,8 +745,13 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     d.flows[0].source.config.acknowledgementMode = 'IMMEDIATE'
   })
   // Manual acknowledgement: a catch-all handler Nacks the message back to the queue.
+  // With MANUAL mode nothing acks a message on its own, so the design keeps the ack token first and Acks after each
+  // publish. Without those Acks every published sale would be redelivered and published again in Mule.
   await passes('fl-030', (d) => {
     d.flows[0].source.config.acknowledgementMode = 'MANUAL'
+    d.flows[0].steps.unshift(step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }))
+    d.flows[0].steps.push(step('mq-ack', { ackToken: '#[vars.ackToken]' }))
+    handlerFor(d, 'HTTP:NOT_FOUND').steps.push(step('mq-ack', { ackToken: '#[vars.ackToken]' }))
     const h = handlerFor(d, 'CONNECTIVITY')
     Object.assign(h, { type: 'on-error-continue', config: { type: 'ANY' } })
     h.steps.push(step('mq-nack', { ackToken: '#[vars.ackToken]' }))
@@ -766,7 +792,9 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     list.splice(list.indexOf(h), 1, ...types.map((t) => ({ ...structuredClone(h), config: { type: t } })))
   })
 
+  // Loop check on the record's LastModifiedById. It is a record field, not a ChangeEventHeader field (the header
+  // has commitUser), so the check reads payload.LastModifiedById: reading it from the header always gives null.
   await passes('fl-022', (d) => {
-    for (const f of d.flows.filter((x) => x.name.includes('cdc'))) f.steps.find((n) => n.type === 'choice').routes[0].config.expression = "#[payload.ChangeEventHeader.LastModifiedById == p('sfdc.integrationUserId')]"
+    for (const f of d.flows.filter((x) => x.name.includes('cdc'))) f.steps.find((n) => n.type === 'choice').routes[0].config.expression = "#[payload.LastModifiedById == p('sfdc.integrationUserId')]"
   })
 }

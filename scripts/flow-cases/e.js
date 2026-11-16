@@ -258,12 +258,14 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     steps.unshift(call)
   })
   // One insert per ticket in a For Each, with the max computed in the store itself.
+  // Each ticket is the raw API item here, so its field is updated_at: the parameter takes that name, as the simulator
+  // reads each :name from the payload (the designer has no Input Parameters field).
   await passes('fl-119', (d) => {
     const route = one(d, 'choice').routes[0]
     route.steps = [
       step('set-variable', { variableName: 'tickets', value: '#[payload.tickets]' }),
       scope('foreach', { collection: '#[vars.tickets]' }, [
-        step('db-insert', { sql: 'INSERT INTO tickets (id, status, updated_at) VALUES (:id, :status, :updatedAt) ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at' }),
+        step('db-insert', { sql: 'INSERT INTO tickets (id, status, updated_at) VALUES (:id, :status, :updated_at) ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at' }),
       ]),
       step('os-store', { key: 'helpdesk-tickets-watermark', value: '#[max(vars.tickets.updated_at)]', objectStore: 'ticketSyncStore' }),
     ]

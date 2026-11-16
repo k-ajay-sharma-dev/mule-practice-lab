@@ -38,7 +38,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-062', 'every call, read and write', (d) => {
     const h = handlerFor(d, 'ANY')
     h.config.type = 'MULE:RETRY_EXHAUSTED, SALESFORCE:CONNECTIVITY'
-    h.steps[0] = step('jms-publish', { destination: 'OMS.STATUS.PARKED' })
+    h.steps[h.steps.findIndex((n) => n.type === 'db-insert')] = step('jms-publish', { destination: 'OMS.STATUS.PARKED' })
   })
 
   // FL-063
@@ -125,10 +125,11 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     d.flows[0].source.config.expression = '0 30 01 * * ?'
     one(d, 'batch-aggregator').config.size = 2000
   })
-  // Failures go to an error table instead of an update of the status column.
+  // Failures go to an error table instead of an update of the status column. A step that accepts failures gets the
+  // record, not the error, so the reason is a fixed text (an :errorText parameter would have no value).
   await passes('fl-066', (d) => {
     one(d, 'batch-job').routes.find((r) => r.config.acceptPolicy === 'ONLY_FAILURES').steps = [
-      step('db-insert', { sql: 'INSERT INTO PRICE_DIST_ERROR (CHANGE_ID, STORE_ID, ERROR_TEXT) VALUES (:CHANGE_ID, :STORE_ID, :errorText)' }),
+      step('db-insert', { sql: "INSERT INTO PRICE_DIST_ERROR (CHANGE_ID, STORE_ID, ERROR_TEXT) VALUES (:CHANGE_ID, :STORE_ID, 'Store queue publish failed')" }),
     ]
   })
 
@@ -149,9 +150,15 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-067', 'only APPROVED POs are read', (d) => {
     one(d, 'db-select').config.sql = 'SELECT * FROM PO_HEADER h JOIN PO_LINE l ON l.PO_NUMBER = h.PO_NUMBER WHERE h.PO_NUMBER = :poNumber'
   })
-  // A SENDING state written first, then SENT after the file.
+  // A SENDING state written first, then SENT after the file. The SENT update and the read must accept SENDING:
+  // with the read and the guard left at APPROVED, the PO stays SENDING after the file is written, and a redelivery
+  // after a failed write finds nothing, so the PO is never sent.
   await passes('fl-067', (d) => {
     const steps = flowOf(d, 'po-to-supplier').steps
+    const read = steps.find((n) => n.type === 'db-select')
+    read.config.sql = read.config.sql.replace("h.STATUS = 'APPROVED'", "h.STATUS IN ('APPROVED', 'SENDING')")
+    const sent = steps.find((n) => n.type === 'db-update')
+    sent.config.sql = sent.config.sql.replace("AND STATUS = 'APPROVED'", "AND STATUS = 'SENDING'")
     steps.splice(steps.findIndex((n) => n.type === 'sftp-write'), 0, step('db-update', { sql: "UPDATE PO_HEADER SET STATUS = 'SENDING', EDI_ICN = :icn WHERE PO_NUMBER = :poNumber" }))
   })
 
@@ -441,9 +448,11 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-079', 'Only PDF attachments', (d) => {
     one(d, 'transform').config.script = '%dw 2.0\noutput application/java\n---\n(payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: content })'
   })
-  // The PDF filter is a Choice inside the loop instead of a filter in the mapping.
+  // The PDF filter is a Choice inside the loop instead of a filter in the mapping. The outer route must then look for
+  // PDFs itself: with isEmpty(vars.pdfs) alone, an email holding only an image went to Processed, not NeedsReview.
   await passes('fl-079', (d) => {
     one(d, 'transform').config.script = '%dw 2.0\noutput application/java\n---\n(payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: content })'
+    one(d, 'choice').routes[0].config.expression = '#[isEmpty(vars.pdfs filter (lower($.name) endsWith ".pdf"))]'
     const loop = one(d, 'foreach')
     const pick = createNode('choice')
     pick.routes = [{ ...pick.routes[0], config: { expression: '#[lower(payload.name) endsWith ".pdf"]' }, steps: loop.steps }]
@@ -462,7 +471,7 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
     steps.splice(1, 0, remove(steps, 'file-delete'))
   })
   await failsOn('fl-080', 'never from an error handler', (d) => {
-    one({ flows: [flowOf(d, 'processor')] }, 'try').errorHandlers[0].steps[0].config.sql = "UPDATE mail_landing SET status = 'DONE' WHERE message_id = :messageId"
+    one({ flows: [flowOf(d, 'processor')] }, 'try').errorHandlers[0].steps.find((n) => n.type === 'db-update').config.sql = "UPDATE mail_landing SET status = 'DONE' WHERE message_id = :messageId"
   })
   await failsOn('fl-080', 'One failing row', (d) => {
     one({ flows: [flowOf(d, 'processor')] }, 'try').errorHandlers = []
@@ -485,8 +494,12 @@ export default async ({ failsOn, passes, one, all, handlerFor, flowOf, remove, s
   await failsOn('fl-081', 'fires at 02:00', (d) => {
     d.flows[0].source.config.expression = '0 0 3 * * ?'
   })
+  // Marks the rows that were sent by their IDs. The earlier version used IN (:ids) with no ids ever set, so in Mule the
+  // update had no value for :ids; a Bulk Update over the selected rows (still the payload after the send) binds each ID.
   await passes('fl-081', (d) => {
-    one(d, 'db-update').config.sql = 'UPDATE INTEGRATION_EXCEPTIONS SET REPORTED_AT = SYSTIMESTAMP WHERE EXCEPTION_ID IN (:ids)'
+    const upd = one(d, 'db-update')
+    upd.type = 'db-bulk-update'
+    upd.config.sql = 'UPDATE INTEGRATION_EXCEPTIONS SET REPORTED_AT = SYSTIMESTAMP WHERE EXCEPTION_ID = :EXCEPTION_ID'
   })
   // The branches swapped: the email goes out exactly when there is nothing to report.
   const swap081 = (d) => {

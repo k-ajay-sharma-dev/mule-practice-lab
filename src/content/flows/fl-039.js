@@ -44,6 +44,77 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: 'batch-job', inSlot: 'onComplete' },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          legacy_customer: {
+            key: 'id',
+            columns: ['id', 'customer_no', 'company_name', 'email', 'migration_wave', 'migrated'],
+            rows: [
+              { id: 1, customer_no: 'LC-100201', company_name: 'Harbour Tools Ltd ', email: 'Accounts@HarbourTools.co.uk', migration_wave: 'W1', migrated: 'N' },
+              { id: 2, customer_no: 'LC-100202', company_name: 'Fenwick & Daughters', email: 'info@fenwick.example', migration_wave: 'W1', migrated: 'N' },
+              { id: 3, customer_no: 'LC-100203', company_name: 'Old Mill Bakery', email: 'old mill bakery', migration_wave: 'W1', migrated: 'N' },
+              { id: 4, customer_no: null, company_name: 'Unknown Trader', email: 'trader@example.com', migration_wave: 'W1', migrated: 'N' },
+              { id: 5, customer_no: 'LC-100301', company_name: 'Second Wave GmbH', email: 'hallo@secondwave.example', migration_wave: 'W2', migrated: 'N' },
+            ],
+          },
+          legacy_address: {
+            key: 'customer_id',
+            columns: ['customer_id', 'street', 'city', 'postcode', 'country'],
+            rows: [
+              { customer_id: 1, street: '4 Quay Street', city: 'Bristol', postcode: 'BS1 4DJ', country: 'gb' },
+              { customer_id: 2, street: '17 High Road', city: 'Leeds', postcode: 'LS2 7EY', country: 'gb' },
+              { customer_id: 3, street: '2 Mill Lane', city: 'York', postcode: 'YO1 9TS', country: 'gb' },
+            ],
+          },
+          migration_log: { key: 'customer_no', columns: ['customer_no', 'wave_id', 'status'], rows: [] },
+          migration_errors: { columns: ['customer_no', 'wave_id', 'error_message', 'failed_at'], rows: [] },
+        },
+        latencyMs: 40,
+      },
+    },
+    tests: [
+      {
+        name: 'Bad records do not stop the wave',
+        about: 'Wave W1 has four customers. One has no customer number and one a broken email: both are recorded as errors, and the report still goes out once.',
+        trigger: { http: { method: 'POST', path: '/admin/migrations/customers', query: { wave: 'W1' } } },
+        expect: {
+          noError: true,
+          connector: [{ type: 'sf-upsert', settings: { objectType: 'Account', externalIdField: 'Legacy_Customer_No__c' }, min: 1 }],
+          db: {
+            migration_errors: { count: 2, has: [{ customer_no: 'LC-100203', wave_id: 'W1' }] },
+            migration_log: { count: 2, has: [{ customer_no: 'LC-100201', wave_id: 'W1' }, { customer_no: 'LC-100202', wave_id: 'W1' }] },
+          },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'A clean wave',
+        about: 'Wave W2 has one good customer, so nothing is recorded as an error and the report is sent.',
+        trigger: { http: { method: 'POST', path: '/admin/migrations/customers', query: { wave: 'W2' } } },
+        expect: { noError: true, db: { migration_errors: { count: 0 } }, emails: [{ count: 1 }] },
+      },
+      {
+        name: 'Salesforce is down',
+        about: 'The upsert for wave W2 fails. The customer is recorded as an error, is not logged as migrated, and the report still goes out.',
+        trigger: { http: { method: 'POST', path: '/admin/migrations/customers', query: { wave: 'W2' } } },
+        overrides: { systems: { calls: { 'sf-upsert': { fault: { type: 'SALESFORCE:CONNECTIVITY', description: 'Unable to reach login.salesforce.com' } } } } },
+        expect: {
+          noError: true,
+          db: { migration_errors: { count: 1, has: [{ customer_no: 'LC-100301', wave_id: 'W2' }] }, migration_log: { count: 0 } },
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'The legacy database is down',
+        about: 'The wave cannot be read, so the admin call fails and no report is sent.',
+        trigger: { http: { method: 'POST', path: '/admin/migrations/customers', query: { wave: 'W1' } } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', noEmails: true },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -88,9 +159,18 @@ export default {
                 }),
               ]),
             ]),
+            // A failed record reaches this step as it was when it failed: the legacy row if validation stopped it, the
+            // mapped Account if the Salesforce load did. A later step cannot read the record's Mule error, so the
+            // reason is worked out again from what the record holds.
             route({ name: 'record-failures', acceptPolicy: 'ONLY_FAILURES' }, [
+              step('set-variable', {
+                variableName: 'error',
+                value:
+                  '#[if (payload.Legacy_Customer_No__c != null) "Salesforce load failed" else if (isBlank(payload.customer_no)) "Missing customer number" else if (not ((payload.email default "") contains "@")) "Invalid email" else "Rejected"]',
+              }),
               step('db-insert', {
-                sql: 'INSERT INTO migration_errors (customer_no, wave_id, error_message, failed_at) VALUES (:customerNo, :waveId, :error, CURRENT_TIMESTAMP)',
+                sql: 'INSERT INTO migration_errors (customer_no, wave_id, error_message, failed_at) VALUES (:customer_no, :wave_id, :error, CURRENT_TIMESTAMP)',
+                inputParameters: '#[{ customer_no: payload.customer_no default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]',
               }),
             ]),
           ],
@@ -154,7 +234,7 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 1. \`validate-and-map\` (NO_FAILURES) — Validate customer number and email; DataWeave maps the row to the Account shape. A failure here marks just that record as failed.
 2. \`load-salesforce\` (NO_FAILURES) — **Batch Aggregator size 200** → Salesforce **Upsert** \`Account\` on \`Legacy_Customer_No__c\`. Check the per-item results: the connector reports record-level failures in its result instead of failing the whole group. So a rejected Account does not count as a failed batch record by itself and must be logged from here. (For 300k records, the Salesforce Bulk API v2 is an alternative.)
 3. \`mark-migrated\` (NO_FAILURES) — aggregator → Database Bulk Insert into \`migration_log\` (audit and cutover proof).
-4. \`record-failures\` (**ONLY_FAILURES**) — insert the record plus its error into \`migration_errors\` for the data-stewards.
+4. \`record-failures\` (**ONLY_FAILURES**) — insert the record plus a reason into \`migration_errors\` for the data-stewards. A failed record arrives here as it was when it failed (the legacy row after a validation failure, the mapped Account after a failed upsert), and a later step cannot read that record's Mule error, so the reason is worked out again from what the record holds before the insert. Input parameters name each value: \`#[{ customer_no: payload.customer_no default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]\`.
 
 **On Complete:** DataWeave builds the summary from the BatchJobResult — \`totalRecords\`, \`successfulRecords\`, \`failedRecords\`, \`elapsedTimeInMillis\` — and **Email Send** delivers it.
 

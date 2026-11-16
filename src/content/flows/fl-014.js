@@ -64,6 +64,91 @@ export default {
       rule: { type: 'inside', component: 'email-send', within: ['on-error-propagate', 'on-error-continue'] },
     },
   ],
+  // The flat-file parse is not simulated, so each file below is given already parsed: header, details and trailer.
+  simulation: {
+    systems: {
+      files: {
+        '/data/in/PAYROLL_20261113.txt': {
+          header: { payDate: '2026-11-13', provider: 'PAYPRO' },
+          details: [
+            { employeeId: 'E1001', amount: 2500 },
+            { employeeId: 'E1002', amount: 3100 },
+            { employeeId: 'E1003', amount: 1700 },
+          ],
+          trailer: { recordCount: 3, totalAmount: 7300 },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A clean file is loaded',
+        about: 'Every line is valid, so finance gets one CSV with all three employees.',
+        trigger: { file: { path: '/data/in/PAYROLL_20261113.txt' } },
+        expect: {
+          files: {
+            '/data/out/PAYROLL_20261113.csv': { exists: true, has: 'E1003' },
+            '/data/out/*': { count: 1 },
+          },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'Some lines are bad',
+        about: 'One line has no employee ID and one has a zero amount. The good lines go to finance and the bad ones to the reject file with a reason.',
+        trigger: { file: { path: '/data/in/PAYROLL_20261113.txt' } },
+        overrides: {
+          systems: {
+            files: {
+              '/data/in/PAYROLL_20261113.txt': {
+                header: { payDate: '2026-11-13', provider: 'PAYPRO' },
+                details: [
+                  { employeeId: 'E1001', amount: 2500 },
+                  { employeeId: '', amount: 900 },
+                  { employeeId: 'E1004', amount: 0 },
+                  { employeeId: 'E1005', amount: 1200 },
+                ],
+                trailer: { recordCount: 4, totalAmount: 4600 },
+              },
+            },
+          },
+        },
+        expect: {
+          files: {
+            '/data/out/PAYROLL_20261113.csv': { exists: true, has: 'E1005' },
+            '/data/reject/PAYROLL_20261113_reject.csv': { exists: true, has: 'E1004' },
+          },
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The trailer does not match',
+        about: 'The trailer says four lines but the file holds three, so the whole file is rejected and the team is alerted.',
+        trigger: { file: { path: '/data/in/PAYROLL_20261113.txt' } },
+        overrides: {
+          systems: {
+            files: {
+              '/data/in/PAYROLL_20261113.txt': {
+                header: { payDate: '2026-11-13', provider: 'PAYPRO' },
+                details: [
+                  { employeeId: 'E1001', amount: 2500 },
+                  { employeeId: 'E1002', amount: 3100 },
+                  { employeeId: 'E1003', amount: 1700 },
+                ],
+                trailer: { recordCount: 4, totalAmount: 9100 },
+              },
+            },
+          },
+        },
+        expect: {
+          files: {
+            '/data/out/*': { count: 0 },
+            '/data/reject/PAYROLL_20261113_reject.csv': { exists: false },
+          },
+          emails: [{ count: 1 }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'payroll-file-etl',
@@ -123,6 +208,7 @@ A payroll provider drops a **fixed-width** file \`PAYROLL_YYYYMMDD.txt\` (20k–
 - If header/trailer validation fails → reject the **whole file**.
 - If only some detail lines fail → write good lines to the output CSV and bad lines (with a reason column) to \`/data/reject/\`.
 - Never process the same file twice; never let finance pick up a half-written output file.
+- Name the output \`/data/out/PAYROLL_YYYYMMDD.csv\` and the reject file \`/data/reject/PAYROLL_YYYYMMDD_reject.csv\`. Alert the support team by email when a whole file is rejected.
 
 **Design the flow(s):** trigger, parsing, validation layers, writing output/reject files, and file lifecycle.
 `,

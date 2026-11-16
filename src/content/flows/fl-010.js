@@ -68,10 +68,57 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/reservations', latencyMs: 250, respond: { status: 201, body: { id: 'RSV-7781', orderId: 'ORD-4410', status: 'HELD' } } }],
+    },
+    tests: [
+      {
+        name: 'Stock is reserved',
+        about: 'The partner answers at once and the caller gets the reservation.',
+        trigger: { http: { method: 'POST', path: '/orders/ORD-4410/reservations', body: { orderId: 'ORD-4410', lines: [{ sku: 'SKU-1001', quantity: 2 }] } } },
+        expect: { status: 200, bodyHas: { reservationId: 'RSV-7781' }, calls: [{ method: 'POST', path: '/reservations', count: 1 }] },
+      },
+      {
+        name: 'One 503 and then success',
+        about: 'The first call gets 503 Service Unavailable. A second try a moment later works.',
+        trigger: { http: { method: 'POST', path: '/orders/ORD-4411/reservations', body: { orderId: 'ORD-4411', lines: [{ sku: 'SKU-1001', quantity: 1 }] } } },
+        overrides: {
+          systems: { http: [{ method: 'POST', path: '/reservations', responses: [{ status: 503, body: { message: 'Service Unavailable' } }, { status: 201, body: { id: 'RSV-7782', orderId: 'ORD-4411', status: 'HELD' } }] }] },
+        },
+        expect: { status: 200, bodyHas: { reservationId: 'RSV-7782' }, calls: [{ method: 'POST', path: '/reservations', count: 2 }], maxMs: 10000 },
+      },
+      {
+        name: 'A socket timeout and then success',
+        about: 'The first call hangs for 30 seconds. The call gives up in time, tries again and still answers within 10 seconds.',
+        trigger: { http: { method: 'POST', path: '/orders/ORD-4412/reservations', body: { orderId: 'ORD-4412', lines: [{ sku: 'SKU-1001', quantity: 1 }] } } },
+        overrides: {
+          systems: {
+            http: [{ method: 'POST', path: '/reservations', responses: [{ latencyMs: 30000, status: 201, body: { id: 'RSV-0000' } }, { latencyMs: 250, status: 201, body: { id: 'RSV-7783', orderId: 'ORD-4412', status: 'HELD' } }] }],
+          },
+        },
+        expect: { status: 200, bodyHas: { reservationId: 'RSV-7783' }, maxMs: 10000 },
+      },
+      {
+        name: 'An unknown SKU',
+        about: 'The partner answers 400. Retrying cannot help, so it is called once and the caller gets 400.',
+        trigger: { http: { method: 'POST', path: '/orders/ORD-4413/reservations', body: { orderId: 'ORD-4413', lines: [{ sku: 'SKU-NOPE', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/reservations', respond: { status: 400, body: { message: 'Unknown SKU SKU-NOPE' } } }] } },
+        expect: { status: 400, bodyLacks: { status: 'RESERVED' }, calls: [{ method: 'POST', path: '/reservations', count: 1 }] },
+      },
+      {
+        name: 'The partner stays down',
+        about: 'Every call gets 503. The retries stop in time and the caller does not get a reservation.',
+        trigger: { http: { method: 'POST', path: '/orders/ORD-4414/reservations', body: { orderId: 'ORD-4414', lines: [{ sku: 'SKU-1001', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/reservations', respond: { status: 503, body: { message: 'Service Unavailable' } } }] } },
+        expect: { bodyLacks: { status: 'RESERVED' }, calls: [{ method: 'POST', path: '/reservations', min: 2 }], maxMs: 10000 },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'reserve-stock-api',
-      source('http-listener', { path: '/orders/*/reservations', allowedMethods: 'POST' }),
+      source('http-listener', { path: '/orders/{orderId}/reservations', allowedMethods: 'POST' }),
       [
         step('set-variable', { variableName: 'idempotencyKey', value: '#[payload.orderId]' }),
         step('set-variable', { variableName: 'permanentError', value: '#[false]' }),

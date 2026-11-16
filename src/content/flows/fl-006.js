@@ -81,12 +81,85 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/sap/orders', latencyMs: 150, respond: { status: 200, body: [] } },
+        { method: 'POST', path: '/sap/orders', latencyMs: 450, respond: { status: 201, body: { sapOrderId: '4500017321', externalRef: 'ORD-90001' } } },
+        { method: 'POST', path: '/wms/confirmations', latencyMs: 120, respond: { status: 200, body: { confirmed: true } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'An order is accepted',
+        about: 'The website gets 202 with a tracking ID at once. The consumer then creates the order in SAP and confirms it to the WMS.',
+        trigger: {
+          http: { method: 'POST', path: '/orders', body: { orderId: 'ORD-90001', customerId: 'CUST-3301', items: [{ material: 'MAT-100', quantity: 2 }] } },
+        },
+        expect: {
+          status: 202,
+          bodyHas: { trackingId: 'ORD-90001' },
+          maxMs: 300,
+          sent: [{ destination: 'orders.create', count: 1, has: { orderId: 'ORD-90001' } }],
+          calls: [
+            { method: 'POST', path: '/sap/orders', count: 1, has: { orderId: 'ORD-90001', items: [{ material: 'MAT-100' }] } },
+            { method: 'POST', path: '/wms/confirmations', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'The queue cannot be reached',
+        about: 'Anypoint MQ refuses the publish. The order is not accepted, so the website gets 503 and can try again.',
+        trigger: {
+          http: { method: 'POST', path: '/orders', body: { orderId: 'ORD-90002', customerId: 'CUST-3301', items: [{ material: 'MAT-100', quantity: 1 }] } },
+        },
+        overrides: { systems: { queues: { 'orders.create': { fault: true } } } },
+        expect: { status: 503, bodyLacks: { trackingId: 'ORD-90002' }, notSent: ['orders.create'], calls: [{ path: '/sap/orders', count: 0 }] },
+      },
+      {
+        name: 'SAP is in its maintenance window',
+        about: 'SAP answers 503. The message goes back to the queue to be tried again, and the WMS is not told anything.',
+        trigger: { message: { kind: 'mq', destination: 'orders.create', payload: { orderId: 'ORD-90003', customerId: 'CUST-3302', items: [{ material: 'MAT-200', quantity: 1 }] } } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'GET', path: '/sap/orders', respond: { status: 503, body: { message: 'System maintenance' } } },
+              { method: 'POST', path: '/sap/orders', respond: { status: 503, body: { message: 'System maintenance' } } },
+            ],
+          },
+        },
+        expect: { ack: 'returned', calls: [{ method: 'POST', path: '/wms/confirmations', count: 0 }], notSent: ['orders.parked'] },
+      },
+      {
+        name: 'An invalid material number',
+        about: 'SAP rejects the order with 400. Retrying will not help, so it is parked and leaves the main queue.',
+        trigger: { message: { kind: 'mq', destination: 'orders.create', payload: { orderId: 'ORD-90004', customerId: 'CUST-3303', items: [{ material: 'MAT-XXX', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/sap/orders', respond: { status: 400, body: { message: 'Material MAT-XXX does not exist' } } }] } },
+        expect: { ack: 'acked', sent: [{ destination: 'orders.parked', count: 1 }], notSent: ['orders.create'], calls: [{ method: 'POST', path: '/wms/confirmations', count: 0 }] },
+      },
+      {
+        name: 'A redelivered order is already in SAP',
+        about: 'The order was created in SAP before a crash, then delivered again. No second SAP order is created.',
+        trigger: {
+          message: { kind: 'mq', destination: 'orders.create', deliveryCount: 2, payload: { orderId: 'ORD-90005', customerId: 'CUST-3304', items: [{ material: 'MAT-100', quantity: 3 }] } },
+        },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sap/orders', respond: { status: 200, body: [{ sapOrderId: '4500017399', externalRef: 'ORD-90005' }] } }] } },
+        expect: {
+          ack: 'acked',
+          calls: [
+            { method: 'POST', path: '/sap/orders', count: 0 },
+            { method: 'POST', path: '/wms/confirmations', count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'orders-front-door',
       source('http-listener', { path: '/orders', allowedMethods: 'POST' }),
       [
-        step('validation', { check: 'json-schema', expression: '#[payload]', message: 'Order does not match schema' }),
+        step('validation', { check: 'is-not-empty-collection', expression: '#[payload.items]', message: 'An order needs at least one item' }),
         step('set-variable', { variableName: 'orderId', value: '#[payload.orderId default uuid()]' }),
         step('mq-publish', { destination: 'orders.create' }),
         step('set-variable', { variableName: 'httpStatus', value: '202' }),
@@ -105,9 +178,12 @@ export default {
       [
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
         step('set-variable', { variableName: 'orderId', value: '#[payload.orderId]' }),
+        // the lookup's answer replaces the payload, so the order is kept for the create and for parking
+        step('set-variable', { variableName: 'order', value: '#[payload]' }),
         step('http-request', { method: 'GET', path: '/sap/orders?externalRef={orderId}', responseTimeout: 5000 }),
         router('choice', {}, [
           route({ expression: '#[isEmpty(payload)]' }, [
+            step('set-payload', { value: '#[vars.order]' }),
             step('http-request', { method: 'POST', path: '/sap/orders', responseTimeout: 10000 }),
           ]),
         ], {
@@ -118,6 +194,9 @@ export default {
       ],
       [
         handler('on-error-continue', { type: 'HTTP:BAD_REQUEST, APP:INVALID_MATERIAL' }, [
+          step('transform', {
+            script: '%dw 2.0\noutput application/json\n---\n{ order: vars.order, error: { type: error.errorType.asString, description: error.description } }',
+          }),
           step('mq-publish', { destination: 'orders.parked' }),
           step('mq-ack', { ackToken: '#[vars.ackToken]' }),
         ]),
@@ -193,6 +272,7 @@ HTTP Listener → schema validation (APIkit) → enrich with \`orderId\` / \`cor
 **Consumer flow**
 - **Anypoint MQ Subscriber** on \`orders.create\`, \`acknowledgementMode="MANUAL"\`, an acknowledgement timeout longer than the worst-case processing time, and concurrency sized so total throughput ≈ SAP capacity (e.g. 2 replicas × ~10 concurrent × ~0.5 s ≈ 40/s).
 - Process: SAP create (with orderId as external reference) → WMS confirm → **Ack** (\`ackToken\` from attributes).
+- Keep the order in a variable first. Each HTTP Request replaces the payload with its answer, so after the SAP lookup the payload is the lookup result, not the order. Set the payload back from the variable before the create, and park the order from the variable too.
 - During the SAP maintenance window the backlog simply grows on the queue; optionally use the subscriber's circuit-breaker capability or a pause to avoid burning deliveries.
 
 **Transient vs permanent errors**

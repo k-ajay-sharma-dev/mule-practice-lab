@@ -49,6 +49,53 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/erp/order-gateway/import', latencyMs: 900, respond: { status: 200, body: { importId: 'IMP-20261113-0412', result: 'QUEUED' } } }],
+      // XPath Extract gives back the list of matching values.
+      calls: { 'xml-xpath': { payload: ['PO-55012'] } },
+    },
+    tests: [
+      {
+        name: 'A valid order reaches the ERP',
+        about: 'The order passes the XSD, is converted and posted to the ERP gateway, and the partner gets an acknowledgement.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/b2b/v1/orders',
+            mime: 'application/xml',
+            body: { Order: { Header: { OrderNumber: 'PO-55012', PartnerId: 'RTL-018', OrderDate: '2026-11-13' }, Lines: { Line: [{ Sku: 'GLV-NIT-M', Qty: '200' }, { Sku: 'GLV-NIT-L', Qty: '150' }] } } },
+          },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/erp/order-gateway/import', count: 1 }] },
+      },
+      {
+        name: 'The order breaks the XSD',
+        about: 'A line has no quantity, so Validate Schema fails. The partner gets a 400 and the ERP never sees the order.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/b2b/v1/orders',
+            mime: 'application/xml',
+            body: { Order: { Header: { OrderNumber: 'PO-55013', PartnerId: 'RTL-018', OrderDate: '2026-11-13' }, Lines: { Line: [{ Sku: 'GLV-NIT-M' }] } } },
+          },
+        },
+        overrides: {
+          systems: { calls: { 'xml-validate': { fault: { type: 'XML-MODULE:SCHEMA_NOT_HONOURED', description: "cvc-complex-type.2.4.b: The content of element 'Line' is not complete. One of '{Qty}' is expected." } } } },
+        },
+        expect: { status: 400, calls: [{ path: '/erp/order-gateway/import', count: 0 }] },
+      },
+      {
+        name: 'The XML is not well formed',
+        about: 'The partner sends a broken document. It is rejected with a 400 too, and the ERP never sees it.',
+        trigger: { http: { method: 'POST', path: '/b2b/v1/orders', mime: 'application/xml', body: '<Order><Header><OrderNumber>PO-55014</OrderNumber></Header>' } },
+        overrides: {
+          systems: { calls: { 'xml-validate': { fault: { type: 'XML-MODULE:INVALID_INPUT_XML', description: 'XML document structures must start and end within the same entity.' } } } },
+        },
+        expect: { status: 400, calls: [{ path: '/erp/order-gateway/import', count: 0 }] },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

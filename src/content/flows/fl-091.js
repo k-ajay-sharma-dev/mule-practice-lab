@@ -70,6 +70,86 @@ export default {
       rule: { type: 'before', first: 'http-listener', then: 'set-variable', thenWhere: { value: '201' }, outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      calls: {
+        'sap-sync-rfc': {
+          payload: {
+            BAPI_SALESORDER_CREATEFROMDAT2: {
+              export: { SALESDOCUMENT: '0000481207' },
+              tables: { RETURN: { row: { TYPE: 'S', ID: 'V1', NUMBER: '311', MESSAGE: 'Standard Order 481207 has been saved' } } },
+            },
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'SAP saves the order',
+        about: 'The BAPI returns an order number and only a success row in RETURN.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/v1/sales-orders',
+            body: { salesOrg: '1000', channel: '10', division: '00', portalRef: 'WEB-55120', customerNo: '0000100231', items: [{ material: 'MAT-4410', quantity: 3 }] },
+          },
+        },
+        expect: { status: 201, bodyHas: { orderNumber: '0000481207' }, connector: [{ type: 'sap-sync-rfc', settings: { key: 'BAPI_SALESORDER_CREATEFROMDAT2' }, count: 1 }] },
+      },
+      {
+        name: 'SAP rejects the order',
+        about: 'RETURN holds an error row for a blocked customer, so the portal gets 422 with the SAP text.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/v1/sales-orders',
+            body: { salesOrg: '1000', channel: '10', division: '00', portalRef: 'WEB-55121', customerNo: '0000100999', items: [{ material: 'MAT-4410', quantity: 1 }] },
+          },
+        },
+        overrides: {
+          systems: {
+            calls: {
+              'sap-sync-rfc': {
+                payload: {
+                  BAPI_SALESORDER_CREATEFROMDAT2: {
+                    export: { SALESDOCUMENT: '' },
+                    tables: { RETURN: { row: { TYPE: 'E', ID: 'V1', NUMBER: '555', MESSAGE: 'Customer 100999 is blocked for sales orders' } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        expect: { status: 422, bodyLacks: { orderNumber: '0000481207' } },
+      },
+      {
+        name: 'SAP cannot be reached',
+        about: 'The gateway refuses the connection, so the portal gets 503 and can retry.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/v1/sales-orders',
+            body: { salesOrg: '1000', channel: '10', division: '00', portalRef: 'WEB-55122', customerNo: '0000100231', items: [{ material: 'MAT-4410', quantity: 2 }] },
+          },
+        },
+        overrides: { systems: { calls: { 'sap-sync-rfc': { fault: { type: 'SAP:CONNECTIVITY', description: 'Connection to the SAP gateway was refused.' } } } } },
+        expect: { status: 503 },
+      },
+      {
+        name: 'SAP is busy',
+        about: 'SAP answers that the system is busy, which is also a 503.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/api/v1/sales-orders',
+            body: { salesOrg: '1000', channel: '10', division: '00', portalRef: 'WEB-55123', customerNo: '0000100231', items: [{ material: 'MAT-4410', quantity: 2 }] },
+          },
+        },
+        overrides: { systems: { calls: { 'sap-sync-rfc': { fault: { type: 'SAP:SYSTEM_BUSY', description: 'All work processes are busy.' } } } } },
+        expect: { status: 503 },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'create-sales-order',

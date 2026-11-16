@@ -47,27 +47,86 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/audit/events', latencyMs: 90, respond: { status: 202, body: { accepted: true } } }],
+      db: {
+        tables: {
+          tenant_config: { key: 'tenant_id', rows: [{ tenant_id: 'T-100', name: 'Acme Retail', currency: 'EUR' }, { tenant_id: 'T-200', name: 'Globex', currency: 'USD' }] },
+          orders: {
+            key: 'order_id',
+            rows: [
+              { order_id: 'O-5001', tenant_id: 'T-100', total: 120 },
+              { order_id: 'O-5002', tenant_id: 'T-100', total: 35.5 },
+              { order_id: 'O-7001', tenant_id: 'T-200', total: 990 },
+            ],
+          },
+          invoices: { key: 'invoice_id', rows: [{ invoice_id: 'INV-301', tenant_id: 'T-100', amount: 155.5 }] },
+          customers: { key: 'customer_id', rows: [{ customer_id: 'C-11', tenant_id: 'T-100', name: 'Mia Lopez' }] },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'Orders for one tenant',
+        about: 'The request is logged, audited once, and only that tenant\'s orders come back.',
+        trigger: { http: { method: 'GET', path: '/api/orders', headers: { 'x-tenant-id': 'T-100' } } },
+        expect: {
+          status: 200,
+          bodyHas: [{ order_id: 'O-5001' }, { order_id: 'O-5002' }],
+          bodyLacks: [{ order_id: 'O-7001' }],
+          calls: [{ method: 'POST', path: '/audit/events', count: 1 }],
+          logs: [{ has: 'request received' }],
+        },
+      },
+      {
+        name: 'The Audit API is down',
+        about: 'The audit call is refused. The failure is logged and the caller still gets the invoices.',
+        trigger: { http: { method: 'GET', path: '/api/invoices', headers: { 'x-tenant-id': 'T-100' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/audit/events', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 200, bodyHas: [{ invoice_id: 'INV-301' }], logs: [{ level: ['WARN', 'ERROR'] }] },
+      },
+      {
+        name: 'Two tenants in a row',
+        about: 'Acme asks first, then Globex. Globex gets its own orders, not a cached answer meant for Acme.',
+        triggers: [
+          { http: { method: 'GET', path: '/api/orders', headers: { 'x-tenant-id': 'T-100' } } },
+          { http: { method: 'GET', path: '/api/orders', headers: { 'x-tenant-id': 'T-200' } } },
+        ],
+        expect: { status: 200, bodyHas: [{ order_id: 'O-7001' }], bodyLacks: [{ order_id: 'O-5001' }] },
+      },
+      {
+        name: 'The Audit API returns 500',
+        about: 'The audit service fails with an error status. The customers request still succeeds.',
+        trigger: { http: { method: 'GET', path: '/api/customers', headers: { 'x-tenant-id': 'T-100' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/audit/events', respond: { status: 500, body: { message: 'Internal error' } } }] } },
+        expect: { status: 200, bodyHas: [{ customer_id: 'C-11' }], logs: [{ level: ['WARN', 'ERROR'] }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('get-orders', source('http-listener', { path: '/api/orders', allowedMethods: 'GET' }), [
       step('flow-ref', { name: 'common-request-init' }),
       step('flow-ref', { name: 'get-tenant-config' }),
-      step('flow-ref', { name: 'audit-call' }),
+      step('flow-ref', { name: 'audit-call', target: 'auditResult' }),
       step('db-select', { sql: 'SELECT * FROM orders WHERE tenant_id = :tenantId' }),
     ]),
     flow('get-invoices', source('http-listener', { path: '/api/invoices', allowedMethods: 'GET' }), [
       step('flow-ref', { name: 'common-request-init' }),
       step('flow-ref', { name: 'get-tenant-config' }),
-      step('flow-ref', { name: 'audit-call' }),
+      step('flow-ref', { name: 'audit-call', target: 'auditResult' }),
       step('db-select', { sql: 'SELECT * FROM invoices WHERE tenant_id = :tenantId' }),
     ]),
     flow('get-customers', source('http-listener', { path: '/api/customers', allowedMethods: 'GET' }), [
       step('flow-ref', { name: 'common-request-init' }),
       step('flow-ref', { name: 'get-tenant-config' }),
-      step('flow-ref', { name: 'audit-call' }),
+      step('flow-ref', { name: 'audit-call', target: 'auditResult' }),
       step('db-select', { sql: 'SELECT * FROM customers WHERE tenant_id = :tenantId' }),
     ]),
     subFlow('common-request-init', [
       step('set-variable', { variableName: 'correlationId', value: '#[attributes.headers."x-correlation-id" default correlationId]' }),
+      // kept in a variable: the Audit API call replaces the attributes, so the request headers are gone after it
+      step('set-variable', { variableName: 'tenantId', value: '#[attributes.headers."x-tenant-id"]' }),
       step('logger', {
         level: 'INFO',
         message: '#[write({ event: "request received", path: attributes.requestPath, correlationId: vars.correlationId }, "application/json")]',
@@ -75,6 +134,8 @@ export default {
     ]),
     subFlow('get-tenant-config', [
       step('set-variable', { variableName: 'businessPayload', value: '#[payload]' }),
+      // the Cache scope keys on the payload by default, so the tenant ID becomes the payload: one entry per tenant
+      step('set-payload', { value: '#[vars.tenantId]' }),
       scope('cache', { cachingStrategy: 'tenant-config-cache' }, [
         step('db-select', { sql: 'SELECT * FROM tenant_config WHERE tenant_id = :tenantId' }),
       ]),
@@ -93,7 +154,7 @@ export default {
 A team has three APIs (Orders, Invoices, Customers) in one Mule app. Every endpoint copies the same 15 processors:
 
 - Set a \`correlationId\` and log a structured "request received" entry.
-- Look up the caller's tenant config from a database (cached).
+- Look up the caller's tenant config from a database (cached). The tenant ID arrives in the \`x-tenant-id\` request header.
 - Call a central **Audit API** — if the audit call fails it must be **logged and ignored**, never fail the business request.
 
 A code review asks you to refactor this into reusable pieces.
@@ -121,9 +182,9 @@ A code review asks you to refactor this into reusable pieces.
     'Cross-app reuse is done with a Mule plugin / shared library or a domain project for shared configs, not by copying flows.',
   ],
   solution: `
-1. **Logging/correlation → sub-flow** \`common-request-init\`: Set Variable \`correlationId\` (\`#[correlationId]\` or an incoming header), Logger with a JSON message. No error handling needed — if it fails, the caller should know.
+1. **Logging/correlation → sub-flow** \`common-request-init\`: Set Variable \`correlationId\` (\`#[correlationId]\` or an incoming header), Set Variable \`tenantId\` from the \`x-tenant-id\` header, Logger with a JSON message. No error handling needed — if it fails, the caller should know. The tenant ID must be saved here: the Audit API call is an HTTP Request, which replaces the attributes, so the request headers are gone by the time the business query runs.
 2. **Tenant lookup → sub-flow** \`get-tenant-config\`: Cache scope wrapping a Database Select, with a key expression on the tenant ID (the default key is a SHA-256 of the payload); output stored with Flow Reference \`target="tenant"\` so the business payload is untouched.
-3. **Audit call → private flow** \`audit-call\`: HTTP Request to the Audit API inside a flow with its **own error handler** — On Error Continue for the HTTP error types that logs a warning. Because the error is handled inside that flow, the caller continues normally.
+3. **Audit call → private flow** \`audit-call\`: HTTP Request to the Audit API inside a flow with its **own error handler** — On Error Continue for the HTTP error types that logs a warning. Because the error is handled inside that flow, the caller continues normally. Call it with Flow Reference \`target="auditResult"\` so the audit answer does not replace the business payload.
    - Alternative: keep it a sub-flow but wrap the Flow Reference in a **Try scope** with On Error Continue. Either works; the private flow keeps the policy in one place.
 4. **Calling:** each API endpoint flow (e.g. \`get:\\orders:orders-api-config\`) starts with \`<flow-ref name="common-request-init"/>\`. Variables set inside the sub-flow/private flow are visible to the caller afterwards (same event).
 5. **Sharing across apps:** package common flows/configs as a **Mule plugin or shared library** in Exchange and import them via the POM. Or use a **domain project** for shared connector configs on on-prem runtimes. For truly cross-cutting concerns (logging headers, auth) consider **API Manager policies** instead of code.

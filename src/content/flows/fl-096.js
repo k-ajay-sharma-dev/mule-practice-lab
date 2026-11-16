@@ -55,6 +55,74 @@ export default {
       why: 'This handler only logs a failure of the whole run and passes it on, which Mule does by default.',
     },
   ],
+  simulation: {
+    properties: { 'report.environments': 'env-prod-eu,env-uat,env-prod-us,env-dr' },
+    systems: {
+      http: [
+        {
+          method: 'POST',
+          path: '/accounts/api/v2/oauth2/token',
+          latencyMs: 250,
+          respond: { status: 200, body: { access_token: 'f3c1d9a2-7b44-4e0e-9d61-2a5c8e7b1f00', token_type: 'bearer', expires_in: 3600 } },
+        },
+        // The Metrics API, at whatever path its Exchange page gives. The environment is read from the request.
+        {
+          path: '/*',
+          latencyMs: 400,
+          respond: (req) => {
+            const env = ['env-prod-eu', 'env-uat', 'env-prod-us', 'env-dr'].find((e) => `${req.path} ${JSON.stringify(req.body ?? '')}`.includes(e)) ?? 'unknown'
+            return { status: 200, body: { data: [{ metric: 'mulesoft.app.inbound', environment: env, values: [{ timestamp: '2026-11-09T00:00:00Z', count: 182340 }] }] } }
+          },
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'Every environment has traffic',
+        about: 'The token call works, all four environments return data, and the report is emailed.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          calls: [{ method: 'POST', path: '/accounts/api/v2/oauth2/token', min: 1 }],
+          emails: [{ count: 1 }],
+        },
+      },
+      {
+        name: 'One environment returns no data',
+        about: 'The connected app has no scope for the second environment, so the API answers 200 with an empty data list. The report still goes out, names that environment and covers the ones after it.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [
+              // Listed again so it stays ahead of the catch-all path below.
+              {
+                method: 'POST',
+                path: '/accounts/api/v2/oauth2/token',
+                latencyMs: 250,
+                respond: { status: 200, body: { access_token: 'f3c1d9a2-7b44-4e0e-9d61-2a5c8e7b1f00', token_type: 'bearer', expires_in: 3600 } },
+              },
+              {
+                path: '/*',
+                latencyMs: 400,
+                respond: (req) =>
+                  `${req.path} ${JSON.stringify(req.body ?? '')}`.includes('env-uat')
+                    ? { status: 200, body: { data: [] } }
+                    : { status: 200, body: { data: [{ metric: 'mulesoft.app.inbound', values: [{ timestamp: '2026-11-09T00:00:00Z', count: 182340 }] }] } },
+              },
+            ],
+          },
+        },
+        expect: { noError: true, emails: [{ count: 1 }, { has: 'env-uat' }, { has: 'env-dr' }] },
+      },
+      {
+        name: 'The connected app is refused',
+        about: 'The token endpoint answers 401, so the run stops before any metrics are asked for.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'POST', path: '/accounts/api/v2/oauth2/token', respond: { status: 401, body: { message: 'Invalid client credentials' } } }] } },
+        expect: { calls: [{ method: 'POST', path: '/accounts/api/v2/oauth2/token', count: 1 }, { path: '/*', count: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'weekly-traffic-report',

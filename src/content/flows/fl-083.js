@@ -64,6 +64,64 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'KAFKA:TIMEOUT', within: 'try' },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          ledger_posting: {
+            key: 'posting_id',
+            columns: ['posting_id', 'account', 'amount', 'posted_at'],
+            rows: [{ posting_id: 'PST-77120001', account: 'GB-2210-0045', amount: 120.5, posted_at: '2026-11-10T14:02:11Z' }],
+          },
+        },
+      },
+      calls: {
+        'kafka-consume': { payload: '{ "postingId": "PST-77120002", "account": "GB-2210-0046", "amount": 75.00, "postedAt": "2026-11-10T14:02:12Z" }' },
+      },
+    },
+    tests: [
+      {
+        name: 'A short range is replayed',
+        about: 'Offsets 918200 to 918202 on partition 4 are written. One posting is already in the table and stays as it was.',
+        trigger: { http: { method: 'POST', path: '/admin/replay', body: { partition: 4, fromOffset: 918200, toOffset: 918202 } } },
+        overrides: {
+          systems: {
+            calls: {
+              'kafka-consume': [
+                { payload: '{ "postingId": "PST-77120000", "account": "GB-2210-0044", "amount": 15.25, "postedAt": "2026-11-10T14:02:10Z" }', attributes: { topic: 'ledger.postings.v1', partition: 4, offset: 918200 } },
+                { payload: '{ "postingId": "PST-77120001", "account": "GB-2210-0045", "amount": 999.99, "postedAt": "2026-11-10T14:02:11Z" }', attributes: { topic: 'ledger.postings.v1', partition: 4, offset: 918201 } },
+                { payload: '{ "postingId": "PST-77120002", "account": "GB-2210-0046", "amount": 75.00, "postedAt": "2026-11-10T14:02:12Z" }', attributes: { topic: 'ledger.postings.v1', partition: 4, offset: 918202 } },
+                { fault: { type: 'KAFKA:TIMEOUT', description: 'No record was received within 10 SECONDS.' } },
+              ],
+            },
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: { lastOffset: 918202 },
+          db: { ledger_posting: { count: 3, has: [{ posting_id: 'PST-77120000' }, { posting_id: 'PST-77120002', amount: 75 }, { posting_id: 'PST-77120001', amount: 120.5 }] } },
+          connector: [{ type: 'kafka-seek', settings: { offset: 918200, partition: 4 }, count: 1 }, { type: 'kafka-commit', count: 0 }],
+        },
+      },
+      {
+        name: 'Nothing is waiting at the start offset',
+        about: 'The first Consume times out. The replay stops there and still answers, with nothing written.',
+        trigger: { http: { method: 'POST', path: '/admin/replay', body: { partition: 4, fromOffset: 918200, toOffset: 918210 } } },
+        overrides: { systems: { calls: { 'kafka-consume': { fault: { type: 'KAFKA:TIMEOUT', description: 'No record was received within 10 SECONDS.' } } } } },
+        expect: { status: 200, db: { ledger_posting: { count: 1 } } },
+      },
+      {
+        name: 'The range is above the limit',
+        about: 'An operator asks for 5,000 offsets, which is refused before Kafka is touched. The next call, within the limit, is answered.',
+        triggers: [
+          { http: { method: 'POST', path: '/admin/replay', body: { partition: 4, fromOffset: 918200, toOffset: 923200 } } },
+          { afterMs: 5000, http: { method: 'POST', path: '/admin/replay', body: { partition: 4, fromOffset: 918200, toOffset: 918210 } } },
+        ],
+        overrides: { systems: { calls: { 'kafka-consume': { fault: { type: 'KAFKA:TIMEOUT', description: 'No record was received within 10 SECONDS.' } } } } },
+        expect: { status: 200, db: { ledger_posting: { count: 1 } } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

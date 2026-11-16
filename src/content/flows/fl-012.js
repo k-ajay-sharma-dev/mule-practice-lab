@@ -66,6 +66,83 @@ export default {
       },
     },
   ],
+  simulation: {
+    properties: { 'carrier.clientId': 'shipment-sys-api', 'secure::carrier.clientSecret': 'not-a-real-secret' },
+    systems: {
+      http: [
+        { method: 'POST', path: '/oauth/token', latencyMs: 300, respond: { status: 200, body: { access_token: 'eyJhbGciOiJSUzI1NiJ9.fresh', token_type: 'Bearer', expires_in: 3600 } } },
+        { method: 'POST', path: '/v1/shipments', latencyMs: 450, respond: { status: 201, body: { id: 'SHP-10021', tracking_number: '1Z999AA10123456784' } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'A cached token is reused',
+        about: 'A valid token is already stored, so the token endpoint is not called.',
+        trigger: { http: { method: 'POST', path: '/shipments', body: { orderId: 'ORD-2201', service: 'GROUND', weightKg: 4.2 } } },
+        overrides: { systems: { objectStore: { 'carrier-token-store': { carrierToken: 'eyJhbGciOiJSUzI1NiJ9.cached' } } } },
+        expect: {
+          status: 200,
+          bodyHas: { trackingNumber: '1Z999AA10123456784' },
+          calls: [
+            { method: 'POST', path: '/oauth/token', count: 0 },
+            { method: 'POST', path: '/v1/shipments', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'The first token is fetched once',
+        about: 'No token is stored yet. The first request fetches one, and the second request reuses it.',
+        triggers: [
+          { http: { method: 'POST', path: '/shipments', body: { orderId: 'ORD-2202', service: 'GROUND', weightKg: 1.5 } } },
+          { afterMs: 1000, http: { method: 'POST', path: '/shipments', body: { orderId: 'ORD-2203', service: 'EXPRESS', weightKg: 0.8 } } },
+        ],
+        expect: {
+          status: 200,
+          calls: [
+            { method: 'POST', path: '/oauth/token', count: 1 },
+            { method: 'POST', path: '/v1/shipments', count: 2 },
+          ],
+        },
+      },
+      {
+        name: 'The carrier revoked the token',
+        about: 'The stored token gets 401. A fresh token is fetched and the shipment is sent once more, with success.',
+        trigger: { http: { method: 'POST', path: '/shipments', body: { orderId: 'ORD-2204', service: 'GROUND', weightKg: 2 } } },
+        overrides: {
+          systems: {
+            objectStore: { 'carrier-token-store': { carrierToken: 'eyJhbGciOiJSUzI1NiJ9.cached' } },
+            http: [{ method: 'POST', path: '/v1/shipments', responses: [{ status: 401, body: { error: 'invalid_token' } }, { status: 201, body: { id: 'SHP-10022', tracking_number: '1Z999AA10123456785' } }] }],
+          },
+        },
+        expect: {
+          status: 200,
+          bodyHas: { trackingNumber: '1Z999AA10123456785' },
+          calls: [
+            { method: 'POST', path: '/oauth/token', count: 1 },
+            { method: 'POST', path: '/v1/shipments', count: 2 },
+          ],
+        },
+      },
+      {
+        name: 'Still 401 after a fresh token',
+        about: 'The carrier rejects the new token too. The call is retried only once, with no loop, and the caller gets an error.',
+        trigger: { http: { method: 'POST', path: '/shipments', body: { orderId: 'ORD-2205', service: 'GROUND', weightKg: 3 } } },
+        overrides: {
+          systems: {
+            objectStore: { 'carrier-token-store': { carrierToken: 'eyJhbGciOiJSUzI1NiJ9.cached' } },
+            http: [{ method: 'POST', path: '/v1/shipments', respond: { status: 401, body: { error: 'invalid_client' } } }],
+          },
+        },
+        expect: {
+          bodyLacks: { trackingNumber: '1Z999AA10123456784' },
+          calls: [
+            { method: 'POST', path: '/oauth/token', count: 1 },
+            { method: 'POST', path: '/v1/shipments', count: 2 },
+          ],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

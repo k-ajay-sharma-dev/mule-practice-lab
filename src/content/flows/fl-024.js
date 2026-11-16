@@ -5,6 +5,8 @@ const sagaStep = (name, method, path, column, status) =>
   flow(name, null, [
     scope('try', { transactionalAction: 'INDIFFERENT' }, [
       step('http-request', { method, path, responseTimeout: 5000 }),
+      // Each service answers { id }; keep it for the saga row.
+      step('set-variable', { variableName: 'resultId', value: '#[payload.id]' }),
       step('db-update', { sql: `UPDATE saga SET ${column} = :resultId, status = '${status}' WHERE saga_id = :sagaId` }),
     ], {
       errorHandlers: [
@@ -30,6 +32,8 @@ const undoStep = (name, method, path, stepName) =>
       ],
     }),
   ])
+
+const CHECKOUT = { orderId: 'ORD-55120', customerId: 'C-881', items: [{ sku: 'SKU-100', qty: 2 }], amount: 59.9, cardToken: 'tok_4f9a' }
 
 export default {
   id: 'fl-024',
@@ -166,6 +170,99 @@ export default {
       rule: { type: 'before', first: 'scheduler', then: ['db-select', 'os-retrieve'] },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'POST', path: '/reservations', latencyMs: 120, respond: { status: 201, body: { id: 'RSV-301' } } },
+        { method: 'POST', path: '/authorisations', latencyMs: 300, respond: { status: 201, body: { id: 'AUTH-7701' } } },
+        { method: 'POST', path: '/bookings', latencyMs: 250, respond: { status: 201, body: { id: 'BK-9001' } } },
+        { method: 'POST', path: '/authorisations/{id}/void', respond: { status: 200, body: { voided: true } } },
+        { method: 'DELETE', path: '/reservations/{id}', respond: { status: 204, body: null } },
+      ],
+      db: {
+        tables: {
+          saga: { columns: ['saga_id', 'status', 'reservation_id', 'authorisation_id', 'booking_id', 'created_at'], key: 'saga_id', rows: [] },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A checkout goes through',
+        about: 'Stock, payment and shipping all succeed, and the saga ends COMPLETED.',
+        trigger: { http: { method: 'POST', path: '/checkout', body: CHECKOUT } },
+        expect: {
+          bodyHas: { status: 'COMPLETED' },
+          calls: [
+            { method: 'POST', path: '/reservations', count: 1 },
+            { method: 'POST', path: '/authorisations', count: 1 },
+            { method: 'POST', path: '/bookings', count: 1 },
+          ],
+          db: { saga: { count: 1, has: [{ status: 'COMPLETED', reservation_id: 'RSV-301', authorisation_id: 'AUTH-7701' }] } },
+        },
+      },
+      {
+        name: 'Shipping fails',
+        about: 'No courier slot is free, so the payment is voided and the stock released.',
+        trigger: { http: { method: 'POST', path: '/checkout', body: CHECKOUT } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/bookings', respond: { status: 503, body: { message: 'No slots' } } }] } },
+        expect: {
+          bodyLacks: { status: 'COMPLETED' },
+          calls: [
+            { method: 'POST', path: '/authorisations/AUTH-7701/void', count: 1 },
+            { method: 'DELETE', path: '/reservations/RSV-301', count: 1 },
+          ],
+          db: { saga: { has: [{ status: 'COMPENSATED' }] } },
+        },
+      },
+      {
+        name: 'The card is declined',
+        about: 'Payment fails after the stock was reserved. Only the reservation is undone, and shipping is never booked.',
+        trigger: { http: { method: 'POST', path: '/checkout', body: CHECKOUT } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/authorisations', respond: { status: 402, body: { message: 'Card declined' } } }] } },
+        expect: {
+          bodyLacks: { status: 'COMPLETED' },
+          calls: [
+            { method: 'DELETE', path: '/reservations/RSV-301', count: 1 },
+            { method: 'POST', path: '/authorisations/{id}/void', count: 0 },
+            { method: 'POST', path: '/bookings', count: 0 },
+          ],
+          db: { saga: { has: [{ status: 'COMPENSATED' }] } },
+        },
+      },
+      {
+        name: 'The void fails once',
+        about: 'Shipping fails and the first void call cannot reach the payment service. The retry voids the payment and the saga ends COMPENSATED.',
+        trigger: { http: { method: 'POST', path: '/checkout', body: CHECKOUT } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'POST', path: '/bookings', respond: { status: 503, body: { message: 'No slots' } } },
+              { method: 'POST', path: '/authorisations/{id}/void', responses: [{ fault: 'CONNECTIVITY' }, { status: 200, body: { voided: true } }] },
+            ],
+          },
+        },
+        expect: {
+          bodyLacks: { status: 'COMPLETED' },
+          calls: [{ method: 'POST', path: '/authorisations/AUTH-7701/void', count: 2 }],
+          db: { saga: { has: [{ status: 'COMPENSATED' }] } },
+        },
+      },
+      {
+        name: 'The payment service stays down',
+        about: 'Every void call fails. The saga must be left COMPENSATION_PENDING so ops can see it.',
+        trigger: { http: { method: 'POST', path: '/checkout', body: CHECKOUT } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'POST', path: '/bookings', respond: { status: 503, body: { message: 'No slots' } } },
+              { method: 'POST', path: '/authorisations/{id}/void', respond: { fault: 'CONNECTIVITY' } },
+            ],
+          },
+        },
+        expect: { bodyLacks: { status: 'COMPLETED' }, db: { saga: { has: [{ status: 'COMPENSATION_PENDING' }] } } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-continue',
@@ -173,18 +270,8 @@ export default {
       why: 'Queueing a failed compensation for retry is checked once. One Try per compensation is a good habit, but a single Try around each loop pass also works.',
     },
     {
-      type: 'on-error-continue',
-      flow: 'undo-payment',
-      why: 'Queueing a failed compensation for retry is checked once. One Try per compensation is a good habit, but a single Try around each loop pass also works.',
-    },
-    {
       type: 'mq-publish',
       why: 'Queueing a failed compensation for retry is checked once. Each compensation can have its own copy, or one shared handler can do it.',
-    },
-    {
-      type: 'db-update',
-      flow: 'undo-payment',
-      why: 'Marking the saga COMPENSATION_PENDING is checked once. Each compensation can have its own copy, or one shared handler can do it.',
     },
     {
       type: 'db-update',
@@ -226,6 +313,8 @@ export default {
     sagaStep('step-payment', 'POST', '/authorisations', 'authorisation_id', 'PAYMENT_DONE'),
     sagaStep('step-shipping', 'POST', '/bookings', 'booking_id', 'SHIPPING_DONE'),
     flow('compensate', null, [
+      // A retry starts from COMPENSATING, so a compensation that now succeeds can end the saga as COMPENSATED.
+      step('db-update', { sql: "UPDATE saga SET status = 'COMPENSATING' WHERE saga_id = :sagaId" }),
       step('db-select', { sql: 'SELECT * FROM saga WHERE saga_id = :sagaId' }),
       step('transform', {
         script:
@@ -326,8 +415,8 @@ No distributed transaction (XA) is possible across these HTTP APIs.
 Each step is a private flow with a **Try scope**; errors raise \`SAGA:STEP_FAILED\` carrying which step failed.
 
 **Compensation flow**
-5. Flow error handler (On Error Propagate for \`SAGA:STEP_FAILED\`) → flow-ref \`compensate\`: read saga row, DataWeave builds the list of completed steps **in reverse**, For Each → Choice per step → void authorisation / delete reservation (each idempotent, inside its own Try).
-6. If a compensation fails: mark saga \`COMPENSATION_PENDING\` and publish \`{ sagaId, step }\` to an **Anypoint MQ** retry queue with DLQ; a worker keeps retrying with backoff. After max retries, the DLQ + alert means manual intervention.
+5. Flow error handler (On Error Propagate for \`SAGA:STEP_FAILED\`) → flow-ref \`compensate\`: mark the saga \`COMPENSATING\`, read saga row, DataWeave builds the list of completed steps **in reverse**, For Each → Choice per step → void authorisation / delete reservation (each idempotent, inside its own Try).
+6. If a compensation fails: mark saga \`COMPENSATION_PENDING\` and publish \`{ sagaId, step }\` to an **Anypoint MQ** retry queue with DLQ; a worker keeps retrying with backoff by running \`compensate\` again. Because \`compensate\` starts by setting \`COMPENSATING\`, a retry that now works ends the saga \`COMPENSATED\`; without that reset the saga would stay \`COMPENSATION_PENDING\` for ever. After max retries, the DLQ + alert means manual intervention.
 7. Respond to the client 409/502 with \`{ sagaId, status: "FAILED" }\`.
 
 **Crash recovery:** a **Scheduler** flow every minute selects sagas not in a terminal state and older than N seconds. Policy: compensate them (simplest and safe because every call is idempotent), or resume forward if the step's outcome can be queried. Use a lock/primary-node scheduling so only one replica recovers.

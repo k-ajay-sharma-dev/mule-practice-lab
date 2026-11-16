@@ -56,6 +56,104 @@ export default {
       rule: { type: 'inside', component: 'logger', within: 'on-error-propagate', where: { message: 'docnum' } },
     },
   ],
+  simulation: {
+    properties: { 'sap.gateway.host': 'sapgw.plant.example', 'sap.gateway.service': 'sapgw00' },
+    tests: [
+      {
+        name: 'A material change is published',
+        about: 'SAP sends a new MATMAS05 IDoc and one event goes to material-events.',
+        trigger: {
+          source: 'sap-document-listener',
+          payload: {
+            MATMAS05: {
+              IDOC: {
+                EDI_DC40: { DOCNUM: '0000000004512345', IDOCTYP: 'MATMAS05', MESTYP: 'MATMAS' },
+                E1MARAM: { MATNR: 'MAT-100200', MEINS: 'EA', LVORM: '', E1MAKTM: { SPRAS_ISO: 'EN', MAKTX: 'Hex bolt M8x40' } },
+              },
+            },
+          },
+        },
+        expect: { noError: true, sent: [{ destination: 'material-events', count: 1 }] },
+      },
+      {
+        name: 'SAP sends the same IDoc again',
+        about: 'The SAP team reprocesses IDoc 4512345 with no real change, so no second event goes out.',
+        triggers: [
+          {
+            source: 'sap-document-listener',
+            payload: {
+              MATMAS05: {
+                IDOC: {
+                  EDI_DC40: { DOCNUM: '0000000004512345', IDOCTYP: 'MATMAS05', MESTYP: 'MATMAS' },
+                  E1MARAM: { MATNR: 'MAT-100200', MEINS: 'EA', LVORM: '', E1MAKTM: { SPRAS_ISO: 'EN', MAKTX: 'Hex bolt M8x40' } },
+                },
+              },
+            },
+          },
+          {
+            afterMs: 60000,
+            source: 'sap-document-listener',
+            payload: {
+              MATMAS05: {
+                IDOC: {
+                  EDI_DC40: { DOCNUM: '0000000004512345', IDOCTYP: 'MATMAS05', MESTYP: 'MATMAS' },
+                  E1MARAM: { MATNR: 'MAT-100200', MEINS: 'EA', LVORM: '', E1MAKTM: { SPRAS_ISO: 'EN', MAKTX: 'Hex bolt M8x40' } },
+                },
+              },
+            },
+          },
+        ],
+        expect: { noError: true, sent: [{ destination: 'material-events', count: 1 }] },
+      },
+      {
+        name: 'The same material changes twice',
+        about: 'Two IDocs with different numbers carry two real changes to one material, so both are published.',
+        triggers: [
+          {
+            source: 'sap-document-listener',
+            payload: {
+              MATMAS05: {
+                IDOC: {
+                  EDI_DC40: { DOCNUM: '0000000004512345', IDOCTYP: 'MATMAS05', MESTYP: 'MATMAS' },
+                  E1MARAM: { MATNR: 'MAT-100200', MEINS: 'EA', LVORM: '', E1MAKTM: { SPRAS_ISO: 'EN', MAKTX: 'Hex bolt M8x40' } },
+                },
+              },
+            },
+          },
+          {
+            afterMs: 600000,
+            source: 'sap-document-listener',
+            payload: {
+              MATMAS05: {
+                IDOC: {
+                  EDI_DC40: { DOCNUM: '0000000004512391', IDOCTYP: 'MATMAS05', MESTYP: 'MATMAS' },
+                  E1MARAM: { MATNR: 'MAT-100200', MEINS: 'EA', LVORM: 'X', E1MAKTM: { SPRAS_ISO: 'EN', MAKTX: 'Hex bolt M8x40' } },
+                },
+              },
+            },
+          },
+        ],
+        expect: { noError: true, sent: [{ destination: 'material-events', count: 2 }] },
+      },
+      {
+        name: 'Anypoint MQ is down',
+        about: 'The publish fails. The failure is not hidden, and the log names the IDoc number.',
+        trigger: {
+          source: 'sap-document-listener',
+          payload: {
+            MATMAS05: {
+              IDOC: {
+                EDI_DC40: { DOCNUM: '0000000004512402', IDOCTYP: 'MATMAS05', MESTYP: 'MATMAS' },
+                E1MARAM: { MATNR: 'MAT-100377', MEINS: 'KG', LVORM: '', E1MAKTM: { SPRAS_ISO: 'EN', MAKTX: 'Washer 8 mm' } },
+              },
+            },
+          },
+        },
+        overrides: { systems: { queues: { 'material-events': { fault: true } } } },
+        expect: { error: 'ANYPOINT-MQ:CONNECTIVITY', logs: [{ level: ['ERROR', 'WARN'], has: '4512402' }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'sap-matmas-inbound',
@@ -91,7 +189,7 @@ A manufacturer keeps its material master in **SAP S/4HANA**. Each change must re
 **Requirements**
 - SAP pushes the IDocs to Mule. The SAP team has registered a program ID and given you the gateway host and service.
 - Only \`MATMAS05\` is accepted by this app. Other IDoc types use other interfaces.
-- Three consumers must get the data, and they must not depend on the speed of each other or of SAP.
+- Three consumers must get the data, and they must not depend on the speed of each other or of SAP. Events are published to the Anypoint MQ destination \`material-events\`.
 - The event contains the IDoc number, material, base unit, deletion flag and descriptions per language.
 - The same IDoc can be sent again by the SAP team for reprocessing. Without a real change it must not produce a second event.
 - Failures must be easy to trace to an **IDoc number**. The IDoc number is the \`DOCNUM\` field of the IDoc control record.

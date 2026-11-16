@@ -65,6 +65,84 @@ export default {
       why: 'Mule propagates errors by default, and the watermark is only stored on success. This handler only adds a log line.',
     },
   ],
+  simulation: {
+    systems: {
+      objectStore: { ticketSyncStore: { 'helpdesk-tickets-watermark': '2026-11-13T09:50:12Z' } },
+      db: {
+        tables: {
+          tickets: {
+            key: 'id',
+            rows: [
+              { id: 'TCK-40211', subject: 'VPN drops every hour', status: 'OPEN', priority: 'HIGH', updated_at: '2026-11-13T09:50:12Z' },
+              { id: 'TCK-40150', subject: 'Invoice PDF is blank', status: 'CLOSED', priority: 'LOW', updated_at: '2026-11-12T16:02:40Z' },
+            ],
+          },
+        },
+      },
+      http: [
+        {
+          method: 'GET',
+          path: '/helpdesk/api/v2/tickets',
+          latencyMs: 600,
+          respond: {
+            status: 200,
+            body: {
+              tickets: [
+                // Changed in the same second as the watermark, so it comes back again.
+                { id: 'TCK-40211', subject: 'VPN drops every hour', status: 'PENDING', priority: 'HIGH', updated_at: '2026-11-13T09:50:12Z' },
+                { id: 'TCK-40230', subject: 'New starter needs a laptop', status: 'OPEN', priority: 'MEDIUM', updated_at: '2026-11-13T09:54:03Z' },
+                { id: 'TCK-40231', subject: 'Printer on floor 3 jams', status: 'OPEN', priority: 'LOW', updated_at: '2026-11-13T09:58:47Z' },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'Changed tickets are copied',
+        about: 'Two new tickets and one changed ticket reach PostgreSQL. The changed ticket was already stored, so it is updated and the run does not fail.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          calls: [{ method: 'GET', path: '/helpdesk/api/v2/tickets', count: 1 }],
+          db: {
+            tickets: {
+              count: 4,
+              has: [
+                { id: 'TCK-40211', status: 'PENDING' },
+                { id: 'TCK-40230', status: 'OPEN' },
+                { id: 'TCK-40231', status: 'OPEN' },
+              ],
+            },
+          },
+          // The newest ticket written, not the clock (10:00:00 or later).
+          stored: [{ key: 'helpdesk-tickets-watermark', value: '2026-11-13T09:58:47Z' }],
+        },
+      },
+      {
+        name: 'Nothing has changed',
+        about: 'The helpdesk returns an empty list. Nothing is written, the watermark stays and the run ends cleanly.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'GET', path: '/helpdesk/api/v2/tickets', respond: { status: 200, body: { tickets: [] } } }] } },
+        expect: { noError: true, db: { tickets: { count: 2 } }, stored: [{ key: 'helpdesk-tickets-watermark', value: '2026-11-13T09:50:12Z' }] },
+      },
+      {
+        name: 'The helpdesk is down',
+        about: 'The helpdesk answers 503. The run fails and the watermark stays, so the next run asks for the same window again.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'GET', path: '/helpdesk/api/v2/tickets', respond: { status: 503, body: { message: 'Maintenance' } } }] } },
+        expect: { error: 'HTTP:SERVICE_UNAVAILABLE', db: { tickets: { count: 2 } }, stored: [{ key: 'helpdesk-tickets-watermark', value: '2026-11-13T09:50:12Z' }] },
+      },
+      {
+        name: 'The database is down',
+        about: 'PostgreSQL does not answer after the tickets were read. The run fails and the watermark does not move past tickets that were never written.',
+        trigger: { schedule: {} },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', stored: [{ key: 'helpdesk-tickets-watermark', value: '2026-11-13T09:50:12Z' }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'helpdesk-ticket-sync',
@@ -121,7 +199,8 @@ Reports now miss tickets, and some runs fail with duplicate key errors.
 - The watermark must never be later than the newest ticket the run has stored.
 - A failed run must not move the watermark.
 - A run with no changes must not move the watermark.
-- The watermark must survive a restart and a redeploy.
+- The watermark must survive a restart and a redeploy. Keep it in the Object Store under the key \`helpdesk-tickets-watermark\`, as the API's ISO timestamp text.
+- Tickets go into the \`tickets\` table, keyed on \`id\`, with the columns \`subject\`, \`status\`, \`priority\` and \`updated_at\`.
 
 **Design the flow.** Explain each of the three bugs in the first version.
 `,

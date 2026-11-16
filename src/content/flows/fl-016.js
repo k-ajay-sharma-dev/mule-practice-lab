@@ -1,5 +1,20 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
 
+// Mailbox data for the run scenario: Microsoft Graph messages with their attachments.
+const UBL_INVOICE =
+  'PEludm9pY2U+PElEPklOVi01NTIxPC9JRD48QWNjb3VudGluZ1N1cHBsaWVyUGFydHk+PFBhcnR5PjxQYXJ0eU5hbWU+PE5hbWU+QWNtZSBTdXBwbGllczwvTmFtZT48L1BhcnR5TmFtZT48L1BhcnR5PjwvQWNjb3VudGluZ1N1cHBsaWVyUGFydHk+PExlZ2FsTW9uZXRhcnlUb3RhbD48UGF5YWJsZUFtb3VudD4xMjUwLjAwPC9QYXlhYmxlQW1vdW50PjwvTGVnYWxNb25ldGFyeVRvdGFsPjwvSW52b2ljZT4='
+const xmlAttachment = { name: 'INV-5521.xml', contentType: 'application/xml', isInline: false, contentBytes: UBL_INVOICE }
+const pdfAttachment = { name: 'INV-5522.pdf', contentType: 'application/pdf', isInline: false, contentBytes: 'JVBERi0xLjQK' }
+const logo = { name: 'logo.png', contentType: 'image/png', isInline: true, contentBytes: 'iVBORw0KGgo=' }
+const mail = (id, sender, attachments) => ({
+  id,
+  internetMessageId: `<${id}@mail.acme-supplies.example>`,
+  from: { emailAddress: { address: sender } },
+  subject: 'Invoices for November',
+  attachments,
+})
+const inbox = (...messages) => ({ method: 'GET', path: '/users/invoices@company.example/mailFolders/inbox/messages', respond: { status: 200, body: { value: messages } } })
+
 export default {
   id: 'fl-016',
   category: 'flows',
@@ -69,6 +84,79 @@ export default {
     { label: 'Senders of unsupported files get an auto-reply', rule: { type: 'exists', component: 'email-send' } },
     { label: 'OCR results arrive on a separate HTTP callback flow', rule: { type: 'source', component: 'http-listener' } },
   ],
+  simulation: {
+    systems: {
+      http: [
+        inbox(mail('AAMk-001', 'billing@acme-supplies.example', [xmlAttachment, pdfAttachment, logo])),
+        { method: 'POST', path: '/users/invoices@company.example/messages/{id}/move', respond: { status: 201, body: { id: 'moved' } } },
+        { method: 'POST', path: '/ap/invoices', latencyMs: 150, respond: { status: 201, body: { apInvoiceId: 'AP-77001' } } },
+        { method: 'PUT', path: '/invoice-bucket/*', latencyMs: 300, respond: { status: 200, body: { eTag: 'e-1' } } },
+        { method: 'POST', path: '/ocr/jobs', respond: { status: 202, body: { jobId: 'OCR-9001' } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'An XML and a PDF invoice arrive',
+        about: 'The XML goes to the AP system, the PDF goes to OCR, and the inline logo is ignored.',
+        trigger: { schedule: {} },
+        expect: {
+          calls: [
+            { method: 'POST', path: '/ap/invoices', count: 1 },
+            { method: 'POST', path: '/ocr/jobs', count: 1 },
+          ],
+          noEmails: true,
+        },
+      },
+      {
+        name: 'The same email is read twice',
+        about: 'The poll runs again before the email has left the inbox. The invoice must not reach AP a second time.',
+        triggers: [{ schedule: {} }, { schedule: {}, afterMs: 60000 }],
+        expect: {
+          calls: [
+            { method: 'POST', path: '/ap/invoices', count: 1 },
+            { method: 'POST', path: '/ocr/jobs', count: 1 },
+          ],
+          noEmails: true,
+        },
+      },
+      {
+        name: 'An unsupported file arrives',
+        about: 'A Word document cannot be processed, so the sender gets an auto-reply.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [inbox(mail('AAMk-002', 'ar@bolt-parts.example', [{ name: 'invoice.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', isInline: false, contentBytes: 'UEsDBA==' }]))],
+          },
+        },
+        expect: {
+          emails: [{ to: 'ar@bolt-parts.example', count: 1 }],
+          calls: [
+            { method: 'POST', path: '/ap/invoices', count: 0 },
+            { method: 'POST', path: '/ocr/jobs', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The AP system is down',
+        about: 'The XML invoice cannot be posted. The PDF in the same email must still go to OCR.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'POST', path: '/ap/invoices', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { calls: [{ method: 'POST', path: '/ocr/jobs', count: 1 }] },
+      },
+      {
+        name: 'OCR sends its result',
+        about: 'The OCR service calls back with the fields it read, and the invoice is posted to AP.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/ocr/callback',
+            body: { documentKey: 'invoices/2026-11-13/AAMk-001/INV-5522.pdf', fields: { invoiceNumber: 'INV-5522', supplierName: 'Acme Supplies', total: '480.00' } },
+          },
+        },
+        expect: { status: 200, calls: [{ method: 'POST', path: '/ap/invoices', count: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'invoice-mailbox-poller',
@@ -97,7 +185,8 @@ export default {
                       'choice',
                       {},
                       [
-                        route({ expression: '#[payload.contentType contains "xml"]' }, [
+                        // An exact match: "contains xml" would also catch Word and Excel files (application/vnd.openxmlformats-...).
+                        route({ expression: '#[["application/xml", "text/xml"] contains lower(payload.contentType)]' }, [
                           step('transform', {
                             script:
                               '%dw 2.0\nimport fromBase64 from dw::core::Binaries\noutput application/json\n// The payload is a Graph attachment object: the XML is Base64 text in contentBytes\nvar invoice = read(fromBase64(payload.contentBytes), "application/xml")\n---\n{\n  invoiceNumber: invoice.Invoice.ID,\n  supplier: invoice.Invoice.AccountingSupplierParty.Party.PartyName.Name,\n  total: invoice.Invoice.LegalMonetaryTotal.PayableAmount as Number,\n  sourceMessageId: vars.messageId\n}',
@@ -180,6 +269,7 @@ Suppliers email invoices to \`invoices@company.example\` (Microsoft 365 mailbox,
 
 **Facts**
 - Every email carries a unique \`Message-ID\` header.
+- The OCR service posts its result to \`POST /ocr/callback\` on your application.
 
 **Design the flow(s):** mailbox trigger, extracting attachments, routing by type, idempotency and error handling.
 `,
@@ -217,6 +307,7 @@ Suppliers email invoices to \`invoices@company.example\` (Microsoft 365 mailbox,
   followUps: [
     { q: 'Why not process attachments directly in memory for large PDFs?', a: 'A 20 MB scan × 5 attachments × concurrent emails can exhaust heap; stream to S3 and pass references, not bytes, to downstream services.' },
     { q: 'What if the OCR callback never arrives?', a: 'Track OCR requests in a status store with a timestamp and have a scheduled flow flag or resubmit those older than the SLA.' },
+    { q: 'Why does the XML route match the content type exactly instead of checking that it contains "xml"?', a: 'Word and Excel attachments have types such as application/vnd.openxmlformats-officedocument.wordprocessingml.document, which contain "xml". A contains check would send them down the XML route, where parsing fails, instead of to the auto-reply.' },
     { q: 'How would you scale beyond one mailbox poller?', a: 'Keep a single poller (polling sources are not safe to run concurrently against one folder) and hand attachments off to a queue so processing can scale independently.' },
   ],
 }

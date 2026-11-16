@@ -61,6 +61,98 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/sys-crm/v1/customers/{customerId}', latencyMs: 300, respond: (req) => ({ status: 200, body: { id: req.params.customerId, name: 'Baltic Tools GmbH', segment: 'B2B' } }) },
+        {
+          method: 'POST',
+          path: '/sys-erp/v1/contract-prices',
+          latencyMs: 700,
+          respond: (req) => ({ status: 200, body: (req.body?.lines ?? []).map((l) => ({ sku: l.sku, quantity: l.quantity, unitPrice: { 'DRILL-18V': 89, 'BIT-SET-32': 12.5 }[l.sku] ?? 10 })) }),
+        },
+        {
+          method: 'POST',
+          path: '/sys-pricing/v1/list-prices',
+          latencyMs: 250,
+          respond: (req) => ({ status: 200, body: (req.body?.lines ?? []).map((l) => ({ sku: l.sku, quantity: l.quantity, unitPrice: { 'DRILL-18V': 119, 'BIT-SET-32': 19.9 }[l.sku] ?? 15 })) }),
+        },
+        {
+          method: 'POST',
+          path: '/sys-inventory/v1/availability',
+          latencyMs: 200,
+          respond: (req) => ({ status: 200, body: [].concat(req.body?.lines ?? req.body ?? []).map((l) => ({ sku: l.sku, available: l.sku === 'DRILL-18V' ? 40 : 3 })) }),
+        },
+        { method: 'POST', path: '/prc-quotes/v1/quotes', latencyMs: 1600, respond: { status: 200, body: { quoteId: 'Q-20931', customerId: '001KV00000B2B01', lines: [{ sku: 'DRILL-18V', quantity: 5, unitPrice: 89, available: true }], total: 445 } } },
+      ],
+      calls: { 'sf-query': { latencyMs: 350, payload: [{ Id: '001KV00000B2B01', Name: 'Baltic Tools GmbH', Segment__c: 'B2B' }] } },
+    },
+    tests: [
+      {
+        name: 'A B2B customer',
+        about: 'The customer is B2B, so the lines are priced from ERP contract prices and then checked for stock.',
+        trigger: { http: { method: 'POST', path: '/prc-quotes/v1/quotes', body: { customerId: '001KV00000B2B01', lines: [{ sku: 'DRILL-18V', quantity: 5 }, { sku: 'BIT-SET-32', quantity: 10 }] } } },
+        expect: {
+          status: 200,
+          bodyHas: { total: 570 },
+          calls: [
+            { method: 'GET', path: '/sys-crm/v1/customers/{customerId}', count: 1 },
+            { method: 'POST', path: '/sys-erp/v1/contract-prices', count: 1 },
+            { method: 'POST', path: '/sys-pricing/v1/list-prices', count: 0 },
+            { method: 'POST', path: '/sys-inventory/v1/availability', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'A B2C customer',
+        about: 'A consumer is priced from the public price list, and the ERP is not called.',
+        trigger: { http: { method: 'POST', path: '/prc-quotes/v1/quotes', body: { customerId: '003KV00000C2C77', lines: [{ sku: 'DRILL-18V', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-crm/v1/customers/{customerId}', respond: { status: 200, body: { id: '003KV00000C2C77', name: 'Pia Jensen', segment: 'B2C' } } }] } },
+        expect: {
+          status: 200,
+          bodyHas: { total: 119 },
+          calls: [
+            { method: 'POST', path: '/sys-erp/v1/contract-prices', count: 0 },
+            { method: 'POST', path: '/sys-pricing/v1/list-prices', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'An unknown customer',
+        about: 'The CRM System API answers 404, so no price or stock is looked up and the portal gets a business error.',
+        trigger: { http: { method: 'POST', path: '/prc-quotes/v1/quotes', body: { customerId: '001KV00000NOPE0', lines: [{ sku: 'DRILL-18V', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/sys-crm/v1/customers/{customerId}', respond: { status: 404, body: { message: 'No such customer' } } }] } },
+        expect: {
+          bodyLacks: '~No listener for endpoint',
+          calls: [
+            { method: 'GET', path: '/sys-crm/v1/customers/{customerId}', count: 1 },
+            { method: 'POST', path: '/sys-erp/v1/contract-prices', count: 0 },
+            { method: 'POST', path: '/sys-pricing/v1/list-prices', count: 0 },
+            { method: 'POST', path: '/sys-inventory/v1/availability', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The inventory API hangs',
+        about: 'Stock cannot be checked, but the portal still gets an answer inside the 5 s SLA.',
+        trigger: { http: { method: 'POST', path: '/prc-quotes/v1/quotes', body: { customerId: '001KV00000B2B01', lines: [{ sku: 'DRILL-18V', quantity: 5 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/sys-inventory/v1/availability', latencyMs: 30000, respond: { status: 200, body: [] } }] } },
+        expect: { maxMs: 5000, calls: [{ method: 'POST', path: '/sys-inventory/v1/availability', count: 1 }] },
+      },
+      {
+        name: 'The portal asks for a quote',
+        about: 'The Experience API passes the request to the Process API and never calls a System API itself.',
+        trigger: { http: { method: 'POST', path: '/exp-sales-portal/v1/quotes', body: { customerId: '001KV00000B2B01', lines: [{ sku: 'DRILL-18V', quantity: 5 }] } } },
+        expect: {
+          status: 200,
+          calls: [
+            { method: 'POST', path: '/prc-quotes/v1/quotes', count: 1 },
+            { method: 'GET', path: '/sys-crm/v1/customers/{customerId}', count: 0 },
+          ],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -87,6 +179,8 @@ export default {
         step('set-variable', { variableName: 'request', value: '#[payload]' }),
         step('http-request', { method: 'GET', path: '/sys-crm/v1/customers/{customerId}', responseTimeout: 1500 }),
         step('set-variable', { variableName: 'customer', value: '#[payload]' }),
+        // The CRM answer replaced the payload; the pricing APIs need the quote lines back.
+        step('set-payload', { value: '#[vars.request]' }),
         router(
           'choice',
           {},
@@ -184,9 +278,10 @@ Systems (each already has, or will get, its own System API):
 **prc-quotes** — \`POST /prc-quotes/v1/quotes\`
 1. Save the request (\`vars.request\`).
 2. HTTP Request \`GET /sys-crm/v1/customers/{customerId}\` (1.5 s) → \`vars.customer\`.
-3. **Choice** \`vars.customer.segment == "B2B"\` → \`/sys-erp/v1/contract-prices\` (2 s); otherwise \`/sys-pricing/v1/list-prices\` (1 s) → \`vars.prices\`.
-4. HTTP Request \`/sys-inventory/v1/availability\` (1 s).
-5. Transform builds the quote from \`vars.customer\`, \`vars.prices\` and the availability payload.
+3. Set Payload back to \`vars.request\`: the CRM answer replaced it, and the pricing APIs need the quote lines.
+4. **Choice** \`vars.customer.segment == "B2B"\` → \`/sys-erp/v1/contract-prices\` (2 s); otherwise \`/sys-pricing/v1/list-prices\` (1 s) → \`vars.prices\`.
+5. HTTP Request \`/sys-inventory/v1/availability\` (1 s).
+6. Transform builds the quote from \`vars.customer\`, \`vars.prices\` and the availability payload.
 
 **Errors:** \`HTTP:NOT_FOUND\` (the only call that can 404 here is the CRM lookup) → 422 \`UNKNOWN_CUSTOMER\`; \`HTTP:TIMEOUT / SERVICE_UNAVAILABLE / CONNECTIVITY\` → 503; \`ANY\` → 500. Worst case 1.5 + 2 + 1 = 4.5 s stays inside the 5 s SLA.
 

@@ -23,6 +23,14 @@ const subscriber = (team, steps) =>
     ],
   )
 
+const ORDER_EVENT = {
+  eventId: 'EV-7001',
+  eventType: 'OrderConfirmed',
+  version: '1.0',
+  occurredAt: '2026-11-13T09:59:40Z',
+  data: { orderId: 'O-1001', totalAmount: 250, customerEmail: 'ana.silva@example.com' },
+}
+
 export default {
   id: 'fl-019',
   category: 'flows',
@@ -108,6 +116,68 @@ export default {
       },
     },
   ],
+  // Message properties set on a publish are not simulated, so the analytics filter is tested from its own queue.
+  simulation: {
+    systems: {
+      exchanges: { 'order-events': ['order-events.warehouse', 'order-events.loyalty', 'order-events.analytics', 'order-events.email'] },
+      db: { tables: { orders: { columns: ['id', 'status'], key: 'id', rows: [{ id: 'O-1001', status: 'PLACED' }] } } },
+      http: [
+        { method: 'POST', path: '/warehouse/pick-requests', latencyMs: 200, respond: { status: 201, body: { pickId: 'PK-501' } } },
+        { method: 'POST', path: '/loyalty/points', respond: { status: 200, body: { points: 25 } } },
+        { method: 'POST', path: '/analytics/orders', respond: { status: 202, body: null } },
+      ],
+    },
+    tests: [
+      {
+        name: 'An order is confirmed',
+        about: 'The publisher sends one event to the exchange. The exchange copies it to every team, and each team acts on it.',
+        trigger: { http: { method: 'POST', path: '/orders/O-1001/confirm', body: { orderId: 'O-1001', totalAmount: 250, customerEmail: 'ana.silva@example.com' } } },
+        expect: {
+          status: 200,
+          sent: [{ destination: 'order-events', count: 1 }],
+          notSent: ['order-events.warehouse', 'order-events.loyalty', 'order-events.analytics', 'order-events.email'],
+          calls: [
+            { method: 'POST', path: '/warehouse/pick-requests', count: 1 },
+            { method: 'POST', path: '/loyalty/points', count: 1 },
+          ],
+          emails: [{ to: 'ana.silva@example.com', count: 1 }],
+        },
+      },
+      {
+        name: 'The warehouse gets the event',
+        about: 'The pick request is created, then the event is acknowledged.',
+        trigger: { message: { kind: 'mq', destination: 'order-events.warehouse', payload: ORDER_EVENT, properties: { totalAmount: '250' } } },
+        expect: { calls: [{ method: 'POST', path: '/warehouse/pick-requests', count: 1 }], ack: 'acked' },
+      },
+      {
+        name: 'The warehouse is down once',
+        about: 'The first delivery fails and goes back to the queue. The redelivery must still be processed, not dropped as a duplicate.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'order-events.warehouse', payload: ORDER_EVENT, properties: { totalAmount: '250' } } },
+          { message: { kind: 'mq', destination: 'order-events.warehouse', payload: ORDER_EVENT, properties: { totalAmount: '250' }, deliveryCount: 2 }, afterMs: 30000 },
+        ],
+        overrides: { systems: { http: [{ method: 'POST', path: '/warehouse/pick-requests', responses: [{ fault: 'CONNECTIVITY' }, { status: 201, body: { pickId: 'PK-502' } }] }] } },
+        expect: { calls: [{ method: 'POST', path: '/warehouse/pick-requests', count: 2 }], ack: ['returned', 'acked'] },
+      },
+      {
+        name: 'The same event arrives twice',
+        about: 'The broker delivers the event again. The customer still gets one email, and the copy is acknowledged so it leaves the queue.',
+        triggers: [
+          { message: { kind: 'mq', destination: 'order-events.email', payload: ORDER_EVENT, properties: { totalAmount: '250' } } },
+          { message: { kind: 'mq', destination: 'order-events.email', payload: ORDER_EVENT, properties: { totalAmount: '250' } }, afterMs: 5000 },
+        ],
+        expect: { emails: [{ to: 'ana.silva@example.com', count: 1 }], ack: ['acked', 'acked'] },
+      },
+      {
+        name: 'A small order reaches analytics',
+        about: 'The order is 60 EUR, so analytics does not forward it, but the event is still acknowledged.',
+        trigger: {
+          message: { kind: 'mq', destination: 'order-events.analytics', payload: { ...ORDER_EVENT, eventId: 'EV-7002', data: { ...ORDER_EVENT.data, orderId: 'O-1002', totalAmount: 60 } }, properties: { totalAmount: '60' } },
+        },
+        expect: { calls: [{ method: 'POST', path: '/analytics/orders', count: 0 }], ack: 'acked' },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -171,6 +241,9 @@ New subscribers (e.g. a fraud team) will be added next quarter **without changin
 **Facts**
 - Every order event has a unique \`eventId\`.
 - A broker may deliver the same event more than once. No consumer may lose an event if it crashes while processing it.
+- The order system confirms an order with \`POST /orders/{orderId}/confirm\` on the publisher app.
+- The exchange is \`order-events\`. Each team's queue is named after it: \`order-events.warehouse\`, \`order-events.loyalty\`, \`order-events.analytics\` and \`order-events.email\`.
+- The publisher sets the message property \`totalAmount\` on every event.
 
 **Design the flow(s):** publisher, broker topology, subscribers, filtering, failure isolation, and event contract/versioning.
 `,

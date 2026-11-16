@@ -32,6 +32,66 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      calls: {
+        'sf-upsert': { payload: { successful: true, items: [{ id: 'a0B8d000004QxYzEAK', successful: true }] } },
+      },
+      db: {
+        tables: {
+          INTEGRATION_ERROR: {
+            columns: ['ERROR_ID', 'INTERFACE', 'BUSINESS_KEY', 'PAYLOAD', 'ERROR_TEXT', 'STATUS', 'CREATED_AT'],
+            key: 'ERROR_ID',
+            rows: [],
+          },
+        },
+        sequences: { INTEGRATION_ERROR_SEQ: 5120 },
+        latencyMs: 15,
+      },
+    },
+    tests: [
+      {
+        name: 'A status change is synced',
+        about: 'Order 7002211 is shipped. Salesforce takes the upsert and nothing is parked.',
+        trigger: { source: 'db-listener', payload: { ORDER_ID: 7002211, STATUS_CODE: 'SH', CARRIER_CODE: 'UPS', TRACKING_NO: '1Z999AA10123456784', LAST_UPDATED_TS: '2026-11-13T09:59:40Z' } },
+        expect: {
+          noError: true,
+          db: { INTEGRATION_ERROR: { count: 0 } },
+          connector: [
+            {
+              type: 'sf-upsert',
+              settings: { objectType: 'Customer_Order__c', externalIdField: 'OMS_Order_Id__c' },
+              has: [{ OMS_Order_Id__c: '7002211', Tracking_Number__c: '1Z999AA10123456784' }],
+              count: 1,
+            },
+          ],
+        },
+      },
+      {
+        name: 'Salesforce blips once',
+        about: 'The first upsert fails to connect and the retry works, so nothing is parked.',
+        trigger: { source: 'db-listener', payload: { ORDER_ID: 7002212, STATUS_CODE: 'DL', CARRIER_CODE: 'DHL', TRACKING_NO: 'JD014600006281234567', LAST_UPDATED_TS: '2026-11-13T09:59:52Z' } },
+        overrides: {
+          systems: {
+            calls: {
+              'sf-upsert': [
+                { fault: { type: 'SALESFORCE:CONNECTIVITY', description: 'Connection reset by peer' } },
+                { payload: { successful: true, items: [{ id: 'a0B8d000004QxZ1EAK', successful: true }] } },
+              ],
+            },
+          },
+        },
+        expect: { noError: true, db: { INTEGRATION_ERROR: { count: 0 } }, connector: [{ type: 'sf-upsert', count: 2 }] },
+      },
+      {
+        name: 'Salesforce stays down',
+        about: 'Every retry fails. The change is parked in INTEGRATION_ERROR for replay instead of being lost.',
+        trigger: { source: 'db-listener', payload: { ORDER_ID: 7002213, STATUS_CODE: 'CX', CARRIER_CODE: null, TRACKING_NO: null, LAST_UPDATED_TS: '2026-11-13T09:59:58Z' } },
+        overrides: { systems: { calls: { 'sf-upsert': { fault: { type: 'SALESFORCE:CONNECTIVITY', description: 'Service Unavailable' } } } } },
+        expect: { db: { INTEGRATION_ERROR: { count: 1, has: [{ BUSINESS_KEY: '7002213', STATUS: 'NEW' }] } } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'oms-status-to-salesforce',
@@ -39,6 +99,8 @@ export default {
       // Each changed row triggers its own flow execution.
       source('db-listener', { table: 'ORDER_STATUS_V', watermarkColumn: 'LAST_UPDATED_TS', idColumn: 'ORDER_ID' }),
       [
+        // Kept for the error table: the Transform replaces the row with the Salesforce record.
+        step('set-variable', { variableName: 'orderId', value: '#[payload.ORDER_ID as String]' }),
         step('transform', {
           script:
             '%dw 2.0\noutput application/java\nvar statusMap = {\n  "CR": "Created", "AL": "Allocated", "PK": "Picked",\n  "SH": "Shipped", "DL": "Delivered", "CX": "Cancelled", "RT": "Returned"\n}\n---\n[{\n  OMS_Order_Id__c: payload.ORDER_ID as String,\n  Status__c: statusMap[payload.STATUS_CODE] default "Unknown",\n  Carrier__c: payload.CARRIER_CODE,\n  Tracking_Number__c: payload.TRACKING_NO,\n  Status_Changed_At__c: payload.LAST_UPDATED_TS as DateTime\n}]',
@@ -51,8 +113,11 @@ export default {
       [
         // Continue: the watermark moves on, so the row must be parked somewhere replayable.
         handler('on-error-continue', { type: 'ANY' }, [
+          // The insert's parameters: the record as JSON text and the error, next to vars.orderId.
+          step('set-variable', { variableName: 'recordJson', value: '#[write(payload, "application/json")]' }),
+          step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
           step('db-insert', {
-            sql: "INSERT INTO INTEGRATION_ERROR (ERROR_ID, INTERFACE, BUSINESS_KEY, PAYLOAD, ERROR_TEXT, STATUS, CREATED_AT)\nVALUES (INTEGRATION_ERROR_SEQ.NEXTVAL, 'OMS_STATUS_SF', :orderId, :payload, :errorText, 'NEW', SYSTIMESTAMP)",
+            sql: "INSERT INTO INTEGRATION_ERROR (ERROR_ID, INTERFACE, BUSINESS_KEY, PAYLOAD, ERROR_TEXT, STATUS, CREATED_AT)\nVALUES (INTEGRATION_ERROR_SEQ.NEXTVAL, 'OMS_STATUS_SF', :orderId, :recordJson, :errorText, 'NEW', SYSTIMESTAMP)",
           }),
           step('logger', { level: 'ERROR', message: '#["Status sync parked: " ++ error.description]' }),
         ]),
@@ -92,7 +157,7 @@ A retailer's **order management system** runs on **Oracle**. Store associates an
 1. **Database On Table Row** — table/view \`ORDER_STATUS_V\`, **watermarkColumn** \`LAST_UPDATED_TS\`, **idColumn** \`ORDER_ID\`, frequency 15 s. The listener selects only rows with a higher watermark than the last poll; each row triggers one flow execution.
 2. **Transform Message** — status code lookup (\`CR → Created\` ...), carrier, tracking, timestamp → a one-element list of \`Customer_Order__c\` records.
 3. **Until Successful** (3 retries, 5 s) → **Salesforce Upsert** \`Customer_Order__c\` on \`OMS_Order_Id__c\`. Check \`payload.items.successful\` and raise an error for record-level failures (validation rules, locked records).
-4. **On Error Continue** → **Database Insert** into \`INTEGRATION_ERROR\` (business key, payload, error, status NEW) + log. A small replay flow (or an ops API) re-submits NEW rows later.
+4. **On Error Continue** → **Database Insert** into \`INTEGRATION_ERROR\` (business key, payload, error, status NEW) + log. The Transform has replaced the row by then, so keep \`ORDER_ID\` in a variable at the start, and pass the record as JSON text and \`error.description\` as the insert's parameters. A small replay flow (or an ops API) re-submits NEW rows later.
 
 **Why park instead of propagate?** The next poll only picks up rows with a higher watermark, so do not count on a failed row coming back; propagating could lose it. The error table is the replay source.
 

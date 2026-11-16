@@ -2,9 +2,10 @@
 // A behaviour gets { node, c (its settings), event (a copy the behaviour may change), run, flow, label } and returns
 // { event, text } where text says in one line what happened, for the trace.
 import { COMPONENTS } from '../flow/catalog.js'
-import { render } from './dw/index.js'
-import { MuleError, SimUnsupported } from './errors.js'
+import { read, render } from './dw/index.js'
+import { MuleError, SimUnsupported, SqlError } from './errors.js'
 import { matchPath, reasonPhrase, statusErrorType } from './http.js'
+import { schemaProblems } from './schema.js'
 import { runSql, tableNamesIn } from './sql.js'
 import { brief, copy, isObject } from './values.js'
 
@@ -22,8 +23,11 @@ export function sourceEvent(source, t, run) {
     case 'http': {
       const method = String(t.method ?? 'GET').toUpperCase()
       const body = t.body
+      const payload = copy(body)
       return {
-        payload: copy(body),
+        payload,
+        // the bytes as sent (rawBody when the test gives them), for payload.^raw and signature checks
+        raw: body !== undefined && typeof body !== 'string' ? { of: payload, text: t.rawBody ?? JSON.stringify(body) } : undefined,
         mime: body === undefined ? 'application/java' : typeof body === 'string' ? t.mime ?? 'text/plain' : t.mime ?? 'application/json',
         attributes: {
           method,
@@ -40,6 +44,7 @@ export function sourceEvent(source, t, run) {
         },
         vars,
         correlationId: corr,
+        authentication: t.authentication ? copy(t.authentication) : undefined,
       }
     }
     case 'schedule':
@@ -47,8 +52,18 @@ export function sourceEvent(source, t, run) {
     case 'file': {
       const name = String(t.path ?? '').split('/').pop()
       const content = t.content ?? run.files[t.path]
+      // Mule reads the file when the flow first touches it, so a malformed file fails inside the flow (where its
+      // error handler can move it), not before the flow starts: here it stays text the flow cannot read as data
+      let payload
+      try {
+        payload = parseContent(content, mimeFor(t.path, t.mime))
+      } catch (e) {
+        if (!(e instanceof MuleError)) throw e
+        payload = content
+      }
       return {
-        payload: parseContent(content, mimeFor(t.path, t.mime)),
+        payload,
+        raw: typeof content === 'string' && payload !== null && typeof payload === 'object' ? { of: payload, text: content } : undefined,
         mime: mimeFor(t.path, t.mime),
         attributes: { fileName: name, path: t.path, directory: String(t.path).replace(/\/[^/]*$/, ''), size: String(typeof content === 'string' ? content : JSON.stringify(content ?? '')).length, timestamp: '2026-11-13T09:58:00Z' },
         vars,
@@ -68,7 +83,9 @@ export function sourceEvent(source, t, run) {
         kafka: { topic: t.destination, partition: t.partition ?? 0, offset: t.offset ?? 1042, key: t.key ?? null, headers: t.properties ?? {}, consumerCommitKey: `commit-${id}` },
         sqs: { messageId: id, receiptHandle: `rh-${id}`, messageAttributes: t.properties ?? {} },
       }[t.kind]
-      return { payload: copy(t.payload), mime: t.mime ?? (typeof t.payload === 'string' ? 'text/plain' : 'application/json'), attributes: attrs, vars, correlationId: t.correlationId ?? corr }
+      const payload = copy(t.payload)
+      const raw = payload !== null && typeof payload === 'object' ? { of: payload, text: t.raw ?? JSON.stringify(t.payload) } : undefined
+      return { payload, raw, mime: t.mime ?? (typeof t.payload === 'string' ? 'text/plain' : 'application/json'), attributes: attrs, vars, correlationId: t.correlationId ?? corr }
     }
     default:
       return { payload: copy(t.payload ?? null), mime: t.mime ?? 'application/json', attributes: copy(t.attributes ?? {}), vars, correlationId: corr }
@@ -99,6 +116,14 @@ export function parseContent(content, mime) {
     const head = lines[0].split(',').map((h) => h.trim())
     return lines.slice(1).map((l) => Object.fromEntries(l.split(',').map((v, i) => [head[i] ?? `column_${i}`, v.trim()])))
   }
+  if (mime === 'application/xml') {
+    try {
+      return read(content, 'application/xml')
+    } catch (e) {
+      if (e instanceof SimUnsupported) throw e
+      throw new MuleError('MULE:EXPRESSION', `The XML content is not well formed: ${e.message}`)
+    }
+  }
   return content
 }
 
@@ -112,7 +137,8 @@ const valueMime = (value, text) => outMime(text) ?? (typeof value === 'string' ?
 function wire(event) {
   if (typeof event.payload === 'string') return event.payload
   try {
-    return render(event.payload, event.mime && event.mime !== 'application/java' ? event.mime : 'application/json')
+    const options = event.writer && event.writer.of === event.payload ? event.writer.options : {}
+    return render(event.payload, event.mime && event.mime !== 'application/java' ? event.mime : 'application/json', options)
   } catch {
     return JSON.stringify(event.payload)
   }
@@ -135,9 +161,15 @@ function lookup(event, name) {
 }
 
 // The values for the :name placeholders of a statement. In a bulk operation each record is looked at first.
-function paramsFor(sql, event, record) {
+// The values for the :names in the SQL. With Input parameters set (#[{ id: vars.orderId }]) only those are used, as
+// in Mule. Without them the simulator is lenient and looks each name up in the record, vars, payload and URI/query.
+function paramsFor(sql, event, record, given) {
   const names = [...String(sql).replace(/'[^']*'/g, "''").matchAll(/(?<![:\w]):([A-Za-z_]\w*)/g)].map((m) => m[1])
   const params = {}
+  if (isObject(given)) {
+    for (const n of names) if (given[n] !== undefined) params[n] = given[n]
+    return params
+  }
   for (const n of names) {
     const camel = n.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase())
     let v = isObject(record) ? (record[n] ?? record[camel]) : undefined
@@ -145,6 +177,14 @@ function paramsFor(sql, event, record) {
     if (v !== undefined) params[n] = v
   }
   return params
+}
+
+// Success status codes as Mule writes them: "200..299,404,422"
+function inCodes(status, codes) {
+  return codes.split(',').some((part) => {
+    const [a, b] = part.trim().split('..').map(Number)
+    return b === undefined || Number.isNaN(b) ? status === a : status >= a && status <= b
+  })
 }
 
 function systemFault(run, kind, name) {
@@ -183,14 +223,29 @@ export const BEHAVIOURS = {
   },
 
   transform({ c, event, run, flow }) {
-    const { value, mime } = run.script(c.script ?? '', event, flow)
+    const { value, mime, options } = run.script(c.script ?? '', event, flow)
     run.tick(2)
     if (c.target === 'variable') {
       const name = String(c.variableName || '').trim() || 'result'
       event.vars[name] = value
       return { event, text: `Transform Message writes vars.${name} = ${brief(value)}` }
     }
-    return { event: { ...event, payload: value, mime }, text: `Transform Message: payload is now ${brief(value)}` }
+    // the output directive's writer options (separator, header, indent...) stay with this payload until it changes
+    const writer = options && Object.keys(options).length ? { of: value, options } : undefined
+    return { event: { ...event, payload: value, mime, writer }, text: `Transform Message: payload is now ${brief(value)}` }
+  },
+
+  // Parse Template: the template file (systems.templates, by location or file name) with each #[...] filled in
+  'parse-template'({ c, event, run, flow }) {
+    const templates = run.scenario.systems?.templates ?? {}
+    const location = String(c.location ?? '')
+    const name = location.replace(/^.*[\\/]/, '')
+    const template = templates[location] ?? templates[name] ?? run.files[location]
+    run.tick(2)
+    if (typeof template !== 'string') return { event, text: `Parse Template: the scenario has no template ${location}, so the payload is unchanged` }
+    const text = String(run.value(template, event, flow) ?? '')
+    const mime = /\.html?$/i.test(location) ? 'text/html' : 'text/plain'
+    return { event: { ...event, payload: text, mime }, text: `Parse Template filled ${location}: ${brief(text)}` }
   },
 
   'raise-error'({ c, event, run, flow }) {
@@ -200,10 +255,31 @@ export const BEHAVIOURS = {
   },
 
   validation({ c, event, run, flow }) {
-    const v = run.value(c.expression, event, flow)
     const fail = (type, text) => {
       throw new MuleError(type, c.message ? String(run.value(c.message, event, flow)) : text)
     }
+    // JSON module Validate schema: the payload against the schema the scenario gives (the project's schema file)
+    if (c.check === 'json-schema' && !/^\s*#\[[\s\S]*(==|!=|>|<|\bis\b|\bmatches\b|\bcontains\b)/.test(String(c.expression ?? ''))) {
+      const schemas = run.scenario.systems?.schemas ?? {}
+      const name = String(c.expression ?? '').replace(/^.*[\\/]/, '')
+      const schema = schemas[c.expression] ?? schemas[name] ?? (Object.keys(schemas).length === 1 ? Object.values(schemas)[0] : null)
+      run.tick(2)
+      if (!schema) return { event, text: 'Validate schema: the scenario gives no schema, so the payload is taken as valid' }
+      let content = event.payload
+      if (typeof content === 'string') {
+        try {
+          content = JSON.parse(content)
+        } catch {
+          fail('JSON:SCHEMA_NOT_HONOURED', 'The payload is not valid JSON.')
+        }
+      }
+      const problems = schemaProblems(content, schema)
+      if (problems.length) {
+        throw new MuleError('JSON:SCHEMA_NOT_HONOURED', c.message ? String(run.value(c.message, event, flow)) : `Input does not comply with schema: ${problems.join('; ')}`, { problems })
+      }
+      return { event, text: 'Validate schema: the payload honours the schema' }
+    }
+    const v = run.value(c.expression, event, flow)
     switch (c.check) {
       case 'is-not-null':
         if (v === null || v === undefined) fail('VALIDATION:NULL', 'The value is null.')
@@ -304,14 +380,18 @@ export const BEHAVIOURS = {
     run.tick(latency)
     const status = answer.status ?? 200
     const body = copy(answer.body ?? null)
-    if (status >= 400) {
-      throw new MuleError(statusErrorType(status), `HTTP ${method} on resource '${url}' failed: ${reasonPhrase(status).toLowerCase() || 'error'} (${status}).`, {
-        errorMessage: { payload: body, attributes: { statusCode: status } },
+    const headers = answer.headers ?? { 'content-type': 'application/json' }
+    const codes = String(c.successStatusCodes ?? '').trim()
+    if (codes ? !inCodes(status, codes) : status >= 400) {
+      // a status outside the success codes is an error; a 2xx or 3xx one is HTTP:RESPONSE_VALIDATION as in Mule
+      const type = status >= 400 ? statusErrorType(status) : 'HTTP:RESPONSE_VALIDATION'
+      throw new MuleError(type, `HTTP ${method} on resource '${url}' failed: ${reasonPhrase(status).toLowerCase() || 'error'} (${status}).`, {
+        errorMessage: { payload: body, attributes: { statusCode: status, reasonPhrase: reasonPhrase(status), headers } },
       })
     }
     // the request's answer replaces the payload and the attributes: the incoming request's attributes are gone now
     return {
-      event: { ...event, payload: body, mime: typeof body === 'string' ? 'text/plain' : 'application/json', attributes: { statusCode: status, reasonPhrase: reasonPhrase(status), headers: answer.headers ?? { 'content-type': 'application/json' } } },
+      event: { ...event, payload: body, mime: typeof body === 'string' ? 'text/plain' : 'application/json', attributes: { statusCode: status, reasonPhrase: reasonPhrase(status), headers } },
       text: `${method} ${path} answered ${status} in ${latency} ms`,
     }
   },
@@ -336,6 +416,35 @@ export const BEHAVIOURS = {
   },
 }
 
+// An SQL failure becomes DB:QUERY_EXECUTION with the text the database itself would give, so a handler that looks
+// for ORA-00001 or "duplicate key" in error.description matches as it would in Mule.
+function sqlFailure(e, c) {
+  if (!(e instanceof SqlError)) return e
+  const msg = e.message
+  const dup = msg.match(/^Duplicate key: table "([^"]+)"/)
+  const vendor = String(c.database ?? '')
+  if (dup) {
+    const t = dup[1]
+    const text = /oracle/i.test(vendor)
+      ? `ORA-00001: unique constraint (${t.toUpperCase()}_PK) violated`
+      : /sql server|mssql/i.test(vendor)
+        ? `Violation of PRIMARY KEY constraint 'PK_${t}'. Cannot insert duplicate key in object 'dbo.${t}'.`
+        : /mysql/i.test(vendor)
+          ? `Duplicate entry for key '${t}.PRIMARY'`
+          : `ERROR: duplicate key value violates unique constraint "${t}_pkey"`
+    return new MuleError('DB:QUERY_EXECUTION', `${text} (${msg})`)
+  }
+  return new MuleError('DB:QUERY_EXECUTION', msg)
+}
+
+function runSqlAsMule(sql, params, db, c) {
+  try {
+    return runSql(sql, params, db)
+  } catch (e) {
+    throw sqlFailure(e, c)
+  }
+}
+
 // A database result replaces the payload, unless the operation has a Target variable: then it goes into that
 // variable and the payload and attributes stay as they were.
 function dbResult(event, c, payload, text) {
@@ -344,13 +453,28 @@ function dbResult(event, c, payload, text) {
   return { event: { ...event, payload, mime: 'application/java', attributes: {} }, text }
 }
 
+// systems.db.failWhen: [{ match: 'DELETE FROM holds', fault: 'QUERY_EXECUTION' | 'CONNECTIVITY', description }]
+// makes the statements whose SQL contains `match` fail while the others work.
+function statementFault(run, sql) {
+  for (const f of run.scenario.systems?.db?.failWhen ?? []) {
+    if (!String(sql).toLowerCase().includes(String(f.match ?? '').toLowerCase())) continue
+    const kind = String(f.fault ?? 'QUERY_EXECUTION').replace(/^DB:/, '')
+    throw new MuleError(`DB:${kind}`, f.description ?? (kind === 'CONNECTIVITY' ? 'The connection to the database was lost.' : `The statement failed: ${sql.slice(0, 60)}`))
+  }
+}
+
 function dbOp({ node, c, event, run, flow }) {
   const fault = systemFault(run, 'db', 'connect')
   if (fault) throw new MuleError('DB:CONNECTIVITY', 'Could not get a connection from the pool: the database does not answer.')
   const sql = String(c.sql ?? '')
-  const params = paramsFor(sql, event)
-  const out = runSql(sql, params, run.db)
-  run.effects.db.push({ type: node.type, sql, params, tables: tableNamesIn(sql), result: out.kind === 'select' ? `${out.rows.length} rows` : out.affectedRows })
+  const given = String(c.inputParameters ?? '').trim() ? run.value(c.inputParameters, event, flow) : undefined
+  const params = paramsFor(sql, event, undefined, given)
+  // recorded before it runs, so a transaction knows the database was the first resource it touched
+  const effect = { type: node.type, sql, params, tables: tableNamesIn(sql), t: run.t }
+  run.effects.db.push(effect)
+  statementFault(run, sql)
+  const out = runSqlAsMule(sql, params, run.db, c)
+  effect.result = out.kind === 'select' ? `${out.rows.length} rows` : out.affectedRows
   run.tick(run.scenario.systems?.db?.latencyMs ?? 8)
   if (out.kind === 'select') {
     const rows = c.maxRows ? out.rows.slice(0, Number(c.maxRows)) : out.rows
@@ -367,8 +491,11 @@ function dbBulk({ node, c, event, run, flow }) {
   const items = Array.isArray(event.payload) ? event.payload : null
   if (!items) throw new MuleError('DB:BAD_SQL_SYNTAX', 'Bulk operations need a list of records as the payload.')
   const sql = String(c.sql ?? '')
-  const counts = items.map((item) => runSql(sql, paramsFor(sql, event, item), run.db).affectedRows ?? 0)
-  run.effects.db.push({ type: node.type, sql, params: { records: items.length }, tables: tableNamesIn(sql), result: counts.reduce((a, b) => a + b, 0) })
+  const effect = { type: node.type, sql, params: { records: items.length }, tables: tableNamesIn(sql), t: run.t }
+  run.effects.db.push(effect)
+  statementFault(run, sql)
+  const counts = items.map((item) => runSqlAsMule(sql, paramsFor(sql, event, item), run.db, c).affectedRows ?? 0)
+  effect.result = counts.reduce((a, b) => a + b, 0)
   run.tick(run.scenario.systems?.db?.latencyMs ?? 15)
   return dbResult(event, c, counts, `${COMPONENTS[node.type].label}: ${items.length} record(s), ${counts.reduce((a, b) => a + b, 0)} row(s) changed`)
 }
@@ -387,12 +514,25 @@ for (const [type, [kind, field, ns]] of Object.entries(PUBLISH)) {
     const destination = String(run.value(c[field], event, flow) ?? '')
     const q = run.scenario.systems?.queues?.[destination]
     if (q?.fault) throw new MuleError(`${ns}:CONNECTIVITY`, `Could not publish to ${destination}: the broker does not answer.`)
-    const msg = { kind, destination, payload: copy(type === 'sqs-send' && c.body ? run.value(c.body, event, flow) : event.payload), mime: event.mime, properties: {}, key: c.key ? run.value(c.key, event, flow) : undefined }
+    const msg = {
+      kind,
+      destination,
+      payload: copy(type === 'sqs-send' && c.body ? run.value(c.body, event, flow) : event.payload),
+      mime: event.mime,
+      properties: {},
+      key: c.key ? run.value(c.key, event, flow) : undefined,
+      topic: type === 'jms-publish' && c.destinationType === 'TOPIC',
+    }
     run.effects.sent.push({ ...msg, t: run.t, flow: flow.name })
     run.tick(kind === 'vm' ? 1 : 20)
-    const listened = run.design.flows.some((f) => f.source && sourceListensOn(f.source, kind, destination))
-    if (listened) run.pending.push(msg)
-    return { event, text: `Message published to ${destination}${listened ? ' (a flow of this design will receive it)' : ''}` }
+    // an Anypoint MQ exchange copies the message to every queue bound to it (systems.exchanges in the scenario)
+    const bound = kind === 'mq' ? run.scenario.systems?.exchanges?.[destination] : null
+    const targets = Array.isArray(bound) ? bound : [destination]
+    const heard = targets.filter((q) => run.design.flows.some((f) => f.source && sourceListensOn(f.source, kind, q)))
+    for (const q of heard) run.pending.push({ ...msg, destination: q, payload: copy(msg.payload) })
+    const listened = heard.length > 0
+    const via = Array.isArray(bound) ? ` (the exchange copies it to ${bound.join(', ')})` : ''
+    return { event, text: `Message published to ${destination}${via}${listened ? ' (a flow of this design will receive it)' : ''}` }
   }
 }
 
@@ -412,6 +552,17 @@ for (const [type, op] of [['mq-ack', 'ack'], ['mq-nack', 'nack'], ['jms-ack', 'a
 
 // ---------- files ----------
 
+// A file's attributes as the File, FTP and SFTP connectors give them. The time a file was last changed comes from
+// systems.fileTimes in the scenario, or the moment the flow wrote it; files the scenario lists without a time were
+// last changed an hour before the run starts.
+const SIM_START = Date.parse('2026-11-13T10:00:00Z')
+function fileAttributes(run, p) {
+  const changed = run.scenario.systems?.fileTimes?.[p] ?? run.fileTimes?.[p] ?? new Date(SIM_START - 3600000).toISOString()
+  const at = String(changed).replace(/Z$/, '')
+  return { fileName: p.split('/').pop(), path: p, size: wireText(run.files[p]).length, timestamp: at, lastModifiedTime: at, creationTime: at, directory: false, regularFile: true }
+}
+const wireText = (v) => (typeof v === 'string' ? v : v instanceof Uint8Array ? String.fromCharCode(...v) : JSON.stringify(v ?? ''))
+
 for (const prefix of ['file', 'sftp', 'ftp']) {
   const ns = NS[prefix]
   BEHAVIOURS[`${prefix}-read`] = ({ c, event, run, flow }) => {
@@ -419,7 +570,7 @@ for (const prefix of ['file', 'sftp', 'ftp']) {
     if (!(path in run.files)) throw new MuleError(`${ns}:ILLEGAL_PATH`, `Path '${path}' doesn't exist`)
     const mime = mimeFor(path, c.outputMimeType)
     run.tick(prefix === 'file' ? 3 : 40)
-    return { event: { ...event, payload: parseContent(run.files[path], mime), mime, attributes: { fileName: path.split('/').pop(), path, size: String(run.files[path]).length } }, text: `Read ${path}` }
+    return { event: { ...event, payload: parseContent(run.files[path], mime), mime, attributes: fileAttributes(run, path) }, text: `Read ${path}` }
   }
   BEHAVIOURS[`${prefix}-write`] = ({ c, event, run, flow }) => {
     const path = String(run.value(c.path, event, flow))
@@ -429,6 +580,7 @@ for (const prefix of ['file', 'sftp', 'ftp']) {
     const text = wire(event)
     run.files[path] = mode === 'APPEND' && path in run.files ? `${run.files[path]}${text}` : text
     run.tick(prefix === 'file' ? 3 : 60)
+    ;(run.fileTimes ??= {})[path] = new Date(SIM_START + run.t).toISOString()
     return { event, text: `${mode === 'APPEND' ? 'Appended to' : 'Wrote'} ${path}` }
   }
   BEHAVIOURS[`${prefix}-move`] = ({ c, event, run, flow }) => {
@@ -472,7 +624,7 @@ for (const prefix of ['file', 'sftp', 'ftp']) {
     const pattern = new RegExp(`^${String(c.matcher || '*').replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i')
     const found = Object.keys(run.files).filter((p) => p.replace(/\/[^/]*$/, '') === dir && pattern.test(p.split('/').pop()))
     run.tick(10)
-    return { event: { ...event, payload: found.map((p) => ({ payload: run.files[p], attributes: { fileName: p.split('/').pop(), path: p } })), mime: 'application/java' }, text: `Listed ${found.length} file(s) in ${dir}` }
+    return { event: { ...event, payload: found.map((p) => ({ payload: run.files[p], attributes: fileAttributes(run, p) })), mime: 'application/java' }, text: `Listed ${found.length} file(s) in ${dir}` }
   }
   BEHAVIOURS[`${prefix}-create-directory`] = ({ event, run }) => {
     run.tick(3)
@@ -499,11 +651,20 @@ export function genericCall({ node, c, event, run, flow, label }) {
   const answers = run.scenario.systems?.calls?.[node.type] ?? run.scenario.systems?.calls?.[c.operation]
   const n = (run.httpCalls[`call:${node.type}`] = (run.httpCalls[`call:${node.type}`] ?? 0) + 1)
   const answer = Array.isArray(answers) ? answers[Math.min(n - 1, answers.length - 1)] : answers
-  run.effects.calls.push({ type: node.type, operation: c.operation ?? c.objectType ?? c.soql ?? '', payload: copy(event.payload), t: run.t })
+  // the settings as they were at the call, with expressions worked out, so a test can check the folder or object used
+  const settings = {}
+  for (const [k, v] of Object.entries(c ?? {})) {
+    try {
+      settings[k] = run.value(v, event, flow)
+    } catch {
+      settings[k] = v
+    }
+  }
+  run.effects.calls.push({ type: node.type, operation: c.operation ?? c.objectType ?? c.soql ?? '', settings, payload: copy(event.payload), t: run.t })
   run.tick(answer?.latencyMs ?? 120)
   if (answer?.fault) throw new MuleError(answer.fault.type, answer.fault.description ?? `${label} failed.`)
   const payload = answer && 'payload' in answer ? copy(answer.payload) : GENERIC_DEFAULTS[node.type]?.(event) ?? copy(event.payload)
-  const out = { ...event, payload, mime: 'application/java' }
+  const out = { ...event, payload, mime: 'application/java', ...(answer && 'attributes' in answer ? { attributes: copy(answer.attributes) } : {}) }
   if (c.target) return { event: { ...event, vars: { ...event.vars, [c.target]: payload } }, text: `${label}: the answer is kept in vars.${c.target}` }
   return { event: out, text: `${label}: ${answers ? 'answered' : 'answered with a plain success (the scenario gives no data for it)'} ${brief(payload)}` }
 }

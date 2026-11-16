@@ -102,6 +102,109 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      schemas: {
+        'web-order.json': {
+          type: 'object',
+          required: ['orderId', 'customerId', 'total', 'items'],
+          properties: { orderId: { type: 'string' }, customerId: { type: 'string' }, total: { type: 'number', exclusiveMinimum: 0 }, items: { type: 'array', minItems: 1 } },
+        },
+      },
+      http: [
+        {
+          method: 'POST',
+          path: '/prc-orders/v1/orders',
+          latencyMs: 1500,
+          respond: (req) => ({ status: 200, body: { orderId: req.body?.orderId, status: 'ACCEPTED', authorisationId: 'AUTH-77120' } }),
+        },
+        {
+          method: 'POST',
+          path: '/sys-payment/v1/authorisations',
+          latencyMs: 600,
+          respond: (req) => ({ status: 200, body: { id: 'AUTH-77120', amount: req.body?.total, status: 'AUTHORISED' } }),
+        },
+        {
+          method: 'POST',
+          path: '/sys-oms/v1/orders',
+          latencyMs: 250,
+          // The order System API needs the order itself, not the payment answer.
+          respond: (req) => (req.body?.orderId && req.body?.customerId ? { status: 201, body: { orderId: req.body.orderId } } : { status: 400, body: { message: 'orderId and customerId are required' } }),
+        },
+        {
+          method: 'POST',
+          path: '/v1/payment_intents',
+          latencyMs: 700,
+          respond: (req) => ({ status: 200, body: { id: 'pi_3QkT81', amount: req.body?.total, status: 'succeeded' } }),
+        },
+      ],
+      db: {
+        tables: {
+          orders: {
+            columns: ['order_id', 'customer_id', 'total', 'payment_ref', 'status'],
+            key: 'order_id',
+            rows: [{ order_id: 'WEB-10031', customer_id: 'CU-2201', total: 58.5, payment_ref: 'AUTH-77001', status: 'NEW' }],
+          },
+        },
+        latencyMs: 12,
+      },
+    },
+    tests: [
+      {
+        name: 'An order goes through',
+        about: 'The Process API authorises the payment, then sends the order itself to the order System API.',
+        trigger: { http: { method: 'POST', path: '/prc-orders/v1/orders', body: { orderId: 'WEB-10045', customerId: 'CU-3150', total: 129.9, items: [{ sku: 'KETTLE-01', quantity: 1 }] } } },
+        expect: {
+          noError: true,
+          bodyHas: { orderId: 'WEB-10045' },
+          calls: [
+            { method: 'POST', path: '/sys-payment/v1/authorisations', count: 1 },
+            { method: 'POST', path: '/sys-oms/v1/orders', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'The payment System API is down',
+        about: 'sys-payment answers 503. No order is created and the outage is passed up as 503.',
+        trigger: { http: { method: 'POST', path: '/prc-orders/v1/orders', body: { orderId: 'WEB-10046', customerId: 'CU-3151', total: 42, items: [{ sku: 'MUG-02', quantity: 2 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/sys-payment/v1/authorisations', respond: { status: 503, body: { code: 'PSP_UNAVAILABLE' } } }] } },
+        expect: { status: 503, calls: [{ method: 'POST', path: '/sys-oms/v1/orders', count: 0 }] },
+      },
+      {
+        name: 'The card is declined',
+        about: 'The PSP answers 200 with status declined. The payment System API must not report it as a success.',
+        trigger: { http: { method: 'POST', path: '/sys-payment/v1/authorisations', body: { orderId: 'WEB-10047', customerId: 'CU-3152', total: 310 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/v1/payment_intents', respond: { status: 200, body: { id: 'pi_3QkT90', status: 'declined', decline_code: 'insufficient_funds' } } }] } },
+        expect: { status: 422, bodyLacks: { status: 'AUTHORISED' } },
+      },
+      {
+        name: 'The Process API hears of a decline',
+        about: 'sys-payment answers 422. The Process API turns it into its own 422 with the code PAYMENT_DECLINED and creates no order.',
+        trigger: { http: { method: 'POST', path: '/prc-orders/v1/orders', body: { orderId: 'WEB-10050', customerId: 'CU-3155', total: 89, items: [{ sku: 'TOASTER-4', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/sys-payment/v1/authorisations', respond: { status: 422, body: { code: 'DECLINED', reason: 'Card declined by issuer' } } }] } },
+        expect: { status: 422, bodyHas: { code: 'PAYMENT_DECLINED' }, calls: [{ method: 'POST', path: '/sys-oms/v1/orders', count: 0 }] },
+      },
+      {
+        name: 'The order does not match the schema',
+        about: 'An order with no items is answered with 400 at the edge, before any downstream call.',
+        trigger: { http: { method: 'POST', path: '/exp-web/v1/orders', body: { orderId: 'WEB-10051', customerId: 'CU-3156', total: 0, items: [] } } },
+        expect: { status: 400, calls: [{ method: 'POST', path: '/prc-orders/v1/orders', count: 0 }] },
+      },
+      {
+        name: 'The shopper sees the decline',
+        about: 'The Process API answers 422 PAYMENT_DECLINED. The edge answers 422 with that business code, not a 500.',
+        trigger: { http: { method: 'POST', path: '/exp-web/v1/orders', body: { orderId: 'WEB-10052', customerId: 'CU-3157', total: 249, items: [{ sku: 'BLENDER-9', quantity: 1 }] } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/prc-orders/v1/orders', respond: { status: 422, body: { code: 'PAYMENT_DECLINED', reason: 'declined' } } }] } },
+        expect: { status: 422, bodyHas: { code: 'PAYMENT_DECLINED' } },
+      },
+      {
+        name: 'The order id already exists',
+        about: 'The insert breaks the unique key, so the order System API fails the call and the order is not stored twice.',
+        trigger: { http: { method: 'POST', path: '/sys-oms/v1/orders', body: { orderId: 'WEB-10031', customerId: 'CU-2201', total: 58.5, paymentRef: 'AUTH-77002' } } },
+        expect: { error: 'DB:QUERY_EXECUTION', db: { orders: { count: 1, lacks: [{ payment_ref: 'AUTH-77002' }] } } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -119,10 +222,10 @@ export default {
       'exp-web-orders',
       source('http-listener', { path: '/exp-web/v1/orders', allowedMethods: 'POST' }),
       [
-        step('validation', { check: 'json-schema', expression: '#[payload]', message: 'Order does not match the web order schema' }),
+        step('validation', { check: 'json-schema', expression: 'schemas/web-order.json', message: 'Order does not match the web order schema' }),
         // Response validator: success-status-code-validator values="200..299,422", so a 422 business
         // rejection comes back as a normal response (the HTTP connector has no HTTP:UNPROCESSABLE_ENTITY type).
-        step('http-request', { method: 'POST', path: '/prc-orders/v1/orders', responseTimeout: 8000 }),
+        step('http-request', { method: 'POST', path: '/prc-orders/v1/orders', responseTimeout: 8000, successStatusCodes: '200..299,422' }),
         router(
           'choice',
           {},
@@ -174,7 +277,7 @@ export default {
       [
         step('set-variable', { variableName: 'order', value: '#[payload]' }),
         // Response validator values="200..299,422": a declined card comes back as a response, not an error.
-        step('http-request', { method: 'POST', path: '/sys-payment/v1/authorisations', responseTimeout: 3000 }),
+        step('http-request', { method: 'POST', path: '/sys-payment/v1/authorisations', responseTimeout: 3000, successStatusCodes: '200..299,422' }),
         router('choice', {}, [
           route({ expression: '#[attributes.statusCode == 422]' }, [
             step('set-variable', { variableName: 'declineReason', value: '#[payload.reason default "declined"]' }),
@@ -182,8 +285,12 @@ export default {
           ]),
         ]),
         step('set-variable', { variableName: 'authorisation', value: '#[payload]' }),
+        // The payment call replaced the payload with the authorisation, so the order is rebuilt for the OMS from vars.order.
+        step('transform', {
+          script: '%dw 2.0\noutput application/json\n---\nvars.order ++ { paymentRef: vars.authorisation.id }',
+        }),
         // Response validator values="200..299,409": a duplicate order comes back as a response (there is no HTTP:CONFLICT type).
-        step('http-request', { method: 'POST', path: '/sys-oms/v1/orders', responseTimeout: 3000 }),
+        step('http-request', { method: 'POST', path: '/sys-oms/v1/orders', responseTimeout: 3000, successStatusCodes: '200..299,409' }),
         router('choice', {}, [
           route({ expression: '#[attributes.statusCode == 409]' }, [
             step('raise-error', { type: 'APP:DUPLICATE_ORDER', description: 'Order already submitted' }),
@@ -331,7 +438,7 @@ The current implementation returns **500 "Internal Server Error"** for everythin
 
 **System layer** raises errors that describe the *system*: the PSP quirk is fixed with a Choice + Raise Error \`APP:PAYMENT_DECLINED\` → 422 \`DECLINED\`; connectivity → 503; PSP 401/403 → 500 and an alert (a caller cannot fix our credentials). \`sys-oms\` maps a unique-key violation to 409 and \`DB:CONNECTIVITY\` to 503.
 
-**Process layer** receives 422, 409 and 503 from the System APIs. The HTTP connector has no \`HTTP:UNPROCESSABLE_ENTITY\` or \`HTTP:CONFLICT\` error types, so each HTTP Request lists the expected business status in its response validator (\`<http:success-status-code-validator values="200..299,422"/>\`, \`"200..299,409"\` for sys-oms); a Choice on \`attributes.statusCode\` raises \`APP:PAYMENT_DECLINED\` / \`APP:DUPLICATE_ORDER\`, which the handler translates into *business* codes \`PAYMENT_DECLINED\`, \`DUPLICATE_ORDER\` (both 422). A 503 does have its own type (\`HTTP:SERVICE_UNAVAILABLE\`) and is mapped to 503 together with \`HTTP:TIMEOUT\`.
+**Process layer** receives 422, 409 and 503 from the System APIs. The HTTP connector has no \`HTTP:UNPROCESSABLE_ENTITY\` or \`HTTP:CONFLICT\` error types, so each HTTP Request lists the expected business status in its response validator (\`<http:success-status-code-validator values="200..299,422"/>\`, \`"200..299,409"\` for sys-oms); a Choice on \`attributes.statusCode\` raises \`APP:PAYMENT_DECLINED\` / \`APP:DUPLICATE_ORDER\`, which the handler translates into *business* codes \`PAYMENT_DECLINED\`, \`DUPLICATE_ORDER\` (both 422). A 503 does have its own type (\`HTTP:SERVICE_UNAVAILABLE\`) and is mapped to 503 together with \`HTTP:TIMEOUT\`. The payment call replaces the payload with the authorisation, so the order is kept in \`vars.order\` and rebuilt with the payment reference before the OMS call.
 
 **Experience layer** validates first (\`JSON:SCHEMA_NOT_HONOURED\` → 400), then translates for the shopper: its request also accepts 422, and a Choice keeps the Process API's body (\`vars.rejection\`) and raises \`APP:ORDER_REJECTED\`, whose handler passes the business code on. Timeout → 504 with "check your order history before retrying". Everything else → 500 with the correlation id only.
 

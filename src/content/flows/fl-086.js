@@ -50,6 +50,85 @@ export default {
       rule: { type: 'inside', component: 'file-move', within: 'on-error-continue', where: { targetPath: 'quarantine' } },
     },
   ],
+  simulation: {
+    systems: {
+      files: {
+        '/data/inbound/acme-1103.json': '{ "orders": [{ "id": "ACM-5501", "customer": "C-1001", "total": 120.50, "ccy": "EUR" }, { "id": "ACM-5502", "customer": "C-1001", "total": 75, "ccy": "EUR" }] }',
+        '/data/inbound/nordhandel-1103.CSV': 'order_no;cust_id;net_amount;currency\nNH-88120;C-2201;310.00;SEK\nNH-88121;C-2204;45.90;SEK',
+        '/data/inbound/blueline-1103.xml':
+          '<Orders><Order id="BL-301"><Customer>C-3307</Customer><Total currency="GBP">99.95</Total></Order><Order id="BL-302"><Customer>C-3310</Customer><Total currency="GBP">12.00</Total></Order></Orders>',
+        '/data/inbound/price-list.pdf': '%PDF-1.7 binary content',
+        '/data/inbound/oddshop-1103.csv': 'order_no;cust_id;net_amount;currency\nOS-1;C-4401;twelve;EUR',
+      },
+    },
+    tests: [
+      {
+        name: 'A JSON order file arrives',
+        about: 'The orders are written in the common shape to /data/normalised, and the source file is archived.',
+        trigger: { file: { path: '/data/inbound/acme-1103.json' } },
+        expect: {
+          noError: true,
+          files: {
+            '/data/normalised/acme-1103.json.json': { exists: true, has: 'ACM-5502' },
+            '/data/inbound/acme-1103.json': { exists: false },
+            '/data/archive/*acme-1103.json*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'A semicolon CSV arrives',
+        about: 'The CSV uses semicolons, and its upper-case extension takes the same route as .csv.',
+        trigger: { file: { path: '/data/inbound/nordhandel-1103.CSV' } },
+        expect: {
+          noError: true,
+          files: {
+            '/data/normalised/nordhandel-1103.CSV.json': { exists: true, has: 'C-2204' },
+            '/data/inbound/nordhandel-1103.CSV': { exists: false },
+            '/data/archive/*nordhandel-1103.CSV*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'An XML order file arrives',
+        about: 'Each Order element becomes one order, with the id and currency read from attributes.',
+        trigger: { file: { path: '/data/inbound/blueline-1103.xml' } },
+        expect: {
+          noError: true,
+          files: {
+            '/data/normalised/blueline-1103.xml.json': { exists: true, has: 'BL-302' },
+            '/data/inbound/blueline-1103.xml': { exists: false },
+            '/data/archive/*blueline-1103.xml*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'A PDF turns up',
+        about: 'An unknown type is not converted. It leaves the inbound folder for quarantine.',
+        trigger: { file: { path: '/data/inbound/price-list.pdf' } },
+        expect: {
+          files: {
+            '/data/normalised/price-list.pdf.json': { exists: false },
+            '/data/inbound/price-list.pdf': { exists: false },
+            '/data/quarantine/*price-list.pdf*': { count: 1 },
+            '/data/archive/*price-list.pdf*': { count: 0 },
+          },
+        },
+      },
+      {
+        name: 'A CSV cannot be parsed',
+        about: 'The amount is the word twelve, so no output is written and the file goes to quarantine.',
+        trigger: { file: { path: '/data/inbound/oddshop-1103.csv' } },
+        expect: {
+          files: {
+            '/data/normalised/oddshop-1103.csv.json': { exists: false },
+            '/data/inbound/oddshop-1103.csv': { exists: false },
+            '/data/quarantine/*oddshop-1103.csv*': { count: 1 },
+            '/data/archive/*oddshop-1103.csv*': { count: 0 },
+          },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'partner-order-intake',
@@ -133,7 +212,7 @@ The order system only wants **one JSON shape**:
 \`\`\`
 
 **Requirements**
-- Write the normalised JSON to \`/data/normalised\`, one output per input file.
+- Write the normalised JSON to \`/data/normalised\`, one output per input file, named after the input file with \`.json\` added (\`acme-1103.csv\` becomes \`acme-1103.csv.json\`).
 - Keep every processed source file in \`/data/archive\`.
 - Unknown types, and files that cannot be parsed, go to \`/data/quarantine\` for a person to review.
 - A same-named file from a partner next week must not collide in the archive.

@@ -64,6 +64,102 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          shipments: {
+            key: 'shipment_id',
+            rows: [
+              { shipment_id: 'SHP-88120', order_id: 'ORD-55120', label_url: null, tracking_no: null },
+              { shipment_id: 'SHP-88121', order_id: 'ORD-55121', label_url: null, tracking_no: null },
+            ],
+          },
+        },
+      },
+      http: [
+        {
+          method: 'POST',
+          path: '/carrier/v2/labels',
+          latencyMs: 700,
+          respond: (req) => ({
+            status: 200,
+            body: { labelUrl: `https://labels.carrier.example/${req.body?.shipmentId}.pdf`, trackingNo: '1Z999AA10123456784' },
+          }),
+        },
+      ],
+    },
+    tests: [
+      {
+        name: 'A label is created',
+        about: 'The carrier answers at once and the label URL is saved on the shipment.',
+        trigger: { message: { kind: 'mq', destination: 'label-requests', payload: { shipmentId: 'SHP-88120', orderId: 'ORD-55120', weightKg: 2.4, postcode: 'LS1 4AP' } } },
+        expect: {
+          noError: true,
+          ack: 'acked',
+          calls: [{ method: 'POST', path: '/carrier/v2/labels', count: 1 }],
+          db: { shipments: { has: [{ shipment_id: 'SHP-88120', label_url: 'https://labels.carrier.example/SHP-88120.pdf' }] } },
+          notSent: ['label-requests-delayed', 'label-requests-dlq'],
+        },
+      },
+      {
+        name: 'The carrier blips',
+        about: 'The first call gets 503 and the next one works, so the label is saved without leaving the flow.',
+        trigger: { message: { kind: 'mq', destination: 'label-requests', payload: { shipmentId: 'SHP-88121', orderId: 'ORD-55121', weightKg: 0.8, postcode: 'M1 2AB' } } },
+        overrides: {
+          systems: {
+            http: [
+              {
+                method: 'POST',
+                path: '/carrier/v2/labels',
+                responses: [
+                  { status: 503, body: { message: 'Service busy' } },
+                  { status: 200, body: { labelUrl: 'https://labels.carrier.example/SHP-88121.pdf', trackingNo: '1Z999AA10123456785' } },
+                ],
+              },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          ack: 'acked',
+          calls: [{ method: 'POST', path: '/carrier/v2/labels', count: 2 }],
+          db: { shipments: { has: [{ shipment_id: 'SHP-88121', label_url: 'https://labels.carrier.example/SHP-88121.pdf' }] } },
+          notSent: ['label-requests-delayed', 'label-requests-dlq'],
+        },
+      },
+      {
+        name: 'The carrier is down for an hour',
+        about: 'Quick retries run out, the request moves to the delayed queue with its slow retry count, and after 4 slow retries it reaches the DLQ.',
+        trigger: { message: { kind: 'mq', destination: 'label-requests', payload: { shipmentId: 'SHP-88120', orderId: 'ORD-55120', weightKg: 2.4, postcode: 'LS1 4AP' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/carrier/v2/labels', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          noError: true,
+          ack: 'acked',
+          calls: [{ method: 'POST', path: '/carrier/v2/labels', max: 20 }],
+          sent: [
+            { destination: 'label-requests-delayed', count: 4 },
+            { destination: 'label-requests-delayed', count: 1, has: { shipmentId: 'SHP-88120', retryAttempt: 1 } },
+            { destination: 'label-requests-delayed', count: 1, has: { shipmentId: 'SHP-88120', retryAttempt: 4 } },
+            { destination: 'label-requests-dlq', count: 1, has: { shipmentId: 'SHP-88120' } },
+          ],
+          db: { shipments: { lacks: [{ shipment_id: 'SHP-88120', label_url: 'https://labels.carrier.example/SHP-88120.pdf' }] } },
+        },
+      },
+      {
+        name: 'The last slow retry fails',
+        about: 'A request on its fourth slow retry still finds the carrier down, so it goes to the DLQ and not back to the delayed queue.',
+        trigger: { message: { kind: 'mq', destination: 'label-requests-delayed', payload: { shipmentId: 'SHP-88121', orderId: 'ORD-55121', weightKg: 0.8, postcode: 'M1 2AB', retryAttempt: 4 } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/carrier/v2/labels', respond: { status: 503, body: { message: 'Service unavailable' } } }] } },
+        expect: {
+          noError: true,
+          ack: 'acked',
+          sent: [{ destination: 'label-requests-dlq', count: 1, has: { shipmentId: 'SHP-88121' } }],
+          notSent: ['label-requests-delayed'],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('label-requests-listener', source('mq-subscriber', { destination: 'label-requests', acknowledgementMode: 'AUTO' }), [
       step('flow-ref', { name: 'request-label' }),
@@ -81,7 +177,12 @@ export default {
           scope('until-successful', { maxRetries: 2, millisBetweenRetries: 3000 }, [
             step('http-request', { method: 'POST', path: '/carrier/v2/labels', responseTimeout: 5000 }),
           ]),
-          step('db-update', { database: 'PostgreSQL', sql: 'UPDATE shipments SET label_url = :labelUrl, tracking_no = :trackingNo WHERE shipment_id = :shipmentId' }),
+          step('db-update', {
+            database: 'PostgreSQL',
+            sql: 'UPDATE shipments SET label_url = :labelUrl, tracking_no = :trackingNo WHERE shipment_id = :shipmentId',
+            // The label comes from the carrier's answer, the shipment ID from the saved request.
+            inputParameters: '#[{ labelUrl: payload.labelUrl, trackingNo: payload.trackingNo, shipmentId: vars.request.shipmentId }]',
+          }),
         ],
         {
           errorHandlers: [
@@ -91,7 +192,8 @@ export default {
                 {},
                 [
                   route({ expression: '#[vars.attempt < 4]' }, [
-                    step('transform', { script: '%dw 2.0\noutput application/json\n---\nvars.request ++ { retryAttempt: vars.attempt + 1 }' }),
+                    // Remove the old count first: ++ keeps both keys, and payload.retryAttempt would read the first one.
+                    step('transform', { script: '%dw 2.0\noutput application/json\n---\n(vars.request - "retryAttempt") ++ { retryAttempt: vars.attempt + 1 }' }),
                     step('mq-publish', { destination: 'label-requests-delayed' }),
                     step('logger', { level: 'WARN', message: '#["Carrier still failing for shipment " ++ vars.request.shipmentId ++ ", slow retry " ++ (vars.attempt + 1)]' }),
                   ]),
@@ -111,7 +213,7 @@ export default {
     ]),
   ),
   description: `
-A warehouse asks a parcel carrier for a shipping label for every packed order. The requests arrive on the Anypoint MQ queue \`label-requests\`, about **6,000 a day**. Mule calls \`POST /carrier/v2/labels\` and saves the label URL in PostgreSQL.
+A warehouse asks a parcel carrier for a shipping label for every packed order. The requests arrive on the Anypoint MQ queue \`label-requests\`, about **6,000 a day**. Mule calls \`POST /carrier/v2/labels\` and saves the label URL in PostgreSQL. The carrier answers with \`labelUrl\` and \`trackingNo\`, which go into the \`label_url\` and \`tracking_no\` columns of the \`shipments\` row with that \`shipment_id\`.
 
 The carrier fails in two ways:
 - **Short blips:** a 503 or a timeout that clears within a few seconds. This happens many times a day.
@@ -145,6 +247,7 @@ The queue \`label-requests-delayed\` already exists. It has a **default delivery
     'When the retries run out, Until Successful raises MULE:RETRY_EXHAUSTED. Catch it with On Error Continue so the message is acknowledged.',
     'A queue with a delivery delay gives a pause of minutes without holding a thread.',
     'Carry the attempt count in the message body, because a new message has no memory of the old one.',
+    'Remove the old retryAttempt before adding the new one. ++ keeps duplicate keys, and a selector reads the first, so the count would stay at 1.',
     'After the limit, park the request on a DLQ so a person can look at it and replay it.',
     'Two subscribers that call one sub-flow keep the logic in one place.',
   ],
@@ -157,9 +260,11 @@ The queue \`label-requests-delayed\` already exists. It has a **default delivery
 1. **Set Variable** \`request\` with the payload, and **Set Variable** \`attempt\` with \`payload.retryAttempt default 0\`.
 2. **Try** containing:
    - **Until Successful**, max retries 2, 3000 ms apart, around **HTTP Request** \`POST /carrier/v2/labels\` with a 5 second timeout.
-   - **Database Update** that saves the label URL and tracking number.
+   - **Database Update** that saves the label URL and tracking number. Its input parameters take those from the carrier's answer and the shipment ID from \`vars.request\`, because the answer replaced the payload.
 3. **On Error Continue** for \`MULE:RETRY_EXHAUSTED\` on the Try, with a **Choice**:
-   - \`vars.attempt < 4\`: **Transform** \`vars.request ++ { retryAttempt: vars.attempt + 1 }\`, **Publish** to \`label-requests-delayed\`, and log a warning.
+   - \`vars.attempt < 4\`: **Transform** \`(vars.request - "retryAttempt") ++ { retryAttempt: vars.attempt + 1 }\`, **Publish** to \`label-requests-delayed\`, and log a warning.
+
+**Why remove the old count first.** A DataWeave object can hold the same key twice. On a slow retry the request already has \`retryAttempt\`, so \`vars.request ++ { retryAttempt: 2 }\` gives an object with two \`retryAttempt\` keys, and \`payload.retryAttempt\` reads the first one, which is still 1. The count would never grow and the request would never reach the DLQ.
    - Otherwise: **Publish** the original request to \`label-requests-dlq\` and log an error.
 
 **Worst case.** Each attempt costs at most about 21 seconds: three calls of up to 5 seconds and two waits of 3 seconds. The first attempt plus 4 slow retries, 10 minutes apart, means a request reaches the DLQ after about 41 minutes. That covers the 30 minute outages.

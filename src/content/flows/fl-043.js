@@ -1,6 +1,25 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
 import { HANDLERS, handlerStatus } from '../../flow/rules.js'
 
+// A job that already ran: two chunks landed and one failed.
+const jobTables = {
+  bulk_job: {
+    key: 'job_id',
+    columns: ['job_id', 'client_id', 'total_chunks', 'status', 'created_at'],
+    rows: [{ job_id: 'JOB-7731', client_id: 'partner-outdoorco', total_chunks: 3, status: 'ACCEPTED', created_at: '2026-11-13T08:00:00Z' }],
+  },
+  bulk_chunk: {
+    key: ['job_id', 'chunk_no'],
+    columns: ['job_id', 'chunk_no', 'status', 'ok_count', 'error_json'],
+    rows: [
+      { job_id: 'JOB-7731', chunk_no: 1, status: 'DONE', ok_count: 500, error_json: null },
+      { job_id: 'JOB-7731', chunk_no: 2, status: 'FAILED', ok_count: null, error_json: 'HTTP:SERVICE_UNAVAILABLE' },
+      { job_id: 'JOB-7731', chunk_no: 3, status: 'DONE', ok_count: 200, error_json: null },
+    ],
+  },
+}
+const items = (n, prefix) => Array.from({ length: n }, (_, i) => ({ sku: `${prefix}-${1000 + i}`, name: `${prefix} model ${i + 1}`, price: 49 + (i % 40) }))
+
 export default {
   id: 'fl-043',
   category: 'flows',
@@ -75,6 +94,60 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/pim-core/products/batch', latencyMs: 8000, respond: { status: 200, body: { okCount: 500, errors: [] } } }],
+      db: { tables: { bulk_job: { ...jobTables.bulk_job, rows: [] }, bulk_chunk: { ...jobTables.bulk_chunk, rows: [] } } },
+    },
+    tests: [
+      {
+        name: 'A catalogue of 1,200 records',
+        about: 'The partner gets 202 at once, and the records reach the PIM core in three calls of at most 500.',
+        trigger: { http: { method: 'POST', path: '/pim/v1/bulk/products', headers: { client_id: 'partner-outdoorco' }, body: { items: items(1200, 'TENT') } } },
+        expect: {
+          status: 202,
+          maxMs: 3000,
+          calls: [{ method: 'POST', path: '/pim-core/products/batch', count: 3 }],
+          db: { bulk_job: { count: 1 }, bulk_chunk: { count: 3, has: [{ chunk_no: 1, status: 'DONE' }, { chunk_no: 3, status: 'DONE' }], lacks: { status: 'FAILED' } } },
+        },
+      },
+      {
+        name: 'More than 10,000 records',
+        about: 'The request is refused up front, and nothing is queued or sent to the PIM core.',
+        trigger: { http: { method: 'POST', path: '/pim/v1/bulk/products', headers: { client_id: 'partner-outdoorco' }, body: { items: items(10001, 'MAT') } } },
+        expect: { bodyLacks: '~No listener for endpoint', notSent: ['pim-bulk-chunks'], calls: [{ method: 'POST', path: '/pim-core/products/batch', count: 0 }], db: { bulk_job: { count: 0 } } },
+      },
+      {
+        name: 'The PIM core answers 503 once',
+        about: 'A short outage is retried, so every chunk still lands.',
+        trigger: { http: { method: 'POST', path: '/pim/v1/bulk/products', headers: { client_id: 'partner-outdoorco' }, body: { items: items(700, 'STOVE') } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/pim-core/products/batch', latencyMs: 6000, responses: [{ status: 503, body: { message: 'PIM busy' } }, { status: 200, body: { okCount: 500, errors: [] } }] }] } },
+        expect: { status: 202, db: { bulk_chunk: { count: 2, has: [{ chunk_no: 1, status: 'DONE' }, { chunk_no: 2, status: 'DONE' }] } } },
+      },
+      {
+        name: 'The PIM core stays down',
+        about: 'Each chunk that cannot be delivered is recorded as failed, so the partner can see it.',
+        trigger: { http: { method: 'POST', path: '/pim/v1/bulk/products', headers: { client_id: 'partner-outdoorco' }, body: { items: items(700, 'STOVE') } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/pim-core/products/batch', respond: { status: 503, body: { message: 'PIM down for maintenance' } } }] } },
+        expect: { status: 202, db: { bulk_chunk: { count: 2, has: [{ chunk_no: 1, status: 'FAILED' }, { chunk_no: 2, status: 'FAILED' }] } } },
+      },
+      {
+        name: 'A partner checks a finished job',
+        about: 'The status answer names the job, worked out from its chunk rows.',
+        trigger: { http: { method: 'GET', path: '/pim/v1/bulk/jobs/JOB-7731' } },
+        overrides: { systems: { db: { tables: jobTables } } },
+        expect: { status: 200, bodyHas: { jobId: 'JOB-7731' } },
+      },
+      {
+        name: 'An unknown job ID',
+        about: 'A status request for a job that does not exist gets 404.',
+        trigger: { http: { method: 'GET', path: '/pim/v1/bulk/jobs/JOB-0000' } },
+        overrides: { systems: { db: { tables: jobTables } } },
+        // The status flow must give the 404 itself, not a missing endpoint.
+        expect: { status: 404, bodyLacks: '~No listener for endpoint' },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'bulk-submit-api',
@@ -86,6 +159,7 @@ export default {
           message: 'items must contain between 1 and 10000 records',
         }),
         step('set-variable', { variableName: 'jobId', value: '#[uuid()]' }),
+        step('set-variable', { variableName: 'clientId', value: '#[attributes.headers.client_id default "unknown"]' }),
         step('transform', {
           script:
             '%dw 2.0\nimport divideBy from dw::core::Arrays\noutput application/java\n---\n(payload.items divideBy 500) map ((chunk, i) -> {\n  jobId: vars.jobId,\n  chunkNo: i + 1,\n  items: chunk\n})',
@@ -117,7 +191,9 @@ export default {
       source('mq-subscriber', { destination: 'pim-bulk-chunks', acknowledgementMode: 'MANUAL' }),
       [
         step('set-variable', { variableName: 'ackToken', value: '#[attributes.ackToken]' }),
-        step('set-variable', { variableName: 'chunk', value: '#[payload]' }),
+        // The PIM answer replaces the payload, so the chunk's keys are kept for the result row.
+        step('set-variable', { variableName: 'jobId', value: '#[payload.jobId]' }),
+        step('set-variable', { variableName: 'chunkNo', value: '#[payload.chunkNo]' }),
         scope('until-successful', { maxRetries: 3, millisBetweenRetries: 5000 }, [
           step('http-request', { method: 'POST', path: '/pim-core/products/batch', responseTimeout: 30000 }),
         ]),
@@ -128,6 +204,7 @@ export default {
       ],
       [
         handler('on-error-continue', { type: 'ANY' }, [
+          step('set-variable', { variableName: 'error', value: '#[error.description]' }),
           step('db-insert', {
             sql: "INSERT INTO bulk_chunk (job_id, chunk_no, status, error_json) VALUES (:jobId, :chunkNo, 'FAILED', :error) ON CONFLICT (job_id, chunk_no) DO NOTHING",
           }),
@@ -204,6 +281,7 @@ A **Product Information (PIM) API** must let retail partners submit catalogue up
 5. Return **202** \`{ jobId, statusUrl }\`.
 
 **Chunk worker** — MQ Subscriber (MANUAL ack, prefetch tuned to the PIM's capacity)
+- Save \`jobId\` and \`chunkNo\` in variables first: the PIM answer replaces the payload, and the result row needs them.
 - **Until Successful** (3 × 5 s) around the PIM call for 503s.
 - Insert a \`bulk_chunk\` row (DONE + per-record errors returned by PIM), keyed on (jobId, chunkNo) so a redelivery does not double-count, then **Ack**.
 - **On Error Continue**: insert the chunk as FAILED with the error, then Ack (or Nack to let the queue's DLQ policy decide, and record FAILED from the DLQ consumer).

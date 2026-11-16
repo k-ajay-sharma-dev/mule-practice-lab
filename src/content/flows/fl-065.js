@@ -67,6 +67,168 @@ export default {
       rule: { type: 'handler', component: 'on-error-continue', errorType: 'JMS:TIMEOUT' },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          SHIPMENT: {
+            columns: ['SHIPMENT_ID', 'ORDER_ID', 'CARRIER_SCAC', 'TRACKING_NO', 'SHIPPED_AT'],
+            key: 'SHIPMENT_ID',
+            rows: [{ SHIPMENT_ID: 'SHP-0990117', ORDER_ID: 'SO-77120', CARRIER_SCAC: 'UPSN', TRACKING_NO: '1Z4E83W10398765432', SHIPPED_AT: '2026-11-12T18:40:00Z' }],
+          },
+          ORDER_LINE: {
+            columns: ['ORDER_ID', 'LINE_NO', 'ORDERED_QTY', 'SHIPPED_QTY', 'LAST_CARTON'],
+            key: ['ORDER_ID', 'LINE_NO'],
+            rows: [
+              { ORDER_ID: 'SO-77141', LINE_NO: 1, ORDERED_QTY: 12, SHIPPED_QTY: 0, LAST_CARTON: null },
+              { ORDER_ID: 'SO-77141', LINE_NO: 2, ORDERED_QTY: 4, SHIPPED_QTY: 0, LAST_CARTON: null },
+              { ORDER_ID: 'SO-77152', LINE_NO: 1, ORDERED_QTY: 6, SHIPPED_QTY: 0, LAST_CARTON: null },
+              { ORDER_ID: 'SO-77160', LINE_NO: 1, ORDERED_QTY: 2, SHIPPED_QTY: 0, LAST_CARTON: null },
+            ],
+          },
+        },
+        latencyMs: 20,
+      },
+    },
+    tests: [
+      {
+        name: 'A shipment is confirmed',
+        about: 'The shipment is recorded, both order lines get their shipped quantities, and ORDER_SHIPPED is published.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'WMS.SHIP.CONFIRM',
+            payload: {
+              shipmentId: 'SHP-0990142',
+              orderId: 'SO-77141',
+              shippedAt: '2026-11-13T19:05:00Z',
+              carrier: { scac: 'FDEG', trackingNumber: '612999AA10NEW84' },
+              cartons: [
+                { sscc: '003456789012345678', items: [{ orderLine: 1, qty: 12 }] },
+                { sscc: '003456789012345685', items: [{ orderLine: 2, qty: 3 }] },
+              ],
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          db: {
+            SHIPMENT: { count: 2, has: [{ SHIPMENT_ID: 'SHP-0990142', ORDER_ID: 'SO-77141', TRACKING_NO: '612999AA10NEW84' }] },
+            ORDER_LINE: { has: [{ ORDER_ID: 'SO-77141', LINE_NO: 1, SHIPPED_QTY: 12 }, { ORDER_ID: 'SO-77141', LINE_NO: 2, SHIPPED_QTY: 3 }] },
+          },
+          sent: [{ destination: 'OMS.SHIPMENT.EVENTS', count: 1, has: { eventType: 'ORDER_SHIPPED', orderId: 'SO-77141', shipmentId: 'SHP-0990142' } }],
+          notSent: ['WMS.SHIP.CONFIRM.PARKED'],
+        },
+      },
+      {
+        name: 'The shipment ID is missing',
+        about: 'A malformed message will never succeed, so it is parked at once and nothing is written.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'WMS.SHIP.CONFIRM',
+            payload: { orderId: 'SO-77152', shippedAt: '2026-11-13T19:07:00Z', carrier: { scac: 'UPSN', trackingNumber: '1Z4E83W10398700001' }, cartons: [{ sscc: '003456789012345692', items: [{ orderLine: 1, qty: 6 }] }] },
+          },
+        },
+        expect: {
+          noError: true,
+          sent: [{ destination: 'WMS.SHIP.CONFIRM.PARKED', count: 1 }],
+          notSent: ['OMS.SHIPMENT.EVENTS'],
+          db: { SHIPMENT: { count: 1 }, ORDER_LINE: { has: [{ ORDER_ID: 'SO-77152', SHIPPED_QTY: 0 }] } },
+        },
+      },
+      {
+        name: 'The ship date is not a date',
+        about: 'The WMS sends a bad date. The message is parked at once instead of bouncing five times.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'WMS.SHIP.CONFIRM',
+            payload: { shipmentId: 'SHP-0990150', orderId: 'SO-77160', shippedAt: '13/11/2026 19:10', carrier: { scac: 'UPSN', trackingNumber: '1Z4E83W10398700002' }, cartons: [{ sscc: '003456789012345708', items: [{ orderLine: 1, qty: 2 }] }] },
+          },
+        },
+        expect: {
+          noError: true,
+          sent: [{ destination: 'WMS.SHIP.CONFIRM.PARKED', count: 1 }],
+          notSent: ['OMS.SHIPMENT.EVENTS'],
+          db: { SHIPMENT: { lacks: [{ SHIPMENT_ID: 'SHP-0990150' }] } },
+        },
+      },
+      {
+        name: 'Oracle is in its patch window',
+        about: 'The database is down. The flow fails so the message rolls back for redelivery, and nothing is parked or announced.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'WMS.SHIP.CONFIRM',
+            payload: { shipmentId: 'SHP-0990143', orderId: 'SO-77152', shippedAt: '2026-11-13T19:06:00Z', carrier: { scac: 'UPSN', trackingNumber: '1Z4E83W10398700003' }, cartons: [{ sscc: '003456789012345715', items: [{ orderLine: 1, qty: 6 }] }] },
+          },
+        },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', ack: 'returned', notSent: ['OMS.SHIPMENT.EVENTS', 'WMS.SHIP.CONFIRM.PARKED'] },
+      },
+      {
+        name: 'The WMS sends a shipment again',
+        about: 'The same confirmation arrives twice. The quantities are added once and ORDER_SHIPPED goes out once.',
+        triggers: [
+          {
+            message: {
+              kind: 'jms',
+              destination: 'WMS.SHIP.CONFIRM',
+              payload: { shipmentId: 'SHP-0990144', orderId: 'SO-77141', shippedAt: '2026-11-13T19:08:00Z', carrier: { scac: 'FDEG', trackingNumber: '612999AA10NEW85' }, cartons: [{ sscc: '003456789012345739', items: [{ orderLine: 1, qty: 12 }] }] },
+            },
+          },
+          {
+            afterMs: 600000,
+            message: {
+              kind: 'jms',
+              destination: 'WMS.SHIP.CONFIRM',
+              payload: { shipmentId: 'SHP-0990144', orderId: 'SO-77141', shippedAt: '2026-11-13T19:08:00Z', carrier: { scac: 'FDEG', trackingNumber: '612999AA10NEW85' }, cartons: [{ sscc: '003456789012345739', items: [{ orderLine: 1, qty: 12 }] }] },
+            },
+          },
+        ],
+        expect: {
+          db: { SHIPMENT: { count: 2 }, ORDER_LINE: { has: [{ ORDER_ID: 'SO-77141', LINE_NO: 1, SHIPPED_QTY: 12 }] } },
+          sent: [{ destination: 'OMS.SHIPMENT.EVENTS', count: 1 }],
+          notSent: ['WMS.SHIP.CONFIRM.PARKED'],
+        },
+      },
+      {
+        name: 'The event cannot be published',
+        about: 'Oracle takes the shipment but the event publish fails. The message is rolled back for redelivery and no event is half sent.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'WMS.SHIP.CONFIRM',
+            payload: { shipmentId: 'SHP-0990145', orderId: 'SO-77160', shippedAt: '2026-11-13T19:09:00Z', carrier: { scac: 'UPSN', trackingNumber: '1Z4E83W10398700004' }, cartons: [{ sscc: '003456789012345746', items: [{ orderLine: 1, qty: 2 }] }] },
+          },
+        },
+        overrides: { systems: { queues: { 'OMS.SHIPMENT.EVENTS': { fault: true } } } },
+        expect: { error: 'JMS:CONNECTIVITY', ack: 'returned', notSent: ['WMS.SHIP.CONFIRM.PARKED'] },
+      },
+      {
+        name: 'Ops replays the DLQ',
+        about: 'Two confirmations wait in the DLQ. The replay moves both back to WMS.SHIP.CONFIRM and stops when the DLQ is empty.',
+        trigger: { http: { method: 'POST', path: '/admin/ship-confirm/dlq/replay?max=10' } },
+        overrides: {
+          systems: {
+            calls: {
+              'jms-consume': [
+                { payload: { shipmentId: 'SHP-0990143', orderId: 'SO-77152', shippedAt: '2026-11-13T19:06:00Z', carrier: { scac: 'UPSN', trackingNumber: '1Z4E83W10398700003' }, cartons: [{ sscc: '003456789012345715', items: [{ orderLine: 1, qty: 6 }] }] } },
+                { payload: { shipmentId: 'SHP-0990151', orderId: 'SO-77160', shippedAt: '2026-11-13T19:12:00Z', carrier: { scac: 'FDEG', trackingNumber: '612999AA10NEW91' }, cartons: [{ sscc: '003456789012345722', items: [{ orderLine: 1, qty: 2 }] }] } },
+                { latencyMs: 1000, fault: { type: 'JMS:TIMEOUT', description: 'No message received from DLQ.WMS.SHIP.CONFIRM within 1000 ms' } },
+              ],
+            },
+          },
+        },
+        expect: {
+          status: 200,
+          sent: [{ destination: 'WMS.SHIP.CONFIRM', count: 2 }, { destination: 'WMS.SHIP.CONFIRM', count: 1, has: { shipmentId: 'SHP-0990151' } }],
+          db: { SHIPMENT: { has: [{ SHIPMENT_ID: 'SHP-0990143' }, { SHIPMENT_ID: 'SHP-0990151' }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'ship-confirm-intake',
@@ -83,8 +245,11 @@ export default {
           script:
             '%dw 2.0\noutput application/java\n---\n{\n  shipmentId: payload.shipmentId,\n  orderId: payload.orderId,\n  carrier: payload.carrier.scac,\n  trackingNo: payload.carrier.trackingNumber,\n  shippedAt: payload.shippedAt as DateTime,\n  lines: payload.cartons flatMap ((c) -> c.items map ((i) -> {\n    orderId: payload.orderId,\n    lineNo: i.orderLine as Number,\n    shippedQty: i.qty as Number,\n    cartonId: c.sscc\n  }))\n}',
         }),
+        // The insert's named parameters (carrier, trackingNo, shippedAt) come from the mapped shipment, not the WMS JSON.
+        step('set-payload', { value: '#[vars.ship]' }),
         // Unique SHIPMENT_ID → a re-sent confirmation fails and is treated as a duplicate.
         step('db-insert', {
+          database: 'Oracle',
           sql: 'INSERT INTO SHIPMENT (SHIPMENT_ID, ORDER_ID, CARRIER_SCAC, TRACKING_NO, SHIPPED_AT)\nVALUES (:shipmentId, :orderId, :carrier, :trackingNo, :shippedAt)',
         }),
         // Bulk Update reads its rows from #[payload] by default.
@@ -179,7 +344,7 @@ For each confirmation the integration must:
 **Main flow \`ship-confirm-intake\`**
 1. **JMS On New Message** \`WMS.SHIP.CONFIRM\`, **ALWAYS_BEGIN / LOCAL**, **Inbound Content-Type** \`application/json\` if the WMS does not state the message type (the config default is \`*/*\`).
 2. **Validate** required fields; **Transform** to \`vars.ship\` (shipment + flattened carton lines).
-3. **Database Insert** \`SHIPMENT\` (unique \`SHIPMENT_ID\`) and **Database Bulk Update** \`ORDER_LINE\` shipped quantities, then **JMS Publish** \`ORDER_SHIPPED\` (joins the JMS transaction). The DB statements are not in the JMS transaction. The unique key stops a double insert. But it also means a redelivery after a partial failure (shipment row committed, lines or event not done) lands on the duplicate path with the work unfinished. So record completion (e.g. an \`EVENT_SENT\` flag checked on that path) or use an outbox.
+3. **Database Insert** \`SHIPMENT\` (unique \`SHIPMENT_ID\`; its parameters come from \`vars.ship\`, not the raw WMS JSON, where the carrier is a nested object) and **Database Bulk Update** \`ORDER_LINE\` shipped quantities, then **JMS Publish** \`ORDER_SHIPPED\` (joins the JMS transaction). The DB statements are not in the JMS transaction. The unique key stops a double insert. But it also means a redelivery after a partial failure (shipment row committed, lines or event not done) lands on the duplicate path with the work unfinished. So record completion (e.g. an \`EVENT_SENT\` flag checked on that path) or use an outbox.
 
 **Error handling — classify errors**
 | Error | Handler | Effect |

@@ -100,6 +100,64 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          statement_lines: {
+            columns: ['account_id', 'txn_date', 'description', 'amount'],
+            rows: [
+              { account_id: 'ACC-4410', txn_date: '2026-10-03', description: 'Card payment', amount: -54.2 },
+              { account_id: 'ACC-4410', txn_date: '2026-10-15', description: 'Salary', amount: 3200 },
+              { account_id: 'ACC-4410', txn_date: '2026-10-28', description: 'Rent', amount: -1450 },
+            ],
+          },
+        },
+      },
+      http: [
+        { method: 'POST', path: '/pdf/render', latencyMs: 45000, respond: { status: 200, body: 'JVBERi0xLjcK' } },
+        { method: 'PUT', path: '/statements-bucket/*', latencyMs: 400, respond: { status: 200, body: { eTag: 'e-77' } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'A statement is requested',
+        about: 'The caller gets 202 at once. The worker then renders the PDF and uploads it.',
+        trigger: { http: { method: 'POST', path: '/statements', body: { accountId: 'ACC-4410', from: '2026-10-01', to: '2026-10-31' } } },
+        expect: {
+          status: 202,
+          maxMs: 1000,
+          calls: [
+            { method: 'POST', path: '/pdf/render', count: 1 },
+            { method: 'PUT', path: '/statements-bucket/*', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'The same request is sent twice',
+        about: 'The client retries after its own timeout. The second call gets the existing job, so only one PDF is made.',
+        triggers: [
+          { http: { method: 'POST', path: '/statements', body: { accountId: 'ACC-4410', from: '2026-10-01', to: '2026-10-31' } } },
+          { http: { method: 'POST', path: '/statements', body: { accountId: 'ACC-4410', from: '2026-10-01', to: '2026-10-31' } }, afterMs: 60000 },
+        ],
+        expect: { status: 202, calls: [{ method: 'POST', path: '/pdf/render', count: 1 }] },
+      },
+      {
+        name: 'The PDF service fails',
+        about: 'Rendering fails after the caller already has its 202, so nothing is uploaded.',
+        trigger: { http: { method: 'POST', path: '/statements', body: { accountId: 'ACC-4410', from: '2026-10-01', to: '2026-10-31' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/pdf/render', respond: { status: 500, body: { message: 'Renderer crashed' } } }] } },
+        expect: { status: 202, calls: [{ method: 'PUT', path: '/statements-bucket/*', count: 0 }] },
+      },
+      {
+        name: 'An unknown job is polled',
+        about: 'No job has this ID, so the status call answers 404.',
+        trigger: { http: { method: 'GET', path: '/statements/jobs/7f3e9a10-0000-4000-8000-000000000000' } },
+        // The status flow must give the 404 itself, not a missing endpoint.
+        expect: { status: 404, bodyLacks: '~No listener for endpoint' },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'os-store',
@@ -133,7 +191,10 @@ export default {
                 objectStore: 'statement-jobs',
               }),
               step('os-store', { key: '#["dedupe-" ++ vars.dedupeKey]', value: '#[vars.jobId]', objectStore: 'statement-dedupe' }),
-              step('set-payload', { value: '#[output application/json --- { jobId: vars.jobId, params: vars.request }]' }),
+              // Flat fields, so the worker's Select finds :accountId, :fromDate and :toDate in the payload.
+              step('set-payload', {
+                value: '#[output application/json --- { jobId: vars.jobId, accountId: vars.request.accountId, fromDate: vars.request.from, toDate: vars.request.to }]',
+              }),
               step('vm-publish', { queueName: 'statement-jobs' }),
             ],
           },
@@ -173,7 +234,7 @@ export default {
         }),
         step('transform', {
           script:
-            '%dw 2.0\noutput application/json\n---\n{ accountId: vars.job.params.accountId, lines: payload, total: sum(payload.amount default []) }',
+            '%dw 2.0\noutput application/json\n---\n{ accountId: vars.job.accountId, lines: payload, total: sum(payload.amount default []) }',
         }),
         step('http-request', { method: 'POST', path: '/pdf/render', responseTimeout: 300000 }),
         step('http-request', { method: 'PUT', path: '/statements-bucket/#[vars.job.jobId].pdf', responseTimeout: 60000 }),
@@ -234,7 +295,7 @@ A **Reporting API** generates a customer statement PDF by querying a data wareho
    - \`POST /statements\` → **202** \`{ jobId, status: "PENDING" }\` + \`Location: /statements/jobs/{jobId}\`.
    - \`GET /statements/jobs/{jobId}\` → 200 \`{ status, progress, resultUrl? }\`, 404 if unknown.
    - \`GET /statements/jobs/{jobId}/file\` → 200 PDF, 409 if not ready.
-2. **Submit flow:** validate → DataWeave computes \`dedupeKey\` = hash of \`accountId|from|to\` (e.g. \`dw::Crypto::SHA1\`) → Object Store Retrieve; if a job exists and is younger than 10 min return it. Otherwise generate \`jobId\` (\`uuid()\`), **Object Store Store** \`{ status: PENDING, createdAt }\` and **Publish** \`{ jobId, params }\` to a queue → respond 202 (status code set via a variable on the listener response).
+2. **Submit flow:** validate → DataWeave computes \`dedupeKey\` = hash of \`accountId|from|to\` (e.g. \`dw::Crypto::SHA1\`) → Object Store Retrieve; if a job exists and is younger than 10 min return it. Otherwise generate \`jobId\` (\`uuid()\`), **Object Store Store** \`{ status: PENDING, createdAt }\` and **Publish** \`{ jobId, accountId, fromDate, toDate }\` to a queue → respond 202 (status code set via a variable on the listener response).
 3. **Job store:** persistent Object Store (Object Store v2 on CloudHub) or a DB table — must be shared so any replica can answer status calls. Entry TTL 24 h.
 4. **Worker flow:** VM Listener (persistent queue) or **Anypoint MQ Subscriber**; flow \`maxConcurrency="5"\` (or subscriber concurrency 5 per app, divided by replicas) → update status RUNNING → Snowflake query (Snowflake/Database connector) → render PDF (e.g. via a PDF service) → upload to S3 → status COMPLETED with \`resultUrl\` (pre-signed URL).
 5. **Failure:** On Error Continue in the worker sets status FAILED with an error code; the client sees it on the next poll. Optionally a webhook/callback URL supplied at submit time is called on completion so clients don't need to poll.

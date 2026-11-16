@@ -85,6 +85,57 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          // Oracle returns unquoted column names in upper case.
+          products: {
+            key: 'SKU',
+            rows: [
+              { SKU: 'SHO-10001', NAME: 'Trail Shoe', PRICE: 89.9, CATEGORY: 'shoes', STOCK: 14 },
+              { SKU: 'SHO-10002', NAME: 'Road Shoe', PRICE: 79.0, CATEGORY: 'shoes', STOCK: 0 },
+              { SKU: 'SHO-10003', NAME: 'Shoe Laces', PRICE: 4.5, CATEGORY: 'accessories', STOCK: 230 },
+              { SKU: 'JAC-20001', NAME: 'Rain Jacket', PRICE: 129.0, CATEGORY: 'jackets', STOCK: 6 },
+            ],
+          },
+        },
+        latencyMs: 18,
+      },
+    },
+    tests: [
+      {
+        name: 'A search finds products',
+        about: 'Three product names contain "shoe", and limit=2 keeps the answer to two of them.',
+        trigger: { http: { method: 'GET', path: '/api/products?q=shoe&limit=2' } },
+        expect: { status: 200, bodyHas: { count: 2 } },
+      },
+      {
+        name: 'The search term is too short',
+        about: 'q has two characters, so the answer is 400 and no search result goes out.',
+        trigger: { http: { method: 'GET', path: '/api/products?q=sh' } },
+        expect: { status: 400, bodyLacks: { count: 0 } },
+      },
+      {
+        name: 'A known SKU',
+        about: 'The SKU exists, so its product comes back with 200.',
+        trigger: { http: { method: 'GET', path: '/api/products/SHO-10001' } },
+        expect: { status: 200, bodyHas: { sku: 'SHO-10001' } },
+      },
+      {
+        name: 'An unknown SKU',
+        about: 'The SKU has the right format but no product has it, so the answer is 404 with a JSON error object.',
+        trigger: { http: { method: 'GET', path: '/api/products/SHO-99999' } },
+        expect: { status: 404, bodyHas: {} },
+      },
+      {
+        name: 'A SKU in the wrong format',
+        about: 'shoe-1 does not look like ABC-12345, so the answer is 400.',
+        trigger: { http: { method: 'GET', path: '/api/products/shoe-1' } },
+        expect: { status: 400 },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'get-products',
@@ -96,13 +147,14 @@ export default {
           message: 'Query parameter q is required and must have at least 3 characters',
         }),
         step('validation', {
-          check: 'matches-regex',
-          expression: '#[attributes.queryParams.limit default "20"]',
-          message: 'limit must be an integer between 1 and 100 (regex ^([1-9][0-9]?|100)$)',
+          check: 'is-true',
+          expression: '#[(attributes.queryParams.limit default "20") matches /^([1-9][0-9]?|100)$/]',
+          message: 'limit must be an integer between 1 and 100',
         }),
         step('set-variable', { variableName: 'limit', value: '#[(attributes.queryParams.limit default "20") as Number]' }),
+        // The wildcards go around the bound value, so q=shoe finds "Trail Shoe" and the value is never concatenated into the SQL.
         step('db-select', {
-          sql: "SELECT sku, name, price, category FROM products WHERE LOWER(name) LIKE LOWER(:q) ORDER BY name FETCH FIRST :limit ROWS ONLY",
+          sql: "SELECT sku, name, price, category FROM products WHERE LOWER(name) LIKE '%' || LOWER(:q) || '%' ORDER BY name FETCH FIRST :limit ROWS ONLY",
         }),
         step('transform', {
           script:
@@ -123,9 +175,9 @@ export default {
       source('http-listener', { path: '/api/products/{sku}', allowedMethods: 'GET' }),
       [
         step('validation', {
-          check: 'matches-regex',
-          expression: '#[attributes.uriParams.sku]',
-          message: 'sku must match ^[A-Z]{3}-[0-9]{5}$',
+          check: 'is-true',
+          expression: '#[(attributes.uriParams.sku default "") matches /^[A-Z]{3}-[0-9]{5}$/]',
+          message: 'sku must look like ABC-12345',
         }),
         // Database Select replaces the attributes, so keep the SKU for the 404 message.
         step('set-variable', { variableName: 'sku', value: '#[attributes.uriParams.sku]' }),
@@ -154,7 +206,7 @@ export default {
         ),
       ],
       [
-        handler('on-error-propagate', { type: 'VALIDATION:MISMATCH' }, [
+        handler('on-error-propagate', { type: 'VALIDATION:INVALID_BOOLEAN, VALIDATION:MISMATCH' }, [
           step('set-variable', { variableName: 'httpStatus', value: '#[400]' }),
           step('transform', {
             script: '%dw 2.0\noutput application/json\n---\n{ code: "INVALID_SKU", message: error.description }',
@@ -198,11 +250,12 @@ The web shop needs a small **Product Lookup API** in front of the product databa
 **Two flows**, each with its own HTTP Listener on a shared listener config:
 
 1. **\`GET /api/products\`**
-   - Validate \`attributes.queryParams.q\` with **Validate is-true** (\`sizeOf(q default "") >= 3\`) and \`limit\` with **matches-regex** (1–100).
-   - Store \`vars.limit\` (default 20) and run a parameterised **Database Select** (\`LIKE :q\`, \`FETCH FIRST :limit ROWS ONLY\`). Never concatenate parameters into SQL.
+   - Validate \`attributes.queryParams.q\` with **Validate is-true** (\`sizeOf(q default "") >= 3\`) and \`limit\` with **is-true** on \`(limit default "20") matches /^([1-9][0-9]?|100)$/\` (1–100). The **matches-regex** validator with Value and Regex settings does the same job and raises \`VALIDATION:MISMATCH\`.
+   - Store \`vars.limit\` (default 20) and run a parameterised **Database Select** (\`LOWER(name) LIKE '%' || LOWER(:q) || '%'\`, \`FETCH FIRST :limit ROWS ONLY\`). The wildcards sit in the SQL around the bound value: a plain \`LIKE :q\` with q=shoe only finds a product named exactly "shoe". Never concatenate parameters into SQL.
    - **Transform** into \`{ count, items: [...] }\`. An empty search result is still a **200** with \`count: 0\`. A search that finds nothing is not an error.
 2. **\`GET /api/products/{sku}\`**
-   - The listener path declares \`{sku}\`; read it from \`attributes.uriParams.sku\` and validate its format with **matches-regex**.
+   - The listener path declares \`{sku}\`; read it from \`attributes.uriParams.sku\` and validate its format (\`^[A-Z]{3}-[0-9]{5}$\`) with **is-true** and \`matches\`, or with **matches-regex**.
+   - Keep the SKU in \`vars.sku\` before the select: the Database Select replaces the attributes, so \`attributes.uriParams\` is gone when the 404 message is built.
    - **Database Select** by primary key, then a **Choice**: \`isEmpty(payload)\` → \`vars.httpStatus = 404\` + error body; otherwise \`vars.httpStatus = 200\` + mapped product.
 3. **Status code:** the listener's response builder uses \`statusCode="#[vars.httpStatus default 200]"\`, and the error response uses the same expression.
 4. **Errors:** On Error Propagate for \`VALIDATION:INVALID_BOOLEAN, VALIDATION:MISMATCH\` sets \`httpStatus = 400\` and returns \`{ code, message: error.description }\`. Anything else falls through to the default handler, which returns 500.

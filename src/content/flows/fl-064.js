@@ -64,14 +64,142 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          STORE_STOCK: {
+            columns: ['STORE_ID', 'SKU', 'AVAILABLE_QTY'],
+            key: ['STORE_ID', 'SKU'],
+            rows: [
+              { STORE_ID: '0101', SKU: 'TENT-3P', AVAILABLE_QTY: 2 },
+              { STORE_ID: '0101', SKU: 'STAKES-10', AVAILABLE_QTY: 5 },
+              { STORE_ID: '0107', SKU: 'TENT-3P', AVAILABLE_QTY: 4 },
+              { STORE_ID: '0107', SKU: 'STAKES-10', AVAILABLE_QTY: 9 },
+              { STORE_ID: '0130', SKU: 'TENT-3P', AVAILABLE_QTY: 6 },
+              { STORE_ID: '0130', SKU: 'STAKES-10', AVAILABLE_QTY: 12 },
+            ],
+          },
+          STORE_DISTANCE: {
+            columns: ['FROM_STORE_ID', 'TO_STORE_ID', 'DISTANCE_KM'],
+            key: ['FROM_STORE_ID', 'TO_STORE_ID'],
+            rows: [
+              { FROM_STORE_ID: '0101', TO_STORE_ID: '0101', DISTANCE_KM: 0 },
+              { FROM_STORE_ID: '0101', TO_STORE_ID: '0107', DISTANCE_KM: 8.4 },
+              { FROM_STORE_ID: '0101', TO_STORE_ID: '0130', DISTANCE_KM: 22.1 },
+            ],
+          },
+          ORDER_RESERVATION: { columns: ['ORDER_ID', 'STORE_ID', 'STATUS'], key: 'ORDER_ID', rows: [] },
+        },
+        procedures: {
+          // RESERVE_ORDER(order_id, store_id, status OUT): the arguments are read by position, as Oracle does.
+          'INV_PKG.RESERVE_ORDER': (p, db) => {
+            const [orderId, storeId] = Object.values(p)
+            const existing = db.tables.ORDER_RESERVATION.rows.find((r) => r.ORDER_ID === orderId)
+            if (!existing) db.tables.ORDER_RESERVATION.rows.push({ ORDER_ID: orderId, STORE_ID: storeId, STATUS: 'RESERVED' })
+            return { status: 'RESERVED' }
+          },
+        },
+        latencyMs: 20,
+      },
+    },
+    tests: [
+      {
+        name: 'The chosen store has everything',
+        about: 'Store 0101 has the tent and the stakes, so it reserves them and gets the pick request.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'OMS.BOPIS.ORDERS',
+            payload: { orderId: 'BP-300881', storeId: '0101', customer: { name: 'Sam Rivera', email: 'sam@example.com' }, lines: [{ sku: 'TENT-3P', qty: 1 }, { sku: 'STAKES-10', qty: 2 }] },
+          },
+        },
+        expect: {
+          noError: true,
+          db: { ORDER_RESERVATION: { count: 1, has: [{ ORDER_ID: 'BP-300881', STORE_ID: '0101' }] } },
+          sent: [{ destination: 'STORE.0101.PICKS', count: 1, has: { orderId: 'BP-300881' } }],
+          notSent: ['OMS.SHIPTOHOME.ORDERS', 'STORE.0107.PICKS'],
+        },
+      },
+      {
+        name: 'A nearby store has it',
+        about: 'Store 0101 has no stakes. Store 0107, 8 km away, has both lines, so it picks and the customer is told.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'OMS.BOPIS.ORDERS',
+            payload: { orderId: 'BP-300882', storeId: '0101', customer: { name: 'Ana Costa', email: 'ana@example.com' }, lines: [{ sku: 'TENT-3P', qty: 1 }, { sku: 'STAKES-10', qty: 8 }] },
+          },
+        },
+        expect: {
+          noError: true,
+          db: { ORDER_RESERVATION: { count: 1, has: [{ ORDER_ID: 'BP-300882', STORE_ID: '0107' }] } },
+          sent: [
+            { destination: 'STORE.0107.PICKS', count: 1, has: { orderId: 'BP-300882' } },
+            { destination: 'CUSTOMER.NOTIFICATIONS', count: 1 },
+          ],
+          notSent: ['STORE.0101.PICKS', 'OMS.SHIPTOHOME.ORDERS'],
+        },
+      },
+      {
+        name: 'No store within 15 km has it',
+        about: 'Only store 0130, 22 km away, has ten stakes. The order becomes ship-to-home and no store picks it.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'OMS.BOPIS.ORDERS',
+            payload: { orderId: 'BP-300883', storeId: '0101', customer: { name: 'Lee Park', email: 'lee@example.com' }, lines: [{ sku: 'STAKES-10', qty: 10 }] },
+          },
+        },
+        expect: {
+          noError: true,
+          db: { ORDER_RESERVATION: { count: 0 } },
+          sent: [
+            { destination: 'OMS.SHIPTOHOME.ORDERS', count: 1, has: { orderId: 'BP-300883' } },
+            { destination: 'CUSTOMER.NOTIFICATIONS', count: 1 },
+          ],
+          notSent: ['STORE.0101.PICKS', 'STORE.0107.PICKS', 'STORE.0130.PICKS'],
+        },
+      },
+      {
+        name: 'Oracle is down',
+        about: 'Stock cannot be read. The flow fails so the order rolls back to the queue, and nothing is routed.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'OMS.BOPIS.ORDERS',
+            payload: { orderId: 'BP-300884', storeId: '0101', customer: { name: 'Kai Tan', email: 'kai@example.com' }, lines: [{ sku: 'TENT-3P', qty: 1 }] },
+          },
+        },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', ack: 'returned', notSent: ['STORE.0101.PICKS', 'OMS.SHIPTOHOME.ORDERS', 'CUSTOMER.NOTIFICATIONS'] },
+      },
+      {
+        name: 'The notification cannot be sent',
+        about: 'Store 0107 is told to pick, then the notification publish fails. The pick request is rolled back with the order, which goes back to the queue.',
+        trigger: {
+          message: {
+            kind: 'jms',
+            destination: 'OMS.BOPIS.ORDERS',
+            payload: { orderId: 'BP-300885', storeId: '0101', customer: { name: 'Ana Costa', email: 'ana@example.com' }, lines: [{ sku: 'TENT-3P', qty: 1 }, { sku: 'STAKES-10', qty: 8 }] },
+          },
+        },
+        overrides: { systems: { queues: { 'CUSTOMER.NOTIFICATIONS': { fault: true } } } },
+        expect: { ack: 'returned', notSent: ['STORE.0107.PICKS', 'STORE.0101.PICKS', 'OMS.SHIPTOHOME.ORDERS'] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'route-bopis-order',
       source('jms-listener', { destination: 'OMS.BOPIS.ORDERS', ackMode: 'IMMEDIATE', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'LOCAL' }),
       [
         step('set-variable', { variableName: 'order', value: '#[payload]' }),
+        // Parameters for the SQL below and for RESERVE_ORDER, which no longer see the order once the payload changes.
+        step('set-variable', { variableName: 'orderId', value: '#[payload.orderId]' }),
+        step('set-variable', { variableName: 'skuCsv', value: '#[payload.lines.sku joinBy ","]' }),
         // Stock for the chosen store and the 5 nearest stores within 15 km (STORE_DISTANCE is precomputed).
-        // STORE_DISTANCE contains a 0 km row from each store to itself. skuCsv = vars.order.lines.sku joinBy ","
+        // STORE_DISTANCE contains a 0 km row from each store to itself.
         step('db-select', {
           sql: "SELECT s.STORE_ID, s.SKU, s.AVAILABLE_QTY, d.DISTANCE_KM\nFROM STORE_STOCK s\nJOIN STORE_DISTANCE d ON d.TO_STORE_ID = s.STORE_ID\nWHERE d.FROM_STORE_ID = :storeId AND d.DISTANCE_KM <= 15\n  AND s.SKU IN (SELECT REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) FROM DUAL\n                CONNECT BY REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) IS NOT NULL)",
         }),
@@ -152,7 +280,7 @@ An order must never be both picked in a store and shipped from the DC, and none 
   ],
   solution: `
 1. **JMS On New Message** \`OMS.BOPIS.ORDERS\`, **transactionalAction ALWAYS_BEGIN, LOCAL**. Every JMS Publish in the flow joins this transaction, so "consume order + publish pick request + publish notification" is atomic on the broker. If the OMS does not state the message type, set **Inbound Content-Type** \`application/json\` (the config default is \`*/*\`) so \`vars.order\` can be read with selectors.
-2. **Database Select** — stock rows for the chosen store and stores within 15 km for the order's SKUs.
+2. **Database Select** — stock rows for the chosen store and stores within 15 km for the order's SKUs. Keep \`orderId\` and the SKU list (\`skuCsv\`) in variables first: the select and the procedure replace the payload, and their parameters still need them.
 3. **Transform Message** → \`vars.decision\`: \`chosenOk\` (the chosen store has every line) and \`altStore\` (nearest other store that has every line).
 4. **Choice**
    - \`chosenOk\` → **Stored Procedure** \`RESERVE_ORDER\` → set the payload back to \`vars.order\` (the procedure replaced it) → **JMS Publish** \`#["STORE." ++ storeId ++ ".PICKS"]\`.

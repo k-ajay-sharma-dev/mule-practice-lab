@@ -56,6 +56,92 @@ export default {
       rule: { type: 'routes', component: 'round-robin', min: 3 },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'POST', path: '/fedex/shipments', latencyMs: 350, respond: { status: 201, body: { carrier: 'FedEx', trackingNumber: '7712 3456 7890' } } },
+        { method: 'POST', path: '/dhl/shipments', latencyMs: 400, respond: { status: 201, body: { carrier: 'DHL', trackingNumber: 'JD014600003829' } } },
+        { method: 'POST', path: '/freight/shipments', latencyMs: 500, respond: { status: 201, body: { carrier: 'Freight', trackingNumber: 'FRT-55120' } } },
+        { method: 'GET', path: '/fedex/rates', latencyMs: 700, respond: { status: 200, body: { carrier: 'FedEx', price: 42.5, days: 2 } } },
+        { method: 'GET', path: '/dhl/rates', latencyMs: 900, respond: { status: 200, body: { carrier: 'DHL', price: 38.9, days: 3 } } },
+        { method: 'GET', path: '/ups/rates', latencyMs: 800, respond: { status: 200, body: { carrier: 'UPS', price: 40.1, days: 2 } } },
+        { method: 'POST', path: '/primary-vendor/validate', latencyMs: 300, respond: { status: 200, body: { street: 'Invalidenstrasse 116', city: 'Berlin', postcode: '10115', country: 'DE', validated: true } } },
+        { method: 'POST', path: '/backup-vendor/validate', latencyMs: 450, respond: { status: 200, body: { street: 'Invalidenstrasse 116', city: 'Berlin', postcode: '10115', country: 'DE', validated: true } } },
+        { method: 'POST', path: '/print-server-1/labels', latencyMs: 200, respond: { status: 200, body: { printed: true, server: 1 } } },
+        { method: 'POST', path: '/print-server-2/labels', latencyMs: 200, respond: { status: 200, body: { printed: true, server: 2 } } },
+        { method: 'POST', path: '/print-server-3/labels', latencyMs: 200, respond: { status: 200, body: { printed: true, server: 3 } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'Each shipment goes to its carrier',
+        about: 'A US order goes to FedEx, a French order to DHL, and a Japanese order to the freight API.',
+        triggers: [
+          { http: { method: 'POST', path: '/shipments', body: { orderId: 'SO-1001', shipTo: { name: 'J. Smith', city: 'Denver', country: 'US' } } } },
+          { http: { method: 'POST', path: '/shipments', body: { orderId: 'SO-1002', shipTo: { name: 'C. Martin', city: 'Lyon', country: 'FR' } } } },
+          { http: { method: 'POST', path: '/shipments', body: { orderId: 'SO-1003', shipTo: { name: 'K. Sato', city: 'Osaka', country: 'JP' } } } },
+        ],
+        expect: {
+          calls: [
+            { method: 'POST', path: '/fedex/shipments', count: 1 },
+            { method: 'POST', path: '/dhl/shipments', count: 1 },
+            { method: 'POST', path: '/freight/shipments', count: 1 },
+          ],
+        },
+      },
+      {
+        name: 'One carrier is down and one is slow',
+        about: 'UPS refuses the connection and DHL takes 8 seconds. The screen still gets one list within 3 seconds, with UPS and DHL marked as unavailable.',
+        trigger: { http: { method: 'GET', path: '/rates' } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'GET', path: '/ups/rates', respond: { fault: 'CONNECTIVITY' } },
+              { method: 'GET', path: '/dhl/rates', latencyMs: 8000, respond: { status: 200, body: { carrier: 'DHL', price: 38.9, days: 3 } } },
+            ],
+          },
+        },
+        expect: { status: 200, bodyHas: [{ carrier: 'FedEx', price: 42.5 }, { carrier: 'DHL' }, { carrier: 'UPS' }], bodyLacks: [{ carrier: 'DHL', price: 38.9 }], maxMs: 3000 },
+      },
+      {
+        name: 'The primary vendor fails',
+        about: 'The primary address vendor is down, so the backup vendor validates the address.',
+        trigger: { http: { method: 'POST', path: '/addresses/validate', body: { street: 'Invalidenstrasse 116', city: 'Berlin', postcode: '10115', country: 'DE' } } },
+        overrides: { systems: { http: [{ method: 'POST', path: '/primary-vendor/validate', respond: { status: 503, body: { message: 'Service Unavailable' } } }] } },
+        expect: { status: 200, bodyHas: { postcode: '10115' }, bodyLacks: { validated: false }, calls: [{ method: 'POST', path: '/backup-vendor/validate', count: 1 }] },
+      },
+      {
+        name: 'Both address vendors fail',
+        about: 'Neither vendor answers. The address is accepted with validated set to false.',
+        trigger: { http: { method: 'POST', path: '/addresses/validate', body: { street: 'Invalidenstrasse 116', city: 'Berlin', postcode: '10115', country: 'DE' } } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'POST', path: '/primary-vendor/validate', respond: { fault: 'CONNECTIVITY' } },
+              { method: 'POST', path: '/backup-vendor/validate', respond: { status: 500, body: { message: 'Internal error' } } },
+            ],
+          },
+        },
+        expect: { status: 200, bodyHas: { postcode: '10115', validated: false } },
+      },
+      {
+        name: 'Labels are spread over the print servers',
+        about: 'Three labels in a row go to three different print servers.',
+        triggers: [
+          { http: { method: 'POST', path: '/labels', body: { shipmentId: 'SH-1', format: 'ZPL' } } },
+          { http: { method: 'POST', path: '/labels', body: { shipmentId: 'SH-2', format: 'ZPL' } } },
+          { http: { method: 'POST', path: '/labels', body: { shipmentId: 'SH-3', format: 'ZPL' } } },
+        ],
+        expect: {
+          calls: [
+            { method: 'POST', path: '/print-server-1/labels', count: 1 },
+            { method: 'POST', path: '/print-server-2/labels', count: 1 },
+            { method: 'POST', path: '/print-server-3/labels', count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('select-carrier', source('http-listener', { path: '/shipments', allowedMethods: 'POST' }), [
       router('choice', {}, [

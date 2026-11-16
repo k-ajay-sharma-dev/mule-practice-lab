@@ -56,6 +56,66 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [
+        {
+          method: 'GET',
+          path: '/prc-catalog/v1/categories/{categoryId}/products',
+          latencyMs: 3000,
+          respond: {
+            status: 200,
+            body: {
+              category: { name: 'Tents' },
+              products: [
+                { productId: 'TENT-2P', content: { title: 'Ridge 2-person tent' }, media: [{ url: 'https://dam.example.com/tent-2p.jpg' }], badges: ['NEW'] },
+                { productId: 'TENT-4P', content: { title: 'Basecamp 4-person tent' }, media: [{ url: 'https://dam.example.com/tent-4p.jpg' }], badges: [] },
+              ],
+            },
+          },
+        },
+        { method: 'GET', path: '/sys-pim/v1/products', latencyMs: 2600, respond: { status: 200, body: [{ productId: 'TENT-2P', categoryName: 'Tents', content: { title: 'Ridge 2-person tent' } }, { productId: 'TENT-4P', categoryName: 'Tents', content: { title: 'Basecamp 4-person tent' } }] } },
+        { method: 'GET', path: '/sys-dam/v1/assets', latencyMs: 400, respond: { status: 200, body: [{ productId: 'TENT-2P', url: 'https://dam.example.com/tent-2p.jpg' }, { productId: 'TENT-4P', url: 'https://dam.example.com/tent-4p.jpg' }] } },
+      ],
+    },
+    tests: [
+      {
+        name: 'A category page',
+        about: 'The first request for the tents page goes to the Process API and comes back as web tiles.',
+        trigger: { http: { method: 'GET', path: '/exp-web/v1/categories/CAT-TENTS/products', query: { locale: 'en-GB' }, headers: { client_id: 'web-shop-prod' } } },
+        expect: { status: 200, calls: [{ method: 'GET', path: '/prc-catalog/v1/categories/{categoryId}/products', count: 1 }] },
+      },
+      {
+        name: 'The same page a minute later',
+        about: 'The second request for the same category and locale is answered from the cache, without calling the slow Process API.',
+        triggers: [
+          { http: { method: 'GET', path: '/exp-web/v1/categories/CAT-TENTS/products', query: { locale: 'en-GB' }, headers: { client_id: 'web-shop-prod' } } },
+          { afterMs: 60000, http: { method: 'GET', path: '/exp-web/v1/categories/CAT-TENTS/products', query: { locale: 'en-GB' }, headers: { client_id: 'web-shop-prod' } } },
+        ],
+        expect: { status: 200, calls: [{ method: 'GET', path: '/prc-catalog/v1/categories/{categoryId}/products', count: 1 }] },
+      },
+      {
+        name: 'The catalog hangs',
+        about: 'The Process API does not answer, so the web gets 504 after the timeout instead of waiting.',
+        trigger: { http: { method: 'GET', path: '/exp-web/v1/categories/CAT-STOVES/products', query: { locale: 'de-DE' }, headers: { client_id: 'web-shop-prod' } } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/prc-catalog/v1/categories/{categoryId}/products', latencyMs: 60000, respond: { status: 200, body: {} } }] } },
+        expect: { status: 504, maxMs: 10000 },
+      },
+      {
+        name: 'The Process API merges PIM and DAM',
+        about: 'On a cache miss the Process API reads product content and images and joins them.',
+        trigger: { http: { method: 'GET', path: '/prc-catalog/v1/categories/CAT-TENTS/products', query: { locale: 'en-GB' } } },
+        expect: {
+          status: 200,
+          maxMs: 3500,
+          calls: [
+            { method: 'GET', path: '/sys-pim/v1/products', count: 1 },
+            { method: 'GET', path: '/sys-dam/v1/assets', count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',

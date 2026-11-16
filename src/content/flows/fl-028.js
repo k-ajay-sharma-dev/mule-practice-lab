@@ -77,6 +77,41 @@ export default {
       rule: { type: 'before', first: ['scatter-gather', 'try'], then: 'choice', outside: true },
     },
   ],
+  simulation: {
+    systems: {
+      db: { tables: { customers: { key: 'customer_id', rows: [{ customer_id: 1, name: 'Aroha Ltd' }] } }, latencyMs: 6 },
+      http: [{ method: 'GET', path: '/ping', latencyMs: 40, respond: { status: 200, body: { status: 'ok' } } }],
+    },
+    tests: [
+      {
+        name: 'Everything is up',
+        about: 'The database and the Customer API both answer, so the replica is ready.',
+        trigger: { http: { method: 'GET', path: '/health/ready' } },
+        expect: { status: 200, calls: [{ method: 'GET', path: '/ping', count: 1 }], maxMs: 3000 },
+      },
+      {
+        name: 'The database is down',
+        about: 'No connection can be made to the database, so readiness answers 503.',
+        trigger: { http: { method: 'GET', path: '/health/ready' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { status: 503, maxMs: 3000 },
+      },
+      {
+        name: 'The Customer API hangs',
+        about: 'The Customer API takes 20 seconds to answer. Readiness still answers 503 inside the 3 second budget.',
+        trigger: { http: { method: 'GET', path: '/health/ready' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/ping', latencyMs: 20000, respond: { status: 200, body: { status: 'ok' } } }] } },
+        expect: { status: 503, maxMs: 3000 },
+      },
+      {
+        name: 'Liveness during an outage',
+        about: 'The database and the Customer API are both down, but liveness still answers 200, so Kubernetes does not restart the pod.',
+        trigger: { http: { method: 'GET', path: '/health/live' } },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' }, http: [{ method: 'GET', path: '/ping', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { status: 200, calls: [{ path: '/ping', count: 0 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow('health-live', source('http-listener', { path: '/health/live', allowedMethods: 'GET' }), [
       step('set-payload', { value: '#[output application/json --- { status: "UP", app: app.name }]' }),

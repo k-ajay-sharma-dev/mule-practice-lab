@@ -1,6 +1,8 @@
 import { design, flow, handler, source, step } from '../../flow/dsl.js'
 import { handlerBody, handlerStatus } from '../../flow/rules.js'
 
+const BALANCE_REPLY = '<BalanceReply><AccountId>ACC-55012</AccountId><Available>1520.75</Available><Ledger>1610.00</Ledger><AsOf>2026-11-13T09:59:58Z</AsOf></BalanceReply>'
+
 export default {
   id: 'fl-020',
   category: 'flows',
@@ -65,6 +67,37 @@ export default {
       rule: { type: 'before', first: 'scheduler', then: 'jms-consume', thenWhere: { destination: 'BAL.RPLY', selector: { set: true } } },
     },
   ],
+  // The JMS operations answer from the calls below: Publish Consume, or Consume when the design publishes and consumes in two steps.
+  simulation: {
+    systems: {
+      calls: {
+        'jms-publish-consume': { latencyMs: 380, payload: BALANCE_REPLY },
+        'jms-consume': { latencyMs: 380, payload: BALANCE_REPLY },
+      },
+    },
+    tests: [
+      {
+        name: 'The mainframe answers',
+        about: 'The reply comes back in time and is mapped to JSON.',
+        trigger: { http: { method: 'GET', path: '/accounts/ACC-55012/balance' } },
+        expect: { status: 200, bodyHas: { accountId: 'ACC-55012', available: 1520.75, ledger: 1610 }, maxMs: 1500 },
+      },
+      {
+        name: 'The mainframe does not answer in time',
+        about: 'No reply arrives before the wait ends, so the caller gets 504.',
+        trigger: { http: { method: 'GET', path: '/accounts/ACC-55012/balance' } },
+        overrides: {
+          systems: {
+            calls: {
+              'jms-publish-consume': { latencyMs: 1200, fault: { type: 'JMS:TIMEOUT', description: 'Failed to retrieve a Message. Operation timed out after 1200 milliseconds' } },
+              'jms-consume': { latencyMs: 1200, fault: { type: 'JMS:TIMEOUT', description: 'Failed to retrieve a Message. Operation timed out after 1200 milliseconds' } },
+            },
+          },
+        },
+        expect: { status: 504, bodyLacks: { available: 1520.75 } },
+      },
+    ],
+  },
   optionalSteps: [
     {
       type: 'on-error-propagate',
@@ -124,6 +157,7 @@ A bank's **Account Balance API** (\`GET /accounts/{id}/balance\`, p95 < 1.5 s) m
 - Requests go to queue \`BAL.REQ\`; the mainframe writes replies to a **shared, fixed** queue \`BAL.RPLY\` and copies the request's **JMSMessageID into JMSCorrelationID**.
 - 300 req/s peak across **4 replicas**.
 - Sometimes the mainframe answers after 10+ s (or never).
+- A reply is XML: \`<BalanceReply><AccountId>…</AccountId><Available>…</Available><Ledger>…</Ledger><AsOf>…</AsOf></BalanceReply>\`. The API answers JSON \`{ accountId, available, ledger, asOf }\` with the amounts as numbers, and **504** when the mainframe does not reply in time.
 
 **Design the flow(s):** how the request is sent, how each replica gets *its own* reply from a shared reply queue, timeouts, late replies, and scaling.
 `,

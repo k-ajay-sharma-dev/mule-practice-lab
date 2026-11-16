@@ -66,6 +66,99 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          meter_reading: {
+            columns: ['meter_id', 'read_at', 'kwh'],
+            rows: [{ meter_id: 'MTR-0041177', read_at: '2026-11-13T08:00:00Z', kwh: 1.42 }],
+          },
+        },
+        latencyMs: 15,
+      },
+    },
+    tests: [
+      {
+        name: 'A clean batch is stored',
+        about: 'Three new readings arrive in one batch and all three are written.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'meter.readings.v1',
+            payload: [
+              { payload: '{ "meterId": "MTR-0041177", "readAt": "2026-11-13T09:00:00Z", "kwh": 1.37 }' },
+              { payload: '{ "meterId": "MTR-0052210", "readAt": "2026-11-13T09:00:00Z", "kwh": 0.88 }' },
+              { payload: '{ "meterId": "MTR-0060981", "readAt": "2026-11-13T09:00:00Z", "kwh": 2.05 }' },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          db: { meter_reading: { count: 4, has: [{ meter_id: 'MTR-0060981', kwh: 2.05 }] } },
+          notSent: ['meter.readings.dlt'],
+          ack: 'acked',
+        },
+      },
+      {
+        name: 'One reading is malformed',
+        about: 'One kwh value is not a number. That reading goes to the dead-letter topic, the other two are stored, and the batch is committed.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'meter.readings.v1',
+            payload: [
+              { payload: '{ "meterId": "MTR-0041177", "readAt": "2026-11-13T09:00:00Z", "kwh": 1.37 }' },
+              { payload: '{ "meterId": "MTR-0052210", "readAt": "2026-11-13T09:00:00Z", "kwh": "ERR-17" }' },
+              { payload: '{ "meterId": "MTR-0060981", "readAt": "2026-11-13T09:00:00Z", "kwh": 2.05 }' },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          db: { meter_reading: { count: 3, has: [{ meter_id: 'MTR-0041177', kwh: 1.37 }, { meter_id: 'MTR-0060981', kwh: 2.05 }], lacks: [{ meter_id: 'MTR-0052210' }] } },
+          sent: [{ destination: 'meter.readings.dlt', count: 1 }],
+          ack: 'acked',
+        },
+      },
+      {
+        name: 'A reading is sent again',
+        about: 'The 08:00 reading for MTR-0041177 is already stored. The batch succeeds and the stored value does not change.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'meter.readings.v1',
+            payload: [
+              { payload: '{ "meterId": "MTR-0041177", "readAt": "2026-11-13T08:00:00Z", "kwh": 9.99 }' },
+              { payload: '{ "meterId": "MTR-0052210", "readAt": "2026-11-13T09:00:00Z", "kwh": 0.88 }' },
+            ],
+          },
+        },
+        expect: {
+          noError: true,
+          db: { meter_reading: { count: 2, has: [{ meter_id: 'MTR-0041177', kwh: 1.42 }, { meter_id: 'MTR-0052210' }], lacks: [{ kwh: 9.99 }] } },
+          notSent: ['meter.readings.dlt'],
+          ack: 'acked',
+        },
+      },
+      {
+        name: 'The database is down',
+        about: 'PostgreSQL does not answer. The batch is not committed and nothing goes to the dead-letter topic, because the data is fine.',
+        trigger: {
+          message: {
+            kind: 'kafka',
+            destination: 'meter.readings.v1',
+            payload: [
+              { payload: '{ "meterId": "MTR-0041177", "readAt": "2026-11-13T09:00:00Z", "kwh": 1.37 }' },
+              { payload: '{ "meterId": "MTR-0052210", "readAt": "2026-11-13T09:00:00Z", "kwh": 0.88 }' },
+            ],
+          },
+        },
+        overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
+        expect: { error: 'DB:CONNECTIVITY', notSent: ['meter.readings.dlt'], ack: 'not-acked' },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'meter-readings-loader',

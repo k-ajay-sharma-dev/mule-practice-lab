@@ -32,6 +32,7 @@ const area = (key, label, value = '') => ({ key, label, type: 'textarea', defaul
 const help = (field, text) => ({ ...field, help: text })
 // Database operations replace the payload with their result unless a Target variable is set
 const DB_TARGET = help(text('target', 'Target variable (optional)'), 'Keeps the result in this variable and leaves the payload as it was.')
+const DB_PARAMS = help(expr('inputParameters', 'Input parameters (optional)'), 'The values for the :names in the SQL, for example #[{ id: vars.orderId }].')
 
 const ACK_MODES = ['AUTO', 'IMMEDIATE', 'MANUAL']
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
@@ -567,7 +568,12 @@ export const COMPONENTS = {
     group: 'connectors',
     kind: 'processor',
     glyph: '⇄',
-    fields: [select('method', 'Method', HTTP_METHODS), text('path', 'Path', '/'), num('responseTimeout', 'Response timeout (ms)', 0)],
+    fields: [
+      select('method', 'Method', HTTP_METHODS),
+      text('path', 'Path', '/'),
+      num('responseTimeout', 'Response timeout (ms)', 0),
+      help(text('successStatusCodes', 'Success status codes (optional)'), 'The response validator: for example 200..299,422 lets a 422 through as a normal answer. Empty means 200 to 399.'),
+    ],
     summary: (c) => `${c.method} ${c.path}`,
   },
   'db-select': {
@@ -575,7 +581,7 @@ export const COMPONENTS = {
     group: 'database',
     kind: 'processor',
     glyph: '⛁',
-    fields: [dbField(), area('sql', 'SQL', 'SELECT * FROM orders WHERE id = :id'), num('fetchSize', 'Fetch size (rows read per trip)'), num('maxRows', 'Max rows'), DB_TARGET],
+    fields: [dbField(), area('sql', 'SQL', 'SELECT * FROM orders WHERE id = :id'), num('fetchSize', 'Fetch size (rows read per trip)'), num('maxRows', 'Max rows'), DB_PARAMS, DB_TARGET],
     summary: (c) => dbName(c) + c.sql,
   },
   'db-insert': {
@@ -583,7 +589,7 @@ export const COMPONENTS = {
     group: 'database',
     kind: 'processor',
     glyph: '⛁',
-    fields: [dbField(), area('sql', 'SQL', 'INSERT INTO orders (id, total) VALUES (:id, :total)'), DB_TARGET],
+    fields: [dbField(), area('sql', 'SQL', 'INSERT INTO orders (id, total) VALUES (:id, :total)'), DB_PARAMS, DB_TARGET],
     summary: (c) => dbName(c) + c.sql,
   },
   'db-bulk-insert': {
@@ -599,7 +605,7 @@ export const COMPONENTS = {
     group: 'database',
     kind: 'processor',
     glyph: '⛁',
-    fields: [dbField(), area('sql', 'SQL', 'UPDATE orders SET status = :status WHERE id = :id'), DB_TARGET],
+    fields: [dbField(), area('sql', 'SQL', 'UPDATE orders SET status = :status WHERE id = :id'), DB_PARAMS, DB_TARGET],
     summary: (c) => dbName(c) + c.sql,
   },
   'db-bulk-update': {
@@ -615,7 +621,7 @@ export const COMPONENTS = {
     group: 'database',
     kind: 'processor',
     glyph: '⛁',
-    fields: [dbField(), area('sql', 'SQL', 'DELETE FROM stock_reservations WHERE expires_at < :now'), DB_TARGET],
+    fields: [dbField(), area('sql', 'SQL', 'DELETE FROM stock_reservations WHERE expires_at < :now'), DB_PARAMS, DB_TARGET],
     summary: (c) => dbName(c) + c.sql,
   },
   'db-stored-procedure': {
@@ -623,7 +629,7 @@ export const COMPONENTS = {
     group: 'database',
     kind: 'processor',
     glyph: '⛁',
-    fields: [dbField(), area('sql', 'Call', '{ call RESERVE_STOCK(:sku, :qty, :reservation_id) }'), DB_TARGET],
+    fields: [dbField(), area('sql', 'Call', '{ call RESERVE_STOCK(:sku, :qty, :reservation_id) }'), DB_PARAMS, DB_TARGET],
     summary: (c) => dbName(c) + c.sql,
   },
   'sf-query': {

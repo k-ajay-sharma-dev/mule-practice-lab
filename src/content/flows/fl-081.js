@@ -67,6 +67,65 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          INTEGRATION_EXCEPTIONS: {
+            key: 'EXCEPTION_ID',
+            columns: ['EXCEPTION_ID', 'SOURCE_SYSTEM', 'ERROR_CODE', 'MESSAGE', 'CREATED_AT', 'REPORTED_AT'],
+            rows: [
+              { EXCEPTION_ID: 9001, SOURCE_SYSTEM: 'GUIDEWIRE', ERROR_CODE: 'HTTP:TIMEOUT', MESSAGE: 'Policy service did not answer', CREATED_AT: '2026-11-11T21:14:00Z', REPORTED_AT: '2026-11-12T02:00:05Z' },
+              { EXCEPTION_ID: 9002, SOURCE_SYSTEM: 'GUIDEWIRE', ERROR_CODE: 'HTTP:BAD_REQUEST', MESSAGE: 'Claim 77120 has no policy number', CREATED_AT: '2026-11-12T08:03:00Z', REPORTED_AT: null },
+              { EXCEPTION_ID: 9003, SOURCE_SYSTEM: 'SAP-FI', ERROR_CODE: 'SAP:TIMEOUT', MESSAGE: 'Posting for invoice 4410, broker fee', CREATED_AT: '2026-11-12T14:40:00Z', REPORTED_AT: null },
+              { EXCEPTION_ID: 9004, SOURCE_SYSTEM: 'SALESFORCE', ERROR_CODE: 'SALESFORCE:INVALID_INPUT', MESSAGE: 'Account <unknown> rejected', CREATED_AT: '2026-11-12T19:22:00Z', REPORTED_AT: null },
+            ],
+          },
+        },
+        latencyMs: 20,
+      },
+    },
+    tests: [
+      {
+        name: 'Last night had exceptions',
+        about: 'Three new exceptions go out in one digest, and only after that are they marked as reported.',
+        trigger: { schedule: {} },
+        expect: {
+          emails: [{ to: 'integration-support@company.example', count: 1 }],
+          db: { INTEGRATION_EXCEPTIONS: { count: 4, lacks: [{ REPORTED_AT: null }] } },
+        },
+      },
+      {
+        name: 'Nothing to report',
+        about: 'Every exception was already reported, so no email is sent.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                INTEGRATION_EXCEPTIONS: {
+                  key: 'EXCEPTION_ID',
+                  columns: ['EXCEPTION_ID', 'SOURCE_SYSTEM', 'ERROR_CODE', 'MESSAGE', 'CREATED_AT', 'REPORTED_AT'],
+                  rows: [{ EXCEPTION_ID: 9001, SOURCE_SYSTEM: 'GUIDEWIRE', ERROR_CODE: 'HTTP:TIMEOUT', MESSAGE: 'Policy service did not answer', CREATED_AT: '2026-11-11T21:14:00Z', REPORTED_AT: '2026-11-12T02:00:05Z' }],
+                },
+              },
+            },
+          },
+        },
+        expect: { noEmails: true },
+      },
+      {
+        name: 'The mail server is down',
+        about: 'The digest cannot be sent, so the rows stay unreported for the next night.',
+        trigger: { schedule: {} },
+        overrides: { systems: { email: { fault: true } } },
+        expect: {
+          noEmails: true,
+          db: { INTEGRATION_EXCEPTIONS: { has: [{ EXCEPTION_ID: 9002, REPORTED_AT: null }, { EXCEPTION_ID: 9003, REPORTED_AT: null }, { EXCEPTION_ID: 9004, REPORTED_AT: null }] } },
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'nightly-exception-digest',

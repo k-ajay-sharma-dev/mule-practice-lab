@@ -57,6 +57,75 @@ export default {
     },
     { label: 'When both providers fail, the API returns 503', rule: handlerStatus('ANY', '503') },
   ],
+  simulation: {
+    systems: {
+      http: [
+        { method: 'GET', path: '/primary-geo/v1/geocode', latencyMs: 300, respond: { status: 200, body: { lat: 53.4808, lon: -2.2426, confidence: 0.97 } } },
+        { method: 'GET', path: '/backup-geo/v2/search', latencyMs: 900, respond: { status: 200, body: { location: { latitude: 53.4807, longitude: -2.2428 }, matchType: 'street' } } },
+      ],
+    },
+    tests: [
+      {
+        name: 'The primary finds the address',
+        about: 'The cheap provider answers, and the backup is never called.',
+        trigger: { http: { method: 'GET', path: '/geocode?address=12%20Deansgate%2C%20Manchester' } },
+        expect: {
+          status: 200,
+          bodyHas: { lat: 53.4808, lon: -2.2426, provider: 'primary' },
+          calls: [
+            { method: 'GET', path: '/primary-geo/v1/geocode', count: 1 },
+            { method: 'GET', path: '/backup-geo/v2/search', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The address is misspelt',
+        about: 'The primary answers 404. The website gets 404 with ADDRESS_NOT_FOUND, and the backup is not paid for.',
+        trigger: { http: { method: 'GET', path: '/geocode?address=12%20Deansgte%2C%20Manchestr' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/primary-geo/v1/geocode', latencyMs: 250, respond: { status: 404, body: { message: 'No match' } } }] } },
+        expect: {
+          status: 404,
+          bodyHas: { error: 'ADDRESS_NOT_FOUND' },
+          calls: [
+            { method: 'GET', path: '/primary-geo/v1/geocode', count: 1 },
+            { method: 'GET', path: '/backup-geo/v2/search', count: 0 },
+          ],
+        },
+      },
+      {
+        name: 'The primary is down',
+        about: 'The primary refuses the connection, so the backup answers.',
+        trigger: { http: { method: 'GET', path: '/geocode?address=12%20Deansgate%2C%20Manchester' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/primary-geo/v1/geocode', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: {
+          status: 200,
+          bodyHas: { lat: 53.4807, lon: -2.2428, provider: 'backup' },
+          calls: [{ method: 'GET', path: '/backup-geo/v2/search', count: 1 }],
+        },
+      },
+      {
+        name: 'The primary is slow',
+        about: 'The primary takes 8 seconds. The backup must answer well inside the 5 second budget.',
+        trigger: { http: { method: 'GET', path: '/geocode?address=12%20Deansgate%2C%20Manchester' } },
+        overrides: { systems: { http: [{ method: 'GET', path: '/primary-geo/v1/geocode', latencyMs: 8000, respond: { status: 200, body: { lat: 53.4808, lon: -2.2426 } } }] } },
+        expect: { status: 200, bodyHas: { provider: 'backup' }, maxMs: 5000 },
+      },
+      {
+        name: 'Both providers are down',
+        about: 'Neither provider can be reached, so the website gets 503.',
+        trigger: { http: { method: 'GET', path: '/geocode?address=12%20Deansgate%2C%20Manchester' } },
+        overrides: {
+          systems: {
+            http: [
+              { method: 'GET', path: '/primary-geo/v1/geocode', respond: { fault: 'CONNECTIVITY' } },
+              { method: 'GET', path: '/backup-geo/v2/search', respond: { status: 500, body: { message: 'Internal error' } } },
+            ],
+          },
+        },
+        expect: { status: 503, bodyLacks: { provider: 'backup' } },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'geocode-api',

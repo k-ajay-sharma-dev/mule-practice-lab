@@ -50,6 +50,79 @@ export default {
       },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/customers/bulk-upsert', latencyMs: 900, respond: { status: 200, body: { upserted: 3 } } }],
+      objectStore: { 'watermark-store': { 'customers.watermark': { ts: '2026-11-12T08:00:00', id: 1002 } } },
+      db: {
+        tables: {
+          CUSTOMERS: {
+            key: 'CUST_ID',
+            rows: [
+              { CUST_ID: 1001, CUST_NAME: 'Acme Retail', EMAIL: 'ap@acme.example', LAST_UPDATED: '2026-11-11T17:30:00' },
+              { CUST_ID: 1002, CUST_NAME: 'Globex', EMAIL: 'billing@globex.example', LAST_UPDATED: '2026-11-12T08:00:00' },
+              { CUST_ID: 1003, CUST_NAME: 'Initech', EMAIL: 'finance@initech.example', LAST_UPDATED: '2026-11-12T09:15:00' },
+              { CUST_ID: 1004, CUST_NAME: 'Umbrella', EMAIL: 'ar@umbrella.example', LAST_UPDATED: '2026-11-12T09:15:00' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'Changed customers are synced',
+        about: 'The poll finds customers 1003 and 1004, changed since the watermark, and sends them to the CRM. Customer 1001 has not changed.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          calls: [
+            { method: 'POST', path: '/customers/bulk-upsert', has: [{ customerId: '1003', name: 'Initech' }], min: 1 },
+            { method: 'POST', path: '/customers/bulk-upsert', has: [{ customerId: '1004', email: 'ar@umbrella.example' }], min: 1 },
+            { method: 'POST', path: '/customers/bulk-upsert', has: [{ customerId: '1001' }], count: 0 },
+          ],
+          stored: [{ key: 'customers.watermark', has: { ts: '2026-11-12T09:15:00' } }],
+        },
+      },
+      {
+        name: 'The CRM is down',
+        about: 'The delivery fails, so the watermark keeps its old value and no customer is skipped.',
+        trigger: { schedule: {} },
+        overrides: { systems: { http: [{ method: 'POST', path: '/customers/bulk-upsert', respond: { fault: 'CONNECTIVITY' } }] } },
+        expect: { calls: [{ method: 'POST', path: '/customers/bulk-upsert', min: 1 }], stored: [{ key: 'customers.watermark', value: { ts: '2026-11-12T08:00:00', id: 1002 } }] },
+      },
+      {
+        name: 'The next poll sends them again',
+        about: 'The first delivery fails. The watermark must stay where it was, so the next poll sends the same customers again.',
+        triggers: [{ schedule: {} }, { afterMs: 120000, schedule: {} }],
+        overrides: {
+          systems: { http: [{ method: 'POST', path: '/customers/bulk-upsert', responses: [{ fault: 'CONNECTIVITY' }, { status: 200, body: { upserted: 2 } }] }] },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/customers/bulk-upsert', has: [{ customerId: '1003' }], min: 2 }] },
+      },
+      {
+        name: 'A row shares the last timestamp',
+        about: 'The only change is customer 1005, updated in the same second as the watermark row 1002. It must still be sent.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            db: {
+              tables: {
+                CUSTOMERS: {
+                  key: 'CUST_ID',
+                  rows: [
+                    { CUST_ID: 1001, CUST_NAME: 'Acme Retail', EMAIL: 'ap@acme.example', LAST_UPDATED: '2026-11-11T17:30:00' },
+                    { CUST_ID: 1002, CUST_NAME: 'Globex', EMAIL: 'billing@globex.example', LAST_UPDATED: '2026-11-12T08:00:00' },
+                    { CUST_ID: 1005, CUST_NAME: 'Hooli', EMAIL: 'ap@hooli.example', LAST_UPDATED: '2026-11-12T08:00:00' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        expect: { noError: true, calls: [{ method: 'POST', path: '/customers/bulk-upsert', has: [{ customerId: '1005' }], min: 1 }] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'erp-customers-sync',
@@ -99,8 +172,8 @@ export default {
 A legacy **Oracle ERP** table \`CUSTOMERS\` (2M rows) has a \`LAST_UPDATED\` timestamp column and a numeric primary key \`CUST_ID\`. The ERP has no events, no triggers you're allowed to add, and the DBA only allows read access.
 
 **Requirements**
-- Changed customers must reach the **CRM System API** within **5 minutes** (~2–10k changes/day, bursts of 20k after month-end jobs).
-- After a restart or redeploy, the sync must continue from where it stopped — no full re-scan and no missed rows.
+- Changed customers must reach the **CRM System API** within **5 minutes** (~2–10k changes/day, bursts of 20k after month-end jobs). Its \`POST /customers/bulk-upsert\` takes a list of customers, each \`{ "customerId": "1003", "name": "...", "email": "...", "updatedAt": "..." }\`, with \`customerId\` the \`CUST_ID\` as text.
+- After a restart or redeploy, the sync must continue from where it stopped — no full re-scan and no missed rows. If you keep the watermark in an Object Store, use the key \`customers.watermark\` with a value like \`{ "ts": "2026-11-12T08:00:00", "id": 1002 }\` (the last \`LAST_UPDATED\` and \`CUST_ID\` sent).
 - Two rows can share the same \`LAST_UPDATED\` value (bulk updates in one transaction).
 - The app runs on **2 replicas** for HA.
 

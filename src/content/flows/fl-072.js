@@ -51,6 +51,70 @@ export default {
       rule: { type: 'inside', component: 'sftp-move', where: { targetPath: 'error' }, within: ['on-error-continue', 'on-error-propagate'] },
     },
   ],
+  simulation: {
+    systems: {
+      http: [{ method: 'POST', path: '/treasury/v1/remittance-files', latencyMs: 1800, respond: { status: 201, body: { bookingId: 'TB-2026-118841', status: 'BOOKED' } } }],
+      files: {
+        '/outbound/remittance/REM_4471_0001.csv': 'INVOICE_NO,AMOUNT,CCY,VALUE_DATE\nINV-30019,1250.00,EUR,20261113\nINV-30022,87.40,EUR,20261113',
+        '/outbound/remittance/REM_4471_0002.csv': 'INVOICE_NO,AMOUNT,CCY,VALUE_DATE\nINV-30031,410.00,EUR,20261113',
+        '/outbound/remittance/REM_4471_0003.csv': 'INVOICE_NO,AMOUNT,CCY,VALUE_DATE\nINV-30040,99.95,EUR,20261113\nINV-30044,2210.00,EUR,20261113',
+      },
+      // 0001 and 0002 are complete; the bank is still writing 0003, which changed 20 seconds ago
+      fileTimes: {
+        '/outbound/remittance/REM_4471_0001.csv': '2026-11-13T09:31:12Z',
+        '/outbound/remittance/REM_4471_0002.csv': '2026-11-13T09:44:05Z',
+        '/outbound/remittance/REM_4471_0003.csv': '2026-11-13T09:59:40Z',
+      },
+    },
+    tests: [
+      {
+        name: 'Finished files are posted and archived',
+        about: 'The two complete files are each posted once and archived with a timestamp in the name. The file still being written is left alone.',
+        trigger: { schedule: {} },
+        expect: {
+          noError: true,
+          calls: [
+            { method: 'POST', path: '/treasury/v1/remittance-files', count: 2 },
+            { method: 'POST', path: '/treasury/v1/remittance-files', has: { sourceFile: 'REM_4471_0001.csv' }, count: 1 },
+          ],
+          files: {
+            '/archive/remittance/REM_4471_0001.csv*': { count: 1 },
+            '/archive/remittance/REM_4471_0002.csv*': { count: 1 },
+            '/outbound/remittance/REM_4471_0003.csv': { exists: true },
+            '/outbound/remittance/REM_4471_0001.csv': { exists: false },
+          },
+        },
+      },
+      {
+        name: 'The Treasury API rejects a file',
+        about: 'The first file is refused with a 400. It goes to the error folder, and the next file is still posted and archived.',
+        trigger: { schedule: {} },
+        overrides: {
+          systems: {
+            http: [{ method: 'POST', path: '/treasury/v1/remittance-files', responses: [{ status: 400, body: { message: 'Unknown account 4471' } }, { status: 201, body: { bookingId: 'TB-2026-118842', status: 'BOOKED' } }] }],
+          },
+        },
+        expect: {
+          files: {
+            '/error/remittance/REM_4471_0001.csv*': { count: 1 },
+            '/archive/remittance/REM_4471_0001.csv*': { count: 0 },
+            '/archive/remittance/REM_4471_0002.csv*': { count: 1 },
+          },
+        },
+      },
+      {
+        name: 'The next poll comes round',
+        about: 'Ten minutes later the archived files are gone from the folder, so nothing is posted twice. The file that is now complete is posted.',
+        triggers: [{ schedule: {} }, { afterMs: 600000, schedule: {} }],
+        expect: {
+          calls: [
+            { method: 'POST', path: '/treasury/v1/remittance-files', count: 3 },
+            { method: 'POST', path: '/treasury/v1/remittance-files', has: { sourceFile: 'REM_4471_0001.csv' }, count: 1 },
+          ],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'bank-remittance-poll',

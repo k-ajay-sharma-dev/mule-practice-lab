@@ -86,6 +86,95 @@ export default {
       why: 'The catch-all handler answers 500 and logs the error, which Mule does by default. It only adds a tidier body.',
     },
   ],
+  simulation: {
+    systems: {
+      db: {
+        tables: {
+          authorised_brokers: {
+            key: 'broker_id',
+            rows: [
+              { broker_id: 'BRK-014', cert_dn: 'CN=claims-gw.harbourbrokers.co.uk,O=Harbour Brokers Ltd,C=GB', cert_serial: '4A1F097C33D2', status: 'ACTIVE' },
+              // Last year's certificate of the same broker, kept after the renewal.
+              { broker_id: 'BRK-014', cert_dn: 'CN=claims-gw.harbourbrokers.co.uk,O=Harbour Brokers Ltd,C=GB', cert_serial: '19BB20E1A007', status: 'DISABLED' },
+              { broker_id: 'BRK-031', cert_dn: 'CN=api.millbrookinsure.com,O=Millbrook Insurance Services,C=GB', cert_serial: '7C02DE5519F4', status: 'ACTIVE' },
+            ],
+          },
+        },
+      },
+    },
+    tests: [
+      {
+        name: 'A known broker sends a claim',
+        about: 'The certificate is verified and on the list, so the claim goes on the queue with the broker ID and the answer is 202.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/claims/v1/submissions',
+            headers: {
+              'X-SSL-Client-Verify': 'SUCCESS',
+              'X-SSL-Client-DN': 'CN=claims-gw.harbourbrokers.co.uk,O=Harbour Brokers Ltd,C=GB',
+              'X-SSL-Issuer': 'CN=Partner CA G2,O=Insurer Group,C=GB',
+              'X-SSL-Client-Serial': '4A1F097C33D2',
+            },
+            body: { policyNumber: 'HOM-2291044', claimType: 'WATER_DAMAGE', incidentDate: '2026-11-08', estimatedAmount: 4200 },
+          },
+        },
+        expect: {
+          status: 202,
+          sent: [{ destination: 'claims.submissions', count: 1, has: { policyNumber: 'HOM-2291044', claimType: 'WATER_DAMAGE', brokerId: 'BRK-014' } }],
+        },
+      },
+      {
+        name: 'No client certificate',
+        about: 'The load balancer reports NONE, so the answer is 401 and nothing is published.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/claims/v1/submissions',
+            headers: { 'X-SSL-Client-Verify': 'NONE' },
+            body: { policyNumber: 'HOM-2291044', claimType: 'WATER_DAMAGE', incidentDate: '2026-11-08', estimatedAmount: 4200 },
+          },
+        },
+        expect: { status: 401, notSent: ['claims.submissions'] },
+      },
+      {
+        name: 'Another company\'s certificate',
+        about: 'The certificate chains to the trusted CA but is not on the broker list. The answer is 403 and the serial is logged.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/claims/v1/submissions',
+            headers: {
+              'X-SSL-Client-Verify': 'SUCCESS',
+              'X-SSL-Client-DN': 'CN=pentest.redteam-consulting.example,O=Red Team Consulting,C=GB',
+              'X-SSL-Issuer': 'CN=Partner CA G2,O=Insurer Group,C=GB',
+              'X-SSL-Client-Serial': '0D44E8A1B6F2',
+            },
+            body: { policyNumber: 'HOM-2291044', claimType: 'WATER_DAMAGE', incidentDate: '2026-11-08', estimatedAmount: 4200 },
+          },
+        },
+        expect: { status: 403, notSent: ['claims.submissions'], logs: [{ has: '0D44E8A1B6F2' }] },
+      },
+      {
+        name: 'An old certificate after renewal',
+        about: 'The DN is a known broker, but the serial belongs to the certificate it replaced, which is disabled. The answer is 403.',
+        trigger: {
+          http: {
+            method: 'POST',
+            path: '/claims/v1/submissions',
+            headers: {
+              'X-SSL-Client-Verify': 'SUCCESS',
+              'X-SSL-Client-DN': 'CN=claims-gw.harbourbrokers.co.uk,O=Harbour Brokers Ltd,C=GB',
+              'X-SSL-Issuer': 'CN=Partner CA G2,O=Insurer Group,C=GB',
+              'X-SSL-Client-Serial': '19BB20E1A007',
+            },
+            body: { policyNumber: 'HOM-2291044', claimType: 'WATER_DAMAGE', incidentDate: '2026-11-08', estimatedAmount: 4200 },
+          },
+        },
+        expect: { status: 403, notSent: ['claims.submissions'] },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'claims-submission',
@@ -103,7 +192,8 @@ export default {
         step('set-variable', { variableName: 'claim', value: '#[payload]' }),
         step('db-select', {
           database: 'partner-db',
-          sql: "SELECT broker_id FROM authorised_brokers WHERE cert_dn = :dn AND cert_serial = :serial AND status = 'ACTIVE'",
+          sql: "SELECT broker_id FROM authorised_brokers WHERE cert_dn = :clientDn AND cert_serial = :clientSerial AND status = 'ACTIVE'",
+          inputParameters: '#[{ clientDn: vars.clientDn, clientSerial: vars.clientSerial }]',
         }),
         step('validation', { check: 'is-not-empty-collection', expression: '#[payload]', message: 'Certificate is not authorised' }),
         step('set-variable', { variableName: 'brokerId', value: '#[payload[0].broker_id]' }),
@@ -181,7 +271,7 @@ For each request, the DLB sends these headers to the app:
 1. **HTTP Listener** \`POST /claims/v1/submissions\`.
 2. **Validate** (is-true): \`X-SSL-Client-Verify\` equals \`SUCCESS\`. A missing header gives \`""\`, which fails, so the flow fails closed.
 3. **Set Variable** \`clientDn\`, \`clientSerial\` and \`claim\`. This must come before the database call, which replaces \`payload\` and \`attributes\`.
-4. **Database Select** on \`authorised_brokers\`, with \`vars.clientDn\` and \`vars.clientSerial\` as input parameters \`dn\` and \`serial\`.
+4. **Database Select** on \`authorised_brokers\`, with \`vars.clientDn\` and \`vars.clientSerial\` as the input parameters \`clientDn\` and \`clientSerial\`.
 5. **Validate** (is-not-empty-collection) on the result.
 6. **Set Variable** \`brokerId\`, then **Transform** \`vars.claim ++ { brokerId: vars.brokerId }\`.
 7. **MQ Publish** to \`claims.submissions\`. Answer **202**.

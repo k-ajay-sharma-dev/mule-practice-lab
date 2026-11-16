@@ -38,6 +38,7 @@ async function results(id, change) {
 // Each case that does not hold is collected, so one run lists them all.
 const broken = []
 const collect = (fn) => async (id, ...rest) => {
+  if (onlyProblems.length && !onlyProblems.includes(id)) return
   try {
     await fn(id, ...rest)
   } catch (err) {
@@ -68,9 +69,11 @@ async function passes(id, change) {
 }
 
 // Each file in scripts/flow-cases saves wrong and other correct designs for some problems.
-// Usage: node scripts/check-strict.js [pilot a b ...] runs only those files.
+// Usage: node scripts/check-strict.js [pilot a b ...] runs only those files, and [fl-012 fl-013 ...] only the cases
+// for those problems.
 const caseDir = resolve('scripts/flow-cases')
-const only = process.argv.slice(2)
+const onlyProblems = process.argv.slice(2).filter((a) => /^fl-\d+$/.test(a))
+const only = process.argv.slice(2).filter((a) => !/^fl-\d+$/.test(a))
 const tools = { failsOn: collect(failsOn), passes: collect(passes), one, all, handlerFor, flowOf, remove, step, scope, handler, subFlow, createNode }
 for (const file of readdirSync(caseDir).filter((x) => x.endsWith('.js')).sort()) {
   if (only.length && !only.includes(file.replace(/\.js$/, ''))) continue

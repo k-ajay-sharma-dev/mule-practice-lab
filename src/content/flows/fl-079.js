@@ -58,6 +58,68 @@ export default {
       rule: { type: 'inside', component: 'email-move', within: 'on-error-continue', where: { targetFolder: 'Failed' } },
     },
   ],
+  simulation: {
+    systems: {
+      calls: { 'azure-upload-blob': { payload: { eTag: '0x8DCB1A2F3C4D5E6', container: 'supplier-invoices' } } },
+    },
+    tests: [
+      {
+        name: 'An invoice email with two PDFs',
+        about: 'Both PDFs are stored, the signature image is ignored, and the email is moved once.',
+        trigger: {
+          source: 'email-listener',
+          payload: {
+            body: 'Please find our invoices attached.',
+            attachments: { 'INV-4471.pdf': 'JVBERi0xLjcK...4471', 'INV-4472.PDF': 'JVBERi0xLjcK...4472', 'signature-logo.png': 'iVBORw0KGgo...' },
+          },
+          attributes: { id: 18233, subject: 'Invoice 4471 and 4472', fromAddresses: ['billing@steelworks.example'], headers: { 'Message-ID': '<a81f2.4471@steelworks.example>' } },
+        },
+        expect: {
+          noError: true,
+          connector: [{ type: 'azure-upload-blob', settings: { container: 'supplier-invoices' }, count: 2 }, { type: 'email-move', settings: { targetFolder: 'Processed' }, count: 1 }, { type: 'email-move', settings: { targetFolder: 'Failed' }, count: 0 }],
+        },
+      },
+      {
+        name: 'The second upload fails',
+        about: 'Azure refuses the second PDF. The error is handled so the email can go to Failed instead of Processed.',
+        trigger: {
+          source: 'email-listener',
+          payload: {
+            body: 'Invoices for October.',
+            attachments: { 'INV-5501.pdf': 'JVBERi0xLjcK...5501', 'INV-5502.pdf': 'JVBERi0xLjcK...5502' },
+          },
+          attributes: { id: 18240, subject: 'October invoice', fromAddresses: ['ar@fasteners.example'], headers: { 'Message-ID': '<77c0.5501@fasteners.example>' } },
+        },
+        overrides: {
+          systems: {
+            calls: {
+              'azure-upload-blob': [
+                { payload: { eTag: '0x8DCB1A2F3C4D5E6' } },
+                { fault: { type: 'AZURE-STORAGE:CONNECTIVITY', description: 'The storage account did not answer.' } },
+              ],
+            },
+          },
+        },
+        expect: {
+          noError: true,
+          connector: [{ type: 'email-move', settings: { targetFolder: 'Processed' }, count: 0 }, { type: 'email-move', settings: { targetFolder: 'Failed' }, count: 1 }],
+        },
+      },
+      {
+        name: 'An invoice email with no PDF',
+        about: 'The supplier sent a scanned image only, so the email goes to NeedsReview without an error.',
+        trigger: {
+          source: 'email-listener',
+          payload: { body: 'Invoice attached as photo.', attachments: { 'scan-0012.jpg': '/9j/4AAQSkZJRg...' } },
+          attributes: { id: 18251, subject: 'Invoice 9031', fromAddresses: ['office@smallsupplier.example'], headers: { 'Message-ID': '<k1@smallsupplier.example>' } },
+        },
+        expect: {
+          noError: true,
+          connector: [{ type: 'email-move', settings: { targetFolder: 'NeedsReview' }, count: 1 }, { type: 'email-move', settings: { targetFolder: 'Processed' }, count: 0 }, { type: 'azure-upload-blob', count: 0 }],
+        },
+      },
+    ],
+  },
   referenceFlow: design(
     flow(
       'supplier-invoice-mailbox',
