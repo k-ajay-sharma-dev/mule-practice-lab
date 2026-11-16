@@ -6,7 +6,7 @@ export default {
   title: 'Migrating a SOAP ESB Estate to API-led',
   level: 'EXPERT',
   tags: ['migration', 'soap', 'esb', 'strangler-fig', 'api-led', 'modernisation'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the estate halfway through the strangler fig migration. Internal apps and partners keep their endpoints, a routing layer sends migrated services to Mule and the rest to the ESB, and the new APIs are built as System, Process and Experience APIs.',
     checks: [

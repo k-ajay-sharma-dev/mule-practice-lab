@@ -6,7 +6,7 @@ export default {
   title: 'Clinic Appointment Booking across Calendars',
   level: 'INTERMEDIATE',
   tags: ['booking', 'calendar', 'concurrency', 'healthcare', 'caching'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the booking platform: web and mobile channels, the Booking Experience and Process APIs, the availability cache and slot-lock store, System APIs for the PMS and Microsoft Graph, and asynchronous notifications.',
     checks: [

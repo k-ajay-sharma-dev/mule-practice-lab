@@ -6,7 +6,7 @@ export default {
   title: 'What API-led Connectivity Is and Why It Exists',
   level: 'BEGINNER',
   tags: ['api-led', 'application-network', 'point-to-point', 'esb', 'fundamentals'],
-  estMinutes: 15,
+  estMinutes: 25,
   diagram: {
     task: 'draw the application network after the broker portal project. Use a Web portal and a Broker portal, one Experience API for each, one shared Quote Process API, and one System API for each backend: the policy mainframe, the CRM and the billing database.',
     checks: [

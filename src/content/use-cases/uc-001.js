@@ -6,7 +6,7 @@ export default {
   title: 'Nightly Product Sync from ERP to E-commerce',
   level: 'BEGINNER',
   tags: ['scheduler', 'sync', 'watermark'],
-  estMinutes: 15,
+  estMinutes: 20,
   diagram: {
     task: 'draw the nightly sync: the scheduled job, where the watermark lives, the ERP database it reads from, the e-commerce platform it writes to, and where failures are reported.',
     checks: [

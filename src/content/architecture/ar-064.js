@@ -6,7 +6,7 @@ export default {
   title: 'Critique and Remediate a Badly Designed API-led Estate',
   level: 'EXPERT',
   tags: ['api-led', 'anti-patterns', 'remediation', 'architecture-review', 'roadmap'],
-  estMinutes: 45,
+  estMinutes: 60,
   diagram: {
     task: 'draw the target architecture for the Policy & Claims domain that fixes the smells in the inventory.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Data Residency for Store and Loyalty Data Across Countries',
   level: 'EXPERT',
   tags: ['retail', 'data-residency', 'gdpr', 'pii', 'multi-region', 'activemq', 'loyalty', 'analytics'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw a regional integration architecture in which EU and US store and loyalty data are processed and stored in-region, and only aggregated or pseudonymised data flows to global analytics.',
     checks: [

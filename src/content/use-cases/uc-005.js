@@ -6,7 +6,7 @@ export default {
   title: 'Supplier Invoices (EDI and PDF) into the ERP',
   level: 'ADVANCED',
   tags: ['edi', 'x12', 'idp', 'validation', 'exceptions'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw both ingestion channels (EDI and PDF email), the shared intake queue, validation with its duplicate store and AP exception store, the resubmit path, and throttled posting to SAP.',
     checks: [

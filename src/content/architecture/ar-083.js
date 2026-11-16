@@ -6,7 +6,7 @@ export default {
   title: 'Migrating Orders from Oracle to SQL Server with Change Data Capture and a Dual-Run Period',
   level: 'EXPERT',
   tags: ['oracle', 'sql-server', 'migration', 'cdc', 'kafka', 'dual-run', 'api-led', 'strangler'],
-  estMinutes: 50,
+  estMinutes: 65,
   diagram: {
     task: 'draw a migration architecture in which channels keep using the same Experience and Process APIs, Oracle changes are captured as events and applied to SQL Server through a System API, and a reconciliation job compares both databases during the dual run.',
     checks: [

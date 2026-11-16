@@ -6,7 +6,7 @@ export default {
   title: 'Car Insurance Quote API for Comparison Sites',
   level: 'INTERMEDIATE',
   tags: ['api-design', 'raml', 'validation', 'policies'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw the Quote API landscape: the comparison sites, the gateway policies, the Quote API layers, the rating engine and vehicle lookup behind System APIs, the vehicle cache and the quote store.',
     checks: [

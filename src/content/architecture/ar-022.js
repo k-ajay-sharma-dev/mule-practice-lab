@@ -6,7 +6,7 @@ export default {
   title: 'Read Models and CQRS for Heavy Reads',
   level: 'ADVANCED',
   tags: ['cqrs', 'read-model', 'caching', 'performance'],
-  estMinutes: 30,
+  estMinutes: 45,
   diagram: {
     task: 'draw the CQRS design: the home-screen query side served from a read model, how the read model is kept current from core banking, cards and CRM, and the payment command side.',
     checks: [

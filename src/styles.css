@@ -1534,10 +1534,28 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 6px;
+  padding: 4px 8px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
+}
+.designer-toolbar .seg button {
+  padding: 4px 10px;
+}
+.designer-toolbar .toolbar-actions {
+  gap: 4px;
+}
+.tb-icon {
+  min-width: 28px;
+  padding-inline: 6px;
+  font-size: 1rem;
+  line-height: 1;
+}
+.tb-sep {
+  width: 1px;
+  height: 18px;
+  margin-inline: 2px;
+  background: var(--border);
 }
 .seg {
   display: inline-flex;
@@ -1768,8 +1786,8 @@ textarea:focus {
 .node-head {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 5px 9px;
   cursor: pointer;
 }
 .node-text {

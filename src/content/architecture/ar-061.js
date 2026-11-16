@@ -6,7 +6,7 @@ export default {
   title: 'Consistency Across Layers: Where the Saga Lives',
   level: 'ADVANCED',
   tags: ['api-led', 'saga', 'consistency', 'compensation', 'idempotency'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the account-opening saga: where it lives, the System APIs it orchestrates, where its state is kept, and how the slow card step is completed asynchronously.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Dynamic Pricing Feed to 800 Stores and Online',
   level: 'ADVANCED',
   tags: ['pricing', 'fan-out', 'kafka', 'store-systems', 'retail', 'consistency'],
-  estMinutes: 35,
+  estMinutes: 45,
   diagram: {
     task: 'draw the price distribution network: change-set intake from the pricing engine, the Price Distribution Process API, the durable per-store stream, the store delivery workers for POS and shelf labels, the online consumer and the delivery-state store.',
     checks: [

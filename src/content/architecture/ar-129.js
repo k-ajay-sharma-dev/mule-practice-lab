@@ -6,7 +6,7 @@ export default {
   title: 'One Producer, One Queue, One Consumer',
   level: 'BEGINNER',
   tags: ['messaging', 'queues', 'async', 'event-driven'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw a parcel booking going through one queue. Use four boxes: a Web app, an Experience API as the producer, a Queue, and a Process API as the consumer. Draw a Sync call line from the Web app to the Experience API. Draw Async message lines from the Experience API to the Queue, and from the Queue to the Process API. Draw no line between the two APIs.',
     checks: [

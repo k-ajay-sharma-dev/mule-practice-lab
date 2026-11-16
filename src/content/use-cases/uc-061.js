@@ -6,7 +6,7 @@ export default {
   title: '3PL Fulfilment for a D2C Brand (EDI 940/945/846 over SFTP)',
   level: 'INTERMEDIATE',
   tags: ['supply-chain', '3pl', 'edi', 'x12', 'sftp', 'shopify', 'netsuite', 'anypoint-mq', 'batching'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the D2C-to-3PL integration: Shopify webhooks into a queue, the fulfilment Process API with an order staging table, the scheduled 940 batch and 945/846 poller, the 3PL SFTP exchange, and the System APIs for Shopify and NetSuite.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'CloudHub 2.0 Private Space Connected to On-Premises Systems',
   level: 'ADVANCED',
   tags: ['cloudhub-2', 'private-space', 'hybrid', 'vpn', 'api-led', 'deployment', 'healthcare'],
-  estMinutes: 45,
+  estMinutes: 60,
   diagram: {
     task: 'draw a CloudHub 2.0 private space design in which partners and the patient portal come in through the public ingress, on-premises staff apps come in through the internal ingress, and the hospital systems in the data centre are reached only through System APIs.',
     checks: [

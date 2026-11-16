@@ -6,7 +6,7 @@ export default {
   title: 'KYC Identity Verification for Account Opening',
   level: 'ADVANCED',
   tags: ['kyc', 'async-orchestration', 'security', 'pii', 'fintech'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw the onboarding integration: the app, the Onboarding Experience and Process APIs, the persisted application state, the vendor webhook path through a queue, System APIs for every provider, the compliance feedback loop and the timeout checker.',
     checks: [

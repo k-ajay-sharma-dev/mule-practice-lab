@@ -6,7 +6,7 @@ export default {
   title: 'A Partner Calling Through the Gateway',
   level: 'BEGINNER',
   tags: ['api-led', 'partner', 'api-gateway', 'policies', 'b2b'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw the path of a partner call. Use five boxes: a Partner / B2B client box, an API gateway / policies box, an Experience API box, a Process API box and a System API box. Connect them in that order, with one line between each pair.',
     checks: [

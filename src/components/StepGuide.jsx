@@ -10,11 +10,21 @@ const readOn = () => {
   }
 }
 
+const OPEN_KEY = 'pl.stepGuideOpen'
+const readOpen = () => {
+  try {
+    return localStorage.getItem(OPEN_KEY) === 'yes'
+  } catch {
+    return false
+  }
+}
+
 // Sits above a designer and shows one small step at a time, ticking each requirement as the design meets it.
 // steps come from study/steps.js, results are live, and hintFor(index) says what a failing check still needs.
 export default function StepGuide({ steps, checks, results, hintFor, finish }) {
   const [on, setOn] = useState(readOn)
   const [showHints, setShowHints] = useState(false)
+  const [open, setOpen] = useState(readOpen)
   const at = currentStep(steps, results)
 
   useEffect(() => setShowHints(false), [at])
@@ -40,17 +50,36 @@ export default function StepGuide({ steps, checks, results, hintFor, finish }) {
   }
 
   const step = steps[at]
+  const nextItem = step?.items.find((n) => !results[n]?.pass)
+  function toggleOpen() {
+    try {
+      localStorage.setItem(OPEN_KEY, open ? 'no' : 'yes')
+    } catch {
+      // storage blocked: the choice lasts for this visit
+    }
+    setOpen(!open)
+  }
   return (
-    <div className="step-guide">
+    <div className={`step-guide${open ? '' : ' slim'}`}>
       <div className="step-guide-head">
         <span className="step-dots" aria-hidden="true">
           {steps.map((s, i) => (
             <span key={s.title} className={i < at ? 'done' : i === at ? 'now' : ''} />
           ))}
         </span>
-        <b className="small">{step ? `Step ${at + 1} of ${steps.length}: ${step.title}` : 'All steps are done'}</b>
+        <b className="small">{step ? `Step ${at + 1}/${steps.length}: ${step.title}` : 'All steps are done'}</b>
+        {step && !open && nextItem !== undefined && (
+          <span className="small muted step-guide-next" title={checks[nextItem].label}>
+            Next: {checks[nextItem].label}
+          </span>
+        )}
         <span className="step-guide-actions">
           {step && (
+            <button className="link-btn small" onClick={toggleOpen} aria-expanded={open}>
+              {open ? 'Less ▴' : 'All checks ▾'}
+            </button>
+          )}
+          {step && open && (
             <button className="link-btn small" onClick={() => setShowHints(!showHints)}>
               {showHints ? 'Hide help' : "What's missing?"}
             </button>
@@ -61,7 +90,7 @@ export default function StepGuide({ steps, checks, results, hintFor, finish }) {
         </span>
       </div>
       {step ? (
-        <ul className="check-list step-guide-list">
+        open && <ul className="check-list step-guide-list">
           {step.items.map((n) => {
             const pass = results[n]?.pass
             return (

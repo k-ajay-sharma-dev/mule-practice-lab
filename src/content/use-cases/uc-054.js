@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: Home Insurance Quote-and-Bind for Brokers and Aggregators',
   level: 'ADVANCED',
   tags: ['api-led', 'application-network', 'insurance', 'b2b', 'sla-tiers', 'guidewire'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the quote-and-bind application network: broker portal, aggregators and the migrated direct website with their Experience APIs, the quote and policy Process APIs, the System APIs and back ends, the rating cache and the async document path.',
     checks: [

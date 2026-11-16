@@ -8,7 +8,7 @@ export default {
   title: 'Versioning Across Layers Without Breaking Consumers',
   level: 'ADVANCED',
   tags: ['api-led', 'versioning', 'backward-compatibility', 'exchange', 'deprecation'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the run-both period. Use one System API box with v1 in its name and one with v2, the four Process APIs, the three Experience APIs and Salesforce. Some Process APIs have moved to v2 and the rest still call v1.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Customer-Hosted Mule Across Two Data Centres: One Cluster per Site, Standby Choices and External State',
   level: 'ADVANCED',
   tags: ['deployment', 'high-availability', 'disaster-recovery', 'hybrid', 'clustering', 'environments'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw a customer-hosted Mule estate in two data centres, with each client entering through a load balancer that reaches Experience APIs in both sites, each site running its own API-led stack, the core banking system reached only through System APIs, and shared state kept in a replicated external database and a message broker rather than in a cluster spanning the sites.',
     checks: [

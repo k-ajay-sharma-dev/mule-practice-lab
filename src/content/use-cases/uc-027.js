@@ -6,7 +6,7 @@ export default {
   title: 'Daily Currency Rates Distribution',
   level: 'INTERMEDIATE',
   tags: ['scheduler', 'fx-rates', 'fan-out', 'object-store', 'finance'],
-  estMinutes: 15,
+  estMinutes: 25,
   diagram: {
     task: 'draw the rates job: fetching once from the provider, the stored copy, the fan-out to SAP, the e-commerce platform and S3, and the treasury alert.',
     checks: [

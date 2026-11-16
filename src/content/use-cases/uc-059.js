@@ -6,7 +6,7 @@ export default {
   title: 'Supplier PO Lifecycle: 850 → 855 → 856 ASN → Goods Receipt in Oracle EBS',
   level: 'INTERMEDIATE',
   tags: ['supply-chain', 'edi', 'x12', 'oracle-ebs', 'oracle', 'activemq', 'jms', 'asn', 'goods-receipt'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the supplier PO lifecycle: the outbound 850 path from Oracle EBS to suppliers, the inbound AS2 endpoint and ActiveMQ queue for 855/856, the PO Process API with its EDI tracking table, and the DC WMS that receives against the ASN.',
     checks: [

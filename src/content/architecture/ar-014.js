@@ -12,7 +12,7 @@ export default {
   title: 'Gateway Placement: Mule Gateway vs Flex Gateway',
   level: 'INTERMEDIATE',
   tags: ['api-gateway', 'flex-gateway', 'api-manager', 'network-zones'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw where policies are enforced for the three groups of APIs. Partners on the internet pass a WAF first. Draw the Kubernetes microservices and the .NET SOAP service as Third-party API or Legacy boxes, with Kubernetes or SOAP in their names, and put each behind its own Flex Gateway. Internal apps call the internal Mule APIs.',
     checks: [

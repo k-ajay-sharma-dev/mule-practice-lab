@@ -6,7 +6,7 @@ export default {
   title: 'Hub-and-Spoke Store Connectivity over Unreliable Networks',
   level: 'ADVANCED',
   tags: ['retail', 'activemq', 'jms', 'store-and-forward', 'network-of-brokers', 'oracle', 'resilience'],
-  estMinutes: 35,
+  estMinutes: 45,
   diagram: {
     task: 'draw the store-to-HQ hub and spoke: how POS sales reach Oracle through the store and HQ brokers, how failures are isolated, and how price changes flow back to the stores.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Real-Time Fraud Check during Checkout',
   level: 'ADVANCED',
   tags: ['latency', 'fail-open', 'circuit-breaker', 'e-commerce', 'fraud'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the fraud check inside checkout: the Checkout Process API, the Fraud System API, the precomputed risk-profile store and how it is fed, the externalised rules, and the async re-score path for unscored orders.',
     checks: [

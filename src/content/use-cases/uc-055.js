@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: Shipment Tracking for Customers, B2B Partners and Ops',
   level: 'ADVANCED',
   tags: ['api-led', 'application-network', 'logistics', 'event-driven', 'b2b', 'webhooks'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the tracking application network: the three channels and their Experience APIs, the query, event-normaliser and notification Process APIs, the event ingestion (scans via Kafka, carrier EDI, TMS), the read-model store and the webhook path to shippers.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Lot Traceability and Product Recall Data Architecture',
   level: 'INTERMEDIATE',
   tags: ['supply-chain', 'retail', 'traceability', 'recall', 'lot-tracking', 'events', 'wms', 'edi'],
-  estMinutes: 35,
+  estMinutes: 45,
   diagram: {
     task: 'draw how lot movements from suppliers and the WMS are captured into a traceability store, and how a recall is executed from the quality team to the stores.',
     checks: [

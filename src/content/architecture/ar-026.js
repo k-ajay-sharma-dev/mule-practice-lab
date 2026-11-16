@@ -20,7 +20,7 @@ export default {
   title: 'Multi-Tenant API Platform Design',
   level: 'EXPERT',
   tags: ['multi-tenancy', 'sla-tiers', 'data-isolation', 'noisy-neighbour'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the "pool and cells" platform. Tenants enter through the gateway, which validates their tokens with the identity provider. Draw a shared pool Shipment API with its shared DB, an Enterprise cell Shipment API with its own dedicated DB, a tenant registry both read, and webhook queues that keep a big tenant\'s backlog away from the others.',
     checks: [

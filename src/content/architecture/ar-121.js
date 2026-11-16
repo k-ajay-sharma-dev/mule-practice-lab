@@ -6,7 +6,7 @@ export default {
   title: 'One System API in Front of a Database',
   level: 'BEGINNER',
   tags: ['api-led', 'system-api', 'layers', 'retail'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw one System API in front of a database. Use four boxes: two Process API boxes, one System API box and one Database box. Draw a line from each Process API to the System API, and a line from the System API to the Database.',
     checks: [

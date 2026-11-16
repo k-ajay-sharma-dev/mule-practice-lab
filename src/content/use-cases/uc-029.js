@@ -6,7 +6,7 @@ export default {
   title: 'Contract Renewal Reminders from the CLM',
   level: 'BEGINNER',
   tags: ['scheduler', 'notifications', 'salesforce', 'legal'],
-  estMinutes: 15,
+  estMinutes: 25,
   diagram: {
     task: 'draw the reminder solution: the daily and weekly jobs, the CLM they read, where sent milestones are recorded, the Salesforce opportunity upsert, the directory check for leavers, and the emails.',
     checks: [

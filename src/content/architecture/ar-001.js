@@ -6,7 +6,7 @@ export default {
   title: 'API-led Design for Order Status',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'layers', 'caching'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw the application network: both channels, the Experience, Process and System APIs, the backends, and how SAP is protected from load.',
     checks: [

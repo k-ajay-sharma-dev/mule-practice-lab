@@ -51,6 +51,7 @@ export default function ProblemPage() {
           </div>
         </div>
         <div className="prev-next">
+          <ProblemTimer key={problem.id} problem={problem} compact />
           <button
             className={`btn btn-ghost${inReview ? ' active-toggle' : ''}`}
             onClick={() => (inReview ? removeReview(problem.id) : scheduleReview(problem.id))}
@@ -76,7 +77,6 @@ export default function ProblemPage() {
         </div>
       </header>
 
-      <ProblemTimer key={problem.id} problem={problem} />
       {/* a pause from the button stops the work too, so nothing can be solved off the clock */}
       <ReadOnlyLock locked={Boolean(validTimer(entry.timer)?.held)}>
         <ProblemWorkspace id={problem.id} />

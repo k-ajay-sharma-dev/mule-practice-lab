@@ -6,7 +6,7 @@ export default {
   title: 'API Granularity and Avoiding API Sprawl',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'granularity', 'api-sprawl', 'reuse'],
-  estMinutes: 25,
+  estMinutes: 40,
   diagram: {
     task: 'draw the consolidated target structure for the Customer domain (Salesforce CRM, billing, network subscriptions) serving web, mobile and partners, with no pass-through or per-query APIs.',
     checks: [

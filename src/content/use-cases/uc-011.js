@@ -6,7 +6,7 @@ export default {
   title: 'Marketing Consent Sync between CRM and Email Platform',
   level: 'INTERMEDIATE',
   tags: ['consent', 'bidirectional-sync', 'salesforce', 'conflict-resolution'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the two-way consent sync: how Salesforce changes are captured as events, how SFMC unsubscribes are pulled, the queue both land on, the Consent Process API, the System APIs and the audit log.',
     checks: [

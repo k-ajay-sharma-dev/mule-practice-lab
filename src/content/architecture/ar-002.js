@@ -6,7 +6,7 @@ export default {
   title: 'Sync Request/Reply vs Async Events',
   level: 'INTERMEDIATE',
   tags: ['sync', 'async', 'event-driven'],
-  estMinutes: 30,
+  estMinutes: 45,
   diagram: {
     task: 'draw all three integrations: the synchronous quote lookup, the PolicyIssued fan-out to four consumers, and the claim upload that is accepted and then processed in the background.',
     checks: [

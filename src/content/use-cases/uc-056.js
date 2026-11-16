@@ -6,7 +6,7 @@ export default {
   title: 'API-Led Project 2: Extending Airline Check-in to Partner Airlines',
   level: 'ADVANCED',
   tags: ['api-led', 'reuse', 'versioning', 'airline', 'b2b', 'application-network'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the check-in network after Project 2: mobile app, kiosks and the new partner airlines, with the new partner Experience API, prc-checkin v1 and v2 side by side, and the reused System APIs (keep the Project 1 API names).',
     checks: [

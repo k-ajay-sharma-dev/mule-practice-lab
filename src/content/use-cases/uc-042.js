@@ -6,7 +6,7 @@ export default {
   title: 'Product Review Moderation Pipeline',
   level: 'ADVANCED',
   tags: ['pipeline', 'async', 'ai-moderation', 'human-in-the-loop', 'e-commerce'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the review moderation pipeline: submission intake, the async Moderation Process API with its parallel checks, the moderation record, the review platform, the human/dispute case tool and failure handling.',
     checks: [

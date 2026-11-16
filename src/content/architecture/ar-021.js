@@ -6,7 +6,7 @@ export default {
   title: 'B2B/EDI Architecture with Trading Partners',
   level: 'ADVANCED',
   tags: ['b2b', 'edi', 'x12', 'partner-onboarding'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the B2B platform end to end: inbound purchase orders from retailers into SAP, outbound ASNs/invoices back to them, and where documents are buffered and tracked.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'A Topic Fanning Out to Two Subscribers',
   level: 'BEGINNER',
   tags: ['messaging', 'pub-sub', 'fan-out', 'async', 'event-driven'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw one price change reaching two subscribers. Use five boxes: an ERP, a System API, a Topic / exchange, and two Process API boxes, one for each subscriber. Draw a Sync call line from the ERP to the System API. Draw Async message lines from the System API to the Topic, and from the Topic to each Process API. Draw no line from the System API to a Process API.',
     checks: [

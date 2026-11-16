@@ -6,7 +6,7 @@ export default {
   title: 'Caching at Gateway vs Process Layer',
   level: 'INTERMEDIATE',
   tags: ['caching', 'cache-scope', 'object-store', 'api-gateway', 'performance'],
-  estMinutes: 25,
+  estMinutes: 40,
   diagram: {
     task: 'draw the account chain from the mobile app to the PIM, billing and CRM, and show where caches sit (and where they must not).',
     checks: [

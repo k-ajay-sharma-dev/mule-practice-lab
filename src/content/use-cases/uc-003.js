@@ -6,7 +6,7 @@ export default {
   title: 'Real-Time Inventory to Sales Channels',
   level: 'INTERMEDIATE',
   tags: ['inventory', 'pub-sub', 'rate-limits', 'event-driven'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw how WMS stock changes fan out to Shopify and Amazon through one queue per channel, where the latest stock is stored, and how the kiosk reads stock without touching the WMS.',
     checks: [

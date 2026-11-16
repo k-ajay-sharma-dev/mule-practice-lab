@@ -6,7 +6,7 @@ export default {
   title: 'Online Returns and Refunds',
   level: 'INTERMEDIATE',
   tags: ['returns', 'refunds', 'orchestration', 'idempotency', 'retail'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the returns process: Shopify starting a return, the Returns Process API with its RMA store, the 3PL inspection-file job, refunds through Shopify, credit notes to D365 via a queue, and the daily reconciliation.',
     checks: [

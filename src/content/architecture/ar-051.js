@@ -6,7 +6,7 @@ export default {
   title: 'When It Is OK to Skip a Layer',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'layers', 'trade-offs', 'pass-through'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw all four cases on one canvas and build only the layers each case needs: A (HR dashboard and Workday), B (mobile product details from SAP, PIM and WMS), C (nightly Salesforce to data warehouse batch) and D (partner order status from SAP).',
     checks: [

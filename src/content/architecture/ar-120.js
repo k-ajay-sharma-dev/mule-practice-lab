@@ -6,7 +6,7 @@ export default {
   title: 'One Agent Network for Agentforce and Vertex AI: A2A Bridge for One, Direct Registration for the Other',
   level: 'INTERMEDIATE',
   tags: ['ai-agents', 'agent-fabric', 'omni-gateway', 'a2a'],
-  estMinutes: 12,
+  estMinutes: 22,
   diagram: {
     task: 'draw an Agentforce agent and a Vertex AI agent brought into one network. The palette has no agent box, so use these boxes and names: an Internal / staff app box for the service desk app, API gateway boxes named Ingress Omni Gateway, Egress Omni Gateway and A2A Bridge, an Experience API box named Agent Broker, a CRM box named Agentforce agent, a Third-party API box named Vertex AI agent, and a Database box named Agents catalog. Draw runtime calls as synchronous lines. Draw registration as asynchronous lines into the Agents catalog, one from the A2A Bridge and one from the Vertex AI agent.',
     checks: [

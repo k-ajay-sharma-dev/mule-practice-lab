@@ -6,7 +6,7 @@ export default {
   title: 'Two Channels Sharing One Process API',
   level: 'BEGINNER',
   tags: ['api-led', 'experience-api', 'process-api', 'reuse', 'omnichannel', 'retail'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw two channels sharing one Process API. Use six boxes: a Web app box, a Mobile app box, two Experience API boxes, one Process API box and one System API box. Connect the Web app to one Experience API and the Mobile app to the other. Connect both Experience APIs to the Process API, and the Process API to the System API.',
     checks: [

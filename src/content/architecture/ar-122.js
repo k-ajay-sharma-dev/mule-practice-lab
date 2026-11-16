@@ -6,7 +6,7 @@ export default {
   title: 'A Process API Calling Two System APIs',
   level: 'BEGINNER',
   tags: ['api-led', 'process-api', 'system-api', 'supply-chain', 'tms'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw a Process API that combines data from two systems. Use five boxes: one Process API box, two System API boxes, one ERP box and one Transport mgmt (TMS) box. Draw a line from the Process API to each System API. Then draw a line from one System API to the ERP, and from the other System API to the TMS.',
     checks: [

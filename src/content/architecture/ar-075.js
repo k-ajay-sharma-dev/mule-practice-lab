@@ -6,7 +6,7 @@ export default {
   title: 'Black Friday Peak: Queue-Based Load Levelling and Backpressure',
   level: 'ADVANCED',
   tags: ['retail', 'peak', 'scaling', 'backpressure', 'activemq', 'anypoint-mq', 'oracle', 'rate-limiting'],
-  estMinutes: 30,
+  estMinutes: 45,
   diagram: {
     task: 'draw the checkout path for Black Friday: what protects the edge, what stays synchronous, where orders are buffered, and how the order database is fed at a rate it can handle.',
     checks: [

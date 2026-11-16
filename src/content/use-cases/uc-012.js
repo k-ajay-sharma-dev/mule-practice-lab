@@ -6,7 +6,7 @@ export default {
   title: 'Shipping Labels through Multiple Carriers',
   level: 'INTERMEDIATE',
   tags: ['carrier', 'canonical-model', 'strategy', 'fallback', 'logistics'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the Shipping API: the WMS calling one Process API, the carrier rules and label stores, one System API per carrier, and the asynchronous tracking update to the e-commerce platform.',
     checks: [

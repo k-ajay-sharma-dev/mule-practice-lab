@@ -6,7 +6,7 @@ export default {
   title: 'Order-to-Cash across E-commerce, ERP and Payments',
   level: 'EXPERT',
   tags: ['order-to-cash', 'saga', 'orchestration', 'reconciliation'],
-  estMinutes: 45,
+  estMinutes: 50,
   diagram: {
     task: 'draw the order-to-cash integration: SFCC order intake into a queue, the orchestrator with its tracking store, System APIs for SAP, Adyen and SFCC, SAP events flowing back, and the reconciliation job.',
     checks: [

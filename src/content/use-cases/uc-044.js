@@ -6,7 +6,7 @@ export default {
   title: 'Event Ticketing with Seat Holds for a High-Demand On-Sale',
   level: 'EXPERT',
   tags: ['high-concurrency', 'seat-holds', 'saga', 'queueing', 'payments', 'scalability'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the on-sale architecture from waiting room to ticket issue: edge protection, Experience APIs, the Hold and Purchase Process APIs, the cache, the System APIs for the core and PSP, and the asynchronous issuing path.',
     checks: [

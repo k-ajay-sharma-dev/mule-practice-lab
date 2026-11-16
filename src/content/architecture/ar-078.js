@@ -12,7 +12,7 @@ export default {
   title: 'Goods Receipt Consistency: XA Transactions vs Outbox with JMS and Oracle',
   level: 'ADVANCED',
   tags: ['supply-chain', 'xa', 'outbox', 'transactions', 'activemq', 'jms', 'oracle', 'idempotency'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the outbox design. Show the WMS, the wms.receipts queue, prc-goods-receipt, Oracle, an outbox relay, the receipt.posted topic, and its three subscribers: AP, replenishment and the supplier portal.',
     checks: [

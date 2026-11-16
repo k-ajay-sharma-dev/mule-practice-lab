@@ -6,7 +6,7 @@ export default {
   title: 'Zero-Trust Security Between Internal APIs',
   level: 'EXPERT',
   tags: ['zero-trust', 'mtls', 'oauth2', 'service-identity', 'security'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the payment chain under zero trust: a customer channel, the gateway, an Experience API, a Payments Process API, a Payments System API and its backend. Add the identity provider that gives every app its own identity, and the low-value internal app from the penetration test.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: Account Balance for Mobile App and Chatbot',
   level: 'BEGINNER',
   tags: ['api-led', 'application-network', 'banking', 'experience-api', 'decomposition'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw the API-led application network for account balances: both channels, their Experience APIs, the Process API, the System APIs and the two back ends.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Store POS Sales to the Merchandising System via ActiveMQ',
   level: 'INTERMEDIATE',
   tags: ['retail', 'pos', 'activemq', 'jms', 'oracle', 'bulk-insert', 'merchandising', 'reconciliation'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw how store sales reach the merchandising system: the store POS publishing to an ActiveMQ queue, the sales Process API, a System API writing to the Oracle staging tables, the DLQ, and the end-of-day reconciliation job.',
     checks: [

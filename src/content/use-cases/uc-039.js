@@ -6,7 +6,7 @@ export default {
   title: 'Sales Tax Calculation Service at Checkout',
   level: 'ADVANCED',
   tags: ['tax', 'caching', 'fallback', 'e-commerce', 'erp', 'reconciliation'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the tax integration: who calls the Tax Process API for estimates and lifecycle events, the Tax System API over the engine, the estimate cache and fallback rate table, NetSuite, and the reconciliation job.',
     checks: [

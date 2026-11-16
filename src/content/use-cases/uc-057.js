@@ -6,7 +6,7 @@ export default {
   title: 'API-Led after a Merger: Rationalising Two Application Networks',
   level: 'EXPERT',
   tags: ['api-led', 'application-network', 'merger', 'mdm', 'governance', 'versioning'],
-  estMinutes: 50,
+  estMinutes: 60,
   diagram: {
     task: 'draw the target (month 18) application network for customer and loyalty: both brands\' channels and the trade portal, their Experience APIs, the unified customer, loyalty and trade-account Process APIs, and the System APIs over Salesforce, the cross-reference store and the loyalty SaaS.',
     checks: [

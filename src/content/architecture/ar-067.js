@@ -9,7 +9,7 @@ export default {
   title: 'Store-to-HQ Messaging: ActiveMQ, Anypoint MQ or Kafka',
   level: 'INTERMEDIATE',
   tags: ['retail', 'supply-chain', 'activemq', 'jms', 'anypoint-mq', 'kafka', 'messaging'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw one store and HQ. Show sales going from the POS to Oracle Retail, and price changes going from HQ to the POS. Draw each broker destination as a Queue box: put "store broker" in the names of the ones in the store, and "hub" in the names of the ones at HQ.',
     checks: [

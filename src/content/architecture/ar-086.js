@@ -6,7 +6,7 @@ export default {
   title: 'One External OpenID Connect Provider for Customer and Partner APIs: Tokens, Client Registration and Contracts',
   level: 'ADVANCED',
   tags: ['security', 'oauth2', 'openid-connect', 'api-manager', 'policies', 'client-management', 'api-led'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw how a customer web app and partner servers get tokens from an external identity provider and call experience APIs through a gateway that checks those tokens, with core banking reached only through a System API.',
     checks: [

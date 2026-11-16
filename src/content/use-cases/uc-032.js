@@ -6,7 +6,7 @@ export default {
   title: 'Lab Results to the Patient Portal',
   level: 'INTERMEDIATE',
   tags: ['hl7', 'fhir', 'healthcare', 'mllp', 'security'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw how HL7 results flow from the LIS to the FHIR patient portal: the MLLP listener, where messages are persisted before the ACK, the HL7→FHIR Process API, the hold store for sensitive results and the release job.',
     checks: [

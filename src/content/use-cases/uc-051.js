@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: University Course Registration across SIS, Finance and LMS',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'application-network', 'higher-education', 'event-driven', 'decomposition'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the API-led network for course registration: the three channels and their Experience APIs, the catalogue, registration and fulfilment Process APIs, the System APIs and back ends, and the event that decouples LMS enrolment from registration.',
     checks: [

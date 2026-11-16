@@ -6,7 +6,7 @@ export default {
   title: 'Travel Booking Aggregation from Multiple Suppliers',
   level: 'EXPERT',
   tags: ['aggregation', 'scatter-gather', 'caching', 'saga', 'travel'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the travel platform with search and booking separated: the edge protection, Search and Booking Experience APIs, flight/hotel search and booking-orchestrator Process APIs, the search cache, hotel mapping and booking-state stores, and System APIs per supplier and the PSP.',
     checks: [

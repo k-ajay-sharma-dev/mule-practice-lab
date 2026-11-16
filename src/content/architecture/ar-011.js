@@ -12,7 +12,7 @@ export default {
   title: 'Observability Across an API-led Chain',
   level: 'INTERMEDIATE',
   tags: ['observability', 'correlation-id', 'logging', 'tracing'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the loan chain from the web and mobile channel to the three System APIs and the document consumer behind Anypoint MQ. Then show where the logs go: draw a line from every Mule app to Splunk.',
     checks: [

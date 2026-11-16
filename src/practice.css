@@ -451,6 +451,36 @@
   font-size: 1.25rem;
   font-weight: 700;
 }
+/* compact: sits in the title row beside Prev and Next */
+.problem-timer.compact {
+  position: static;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-height: 0;
+  margin: 0;
+  padding: 1px 4px 1px 10px;
+  border-radius: 8px;
+}
+.problem-timer.compact .problem-clock {
+  font-size: 1rem;
+}
+.problem-timer.compact .timer-pause {
+  width: 26px;
+  height: 26px;
+}
+.problem-timer.compact .problem-timer-note {
+  flex: none;
+}
+.problem-timer.compact .problem-timer-note.result {
+  flex-basis: auto;
+  max-width: 260px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.prev-next {
+  align-items: center;
+}
 /* no box of its own, so the workspace keeps its layout */
 .read-only-lock {
   display: contents;
@@ -2093,6 +2123,21 @@
   overflow-y: auto;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.step-guide.slim {
+  padding: 4px 12px;
+}
+.step-guide.slim .step-guide-head {
+  flex-wrap: nowrap;
+}
+.step-guide-next {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.step-guide-actions {
+  flex: none;
 }
 .step-guide.off {
   padding: 4px 12px;

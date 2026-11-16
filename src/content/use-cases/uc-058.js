@@ -6,7 +6,7 @@ export default {
   title: 'API-Led with Security Zones: Government Benefits Platform',
   level: 'EXPERT',
   tags: ['api-led', 'application-network', 'government', 'security-zones', 'runtime-fabric', 'hybrid'],
-  estMinutes: 55,
+  estMinutes: 65,
   diagram: {
     task: 'draw the benefits application network across the security zones: external channels through the edge gateway, public-zone Experience APIs (with token exchange), internal Process APIs including delegation and async income changes, and System APIs in front of the restricted systems and ECM.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Drop-Ship Orders to 250 Suppliers across EDI, API and CSV',
   level: 'ADVANCED',
   tags: ['supply-chain', 'retail', 'drop-ship', 'edi', 'sftp', 'activemq', 'oracle', 'sla', 'b2b'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw the drop-ship integration: order intake and queue, the drop-ship Process API with its Oracle state table, one System API per vendor channel (EDI/VAN, SFTP files), API vendors through the gateway, the OMS System API and the SLA watchdog.',
     checks: [

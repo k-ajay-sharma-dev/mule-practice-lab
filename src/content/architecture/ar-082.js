@@ -6,7 +6,7 @@ export default {
   title: 'Hybrid Cloud Document Archive: Azure Blob Storage with an Amazon S3 Copy',
   level: 'ADVANCED',
   tags: ['azure', 'blob-storage', 's3', 'hybrid-cloud', 'document-archive', 'api-led', 'insurance'],
-  estMinutes: 45,
+  estMinutes: 60,
   diagram: {
     task: 'draw a document archive in which portals reach documents through an Experience API, documents are stored in Azure Blob Storage and indexed in a database, and a second copy is written to Amazon S3 asynchronously, with all storage reached only through System APIs.',
     checks: [

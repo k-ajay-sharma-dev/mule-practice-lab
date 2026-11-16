@@ -6,7 +6,7 @@ export default {
   title: 'A Load Balancer in Front of Two Copies of an API',
   level: 'BEGINNER',
   tags: ['load-balancer', 'high-availability', 'scaling', 'cloudhub-2'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw two copies of one API behind a load balancer. Use five boxes: a Web app, a Load balancer, two Experience API boxes for the two copies, and a Process API. Draw a line from the Web app to the Load balancer, a line from the Load balancer to each Experience API, and a line from each Experience API to the Process API. Draw no line from the Web app to an Experience API.',
     checks: [

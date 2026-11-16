@@ -12,7 +12,7 @@ export default {
   title: 'REST, SOAP, GraphQL, gRPC or Events for Each Client',
   level: 'BEGINNER',
   tags: ['api-style', 'graphql', 'grpc', 'soap', 'event-driven'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw one Policy Process API with a thin Experience API facade for each client: REST for the mobile app, SOAP for the broker portal and REST for the partner aggregators. The Process API reads policy, claims and payments through System APIs and publishes PolicyChanged on a topic for the analytics platform.',
     checks: [

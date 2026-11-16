@@ -209,32 +209,35 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
             <div className="toolbar-actions">
               {history && (
                 <>
-                  <button className="btn btn-ghost" onClick={history.undo} disabled={!history.canUndo} title="Undo (Ctrl+Z)">
-                    Undo
+                  <button className="btn btn-ghost btn-sm tb-icon" onClick={history.undo} disabled={!history.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+                    ↶
                   </button>
-                  <button className="btn btn-ghost" onClick={history.redo} disabled={!history.canRedo} title="Redo (Ctrl+Y)">
-                    Redo
+                  <button className="btn btn-ghost btn-sm tb-icon" onClick={history.redo} disabled={!history.canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">
+                    ↷
                   </button>
+                  <span className="tb-sep" aria-hidden="true" />
                 </>
               )}
-              <button className="btn btn-ghost" onClick={() => setView('paste')}>
-                Paste XML
-              </button>
-              <button className="btn btn-ghost" onClick={() => onChange(addFlow(design, 'flow'))}>
+              <button className="btn btn-ghost btn-sm" onClick={() => onChange(addFlow(design, 'flow'))} title="Add a flow">
                 + Flow
               </button>
-              <button className="btn btn-ghost" onClick={() => onChange(addFlow(design, 'sub-flow'))}>
+              <button className="btn btn-ghost btn-sm" onClick={() => onChange(addFlow(design, 'sub-flow'))} title="Add a sub-flow">
                 + Sub-flow
               </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setView('paste')} title="Paste Mule XML to load a design">
+                Paste XML
+              </button>
               <button
-                className="btn btn-ghost"
+                className="btn btn-ghost btn-sm tb-icon"
+                title="Clear the whole design"
+                aria-label="Clear"
                 onClick={() => {
                   if (countComponents(design) && !confirm('Clear the whole design?')) return
                   onChange(emptyDesign())
                   setSelectedId(null)
                 }}
               >
-                Clear
+                🗑
               </button>
             </div>
           )}

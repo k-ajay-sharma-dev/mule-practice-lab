@@ -6,7 +6,7 @@ export default {
   title: 'Self-Service Partner Onboarding Portal',
   level: 'ADVANCED',
   tags: ['api-management', 'exchange', 'developer-portal', 'oauth', 'automation'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the partner landscape: the developer portal, the OAuth identity provider, the gateway with SLA tiers, the partner APIs and their data-isolation mapping, the onboarding automation that checks Salesforce, and the legacy API-key route for migration.',
     checks: [

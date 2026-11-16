@@ -6,7 +6,7 @@ export default {
   title: 'A Queue with a Dead-Letter Queue',
   level: 'BEGINNER',
   tags: ['messaging', 'queues', 'dlq', 'error-handling', 'async'],
-  estMinutes: 10,
+  estMinutes: 15,
   diagram: {
     task: 'draw a queue that sends failed messages aside. Use five boxes: an Experience API, a Queue, a Process API, a Dead-letter queue, and a Monitoring box. Draw Async message lines from the Experience API to the Queue, from the Queue to the Process API, and from the Queue to the Dead-letter queue. Then draw a line from the Dead-letter queue to Monitoring.',
     checks: [

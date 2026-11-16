@@ -6,7 +6,7 @@ export default {
   title: 'Why a Mobile App Must Not Call a System API Directly',
   level: 'BEGINNER',
   tags: ['api-led', 'layers', 'experience-api', 'system-api', 'mobile'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw the design without the shortcut. Use five boxes: a Mobile app box, an Experience API box, a Process API box, a System API box and a SaaS application box for the HR system. Connect them in that order, with one line between each pair. Do not draw a line from the Mobile app to the System API.',
     checks: [

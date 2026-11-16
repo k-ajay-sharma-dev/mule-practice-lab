@@ -6,7 +6,7 @@ export default {
   title: 'Governing Non-Mule Services from a Data Centre: Mule Proxies on a Hybrid Cluster with Shared Quotas',
   level: 'ADVANCED',
   tags: ['api-manager', 'api-management', 'api-proxy', 'rate-limiting', 'runtime-manager', 'observability', 'deployment', 'hybrid'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw how partners and internal apps reach a vendor SOAP service and a Spring Boot service through a load balancer and Mule API proxies in the data centre, with monitoring data leaving the proxy tier and no direct route to the services.',
     checks: [

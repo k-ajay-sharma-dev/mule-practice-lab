@@ -6,7 +6,7 @@ export default {
   title: 'The Cost of Hops: Latency, Caching and Logical vs Physical Layers',
   level: 'ADVANCED',
   tags: ['api-led', 'performance', 'latency', 'caching', 'deployment'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the product search chain after your fixes, from the mobile app to the PIM, the pricing DB and the WMS. Show which calls go through the public load balancer and where product data is cached.',
     checks: [

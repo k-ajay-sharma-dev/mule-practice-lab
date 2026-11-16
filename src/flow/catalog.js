@@ -388,7 +388,10 @@ export const COMPONENTS = {
       expr('expression', 'Expression / value', '#[payload != null]'),
       text('message', 'Error message'),
     ],
-    summary: (c) => c.check,
+    summary: (c) => {
+      const e = String(c.expression || '').replace(/^#\[\s*|\s*\]$/g, '')
+      return e && c.check !== 'json-schema' ? `${c.check} · ${e}` : c.check
+    },
   },
   idempotent: {
     label: 'Idempotent Message Validator',

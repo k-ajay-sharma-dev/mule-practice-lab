@@ -6,7 +6,7 @@ export default {
   title: 'IoT Telemetry from Refrigerated Trucks',
   level: 'ADVANCED',
   tags: ['iot', 'mqtt', 'kafka', 'streaming', 'alerting'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw the telemetry architecture: trucks publishing over MQTT, the Kafka log, the archive and time-series stores, excursion detection and Mule alert enrichment, the 5-minute TMS push, and the history API for customer portals.',
     checks: [

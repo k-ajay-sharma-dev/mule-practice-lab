@@ -6,7 +6,7 @@ export default {
   title: 'Carrier Tracking Events into the Customer App',
   level: 'INTERMEDIATE',
   tags: ['supply-chain', 'retail', 'carrier', 'webhooks', 'activemq', 'oracle', 'notifications', 'canonical-model'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw how carrier webhooks become tracking updates: the gateway and webhook Experience API, an ActiveMQ topic, the tracking Process API, the Oracle tracking store behind a System API, customer notifications, and the mobile app reading status.',
     checks: [

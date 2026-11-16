@@ -6,7 +6,7 @@ export default {
   title: 'Student Enrolments from SIS to the Learning Platform',
   level: 'BEGINNER',
   tags: ['scheduler', 'csv', 'upsert', 'education'],
-  estMinutes: 15,
+  estMinutes: 20,
   diagram: {
     task: 'draw the enrolment sync: the scheduled job, its watermark store, the SIS audit table it reads, the rate-limited LMS it writes to, and where errors and the summary go.',
     checks: [

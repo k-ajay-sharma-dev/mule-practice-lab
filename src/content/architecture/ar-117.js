@@ -6,7 +6,7 @@ export default {
   title: 'Runtime Fabric Across Two Regions: Cold, Warm and Hot Standby, What a Backup Really Covers and Where State Must Live',
   level: 'EXPERT',
   tags: ['deployment', 'runtime-fabric', 'disaster-recovery', 'high-availability', 'kubernetes', 'rpo-rto', 'environments'],
-  estMinutes: 50,
+  estMinutes: 60,
   diagram: {
     task: 'draw a Runtime Fabric estate in two regions, with clients entering through a global load balancer that reaches each region\'s ingress, an API-led stack in each region with the ERP reached only through System APIs, state kept in an external replicated database, and scheduled backups written to storage outside the cluster.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Loyalty Points Accrual and Redemption',
   level: 'INTERMEDIATE',
   tags: ['loyalty', 'idempotency', 'ledger', 'concurrency', 'retail'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw both paths into the loyalty engine: asynchronous accrual from the store POS hub through a queue, and real-time redemption from web and mobile checkout.',
     checks: [

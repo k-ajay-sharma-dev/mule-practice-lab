@@ -6,7 +6,7 @@ export default {
   title: 'Process APIs: Orchestration, Aggregation and Enrichment',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'process-api', 'orchestration', 'aggregation', 'stateless'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw one Process API for each need, named "trip summary", "book trip" and "customer lookup", with the System APIs and systems they use. Add a store for the book trip process state, with "state" in its name.',
     checks: [

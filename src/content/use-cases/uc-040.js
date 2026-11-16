@@ -6,7 +6,7 @@ export default {
   title: 'Stock Transfers between Warehouses',
   level: 'ADVANCED',
   tags: ['wms', 'erp', 'state-machine', 'in-transit', 'logistics', 'reconciliation'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the stock-transfer integration: SAP, the canonical Warehouse System API in front of both the cloud WMS and the FTP-based legacy WMS, the event intake, the Stock Transfer Process API with its state table, and the reconciliation job.',
     checks: [

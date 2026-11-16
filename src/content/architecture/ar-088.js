@@ -6,7 +6,7 @@ export default {
   title: 'Selling API Bundles to Partners with API Groups: Plans, Group Instances and Applied Contracts',
   level: 'ADVANCED',
   tags: ['api-manager', 'api-management', 'api-groups', 'sla-tiers', 'exchange', 'developer-portal', 'api-led', 'environments'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw how partner apps reach a bundle of Tracking, Rates and Shipments APIs through policy enforcement on each API, with the portal for requesting access, the shared Process and System APIs behind them, and API metrics going to monitoring.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Supplier Catalog Onboarding (CSV/Excel) into the PIM',
   level: 'INTERMEDIATE',
   tags: ['excel', 'csv', 'validation', 'pim', 'batch', 'retail'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the supplier catalog onboarding pipeline: file intake, the import job with its mapping profiles and change-detection store, loading into the PIM, the error report back to the supplier and the separate image path.',
     checks: [

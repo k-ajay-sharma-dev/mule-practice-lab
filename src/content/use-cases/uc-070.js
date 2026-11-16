@@ -6,7 +6,7 @@ export default {
   title: 'Returning Online Orders at the Store (BORIS)',
   level: 'INTERMEDIATE',
   tags: ['retail', 'returns', 'omnichannel', 'pos', 'activemq', 'oracle', 'oracle-ebs', 'payments', 'refunds'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the buy-online-return-in-store flow: the store POS calling through the gateway to a returns Experience API, the cross-channel returns Process API using the OMS and payment System APIs, a ReturnCompleted event on a topic consumed by the store inventory and finance System APIs, and the offline-returns queue.',
     checks: [

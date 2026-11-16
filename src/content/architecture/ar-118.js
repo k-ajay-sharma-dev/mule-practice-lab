@@ -6,7 +6,7 @@ export default {
   title: 'Retail Support Agent Network: Ingress Omni Gateway, Agent Broker, Two Agents and an MCP Server',
   level: 'INTERMEDIATE',
   tags: ['ai-agents', 'agent-fabric', 'omni-gateway', 'a2a', 'mcp', 'policies'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw a retail support agent network. The palette has no agent box, so use these boxes and names: a Chatbot box for the customer chat assistant, an API gateway box named Ingress Omni Gateway, an Experience API box named Agent Broker, a Process API box for each of the two agents, a System API box named MCP server, and a Third-party API box named Order API.',
     checks: [

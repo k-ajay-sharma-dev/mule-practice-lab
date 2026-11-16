@@ -6,7 +6,7 @@ export default {
   title: 'Support Chat Transcripts into the CRM',
   level: 'INTERMEDIATE',
   tags: ['salesforce', 'webhooks', 'pii-masking', 'customer-service', 'attachments'],
-  estMinutes: 20,
+  estMinutes: 25,
   diagram: {
     task: 'draw how closed chat conversations get from the chat platform into Salesforce Service Cloud: webhook intake, transcript fetch, masking/matching in a Process API, case and file storage, and the stats-only path for anonymous chats.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Bank Statement Reconciliation',
   level: 'ADVANCED',
   tags: ['camt053', 'mt940', 'reconciliation', 'matching', 'finance'],
-  estMinutes: 35,
+  estMinutes: 45,
   diagram: {
     task: 'draw the reconciliation pipeline: banks dropping statements on SFTP, the ingestion job with its raw archive and statement register, the matching Process API with its rules, posting to NetSuite, the exception work queue and the daily report.',
     checks: [

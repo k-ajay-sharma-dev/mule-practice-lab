@@ -10,7 +10,7 @@ export default {
   title: 'Security per Layer in an API-led Estate',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'security', 'oauth', 'client-id-enforcement', 'private-ingress'],
-  estMinutes: 25,
+  estMinutes: 40,
   diagram: {
     task: 'draw what is reachable from the internet and how each layer is reached: consumers, identity provider, public gateway, the three API layers and the on-prem backends.',
     checks: [

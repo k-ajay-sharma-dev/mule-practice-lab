@@ -6,7 +6,7 @@ export default {
   title: 'Reference Architecture for a B2C Mobile Channel',
   level: 'INTERMEDIATE',
   tags: ['mobile', 'b2c', 'experience-api', 'bff', 'security'],
-  estMinutes: 30,
+  estMinutes: 45,
   diagram: {
     task: 'draw the mobile banking architecture from the device through the edge and the three API layers to core banking, the card SaaS and push notifications.',
     checks: [

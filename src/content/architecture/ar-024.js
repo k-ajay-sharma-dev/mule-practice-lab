@@ -13,7 +13,7 @@ export default {
   title: 'Distributed Transactions: Saga vs 2PC',
   level: 'EXPERT',
   tags: ['saga', 'eventual-consistency', 'two-phase-commit', 'compensation'],
-  estMinutes: 40,
+  estMinutes: 45,
   diagram: {
     task: 'draw the orchestrated saga for a new subscription: one orchestrator that owns the order, its durable saga state, the queue that drives each step, a DLQ for failed compensations, and a System API for each of the six systems it calls.',
     checks: [

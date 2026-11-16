@@ -6,7 +6,7 @@ export default {
   title: 'Large Payloads and the Claim-Check Pattern',
   level: 'INTERMEDIATE',
   tags: ['claim-check', 'large-files', 'streaming', 'object-storage', 'messaging'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the claim-check design: where attachments are uploaded and stored, what the ClaimSubmitted message carries to the three consumers, and who fetches the files.',
     checks: [

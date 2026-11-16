@@ -6,7 +6,7 @@ export default {
   title: 'An Identity Provider Issuing Tokens',
   level: 'BEGINNER',
   tags: ['security', 'oauth2', 'policies', 'api-manager', 'api-gateway'],
-  estMinutes: 10,
+  estMinutes: 15,
   diagram: {
     task: 'draw how a token is issued and checked. Use four boxes: an Internal / staff app box, an Identity provider box, an API gateway / policies box and an Experience API box. Draw four lines: from the app to the Identity provider to get a token, from the app to the gateway to call the API, from the gateway to the Identity provider to check the token, and from the gateway to the Experience API.',
     checks: [

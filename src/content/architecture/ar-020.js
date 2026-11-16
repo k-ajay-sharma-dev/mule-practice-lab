@@ -6,7 +6,7 @@ export default {
   title: 'Integrating a Mainframe Core System',
   level: 'ADVANCED',
   tags: ['mainframe', 'legacy', 'cobol-copybook', 'cdc'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the portal and broker architecture: where policy reads are served from, how the read store is kept current, and how address changes reach the mainframe.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'A Mobile App Down Through All Three API Layers',
   level: 'BEGINNER',
   tags: ['api-led', 'layers', 'experience-api', 'process-api', 'system-api', 'mobile'],
-  estMinutes: 10,
+  estMinutes: 15,
   diagram: {
     task: 'draw one request going down all three layers. Use five boxes: a Mobile app box, an Experience API box, a Process API box, a System API box and a Legacy / mainframe box. Connect them in that order, with one line between each pair.',
     checks: [

@@ -9,7 +9,7 @@ export default {
   title: 'Replacing a System of Record: SAP ECC to S/4HANA',
   level: 'ADVANCED',
   tags: ['api-led', 'system-api', 'migration', 'sap', 'strangler'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the estate during the ECC to S/4HANA coexistence period, including where routing happens and what the two legacy IDoc integrations now call.',
     checks: [

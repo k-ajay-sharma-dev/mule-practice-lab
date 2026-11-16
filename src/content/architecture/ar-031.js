@@ -12,7 +12,7 @@ export default {
   title: 'Canonical Data Model vs Pass-Through',
   level: 'INTERMEDIATE',
   tags: ['canonical-model', 'data-modeling', 'bounded-context', 'api-led'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw where each model lives. One System API for each of SAP, Salesforce, the billing SaaS and the support tool, one Customer Process API that owns the domain model and the customer cross-reference, and an Experience API for each channel.',
     checks: [

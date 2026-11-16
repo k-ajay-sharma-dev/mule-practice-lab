@@ -6,7 +6,7 @@ export default {
   title: 'An API Gateway in Front of an Experience API',
   level: 'BEGINNER',
   tags: ['api-gateway', 'policies', 'api-manager', 'rate-limiting', 'experience-api', 'retail'],
-  estMinutes: 10,
+  estMinutes: 20,
   diagram: {
     task: 'draw an API gateway in front of an Experience API. Use four boxes: a Web app box, an API gateway / policies box, an Experience API box and a Process API box. Connect them in that order, with one line between each pair.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'API-Led: Patient Registration for Kiosks, Front Desk and Partner Clinics',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'application-network', 'healthcare', 'fhir', 'mpi'],
-  estMinutes: 30,
+  estMinutes: 40,
   diagram: {
     task: 'draw the API-led network for patient registration: kiosks, front desk and partner clinics with their Experience APIs, the check-in and registration Process APIs, the System APIs for EMPI, EHR, insurance and appointments, plus the eligibility cache and audit store.',
     checks: [

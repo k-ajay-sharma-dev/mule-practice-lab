@@ -6,7 +6,7 @@ export default {
   title: 'E-Signature Flow for Loan Contracts',
   level: 'INTERMEDIATE',
   tags: ['docusign', 'webhooks', 'documents', 'state-machine', 'banking'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the e-signature flow: LOS approval events, the orchestrating Process API with its tracking table, System APIs for DocuSign, SharePoint, the LOS and payout, the DocuSign Connect webhook path, and the safety-net poller.',
     checks: [

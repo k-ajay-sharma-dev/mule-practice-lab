@@ -6,7 +6,7 @@ export default {
   title: 'Approved Expense Reports to Finance',
   level: 'BEGINNER',
   tags: ['scheduler', 'erp', 'journal-entries', 'mapping', 'finance'],
-  estMinutes: 15,
+  estMinutes: 25,
   diagram: {
     task: 'draw the integration that picks up approved expense reports, books them in Dynamics 365 Finance and marks them Exported, including where the GL mapping lives and how finance hears about failures.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Product Recall: Lot Traceability to DCs, Trucks, Stores and Customers',
   level: 'EXPERT',
   tags: ['supply-chain', 'retail', 'recall', 'traceability', 'wms', 'tms', 'pos', 'activemq', 'oracle', 'notifications', 'audit'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the recall platform: the QA console and its Experience API, the recall orchestrator with its Oracle case and acknowledgement tracker, one recall event fanned out over a topic to the WMS, TMS and store POS System APIs, store acknowledgements coming back on a queue, affected customers found in sales history, and throttled customer notifications through a queue.',
     checks: [

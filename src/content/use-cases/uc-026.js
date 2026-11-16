@@ -6,7 +6,7 @@ export default {
   title: 'Hotel Channel Manager: Rates, Availability and Reservations',
   level: 'EXPERT',
   tags: ['hospitality', 'ota', 'event-ordering', 'overbooking', 'channel-manager'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the channel-manager hub: RMS and PMS feeding an ordered ARI stream, the ARI process with its central store, channel adapters for the OTAs, the reservation path back into the PMS, the direct booking engine and the full-sync job.',
     checks: [

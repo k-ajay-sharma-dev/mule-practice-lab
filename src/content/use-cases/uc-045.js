@@ -6,7 +6,7 @@ export default {
   title: 'Hospital ADT Event Hub for 20 Downstream Systems',
   level: 'EXPERT',
   tags: ['hl7', 'publish-subscribe', 'event-hub', 'healthcare', 'governance', 'replay'],
-  estMinutes: 45,
+  estMinutes: 50,
   diagram: {
     task: 'draw the ADT event hub: ingest from the EHR, the durable per-patient event log, the per-consumer delivery adapters with their subscription registry and hold store, and a few representative downstream systems (e.g. lab, portal, analytics, HIE).',
     checks: [

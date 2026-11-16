@@ -6,7 +6,7 @@ export default {
   title: 'Incident Sync between ServiceNow and Jira',
   level: 'INTERMEDIATE',
   tags: ['servicenow', 'jira', 'bidirectional-sync', 'webhooks', 'id-mapping'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the two-way incident sync: the webhook endpoints for ServiceNow and Jira, the queues (including a P1 lane), the sync Process API with its mapping store, the System APIs, the DLQ and the nightly reconciliation.',
     checks: [

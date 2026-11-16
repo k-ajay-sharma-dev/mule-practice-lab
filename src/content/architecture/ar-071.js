@@ -6,7 +6,7 @@ export default {
   title: 'Oracle Change Events: CDC vs Database Listener Polling',
   level: 'INTERMEDIATE',
   tags: ['supply-chain', 'retail', 'oracle', 'cdc', 'kafka', 'db-listener', 'events'],
-  estMinutes: 30,
+  estMinutes: 45,
   diagram: {
     task: 'draw how stock and order changes in Oracle become business events for Shopify, Salesforce and analytics, using change data capture rather than polling.',
     checks: [

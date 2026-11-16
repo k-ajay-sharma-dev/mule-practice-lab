@@ -6,7 +6,7 @@ export default {
   title: 'GDPR Right to Erasure across 15 Systems',
   level: 'EXPERT',
   tags: ['gdpr', 'privacy', 'saga', 'governance', 'audit'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the erasure orchestration: the privacy portal, the DSR Process API with its state, retention policy, identity cross-reference and audit stores, the queued erasure tasks, DSR System APIs per system and the manual-task route for systems without an API.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'System of Record and Data Ownership',
   level: 'INTERMEDIATE',
   tags: ['system-of-record', 'data-ownership', 'master-data', 'sync'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw the hub that replaces the six pairwise syncs: how each owner system publishes its changes, who applies them to the other systems, and where the global customer ID cross-reference lives.',
     checks: [

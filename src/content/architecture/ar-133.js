@@ -6,7 +6,7 @@ export default {
   title: 'A Kafka Event Stream Between Orders and Shipping',
   level: 'BEGINNER',
   tags: ['kafka', 'event-driven', 'events', 'messaging', 'async'],
-  estMinutes: 10,
+  estMinutes: 15,
   diagram: {
     task: 'draw orders reaching shipping through Kafka. Use five boxes: a Process API for the order API, a Database, an Event stream (Kafka), a System API for the shipping API, and a Transport mgmt (TMS) box. Draw Sync call lines from the Process API to the Database, and from the System API to the TMS. Draw Async message lines from the Process API to the Event stream, and from the Event stream to the System API. Draw no line between the two APIs.',
     checks: [

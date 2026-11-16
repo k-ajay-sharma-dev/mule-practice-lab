@@ -10,7 +10,7 @@ export default {
   title: 'End-to-End Idempotency for Payments',
   level: 'ADVANCED',
   tags: ['idempotency', 'duplicates', 'object-store', 'retries'],
-  estMinutes: 30,
+  estMinutes: 45,
   diagram: {
     task: 'draw the payment chain from the mobile app to the payment provider and the billing DB, and the receipts consumer behind the queue. Show the store where each Process API keeps its idempotency keys.',
     checks: [

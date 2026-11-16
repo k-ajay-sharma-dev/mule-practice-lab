@@ -6,7 +6,7 @@ export default {
   title: 'TLS Hop by Hop: Partner Mutual TLS at a Dedicated Load Balancer Through to a Private-CA Backend',
   level: 'ADVANCED',
   tags: ['security', 'tls', 'mtls', 'dedicated-load-balancer', 'cloudhub', 'certificates', 'api-led'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the path of a partner request through a load balancer doing mutual TLS, then Experience, Process and System APIs, out to a legacy system that uses a private CA and to a third-party API that needs a client certificate.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Event-Driven Design with Anypoint MQ',
   level: 'INTERMEDIATE',
   tags: ['anypoint-mq', 'fifo', 'dlq', 'pub-sub'],
-  estMinutes: 25,
+  estMinutes: 40,
   diagram: {
     task: 'draw the Anypoint MQ messaging layer: the scan API, the exchange and its bound queues, the three consumers with their stores, and where poison messages end up.',
     checks: [

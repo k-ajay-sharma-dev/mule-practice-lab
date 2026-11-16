@@ -6,7 +6,7 @@ export default {
   title: 'Experience APIs and the Backend-for-Frontend Pattern',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'experience-api', 'bff', 'mobile', 'partner'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw the Experience layer for the three order consumers on top of the existing prc-order-api, including login and caching.',
     checks: [

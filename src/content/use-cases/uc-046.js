@@ -6,7 +6,7 @@ export default {
   title: 'Core Banking Migration with Parallel Run',
   level: 'EXPERT',
   tags: ['migration', 'strangler-fig', 'dual-write', 'reconciliation', 'banking', 'cdc'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the strangler-fig integration for the core migration: channels on core-agnostic Experience and Process APIs, the routing table, System APIs for the mainframe and the new core, the canonical event feed for downstream systems, and the reconciliation job.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Subscription Billing for a SaaS Company',
   level: 'ADVANCED',
   tags: ['subscriptions', 'billing', 'salesforce-cpq', 'erp', 'event-driven'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw the subscription integration: the closed-won event into a Subscription Process API, billing and tenant provisioning via System APIs, the daily usage upload, billing events driving entitlements, and the finance feed to NetSuite.',
     checks: [

@@ -14,7 +14,7 @@ function describe(record) {
 
 // Counts down from the problem's estimated time while the problem is open. Leaving pauses it, and coming back resumes it.
 // Recording happens in the progress store when the problem is solved, whichever way it is solved.
-export default function ProblemTimer({ problem }) {
+export default function ProblemTimer({ problem, compact = false }) {
   const { id, estMinutes } = problem
   const entry = useEntry(id)
   const [now, setNow] = useState(Date.now)
@@ -95,36 +95,45 @@ export default function ProblemTimer({ problem }) {
     const level = timerLevel(remaining)
     const paused = Boolean(timer.pausedAt)
     const label = paused ? 'Resume timer' : 'Pause timer'
+    const note = [
+      paused && 'Paused, read only',
+      level === 'over' ? `over the ${timer.minutes} minute target` : `of ${timer.minutes} minutes`,
+      timer.resets > 0 && plural(timer.resets, 'reset'),
+      timer.pauses > 0 && plural(timer.pauses, 'pause'),
+    ].filter(Boolean).join(' · ')
     return (
-      <div className="problem-timer">
-        <span className={`problem-clock mono${paused ? ' muted' : CLOCK_CLASS[level]}`} role="timer">
+      <div className={`problem-timer${compact ? ' compact' : ''}`}>
+        <span className={`problem-clock mono${paused ? ' muted' : CLOCK_CLASS[level]}`} role="timer" title={note}>
           {level === 'over' && '+'}
           {clock(remaining)}
         </span>
-        <span className="small muted problem-timer-note">
-          {paused && 'Paused, read only · '}
-          {level === 'over' ? `over the ${timer.minutes} minute target` : `of ${timer.minutes} minutes`}
-          {timer.resets > 0 && ` · ${plural(timer.resets, 'reset')}`}
-          {timer.pauses > 0 && ` · ${plural(timer.pauses, 'pause')}`}
-        </span>
-        {history}
+        {(!compact || paused) && <span className="small muted problem-timer-note">{compact ? 'Paused' : note}</span>}
+        {!compact && history}
         <button className="icon-btn timer-pause" onClick={togglePause} aria-label={label} title={label}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
             {paused ? <path d="M7 4.5v15l13-7.5z" /> : <path d="M6 4h4v16H6zM14 4h4v16h-4z" />}
           </svg>
         </button>
-        {!paused && (
-          <button className="btn btn-ghost btn-sm" onClick={reset}>
-            Reset
-          </button>
-        )}
+        {!paused &&
+          (compact ? (
+            <button className="icon-btn timer-pause" onClick={reset} aria-label="Reset timer" title="Reset timer">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" />
+              </svg>
+            </button>
+          ) : (
+            <button className="btn btn-ghost btn-sm" onClick={reset}>
+              Reset
+            </button>
+          ))}
+        {compact && history}
       </div>
     )
   }
 
   if (statusOf(entry) !== 'solved') return null
   return (
-    <div className="problem-timer">
+    <div className={`problem-timer${compact ? ' compact' : ''}`}>
       <span className="small problem-timer-note result">
         {last ? (
           <>

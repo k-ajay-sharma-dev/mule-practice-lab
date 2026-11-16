@@ -6,7 +6,7 @@ export default {
   title: 'Customer 360 from CRM, Billing and Support',
   level: 'INTERMEDIATE',
   tags: ['customer-360', 'scatter-gather', 'api-led', 'caching'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the Customer 360 application network: the call-centre app and its identity provider, the Experience, Process and System APIs, the cache, and the three backends.',
     checks: [

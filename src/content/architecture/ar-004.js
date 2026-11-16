@@ -6,7 +6,7 @@ export default {
   title: 'Securing APIs for Partners and Internal Apps',
   level: 'INTERMEDIATE',
   tags: ['security', 'oauth2', 'mtls', 'api-manager'],
-  estMinutes: 25,
+  estMinutes: 35,
   diagram: {
     task: 'draw how partners, the mobile backend and the batch job reach the Payments Status API: where tokens come from, where mTLS and the API Manager policies sit, and how the payments backend is protected.',
     checks: [

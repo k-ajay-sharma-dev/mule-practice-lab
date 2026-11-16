@@ -6,7 +6,7 @@ export default {
   title: 'Batch vs Streaming vs Real-Time',
   level: 'INTERMEDIATE',
   tags: ['batch', 'real-time', 'streaming', 'integration-patterns'],
-  estMinutes: 25,
+  estMinutes: 45,
   diagram: {
     task: 'draw the three flows side by side: the nightly price batch to the stores, the real-time stock check for the website, and the sales events consumed by loyalty and finance.',
     checks: [

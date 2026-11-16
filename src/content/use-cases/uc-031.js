@@ -6,7 +6,7 @@ export default {
   title: 'Purchase Requisitions from Procurement Tool to SAP',
   level: 'INTERMEDIATE',
   tags: ['sap', 'procurement', 'approval-workflow', 'status-sync', 'idempotency'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw the integration between the procurement tool and SAP: the approved-PR webhook path, the Process API with the PO/requisition rules, the System APIs, and the scheduled master-data and PO-status syncs.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Omnichannel Order Management: OMS as Orchestrator vs Mule Process Layer',
   level: 'EXPERT',
   tags: ['retail', 'supply-chain', 'oms', 'orchestration', 'api-led', 'events', 'bopis', 'ship-from-store'],
-  estMinutes: 45,
+  estMinutes: 60,
   diagram: {
     task: 'draw the omnichannel order architecture in which the OMS owns the order lifecycle and Mule provides the channel APIs, order capture, event distribution and fulfilment connectivity to the WMS and stores.',
     checks: [

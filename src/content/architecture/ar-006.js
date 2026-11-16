@@ -11,7 +11,7 @@ export default {
   title: 'Multi-Region DR with RPO/RTO Targets',
   level: 'EXPERT',
   tags: ['disaster-recovery', 'high-availability', 'rpo-rto', 'multi-region'],
-  estMinutes: 40,
+  estMinutes: 50,
   diagram: {
     task: 'draw the DR topology for Tier 1 and Tier 2. Pharmacies enter through a global traffic manager that reaches an ingress in EU-West and in EU-Central. Each region runs the order capture Experience API and commits orders to its order DB, and accepted orders reach SAP through Anypoint MQ.',
     checks: [

@@ -14,7 +14,7 @@ export default {
   title: 'Hybrid Connectivity to On-Prem Systems',
   level: 'ADVANCED',
   tags: ['hybrid', 'private-space', 'vpn', 'runtime-fabric'],
-  estMinutes: 30,
+  estMinutes: 35,
   diagram: {
     task: 'draw the clinician and mobile lookup from the mobile app to Salesforce and the EHR, the HL7 feeds from the lab system, and the nightly imaging file flow. Put where each Mule box runs in its name: Private Space for CloudHub 2.0, or Runtime Fabric on-prem.',
     checks: [

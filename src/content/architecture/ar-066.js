@@ -9,7 +9,7 @@ export default {
   title: 'Arguing Against API-led: Right-Sizing for a Small Team',
   level: 'EXPERT',
   tags: ['api-led', 'trade-offs', 'over-engineering', 'right-sizing', 'interview-strategy'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw your right-sized architecture. Show the 3PL partner, its partner API, the sync apps, the System APIs you would keep, and Salesforce, NetSuite, Shopify and the Postgres warehouse app.',
     checks: [

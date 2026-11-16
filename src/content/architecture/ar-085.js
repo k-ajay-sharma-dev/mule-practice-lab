@@ -6,7 +6,7 @@ export default {
   title: 'Runtime Fabric on Your Own Kubernetes With API-led Layers',
   level: 'ADVANCED',
   tags: ['runtime-fabric', 'kubernetes', 'api-led', 'ingress', 'deployment', 'manufacturing'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw an API-led deployment on Runtime Fabric in the customer\'s own Kubernetes cluster, in which all clients enter through the customer\'s ingress controller, each layer calls only the next one, SAP and the plant database are reached only through System APIs, and object store data is kept in a store the customer provides.',
     checks: [

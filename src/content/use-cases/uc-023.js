@@ -6,7 +6,7 @@ export default {
   title: 'Field-Service Work Orders between SAP and Salesforce',
   level: 'ADVANCED',
   tags: ['field-service', 'sap', 'salesforce', 'bidirectional-sync', 'utilities'],
-  estMinutes: 35,
+  estMinutes: 40,
   diagram: {
     task: 'draw both directions between SAP PM and Salesforce Field Service: SAP orders and equipment flowing to work orders, Salesforce work-order events flowing back as SAP postings, the step-tracking store, the technician app and the bulk/reconciliation jobs.',
     checks: [

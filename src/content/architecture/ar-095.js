@@ -6,7 +6,7 @@ export default {
   title: 'Running CloudHub 1.0 and 2.0 Side by Side: A Phased Migration Behind One Vanity Domain',
   level: 'ADVANCED',
   tags: ['cloudhub', 'cloudhub-2', 'deployment', 'migration', 'dlb', 'ingress', 'api-led'],
-  estMinutes: 45,
+  estMinutes: 55,
   diagram: {
     task: 'draw the coexistence state in the middle of the migration: clients keep calling the existing DLB domain, the DLB serves one Experience API still on CloudHub 1.0 and forwards to private space ingress for a migrated one, the migrated Process API calls a CloudHub 1.0 System API back through the DLB, and backends are reached only through System APIs.',
     checks: [

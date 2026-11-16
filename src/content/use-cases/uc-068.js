@@ -6,7 +6,7 @@ export default {
   title: 'Store Inventory Cycle Counts from Handhelds to the ERP',
   level: 'INTERMEDIATE',
   tags: ['retail', 'store-inventory', 'cycle-count', 'oracle', 'oracle-ebs', 'activemq', 'handheld', 'api-led'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'draw the cycle-count integration: store handhelds calling an Experience API, submitted counts queued for the cycle-count Process API, the store-inventory Oracle database and Oracle EBS behind System APIs, and the nightly count-task generator.',
     checks: [

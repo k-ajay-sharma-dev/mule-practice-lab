@@ -6,7 +6,7 @@ export default {
   title: 'WMS ↔ ERP Order Release and Shipment Confirmations over ActiveMQ',
   level: 'INTERMEDIATE',
   tags: ['supply-chain', 'wms', 'activemq', 'jms', 'oracle', 'oracle-ebs', 'dlq', 'idempotency'],
-  estMinutes: 20,
+  estMinutes: 25,
   diagram: {
     task: 'draw how released orders flow from Oracle EBS to the WMS and how shipment confirmations flow back, using ActiveMQ queues in both directions, a DLQ, and a System API in front of EBS.',
     checks: [

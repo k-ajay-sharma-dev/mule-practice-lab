@@ -6,7 +6,7 @@ export default {
   title: 'Daily Sales Export to the Data Warehouse',
   level: 'BEGINNER',
   tags: ['batch', 'data-lake', 'snowflake', 's3', 'scheduler'],
-  estMinutes: 15,
+  estMinutes: 20,
   diagram: {
     task: 'draw the daily export as a data flow: the job, the POS database and master-data API it reads, the S3 raw zone it writes, the Snowflake bulk load from S3, and the control-total alerting.',
     checks: [

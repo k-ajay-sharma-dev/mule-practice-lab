@@ -6,7 +6,7 @@ export default {
   title: 'Designing Around SaaS API Rate Limits',
   level: 'INTERMEDIATE',
   tags: ['rate-limits', 'salesforce', 'bulk-api', 'queuing', 'throttling'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw how orders, nightly invoices and customer updates reach Salesforce without exhausting the API allocation: where bursts are buffered, how calls are grouped, and how usage is watched.',
     checks: [

@@ -6,7 +6,7 @@ export default {
   title: 'Leads from Web Forms and Ad Platforms into Salesforce',
   level: 'INTERMEDIATE',
   tags: ['salesforce', 'deduplication', 'webhooks', 'marketing', 'lead-routing'],
-  estMinutes: 25,
+  estMinutes: 30,
   diagram: {
     task: 'draw how leads from the website, the ad platforms and trade-show CSV files reach Salesforce through one canonical, deduplicating flow that never makes the website wait.',
     checks: [

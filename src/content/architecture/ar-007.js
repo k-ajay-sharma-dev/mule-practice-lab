@@ -10,7 +10,7 @@ export default {
   title: 'API Versioning and Deprecation Strategy',
   level: 'BEGINNER',
   tags: ['versioning', 'deprecation', 'api-lifecycle', 'exchange'],
-  estMinutes: 15,
+  estMinutes: 25,
   diagram: {
     task: 'draw v1 and v2 of the Policy Experience API running side by side. Use one Experience API box for each version, with v1 or v2 in its name, and show that both call the same Process API and System API. Connect the mobile app, the broker portal and the partners.',
     checks: [

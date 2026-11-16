@@ -6,7 +6,7 @@ export default {
   title: 'Model Proxy for Internal Agents: Two LLM Providers, Policies and Budget Management',
   level: 'INTERMEDIATE',
   tags: ['ai-agents', 'agent-fabric', 'omni-gateway', 'llm', 'policies', 'security'],
-  estMinutes: 15,
+  estMinutes: 20,
   diagram: {
     task: 'draw three internal agents reaching two LLM providers through one Model Proxy. The palette has no agent or model proxy box, so use these boxes and names: an Internal / staff app box for each agent, an Identity provider box, an API gateway box named Policies, an API gateway box named Model Proxy, a Third-party API box for each provider, and a Monitoring box named Budget Management. Send requests from each agent through Policies to the Model Proxy. Draw a line from each agent to the Identity provider for its token, and a line from the Model Proxy to Budget Management for usage.',
     checks: [

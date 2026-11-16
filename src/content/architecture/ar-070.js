@@ -6,7 +6,7 @@ export default {
   title: 'Escaping the Shared Oracle Integration Database',
   level: 'INTERMEDIATE',
   tags: ['retail', 'supply-chain', 'oracle', 'anti-pattern', 'api-led', 'events', 'data-ownership'],
-  estMinutes: 20,
+  estMinutes: 30,
   diagram: {
     task: 'redraw the landscape so that the Oracle inventory schema has one owner: channels use APIs, the WMS sits behind its own System API, and finance gets changes as events instead of reading the tables.',
     checks: [
