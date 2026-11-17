@@ -5,7 +5,7 @@ import { CATEGORIES } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { checkRunner, getRunnerSettings, runnerMaySleep } from '../runner/client.js'
 import { useFocusSession } from '../store/focus.js'
-import { rememberOrigin } from '../store/origin.js'
+import { readOriginScroll, rememberOrigin, saveOriginScroll } from '../store/origin.js'
 import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { usePoints } from '../store/points.js'
 import Celebration from './Celebration.jsx'
@@ -46,7 +46,8 @@ function useLaptopWidth() {
 
 export default function Layout({ children }) {
   const { theme, toggle } = useTheme()
-  const { pathname, search } = useLocation()
+  const location = useLocation()
+  const { pathname, search } = location
   // laptop: full or icons-only (remembered); phone/tablet: a drawer opened from the menu button
   const [collapsed, setCollapsed] = useState(() => readSetting(SIDEBAR_KEY) === 'collapsed')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -96,6 +97,31 @@ export default function Layout({ children }) {
     const category = CATEGORIES.find((c) => c.slug === first)
     if (category && second) return // a problem page: keep the page it was opened from
     rememberOrigin(pathname, search, category && !second ? category.label : null)
+    // keep how far down this page is scrolled, and come back to it from a problem's back button
+    const path = pathname + search
+    let wait = null
+    const onScroll = () => {
+      clearTimeout(wait)
+      wait = setTimeout(() => saveOriginScroll(path, window.scrollY), 150)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    let tries = 0
+    let retry = null
+    if (location.state?.back) {
+      const y = readOriginScroll(path)
+      // the list may still be drawing: try until the page is tall enough
+      const restore = () => {
+        window.scrollTo({ top: y })
+        if (Math.abs(window.scrollY - y) > 2 && tries++ < 20) retry = setTimeout(restore, 100)
+      }
+      if (y > 0) restore()
+    }
+    return () => {
+      clearTimeout(wait)
+      clearTimeout(retry)
+      window.removeEventListener('scroll', onScroll)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, search])
   useEffect(() => {
     if (!drawerOpen) return
@@ -250,6 +276,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
           {item('/mock', 'mock', 'Mock Interview')}
           {item('/exam', 'exam', 'Practice Exam')}
           {item('/weak-areas', 'weak', 'Weak Areas')}
+          {item('/mistakes', 'weak', 'Mistakes')}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>

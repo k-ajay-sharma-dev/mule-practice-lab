@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react'
+import FindIt from '../components/FindIt.jsx'
+import { archFindIt, archMetBy } from '../arch/findit.js'
+import WhyPassed from '../components/WhyPassed.jsx'
+import { recordMistake } from '../store/mistakes.js'
 import ArchDesigner from '../components/arch/ArchDesigner.jsx'
 import ArchRunPanel, { runOverlay } from '../components/arch/ArchRunPanel.jsx'
 import ExplainPanel from '../components/ExplainPanel.jsx'
@@ -70,6 +74,12 @@ export default function ArchWorkspace({ problem, guided = true }) {
   const overlay = useMemo(() => (tab === 'run' && hasRuns ? runOverlay(runArchTest(diagram, simulation, simulation.tests[picked] ?? simulation.tests[0]).result) : null), [tab, hasRuns, diagram, simulation, picked])
   const steps = useMemo(() => diagramSteps(checks), [checks])
   const live = useMemo(() => runDiagramChecks(diagram, checks), [diagram, checks])
+  const [finding, setFinding] = useState(null) // the check whose Find it is open
+  const findInfo = useMemo(
+    () => (finding !== null && checks[finding] && !live[finding]?.pass ? archFindIt(diagram, reference, checks[finding]) : null),
+    [finding, checks, live, diagram, reference],
+  )
+  const flags = useMemo(() => (findInfo ? Object.fromEntries(findInfo.mine.map((m) => [m.id, [checks[finding].label]])) : null), [findInfo, finding, checks])
 
   useSidebarRoom()
 
@@ -80,6 +90,13 @@ export default function ArchWorkspace({ problem, guided = true }) {
     setResults(r)
     setTab('checks')
     if (r.every((c) => c.pass)) updateEntry(problem.id, { diagram, status: 'solved', rebuilding: false }, { graded: true })
+    else if (guided && reference) checks.forEach((c, i) => !r[i].pass && recordMistake(problem.id, c, archFindIt(diagram, reference, c)))
+  }
+  function openFind(i) {
+    recordMistake(problem.id, checks[i], archFindIt(diagram, reference, checks[i]))
+    setFinding(i)
+    setTab('checks')
+    recordHint(problem.id, entry, i, 3)
   }
   const ladder = useMemo(
     () => ladderFor(problem.description, problem.solution, checks, (i) => diagramHint(diagram, checks[i].rule)),
@@ -132,14 +149,24 @@ export default function ArchWorkspace({ problem, guided = true }) {
                   {passed} / {checks.length} requirements met{passed === checks.length && ' — solved!'}
                 </div>
               )}
+              {results && passed === checks.length && <WhyPassed checks={checks} metBy={(c) => archMetBy(diagram, c)} />}
               <ul className="check-list">
                 {checks.map((c, i) => {
                   const r = results?.[i]
+                  const failing = guided && diagram.nodes.length > 0 && !live[i]?.pass
                   return (
                     <li key={i} className={r ? (r.pass ? 'pass' : 'fail') : ''}>
                       <span className="mark">{r ? (r.pass ? '✓' : '✗') : '○'}</span>
-                      <span>
-                        {c.label}
+                      <span className="check-body">
+                        <span className="check-line">
+                          {c.label}
+                          {failing && reference && finding !== i && (
+                            <button className="link-btn small find-it-btn" onClick={() => openFind(i)} title="Show what is wrong, where, and how the reference differs, for this check only">
+                              🔎 Find it
+                            </button>
+                          )}
+                        </span>
+                        {finding === i && findInfo && <FindIt label={c.label} info={findInfo} onClose={() => setFinding(null)} />}
                         {r?.reversed && (
                           <span className="check-hint small warn-text">
                             Close — your arrow points the other way. Arrows go from the caller or sender to the receiver.
@@ -192,10 +219,11 @@ export default function ArchWorkspace({ problem, guided = true }) {
             hintFor={(i) => diagramHint(diagram, checks[i].rule)}
             ladder={ladder}
             onHint={(i, level) => recordHint(problem.id, entry, i, level)}
+            onFind={reference ? openFind : null}
             finish={checkButton}
           />
         )}
-        <ArchDesigner diagram={diagram} onChange={setDiagram} history={history} overlay={overlay} />
+        <ArchDesigner diagram={diagram} onChange={setDiagram} history={history} overlay={overlay} flags={flags} />
       </section>
     </div>
   )

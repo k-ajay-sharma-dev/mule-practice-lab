@@ -7,8 +7,10 @@ import { ladderFor, PlanBox, RebuildBanner, recordHint, recordHints, revealRefer
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
 import SplitHandle, { useSplit } from '../components/SplitHandle.jsx'
-import { designChecks, findIt, missingHint, ruleNodes, runChecks } from '../flow/checks.js'
+import { designChecks, findIt, metBy, missingHint, ruleNodes, runChecks } from '../flow/checks.js'
+import WhyPassed from '../components/WhyPassed.jsx'
 import FindIt from '../components/FindIt.jsx'
+import { recordMistake } from '../store/mistakes.js'
 import { compareDesigns } from '../flow/compare.js'
 import { countComponents, emptyDesign, restoreDesign } from '../flow/model.js'
 import { systemsIn } from '../flow/systems.js'
@@ -164,6 +166,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
     [finding, checks, live, design, problem],
   )
   function openFind(i) {
+    recordMistake(problem.id, checks[i], findIt(design, problem.referenceFlow, checks[i]))
     setFinding(i)
     setTab('checks')
     recordHint(problem.id, entry, i, 3)
@@ -185,6 +188,8 @@ export default function FlowWorkspace({ problem, guided = true }) {
     setResults(r)
     setTab('checks')
     if (r.every((c) => c.pass)) updateEntry(problem.id, { flow: design, status: 'solved', rebuilding: false }, { graded: true })
+    // what failed is kept for the Mistakes page (practice rounds only, and only with a reference to compare to)
+    else if (guided && problem.referenceFlow) checks.forEach((c, i) => !r[i].pass && recordMistake(problem.id, c, findIt(design, problem.referenceFlow, c)))
   }
   const ladder = useMemo(
     () => ladderFor(problem.description, problem.solution, checks, (i) => missingHint(design, checks[i].rule)),
@@ -238,6 +243,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
                     {passed} / {checks.length} requirements met{passed === checks.length && ' — solved!'}
                   </div>
                 )}
+                {results && passed === checks.length && <WhyPassed checks={checks} metBy={(c) => metBy(design, c)} />}
                 <ul className="check-list">
                   {checks.map((c, i) => {
                     const r = results?.[i]

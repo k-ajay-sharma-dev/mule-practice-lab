@@ -48,12 +48,17 @@ export default function ProblemPage() {
     <div className="problem-page">
       <header className="problem-head">
         <div className="problem-head-main">
-          {!focusing && (
-            <Link to={back.path} className="back-link">
-              ← {back.label}
-            </Link>
-          )}
-          <h1>{problem.title}</h1>
+          <div className="problem-title-row">
+            {!focusing && (
+              // back to the exact page this was opened from, with its filters and scroll position (see Layout)
+              <Link to={back.path} state={{ back: true }} className="head-back" title={`Back to ${back.label}`} aria-label={`Back to ${back.label}`}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 5l-7 7 7 7" />
+                </svg>
+              </Link>
+            )}
+            <h1>{problem.title}</h1>
+          </div>
           <div className="problem-meta">
             <span className="mono muted">{problem.id.toUpperCase()}</span>
             <LevelBadge level={problem.level} />
@@ -65,30 +70,34 @@ export default function ProblemPage() {
         <div className="prev-next">
           <ProblemTimer key={problem.id} problem={problem} compact />
           <button
-            className={`btn btn-ghost${inReview ? ' active-toggle' : ''}`}
+            className={`btn btn-ghost head-btn${inReview ? ' active-toggle' : ''}`}
             onClick={() => (inReview ? removeReview(problem.id) : scheduleReview(problem.id))}
             title={inReview ? 'Remove from spaced review' : 'Bring this back for spaced review'}
           >
             {inReview ? '✓ In review' : '＋ Review'}
           </button>
-          {!focusing && (prev ? (
-            <Link className="btn btn-ghost" to={`/${category}/${prev.id}`} title={prev.title}>
-              ← Prev
-            </Link>
-          ) : (
-            <span className="btn btn-ghost disabled">← Prev</span>
-          ))}
-          {!focusing && (next ? (
-            <Link className="btn btn-ghost" to={`/${category}/${next.id}`} title={next.title}>
-              Next →
-            </Link>
-          ) : (
-            <span className="btn btn-ghost disabled">Next →</span>
-          ))}
-          {!focusing && nextOpen && nextOpen.id !== next?.id && (
-            <Link className="btn btn-ghost" to={`/${category}/${nextOpen.id}`} title={`Next unsolved: ${nextOpen.title}`}>
-              Next unsolved →
-            </Link>
+          {!focusing && (
+            <nav className="head-nav" aria-label="Other problems">
+              {prev ? (
+                <Link className="btn btn-ghost head-btn" to={`/${category}/${prev.id}`} title={`Previous: ${prev.title}`}>
+                  ← Prev
+                </Link>
+              ) : (
+                <span className="btn btn-ghost head-btn disabled">← Prev</span>
+              )}
+              {next ? (
+                <Link className="btn btn-ghost head-btn" to={`/${category}/${next.id}`} title={`Next: ${next.title}`}>
+                  Next →
+                </Link>
+              ) : (
+                <span className="btn btn-ghost head-btn disabled">Next →</span>
+              )}
+              {nextOpen && nextOpen.id !== next?.id && (
+                <Link className="btn btn-ghost head-btn" to={`/${category}/${nextOpen.id}`} title={`Next unsolved: ${nextOpen.title}`}>
+                  Unsolved →
+                </Link>
+              )}
+            </nav>
           )}
           {!focusing && <WideToggle />}
         </div>

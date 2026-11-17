@@ -18,6 +18,7 @@ const MockInterviewPage = lazy(() => import('./pages/MockInterviewPage.jsx'))
 const ExamPage = lazy(() => import('./pages/ExamPage.jsx'))
 const InterviewPage = lazy(() => import('./pages/InterviewPage.jsx'))
 const WeakAreasPage = lazy(() => import('./pages/WeakAreasPage.jsx'))
+const MistakesPage = lazy(() => import('./pages/MistakesPage.jsx'))
 const ReadinessPage = lazy(() => import('./pages/ReadinessPage.jsx'))
 const CheatSheetsPage = lazy(() => import('./pages/CheatSheetsPage.jsx'))
 const PlatformLabPage = lazy(() => import('./pages/PlatformLabPage.jsx'))
@@ -52,6 +53,7 @@ export default function App() {
               <Route path="/exam" element={<ExamPage />} />
               <Route path="/interview" element={<InterviewPage />} />
               <Route path="/weak-areas" element={<WeakAreasPage />} />
+              <Route path="/mistakes" element={<MistakesPage />} />
               <Route path="/readiness" element={<ReadinessPage />} />
               <Route path="/cheatsheets" element={<CheatSheetsPage />} />
               <Route path="/cheatsheets/:slug" element={<CheatSheetsPage />} />

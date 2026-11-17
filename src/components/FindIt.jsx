@@ -8,7 +8,8 @@ const show = (v) => {
 
 export default function FindIt({ label, info, onClose }) {
   const extraClues = info.clues.filter((c) => !info.hint.includes(c.text))
-  const nothing = !info.pairs.length && !info.extra.length && !info.unused.length
+  const lines = info.lines ?? { missing: [], wrongKind: [], extra: [] }
+  const nothing = !info.pairs.length && !info.extra.length && !info.unused.length && !lines.missing.length && !lines.wrongKind.length && !lines.extra.length
   return (
     <div className="find-it" role="region" aria-label={`Find it: ${label}`}>
       <div className="find-it-head">
@@ -25,14 +26,14 @@ export default function FindIt({ label, info, onClose }) {
       ))}
       {info.mine.length > 0 && (
         <p className="small muted">
-          Outlined on your canvas: {info.mine.map((m) => `${m.label} in ${m.flow}`).join(', ')}.
+          Outlined on your canvas: {info.mine.map((m) => (m.flow ? `${m.label} in ${m.flow}` : m.label)).join(', ')}.
         </p>
       )}
 
       {info.pairs.map((p) => (
         <div key={p.id} className="find-it-pair">
           <div className="small">
-            <b>{p.label}</b> <span className="muted">in {p.flow}</span>
+            <b>{p.label}</b> {p.flow && <span className="muted">in {p.flow}</span>}
             {p.refFlow && p.refFlow !== p.flow && <span className="muted"> (the reference has it in {p.refFlow})</span>}
           </div>
           {p.place && (
@@ -67,7 +68,7 @@ export default function FindIt({ label, info, onClose }) {
           <ul>
             {info.extra.map((x, i) => (
               <li key={i}>
-                {x.label} <span className="muted">in {x.flow}</span>
+                {x.label} <span className="muted">{x.kind ? `(${x.kind})` : `in ${x.flow}`}</span>
               </li>
             ))}
           </ul>
@@ -85,10 +86,41 @@ export default function FindIt({ label, info, onClose }) {
           </ul>
         </div>
       )}
+      {lines.missing.length > 0 && (
+        <div className="find-it-pair small">
+          <b>Lines the reference draws, and yours does not:</b>
+          <ul>
+            {lines.missing.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {lines.wrongKind.length > 0 && (
+        <div className="find-it-pair small">
+          <b>Lines of the wrong kind:</b>
+          <ul>
+            {lines.wrongKind.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {lines.extra.length > 0 && (
+        <div className="find-it-pair small">
+          <b>Your lines here that the reference does not draw:</b>
+          <ul>
+            {lines.extra.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {nothing && (
         <p className="small muted">
-          Your settings for these components match the reference. Look at where they sit (which flow, inside which scope,
-          and in what order) against the hint above.
+          {info.lines
+            ? 'Your boxes, settings and lines here match the reference. Read the hint above, and the Run tab for a test run.'
+            : 'Your settings for these components match the reference. Look at where they sit (which flow, inside which scope, and in what order) against the hint above.'}
         </p>
       )}
       <p className="muted small find-it-note">Opening this counts as the last hint for this check.</p>

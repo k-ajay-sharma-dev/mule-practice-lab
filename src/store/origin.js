@@ -12,6 +12,7 @@ const LABELS = {
   '/exam': 'Practice Exam',
   '/interview': 'Interview Practice',
   '/weak-areas': 'Weak Areas',
+  '/mistakes': 'Mistakes',
   '/readiness': 'Readiness',
   '/projects': 'My Projects',
   '/logging': 'Logging Lab',
@@ -32,6 +33,25 @@ export function rememberOrigin(pathname, search = '', categoryLabel = null) {
     sessionStorage.setItem(KEY, JSON.stringify({ path: pathname + search, label }))
   } catch {
     // storage blocked: the back link falls back to the category
+  }
+}
+
+// How far down each of those pages was scrolled, so going back opens it at the same place.
+const SCROLL_KEY = 'pl.originScroll'
+export function saveOriginScroll(path, y) {
+  try {
+    const all = JSON.parse(sessionStorage.getItem(SCROLL_KEY)) ?? {}
+    all[path] = Math.round(y)
+    sessionStorage.setItem(SCROLL_KEY, JSON.stringify(all))
+  } catch {
+    // storage blocked: going back opens the page at the top
+  }
+}
+export function readOriginScroll(path) {
+  try {
+    return Number(JSON.parse(sessionStorage.getItem(SCROLL_KEY))?.[path]) || 0
+  } catch {
+    return 0
   }
 }
 

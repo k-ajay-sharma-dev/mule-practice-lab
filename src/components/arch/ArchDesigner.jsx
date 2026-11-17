@@ -35,7 +35,8 @@ function edgePath(s, t) {
 }
 
 // overlay: optional { [nodeId]: { text, level: 'ok' | 'warn' | 'bad' } } from a test run, shown on each box
-export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null, overlay = null }) {
+// flags: optional { [nodeId]: [labels of failed checks about it] }, outlined on the canvas (Find it)
+export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null, overlay = null, flags = null }) {
   const [selected, setSelected] = useState(null) // { kind: 'node' | 'edge', id }
   const [connectFrom, setConnectFrom] = useState(null)
   const [newKind, setNewKind] = useState('sync')
@@ -363,7 +364,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                       <div
                         key={n.id}
                         data-node-id={n.id}
-                        className={`arch-node${isSel ? ' selected' : ''}${connectFrom && connectFrom !== n.id ? ' connect-target' : ''}${mark ? ` run-${mark.level}` : ''}`}
+                        className={`arch-node${isSel ? ' selected' : ''}${connectFrom && connectFrom !== n.id ? ' connect-target' : ''}${mark ? ` run-${mark.level}` : ''}${flags?.[n.id] ? ' node-flagged' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation()
                           clickNode(n.id)

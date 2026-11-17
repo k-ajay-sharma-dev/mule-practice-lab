@@ -118,7 +118,8 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
               {showHints ? 'Hide help' : "What's missing?"}
             </button>
           )}
-          <button className="link-btn small" onClick={toggle}>
+          {!step && finish}
+          <button className="link-btn small muted step-guide-off" onClick={toggle} title="Hide the step guide">
             Turn off
           </button>
         </span>
@@ -157,9 +158,7 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
             )
           })}
         </ul>
-      ) : (
-        finish
-      )}
+      ) : null}
     </div>
   )
 }

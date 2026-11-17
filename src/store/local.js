@@ -20,6 +20,7 @@ export const BACKUP_KEYS = [
   'pl.focus.history',
   'pl.focus.goal',
   'pl.logging',
+  'pl.mistakes',
 ]
 
 // Keys saved to the account. Theme and page size stay per device. So do the runner settings on a copy served from

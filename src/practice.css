@@ -3426,3 +3426,301 @@
   border-radius: 6px;
   background: color-mix(in srgb, var(--warning) 8%, var(--surface));
 }
+
+/* ---------- problem page: one clean bar ---------- */
+.problem-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.problem-title-row h1 {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.head-back {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.head-back:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.problem-head .prev-next {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.head-btn.btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+/* Prev, Next and Unsolved read as one control */
+.head-nav {
+  display: inline-flex;
+}
+.head-nav .head-btn.btn {
+  border-radius: 0;
+}
+.head-nav .head-btn.btn + .head-btn.btn {
+  margin-left: -1px;
+}
+.head-nav .head-btn.btn:first-child {
+  border-radius: 8px 0 0 8px;
+}
+.head-nav .head-btn.btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.problem-head .wide-toggle {
+  width: 32px;
+  height: 32px;
+}
+
+/* the timer: a chip, with the details under it */
+.problem-timer.compact {
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+}
+.timer-menu {
+  position: relative;
+}
+.timer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.timer-chip:hover {
+  border-color: var(--accent);
+}
+.timer-chip.good {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+}
+.timer-chip.bad {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+.timer-chip.ghost {
+  color: var(--muted);
+}
+.timer-caret {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.timer-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+  width: max-content;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+.timer-pop-title {
+  color: var(--text);
+}
+.timer-pop-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.timer-pop-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.timer-pop .btn {
+  justify-self: start;
+}
+
+/* ---------- step guide: one quiet line ---------- */
+.step-guide-head {
+  min-height: 32px;
+}
+.step-guide-actions {
+  align-items: center;
+  gap: 4px 14px;
+}
+.step-guide-actions .btn {
+  height: 28px;
+  padding: 0 12px;
+}
+.step-guide-off {
+  opacity: 0.75;
+}
+
+/* ---------- designer toolbar: one row ---------- */
+.designer-toolbar {
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+}
+.designer-toolbar .toolbar-actions {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.designer-toolbar .btn-sm {
+  height: 28px;
+  padding: 0 9px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.designer-toolbar .seg button {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.designer-toolbar-end {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-left: auto;
+}
+/* full screen and side by side keep their icon; the words are in the tooltip */
+.designer-toolbar .full-btn > span {
+  display: none;
+}
+.designer-toolbar .full-btn {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+.designer-toolbar > *,
+.designer-toolbar .toolbar-actions > * {
+  flex-shrink: 0;
+}
+
+.mock-step-min {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.75em;
+}
+
+.mock-on-this {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.arch-node.node-flagged {
+  outline: 2px dashed var(--warning);
+  outline-offset: 3px;
+}
+
+/* Mistakes page */
+.mistakes-page {
+  display: grid;
+  gap: 14px;
+  max-width: 980px;
+}
+.mistakes-section h2 {
+  margin: 4px 0 10px;
+  font-size: 1.05rem;
+}
+.mistakes-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mistakes-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.mistakes-count {
+  color: var(--warning);
+  white-space: nowrap;
+}
+.mistakes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mistakes-chip {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.85rem;
+}
+.mistakes-chip b {
+  margin-left: 4px;
+  color: var(--warning);
+}
+.mistakes-page > .btn {
+  justify-self: start;
+}
+@media (max-width: 700px) {
+  .mistakes-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* after solving: why each check passed */
+.why-passed {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success) 6%, var(--surface));
+}
+.why-passed summary {
+  cursor: pointer;
+}
+.why-passed ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.why-passed li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+}
+.why-passed-by {
+  display: block;
+}
+
+/* mock result rows: room for the time column */
+.problem-row.mock-result-row {
+  grid-template-columns: 44px minmax(0, 1fr) 110px 110px 150px;
+}

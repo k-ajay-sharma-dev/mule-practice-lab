@@ -528,3 +528,15 @@ export function findIt(design, reference, check) {
     unused: rule.type === 'absent' ? unused : [],
   }
 }
+
+// After solving: the components that met a check, such as "HTTP Request in health-ready", for saying out loud why the
+// design works. A test run or a whole-design check names no components.
+export function metBy(design, check) {
+  const rule = check.rule
+  if (rule.type === 'runs') return { run: true, parts: [] }
+  const ids = new Set(ruleNodes(design, rule))
+  const parts = index(design)
+    .filter((e) => ids.has(e.node.id))
+    .map((e) => `${componentLabel(e.node.type)} in ${e.flow?.name}`)
+  return { run: false, parts: [...new Set(parts)].slice(0, 5) }
+}

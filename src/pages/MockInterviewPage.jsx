@@ -33,6 +33,17 @@ const write = (key, value) => {
   writeLocal(key, value == null ? null : JSON.stringify(value))
 }
 
+// the last time choice is kept for the next round
+const PACE_KEY = 'pl.mock.pace'
+const readPace = () => (read(PACE_KEY, 'split') === 'full' ? 'full' : 'split')
+const savePace = (pace) => {
+  try {
+    localStorage.setItem(PACE_KEY, JSON.stringify(pace))
+  } catch {
+    // storage blocked: the choice lasts for this visit
+  }
+}
+
 const pickRandom = (list) => list[Math.floor(Math.random() * list.length)]
 
 // Stored sessions are checked before use: an old or corrupt one (or one whose problems were removed) is dropped.
@@ -75,21 +86,42 @@ function buildDesignRound({ levels, tracks, which, minutes }, progress) {
   return []
 }
 
-function buildRound({ levels, tracks, skipCode }, progress) {
+// A mixed round: one problem of every kind, top to bottom, as in a real interview. The time is shared out, so a
+// short round picks quicker problems: each kind gets one whose estimate fits its fair share when there is one
+// (unsolved first), otherwise the quickest of that kind.
+const est = (p) => p.estMinutes ?? 15
+// With one clock (pace "full") any problem of each kind can come up, as before.
+function buildRound({ levels, tracks, skipCode, minutes, pace }, progress) {
   const pool = evenMix(trackLists(tracks, problems))
-  return ROUND.filter((type) => !(skipCode && type === 'code'))
+  const kinds = ROUND.filter((type) => !(skipCode && type === 'code'))
+  const share = pace === 'full' ? Infinity : minutes / kinds.length
+  return kinds
     .map((type) => {
       const ofType = (list) => list.filter((p) => exerciseOf(p) === type && fitsLevels(levels)(p))
-      // prefer unsolved problems in the chosen focus, then anything of that type
-      const candidates = [ofType(pool), ofType(problems)]
-      for (const list of candidates) {
-        const fresh = list.filter((p) => statusOf(progress[p.id]) !== 'solved')
-        if (fresh.length) return pickRandom(fresh).id
-        if (list.length) return pickRandom(list).id
+      for (const list of [ofType(pool), ofType(problems)]) {
+        if (!list.length) continue
+        const fits = list.filter((p) => est(p) <= share)
+        const quick = Math.min(...list.map(est))
+        const base = fits.length ? fits : list.filter((p) => est(p) === quick)
+        const fresh = base.filter((p) => statusOf(progress[p.id]) !== 'solved')
+        return pickRandom(fresh.length ? fresh : base).id
       }
       return null
     })
     .filter(Boolean)
+}
+
+// How the round's minutes are shared out: in proportion to each problem's estimate, at least 1 minute each.
+function shares(session) {
+  const ests = session.items.map((id) => est(problemById.get(id) ?? {}))
+  const sum = ests.reduce((a, b) => a + b, 0) || 1
+  const exact = ests.map((e) => (session.minutes * e) / sum)
+  const out = exact.map((x) => Math.max(1, Math.floor(x)))
+  // hand the minutes left over to the problems that lost the most in rounding down, so the shares add up
+  let left = session.minutes - out.reduce((a, b) => a + b, 0)
+  const order = exact.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0])
+  for (let k = 0; left > 0 && k < order.length; k++, left--) out[order[k][1]]++
+  return out
 }
 
 export default function MockInterviewPage() {
@@ -108,8 +140,12 @@ export default function MockInterviewPage() {
     const end = roundEnd(s)
     const finishedIso = now < end ? now : end
     const results = s.items.map((id) => ({ id, solved: solvedInRound(progress[id], s.startedIso, finishedIso) }))
+    // the problem open at the end gets the time since it was opened
+    const spent = { ...(s.spent ?? {}) }
+    const openId = s.items[s.current]
+    spent[openId] = (spent[openId] ?? 0) + Math.max(0, Date.parse(finishedIso) - (s.enteredAt ?? Date.parse(s.startedIso)))
     results.filter((r) => !r.solved).forEach((r) => scheduleReview(r.id))
-    const done = { ...s, finishedIso, results }
+    const done = { ...s, finishedIso, results, spent }
     const nextHistory = [
       { date: done.finishedIso, kind: s.kind ?? 'mixed', score:results.filter((r) => r.solved).length, total: results.length, results },
       ...history,
@@ -143,7 +179,16 @@ export default function MockInterviewPage() {
   }
 
   if (session.finishedIso) return <Summary session={session} onClose={() => save(null)} onDelete={deleteThis} onExplain={explained} />
-  return <Running session={session} progress={progress} onSelect={(i) => save({ ...session, current: i })} onFinish={() => finish()} />
+  // time on each problem: the one you leave gets the time since you opened it
+  function select(i) {
+    if (i === session.current) return
+    const now = Date.now()
+    const id = session.items[session.current]
+    const spent = { ...(session.spent ?? {}) }
+    spent[id] = (spent[id] ?? 0) + Math.max(0, now - (session.enteredAt ?? Date.parse(session.startedIso)))
+    save({ ...session, current: i, spent, enteredAt: now })
+  }
+  return <Running session={session} progress={progress} onSelect={select} onFinish={() => finish()} />
 }
 
 function Setup({ history, onStart, onHistory }) {
@@ -151,6 +196,7 @@ function Setup({ history, onStart, onHistory }) {
   const [kind, setKind] = useState('mixed')
   const [which, setWhich] = useState('either')
   const [chosenMinutes, setMinutes] = useState(null)
+  const [pace, setPace] = useState(readPace) // 'split': a share of the time per problem; 'full': one clock
   const suggested = kind === 'design' ? 20 : 45
   const minutes = chosenMinutes ?? suggested
   const [levels, setLevels] = useState(DEFAULT_LEVELS)
@@ -167,9 +213,10 @@ function Setup({ history, onStart, onHistory }) {
     const items =
       kind === 'design'
         ? buildDesignRound({ levels, tracks, which, minutes }, progress)
-        : buildRound({ levels, tracks, skipCode: runner === 'offline' }, progress)
+        : buildRound({ levels, tracks, skipCode: runner === 'offline', minutes, pace }, progress)
     if (!items.length) return setEmpty(true)
-    onStart({ kind, items, current: 0, minutes, startedIso: new Date().toISOString() })
+    savePace(pace)
+    onStart({ kind, items, current: 0, minutes, pace: kind === 'mixed' ? pace : 'full', startedIso: new Date().toISOString() })
   }
 
   return (
@@ -177,9 +224,10 @@ function Setup({ history, onStart, onHistory }) {
       <p className="eyebrow">// mock interview</p>
       <h1>Mock Interview</h1>
       <p className="muted">
-        A timed, mixed round like a real technical interview: one DataWeave problem, one flow design, one architecture
-        diagram, one production incident and one quiz. Solve as many as you can before time runs out, then get a score
-        and your weak areas. Anything unsolved goes on your review schedule.
+        A timed, mixed round like a real technical interview: DataWeave, flow design, API design, architecture, a
+        production incident and a quiz, top to bottom. Choose how the time works: shared out, where each problem gets
+        its share and a short round picks quicker problems, or one clock for the whole round. Then you get a score and
+        your weak areas. Anything unsolved goes on your review schedule.
       </p>
 
       <div className="mock-setup">
@@ -201,6 +249,15 @@ function Setup({ history, onStart, onHistory }) {
           </label>
         )}
         <TimePicker value={minutes} onChange={setMinutes} suggested={suggested} />
+        {kind === 'mixed' && (
+          <label className="field">
+            Time
+            <select className="input" value={pace} onChange={(e) => setPace(e.target.value)}>
+              <option value="split">Shared out: each problem gets its share</option>
+              <option value="full">One clock: use the time as you like</option>
+            </select>
+          </label>
+        )}
         <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
         <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
       </div>
@@ -260,6 +317,14 @@ function Running({ session, progress, onSelect, onFinish }) {
   const secs = Math.floor((remaining % 60000) / 1000)
   const id = session.items[session.current]
   const p = problemById.get(id)
+  const split = session.pace !== 'full' && session.kind !== 'design'
+  const share = shares(session)
+  // time on the open problem: what was spent before, plus since it was opened
+  const elapsed = session.minutes * 60000 - remaining
+  const sinceOpen = Math.max(0, Date.parse(session.startedIso) + elapsed - (session.enteredAt ?? Date.parse(session.startedIso)))
+  const onThis = (session.spent?.[id] ?? 0) + sinceOpen
+  const over = onThis > share[session.current] * 60000
+  const fmt = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
   return (
     <div className="mock-page mock-running">
@@ -277,11 +342,15 @@ function Running({ session, progress, onSelect, onFinish }) {
                 onClick={() => onSelect(i)}
               >
                 <span className="mono">{i + 1}</span> {EXERCISE_LABELS[item?.exercise]}
+                {split && <span className="mock-step-min">~{share[i]}m</span>}
                 {solvedNow(itemId) && ' ✓'}
               </button>
             )
           })}
         </div>
+        {split && <span className={`mock-on-this small${over ? ' warn-text' : ' muted'}`} title="Time on this problem against its share of the round">
+          On this one {fmt(onThis)} of ~{share[session.current]}m{over && session.current < session.items.length - 1 ? ' · time to move on' : ''}
+        </span>}
         <button
           className="btn btn-sm"
           onClick={() => {
@@ -370,6 +439,12 @@ function Summary({ session, onClose, onDelete, onExplain }) {
     .map(([t]) => t)
   const suggested = TRACKS.filter((t) => t.tags?.some((tag) => weakTags.includes(tag))).slice(0, 3)
   const minutesUsed = Math.round((new Date(session.finishedIso) - new Date(session.startedIso)) / 60000)
+  // where the time went: each problem's minutes against its share (shared-out rounds), from the time it was open
+  const tracked = session.kind !== 'design' && session.spent && Object.keys(session.spent).length > 0
+  const split = session.pace !== 'full'
+  const share = shares(session)
+  const mins = (ms) => Math.round((ms ?? 0) / 60000)
+  const overShare = tracked && split ? session.items.map((id, i) => ({ id, i, over: mins(session.spent[id]) - share[i] })).filter((x) => x.over > 0).sort((a, b) => b.over - a.over)[0] : null
 
   return (
     <div className="mock-page">
@@ -383,6 +458,12 @@ function Summary({ session, onClose, onDelete, onExplain }) {
           ? 'A clean round — try a harder difficulty next time.'
           : 'Unsolved problems are now on your review schedule.'}
       </p>
+      {overShare && (
+        <p className="small warn-text">
+          {EXERCISE_LABELS[problemById.get(overShare.id)?.exercise] ?? 'One problem'} took {mins(session.spent[overShare.id])} of its {share[overShare.i]} minutes.
+          In the real interview, move on sooner and come back to it if there is time left.
+        </p>
+      )}
 
       <div className="problem-table">
         {results.map((r) => {
@@ -400,7 +481,9 @@ function Summary({ session, onClose, onDelete, onExplain }) {
                 </span>
               </span>
               <span className="small">{r.solved ? 'Solved' : 'Not solved'}</span>
-              <span />
+              <span className={`small mono${tracked && split && mins(session.spent[r.id]) > share[session.items.indexOf(r.id)] ? ' warn-text' : ' muted'}`} title="Time on this problem">
+                {tracked ? `${mins(session.spent[r.id])}${split ? ` / ${share[session.items.indexOf(r.id)]}` : ''} min` : ''}
+              </span>
               <span className="small muted">Review & explain →</span>
             </Link>
           )

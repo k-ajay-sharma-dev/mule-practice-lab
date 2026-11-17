@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getEntry, setTimer, statusOf, useEntry } from '../store/progress.js'
 import { clock, inTime, isStale, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
 
@@ -10,6 +10,46 @@ function describe(record) {
   if (record.resets) parts.push(`${plural(record.resets, 'reset')}, ${clock(record.totalSeconds * 1000)} in total`)
   if (record.pauses) parts.push(plural(record.pauses, 'pause'))
   return parts.join(' · ')
+}
+
+// A small button that opens a panel under it; a click outside or Esc closes it.
+function Menu({ label, title, className = '', children }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e) => !box.current?.contains(e.target) && setOpen(false)
+    const esc = (e) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  return (
+    <div className="timer-menu" ref={box}>
+      <button className={`timer-chip ${className}`} onClick={() => setOpen(!open)} aria-expanded={open} title={title}>
+        {label}
+        <span className="timer-caret" aria-hidden="true">▾</span>
+      </button>
+      {open && <div className="timer-pop">{children}</div>}
+    </div>
+  )
+}
+
+function HistoryList({ log }) {
+  return (
+    <ul className="timer-pop-list">
+      {[...log].reverse().map((r) => (
+        <li key={r.at} className="small">
+          <span className={`mono ${inTime(r) ? 'ok-text' : 'err-text'}`}>{inTime(r) ? 'In time' : 'Over'}</span>
+          <span>{describe(r)}</span>
+          <span className="muted">{new Date(r.at).toLocaleDateString()}</span>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 // Counts down from the problem's estimated time while the problem is open. Leaving pauses it, and coming back resumes it.
@@ -126,12 +166,49 @@ export default function ProblemTimer({ problem, compact = false }) {
               Reset
             </button>
           ))}
-        {compact && history}
+        {compact && log.length > 0 && (
+          <Menu label={<span className="small">History</span>} title="Earlier times for this problem" className="ghost">
+            <div className="timer-pop-title small">Earlier times</div>
+            <HistoryList log={log} />
+          </Menu>
+        )}
       </div>
     )
   }
 
   if (statusOf(entry) !== 'solved') return null
+  const again = () => setTimer(id, startTimer(estMinutes, new Date().toISOString()))
+  // compact: one chip with the result; the details, the history and "Time it again" open under it
+  if (compact) {
+    const ok = last && inTime(last)
+    return (
+      <div className="problem-timer compact">
+        <Menu
+          className={last ? (ok ? 'good' : 'bad') : ''}
+          title="Your time for this problem"
+          label={
+            <span className="mono small">
+              {last ? `${ok ? '✓' : '⏱'} ${clock(last.seconds * 1000)} / ${last.minutes}:00` : '✓ Solved'}
+            </span>
+          }
+        >
+          <div className="timer-pop-title small">
+            {last ? (
+              <>
+                <span className={ok ? 'ok-text' : 'err-text'}>{ok ? 'Solved in time' : 'Solved over time'}</span>: {describe(last)}
+              </>
+            ) : (
+              'Solved, with no time recorded'
+            )}
+          </div>
+          {log.length > 1 && <HistoryList log={log} />}
+          <button className="btn btn-primary btn-sm" onClick={again}>
+            Time it again
+          </button>
+        </Menu>
+      </div>
+    )
+  }
   return (
     <div className={`problem-timer${compact ? ' compact' : ''}`}>
       <span className="small problem-timer-note result">

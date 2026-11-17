@@ -18,8 +18,16 @@ window.addEventListener('vite:preloadError', (event) => {
     return
   }
   event.preventDefault()
-  location.reload()
+  // the saved copy of the page (public/sw.js) may point at files of the old build: drop it, so the reload is fresh
+  const fresh = window.caches ? caches.delete('pl-page-v1').catch(() => {}) : Promise.resolve()
+  fresh.finally(() => location.reload())
 })
+
+// A saved copy of the site's files, so later visits draw at once even on a slow connection (see public/sw.js).
+// Only in the built site: during development the files change all the time.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}))
+}
 window.addEventListener('load', () => {
   setTimeout(() => {
     try {
