@@ -3035,3 +3035,35 @@
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
+
+/* designed on your own: dashboard card */
+.own-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.own-row {
+  display: grid;
+  gap: 4px;
+}
+.own-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+.own-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+.own-bar span {
+  display: block;
+  height: 100%;
+  background: var(--success);
+}

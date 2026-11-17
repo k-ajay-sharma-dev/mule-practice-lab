@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { independence } from '../study/independence.js'
 import { CATEGORIES, categoryBySlug } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { currentStage, PHASES, phaseProblems } from '../data/roadmap.js'
@@ -51,6 +52,44 @@ function PointsCard() {
 }
 
 const PHASE_PAGE_SIZE = 10
+
+// Design problems solved without the reference and with at most two hints per check: the habit to grow.
+function OnYourOwn({ progress }) {
+  const stats = useMemo(() => independence(progress), [progress])
+  const rows = [
+    ['flow', 'Flow designs'],
+    ['diagram', 'Architecture diagrams'],
+  ].filter(([k]) => stats[k].solved > 0)
+  if (!rows.length) return null
+  return (
+    <section className="own-card">
+      <div className="practice-head">
+        <span className="stat-label">Designed on your own</span>
+        <span className="muted small">No reference, at most two hints per step</span>
+      </div>
+      {rows.map(([k, label]) => {
+        const s = stats[k]
+        const pct = Math.round((s.own / s.solved) * 100)
+        return (
+          <div key={k} className="own-row">
+            <div className="own-line">
+              <b>{label}</b>
+              <span>
+                {s.own} of {s.solved} solved <span className="muted">({pct}%)</span>
+              </span>
+            </div>
+            <div className="own-bar" aria-hidden="true">
+              <span style={{ width: `${pct}%` }} />
+            </div>
+            <span className="muted small">
+              {s.rebuilt} rebuilt from memory · {s.answer} seen the answer, not yet rebuilt · {s.hints} hint{s.hints === 1 ? '' : 's'} used
+            </span>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
 
 export default function DashboardPage() {
   const progress = useProgress()
@@ -137,6 +176,8 @@ export default function DashboardPage() {
         <Stat label="To revisit" value={count('revisit')} hint="flagged" />
         <Stat label="Day streak" value={streak(activity)} hint={`${Object.keys(activity).length} active days`} />
       </section>
+
+      <OnYourOwn progress={progress} />
 
       <section className="practice-row">
         <div className="practice-card due-card">

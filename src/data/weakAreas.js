@@ -1,12 +1,22 @@
 import { problemById } from './problems.js'
 import { trackProblems, TRACKS } from './tracks.js'
 import { problemOfCard } from '../store/flash.js'
+import { isDesign, rebuilt, sawAnswer, topHint } from '../study/independence.js'
 
 // Builds the weak-area report from what is already recorded; nothing here is stored.
 // A problem "needs work" when you flagged it, it is on the review schedule, you missed it in a recent mock
 // interview, or you missed one of its cards (box 1). Each reason adds to its weight, so repeat misses rank first.
-const WEIGHTS = { revisit: 3, review: 2, mock: 2, card: 1 }
-const REASONS = { revisit: 'Marked Revisit', review: 'On review', mock: 'Missed in mock', card: 'Missed card' }
+// A design problem also needs work while its answer was seen and not yet rebuilt from memory, or when it took the
+// last hint (one piece of the model answer), even if it is solved.
+const WEIGHTS = { revisit: 3, review: 2, mock: 2, card: 1, answer: 2, hint: 1 }
+const REASONS = {
+  revisit: 'Marked Revisit',
+  review: 'On review',
+  mock: 'Missed in mock',
+  card: 'Missed card',
+  answer: 'Saw the answer, not rebuilt',
+  hint: 'Needed the last hint',
+}
 const RECENT_MOCKS = 10
 const MAX_CARDS = 3
 
@@ -31,6 +41,11 @@ function collectSignals({ progress, review, boxes, mocks }) {
 
   for (const [id, entry] of Object.entries(progress)) if (entry?.status === 'revisit') add(id, 'revisit')
   for (const id of Object.keys(review)) add(id, 'review')
+  for (const [id, entry] of Object.entries(progress)) {
+    if (!isDesign(problemById.get(id))) continue
+    if (sawAnswer(entry)) add(id, 'answer')
+    else if (topHint(entry) >= 3 && !rebuilt(entry)) add(id, 'hint')
+  }
 
   // a problem solved since the mock no longer counts against you
   for (const m of mocks.slice(0, RECENT_MOCKS)) // the history is newest first

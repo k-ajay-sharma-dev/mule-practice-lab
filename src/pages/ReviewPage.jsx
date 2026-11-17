@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { problemById } from '../data/problems.js'
-import { REVIEW_INTERVALS, removeReview, reviewOutcome, todayKey, useReview } from '../store/progress.js'
+import { REVIEW_INTERVALS, removeReview, reviewOutcome, todayKey, useProgress, useReview } from '../store/progress.js'
+import { isDesign, sawAnswer } from '../study/independence.js'
 import ProblemList from '../components/ProblemList.jsx'
 
 function dueLabel(due) {
@@ -13,12 +14,16 @@ function dueLabel(due) {
 
 export default function ReviewPage() {
   const review = useReview()
+  const progress = useProgress()
   const today = todayKey()
   const items = Object.entries(review)
     .map(([id, r]) => ({ ...r, problem: problemById.get(id) }))
     .filter((r) => r.problem)
     .sort((a, b) => a.due.localeCompare(b.due))
-  const due = items.filter((r) => r.due <= today)
+  // design problems whose answer you opened come back first, to rebuild on the canvas without looking
+  const toRebuild = (r) => isDesign(r.problem) && sawAnswer(progress[r.problem.id])
+  const rebuild = items.filter((r) => r.due <= today && toRebuild(r))
+  const due = items.filter((r) => r.due <= today && !toRebuild(r))
   const upcoming = items.filter((r) => r.due > today)
   const byId = new Map(items.map((r) => [r.problem.id, r]))
 
@@ -43,6 +48,25 @@ export default function ReviewPage() {
         {REVIEW_INTERVALS.join(', ')} days. Solve one again when it is due — or explain it out loud and mark it below —
         to push it further out. After the last step it leaves the list.
       </p>
+
+      {rebuild.length > 0 && (
+        <>
+          <h2 className="section-heading">
+            Rebuild today <span className="muted">({rebuild.length})</span>
+          </h2>
+          <p className="muted small">
+            You opened the answer to these. Open each one, press <b>Rebuild from memory</b> on the Scenario tab, and
+            build it without looking. Passing the checks moves it along.
+          </p>
+          <div className="review-due">
+            {rebuild.map((r) => (
+              <div key={r.problem.id} className="review-card">
+                <ProblemList items={[r.problem]} extra={stage} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <h2 className="section-heading">
         Due now <span className="muted">({due.length})</span>

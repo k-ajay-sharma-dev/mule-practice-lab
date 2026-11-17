@@ -28,7 +28,8 @@ export default function WeakAreasPage() {
       <h1>Weak Areas</h1>
       <p className="muted">
         Topics ranked by what you keep missing: problems marked <b>Revisit</b>, problems on your review schedule, misses
-        in mock interviews, and cards you answered <b>Again</b> or <b>Missed</b>. Topics overlap, so one problem can appear
+        in mock interviews, cards you answered <b>Again</b> or <b>Missed</b>, and designs where you needed the answer
+        or its last hint until you rebuild them from memory. Topics overlap, so one problem can appear
         under several.
       </p>
 
