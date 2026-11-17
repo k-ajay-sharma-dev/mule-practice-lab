@@ -23,13 +23,13 @@ export default {
         sap: ['erp', 'SAP ECC (later S/4HANA)'],
         ssap: ['system-api', 'sap-sapi (IDoc / BAPI)'],
         tid: ['cache', 'TID + confirmation-ID store'],
-        qa: ['queue', 'plant-a-orders'],
+        qa: ['queue', 'plant-a-orders', { maxRedelivery: 300 }],
         qb: ['queue', 'plant-b-orders'],
         pa: ['process-api', 'prc-plant-a-mes-sync'],
         pb: ['process-api', 'prc-plant-b-mes-sync'],
         mesa: ['saas', 'MES plant A'],
         mesb: ['saas', 'MES plant B'],
-        ca: ['queue', 'plant-a-confirmations'],
+        ca: ['queue', 'plant-a-confirmations', { maxRedelivery: 10 }],
         cb: ['queue', 'plant-b-confirmations'],
         dlq: ['dlq', 'mes-sap-dlq'],
       },
@@ -40,6 +40,29 @@ export default {
         'qa ~> dlq', 'ca ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 300 },
+        { match: 'saas', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'The WAN to plant A is down for 3 hours',
+          about: 'SAP releases 1 production order a second for plant A while the link to the plant is down for 3 hours. The orders wait in the plant queue, each one is tried for up to 5 hours, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'orders', from: 'erp', rps: 1, to: { type: 'saas', label: 'plant a' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'plant a' }, at: 5, forMin: 180 }],
+          durationMin: 240,
+          expect: { delivered: [{ to: { type: 'saas', label: 'plant a' }, min: 0.99 }], backlog: [{ queue: { label: 'plant-a-orders' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some confirmations are always rejected',
+          about: 'Plant A sends 5 confirmations a second, and 1 in 100 refers to an order SAP does not know. After 10 deliveries those go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'confirmations', from: { type: 'process-api', label: 'plant-a' }, rps: 5, to: 'erp', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: { label: 'plant-a-confirmations' }, maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A manufacturer with 3 plants is rolling out a new **Manufacturing Execution System (MES)** on the shop floor. SAP ECC (moving to S/4HANA in ~2 years) stays the system of record for materials and production orders.
@@ -54,6 +77,7 @@ export default {
 - A plant must **keep producing** if the WAN link to the data centre is down for a few hours.
 - No IDoc may be lost or processed twice. The SAP team wants to see IDoc status in SAP (\`WE02\`).
 - The S/4HANA migration should not force a rewrite of the MES side.
+- SAP releases about 1 production order a second per plant, the WAN to a plant can be down for 3 hours, and a plant sends about 5 confirmations a second, 1 in 100 of which SAP rejects every time.
 
 **Your task.** Propose the integration design: runtimes and deployment, how IDocs are received and acknowledged, how confirmations get back to SAP, and how you deal with outages.
 `,

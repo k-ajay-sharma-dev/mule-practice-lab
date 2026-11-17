@@ -23,11 +23,11 @@ export default {
       {
         qa: ['internal-app', 'QA & recall team console'],
         erc: ['experience-api', 'exp-recall-console-api'],
-        gen: ['process-api', 'prc-lot-genealogy'],
+        gen: ['process-api', 'prc-lot-genealogy', { vCores: '0.5' }],
         rec: ['process-api', 'prc-recall-api'],
         ls: ['event-stream', 'lot-events'],
         rt: ['topic', 'recall-notices'],
-        strace: ['system-api', 'sys-trace-store-api'],
+        strace: ['system-api', 'sys-trace-store-api', { vCores: '0.5' }],
         ssap: ['system-api', 'sys-sap-batch-api'],
         swms: ['system-api', 'sys-wms-api'],
         scust: ['system-api', 'sys-customer-edi-api'],
@@ -44,6 +44,30 @@ export default {
         'rt ~> swms', 'swms -> wms', 'rt ~> scust', 'scust -> cust', 'scust -> notif',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 30 },
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'erp', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'Lot events at shift change',
+          about: 'The plants send 20 lot events a second, and at shift change 200 a second for 10 minutes. The genealogy API and the trace store keep up, so the backlog is gone within the hour.',
+          traffic: [{ name: 'lot events', from: 'legacy', rps: 20, to: 'database', kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 200 }] }],
+          durationMin: 60,
+          expect: { backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A retailer portal is down during a recall',
+          about: 'The recall team sends 5 recall notices a second while the retail customers portal is down for 30 minutes. The notices wait on the topic and reach the customers once the portal is back, and none is lost.',
+          traffic: [{ name: 'recall notices', from: 'internal-app', rps: 5, forMin: 20, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 2, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'topic', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A food manufacturer with four plants and three distribution centres supplies supermarkets and food-service customers. Raw material lots, production batches and shipments are recorded in different systems:
@@ -66,6 +90,8 @@ export default {
 | WMS | Publishes pallet and shipment confirmations; has an API to place stock on hold |
 | Customers | Large retailers want recall notices by EDI or their supplier portal; smaller ones by email |
 | Data | Several million lot links a year; records kept for several years |
+
+The plants send about 20 lot events a second and 200 a second at shift change. A recall sends about 5 notices a second, and a retailer portal can be down for 30 minutes.
 
 **Your task.** Design:
 - the traceability data flow

@@ -21,19 +21,44 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Journal collector (daily 22:00)'],
+        job: ['batch-job', 'Journal collector (daily 22:00)', { timeoutMs: 120000 }],
         sbill: ['system-api', 'sys-billing-db-api'],
         bill: ['sql-server', 'Billing database'],
         sfile: ['system-api', 'sys-payroll-sftp-api'],
         sftp: ['sftp-server', 'Payroll journal drop (SFTP)'],
-        prc: ['process-api', 'prc-gl-journal-load'],
+        prc: ['process-api', 'prc-gl-journal-load', { timeoutMs: 120000 }],
         map: ['database', 'Segment mapping table'],
-        sgl: ['system-api', 'sys-oracle-ebs-gl-api'],
+        sgl: ['system-api', 'sys-oracle-ebs-gl-api', { timeoutMs: 120000, retries: 2 }],
         ebs: ['erp', 'Oracle EBS General Ledger'],
         mail: ['notification', 'Batch errors to GL team'],
       },
       ['job -> sbill', 'sbill -> bill', 'job -> sfile', 'sfile -> sftp', 'job -> prc', 'prc -> map', 'prc -> sgl', 'sgl -> ebs', 'prc -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 45000 },
+        { match: 'sql-server', latencyMs: 500 },
+        { match: 'sftp-server', latencyMs: 1000 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Journal Import takes 45 seconds',
+          about: 'The collector sends one balanced batch of 1,000 lines every 10 seconds for 10 minutes. Loading GL_INTERFACE and waiting for Journal Import takes EBS about 45 seconds a batch, and every batch must be in by 06:00.',
+          traffic: [{ name: 'journal batches', from: 'batch-job', rps: 0.1, forMin: 10, to: ['sql-server', 'sftp-server', 'erp'], kind: 'write' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'EBS fails some loads',
+          about: 'The collector sends one batch every 10 seconds for 10 minutes, and EBS fails 1 load in 10. The batch key makes a retry safe, so almost every batch gets in once.',
+          traffic: [{ name: 'journal batches', from: 'batch-job', rps: 0.1, forMin: 10, to: ['sql-server', 'sftp-server', 'erp'], kind: 'write' }],
+          incidents: [{ errors: 'erp', rate: 0.1 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A healthcare services group closes its books in **Oracle E-Business Suite 12.2 General Ledger**. Three subledgers outside EBS produce journals every day:
@@ -50,6 +75,7 @@ Rules from the GL team:
 - The GL period must be **open** for the journal date.
 - Loading goes through the open interface \`GL_INTERFACE\` and the **Journal Import** concurrent program, never into \`GL_JE_LINES\` directly.
 - Journals must be in EBS by 06:00 for the daily flash report.
+- In the tests the collector sends a batch of 1,000 lines every 10 seconds. Journal Import takes about 45 seconds a batch, and EBS can fail 1 load in 10.
 
 **Questions:**
 1. How do you collect from three different kinds of source?

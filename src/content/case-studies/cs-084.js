@@ -21,10 +21,10 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'prc-statement-recon (06:00 and on file arrival)'],
+        job: ['batch-job', 'prc-statement-recon (06:00 and on file arrival)', { timeoutMs: 30000 }],
         bank: ['sftp-server', 'Bank SFTP (camt.053 statements)'],
         arch: ['s3-bucket', 'Raw statement archive (7 years)'],
-        sled: ['system-api', 'sys-ledger-api'],
+        sled: ['system-api', 'sys-ledger-api', { timeoutMs: 30000 }],
         led: ['database', 'Ledger (PostgreSQL)'],
         q: ['queue', 'recon.exceptions'],
         sbl: ['system-api', 'sys-recon-workbench-api'],
@@ -33,6 +33,28 @@ export default {
       },
       ['job -> bank', 'job -> arch', 'job -> sled', 'sled -> led', 'job ~> q', 'q ~> sbl', 'sbl -> bl', 'job ~> dw'],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 15000 },
+        { match: 'saas', latencyMs: 300, maxRps: 20 },
+      ],
+      tests: [
+        {
+          name: 'Large ledger pages',
+          about: 'The job reads 2 pages of ledger entries a second, and each page takes 15 seconds in PostgreSQL. The job and the ledger System API wait long enough, so every page arrives.',
+          traffic: [{ name: 'ledger pages', from: 'batch-job', rps: 2, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The workbench is down for an hour',
+          about: 'The job sends 10 unmatched lines a second while BlackLine is down for 60 minutes. The lines wait on the exceptions queue, and every one reaches the workbench once it is back.',
+          traffic: [{ name: 'exceptions', from: 'batch-job', rps: 10, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 60 }],
+          durationMin: 180,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A payments company runs merchant accounts for 25,000 online merchants. It holds client money at four banks and keeps its own ledger in PostgreSQL. Every day about 900,000 ledger entries must match the movements on the bank accounts.
@@ -50,6 +72,8 @@ export default {
 - The ledger team does not allow other teams to query its database directly.
 
 **Volumes.** The largest daily camt.053 file is 450 MB with 600,000 entries.
+
+- In tests a ledger page takes 15 seconds to read, BlackLine takes 20 calls a second, and it can be down for an hour while 10 unmatched lines a second arrive.
 
 **Your task.** Design the reconciliation integration.
 `,

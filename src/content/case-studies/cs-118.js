@@ -31,7 +31,7 @@ export default {
         exp: ['experience-api', 'exp-subscription-api'],
         prc: ['process-api', 'prc-subscription-api'],
         map: ['cache', 'Cohort map (customer to billing platform)'],
-        sz: ['system-api', 'sys-zuora-api'],
+        sz: ['system-api', 'sys-zuora-api', { vCores: '0.5' }],
         z: ['saas', 'Zuora Billing'],
         sl: ['system-api', 'sys-legacy-billing-api'],
         l: ['legacy', 'Legacy billing (Oracle, Java)'],
@@ -39,8 +39,8 @@ export default {
         stores: ['external-api', 'Apple and Google app stores'],
         es: ['experience-api', 'exp-app-store-notifications-api'],
         tp: ['topic', 'subscription-changed'],
-        qent: ['queue', 'entitlement-updates'],
-        sent: ['system-api', 'sys-entitlement-api'],
+        qent: ['queue', 'entitlement-updates', { maxRedelivery: 5 }],
+        sent: ['system-api', 'sys-entitlement-api', { vCores: '0.5' }],
         ent: ['database', 'Entitlements store'],
         dw: ['data-warehouse', 'Revenue reporting'],
         dlq: ['dlq', 'entitlement-updates DLQ'],
@@ -53,6 +53,25 @@ export default {
         'qent ~> dlq', 'tp ~> dw', 'mig -> sl', 'mig -> sz', 'rec -> sl', 'rec -> sz',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 20 }],
+      tests: [
+        {
+          name: 'The nightly renewal run',
+          about: 'Zuora renews subscriptions and the Zuora System API publishes 200 subscription events a second for 30 minutes. Every event is published, and the entitlement updates have caught up within the hour.',
+          traffic: [{ name: 'renewal events', from: { type: 'system-api', label: 'zuora' }, rps: 200, forMin: 30, to: 'database', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'entitlement' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'Some entitlement updates fail',
+          about: 'The app stores send 5 notifications a second, and 1 in 100 refers to an account the entitlement store rejects every time. Those updates go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'store notifications', from: 'external-api', rps: 5, to: 'database', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A video streaming service has **30 million paying subscribers in 22 countries**. Subscriptions are billed by a home-grown platform (Java on Oracle) built 11 years ago. It renews about 1 million subscriptions a day, charges cards through a payment provider using stored tokens, and handles 14 currencies and local tax rules badly. The company has signed for **Zuora Billing** and wants the legacy platform gone in 18 months.
@@ -69,6 +88,7 @@ export default {
 - No card numbers may pass through the integration layer (PCI DSS scope must not grow). The payment provider can make the legacy tokens usable by Zuora.
 - A customer belongs to exactly one billing platform at a time.
 - Finance must sign off each country after comparing legacy and Zuora totals for one full billing cycle.
+- In tests the renewal run publishes 200 subscription events a second for 30 minutes, and 1 entitlement update in 100 always fails.
 
 **Proposed by the vendor.** Export all subscriptions over one weekend and switch.
 

@@ -25,7 +25,7 @@ export default {
         pack: ['internal-app', 'Packing station app'],
         exp: ['experience-api', 'exp-packing-api'],
         prc: ['process-api', 'prc-shipments'],
-        scar: ['system-api', 'sys-carrier-api'],
+        scar: ['system-api', 'sys-carrier-api', { retries: 2 }],
         car: ['external-api', 'Carrier API (labels, tracking webhooks)'],
         gw: ['api-gateway', 'Webhook policies (IP allow list, HMAC check)'],
         wh: ['experience-api', 'exp-carrier-webhook'],
@@ -41,6 +41,30 @@ export default {
         'trk -> db', 'trk -> sph', 'sph -> ph', 'trk -> sms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 800 },
+        { match: 'legacy', latencyMs: 3000 },
+      ],
+      tests: [
+        {
+          name: 'The carrier drops some label calls',
+          about: 'The packing stations ask for 3 labels a second while the carrier API fails 1 call in 5 for 15 minutes. Each label is still printed, within 3 seconds.',
+          traffic: [{ name: 'labels', from: 'internal-app', rps: 3, to: 'external-api', kind: 'write' }],
+          incidents: [{ errors: 'external-api', rate: 0.2, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3000 }] },
+        },
+        {
+          name: 'The pharmacy system is offline for backups',
+          about: 'The carrier sends 2 tracking webhooks a second while the pharmacy system is offline for 60 minutes. Every webhook is answered at once, the events wait in the queue, and none is lost.',
+          traffic: [{ name: 'webhooks', from: 'external-api', rps: 2, to: 'legacy', kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: { type: 'queue' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An online pharmacy delivers **prescription medicines** to patients' homes with one national carrier. Two integrations are needed.
@@ -56,6 +80,7 @@ An online pharmacy delivers **prescription medicines** to patients' homes with o
 - Events can arrive out of order and twice.
 - The **pharmacy dispensing system** (on-prem, legacy) must record "delivered" for each prescription. It is slow (2 to 4 s per call) and offline at night for backups.
 - Patients get an SMS for "out for delivery" and "delivery failed".
+- During a carrier outage about 1 label call in 5 fails for 15 minutes. At night the pharmacy system is offline for about 60 minutes while 2 webhooks a second arrive.
 
 **Describe your solution** for both flows, including what happens when the carrier or the pharmacy system is down.
 `,

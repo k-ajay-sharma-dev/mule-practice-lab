@@ -5,7 +5,7 @@
 //
 // The browser stays the working copy (fast, works offline). Each sync pulls only what changed since the last
 // pull (by server time, so device clocks don't matter for that), merges it, then pushes what changed here.
-// Conflicts: per problem the newer entry wins; activity days are combined; other keys go to the newest write.
+// Conflicts: per problem the two copies are merged part by part (see merge.js); activity days are combined; other keys go to the newest write.
 import { initializeApp } from 'firebase/app'
 import {
   connectAuthEmulator,
@@ -30,6 +30,7 @@ import {
 import { onLocalChange, readMeta, SYNCED_KEYS, writeMeta } from '../store/local.js'
 import { reloadFromStorage } from '../store/progress.js'
 import { EMULATOR_CONFIG, firebaseConfig, useEmulator } from './config.js'
+import { mergeEntry, sameEntry } from './merge.js'
 import { setStatus } from './status.js'
 
 const PROGRESS_KEY = 'pl.progress'
@@ -38,7 +39,9 @@ const STATE_KEYS = SYNCED_KEYS.filter((k) => k !== PROGRESS_KEY)
 // { uid, lastPull: {seconds, nanoseconds}, pushed: {problemId: updatedAt}, pushedKeys: {key: ms} }
 const SYNC_STATE_KEY = 'pl.sync.state'
 const BATCH_SIZE = 400 // Firestore allows 500 writes per batch
-const REPAIR_VERSION = 1
+// 2: every browser pulls everything once more and merges it part by part, so a solve still held on any device
+// comes back after the old "newest entry wins" rule replaced it
+const REPAIR_VERSION = 2
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
@@ -176,12 +179,17 @@ async function syncOnce(uid) {
       return
     }
     const local = progress[d.id]
-    if (!isObject(local) || (local.updatedAt ?? '') < updatedAt) {
-      progress[d.id] = remote
-      changed = true
-    }
+    const merged = isObject(local) ? mergeEntry(local, remote) : remote
     // the account already has this version; a newer local one is still pushed below
     if ((pushed[d.id] ?? '') < updatedAt) pushed[d.id] = updatedAt
+    // a merge that differs from the account's copy is pushed back, so both devices end up the same
+    if (!sameEntry(merged, remote) && (merged.updatedAt ?? '') <= updatedAt) {
+      merged.updatedAt = new Date(Math.max(Date.now(), Date.parse(updatedAt) + 1 || 0)).toISOString()
+    }
+    if (!isObject(local) || !sameEntry(merged, local)) {
+      progress[d.id] = merged
+      changed = true
+    }
   })
   if (changed) localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress))
 

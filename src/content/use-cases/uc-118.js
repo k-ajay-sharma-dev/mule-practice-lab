@@ -24,12 +24,12 @@ export default {
     ],
     reference: diagram(
       {
-        src: ['process-api', 'Job service (event producer)'],
+        src: ['process-api', 'Job service (event producer)', { vCores: '0.5' }],
         k: ['event-stream', 'Kafka job.events'],
-        fan: ['process-api', 'prc-webhook-fanout'],
+        fan: ['process-api', 'prc-webhook-fanout', { vCores: '0.5' }],
         subs: ['database', 'Subscriptions and endpoint state'],
         dq: ['queue', 'webhook-deliveries'],
-        dlv: ['process-api', 'prc-webhook-delivery (HMAC signing)'],
+        dlv: ['process-api', 'prc-webhook-delivery (HMAC signing)', { replicas: 2, vCores: '0.5' }],
         retry: ['queue', 'webhook-retry (delayed)'],
         dlq: ['dlq', 'webhook-dead'],
         cust: ['external-api', 'Customer webhook endpoints'],
@@ -43,13 +43,33 @@ export default {
         'dlv -> log', 'dlv -> subs', 'dlv -> mail', 'portal -> exp', 'exp -> log', 'exp -> subs', 'exp ~> dq',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 2000 }],
+      tests: [
+        {
+          name: 'The 08:00 peak',
+          about: 'The job service publishes 150 webhook events a second for 20 minutes, and an endpoint takes 2 seconds on average. Job events are published at once, and the delivery workers keep up, so every delivery is made and the queue is empty at the end.',
+          traffic: [{ name: 'deliveries', from: { label: 'Job service' }, rps: 150, forMin: 20, to: 'external-api', kind: 'write' }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 200 }], delivered: [{ to: 'external-api', min: 0.99 }], backlog: [{ queue: { label: 'webhook-deliveries' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some endpoints fail for half an hour',
+          about: 'The job service publishes 20 webhook events a second while 1 delivery in 5 fails for 30 minutes. Failed deliveries are tried again, so every webhook arrives, and none is lost or dead-lettered.',
+          traffic: [{ name: 'deliveries', from: { label: 'Job service' }, rps: 20, to: 'external-api', kind: 'write' }],
+          incidents: [{ errors: 'external-api', rate: 0.2, at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { delivered: [{ to: 'external-api', min: 0.99 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A B2B SaaS company sells **field service scheduling**. Its customers subscribe to **webhooks** for job events (job created, technician assigned, job completed, invoice ready) and receive them on their own HTTPS endpoints.
 
 Facts:
 - **1,200 customer endpoints**, about **3 million deliveries per day**, peaks of 150 per second at 08:00.
-- Customer endpoints are often slow (some take 10 seconds), and some are down for a day during their own releases.
+- Customer endpoints are often slow (some take 10 seconds), and some are down for a day during their own releases. An endpoint takes about 2 seconds on average, and the 08:00 peak lasts about 20 minutes.
 - Today the job service calls each endpoint inline. One slow customer slowed job creation for **everyone** last month.
 - Requirements:
   - At-least-once delivery, retried for **24 hours** with growing delays.

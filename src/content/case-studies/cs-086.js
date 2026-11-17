@@ -27,10 +27,10 @@ export default {
         agent: ['internal-app', 'Contact centre desktop'],
         ex: ['experience-api', 'exp-policy-servicing-api'],
         eb: ['experience-api', 'exp-broker-policy-api'],
-        route: ['process-api', 'prc-policy-router'],
+        route: ['process-api', 'prc-policy-router', { timeoutMs: 3000, circuitBreaker: 'on' }],
         reg: ['database', 'Migration register (policy to platform)'],
         mig: ['batch-job', 'Book migration job'],
-        smf: ['system-api', 'sys-mainframe-policy-api'],
+        smf: ['system-api', 'sys-mainframe-policy-api', { timeoutMs: 3000, circuitBreaker: 'on' }],
         spc: ['system-api', 'sys-policycenter-api'],
         tp: ['topic', 'policy-events (canonical)'],
         sfin: ['system-api', 'sys-finance-api'],
@@ -47,6 +47,34 @@ export default {
         'sfin -> erp', 'sri -> ri', 'mig -> smf', 'mig -> spc', 'mig -> reg',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 400 },
+        { match: 'saas', latencyMs: 300 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'The mainframe hangs',
+          about: 'Channels send 20 requests a second for mainframe policies and 20 for PolicyCenter policies, and the mainframe stops answering for 20 minutes. Short timeouts and a circuit breaker keep the router free, so PolicyCenter policies are still served.',
+          traffic: [
+            { name: 'mainframe policies', from: 'web-app', rps: 20, to: 'legacy' },
+            { name: 'PolicyCenter policies', from: 'web-app', rps: 20, to: 'saas' },
+          ],
+          incidents: [{ hang: 'legacy', at: 5, forMin: 20 }],
+          durationMin: 30,
+          expect: { answers: [{ flow: 'PolicyCenter policies', minSuccess: 0.99 }] },
+        },
+        {
+          name: 'SAP finance is down for an hour',
+          about: 'Policy changes publish 10 events a second while SAP finance is down for 60 minutes. The events wait on the topic, and finance gets every one once SAP is back.',
+          traffic: [{ name: 'policy events', from: 'web-app', rps: 10, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: ['topic', 'event-stream'], maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A general insurer has 3.2 million home, motor and pet policies on a 30 year old mainframe policy administration system (CICS, DB2, COBOL). It has bought Guidewire PolicyCenter (cloud) and plans to move the books over 3 years: pet first (200,000 policies), then home, then motor.
@@ -62,6 +90,7 @@ export default {
 - Finance and reinsurance must see one consistent view of all policies throughout.
 - The mainframe is frozen except for regulatory changes. Its MIPS bill is 9 million EUR a year and must not grow.
 - Each book move must be reversible for 30 days.
+- In tests channels send 20 requests a second to each platform, the mainframe can hang for 20 minutes, and SAP finance can be down for an hour.
 
 **Your task.** Design the integration architecture for the 3 year coexistence and the migration of each book.
 `,

@@ -25,7 +25,7 @@ export default {
         job: ['batch-job', 'roster-sync scheduler (every 15 min)'],
         prc: ['process-api', 'prc-roster-sync'],
         ssis: ['system-api', 'sys-sis-api'],
-        slms: ['system-api', 'sys-lms-api'],
+        slms: ['system-api', 'sys-lms-api', { rateLimit: 10, retries: 2 }],
         sis: ['sql-server', 'Student information system (SQL Server)'],
         lms: ['saas', 'LMS (OneRoster REST API)'],
         os: ['cache', 'Last-run watermark (Object Store)'],
@@ -33,6 +33,27 @@ export default {
       },
       ['job -> prc', 'prc -> ssis', 'ssis -> sis', 'prc -> slms', 'slms -> lms', 'prc -> os', 'prc -> help'],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 200, maxRps: 10 },
+        { match: 'sql-server', latencyMs: 50 },
+      ],
+      tests: [
+        {
+          name: 'A busy run at term start',
+          about: 'A run at term start tries to write 30 enrolment changes a second, and the LMS allows 10 a second per API key. The LMS System API holds the rest back with 429, so the LMS never sees more than its limit.',
+          traffic: [{ name: 'enrolment writes', from: 'batch-job', rps: 30, to: 'saas', kind: 'write' }],
+          expect: { peakRps: [{ node: 'saas', max: 10 }], answers: [{ minLimited: 0.5 }] },
+        },
+        {
+          name: 'The LMS drops some calls',
+          about: 'A normal run writes 5 changes a second, and the LMS fails 1 call in 10. The LMS System API tries again, so almost every change arrives in the same run.',
+          traffic: [{ name: 'enrolment writes', from: 'batch-job', rps: 5, to: 'saas', kind: 'write' }],
+          incidents: [{ errors: 'saas', rate: 0.1 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A school district runs 62 schools with 45,000 students and 3,600 teachers. Students and timetables live in an on-premises student information system (SIS) on SQL Server. Teaching happens in a cloud LMS that accepts classes, users and enrolments through a OneRoster style REST API.
@@ -52,6 +73,7 @@ export default {
 | LMS | REST API, 100 requests per 10 seconds per API key |
 | Privacy | Student records are protected by law; only name, school email, grade and class membership go to the LMS |
 | Team | Two integration developers, new to MuleSoft |
+| Tests | A term start run tries 30 writes a second against the LMS limit of 10, and the LMS can fail 1 call in 10 |
 
 **Your task.** Design the first version of the roster sync. Show the layers, how a run knows what changed, and how errors are reported.
 `,

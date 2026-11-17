@@ -25,14 +25,14 @@ export default {
         prt: ['partner', 'Retail partner'],
         cbk: ['partner', '3PL / field-service callbacks'],
         ew: ['experience-api', 'web-orders-eapi'],
-        ep: ['experience-api', 'partner-orders-eapi'],
+        ep: ['experience-api', 'partner-orders-eapi', { vCores: '0.5' }],
         ecb: ['experience-api', 'fulfilment-callbacks-eapi'],
-        orc: ['process-api', 'order-orchestration-papi'],
+        orc: ['process-api', 'order-orchestration-papi', { vCores: '0.5', onFailure: 'partial answer' }],
         st: ['database', 'Order state store'],
         q: ['queue', 'fulfilment-steps'],
         top: ['topic', 'order-status-changed'],
         exq: ['dlq', 'order-exceptions'],
-        sc: ['system-api', 'credit-sapi'],
+        sc: ['system-api', 'credit-sapi', { vCores: '0.5', timeoutMs: 3000, circuitBreaker: 'on' }],
         so: ['system-api', 'oss-provisioning-sapi'],
         sl: ['system-api', 'logistics-sapi'],
         cr: ['external-api', 'Credit bureau'],
@@ -47,6 +47,29 @@ export default {
         'sc -> cr', 'so -> oss', 'sl -> tpl',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'The credit bureau stops answering',
+          about: 'The website places 20 orders a second, and the credit bureau stops answering for 10 minutes. The credit call gives up after 3 seconds and the breaker opens, so orders are still taken and marked for a credit check later.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 20, to: [{ type: 'external-api', label: 'credit' }, 'database', 'legacy'], kind: 'write' }],
+          incidents: [{ hang: { type: 'external-api', label: 'credit' }, at: 3, forMin: 10 }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 3000 }] },
+        },
+        {
+          name: 'A partner sends a batch of orders',
+          about: 'A retail partner sends 150 orders a second for 5 minutes after a promotion. The partner API, the orchestrator and the credit API have the capacity to take them all.',
+          traffic: [{ name: 'partner orders', from: { type: 'partner', label: 'retail' }, rps: 150, to: [{ type: 'external-api', label: 'credit' }, 'database', 'legacy'], kind: 'write' }],
+          durationMin: 5,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A telecom operator sells broadband through its website, call centre and retail partners. Fulfilling one order touches:
@@ -69,6 +92,7 @@ export default {
 - Fulfilment takes days (shipping, engineer visit); some steps are asynchronous callbacks.
 - The OSS platform is slow (calls take up to 60 s) and has a maintenance window nightly.
 - Partners call via APIs; the website and call centre use internal apps.
+- The website places about 20 orders a second, a partner can send 150 a second after a promotion, and the credit bureau (500 ms a call) sometimes stops answering for 10 minutes.
 
 **Your task.** Propose the architecture for order capture, orchestration, status and error handling.
 `,

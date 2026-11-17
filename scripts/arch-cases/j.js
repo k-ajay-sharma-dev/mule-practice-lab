@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for case studies cs-107 to cs-120. See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // CS-107
   // Retailers call the Experience API directly and skip the policies.
   await failsOn('cs-107', 'passes the gateway policies', (d) => draw(d, 'ret -> exp'))
@@ -18,14 +18,15 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await failsOn('cs-107', 'synchronous calls', (d) => swap(d, 'gw -> exp'))
   await failsOn('cs-107', 'each call through the gateway', (d) => unbox(d, 'mob'))
   await failsOn('cs-107', 'DB2 tracking system is reached only through a System API', (d) => flip(d, 'sys -> db2'))
-  // The cache sits on the System API instead.
+  // The cache sits on the System API instead, so the System API now carries the full peak and needs the replicas.
   await passes('cs-107', (d) => {
     cut(d, 'prc -> cache')
     draw(d, 'sys -> cache')
+    set(d, 'sys', { replicas: 5, vCores: '2' })
   })
-  // A separate Experience API for retailers.
+  // A separate Experience API for retailers. The gateway shares the peak between the two, so it needs replicas too.
   await passes('cs-107', (d) => {
-    box(d, 'exp2', 'experience-api', 'exp-partner-tracking-api')
+    box(d, 'exp2', 'experience-api', 'exp-partner-tracking-api', { replicas: 5, vCores: '2' })
     draw(d, 'gw -> exp2', 'exp2 -> prc')
   })
   await passes('cs-107', (d) => {
@@ -389,4 +390,77 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'crm', 'crm', 'Customer care CRM')
     draw(d, 'tp ~> qc', 'qc ~> sc', 'sc -> crm')
   })
+
+  // ---------- run cases ----------
+  // CS-107
+  // One small replica of the tracking API: the Christmas peak gets 503s.
+  await failsOn('cs-107', 'Run: The week before Christmas', (d) => set(d, 'exp', { replicas: undefined, vCores: undefined }))
+  // No client ID policy on the gateway: the scraper gets in.
+  await failsOn('cs-107', 'Run: A scraper without a client ID', (d) => set(d, 'gw', { auth: undefined }))
+
+  // CS-108
+  // The callback API left at 0.1 vCore cannot acknowledge 60 callbacks a second.
+  await failsOn('cs-108', 'Run: Handset launch callbacks', (d) => set(d, 'scb', { vCores: undefined }))
+  // No redelivery limit: unmatched responses are retried for ever and never reach the DLQ.
+  await failsOn('cs-108', 'Run: Some responses cannot be processed', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // CS-109
+  // The CRS System API left at 0.1 vCore cannot publish the 06:00 burst.
+  await failsOn('cs-109', 'Run: The 06:00 price burst', (d) => set(d, 'scrs', { vCores: undefined }))
+  // The webhook writes to the CRS while the channel manager waits.
+  await failsOn('cs-109', 'Run: The CRS is down for 30 minutes', (d) => {
+    unbox(d, 'resq')
+    draw(d, 'hook -> pres')
+  })
+
+  // CS-110
+  // The events API left at 0.1 vCore cannot take a carrier's backlog.
+  await failsOn('cs-110', 'Run: A carrier sends its backlog', (d) => set(d, 'ev', { vCores: undefined }))
+  // The webhook API calls the tracking Process API while the carrier waits.
+  await failsOn('cs-110', 'Run: The OMS is down for 30 minutes', (d) => {
+    cut(d, 'ev ~> tq')
+    draw(d, 'ev -> pt')
+  })
+
+  // CS-111
+  // The file loader left at 0.1 vCore cannot read 500 rows a second.
+  await failsOn('cs-111', 'Run: A card bank file at the API peak', (d) => set(d, 'job', { vCores: undefined }))
+  // The partner waits while the loyalty platform is called.
+  await failsOn('cs-111', 'Run: The loyalty platform is down', (d) => {
+    cut(d, 'exp ~> q')
+    draw(d, 'exp -> prc')
+  })
+
+  // CS-113
+  // The provisioning System API keeps the default 10 second timeout and gives up on every subscriber.
+  await failsOn('cs-113', 'Run: Network provisioning takes 20 seconds', (d) => set(d, 'sprov', { timeoutMs: undefined }))
+  // Salesforce calls the orchestrator synchronously, so orders fail while the eSIM platform is down.
+  await failsOn('cs-113', 'Run: The eSIM platform is down', (d) => {
+    unbox(d, 'oq')
+    draw(d, 'ssf -> orch')
+  })
+
+  // CS-114
+  // The scheduler left at 0.1 vCore cannot send the midnight changes.
+  await failsOn('cs-114', 'Run: Midnight on the first of the month', (d) => set(d, 'sched', { vCores: undefined }))
+  // A non-persistent OTT queue: the broker restart loses the waiting takedowns.
+  await failsOn('cs-114', 'Run: The OTT platform is down for 30 minutes', (d) => set(d, 'qott', { persistent: 'no' }))
+
+  // CS-115
+  // No redelivery limit: rejected bookings are retried for ever and never reach the DLQ.
+  await failsOn('cs-115', 'Run: Some bookings cannot be processed', (d) => set(d, 'bq', { maxRedelivery: undefined }))
+  // The booking System API left at 0.1 vCore cannot publish 100 statuses a second.
+  await failsOn('cs-115', 'Run: A vessel is discharged', (d) => set(d, 'sb', { vCores: undefined }))
+
+  // CS-116
+  // The bridge left at 0.1 vCore falls behind the evening events.
+  await failsOn('cs-116', 'Run: Evening order events', (d) => set(d, 'bridge', { vCores: undefined }))
+  // A non-persistent Anypoint MQ queue: the broker restart loses the waiting events.
+  await failsOn('cs-116', 'Run: Salesforce is down for 30 minutes', (d) => set(d, 'amq', { persistent: 'no' }))
+
+  // CS-118
+  // The entitlement System API left at 0.1 vCore falls behind the renewal run.
+  await failsOn('cs-118', 'Run: The nightly renewal run', (d) => set(d, 'sent', { vCores: undefined }))
+  // No redelivery limit: failing updates are retried for ever and never reach the DLQ.
+  await failsOn('cs-118', 'Run: Some entitlement updates fail', (d) => set(d, 'qent', { maxRedelivery: undefined }))
 }

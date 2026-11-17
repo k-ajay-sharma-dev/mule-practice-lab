@@ -32,13 +32,39 @@ export default {
         audit: ['database', 'Bank change audit log'],
         mail: ['notification', 'Call-back task to AP team'],
         ap: ['internal-app', 'AP approval app'],
-        expa: ['experience-api', 'exp-ap-approvals'],
+        expa: ['experience-api', 'exp-ap-approvals', { auth: 'jwt' }],
       },
       [
         'coupa -> hook', 'hook ~> q', 'q ~> prc', 'prc -> sval', 'sval -> val', 'prc -> ssap', 'ssap -> sap',
         'prc -> audit', 'prc -> mail', 'ap -> expa', 'expa -> prc',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 800 },
+        { match: 'external-api', latencyMs: 1500 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a token',
+          about: 'AP clerks approve 6 changes a minute with their sign-in token, and a script on the network calls the approvals API 6 times a minute without one. Only the clerks get through to SAP.',
+          traffic: [
+            { name: 'clerks', from: 'internal-app', rps: 0.1, to: 'erp', kind: 'write' },
+            { name: 'script without a token', from: 'internal-app', rps: 0.1, to: 'erp', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'clerks', minSuccess: 0.99 }, { flow: 'script without a token', minRefused: 0.99 }] },
+        },
+        {
+          name: 'SAP is down when changes arrive',
+          about: 'Coupa sends 6 bank change requests a minute while SAP is down for 30 minutes. Every request is taken at once and waits in the queue until SAP can set the payment block, with none lost.',
+          traffic: [{ name: 'bank changes', from: 'saas', rps: 0.1, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A food manufacturer pays **18,000 vendors** from **SAP S/4HANA**. Vendors manage their own profile in the **Coupa supplier portal**, including bank details. Last year a fraudster took over a vendor's email, changed the bank account in Coupa, and a nightly sync copied it into SAP. **1.4 million EUR** went to the wrong account before anyone noticed.
@@ -49,6 +75,7 @@ New rules from the CFO:
 - Approver and requester must be different people. Changes above 50,000 EUR of open items need a second approver.
 - Every step is kept in an **audit trail** for 10 years.
 - About **250 bank changes a month**. The call-back should be done within 2 business days.
+- In the tests clerks approve 6 changes a minute while a script without a token tries the same, and Coupa sends 6 requests a minute while SAP is down for 30 minutes.
 
 Coupa can call a webhook when a supplier profile changes.
 

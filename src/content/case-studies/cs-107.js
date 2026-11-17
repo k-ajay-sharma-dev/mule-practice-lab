@@ -24,11 +24,11 @@ export default {
         ret: ['partner', 'Retailers (240 web shops)'],
         web: ['web-app', 'Carrier website'],
         mob: ['mobile-app', 'Carrier app'],
-        gw: ['api-gateway', 'Client ID + rate limit tiers'],
-        exp: ['experience-api', 'exp-tracking-api'],
-        prc: ['process-api', 'prc-shipment-tracking-api'],
+        gw: ['api-gateway', 'Client ID + rate limit tiers', { auth: 'client-id' }],
+        exp: ['experience-api', 'exp-tracking-api', { replicas: 5, vCores: '2' }],
+        prc: ['process-api', 'prc-shipment-tracking-api', { replicas: 5, vCores: '2' }],
         cache: ['cache', 'Tracking cache (60 s TTL)'],
-        sys: ['system-api', 'sys-tracking-db2-api'],
+        sys: ['system-api', 'sys-tracking-db2-api', { vCores: '0.5' }],
         pod: ['system-api', 'sys-pod-photos-api'],
         db2: ['legacy', 'Tracking system (IBM i, DB2)'],
         s3: ['s3-bucket', 'Proof-of-delivery photos'],
@@ -38,6 +38,27 @@ export default {
         'sys -> db2', 'pod -> s3',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 40, maxRps: 300 }],
+      cache: { hitRatio: 0.95, atTtlSec: 60 },
+      tests: [
+        {
+          name: 'The week before Christmas',
+          about: 'Retailers, the website and the app send 4,000 tracking lookups a second. The cache answers 19 in 20, the APIs have the replicas for the rest, and DB2 never gets more than its 300 queries a second.',
+          traffic: [{ name: 'lookups', from: ['partner', 'web-app', 'mobile-app'], rps: 4000, to: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'legacy', max: 300 }] },
+        },
+        {
+          name: 'A scraper without a client ID',
+          about: 'Retailers send 50 lookups a second with their client IDs, and a scraper sends 20 a second without one. The gateway refuses the scraper.',
+          traffic: [
+            { name: 'retailers', from: 'partner', rps: 50, to: 'legacy' },
+            { name: 'scraper', from: 'partner', rps: 20, to: 'legacy', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'retailers', minSuccess: 0.99 }, { flow: 'scraper', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A national parcel carrier delivers 1.2 million parcels a day. Every depot scan (collected, sorted, out for delivery, delivered) is written to a tracking system on **IBM i with a DB2 database**. Drivers take a photo at the door, and the photo is stored in an **Amazon S3 bucket**.
@@ -56,6 +77,7 @@ Today:
 **Constraints**
 - The IBM i team allows at most 300 queries per second against DB2.
 - The same parcel is looked up many times: retailers poll, and customers refresh the page.
+- In tests 4,000 lookups a second arrive at the peak, the cache answers 19 in 20, and a scraper sends 20 lookups a second with no client ID.
 - The team has two Mule developers and one quarter to go live.
 
 **Your task.** Draw the API-led design for track and trace and explain how it protects DB2 and controls retailer access.

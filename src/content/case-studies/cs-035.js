@@ -26,14 +26,14 @@ export default {
         eapi: ['experience-api', 'exp-customer-portal-api'],
         ship: ['process-api', 'prc-shipments-api (canonical + validation)'],
         cus: ['process-api', 'prc-customs-api'],
-        sub: ['process-api', 'prc-declaration-submission'],
+        sub: ['process-api', 'prc-declaration-submission', { timeoutMs: 30000 }],
         nf: ['process-api', 'prc-status-notifier'],
         q: ['queue', 'inbound-shipments'],
         rev: ['queue', 'specialist-review'],
         st: ['topic', 'declaration-status'],
         sedi: ['system-api', 'sys-b2b-edi-api (X12 / EDIFACT)'],
         sbr: ['system-api', 'sys-broker-app-api'],
-        scg: ['system-api', 'sys-customs-gateway-api'],
+        scg: ['system-api', 'sys-customs-gateway-api', { timeoutMs: 30000 }],
         cls: ['database', 'Product classification store'],
         br: ['saas', 'Customs-broker application'],
         cust: ['external-api', 'National customs system'],
@@ -46,6 +46,29 @@ export default {
         'sedi -> arc', 'scg -> arc',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 500 },
+        { match: 'external-api', latencyMs: 15000 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'The broker application is down for 30 minutes',
+          about: 'Shippers send 2 EDI shipments a second while the customs-broker application is down for 30 minutes. Every shipper gets its acknowledgement at once, the shipments wait in the inbound queue, and none is lost.',
+          traffic: [{ name: 'EDI shipments', from: 'partner', rps: 2, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: { label: 'inbound-shipments' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The customs gateway answers slowly',
+          about: 'The forwarder lodges 2 declarations a second, and the national customs system takes 15 seconds to acknowledge each one. The submission flow and the customs gateway API wait up to 30 seconds, so no declaration is given up too early.',
+          traffic: [{ name: 'declarations', from: { type: 'process-api', label: 'declaration-submission' }, rps: 2, to: 'external-api', kind: 'write' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A freight forwarder handles imports and exports for ~2,000 shipper customers.
@@ -65,6 +88,7 @@ export default {
 - Tariff classification still needs a licensed customs specialist for unclear goods.
 - Customer data quality varies widely; many customers use slightly different EDI implementation guides.
 - The customs-broker application stays the system of record for declarations.
+- Shippers send about 2 EDI shipments a second, and the broker application can be down for 30 minutes. The forwarder lodges about 2 declarations a second, and customs takes about 15 seconds to acknowledge each.
 
 **Your task.** Propose the B2B integration design, the human-in-the-loop process and audit approach.
 `,

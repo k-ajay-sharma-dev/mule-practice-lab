@@ -24,7 +24,7 @@ export default {
     reference: diagram(
       {
         dealer: ['partner', 'Dealer DMS (3,000 dealers)'],
-        gw: ['api-gateway', 'API Manager (dealer client IDs)'],
+        gw: ['api-gateway', 'API Manager (dealer client IDs)', { auth: 'client-id' }],
         edl: ['experience-api', 'exp-dealer-campaigns-api'],
         pvin: ['process-api', 'prc-vin-campaign-status'],
         job: ['batch-job', 'Campaign VIN expansion (chunks of 10,000)'],
@@ -47,6 +47,30 @@ export default {
         'sveh -> veh', 'job -> scamp', 'job ~> top', 'top ~> pown', 'top ~> pota', 'pown -> scrm', 'scrm -> crm', 'pown -> nt', 'pota -> ota',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 20 },
+        { match: 'legacy', latencyMs: 2000, maxRps: 5 },
+        { match: 'oracle-db', latencyMs: 1000, maxRps: 10 },
+      ],
+      tests: [
+        {
+          name: 'Service check-in peak',
+          about: 'Dealers make 30 VIN checks a second at the morning check-in peak. Each check is answered from the campaign store in under 1 second, and neither the quality system nor the vehicle registry gets a call.',
+          traffic: [{ name: 'VIN checks', from: 'partner', rps: 30, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], notReached: [{ node: 'legacy' }, { node: 'oracle-db' }] },
+        },
+        {
+          name: 'A caller without a client ID',
+          about: 'Dealer systems make 30 VIN checks a second with their client IDs, and an unknown caller sends 10 a second without one. The gateway refuses the unknown caller.',
+          traffic: [
+            { name: 'dealers', from: 'partner', rps: 30, to: 'database' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: 'database', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'dealers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A car maker sells in 28 countries through 3,000 dealers. It runs about 60 safety recalls and service campaigns a year, and since its new models went connected, also software update campaigns that can be done over the air (OTA).
@@ -72,6 +96,7 @@ export default {
 **Constraints**
 - The quality system and the vehicle registry must not take dealer traffic (about 40,000 VIN checks a day, 30 per second peak).
 - Owner contact data must stay in Salesforce in the owner's region.
+- Dealers make up to 30 VIN checks a second at the morning peak, and the API must refuse callers without a dealer client ID.
 
 **Your task.** Design the campaign integration.
 `,

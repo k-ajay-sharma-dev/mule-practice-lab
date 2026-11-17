@@ -24,8 +24,8 @@ export default {
         cardjob: ['batch-job', 'Card switch file publisher'],
         ks: ['event-stream', 'banking.* events (key = customer ID)'],
         dec: ['event-stream', 'fraud.decisions / alerts'],
-        score: ['system-api', 'sys-fraud-scoring-api (lean, 120 ms timeout)'],
-        olbs: ['system-api', 'sys-online-banking-events-api'],
+        score: ['system-api', 'sys-fraud-scoring-api (lean, 120 ms timeout)', { replicas: 2, vCores: '1', timeoutMs: 120, circuitBreaker: 'on', onFailure: 'partial answer' }],
+        olbs: ['system-api', 'sys-online-banking-events-api', { replicas: 2, vCores: '1' }],
         scase: ['system-api', 'sys-case-mgmt-api'],
         scontact: ['system-api', 'sys-contact-api'],
         sph: ['system-api', 'sys-payment-hub-api'],
@@ -42,6 +42,29 @@ export default {
         'scase -> case', 'scontact -> notif', 'sph -> hub',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 10 },
+        { match: { type: 'saas', label: 'scoring engine' }, latencyMs: 60 },
+        { match: 'saas', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'The scoring engine slows down',
+          about: 'The payment hub asks for 400 scores a second, and for 10 minutes the scoring engine takes 2 seconds to answer. The scoring API gives up after 120 ms and the payment goes on by the risk policy, so every payment gets a decision within 150 ms.',
+          traffic: [{ name: 'instant payments', from: 'legacy', rps: 400, to: { type: 'saas', label: 'scoring engine' } }],
+          incidents: [{ slow: { type: 'saas', label: 'scoring engine' }, latencyMs: 2000, at: 3, forMin: 10 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 150 }] },
+        },
+        {
+          name: 'The online-banking event peak',
+          about: 'The online-banking platform sends 800 login and payee events a second. The events API takes each one and puts it on the stream, and none is lost.',
+          traffic: [{ name: 'banking events', from: { type: 'saas', label: 'online-banking' }, rps: 800, to: { type: 'saas', label: 'scoring engine' }, kind: 'write' }],
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A retail bank processes card payments, instant payments, online-banking logins and payee changes in separate systems.
@@ -63,6 +86,7 @@ export default {
 - ~3,000 events/s peak across channels, ~400 instant payments/s peak.
 - Customer data is sensitive; data minimisation and encryption are mandatory.
 - The fraud engine vendor offers a synchronous REST scoring API and a Kafka-based event ingest.
+- Plan for 400 scores a second from the payment hub and 800 online-banking events a second. The scoring engine can slow to 2 seconds for 10 minutes.
 
 **Your task.** Propose:
 - the architecture

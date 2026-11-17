@@ -25,14 +25,14 @@ export default {
         club: ['web-app', 'Club & media sites'],
         app: ['mobile-app', 'League app'],
         gw: ['api-gateway', 'API Manager (client ID, SLA tiers)'],
-        live: ['experience-api', 'exp-live-api'],
+        live: ['experience-api', 'exp-live-api', { replicas: 2, vCores: '2' }],
         stats: ['experience-api', 'exp-stats-api'],
-        prc: ['process-api', 'prc-match-events-api'],
-        push: ['process-api', 'prc-licensee-push'],
+        prc: ['process-api', 'prc-match-events-api', { replicas: 2, vCores: '2' }],
+        push: ['process-api', 'prc-licensee-push', { vCores: '0.5' }],
         delay: ['process-api', 'prc-delay-buffer'],
         es: ['event-stream', 'match-events (matchId, seq)'],
         ing: ['system-api', 'sys-match-feed-api'],
-        sst: ['system-api', 'sys-stats-store-api'],
+        sst: ['system-api', 'sys-stats-store-api', { vCores: '1' }],
         prov: ['external-api', 'Official data provider'],
         hooks: ['external-api', 'Licensee webhooks'],
         cache: ['cache', 'Response cache (1 s live, long for history)'],
@@ -43,6 +43,29 @@ export default {
         'ing -> prov', 'ing ~> es', 'es ~> push', 'es ~> delay', 'es ~> sst', 'push -> hooks', 'delay -> sst', 'sst -> db',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 20, maxRps: 300 },
+        { match: 'external-api', latencyMs: 200 },
+      ],
+      cache: { hitRatio: 0.9 },
+      tests: [
+        {
+          name: 'Final match day polling',
+          about: 'On the final match day licensees poll the live API 1,500 times a second. The response cache answers 9 in 10, the live and match-events APIs have the capacity for the rest, and the stats store stays under its 300 reads a second.',
+          traffic: [{ name: 'polls', from: 'partner', rps: 1500, via: { label: 'exp-live' }, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }], peakRps: [{ node: 'database', max: 300 }] },
+        },
+        {
+          name: 'A licensee webhook is down',
+          about: 'The stadiums send 50 match events a second while the licensee webhooks are down for 20 minutes. The stats store keeps getting every event, the webhook copies wait on the event stream, and none is lost.',
+          traffic: [{ name: 'match events', from: { type: 'system-api', label: 'match-feed' }, rps: 50, to: ['database', { type: 'external-api', label: 'webhook' }], kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'webhook' }, at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { delivered: [{ to: 'database', min: 0.99 }, { to: { type: 'external-api', label: 'webhook' }, min: 0.99 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A professional sports league collects live match data (scores, events, player stats) from an official data provider at each stadium. It wants to distribute this data to broadcasters, betting operators (licensed), fantasy-sports apps, club websites and its own app. Today each consumer gets a custom file feed, and during the last season the feed server crashed on the final match day.
@@ -57,6 +80,7 @@ export default {
 - Some consumers want push (webhook or streaming), others poll.
 - Corrections happen (a goal is re-assigned to another player) and must reach everyone.
 - Contracts include SLAs and an audit of who received which data, when.
+- On the final match day pollers send about 1,500 requests a second and the stats store takes 300 reads a second. Licensee webhooks can be down for 20 minutes while 50 events a second arrive.
 
 **Your task.** Propose the distribution architecture, product/tier model and how you handle ordering and corrections.
 `,

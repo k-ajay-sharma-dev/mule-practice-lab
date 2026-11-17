@@ -21,12 +21,12 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Reconciliation run (daily 05:00)'],
+        job: ['batch-job', 'Reconciliation run (daily 05:00)', { timeoutMs: 60000 }],
         ssf: ['system-api', 'sys-salesforce-api (Bulk API 2.0)'],
         sf: ['crm', 'Salesforce (orders)'],
-        ssap: ['system-api', 'sys-sap-billing-api'],
+        ssap: ['system-api', 'sys-sap-billing-api', { timeoutMs: 60000 }],
         sap: ['erp', 'SAP S/4HANA (billing)'],
-        sstr: ['system-api', 'sys-stripe-api'],
+        sstr: ['system-api', 'sys-stripe-api', { retries: 2 }],
         stripe: ['payment', 'Stripe (charges and payouts)'],
         stage: ['database', 'Reconciliation staging (PostgreSQL)'],
         dw: ['data-warehouse', 'Snowflake finance mart'],
@@ -38,6 +38,31 @@ export default {
         'job -> stage', 'job -> dw', 'job -> mail', 'ui -> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 2000 },
+        { match: 'erp', latencyMs: 1000 },
+        { match: 'payment', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'SAP is still busy with the bill run',
+          about: 'The run reads 1 page of records a second from each source for 30 minutes. The bill run overruns, so each SAP page takes 20 seconds, and the report must still be complete by 07:00.',
+          traffic: [{ name: 'pages', from: 'batch-job', rps: 1, forMin: 30, to: ['crm', 'erp', 'payment'] }],
+          incidents: [{ slow: 'erp', latencyMs: 20000 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Stripe fails some calls',
+          about: 'The run reads 1 page a second for 30 minutes, and Stripe answers 1 call in 10 with an error. Reading a page again is safe, so almost every page gets in.',
+          traffic: [{ name: 'pages', from: 'batch-job', rps: 1, forMin: 30, to: ['crm', 'erp', 'payment'] }],
+          incidents: [{ errors: 'payment', rate: 0.1 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An online training company sells subscriptions and courses. Orders are captured in **Salesforce**, card payments run through **Stripe**, and invoices and revenue are booked in **SAP S/4HANA**. Each night several integrations move data between them. Auditors found that about **0.4% of orders** had no invoice or no payment, and nobody noticed for weeks.
@@ -53,6 +78,7 @@ Facts:
 - Keys: the Salesforce order number is on the SAP invoice as an external reference; the SAP invoice number is in the Stripe charge metadata.
 - The report must be in finance's inbox at **07:00**. Controllers also want trends over months in the finance dashboard.
 - The reconciliation must never change data in the sources. Fixing breaks stays a human decision.
+- In the tests the run reads 1 page a second from each source. An SAP page can take 20 seconds when the bill run overruns, and Stripe can fail 1 call in 10.
 
 **Questions:**
 1. How do you extract from three systems without hurting them?

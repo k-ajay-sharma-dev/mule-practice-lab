@@ -22,9 +22,9 @@ export default {
     reference: diagram(
       {
         dms: ['partner', 'Dealer DMS (own client ID)'],
-        gw: ['api-gateway', 'API Manager (client ID, SLA tiers, spike control)'],
-        ed: ['experience-api', 'dealer-eapi'],
-        pav: ['process-api', 'vehicle-availability-papi'],
+        gw: ['api-gateway', 'API Manager (client ID, SLA tiers, spike control)', { auth: 'client-id', rateLimit: 100 }],
+        ed: ['experience-api', 'dealer-eapi', { vCores: '0.5' }],
+        pav: ['process-api', 'vehicle-availability-papi', { vCores: '0.5' }],
         pord: ['process-api', 'dealer-orders-papi'],
         cache: ['cache', 'Stock cache (TTL few min)'],
         serp: ['system-api', 'erp-vehicles-sapi'],
@@ -38,6 +38,29 @@ export default {
         'serp -> erp', 'slog -> log',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 400, maxRps: 20 },
+        { match: 'saas', latencyMs: 200, maxRps: 30 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a client ID',
+          about: 'Dealer systems check stock 30 times a second with their client IDs, and an unknown caller sends 10 requests a second without one. The gateway refuses the unknown caller before it reaches any backend.',
+          traffic: [
+            { name: 'dealers', from: 'partner', rps: 30, to: 'saas' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: 'saas', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'dealers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+        {
+          name: 'One DMS floods the stock API',
+          about: 'Dealers check in-transit stock 40 times a second, and for 3 minutes a DMS with a bug pushes the total to 400 a second. The logistics system takes 30 a second. The gateway answers the extra with 429, the cache answers most of the rest, and the logistics system is never over its limit.',
+          traffic: [{ name: 'dealers', from: 'partner', rps: 40, to: 'saas', spikes: [{ at: 4, forMin: 3, rps: 400 }] }],
+          expect: { peakRps: [{ node: 'saas', max: 30 }], answers: [{ minSuccess: 0.35, minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A car manufacturer has 600 independent dealers. Dealers want to:
@@ -56,6 +79,7 @@ export default {
 - Stock data lives in the ERP; vehicle tracking (in transit) is in a logistics system.
 - The ERP must not receive more than ~20 requests per second.
 - Dealers use about five different DMS vendors.
+- Dealers check stock about 40 times a second, and a DMS with a bug can push that to 400. The logistics system takes about 30 requests a second.
 
 **Your task.** Propose the APIs, security and onboarding approach.
 `,

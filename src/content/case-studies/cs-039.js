@@ -23,13 +23,13 @@ export default {
       {
         agg: ['partner', 'Aggregators / enterprise developers'],
         idp: ['identity-provider', 'OAuth server (scopes, consent)'],
-        gw: ['api-gateway', 'Flex Gateway (in-country DMZ)'],
-        nv: ['experience-api', 'exp-number-verification-api'],
+        gw: ['api-gateway', 'Flex Gateway (in-country DMZ)', { auth: 'oauth2', rateLimit: 100 }],
+        nv: ['experience-api', 'exp-number-verification-api', { vCores: '0.5' }],
         qod: ['experience-api', 'exp-quality-on-demand-api'],
-        id: ['process-api', 'prc-identity-api'],
+        id: ['process-api', 'prc-identity-api', { vCores: '0.5' }],
         qodp: ['process-api', 'prc-qod-sessions-api'],
         uq: ['queue', 'usage-records'],
-        sne: ['system-api', 'sys-network-exposure-api'],
+        sne: ['system-api', 'sys-network-exposure-api', { vCores: '0.5' }],
         scon: ['system-api', 'sys-consent-api'],
         sbill: ['system-api', 'sys-billing-mediation-api'],
         nef: ['legacy', 'Network exposure function (core network)'],
@@ -41,6 +41,30 @@ export default {
         'id -> scon', 'scon -> con', 'sne -> nef', 'uq ~> sbill', 'sbill -> bill',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 150, maxRps: 100 },
+        { match: 'identity-provider', latencyMs: 40 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a token',
+          about: 'Partners send 30 number checks a second with valid tokens, and a fraudster sends 10 a second without one. The gateway refuses the fraudster, and the partners get answers in under 500 ms.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 30, to: 'legacy', via: { label: 'number-verification' } },
+            { name: 'fraudster', from: 'partner', rps: 10, to: 'legacy', via: { label: 'number-verification' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'partners', minSuccess: 0.99, maxMs: 500 }, { flow: 'fraudster', minRefused: 0.99 }] },
+        },
+        {
+          name: 'One partner floods the API',
+          about: 'Partners send 30 number checks a second, and for 3 minutes a partner with a bug pushes the total to 300 a second. The network function takes at most 100 a second. The gateway answers the extra with 429, so the core network is never over its limit.',
+          traffic: [{ name: 'partners', from: 'partner', rps: 30, to: 'legacy', via: { label: 'number-verification' }, spikes: [{ at: 4, forMin: 3, rps: 300 }] }],
+          expect: { peakRps: [{ node: 'legacy', max: 100 }], answers: [{ minSuccess: 0.4, minLimited: 0.2 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mobile operator wants to earn revenue by exposing network capabilities to enterprise developers and aggregators: number verification (fraud prevention), SIM-swap check, device location verification, and quality-on-demand (temporarily boosting a device's connection for a video call or drone). These capabilities live in core-network functions owned by the network engineering team, behind several internal gateways. Industry initiatives define standard API shapes for some of these capabilities, and aggregators expect them.
@@ -55,6 +79,7 @@ export default {
 - Some APIs need very low latency (number verification in a login flow: target < 500 ms).
 - Traffic must stay in the country; some components run in the operator's own data centres.
 - Fraudsters will try to abuse the APIs.
+- Partners send about 30 number checks a second. The network function takes at most 100 a second, and a buggy partner can push 300 a second for 3 minutes.
 
 **Your task.** Propose the API product design, gateway/runtime topology, security model and commercial plumbing.
 `,

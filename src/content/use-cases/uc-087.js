@@ -32,7 +32,7 @@ export default {
         wms: ['wms', 'DC WMS (goods receipts)'],
         rq: ['queue', 'goods-receipts'],
         alloc: ['process-api', 'prc-allocation'],
-        pq: ['queue', 'preorder-payments'],
+        pq: ['queue', 'preorder-payments', { maxRedelivery: 30 }],
         pdlq: ['dlq', 'preorder-payments-dlq'],
         payp: ['process-api', 'prc-preorder-payment (100 TPS)'],
         soms: ['system-api', 'sys-oms'],
@@ -47,6 +47,30 @@ export default {
         'payp -> soms', 'soms -> oms', 'payp -> snot', 'snot -> msg', 'job -> spre', 'job -> alloc', 'job -> snot',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'payment', latencyMs: 800, maxRps: 100 },
+        { match: 'database', latencyMs: 20 },
+        { match: 'erp', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The provider is down during allocation',
+          about: 'A delivery arrives and allocation queues 20 charges a second for 30 minutes, while the payment provider is down for 20 minutes. The charges wait in the queue and go through when it is back, so no pre-order is lost or sent to the DLQ.',
+          traffic: [{ name: 'charges', from: { type: 'process-api', label: 'allocation' }, rps: 20, forMin: 30, to: 'payment', kind: 'write' }],
+          incidents: [{ down: 'payment', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { backlog: [{ queue: { type: 'queue', label: 'payment' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some stored cards are declined',
+          about: 'Allocation queues 20 charges a second, and 1 card in 50 is declined every time. Those charges end in the DLQ, so the customer can be asked for a new card, and the others keep flowing.',
+          traffic: [{ name: 'charges', from: { type: 'process-api', label: 'allocation' }, rps: 20, forMin: 30, to: 'payment', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'payment' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 A games retailer opens **pre-orders** for a new console. It expects **120,000 pre-orders in the first 48 hours**. Stock arrives in **three waves of 40,000** over six weeks, and nobody knows the exact dates.
@@ -63,6 +87,7 @@ Facts:
 - The provider limit for this merchant is **100 transactions a second**.
 - The DC WMS publishes a **goods receipt** message when a delivery is booked in.
 - The OMS creates the fulfilment order and the WMS ships it.
+- When a big delivery arrives, allocation queues about **20 charges a second**. The provider can be down for 20 minutes, and about 1 stored card in 50 is declined every time.
 
 **Questions:**
 1. What happens at pre-order time?

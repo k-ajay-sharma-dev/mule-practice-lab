@@ -31,8 +31,8 @@ export default {
         norm: ['process-api', 'prc-order-normaliser'],
         map: ['database', 'Order origin map (order number to platform)'],
         top: ['topic', 'orders.v1 (canonical)'],
-        erpP: ['process-api', 'prc-order-to-erp'],
-        ssap: ['system-api', 'sys-sap-orders'],
+        erpP: ['process-api', 'prc-order-to-erp', { timeoutMs: 60000 }],
+        ssap: ['system-api', 'sys-sap-orders', { timeoutMs: 30000 }],
         sap: ['erp', 'SAP S/4HANA'],
         wmsP: ['process-api', 'prc-order-to-wms'],
         swms: ['system-api', 'sys-wms'],
@@ -47,6 +47,30 @@ export default {
         'stat -> map', 'stat -> ssaas', 'ssaas -> saas', 'stat -> smag', 'smag -> mag',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 15000 },
+        { match: 'wms', latencyMs: 300 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'SAP is down for an hour',
+          about: 'Both platforms send 0.7 orders a second while SAP is down for 60 minutes. The WMS keeps getting every order, SAP gets its copies when it is back, and no order is lost.',
+          traffic: [{ name: 'orders', from: ['legacy', 'saas'], rps: 0.7, to: ['erp', 'wms'], kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'wms', min: 0.99 }], backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 60 }], lost: { max: 0 } },
+        },
+        {
+          name: 'SAP is slow at peak',
+          about: 'Both platforms send 0.7 orders a second, and SAP takes about 15 seconds to create each order. The calls need timeouts longer than that, so every order reaches SAP and the WMS.',
+          traffic: [{ name: 'orders', from: ['legacy', 'saas'], rps: 0.7, to: ['erp', 'wms'], kind: 'write' }],
+          durationMin: 30,
+          expect: { delivered: [{ to: 'wms', min: 0.99 }], backlog: [{ queue: ['queue', 'topic', 'event-stream'], maxEnd: 60 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer runs **12 country sites** on a self-hosted **Magento 2**. It is moving to a **SaaS commerce platform** over four months, one country at a time: UK first, then Germany and France, then the other nine.
@@ -64,6 +88,7 @@ Requirements:
 Facts:
 - The new platform sends signed webhooks for orders and offers an Admin API.
 - Magento has a message queue framework; a small extension can publish an event for each order placed.
+- 2,500 orders an hour is about 0.7 a second. At peak SAP takes about **15 seconds** to create an order, and it can be down for an hour.
 
 **Questions:**
 1. Draw the target design for the migration period.

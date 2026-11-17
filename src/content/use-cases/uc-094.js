@@ -24,7 +24,7 @@ export default {
         job: ['batch-job', 'Hire poller (every 15 min)'],
         swd: ['system-api', 'sys-workday-api'],
         wd: ['saas', 'Workday HCM'],
-        topic: ['topic', 'worker-hired (Anypoint MQ exchange)'],
+        topic: ['topic', 'worker-hired (Anypoint MQ exchange)', { maxRedelivery: 90 }],
         pad: ['process-api', 'prc-ad-provisioning'],
         ppay: ['process-api', 'prc-payroll-enrolment'],
         sad: ['system-api', 'sys-active-directory-api (on-prem)'],
@@ -39,6 +39,30 @@ export default {
         'ppay -> sadp', 'sadp -> adp', 'pad -> swd', 'pad ~> dlq', 'ppay ~> dlq', 'pad -> mail',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'saas', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'ADP is down for an hour',
+          about: 'The poller publishes 6 hires a minute while the ADP API is down for an hour. Every hire still gets its AD login at once, and the payroll copies wait and go through when ADP is back, with none lost or sent to the DLQ.',
+          traffic: [{ name: 'hires', from: 'batch-job', rps: 0.1, to: ['legacy', 'external-api'], kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'legacy', min: 0.99 }], lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+        {
+          name: 'Some hires cannot be provisioned',
+          about: 'The poller publishes 6 hires a minute, and 1 hire in 50 has data both targets reject every time. Those hires go to the DLQ with an alert, and the others keep flowing.',
+          traffic: [{ name: 'hires', from: 'batch-job', rps: 0.1, to: ['legacy', 'external-api'], kind: 'write', poison: 0.02 }],
+          durationMin: 120,
+          expect: { dlq: { min: 5 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A logistics company hires about **120 people a week** across 9 sites. **Workday HCM** is the source of truth for workers. New hires must have a working login and be in payroll on their first day; today IT finds out from a spreadsheet and half of new hires wait two days for a laptop login.
@@ -53,6 +77,7 @@ Facts:
 - The username and email created in AD must be stored back in Workday, because other systems read them from there.
 - AD provisioning must not wait for payroll, and a payroll error must not block the login.
 - Bank details and national IDs are sensitive and must never be logged.
+- In the tests the poller publishes 6 hires a minute, the ADP API can be down for an hour, and 1 hire in 50 has data both targets reject.
 
 **Questions:**
 1. How do you detect hires and changes in Workday?

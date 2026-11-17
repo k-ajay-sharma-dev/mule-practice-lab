@@ -21,12 +21,12 @@ export default {
     reference: diagram(
       {
         portal: ['web-app', 'Customer portal'],
-        eport: ['experience-api', 'portal-usage-eapi'],
+        eport: ['experience-api', 'portal-usage-eapi', { vCores: '1' }],
         ingest: ['batch-job', 'meter-file-ingest (streaming batch)'],
         pev: ['process-api', 'meter-events-papi'],
         alarms: ['event-stream', 'meter-alarms'],
         smdm: ['system-api', 'mdm-sapi'],
-        susage: ['system-api', 'usage-sapi'],
+        susage: ['system-api', 'usage-sapi', { vCores: '1' }],
         soms: ['system-api', 'outage-sapi'],
         hes: ['legacy', 'Head-end system (HES)'],
         files: ['file-store', 'HES files (SFTP / object storage)'],
@@ -42,6 +42,28 @@ export default {
         'files -> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 150, maxRps: 50 },
+        { match: { type: 'legacy', label: 'outage' }, latencyMs: 100, maxRps: 50 },
+      ],
+      cache: { hitRatio: 0.9 },
+      tests: [
+        {
+          name: 'Evening portal peak',
+          about: 'Customers check their usage 300 times a second in the evening, and MDM takes 50 requests a second. The read store answers 9 in 10, and the portal APIs have the capacity for the rest.',
+          traffic: [{ name: 'usage reads', from: 'web-app', rps: 300, to: 'saas' }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'saas', max: 50 }] },
+        },
+        {
+          name: 'A storm of outage alarms',
+          about: 'A storm sends 150 meter alarms a second for 5 minutes, and the outage system takes 50 a second. The event stream holds the alarms, the outage system is never pushed over its limit, and none is lost.',
+          traffic: [{ name: 'alarms', from: { type: 'legacy', label: 'head-end' }, rps: 5, to: { type: 'legacy', label: 'outage' }, kind: 'write', spikes: [{ at: 2, forMin: 5, rps: 150 }] }],
+          durationMin: 40,
+          expect: { peakRps: [{ node: { type: 'legacy', label: 'outage' }, max: 50 }], delivered: [{ to: { type: 'legacy', label: 'outage' }, min: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'event-stream', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An electricity and gas utility is rolling out 2 million smart meters. A head-end system (HES) collects readings every 30 minutes and makes them available in two ways:
@@ -62,6 +84,7 @@ Readings must reach the meter data management system (MDM) for validation and es
 - ~96 million readings per day; files of several hundred MB.
 - Meters occasionally send late or duplicate readings.
 - Some customers have opted out of fine-grained data use for analytics.
+- The portal gets about 300 usage reads a second in the evening and MDM takes 50 a second. A storm can send 150 alarms a second for 5 minutes, and the outage system takes 50 a second.
 
 **Your task.** Propose how MuleSoft fits into this data flow, including what you would *not* put through Mule.
 `,

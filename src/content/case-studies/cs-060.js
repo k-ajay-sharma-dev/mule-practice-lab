@@ -26,7 +26,7 @@ export default {
         seq: ['process-api', 'prc-jis-sequencing'],
         desp: ['process-api', 'prc-despatch-asn'],
         mon: ['batch-job', 'Sequence gap & heartbeat monitor'],
-        cq: ['queue', 'jis-calls (exclusive consumer)'],
+        cq: ['queue', 'jis-calls (exclusive consumer)', { maxRedelivery: 30 }],
         bq: ['queue', 'build-complete'],
         dlq: ['dlq', 'jis-calls DLQ'],
         smes: ['system-api', 'sys-mes-api'],
@@ -45,6 +45,29 @@ export default {
         'mon -> sdb', 'mon -> notif',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'The MES is down for 20 minutes',
+          about: 'The OEM plants send a sequence call every 10 seconds while the line MES is down for 20 minutes. Each call waits in the queue and is tried for 30 minutes, so no call is lost or sent to the DLQ.',
+          traffic: [{ name: 'sequence calls', from: 'partner', rps: 0.1, to: 'legacy', kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'jis-calls' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'A call the MES always rejects',
+          about: 'The OEM plants send a sequence call every 10 seconds, and 1 call in 20 has a variant the MES rejects every time. After 30 deliveries those calls go to the DLQ and the supervisor is alerted, and the other calls keep flowing.',
+          traffic: [{ name: 'sequence calls', from: 'partner', rps: 0.1, to: 'legacy', kind: 'write', poison: 0.05 }],
+          durationMin: 90,
+          expect: { dlq: { min: 5 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A tier-1 supplier builds car seats in a plant 20 km from two OEM assembly plants. Seats are delivered just-in-sequence (JIS):
@@ -68,6 +91,8 @@ export default {
 | SAP | Deliveries and invoices posted in SAP S/4HANA |
 | Network | Plant WAN to the cloud is a single link; the line must keep running if it fails |
 | Messaging | ActiveMQ Artemis is the company standard for plant messaging |
+
+The two plants send about one sequence call every 10 seconds in all. The line MES can be down for 20 minutes, and about 1 call in 20 has a variant it rejects every time.
 
 **Your task.** Propose:
 - the architecture

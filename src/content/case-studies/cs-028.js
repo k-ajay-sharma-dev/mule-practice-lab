@@ -24,8 +24,8 @@ export default {
         sign: ['device', 'Stop signs'],
         tp: ['partner', 'Third-party journey planners'],
         gw: ['api-gateway', 'API Manager (client ID, SLA tiers)'],
-        eapi: ['experience-api', 'exp-public-arrivals-api'],
-        prc: ['process-api', 'prc-arrivals-api'],
+        eapi: ['experience-api', 'exp-public-arrivals-api', { replicas: 3, vCores: '4' }],
+        prc: ['process-api', 'prc-arrivals-api', { replicas: 3, vCores: '4' }],
         poll: ['batch-job', 'Operator feed poller (every 15 s)'],
         cache: ['cache', 'Merged arrivals per stop (TTL 60 s)'],
         sa: ['system-api', 'sys-operator-a-api'],
@@ -42,6 +42,23 @@ export default {
         'poll -> sa', 'poll -> sb', 'poll -> sc', 'poll -> cache', 'sa -> oa', 'sb -> ob', 'sc -> oc',
       ],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Rush hour',
+          about: 'At rush hour the app, the stop signs and the journey planners ask for arrivals 3,000 times a second. The public APIs have the replicas and cores to answer each one from the cache within 200 ms.',
+          traffic: [{ name: 'arrivals', from: ['mobile-app', 'device', 'partner'], rps: 3000, to: 'cache' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 200 }], notReached: [{ node: 'external-api' }] },
+        },
+        {
+          name: 'A zone goes down at rush hour',
+          about: 'Arrivals are asked for 3,000 times a second when one availability zone goes down. The replicas in the other zones still carry every request.',
+          traffic: [{ name: 'arrivals', from: ['mobile-app', 'device', 'partner'], rps: 3000, to: 'cache' }],
+          incidents: [{ zone: true, at: 3 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A city transport authority runs buses and trams operated by three contractors. Each operator has its own vehicle-tracking system that produces predicted arrival times per stop. The authority wants one public "next arrivals" API for its own app, digital signs at stops, and third-party journey-planner apps.
@@ -56,6 +73,7 @@ export default {
 - Predictions change every 15–30 seconds; data older than ~60 seconds is useless.
 - Peak public demand is ~3,000 requests/second during rush hour.
 - 4,000 stops; stop reference data changes a few times a year.
+- The 3,000 requests a second must still be answered within 200 ms when an availability zone goes down.
 
 **Your task.** Propose the API design, how you protect the operator systems, and how you manage developer access.
 `,

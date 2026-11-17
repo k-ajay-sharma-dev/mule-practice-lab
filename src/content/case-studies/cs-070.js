@@ -24,14 +24,14 @@ export default {
       {
         web: ['web-app', 'Web shop (SFCC)'],
         mob: ['mobile-app', 'Mobile app'],
-        exp: ['experience-api', 'exp-store-availability-api'],
-        pav: ['process-api', 'prc-availability'],
-        pres: ['process-api', 'prc-reservations'],
-        cache: ['cache', 'Availability cache (30 s)'],
+        exp: ['experience-api', 'exp-store-availability-api', { replicas: 4, vCores: '2' }],
+        pav: ['process-api', 'prc-availability', { replicas: 4, vCores: '2' }],
+        pres: ['process-api', 'prc-reservations', { replicas: 4, vCores: '2' }],
+        cache: ['cache', 'Availability cache (30 s)', { ttlSec: 30 }],
         avs: ['database', 'Availability store (stock minus reservations)'],
         pos: ['pos', 'POS (600 stores)'],
         es: ['event-stream', 'store-stock-movements (Kafka)'],
-        pupd: ['process-api', 'prc-availability-updater'],
+        pupd: ['process-api', 'prc-availability-updater', { vCores: '2' }],
         oms: ['saas', 'Order management (OMS)'],
         ord: ['topic', 'order-placed'],
         expj: ['batch-job', 'Reservation expiry (every minute)'],
@@ -44,6 +44,29 @@ export default {
         'pupd -> avs', 'oms ~> ord', 'ord ~> pres', 'expj -> avs', 'rec -> ssim', 'ssim -> sim', 'rec -> avs',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 5 },
+        { match: 'legacy', latencyMs: 300, maxRps: 50 },
+      ],
+      cache: { hitRatio: 0.9, atTtlSec: 30 },
+      tests: [
+        {
+          name: 'Lookups while SIM is down',
+          about: 'Shoppers make 3,000 availability lookups a second while SIM is down for its nightly 30 minutes. The availability APIs answer from the cache and the availability store, so every lookup is answered and SIM gets none of them.',
+          traffic: [{ name: 'lookups', from: 'web-app', rps: 3000, to: 'database' }],
+          incidents: [{ down: 'legacy', at: 2, forMin: 30 }],
+          expect: { answers: [{ minSuccess: 0.99 }], notReached: [{ node: 'legacy' }] },
+        },
+        {
+          name: 'Stock movement peak',
+          about: 'The stores send 600 stock movements a second for 30 minutes. The availability updater keeps up, so the stream holds no backlog at the end and the store promise stays current.',
+          traffic: [{ name: 'movements', from: 'pos', rps: 600, forMin: 30, to: 'database', kind: 'write' }],
+          durationMin: 40,
+          expect: { backlog: [{ queue: 'event-stream', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A sporting goods retailer has 600 stores in 5 countries and a busy website and app. It wants to offer "collect in 1 hour" for any store that has the item. Today the website shows store stock from a nightly file, and 14% of click-and-collect orders are cancelled because the item is not there.
@@ -70,6 +93,7 @@ export default {
 **Constraints**
 - SIM cannot take more than 50 requests per second and is down for 30 minutes every night.
 - Stock movements can arrive late or twice when a store's network drops.
+- Plan for 3,000 availability lookups a second while SIM is down, and 600 stock movements a second for 30 minutes.
 
 **Your task.** Design the availability and reservation integration.
 `,

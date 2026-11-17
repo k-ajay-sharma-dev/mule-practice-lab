@@ -22,11 +22,11 @@ export default {
       {
         lsel: ['partner', 'Large seller (API)'],
         portal: ['web-app', 'Seller portal / CSV upload'],
-        gw: ['api-gateway', 'Gateway (OAuth per seller, SLA tiers)'],
-        esel: ['experience-api', 'seller-eapi'],
+        gw: ['api-gateway', 'Gateway (OAuth per seller, SLA tiers)', { rateLimit: 50 }],
+        esel: ['experience-api', 'seller-eapi', { vCores: '0.5' }],
         eport: ['experience-api', 'seller-portal-eapi'],
-        pcat: ['process-api', 'seller-catalog-papi'],
-        pord: ['process-api', 'seller-orders-papi'],
+        pcat: ['process-api', 'seller-catalog-papi', { vCores: '0.5' }],
+        pord: ['process-api', 'seller-orders-papi', { vCores: '0.5' }],
         job: ['batch-job', 'Bulk catalogue loader'],
         qup: ['queue', 'catalog-uploads'],
         scat: ['system-api', 'catalog-sapi'],
@@ -43,6 +43,27 @@ export default {
         'pord -> sord', 'pord -> sfin', 'sord -> ord', 'sfin -> fin',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'erp', label: 'order' }, latencyMs: 200, maxRps: 60 },
+        { match: 'saas', latencyMs: 500, maxRps: 20 },
+      ],
+      tests: [
+        {
+          name: 'A large seller floods the API',
+          about: 'Sellers call the order API 20 times a second, and for 3 minutes a large seller with a bug pushes that to 300 a second. The order system takes 60 a second. The gateway answers the extra with 429, so the order system is never over its limit.',
+          traffic: [{ name: 'seller calls', from: 'partner', rps: 20, via: { label: 'seller-eapi' }, to: { type: 'erp', label: 'order' }, spikes: [{ at: 4, forMin: 3, rps: 300 }] }],
+          expect: { peakRps: [{ node: { type: 'erp', label: 'order' }, max: 60 }], answers: [{ minSuccess: 0.25, minLimited: 0.3 }] },
+        },
+        {
+          name: 'A big catalogue upload',
+          about: 'A seller uploads 50 catalogue items a second for 5 minutes, and the catalogue system takes 20 a second. Each upload is accepted at once, the queue holds the items, and the loader feeds the catalogue at its pace.',
+          traffic: [{ name: 'catalogue items', from: 'partner', rps: 1, via: { label: 'seller-eapi' }, to: 'saas', kind: 'write', spikes: [{ at: 0, forMin: 5, rps: 50 }] }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 20 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An online retailer is opening its website to third-party sellers. Sellers must upload product catalogues and stock, receive orders, confirm shipments and get payout reports. Large sellers want APIs; small sellers use a seller portal or CSV uploads. The retailer's own catalogue, order and finance systems must handle both first-party and seller products.
@@ -56,6 +77,7 @@ export default {
 - Catalogue system accepts bulk updates but is slow for single-item calls.
 - Sellers' data must be isolated from each other.
 - Finance needs accurate data for commission and payouts.
+- Sellers call the order API about 20 times a second, and one seller can burst to 300. The order system takes 60 calls a second, and the catalogue system 20 items a second, while an upload can bring 50 items a second.
 
 **Your task.** Propose the seller-facing APIs, the integration flows behind them, and how you protect the platform.
 `,

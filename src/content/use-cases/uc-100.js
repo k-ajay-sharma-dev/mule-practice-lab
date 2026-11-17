@@ -21,18 +21,43 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Nightly usage load (Mule batch, 23:00)'],
-        sfile: ['system-api', 'sys-mediation-sftp-api'],
+        job: ['batch-job', 'Nightly usage load (Mule batch, 23:00)', { replicas: 2 }],
+        sfile: ['system-api', 'sys-mediation-sftp-api', { replicas: 2 }],
         sftp: ['sftp-server', 'Mediation usage files'],
         lock: ['cache', 'Run lock (Object Store)'],
         ck: ['database', 'Checkpoint and control-total table'],
-        sbill: ['system-api', 'sys-billing-db-api'],
+        sbill: ['system-api', 'sys-billing-db-api', { replicas: 2, retries: 3 }],
         bill: ['oracle-db', 'Billing database (Oracle 19c)'],
         err: ['dlq', 'Failed usage records'],
         mail: ['notification', 'Ops report with control totals'],
       },
       ['job -> lock', 'job -> sfile', 'sfile -> sftp', 'job -> ck', 'job -> sbill', 'sbill -> bill', 'job ~> err', 'job -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'oracle-db', latencyMs: 300 },
+        { match: 'sftp-server', latencyMs: 200 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A zone goes down during the load',
+          about: 'The job loads 1 chunk of 100 records a second for 50 minutes, and one availability zone is down for 20 minutes. The replicas in the other zone keep loading, so every chunk gets in.',
+          traffic: [{ name: 'usage chunks', from: 'batch-job', rps: 1, forMin: 50, to: ['sftp-server', 'oracle-db'], kind: 'write' }],
+          incidents: [{ zone: true, at: 10, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The billing database fails over',
+          about: 'The job loads 1 chunk a second for 50 minutes. For 5 minutes during a database failover, 3 writes in 10 fail. The usage id makes a retry safe, so no chunk is missing and none is loaded twice.',
+          traffic: [{ name: 'usage chunks', from: 'batch-job', rps: 1, forMin: 50, to: ['sftp-server', 'oracle-db'], kind: 'write' }],
+          incidents: [{ errors: 'oracle-db', rate: 0.3, at: 20, forMin: 5 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A mobile operator with 3 million subscribers rates usage every night. The **mediation platform** drops call, SMS and data records as compressed CSV files on an **SFTP** server. A Mule 4 application loads them into the **billing database** (Oracle 19c), where a stored procedure rates them before the bill run.
@@ -44,6 +69,7 @@ Facts:
 - Last quarter the job died at record 1.2 million after a database failover. It was restarted from the beginning, ran past 05:30 and **charged 9,000 customers twice** for the same calls.
 - The app runs on **CloudHub 2.0 with 2 replicas** for availability.
 - About 0.2% of records are invalid (unknown subscriber, negative duration).
+- In the tests the job loads 1 chunk of 100 records a second. A zone can be down for 20 minutes, and a database failover can fail 3 writes in 10 for 5 minutes.
 
 **Questions:**
 1. How do you structure the job so it can restart without loading anything twice?

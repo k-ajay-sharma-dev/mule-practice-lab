@@ -23,7 +23,7 @@ export default {
       {
         web: ['web-app', 'Website'],
         mob: ['mobile-app', 'Mobile app'],
-        gw: ['api-gateway', 'Gateway (client ID, rate limit)'],
+        gw: ['api-gateway', 'Gateway (client ID, rate limit)', { auth: 'client-id', rateLimit: 20 }],
         exp: ['experience-api', 'exp-checkout'],
         saga: ['process-api', 'prc-split-tender (saga)'],
         idem: ['cache', 'Checkout idempotency keys'],
@@ -51,6 +51,33 @@ export default {
         'saga ~> oq', 'oq ~> soms', 'soms -> oms', 'rec -> files', 'rec -> sled',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 400 },
+        { match: 'external-api', latencyMs: 600 },
+        { match: 'payment', latencyMs: 1000 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a client ID',
+          about: 'The website and app send 10 split tender checkouts a second with their client IDs, and an unknown script sends 5 a second without one. The gateway refuses the script before any tender is touched.',
+          traffic: [
+            { name: 'checkouts', from: ['web-app', 'mobile-app'], rps: 10, to: ['saas', 'external-api', 'payment', 'database'], kind: 'write' },
+            { name: 'unknown script', from: 'web-app', rps: 5, to: ['saas', 'external-api', 'payment', 'database'], kind: 'write', auth: 'none' },
+          ],
+          durationMin: 10,
+          expect: { answers: [{ flow: 'checkouts', minSuccess: 0.99, maxMs: 8000 }, { flow: 'unknown script', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A script replays checkouts',
+          about: 'Checkouts run at 10 a second, and for 3 minutes a script pushes them to 80 a second. The gateway answers what is over 20 a second with 429, so the checkout behind it and the tender systems never get the flood.',
+          traffic: [{ name: 'checkouts', from: ['web-app', 'mobile-app'], rps: 10, to: ['saas', 'external-api', 'payment', 'database'], kind: 'write', spikes: [{ at: 4, forMin: 3, rps: 80 }] }],
+          durationMin: 10,
+          expect: { peakRps: [{ node: 'experience-api', max: 21 }], answers: [{ minSuccess: 0.35, minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 A department store wants customers to pay one online order with a mix of tenders:
@@ -76,6 +103,7 @@ Business rules:
 - Tender order at checkout: points, then gift cards, then card.
 - Refunds go back in the reverse order: card first, then gift cards, then points.
 - The customer must get an answer within **8 seconds**.
+- Split tender checkouts peak at about **10 a second**. A script that replays checkouts can push them to 80 a second, and the gateway allows 20.
 
 **Questions:**
 1. Draw the design.

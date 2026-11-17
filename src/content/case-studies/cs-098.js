@@ -29,13 +29,13 @@ export default {
         cit: ['web-app', 'Citizen benefits portal'],
         cw: ['internal-app', 'Caseworker app'],
         idp: ['identity-provider', 'National digital identity (OIDC)'],
-        gw: ['api-gateway', 'API gateway (JWT validation, scopes)'],
+        gw: ['api-gateway', 'API gateway (JWT validation, scopes)', { auth: 'jwt' }],
         ecit: ['experience-api', 'exp-citizen-claims-api'],
         ecw: ['experience-api', 'exp-caseworker-api'],
-        pel: ['process-api', 'prc-eligibility-check'],
+        pel: ['process-api', 'prc-eligibility-check', { onFailure: 'partial answer' }],
         pq: ['queue', 'pending-verifications'],
         pret: ['process-api', 'prc-verification-retry'],
-        sx: ['system-api', 'sys-data-exchange-api'],
+        sx: ['system-api', 'sys-data-exchange-api', { timeoutMs: 5000 }],
         xg: ['external-api', 'Government data exchange (tax, employment, civil registry)'],
         aq: ['queue', 'lookup-audit'],
         alog: ['database', 'Lookup audit store (write once)'],
@@ -48,6 +48,31 @@ export default {
         'pel ~> pq', 'pq ~> pret', 'pret -> sx', 'pret -> scase',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 800 },
+        { match: 'legacy', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The tax service is slow',
+          about: 'Claimants send 10 claims a second while the tax service takes 20 seconds to answer for 20 minutes. The exchange System API gives up after 5 seconds, and the claim is answered without that fact and parked for a retry.',
+          traffic: [{ name: 'claims', from: 'web-app', rps: 10, to: ['external-api', 'legacy'] }],
+          incidents: [{ slow: 'external-api', latencyMs: 20000, at: 5, forMin: 20 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 10000 }] },
+        },
+        {
+          name: 'A caller without a token',
+          about: 'Citizens send 20 claims a second with valid tokens, and an unknown caller sends 5 a second without one. The gateway refuses the unknown caller.',
+          traffic: [
+            { name: 'citizens', from: 'web-app', rps: 20, to: ['external-api', 'legacy'] },
+            { name: 'unknown caller', from: 'web-app', rps: 5, to: ['external-api', 'legacy'], auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'citizens', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A national benefits agency pays housing and income support to 2.4 million households. To decide a claim it needs facts held by other agencies:
@@ -71,6 +96,7 @@ Today claimants upload payslips and letters, and 900 caseworkers check them by h
 | Identity | Citizens sign in with the national digital identity; caseworkers with the agency's directory |
 | Case system | On-premises case management system with a SOAP interface, the record of every decision |
 | Volume | About 40,000 new claims and 150,000 reassessments a month |
+| Tests | 10 to 20 claims a second, the tax service taking 20 seconds for 20 minutes, and an unknown caller sending 5 a second with no token |
 
 **Your task.** Design how the portal and caseworker app get verified facts, how the agency talks to the data exchange, and how lookups are audited and retried.
 `,

@@ -23,7 +23,7 @@ export default {
       {
         shop: ['saas', 'Online store platform'],
         wh: ['experience-api', 'exp-commerce-webhooks (HMAC)'],
-        qo: ['queue', 'orders-in'],
+        qo: ['queue', 'orders-in', { maxRedelivery: 30 }],
         dlq: ['dlq', 'orders-in-dlq'],
         cap: ['process-api', 'prc-order-capture'],
         seen: ['cache', 'Processed order IDs'],
@@ -40,6 +40,29 @@ export default {
         'wms ~> qs', 'qs ~> ful', 'ful -> serp', 'ful -> sshop', 'sshop -> shop',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 500, maxRps: 20 },
+        { match: 'wms', latencyMs: 200 },
+        { match: 'cache', hitRatio: 0 },
+      ],
+      tests: [
+        {
+          name: 'A product drop',
+          about: 'A product drop sends 40 orders a second for 5 minutes. The ERP takes about 20 a second (10 at a time, 500 ms each). Every webhook gets its 200 in time, the orders wait in the queue, and the ERP is never over its limit.',
+          traffic: [{ name: 'orders', from: 'saas', rps: 40, forMin: 5, to: ['erp', 'wms'], kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'erp', max: 20 }], backlog: [{ queue: { type: 'queue', label: 'orders-in' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some orders cannot be posted',
+          about: 'The platform sends 2 orders a second, and 1 order in 100 has an item the ERP rejects every time. Those orders end in the DLQ after their last delivery, and the others keep flowing.',
+          traffic: [{ name: 'orders', from: 'saas', rps: 2, to: ['erp', 'wms'], kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A direct-to-consumer sportswear brand sells on a hosted store platform: **6,000 orders a day**, and up to **40 orders a second** in the first minutes of a product drop.
@@ -50,6 +73,7 @@ Systems:
 - The **WMS** in the brand's warehouse picks and ships. Orders that reach the WMS by **15:00** ship the same day.
 - When a parcel ships, the WMS publishes a **shipment confirmed** message with the carrier and tracking number.
 - The customer must see the tracking number in the store's order page, and the platform then emails the customer.
+- An ERP call takes about 500 ms, so 10 at a time is about **20 orders a second**. About 1 order in 100 has an item the ERP rejects every time.
 
 **Questions:**
 1. Draw the integration from webhook to shipment.

@@ -22,8 +22,8 @@ export default {
     reference: diagram(
       {
         ebs: ['oracle-db', 'Oracle EBS database (19c)'],
-        k: ['event-stream', 'ebs.finance.cdc (Kafka)'],
-        prc: ['process-api', 'prc-finance-dw-loader'],
+        k: ['event-stream', 'ebs.finance.cdc (Kafka)', { maxRedelivery: 5 }],
+        prc: ['process-api', 'prc-finance-dw-loader', { vCores: '0.5' }],
         s3: ['s3-bucket', 'Staging files (Parquet)'],
         dw: ['data-warehouse', 'Snowflake finance mart'],
         dlq: ['dlq', 'ebs.finance.cdc.dlq'],
@@ -32,6 +32,28 @@ export default {
       },
       ['ebs ~> k', 'k ~> prc', 'prc ~> dlq', 'prc -> s3', 's3 ~> dw', 'rep -> dw', 'rep -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 's3-bucket', latencyMs: 50 },
+        { match: 'data-warehouse', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'The AP payment run peak',
+          about: 'During the AP payment run GoldenGate publishes 400,000 changes in an hour, about 111 a second. The loader must keep up, so the stream never holds more than 20,000 changes (about 3 minutes) and Snowflake stays well under 1 hour old.',
+          traffic: [{ name: 'changes', from: 'oracle-db', rps: 111, forMin: 60, to: 'data-warehouse', kind: 'write' }],
+          durationMin: 90,
+          expect: { backlog: [{ queue: 'event-stream', maxPeak: 20000, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some changes fail the mapping',
+          about: 'GoldenGate publishes 30 changes a second, and 1 change in 1,000 has a value the mapping cannot handle. Those changes go to the DLQ after 5 tries, so they can be replayed after the fix, and the others keep flowing.',
+          traffic: [{ name: 'changes', from: 'oracle-db', rps: 30, to: 'data-warehouse', kind: 'write', poison: 0.001 }],
+          durationMin: 60,
+          expect: { dlq: { min: 20 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A wholesale distributor reports finance from a **Snowflake** warehouse. Today a nightly Mule job runs full extracts of GL balances, AP invoices, AR transactions and payments from **Oracle E-Business Suite 12.2**. It takes **5 hours**, often runs into the business day, slows down EBS for users in Asia, and the data is up to 30 hours old.
@@ -43,6 +65,7 @@ Target:
 - Deletes must reach Snowflake (EBS purges some interface rows), and changes to one row must be applied in order.
 - Snowflake should be loaded in micro-batches through an external stage on **Amazon S3**; the data team uses Snowpipe.
 - Finance must be able to trust it: any gap between EBS and Snowflake must be found within an hour.
+- In the tests the payment run publishes about 111 changes a second for an hour, and 1 change in 1,000 has a value the mapping cannot handle.
 
 **Questions:**
 1. How does the change stream flow from EBS to Snowflake?

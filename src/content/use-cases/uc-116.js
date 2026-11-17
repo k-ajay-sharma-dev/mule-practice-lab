@@ -28,7 +28,7 @@ export default {
         pg: ['database', 'Orders DB (PostgreSQL): orders + outbox tables'],
         relay: ['batch-job', 'Outbox relay (polls every 2 s)'],
         ex: ['topic', 'Anypoint MQ exchange activation-events'],
-        qp: ['queue', 'provisioning-q'],
+        qp: ['queue', 'provisioning-q', { maxRedelivery: 90 }],
         qb: ['queue', 'billing-q'],
         qn: ['queue', 'notify-q'],
         dlq: ['dlq', 'provisioning-dlq'],
@@ -46,6 +46,26 @@ export default {
         'qp ~> pprov', 'pprov -> sprov', 'sprov -> hss', 'qb ~> pbill', 'pbill -> sbill', 'sbill -> bill', 'qn ~> pnote', 'pnote -> notif',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 2000, maxRps: 10 }],
+      tests: [
+        {
+          name: 'The HSS is down for an hour at night',
+          about: 'The relay publishes 2 activation events a second while the HSS is down for 60 minutes. Billing and notifications go on, provisioning events wait in their queue, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'activations', from: { label: 'relay' }, rps: 2, to: ['legacy', 'saas', 'notification'], kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'legacy', min: 0.99 }, { to: 'saas', min: 0.99 }, { to: 'notification', min: 0.99 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some activations cannot be provisioned',
+          about: 'The relay publishes 2 activation events a second for provisioning, and 1 in 100 has a number the HSS rejects every time. After 90 tries, about an hour and a half, those events go to the DLQ for the support team.',
+          traffic: [{ name: 'activations', from: { label: 'relay' }, rps: 2, to: 'legacy', kind: 'write', poison: 0.01 }],
+          durationMin: 150,
+          expect: { delivered: [{ to: 'legacy', min: 0.98 }], dlq: { min: 20 } },
+        },
+      ],
+    },
   },
   description: `
 A mobile operator sells SIM and **eSIM activations** on its web shop and in 600 retail stores. \`prc-activation-orders\` saves each order in **PostgreSQL** and then publishes an \`ActivationRequested\` event to an **Anypoint MQ exchange**. Three subscribers react:
@@ -61,6 +81,7 @@ Facts:
 - **30,000 activations per day**, peaks of 15 per second on new phone launch days.
 - Anypoint MQ and PostgreSQL cannot join one XA transaction.
 - Subscribers must see the events of one order in order (ActivationRequested before ActivationCancelled).
+- At night about 2 activations a second arrive while the HSS can be down for 60 minutes. The HSS takes about 10 calls a second, and about 1 activation in 100 has a number it always rejects.
 
 **Describe your solution:**
 - Why does "save then publish" lose or invent events?

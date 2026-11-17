@@ -28,7 +28,7 @@ export default {
         ss: ['process-api', 'prc-store-sales'],
         inv: ['process-api', 'prc-store-inventory'],
         pt: ['topic', 'price-changes (virtual topic)'],
-        sq: ['queue', 'store-sales'],
+        sq: ['queue', 'store-sales', { maxRedelivery: 60 }],
         dlq: ['dlq', 'store-sales DLQ'],
         spr: ['system-api', 'sys-pricing-api'],
         ssap: ['system-api', 'sys-sap-retail-api'],
@@ -41,6 +41,26 @@ export default {
         'sq ~> dlq', 'ss -> ssap', 'ssap -> sap', 'app -> es', 'es -> inv', 'inv -> ssap',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 300 }],
+      tests: [
+        {
+          name: 'SAP is down for 30 minutes',
+          about: 'The store servers send 30 sale lines a second while SAP is down for 30 minutes. Each sale waits in the queue and is tried for an hour, so no good sale is lost or sent to the DLQ.',
+          traffic: [{ name: 'sales', from: 'device', rps: 30, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Sales SAP always rejects',
+          about: 'The store servers send 30 sale lines a second, and 1 in 100 has data SAP rejects every time. After an hour of deliveries those sales go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'sales', from: 'device', rps: 30, to: 'erp', kind: 'write', poison: 0.01 }],
+          durationMin: 120,
+          expect: { dlq: { min: 500 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 1500 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A DIY and garden retailer runs 300 stores. About a third are in rural or retail-park locations where the WAN link drops several times a week (4G backup is slow and metered). Each store server downloads a price file and uploads a sales file by FTP overnight.
@@ -64,6 +84,8 @@ Weekend promotions are often wrong in a handful of stores.
 | Tills | Read prices from the store server's local database; cannot call central systems |
 | Volume | 2–5 million price lines in a big promotional week; ~1.5 million sale lines a day |
 | Outages | Store links can be down for up to 2 days |
+
+The store servers send about 30 sale lines a second. SAP can be down for 30 minutes, and about 1 sale in 100 has data SAP rejects every time.
 
 **Your task.** Propose:
 - the store integration design for price distribution, sales upload and the colleague app

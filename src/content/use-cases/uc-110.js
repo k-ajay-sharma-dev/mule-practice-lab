@@ -25,7 +25,7 @@ export default {
         ehr: ['legacy', 'EHR (HL7 v2.5 ADT over MLLP)'],
         lsn: ['system-api', 'sys-ehr-adt-listener (MLLP, RTF on-prem)'],
         arch: ['azure-blob', 'Raw HL7 archive (7 years)'],
-        raw: ['queue', 'adt.inbound (FIFO, group by MRN)'],
+        raw: ['queue', 'adt.inbound (FIFO, group by MRN)', { maxRedelivery: 5 }],
         prc: ['process-api', 'prc-adt-to-fhir'],
         sfh: ['system-api', 'sys-fhir-api'],
         fhir: ['saas', 'FHIR R4 server (Patient, Encounter)'],
@@ -35,6 +35,25 @@ export default {
       },
       ['ehr -> lsn', 'lsn -> arch', 'lsn ~> raw', 'raw ~> prc', 'prc -> sfh', 'sfh -> fhir', 'raw ~> dlq', 'app -> exp', 'exp -> sfh'],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 300, maxRps: 10 }],
+      tests: [
+        {
+          name: 'The 08:00 admissions peak',
+          about: 'The EHR sends 15 ADT messages a second for 30 minutes, and the FHIR server takes at most 10 a second. Each message is ACKed within a second once it is on the queue, the FHIR server is never pushed past its limit, and no message is lost.',
+          traffic: [{ name: 'ADT messages', from: 'legacy', rps: 15, forMin: 30, to: 'saas', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 10 }], backlog: [{ queue: { type: 'queue' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some messages cannot be mapped',
+          about: 'The EHR sends 1 ADT message a second, and 1 in 50 has a segment the mapping rejects every time. Those messages go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'ADT messages', from: 'legacy', rps: 1, to: 'saas', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: { type: 'queue' }, maxEnd: 20 }] },
+        },
+      ],
+    },
   },
   description: `
 A regional hospital group is launching a **patient care app**. The app reads patient and visit data from a cloud **FHIR R4 server**. The source is the hospital **EHR**, which only sends **HL7 v2.5 ADT** messages over **MLLP**.
@@ -43,7 +62,7 @@ Facts:
 - Message types: **A01** admit, **A03** discharge, **A04** register outpatient, **A08** update patient, **A40** merge patients.
 - About **60,000 ADT messages per day**, peaks of 15 per second at 08:00.
 - The EHR waits for an HL7 **ACK** for each message and sends the next one only after it. If no ACK comes in 30 seconds it resends, and after 5 failures it stops the interface and pages the EHR team.
-- The FHIR server allows conditional updates (\`PUT Patient?identifier=...\`) and returns 429 when overloaded.
+- The FHIR server allows conditional updates (\`PUT Patient?identifier=...\`) and returns 429 when overloaded. It takes about 10 writes a second, and the 08:00 peak of 15 a second lasts about 30 minutes. About 1 message in 50 cannot be mapped.
 - Messages for one patient must be applied in order (an A03 before its A01 would create a discharge for a visit that does not exist).
 - Patient data must not leave the hospital network except to the approved FHIR server. Mule runs on **Runtime Fabric** on-prem plus CloudHub 2.0 in a private space.
 

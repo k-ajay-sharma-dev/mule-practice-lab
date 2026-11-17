@@ -27,12 +27,12 @@ export default {
         sftp: ['sftp-server', 'Partner file drop (SFTP)'],
         gw: ['api-gateway', 'Client ID + rate limit per partner'],
         exp: ['experience-api', 'exp-partner-accrual-api'],
-        job: ['batch-job', 'accrual-file-loader'],
+        job: ['batch-job', 'accrual-file-loader', { vCores: '2' }],
         q: ['queue', 'accruals'],
         dlq: ['dlq', 'accruals DLQ'],
-        prc: ['process-api', 'prc-mileage-accrual-api'],
+        prc: ['process-api', 'prc-mileage-accrual-api', { vCores: '0.5' }],
         ids: ['cache', 'Processed partner transaction IDs'],
-        sloy: ['system-api', 'sys-loyalty-platform-api'],
+        sloy: ['system-api', 'sys-loyalty-platform-api', { vCores: '0.5' }],
         loy: ['saas', 'Loyalty platform'],
         bill: ['batch-job', 'partner-billing-nightly'],
         sfin: ['system-api', 'sys-sap-finance-api'],
@@ -43,6 +43,29 @@ export default {
         'prc -> sloy', 'sloy -> loy', 'bill -> sloy', 'bill -> sfin', 'sfin -> sap',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 150, maxRps: 200 }],
+      tests: [
+        {
+          name: 'A card bank file at the API peak',
+          about: 'Partners send 40 API accruals a second while the loader reads a card bank file at 500 rows a second. Partners get their answer at once, the queue holds the file rows, and the loyalty platform never gets more than its 200 calls a second.',
+          traffic: [
+            { name: 'API accruals', from: 'partner', rps: 40, to: 'saas', kind: 'write' },
+            { name: 'file rows', from: { type: 'batch-job', label: 'loader' }, rps: 500, forMin: 30, to: 'saas', kind: 'write' },
+          ],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 200 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The loyalty platform is down',
+          about: 'Partners send 40 accruals a second while the loyalty platform is down for 30 minutes. Partners still get their answer at once, and every accrual is posted once the platform is back.',
+          traffic: [{ name: 'API accruals', from: 'partner', rps: 40, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An airline's frequent flyer programme has 14 million members. Members earn miles with about **180 partners**: hotel chains, car rental companies, co-brand credit card banks and retailers. Partners pay the airline for every mile they award, so accruals are both a member promise and revenue.
@@ -64,6 +87,7 @@ The **loyalty platform** is a SaaS product with a REST API (limit 200 calls per 
 - An accrual is valid only if the member number exists and the surname matches.
 - Each accrual carries a partner transaction ID, unique per partner.
 - Members must see API accruals within 15 minutes and file accruals within 48 hours of the file arriving.
+- In tests partners send 40 accruals a second while a card bank file is read at 500 rows a second, and the loyalty platform can be down for 30 minutes.
 
 **Your task.** Design partner accrual intake and partner billing.
 `,

@@ -23,8 +23,8 @@ export default {
       {
         web: ['web-app', 'Website checkout'],
         mob: ['mobile-app', 'Mobile app'],
-        exp: ['experience-api', 'exp-checkout'],
-        prc: ['process-api', 'prc-locker-delivery'],
+        exp: ['experience-api', 'exp-checkout', { vCores: '0.5' }],
+        prc: ['process-api', 'prc-locker-delivery', { vCores: '0.5' }],
         cache: ['cache', 'Locker search cache (5 min, by postcode)'],
         slk: ['system-api', 'sys-locker-provider'],
         lk: ['external-api', 'Parcel locker provider'],
@@ -43,6 +43,30 @@ export default {
         'lk -> wh', 'wh ~> q', 'q ~> ev', 'ev -> soms', 'ev -> snot', 'snot -> msg', 'ev -> spay', 'spay -> pay',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 200, maxRps: 20 },
+        { match: 'erp', latencyMs: 300 },
+        { match: 'cache', hitRatio: 0.9 },
+      ],
+      tests: [
+        {
+          name: 'Black Friday locker searches',
+          about: 'On Black Friday checkout sends 150 locker searches a second. The cache answers about 9 in 10, so the provider gets about 15 a second, under its limit of 20, and every search is answered.',
+          traffic: [{ name: 'searches', from: ['web-app', 'mobile-app'], rps: 150, to: 'external-api' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'external-api', max: 20 }] },
+        },
+        {
+          name: 'The OMS is down for 30 minutes',
+          about: 'The provider sends 1 locker event a second while the OMS is down for 30 minutes. Every webhook is answered at once, the events wait in the queue, and none is lost.',
+          traffic: [{ name: 'locker events', from: 'external-api', rps: 1, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: ['queue', 'cloud-queue'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An online book and electronics retailer adds **parcel lockers** as a delivery option. A locker company runs **1,200 lockers** across the country.
@@ -59,6 +83,7 @@ Facts:
 - Checkout traffic peaks at **150 locker searches a second** on Black Friday.
 - Provider webhooks are signed and retried for 24 hours. Events: delivered_to_locker, collected, expired, returned.
 - About **9,000 locker orders a day** at peak.
+- A postcode search cached for 5 minutes answers about 9 searches in 10 on Black Friday. The OMS can be down for 30 minutes while about 1 locker event a second arrives.
 
 **Questions:**
 1. How do you show lockers at checkout without breaking the provider limit?

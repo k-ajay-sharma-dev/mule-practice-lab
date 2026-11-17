@@ -25,7 +25,7 @@ export default {
         exp: ['experience-api', 'exp-onboarding-api'],
         prc: ['process-api', 'prc-customer-onboarding-api'],
         sidv: ['system-api', 'sys-identity-verification-api'],
-        sscr: ['system-api', 'sys-screening-api'],
+        sscr: ['system-api', 'sys-screening-api', { retries: 2 }],
         score: ['system-api', 'sys-core-banking-api'],
         scrm: ['system-api', 'sys-crm-api'],
         qres: ['queue', 'kyc.vendor-results'],
@@ -43,6 +43,29 @@ export default {
         'sscr -> scr', 'score -> core', 'scrm -> crm', 'prc ~> qrev', 'qrev ~> ops',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 1500 },
+        { match: 'legacy', latencyMs: 2000 },
+      ],
+      tests: [
+        {
+          name: 'Screening drops some calls',
+          about: 'Applicants submit 2 applications a second, and the screening service fails 1 call in 5. The screening System API tries again, so almost every applicant still gets an answer.',
+          traffic: [{ name: 'applications', from: 'mobile-app', rps: 2, to: 'saas', kind: 'write' }],
+          incidents: [{ errors: 'saas', rate: 0.2 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Core banking is down for 20 minutes',
+          about: 'The vendor sends 2 results a second while core banking is down for 20 minutes. The results wait on the queue, and every account is opened once core banking is back.',
+          traffic: [{ name: 'vendor results', from: 'external-api', rps: 2, to: 'legacy', kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A digital bank wants to open current accounts for 30,000 new customers a month from its mobile app. Today onboarding takes three days: the app collects data, an overnight batch sends it to a screening provider, and analysts check passports by hand.
@@ -59,6 +82,7 @@ export default {
 - ID images and selfies are sensitive personal data. They may be kept for 5 years for AML evidence but must not be copied into CRM or logs.
 - The core banking system opens accounts through a SOAP service and allows 15 concurrent calls.
 - Analysts work 08:00 to 20:00. Referred cases must keep until they are picked up.
+- In tests about 2 applications and 2 vendor results arrive a second, screening fails 1 call in 5, and core banking can be down for 20 minutes.
 
 **Your task.** Design the integration for the onboarding journey, including referrals, privacy and failure handling.
 `,

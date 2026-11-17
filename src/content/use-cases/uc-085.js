@@ -28,7 +28,7 @@ export default {
         qs: ['queue', 'fulfil-south'],
         q3: ['queue', 'fulfil-3pl'],
         sn: ['system-api', 'sys-wms-north'],
-        ss: ['system-api', 'sys-wms-south'],
+        ss: ['system-api', 'sys-wms-south', { timeoutMs: 30000 }],
         s3pl: ['system-api', 'sys-3pl-edi'],
         wn: ['wms', 'DC North WMS'],
         wsouth: ['wms', 'DC South WMS'],
@@ -48,6 +48,30 @@ export default {
         'ev ~> st', 'st -> sdb', 'st -> soms', 'soms -> oms', 'st -> snot', 'snot -> msg', 'st -> spay', 'spay -> pay',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'wms', latencyMs: 400 },
+        { match: 'erp', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'DC South is down for an hour',
+          about: 'The OMS releases 2 orders a second while DC South is down for 60 minutes. DC North and the 3PL keep getting their lines, DC South gets its lines when it is back, and none is lost.',
+          traffic: [{ name: 'released orders', from: 'erp', rps: 2, to: ['wms', 'sftp-server'], kind: 'write' }],
+          incidents: [{ down: { type: 'wms', label: 'south' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: { type: 'wms', label: 'north' }, min: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'DC South answers slowly',
+          about: 'The OMS releases 2 orders a second, and on a busy day the DC South WMS takes about 15 seconds to accept each order. DC North is not held up, and DC South still gets every line.',
+          traffic: [{ name: 'released orders', from: 'erp', rps: 2, to: ['wms', 'sftp-server'], kind: 'write' }],
+          incidents: [{ slow: { type: 'wms', label: 'south' }, latencyMs: 15000 }],
+          durationMin: 30,
+          expect: { delivered: [{ to: { type: 'wms', label: 'north' }, min: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 240 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A home and garden retailer takes **25,000 online orders a day**. The OMS decides, line by line, where each item ships from:
@@ -64,7 +88,7 @@ Requirements:
 - A line a node cannot fulfil is **cancelled and refunded** on its own.
 - Shipment messages can arrive twice or out of order (a 945 can arrive before the WMS confirms a sibling line).
 
-The OMS publishes an **order released** event with the sourcing decision per line.
+The OMS publishes an **order released** event with the sourcing decision per line, about **2 a second** at peak. DC South can be down for an hour, and on busy days its WMS takes about 15 seconds to accept an order.
 
 **Questions:**
 1. Draw the routing and the way back.

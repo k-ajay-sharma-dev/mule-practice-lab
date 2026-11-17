@@ -27,8 +27,8 @@ export default {
         sftp: ['sftp-server', 'RELEX SFTP'],
         relex: ['saas', 'RELEX forecasting and replenishment'],
         imp: ['batch-job', 'Order proposal import (03:30)'],
-        qdc: ['queue', 'replenishment.dc-orders'],
-        qsup: ['queue', 'replenishment.supplier-orders'],
+        qdc: ['queue', 'replenishment.dc-orders', { maxRedelivery: 30 }],
+        qsup: ['queue', 'replenishment.supplier-orders', { maxRedelivery: 30 }],
         pdc: ['process-api', 'prc-dc-replenishment'],
         psup: ['process-api', 'prc-supplier-orders'],
         swms: ['system-api', 'sys-wms-api'],
@@ -44,6 +44,26 @@ export default {
         'pdc -> swms', 'swms -> wms', 'psup -> ssap', 'ssap -> sap', 'psup -> sedi', 'sedi -> edi', 'qdc ~> dlq', 'qsup ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'wms', latencyMs: 2000 }],
+      tests: [
+        {
+          name: 'The WMS is down for 20 minutes',
+          about: 'The import job sends 3 calls of 500 DC order lines a second while the WMS is down for 20 minutes. Each call waits in the DC queue and is tried for 30 minutes, so no order is lost or sent to the DLQ.',
+          traffic: [{ name: 'DC orders', from: { type: 'batch-job', label: 'proposal' }, rps: 3, forMin: 40, to: 'wms', kind: 'write' }],
+          incidents: [{ down: 'wms', at: 5, forMin: 20 }],
+          durationMin: 90,
+          expect: { backlog: [{ queue: { label: 'dc-orders' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Bad lines in the night run',
+          about: 'The import job sends 3 calls a second, and 1 in 100 has an unknown product the WMS rejects every time. After 30 deliveries those go to the DLQ, and the rest of the run keeps flowing.',
+          traffic: [{ name: 'DC orders', from: { type: 'batch-job', label: 'proposal' }, rps: 3, to: 'wms', kind: 'write', poison: 0.01 }],
+          durationMin: 90,
+          expect: { dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: { label: 'dc-orders' }, maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A grocery chain runs 600 supermarkets and convenience stores, each with up to 25,000 products. Store managers still order most products by hand with a handheld scanner, so shelves are empty on Sunday evenings and fresh food waste is 4.1% of sales.
@@ -67,6 +87,7 @@ export default {
 - The WMS import API accepts 500 lines per call and cannot take parallel calls per DC.
 - A bad line (unknown product, closed store) must not stop the other 2.5 million.
 - Operations must know by 04:45 if the run is late.
+- The import sends about 3 calls of 500 DC order lines a second. The WMS can be down for 20 minutes, and about 1 call in 100 has a line it rejects every time.
 
 **Your task.** Design the nightly replenishment integration.
 `,

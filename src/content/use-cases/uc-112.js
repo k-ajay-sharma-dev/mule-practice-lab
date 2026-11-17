@@ -22,8 +22,8 @@ export default {
     reference: diagram(
       {
         store: ['internal-app', 'Store sales app'],
-        exp: ['experience-api', 'exp-credit-check-api'],
-        prc: ['process-api', 'prc-credit-check'],
+        exp: ['experience-api', 'exp-credit-check-api', { replicas: 2 }],
+        prc: ['process-api', 'prc-credit-check', { replicas: 2 }],
         st: ['database', 'Credit check state (by correlation ID)'],
         req: ['queue', 'BUREAU.CREDIT.REQ'],
         bur: ['external-api', 'Credit bureau MQ gateway'],
@@ -34,6 +34,26 @@ export default {
       },
       ['store -> exp', 'exp -> prc', 'prc -> st', 'prc ~> req', 'req ~> bur', 'bur ~> rep', 'rep ~> rl', 'rl -> st', 'rl -> push', 'job -> st', 'job -> push'],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 20000 }],
+      tests: [
+        {
+          name: 'Saturday peak',
+          about: 'Stores start 10 credit checks a second, and the bureau takes 20 seconds to reply. Each check is accepted within a second, and no API thread waits for the bureau.',
+          traffic: [{ name: 'credit checks', from: 'internal-app', rps: 10, to: 'external-api', kind: 'write' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }] },
+        },
+        {
+          name: 'A zone goes down on Saturday',
+          about: 'Stores start 10 credit checks a second while one availability zone is down for 15 minutes. The APIs run 2 replicas each, so no check is refused.',
+          traffic: [{ name: 'credit checks', from: 'internal-app', rps: 10, to: 'external-api', kind: 'write' }],
+          incidents: [{ zone: true, at: 5, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A mobile operator runs a **credit check** before every postpaid contract signed in its **900 stores**. The credit bureau does not offer a REST API: it exchanges messages over **IBM MQ**.
@@ -42,7 +62,7 @@ Facts:
 - The operator puts a request on \`BUREAU.CREDIT.REQ\`. The bureau answers on \`BUREAU.CREDIT.REPLY\` (shared by all requests).
 - Replies take **2 to 40 seconds**; 1 % never come back.
 - The bureau copies the request \`JMSMessageID\` or \`JMSCorrelationID\` into the reply \`JMSCorrelationID\`.
-- About **25,000 checks per day**, peaks of 10 per second on Saturdays.
+- About **25,000 checks per day**, peaks of 10 per second on Saturdays. A typical reply takes about 20 seconds, and the APIs must keep taking checks when one availability zone is down for 15 minutes.
 - The store app is a tablet app; the sales adviser can keep talking to the customer while the check runs.
 - The result (approved, refer, declined, with a deposit amount) must be kept for **2 years** for the regulator.
 - Mule 4 runs on CloudHub 2.0 with the **JMS connector** and the IBM MQ client.

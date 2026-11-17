@@ -29,7 +29,7 @@ export default {
         em: ['experience-api', 'claims-mobile-eapi'],
         eb: ['experience-api', 'claims-broker-eapi'],
         prc: ['process-api', 'claims-intake-papi'],
-        q: ['queue', 'claim-submitted'],
+        q: ['queue', 'claim-submitted', { maxRedelivery: 60 }],
         dlq: ['dlq', 'claim-submitted-dlq'],
         tri: ['process-api', 'prc-claims-triage-consumer'],
         spol: ['system-api', 'policy-sapi'],
@@ -48,6 +48,26 @@ export default {
         'spol -> pol', 'sleg -> leg', 'sdoc -> docs',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 8000 }],
+      tests: [
+        {
+          name: 'The claims system is offline for its batch',
+          about: 'Customers send 2 claims a second while the legacy claims system is offline for 40 minutes. Every customer gets a claim reference at once, each claim is tried again for up to an hour, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'claims', from: 'web-app', rps: 2, to: { type: 'legacy', label: 'claims' }, kind: 'write' }],
+          incidents: [{ down: { type: 'legacy', label: 'claims' }, at: 5, forMin: 40 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some claims are always rejected',
+          about: 'Customers send 2 claims a second, and 1 claim in 50 has data the claims system rejects every time. Those claims go to the DLQ for a person to fix, and the others keep flowing.',
+          traffic: [{ name: 'claims', from: 'web-app', rps: 2, to: { type: 'legacy', label: 'claims' }, kind: 'write', poison: 0.02 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A car and home insurer receives claims through four channels:
@@ -69,6 +89,7 @@ All claims end up in a **20-year-old claims system**. It offers only two ways in
 **Constraints**
 - The legacy claims system will stay for at least 3 more years.
 - Claims data contains personal data (GDPR).
+- About 2 claims arrive a second. The claims system can be offline for 40 minutes, and about 1 claim in 50 has data it rejects every time.
 
 **Your task.** Propose an integration architecture for claims intake and explain how a claim flows end to end.
 `,

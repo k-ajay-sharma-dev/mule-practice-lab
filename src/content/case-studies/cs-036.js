@@ -23,11 +23,11 @@ export default {
       {
         sensors: ['device', 'Farm sensors'],
         buyer: ['partner', 'Grain buyers / trading desk'],
-        gw: ['api-gateway', 'API Manager (client ID, OAuth, per-buyer limits)'],
+        gw: ['api-gateway', 'API Manager (client ID, OAuth, per-buyer limits)', { auth: 'client-id' }],
         beapi: ['experience-api', 'exp-buyer-forecast-api'],
         prc: ['process-api', 'prc-forecast-api'],
         job: ['batch-job', 'Nightly forecast import (watermark)'],
-        qa: ['queue', 'fms-a-deliveries'],
+        qa: ['queue', 'fms-a-deliveries', { maxRedelivery: 240 }],
         qb: ['queue', 'fms-b-deliveries'],
         sfc: ['system-api', 'sys-forecast-api'],
         scon: ['system-api', 'sys-consent-api'],
@@ -44,6 +44,31 @@ export default {
         'qa ~> sfa', 'qb ~> sfb', 'sfa -> fa', 'sfb -> fb', 'buyer -> gw', 'gw -> beapi', 'beapi -> prc',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 400 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'FMS A is down for 2 hours',
+          about: 'The nightly import pushes 10 field forecasts a second to both FMS products while FMS A is down for 2 hours. FMS B keeps getting its forecasts, FMS A\'s wait in its own queue, and none is lost.',
+          traffic: [{ name: 'forecasts', from: 'batch-job', rps: 10, to: [{ type: 'saas', label: 'fms a' }, { type: 'saas', label: 'fms b' }], kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'fms a' }, at: 5, forMin: 120 }],
+          durationMin: 180,
+          expect: { delivered: [{ to: { type: 'saas', label: 'fms a' }, min: 0.99 }, { to: { type: 'saas', label: 'fms b' }, min: 0.99 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A buyer without a client ID',
+          about: 'Buyers request forecasts 20 times a second with their client IDs, and an unknown caller sends 10 a second without one. API Manager refuses the unknown caller before any consent or farm data is read.',
+          traffic: [
+            { name: 'buyers', from: 'partner', rps: 20, to: 'database' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: 'database', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'buyers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An agritech company supplies soil-moisture, weather and yield sensors to 3,000 farms. Readings go to an IoT cloud platform (vendor-managed). The company now offers a service where farms can share aggregated yield forecasts with grain buyers and a commodity trading desk, who use them to pre-contract harvests. Farms also want forecasts in their farm-management software (FMS) — four popular FMS products, each with its own API.
@@ -58,6 +83,7 @@ export default {
 - The forecast model runs in a data-science platform (batch, nightly).
 - Buyers must not see individual farm identities unless the farm opts in.
 - Raw readings: ~50 million/day; buyers need aggregates, not raw data.
+- The nightly import pushes about 10 forecasts a second to the FMS products, and one FMS can be down for 2 hours. Buyers request forecasts about 20 times a second.
 
 **Your task.** Propose what Mule should and should not do in this pipeline, the API products for buyers and FMS vendors, and how consent is enforced.
 `,

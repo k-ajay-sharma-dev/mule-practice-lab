@@ -25,8 +25,8 @@ export default {
         wm: ['cache', 'Watermark (Object Store)'],
         ssis: ['system-api', 'students-sapi'],
         sis: ['saas', 'SIS (REST API + DB view)'],
-        qlms: ['queue', 'enrolments-lms'],
-        qlib: ['queue', 'enrolments-library'],
+        qlms: ['queue', 'enrolments-lms', { maxRedelivery: 10 }],
+        qlib: ['queue', 'enrolments-library', { maxRedelivery: 120 }],
         qid: ['queue', 'enrolments-idcard'],
         clms: ['process-api', 'lms-consumer (upsert by student ID)'],
         clib: ['process-api', 'library-consumer'],
@@ -45,6 +45,26 @@ export default {
         'qlms ~> dlq', 'qlib ~> dlq', 'qid ~> dlq', 'dlq ~> mon',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 200 }],
+      tests: [
+        {
+          name: 'The library system is down for an hour',
+          about: 'At the start of term the poller publishes 2 changes a second for the LMS, the library and the ID-card system, and the library system is down for an hour. The LMS keeps getting its changes, the library changes wait in their queue, each is tried for up to 2 hours, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'changes', from: 'batch-job', rps: 2, to: [{ type: 'saas', label: 'lms' }, { type: 'saas', label: 'library' }, { type: 'saas', label: 'id-card' }], kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'library' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: { type: 'saas', label: 'lms' }, min: 0.99 }, { to: { type: 'saas', label: 'library' }, min: 0.99 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some records are always rejected by the LMS',
+          about: 'The poller publishes 2 changes a second for the LMS, and 1 in 50 has a course code the LMS does not know. After 10 deliveries those go to the DLQ, which raises an alert, and the others keep flowing.',
+          traffic: [{ name: 'LMS changes', from: 'batch-job', rps: 2, to: { type: 'saas', label: 'lms' }, kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: { label: 'enrolments-lms' }, maxEnd: 50 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A university runs a Student Information System (SIS) as the source of truth for enrolments. The learning management system (LMS), the library system and the campus ID-card system each get a nightly CSV export from the SIS, built by different teams with different scripts.
@@ -61,7 +81,7 @@ export default {
 **Constraints**
 - The SIS has a read-only database view and a basic REST API; no events.
 - Small team (2 developers new to MuleSoft), CloudHub already licensed.
-- Peak load at the start of term: ~20,000 changes in a week.
+- Peak load at the start of term: ~20,000 changes in a week, with bursts of 2 changes a second. A target system can be down for an hour, and about 1 change in 50 is rejected by the LMS every time.
 
 **Your task.** Propose a simple MuleSoft design:
 - which APIs/apps you build

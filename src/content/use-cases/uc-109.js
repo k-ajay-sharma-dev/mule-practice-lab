@@ -23,11 +23,11 @@ export default {
       {
         p1: ['partner', 'Platinum partners (ERP to ERP)'],
         p2: ['partner', 'Bronze partners (garage apps)'],
-        gw: ['api-gateway', 'API Manager: client ID + SLA tier rate limiting'],
+        gw: ['api-gateway', 'API Manager: client ID + SLA tier rate limiting', { auth: 'oauth2', rateLimit: 50 }],
         idp: ['identity-provider', 'OAuth provider (client credentials)'],
-        exp: ['experience-api', 'exp-partner-catalog-api v1'],
-        prc: ['process-api', 'prc-stock-and-price'],
-        cache: ['cache', 'Price cache (10 min)'],
+        exp: ['experience-api', 'exp-partner-catalog-api v1', { vCores: '0.2' }],
+        prc: ['process-api', 'prc-stock-and-price', { vCores: '0.2' }],
+        cache: ['cache', 'Price cache (10 min)', { ttlSec: 600 }],
         ssap: ['system-api', 'sys-sap-pricing'],
         swms: ['system-api', 'sys-wms-stock'],
         sap: ['erp', 'SAP S/4HANA'],
@@ -36,6 +36,32 @@ export default {
       },
       ['p1 -> gw', 'p2 -> gw', 'gw -> idp', 'gw -> exp', 'exp -> prc', 'prc -> cache', 'prc -> ssap', 'ssap -> sap', 'prc -> swms', 'swms -> wms', 'gw ~> mon'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 600, maxRps: 30 },
+        { match: 'wms', latencyMs: 100 },
+      ],
+      cache: { hitRatio: 0.6, atTtlSec: 600 },
+      tests: [
+        {
+          name: 'A partner floods the API at stocktake',
+          about: 'One partner sends 300 requests a second during a stocktake. The gateway answers 429 to what is over the 50 a second Platinum limit, so SAP gets at most 30 calls a second and stays fast for everyone.',
+          traffic: [{ name: 'stocktake', from: { label: 'Platinum' }, rps: 300, to: ['erp', 'wms'], kind: 'read' }],
+          durationMin: 15,
+          expect: { answers: [{ minLimited: 0.8, maxFailed: 0.01 }], peakRps: [{ node: 'erp', max: 30 }] },
+        },
+        {
+          name: 'A caller without a token',
+          about: 'A garage app sends 20 requests a second with a valid token, and an unknown caller sends 10 a second with none. Every request without a token is refused at the gateway, and the garage gets every answer.',
+          traffic: [
+            { name: 'garage', from: { label: 'Bronze' }, rps: 20, to: ['erp', 'wms'], kind: 'read' },
+            { name: 'unknown caller', from: { label: 'Bronze' }, rps: 10, to: ['erp', 'wms'], kind: 'read', auth: 'none' },
+          ],
+          durationMin: 15,
+          expect: { answers: [{ flow: 'garage', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An auto parts distributor wants to open a **stock and price API** to about **300 partners**: large retail chains that connect their ERP, and small garages that use a partner app.
@@ -48,6 +74,7 @@ Facts:
   - **Gold**: 10 requests per second.
   - **Bronze**: 1 request per second and 10,000 per day, approved automatically.
 - One partner hammered the old SOAP service with 300 requests per second during a stocktake and slowed SAP for everyone.
+- SAP should get at most 30 price calls a second. A 10 minute price cache answers about 6 lookups in 10.
 - Partners must see their usage, and sales wants a monthly usage report per partner.
 
 **Describe your solution:**

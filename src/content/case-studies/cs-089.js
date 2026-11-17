@@ -25,16 +25,16 @@ export default {
         mob: ['mobile-app', 'Banking app'],
         exp: ['experience-api', 'exp-alert-settings-api'],
         pset: ['process-api', 'prc-alert-settings'],
-        cdc: ['batch-job', 'CDC capture (posting journal)'],
+        cdc: ['batch-job', 'CDC capture (posting journal)', { vCores: '1' }],
         ks: ['event-stream', 'core.postings (key = account)'],
-        rules: ['process-api', 'prc-alert-rules'],
+        rules: ['process-api', 'prc-alert-rules', { vCores: '0.5' }],
         cache: ['cache', 'Preference cache'],
         qpush: ['queue', 'alerts.push'],
         qsms: ['queue', 'alerts.sms'],
         qmail: ['queue', 'alerts.email'],
         dlq: ['dlq', 'alerts DLQ'],
         spref: ['system-api', 'sys-alert-preferences-api'],
-        spush: ['system-api', 'sys-push-api'],
+        spush: ['system-api', 'sys-push-api', { vCores: '0.5' }],
         ssms: ['system-api', 'sys-sms-api'],
         smail: ['system-api', 'sys-email-api'],
         core: ['legacy', 'Core banking (DB2 on z/OS)'],
@@ -50,6 +50,36 @@ export default {
         'spush -> push', 'ssms -> sms', 'smail -> mail', 'qpush ~> dlq', 'qsms ~> dlq', 'qmail ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'notification', label: 'sms' }, latencyMs: 200, maxRps: 100 },
+        { match: 'notification', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'Payday peak',
+          about: 'On payday 180 postings a second trigger a push alert, 15% of the 1,200 a second peak. The CDC capture, the rules API and the push System API keep up, so the stream never holds more than 10 seconds of alerts.',
+          traffic: [{ name: 'push alerts', from: 'batch-job', rps: 180, to: { type: 'notification', label: 'push' }, kind: 'write' }],
+          durationMin: 30,
+          expect: { delivered: [{ to: { type: 'notification', label: 'push' }, min: 0.99 }], backlog: [{ queue: ['event-stream', 'topic'], maxPeak: 1800, maxEnd: 0 }] },
+        },
+        {
+          name: 'The SMS aggregator is down',
+          about: 'Postings trigger 40 push alerts and 20 SMS alerts a second while the SMS aggregator is down for 30 minutes. Push alerts keep flowing, and the SMS alerts wait on their own queue until it is back.',
+          traffic: [
+            { name: 'push alerts', from: 'batch-job', rps: 40, to: { type: 'notification', label: 'push' }, kind: 'write' },
+            { name: 'SMS alerts', from: 'batch-job', rps: 20, to: { type: 'notification', label: 'sms' }, kind: 'write' },
+          ],
+          incidents: [{ down: { type: 'notification', label: 'sms' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: {
+            delivered: [{ flow: 'push alerts', to: { type: 'notification', label: 'push' }, min: 0.99 }],
+            backlog: [{ queue: { type: 'queue', label: 'push' }, maxPeak: 100 }, { queue: { type: 'queue', label: 'sms' }, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A retail bank with 6 million customers wants to send alerts within 10 seconds of a card payment, a salary credit, a low balance or a large debit. Today alerts are sent from an overnight batch, and customers compare the bank badly with app-only banks.
@@ -60,6 +90,8 @@ export default {
 - An SMS aggregator (paid per message, 100 messages per second limit), a push service (APNs and FCM), and an email service.
 
 **Volumes.** 25 million postings a day, peak 1,200 per second at lunchtime and on payday. About 15% of postings trigger an alert.
+
+- In tests 180 push alerts a second arrive at the payday peak, and the SMS aggregator can be down for 30 minutes while push alerts keep flowing.
 
 **Requirements**
 - Customers choose alerts and channels in the app (for example push for every card payment, SMS for balance below 100 EUR) and quiet hours.

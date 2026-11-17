@@ -22,14 +22,34 @@ export default {
       {
         pos: ['pos', 'Store POS servers (120 stores)'],
         sftp: ['sftp-server', 'SFTP /eod/inbound'],
-        job: ['batch-job', 'Nightly EOD job (02:00)'],
+        job: ['batch-job', 'Nightly EOD job (02:00)', { timeoutMs: 60000 }],
         done: ['cache', 'Posted files (store + business date)'],
-        serp: ['system-api', 'sys-erp-gl'],
+        serp: ['system-api', 'sys-erp-gl', { timeoutMs: 30000, retries: 2 }],
         erp: ['erp', 'Oracle EBS General Ledger'],
         mail: ['notification', 'Finance email (variances, missing stores)'],
       },
       ['pos -> sftp', 'job -> sftp', 'job -> done', 'job -> serp', 'serp -> erp', 'job -> mail'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 15000 }],
+      tests: [
+        {
+          name: 'A normal night',
+          about: 'The job posts 120 journals over 5 minutes. The GL journal import takes about 15 seconds a journal, so the calls need a timeout longer than that, and every journal is posted.',
+          traffic: [{ name: 'journals', from: 'batch-job', rps: 0.4, to: 'erp', kind: 'write' }],
+          durationMin: 5,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The GL import fails some calls',
+          about: 'On a busy night the GL import fails 1 call in 10 for a moment. Retries post those journals, so every store is in the ledger by 06:00.',
+          traffic: [{ name: 'journals', from: 'batch-job', rps: 0.4, to: 'erp', kind: 'write' }],
+          incidents: [{ errors: 'erp', rate: 0.1 }],
+          durationMin: 5,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A pet supplies chain has **120 stores**. When a store closes, its POS server builds an **end-of-day (Z report) file** and uploads it to a central SFTP server between 21:00 and 23:30.
@@ -48,6 +68,7 @@ Today a clerk keys the totals by hand, which takes three hours each morning and 
 Facts:
 - Oracle EBS has a GL interface (journal import) that the integration team already wraps in a System API.
 - A store can upload its file twice (the manager presses "send" again), and a late store can upload at 03:00.
+- The journal import takes about **15 seconds** a journal, and on a busy night it fails about 1 call in 10.
 
 **Questions:**
 1. How do you pick up the files and post the journals?

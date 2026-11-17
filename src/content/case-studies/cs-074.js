@@ -36,7 +36,7 @@ export default {
         tms: ['tms', 'Own fleet TMS'],
         cp: ['partner', 'Carrier status webhooks'],
         gw: ['api-gateway', 'API gateway (signature check, IP allowlist)'],
-        ewh: ['experience-api', 'exp-carrier-webhooks-api'],
+        ewh: ['experience-api', 'exp-carrier-webhooks-api', { vCores: '0.5' }],
         sq: ['queue', 'carrier-status-raw'],
         ps: ['process-api', 'prc-delivery-status'],
         stk: ['system-api', 'sys-tracking-api'],
@@ -53,6 +53,31 @@ export default {
         'app -> etr', 'etr -> stk',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'external-api', label: 'Carrier B' }, latencyMs: 400, maxRps: 20 },
+        { match: 'external-api', latencyMs: 400, maxRps: 50 },
+        { match: 'database', latencyMs: 20 },
+        { match: 'tms', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'Saturday bookings for Carrier B',
+          about: 'On a busy Saturday the OMS releases 40 orders a second for Carrier B for 10 minutes. Carrier B takes at most 20 bookings a second. The orders wait in the dispatch queue, Carrier B is never over its limit, and none is lost.',
+          traffic: [{ name: 'bookings', from: 'saas', rps: 40, forMin: 10, to: { type: 'external-api', label: 'Carrier B' }, kind: 'write' }],
+          durationMin: 40,
+          expect: { peakRps: [{ node: { type: 'external-api', label: 'Carrier B' }, max: 20 }], backlog: [{ queue: { label: 'ready-for-dispatch' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Webhook peak with a slow tracking store',
+          about: 'The carriers send 150 status webhooks a second, and for 10 minutes the tracking store takes 3 seconds a write. The webhook API answers each call in well under a second, so no carrier stops sending.',
+          traffic: [{ name: 'webhooks', from: 'partner', rps: 150, to: 'database', kind: 'write' }],
+          incidents: [{ slow: 'database', latencyMs: 3000, at: 3, forMin: 10 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An online grocer delivers 60,000 orders a day in 14 cities. Most orders go out in its own vans, planned by a TMS. For rapid deliveries (under 2 hours) and overflow at peak, it now uses two last-mile partners, called Carrier A and Carrier B here.
@@ -76,6 +101,8 @@ export default {
 - Choose the carrier per order by rules (zone, promised time, cost, partner capacity), changeable by operations without a release.
 - One customer-facing tracking status whatever the carrier.
 - Add a third partner next year in weeks, not months.
+
+**Peak numbers.** On a busy Saturday the OMS can release 40 orders a second for Carrier B, and the carriers send about 150 status webhooks a second.
 
 **Your task.** Design the dispatch and delivery tracking integration.
 `,

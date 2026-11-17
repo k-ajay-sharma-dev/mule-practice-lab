@@ -23,17 +23,17 @@ export default {
       {
         tpp: ['partner', 'Licensed TPP (regulator-issued cert)'],
         prem: ['partner', 'Premium partner'],
-        gw: ['api-gateway', 'DMZ gateway (mTLS, OAuth, SLA tiers)'],
+        gw: ['api-gateway', 'DMZ gateway (mTLS, OAuth, SLA tiers)', { auth: 'mtls', rateLimit: 150 }],
         idp: ['identity-provider', 'Bank IdP (SCA)'],
-        eais: ['experience-api', 'ob-accounts-eapi (AIS)'],
+        eais: ['experience-api', 'ob-accounts-eapi (AIS)', { vCores: '0.5' }],
         epis: ['experience-api', 'ob-payments-eapi (PIS)'],
         epv: ['experience-api', 'partner-verification-eapi'],
-        pacc: ['process-api', 'accounts-papi'],
+        pacc: ['process-api', 'accounts-papi', { vCores: '0.5' }],
         ppay: ['process-api', 'payments-papi'],
-        pcon: ['process-api', 'consent-papi'],
+        pcon: ['process-api', 'consent-papi', { vCores: '0.5' }],
         cons: ['database', 'Consent store'],
         rs: ['cache', 'Balance cache / read store'],
-        score: ['system-api', 'core-banking-sapi'],
+        score: ['system-api', 'core-banking-sapi', { vCores: '0.5' }],
         scard: ['system-api', 'cards-sapi'],
         core: ['legacy', 'Mainframe core (CICS via ESB)'],
         cards: ['legacy', 'Cards platform'],
@@ -46,6 +46,30 @@ export default {
         'score -> core', 'scard -> cards',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 150, maxRps: 100 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      cache: { hitRatio: 0.5 },
+      tests: [
+        {
+          name: 'A caller without a TPP certificate',
+          about: 'Licensed TPPs read 30 balances a second with their certificates, and an unknown client sends 10 a second without one. The gateway refuses the unknown client before it reaches consent or the mainframe.',
+          traffic: [
+            { name: 'TPPs', from: 'partner', rps: 30, to: [{ type: 'legacy', label: 'mainframe' }, 'database'], via: { label: 'ob-accounts' } },
+            { name: 'unknown client', from: 'partner', rps: 10, to: [{ type: 'legacy', label: 'mainframe' }, 'database'], via: { label: 'ob-accounts' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'TPPs', minSuccess: 0.99 }, { flow: 'unknown client', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A TPP floods the accounts API',
+          about: 'TPPs read 50 balances a second, and for 3 minutes one TPP pushes the total to 400 a second. The mainframe takes 100 a second at most. The gateway answers the extra with 429, and the cache answers half the rest, so the mainframe is never over its limit.',
+          traffic: [{ name: 'TPPs', from: 'partner', rps: 50, to: [{ type: 'legacy', label: 'mainframe' }, 'database'], spikes: [{ at: 4, forMin: 3, rps: 400 }], via: { label: 'ob-accounts' } }],
+          expect: { peakRps: [{ node: { type: 'legacy', label: 'mainframe' }, max: 100 }], answers: [{ minSuccess: 0.45, minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A retail bank must expose **account information** (balances, transactions) and **payment initiation** APIs to licensed third-party providers (TPPs) under open-banking regulation, and also wants a commercial "premium" API product for partners (e.g. instant account verification).
@@ -60,6 +84,7 @@ export default {
 - TPPs identify themselves with regulator-issued certificates; customers must give and can revoke **consent** per TPP, per account, with an expiry.
 - Fair usage: TPPs must not overload the core; premium partners get higher limits.
 - A developer portal and sandbox for TPPs.
+- TPPs read about 50 balances a second, one TPP can burst to 400 a second, and the mainframe takes 100 a second at most.
 
 **Your task.** Propose the target architecture and delivery plan. Cover API design, security and consent, traffic management, the path to the mainframe, operations/reporting, and the main risks.
 `,

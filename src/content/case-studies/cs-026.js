@@ -21,7 +21,7 @@ export default {
     ],
     reference: diagram(
       {
-        ingest: ['process-api', 'trade-ingestion (canonical TradeEvent)'],
+        ingest: ['process-api', 'trade-ingestion (canonical TradeEvent)', { vCores: '1' }],
         psched: ['process-api', 'scheduling-papi'],
         psett: ['process-api', 'settlement-papi'],
         prep: ['process-api', 'trade-reporting-papi'],
@@ -50,6 +50,30 @@ export default {
         'recon -> strades', 'recon -> ver', 'strades -> etrm',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 100 },
+        { match: 'external-api', latencyMs: 300 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'The reporting service is down for an hour',
+          about: 'The ETRM captures 10 trades a second while the trade reporting service is down for an hour. The risk engine keeps getting every trade, the reporting copies wait on the event stream, and none is lost.',
+          traffic: [{ name: 'trades', from: 'legacy', rps: 10, to: ['saas', { type: 'external-api', label: 'reporting' }], kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'reporting' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'saas', min: 0.99 }, { to: { type: 'external-api', label: 'reporting' }, min: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'event-stream', maxEnd: 0 }] },
+        },
+        {
+          name: 'Auction results arrive at once',
+          about: 'After a day-ahead auction the ETRM sends 300 trades a second for 5 minutes. The ingestion API has the capacity to take them all, and the event stream holds them until the consumers catch up.',
+          traffic: [{ name: 'trades', from: 'legacy', rps: 5, to: ['saas', { type: 'external-api', label: 'reporting' }], kind: 'write', spikes: [{ at: 2, forMin: 5, rps: 300 }] }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'event-stream', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An energy company trades power and gas on exchanges and bilaterally. Trades are captured in an Energy Trading and Risk Management (ETRM) system and on exchange platforms (via exchange APIs and drop-copy feeds).
@@ -74,6 +98,7 @@ Trades must flow to:
 - Peaks at market open/close and during volatile days (5–10x normal).
 - 24/7 operation for some markets; downtime around gate closure has direct financial and regulatory cost.
 - Existing systems are a mix of vendor products (on-premises) and SaaS; the ETRM vendor provides a message-based outbound interface.
+- The ETRM captures about 10 trades a second, and an auction result can bring 300 a second for 5 minutes. The trade reporting service can be down for an hour.
 
 **Your task.** Propose the integration architecture. Include:
 - how you guarantee correctness (ordering, no loss, no duplicates)

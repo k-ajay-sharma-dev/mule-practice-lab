@@ -20,16 +20,39 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Promo price job (Fri 00:00 and Thu 23:59)'],
-        serp: ['system-api', 'sys-sap-pricing'],
+        job: ['batch-job', 'Promo price job (Fri 00:00 and Thu 23:59)', { timeoutMs: 60000 }],
+        serp: ['system-api', 'sys-sap-pricing', { timeoutMs: 30000 }],
         sap: ['erp', 'SAP S/4HANA (promotion conditions)'],
         last: ['cache', 'Last sent price per SKU'],
-        sshop: ['system-api', 'sys-store-catalog (bulk)'],
+        sshop: ['system-api', 'sys-store-catalog (bulk)', { rateLimit: 4 }],
         shop: ['saas', 'Online store platform'],
         mail: ['notification', 'Merchandising report email'],
       },
       ['job -> serp', 'serp -> sap', 'job -> last', 'job -> sshop', 'sshop -> shop', 'job -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 20000 },
+        { match: 'saas', latencyMs: 500, maxRps: 4 },
+        { match: 'cache', hitRatio: 0 },
+      ],
+      tests: [
+        {
+          name: 'Reading the promotion from SAP',
+          about: 'The job reads the promotion in pages of 1,000 conditions, 1 page every 5 seconds. Each OData page takes about 20 seconds in SAP, so the calls need a timeout longer than that, and every page is read.',
+          traffic: [{ name: 'price pages', from: 'batch-job', rps: 0.2, to: 'erp' }],
+          durationMin: 5,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'A job that calls once per SKU',
+          about: 'A change to the job sends 10 product API calls a second for 10 minutes. The store allows 4 a second, so the System API answers the rest with 429 and the store never sees more than its limit.',
+          traffic: [{ name: 'price updates', from: 'batch-job', rps: 10, forMin: 10, to: 'saas', kind: 'write' }],
+          durationMin: 15,
+          expect: { peakRps: [{ node: 'saas', max: 4 }], answers: [{ minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer plans a **weekly promotion** in SAP S/4HANA: sale prices with a valid-from and valid-to date. Promotions run **Friday 00:00 to Thursday 23:59**.
@@ -41,6 +64,7 @@ Facts:
 - The store platform has a product API limited to **4 calls a second**, and a **bulk operation** that takes one file of changes and finishes in a few minutes.
 - The store shows the old price crossed out ("compare at" price) next to the sale price.
 - SAP exposes the price conditions through an OData service that the team already wraps in a System API.
+- A page of 1,000 price conditions takes about **20 seconds** to read from SAP.
 - The merchandising team wants an email each Friday morning: how many SKUs changed, and which failed.
 
 **Questions:**

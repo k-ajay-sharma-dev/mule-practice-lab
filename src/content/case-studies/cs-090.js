@@ -24,14 +24,14 @@ export default {
     reference: diagram(
       {
         ibapp: ['internal-app', 'Investment bank onboarding desk'],
-        ibp: ['process-api', 'prc-investment-client-onboarding'],
+        ibp: ['process-api', 'prc-investment-client-onboarding', { vCores: '1' }],
         ibsys: ['system-api', 'sys-investment-trade-api'],
         ibcore: ['legacy', 'Investment bank trade store'],
-        gwr: ['api-gateway', 'Retail bank API gateway (contracts, mTLS)'],
+        gwr: ['api-gateway', 'Retail bank API gateway (contracts, mTLS)', { rateLimit: 20 }],
         rexp: ['experience-api', 'exp-retail-group-services-api'],
         rmob: ['mobile-app', 'Retail banking app'],
         rexp2: ['experience-api', 'exp-retail-mobile-api'],
-        rprc: ['process-api', 'prc-retail-customer-api'],
+        rprc: ['process-api', 'prc-retail-customer-api', { vCores: '0.5' }],
         rsys: ['system-api', 'sys-retail-core-banking-api'],
         rcrm: ['system-api', 'sys-retail-crm-api'],
         rq: ['queue', 'retail.payments'],
@@ -48,6 +48,31 @@ export default {
         'rprc ~> rq', 'rq ~> rpay', 'rpay -> hub', 'ibp -> sscr', 'rprc -> sscr', 'sscr -> scr',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 100 },
+        { match: 'payment', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'The investment bank runs a bulk job',
+          about: 'Retail customers read 25 records a second while an investment bank bulk job sends 300 reads a second to the retail gateway. The contract limit of 20 a second answers the rest with 429, so the retail app is not slowed down.',
+          traffic: [
+            { name: 'retail app', from: 'mobile-app', rps: 25, to: { type: 'legacy', label: 'retail' } },
+            { name: 'bulk job', from: 'internal-app', rps: 300, to: { type: 'legacy', label: 'retail' } },
+          ],
+          expect: { answers: [{ flow: 'retail app', minSuccess: 0.99 }], peakRps: [{ node: { type: 'experience-api', label: 'group' }, max: 20 }] },
+        },
+        {
+          name: 'The payment scheme gateway is down',
+          about: 'Retail customers send 10 payments a second while the payment scheme gateway is down for 30 minutes. The payments wait on the retail queue, and every one is sent once it is back.',
+          traffic: [{ name: 'payments', from: 'mobile-app', rps: 10, to: 'payment', kind: 'write' }],
+          incidents: [{ down: 'payment', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A UK banking group must keep its retail bank ring-fenced from its investment bank. The ring-fenced bank (retail, 9 million customers) has to be able to keep operating if the rest of the group fails, and its data and services cannot depend on investment bank entities. The legal entities were split in 2019, but the integration estate was not.
@@ -64,6 +89,7 @@ export default {
 - No shared queues, credentials or runtime capacity across the two banks.
 - Group shared services (sanctions screening) stay shared, consumed by both banks through a governed API.
 - The change must happen over 12 months without stopping either bank.
+- In tests the retail app reads 25 records a second, an investment bank bulk job sends 300 reads a second against a contract limit of 20, and the payment scheme gateway can be down for 30 minutes.
 
 **Your task.** Design the target integration estate and the plan to separate it.
 `,

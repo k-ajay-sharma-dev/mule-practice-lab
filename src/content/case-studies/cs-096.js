@@ -44,7 +44,7 @@ export default {
         sedc: ['system-api', 'sys-edc-api'],
         sctms: ['system-api', 'sys-ctms-api'],
         sdep: ['system-api', 'sys-depot-api'],
-        serp: ['system-api', 'sys-sap-ap-api'],
+        serp: ['system-api', 'sys-sap-ap-api', { retries: 2 }],
         dw: ['data-warehouse', 'Clinical data warehouse (blinded)'],
       },
       [
@@ -54,6 +54,29 @@ export default {
         'job -> ppay', 'ppay -> sctms', 'ppay -> serp', 'serp -> erp',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300 },
+        { match: 'erp', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'EDC is down for an hour',
+          about: 'IRT sends 2 randomisation webhooks a second while EDC is down for 60 minutes. The webhooks are accepted at once, the events wait on the topic, and every participant appears in EDC once it is back.',
+          traffic: [{ name: 'randomisations', from: { type: 'saas', label: 'IRT' }, rps: 2, to: { type: 'saas', label: 'EDC' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'EDC' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+        {
+          name: 'SAP drops some payment calls',
+          about: 'The monthly run sends 2 site payments a second, and SAP fails 1 call in 10. The SAP System API tries again, so almost every site is paid in the same run.',
+          traffic: [{ name: 'site payments', from: 'batch-job', rps: 2, to: 'erp', kind: 'write' }],
+          incidents: [{ errors: 'erp', rate: 0.1 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mid-size pharmaceutical sponsor runs 40 active clinical trials at 300 sites in 22 countries, with about 25,000 participants. Each trial uses three SaaS products from different vendors:
@@ -79,6 +102,7 @@ Sites are paid from SAP S/4HANA. A clinical supply depot ships kits to sites.
 | Regulation | Computerised systems in trials must be validated, with audit trails and controlled change (21 CFR Part 11, EU Annex 11) |
 | Privacy | Participants are pseudonymised: only subject numbers leave the site; GDPR applies to EU trials |
 | Blinding | Only the unblinded supply team and the depot may see kit numbers with arms |
+| Tests | IRT sends 2 webhooks a second while EDC is down for an hour, and SAP fails 1 payment call in 10 |
 
 **Your task.** Design the integration between IRT, EDC, CTMS, SAP and the depot, and show how the design protects the blind.
 `,

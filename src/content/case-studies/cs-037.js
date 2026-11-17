@@ -24,7 +24,7 @@ export default {
         web: ['web-app', 'Web shop (commerce SaaS)'],
         agent: ['device', 'Store-side agent (store-and-forward)'],
         store: ['internal-app', 'Store POS (returns)'],
-        eweb: ['experience-api', 'exp-web-orders-api'],
+        eweb: ['experience-api', 'exp-web-orders-api', { vCores: '0.5' }],
         estore: ['experience-api', 'exp-store-api'],
         ord: ['process-api', 'prc-orders-api'],
         inv: ['process-api', 'prc-inventory-api'],
@@ -45,6 +45,26 @@ export default {
         'soms ~> ex', 'ex ~> nf', 'nf -> notif', 'ex ~> smk',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 300, maxRps: 50 }],
+      tests: [
+        {
+          name: 'Orders at a sale peak',
+          about: 'The web shop takes 10 orders a second, and for 10 minutes of a sale that jumps to 100 a second. The OMS takes 50 a second. Every order is accepted at once, the queue holds the rest, and the OMS is never over its limit.',
+          traffic: [{ name: 'web orders', from: 'web-app', rps: 10, to: 'saas', kind: 'write', spikes: [{ at: 2, forMin: 10, rps: 100 }] }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 50 }], lost: { max: 0 }, backlog: [{ queue: { label: 'order-submissions' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'The OMS is down for 30 minutes',
+          about: 'Store agents send 10 stock movements a second while the OMS is down for 30 minutes. The movements wait in the stock queue and reach the OMS once it is back, so none is lost.',
+          traffic: [{ name: 'stock movements', from: 'device', rps: 10, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { delivered: [{ to: 'saas', min: 0.99 }], lost: { max: 0 }, backlog: [{ queue: { label: 'stock-movements' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A fashion retailer with 180 stores, a web shop and two marketplace channels wants to offer:
@@ -69,6 +89,7 @@ It has bought a SaaS order management system (OMS) to decide where each order is
 - Stock accuracy in stores is ~90% (theft, mis-scans).
 - Peak sale events generate 8x normal orders.
 - The OMS vendor provides REST APIs and webhooks, with rate limits.
+- The web shop takes about 10 orders a second, up to 100 at a sale peak, and the OMS takes 50 calls a second. Stores send about 10 stock movements a second, and the OMS can be down for 30 minutes.
 
 **Your task.** Propose the integration architecture for inventory, orders, fulfilment status and returns.
 `,

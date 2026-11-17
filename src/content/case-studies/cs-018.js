@@ -22,14 +22,14 @@ export default {
     reference: diagram(
       {
         app: ['mobile-app', 'Passenger app'],
-        erb: ['experience-api', 'rebooking-eapi'],
-        dis: ['process-api', 'disruption-papi'],
+        erb: ['experience-api', 'rebooking-eapi', { vCores: '0.5' }],
+        dis: ['process-api', 'disruption-papi', { vCores: '0.5' }],
         wrk: ['process-api', 'rebooking-worker (≤ 50 PSS writes/s)'],
         fs: ['topic', 'flight-status'],
         qhi: ['queue', 'work-items-high'],
         qn: ['queue', 'work-items-normal'],
         offer: ['topic', 'offer-created'],
-        spss: ['system-api', 'pss-sapi (rate limited)'],
+        spss: ['system-api', 'pss-sapi (rate limited)', { rateLimit: 50 }],
         scrm: ['system-api', 'crm-loyalty-sapi'],
         seng: ['system-api', 'rebooking-engine-sapi'],
         snot: ['system-api', 'notifications-sapi'],
@@ -47,6 +47,28 @@ export default {
         'spss -> pss', 'scrm -> crm', 'seng -> eng', 'snot -> notif',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'saas', label: 'pss' }, latencyMs: 300, maxRps: 50 },
+        { match: { type: 'saas', label: 'rebooking engine' }, latencyMs: 500, maxRps: 30 },
+      ],
+      tests: [
+        {
+          name: 'A storm cancels 200 flights',
+          about: 'For 5 minutes operations control sends 100 affected passengers a second, and the rebooking engine takes 30 a second. The disruption API takes each event off the flight-status topic at once, the prioritised work-item queues hold the passengers, the engine is never pushed over its limit, and every passenger gets an offer within 40 minutes.',
+          traffic: [{ name: 'affected passengers', from: { type: 'saas', label: 'operations' }, rps: 1, to: { type: 'saas', label: 'rebooking engine' }, kind: 'write', spikes: [{ at: 0, forMin: 5, rps: 100 }] }],
+          durationMin: 40,
+          expect: { peakRps: [{ node: { type: 'saas', label: 'rebooking engine' }, max: 30 }], backlog: [{ queue: 'queue', maxEnd: 0 }, { queue: { label: 'flight-status' }, maxPeak: 500 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Passengers accept offers at once',
+          about: 'Passengers accept 100 offers a second in the app for 5 minutes, and the PSS takes 50 writes a second. The PSS System API answers the extra with 429 so the app retries, and the PSS is never over its limit.',
+          traffic: [{ name: 'accepts', from: 'mobile-app', rps: 100, to: { type: 'saas', label: 'pss' }, kind: 'write' }],
+          durationMin: 5,
+          expect: { peakRps: [{ node: { type: 'saas', label: 'pss' }, max: 50 }], answers: [{ minSuccess: 0.45, minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mid-size airline handles flight cancellations and long delays mostly by hand: agents rebook passengers in the passenger service system (PSS), call hotels and send emails.
@@ -71,6 +93,7 @@ export default {
 - The PSS allows ~50 write transactions per second for the airline.
 - Regulation requires correct passenger notifications and care (vouchers). Keep exact rules generic, but they must be auditable.
 - Disruptions are rare but extreme bursts; normal days are quiet.
+- In a storm, operations control can send 100 affected passengers a second for 5 minutes, and the rebooking engine takes 30 a second. Passengers can accept 100 offers a second in the app.
 
 **Your task.** Propose:
 - the event flow

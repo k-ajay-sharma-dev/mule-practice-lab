@@ -23,8 +23,8 @@ export default {
     reference: diagram(
       {
         sw: ['partner', 'Tax software vendors (40)'],
-        gw: ['api-gateway', 'API gateway (client ID, mTLS, rate limit per vendor)'],
-        exp: ['experience-api', 'exp-efile-api'],
+        gw: ['api-gateway', 'API gateway (client ID, mTLS, rate limit per vendor)', { auth: 'mtls' }],
+        exp: ['experience-api', 'exp-efile-api', { replicas: 2, vCores: '1' }],
         store: ['file-store', 'Submitted returns (encrypted)'],
         q: ['queue', 'returns-in'],
         dlq: ['dlq', 'returns-in-dlq'],
@@ -35,6 +35,27 @@ export default {
       },
       ['sw -> gw', 'gw -> exp', 'exp -> store', 'exp ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> stax', 'stax -> mf', 'prc -> sdb', 'exp -> sdb'],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 300, maxRps: 60 }],
+      tests: [
+        {
+          name: 'The last hours before the deadline',
+          about: 'Vendors send 100 returns a second, and 500 a second for 30 minutes before the deadline. Every return is accepted in under 2 seconds, and the mainframe never gets more than its 60 a second.',
+          traffic: [{ name: 'returns', from: 'partner', rps: 100, spikes: [{ at: 5, forMin: 30, rps: 500 }], to: 'legacy', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], peakRps: [{ node: 'legacy', max: 60 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A caller without a client certificate',
+          about: 'Accredited vendors send 50 returns a second, and an unknown caller sends 10 a second without a client certificate. The gateway refuses the unknown caller.',
+          traffic: [
+            { name: 'vendors', from: 'partner', rps: 50, to: 'legacy', kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: 'legacy', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'vendors', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A national tax authority receives 11 million individual returns a year. About 85% are filed through commercial tax software from 40 accredited vendors. The software sends each return (an XML document of 50 KB to 2 MB) to the authority's e-filing service and then shows the citizen whether it was accepted.
@@ -55,6 +76,7 @@ export default {
 | Legal | The filing time that counts is the time the authority received the return, not when it was processed |
 | Retention | Submitted returns are kept unchanged for 7 years as legal evidence |
 | Peak | Deadline day is 9% of the year's volume; the last 6 hours carry half of that |
+| Tests | 100 returns a second, 500 a second for 30 minutes, and an unknown caller sending 10 a second with no certificate |
 
 **Your task.** Design the new e-filing intake and the status flow.
 `,

@@ -23,13 +23,13 @@ export default {
       {
         web: ['web-app', 'Web shop'],
         mob: ['mobile-app', 'Mobile app'],
-        pexp: ['experience-api', 'products-exp-api'],
-        oexp: ['experience-api', 'orders-exp-api'],
+        pexp: ['experience-api', 'products-exp-api', { replicas: 4, vCores: '1' }],
+        oexp: ['experience-api', 'orders-exp-api', { vCores: '0.5' }],
         cache: ['cache', 'Catalogue cache (TTL few min)'],
-        oprc: ['process-api', 'orders-papi'],
+        oprc: ['process-api', 'orders-papi', { vCores: '0.5' }],
         q: ['queue', 'orders-queue'],
         worker: ['process-api', 'prc-order-consumer (~50/s)'],
-        scat: ['system-api', 'catalog-sapi'],
+        scat: ['system-api', 'catalog-sapi', { vCores: '1' }],
         sstock: ['system-api', 'stock-sapi'],
         serp: ['system-api', 'erp-sapi (spike control)'],
         db: ['database', 'Product DB'],
@@ -42,6 +42,28 @@ export default {
         'oexp -> oprc', 'oprc ~> q', 'q ~> worker', 'worker -> serp', 'serp -> erp',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 30, maxRps: 400 },
+        { match: 'erp', latencyMs: 200, maxRps: 50 },
+      ],
+      cache: { hitRatio: 0.9 },
+      tests: [
+        {
+          name: 'Black Friday browsing',
+          about: 'Shoppers browse the catalogue at 2,000 requests a second, 10 times the normal peak. The cache answers 9 in 10 reads, and the Experience API has the replicas to carry the rest.',
+          traffic: [{ name: 'browsing', from: 'web-app', rps: 2000, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'database', max: 400 }] },
+        },
+        {
+          name: 'Black Friday order peak',
+          about: 'Orders run at 20 a second, and for 10 minutes they jump to 200 a second. The ERP takes 50 a second at most. Every order is accepted at once, the queue holds the rest, and the ERP is never pushed over 50 a second.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 20, to: 'erp', kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 200 }] }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 50 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An online retailer runs its web shop and mobile app on a set of Mule 4 APIs on CloudHub 2.0:
@@ -54,6 +76,7 @@ Normal peak is ~200 requests/s. Marketing expects **10x** that on Black Friday, 
 **Constraints**
 - The ERP and WMS **cannot** be scaled — the vendor says ~50 orders/s is the safe maximum.
 - Black Friday is in 8 weeks. No re-architecture of the ERP.
+- Expect 2,000 catalogue reads a second (the product DB takes 400 a second) and order bursts of 200 a second for 10 minutes against the ERP's 50.
 
 **Your task.** Propose a readiness plan: what you change in the integration layer, how you prove it works, and what you do on the day.
 `,

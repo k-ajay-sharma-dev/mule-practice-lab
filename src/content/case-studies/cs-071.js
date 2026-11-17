@@ -24,14 +24,14 @@ export default {
     reference: diagram(
       {
         wms: ['wms', 'Manhattan WMS'],
-        swms: ['system-api', 'sys-wms-api'],
-        tq: ['queue', 'pick-tasks'],
+        swms: ['system-api', 'sys-wms-api', { vCores: '0.5' }],
+        tq: ['queue', 'pick-tasks', { maxRedelivery: 30 }],
         dlq: ['dlq', 'pick-tasks DLQ'],
         pt: ['process-api', 'prc-robot-task-dispatch'],
         sfl: ['system-api', 'sys-fleet-manager-api'],
         fm: ['external-api', 'AMR fleet manager (on site)'],
         es: ['event-stream', 'robot-events (Kafka, on site)'],
-        ps: ['process-api', 'prc-task-status'],
+        ps: ['process-api', 'prc-task-status', { vCores: '0.5' }],
         pa: ['process-api', 'prc-robot-alerts'],
         dl: ['data-warehouse', 'Operations data lake'],
         nt: ['notification', 'Floor supervisor alerts'],
@@ -41,6 +41,29 @@ export default {
         'es ~> dl', 'es ~> pa', 'pa -> nt',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'wms', latencyMs: 100, maxRps: 200 },
+        { match: 'external-api', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'Task event peak',
+          about: 'At peak the fleet manager sends 120 task events a second for 20 minutes. The task status API keeps up, so every result reaches the WMS within the half hour and the WMS stays under its 200 calls a second.',
+          traffic: [{ name: 'task events', from: 'external-api', rps: 120, forMin: 20, to: 'wms', kind: 'write' }],
+          durationMin: 30,
+          expect: { delivered: [{ to: 'wms', min: 0.99 }], peakRps: [{ node: 'wms', max: 200 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The fleet manager is down for 10 minutes',
+          about: 'The WMS releases 20 pick tasks a second while the fleet manager restarts for 10 minutes. Each task waits in the queue and is tried for 30 minutes, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'pick tasks', from: 'wms', rps: 20, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 10 }],
+          durationMin: 40,
+          expect: { backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An online retailer's largest fulfilment centre (FC) is adding 220 autonomous mobile robots (AMRs). The robots bring totes to pickers, so pickers stop walking the aisles. The robot vendor supplies a fleet manager server that runs on site and plans robot routes.
@@ -62,6 +85,7 @@ export default {
 - The WMS must receive only task results, not telemetry. Last year a different vendor's telemetry flooded the WMS API and stopped all three FCs for 40 minutes.
 - Floor supervisors must know about a blocked robot within 30 seconds.
 - In peak season the FC ships 180,000 orders a day.
+- Task events reach 120 a second for 20 minutes at peak. The WMS releases about 20 pick tasks a second, and the fleet manager can restart for 10 minutes.
 
 **Your task.** Design the integration between the WMS, the robot fleet and the data lake.
 `,

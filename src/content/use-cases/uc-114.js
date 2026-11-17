@@ -37,7 +37,7 @@ export default {
         ssap: ['system-api', 'sys-sap-pm-api'],
         sap: ['erp', 'SAP PM'],
         rep: ['batch-job', 'Grid availability report (5 min)'],
-        sgrid: ['system-api', 'sys-grid-operator-api'],
+        sgrid: ['system-api', 'sys-grid-operator-api', { retries: 2 }],
         grid: ['external-api', 'Grid operator API'],
         dash: ['internal-app', 'Control room dashboard'],
         exp: ['experience-api', 'exp-fleet-telemetry-api'],
@@ -47,6 +47,27 @@ export default {
         'rep -> ts', 'rep -> sgrid', 'sgrid -> grid', 'dash -> exp', 'exp -> ts',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 500 }],
+      tests: [
+        {
+          name: 'A site link drops for 3 hours',
+          about: 'The sites send 60 summaries a second while the central ingress cannot be reached for 3 hours. The summaries wait in the site buffers, reach the time-series store once the link is back, and none is lost.',
+          traffic: [{ name: 'summaries', from: 'device', rps: 60, to: 'database', kind: 'write' }],
+          incidents: [{ down: 'topic', at: 10, forMin: 180 }],
+          durationMin: 240,
+          expect: { delivered: [{ to: 'database', min: 0.99 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The grid operator drops some calls',
+          about: 'The report job sends 1 farm report a second while the grid operator API fails 1 call in 5 for 30 minutes. Every report still reaches the grid operator.',
+          traffic: [{ name: 'grid reports', from: 'batch-job', rps: 1, to: 'external-api', kind: 'write' }],
+          incidents: [{ errors: 'external-api', rate: 0.2, at: 5, forMin: 30 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An energy company operates **600 wind turbines on 15 wind farms**, many offshore or in remote hills.
@@ -55,7 +76,7 @@ Facts:
 - Each turbine controller (SCADA) produces about **200 values per second** (wind speed, rotor speed, power, pitch, temperatures, vibration). A site gateway sends 10 second summaries centrally: about **60 messages per second** in total, plus raw 1 Hz data on request.
 - Site links (microwave, 4G, satellite) **drop for hours**, sometimes 2 days in winter storms. No data may be lost: the regulator and the turbine warranty both need complete history.
 - Fault codes (for example gearbox oil temperature high) must create a **maintenance work order in SAP PM** within 10 minutes of reaching the centre. A turbine can repeat the same fault code hundreds of times while it lasts.
-- The **grid operator** needs each farm's available capacity every 5 minutes through its REST API.
+- The **grid operator** needs each farm's available capacity every 5 minutes through its REST API. Its API sometimes fails 1 call in 5 for half an hour.
 - The control room dashboard shows the last 24 hours of any turbine.
 - Data must be kept **10 years**.
 

@@ -33,7 +33,7 @@ export default {
         dhl: ['external-api', 'DHL Parcel API'],
         ups: ['external-api', 'UPS API'],
         dpd: ['external-api', 'DPD API'],
-        ev: ['experience-api', 'exp-carrier-events-api'],
+        ev: ['experience-api', 'exp-carrier-events-api', { vCores: '1' }],
         sftp: ['sftp-server', 'Carrier status files (SFTP)'],
         job: ['batch-job', 'carrier-file-poller'],
         tq: ['queue', 'tracking-events'],
@@ -49,6 +49,26 @@ export default {
         'soms -> oms', 'pt ~> notif',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 200, maxRps: 100 }],
+      tests: [
+        {
+          name: 'A carrier sends its backlog',
+          about: 'After an outage DHL sends 300 status webhooks a second for 10 minutes. The events API answers each one at once, the queue holds the extra, and the OMS never gets more than 100 updates a second.',
+          traffic: [{ name: 'status events', from: { type: 'external-api', label: 'DHL' }, rps: 300, forMin: 10, to: 'saas', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 100 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+        {
+          name: 'The OMS is down for 30 minutes',
+          about: 'Carriers send 25 status events a second while the OMS is down for 30 minutes. The events wait on the queue, and every status reaches the OMS once it is back.',
+          traffic: [{ name: 'status events', from: { type: 'external-api', label: ['DHL', 'UPS'] }, rps: 25, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A fashion e-commerce retailer ships 180,000 parcels a day from three warehouses in Europe, rising to 450,000 on Black Friday. It uses 12 parcel carriers: DHL, UPS, DPD, GLS, PostNL, Colissimo and six regional ones.
@@ -69,6 +89,7 @@ export default {
 - Peak label rate is 30 per second.
 - Carrier APIs differ: REST and SOAP, ZPL or PDF labels, different status codes.
 - Carrier status events are about 2 million a day, with bursts when a carrier sends a backlog after an outage.
+- In tests a carrier sends 300 webhooks a second for 10 minutes, the OMS takes 100 updates a second, and the OMS can be down for 30 minutes.
 
 **Your task.** Design the shipping and tracking integration, and describe the canonical model that makes a new carrier a four-week job.
 `,

@@ -31,7 +31,7 @@ export default {
         idp: ['identity-provider', 'Regional identity (SMART on FHIR, OIDC)'],
         gw: ['api-gateway', 'API gateway (token, scopes, rate limits)'],
         efh: ['experience-api', 'exp-patient-summary-fhir-api'],
-        pq: ['process-api', 'prc-federated-summary'],
+        pq: ['process-api', 'prc-federated-summary', { calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 3000 }],
         smpi: ['system-api', 'sys-mpi-api'],
         mpi: ['database', 'Master patient index'],
         scon: ['system-api', 'sys-consent-api'],
@@ -56,6 +56,31 @@ export default {
         'v2h -> lis', 'lis ~> v2q', 'v2q ~> load', 'load -> scdr', 'pq ~> aud', 'aud ~> audit',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 50 },
+        { match: 'saas', latencyMs: 800 },
+        { match: 'legacy', latencyMs: 1200 },
+      ],
+      tests: [
+        {
+          name: 'Hospital B is slow',
+          about: 'Clinicians ask for 20 summaries a second while Hospital B takes 15 seconds to answer for 20 minutes. The query API calls the sources in parallel, gives up on Hospital B after 3 seconds, and returns the summary without it.',
+          traffic: [{ name: 'summaries', from: 'internal-app', rps: 20, to: ['database', 'saas', 'legacy'] }],
+          incidents: [{ slow: { type: 'legacy', label: 'Hospital B' }, latencyMs: 15000, at: 5, forMin: 20 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 5000 }] },
+        },
+        {
+          name: 'The repository is down for 30 minutes',
+          about: 'The v2-only hospitals send 20 messages a second while the clinical data repository is down for 30 minutes. The listener ACKs every message, and the loader catches up from the queue.',
+          traffic: [{ name: 'HL7 v2 messages', from: { type: 'legacy', label: 'v2' }, rps: 20, to: { type: 'database', label: 'repository' }, kind: 'write' }],
+          incidents: [{ down: { type: 'database', label: 'repository' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A regional health information exchange (HIE) serves 30 hospitals, 400 GP practices and 2.8 million people. A clinician treating a patient should see a summary from every other organisation that has treated them: allergies, current medications, problems, recent lab results and discharge letters.
@@ -76,6 +101,7 @@ export default {
 | Item | Detail |
 |---|---|
 | Volume | About 25,000 summary requests a day, 80 a second at the morning peak |
+| Tests | 20 summaries a second while one hospital takes 15 seconds, and the repository down for 30 minutes while 20 v2 messages a second arrive |
 | Hospital APIs | Each FHIR hospital sets a limit (some as low as 5 requests a second) and has maintenance windows |
 | Law | Health data is special category data; sharing for direct care only; patients can opt out |
 | Governance | A data sharing agreement per organisation; a regional board approves new data types |

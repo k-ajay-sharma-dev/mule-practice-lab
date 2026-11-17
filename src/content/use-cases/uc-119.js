@@ -26,13 +26,13 @@ export default {
         mob: ['mobile-app', 'Rental app'],
         exp: ['experience-api', 'exp-booking-api'],
         breq: ['queue', 'booking.requests'],
-        orch: ['process-api', 'prc-booking-saga (orchestrator)'],
+        orch: ['process-api', 'prc-booking-saga (orchestrator)', { replicas: 2, vCores: '0.5', timeoutMs: 30000 }],
         st: ['database', 'Saga state log (per booking)'],
         sfleet: ['system-api', 'sys-fleet-api'],
         fleet: ['saas', 'Fleet management system'],
         spay: ['system-api', 'sys-payments-api'],
         pay: ['payment', 'Payment provider (deposit holds)'],
-        sins: ['system-api', 'sys-insurer-api'],
+        sins: ['system-api', 'sys-insurer-api', { vCores: '1', timeoutMs: 25000 }],
         ins: ['external-api', 'Insurer SOAP API'],
         evt: ['topic', 'booking.events'],
         notif: ['notification', 'Email and push'],
@@ -44,6 +44,30 @@ export default {
         'orch -> sins', 'sins -> ins', 'orch ~> evt', 'evt ~> notif', 'orch ~> manual', 'sweep -> st', 'sweep -> orch',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300 },
+        { match: 'payment', latencyMs: 2000 },
+        { match: 'external-api', latencyMs: 12000 },
+      ],
+      tests: [
+        {
+          name: 'Holiday sale',
+          about: 'Customers make 25 bookings a second for 20 minutes, and the insurer takes 12 seconds. Each booking is accepted within a second, the saga waits up to 25 seconds for the insurer, and every booking reaches all three services.',
+          traffic: [{ name: 'bookings', from: 'web-app', rps: 25, forMin: 20, to: ['saas', 'payment', 'external-api'], kind: 'write' }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], delivered: [{ to: 'external-api', min: 0.99 }], backlog: [{ queue: { label: 'booking.requests' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The insurer is down for 15 minutes',
+          about: 'Customers make 5 bookings a second while the insurer is down for 15 minutes. Bookings are still accepted, the saga tries them again once the insurer is back, and none is lost.',
+          traffic: [{ name: 'bookings', from: 'web-app', rps: 5, to: ['saas', 'payment', 'external-api'], kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 15 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'external-api', min: 0.99 }], backlog: [{ queue: { label: 'booking.requests' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A car rental company takes **30,000 bookings per day** on its website and app (peaks of 25 per second during holiday sales). A booking needs three services, owned by three teams and vendors:
@@ -57,6 +81,7 @@ Rules:
 - If a later step fails, earlier steps must be undone: **release the vehicle**, **void the deposit hold**, **cancel the cover**. These are compensations, not rollbacks.
 - The customer must never be charged a deposit for a booking that is not confirmed for more than 15 minutes.
 - No two bookings may get the same vehicle.
+- A holiday sale lasts about 20 minutes at 25 bookings a second, with the insurer taking about 12 seconds a call. The insurer can also be down for 15 minutes.
 - The insurer bills for every policy not cancelled within 24 hours.
 - Today the website calls all three in one HTTP request and does nothing when step 3 fails. Finance finds **~200 orphan deposit holds and ~60 orphan policies per month**.
 

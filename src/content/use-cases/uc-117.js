@@ -24,7 +24,7 @@ export default {
         web: ['web-app', 'Buyer portal'],
         buy: ['partner', 'Customer procurement systems'],
         exp: ['experience-api', 'exp-part-pricing-api'],
-        prc: ['process-api', 'prc-price-comparison (Scatter-Gather)'],
+        prc: ['process-api', 'prc-price-comparison (Scatter-Gather)', { calls: 'in parallel', onFailure: 'partial answer' }],
         cache: ['cache', 'Quote cache per supplier and part (5 min)'],
         s1: ['system-api', 'sys-supplier-a-api'],
         s2: ['system-api', 'sys-supplier-b-soap-api'],
@@ -43,6 +43,32 @@ export default {
         's1 -> e1', 's2 -> e2', 's3 -> e3', 's4 -> e4', 'prc -> fx', 'fx -> fxdb', 'prc ~> mon',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { label: 'Supplier A' }, latencyMs: 200 },
+        { match: { label: 'Supplier B' }, latencyMs: 2000 },
+        { match: { label: 'Supplier C' }, latencyMs: 300, maxRps: 5 },
+        { match: { label: 'Supplier D' }, latencyMs: 400 },
+      ],
+      cache: { hitRatio: 0.85 },
+      tests: [
+        {
+          name: 'Peak lookups',
+          about: 'Buyers send 30 lookups a second. The 5 minute cache answers about 85 in 100, so supplier C gets fewer than its 5 calls a second, and the suppliers are called in parallel, so an answer takes under 450 ms on average.',
+          traffic: [{ name: 'lookups', from: 'web-app', rps: 30, to: 'external-api', kind: 'read' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 450 }], peakRps: [{ node: { label: 'Supplier C' }, max: 5 }] },
+        },
+        {
+          name: 'Supplier D is down',
+          about: 'Buyers send 10 lookups a second while supplier D is down for 60 minutes. The screen still shows the other three suppliers, so no lookup fails.',
+          traffic: [{ name: 'lookups', from: 'web-app', rps: 10, to: 'external-api', kind: 'read' }],
+          incidents: [{ down: { label: 'Supplier D' }, at: 5, forMin: 60 }],
+          durationMin: 70,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 An electronic components distributor also resells parts from **four franchised suppliers** when its own stock runs out. Buyers want one screen: for a manufacturer part number and quantity, show **price, stock and lead time** from every source, cheapest first.
@@ -58,6 +84,7 @@ Facts:
 - Supplier prices change at most a few times a day; stock changes all the time.
 - Quantity breaks: price depends on the quantity (1+, 100+, 1,000+).
 - All prices must be shown in the buyer's currency.
+- A 5 minute quote cache answers about 85 lookups in 100. Supplier B takes about 2 seconds, and supplier D can be down for an hour.
 
 **Describe your solution:**
 - How does one request fan out and come back together?

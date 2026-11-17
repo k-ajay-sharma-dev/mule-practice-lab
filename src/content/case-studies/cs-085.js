@@ -28,15 +28,15 @@ export default {
         sftp: ['sftp-server', 'H2H SFTP (pain.001 files)'],
         fjob: ['batch-job', 'pain.001 file intake'],
         qin: ['queue', 'payments.inbound-bulk'],
-        exp: ['experience-api', 'exp-payment-initiation-api'],
-        hub: ['process-api', 'prc-payment-hub (canonical pacs.008)'],
+        exp: ['experience-api', 'exp-payment-initiation-api', { vCores: '1' }],
+        hub: ['process-api', 'prc-payment-hub (canonical pacs.008)', { vCores: '1' }],
         qsw: ['queue', 'route.swift'],
         qbacs: ['queue', 'route.bacs'],
         st: ['topic', 'payment-status (pacs.002)'],
-        ssan: ['system-api', 'sys-sanctions-api'],
-        sfr: ['system-api', 'sys-fraud-scoring-api'],
-        sled: ['system-api', 'sys-core-ledger-api'],
-        sinst: ['system-api', 'sys-instant-scheme-api'],
+        ssan: ['system-api', 'sys-sanctions-api', { vCores: '0.5' }],
+        sfr: ['system-api', 'sys-fraud-scoring-api', { vCores: '0.5' }],
+        sled: ['system-api', 'sys-core-ledger-api', { vCores: '0.5' }],
+        sinst: ['system-api', 'sys-instant-scheme-api', { vCores: '0.5' }],
         sswift: ['system-api', 'sys-swift-api'],
         sbacs: ['system-api', 'sys-bacs-api'],
         snot: ['system-api', 'sys-customer-notify-api'],
@@ -56,6 +56,33 @@ export default {
         'sinst -> inst', 'sswift -> swift', 'sbacs -> bacs', 'st ~> snot', 'snot -> notif', 'st ~> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 200 },
+        { match: 'legacy', latencyMs: 300 },
+        { match: 'external-api', latencyMs: 1500 },
+      ],
+      tests: [
+        {
+          name: 'A large corporate file at the online peak',
+          about: 'Online banking sends 100 instant payments a second while a corporate file adds 100 Bacs payments a second for 10 minutes. Instant payments stay under 5 seconds, and the hub works through the file within the hour.',
+          traffic: [
+            { name: 'instant payments', from: 'web-app', rps: 100, to: ['saas', 'legacy', { type: 'external-api', label: 'instant' }], kind: 'write' },
+            { name: 'corporate file', from: 'batch-job', rps: 100, at: 5, forMin: 10, to: { type: 'external-api', label: 'bacs' }, kind: 'write' },
+          ],
+          durationMin: 60,
+          expect: { answers: [{ flow: 'instant payments', minSuccess: 0.99, maxMs: 5000 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'inbound' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'The SWIFT gateway is closed for an hour',
+          about: 'Customers send 5 SWIFT payments a second while the SWIFT gateway is closed for 60 minutes. The hub keeps accepting them, they wait on the SWIFT queue, and every one is sent once it opens.',
+          traffic: [{ name: 'SWIFT payments', from: 'web-app', rps: 5, to: { type: 'external-api', label: 'swift' }, kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'swift' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 5000 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'swift' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mid-size European bank sends 3.5 million payments a month: instant domestic payments, SWIFT cross-border payments and bulk Bacs payroll for corporate clients. Each channel has its own path today:
@@ -75,6 +102,7 @@ export default {
 - SWIFT and Bacs have cut-off times and batch windows; the hub must keep accepting payments when those gateways are slow or closed.
 - Payment status (accepted, rejected, settled) as pacs.002 events for notifications and reporting.
 - Corporate files of up to 50,000 payments must not block online payments.
+- In tests online banking sends 100 instant payments a second while a file adds 100 Bacs payments a second for 10 minutes, and the SWIFT gateway can be closed for an hour.
 
 **Your task.** Design the payment hub integration.
 `,

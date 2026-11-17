@@ -21,9 +21,9 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Vendor sync (nightly 01:00)'],
+        job: ['batch-job', 'Vendor sync (nightly 01:00)', { timeoutMs: 30000 }],
         ssap: ['system-api', 'sys-sap-vendor-api'],
-        scoupa: ['system-api', 'sys-coupa-supplier-api'],
+        scoupa: ['system-api', 'sys-coupa-supplier-api', { timeoutMs: 30000, retries: 2 }],
         sap: ['erp', 'SAP S/4HANA (vendor master)'],
         coupa: ['saas', 'Coupa procurement'],
         wm: ['cache', 'Last-run watermark (Object Store)'],
@@ -31,6 +31,30 @@ export default {
       },
       ['job -> ssap', 'ssap -> sap', 'job -> scoupa', 'scoupa -> coupa', 'job -> wm', 'job -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 300 },
+        { match: 'saas', latencyMs: 1500 },
+      ],
+      tests: [
+        {
+          name: 'Coupa is slow on clean-up night',
+          about: 'After the yearly clean-up the job sends 2 vendors a second for 50 minutes, and Coupa takes 15 seconds per supplier all night. Every vendor must still get in before 07:00.',
+          traffic: [{ name: 'vendors', from: 'batch-job', rps: 2, forMin: 50, to: ['erp', 'saas'], kind: 'write' }],
+          incidents: [{ slow: 'saas', latencyMs: 15000 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Coupa fails some calls',
+          about: 'The job sends 2 vendors a second for 50 minutes, and Coupa answers 1 call in 10 with an error. The supplier number makes a retry safe, so almost every vendor gets in.',
+          traffic: [{ name: 'vendors', from: 'batch-job', rps: 2, forMin: 50, to: ['erp', 'saas'], kind: 'write' }],
+          incidents: [{ errors: 'saas', rate: 0.1 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A distribution company runs **SAP S/4HANA** as the master for vendors. Buyers raise requisitions and purchase orders in **Coupa**, so every active vendor must exist in Coupa as a supplier.
@@ -42,6 +66,7 @@ Facts:
 - Vendors blocked for purchasing in SAP must become **inactive** in Coupa. They must never be deleted, because old POs refer to them.
 - Bank details are **not** sent to Coupa. Payments run in SAP.
 - The sync runs at 01:00 and must finish before buyers start at 07:00.
+- On clean-up night the job sends 2 vendors a second for 50 minutes. Coupa answers in 1.5 seconds, but can slow to 15 seconds or fail 1 call in 10.
 
 **Describe your solution:**
 - How do you find only the vendors that changed?

@@ -35,7 +35,7 @@ export default {
         san: ['external-api', 'Sanctions screening service'],
         tws: ['internal-app', 'Treasury approval app'],
         exap: ['experience-api', 'exp-treasury-approvals'],
-        qb: ['queue', 'bank-outbound'],
+        qb: ['queue', 'bank-outbound', { maxRedelivery: 60 }],
         sbank: ['system-api', 'sys-bank-connectivity-api'],
         bank: ['sftp-server', 'Bank host-to-host SFTP'],
         swift: ['external-api', 'SWIFT service bureau'],
@@ -51,6 +51,30 @@ export default {
         'poll -> sbank', 'poll ~> qs', 'qs ~> prc', 'prc -> serp', 'serp -> erp1', 'serp -> erp2', 'serp -> erp3', 'prc -> mail',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'sftp-server', latencyMs: 1000 },
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A bank host is down before cut-off',
+          about: 'The factory releases 2 payments a second while the bank host-to-host server is down for 30 minutes. Each payment waits in the outbound queue, is tried for an hour, and is sent once the bank is back, with none lost or sent to the DLQ.',
+          traffic: [{ name: 'payments', from: { type: 'batch-job', label: 'collector' }, rps: 2, to: { type: 'sftp-server', label: 'host-to-host' }, kind: 'write' }],
+          incidents: [{ down: { type: 'sftp-server', label: 'host-to-host' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: ['queue', 'cloud-queue'], label: 'outbound' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'The bank rejects some payment files',
+          about: 'The factory releases 2 payments a second, and 1 in 200 has a format the bank refuses every time. Those payments go to the DLQ after an hour of tries for treasury to fix, and the others keep flowing.',
+          traffic: [{ name: 'payments', from: { type: 'batch-job', label: 'collector' }, rps: 2, to: { type: 'sftp-server', label: 'host-to-host' }, kind: 'write', poison: 0.005 }],
+          durationMin: 180,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A pharmaceutical group pays suppliers from **five ERP instances** (two SAP S/4HANA, one Oracle EBS, two NetSuite) through **twelve banks** in 30 countries. Each ERP has its own bank formats and connections; treasury cannot see cash going out until bank statements arrive the next day. The group is building a **payment factory** on Mule 4.
@@ -62,6 +86,7 @@ Requirements:
 - Banks return **pain.002** status reports (accepted, rejected, pending) and **camt.054** debit notifications. ERPs must get the status of each payment to clear or reopen the invoice.
 - About **45,000 payments a day**, **2.3 billion EUR** a month. Each bank has a daily **cut-off time**.
 - A payment must **never be sent twice**, even if an ERP drops the same file again or the factory crashes mid-send.
+- In the tests the factory releases 2 payments a second, a bank host can be down for 30 minutes, and 1 payment in 200 has a format the bank always refuses.
 
 **Questions:**
 1. Draw the flow from ERP to bank and back.

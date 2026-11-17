@@ -24,18 +24,18 @@ export default {
         mob: ['mobile-app', 'Mobile app'],
         web: ['web-app', 'Web booking site'],
         cc: ['internal-app', 'Call centre'],
-        em: ['experience-api', 'exp-mobile-api'],
+        em: ['experience-api', 'exp-mobile-api', { vCores: '1' }],
         ew: ['experience-api', 'exp-web-api'],
         ec: ['experience-api', 'exp-callcentre-api'],
         av: ['process-api', 'prc-availability-api'],
         bk: ['process-api', 'prc-booking-api'],
-        mem: ['process-api', 'prc-member-api'],
+        mem: ['process-api', 'prc-member-api', { vCores: '1' }],
         cache: ['cache', 'Availability cache + property routing'],
         q: ['queue', 'stay-completed'],
         sca: ['system-api', 'sys-crs-a-api'],
         scb: ['system-api', 'sys-crs-b-api'],
         spms: ['system-api', 'sys-pms-x-api'],
-        sloy: ['system-api', 'sys-loyalty-api'],
+        sloy: ['system-api', 'sys-loyalty-api', { vCores: '1' }],
         crsa: ['saas', 'CRS A'],
         crsb: ['saas', 'CRS B'],
         pms: ['legacy', 'PMS X'],
@@ -48,6 +48,25 @@ export default {
         'spms -> pms', 'spms ~> q', 'q ~> mem', 'mem -> sloy', 'sloy -> loy', 'mob -> pay', 'web -> pay',
       ],
     ),
+    simulation: {
+      systems: [{ match: { type: 'saas', label: 'loyalty' }, latencyMs: 300 }],
+      tests: [
+        {
+          name: 'The loyalty platform is down for 30 minutes',
+          about: 'Guests check out 5 times a second at the morning peak while the loyalty platform is down for 30 minutes. The StayCompleted events wait in the queue, each is tried for up to an hour, and no points are lost.',
+          traffic: [{ name: 'checkouts', from: { type: 'system-api', label: 'pms' }, rps: 5, to: { type: 'saas', label: 'loyalty' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'loyalty' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { delivered: [{ to: { type: 'saas', label: 'loyalty' }, min: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Members open the app during a sale',
+          about: 'During a holiday sale members open their profile and points in the app 300 times a second. The mobile, member and loyalty APIs have the capacity to answer them all within a second.',
+          traffic: [{ name: 'member reads', from: 'mobile-app', rps: 300, to: { type: 'saas', label: 'loyalty' } }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A hotel group with 300 properties grew through acquisitions. It now runs three property-management systems (PMS) and two central reservation systems (CRS).
@@ -66,6 +85,7 @@ export default {
 - Two CRSs charge per availability call.
 - Member data includes personal data and payment tokens; card data must not pass through the integration layer.
 - Peak: holiday sales campaigns generate 20x normal search traffic.
+- At the morning peak guests check out about 5 times a second, and the loyalty platform can be down for 30 minutes. During a sale members open their profile about 300 times a second.
 
 **Your task.** Propose:
 - the API architecture

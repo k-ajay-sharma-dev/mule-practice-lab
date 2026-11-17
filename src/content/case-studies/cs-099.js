@@ -36,13 +36,35 @@ export default {
         web: ['web-app', 'Outage map and status page'],
         mob: ['mobile-app', 'Customer app'],
         ivr: ['chatbot', 'IVR and voice bot'],
-        eout: ['experience-api', 'exp-outage-status-api'],
+        eout: ['experience-api', 'exp-outage-status-api', { replicas: 2, vCores: '1' }],
       },
       [
         'oms ~> oq', 'oq ~> pout', 'pout -> scrm', 'scrm -> crm', 'pout ~> top', 'top ~> pnot', 'top ~> pstat',
         'pnot -> notif', 'pstat -> cache', 'web -> eout', 'mob -> eout', 'ivr -> eout', 'eout -> cache',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 200 },
+        { match: 'notification', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Storm status lookups',
+          about: 'During a storm the map, the app and the IVR send 800 status lookups a second, 50 times the normal rate. The status API has the replicas to answer them all from the cache, and none reaches the OMS.',
+          traffic: [{ name: 'status lookups', from: ['web-app', 'mobile-app', 'chatbot'], rps: 800, to: 'cache' }],
+          expect: { answers: [{ minSuccess: 0.99 }], notReached: [{ node: 'legacy' }] },
+        },
+        {
+          name: 'The SMS provider is down in a storm',
+          about: 'The OMS sends 20 outage events a second while the SMS provider is down for 30 minutes, and the broker restarts in the middle. The notices wait on the topic as persistent messages, and every customer is told once the provider is back.',
+          traffic: [{ name: 'outage events', from: 'legacy', rps: 20, to: 'notification', kind: 'write' }],
+          incidents: [{ down: 'notification', at: 5, forMin: 30 }, { restart: 'topic', at: 20 }],
+          durationMin: 90,
+          expect: { lost: { max: 0 }, backlog: [{ queue: ['topic', 'queue'], maxEnd: 0 }], delivered: [{ to: 'notification', min: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An electricity distribution network operator serves 3.1 million homes and businesses. Its outage management system (OMS) predicts outages from smart-meter "last gasp" alarms and customer calls, assigns crews and estimates restoration times. The OMS publishes outage created, updated and restored events on an ActiveMQ queue.
@@ -63,6 +85,7 @@ export default {
 | Customer data | CRM holds premises, contact details, notification preferences and the priority services flag |
 | Network model | Premises are linked to a transformer and feeder; an outage event lists affected transformers |
 | Opt-in | SMS only to customers who opted in; regulatory reporting needs proof of each notification |
+| Tests | 800 status lookups a second in a storm, and the SMS provider down for 30 minutes with a broker restart while the OMS sends 20 events a second |
 
 **Your task.** Design the event flow from the OMS to customers and the status channels.
 `,

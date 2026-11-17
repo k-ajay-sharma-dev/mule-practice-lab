@@ -23,7 +23,7 @@ export default {
       {
         sf: ['crm', 'Salesforce (CPQ orders)'],
         ssf: ['system-api', 'sys-salesforce-api'],
-        q: ['queue', 'ORDERS.ACTIVATED (ActiveMQ)'],
+        q: ['queue', 'ORDERS.ACTIVATED (ActiveMQ)', { maxRedelivery: 60 }],
         dlq: ['dlq', 'DLQ.ORDERS.ACTIVATED'],
         prc: ['process-api', 'prc-order-to-ebs'],
         sebs: ['system-api', 'sys-oracle-ebs-om-api'],
@@ -32,6 +32,26 @@ export default {
       },
       ['sf ~> ssf', 'ssf ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> sebs', 'sebs -> ebs', 'prc -> ssf', 'ssf -> sf', 'job -> sebs', 'job -> ssf'],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 2000 }],
+      tests: [
+        {
+          name: 'The EBS window runs 30 minutes late',
+          about: 'Sales activates 30 orders a minute at quarter end, and EBS stays down 30 minutes after its Sunday window. Every order is taken at once, each is tried for an hour, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'orders', from: 'crm', rps: 0.5, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'EBS rejects some orders',
+          about: 'Sales activates 30 orders a minute, and 1 order in 50 has an option line EBS rejects every time. Those orders go to the DLQ after an hour of tries, and the others keep flowing.',
+          traffic: [{ name: 'orders', from: 'crm', rps: 0.5, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 10 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An industrial equipment maker quotes in **Salesforce CPQ**. When a quote is accepted, sales activates an **Order** in Salesforce. Fulfilment, shipping and invoicing run in **Oracle E-Business Suite 12.2 Order Management** on Oracle 19c. Integration runs on Mule 4 with **ActiveMQ Artemis** as the company broker.
@@ -42,6 +62,7 @@ Facts:
 - Sales reps want to see **Booked, Shipped (with tracking number) and Invoiced** status on the order in Salesforce, within 15 minutes of the change in EBS.
 - EBS has a maintenance window every Sunday 02:00 to 06:00. Orders activated then must not be lost.
 - The EBS team allows writes only through the public API \`OE_ORDER_PUB.PROCESS_ORDER\`, never inserts into base tables.
+- In the tests sales activates 30 orders a minute, EBS stays down 30 minutes after its window, and 1 order in 50 has an option line EBS always rejects.
 
 **Questions:**
 1. How is an activated order picked up?

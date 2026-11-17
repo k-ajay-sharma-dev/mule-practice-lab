@@ -29,7 +29,7 @@ export default {
         sftp: ['batch-job', 'SFTP file intake (CSV clients)'],
         pwo: ['process-api', 'prc-warehouse-orders'],
         pout: ['process-api', 'prc-client-outbound'],
-        oq: ['queue', 'canonical-warehouse-orders'],
+        oq: ['queue', 'canonical-warehouse-orders', { maxRedelivery: 5 }],
         dlq: ['dlq', 'warehouse-orders DLQ'],
         sh: ['topic', 'shipment-confirmed'],
         swms: ['system-api', 'sys-wms-api'],
@@ -44,6 +44,29 @@ export default {
         'pout -> prof', 'pout -> cend',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'wms', latencyMs: 300, maxRps: 20 },
+        { match: 'database', latencyMs: 10 },
+        { match: 'external-api', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The November peak',
+          about: 'In November the API clients send 40 orders a second for 30 minutes. The WMS licence allows 20 calls a second. Every order is accepted at once and waits in the queue, and the WMS never gets more than 20 a second.',
+          traffic: [{ name: 'orders', from: { type: 'partner', label: 'API clients' }, rps: 40, forMin: 30, to: 'wms', kind: 'write' }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'wms', max: 20 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Orders the WMS always rejects',
+          about: 'Clients send 5 orders a second, and 1 in 50 has data the WMS rejects every time. After 5 deliveries those orders go to the DLQ for the onboarding team, and the others keep flowing.',
+          traffic: [{ name: 'orders', from: { type: 'partner', label: 'API clients' }, rps: 5, to: 'wms', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 50 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A third-party logistics (3PL) company runs 12 warehouses for about 200 clients (retail brands, e-commerce sellers, consumer-goods manufacturers) on one multi-client WMS. Each client integration was built separately:
@@ -67,6 +90,8 @@ export default {
 | Volume | 150,000 orders a day normally, 5x in November; the largest client is 20% of volume |
 | Contracts | SLAs per client, e.g. orders received by 14:00 ship same day |
 | Security | Clients must never see each other's data |
+
+In November the API clients can send 40 orders a second for 30 minutes, the WMS licence allows 20 calls a second, and about 1 order in 50 has data the WMS rejects every time.
 
 **Your task.** Propose:
 - the integration platform architecture

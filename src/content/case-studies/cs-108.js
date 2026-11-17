@@ -30,8 +30,8 @@ export default {
         db: ['database', 'Port request state'],
         sch: ['system-api', 'sys-clearing-house-api'],
         ch: ['external-api', 'National porting clearing house'],
-        scb: ['system-api', 'sys-clearing-house-callback-api'],
-        q: ['queue', 'port-responses'],
+        scb: ['system-api', 'sys-clearing-house-callback-api', { vCores: '0.5' }],
+        q: ['queue', 'port-responses', { maxRedelivery: 5 }],
         dlq: ['dlq', 'port-responses DLQ'],
         soss: ['system-api', 'sys-number-routing-api'],
         hlr: ['legacy', 'HLR and number routing (OSS)'],
@@ -44,6 +44,28 @@ export default {
         'q ~> prc', 'q ~> dlq', 'prc -> soss', 'soss -> hlr', 'prc -> sbill', 'sbill -> bill', 'prc ~> sms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'legacy', label: 'HLR' }, latencyMs: 200, maxRps: 20 },
+        { match: 'legacy', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Handset launch callbacks',
+          about: 'On a handset launch day the clearing house sends 60 callbacks a second for 10 minutes. Each one is acknowledged at once, and the OSS never gets more than its 20 routing changes a second.',
+          traffic: [{ name: 'callbacks', from: 'external-api', rps: 60, forMin: 10, to: { type: 'legacy', label: 'HLR' }, kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 5000 }], peakRps: [{ node: { type: 'legacy', label: 'HLR' }, max: 20 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some responses cannot be processed',
+          about: 'The clearing house sends 5 callbacks a second, and 1 in 100 refers to a port the operator cannot match. Those go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'callbacks', from: 'external-api', rps: 5, to: { type: 'legacy', label: 'HLR' }, kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mobile operator with 25 million subscribers handles about 6,000 port-ins and 5,500 port-outs a day, and up to 20,000 port-ins on the first day of a new handset launch. Number porting in its country runs through a **national clearing house** with a SOAP over HTTPS interface:
@@ -66,6 +88,7 @@ The regulator requires a port to complete within **one working day** and fines o
 - Clearing house callbacks must be acknowledged within 5 seconds, or the clearing house retries and later suspends the operator's endpoint.
 - Callbacks can arrive twice.
 - The OSS provisioning API allows 20 changes per second.
+- In tests the clearing house sends 60 callbacks a second for 10 minutes on a launch day, and 1 callback in 100 cannot be matched to a port.
 
 **Your task.** Design the automated port-in process and explain how it meets the one-day rule.
 `,

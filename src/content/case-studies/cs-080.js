@@ -30,7 +30,7 @@ export default {
         evt: ['topic', 'dispute-status-changed'],
         sproc: ['system-api', 'sys-card-processor-api'],
         scase: ['system-api', 'sys-case-mgmt-api'],
-        sled: ['system-api', 'sys-core-ledger-api'],
+        sled: ['system-api', 'sys-core-ledger-api', { retries: 2 }],
         sntf: ['system-api', 'sys-customer-notify-api'],
         proc: ['external-api', 'Card processor dispute API'],
         case: ['crm', 'Salesforce Service Cloud (cases)'],
@@ -44,6 +44,30 @@ export default {
         'evt ~> sntf', 'sntf -> notif', 'evt ~> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 400, maxRps: 50 },
+        { match: 'legacy', latencyMs: 800 },
+        { match: 'crm', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The ledger drops some calls',
+          about: 'Customers raise 1 dispute a second, and the core ledger fails 1 provisional credit call in 10. The ledger System API tries again, so the credit is still posted.',
+          traffic: [{ name: 'disputes', from: 'mobile-app', rps: 1, to: ['external-api', 'crm', 'legacy'], kind: 'write' }],
+          incidents: [{ errors: 'legacy', rate: 0.1 }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'Notifications are down for an hour',
+          about: 'Customers raise 1 dispute a second while the notification service is down for 60 minutes. The status events wait on the topic, and every customer is told once it is back.',
+          traffic: [{ name: 'status events', from: 'mobile-app', rps: 1, to: 'notification', kind: 'write' }],
+          incidents: [{ down: 'notification', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A card issuer with 4 million Visa and Mastercard debit and credit cards handles 18,000 disputes a month (unrecognised payments, goods not received, double charges). Card processing is outsourced to a processor that exposes a REST dispute API and the scheme dispute workflows behind it.
@@ -61,6 +85,7 @@ export default {
 
 **Constraints**
 - The processor API allows 50 requests per second and does not send webhooks. Status changes must be polled.
+- In tests customers raise 1 dispute a second, the core ledger fails 1 call in 10, and the notification service can be down for an hour.
 - Core banking posts ledger entries through a CICS transaction wrapped in a SOAP service.
 - Card numbers must not be stored outside the processor; the bank uses the processor's card reference.
 

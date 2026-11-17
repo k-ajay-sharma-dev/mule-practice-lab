@@ -23,9 +23,9 @@ export default {
       {
         web: ['web-app', 'Web shop'],
         mob: ['mobile-app', 'Mobile app'],
-        exp: ['experience-api', 'exp-checkout-api'],
-        prc: ['process-api', 'prc-delivery-slots'],
-        cache: ['cache', 'Slot cache (Object Store, 60 s)'],
+        exp: ['experience-api', 'exp-checkout-api', { vCores: '0.5' }],
+        prc: ['process-api', 'prc-delivery-slots', { vCores: '0.5', timeoutMs: 3000, circuitBreaker: 'on', onFailure: 'partial answer' }],
+        cache: ['cache', 'Slot cache (Object Store, 60 s)', { ttlSec: 60 }],
         stms: ['system-api', 'sys-tms-api'],
         tms: ['tms', 'Route planning TMS (on-premises)'],
         serp: ['system-api', 'sys-erp-stock-api'],
@@ -33,6 +33,28 @@ export default {
       },
       ['web -> exp', 'mob -> exp', 'exp -> prc', 'prc -> cache', 'prc -> stms', 'stms -> tms', 'prc -> serp', 'serp -> erp'],
     ),
+    simulation: {
+      systems: [
+        { match: 'tms', latencyMs: 2000, maxRps: 20 },
+        { match: 'erp', latencyMs: 200 },
+      ],
+      cache: { hitRatio: 0.9, atTtlSec: 60 },
+      tests: [
+        {
+          name: 'A sale evening',
+          about: 'On a sale evening checkout asks for 80 slot lists a second. The TMS licence allows 20 calls a second, so the slot cache answers 9 in 10 and the checkout APIs have the capacity for the rest.',
+          traffic: [{ name: 'slot lookups', from: 'web-app', rps: 80, to: ['tms', 'erp'] }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'tms', max: 20 }] },
+        },
+        {
+          name: 'The TMS stops answering',
+          about: 'Checkout asks for 20 slot lists a second, and for 5 minutes the TMS stops answering. The slots API gives up after 3 seconds, its circuit breaker opens, and checkout shows the call-back option instead, so no checkout fails.',
+          traffic: [{ name: 'slot lookups', from: 'web-app', rps: 20, to: ['tms', 'erp'] }],
+          incidents: [{ hang: 'tms', at: 3, forMin: 5 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A furniture retailer sells sofas, beds and wardrobes online and in 85 showrooms. Large items go out on the retailer's own 2-person delivery vans from 6 regional hubs. Today the checkout offers "we will call you to book a date", and 1 in 4 customers phone the contact centre to ask when their order will come.
@@ -50,6 +72,7 @@ export default {
 | Oracle EBS | Stock on hand and purchase order due dates per hub |
 
 **Numbers.** About 12,000 slot lookups an hour at the evening peak, 3,500 orders a day. The slot list for one postcode and basket changes only a few times an hour.
+On a sale evening checkout can ask for 80 slot lists a second, and the TMS can stop answering for 5 minutes.
 
 **Constraints**
 - The TMS team will not let the web shop or app call the TMS directly.

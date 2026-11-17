@@ -21,11 +21,11 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Invoice poller (every 15 min)'],
-        prc: ['process-api', 'prc-e-invoice'],
+        job: ['batch-job', 'Invoice poller (every 15 min)', { timeoutMs: 30000 }],
+        prc: ['process-api', 'prc-e-invoice', { timeoutMs: 30000 }],
         sns: ['system-api', 'sys-netsuite-api'],
         ns: ['erp', 'NetSuite OneWorld'],
-        sap: ['system-api', 'sys-peppol-access-point-api'],
+        sap: ['system-api', 'sys-peppol-access-point-api', { timeoutMs: 30000 }],
         ap: ['external-api', 'Peppol access point (certified)'],
         hook: ['experience-api', 'exp-e-invoice-status-webhook'],
         q: ['queue', 'e-invoice-status'],
@@ -34,6 +34,30 @@ export default {
       },
       ['job -> prc', 'prc -> sns', 'sns -> ns', 'prc -> sap', 'sap -> ap', 'prc -> arch', 'prc -> mail', 'ap -> hook', 'hook ~> q', 'q ~> prc'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 800 },
+        { match: 'external-api', latencyMs: 2000 },
+      ],
+      tests: [
+        {
+          name: 'NetSuite is down while statuses arrive',
+          about: 'At month end the access point sends 2 status webhooks a second while NetSuite is down for 20 minutes. Every webhook gets its answer at once, and each status waits in the queue until NetSuite is back, with none lost.',
+          traffic: [{ name: 'status webhooks', from: 'external-api', rps: 2, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The access point is slow at month end',
+          about: 'The poller sends 2 invoices a second for 30 minutes, and the access point takes 20 seconds to accept each one. Every invoice must still be sent.',
+          traffic: [{ name: 'invoices', from: 'batch-job', rps: 2, forMin: 30, to: 'external-api', kind: 'write' }],
+          incidents: [{ slow: 'external-api', latencyMs: 20000 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A SaaS company bills from **NetSuite OneWorld** with subsidiaries in Belgium, the Netherlands and Germany. Belgium makes structured **B2B e-invoicing mandatory** from 1 January 2026 and the other countries follow. Invoices must go over the **Peppol** network in the **Peppol BIS Billing 3.0** format (UBL 2.1).
@@ -44,6 +68,7 @@ Facts:
 - Invoices must pass the official **Schematron** rules before sending; the access point charges for rejected documents.
 - About 15% of customers are not on Peppol yet; they must still get a PDF by email.
 - Finance must see the status on the invoice in NetSuite, and the exact XML sent must be kept for **10 years**.
+- In the tests the poller sends 2 invoices a second at month end, the access point can take 20 seconds per invoice, and NetSuite can be down for 20 minutes while status webhooks arrive.
 
 **Questions:**
 1. How are invoices picked up and converted?

@@ -23,13 +23,13 @@ export default {
       {
         pp: ['payment', 'Payment provider (dispute webhooks, evidence API)'],
         wh: ['experience-api', 'exp-payment-webhooks (signature check)'],
-        q: ['queue', 'dispute-events'],
+        q: ['queue', 'dispute-events', { maxRedelivery: 10 }],
         dlq: ['dlq', 'dispute-events-dlq'],
-        prc: ['process-api', 'prc-disputes'],
+        prc: ['process-api', 'prc-disputes', { timeoutMs: 60000 }],
         seen: ['cache', 'Processed event IDs'],
         soms: ['system-api', 'sys-oms'],
         oms: ['erp', 'OMS'],
-        scar: ['system-api', 'sys-carrier-tracking'],
+        scar: ['system-api', 'sys-carrier-tracking', { timeoutMs: 30000 }],
         car: ['external-api', 'Carrier API (proof of delivery)'],
         scrm: ['system-api', 'sys-salesforce-cases'],
         crm: ['crm', 'Salesforce (analyst cases)'],
@@ -43,6 +43,29 @@ export default {
         'prc -> scrm', 'scrm -> crm', 'crm ~> q', 'prc -> files', 'prc -> spay', 'spay -> pp', 'job -> scrm', 'job -> alert',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 15000 },
+        { match: 'erp', latencyMs: 300 },
+        { match: 'crm', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'Proof of delivery is slow',
+          about: 'In a fraud wave the provider sends 1 dispute event every 5 seconds, and each proof of delivery takes the carrier API about 15 seconds. The calls need timeouts longer than that, so every dispute gets its evidence.',
+          traffic: [{ name: 'disputes', from: 'payment', rps: 0.2, to: ['erp', 'external-api', 'crm'], kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 20 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some disputes name an unknown order',
+          about: 'The provider sends 1 dispute event every 5 seconds, and 1 in 20 names an order the OMS does not know. Those events end in the DLQ for an analyst, and the others keep flowing.',
+          traffic: [{ name: 'disputes', from: 'payment', rps: 0.2, to: ['erp', 'external-api', 'crm'], kind: 'write', poison: 0.05 }],
+          durationMin: 60,
+          expect: { dlq: { min: 20 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 An online electronics retailer takes **400,000 card payments a month** and receives about **1,200 disputes** (chargebacks) a month. Today an analyst gathers evidence by hand. The retailer wins **35 %** of disputes and misses the deadline on **9 %**, which loses them automatically.
@@ -62,6 +85,7 @@ Policy:
 - **£15 to £500** with confirmed delivery: build the evidence and **submit automatically**.
 - Over **£500**, or no delivery proof: create a **case** for an analyst, who approves or edits the evidence in Salesforce.
 - Evidence for every dispute must be **ready within 1 hour** of the webhook.
+- In a fraud wave the provider sends 1 dispute event every 5 seconds. A proof of delivery takes the carrier API about **15 seconds**, and about 1 event in 20 names an order the OMS does not know.
 
 **Questions:**
 1. Draw the design.

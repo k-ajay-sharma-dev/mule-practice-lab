@@ -24,7 +24,7 @@ export default {
         hook: ['partner', 'Donation platform (webhooks)'],
         sdp: ['system-api', 'sys-donation-platform-api'],
         dp: ['saas', 'Donation platform API'],
-        q: ['queue', 'online-gifts'],
+        q: ['queue', 'online-gifts', { maxRedelivery: 60 }],
         dlq: ['dlq', 'online-gifts-dlq'],
         poll: ['batch-job', 'Hourly catch-up poll'],
         agency: ['batch-job', 'Agency file import'],
@@ -41,6 +41,26 @@ export default {
         'agency -> sftp', 'agency -> prc', 'prc -> ssf', 'ssf -> sf', 'fin -> ssf', 'fin -> sfin', 'sfin -> finance',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'crm', latencyMs: 400 }],
+      tests: [
+        {
+          name: 'Salesforce is down during an appeal',
+          about: 'During a TV appeal the platform sends 1 gift a second while Salesforce is down for 30 minutes. Every webhook is acknowledged at once, each gift is tried for up to an hour, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'gifts', from: 'partner', rps: 1, to: 'crm', kind: 'write' }],
+          incidents: [{ down: 'crm', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some gifts are always rejected',
+          about: 'The platform sends 1 gift a second, and 1 in 50 has data Salesforce rejects every time. After an hour of tries those go to the DLQ for a person to fix, and the others keep flowing.',
+          traffic: [{ name: 'gifts', from: 'partner', rps: 1, to: 'crm', kind: 'write', poison: 0.02 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A national charity raises money through three channels:
@@ -61,6 +81,7 @@ Donor records live in Salesforce (a non-profit data model). Money is posted to a
 - Small IT team (2 people), one new Mule developer, limited budget. Keep the design simple.
 - Donor personal data and consent preferences (marketing opt-in) must be respected.
 - Agency files vary in quality (missing postcodes, misspelled names).
+- During an appeal online gifts reach about 1 a second. Salesforce can be down for 30 minutes, and about 1 gift in 50 has data it rejects every time.
 
 | Channel | Volume | Delivery |
 | --- | --- | --- |

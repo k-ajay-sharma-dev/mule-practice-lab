@@ -31,18 +31,41 @@ export default {
         prc: ['process-api', 'prc-customer-account-api'],
         sbill: ['system-api', 'sys-billing-api'],
         bill: ['oracle-db', 'Billing DB (Oracle)'],
-        scrm: ['system-api', 'sys-salesforce-api'],
+        scrm: ['system-api', 'sys-salesforce-api', { vCores: '0.5' }],
         crm: ['crm', 'Salesforce'],
         ems: ['queue', 'TIBCO EMS order queues'],
-        bridge: ['process-api', 'ems-to-anypoint-mq-bridge'],
+        bridge: ['process-api', 'ems-to-anypoint-mq-bridge', { vCores: '0.5' }],
         amq: ['queue', 'Anypoint MQ order-events'],
-        cons: ['process-api', 'prc-order-events-api'],
+        cons: ['process-api', 'prc-order-events-api', { vCores: '0.5' }],
       },
       [
         'agent -> lb', 'web -> lb', 'lb -> mexp', 'lb -> bw', 'mexp -> prc', 'prc -> sbill', 'prc -> scrm', 'sbill -> bill',
         'scrm -> crm', 'bw -> bill', 'bw ~> ems', 'ems ~> bridge', 'bridge ~> amq', 'amq ~> cons', 'cons -> scrm',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 200 },
+        { match: 'legacy', latencyMs: 50 },
+      ],
+      tests: [
+        {
+          name: 'Evening order events',
+          about: 'Not yet migrated BusinessWorks processes publish 150 order events a second that need a Salesforce update. The bridge and the new consumer keep up, so neither queue builds up.',
+          traffic: [{ name: 'order events', from: 'legacy', rps: 150, to: 'crm', kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: ['queue', 'topic'], maxEnd: 1000 }] },
+        },
+        {
+          name: 'Salesforce is down for 30 minutes',
+          about: 'BusinessWorks publishes 20 order events a second while Salesforce is down for 30 minutes, and the broker restarts in the middle. The events wait on Anypoint MQ as persistent messages, and Salesforce gets every one once it is back.',
+          traffic: [{ name: 'order events', from: 'legacy', rps: 20, to: 'crm', kind: 'write' }],
+          incidents: [{ down: 'crm', at: 5, forMin: 30 }, { restart: { type: 'queue', label: 'anypoint' }, at: 20 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A cable and broadband operator (4 million customers) runs its integrations on **TIBCO BusinessWorks 5** with **TIBCO EMS**:
@@ -64,6 +87,7 @@ The TIBCO licence renewal is due in **20 months** and the board has decided not 
 - 40 BusinessWorks processes are not called by anything in the last 90 days.
 - Many services contain both billing logic and Salesforce calls in one process.
 - EMS peak is 1,500 messages per second on the order topic during the evening.
+- In tests 150 order events a second need a Salesforce update, and Salesforce can be down for 30 minutes with a broker restart.
 
 **Your task.** Design the coexistence architecture (strangler) and the migration approach.
 `,

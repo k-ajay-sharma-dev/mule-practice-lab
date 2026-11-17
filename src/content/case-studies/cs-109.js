@@ -23,7 +23,7 @@ export default {
     reference: diagram(
       {
         crs: ['saas', 'CRS (central reservation system)'],
-        scrs: ['system-api', 'sys-crs-api'],
+        scrs: ['system-api', 'sys-crs-api', { vCores: '0.5' }],
         ariq: ['queue', 'ari-changes'],
         pari: ['process-api', 'prc-ari-distribution-api'],
         cache: ['cache', 'Latest ARI per hotel, room and date'],
@@ -40,6 +40,29 @@ export default {
         'hook ~> resq', 'resq ~> pres', 'resq ~> dlq', 'pres -> scrs',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'saas', label: 'channel manager' }, latencyMs: 300, maxRps: 50 },
+        { match: { type: 'saas', label: 'CRS' }, latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The 06:00 price burst',
+          about: 'The CRS feed gives 10 batches of up to 100 ARI changes a second, and 60 a second for the 30 minute burst at 06:00. The queue holds the extra, and the channel manager never gets more than its 50 calls a second.',
+          traffic: [{ name: 'ARI batches', from: { type: 'system-api', label: 'crs' }, rps: 10, spikes: [{ at: 5, forMin: 30, rps: 60 }], to: { type: 'saas', label: 'channel manager' }, kind: 'write' }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: { type: 'saas', label: 'channel manager' }, max: 50 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'ari' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'The CRS is down for 30 minutes',
+          about: 'The channel manager sends 2 reservations a second while the CRS is down for 30 minutes. The webhook answers 200 at once, and every reservation reaches the CRS once it is back.',
+          traffic: [{ name: 'reservations', from: { type: 'saas', label: 'channel manager' }, rps: 2, to: { type: 'saas', label: 'CRS' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'CRS' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'reservation' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A hotel group runs 320 hotels. Its **central reservation system (CRS)**, a SaaS product, is the master for availability and rates. A **revenue management system** sets prices and loads them into the CRS. Hotels sell through the group website (connected to the CRS already) and through about 40 online travel agencies (OTAs) such as Booking.com and Expedia, reached through a **channel manager** SaaS.
@@ -52,6 +75,7 @@ export default {
 - 2.5 million ARI changes a day.
 - Every morning at 06:00 revenue management republishes prices for 365 days ahead: about **800,000 changes in 30 minutes**.
 - 45,000 OTA reservations, modifications and cancellations a day.
+- In tests the feed gives 10 batches of ARI changes a second and 60 a second for the 30 minute burst, and the CRS can be down for 30 minutes.
 
 **Constraints**
 - The channel manager API allows **50 calls per second** for the whole group, each call carrying up to 100 ARI items.

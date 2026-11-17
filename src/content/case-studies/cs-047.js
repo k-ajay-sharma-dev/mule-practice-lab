@@ -23,10 +23,10 @@ export default {
       {
         shop: ['web-app', 'B2B web shop (SaaS)'],
         sales: ['internal-app', 'Salesforce (sales reps)'],
-        gw: ['api-gateway', 'Client ID enforcement + rate limits'],
-        eshop: ['experience-api', 'exp-b2b-shop-api'],
+        gw: ['api-gateway', 'Client ID enforcement + rate limits', { auth: 'client-id' }],
+        eshop: ['experience-api', 'exp-b2b-shop-api', { vCores: '0.5' }],
         esales: ['experience-api', 'exp-sales-account-api'],
-        avail: ['process-api', 'prc-product-availability-api'],
+        avail: ['process-api', 'prc-product-availability-api', { vCores: '0.5' }],
         acct: ['process-api', 'prc-customer-account-api'],
         sprice: ['system-api', 'sys-erp-pricing-api'],
         scust: ['system-api', 'sys-erp-customer-api'],
@@ -42,6 +42,30 @@ export default {
         'sprice -> d365', 'scust -> d365', 'sorder -> d365', 'sstock -> wms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 300, maxRps: 300 },
+        { match: 'database', latencyMs: 50, maxRps: 30 },
+      ],
+      cache: { hitRatio: 0.8 },
+      tests: [
+        {
+          name: 'Web shop peak',
+          about: 'The web shop asks for 100 stock and price lookups a second. The WMS database takes at most 30 queries a second, so the stock cache answers most of them and the shop APIs have the capacity for the rest.',
+          traffic: [{ name: 'lookups', from: 'web-app', rps: 100, to: ['erp', 'database'], via: { label: 'b2b-shop' } }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'database', max: 30 }] },
+        },
+        {
+          name: 'A caller without a client ID',
+          about: 'The web shop sends 20 lookups a second with its client ID, and an unknown script sends 10 a second without one. The gateway refuses the script before it reaches Dynamics or the WMS.',
+          traffic: [
+            { name: 'web shop', from: 'web-app', rps: 20, to: ['erp', 'database'], via: { label: 'b2b-shop' } },
+            { name: 'unknown script', from: 'web-app', rps: 10, to: ['erp', 'database'], via: { label: 'b2b-shop' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'web shop', minSuccess: 0.99 }, { flow: 'unknown script', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A building-materials distributor (1,500 staff, 40 branches) has just bought Anypoint Platform. Today it has ~30 point-to-point integrations: nightly CSV exports, database links and a few scripts. Core systems: **Microsoft Dynamics 365 Finance** (ERP), **Salesforce** (sales), a legacy **warehouse management system** (WMS, SQL Server database), and a B2B web shop on a SaaS platform.
@@ -56,6 +80,7 @@ export default {
 - Team: 2 newly trained Mule developers, 1 architect (you), help from a partner for the first 3 months.
 - The CFO funded the platform on the promise of "faster delivery through reuse" and wants proof within a year.
 - Leadership has never heard of System, Process or Experience APIs.
+- The web shop makes about 100 stock and price lookups a second at peak, and the WMS database takes at most 30 queries a second.
 
 **Your task.** Choose the pilot and justify it, define the first System APIs, sketch the layers for the pilot, and show how projects 2 and 3 will demonstrate reuse.
 `,

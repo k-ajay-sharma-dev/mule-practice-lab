@@ -22,7 +22,7 @@ export default {
     reference: diagram(
       {
         dev: ['device', 'Data loggers & vehicle gateways'],
-        gw: ['api-gateway', 'API gateway (client ID, mTLS)'],
+        gw: ['api-gateway', 'API gateway (client ID, mTLS)', { auth: 'client-id' }],
         ei: ['experience-api', 'exp-telemetry-ingest-api'],
         ex: ['process-api', 'prc-excursion-detection'],
         qa: ['process-api', 'prc-qa-case'],
@@ -41,6 +41,31 @@ export default {
         'at ~> qa', 'at ~> al', 'qa -> sqms', 'sqms -> qms', 'al -> notif',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'tms', latencyMs: 200 },
+        { match: 'saas', latencyMs: 400 },
+      ],
+      tests: [
+        {
+          name: 'A device without a client ID',
+          about: 'The loggers send 10 readings a second with their client IDs, and an unknown device sends 2 a second without one. The gateway refuses the unknown device, so its readings never reach the compliance record.',
+          traffic: [
+            { name: 'loggers', from: 'device', rps: 10, to: 'data-warehouse', kind: 'write' },
+            { name: 'unknown device', from: 'device', rps: 2, to: 'data-warehouse', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'loggers', minSuccess: 0.99 }, { flow: 'unknown device', minRefused: 0.99 }] },
+        },
+        {
+          name: 'The QMS is down for an hour',
+          about: 'Excursions open about 1 deviation a second while the QMS is down for an hour. The excursion events wait on the topic and open their deviations once the QMS is back, and none is lost.',
+          traffic: [{ name: 'excursions', from: 'device', rps: 1, forMin: 60, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'topic', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A pharmaceutical wholesaler distributes vaccines, biologics and insulin from four temperature-controlled warehouses to hospitals and pharmacies. It uses its own refrigerated fleet and two subcontracted carriers.
@@ -60,6 +85,8 @@ export default {
 | Quality | QMS is a SaaS product with a REST API for opening deviations |
 | Compliance | Records must be complete, tamper-evident and kept for several years (GDP expectations, kept generic) |
 | Carriers | Subcontracted carriers use their own loggers and portals |
+
+The loggers send about 10 readings a second in all. At worst about 1 excursion a second needs a deviation, and the QMS can be down for an hour.
 
 **Your task.** Propose the architecture for:
 - telemetry ingestion

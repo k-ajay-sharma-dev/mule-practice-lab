@@ -25,11 +25,11 @@ export default {
         portal: ['web-app', 'Customer tracking portal'],
         ship: ['partner', 'Large shippers'],
         gw: ['api-gateway', 'API Manager (SLA tiers)'],
-        eportal: ['experience-api', 'exp-tracking-portal-api'],
+        eportal: ['experience-api', 'exp-tracking-portal-api', { vCores: '1' }],
         epart: ['experience-api', 'exp-partner-tracking-api (+ webhooks)'],
-        trk: ['process-api', 'prc-tracking'],
+        trk: ['process-api', 'prc-tracking', { vCores: '1' }],
         ntf: ['process-api', 'prc-customer-notify'],
-        bb: ['event-stream', 'Event backbone (ParcelScanned, ShipmentPlanned…)'],
+        bb: ['event-stream', 'Event backbone (ParcelScanned, ShipmentPlanned…)', { maxRedelivery: 5 }],
         dlq: ['dlq', 'webhook-dlq'],
         sscan: ['system-api', 'sys-scan-api'],
         stms: ['system-api', 'sys-tms-api'],
@@ -46,6 +46,30 @@ export default {
         'portal -> gw', 'ship -> gw', 'gw -> eportal', 'gw -> epart', 'eportal -> trk', 'epart -> trk', 'epart -> hooks', 'epart ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 10 },
+        { match: 'legacy', latencyMs: 800 },
+        { match: 'saas', latencyMs: 300 },
+        { match: 'external-api', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Tracking lookups while the TMS is down',
+          about: 'The portal asks for 300 tracking pages a second while the TMS and the telematics platform are down. The tracking API answers from the read model, so every page is answered and neither system gets a call.',
+          traffic: [{ name: 'tracking', from: 'web-app', rps: 300, to: 'database', via: { label: 'tracking-portal' } }],
+          incidents: [{ down: ['legacy', 'saas'], at: 2, forMin: 6 }],
+          expect: { answers: [{ minSuccess: 0.99 }], notReached: [{ node: 'legacy' }, { node: 'saas' }] },
+        },
+        {
+          name: 'Some shipper webhooks always fail',
+          about: 'Depots scan 20 parcels a second, and 1 webhook in 50 goes to a shipper endpoint that rejects it every time. After 5 deliveries those events go to the webhook DLQ, and the others keep flowing.',
+          traffic: [{ name: 'scans', from: 'device', rps: 20, to: 'external-api', kind: 'write', poison: 0.02 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 300 }, backlog: [{ queue: 'event-stream', maxEnd: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A parcel and freight company (8 countries, ~2M shipments/week) uses Anypoint Platform with ~70 APIs in API-led layers. Systems: a **transport management system** (TMS), **warehouse management** (WMS) per country, a **telematics** platform for 4,000 trucks, SAP for finance, Salesforce for customer service, and a customer tracking portal plus partner APIs for large shippers.
@@ -57,6 +81,8 @@ export default {
 - A pilot with Kafka-style event streaming was started by one team, and another uses Anypoint MQ; nobody knows who decides event formats.
 
 **Goals.** Real-time tracking for customers and partners, fewer polling calls, resilient flows, and a clear architecture for when to use APIs and when to use events.
+
+**Numbers to design for.** The portal asks for about 300 tracking pages a second, depots scan about 20 parcels a second, and about 1 shipper webhook in 50 fails every time.
 
 **Your task.** Design the target architecture combining API-led connectivity with an event-driven backbone: decision rules for sync vs async, key events and APIs, event schema ownership and governance, and a migration path.
 `,

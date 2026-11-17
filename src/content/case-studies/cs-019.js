@@ -25,7 +25,7 @@ export default {
         cmo: ['partner', 'CMOs'],
         b2b: ['experience-api', 'b2b-gateway (AS2 / SFTP)'],
         trace: ['process-api', 'traceability-papi'],
-        q: ['queue', 'inbound-epcis'],
+        q: ['queue', 'inbound-epcis', { maxRedelivery: 60 }],
         exq: ['dlq', 'serialization-exceptions'],
         sser: ['system-api', 'serialization-repo-sapi'],
         serp: ['system-api', 'erp-shipments-sapi'],
@@ -43,6 +43,29 @@ export default {
         'sser -> repo', 'serp -> erp', 'shub -> hub',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 50 },
+        { match: 'file-store', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'The repository is down for 30 minutes',
+          about: 'Partners send 3 EPCIS documents a second while the serialization repository is down for 30 minutes. Every partner gets its acknowledgement at once, each document is tried for up to an hour, and none is lost or sent to the exception queue.',
+          traffic: [{ name: 'EPCIS documents', from: 'partner', rps: 3, to: { type: 'database', label: 'serialization repository' }, kind: 'write' }],
+          incidents: [{ down: { type: 'database', label: 'serialization repository' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some documents are always rejected',
+          about: 'Partners send 3 EPCIS documents a second, and 1 in 100 has serials the repository rejects every time. After an hour of tries those go to the exception queue for the operations team, and the others keep flowing.',
+          traffic: [{ name: 'EPCIS documents', from: 'partner', rps: 3, to: { type: 'database', label: 'serialization repository' }, kind: 'write', poison: 0.01 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 150 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A pharmaceutical manufacturer must serialize every saleable pack (unique serial number per pack, aggregated into cases and pallets) and share traceability data with wholesalers, contract manufacturers (CMOs), third-party logistics providers and national verification systems in several markets. Regulations differ per market (keep them generic) but all require accurate, timely event data.
@@ -61,6 +84,7 @@ export default {
 - Messages can be very large (pallets with tens of thousands of serials).
 - Partners have different EPCIS versions and quirks.
 - Errors in serialization data can block product from being sold.
+- Partners send about 3 EPCIS documents a second. The repository can be down for 30 minutes, and about 1 document in 100 has serials it rejects every time.
 
 **Your task.** Propose the B2B integration architecture, data handling and operating model.
 `,

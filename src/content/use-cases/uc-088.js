@@ -23,12 +23,12 @@ export default {
       {
         pos: ['pos', 'Tills (650 stores)'],
         sq: ['queue', 'Store outbox (offline redemptions)'],
-        gw: ['api-gateway', 'Gateway (store client certificates)'],
-        exp: ['experience-api', 'exp-pos-offers'],
-        prc: ['process-api', 'prc-member-offers'],
-        cache: ['cache', 'Member offers cache (12 M members)'],
+        gw: ['api-gateway', 'Gateway (store client certificates)', { auth: 'mtls' }],
+        exp: ['experience-api', 'exp-pos-offers', { replicas: 2, vCores: '2' }],
+        prc: ['process-api', 'prc-member-offers', { replicas: 2, vCores: '2' }],
+        cache: ['cache', 'Member offers cache (12 M members)', { ttlSec: 86400 }],
         load: ['batch-job', 'Nightly offers load'],
-        seng: ['system-api', 'sys-offers-engine'],
+        seng: ['system-api', 'sys-offers-engine', { vCores: '0.5' }],
         eng: ['saas', 'Offers engine'],
         red: ['process-api', 'prc-offer-redemption'],
         sred: ['system-api', 'sys-redemptions'],
@@ -41,6 +41,32 @@ export default {
         'exp -> red', 'red -> sred', 'sred -> db', 'red ~> top', 'top ~> seng', 'top ~> dw', 'pos ~> sq', 'sq ~> red',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 650, maxRps: 200 },
+        { match: 'cache', hitRatio: 0.95 },
+      ],
+      cache: { atTtlSec: 86400 },
+      tests: [
+        {
+          name: 'A device without a store certificate',
+          about: 'Tills send 40 card scans a second with their store certificates, and an unknown device sends 5 a second without one. The gateway refuses the unknown device before anything reaches the offers.',
+          traffic: [
+            { name: 'tills', from: 'pos', rps: 40, to: 'saas' },
+            { name: 'unknown device', from: 'pos', rps: 5, to: 'saas', auth: 'none' },
+          ],
+          durationMin: 10,
+          expect: { answers: [{ flow: 'tills', minSuccess: 0.99 }, { flow: 'unknown device', minRefused: 0.99 }] },
+        },
+        {
+          name: 'Saturday afternoon',
+          about: 'Tills send 1,500 card scans a second. The offers engine allows 200 calls a second, so the cache, kept for 24 hours, answers about 95 % of scans and each answer comes back well inside 300 ms.',
+          traffic: [{ name: 'scans', from: 'pos', rps: 1500, to: 'saas' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 300 }], peakRps: [{ node: 'saas', max: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 A health and beauty chain has **650 stores** and **4,000 tills**, and a loyalty scheme with **12 million members**. An offers engine (SaaS, machine learning) picks **up to 20 personalised offers** per member each night, for example "£2 off any sun cream, once".
@@ -54,6 +80,7 @@ Constraints:
 - Store WAN links fail about twice a month per store, for up to 2 hours.
 - **Single-use** offers must not be redeemed twice, for example in two stores on the same day.
 - Every redemption goes back to the offers engine (it learns from them) and to the data warehouse.
+- Offers change once a night, so a cached answer is good for **24 hours** and answers about 95 % of scans. A device without a store certificate must get nothing.
 
 **Questions:**
 1. How do you answer in under 300 ms at 1,500 scans a second?

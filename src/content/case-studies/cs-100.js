@@ -25,17 +25,17 @@ export default {
     reference: diagram(
       {
         hub: ['external-api', 'Central market hub (switching service)'],
-        ein: ['experience-api', 'exp-market-inbound-api'],
+        ein: ['experience-api', 'exp-market-inbound-api', { vCores: '0.5' }],
         ms: ['event-stream', 'market-messages (key: meter point id)'],
         arch: ['file-store', 'Market message archive (7 years)'],
-        psw: ['process-api', 'prc-switching'],
-        prd: ['process-api', 'prc-meter-reads'],
+        psw: ['process-api', 'prc-switching', { vCores: '0.5' }],
+        prd: ['process-api', 'prc-meter-reads', { vCores: '0.5' }],
         dlq: ['dlq', 'market-messages-dlq'],
         trk: ['database', 'Switch case tracker'],
         job: ['batch-job', 'switch-deadline-monitor (every 30 min)'],
         alert: ['notification', 'Market operations alerts'],
         scrm: ['system-api', 'sys-crm-api'],
-        sbill: ['system-api', 'sys-billing-api'],
+        sbill: ['system-api', 'sys-billing-api', { vCores: '1' }],
         crm: ['crm', 'Salesforce (customers, contracts)'],
         bill: ['saas', 'Billing platform (SaaS)'],
         outq: ['queue', 'market-outbound'],
@@ -48,6 +48,29 @@ export default {
         'job -> trk', 'job -> alert', 'psw ~> outq', 'outq ~> pout', 'pout -> shub', 'shub -> hub',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300 },
+        { match: 'crm', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Month-end meter reads',
+          about: 'The hub sends 20 market messages a second, and 150 a second for 15 minutes at month end. The inbound API puts each one on the stream and acknowledges it at once, and billing has caught up within the hour.',
+          traffic: [{ name: 'market messages', from: 'external-api', rps: 20, spikes: [{ at: 5, forMin: 15, rps: 150 }], to: 'saas', kind: 'write' }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: ['event-stream', 'topic'], maxEnd: 0 }] },
+        },
+        {
+          name: 'Billing is down for an hour',
+          about: 'The hub sends 5 switching messages a second while the billing platform is down for 60 minutes. The messages wait on the stream, and billing gets every one once it is back.',
+          traffic: [{ name: 'switch messages', from: 'external-api', rps: 5, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: ['event-stream', 'topic'], maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An energy retailer supplies electricity and gas to 1.8 million homes. Every customer switch, meter read, registration change and objection is exchanged with the central market hub as a regulated market message. The hub delivers messages to the retailer over an authenticated HTTPS interface and accepts the retailer's messages the same way.
@@ -68,6 +91,7 @@ export default {
 | Deadlines | A switch must complete in 5 working days; an objection must be raised within 2 working days |
 | Systems | Salesforce for customers and contracts; a SaaS billing platform with a REST API |
 | Audit | Every message in and out kept for 7 years, available to the regulator on request |
+| Tests | 20 hub messages a second, 150 a second for 15 minutes at month end, and billing down for an hour |
 
 **Your task.** Design the inbound and outbound market messaging, ordering, deadline tracking and audit.
 `,

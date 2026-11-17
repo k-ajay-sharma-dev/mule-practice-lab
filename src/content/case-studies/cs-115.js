@@ -31,11 +31,11 @@ export default {
         gw: ['api-gateway', 'Client ID per forwarder + rate limit'],
         pm: ['experience-api', 'Partner Manager inbound (EDIFACT, X12 to canonical)'],
         eapi: ['experience-api', 'exp-booking-api'],
-        bq: ['queue', 'canonical-bookings'],
+        bq: ['queue', 'canonical-bookings', { maxRedelivery: 5 }],
         dlq: ['dlq', 'rejected-bookings DLQ'],
         pb: ['process-api', 'prc-booking-api'],
         xref: ['cache', 'Port, container and party code lists'],
-        sb: ['system-api', 'sys-ocean-booking-api'],
+        sb: ['system-api', 'sys-ocean-booking-api', { vCores: '0.5' }],
         mf: ['legacy', 'Booking system (z/OS, CICS)'],
         st: ['topic', 'shipment-status'],
         sq: ['queue', 'status-out'],
@@ -47,6 +47,25 @@ export default {
         'pb -> sb', 'sb -> mf', 'sb ~> st', 'st ~> sq', 'sq ~> ps', 'ps -> pmo', 'pmo -> as2', 'pmo -> sftp',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 400, maxRps: 15 }],
+      tests: [
+        {
+          name: 'Some bookings cannot be processed',
+          about: 'Forwarders send 2 bookings a second, and 1 in 50 has codes the booking system rejects every time. Those bookings go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'bookings', from: { type: 'partner', label: 'JSON' }, rps: 2, to: 'legacy', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 } },
+        },
+        {
+          name: 'A vessel is discharged',
+          about: 'The booking system gives 10 status messages a second, and 100 a second for 10 minutes while a large vessel is discharged. The booking System API publishes them all, and the forwarders have every status within the hour.',
+          traffic: [{ name: 'status messages', from: { type: 'system-api', label: 'booking' }, rps: 10, spikes: [{ at: 5, forMin: 10, rps: 100 }], to: { type: 'partner', label: 'AS2' }, kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'status' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A container shipping line takes about 25,000 bookings and shipping instructions a day from **300 freight forwarders**, and sends back 1.2 million container status messages a day (gate in, loaded, discharged, gate out).
@@ -73,6 +92,7 @@ The booking system runs on **z/OS with CICS** and is reached through IBM MQ; it 
 - The line has bought **Anypoint Partner Manager** for B2B.
 - Monday mornings bring 4,000 bookings in the first hour.
 - Forwarders retry on any failure, so duplicates are common.
+- In tests 1 booking in 50 is always rejected, and status messages rise from 10 to 100 a second for 10 minutes when a vessel is discharged.
 
 **Your task.** Design intake, processing and status distribution, and describe the onboarding process.
 `,

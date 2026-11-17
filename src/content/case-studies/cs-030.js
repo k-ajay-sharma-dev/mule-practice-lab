@@ -21,14 +21,14 @@ export default {
     reference: diagram(
       {
         pull: ['partner', 'Pull partners (aggregators)'],
-        gw: ['api-gateway', 'API Manager (client ID, rate limit)'],
-        feed: ['experience-api', 'exp-partner-feed-api'],
+        gw: ['api-gateway', 'API Manager (client ID, rate limit)', { auth: 'client-id', rateLimit: 50 }],
+        feed: ['experience-api', 'exp-partner-feed-api', { vCores: '0.5' }],
         scms: ['system-api', 'sys-cms-api'],
         cms: ['saas', 'CMS (publish/update/unpublish events)'],
         prc: ['process-api', 'prc-syndication-api'],
         cfg: ['database', 'Partner configuration'],
         ex: ['topic', 'articles-exchange'],
-        qa: ['queue', 'partner-a-queue'],
+        qa: ['queue', 'partner-a-queue', { maxRedelivery: 120 }],
         qb: ['queue', 'partner-b-queue'],
         qc: ['queue', 'partner-c-feed-queue'],
         dlq: ['dlq', 'partner-dlq'],
@@ -37,7 +37,7 @@ export default {
         dc: ['process-api', 'prc-build-partner-c-feed'],
         wa: ['external-api', 'Partner A webhook'],
         sftp: ['file-store', 'Partner B SFTP'],
-        sfeed: ['system-api', 'sys-feed-store-api'],
+        sfeed: ['system-api', 'sys-feed-store-api', { vCores: '0.5' }],
         store: ['database', 'Per-partner feed store'],
       },
       [
@@ -46,6 +46,29 @@ export default {
         'pull -> gw', 'gw -> feed', 'feed -> sfeed',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'file-store', latencyMs: 300 },
+        { match: { type: 'database', label: 'feed store' }, latencyMs: 20, maxRps: 60 },
+      ],
+      tests: [
+        {
+          name: "Partner A's webhook is down for an hour",
+          about: 'The CMS sends 1 article event a second while partner A\'s webhook is down for an hour. Partner B keeps getting its files, partner A\'s articles wait in its own queue, each is tried for up to 2 hours, and none is lost.',
+          traffic: [{ name: 'articles', from: { type: 'system-api', label: 'cms' }, rps: 1, to: ['external-api', 'file-store'], kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'external-api', min: 0.99 }, { to: 'file-store', min: 0.99 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'An aggregator floods the feed API',
+          about: 'Pull partners poll the feed 20 times a second, and for 3 minutes an aggregator with a bug pushes that to 300 a second. The feed store takes 60 reads a second. The gateway answers the extra with 429, so the feed store is never over its limit.',
+          traffic: [{ name: 'feed polls', from: 'partner', rps: 20, to: { type: 'database', label: 'feed store' }, spikes: [{ at: 4, forMin: 3, rps: 300 }] }],
+          expect: { peakRps: [{ node: { type: 'database', label: 'feed store' }, max: 60 }], answers: [{ minSuccess: 0.25, minLimited: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A news publisher produces ~1,500 articles a day in its content management system (CMS). It has licensing deals with 12 partners: news aggregators, a mobile carrier's news app, and two regional newspapers.
@@ -63,6 +86,7 @@ export default {
 - Some partners pull (they poll an endpoint), others want push (webhook or SFTP).
 - Licensing: a partner must only receive sections and image rights they paid for.
 - The CMS emits a "published/updated/unpublished" event per article.
+- At busy times the CMS sends about 1 event a second, and a partner webhook can be down for an hour. Pull partners poll about 20 times a second, a buggy aggregator can push that to 300, and the feed store takes 60 reads a second.
 
 **Your task.** Propose a design that replaces the scripts and makes partner onboarding straightforward.
 `,

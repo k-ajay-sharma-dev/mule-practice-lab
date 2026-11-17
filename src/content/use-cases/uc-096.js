@@ -23,7 +23,7 @@ export default {
       {
         ret: ['partner', 'Retail customers (35, AS2)'],
         exp: ['experience-api', 'exp-b2b-as2-inbound'],
-        qin: ['queue', 'edi-inbound'],
+        qin: ['queue', 'edi-inbound', { maxRedelivery: 5 }],
         dlq: ['dlq', 'edi-inbound-dlq'],
         prc: ['process-api', 'prc-customer-edi-orders'],
         trk: ['database', 'EDI tracking table'],
@@ -38,6 +38,28 @@ export default {
         'sap ~> ssap', 'ssap ~> qout', 'qout ~> prc', 'prc -> sedi', 'sedi -> gw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 800, maxRps: 3 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Holiday PO peak',
+          about: 'Before a holiday the retailers send 5 POs a second for 30 minutes. SAP posts at most 3 sales orders a second. Every interchange gets its MDN at once, waits in the queue, and reaches SAP within the hour.',
+          traffic: [{ name: 'POs', from: 'partner', rps: 5, forMin: 30, to: 'erp', kind: 'write' }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 3 }], backlog: [{ queue: { type: 'queue', label: 'inbound' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some POs cannot be mapped',
+          about: 'The retailers send 1 PO a second, and 1 in 100 uses an item number SAP cannot find. Those POs go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'POs', from: 'partner', rps: 1, to: 'erp', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 10 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A consumer-goods manufacturer sells to **35 retail chains**. The retailers send purchase orders as **EDI X12 850** over **AS2** and expect documents back. Orders and deliveries run in **SAP ECC 6.0 SD**. Mule 4 is the integration platform; SAP is reached with the SAP connector (IDocs and BAPIs).
@@ -55,6 +77,7 @@ Facts:
 - A retailer charges a **chargeback of 250 USD** for each late or wrong ASN.
 - SAP sends delivery (\`DESADV\`) and billing (\`INVOIC\`) IDocs when goods issue and billing are posted.
 - Each retailer has its own 850 variant (item numbers by UPC or by buyer part number, ship-to codes).
+- In the tests the retailers send 5 POs a second for 30 minutes before a holiday, SAP posts at most 3 orders a second, and 1 PO in 100 has an item number SAP cannot find.
 
 **Questions:**
 1. What does the AS2 endpoint do, and what does it not do?

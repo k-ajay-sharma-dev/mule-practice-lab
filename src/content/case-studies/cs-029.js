@@ -23,7 +23,7 @@ export default {
       {
         hook: ['partner', 'Project tool approval webhooks'],
         sproj: ['system-api', 'sys-projects-api'],
-        q: ['queue', 'commitment-approvals'],
+        q: ['queue', 'commitment-approvals', { maxRedelivery: 90 }],
         dlq: ['dlq', 'commitment-approvals-dlq'],
         prc: ['process-api', 'prc-project-costs-api'],
         md: ['batch-job', 'Nightly master-data sync'],
@@ -38,6 +38,29 @@ export default {
         'md -> prc', 'ac -> prc', 'serp -> erp', 'sproj -> pmt',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 1500 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'The ERP is down for its patch window',
+          about: 'Site teams approve 1 commitment a second while the ERP is down for 45 minutes. Every webhook is acknowledged at once, each approval is tried for up to 90 minutes, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'approvals', from: 'partner', rps: 1, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 45 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some approvals are always rejected',
+          about: 'Site teams approve 1 commitment a second, and 1 in 50 has a cost code the ERP does not know. After 90 tries those go to the DLQ for a project accountant, and the others keep flowing.',
+          traffic: [{ name: 'approvals', from: 'partner', rps: 1, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 150,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 150 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mid-sized construction company runs ~120 active building projects.
@@ -55,6 +78,7 @@ export default {
 - The ERP is on-premises behind a firewall and offers a SOAP API plus database views.
 - The project tool has a REST API with rate limits (~100 calls/minute) and webhooks for approvals.
 - Finance insists the ERP stays the system of record for money; the project tool is the system of record for project scope.
+- At month end site teams approve about 1 commitment a second. The ERP has a 45 minute patch window, and about 1 approval in 50 has a cost code it rejects every time.
 
 **Your task.** Propose:
 - the integration architecture

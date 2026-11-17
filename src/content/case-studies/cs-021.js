@@ -24,11 +24,11 @@ export default {
         down: ['internal-app', 'Downstream apps (badge, learning, expenses…)'],
         ad: ['identity-provider', 'Active Directory / IdP'],
         ew: ['experience-api', 'workers-eapi (fields filtered per consumer)'],
-        pw: ['process-api', 'workers-papi (source routing per region)'],
+        pw: ['process-api', 'workers-papi (source routing per region)', { onFailure: 'partial answer', calls: 'in parallel' }],
         prov: ['process-api', 'identity-provisioning'],
         pay: ['batch-job', 'country-payroll-files'],
         top: ['topic', 'worker-events (JML)'],
-        qlv: ['queue', 'worker-terminated (priority)'],
+        qlv: ['queue', 'worker-terminated (priority)', { maxRedelivery: 120 }],
         shcm: ['system-api', 'hcm-sapi'],
         sr1: ['system-api', 'hr-emea-sapi'],
         sr2: ['system-api', 'hr-apac-sapi'],
@@ -45,6 +45,30 @@ export default {
         'top ~> pay', 'pay -> files',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 400 },
+        { match: 'legacy', latencyMs: 600 },
+        { match: 'identity-provider', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'An on-prem HR system is down',
+          about: 'Downstream apps look up 20 workers a second across the global HCM and both regional HR systems, while the on-prem regional HR system is down. The Worker API still answers with the data it has and leaves out that region.',
+          traffic: [{ name: 'worker lookups', from: 'internal-app', rps: 20, to: ['saas', 'legacy'] }],
+          incidents: [{ down: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.9, maxMs: 1500 }] },
+        },
+        {
+          name: 'Leavers while the IdP is down',
+          about: 'HR records 2 leavers a second while Active Directory is down for 60 minutes. The leaver events wait in the priority queue, each is tried for up to 2 hours, and none is lost, so every leaver loses access the same day.',
+          traffic: [{ name: 'leavers', from: { type: 'process-api', label: 'workers-papi' }, rps: 2, to: 'identity-provider', kind: 'write' }],
+          incidents: [{ down: 'identity-provider', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { lost: { max: 0 }, backlog: [{ queue: { label: 'worker-terminated' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A manufacturing group with 40,000 employees in 25 countries runs five regional HR systems (two on-premises, three SaaS) and many local payroll providers. It has chosen a single global cloud HCM platform and will roll it out region by region over two years.
@@ -68,6 +92,7 @@ More than 60 downstream systems consume employee data today:
 - Local payroll providers stay for now (different file formats per country).
 - Employee data is subject to privacy laws in each country; some data must not leave its region (keep rules generic).
 - HR data model differences (job codes, org structures) between regions.
+- Downstream apps look up about 20 workers a second, a regional HR system can be down for hours, and Active Directory can be down for 60 minutes while about 2 leavers a second are recorded.
 
 **Your task.** Propose an integration strategy for the transition and the end state.
 `,

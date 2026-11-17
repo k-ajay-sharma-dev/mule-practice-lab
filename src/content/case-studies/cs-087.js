@@ -24,7 +24,7 @@ export default {
     reference: diagram(
       {
         p: ['partner', 'Partner brands (40 apps)'],
-        gw: ['api-gateway', 'Flex Gateway: client ID per partner, SLA tier, mTLS'],
+        gw: ['api-gateway', 'Flex Gateway: client ID per partner, SLA tier, mTLS', { auth: 'oauth2' }],
         idp: ['identity-provider', 'Authorisation server (client credentials)'],
         exp: ['experience-api', 'exp-baas-partner-api'],
         pacc: ['process-api', 'prc-account-api'],
@@ -35,7 +35,7 @@ export default {
         ev: ['event-stream', 'ledger-events (key = account ID)'],
         wh: ['process-api', 'prc-webhook-dispatcher'],
         cfg: ['cache', 'Partner webhook config'],
-        pq: ['queue', 'webhooks.partner-{id}'],
+        pq: ['queue', 'webhooks.partner-{id}', { maxRedelivery: 1440 }],
         dlq: ['dlq', 'webhooks DLQ'],
         snd: ['process-api', 'prc-webhook-sender'],
         kyc: ['external-api', 'KYC vendor'],
@@ -49,6 +49,32 @@ export default {
         'wh ~> pq', 'pq ~> snd', 'snd -> hook', 'pq ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 100 },
+        { match: 'payment', latencyMs: 500 },
+        { match: { type: 'external-api', label: 'webhook' }, latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a token',
+          about: 'Partners send 20 requests a second with their tokens, and an unknown caller sends 10 a second without one. The gateway refuses the unknown caller.',
+          traffic: [
+            { name: 'partners', from: 'partner', rps: 20, to: 'saas' },
+            { name: 'unknown caller', from: 'partner', rps: 10, to: 'saas', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'partners', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+        {
+          name: 'A partner webhook is down for 2 hours',
+          about: 'Partners send 5 payments a second while one partner endpoint is down for 120 minutes. Its webhooks wait on the queue, none goes to the DLQ inside the 24 hour retry window, and all arrive once it is back.',
+          traffic: [{ name: 'payments', from: 'partner', rps: 5, to: { type: 'external-api', label: 'webhook' }, kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'webhook' }, at: 5, forMin: 120 }],
+          durationMin: 240,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A licensed e-money fintech offers banking-as-a-service: 40 partner brands (a travel app, a freelancer platform, a gig economy marketplace) open accounts, issue IBANs and send payments for their own customers through its APIs. It plans 150 partners in two years.
@@ -65,6 +91,7 @@ export default {
 - Webhooks are delivered at least once, signed, retried for 24 hours, and replayable by the partner.
 - Peak 1,500 API requests per second across partners; 4 million ledger events a day.
 - Regulators expect the fintech to show who accessed which customer data and when.
+- In tests partners send 20 requests a second, an unknown caller sends 10 a second with no token, and one partner endpoint is down for 2 hours.
 
 **Your task.** Design the BaaS integration platform, including tenancy, security and webhooks.
 `,

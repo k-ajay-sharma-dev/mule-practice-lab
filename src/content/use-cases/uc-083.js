@@ -24,8 +24,8 @@ export default {
         pos: ['pos', 'Store systems (220 stores)'],
         wms: ['wms', 'DC WMS'],
         q: ['queue', 'stock-movements'],
-        sync: ['process-api', 'prc-inventory-sync'],
-        sinv: ['system-api', 'sys-inventory'],
+        sync: ['process-api', 'prc-inventory-sync', { vCores: '0.5' }],
+        sinv: ['system-api', 'sys-inventory', { vCores: '0.5' }],
         db: ['database', 'Central inventory (by store and DC)'],
         tab: ['internal-app', 'Store staff tablet'],
         exp: ['experience-api', 'exp-store-assist'],
@@ -39,6 +39,26 @@ export default {
         'ea -> soms', 'soms -> oms', 'ea ~> tq', 'tq ~> pos',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'database', latencyMs: 20 }],
+      tests: [
+        {
+          name: 'A Saturday afternoon',
+          about: 'Stores and the DC send 120 stock movements a second for 30 minutes. The sync keeps up, so the queue never holds more than a minute of movements and store stock stays within 5 minutes.',
+          traffic: [{ name: 'movements', from: ['pos', 'wms'], rps: 120, forMin: 30, to: 'database', kind: 'write' }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: ['queue', 'topic'], maxPeak: 7200, maxEnd: 0 }] },
+        },
+        {
+          name: 'The broker restarts during an outage',
+          about: 'Stores send 20 movements a second. The central database is down for 10 minutes, and the broker restarts at minute 12 while the movements wait. No movement is lost.',
+          traffic: [{ name: 'movements', from: ['pos', 'wms'], rps: 20, to: 'database', kind: 'write' }],
+          incidents: [{ down: 'database', at: 5, forMin: 10 }, { restart: ['queue', 'topic'], at: 12 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A sports retailer has **220 stores** and one DC. Customers often find the shoe they want, but not in their size. Staff should be able to sell it anyway:
@@ -52,6 +72,7 @@ Facts:
 - The DC runs a WMS that publishes stock changes as messages.
 - The **OMS** creates customer orders and knows how to ship from a store or the DC.
 - Store stock should be accurate to **5 minutes** for this feature.
+- On a Saturday afternoon stores and the DC send about **120 movements a second**. The central database can be down for 10 minutes, and the broker can restart while messages wait.
 
 **Questions:**
 1. Where does the tablet read stock from, and why not ask the stores live?

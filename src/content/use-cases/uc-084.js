@@ -26,7 +26,7 @@ export default {
         prc: ['process-api', 'prc-egift-purchase'],
         spay: ['system-api', 'sys-payments'],
         pay: ['payment', 'Payment provider'],
-        sgc: ['system-api', 'sys-giftcard-processor'],
+        sgc: ['system-api', 'sys-giftcard-processor', { retries: 2 }],
         gc: ['external-api', 'Gift card processor'],
         sdb: ['system-api', 'sys-egift-orders'],
         db: ['database', 'E-gift orders (delivery date, status)'],
@@ -44,6 +44,32 @@ export default {
         'job -> sdb', 'job ~> q', 'q ~> snd', 'snd -> snot', 'snot -> mail', 'fin -> sdb', 'fin -> serp', 'serp -> erp',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'payment', latencyMs: 1500 },
+        { match: 'external-api', latencyMs: 800 },
+        { match: 'database', latencyMs: 20 },
+        { match: 'notification', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Christmas morning deliveries',
+          about: 'On Christmas morning the scheduler queues 5 deliveries a second while the email service is down for 30 minutes. The emails wait in the queue and go out when it is back, so no card is lost.',
+          traffic: [{ name: 'deliveries', from: { type: 'batch-job', label: 'delivery' }, rps: 5, to: 'notification', kind: 'write' }],
+          incidents: [{ down: 'notification', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The processor fails some activations',
+          about: 'Buyers send 2 purchases a second, and the gift card processor fails 1 activation in 10. With the idempotency key a retry is safe, so the activations are tried again and almost every purchase completes.',
+          traffic: [{ name: 'purchases', from: 'web-app', rps: 2, to: ['payment', 'external-api', 'database'], kind: 'write' }],
+          incidents: [{ errors: 'external-api', rate: 0.1 }],
+          durationMin: 10,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A department store sells **e-gift cards** from £10 to £500 on its website. Sales are about **1,500 a day**, and **25,000 a day** in the week before Christmas.
@@ -62,6 +88,7 @@ Facts:
 - The **gift card processor** (external API) activates a card for an amount and returns number and PIN. It accepts an idempotency key.
 - The **payment provider** takes card payments and also accepts an idempotency key.
 - Card numbers and PINs are sensitive: they must not appear in logs or in the email body.
+- On Christmas morning the scheduler sends about **5 deliveries a second**, and the email service can be down for 30 minutes. In the busy week the processor fails about 1 activation in 10 for a while.
 
 **Questions:**
 1. In which order do you take payment and activate the card, and what if the second step fails?

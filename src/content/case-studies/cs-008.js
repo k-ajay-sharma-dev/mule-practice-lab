@@ -27,7 +27,7 @@ export default {
         ecb: ['experience-api', 'pos-callbacks-eapi'],
         route: ['process-api', 'prc-order-routing'],
         stat: ['process-api', 'prc-order-status'],
-        q: ['queue', 'order-placed'],
+        q: ['queue', 'order-placed', { maxRedelivery: 30 }],
         top: ['topic', 'order-status'],
         dlq: ['dlq', 'order-placed-dlq'],
         sa: ['system-api', 'pos-vendorA-sapi'],
@@ -45,6 +45,26 @@ export default {
         'vend -> ecb', 'ecb ~> top', 'top ~> stat', 'stat -> push',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'external-api', latencyMs: 800 }],
+      tests: [
+        {
+          name: 'POS vendor A is down at dinner',
+          about: 'Customers place 5 orders a second for vendor A restaurants while vendor A is down for 15 minutes. Checkout still answers at once, each order is tried for up to 30 minutes, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'orders', from: 'mobile-app', rps: 5, to: { type: 'external-api', label: 'vendor a' }, kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'vendor a' }, at: 5, forMin: 15 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some orders are always rejected',
+          about: 'Customers place 5 orders a second, and 1 in 100 has a menu item the POS does not know. After 30 deliveries those go to the DLQ, and the others keep flowing.',
+          traffic: [{ name: 'orders', from: 'mobile-app', rps: 5, to: { type: 'external-api', label: 'vendor a' }, kind: 'write', poison: 0.01 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 150 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A regional food delivery start-up takes orders in its mobile app. Orders must reach:
@@ -60,7 +80,7 @@ export default {
 
 **Constraints**
 - Lunch and dinner peaks: ~300 orders per minute.
-- POS vendors occasionally go down for minutes at a time.
+- POS vendors occasionally go down for minutes at a time (up to 15 minutes), and about 1 order in 100 has data a POS rejects every time.
 - Order status updates (accepted, ready, picked up) must flow back to the app.
 
 **Your task.** Propose an integration design using MuleSoft for order submission and status updates.

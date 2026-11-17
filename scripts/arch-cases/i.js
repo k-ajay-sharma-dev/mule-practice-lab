@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for batch I (case studies cs-093 to cs-106). See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // CS-093
   // The scheduler flow calls the SIS System API itself, so the sync logic lives in the trigger.
   await failsOn('cs-093', 'job does not call', (d) => draw(d, 'job -> ssis'))
@@ -421,4 +421,80 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'docs', 'file-store', 'Source documents (encrypted)')
     draw(d, 'ef -> docs', 'poll -> docs')
   })
+
+  // ---------- run cases ----------
+  // CS-093
+  // No rate limit on the LMS System API: the LMS gets all 30 writes a second.
+  await failsOn('cs-093', 'Run: A busy run at term start', (d) => set(d, 'slms', { rateLimit: undefined }))
+  // No retries on the LMS System API: 1 change in 10 waits for the next run.
+  await failsOn('cs-093', 'Run: The LMS drops some calls', (d) => set(d, 'slms', { retries: undefined }))
+
+  // CS-094
+  // The intake job left at 0.1 vCore cannot split a Monday file at 200 claims a second.
+  await failsOn('cs-094', 'Run: Monday file peak', (d) => set(d, 'intake', { vCores: undefined }))
+  // No redelivery limit: malformed claims are retried for ever and never reach the DLQ.
+  await failsOn('cs-094', 'Run: Some claims are malformed', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // CS-095
+  // The listener left at 0.1 vCore cannot ACK 60 messages a second.
+  await failsOn('cs-095', 'Run: Morning bed moves', (d) => set(d, 'lis', { vCores: undefined }))
+  // The listener calls each department before it ACKs, so a down department stops the feed.
+  await failsOn('cs-095', 'Run: Meal ordering is down for 2 hours', (d) => {
+    cut(d, 'lis ~> top')
+    draw(d, 'lis -> pph', 'lis -> pdi', 'lis -> pbed')
+  })
+
+  // CS-096
+  // The webhook API calls the enrolment Process API and waits for EDC.
+  await failsOn('cs-096', 'Run: EDC is down for an hour', (d) => {
+    cut(d, 'hook ~> ev')
+    draw(d, 'hook -> penr')
+  })
+  // No retries on the SAP System API: 1 site payment in 10 fails.
+  await failsOn('cs-096', 'Run: SAP drops some payment calls', (d) => set(d, 'serp', { retries: undefined }))
+
+  // CS-097
+  // One small replica of the filing API: the deadline peak gets 503s.
+  await failsOn('cs-097', 'Run: The last hours before the deadline', (d) => set(d, 'exp', { replicas: undefined, vCores: undefined }))
+  // No certificate policy on the gateway: unknown callers file returns.
+  await failsOn('cs-097', 'Run: A caller without a client certificate', (d) => set(d, 'gw', { auth: undefined }))
+
+  // CS-098
+  // No partial answer: a slow tax service fails every claim.
+  await failsOn('cs-098', 'Run: The tax service is slow', (d) => set(d, 'pel', { onFailure: undefined }))
+  // No token validation on the gateway: anyone can query the exchange.
+  await failsOn('cs-098', 'Run: A caller without a token', (d) => set(d, 'gw', { auth: undefined }))
+
+  // CS-099
+  // One small replica of the status API: storm lookups get 503s.
+  await failsOn('cs-099', 'Run: Storm status lookups', (d) => set(d, 'eout', { replicas: undefined, vCores: undefined }))
+  // Non-persistent notices: the broker restart loses what waits for the SMS provider.
+  await failsOn('cs-099', 'Run: The SMS provider is down in a storm', (d) => set(d, 'top', { persistent: 'no' }))
+
+  // CS-100
+  // The inbound API left at 0.1 vCore cannot take 150 messages a second.
+  await failsOn('cs-100', 'Run: Month-end meter reads', (d) => set(d, 'ein', { vCores: undefined }))
+  // The inbound API calls the switching Process API while the hub waits.
+  await failsOn('cs-100', 'Run: Billing is down for an hour', (d) => {
+    cut(d, 'ein ~> ms')
+    draw(d, 'ein -> psw')
+  })
+
+  // CS-101
+  // Sources called one after another with no partial answer: a slow hospital fails the summary.
+  await failsOn('cs-101', 'Run: Hospital B is slow', (d) => set(d, 'pq', { calls: undefined, onFailure: undefined }))
+  // The listener loads each message inline, so a repository outage fails the feed.
+  await failsOn('cs-101', 'Run: The repository is down for 30 minutes', (d) => {
+    unbox(d, 'v2q')
+    draw(d, 'lis -> load')
+  })
+
+  // CS-102
+  // The web form posts to the safety System API, so maintenance fails the reports.
+  await failsOn('cs-102', 'Run: Nightly maintenance', (d) => {
+    cut(d, 'ef ~> q')
+    draw(d, 'ef -> p')
+  })
+  // No redelivery limit: rejected reports are retried for ever and never reach the DLQ.
+  await failsOn('cs-102', 'Run: Some reports cannot be created', (d) => set(d, 'q', { maxRedelivery: undefined }))
 }

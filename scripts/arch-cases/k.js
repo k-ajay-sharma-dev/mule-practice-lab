@@ -1,6 +1,6 @@
 // Wrong and other correct diagrams for batch K (commerce Integration Scenarios uc-075 to uc-090).
 // See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // UC-075
   // The webhook API sends the email itself instead of queueing.
   await failsOn('uc-075', 'puts the order on a queue', (d) => {
@@ -75,7 +75,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await failsOn('uc-077', 'Prices reach the online store', (d) => flip(d, 'sshop -> shop'))
   // A Process API does the mapping between the job and the System APIs.
   await passes('uc-077', (d) => {
-    box(d, 'prc', 'process-api', 'prc-promo-prices')
+    // It waits on the 20 second SAP pages too, so it needs the same long timeout.
+    box(d, 'prc', 'process-api', 'prc-promo-prices', { timeoutMs: 60000 })
     cut(d, 'job -> serp', 'job -> sshop')
     draw(d, 'job -> prc', 'prc -> serp', 'prc -> sshop')
   })
@@ -212,7 +213,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     flip(d, 'le -> s3')
   })
   await passes('uc-081', (d) => {
-    box(d, 'ssms', 'system-api', 'sys-sms')
+    // It carries the 100 SMS a second of a peak morning, so it is sized like sys-notifications.
+    box(d, 'ssms', 'system-api', 'sys-sms', { vCores: '0.5' })
     box(d, 'sms', 'notification', 'SMS provider')
     draw(d, 'snd -> ssms', 'ssms -> sms')
   })
@@ -244,6 +246,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('uc-082', (d) => {
     cut(d, 'prc -> cache')
     draw(d, 'slk -> cache')
+    // It now takes all 150 searches a second before its cache, so it is sized like the APIs above it.
+    d.nodes.find((n) => n.id === 'slk').config = { vCores: '0.5' }
   })
   await passes('uc-082', (d) => {
     d.nodes.find((n) => n.id === 'q').type = 'cloud-queue'
@@ -504,4 +508,113 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     cut(d, 'saas -> wh')
     draw(d, 'saas -> gw', 'gw -> wh')
   })
+
+  // ---------- Run cases ----------
+  // UC-075
+  // A short redelivery limit sends good confirmations to the DLQ while the email service is down.
+  await failsOn('uc-075', 'Run: The email service is down for an hour', (d) => set(d, 'q', { maxRedelivery: 5 }))
+  // No redelivery limit: bad orders are retried for ever and never reach the DLQ.
+  await failsOn('uc-075', 'Run: Some orders cannot be sent', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // UC-076
+  // The System API keeps the default 10 second timeout and gives up on every 15 second journal import.
+  await failsOn('uc-076', 'Run: A normal night', (d) => set(d, 'serp', { timeoutMs: undefined }))
+  // No retries: 1 journal in 10 is missing in the morning.
+  await failsOn('uc-076', 'Run: The GL import fails some calls', (d) => set(d, 'serp', { retries: undefined }))
+
+  // UC-077
+  // The SAP System API keeps the default 10 second timeout and gives up on every 20 second page.
+  await failsOn('uc-077', 'Run: Reading the promotion from SAP', (d) => set(d, 'serp', { timeoutMs: undefined }))
+  // No rate limit on the store System API: the store gets all 10 calls a second.
+  await failsOn('uc-077', 'Run: A job that calls once per SKU', (d) => set(d, 'sshop', { rateLimit: undefined }))
+
+  // UC-078
+  // exp-storefront left at 0.1 vCore cannot carry 80 cart changes a second.
+  await failsOn('uc-078', 'Run: Cart changes at the sale peak', (d) => set(d, 'exp', { vCores: undefined }))
+  // No rate limit on the consent System API: Salesforce gets all 3 calls a second.
+  await failsOn('uc-078', 'Run: A scan that checks consent too often', (d) => set(d, 'scrm', { rateLimit: undefined }))
+
+  // UC-079
+  // The webhook API calls order capture directly: at the drop the ERP gets 40 orders a second and the webhooks fail.
+  await failsOn('uc-079', 'Run: A product drop', (d) => {
+    cut(d, 'wh ~> qo')
+    draw(d, 'wh -> cap')
+  })
+  // No redelivery limit: bad orders are retried for ever and never reach the DLQ.
+  await failsOn('uc-079', 'Run: Some orders cannot be posted', (d) => set(d, 'qo', { maxRedelivery: undefined }))
+
+  // UC-080
+  // The canonical API calls every channel itself: while Meta is down every change fails.
+  await failsOn('uc-080', 'Run: Meta is down for an hour', (d) => {
+    unbox(d, 'top')
+    draw(d, 'prc -> g', 'prc -> m', 'prc -> mk')
+  })
+  // The Meta System API keeps the default 10 second timeout and gives up on every 20 second batch.
+  await failsOn('uc-080', 'Run: Meta batches are slow', (d) => set(d, 'sm', { timeoutMs: undefined }))
+
+  // UC-081
+  // The sender left at 0.1 vCore drains only 50 messages a second, so the queue is still full at the end.
+  await failsOn('uc-081', 'Run: A peak morning', (d) => set(d, 'snd', { vCores: undefined }))
+  // No redelivery limit: bad messages are retried for ever and never reach the DLQ.
+  await failsOn('uc-081', 'Run: Some members cannot be reached', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // UC-082
+  // exp-checkout left at 0.1 vCore cannot carry 150 searches a second.
+  await failsOn('uc-082', 'Run: Black Friday locker searches', (d) => set(d, 'exp', { vCores: undefined }))
+  // The webhook API updates the OMS inline: while the OMS is down the webhooks fail.
+  await failsOn('uc-082', 'Run: The OMS is down for 30 minutes', (d) => {
+    cut(d, 'wh ~> q')
+    draw(d, 'wh -> ev')
+  })
+
+  // UC-083
+  // The sync left at 0.1 vCore takes 50 movements a second, so the queue grows all afternoon.
+  await failsOn('uc-083', 'Run: A Saturday afternoon', (d) => set(d, 'sync', { vCores: undefined }))
+  // Non-persistent messages: the restart drops the movements waiting for the database.
+  await failsOn('uc-083', 'Run: The broker restarts during an outage', (d) => set(d, 'q', { persistent: 'no' }))
+
+  // UC-084
+  // The scheduler calls the sender directly: while the email service is down the deliveries fail.
+  await failsOn('uc-084', 'Run: Christmas morning deliveries', (d) => {
+    cut(d, 'job ~> q')
+    draw(d, 'job -> snd')
+  })
+  // No retries on the gift card System API: 1 purchase in 10 fails.
+  await failsOn('uc-084', 'Run: The processor fails some activations', (d) => set(d, 'sgc', { retries: undefined }))
+
+  // UC-085
+  // A short redelivery limit on the DC South queue drops its lines during the outage.
+  await failsOn('uc-085', 'Run: DC South is down for an hour', (d) => set(d, 'qs', { maxRedelivery: 5 }))
+  // The DC South System API keeps the default 10 second timeout and gives up on every 15 second call.
+  await failsOn('uc-085', 'Run: DC South answers slowly', (d) => set(d, 'ss', { timeoutMs: undefined }))
+
+  // UC-086
+  // The carrier System API keeps the default 10 second timeout and gives up on every proof of delivery.
+  await failsOn('uc-086', 'Run: Proof of delivery is slow', (d) => set(d, 'scar', { timeoutMs: undefined }))
+  // No redelivery limit: events for unknown orders are retried for ever and never reach the DLQ.
+  await failsOn('uc-086', 'Run: Some disputes name an unknown order', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // UC-087
+  // A short redelivery limit sends good charges to the DLQ while the provider is down.
+  await failsOn('uc-087', 'Run: The provider is down during allocation', (d) => set(d, 'pq', { maxRedelivery: 3 }))
+  // No redelivery limit: declined charges are retried for ever and never reach the DLQ.
+  await failsOn('uc-087', 'Run: Some stored cards are declined', (d) => set(d, 'pq', { maxRedelivery: undefined }))
+
+  // UC-088
+  // No client certificate policy on the gateway: any device on the network gets offers.
+  await failsOn('uc-088', 'Run: A device without a store certificate', (d) => set(d, 'gw', { auth: undefined }))
+  // The cache keeps answers for the default 5 minutes, so most scans go to the offers engine.
+  await failsOn('uc-088', 'Run: Saturday afternoon', (d) => set(d, 'cache', { ttlSec: undefined }))
+
+  // UC-089
+  // No client ID policy on the gateway: anyone can start a checkout.
+  await failsOn('uc-089', 'Run: A caller without a client ID', (d) => set(d, 'gw', { auth: undefined }))
+  // No rate limit on the gateway: the replayed checkouts reach the tenders.
+  await failsOn('uc-089', 'Run: A script replays checkouts', (d) => set(d, 'gw', { rateLimit: undefined }))
+
+  // UC-090
+  // A short redelivery limit on the topic, with no DLQ: orders for SAP are dropped during the outage.
+  await failsOn('uc-090', 'Run: SAP is down for an hour', (d) => set(d, 'top', { maxRedelivery: 5 }))
+  // The SAP System API keeps the default 10 second timeout and gives up on every 15 second order.
+  await failsOn('uc-090', 'Run: SAP is slow at peak', (d) => set(d, 'ssap', { timeoutMs: undefined }))
 }

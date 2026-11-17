@@ -22,14 +22,35 @@ export default {
       {
         cmp: ['partner', 'Comparison sites (12 partners)'],
         web: ['web-app', 'Society website'],
-        gw: ['api-gateway', 'API Manager: client ID + rate limit'],
-        exp: ['experience-api', 'exp-savings-rates-api'],
+        gw: ['api-gateway', 'API Manager: client ID + rate limit', { auth: 'client-id' }],
+        exp: ['experience-api', 'exp-savings-rates-api', { vCores: '1' }],
         cache: ['cache', 'Rates cache (Object Store, 5 min TTL)'],
         sys: ['system-api', 'sys-core-products-api'],
         core: ['legacy', 'Core banking (product tables)'],
       },
       ['cmp -> gw', 'web -> gw', 'gw -> exp', 'exp -> cache', 'exp -> sys', 'sys -> core'],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 50, maxRps: 20 }],
+      cache: { hitRatio: 0.95 },
+      tests: [
+        {
+          name: 'A best-buy table is published',
+          about: 'The comparison sites send 300 rate reads a second. The cache answers 19 in 20, and the core is never asked more than its 20 queries a second.',
+          traffic: [{ name: 'rate reads', from: 'partner', rps: 300, to: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'legacy', max: 20 }] },
+        },
+        {
+          name: 'A scraper without a client ID',
+          about: 'The sites send 50 reads a second with their client IDs, and a scraper sends 20 a second without one. The gateway refuses the scraper.',
+          traffic: [
+            { name: 'sites', from: 'partner', rps: 50, to: 'legacy' },
+            { name: 'scraper', from: 'partner', rps: 20, to: 'legacy', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'sites', minSuccess: 0.99 }, { flow: 'scraper', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A regional building society has 400,000 savers and 60 savings products. Twelve comparison sites list its rates. Today each site gets a CSV file by email every morning, and the society's own website reads a copy of the product table that is refreshed overnight.
@@ -47,6 +68,7 @@ export default {
 - Comparison sites and the website see a rate change within 15 minutes.
 - Each site has its own credentials so the society can see who calls and switch off a site that misbehaves.
 - Partner traffic (expected peak 300 requests per second when a best-buy table is published) must never overload the core.
+- In tests the core takes 20 queries a second, the cache answers 19 reads in 20, and a scraper sends 20 reads a second with no client ID.
 
 **Your task.** Design the rates API: the layers, how partners are let in, how the core is protected, and how you replace the CSV emails.
 `,

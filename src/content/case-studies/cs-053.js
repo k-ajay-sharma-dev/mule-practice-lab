@@ -21,7 +21,7 @@ export default {
     reference: diagram(
       {
         web: ['web-app', 'Web shop storefront'],
-        ew: ['experience-api', 'exp-web-stock-api'],
+        ew: ['experience-api', 'exp-web-stock-api', { vCores: '0.5' }],
         inv: ['process-api', 'prc-inventory-api'],
         rec: ['batch-job', 'Nightly stock reconciliation'],
         sq: ['queue', 'stock-movements (ActiveMQ)'],
@@ -40,6 +40,29 @@ export default {
         'tp ~> scom', 'scom -> com', 'tp ~> dw', 'web -> ew', 'ew -> cache', 'ew -> inv', 'rec -> sora',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 50, maxRps: 40 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      cache: { hitRatio: 0.9 },
+      tests: [
+        {
+          name: 'Promotional weekend and a broker restart',
+          about: 'On a promotional weekend the tills send 80 stock movements a second for 30 minutes, and the ActiveMQ broker restarts during the peak. The movements are kept on disk, so none is lost and Oracle is updated within the hour.',
+          traffic: [{ name: 'movements', from: 'pos', rps: 80, forMin: 30, to: 'database', kind: 'write' }],
+          incidents: [{ restart: 'queue', at: 10 }],
+          durationMin: 60,
+          expect: { lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+        {
+          name: 'Web stock checks at peak',
+          about: 'The web shop asks for 200 stock checks a second. Oracle takes at most 40 queries a second, so the stock cache answers 9 in 10 and the web stock API has the capacity for the rest.',
+          traffic: [{ name: 'stock checks', from: 'web-app', rps: 200, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'database', max: 40 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A homewares retailer with 120 stores, one distribution centre (DC) and a growing web shop keeps stock in an Oracle merchandising database.
@@ -64,6 +87,8 @@ export default {
 | POS | The POS vendor can publish each sale as a JMS message; older tills in 15 stores can only send files every 15 minutes |
 | Volume | ~400,000 sale lines a day, 4x on promotional weekends |
 | Team | Two Mule developers, first event-driven project |
+
+On a promotional weekend the tills send about 80 stock movements a second, the web shop asks for about 200 stock checks a second, and Oracle takes at most 40 queries a second.
 
 **Your task.** Propose:
 - the target integration for stock movements

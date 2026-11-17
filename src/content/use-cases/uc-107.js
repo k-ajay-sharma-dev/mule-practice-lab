@@ -26,7 +26,7 @@ export default {
         prc: ['process-api', 'prc-entry-validation'],
         ids: ['cache', 'Processed scan IDs (Object Store, 48 h)'],
         entry: ['database', 'Entry state per ticket'],
-        q: ['queue', 'entries-to-ticketing'],
+        q: ['queue', 'entries-to-ticketing', { maxRedelivery: 5 }],
         push: ['process-api', 'prc-ticketing-sync'],
         st: ['system-api', 'sys-ticketing-api'],
         tk: ['saas', 'Ticketing platform'],
@@ -34,6 +34,25 @@ export default {
       },
       ['gate -> exp', 'exp -> prc', 'prc -> ids', 'prc -> entry', 'prc ~> q', 'q ~> push', 'push -> ids', 'push -> st', 'st -> tk', 'q ~> dlq'],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 800, maxRps: 10 }],
+      tests: [
+        {
+          name: 'Kick-off rush',
+          about: 'The gates send 40 scans a second for 10 minutes. Each scan is answered within 2 seconds, the ticketing platform gets at most its 10 calls a second from the queue, and no entry is lost.',
+          traffic: [{ name: 'scans', from: 'device', rps: 40, forMin: 10, to: 'saas', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], peakRps: [{ node: 'saas', max: 10 }], backlog: [{ queue: { type: 'queue' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some entries are rejected by ticketing',
+          about: 'The gates send 5 scans a second, and 1 entry in 100 is refused by the ticketing platform every time. Those entries go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'scans', from: 'device', rps: 5, to: 'saas', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: { type: 'queue' }, maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 A football stadium has **60 gate lanes** with handheld scanners. Each scan of a ticket barcode goes to an API that answers **open** or **reject** and records the entry.
@@ -41,7 +60,7 @@ A football stadium has **60 gate lanes** with handheld scanners. Each scan of a 
 Facts:
 - 52,000 fans enter in about **75 minutes**, peaks of 40 scans per second.
 - Stadium wifi is unreliable. When a scanner gets no answer in 2 seconds it **sends the same scan again** with the same \`scanId\` (a UUID made on the scanner). Some scans arrive 2 or 3 times.
-- The ticketing platform (SaaS) must be told about each entry so that the ticket shows as used in the fan app and resale is blocked. Its API allows 10 calls per second and is sometimes slow.
+- The ticketing platform (SaaS) must be told about each entry so that the ticket shows as used in the fan app and resale is blocked. Its API allows 10 calls per second and is sometimes slow (about 800 ms). The gates send 40 scans a second for 10 minutes at kick-off, and about 1 entry in 100 is refused by ticketing every time.
 - Anypoint MQ is already used at the club. Messages are delivered **at least once**.
 - A ticket must open the gate once. A second attempt with a **different** scan (a screenshot shared with a friend) must be rejected.
 

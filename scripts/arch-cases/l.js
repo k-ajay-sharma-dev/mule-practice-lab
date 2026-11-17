@@ -1,6 +1,6 @@
 // Wrong and other correct diagrams for batch L (back-office integration scenarios uc-091 to uc-105).
 // See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // UC-091
   // Started by hand through an API instead of a schedule.
   await failsOn('uc-091', 'A scheduled job runs', (d) => {
@@ -19,6 +19,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-091', 'Coupa is reached only', (d) => flip(d, 'scoupa -> coupa'))
   // The job never reads SAP, only the System API exists.
   await failsOn('uc-091', 'reads changed vendors', (d) => cut(d, 'job -> ssap'))
+  // The Coupa System API keeps the default 10 second timeout and gives up on every slow supplier call.
+  await failsOn('uc-091', 'Run: Coupa is slow on clean-up night', (d) => set(d, 'scoupa', { timeoutMs: undefined }))
+  // No retries: every vendor Coupa fails once is missing until the next night.
+  await failsOn('uc-091', 'Run: Coupa fails some calls', (d) => set(d, 'scoupa', { retries: undefined }))
   // Watermark in a control table instead of Object Store.
   await passes('uc-091', (d) => {
     unbox(d, 'wm')
@@ -27,7 +31,8 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   })
   // A Process API between the scheduler and the System APIs.
   await passes('uc-091', (d) => {
-    box(d, 'prc', 'process-api', 'prc-vendor-sync')
+    // The Process API waits on slow Coupa calls too, so it needs the same 30 second timeout.
+    box(d, 'prc', 'process-api', 'prc-vendor-sync', { timeoutMs: 30000 })
     cut(d, 'job -> ssap', 'job -> scoupa')
     draw(d, 'job -> prc', 'prc -> ssap', 'prc -> scoupa')
   })
@@ -52,6 +57,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-092', 'archived', (d) => unbox(d, 'arch'))
   await failsOn('uc-092', 'Treasury is alerted', (d) => unbox(d, 'mail'))
   await failsOn('uc-092', 'issued and voided cheques', (d) => cut(d, 'job -> sebs'))
+  // The EBS System API keeps the default 10 second timeout and gives up on every cheque read.
+  await failsOn('uc-092', 'Run: The cheque query is slow', (d) => set(d, 'sebs', { timeoutMs: undefined }))
+  // No retries on the bank System API: a dropped upload leaves cheques off the file.
+  await failsOn('uc-092', 'Run: The bank SFTP drops some uploads', (d) => set(d, 'sbank', { retries: undefined }))
   // Archive in an S3 bucket written by the SFTP System API.
   await passes('uc-092', (d) => {
     unbox(d, 'arch')
@@ -59,7 +68,8 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
     draw(d, 'sbank -> s3')
   })
   await passes('uc-092', (d) => {
-    box(d, 'prc', 'process-api', 'prc-positive-pay')
+    // The Process API waits on the slow EBS read too, so it needs the same 60 second timeout.
+    box(d, 'prc', 'process-api', 'prc-positive-pay', { timeoutMs: 60000 })
     cut(d, 'job -> sebs', 'job -> sbank')
     draw(d, 'job -> prc', 'prc -> sebs', 'prc -> sbank')
   })
@@ -79,6 +89,13 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-093', 'cross-reference', (d) => unbox(d, 'xref'))
   await failsOn('uc-093', 'dead-letter', (d) => unbox(d, 'dlq'))
   await failsOn('uc-093', 'Salesforce is updated only', (d) => draw(d, 'prc -> sf'))
+  // No queue: the CDC subscriber calls the Process API, and SAP refuses what is over 20 a second.
+  await failsOn('uc-093', 'Run: Territory realignment', (d) => {
+    cut(d, 'ssf ~> q')
+    draw(d, 'ssf -> prc')
+  })
+  // No redelivery limit: rejected accounts are retried for ever and never reach the DLQ.
+  await failsOn('uc-093', 'Run: SAP rejects some accounts', (d) => set(d, 'q', { maxRedelivery: undefined }))
   // An exchange instead of a queue.
   await passes('uc-093', (d) => {
     d.nodes.find((n) => n.id === 'q').type = 'topic'
@@ -113,12 +130,17 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-094', 'written back to Workday', (d) => cut(d, 'pad -> swd'))
   await failsOn('uc-094', 'dead-letter', (d) => unbox(d, 'dlq'))
   await failsOn('uc-094', 'each receive the hire', (d) => swap(d, 'topic ~> ppay'))
+  // A short redelivery limit sends good payroll copies to the DLQ while ADP is down.
+  await failsOn('uc-094', 'Run: ADP is down for an hour', (d) => set(d, 'topic', { maxRedelivery: 5 }))
+  // No redelivery limit: bad hires are retried for ever and never reach the DLQ.
+  await failsOn('uc-094', 'Run: Some hires cannot be provisioned', (d) => set(d, 'topic', { maxRedelivery: undefined }))
   // A third subscriber for ServiceNow laptop requests.
   await passes('uc-094', (d) => {
     box(d, 'psn', 'process-api', 'prc-equipment-request')
     box(d, 'ssn', 'system-api', 'sys-servicenow-api')
     box(d, 'sn', 'saas', 'ServiceNow')
-    draw(d, 'topic ~> psn', 'psn -> ssn', 'ssn -> sn')
+    // The new subscriber parks bad hires in the DLQ too, so none is lost.
+    draw(d, 'topic ~> psn', 'psn -> ssn', 'ssn -> sn', 'psn ~> dlq')
   })
   // Entra ID drawn as an identity provider behind the AD System API.
   await passes('uc-094', (d) => {
@@ -141,6 +163,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-095', 'shipped and invoiced status', (d) => unbox(d, 'job'))
   await failsOn('uc-095', 'dead-letter', (d) => unbox(d, 'dlq'))
   await failsOn('uc-095', 'Salesforce is updated only', (d) => draw(d, 'job -> sf'))
+  // A redelivery limit of 3 sends good orders to the DLQ while EBS is still down.
+  await failsOn('uc-095', 'Run: The EBS window runs 30 minutes late', (d) => set(d, 'q', { maxRedelivery: 3 }))
+  // No redelivery limit: rejected orders are retried for ever and never reach the DLQ.
+  await failsOn('uc-095', 'Run: EBS rejects some orders', (d) => set(d, 'q', { maxRedelivery: undefined }))
   // The status job goes through a Process API.
   await passes('uc-095', (d) => {
     box(d, 'pst', 'process-api', 'prc-order-status')
@@ -167,6 +193,13 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-096', 'tracked in a database', (d) => unbox(d, 'trk'))
   await failsOn('uc-096', 'dead-letter', (d) => unbox(d, 'dlq'))
   await failsOn('uc-096', 'Retailers send 850s', (d) => flip(d, 'ret -> exp'))
+  // No inbound queue: SAP refuses what is over its 3 orders a second at the peak.
+  await failsOn('uc-096', 'Run: Holiday PO peak', (d) => {
+    cut(d, 'exp ~> qin')
+    draw(d, 'exp -> prc')
+  })
+  // No redelivery limit: POs SAP cannot map are retried for ever and never reach the DLQ.
+  await failsOn('uc-096', 'Run: Some POs cannot be mapped', (d) => set(d, 'qin', { maxRedelivery: undefined }))
   // Documents back to the retailer drawn from the gateway, and one queue for both directions.
   await passes('uc-096', (d) => {
     unbox(d, 'qout')
@@ -195,6 +228,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-097', 'mapped from a table', (d) => unbox(d, 'map'))
   await failsOn('uc-097', 'GL team hears', (d) => unbox(d, 'mail'))
   await failsOn('uc-097', 'through a validating Process API', (d) => cut(d, 'job -> prc'))
+  // The GL System API keeps the default 10 second timeout and gives up while Journal Import runs.
+  await failsOn('uc-097', 'Run: Journal Import takes 45 seconds', (d) => set(d, 'sgl', { timeoutMs: undefined }))
+  // No retries on the GL System API: a failed load leaves the batch out of the flash report.
+  await failsOn('uc-097', 'Run: EBS fails some loads', (d) => set(d, 'sgl', { retries: undefined }))
   // The Process API collects from the sources itself.
   await passes('uc-097', (d) => {
     cut(d, 'job -> sbill', 'job -> sfile')
@@ -223,6 +260,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-098', 'by email', (d) => unbox(d, 'mail'))
   // Status is polled; no webhook at all.
   await failsOn('uc-098', 'webhook API', (d) => cut(d, 'ap -> hook'))
+  // A redelivery limit of 3 with no DLQ: statuses are dropped while NetSuite is down.
+  await failsOn('uc-098', 'Run: NetSuite is down while statuses arrive', (d) => set(d, 'q', { maxRedelivery: 3 }))
+  // The access point System API keeps the default 10 second timeout and gives up on every invoice.
+  await failsOn('uc-098', 'Run: The access point is slow at month end', (d) => set(d, 'sap', { timeoutMs: undefined }))
   await passes('uc-098', (d) => {
     unbox(d, 'arch')
     box(d, 'blob', 'azure-blob', 'ubl-archive container')
@@ -252,6 +293,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
     unbox(d, 'ssap')
     draw(d, 'sns -> sap', 'prc -> sns')
   })
+  // The SAP System API keeps the default 10 second timeout and gives up on slow postings.
+  await failsOn('uc-099', 'Run: SAP posts slowly at month end', (d) => set(d, 'ssap', { timeoutMs: undefined }))
+  // No retries on the SAP System API: a failed posting leaves the invoice on one side only.
+  await failsOn('uc-099', 'Run: SAP fails some postings', (d) => set(d, 'ssap', { retries: undefined }))
   // The report goes through the Process API.
   await passes('uc-099', (d) => {
     cut(d, 'rec -> pair', 'rec -> mail')
@@ -280,9 +325,14 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-100', 'parked', (d) => unbox(d, 'err'))
   await failsOn('uc-100', 'control totals', (d) => unbox(d, 'mail'))
   await failsOn('uc-100', 'loads usage into the billing database', (d) => cut(d, 'job -> sbill'))
+  // One replica of the billing System API: when its zone goes down, the load stops.
+  await failsOn('uc-100', 'Run: A zone goes down during the load', (d) => set(d, 'sbill', { replicas: undefined }))
+  // No retries: every chunk that fails during the failover is missing from the bill run.
+  await failsOn('uc-100', 'Run: The billing database fails over', (d) => set(d, 'sbill', { retries: undefined }))
   // A Process API does the load for the batch job.
   await passes('uc-100', (d) => {
-    box(d, 'prc', 'process-api', 'prc-usage-load')
+    // It runs in 2 replicas like the rest of the load, so a zone outage does not stop it.
+    box(d, 'prc', 'process-api', 'prc-usage-load', { replicas: 2 })
     cut(d, 'job -> sbill')
     draw(d, 'job -> prc', 'prc -> sbill')
   })
@@ -306,6 +356,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-101', 'not loaded straight from the sources', (d) => draw(d, 'sap ~> dw'))
   await failsOn('uc-101', 'exception report', (d) => unbox(d, 'mail'))
   await failsOn('uc-101', 'feed the data warehouse', (d) => cut(d, 'job -> dw'))
+  // The SAP System API keeps the default 10 second timeout and gives up on every slow page.
+  await failsOn('uc-101', 'Run: SAP is still busy with the bill run', (d) => set(d, 'ssap', { timeoutMs: undefined }))
+  // No retries on the Stripe System API: every failed page is missing from the report.
+  await failsOn('uc-101', 'Run: Stripe fails some calls', (d) => set(d, 'sstr', { retries: undefined }))
   // Warehouse loaded from the staging database.
   await passes('uc-101', (d) => {
     cut(d, 'job -> dw')
@@ -330,6 +384,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
   await failsOn('uc-102', 'compares row counts', (d) => unbox(d, 'rep'))
   await failsOn('uc-102', 'raise alerts', (d) => unbox(d, 'mail'))
   await failsOn('uc-102', 'consumes the change stream', (d) => swap(d, 'k ~> prc'))
+  // The loader left at 0.1 vCore takes about 50 changes a second, so the lag grows for hours.
+  await failsOn('uc-102', 'Run: The AP payment run peak', (d) => set(d, 'prc', { vCores: undefined }))
+  // No redelivery limit: a bad change is retried for ever and never reaches the DLQ.
+  await failsOn('uc-102', 'Run: Some changes fail the mapping', (d) => set(d, 'k', { maxRedelivery: undefined }))
   // Azure Blob staging and a System API for the count check.
   await passes('uc-102', (d) => {
     d.nodes.find((n) => n.id === 's3').type = 'azure-blob'
@@ -361,10 +419,15 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
     unbox(d, 'expa')
     draw(d, 'ap -> prc')
   })
+  // No JWT policy on the approvals API: anyone on the network can approve a bank change.
+  await failsOn('uc-103', 'Run: A caller without a token', (d) => set(d, 'expa', { auth: undefined }))
+  // A redelivery limit of 3 with no DLQ: requests are dropped while SAP is down.
+  await failsOn('uc-103', 'Run: SAP is down when changes arrive', (d) => set(d, 'q', { maxRedelivery: 3 }))
   // Sign-in through the identity provider and a gateway in front of the approvals API.
   await passes('uc-103', (d) => {
     box(d, 'idp', 'identity-provider', 'Azure AD sign-in')
-    box(d, 'gwp', 'api-gateway', 'JWT validation policy')
+    // The gateway is now what the app calls, so the JWT policy sits on it.
+    box(d, 'gwp', 'api-gateway', 'JWT validation policy', { auth: 'jwt' })
     cut(d, 'ap -> expa')
     draw(d, 'ap -> idp', 'ap -> gwp', 'gwp -> expa')
   })
@@ -404,6 +467,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
     unbox(d, 'exp')
     draw(d, 'cal -> orch')
   })
+  // A redelivery limit of 3 sends good SAP steps to the DLQ during maintenance.
+  await failsOn('uc-104', 'Run: SAP is in maintenance during the close', (d) => set(d, 'topic', { maxRedelivery: 3 }))
+  // No redelivery limit: a broken step is retried for ever and never reaches the DLQ.
+  await failsOn('uc-104', 'Run: A step fails every time', (d) => set(d, 'topic', { maxRedelivery: undefined }))
   // One worker per ERP type, each with its own subscription.
   await passes('uc-104', (d) => {
     box(d, 'w2', 'process-api', 'prc-ebs-gl-worker')
@@ -441,6 +508,10 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
     cut(d, 'prc ~> qb')
     draw(d, 'prc ~> sbank')
   })
+  // A redelivery limit of 3 sends good payments to the DLQ while the bank host is down.
+  await failsOn('uc-105', 'Run: A bank host is down before cut-off', (d) => set(d, 'qb', { maxRedelivery: 3 }))
+  // No redelivery limit: refused payments are retried for ever and never reach the DLQ.
+  await failsOn('uc-105', 'Run: The bank rejects some payment files', (d) => set(d, 'qb', { maxRedelivery: undefined }))
   // A separate System API for the SWIFT bureau.
   await passes('uc-105', (d) => {
     box(d, 'sswift', 'system-api', 'sys-swift-fileact-api')

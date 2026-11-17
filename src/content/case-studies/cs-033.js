@@ -23,14 +23,14 @@ export default {
       {
         web: ['web-app', 'Learning web app'],
         gw: ['api-gateway', 'Gateway (spike control, Retry-After)'],
-        eapi: ['experience-api', 'exp-exam-api'],
-        prc: ['process-api', 'prc-exam-api'],
+        eapi: ['experience-api', 'exp-exam-api', { replicas: 3, vCores: '2' }],
+        prc: ['process-api', 'prc-exam-api', { replicas: 3, vCores: '2' }],
         pre: ['batch-job', 'Pre-provision proctoring sessions'],
-        writer: ['process-api', 'prc-lms-writer (limited concurrency)'],
+        writer: ['process-api', 'prc-lms-writer (limited concurrency)', { vCores: '0.5' }],
         q: ['queue', 'exam-submissions'],
         dlq: ['dlq', 'exam-submissions-dlq'],
         sproc: ['system-api', 'sys-proctoring-api'],
-        slms: ['system-api', 'sys-lms-api'],
+        slms: ['system-api', 'sys-lms-api', { vCores: '0.5' }],
         sess: ['cache', 'Pre-created proctoring sessions'],
         auto: ['database', 'Autosave store (key-value)'],
         proc: ['external-api', 'Proctoring vendor'],
@@ -41,6 +41,27 @@ export default {
         'writer -> slms', 'slms -> lms', 'pre -> sproc', 'sproc -> proc', 'pre -> sess',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300, maxRps: 200 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Answer autosaves at the exam peak',
+          about: 'During the exam peak candidates autosave 2,000 answers a second. The exam APIs have the replicas and cores to write them all to the autosave store, and the LMS gets none of them.',
+          traffic: [{ name: 'autosaves', from: 'web-app', rps: 2000, to: { type: 'database', label: 'autosave' }, kind: 'write' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 500 }], notReached: [{ node: 'saas' }] },
+        },
+        {
+          name: 'Final submissions at the end of an exam',
+          about: 'At the end of an exam candidates submit 300 answers a second for 5 minutes, and the LMS takes 200 writes a second. Every candidate gets a receipt at once, the queue holds the rest, and the LMS is never over its limit.',
+          traffic: [{ name: 'submissions', from: 'web-app', rps: 2, to: 'saas', kind: 'write', spikes: [{ at: 2, forMin: 5, rps: 300 }] }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 200 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An online learning company provides courses and proctored exams to universities and professional bodies. Its Mule APIs sit between the learning web app and several back ends: a learning-management system (LMS), a proctoring vendor, a payments provider, an identity provider and a results database. During the two-week exam season traffic rises 15x. Last year exam submissions timed out, students re-submitted, and some got duplicate results or none at all.
@@ -60,6 +81,8 @@ export default {
 | Exam start | 10/s | ~45/s (bursts to 150/s) |
 | Answer autosave | 50/s | 2,000/s |
 | Final submission | 2/s | 300/s (end of exam) |
+
+The Run tab tests the two hardest rows: 2,000 autosaves a second, and 300 final submissions a second for 5 minutes against the LMS limit of 200 writes a second.
 
 **Your task.** Propose changes to make exam season reliable and cost-effective.
 `,

@@ -28,7 +28,7 @@ export default {
         exp: ['experience-api', 'exp-close-cockpit-api'],
         orch: ['process-api', 'prc-close-orchestrator'],
         state: ['database', 'Close calendar and step state'],
-        topic: ['topic', 'close-events (Anypoint MQ exchange)'],
+        topic: ['topic', 'close-events (Anypoint MQ exchange)', { maxRedelivery: 60 }],
         dlq: ['dlq', 'close-events-dlq'],
         gl: ['process-api', 'prc-erp-gl-worker'],
         s1: ['system-api', 'sys-sap-gl-api'],
@@ -49,6 +49,29 @@ export default {
         'orch -> scons', 'scons -> cons', 'orch -> sfx', 'sfx -> fx', 'orch -> ev',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 2000 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'SAP is in maintenance during the close',
+          about: 'Controllers start 12 SAP steps a minute while SAP is down for 30 minutes of maintenance. The cockpit answers at once, and each step event waits and runs when SAP is back, with none lost or sent to the DLQ.',
+          traffic: [{ name: 'steps', from: 'internal-app', rps: 0.2, to: { type: 'erp', label: 'SAP' }, kind: 'write' }],
+          incidents: [{ down: { type: 'erp', label: 'SAP' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: 'topic', maxEnd: 0 }] },
+        },
+        {
+          name: 'A step fails every time',
+          about: 'Controllers start 12 SAP steps a minute, and 1 step in 50 has a mapping error that fails every run. Those step events go to the DLQ after an hour of tries, and the other steps keep running.',
+          traffic: [{ name: 'steps', from: 'internal-app', rps: 0.2, to: { type: 'erp', label: 'SAP' }, kind: 'write', poison: 0.02 }],
+          durationMin: 180,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 5 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A global industrial group with **22 legal entities** runs **six ERP instances**: two SAP S/4HANA (EU and APAC), one Oracle EBS 12.2 (US), two NetSuite accounts (acquired companies) and one Dynamics 365 Finance (Brazil). Consolidation runs in a SaaS tool (OneStream). The close takes **9 working days**; the CFO wants **4**.
@@ -67,6 +90,7 @@ Facts:
 - When an entity posts a late journal, only **that entity's** trial balance must be extracted and loaded again, not all 22.
 - ERPs have maintenance windows on different weekends.
 - **SOX**: for every automated step, keep who started it, when, the input and output files and their totals.
+- In the tests controllers start 12 SAP steps a minute, SAP can be down for 30 minutes of maintenance, and 1 step in 50 has a mapping error that fails every run.
 
 **Questions:**
 1. How do you model the close calendar and its dependencies?

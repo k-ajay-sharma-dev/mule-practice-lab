@@ -22,10 +22,10 @@ export default {
     reference: diagram(
       {
         app: ['mobile-app', 'Patient app'],
-        gw: ['api-gateway', 'Gateway (OAuth 2.0 / SMART scopes)'],
+        gw: ['api-gateway', 'Gateway (OAuth 2.0 / SMART scopes)', { auth: 'jwt' }],
         eapi: ['experience-api', 'patient-fhir-eapi'],
         prc: ['process-api', 'lab-orders-papi'],
-        q: ['queue', 'hl7-inbound (FIFO per patient)'],
+        q: ['queue', 'hl7-inbound (FIFO per patient)', { maxRedelivery: 60 }],
         dlq: ['dlq', 'hl7-error-queue'],
         sehr: ['system-api', 'ehr-hl7-sapi'],
         slis: ['system-api', 'lis-hl7-sapi'],
@@ -43,6 +43,32 @@ export default {
         'sehr -> ehr', 'slis -> lis', 'sref -> ref',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 100 },
+        { match: 'external-api', latencyMs: 300 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'A caller without a token',
+          about: 'Patients read 20 lab results a second with their tokens, and an unknown client sends 5 requests a second without one. The gateway refuses the unknown client before any clinical data is read.',
+          traffic: [
+            { name: 'patients', from: 'mobile-app', rps: 20, to: { type: 'legacy', label: 'lis' } },
+            { name: 'unknown client', from: 'mobile-app', rps: 5, to: { type: 'legacy', label: 'lis' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'patients', minSuccess: 0.99 }, { flow: 'unknown client', minRefused: 0.99 }] },
+        },
+        {
+          name: 'The EHR is down for 30 minutes',
+          about: 'The LIS sends 10 results a second while the EHR is down for 30 minutes. The results wait in the inbound queue, each is tried for up to an hour, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'results', from: { type: 'system-api', label: 'lis' }, rps: 10, to: { type: 'legacy', label: 'ehr' }, kind: 'write' }],
+          incidents: [{ down: { type: 'legacy', label: 'ehr' }, at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { delivered: [{ to: { type: 'legacy', label: 'ehr' }, min: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A hospital group (4 hospitals) runs one **EHR**. Lab tests are done by two systems: an in-house **LIS** (lab information system) and an external reference lab.
@@ -58,6 +84,7 @@ export default {
 - Clinical data: strict privacy rules (e.g. HIPAA/GDPR), full audit trail of who accessed what.
 - The EHR and LIS are on-premises. Result delivery to clinicians should be under 1 minute.
 - Message order matters per patient.
+- The LIS sends about 10 results a second and the EHR can be down for 30 minutes. The patient app reads about 20 results a second, and callers without a token must be refused.
 
 **Your task.** Propose the integration architecture to replace the interface engine and add FHIR, covering message handling, mapping, reliability, security and monitoring.
 `,

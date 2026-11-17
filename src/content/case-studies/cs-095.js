@@ -26,7 +26,7 @@ export default {
     reference: diagram(
       {
         ehr: ['legacy', 'EHR (HL7 v2 ADT over MLLP)'],
-        lis: ['system-api', 'sys-ehr-adt-listener (MLLP)'],
+        lis: ['system-api', 'sys-ehr-adt-listener (MLLP)', { vCores: '0.5' }],
         arch: ['file-store', 'Raw HL7 archive'],
         top: ['topic', 'adt-events'],
         qph: ['queue', 'pharmacy.adt'],
@@ -49,6 +49,34 @@ export default {
         'pph -> sph', 'sph -> phs', 'pdi -> sdi', 'sdi -> diet', 'pbed -> sbed', 'sbed -> bed',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 50 },
+        { match: 'saas', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'Morning bed moves',
+          about: 'The EHR sends 10 ADT messages a second, and 60 a second for 15 minutes during the morning bed moves. The listener ACKs every message, and each department works through its queue after the peak.',
+          traffic: [{ name: 'ADT messages', from: { type: ['legacy', 'saas'], label: 'ADT over MLLP' }, rps: 10, spikes: [{ at: 5, forMin: 15, rps: 60 }], to: [{ type: 'legacy', label: 'pharmacy' }, { type: 'saas', label: ['meal', 'bed'] }], kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: ['pharmacy', 'dietary', 'bed'] }, maxEnd: 0 }] },
+        },
+        {
+          name: 'Meal ordering is down for 2 hours',
+          about: 'The EHR sends 10 ADT messages a second while meal ordering is down for 120 minutes. Pharmacy still gets every message, and meal ordering catches up from its own queue.',
+          traffic: [{ name: 'ADT messages', from: { type: ['legacy', 'saas'], label: 'ADT over MLLP' }, rps: 10, to: [{ type: 'legacy', label: 'pharmacy' }, { type: 'saas', label: ['meal', 'bed'] }], kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'meal' }, at: 5, forMin: 120 }],
+          durationMin: 200,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: { type: 'legacy', label: 'pharmacy' }, min: 0.99 }],
+            backlog: [{ queue: { type: 'queue', label: 'pharmacy' }, maxPeak: 600 }, { queue: { type: 'queue', label: 'dietary' }, maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A hospital group runs five hospitals on one EHR. Every admission, transfer, discharge and demographic update leaves the EHR as an HL7 v2 ADT message (A01, A02, A03, A08 and others) over MLLP. About 250,000 ADT messages a day, with peaks of 60 a second when the morning bed moves happen.
@@ -70,6 +98,7 @@ export default {
 | Privacy | Meal ordering may see name, ward, bed and diet codes only, never diagnoses |
 | Ordering | An A03 (discharge) must never overtake the A01 (admission) for the same patient |
 | Operations | The integration team has three people and wants one place to see stuck messages |
+| Tests | 10 ADT messages a second, 60 a second for 15 minutes at the bed moves, and meal ordering down for 2 hours |
 
 **Your task.** Design the ADT distribution. Start with pharmacy, meal ordering and bed management, in a way that lets the other eleven join later.
 `,

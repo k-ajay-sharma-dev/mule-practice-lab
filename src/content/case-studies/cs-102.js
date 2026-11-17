@@ -31,7 +31,7 @@ export default {
         lic: ['partner', 'Licensing partners (12)'],
         sftp: ['sftp-server', 'Partner SFTP (case line listings)'],
         poll: ['batch-job', 'mailbox and SFTP pollers'],
-        q: ['queue', 'ae-intake'],
+        q: ['queue', 'ae-intake', { maxRedelivery: 5 }],
         dlq: ['dlq', 'ae-intake-dlq'],
         p: ['process-api', 'prc-ae-case-intake'],
         dup: ['database', 'Duplicate check index'],
@@ -45,6 +45,26 @@ export default {
         'q ~> p', 'q ~> dlq', 'p -> dup', 'p -> ss', 'ss -> sdb', 'p ~> tq', 'tq ~> wb',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'oracle-db', latencyMs: 500, maxRps: 5 }],
+      tests: [
+        {
+          name: 'Nightly maintenance',
+          about: 'The web form sends 2 reports a second while the safety database is down for its 30 minute maintenance. Every report is accepted at once, and every case is created once the database is back.',
+          traffic: [{ name: 'reports', from: 'web-app', rps: 2, to: 'oracle-db', kind: 'write' }],
+          incidents: [{ down: 'oracle-db', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'intake' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'Some reports cannot be created',
+          about: 'Reports arrive at 2 a second, and 1 in 50 has data the safety database rejects every time. Those reports go to the DLQ after 5 tries, where someone can trace them, and the others keep flowing.',
+          traffic: [{ name: 'reports', from: 'web-app', rps: 2, to: 'oracle-db', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A pharmaceutical company markets 60 products in 35 countries. By law it must collect every report of a suspected adverse reaction, assess it and send serious cases to regulators within 15 calendar days (7 days for fatal or life-threatening unexpected reactions). The clock ("day zero") starts when anyone in the company, or a partner acting for it, first learns of the event.
@@ -71,6 +91,7 @@ Safety specialists re-key everything into the safety database, an on-premises Or
 | Data | Reports contain health data on identifiable people; minimum data in logs; GDPR and local laws apply |
 | Validation | The safety database and its interfaces are GxP systems: validated, with audit trails |
 | Partners | Contracts set the CSV layout; partners send late or corrected files |
+| Tests | 2 reports a second during the 30 minute maintenance, and 1 report in 50 that the safety database always rejects |
 
 **Your task.** Design the intake from every channel to the safety database.
 `,

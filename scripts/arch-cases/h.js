@@ -1,6 +1,6 @@
 // Wrong and other correct diagrams for batch H (banking, insurance and payments case studies).
 // See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // CS-078
   // A comparison site skips the gateway and calls the Experience API straight.
   await failsOn('cs-078', 'passes the gateway', (d) => draw(d, 'cmp -> exp'))
@@ -110,9 +110,9 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await failsOn('cs-081', 'rating engine is reached only', (d) => draw(d, 'prc -> rate'))
   await failsOn('cs-081', 'never call System APIs directly', (d) => draw(d, 'ep -> srate'))
   await failsOn('cs-081', 'async message', (d) => swap(d, 'q ~> pdoc'))
-  // A second gateway for the B2B channel.
+  // A second gateway for the B2B channel. It needs its own authentication policy, or unknown callers get in.
   await passes('cs-081', (d) => {
-    box(d, 'gw2', 'api-gateway', 'B2B gateway (mTLS)')
+    box(d, 'gw2', 'api-gateway', 'B2B gateway (mTLS)', { auth: 'mtls' })
     cut(d, 'brk -> gw', 'gw -> eb')
     draw(d, 'brk -> gw2', 'gw2 -> eb', 'gw2 -> idp')
   })
@@ -346,5 +346,90 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('cs-090', (d) => {
     box(d, 'ibjob', 'batch-job', 'Investment bank liquidity report')
     draw(d, 'ibjob -> gwr')
+  })
+
+  // ---------- run cases ----------
+  // CS-078
+  // The Experience API left at 0.1 vCore cannot carry 300 reads a second.
+  await failsOn('cs-078', 'Run: A best-buy table is published', (d) => set(d, 'exp', { vCores: undefined }))
+  // No client ID policy on the gateway: the scraper gets the rates.
+  await failsOn('cs-078', 'Run: A scraper without a client ID', (d) => set(d, 'gw', { auth: undefined }))
+
+  // CS-079
+  // No retries on the screening System API: 1 applicant in 5 gets an error.
+  await failsOn('cs-079', 'Run: Screening drops some calls', (d) => set(d, 'sscr', { retries: undefined }))
+  // A short redelivery limit and no DLQ: vendor results are dropped while core banking is down.
+  await failsOn('cs-079', 'Run: Core banking is down for 20 minutes', (d) => set(d, 'qres', { maxRedelivery: 3 }))
+
+  // CS-080
+  // No retries on the ledger System API: 1 dispute in 10 fails.
+  await failsOn('cs-080', 'Run: The ledger drops some calls', (d) => set(d, 'sled', { retries: undefined }))
+  // The Process API calls the notification System API and waits for it.
+  await failsOn('cs-080', 'Run: Notifications are down for an hour', (d) => {
+    cut(d, 'prc ~> evt')
+    draw(d, 'prc -> sntf')
+  })
+
+  // CS-081
+  // The document System API keeps the default 10 second timeout and gives up on every pack.
+  await failsOn('cs-081', 'Run: Endorsement packs take 40 seconds', (d) => set(d, 'sdoc', { timeoutMs: undefined }))
+  // No authentication policy on the gateway: unknown callers change policies.
+  await failsOn('cs-081', 'Run: A caller without a token', (d) => set(d, 'gw', { auth: undefined }))
+
+  // CS-082
+  // The bank System API keeps the default 10 second timeout and fails every payment.
+  await failsOn('cs-082', 'Run: The bank answers in 12 seconds', (d) => set(d, 'sbank', { timeoutMs: undefined }))
+  // No redelivery limit: rejected payments are retried for ever and never reach the DLQ.
+  await failsOn('cs-082', 'Run: Some payments are always rejected', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // CS-084
+  // The job keeps the default 10 second timeout and gives up on every ledger page.
+  await failsOn('cs-084', 'Run: Large ledger pages', (d) => set(d, 'job', { timeoutMs: undefined }))
+  // A short redelivery limit and no DLQ: exceptions are dropped while BlackLine is down.
+  await failsOn('cs-084', 'Run: The workbench is down for an hour', (d) => set(d, 'q', { maxRedelivery: 3 }))
+
+  // CS-085
+  // The hub left at 0.1 vCore cannot carry the online peak.
+  await failsOn('cs-085', 'Run: A large corporate file at the online peak', (d) => set(d, 'hub', { vCores: undefined }))
+  // SWIFT payments sent by a synchronous call: while the gateway is closed they fail.
+  await failsOn('cs-085', 'Run: The SWIFT gateway is closed for an hour', (d) => {
+    cut(d, 'hub ~> qsw')
+    draw(d, 'hub -> sswift')
+  })
+
+  // CS-086
+  // No short timeout or circuit breaker: calls to the hung mainframe hold every thread.
+  await failsOn('cs-086', 'Run: The mainframe hangs', (d) => {
+    set(d, 'route', { timeoutMs: undefined, circuitBreaker: undefined })
+    set(d, 'smf', { timeoutMs: undefined, circuitBreaker: undefined })
+  })
+  // The platforms call the finance System API directly instead of publishing events.
+  await failsOn('cs-086', 'Run: SAP finance is down for an hour', (d) => {
+    cut(d, 'smf ~> tp', 'spc ~> tp')
+    draw(d, 'smf -> sfin', 'spc -> sfin')
+  })
+
+  // CS-087
+  // A 30 delivery limit sends good webhooks to the DLQ long before the 24 hour window ends.
+  await failsOn('cs-087', 'Run: A partner webhook is down for 2 hours', (d) => set(d, 'pq', { maxRedelivery: 30 }))
+  // No authentication policy on the gateway: unknown callers reach the ledger.
+  await failsOn('cs-087', 'Run: A caller without a token', (d) => set(d, 'gw', { auth: undefined }))
+
+  // CS-089
+  // The rules API left at 0.1 vCore falls behind on payday.
+  await failsOn('cs-089', 'Run: Payday peak', (d) => set(d, 'rules', { vCores: undefined }))
+  // One queue for push and SMS: SMS alerts block the push alerts behind them.
+  await failsOn('cs-089', 'Run: The SMS aggregator is down', (d) => {
+    unbox(d, 'qsms')
+    draw(d, 'rules ~> qpush', 'qpush ~> ssms')
+  })
+
+  // CS-090
+  // No contract rate limit on the retail gateway: the bulk job swamps the retail APIs.
+  await failsOn('cs-090', 'Run: The investment bank runs a bulk job', (d) => set(d, 'gwr', { rateLimit: undefined }))
+  // Retail payments sent by a synchronous call: while the scheme gateway is down they fail.
+  await failsOn('cs-090', 'Run: The payment scheme gateway is down', (d) => {
+    cut(d, 'rprc ~> rq')
+    draw(d, 'rprc -> rpay')
   })
 }

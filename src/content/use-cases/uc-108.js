@@ -21,13 +21,13 @@ export default {
     reference: diagram(
       {
         app: ['mobile-app', 'Customer app'],
-        exp: ['experience-api', 'exp-orders-api'],
-        prc: ['process-api', 'prc-order-service'],
+        exp: ['experience-api', 'exp-orders-api', { replicas: 2, vCores: '0.5' }],
+        prc: ['process-api', 'prc-order-service', { replicas: 2, vCores: '0.5' }],
         db: ['database', 'Orders DB'],
         k: ['event-stream', 'Kafka orders.v1 (24 partitions, key orderId)'],
-        c1: ['process-api', 'prc-restaurant-notify (group restaurant-notify)'],
+        c1: ['process-api', 'prc-restaurant-notify (group restaurant-notify)', { replicas: 2, vCores: '0.5' }],
         c2: ['process-api', 'prc-ledger (group finance-ledger)'],
-        c3: ['process-api', 'prc-analytics-loader (group analytics)'],
+        c3: ['process-api', 'prc-analytics-loader (group analytics)', { replicas: 2, vCores: '0.5' }],
         push: ['notification', 'Restaurant tablet push'],
         sl: ['system-api', 'sys-ledger-api'],
         erp: ['erp', 'Finance ledger (ERP)'],
@@ -39,6 +39,26 @@ export default {
         'c1 -> push', 'c2 -> sl', 'sl -> erp', 'c3 -> dw', 'c2 ~> dlt',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 300, maxRps: 30 }],
+      tests: [
+        {
+          name: 'Dinner peak',
+          about: 'Orders produce 400 events a second for 20 minutes. Every event is published, and the restaurant and analytics consumers keep up, so their part of the stream is empty at the end.',
+          traffic: [{ name: 'order events', from: 'mobile-app', rps: 400, forMin: 20, to: ['notification', 'data-warehouse'], kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'notification', min: 0.99 }, { to: 'data-warehouse', min: 0.99 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The ERP is down for its Sunday hour',
+          about: 'Orders produce 10 ledger events a second while the ERP is down for 60 minutes. Restaurant notifications go on, the ledger events wait in Kafka, and none is lost or sent to the DLT.',
+          traffic: [{ name: 'ledger events', from: 'mobile-app', rps: 10, to: ['notification', 'erp'], kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'notification', min: 0.99 }, { to: 'erp', min: 0.99 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A food delivery platform publishes the **lifecycle of every order** (placed, accepted, picked up, delivered, cancelled, refunded) to Apache Kafka. Three teams need these events, each with its own Mule application:
@@ -52,6 +72,7 @@ Facts:
 - The topic \`orders.v1\` has **24 partitions** and 7 days of retention. The key is \`orderId\`.
 - Events of one order must be applied **in order** by every consumer (a refund must not reach the ledger before the delivery).
 - The ERP is down for 1 hour every Sunday for maintenance. Notifications must not stop during that hour.
+- Each Mule app replica at 0.5 vCore handles about 250 events a second. The dinner peak lasts about 20 minutes, and on Sundays about 10 ledger events a second arrive while the ERP is down.
 - Mule 4 apps on CloudHub 2.0 use the **Apache Kafka connector**.
 
 **Describe your solution:**

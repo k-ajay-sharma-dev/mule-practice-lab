@@ -24,12 +24,12 @@ export default {
       {
         cc: ['saas', 'Guidewire ClaimCenter (cloud)'],
         scc: ['system-api', 'sys-claimcenter-api'],
-        q: ['queue', 'claims.payment-approved'],
+        q: ['queue', 'claims.payment-approved', { maxRedelivery: 5 }],
         dlq: ['dlq', 'claims.payment-approved.dlq'],
-        prc: ['process-api', 'prc-claim-payment'],
+        prc: ['process-api', 'prc-claim-payment', { timeoutMs: 30000 }],
         os: ['cache', 'Object Store (payment idempotency keys)'],
         ssan: ['system-api', 'sys-sanctions-screening-api'],
-        sbank: ['system-api', 'sys-bank-payments-api'],
+        sbank: ['system-api', 'sys-bank-payments-api', { timeoutMs: 20000 }],
         sgl: ['system-api', 'sys-finance-gl-api'],
         san: ['external-api', 'Sanctions screening service'],
         bank: ['payment', 'Bank Faster Payments gateway'],
@@ -40,6 +40,25 @@ export default {
         'prc -> sbank', 'sbank -> bank', 'prc -> sgl', 'sgl -> erp', 'prc -> scc', 'scc -> cc',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'payment', latencyMs: 12000 }],
+      tests: [
+        {
+          name: 'The bank answers in 12 seconds',
+          about: 'ClaimCenter approves 1 payment a second, and the bank takes 12 seconds to answer each one. ClaimCenter gets its acknowledgement at once, and every payment is sent.',
+          traffic: [{ name: 'approved payments', from: { type: 'saas', label: 'claim' }, rps: 1, to: 'payment', kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 5000 }], lost: { max: 0 }, backlog: [{ queue: ['queue', 'cloud-queue'], maxEnd: 60 }] },
+        },
+        {
+          name: 'Some payments are always rejected',
+          about: 'ClaimCenter approves 1 payment a second, and 1 in 100 has bank details the bank rejects every time. Those payments go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'approved payments', from: { type: 'saas', label: 'claim' }, rps: 1, to: 'payment', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A home and motor insurer settles 22,000 claim payments a month to customers, repairers and hire car firms, worth about 60 million GBP. Claims are handled in Guidewire ClaimCenter (cloud).
@@ -54,6 +73,7 @@ export default {
 - The bank offers a Faster Payments API (single payments up to 1 million GBP, answer within 15 seconds, idempotency header supported).
 - A sanctions screening service with a REST API.
 - Oracle Fusion General Ledger for finance postings.
+- In tests ClaimCenter approves 1 payment a second, the bank takes 12 seconds to answer, and 1 payment in 100 is always rejected.
 
 **Goals**
 - Customers are paid within 15 minutes of approval, 24 hours a day.

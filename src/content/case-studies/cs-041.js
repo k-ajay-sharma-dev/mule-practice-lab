@@ -27,7 +27,7 @@ export default {
         qa: ['queue', 'pay-changes-aggregator'],
         ql: ['queue', 'pay-changes-local-de'],
         shr: ['system-api', 'sys-hr-api'],
-        sagg: ['system-api', 'sys-payroll-aggregator-api'],
+        sagg: ['system-api', 'sys-payroll-aggregator-api', { timeoutMs: 30000 }],
         sloc: ['system-api', 'sys-payroll-de-api (PGP / SFTP)'],
         serp: ['system-api', 'sys-erp-journals-api'],
         hr: ['saas', 'Cloud HR system'],
@@ -43,6 +43,30 @@ export default {
         'sagg -> agg', 'sloc -> sftp', 'res -> sagg', 'res -> sloc', 'res -> serp', 'serp -> erp', 'res -> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 15000 },
+        { match: 'saas', latencyMs: 300 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'The aggregator answers slowly at cut-off',
+          about: 'Before a cut-off the calendar sends 5 pay changes a second, and the global payroll aggregator takes 15 seconds to accept each one. The aggregator API waits long enough, so every change arrives before the cut-off.',
+          traffic: [{ name: 'pay changes', from: { type: 'process-api', label: 'pay-input' }, rps: 5, forMin: 30, to: 'external-api', kind: 'write' }],
+          durationMin: 60,
+          expect: { delivered: [{ to: 'external-api', min: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'aggregator' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The aggregator is down for an hour',
+          about: 'The calendar sends 5 pay changes a second while the aggregator is down for an hour. The changes wait in the queue and reach the aggregator once it is back, and none is lost.',
+          traffic: [{ name: 'pay changes', from: { type: 'process-api', label: 'pay-input' }, rps: 5, forMin: 30, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: 'external-api', at: 5, forMin: 60 }],
+          durationMin: 150,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'aggregator' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A professional-services firm with 25,000 employees in 40 countries has one cloud HR system (the system of record for employees, positions and compensation). It uses 14 payroll providers:
@@ -64,6 +88,7 @@ export default {
 - Payroll data is highly sensitive (salary, bank, tax IDs); strict access control and data minimisation per country.
 - Local legal rules differ (kept generic); some countries require data to be processed in-country or by specific providers.
 - HR changes are often entered late or retroactively.
+- Before a cut-off about 5 pay changes a second go out. The global aggregator can take 15 seconds to accept a change, or be down for an hour.
 
 **Your task.** Propose:
 - the integration architecture

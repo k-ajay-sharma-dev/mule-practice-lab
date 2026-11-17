@@ -29,10 +29,10 @@ export default {
         erp: ['erp', 'ERP (prices)'],
         top: ['topic', 'product-changes'],
         g: ['process-api', 'prc-feed-google'],
-        m: ['process-api', 'prc-feed-meta'],
+        m: ['process-api', 'prc-feed-meta', { timeoutMs: 60000 }],
         mk: ['process-api', 'prc-feed-marketplace'],
         sg: ['system-api', 'sys-google-merchant'],
-        sm: ['system-api', 'sys-meta-catalog'],
+        sm: ['system-api', 'sys-meta-catalog', { timeoutMs: 30000 }],
         smk: ['system-api', 'sys-marketplace-listings'],
         eg: ['external-api', 'Google Merchant Center'],
         em: ['external-api', 'Meta catalog'],
@@ -44,6 +44,41 @@ export default {
         'g -> spim', 'm -> spim', 'mk -> spim',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300 },
+        { match: 'erp', latencyMs: 300 },
+        { match: { type: 'external-api', label: 'google' }, latencyMs: 2000 },
+        { match: { type: 'external-api', label: 'meta' }, latencyMs: 20000 },
+        { match: { type: 'external-api', label: 'marketplace' }, latencyMs: 300, maxRps: 5 },
+      ],
+      tests: [
+        {
+          name: 'Meta is down for an hour',
+          about: 'The delta job sends 1 batch of changes every 2 seconds while the Meta catalog is down for 60 minutes. Google and the marketplace keep getting every change, and Meta gets its copies when it is back, so nothing is lost.',
+          traffic: [{ name: 'changes', from: 'batch-job', rps: 0.5, to: 'external-api', kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'meta' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: { type: 'external-api', label: 'google' }, min: 0.99 }, { to: { type: 'external-api', label: 'marketplace' }, min: 0.99 }],
+            backlog: [{ queue: ['topic', 'event-stream', 'queue'], maxEnd: 0 }],
+            lost: { max: 0 },
+          },
+        },
+        {
+          name: 'Meta batches are slow',
+          about: 'A Meta batch of 5,000 items takes about 20 seconds. The delta job sends 1 batch every 2 seconds, and every channel gets every change, so the Meta feed needs timeouts longer than that.',
+          traffic: [{ name: 'changes', from: 'batch-job', rps: 0.5, to: 'external-api', kind: 'write' }],
+          durationMin: 30,
+          expect: {
+            answers: [{ minSuccess: 0.99 }],
+            delivered: [{ to: { type: 'external-api', label: 'google' }, min: 0.99 }, { to: { type: 'external-api', label: 'marketplace' }, min: 0.99 }],
+            backlog: [{ queue: ['topic', 'event-stream', 'queue'], maxEnd: 30 }],
+          },
+        },
+      ],
+    },
   },
   description: `
 A home furnishings retailer keeps **40,000 products** in a SaaS **PIM** (titles, descriptions, images, attributes). Prices live in the **ERP**. The retailer advertises its products on three channels:
@@ -61,6 +96,8 @@ Requirements:
 - Items a channel rejects (missing GTIN, image too small) are written back to the PIM, so the content team can fix them.
 
 The PIM has no events. It offers a search API with an "updated since" filter.
+
+The delta job sends about 1 batch of changes every 2 seconds. A Meta batch takes about **20 seconds**, and Meta can be down for an hour.
 
 **Questions:**
 1. Draw the design.

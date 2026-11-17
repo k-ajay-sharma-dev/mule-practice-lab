@@ -23,7 +23,7 @@ export default {
       {
         shop: ['saas', 'Online store platform (orders/create webhook)'],
         wh: ['experience-api', 'exp-store-webhooks (HMAC check)'],
-        q: ['queue', 'order-confirmations (Anypoint MQ)'],
+        q: ['queue', 'order-confirmations (Anypoint MQ)', { maxRedelivery: 90 }],
         dlq: ['dlq', 'order-confirmations-dlq'],
         prc: ['process-api', 'prc-order-confirmation'],
         sent: ['cache', 'Sent confirmations (Object Store)'],
@@ -33,6 +33,29 @@ export default {
       },
       ['shop -> wh', 'wh ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> sent', 'prc -> snot', 'snot -> mail', 'snot -> sms'],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'notification', label: 'email' }, latencyMs: 300, maxRps: 100 },
+        { match: { type: 'notification', label: 'sms' }, latencyMs: 300, maxRps: 20 },
+      ],
+      tests: [
+        {
+          name: 'The email service is down for an hour',
+          about: 'A promotion sends 5 orders a second while the email service is down for 60 minutes. Every webhook gets its 200 at once, the confirmations wait in the queue, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'orders', from: 'saas', rps: 5, to: 'notification', kind: 'write' }],
+          incidents: [{ down: { type: 'notification', label: 'email' }, at: 5, forMin: 60 }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Some orders cannot be sent',
+          about: 'The platform sends 2 orders a second, and 1 order in 100 has a phone number or address the providers reject every time. Those messages end in the DLQ after their last delivery, and the others keep flowing.',
+          traffic: [{ name: 'orders', from: 'saas', rps: 2, to: 'notification', kind: 'write', poison: 0.01 }],
+          durationMin: 150,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 200 }] },
+        },
+      ],
+    },
   },
   description: `
 A homeware brand sells through a hosted online store platform (Shopify style). It takes **about 4,000 orders a day**, with peaks of **300 orders a minute** during promotions.
@@ -46,6 +69,7 @@ Facts:
 - The platform waits **5 seconds** for a 200 reply. Without one it retries the same webhook up to **19 times over 48 hours**, so the same order can arrive more than once.
 - The email service has a REST API (100 requests a second). The SMS provider has a REST API (20 messages a second).
 - The confirmation should reach the customer within **2 minutes** of the order.
+- At a 5 a second peak the email service can be down for 60 minutes, and about 1 order in 100 has contact details the providers always reject.
 
 **Questions:**
 1. How do you receive the webhook safely and reply in time?

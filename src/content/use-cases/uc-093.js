@@ -22,8 +22,8 @@ export default {
     reference: diagram(
       {
         sf: ['crm', 'Salesforce Sales Cloud'],
-        ssf: ['system-api', 'sys-salesforce-api (CDC subscriber)'],
-        q: ['queue', 'account-changes (Anypoint MQ)'],
+        ssf: ['system-api', 'sys-salesforce-api (CDC subscriber)', { vCores: '0.5' }],
+        q: ['queue', 'account-changes (Anypoint MQ)', { maxRedelivery: 5 }],
         dlq: ['dlq', 'account-changes-dlq'],
         prc: ['process-api', 'prc-customer-sync'],
         xref: ['database', 'Account id cross-reference'],
@@ -32,6 +32,28 @@ export default {
       },
       ['sf ~> ssf', 'ssf ~> q', 'q ~> prc', 'q ~> dlq', 'prc -> xref', 'prc -> ssap', 'ssap -> sap', 'prc -> ssf', 'ssf -> sf'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 400, maxRps: 20 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'Territory realignment',
+          about: 'A realignment changes 42,000 accounts: Salesforce sends 100 changes a second for 7 minutes. SAP takes at most 20 a second. Every change is taken at once, waits in the queue, and reaches SAP within the hour.',
+          traffic: [{ name: 'account changes', from: 'crm', rps: 100, forMin: 7, to: 'erp', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 20 }], backlog: [{ queue: ['queue', 'topic'], maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'SAP rejects some accounts',
+          about: 'Salesforce sends 2 changes a second, and 1 account in 100 has a tax ID that SAP rejects every time. Those changes go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'account changes', from: 'crm', rps: 2, to: 'erp', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 20 }, lost: { max: 0 }, backlog: [{ queue: ['queue', 'topic'], maxEnd: 20 }] },
+        },
+      ],
+    },
   },
   description: `
 A B2B software and hardware vendor sells through **Salesforce Sales Cloud** and invoices from **SAP S/4HANA**. Today finance retypes every new customer into SAP, which takes two days and causes typos in tax IDs.
@@ -43,6 +65,7 @@ Requirements:
 - The SAP customer number must be written back to the Salesforce account, because invoices and orders refer to it.
 - Volumes: about **300 new customers a day** and **2,000 account updates**. A mass territory realignment can change **40,000 accounts** in one evening.
 - SAP is down on Saturday nights for patching.
+- In the tests a realignment sends 100 changes a second for 7 minutes, SAP takes at most 20 a second, and 1 account in 100 has a tax ID SAP always rejects.
 
 **Questions:**
 1. How do you detect the changes in Salesforce?

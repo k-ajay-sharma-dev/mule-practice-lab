@@ -27,7 +27,7 @@ export default {
         sop: ['system-api', 'sys-opcenter-api'],
         sft: ['system-api', 'sys-factorytalk-api'],
         poll: ['batch-job', 'In-house MES poller (every 2 min)'],
-        q: ['queue', 'production-confirmations (plant broker)'],
+        q: ['queue', 'production-confirmations (plant broker)', { maxRedelivery: 180 }],
         pc: ['process-api', 'prc-production-confirmations'],
         ids: ['cache', 'Processed confirmation IDs'],
         ssap: ['system-api', 'sys-sap-production-api'],
@@ -39,6 +39,26 @@ export default {
         'q ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'erp', latencyMs: 300 }],
+      tests: [
+        {
+          name: 'SAP is unreachable for 2 hours',
+          about: 'The plants send 3 confirmations a second while the WAN link to SAP is down for 2 hours. Each confirmation waits in the plant queue and is tried for 3 hours, so none is lost or sent to the DLQ.',
+          traffic: [{ name: 'confirmations', from: { type: 'system-api', label: 'opcenter' }, rps: 3, to: 'erp', kind: 'write' }],
+          incidents: [{ down: 'erp', at: 5, forMin: 120 }],
+          durationMin: 180,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'Confirmations SAP rejects',
+          about: 'The plants send 3 confirmations a second, and 1 in 100 is for an order SAP has already closed. After 3 hours of deliveries those go to the DLQ for the plant controllers, and the others keep flowing.',
+          traffic: [{ name: 'confirmations', from: { type: 'system-api', label: 'opcenter' }, rps: 3, to: 'erp', kind: 'write', poison: 0.01 }],
+          durationMin: 240,
+          expect: { dlq: { min: 50 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An electronics manufacturer (power supplies and control boards) grew by buying other companies. It now has 9 plants on one central SAP S/4HANA, but three different Manufacturing Execution Systems (MES):
@@ -61,6 +81,7 @@ export default {
 - Each plant has a small Runtime Fabric cluster on site; SAP runs in the central data centre.
 - SAP rejects a confirmation if the production order is already technically complete or a material is blocked.
 - The SAP team wants all calls through one interface they can monitor.
+- The plants send about 3 confirmations a second. The link to SAP can be down for 2 hours, and about 1 confirmation in 100 is for an order SAP has already closed.
 
 **Your task.** Design the MES to SAP confirmation integration.
 `,

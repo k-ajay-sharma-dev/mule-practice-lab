@@ -24,7 +24,7 @@ export default {
       {
         pas: ['sql-server', 'Policy admin DB (SQL Server 2019, CDC on)'],
         dbz: ['process-api', 'Debezium CDC connector (Kafka Connect)'],
-        k: ['event-stream', 'Kafka cdc.policy.* (key policyId)'],
+        k: ['event-stream', 'Kafka cdc.policy.* (key policyId)', { maxRedelivery: 5 }],
         agg: ['process-api', 'prc-policy-change-sync'],
         sread: ['system-api', 'sys-policy-read-api'],
         rep: ['sql-server', 'Policy DB read replica'],
@@ -40,6 +40,26 @@ export default {
         'recon -> sread', 'recon -> ssf',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'crm', latencyMs: 400, maxRps: 20 }],
+      tests: [
+        {
+          name: 'The nightly renewal batch',
+          about: 'The renewal batch changes 50 rows a second for 30 minutes, and Salesforce takes at most 20 calls a second from this sync. The changes wait in Kafka, every one reaches Salesforce, and none is lost.',
+          traffic: [{ name: 'row changes', from: { label: 'Policy admin DB' }, rps: 50, forMin: 30, to: 'crm', kind: 'write' }],
+          durationMin: 120,
+          expect: { delivered: [{ to: 'crm', min: 0.99 }], peakRps: [{ node: 'crm', max: 20 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some changes are rejected by Salesforce',
+          about: 'The database changes 5 rows a second, and 1 change in 100 fails a Salesforce validation rule every time. Those changes go to the DLT after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'row changes', from: { label: 'Policy admin DB' }, rps: 5, to: 'crm', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          // the sink connectors get a copy of each bad change too; this test is about the Salesforce sync and its DLT
+          expect: { delivered: [{ to: 'crm', min: 0.98 }], dlq: { min: 20 } },
+        },
+      ],
+    },
   },
   description: `
 An insurer runs a **vendor policy administration system** on **SQL Server 2019**. The vendor does not allow code changes or triggers, and its own API has no events. Today a Mule job polls a \`last_modified\` column every 15 minutes.
@@ -57,7 +77,7 @@ Facts:
 - About 2 million policies, **150,000 row changes per day**, peaks of 50 per second during the nightly renewal batch.
 - A policy is spread over 9 tables. One business change often touches 4 or 5 of them in one transaction.
 - The DBA team agrees to enable **SQL Server CDC** and allows a read replica (Always On secondary).
-- Salesforce API limit: 1 million calls per 24 hours shared with other integrations.
+- Salesforce API limit: 1 million calls per 24 hours shared with other integrations, so this sync may use about 20 calls a second. The renewal peak lasts about 30 minutes, and about 1 change in 100 fails a Salesforce validation rule.
 
 **Describe your solution:**
 - How are changes captured and published?

@@ -24,16 +24,16 @@ export default {
       {
         portal: ['web-app', 'Broker portal'],
         brk: ['partner', 'Broker platforms (Acturis, Applied Epic)'],
-        gw: ['api-gateway', 'API Manager: OAuth 2.0, client ID per firm'],
+        gw: ['api-gateway', 'API Manager: OAuth 2.0, client ID per firm', { auth: 'oauth2' }],
         idp: ['identity-provider', 'Broker identity (Okta)'],
         ep: ['experience-api', 'exp-broker-portal-api'],
         eb: ['experience-api', 'exp-broker-b2b-api'],
         prc: ['process-api', 'prc-policy-change-api'],
         q: ['queue', 'policy-documents.requests'],
-        pdoc: ['process-api', 'prc-policy-documents'],
+        pdoc: ['process-api', 'prc-policy-documents', { timeoutMs: 60000 }],
         srate: ['system-api', 'sys-rating-api'],
         spa: ['system-api', 'sys-policy-admin-api'],
-        sdoc: ['system-api', 'sys-docgen-api'],
+        sdoc: ['system-api', 'sys-docgen-api', { timeoutMs: 60000 }],
         rate: ['saas', 'Commercial rating engine'],
         pas: ['legacy', 'Policy admin system (IBM i)'],
         doc: ['saas', 'Document generation service'],
@@ -45,6 +45,31 @@ export default {
         'srate -> rate', 'spa -> pas',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'saas', label: 'document' }, latencyMs: 40000 },
+        { match: { type: 'saas', label: 'rating' }, latencyMs: 300 },
+        { match: 'legacy', latencyMs: 200, maxRps: 25 },
+      ],
+      tests: [
+        {
+          name: 'Endorsement packs take 40 seconds',
+          about: 'Brokers make 1 change a second, and each endorsement pack takes 40 seconds to generate. The broker gets an answer at once, and every pack is made from the queue.',
+          traffic: [{ name: 'policy changes', from: 'web-app', rps: 1, to: { type: 'saas', label: 'document' }, kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], lost: { max: 0 }, backlog: [{ queue: ['queue', 'topic', 'cloud-queue'], maxEnd: 60 }] },
+        },
+        {
+          name: 'A caller without a token',
+          about: 'Broker platforms send 5 changes a second with their tokens, and an unknown caller sends 2 a second without one. The gateway refuses the unknown caller.',
+          traffic: [
+            { name: 'brokers', from: 'partner', rps: 5, to: 'legacy', kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 2, to: 'legacy', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'brokers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A commercial insurer writes property and liability cover for 90,000 small businesses, almost all through 1,200 broker firms. Brokers make about 6,000 mid-term changes a week: add a vehicle, change the sum insured, add a location.
@@ -59,6 +84,7 @@ export default {
 - A SaaS commercial rating engine (REST, 300 ms average).
 - A document generation SaaS that takes 5 to 40 seconds per endorsement pack.
 - Okta for broker user identity.
+- In tests brokers make 1 to 5 changes a second, a pack takes 40 seconds, and an unknown caller sends 2 changes a second with no token.
 
 **Goals**
 - Simple changes (about 70%) are priced and bound online in under 1 minute; the rest are referred to an underwriter.

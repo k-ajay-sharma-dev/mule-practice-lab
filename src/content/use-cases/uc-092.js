@@ -20,16 +20,39 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Positive Pay job (daily 17:00)'],
-        sebs: ['system-api', 'sys-oracle-ebs-ap-api'],
+        job: ['batch-job', 'Positive Pay job (daily 17:00)', { timeoutMs: 60000 }],
+        sebs: ['system-api', 'sys-oracle-ebs-ap-api', { timeoutMs: 60000 }],
         ebs: ['erp', 'Oracle EBS Payables'],
-        sbank: ['system-api', 'sys-bank-sftp-api'],
+        sbank: ['system-api', 'sys-bank-sftp-api', { retries: 2 }],
         sftp: ['sftp-server', 'Bank SFTP (/inbound/positive-pay)'],
         arch: ['file-store', 'Encrypted file archive (7 years)'],
         mail: ['notification', 'Treasury alert'],
       },
       ['job -> sebs', 'sebs -> ebs', 'job -> sbank', 'sbank -> sftp', 'job -> arch', 'job -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 20000 },
+        { match: 'sftp-server', latencyMs: 2000 },
+      ],
+      tests: [
+        {
+          name: 'The cheque query is slow',
+          about: 'The job reads one block of 50 cheques every 10 seconds for 10 minutes. Each read from EBS Payables takes about 20 seconds at 17:00, and every block must reach the bank file.',
+          traffic: [{ name: 'cheque blocks', from: 'batch-job', rps: 0.1, forMin: 10, to: ['erp', 'sftp-server'], kind: 'write' }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The bank SFTP drops some uploads',
+          about: 'The job reads one block of 50 cheques every 10 seconds for 10 minutes, and the bank SFTP server drops 1 upload in 10. A retry of the same file is safe, so the file still reaches the bank before 18:00.',
+          traffic: [{ name: 'cheque blocks', from: 'batch-job', rps: 0.1, forMin: 10, to: ['erp', 'sftp-server'], kind: 'write' }],
+          incidents: [{ errors: 'sftp-server', rate: 0.1 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A US manufacturer still pays about **400 suppliers a day by cheque** from **Oracle E-Business Suite 12.2 Payables**. To stop cheque fraud the bank offers **Positive Pay**: the company sends a list of every cheque it issued, and the bank pays only cheques that match the list.
@@ -40,6 +63,7 @@ Facts:
 - The file must be **PGP encrypted** with the bank's public key and uploaded to the bank's SFTP server with a key pair, not a password.
 - The bank drops an acknowledgement file in \`/outbound/ack\` within 30 minutes.
 - Auditors want every file kept for 7 years.
+- In the tests the job reads a block of 50 cheques every 10 seconds. A read from EBS takes about 20 seconds at 17:00, and the bank SFTP server can drop 1 upload in 10.
 
 **Describe your solution:**
 - How do you select the cheques for one day without sending a cheque twice?

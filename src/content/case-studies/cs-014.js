@@ -29,7 +29,7 @@ export default {
         pent: ['process-api', 'entitlements-papi'],
         q: ['queue', 'purchase-events'],
         top: ['topic', 'entitlement-changed'],
-        sent: ['system-api', 'entitlements-sapi (cached read)'],
+        sent: ['system-api', 'entitlements-sapi (cached read)', { replicas: 3, vCores: '2' }],
         pf: ['file-store', 'Partner bundle files'],
         store: ['database', 'Entitlement store'],
         kv: ['cache', 'Replicated entitlement cache (KV)'],
@@ -41,6 +41,23 @@ export default {
         'play -> sent', 'sent -> kv',
       ],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Kick-off of a big match',
+          about: 'At kick-off the playback service checks 1,200 entitlements a second. The entitlement API has the replicas and cores to answer every check from the cache within 100 ms.',
+          traffic: [{ name: 'playback checks', from: 'internal-app', rps: 1200, to: 'cache' }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 100 }] },
+        },
+        {
+          name: 'A zone goes down at kick-off',
+          about: 'The playback service checks 1,200 entitlements a second when one availability zone goes down. The replicas in the other zones carry the checks, still within 100 ms.',
+          traffic: [{ name: 'playback checks', from: 'internal-app', rps: 1200, to: 'cache' }],
+          incidents: [{ zone: true, at: 3 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A video streaming company sells subscriptions directly (web, via a billing platform), through mobile app stores, and bundled by telecom partners. Each source tells the company about subscriptions differently: billing webhooks, app-store server notifications, and nightly partner files. Playback apps on TVs, phones and web check "can this user watch this title?" on every play.
@@ -54,6 +71,7 @@ export default {
 - Partner files have inconsistent formats; some partners provide an API.
 - The billing platform is the source of truth for direct customers only.
 - The playback service is owned by another team and is not built on MuleSoft.
+- At kick-off of a big match the playback service checks about 1,200 entitlements a second, and the checks must keep working if an availability zone goes down.
 
 **Your task.** Propose the design for collecting purchase events and serving entitlement checks.
 `,

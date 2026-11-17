@@ -28,7 +28,7 @@ export default {
         van: ['batch-job', 'VAN mailbox poller'],
         prc: ['process-api', 'prc-purchase-orders'],
         out: ['process-api', 'prc-outbound-documents'],
-        inq: ['queue', 'b2b-inbound'],
+        inq: ['queue', 'b2b-inbound', { maxRedelivery: 5 }],
         dlq: ['dlq', 'b2b-inbound DLQ'],
         ev: ['topic', 'order-status-events'],
         sebs: ['system-api', 'sys-ebs-orders-api'],
@@ -42,6 +42,29 @@ export default {
         'inq ~> prc', 'inq ~> dlq', 'prc -> trk', 'prc -> sebs', 'sebs -> ebs', 'sebs ~> ev', 'ev ~> out', 'out -> trk', 'out -> pend',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 800, maxRps: 5 },
+        { match: 'database', latencyMs: 20 },
+        { match: 'external-api', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'A Q4 burst of purchase orders',
+          about: 'In Q4 the AS2 partners send 20 purchase orders a second for 10 minutes. The EBS order import takes at most 5 a second. Every order is accepted at once and waits in the queue, and EBS is never pushed over 5 a second.',
+          traffic: [{ name: 'purchase orders', from: { type: 'partner', label: 'AS2' }, rps: 20, forMin: 10, to: 'erp', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'erp', max: 5 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Orders EBS always rejects',
+          about: 'Partners send 2 purchase orders a second, and 1 in 50 has data EBS rejects every time. After 5 deliveries those orders go to the DLQ for the B2B team, and the others keep flowing.',
+          traffic: [{ name: 'purchase orders', from: { type: 'partner', label: 'AS2' }, rps: 2, to: 'erp', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { dlq: { min: 50 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 20 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** An electronics distributor exchanges X12 EDI with 300 trading partners (retailers, resellers and a few manufacturers) through a value-added network (VAN).
@@ -67,6 +90,8 @@ export default {
 | Partners | Each AS2 partner needs its own certificates, IDs and test cycle |
 | Volume | 6,000 850s a day, peaks of 3x in Q4 |
 | SLA | 855 back to the partner within 2 hours of the 850 |
+
+In Q4 the AS2 partners can send 20 purchase orders a second for 10 minutes, the EBS order import takes at most 5 a second, and about 1 order in 50 has data EBS rejects every time.
 
 **Your task.** Propose:
 - the B2B architecture

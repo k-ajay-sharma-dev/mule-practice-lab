@@ -24,12 +24,12 @@ export default {
         web: ['web-app', 'E-commerce site'],
         app: ['internal-app', 'Store colleague app'],
         ew: ['experience-api', 'exp-ecom-api'],
-        es: ['experience-api', 'exp-store-api'],
-        pi: ['process-api', 'prc-item-price-api'],
+        es: ['experience-api', 'exp-store-api', { vCores: '0.5' }],
+        pi: ['process-api', 'prc-item-price-api', { vCores: '0.5' }],
         pf: ['process-api', 'prc-order-fulfilment-api'],
         tp: ['topic', 'item-price-changed (VirtualTopic)'],
         dlq: ['dlq', 'Per-consumer DLQs'],
-        smer: ['system-api', 'sys-oracle-merch-api'],
+        smer: ['system-api', 'sys-oracle-merch-api', { vCores: '0.5' }],
         swms: ['system-api', 'sys-wms-api'],
         spos: ['system-api', 'sys-store-pos-api'],
         mer: ['database', 'Oracle merchandising DB'],
@@ -44,6 +44,28 @@ export default {
         'spos -> pos', 'spos ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 30, maxRps: 500 },
+        { match: 'pos', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'Store price reads at peak',
+          about: 'The store colleague app makes 200 price lookups a second. The store, price and merchandising APIs carry them without errors.',
+          traffic: [{ name: 'price lookups', from: 'internal-app', rps: 200, to: 'database' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The POS estate is down and the broker restarts',
+          about: 'Merchandising publishes 5 price changes a second while the store POS estate is down for an hour, and the broker restarts in that hour. The changes are kept on disk and reach the stores once they are back, and none is lost.',
+          traffic: [{ name: 'price changes', from: { type: 'system-api', label: 'oracle-merch' }, rps: 5, forMin: 60, to: 'pos', kind: 'write' }],
+          incidents: [{ down: 'pos', at: 5, forMin: 60 }, { restart: 'topic', at: 30 }],
+          durationMin: 120,
+          expect: { backlog: [{ queue: 'topic', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A grocery chain (450 stores, 5 DCs, home delivery) has grown its integrations over 15 years. An inventory of the estate found:
@@ -67,6 +89,7 @@ Item and price changes take between 5 minutes and 24 hours to reach channels, a 
 - Stores and DCs must not lose a price or item change during migration.
 - ActiveMQ skills exist in-house; the company is open to ActiveMQ Artemis or Anypoint MQ but not to running Kafka themselves.
 - Oracle merchandising stays for at least five years.
+- The store colleague app makes about 200 price lookups a second. Merchandising publishes about 5 price changes a second, and the POS estate can be down for an hour.
 
 **Your task.** Propose the target architecture, migration strategy, governance and the main risks.
 `,

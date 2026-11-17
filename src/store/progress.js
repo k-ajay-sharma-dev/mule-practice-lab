@@ -53,7 +53,9 @@ export function updateEntry(id, patch, { graded = false } = {}) {
   const solvedAt = solvedNow ? { solvedAt: now } : {}
   // every kind of solve passes through here, so this is where the time gets recorded
   const timed = solvedNow ? finishTimer(prev, now) : {}
-  state = { ...state, [id]: { ...prev, ...patch, ...solvedAt, ...timed, updatedAt: now } }
+  // statusAt and editedAt let sync tell a real change from a timer tick (see sync/merge.js)
+  const statusAt = patch.status && patch.status !== prev.status ? { statusAt: now } : {}
+  state = { ...state, [id]: { ...prev, ...patch, ...solvedAt, ...timed, ...statusAt, editedAt: now, updatedAt: now } }
   save(STORAGE_KEY, state)
 
   // Flagging a problem puts it on the review schedule; solving it again when due moves it along.

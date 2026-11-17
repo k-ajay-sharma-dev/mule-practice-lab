@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for batch G (case studies cs-063 to cs-077). See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // CS-063
   // The web shop calls the TMS System API itself, so the slot rules leak into the channel.
   await failsOn('cs-063', 'passes through the slots Process API', (d) => draw(d, 'web -> stms'))
@@ -63,7 +63,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await failsOn('cs-064', 'Refunds that keep failing', (d) => unbox(d, 'dlq'))
   // A queue per subscriber between the topic and the refunds Process API.
   await passes('cs-064', (d) => {
-    box(d, 'qr', 'queue', 'refunds.return-received')
+    // The refunds queue needs the same redelivery limit as the topic, so rejected refunds reach the DLQ.
+    box(d, 'qr', 'queue', 'refunds.return-received', { maxRedelivery: 30 })
     cut(d, 'rec ~> pref')
     draw(d, 'rec ~> qr', 'qr ~> pref')
   })
@@ -440,4 +441,53 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     cut(d, 'dp -> edl')
     draw(d, 'dp -> gw', 'gw -> edl')
   })
+
+  // Run cases: settings and lines a learner might get wrong, against the simulation tests.
+  // CS-063: no slot cache, so every lookup goes to the TMS.
+  await failsOn('cs-063', 'Run: A sale evening', (d) => cut(d, 'prc -> cache'))
+  // CS-063: the default 10 second timeout and no circuit breaker: checkout waits on the hung TMS.
+  await failsOn('cs-063', 'Run: The TMS stops answering', (d) => set(d, 'prc', { timeoutMs: undefined, circuitBreaker: undefined }))
+  // CS-064: a redelivery limit of 3 sends good refunds to the DLQ while Adyen is down.
+  await failsOn('cs-064', 'Run: Adyen is down for 20 minutes', (d) => set(d, 'rec', { maxRedelivery: 3 }))
+  // CS-064: no redelivery limit: rejected refunds are retried for ever and finance never sees them.
+  await failsOn('cs-064', 'Run: Refunds Adyen always rejects', (d) => set(d, 'rec', { maxRedelivery: undefined }))
+  // CS-065: a redelivery limit of 5 sends good listings to the DLQ while the marketplaces are down.
+  await failsOn('cs-065', 'Run: The marketplaces are down for 30 minutes', (d) => set(d, 'qm', { maxRedelivery: 5 }))
+  // CS-065: no redelivery limit: rejected listings are retried for ever.
+  await failsOn('cs-065', 'Run: Listings a marketplace rejects', (d) => set(d, 'qm', { maxRedelivery: undefined }))
+  // CS-066: a redelivery limit of 3 sends good DC orders to the DLQ while the WMS is down.
+  await failsOn('cs-066', 'Run: The WMS is down for 20 minutes', (d) => set(d, 'qdc', { maxRedelivery: 3 }))
+  // CS-066: no redelivery limit: bad lines are retried for ever and never reach the DLQ.
+  await failsOn('cs-066', 'Run: Bad lines in the night run', (d) => set(d, 'qdc', { maxRedelivery: undefined }))
+  // CS-067: a redelivery limit of 3 sends good claims to the DLQ while the IBM i is down.
+  await failsOn('cs-067', 'Run: The IBM i is down on Monday morning', (d) => set(d, 'q', { maxRedelivery: 3 }))
+  // CS-067: no client ID policy on the gateway.
+  await failsOn('cs-067', 'Run: A caller without a client ID', (d) => set(d, 'gw', { auth: undefined }))
+  // CS-069: a redelivery limit of 10 sends good confirmations to the DLQ during a long WAN outage.
+  await failsOn('cs-069', 'Run: SAP is unreachable for 2 hours', (d) => set(d, 'q', { maxRedelivery: 10 }))
+  // CS-069: no redelivery limit: rejected confirmations never reach the plant controllers.
+  await failsOn('cs-069', 'Run: Confirmations SAP rejects', (d) => set(d, 'q', { maxRedelivery: undefined }))
+  // CS-070: the availability Experience API left at one replica of 0.1 vCore.
+  await failsOn('cs-070', 'Run: Lookups while SIM is down', (d) => set(d, 'exp', { replicas: undefined, vCores: undefined }))
+  // CS-070: the availability updater left at 0.1 vCore: the stream backlog grows all through the peak.
+  await failsOn('cs-070', 'Run: Stock movement peak', (d) => set(d, 'pupd', { vCores: undefined }))
+  // CS-071: the task status API left at 0.1 vCore: results reach the WMS late.
+  await failsOn('cs-071', 'Run: Task event peak', (d) => set(d, 'ps', { vCores: undefined }))
+  // CS-071: a redelivery limit of 3 sends good pick tasks to the DLQ while the fleet manager restarts.
+  await failsOn('cs-071', 'Run: The fleet manager is down for 10 minutes', (d) => set(d, 'tq', { maxRedelivery: 3 }))
+  // CS-072: a gateway rate limit below the check-in peak.
+  await failsOn('cs-072', 'Run: Service check-in peak', (d) => set(d, 'gw', { rateLimit: 10 }))
+  // CS-072: no client ID policy on the gateway.
+  await failsOn('cs-072', 'Run: A caller without a client ID', (d) => set(d, 'gw', { auth: undefined }))
+  // CS-074: the pilot: the OMS calls dispatch synchronously, so Carrier B gets the whole burst.
+  await failsOn('cs-074', 'Run: Saturday bookings for Carrier B', (d) => {
+    unbox(d, 'rq')
+    draw(d, 'oms -> pd')
+  })
+  // CS-074: the webhook API left at 0.1 vCore: carriers get 503 at the peak.
+  await failsOn('cs-074', 'Run: Webhook peak with a slow tracking store', (d) => set(d, 'ewh', { vCores: undefined }))
+  // CS-075: the tracking Process API left at 0.1 vCore: the push spike gets 503.
+  await failsOn('cs-075', 'Run: Lookups after a buyer push', (d) => set(d, 'ptr', { vCores: undefined }))
+  // CS-075: the journey API left at 0.1 vCore: milestones reach the journey store late.
+  await failsOn('cs-075', 'Run: Milestone events at full rate', (d) => set(d, 'pj', { vCores: undefined }))
 }

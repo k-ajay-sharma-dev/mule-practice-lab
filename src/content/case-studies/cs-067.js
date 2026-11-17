@@ -24,11 +24,11 @@ export default {
       {
         dms: ['partner', 'Dealer DMS systems'],
         portal: ['web-app', 'Dealer portal'],
-        gw: ['api-gateway', 'API Manager (client ID per dealer group)'],
+        gw: ['api-gateway', 'API Manager (client ID per dealer group)', { auth: 'client-id' }],
         exp: ['experience-api', 'exp-dealer-claims-api'],
         pc: ['process-api', 'prc-warranty-claims'],
         s3: ['s3-bucket', 'Claim attachments bucket'],
-        q: ['queue', 'warranty-claims'],
+        q: ['queue', 'warranty-claims', { maxRedelivery: 60 }],
         dlq: ['dlq', 'warranty-claims DLQ'],
         pl: ['process-api', 'prc-claim-loader'],
         swar: ['system-api', 'sys-warranty-api'],
@@ -46,6 +46,31 @@ export default {
         'poll -> swar', 'poll ~> dec', 'dec ~> pcr', 'dec ~> pn', 'pcr -> ssap', 'ssap -> sap', 'pn -> mail',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 400, maxRps: 5 },
+        { match: 's3-bucket', latencyMs: 100 },
+      ],
+      tests: [
+        {
+          name: 'The IBM i is down on Monday morning',
+          about: 'At the Monday peak dealers send 900 claims an hour while the IBM i is down for 30 minutes. Each dealer gets a claim number at once, the claims wait in the queue and are tried for an hour, and none is lost or sent to the DLQ.',
+          traffic: [{ name: 'claims', from: 'partner', rps: 0.25, to: 'legacy', kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 5, forMin: 30 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
+        },
+        {
+          name: 'A caller without a client ID',
+          about: 'Dealer systems send 900 claims an hour with their client IDs, and an unknown caller sends 900 an hour without one. The gateway refuses the unknown caller before anything reaches the warranty system.',
+          traffic: [
+            { name: 'dealers', from: 'partner', rps: 0.25, to: 'legacy', kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 0.25, to: 'legacy', kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'dealers', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A heavy truck manufacturer sells through 1,200 independent dealers in 40 countries. Dealers repair trucks under warranty and claim labour and parts back from the manufacturer.
@@ -70,6 +95,7 @@ export default {
 **Constraints**
 - The IBM i system will be replaced in about 4 years; the dealer API must not change when it is.
 - Each dealer group must only see its own claims.
+- The IBM i can be down for 30 minutes during the Monday peak of 900 claims an hour.
 
 **Your task.** Design the warranty claims integration.
 `,

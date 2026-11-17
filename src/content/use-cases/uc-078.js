@@ -23,13 +23,13 @@ export default {
       {
         web: ['web-app', 'Website'],
         mob: ['mobile-app', 'Mobile app'],
-        exp: ['experience-api', 'exp-storefront'],
+        exp: ['experience-api', 'exp-storefront', { vCores: '0.5' }],
         oms: ['erp', 'OMS (order placed events)'],
         q: ['queue', 'cart-events (Anypoint MQ)'],
         trk: ['process-api', 'prc-cart-tracker'],
         carts: ['cache', 'Open carts (last change, reminders sent)'],
         job: ['batch-job', 'Reminder scan (every 5 min)'],
-        scrm: ['system-api', 'sys-crm-consent'],
+        scrm: ['system-api', 'sys-crm-consent', { rateLimit: 1 }],
         crm: ['crm', 'Salesforce (consent, loyalty tier)'],
         snot: ['system-api', 'sys-notifications'],
         mail: ['notification', 'Email and app push'],
@@ -39,6 +39,28 @@ export default {
         'job -> carts', 'job -> scrm', 'scrm -> crm', 'job -> snot', 'snot -> mail',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 300 },
+        { match: 'cache', hitRatio: 0 },
+      ],
+      tests: [
+        {
+          name: 'Cart changes at the sale peak',
+          about: 'At the sale peak the website and app send 80 cart changes a second for 30 minutes. exp-storefront only publishes each change, so it answers in under 200 ms and no change is lost.',
+          traffic: [{ name: 'cart changes', from: ['web-app', 'mobile-app'], rps: 80, forMin: 30, to: 'cache', kind: 'write' }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 200 }], lost: { max: 0 } },
+        },
+        {
+          name: 'A scan that checks consent too often',
+          about: 'A bug makes the reminder scan check consent 3 times a second for 10 minutes. To stay under 100,000 Salesforce calls a day, sys-crm-consent allows 1 call a second and answers the rest with 429.',
+          traffic: [{ name: 'consent checks', from: 'batch-job', rps: 3, forMin: 10, to: 'crm' }],
+          durationMin: 15,
+          expect: { peakRps: [{ node: 'crm', max: 1.2 }], answers: [{ minLimited: 0.5 }] },
+        },
+      ],
+    },
   },
   description: `
 A fashion retailer sees **60,000 carts a day**, and about **70 % are abandoned**. Marketing wants reminders:
@@ -53,6 +75,7 @@ Facts:
 - The OMS publishes an event for every order placed.
 - Salesforce holds consent and loyalty tier; its API allows about **100,000 calls a day** for this integration.
 - The storefront answers in under 200 ms and must not get slower.
+- At the sale peak the website and app send about **80 cart changes a second**. 100,000 Salesforce calls a day is about 1 call a second.
 
 **Questions:**
 1. How do cart changes reach the reminder logic without slowing the storefront?

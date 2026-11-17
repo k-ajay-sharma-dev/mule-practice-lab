@@ -23,14 +23,14 @@ export default {
       {
         app: ['mobile-app', 'Lender app'],
         brk: ['partner', 'Broker / comparison site'],
-        gw: ['api-gateway', 'Gateway (OAuth client credentials, SLA tiers)'],
+        gw: ['api-gateway', 'Gateway (OAuth client credentials, SLA tiers)', { auth: 'oauth2' }],
         eapp: ['experience-api', 'app-loans-eapi'],
         ebrk: ['experience-api', 'broker-loans-eapi'],
-        ploan: ['process-api', 'loan-application-papi'],
+        ploan: ['process-api', 'loan-application-papi', { onFailure: 'partial answer' }],
         q: ['queue', 'pending-applications'],
         st: ['database', 'Application state + vendor results'],
         skyc: ['system-api', 'kyc-sapi'],
-        sbur: ['system-api', 'credit-bureau-sapi'],
+        sbur: ['system-api', 'credit-bureau-sapi', { timeoutMs: 5000, circuitBreaker: 'on' }],
         sdec: ['system-api', 'decision-engine-sapi'],
         spay: ['system-api', 'payments-sapi'],
         kyc: ['external-api', 'KYC vendor'],
@@ -46,6 +46,32 @@ export default {
         'skyc -> kyc', 'sbur -> ba', 'sbur -> bb', 'sdec -> eng', 'spay -> pay',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 2000 },
+        { match: 'saas', latencyMs: 500 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A credit bureau takes 25 seconds',
+          about: 'Applicants send 10 applications a second, and credit bureau A takes 25 seconds for 10 minutes. The bureau call gives up after 5 seconds and the breaker opens, so each applicant still gets an answer (a decision or "under review") in under 6 seconds.',
+          traffic: [{ name: 'applications', from: 'mobile-app', rps: 10, to: ['database', { type: 'external-api', label: 'kyc' }, { type: 'external-api', label: 'bureau a' }, 'saas'], kind: 'write' }],
+          incidents: [{ slow: { type: 'external-api', label: 'bureau a' }, latencyMs: 25000, at: 2, forMin: 10 }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 6000 }] },
+        },
+        {
+          name: 'A broker without credentials',
+          about: 'Brokers send 5 applications a second with their OAuth tokens, and an unknown site sends 5 a second without one. The gateway refuses the unknown site before any pay-per-call vendor is used.',
+          traffic: [
+            { name: 'brokers', from: 'partner', rps: 5, to: ['database', { type: 'external-api', label: 'kyc' }, 'saas'], kind: 'write' },
+            { name: 'unknown site', from: 'partner', rps: 5, to: ['database', { type: 'external-api', label: 'kyc' }, 'saas'], kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'brokers', minSuccess: 0.99 }, { flow: 'unknown site', minRefused: 0.99 }], notReached: [{ flow: 'unknown site', node: 'external-api' }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A digital lender offers personal loans through its app and through comparison/broker websites. A loan application requires:
@@ -68,6 +94,7 @@ export default {
 - Highly sensitive personal and financial data; strict audit requirements from regulators (keep rules generic).
 - Third-party vendors are pay-per-call. Avoid unnecessary or duplicate calls.
 - Bureaus occasionally take 20+ seconds or are unavailable.
+- About 10 applications arrive a second from the app and 5 from brokers. A vendor call normally takes 2 seconds, and a slow bureau can take 25.
 
 **Your task.** Propose:
 - the architecture

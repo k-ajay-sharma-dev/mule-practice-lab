@@ -24,7 +24,7 @@ export default {
         app: ['mobile-app', 'Owner app'],
         ins: ['partner', 'Insurers / fleet customers'],
         idp: ['identity-provider', 'OIDC + MFA'],
-        gw: ['api-gateway', 'API Manager (scopes, SLA tiers)'],
+        gw: ['api-gateway', 'API Manager (scopes, SLA tiers)', { auth: 'oauth2' }],
         eown: ['experience-api', 'exp-owner-app-api'],
         epart: ['experience-api', 'exp-partner-insurance-api'],
         vs: ['process-api', 'prc-vehicle-services-api'],
@@ -43,6 +43,32 @@ export default {
         'vs -> cons', 'vs -> audit', 'vs -> svc', 'svc -> vc', 'vc ~> evt', 'evt ~> vs', 'evt ~> sb', 'sb ~> q', 'q ~> sdms', 'sdms -> dms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 300 },
+        { match: 'legacy', latencyMs: 500 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'A remote unlock without a valid token',
+          about: 'Owners send 20 remote commands a second with valid tokens, and an attacker sends 5 a second without one. The gateway refuses the attacker before any command reaches the vehicle cloud.',
+          traffic: [
+            { name: 'owners', from: 'mobile-app', rps: 20, to: 'saas', via: { label: 'owner-app' }, kind: 'write' },
+            { name: 'attacker', from: 'mobile-app', rps: 5, to: 'saas', via: { label: 'owner-app' }, kind: 'write', auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'owners', minSuccess: 0.99 }, { flow: 'attacker', minRefused: 0.99 }] },
+        },
+        {
+          name: 'The dealer DMS is down for an hour',
+          about: 'Vehicles report 2 faults a second while the dealer DMS is down for an hour. The booking suggestions wait in the dealer queue and reach the DMS once it is back, and none is lost.',
+          traffic: [{ name: 'faults', from: 'saas', rps: 2, forMin: 60, to: 'legacy', kind: 'write' }],
+          incidents: [{ down: 'legacy', at: 5, forMin: 60 }],
+          durationMin: 180,
+          expect: { backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A car manufacturer has 2 million connected vehicles on the road. Each vehicle talks to the manufacturer's telematics backend (vehicle cloud) built by a specialist team. The business wants to launch services on top: remote lock/unlock and pre-heating in the owner app, usage-based insurance with partner insurers, proactive service bookings at dealers when a vehicle reports a fault, and EV charging-session data for fleet customers.
@@ -57,6 +83,7 @@ export default {
 - Remote commands affect physical vehicles — strict authorisation and audit.
 - Dealer systems are diverse (several dealer management systems, varying API quality).
 - Data-protection rules treat location and driving behaviour as personal data.
+- Owners send about 20 remote commands a second. Vehicles report about 2 faults a second, and a dealer DMS can be down for an hour.
 
 **Your task.** Propose the service architecture, consent model, event flows, and security for commands.
 `,

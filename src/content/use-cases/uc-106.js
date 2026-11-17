@@ -25,13 +25,34 @@ export default {
         mob: ['mobile-app', 'Customer app'],
         exp: ['experience-api', 'exp-policy-summary-api'],
         prc: ['process-api', 'prc-policy-summary'],
-        cache: ['cache', 'Policy summary cache (Object Store v2, TTL 15 min)'],
-        sys: ['system-api', 'sys-policy-admin-api'],
+        cache: ['cache', 'Policy summary cache (Object Store v2, TTL 15 min)', { ttlSec: 900 }],
+        sys: ['system-api', 'sys-policy-admin-api', { timeoutMs: 8000, circuitBreaker: 'on' }],
         mf: ['legacy', 'Policy admin mainframe (CICS)'],
         chg: ['queue', 'policy-changed'],
       },
       ['web -> exp', 'mob -> exp', 'exp -> prc', 'prc -> cache', 'prc -> sys', 'sys -> mf', 'mf ~> chg', 'chg ~> prc'],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 4000, maxRps: 15 }],
+      cache: { hitRatio: 0.7, atTtlSec: 900 },
+      tests: [
+        {
+          name: 'Monday morning peak',
+          about: 'Agents and customers read 40 policy summaries a second. With a 15 minute cache 7 reads in 10 are answered from the cache, so the mainframe gets at most 15 calls a second and every read is answered.',
+          traffic: [{ name: 'summaries', from: 'web-app', rps: 40, to: 'legacy', kind: 'read' }],
+          durationMin: 15,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'legacy', max: 15 }] },
+        },
+        {
+          name: 'The mainframe stops answering',
+          about: 'Agents read 40 summaries a second while the mainframe hangs for 10 minutes. Cached summaries are still answered fast, and calls to the hung mainframe fail at once instead of holding threads.',
+          traffic: [{ name: 'summaries', from: 'web-app', rps: 40, to: 'legacy', kind: 'read' }],
+          incidents: [{ hang: 'legacy', at: 5, forMin: 10 }],
+          durationMin: 20,
+          expect: { answers: [{ minSuccess: 0.8, maxMs: 1500 }] },
+        },
+      ],
+    },
   },
   description: `
 An insurer shows a **policy summary** (cover, premium, next payment, open claims count) on its **agent portal** and its **customer app**. The data lives in the **policy admin mainframe**, reached through a CICS web service.
@@ -42,6 +63,7 @@ Facts:
 - A policy changes a few times a year. Business accepts data that is up to **15 minutes old**, except right after a change the customer made.
 - The mainframe already writes a message to an MQ queue \`policy-changed\` (policy number only) whenever a policy is updated.
 - Target: **p95 under 500 ms** for the summary API.
+- The mainframe takes about 15 calls a second. A 15 minute cache answers about 7 reads in 10, and the mainframe can stop answering for 10 minutes.
 
 **Describe your solution:**
 - Where does the cache live and who reads and writes it?

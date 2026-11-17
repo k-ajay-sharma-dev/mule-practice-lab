@@ -26,8 +26,8 @@ export default {
     reference: diagram(
       {
         rdb: ['sql-server', 'Rights management DB'],
-        sr: ['system-api', 'sys-rights-api'],
-        sched: ['batch-job', 'window-scheduler (every 5 min)'],
+        sr: ['system-api', 'sys-rights-api', { vCores: '0.5' }],
+        sched: ['batch-job', 'window-scheduler (every 5 min)', { vCores: '0.5' }],
         rcq: ['queue', 'availability-triggers'],
         p: ['process-api', 'prc-content-availability-api'],
         tp: ['topic', 'availability-changed'],
@@ -48,6 +48,26 @@ export default {
         'recon -> sr', 'recon -> sott', 'recon -> alert',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'saas', latencyMs: 300, maxRps: 20 }],
+      tests: [
+        {
+          name: 'Midnight on the first of the month',
+          about: 'At midnight the scheduler finds 12,000 window changes and sends them at 100 a second for 2 minutes. The OTT platform takes 20 calls a second, so the queue holds the rest, and every change is live within the hour.',
+          traffic: [{ name: 'window changes', from: { type: 'batch-job', label: 'scheduler' }, rps: 100, forMin: 2, to: 'saas', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'saas', max: 20 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'ott' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'The OTT platform is down for 30 minutes',
+          about: 'Window changes arrive at 5 a second while the OTT platform is down for 30 minutes, and the broker restarts in the middle. The changes wait on its queue as persistent messages, and every takedown reaches the platform within the 60 minute limit.',
+          traffic: [{ name: 'window changes', from: { type: 'batch-job', label: 'scheduler' }, rps: 5, to: 'saas', kind: 'write' }],
+          incidents: [{ down: 'saas', at: 5, forMin: 30 }, { restart: { type: 'queue', label: 'ott' }, at: 20 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'ott' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A European broadcaster licenses about 60,000 titles from studios and distributors. Each licence defines **windows**: a title may be shown in certain territories, on certain platforms (own streaming service, partner platforms such as smart TV makers and app stores, free ad-supported channels), between a start and an end date and time.
@@ -67,6 +87,7 @@ export default {
 - Content must be withdrawn from every platform within **60 minutes** of a window ending or a right being removed.
 - Every decision (title, territory, platform, action, time sent, time confirmed) must be kept for 7 years.
 - Operations must see every day where a platform does not match the rights.
+- In tests 12,000 changes leave the scheduler at 100 a second, the OTT platform takes 20 calls a second, and the OTT platform can be down for 30 minutes.
 
 **Your task.** Design the integration that turns rights into availability on every platform, and how you prove compliance.
 `,

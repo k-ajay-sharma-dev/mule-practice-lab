@@ -23,18 +23,40 @@ export default {
       {
         le: ['saas', 'Loyalty engine'],
         s3: ['s3-bucket', 'Nightly balances export (S3)'],
-        job: ['batch-job', 'Expiry and tier job (01:00)'],
+        job: ['batch-job', 'Expiry and tier job (01:00)', { vCores: '0.5' }],
         sent: ['database', 'Sent notifications log'],
-        q: ['queue', 'member-notifications'],
+        q: ['queue', 'member-notifications', { maxRedelivery: 10 }],
         dlq: ['dlq', 'member-notifications-dlq'],
-        snd: ['process-api', 'prc-member-notify (throttled)'],
-        scrm: ['system-api', 'sys-crm-preferences'],
+        snd: ['process-api', 'prc-member-notify (throttled)', { vCores: '0.5' }],
+        scrm: ['system-api', 'sys-crm-preferences', { vCores: '0.5' }],
         crm: ['crm', 'CRM (consent, preferred channel)'],
-        snot: ['system-api', 'sys-notifications'],
+        snot: ['system-api', 'sys-notifications', { vCores: '0.5' }],
         msg: ['notification', 'Email, SMS and app push'],
       },
       ['le -> s3', 'job -> s3', 'job -> sent', 'job ~> q', 'q ~> snd', 'q ~> dlq', 'snd -> scrm', 'scrm -> crm', 'snd -> snot', 'snot -> msg'],
     ),
+    simulation: {
+      systems: [
+        { match: 'crm', latencyMs: 200, maxRps: 200 },
+        { match: 'notification', latencyMs: 300, maxRps: 100 },
+      ],
+      tests: [
+        {
+          name: 'A peak morning',
+          about: 'At 09:00 the job queues 240,000 messages in 20 minutes (200 a second). The SMS provider takes 100 a second, so the sender drains the queue at that pace and every message is out within the hour.',
+          traffic: [{ name: 'messages', from: 'batch-job', rps: 200, forMin: 20, to: 'notification', kind: 'write' }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'notification', max: 100 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some members cannot be reached',
+          about: 'The job queues 20 messages a second, and 1 in 100 has a phone number or address the provider rejects every time. Those messages end in the DLQ after their last delivery, and the others keep flowing.',
+          traffic: [{ name: 'messages', from: 'batch-job', rps: 20, to: 'notification', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 A supermarket runs a loyalty programme with **3.2 million members**. Two rules cause complaints:
@@ -51,6 +73,7 @@ Facts:
 - The loyalty engine (SaaS) has a REST API limited to **50 calls a second**. It also writes a **nightly export** to S3 at 00:30: one row per member with balance, points by expiry month and tier.
 - Peak days produce about **250,000 messages**. The SMS provider accepts **100 messages a second**; email 500 a second.
 - The CRM API allows 200 calls a second.
+- On a peak morning the job queues about **240,000 messages in 20 minutes**, and about 1 message in 100 has contact details the provider always rejects.
 
 **Questions:**
 1. How do you find who needs a message without 3.2 million API calls?

@@ -35,7 +35,7 @@ export default {
         sesim: ['system-api', 'sys-esim-smdp-api'],
         smdp: ['external-api', 'SM-DP+ eSIM platform'],
         pq: ['queue', 'provisioning-requests'],
-        sprov: ['system-api', 'sys-network-provisioning-api'],
+        sprov: ['system-api', 'sys-network-provisioning-api', { timeoutMs: 120000 }],
         hss: ['legacy', 'HSS/UDM provisioning gateway (OSS)'],
         rq: ['queue', 'provisioning-results'],
         sbill: ['system-api', 'sys-billing-api'],
@@ -48,6 +48,29 @@ export default {
         'orch -> sbill', 'sbill -> bill', 'orch -> ssf', 'ssf -> sf', 'pq ~> dlq', 'oq ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'legacy', label: 'HSS' }, latencyMs: 20000, maxRps: 1.5 },
+        { match: { type: 'external-api', label: 'eSIM' }, latencyMs: 5000 },
+      ],
+      tests: [
+        {
+          name: 'Network provisioning takes 20 seconds',
+          about: 'Orders arrive at 1 a second, and each network provisioning call takes 20 seconds. The provisioning System API waits long enough, so every subscriber is provisioned.',
+          traffic: [{ name: 'orders', from: 'crm', rps: 1, to: { type: 'legacy', label: 'HSS' }, kind: 'write' }],
+          durationMin: 60,
+          expect: { lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'provisioning-requests' }, maxEnd: 0 }] },
+        },
+        {
+          name: 'The eSIM platform is down',
+          about: 'Orders arrive at 1 a second while the eSIM platform is down for 20 minutes. The orders wait on the order queue, and every eSIM profile is created once the platform is back.',
+          traffic: [{ name: 'orders', from: 'crm', rps: 1, to: { type: 'external-api', label: 'eSIM' }, kind: 'write' }],
+          incidents: [{ down: { type: 'external-api', label: 'eSIM' }, at: 5, forMin: 20 }],
+          durationMin: 90,
+          expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'order' }, maxEnd: 0 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mobile operator with 18 million subscribers sells postpaid plans with **eSIM** online and in 600 stores. Orders are captured in **Salesforce Communications Cloud** (the BSS order front end, aligned to TM Forum TMF622 Product Ordering). Activation needs five back-end steps:
@@ -70,6 +93,7 @@ export default {
 **Constraints**
 - Salesforce must show the order state at each step (TMF622 states: acknowledged, inProgress, completed, failed).
 - The provisioning gateway accepts at most 30 concurrent requests.
+- In tests orders arrive at 1 a second, a provisioning call takes 20 seconds, and the eSIM platform can be down for 20 minutes.
 - A failed order must leave no reserved number, active profile or billing account behind.
 
 **Your task.** Design the order to activate integration, including how a failed step is undone.

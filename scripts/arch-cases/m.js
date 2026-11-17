@@ -1,5 +1,5 @@
 // Wrong and other correct diagrams for integration scenarios uc-106 to uc-120. See scripts/check-arch-strict.js for the helpers.
-export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename }) => {
+export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox, rename, set }) => {
   // UC-106
   // The Experience API keeps its own cache beside the Process API.
   await failsOn('uc-106', 'Only the Process API touches the cache', (d) => draw(d, 'exp -> cache'))
@@ -490,4 +490,113 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     box(d, 'c3', 'process-api', 'prc-eta-predictor (group eta)')
     draw(d, 'k1 ~> c3', 'c3 ~> dlt', 'c3 -> reg')
   })
+
+  // ---------- Run cases ----------
+  // UC-106
+  // The cache keeps entries for the default 5 minutes: too few hits, so the mainframe gets too many calls.
+  await failsOn('uc-106', 'Run: Monday morning peak', (d) => set(d, 'cache', { ttlSec: undefined }))
+  // No circuit breaker: every miss waits for the hung mainframe until the timeout.
+  await failsOn('uc-106', 'Run: The mainframe stops answering', (d) => set(d, 'sys', { circuitBreaker: undefined }))
+
+  // UC-107
+  // The entry API updates the ticketing platform inside the gate request.
+  await failsOn('uc-107', 'Run: Kick-off rush', (d) => {
+    cut(d, 'prc ~> q')
+    draw(d, 'prc -> st')
+  })
+  // No redelivery limit: refused entries are retried for ever and never reach the DLQ.
+  await failsOn('uc-107', 'Run: Some entries are rejected by ticketing', (d) => set(d, 'q', { maxRedelivery: undefined }))
+
+  // UC-108
+  // One small restaurant consumer cannot keep up with the dinner peak.
+  await failsOn('uc-108', 'Run: Dinner peak', (d) => set(d, 'c1', { replicas: undefined, vCores: undefined }))
+  // A short redelivery limit sends good ledger events to the DLT while the ERP is down.
+  await failsOn('uc-108', 'Run: The ERP is down for its Sunday hour', (d) => set(d, 'k', { maxRedelivery: 3 }))
+
+  // UC-109
+  // No rate limit on the gateway: the flood reaches SAP.
+  await failsOn('uc-109', 'Run: A partner floods the API at stocktake', (d) => set(d, 'gw', { rateLimit: undefined }))
+  // No OAuth policy on the gateway: anyone can read prices.
+  await failsOn('uc-109', 'Run: A caller without a token', (d) => set(d, 'gw', { auth: undefined }))
+
+  // UC-110
+  // No queue: the listener waits for the FHIR server before the ACK.
+  await failsOn('uc-110', 'Run: The 08:00 admissions peak', (d) => {
+    unbox(d, 'raw')
+    draw(d, 'lsn -> prc')
+  })
+  // No redelivery limit: unmappable messages are retried for ever and never reach the DLQ.
+  await failsOn('uc-110', 'Run: Some messages cannot be mapped', (d) => set(d, 'raw', { maxRedelivery: undefined }))
+
+  // UC-111
+  // No retries on the carrier System API: 1 label in 5 fails during the outage.
+  await failsOn('uc-111', 'Run: The carrier drops some label calls', (d) => set(d, 'scar', { retries: undefined }))
+  // The webhook API updates the pharmacy system before answering.
+  await failsOn('uc-111', 'Run: The pharmacy system is offline for backups', (d) => {
+    unbox(d, 'q')
+    draw(d, 'wh -> trk')
+  })
+
+  // UC-112
+  // The Process API calls the bureau and waits for the reply.
+  await failsOn('uc-112', 'Run: Saturday peak', (d) => draw(d, 'prc -> bur'))
+  // One replica of the credit check API: when its zone goes down, checks are refused.
+  await failsOn('uc-112', 'Run: A zone goes down on Saturday', (d) => set(d, 'exp', { replicas: undefined }))
+
+  // UC-113
+  // A timeout but no circuit breaker: every call waits 2 seconds while the service hangs.
+  await failsOn('uc-113', 'Run: The carrier service hangs', (d) => set(d, 'sys', { circuitBreaker: undefined }))
+  // No fallback: a SOAP fault fails the checkout page.
+  await failsOn('uc-113', 'Run: The carrier returns SOAP faults', (d) => set(d, 'prc', { onFailure: undefined }))
+
+  // UC-114
+  // Turbines publish straight to the central ingress, with nothing kept at the site.
+  await failsOn('uc-114', 'Run: A site link drops for 3 hours', (d) => {
+    unbox(d, 'edge')
+    draw(d, 'scada ~> hub')
+  })
+  // No retries on the grid operator System API: 1 report in 5 is missing.
+  await failsOn('uc-114', 'Run: The grid operator drops some calls', (d) => set(d, 'sgrid', { retries: undefined }))
+
+  // UC-115
+  // No Kafka: the connector hands every change to the sync at once, faster than Salesforce takes them.
+  await failsOn('uc-115', 'Run: The nightly renewal batch', (d) => {
+    cut(d, 'dbz ~> k')
+    draw(d, 'dbz -> agg')
+  })
+  // No redelivery limit: rejected changes are retried for ever and never reach the DLT.
+  await failsOn('uc-115', 'Run: Some changes are rejected by Salesforce', (d) => set(d, 'k', { maxRedelivery: undefined }))
+
+  // UC-116
+  // A short redelivery limit sends good activations to the DLQ while the HSS is down.
+  await failsOn('uc-116', 'Run: The HSS is down for an hour at night', (d) => set(d, 'qp', { maxRedelivery: 5 }))
+  // No redelivery limit: bad activations are retried for ever and never reach the DLQ.
+  await failsOn('uc-116', 'Run: Some activations cannot be provisioned', (d) => set(d, 'qp', { maxRedelivery: undefined }))
+
+  // UC-117
+  // The suppliers called one after another: the times add up.
+  await failsOn('uc-117', 'Run: Peak lookups', (d) => set(d, 'prc', { calls: undefined }))
+  // No partial answer: supplier D being down fails every lookup that misses the cache.
+  await failsOn('uc-117', 'Run: Supplier D is down', (d) => set(d, 'prc', { onFailure: undefined }))
+
+  // UC-118
+  // One small delivery worker cannot keep up with 150 slow endpoints a second.
+  await failsOn('uc-118', 'Run: The 08:00 peak', (d) => set(d, 'dlv', { replicas: undefined, vCores: undefined }))
+  // Dead-lettered after the first failure, so a short blip loses webhooks to the DLQ.
+  await failsOn('uc-118', 'Run: Some endpoints fail for half an hour', (d) => set(d, 'dq', { maxRedelivery: 1 }))
+
+  // UC-119
+  // The insurer System API keeps the default 10 second timeout and gives up on a 12 second call.
+  await failsOn('uc-119', 'Run: Holiday sale', (d) => set(d, 'sins', { timeoutMs: undefined }))
+  // No booking queue: the website waits for the saga, so bookings fail while the insurer is down.
+  await failsOn('uc-119', 'Run: The insurer is down for 15 minutes', (d) => {
+    unbox(d, 'breq')
+    draw(d, 'exp -> orch')
+  })
+
+  // UC-120
+  // One small notification consumer cannot keep up with 1,500 events a second.
+  await failsOn('uc-120', 'Run: Shipment events peak', (d) => set(d, 'c1', { replicas: undefined, vCores: undefined }))
+  // No redelivery limit: bad events are retried for ever and never reach the DLT.
+  await failsOn('uc-120', 'Run: Some events cannot be processed', (d) => set(d, 'k1', { maxRedelivery: undefined }))
 }

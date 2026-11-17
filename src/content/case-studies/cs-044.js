@@ -25,12 +25,12 @@ export default {
         web: ['web-app', 'Online banking'],
         br: ['internal-app', 'Branch & contact centre'],
         em: ['experience-api', 'exp-mobile-api'],
-        ew: ['experience-api', 'exp-web-api'],
+        ew: ['experience-api', 'exp-web-api', { vCores: '1' }],
         eb: ['experience-api', 'exp-branch-api'],
-        acc: ['process-api', 'prc-accounts-api'],
+        acc: ['process-api', 'prc-accounts-api', { vCores: '1', calls: 'in parallel', onFailure: 'partial answer' }],
         pay: ['process-api', 'prc-payments-api'],
         ev: ['event-stream', 'AccountTransactionPosted events'],
-        mfa: ['system-api', 'sys-mf-accounts-api'],
+        mfa: ['system-api', 'sys-mf-accounts-api', { vCores: '1' }],
         nca: ['system-api', 'sys-nc-accounts-api'],
         reg: ['database', 'Product-location registry'],
         mf: ['legacy', 'Mainframe core (CICS, MQ, batch)'],
@@ -43,6 +43,29 @@ export default {
         'mf ~> ev', 'nc ~> ev', 'ev ~> dw',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 80 },
+        { match: 'saas', latencyMs: 100 },
+        { match: 'database', latencyMs: 10 },
+      ],
+      tests: [
+        {
+          name: 'Monday morning balance checks',
+          about: 'Online banking asks for 300 balances a second on a Monday morning, all from the mainframe. The channel, accounts and mainframe APIs carry it without errors.',
+          traffic: [{ name: 'balances', from: 'web-app', rps: 300, to: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'The new core has an outage',
+          about: 'Online banking shows 50 account overviews a second, each with mainframe and new-core accounts. While the new core is down for 15 minutes, customers still see their mainframe accounts.',
+          traffic: [{ name: 'overviews', from: 'web-app', rps: 50, to: ['legacy', 'saas'] }],
+          incidents: [{ down: 'saas', at: 3, forMin: 15 }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.3 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A regional bank (1.5 million customers) runs a 30-year-old mainframe core banking system for current accounts, savings, loans and payments.
@@ -65,6 +88,7 @@ The board has approved a move to a modern cloud-native core banking product over
 - Batch-heavy processes (interest, statements, regulatory reports) run on the mainframe overnight.
 - Customers hold products on both cores during the transition (e.g. current account on mainframe, savings on new core).
 - Mainframe skills are scarce; three key experts retire within two years.
+- Online banking asks for about 300 balances a second at peak and shows about 50 account overviews a second, and the new core can be down for 15 minutes.
 
 **Your task.** Propose:
 - the target architecture

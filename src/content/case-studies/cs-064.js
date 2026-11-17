@@ -27,7 +27,7 @@ export default {
         eret: ['experience-api', 'exp-returns-api'],
         prc: ['process-api', 'prc-returns'],
         pref: ['process-api', 'prc-refunds'],
-        rec: ['topic', 'return-received'],
+        rec: ['topic', 'return-received', { maxRedelivery: 30 }],
         dlq: ['dlq', 'refunds DLQ'],
         sord: ['system-api', 'sys-order-api'],
         scar: ['system-api', 'sys-carrier-api'],
@@ -46,6 +46,29 @@ export default {
         'pref ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'payment', latencyMs: 400 },
+        { match: 'erp', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'Adyen is down for 20 minutes',
+          about: 'The returns DC receives 2 returns a second while Adyen is down for 20 minutes. Each refund waits on the topic and is tried for 30 minutes, so no refund is lost or sent to the DLQ.',
+          traffic: [{ name: 'returns', from: 'wms', rps: 2, to: 'payment', kind: 'write' }],
+          incidents: [{ down: 'payment', at: 5, forMin: 20 }],
+          durationMin: 60,
+          expect: { lost: { max: 0 }, dlq: { max: 0 }, delivered: [{ to: 'payment', min: 0.99 }] },
+        },
+        {
+          name: 'Refunds Adyen always rejects',
+          about: 'The returns DC receives 2 returns a second, and 1 refund in 50 is for a card Adyen rejects every time. After 30 deliveries those refunds go to the DLQ for finance, and the others keep flowing.',
+          traffic: [{ name: 'returns', from: 'wms', rps: 2, to: 'payment', kind: 'write', poison: 0.02 }],
+          durationMin: 60,
+          expect: { dlq: { min: 30 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A fashion retailer sells through 450 stores and a website in 6 countries. Online return rates are about 30%. In the week after Christmas the business handles up to 25,000 returns a day.
@@ -74,6 +97,7 @@ export default {
 **Constraints**
 - A refund must never be paid twice, even if an event is delivered twice.
 - Finance must reconcile Adyen refunds with SAP credit notes every day.
+- After Christmas the returns DC receives about 2 returns a second. Adyen can be down for 20 minutes, and about 1 refund in 50 is for a card it rejects every time.
 
 **Your task.** Design the returns and refunds integration.
 `,

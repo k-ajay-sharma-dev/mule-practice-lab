@@ -26,7 +26,7 @@ export default {
         spim: ['system-api', 'sys-pim-api'],
         top: ['topic', 'product-published'],
         qc: ['queue', 'product.commerce'],
-        qm: ['queue', 'product.marketplaces'],
+        qm: ['queue', 'product.marketplaces', { maxRedelivery: 60 }],
         qs: ['queue', 'product.stores'],
         pc: ['process-api', 'prc-commerce-catalogue'],
         pm: ['process-api', 'prc-marketplace-listings'],
@@ -44,6 +44,39 @@ export default {
         'qm ~> dlq',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: { type: 'saas', label: 'PIM' }, latencyMs: 300 },
+        { match: { type: 'saas', label: 'commercetools' }, latencyMs: 200 },
+        { match: 'external-api', latencyMs: 500 },
+        { match: 'pos', latencyMs: 200 },
+      ],
+      tests: [
+        {
+          name: 'The marketplaces are down for 30 minutes',
+          about: 'The PIM publishes 2 products a second while the marketplace APIs are down for 30 minutes. The website keeps up, the listings wait in their own queue and go out once the marketplaces are back, and nothing is lost.',
+          traffic: [
+            { name: 'website', from: { type: 'system-api', label: 'sys-pim' }, rps: 1, to: { type: 'saas', label: 'commercetools' }, kind: 'write' },
+            { name: 'listings', from: { type: 'system-api', label: 'sys-pim' }, rps: 1, to: 'external-api', kind: 'write' },
+          ],
+          incidents: [{ down: 'external-api', at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: {
+            delivered: [{ flow: 'website', to: { type: 'saas', label: 'commercetools' }, min: 0.99 }],
+            backlog: [{ queue: { label: 'product.commerce' }, maxPeak: 100 }, { queue: { label: 'product.marketplaces' }, maxEnd: 0 }],
+            lost: { max: 0 },
+            dlq: { max: 0 },
+          },
+        },
+        {
+          name: 'Listings a marketplace rejects',
+          about: 'The PIM publishes 1 product a second, and 1 listing in 50 has data the marketplace rejects every time. After an hour of deliveries those listings go to the DLQ, and the other listings keep flowing.',
+          traffic: [{ name: 'listings', from: { type: 'system-api', label: 'sys-pim' }, rps: 1, to: 'external-api', kind: 'write', poison: 0.02 }],
+          durationMin: 120,
+          expect: { dlq: { min: 30 }, lost: { max: 0 }, backlog: [{ queue: { label: 'product.marketplaces' }, maxEnd: 100 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A department store group (62 stores, a website and 3 marketplaces) has bought Salsify as its new Product Information Management (PIM) system. It replaces product spreadsheets and a 15-year-old Oracle item master.
@@ -64,6 +97,7 @@ export default {
 **Constraints**
 - More channels are coming next year: a second marketplace region and a print catalogue supplier.
 - The PIM read API limit must not be exceeded.
+- The PIM publishes about 2 products a second on a normal day. The marketplaces can be down for 30 minutes, and about 1 listing in 50 has data a marketplace rejects every time.
 
 **Your task.** Design the product syndication integration.
 `,

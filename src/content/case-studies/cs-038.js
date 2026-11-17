@@ -24,10 +24,10 @@ export default {
         ops: ['internal-app', 'Safety operations centre'],
         eapi: ['experience-api', 'exp-safety-ops-api'],
         safety: ['process-api', 'prc-safety-events-api'],
-        loader: ['batch-job', 'Telemetry loader'],
+        loader: ['batch-job', 'Telemetry loader', { vCores: '0.5' }],
         pq: ['queue', 'p1-alarms'],
         bq: ['queue', 'p2-p3-telemetry-batches'],
-        edge: ['system-api', 'Site edge runtime (DMZ)'],
+        edge: ['system-api', 'Site edge runtime (DMZ)', { vCores: '0.5' }],
         shr: ['system-api', 'sys-hr-roster-api'],
         sehs: ['system-api', 'sys-ehs-api'],
         ctrl: ['legacy', 'Site control system (OT)'],
@@ -42,6 +42,29 @@ export default {
         'safety -> shr', 'shr -> hr', 'safety -> sehs', 'sehs -> ehs', 'ops -> eapi', 'eapi -> safety',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'data-warehouse', latencyMs: 100, maxRps: 300 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The backlog after a link outage',
+          about: 'A site sends 20 telemetry batches a second. When its satellite link comes back, it pushes 200 batches a second for 10 minutes to catch up. The edge runtime and the loader keep up, and the backlog is gone within the hour.',
+          traffic: [{ name: 'telemetry', from: { type: 'system-api', label: 'edge' }, rps: 20, to: 'data-warehouse', kind: 'write', spikes: [{ at: 5, forMin: 10, rps: 200 }] }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'telemetry' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'The EHS platform is down',
+          about: 'Sites raise 2 critical alarms a second while the EHS platform is down for 30 minutes. Each alarm waits in the queue and becomes an incident once the platform is back, and none is lost.',
+          traffic: [{ name: 'alarms', from: { type: 'system-api', label: 'edge' }, rps: 2, to: { type: 'saas', label: 'EHS' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'EHS' }, at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'alarms' }, maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A mining company operates six remote sites (open-pit and underground). Each site has these systems, all feeding an on-site control system:
@@ -69,6 +92,7 @@ Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
 - OT networks are segregated from IT; only specific outbound connections are allowed through a DMZ.
 - ~2,000 sensors per site, readings every few seconds; most are routine.
 - Site IT staff are minimal; deployments must be remote and repeatable.
+- A site sends about 20 telemetry batches a second and 200 a second for 10 minutes after a link outage. It raises about 2 critical alarms a second, and the EHS platform can be down for 30 minutes.
 
 **Your task.** Propose:
 - the edge/central architecture

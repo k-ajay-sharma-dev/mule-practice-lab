@@ -24,10 +24,10 @@ export default {
         web: ['web-app', 'Citizen portal'],
         mob: ['mobile-app', 'Citizen mobile app'],
         idp: ['identity-provider', 'National digital identity (OIDC)'],
-        gw: ['api-gateway', 'API Manager (JWT validation, rate limits)'],
+        gw: ['api-gateway', 'API Manager (JWT validation, rate limits)', { auth: 'jwt' }],
         eport: ['experience-api', 'portal-eapi'],
         emob: ['experience-api', 'mobile-eapi'],
-        pcs: ['process-api', 'citizen-services-papi'],
+        pcs: ['process-api', 'citizen-services-papi', { onFailure: 'partial answer', calls: 'in parallel' }],
         ppay: ['process-api', 'payments-papi'],
         q: ['queue', 'department-submissions'],
         sveh: ['system-api', 'vehicles-sapi'],
@@ -46,6 +46,30 @@ export default {
         'sveh -> mf', 'stax -> tax', 'scase -> cm', 'spay -> pg',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'legacy', latencyMs: 400 },
+        { match: 'saas', latencyMs: 300 },
+      ],
+      tests: [
+        {
+          name: 'The mainframe is closed for the night',
+          about: 'Citizens open the "my services" dashboard 30 times a second in the evening, when the vehicles mainframe is closed. The dashboard still shows tax and case status, leaves out the vehicle part, and answers within a second.',
+          traffic: [{ name: 'dashboard', from: 'web-app', rps: 30, via: { label: 'portal-eapi' }, to: ['legacy', { type: 'saas', label: 'tax' }, { type: 'saas', label: 'case' }] }],
+          incidents: [{ down: 'legacy' }],
+          expect: { answers: [{ minSuccess: 0.99, minDegraded: 0.9, maxMs: 1000 }] },
+        },
+        {
+          name: 'A caller without a token',
+          about: 'Citizens read their tax status 20 times a second with their tokens, and a script sends 10 requests a second without one. The gateway refuses the script, so no citizen data leaves without a login.',
+          traffic: [
+            { name: 'citizens', from: 'web-app', rps: 20, via: { label: 'portal-eapi' }, to: { type: 'saas', label: 'tax' } },
+            { name: 'script', from: 'web-app', rps: 10, via: { label: 'portal-eapi' }, to: { type: 'saas', label: 'tax' }, auth: 'none' },
+          ],
+          expect: { answers: [{ flow: 'citizens', minSuccess: 0.99 }, { flow: 'script', minRefused: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A regional government wants one citizen portal and mobile app for services now spread across separate websites: vehicle registration renewal, property tax payments, business permits and social benefit applications.
@@ -67,6 +91,7 @@ A national digital identity service already exists for citizen login.
 - Departments own their systems and have different release cycles.
 - Strict data protection rules: citizens see only their own data; access must be auditable.
 - Some department systems are only available during office hours.
+- In the evening the dashboard is opened about 30 times a second while the vehicles mainframe is closed, and it should still answer within a second.
 
 **Your task.** Propose the integration architecture, security model and delivery plan.
 `,

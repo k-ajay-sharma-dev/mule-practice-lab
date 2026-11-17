@@ -28,20 +28,20 @@ export default {
         sap: ['erp', 'SAP S/4HANA (production planning)'],
         ssap: ['system-api', 'sys-sap-pp-api'],
         mes: ['legacy', 'Plant MES (5 plants)'],
-        smes: ['system-api', 'sys-plant-mes-api'],
+        smes: ['system-api', 'sys-plant-mes-api', { vCores: '1' }],
         tms: ['tms', 'Vehicle logistics TMS'],
         stms: ['system-api', 'sys-vehicle-logistics-api'],
         car: ['partner', 'Ocean and rail carriers (EDI 315)'],
         eedi: ['experience-api', 'exp-carrier-edi-inbound'],
         es: ['event-stream', 'vehicle-milestones (Kafka, keyed by VIN)'],
-        pj: ['process-api', 'prc-vehicle-journey'],
-        sjs: ['system-api', 'sys-journey-store-api'],
+        pj: ['process-api', 'prc-vehicle-journey', { vCores: '1' }],
+        sjs: ['system-api', 'sys-journey-store-api', { replicas: 2, vCores: '1' }],
         js: ['database', 'Vehicle journey store'],
-        ptr: ['process-api', 'prc-order-tracking'],
+        ptr: ['process-api', 'prc-order-tracking', { vCores: '1' }],
         dp: ['web-app', 'Dealer portal'],
         edl: ['experience-api', 'exp-dealer-order-tracking-api'],
         app: ['mobile-app', 'Buyer app'],
-        ecu: ['experience-api', 'exp-buyer-order-status-api'],
+        ecu: ['experience-api', 'exp-buyer-order-status-api', { vCores: '1' }],
         idp: ['identity-provider', 'Buyer identity (OIDC)'],
         pn: ['process-api', 'prc-buyer-notifications'],
         scrm: ['system-api', 'sys-buyer-crm-api'],
@@ -55,6 +55,28 @@ export default {
         'es ~> pn', 'pn -> scrm', 'scrm -> crm', 'pn -> nt',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'database', latencyMs: 10 },
+        { match: 'legacy', latencyMs: 500 },
+        { match: 'identity-provider', latencyMs: 40 },
+      ],
+      tests: [
+        {
+          name: 'Lookups after a buyer push',
+          about: 'After a push goes out, buyers make 300 tracking lookups a second for 5 minutes. The buyer, tracking and journey store APIs answer them all from the journey store, and no call reaches a plant MES.',
+          traffic: [{ name: 'lookups', from: 'mobile-app', rps: 30, to: 'database', spikes: [{ at: 3, forMin: 5, rps: 300 }] }],
+          expect: { answers: [{ minSuccess: 0.99 }], notReached: [{ node: { type: 'legacy', label: 'MES' } }] },
+        },
+        {
+          name: 'Milestone events at full rate',
+          about: 'The plant MES API publishes 350 milestone events a second. The MES, journey and journey store APIs keep up, so every event reaches the journey store.',
+          traffic: [{ name: 'milestones', from: { type: 'system-api', label: 'plant-mes' }, rps: 350, to: 'database', kind: 'write' }],
+          durationMin: 20,
+          expect: { delivered: [{ to: 'database', min: 0.99 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A premium car maker builds 1.2 million vehicles a year in 5 plants and sells in 70 markets. About 45% of cars are built to order. Buyers wait 8 to 20 weeks and phone the dealer, who phones the importer, who emails the plant. Dealers spend an estimated 300,000 hours a year answering "where is my car?".
@@ -79,6 +101,7 @@ export default {
 - Plant MES teams will not allow any synchronous call into the MES from outside the plant.
 - 4 business units and 3 regional IT teams will run parts of this; the platform team is 12 people.
 - China data must be processed in China.
+- Tracking lookups reach 300 a second for 5 minutes after a push, and milestone events about 350 a second.
 
 **Your task.** Design the platform architecture, the event model, the data residency approach and the operating model.
 `,

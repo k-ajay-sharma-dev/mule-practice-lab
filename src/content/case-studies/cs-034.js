@@ -24,11 +24,11 @@ export default {
         portal: ['web-app', 'Broker portal'],
         staff: ['internal-app', 'Broker assistant work queue'],
         gw: ['api-gateway', 'API gateway (client ID + OAuth)'],
-        eapi: ['experience-api', 'exp-broker-portal-api'],
-        prc: ['process-api', 'prc-quote-api'],
+        eapi: ['experience-api', 'exp-broker-portal-api', { timeoutMs: 20000 }],
+        prc: ['process-api', 'prc-quote-api', { calls: 'in parallel', onFailure: 'partial answer', timeoutMs: 15000 }],
         resp: ['batch-job', 'Async carrier response listener'],
         sa: ['system-api', 'sys-carrier-a-api (REST)'],
-        sb: ['system-api', 'sys-carrier-b-api (SOAP)'],
+        sb: ['system-api', 'sys-carrier-b-api (SOAP)', { timeoutMs: 12000 }],
         sc: ['system-api', 'sys-carrier-c-api (XML/SFTP)'],
         req: ['database', 'Quote requests (status, results)'],
         reg: ['database', 'Carrier registry (eligibility, timeouts)'],
@@ -41,6 +41,28 @@ export default {
         'sa -> ca', 'sb -> cb', 'sc -> cc', 'resp -> sc', 'resp -> prc',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'external-api', latencyMs: 6000 },
+        { match: 'legacy', latencyMs: 9000 },
+        { match: 'file-store', latencyMs: 500 },
+      ],
+      tests: [
+        {
+          name: 'A normal quote request',
+          about: 'Brokers ask for 5 quotes a second. Carrier A takes 6 seconds and carrier B 9 seconds, so the carriers must be asked at the same time for the quotes to be back within 15 seconds.',
+          traffic: [{ name: 'quotes', from: 'web-app', rps: 5, to: ['external-api', 'legacy', 'file-store'] }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 15000 }] },
+        },
+        {
+          name: 'A carrier takes 40 seconds',
+          about: 'Brokers ask for 5 quotes a second while carrier B takes 40 seconds. Its adapter gives up after 12 seconds, and the broker sees the other quotes within 15 seconds, with carrier B added later.',
+          traffic: [{ name: 'quotes', from: 'web-app', rps: 5, to: ['external-api', 'legacy', 'file-store'] }],
+          incidents: [{ slow: 'legacy', latencyMs: 40000 }],
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 15000 }] },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A commercial insurance broker wants a portal where its brokers (and later small-business customers) enter a risk once and get quotes from up to 30 insurance carriers. Carriers integrate very differently:
@@ -56,7 +78,7 @@ export default {
 
 **Constraints**
 - Each carrier has its own question set, codes and validation rules.
-- Carrier APIs vary from 2 to 40 seconds; some are unreliable.
+- Carrier APIs vary from 2 to 40 seconds; some are unreliable. Brokers ask for about 5 quotes a second; carrier A takes about 6 seconds and carrier B about 9, or 40 on a bad day.
 - New carriers are added every quarter; some leave.
 - Carrier credentials are per broker firm and must be stored securely.
 

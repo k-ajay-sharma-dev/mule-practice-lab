@@ -23,10 +23,10 @@ export default {
       {
         sf: ['web-app', 'Next.js storefront'],
         app: ['mobile-app', 'Mobile app'],
-        ewbff: ['experience-api', 'exp-web-bff-api'],
+        ewbff: ['experience-api', 'exp-web-bff-api', { vCores: '1' }],
         eapp: ['experience-api', 'exp-app-bff-api'],
         cat: ['process-api', 'prc-catalog-publication'],
-        avail: ['process-api', 'prc-availability'],
+        avail: ['process-api', 'prc-availability', { vCores: '1' }],
         ord: ['process-api', 'prc-order'],
         q: ['queue', 'orders-to-oms'],
         spim: ['system-api', 'sys-pim'],
@@ -47,6 +47,29 @@ export default {
         'avail -> rm', 'ssap -> sap', 'ssap ~> avail', 'ord -> scom', 'ord ~> q', 'q ~> soms', 'soms -> oms',
       ],
     ),
+    simulation: {
+      systems: [
+        { match: 'saas', latencyMs: 200 },
+        { match: 'erp', latencyMs: 400, maxRps: 50 },
+        { match: 'cache', latencyMs: 5 },
+      ],
+      tests: [
+        {
+          name: 'Availability lookups at peak',
+          about: 'The storefront asks for 400 store stock checks a second. The availability read model answers them, so SAP gets none of these calls and every check is answered.',
+          traffic: [{ name: 'stock checks', from: 'web-app', rps: 400, to: 'cache' }],
+          expect: { answers: [{ minSuccess: 0.99 }], notReached: [{ node: 'erp' }] },
+        },
+        {
+          name: 'The OMS is down for 30 minutes',
+          about: 'The storefront places 10 orders a second while the OMS is down for 30 minutes. The orders wait in the queue and reach the OMS once it is back, and none is lost.',
+          traffic: [{ name: 'orders', from: 'web-app', rps: 10, to: { type: 'saas', label: 'OMS' }, kind: 'write' }],
+          incidents: [{ down: { type: 'saas', label: 'OMS' }, at: 5, forMin: 30 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A home-and-garden retailer (120 stores, online ~25% of revenue) is replacing its monolithic e-commerce platform with **composable commerce**:
@@ -65,6 +88,7 @@ export default {
 - Some SaaS vendors push "direct" integrations to each other (e.g. PIM connector into the search service).
 - The frontend team wants to call SaaS APIs directly from the browser for speed.
 - Integration team: 6 Mule developers.
+- The storefront makes about 400 stock checks a second at peak and 10 orders a second, and the OMS can be down for 30 minutes.
 
 **Your task.** Design the application network: what goes through Anypoint (and in which layer), what can integrate directly, how the storefront talks to backends, and how data flows for products, stock, orders and customers.
 `,

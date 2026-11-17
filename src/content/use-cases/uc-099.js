@@ -20,11 +20,11 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'Intercompany poller (every 30 min)'],
-        prc: ['process-api', 'prc-intercompany'],
+        job: ['batch-job', 'Intercompany poller (every 30 min)', { timeoutMs: 30000 }],
+        prc: ['process-api', 'prc-intercompany', { timeoutMs: 30000 }],
         sns: ['system-api', 'sys-netsuite-api'],
         ns: ['erp', 'NetSuite (US subsidiaries)'],
-        ssap: ['system-api', 'sys-sap-finance-api'],
+        ssap: ['system-api', 'sys-sap-finance-api', { timeoutMs: 30000, retries: 2 }],
         sap: ['erp', 'SAP S/4HANA (parent)'],
         pair: ['database', 'Intercompany pair table'],
         rec: ['batch-job', 'Daily mismatch report (07:00)'],
@@ -32,6 +32,30 @@ export default {
       },
       ['job -> prc', 'prc -> sns', 'sns -> ns', 'prc -> ssap', 'ssap -> sap', 'prc -> pair', 'rec -> pair', 'rec -> mail'],
     ),
+    simulation: {
+      systems: [
+        { match: 'erp', latencyMs: 600 },
+        { match: 'database', latencyMs: 20 },
+      ],
+      tests: [
+        {
+          name: 'SAP posts slowly at month end',
+          about: 'At month end the poller sends 1 IC invoice a second for 30 minutes, and SAP takes 15 seconds to post each vendor invoice. Every invoice must still reach both sides.',
+          traffic: [{ name: 'IC invoices', from: { type: 'batch-job', label: 'poller' }, rps: 1, forMin: 30, to: 'erp', kind: 'write' }],
+          incidents: [{ slow: { type: 'erp', label: 'SAP' }, latencyMs: 15000 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+        {
+          name: 'SAP fails some postings',
+          about: 'The poller sends 1 IC invoice a second for 30 minutes, and SAP fails 1 posting in 10. The pair table makes a retry safe, so almost every invoice is posted once.',
+          traffic: [{ name: 'IC invoices', from: { type: 'batch-job', label: 'poller' }, rps: 1, forMin: 30, to: 'erp', kind: 'write' }],
+          incidents: [{ errors: { type: 'erp', label: 'SAP' }, rate: 0.1 }],
+          durationMin: 40,
+          expect: { answers: [{ minSuccess: 0.99 }] },
+        },
+      ],
+    },
   },
   description: `
 A European parent company runs **SAP S/4HANA**. It bought four US companies that stay on **NetSuite** as subsidiaries. They trade with each other: the parent ships goods to the US companies and charges a monthly management fee; the US companies charge the parent for shared services.
@@ -43,6 +67,7 @@ Facts:
 - An IC invoice is flagged by the customer: in SAP a trading partner on the customer, in NetSuite an intercompany customer record.
 - The buyer side must use the **same invoice number, amount, currency and date**. Only the accounts differ, from an IC mapping table.
 - Credit notes follow the same rules.
+- In the tests the poller sends 1 IC invoice a second at month end. SAP can take 15 seconds per posting or fail 1 posting in 10.
 - Group accounting wants a **daily list of mismatches**: invoices on one side only, or with different amounts.
 
 **Questions:**

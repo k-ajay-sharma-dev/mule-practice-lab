@@ -27,10 +27,10 @@ export default {
         ch: ['partner', 'Clearinghouses (3)'],
         inb: ['sftp-server', 'Inbound SFTP (837P / 837I batches)'],
         outb: ['sftp-server', 'Outbound SFTP (999 / 277CA)'],
-        intake: ['batch-job', 'claims-file-intake (validate X12, split, 999)'],
+        intake: ['batch-job', 'claims-file-intake (validate X12, split, 999)', { vCores: '0.5' }],
         portal: ['web-app', 'Provider portal'],
         exp: ['experience-api', 'exp-provider-claims-api'],
-        q: ['queue', 'claims-in'],
+        q: ['queue', 'claims-in', { maxRedelivery: 5 }],
         dlq: ['dlq', 'claims-in-dlq'],
         prc: ['process-api', 'prc-claim-submission'],
         keys: ['cache', 'Claim keys (Object Store)'],
@@ -44,6 +44,25 @@ export default {
         'prc -> keys', 'prc -> sclm', 'sclm -> eng', 'prc ~> st', 'st ~> ack', 'ack -> outb',
       ],
     ),
+    simulation: {
+      systems: [{ match: 'legacy', latencyMs: 300, maxRps: 25 }],
+      tests: [
+        {
+          name: 'Monday file peak',
+          about: 'On Monday the intake job splits 120,000 claims at 200 a second for 10 minutes. The claims queue holds them, the mainframe never gets more than its 25 a second, and every claim is submitted within 2 hours.',
+          traffic: [{ name: 'file claims', from: 'batch-job', rps: 200, forMin: 10, to: 'legacy', kind: 'write' }],
+          durationMin: 120,
+          expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: 'legacy', max: 25 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some claims are malformed',
+          about: 'Providers send 5 claims a second, and 1 in 100 has data the engine rejects every time. Those claims go to the DLQ after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'claims', from: 'batch-job', rps: 5, to: 'legacy', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 100 }, lost: { max: 0 } },
+        },
+      ],
+    },
   },
   description: `
 **Context.** A regional health plan covers 1.2 million members and receives about 9 million medical claims a year. Most arrive as X12 837P (professional) and 837I (institutional) batch files from three clearinghouses. About 8% come from small providers who key them into a provider portal. Adjudication runs on a mainframe claims engine that accepts one claim at a time through a CICS transaction.
@@ -64,6 +83,7 @@ export default {
 | Partners | Clearinghouses connect by SFTP only and expect 999 and 277CA files back |
 | Privacy | Claims carry PHI; HIPAA rules on minimum necessary access, encryption and audit apply |
 | Duplicates | A duplicate is the same provider, member, service date and billed lines |
+| Tests | A Monday file splits into 200 claims a second for 10 minutes, and 1 claim in 100 is always rejected |
 
 **Your task.** Design the intake from file and portal to adjudication, and the acknowledgements back to clearinghouses.
 `,

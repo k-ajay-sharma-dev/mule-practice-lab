@@ -27,13 +27,13 @@ export default {
       {
         shp: ['process-api', 'prc-shipment-service'],
         shpdb: ['database', 'Shipment DB + outbox table'],
-        relay: ['process-api', 'Outbox relay'],
+        relay: ['process-api', 'Outbox relay', { replicas: 2, vCores: '2' }],
         as400: ['legacy', 'AS/400 billing (DB2 journal)'],
         cdc: ['batch-job', 'CDC connector (journal reader)'],
-        k1: ['event-stream', 'logistics.shipment-events.v1'],
+        k1: ['event-stream', 'logistics.shipment-events.v1', { maxRedelivery: 5 }],
         k2: ['event-stream', 'finance.invoices.v1'],
         reg: ['saas', 'Schema registry (Avro, backward compatible)'],
-        c1: ['process-api', 'prc-customer-notify (group customer-notify)'],
+        c1: ['process-api', 'prc-customer-notify (group customer-notify)', { replicas: 2, vCores: '2' }],
         c2: ['process-api', 'prc-partner-events (group partner-feed)'],
         dlt: ['dlq', 'DLT per consumer group'],
         dw: ['data-warehouse', 'Warehouse (sink connector)'],
@@ -48,6 +48,25 @@ export default {
         'c1 -> notif', 'c1 ~> dlt', 'c2 ~> dlt', 'c2 -> store', 'c2 -> part', 'part -> exp', 'exp -> store',
       ],
     ),
+    simulation: {
+      tests: [
+        {
+          name: 'Shipment events peak',
+          about: 'The outbox relay publishes 1,500 shipment events a second for 15 minutes. The relay and the customer notification consumers keep up, so every event reaches customers and the warehouse and none is lost.',
+          traffic: [{ name: 'shipment events', from: { label: 'Outbox relay' }, rps: 1500, forMin: 15, to: ['notification', 'data-warehouse'], kind: 'write' }],
+          durationMin: 30,
+          expect: { answers: [{ minSuccess: 0.99 }], delivered: [{ to: 'notification', min: 0.99 }, { to: 'data-warehouse', min: 0.99 }], lost: { max: 0 } },
+        },
+        {
+          name: 'Some events cannot be processed',
+          about: 'The relay publishes 10 shipment events a second, and 1 in 100 has data the notification consumer rejects every time. Those events go to the DLT after 5 tries, and the others keep flowing.',
+          traffic: [{ name: 'shipment events', from: { label: 'Outbox relay' }, rps: 10, to: 'notification', kind: 'write', poison: 0.01 }],
+          durationMin: 60,
+          // the other consumer groups get a copy of each bad event too; this test is about the DLT of the notification group
+          expect: { delivered: [{ to: 'notification', min: 0.98 }], dlq: { min: 20 } },
+        },
+      ],
+    },
   },
   description: `
 A logistics group has grown by acquisition. **40 development teams** build integrations, 12 of them with Mule. Each team has wired its own events: some use Anypoint MQ, some call each other's APIs in loops, two have their own Kafka clusters. Last year:
@@ -59,7 +78,7 @@ A logistics group has grown by acquisition. **40 development teams** build integ
 The CTO funds a shared **event platform** on a managed Kafka service (Confluent Cloud or similar) and asks you, as the integration architect, to design it and its rules.
 
 Facts:
-- About **25 million events per day** across all domains; the biggest topic (shipment events) peaks at 1,500 per second.
+- About **25 million events per day** across all domains; the biggest topic (shipment events) peaks at 1,500 per second for about 15 minutes. One Mule vCore handles about 500 events a second, and about 1 shipment event in 100 has data a consumer cannot process.
 - The AS/400 (DB2 for i) can expose its journal to a CDC tool; no code changes are possible.
 - Partners (shippers, marketplaces) want shipment events by webhook or by pulling an API. They must not get access to the internal cluster.
 - Events must be kept **7 days** on Kafka for replay, and 2 years in the warehouse.
