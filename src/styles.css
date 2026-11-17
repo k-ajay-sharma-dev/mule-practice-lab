@@ -3363,3 +3363,38 @@ body.dragging-split {
 .sim-effects li { margin: 3px 0; word-break: break-word; }
 .sim-input { width: 100%; margin: 6px 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); color: var(--text); font-family: var(--mono, ui-monospace, monospace); font-size: 0.8rem; resize: vertical; }
 @media (max-width: 700px) { .sim-data { grid-template-columns: 1fr; } }
+
+/* fx beside a setting, as in Anypoint Studio: on means the value is an expression in #[ ] */
+.fx-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+}
+.fx-row > .input,
+.fx-row > .code-field-box {
+  flex: 1;
+  min-width: 0;
+}
+.fx-btn {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 11px; /* level with the first line of the field beside it */
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--muted);
+  font: italic 700 0.55rem/1 Georgia, 'Times New Roman', serif;
+  cursor: pointer;
+}
+.fx-btn:hover,
+.fx-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.fx-btn.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--accent);
+}

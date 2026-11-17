@@ -780,6 +780,33 @@ function ReadOnlyProperties({ selectedId, onDeselect }) {
   )
 }
 
+// A setting is an expression when it is wrapped in #[ ], as in Mule. Anything else is used as plain text.
+const isExpression = (value) => /^\s*#\[[\s\S]*\]\s*$/.test(String(value ?? ''))
+// plain text that starts the way an expression does, such as payload.email: Mule would use it as those words
+const looksLikeExpression = (value) => /^\s*(payload|vars\.|attributes\.|error\.|message\.|correlationId\b)/.test(String(value ?? ''))
+
+// The fx switch beside a setting, as in Anypoint Studio: on wraps the value in #[ ], off takes the #[ ] away.
+function FxButton({ value, onChange }) {
+  const on = isExpression(value)
+  const text = String(value ?? '').trim()
+  return (
+    <button
+      type="button"
+      className={`fx-btn${on ? ' on' : ''}`}
+      aria-pressed={on}
+      title={on ? 'Expression. Click to use plain text.' : 'Plain text. Click to make it an expression.'}
+      onClick={() => onChange(on ? text.slice(2, -1).trim() : `#[${text}]`)}
+    >
+      fx
+    </button>
+  )
+}
+
+function PlainTextWarning({ value }) {
+  if (isExpression(value) || !looksLikeExpression(value)) return null
+  return <small className="field-help warn-text">This is plain text, so it is used as these words. Click fx to make it an expression.</small>
+}
+
 function Properties({ selectedId, onDeselect }) {
   const { design, change, remove, touch, placing, startMove, duplicate } = useContext(Ctx)
   const found = selectedId ? findItem(design, selectedId) : null
@@ -843,9 +870,30 @@ function Properties({ selectedId, onDeselect }) {
           // expressions and scripts get a code editor: highlighting, brackets and undo, like in Anypoint Studio
           <div key={`${item.id}-${f.key}`} className="field code-field">
             <span>{f.label}</span>
-            <div className={`code-field-box${f.type === 'textarea' ? ' tall' : ''}`}>
-              <CodeEditor compact value={String(values[f.key] ?? '')} language={/sql/i.test(f.key) ? 'sql' : 'dataweave'} onChange={(v) => set(f.key, v ?? '')} />
+            <div className="fx-row">
+              {f.type === 'expression' && <FxButton value={values[f.key]} onChange={(v) => set(f.key, v)} />}
+              <div className={`code-field-box${f.type === 'textarea' ? ' tall' : ''}`}>
+                <CodeEditor compact value={String(values[f.key] ?? '')} language={/sql/i.test(f.key) ? 'sql' : 'dataweave'} onChange={(v) => set(f.key, v ?? '')} />
+              </div>
             </div>
+            <PlainTextWarning value={values[f.key]} />
+            {f.help && <small className="field-help muted">{f.help}</small>}
+          </div>
+        ) : f.type === 'text' && !ctx.isFlow ? (
+          // a <div>, not a <label>: a label would pass clicks on its text to the fx button
+          <div key={f.key} className="field">
+            <span>{f.label}</span>
+            <div className="fx-row">
+              <FxButton value={values[f.key]} onChange={(v) => set(f.key, v)} />
+              <input
+                className={`input${isExpression(values[f.key]) ? ' mono' : ''}`}
+                aria-label={f.label}
+                value={values[f.key] ?? ''}
+                list={item.type === 'flow-ref' && f.key === 'name' ? 'flow-names' : undefined}
+                onChange={(e) => set(f.key, e.target.value)}
+              />
+            </div>
+            <PlainTextWarning value={values[f.key]} />
             {f.help && <small className="field-help muted">{f.help}</small>}
           </div>
         ) : (
