@@ -19,6 +19,23 @@ const readOpen = () => {
   }
 }
 
+// small line icons for the step guide buttons, drawn in the text colour
+const PATHS = {
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z',
+  target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 1v4M12 19v4M1 12h4M19 12h4',
+  list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+  up: 'M6 15l6-6 6 6',
+  down: 'M6 9l6 6 6-6',
+  close: 'M6 6l12 12M18 6L6 18',
+}
+function Icon({ name, className = '' }) {
+  return (
+    <svg className={`sg-svg ${className}`} viewBox="0 0 24 24" aria-hidden="true">
+      <path d={PATHS[name]} />
+    </svg>
+  )
+}
+
 // Sits above a designer and shows one small step at a time, ticking each requirement as the design meets it.
 // steps come from study/steps.js, results are live, and hintFor(index) says what a failing check still needs.
 // ladder(index) gives the three hints for a failing check ({ scenario, missing, piece }), and onHint(index, level)
@@ -88,39 +105,58 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
           </span>
         )}
         <span className="step-guide-actions">
-          {rung && level > 0 && hidden && (
-            <button className="link-btn small hint-btn" onClick={() => setHidden(false)}>
-              💡 Show hints ({level})
-            </button>
-          )}
-          {rung && level < 3 && !hidden && (
-            <button className="link-btn small hint-btn" onClick={nextHint} title="Hints go one small step at a time, so you still do the thinking">
-              {['💡 Hint', '💡 Hint 2 of 3', '💡 Show this piece of the answer'][level]}
-            </button>
-          )}
-          {rung && level > 0 && !hidden && (
-            <button className="link-btn small" onClick={() => setHidden(true)} title="Close the hints">
-              ✕ Close hint
-            </button>
-          )}
-          {onFind && nextItem !== undefined && (
-            <button className="link-btn small find-it-btn" onClick={() => onFind(nextItem)} title="Show what is wrong, where on your canvas, and how the reference differs, for this check only">
-              🔎 Find it
-            </button>
+          {!step && finish}
+          {(rung || (onFind && nextItem !== undefined) || (step && open)) && (
+            <span className="sg-group" role="group" aria-label="Help with this step">
+              {rung && level > 0 && hidden && (
+                <button className="sg-btn" onClick={() => setHidden(false)} title="Open the hints you already used">
+                  <Icon name="bulb" className="sg-hint-icon" />
+                  Hints ({level})
+                </button>
+              )}
+              {rung && level < 3 && !hidden && (
+                <button className="sg-btn" onClick={nextHint} title="Hints go one small step at a time, so you still do the thinking">
+                  <Icon name="bulb" className="sg-hint-icon" />
+                  {['Hint', 'Hint 2 of 3', 'Answer piece'][level]}
+                </button>
+              )}
+              {rung && level > 0 && !hidden && (
+                <button className="sg-btn" onClick={() => setHidden(true)} title="Close the hints">
+                  Hide hint
+                </button>
+              )}
+              {onFind && nextItem !== undefined && (
+                <button className="sg-btn" onClick={() => onFind(nextItem)} title="Show what is wrong, where on your canvas, and how the reference differs, for this check only">
+                  <Icon name="target" />
+                  Find it
+                </button>
+              )}
+              {step && open && (
+                <button
+                  className={`sg-btn${showHints ? ' on' : ''}`}
+                  onClick={() => setShowHints(!showHints)}
+                  aria-pressed={showHints}
+                  title="Show under each open check what is still missing"
+                >
+                  <Icon name="list" />
+                  What's missing
+                </button>
+              )}
+            </span>
           )}
           {step && (
-            <button className="link-btn small" onClick={toggleOpen} aria-expanded={open}>
-              {open ? 'Less ▴' : 'All checks ▾'}
+            <button
+              className="sg-icon"
+              onClick={toggleOpen}
+              aria-expanded={open}
+              aria-label={open ? 'Hide the checks of this step' : 'Show the checks of this step'}
+              title={open ? 'Hide the checks of this step' : 'Show the checks of this step'}
+            >
+              <Icon name={open ? 'up' : 'down'} />
             </button>
           )}
-          {step && open && (
-            <button className="link-btn small" onClick={() => setShowHints(!showHints)}>
-              {showHints ? 'Hide help' : "What's missing?"}
-            </button>
-          )}
-          {!step && finish}
-          <button className="link-btn small muted step-guide-off" onClick={toggle} title="Hide the step guide">
-            Turn off
+          <button className="sg-icon" onClick={toggle} aria-label="Turn off the step guide" title="Turn off the step guide">
+            <Icon name="close" />
           </button>
         </span>
       </div>

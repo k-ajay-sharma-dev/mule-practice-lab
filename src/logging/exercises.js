@@ -19,6 +19,7 @@ import { SET_3 } from './sets/set-3.js'
 import { SET_4 } from './sets/set-4.js'
 import { SET_5 } from './sets/set-5.js'
 import { SET_6 } from './sets/set-6.js'
+import { SET_7 } from './sets/set-7.js'
 
 export { KINDS, LEVELS } from './rules.js'
 
@@ -616,7 +617,7 @@ const FIRST = [
 ]
 
 // Later exercises, written a set per theme (sets/set-*.js), each set holding every kind.
-const SETS = [...SET_1, ...SET_2, ...SET_3, ...SET_4, ...SET_5, ...SET_6]
+const SETS = [...SET_1, ...SET_2, ...SET_3, ...SET_4, ...SET_5, ...SET_6, ...SET_7]
 
 // In the order the page shows them: each kind together.
 const byKind = (kind, more) => [...FIRST.filter((e) => e.kind === kind), ...more, ...SETS.filter((e) => e.kind === kind)]
