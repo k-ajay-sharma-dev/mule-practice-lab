@@ -44,8 +44,8 @@ export default async ({ failsOn, cut, draw, set }) => {
   await failsOn('cs-047', 'Run: A caller without a client ID', (d) => set(d, 'gw', { auth: undefined }))
 
   // CS-050
-  // The availability API asks SAP for stock on every check.
-  await failsOn('cs-050', 'Run: Availability lookups at peak', (d) => draw(d, 'avail -> ssap'))
+  // The availability API left at the default 0.1 vCore: 400 checks a second are far over what it carries.
+  await failsOn('cs-050', 'Run: Availability lookups at peak', (d) => set(d, 'avail', { vCores: undefined }))
   // A short redelivery limit with no DLQ: orders are dropped while the OMS is down.
   await failsOn('cs-050', 'Run: The OMS is down for 30 minutes', (d) => set(d, 'q', { maxRedelivery: 3 }))
 

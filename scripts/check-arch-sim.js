@@ -266,6 +266,73 @@ rule('an API can be given its own processing time by the scenario', () => {
   const r = run(chain(), { systems: [{ match: { label: 'exp-api' }, latencyMs: 2000 }] }, read(5))
   assert.ok(flow(r).avgMs > 2000)
 })
+rule('of two ways to the same system a request takes one: the shortest, and never a publish beside a direct call', () => {
+  const two = diagram(
+    { web: ['web-app', 'Web'], x: ['experience-api', 'exp'], sa: ['system-api', 'sys-a'], pr: ['process-api', 'prc'], sb: ['system-api', 'sys-b'], db: ['database', 'DB'] },
+    ['web -> x', 'x -> sa', 'sa -> db', 'x -> pr', 'pr -> sb', 'sb -> db'],
+  )
+  const r = run(two, {}, read(10))
+  assert.ok(r.nodes.pr.peakRps === 0 && near(r.nodes.db.peakRps, 10, 0.5), `prc ${r.nodes.pr.peakRps} db ${r.nodes.db.peakRps}`)
+  const pub = queued(undefined, ['exp -> sys'])
+  const w = run(pub, {}, { traffic: [{ from: 'web-app', rps: 10, to: 'database', kind: 'write' }] })
+  assert.ok(w.queues.q.delivered === 0 && near(w.nodes.db.peakRps, 10, 0.5), `queue ${w.queues.q.delivered} db ${w.nodes.db.peakRps}`)
+})
+rule('a queue a box consumes itself keeps only what its direct call could not finish', () => {
+  const d = diagram(
+    { web: ['web-app', 'Web'], o: ['process-api', 'saga'], q: ['queue', 'steps'], s: ['system-api', 'sys'], db: ['erp', 'SAP'] },
+    ['web -> o', 'o ~> q', 'q ~> o', 'o -> s', 's -> db'],
+  )
+  const t = { traffic: [{ from: 'web-app', rps: 5, to: 'erp', kind: 'write', name: 'steps' }] }
+  const fine = run(d, {}, t)
+  assert.ok(fine.queues.q.delivered === 0 && near(fine.nodes.db.served, 3000, 5), `queue ${fine.queues.q.delivered} sap ${fine.nodes.db.served}`)
+  const down = run(d, {}, { ...t, incidents: [{ down: 'erp', at: 2, forMin: 3 }], durationMin: 15 })
+  assert.ok(near(flow(down).success, 1) && down.queues.q.peak > 500 && down.queues.q.end === 0, `success ${flow(down).success} peak ${down.queues.q.peak}`)
+  assert.ok(down.flows[0].at.db.served / down.flows[0].offered <= 1.0001, 'each step reaches SAP once')
+})
+rule('a topic subscriber off the route takes its copy without counting against the flow', () => {
+  const d = diagram(
+    { web: ['web-app', 'Web'], exp: ['experience-api', 'exp'], t: ['topic', 'events', { maxRedelivery: 3 }], dlq: ['dlq', 'dead'], a: ['system-api', 'sys-a'], b: ['system-api', 'sys-b'], da: ['database', 'A'], dw: ['data-warehouse', 'Warehouse'] },
+    ['web -> exp', 'exp ~> t', 't ~> a', 't ~> b', 't ~> dlq', 'a -> da', 'b -> dw'],
+  )
+  const r = run(d, {}, { traffic: [{ from: 'web-app', rps: 10, kind: 'write', to: 'database', poison: 0.1 }] })
+  assert.ok(r.lost === 0 && r.queues.t.dlq > 0 && r.nodes.dw.arrived === 0, `lost ${r.lost} dlq ${r.queues.t.dlq} warehouse ${r.nodes.dw.arrived}`)
+})
+rule('a retried message counts once where it is delivered', () => {
+  const t = { traffic: [{ from: 'web-app', rps: 10, to: 'database', kind: 'write', name: 'w' }], incidents: [{ errors: 'database', rate: 0.5, at: 0, forMin: 4 }], durationMin: 12 }
+  const r = run(queued(), {}, t)
+  const share = r.flows[0].at.db.served / r.flows[0].offered
+  assert.ok(share > 0.98 && share <= 1.0001, `delivered ${share}`)
+  assert.ok(r.flows[0].at.sys.served / r.flows[0].offered <= 1.0001, 'the box before the failing one counts each message once too')
+})
+rule('a poison message fails where it is processed, so a DLQ on a later queue catches it', () => {
+  const d = diagram(
+    { web: ['web-app', 'Web'], exp: ['experience-api', 'exp'], q1: ['queue', 'in'], relay: ['process-api', 'relay'], q2: ['queue', 'work', { maxRedelivery: 3 }], dlq: ['dlq', 'dead'], s: ['system-api', 'sys'], db: ['database', 'DB'] },
+    ['web -> exp', 'exp ~> q1', 'q1 ~> relay', 'relay ~> q2', 'q2 ~> s', 'q2 ~> dlq', 's -> db'],
+  )
+  const r = run(d, {}, { traffic: [{ from: 'web-app', rps: 10, to: 'database', kind: 'write', poison: 0.1 }] })
+  assert.ok(r.queues.q2.dlq > 0 && r.queues.q1.dlq === 0 && r.lost === 0 && r.queues.q1.end === 0, `q2 dlq ${r.queues.q2.dlq} q1 end ${r.queues.q1.end}`)
+})
+rule('a load balancer skips a box that can no longer reach the target', () => {
+  const d = diagram(
+    { web: ['web-app', 'Web'], lb: ['load-balancer', 'LB'], g1: ['api-gateway', 'gw-1'], g2: ['api-gateway', 'gw-2'], a: ['experience-api', 'api-a', { vCores: '0.5' }], b: ['experience-api', 'api-b', { vCores: '0.5' }], db: ['database', 'DB'] },
+    ['web -> lb', 'lb -> g1', 'lb -> g2', 'g1 -> a', 'g2 -> b', 'a -> db', 'b -> db'],
+  )
+  const r = run(d, {}, { ...read(40), incidents: [{ down: { label: 'api-a' } }] })
+  assert.ok(near(flow(r).success, 1), `success ${flow(r).success}`)
+})
+rule('a system that sends events only sends: its own time and limits do not count', () => {
+  const d = diagram(
+    { erp: ['erp', 'SAP'], q: ['queue', 'changes'], s: ['system-api', 'sys'], db: ['database', 'DB'] },
+    ['erp ~> q', 'q ~> s', 's -> db'],
+  )
+  const r = run(d, { systems: [{ match: 'erp', latencyMs: 5000, maxRps: 1 }] }, { traffic: [{ from: 'erp', rps: 10, to: 'database', kind: 'write' }] })
+  assert.ok(near(flow(r).success, 1) && flow(r).avgMs < 1000 && r.nodes.erp.peakRps === 0, `success ${flow(r).success} ms ${flow(r).avgMs} erp ${r.nodes.erp.peakRps}`)
+})
+rule('a box that is down carries no load while it is down, and drains within its limit after', () => {
+  const t = { traffic: [{ from: 'web-app', rps: 10, to: 'database', kind: 'write' }], incidents: [{ down: 'database', at: 1, forMin: 3 }], durationMin: 15 }
+  const r = run(queued(), { systems: [{ match: 'database', maxRps: 20 }] }, t)
+  assert.ok(r.nodes.db.peakRps <= 20.5 && r.queues.q.end === 0, `db ${r.nodes.db.peakRps} end ${r.queues.q.end}`)
+})
 
 rule('expectations read the run', () => {
   const d = chain({ exp: { rateLimit: 20 } })

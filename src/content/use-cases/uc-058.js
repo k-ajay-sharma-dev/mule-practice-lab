@@ -65,8 +65,8 @@ export default {
         },
         {
           name: 'Eligibility peak after a TV campaign',
-          about: 'After a TV campaign citizens send 50 eligibility checks a second for 20 minutes. The citizen API, the eligibility API and the register API have the capacity, so every check is answered.',
-          traffic: [{ name: 'citizens', from: 'web-app', rps: 50, forMin: 20, to: 'database', via: { label: 'exp-citizen-benefits' } }],
+          about: 'After a TV campaign citizens send 80 eligibility checks a second for 20 minutes. The citizen API, the eligibility API and the register API have the capacity, so every check is answered.',
+          traffic: [{ name: 'citizens', from: 'web-app', rps: 80, forMin: 20, to: 'database', via: { label: 'exp-citizen-benefits' } }],
           durationMin: 30,
           expect: { answers: [{ minSuccess: 0.99 }] },
         },
@@ -98,7 +98,7 @@ A national social-security agency is building a digital platform for **benefit c
 | Tax authority income API | External | REST, mTLS, government PKI |
 | National eID provider | External | OIDC |
 
-Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 50/s), 6,000 applications/day, 40,000 documents/day.
+Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 80/s), 6,000 applications/day, 40,000 documents/day.
 
 - Expect bots on the public edge: one can send 30 calls a second with no token while citizens send 10.
 
@@ -193,7 +193,7 @@ Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 50/s), 6,000 a
 - **Least privilege per hop**: each API has its own client identity and only the contracts it needs (API Manager contracts + policies; automated policies per environment).
 - **Data minimisation**: Experience APIs expose only what each channel needs; logs mask personal data; no payload logging in the public zone.
 - **Availability**: public zone multi-AZ; internal/restricted RTF clusters with multiple nodes; mainframe maintenance windows → claims accepted and queued (\`202\`) with eventual case creation, eligibility checks degrade gracefully.
-- **Peaks** (50/s after campaigns): autoscaling in the public zone, caching of rule tables in prc-eligibility, Spike Control in front of sys-benefits-mainframe (MIPS cost and capacity).
+- **Peaks** (80/s after campaigns): autoscaling in the public zone, caching of rule tables in prc-eligibility, Spike Control in front of sys-benefits-mainframe (MIPS cost and capacity).
 - Pen-tests and threat modelling per zone crossing; secrets in a vault/secure properties; separate environments per zone for non-prod with synthetic data.
 
 **Reuse for the next benefit (e.g. childcare benefit).** New rules in prc-eligibility (or a new rules set), new resources in exp-citizen-benefits; prc-delegation, sys-benefits-mainframe, sys-citizen-register, sys-documents, sys-payments, the identity/token-exchange pattern and the whole zone/deployment model are reused as-is.

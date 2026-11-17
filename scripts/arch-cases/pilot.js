@@ -256,8 +256,12 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   await passes('ar-117', (d) => {
     d.nodes.find((n) => n.id === 'store').type = 's3-bucket'
   })
-  // A scaled-down standby: region B runs one replica of its Experience API.
-  await failsOn('ar-117', 'Run: A zone fails at the claims peak', (d) => set(d, 'expB', { replicas: undefined }))
+  // One replica of the Experience API in each region: a zone outage stops both. (One replica in region B alone is
+  // fine here: the global load balancer sees region B fail its health check and sends every claim to region A.)
+  await failsOn('ar-117', 'Run: A zone fails at the claims peak', (d) => {
+    set(d, 'expA', { replicas: undefined })
+    set(d, 'expB', { replicas: undefined })
+  })
   await failsOn('ar-117', 'Run: A zone fails at the claims peak', (d) => set(d, 'sysA', { replicas: 1, vCores: '1' }))
   await failsOn('ar-117', 'Run: Claims peak within the budget', (d) => {
     for (const id of ['expA', 'expB', 'prcA', 'prcB', 'sysA', 'sysB']) set(d, id, { vCores: '1' })

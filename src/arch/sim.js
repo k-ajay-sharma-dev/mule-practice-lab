@@ -94,13 +94,47 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
   const ROUTERS = new Set(['load-balancer', 'api-gateway'])
   // The lines a box uses for a request: for each target, the lines that reach it directly if there are any, else the
   // lines that reach it through a broker. A load balancer or gateway sends each request down one of them (see visit).
+  // A line into a broker is never direct (the message waits there), and of several lines to the same target a request
+  // takes the shortest: one request goes one way, it is not sent down two routes to the same system.
+  const hopsCache = new Map()
+  const hopsTo = (start, t, direct) => {
+    const key = `${start}|${direct}|${JSON.stringify(t)}`
+    if (!hopsCache.has(key)) {
+      let level = [start]
+      const seen = new Set(level)
+      let found = Infinity
+      for (let d = 0; d < 12 && level.length; d++) {
+        if (level.some((x) => matches(byId.get(x), t))) {
+          found = d
+          break
+        }
+        level = level
+          .filter((x) => !(direct && isMessaging(byId.get(x))))
+          .flatMap((x) => out(x).map((e) => e.to))
+          .filter((x) => !seen.has(x) && seen.add(x))
+      }
+      hopsCache.set(key, found)
+    }
+    return hopsCache.get(key)
+  }
   const routeLines = (id, f, path) => {
     const lines = out(id).filter((e) => !path.has(e.to) || (ROUTERS.has(byId.get(e.to).type) && path.get(e.to) < 2))
     if (!f.targets.length) return lines
     const chosen = new Set()
     for (const t of f.targets) {
-      const direct = lines.filter((e) => reaches(e.to, t, true))
-      for (const e of direct.length ? direct : lines.filter((e) => reaches(e.to, t))) chosen.add(e)
+      // a queue the box consumes itself stays beside its direct calls (see visit: it keeps what they could not finish)
+      for (const e of lines) if (isMessaging(byId.get(e.to)) && consumersOf(e.to).some((c) => c.id === id) && reaches(e.to, t)) chosen.add(e)
+      const isDirect = (e) => matches(byId.get(e.to), t) || (!isMessaging(byId.get(e.to)) && reaches(e.to, t, true))
+      const direct = lines.filter(isDirect)
+      const list = direct.length ? direct : lines.filter((e) => reaches(e.to, t))
+      // a load balancer or gateway picks one box behind it itself (see visit), so it keeps all its lines
+      if (ROUTERS.has(byId.get(id).type) || list.length < 2) {
+        for (const e of list) chosen.add(e)
+        continue
+      }
+      const dist = list.map((e) => hopsTo(e.to, t, direct.length > 0))
+      const best = Math.min(...dist)
+      list.forEach((e, i) => dist[i] === best && chosen.add(e))
     }
     return lines.filter((e) => chosen.has(e))
   }
@@ -167,6 +201,12 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
     const k = `${fi}|${id}`
     if (!flowAt.has(k)) flowAt.set(k, { arrived: 0, served: 0 })
     return flowAt.get(k)
+  }
+  // a consumer delivery is tallied apart first, so a retried message counts once (see the consumers below)
+  const recAt = (ctx, f, id) => {
+    if (!ctx.tally) return atNode(f.i, id)
+    if (!ctx.tally.has(id)) ctx.tally.set(id, { arrived: 0, served: 0 })
+    return ctx.tally.get(id)
   }
   // a messaging box holds lanes of waiting messages: one shared lane for a queue, one per consumer for a topic
   const queues = new Map(nodes.filter(isMessaging).map((n) => [n.id, { lanes: new Map(), peak: 0, dlq: 0, lost: 0, delivered: 0, byMinute: [] }]))
@@ -275,6 +315,8 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
           const next = []
           for (const b of left) {
             const f = flows[b.flow]
+            // on a shared queue the consumers compete for every message, whatever it holds (Anypoint MQ has no
+            // selectors): a consumer meant for other records takes these too, and that is the design's mistake
             const take = Math.min(b.count, room, routeRoom(c.id, f, st, final.ctx.load, consumerLoad) * 60)
             if (!(take > 0)) {
               next.push(b)
@@ -283,16 +325,30 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
             room -= take
             // the message remembers the queues it passed, so a loop in the drawing does not send it round forever
             const seen = [...(b.seen ?? []), qid]
-            const cctx = { load: new Map(), limitLoad: new Map(), heldNow: new Map(), published: [], st, first: false, record: true, m, consumer: true, seen, poisonAt: b.poison ? c.id : null }
+            // a poison message fails where its content is processed: at the consumer that delivers it to the target.
+            // A consumer that only passes it on to another queue passes the poison on too.
+            // (a consumer off the route reads the content too, so it fails there as well)
+            const relays = f.targets.length > 0 && !f.targets.some((t) => reaches(c.id, t, true)) && f.targets.some((t) => reaches(c.id, t))
+            const processes = !relays
+            const tally = new Map()
+            const cctx = { load: new Map(), limitLoad: new Map(), heldNow: new Map(), published: [], st, first: false, record: true, tally, m, consumer: true, seen, poisonAt: b.poison && processes ? c.id : null }
             const r = visit(c.id, take / 60, f, new Map(seen.map((x) => [x, 1])), cctx, false)
             for (const [id, v] of cctx.load) consumerLoad.set(id, (consumerLoad.get(id) ?? 0) + v)
-            for (const p of cctx.published) enqueue(p.queue, p.count, p.flow, 0, new Set(p.seen))
+            for (const p of cctx.published) enqueue(p.queue, p.count, p.flow, 0, new Set(p.seen), b.poison && !processes)
             const done = take * r.s
             q.delivered += done
             const failed = take - done
+            const max = Number(cfg.get(qid).maxRedelivery) || 0
+            const lastTry = max > 0 && b.attempt + 1 >= max
+            // a message is counted at each box once: on the try that got through, or on its last try. A delivery
+            // that will be tried again does not count yet, so retries do not add up to more than was sent.
+            for (const [id, v] of tally) {
+              const at = atNode(f.i, id)
+              at.arrived += v.arrived
+              at.served += lastTry ? v.served : Math.min(v.served, done)
+            }
             if (failed > 0) {
-              const max = Number(cfg.get(qid).maxRedelivery) || 0
-              if (max > 0 && b.attempt + 1 >= max) {
+              if (lastTry) {
                 // the dead-letter queue is drawn from the queue, or from the consumer that gives up on the message
                 const dlq = (id) => out(id).some((e) => byId.get(e.to).type === 'dlq')
                 if (dlq(qid) || dlq(c.id)) q.dlq += failed
@@ -313,7 +369,8 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
     // how busy each box was this minute
     for (const n of nodes) {
       const ns = nodeStats.get(n.id)
-      const rps = (final.ctx.load.get(n.id) ?? 0) + (consumerLoad.get(n.id) ?? 0)
+      // a box that is down serves nothing, so what is sent to it while it is down is not its load
+      const rps = st.down.has(n.id) ? 0 : (final.ctx.load.get(n.id) ?? 0) + (consumerLoad.get(n.id) ?? 0)
       ns.peakRps = Math.max(ns.peakRps, rps)
       ns.sumRps += rps
       const cap = capacityOf(n, st, held.get(n.id))
@@ -329,8 +386,11 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
     const n = byId.get(id)
     const c = cfg.get(id)
     const st = ctx.st
-    ctx.load.set(id, (ctx.load.get(id) ?? 0) + rate)
-    const rec = ctx.record ? atNode(f.i, id) : null
+    // where the traffic starts (a channel, or a system that sends events) it only sends: it is not held back by its
+    // own limits, its own time is not part of the answer, and sending does not count as load on it
+    const source = path.size === 0 && !API_TYPES.has(n.type) && !ROUTERS.has(n.type)
+    if (!source) ctx.load.set(id, (ctx.load.get(id) ?? 0) + rate)
+    const rec = ctx.record ? recAt(ctx, f, id) : null
     if (rec) rec.arrived += rate * 60
     const done = (r) => {
       if (rec) rec.served += rate * 60 * r.s
@@ -355,12 +415,10 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
     ctx.limitLoad?.set(id, (ctx.limitLoad.get(id) ?? 0) + rate)
     const stillOutside = outside && !['experience', 'process', 'system'].includes(laneOf(n))
 
-    // where the traffic starts (a channel, or a system that sends events) it is not held back by its own limits
-    const source = path.size === 0 && !API_TYPES.has(n.type) && !ROUTERS.has(n.type)
     const a = ctx.first || source ? 1 : admit.get(id) ?? 1
     const limited = ctx.first || source ? 0 : limitedShare.get(id) ?? 0
-    const errorRate = st.errors.get(id) ?? sys.get(id).errorRate ?? 0
-    const own = ownMs(n, st) * slowdown(util.get(id) ?? 0) + (c.auth === 'oauth2' && outside && idp ? OWN_MS['identity-provider'] : 0)
+    const errorRate = source ? 0 : st.errors.get(id) ?? sys.get(id).errorRate ?? 0
+    const own = (source ? 0 : ownMs(n, st) * slowdown(util.get(id) ?? 0)) + (c.auth === 'oauth2' && outside && idp ? OWN_MS['identity-provider'] : 0)
 
     // the boxes it calls for this request: those on the route, and a cache it reads first
     let next = routeLines(id, f, here)
@@ -370,7 +428,7 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
     const h = cacheUp && f.kind === 'read' && API_TYPES.has(n.type) ? hitRatio(cacheNode) : 0
     if (cacheNode) {
       ctx.load.set(cacheNode.id, (ctx.load.get(cacheNode.id) ?? 0) + rate * a)
-      if (ctx.record) atNode(f.i, cacheNode.id).arrived += rate * a * 60
+      if (ctx.record) recAt(ctx, f, cacheNode.id).arrived += rate * a * 60
     }
     let callRate = rate * a * (1 - h)
     // A load balancer or gateway sends each request to one box behind it, not to all of them. With `via` the traffic
@@ -396,7 +454,13 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
         if (named.length) calls = named
       }
       if (n.type === 'load-balancer') {
-        const up = calls.filter((e) => !st.down.has(e.to) && !st.hang.has(e.to))
+        // its health check asks each box behind it. A gateway only proxies, so it is healthy while an API behind it
+        // is; an API answers its health check itself, even when something it calls is down.
+        const working = (x) => !st.down.has(x) && !st.hang.has(x)
+        const healthy = (x, depth = 0) =>
+          working(x) &&
+          (!ROUTERS.has(byId.get(x).type) || depth > 3 || out(x).some((e) => !isMessaging(byId.get(e.to)) && healthy(e.to, depth + 1)))
+        const up = calls.filter((e) => healthy(e.to))
         if (up.length) calls = up
         // active/passive: everything goes to the first box connected that is up
         if (c.mode === 'failover') calls = calls.slice(0, 1)
@@ -407,6 +471,11 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
       }
       next = next.filter((e) => isMessaging(byId.get(e.to)) || calls.includes(e))
     }
+    // A queue this box consumes itself (an orchestrator's step queue, a pending queue) beside its direct calls keeps
+    // only what the direct calls could not finish: those requests are answered as accepted and done later.
+    const ownQueue = (e) => isMessaging(byId.get(e.to)) && consumersOf(e.to).some((x) => x.id === id)
+    const pending = next.some((e) => !ownQueue(e)) ? next.filter(ownQueue) : []
+    if (pending.length) next = next.filter((e) => !ownQueue(e))
     const results = []
     const shares = []
     for (const e of next) {
@@ -415,7 +484,7 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
       if (isMessaging(to)) {
         // a publish: done once the broker has the message
         ctx.load.set(to.id, (ctx.load.get(to.id) ?? 0) + callRate)
-        if (ctx.record) atNode(f.i, to.id).arrived += callRate * 60
+        if (ctx.record) recAt(ctx, f, to.id).arrived += callRate * 60
         if (st.down.has(to.id) || st.hang.has(to.id)) results.push(failed(`${describeNode(to)} is down, so the message could not be sent`, DOWN_MS))
         else {
           if (ctx.record) ctx.published.push({ queue: to.id, count: callRate * 60 * split, flow: f.i, seen: ctx.seen ?? [] })
@@ -460,7 +529,23 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
       })
     }
 
-    const sAll = results.reduce((p, r) => p * r.s, 1)
+    const sDirect = results.reduce((p, r) => p * r.s, 1)
+    let parked = 0
+    let parkMs = 0
+    if (pending.length && sDirect < 1) {
+      const rest = callRate * (1 - sDirect)
+      for (const e of pending) {
+        const to = byId.get(e.to)
+        ctx.load.set(to.id, (ctx.load.get(to.id) ?? 0) + rest)
+        if (ctx.record) recAt(ctx, f, to.id).arrived += rest * 60
+        if (st.down.has(to.id) || st.hang.has(to.id)) continue
+        if (ctx.record) ctx.published.push({ queue: to.id, count: rest * 60 * split, flow: f.i, seen: ctx.seen ?? [] })
+        parked = 1 - sDirect
+        parkMs = Math.max(parkMs, ownMs(to, st))
+      }
+    }
+    const sAll = sDirect + parked
+    if (parked) results.push({ ...result(1, parkMs), published: parked })
     const childMs = c.calls === 'in parallel' ? Math.max(0, ...results.map((r) => r.ms)) : sum(results.map((r) => r.ms))
     const total = own + (cacheNode ? OWN_MS.cache : 0) + (1 - h) * childMs
     const heldMs = Number.isFinite(total) ? total : Number(c.timeoutMs) || 10000
@@ -520,7 +605,11 @@ export function simulateArch(diagram, simulation = {}, test = {}) {
     const consumers = consumersOf(qid)
     const bound = out(qid).some((e) => isMessaging(byId.get(e.to)))
     if (bound && !consumers.length) return
-    const lanes = SHARED.has(n.type) || !consumers.length ? ['*'] : consumers.map((c) => c.id)
+    // a topic gives every subscriber a copy, but only the subscribers on this flow's route are followed: the others
+    // (a data warehouse, another team's service) take their copy and are not part of this test
+    const routed = consumers.filter((c) => onRoute(c.id, flows[flow]))
+    if (!SHARED.has(n.type) && consumers.length && !routed.length) return
+    const lanes = SHARED.has(n.type) || !consumers.length ? ['*'] : routed.map((c) => c.id)
     for (const lane of lanes) {
       if (!q.lanes.has(lane)) q.lanes.set(lane, [])
       q.lanes.get(lane).push({ count, attempt, flow, seen: passed, poison })

@@ -582,8 +582,11 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   // UC-118
   // One small delivery worker cannot keep up with 150 slow endpoints a second.
   await failsOn('uc-118', 'Run: The 08:00 peak', (d) => set(d, 'dlv', { replicas: undefined, vCores: undefined }))
-  // Dead-lettered after the first failure, so a short blip loses webhooks to the DLQ.
-  await failsOn('uc-118', 'Run: Some endpoints fail for half an hour', (d) => set(d, 'dq', { maxRedelivery: 1 }))
+  // No retry queue, and dead-lettered after the first failure, so a short blip sends webhooks to the DLQ.
+  await failsOn('uc-118', 'Run: Some endpoints fail for half an hour', (d) => {
+    cut(d, 'dlv ~> retry')
+    set(d, 'dq', { maxRedelivery: 1 })
+  })
 
   // UC-119
   // The insurer System API keeps the default 10 second timeout and gives up on a 12 second call.
