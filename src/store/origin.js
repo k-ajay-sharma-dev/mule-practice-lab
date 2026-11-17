@@ -13,6 +13,7 @@ const LABELS = {
   '/interview': 'Interview Practice',
   '/weak-areas': 'Weak Areas',
   '/mistakes': 'Mistakes',
+  '/dashboard': 'Dashboard',
   '/readiness': 'Readiness',
   '/projects': 'My Projects',
   '/logging': 'Logging Lab',

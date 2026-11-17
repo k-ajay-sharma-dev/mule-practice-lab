@@ -272,6 +272,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
         <div className="side-group">
           <div className="side-group-title">Study</div>
           {item('/', 'path', 'Learning Path', null, true)}
+          {item('/dashboard', 'dashboard', 'Dashboard')}
           {item('/review', 'review', 'Review', dueCount > 0 && <span className="side-badge">{dueCount}</span>)}
           {item('/mock', 'mock', 'Mock Interview')}
           {item('/exam', 'exam', 'Practice Exam')}

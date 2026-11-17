@@ -1,5 +1,6 @@
 // Line icons for the sidebar (24×24, stroke = currentColor), one per destination.
 const PATHS = {
+  dashboard: <path d="M4 20h16M7 16v-4M12 16V8M17 16v-7" />,
   path: <path d="M4 19h4l3-7 3 4 2-3 4 6M4 5h16" />,
   tracks: (
     <>

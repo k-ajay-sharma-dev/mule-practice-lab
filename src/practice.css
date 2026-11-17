@@ -3794,3 +3794,294 @@
 .problem-row.mock-result-row {
   grid-template-columns: 44px minmax(0, 1fr) 110px 110px 150px;
 }
+
+/* ---------- Dashboard: progress by period, charts, sections, points and activity ---------- */
+.pd-page {
+  display: grid;
+  gap: 16px;
+}
+.pd-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pd-head h1 {
+  margin: 0 0 4px;
+}
+.pd-head p.muted {
+  margin: 0;
+}
+.pd-periods {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+.pd-period {
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pd-period:hover {
+  color: var(--text);
+}
+.pd-period.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.pd-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+.pd-kpi .stat-value {
+  font-variant-numeric: tabular-nums;
+}
+.pd-charts,
+.pd-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.pd-card {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.pd-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.pd-card-head h2 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+}
+.pd-link-btn {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.pd-link-btn:hover {
+  text-decoration: underline;
+}
+.pd-chart {
+  position: relative;
+  min-height: 200px;
+}
+.pd-svg-wrap {
+  position: relative;
+}
+.pd-svg-wrap svg {
+  display: block;
+  overflow: visible;
+}
+.pd-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.pd-tick {
+  fill: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.pd-bar-mark {
+  fill: var(--accent);
+}
+.pd-bar-mark.dim {
+  fill: color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+.pd-bar-mark.hot {
+  fill: var(--accent-strong);
+}
+.pd-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.pd-area {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.pd-cross {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.pd-dot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.pd-end-label {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pd-tip {
+  position: absolute;
+  display: grid;
+  gap: 1px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+  color: var(--text);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.pd-tip span {
+  color: var(--muted);
+}
+.pd-table-wrap {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.pd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.pd-table th,
+.pd-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.pd-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.pd-rows {
+  display: grid;
+  gap: 4px;
+}
+.pd-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 34px minmax(48px, 1fr) 62px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+a.pd-row:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+.pd-row-name {
+  min-width: 0;
+  line-height: 1.25;
+}
+.pd-row-now {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.pd-row-now.zero {
+  color: var(--muted);
+  font-weight: 400;
+}
+.pd-row-count {
+  text-align: right;
+}
+.pd-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+.pd-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.pd-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.pd-solved {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pd-solved li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pd-solved li:last-child {
+  border-bottom: none;
+}
+.pd-solved-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pd-solved-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 1100px) {
+  .pd-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .pd-charts,
+  .pd-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pd-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pd-periods {
+    width: 100%;
+  }
+  .pd-period {
+    flex: 1;
+    padding: 0 6px;
+  }
+}

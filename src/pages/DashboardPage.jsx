@@ -1,55 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { independence } from '../study/independence.js'
-import { CATEGORIES, categoryBySlug } from '../data/categories.js'
+import { categoryBySlug } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { currentStage, PHASES, phaseProblems } from '../data/roadmap.js'
-import { statusOf, todayKey, useActivity, useProgress, useReview } from '../store/progress.js'
+import { statusOf, todayKey, useProgress, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge } from '../components/Badges.jsx'
 import Pagination, { paginate } from '../components/Pagination.jsx'
 import TodayPlan from '../components/TodayPlan.jsx'
 import { signIn, useSyncStatus } from '../sync/status.js'
-import { POINTS, usePoints } from '../store/points.js'
-
-// Points earned so far, the level they give, and how close the next level is.
-function PointsCard() {
-  const { total, level, name, into, need, solved } = usePoints()
-  const pct = Math.round((into / need) * 100)
-  return (
-    <section className="points-card" id="points">
-      <div className="points-card-level">
-        <span className="points-badge">
-          <span className="small">Level</span>
-          <strong>{level}</strong>
-        </span>
-        <div>
-          <div className="points-name">{name}</div>
-          <div className="points-total">
-            <span className="points-star">★</span> {total} points earned
-          </div>
-        </div>
-      </div>
-      <div className="points-card-next">
-        <div className="points-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to the next level">
-          <div style={{ width: `${pct}%` }} />
-        </div>
-        <div className="small muted">
-          {need - into} points to Level {level + 1}. {solved} solved {solved === 1 ? 'problem' : 'problems'} so far.
-        </div>
-        <div className="small muted">
-          A problem gives{' '}
-          {Object.entries(POINTS)
-            .map(([l, p]) => `${p} (${l.toLowerCase()})`)
-            .join(', ')}
-          .
-        </div>
-      </div>
-      <Link to="/calm" className="btn btn-ghost btn-sm points-calm">
-        Need a pause? Calm Corner
-      </Link>
-    </section>
-  )
-}
 
 const PHASE_PAGE_SIZE = 10
 
@@ -100,47 +58,8 @@ function nextUnsolved(p, progress) {
   return null
 }
 
-// Design problems solved without the reference and with at most two hints per check: the habit to grow.
-function OnYourOwn({ progress }) {
-  const stats = useMemo(() => independence(progress), [progress])
-  const rows = [
-    ['flow', 'Flow designs'],
-    ['diagram', 'Architecture diagrams'],
-  ].filter(([k]) => stats[k].solved > 0)
-  if (!rows.length) return null
-  return (
-    <section className="own-card">
-      <div className="practice-head">
-        <span className="stat-label">Designed on your own</span>
-        <span className="muted small">No reference, at most two hints per step</span>
-      </div>
-      {rows.map(([k, label]) => {
-        const s = stats[k]
-        const pct = Math.round((s.own / s.solved) * 100)
-        return (
-          <div key={k} className="own-row">
-            <div className="own-line">
-              <b>{label}</b>
-              <span>
-                {s.own} of {s.solved} solved <span className="muted">({pct}%)</span>
-              </span>
-            </div>
-            <div className="own-bar" aria-hidden="true">
-              <span style={{ width: `${pct}%` }} />
-            </div>
-            <span className="muted small">
-              {s.rebuilt} rebuilt from memory · {s.answer} seen the answer, not yet rebuilt · {s.hints} hint{s.hints === 1 ? '' : 's'} used
-            </span>
-          </div>
-        )
-      })}
-    </section>
-  )
-}
-
 export default function DashboardPage() {
   const progress = useProgress()
-  const activity = useActivity()
   const review = useReview()
   const sync = useSyncStatus()
   const [openPhase, setOpenPhase] = useState(null)
@@ -184,6 +103,9 @@ export default function DashboardPage() {
                 Continue: {nextUp.title} →
               </Link>
             )}
+            <Link className="btn btn-ghost" to="/dashboard">
+              See your dashboard
+            </Link>
             <Link className="btn btn-ghost" to="/readiness">
               Check readiness
             </Link>
@@ -200,8 +122,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <PointsCard />
-
       {sync.state === 'signed-out' && (
         <section className="sync-nudge">
           <span>
@@ -217,16 +137,6 @@ export default function DashboardPage() {
       <ContinueCard progress={progress} />
 
       <TodayPlan />
-
-      <section className="stat-row">
-        <Stat label="Current stage" value={activePhase ? `Stage ${activePhase.stage}` : 'Complete'} hint={activePhase?.title} />
-        <Stat label="Solved" value={solved} hint="problems" />
-        <Stat label="In progress" value={count('attempted')} hint="attempted" />
-        <Stat label="To revisit" value={count('revisit')} hint="flagged" />
-        <Stat label="Day streak" value={streak(activity)} hint={`${Object.keys(activity).length} active days`} />
-      </section>
-
-      <OnYourOwn progress={progress} />
 
       <section className="practice-row">
         <div className="practice-card due-card">
@@ -331,43 +241,6 @@ export default function DashboardPage() {
         })}
       </section>
 
-      <div className="dash-columns">
-        <section>
-          <h2 className="section-heading">Tracks</h2>
-          <div className="track-list">
-            {CATEGORIES.map((c) => {
-              const list = problems.filter((p) => p.category === c.slug)
-              const done = list.filter(isSolved).length
-              return (
-                <Link key={c.slug} to={`/${c.slug}`} className="track-row">
-                  <span className="track-name">{c.label}</span>
-                  <div className="progress-bar">
-                    <div style={{ width: `${list.length ? (done / list.length) * 100 : 0}%` }} />
-                  </div>
-                  <span className="mono small muted">
-                    {done}/{list.length}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="section-heading">Activity</h2>
-          <Heatmap activity={activity} />
-        </section>
-      </div>
-    </div>
-  )
-}
-
-function Stat({ label, value, hint }) {
-  return (
-    <div className="stat">
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      {hint && <div className="muted small">{hint}</div>}
     </div>
   )
 }
@@ -391,61 +264,5 @@ function Ring({ pct }) {
         transform="rotate(-90 66 66)"
       />
     </svg>
-  )
-}
-
-// Consecutive active days ending today (or yesterday, so the streak survives until you practise today).
-function streak(activity) {
-  const day = new Date()
-  if (!activity[todayKey(day)]) day.setDate(day.getDate() - 1)
-  let n = 0
-  while (activity[todayKey(day)]) {
-    n++
-    day.setDate(day.getDate() - 1)
-  }
-  return n
-}
-
-const WEEKS = 18
-
-function Heatmap({ activity }) {
-  const end = new Date()
-  const startDay = new Date(end)
-  startDay.setDate(end.getDate() - end.getDay() - (WEEKS - 1) * 7) // start on a Sunday
-
-  const weeks = []
-  for (let w = 0; w < WEEKS; w++) {
-    const days = []
-    for (let d = 0; d < 7; d++) {
-      const date = new Date(startDay)
-      date.setDate(startDay.getDate() + w * 7 + d)
-      const key = todayKey(date)
-      const a = activity[key]
-      const level = !a ? 0 : a.solved >= 2 ? 4 : a.solved === 1 ? 3 : a.actions >= 20 ? 2 : 1
-      days.push({ key, level, future: date > end, a })
-    }
-    weeks.push(days)
-  }
-
-  return (
-    <div className="heatmap-wrap">
-      <div className="heatmap">
-        {weeks.map((days, i) => (
-          <div key={i} className="heat-col">
-            {days.map((d) => (
-              <span
-                key={d.key}
-                className={`heat-cell heat-${d.future ? 'future' : d.level}`}
-                title={d.a ? `${d.key}: ${d.a.solved} solved, ${d.a.actions} actions` : d.key}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="heat-legend muted small">
-        Less <span className="heat-cell heat-0" /> <span className="heat-cell heat-1" /> <span className="heat-cell heat-2" />{' '}
-        <span className="heat-cell heat-3" /> <span className="heat-cell heat-4" /> More
-      </div>
-    </div>
   )
 }
