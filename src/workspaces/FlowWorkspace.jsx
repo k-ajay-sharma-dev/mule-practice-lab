@@ -6,6 +6,7 @@ import Markdown from '../components/Markdown.jsx'
 import { ladderFor, PlanBox, RebuildBanner, recordHint, revealReference, RevealGate, startRebuild } from '../components/PracticeAids.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
+import SplitHandle, { useSplit } from '../components/SplitHandle.jsx'
 import { designChecks, missingHint, runChecks } from '../flow/checks.js'
 import { compareDesigns } from '../flow/compare.js'
 import { countComponents, emptyDesign, restoreDesign } from '../flow/model.js'
@@ -120,6 +121,9 @@ export default function FlowWorkspace({ problem, guided = true }) {
   // full screen: null, 'reference', 'mine', or 'both' (the reference on the left, your design on the right)
   const [full, setFull] = useState(null)
   const hasReference = Boolean(entry.revealed && problem.referenceFlow)
+  const hasTests = Boolean(problem.simulation?.tests?.length)
+  const [runOpen, setRunOpen] = useState(false)
+  const [split, setSplit] = useSplit()
 
   useEffect(() => {
     if (!full) return
@@ -170,7 +174,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const passed = results?.filter((r) => r.pass).length ?? 0
 
   return (
-    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}`}>
+    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
       <section className="panel left-panel">
         <div className="panel-tabs">
           {TABS.filter((t) => t !== 'run' || problem.simulation?.tests?.length).map((t) => (
@@ -298,6 +302,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
       </section>
 
       <section className="panel right-panel">
+        <SplitHandle onChange={setSplit} />
         {guided && (
           <StepGuide
             steps={steps}
@@ -319,11 +324,34 @@ export default function FlowWorkspace({ problem, guided = true }) {
           history={history}
           toolbarEnd={
             <>
+              {hasTests && (
+                <button
+                  className={`btn btn-sm run-toggle${runOpen ? ' active' : ''}`}
+                  onClick={() => setRunOpen(!runOpen)}
+                  title="Run the test messages and see the results under the canvas"
+                >
+                  ▶ Run tests
+                </button>
+              )}
               {hasReference && sideButton}
               {full === 'both' ? null : fullButton('mine', 'Open your design full screen')}
             </>
           }
         />
+        {hasTests && runOpen && (
+          <div className="run-drawer">
+            <div className="run-drawer-head">
+              <b className="small">Test run</b>
+              <span className="muted small">Runs your design as it is now. Change it and run again.</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setRunOpen(false)} aria-label="Close the test run">
+                ✕
+              </button>
+            </div>
+            <div className="run-drawer-body">
+              <RunPanel design={design} simulation={problem.simulation} />
+            </div>
+          </div>
+        )}
       </section>
 
       {full && <div className="io-backdrop" onClick={() => setFull(null)} aria-hidden="true" />}

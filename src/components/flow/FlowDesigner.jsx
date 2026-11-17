@@ -187,6 +187,36 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     }
   }
 
+  const body = (
+    <div className="designer-body">
+      {!readOnly && <Palette armed={armed} setArmed={setArmed} />}
+      <div className="canvas" onClick={() => setSelectedId(null)}>
+        {placing && (
+          <div className="armed-hint">
+            <span>
+              {armed ? 'Placing' : 'Moving'}{' '}
+              <strong>{COMPONENTS[armed ?? findItem(design, moving)?.item.type]?.label}</strong>: tap a highlighted slot
+            </span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                cancelPlacing()
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {design.flows.map((f) => (
+          <FlowView key={f.id} flow={f} />
+        ))}
+    </div>
+    {!readOnly && <Properties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
+
+    {aside && <ReadOnlyProperties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
+    </div>
+  )
   return (
     <Ctx.Provider value={ctx}>
       <div
@@ -203,9 +233,12 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
             <button className={view === 'xml' ? 'active' : ''} onClick={() => setView('xml')}>
               Configuration XML
             </button>
+            <button className={view === 'split' ? 'active' : ''} onClick={() => setView('split')} title="The canvas and its XML side by side: change either one">
+              Split
+            </button>
           </div>
-          {readOnly && view === 'design' && <span className="muted small">Click a component to see its settings</span>}
-          {!readOnly && view === 'design' && (
+          {readOnly && view !== 'xml' && view !== 'paste' && <span className="muted small">Click a component to see its settings</span>}
+          {!readOnly && (view === 'design' || view === 'split') && (
             <div className="toolbar-actions">
               {history && (
                 <>
@@ -289,34 +322,13 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               </button>
             </div>
           </div>
-        ) : (
-          <div className="designer-body">
-            {!readOnly && <Palette armed={armed} setArmed={setArmed} />}
-            <div className="canvas" onClick={() => setSelectedId(null)}>
-              {placing && (
-                <div className="armed-hint">
-                  <span>
-                    {armed ? 'Placing' : 'Moving'}{' '}
-                    <strong>{COMPONENTS[armed ?? findItem(design, moving)?.item.type]?.label}</strong>: tap a highlighted slot
-                  </span>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      cancelPlacing()
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-              {design.flows.map((f) => (
-                <FlowView key={f.id} flow={f} />
-              ))}
-            </div>
-            {!readOnly && <Properties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
-            {aside && <ReadOnlyProperties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
+        ) : view === 'split' ? (
+          <div className="designer-split">
+            {body}
+            <XmlView design={design} readOnly={readOnly} onChange={onChange} />
           </div>
+        ) : (
+          body
         )}
       </div>
     </Ctx.Provider>
@@ -755,7 +767,17 @@ function Properties({ selectedId, onDeselect }) {
       </button>
       <div className="properties-title">{title}</div>
       {fields.length === 0 && <p className="muted small">No settings for this element.</p>}
-      {fields.map((f) => (
+      {fields.map((f) =>
+        f.type === 'expression' || f.type === 'textarea' ? (
+          // expressions and scripts get a code editor: highlighting, brackets and undo, like in Anypoint Studio
+          <div key={`${item.id}-${f.key}`} className="field code-field">
+            <span>{f.label}</span>
+            <div className={`code-field-box${f.type === 'textarea' ? ' tall' : ''}`}>
+              <CodeEditor compact value={String(values[f.key] ?? '')} language={/sql/i.test(f.key) ? 'sql' : 'dataweave'} onChange={(v) => set(f.key, v ?? '')} />
+            </div>
+            {f.help && <small className="field-help muted">{f.help}</small>}
+          </div>
+        ) : (
         <label key={f.key} className="field">
           <span>{f.label}</span>
           {f.type === 'select' ? (
@@ -777,7 +799,8 @@ function Properties({ selectedId, onDeselect }) {
           )}
           {f.help && <small className="field-help muted">{f.help}</small>}
         </label>
-      ))}
+        ),
+      )}
       {!ctx.isFlow && !ctx.isRoute && COMPONENTS[item.type].routeFields?.length > 0 && (
         <p className="muted small">
           Click a {COMPONENTS[item.type].routeLabel} header on the canvas to set{' '}

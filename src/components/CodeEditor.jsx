@@ -25,7 +25,8 @@ export default function CodeEditor(given) {
   )
 }
 
-function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%' }) {
+// compact: a small field (a setting's expression), with no line numbers or folding margin
+function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%', compact = false }) {
   const { theme } = useTheme()
   // Keep the latest onRun so the Ctrl+Enter command never calls a stale closure.
   const runRef = useRef(onRun)
@@ -57,7 +58,8 @@ function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnl
         wordWrap: 'on',
         tabSize: 2,
         automaticLayout: true,
-        padding: { top: 10 },
+        padding: { top: compact ? 4 : 10 },
+        ...(compact && { lineNumbers: 'off', folding: false, glyphMargin: false, lineDecorationsWidth: 4, fontSize: 13, renderLineHighlight: 'none' }),
       }}
     />
   )

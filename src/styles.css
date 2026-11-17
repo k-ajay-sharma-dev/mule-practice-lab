@@ -2024,11 +2024,99 @@ textarea:focus {
 
 /* Flow problem layout */
 .workspace.flow-workspace {
-  grid-template-columns: minmax(300px, 4fr) minmax(0, 9fr);
+  grid-template-columns: minmax(280px, var(--left-w, 31%)) minmax(0, 1fr);
 }
 .flow-workspace .right-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
+}
+/* drag the edge of the canvas panel to give the scenario or the canvas more room */
+.split-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -11px;
+  z-index: 5;
+  width: 8px;
+  border-radius: 4px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.split-handle:hover,
+body.dragging-split .split-handle {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+body.dragging-split {
+  cursor: col-resize;
+  user-select: none;
+}
+@media (max-width: 1400px) {
+  .app:not(.sidebar-collapsed) .split-handle {
+    display: none;
+  }
+}
+@media (max-width: 1200px) {
+  .split-handle {
+    display: none;
+  }
+}
+/* the canvas and its XML side by side */
+.designer-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
+}
+.designer-split .designer-body {
+  min-width: 0;
+  grid-template-columns: 160px minmax(0, 1fr) 220px;
+}
+.designer-split .designer-xml {
+  min-height: 0;
+  border-left: 1px solid var(--border);
+}
+/* expressions and scripts in the settings panel */
+.code-field-box {
+  height: 76px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.code-field-box.tall {
+  height: 200px;
+}
+.code-field-box .copy-btn {
+  display: none;
+}
+/* test results under the canvas */
+.run-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.run-drawer {
+  flex: 0 0 42%;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  border-top: 2px solid var(--accent);
+  background: var(--surface);
+}
+.run-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.run-drawer-head .btn {
+  margin-left: auto;
+}
+.run-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
 }
 .flow-workspace .designer {
   flex: 1;

@@ -5,6 +5,7 @@ import ExplainPanel from '../components/ExplainPanel.jsx'
 import Markdown from '../components/Markdown.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
+import SplitHandle, { useSplit } from '../components/SplitHandle.jsx'
 import { archChecks, diagramHint, runDiagramChecks } from '../arch/checks.js'
 import { runArchTest } from '../arch/tests.js'
 import { landscapeOf } from '../arch/landscape.js'
@@ -60,6 +61,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
   const [tab, setTab] = useState('scenario')
   const [results, setResults] = useState(null)
   const [picked, setPicked] = useState(0)
+  const [split, setSplit] = useSplit()
   const { reference, task, simulation } = problem.diagram
   const checks = useMemo(() => archChecks(problem), [problem])
   const hasRuns = Boolean(simulation?.tests?.length)
@@ -91,7 +93,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
   )
 
   return (
-    <div className="workspace flow-workspace">
+    <div className="workspace flow-workspace" style={split ? { '--left-w': `${split}%` } : undefined}>
       <section className="panel left-panel">
         <div className="panel-tabs">
           {TABS.filter(([key]) => key !== 'run' || hasRuns).map(([key, label]) => (
@@ -176,6 +178,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
       </section>
 
       <section className="panel right-panel">
+        <SplitHandle onChange={setSplit} />
         {guided && (
           <StepGuide
             steps={steps}
