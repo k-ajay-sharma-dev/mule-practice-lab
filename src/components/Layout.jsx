@@ -353,12 +353,14 @@ function SyncBadge() {
     'signed-out': 'Not signed in — progress is only in this browser. Click to sign in.',
     syncing: 'Saving to your account…',
     synced: `Progress saved to your Google account${sync.user?.email ? ` (${sync.user.email})` : ''}`,
-    offline: 'Offline — changes will sync when you are back online',
-    error: `Sync problem: ${sync.error ?? 'unknown error'}`,
+    offline: 'You are offline. Your work is saved in this browser and syncs when you are back online.',
+    error: `Your work is saved in this browser. Sync will try again by itself. (${sync.error ?? 'unknown error'})`,
   }[sync.state]
+  const waiting = sync.user && (sync.state === 'offline' || sync.state === 'error')
   return (
-    <Link to="/settings" className={`icon-btn sync-badge sync-${sync.state}`} aria-label={title} title={title}>
+    <Link to="/settings" className={`icon-btn sync-badge sync-${sync.state}${waiting ? ' sync-waiting' : ''}`} aria-label={title} title={title}>
       <CloudIcon off={sync.state === 'signed-out'} />
+      {waiting && <span className="sync-note">Saved here · syncs later</span>}
     </Link>
   )
 }
@@ -392,14 +394,61 @@ function HeaderSearch() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  function submit(e) {
-    e.preventDefault()
+  // results while you type; the search code loads the first time the box is used, so the site stays light
+  const [hits, setHits] = useState([])
+  const [total, setTotal] = useState(0)
+  const [active, setActive] = useState(-1)
+  const [openList, setOpenList] = useState(false)
+  useEffect(() => {
     const q = query.trim()
-    navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search')
+    if (!q) {
+      setHits([])
+      setTotal(0)
+      return
+    }
+    let gone = false
+    const t = setTimeout(() => {
+      import('../data/search.js').then(({ searchProblems }) => {
+        if (gone) return
+        const all = searchProblems(q)
+        setHits(all.slice(0, 8))
+        setTotal(all.length)
+        setActive(-1)
+      })
+    }, 120)
+    return () => {
+      gone = true
+      clearTimeout(t)
+    }
+  }, [query])
+
+  function done(to) {
+    navigate(to)
     setQuery('')
+    setOpenList(false)
     input.current?.blur()
   }
 
+  function submit(e) {
+    e.preventDefault()
+    const q = query.trim()
+    if (active >= 0 && hits[active]) return done(`/${hits[active].category}/${hits[active].id}`)
+    done(q ? `/search?q=${encodeURIComponent(q)}` : '/search')
+  }
+
+  function onKeyDown(e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!hits.length) return
+      e.preventDefault()
+      setOpenList(true)
+      setActive((a) => (e.key === 'ArrowDown' ? (a + 1) % hits.length : (a <= 0 ? hits.length : a) - 1))
+    } else if (e.key === 'Escape') {
+      setOpenList(false)
+      input.current?.blur()
+    }
+  }
+
+  const showList = openList && query.trim() !== ''
   return (
     <form className="header-search" role="search" onSubmit={submit}>
       <SearchIcon />
@@ -409,10 +458,46 @@ function HeaderSearch() {
         type="search"
         placeholder="Search problems, tags, IDs…"
         aria-label="Search all problems"
+        aria-expanded={showList}
+        aria-controls="header-search-list"
+        aria-activedescendant={active >= 0 ? `hs-${active}` : undefined}
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setOpenList(true)
+        }}
+        onFocus={() => setOpenList(true)}
+        onBlur={() => setTimeout(() => setOpenList(false), 150)}
+        onKeyDown={onKeyDown}
       />
       <kbd className="kbd">/</kbd>
+      {showList && (
+        <ul className="header-search-list" id="header-search-list" role="listbox">
+          {hits.length === 0 && <li className="muted small header-search-empty">No problems match yet</li>}
+          {hits.map((p, i) => (
+            <li key={p.id} id={`hs-${i}`} role="option" aria-selected={i === active}>
+              <a
+                href={`#/${p.category}/${p.id}`}
+                className={i === active ? 'active' : ''}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  done(`/${p.category}/${p.id}`)
+                }}
+              >
+                <span className="mono muted small">{p.id.toUpperCase()}</span>
+                <span className="header-search-title">{p.title}</span>
+              </a>
+            </li>
+          ))}
+          {total > hits.length && (
+            <li>
+              <button type="submit" className="link-btn small header-search-all" onMouseDown={(e) => e.preventDefault()} onClick={() => setActive(-1)}>
+                See all {total} results
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
     </form>
   )
 }

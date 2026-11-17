@@ -10,13 +10,14 @@ import { archChecks, diagramHint, runDiagramChecks } from '../arch/checks.js'
 import { runArchTest } from '../arch/tests.js'
 import { landscapeOf } from '../arch/landscape.js'
 import { emptyDiagram, restoreDiagram } from '../arch/model.js'
-import { ladderFor, PlanBox, RebuildBanner, recordHint, startRebuild } from '../components/PracticeAids.jsx'
+import { ladderFor, PlanBox, RebuildBanner, recordHint, recordHints, startRebuild } from '../components/PracticeAids.jsx'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { diagramSteps } from '../study/steps.js'
 import { useAutosave } from './useAutosave.js'
 import NotesBox from './NotesBox.jsx'
 import { useUndo } from './useUndo.js'
 
+import { useProblemTab } from '../store/view.js'
 const TABS = [
   ['scenario', 'Scenario'],
   ['checks', 'Checks'],
@@ -58,7 +59,7 @@ function Landscape({ reference }) {
 export default function ArchWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
   const [diagram, setDiagram, history] = useUndo(() => restoreDiagram(entry.diagram))
-  const [tab, setTab] = useState('scenario')
+  const [tab, setTab] = useProblemTab(problem.id, 'scenario', TABS.map(([k]) => k))
   const [results, setResults] = useState(null)
   const [picked, setPicked] = useState(0)
   const [split, setSplit] = useSplit()
@@ -159,7 +160,11 @@ export default function ArchWorkspace({ problem, guided = true }) {
           {tab === 'run' && <ArchRunPanel diagram={diagram} simulation={simulation} picked={picked} onPick={setPicked} />}
 
           {tab === 'explain' && (
-            <ExplainPanel problem={problem} practice={guided}>
+            <ExplainPanel
+              problem={problem}
+              practice={guided}
+              parts={guided ? { steps, checks, ladder, onPart: (items) => recordHints(problem.id, entry, items, 3) } : null}
+            >
               {reference && (
                 <>
                   <div className="section-title">Reference architecture</div>

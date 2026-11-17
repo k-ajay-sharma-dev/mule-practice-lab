@@ -3,7 +3,7 @@ import FlowDesigner from '../components/flow/FlowDesigner.jsx'
 import RunPanel from '../components/flow/RunPanel.jsx'
 import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
-import { ladderFor, PlanBox, RebuildBanner, recordHint, revealReference, RevealGate, startRebuild } from '../components/PracticeAids.jsx'
+import { ladderFor, PlanBox, RebuildBanner, recordHint, recordHints, revealReference, RevealGate, startRebuild } from '../components/PracticeAids.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
 import SplitHandle, { useSplit } from '../components/SplitHandle.jsx'
@@ -18,6 +18,7 @@ import { useAutosave } from './useAutosave.js'
 import NotesBox from './NotesBox.jsx'
 import { useUndo } from './useUndo.js'
 
+import { useProblemTab } from '../store/view.js'
 const TABS = ['scenario', 'checks', 'run', 'reference', 'notes']
 const RATINGS = [
   { status: 'solved', label: 'Solved' },
@@ -116,7 +117,7 @@ function SystemsList({ design }) {
 export default function FlowWorkspace({ problem, guided = true }) {
   const entry = useEntry(problem.id)
   const [design, setDesign, history] = useUndo(() => restoreDesign(entry.flow))
-  const [tab, setTab] = useState('scenario')
+  const [tab, setTab] = useProblemTab(problem.id, 'scenario', TABS)
   const [results, setResults] = useState(null)
   // full screen: null, 'reference', 'mine', or 'both' (the reference on the left, your design on the right)
   const [full, setFull] = useState(null)
@@ -239,7 +240,11 @@ export default function FlowWorkspace({ problem, guided = true }) {
 
           {tab === 'reference' &&
             (!entry.revealed ? (
-              <RevealGate entry={entry} onReveal={() => revealReference(problem.id)}>
+              <RevealGate
+                entry={entry}
+                onReveal={() => revealReference(problem.id)}
+                parts={guided ? { steps, checks, ladder, onPart: (items) => recordHints(problem.id, entry, items, 3) } : null}
+              >
                 <p className="muted">Finish your design first. Revealing the reference is recorded on this problem.</p>
               </RevealGate>
             ) : (

@@ -55,12 +55,15 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
   const step = steps[at]
   const nextItem = step?.items.find((n) => !results[n]?.pass)
   const level = hint.item === nextItem ? hint.level : 0
+  const hidden = hint.item === nextItem && hint.hidden
   const rung = ladder && nextItem !== undefined ? ladder(nextItem) : null
   function nextHint() {
     const next = level + 1
-    setHint({ item: nextItem, level: next })
+    setHint({ item: nextItem, level: next, hidden: false })
     onHint?.(nextItem, next)
   }
+  // closing the hints keeps how far you went, so opening them again shows the same ones without counting another
+  const setHidden = (h) => setHint({ item: nextItem, level, hidden: h })
   function toggleOpen() {
     try {
       localStorage.setItem(OPEN_KEY, open ? 'no' : 'yes')
@@ -84,9 +87,19 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
           </span>
         )}
         <span className="step-guide-actions">
-          {rung && level < 3 && (
+          {rung && level > 0 && hidden && (
+            <button className="link-btn small hint-btn" onClick={() => setHidden(false)}>
+              💡 Show hints ({level})
+            </button>
+          )}
+          {rung && level < 3 && !hidden && (
             <button className="link-btn small hint-btn" onClick={nextHint} title="Hints go one small step at a time, so you still do the thinking">
               {['💡 Hint', '💡 Hint 2 of 3', '💡 Show this piece of the answer'][level]}
+            </button>
+          )}
+          {rung && level > 0 && !hidden && (
+            <button className="link-btn small" onClick={() => setHidden(true)} title="Close the hints">
+              ✕ Close hint
             </button>
           )}
           {step && (
@@ -104,7 +117,7 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
           </button>
         </span>
       </div>
-      {rung && level > 0 && (
+      {rung && level > 0 && !hidden && (
         <ol className="hint-ladder small">
           <li>
             <b>Think.</b> Which part of the scenario asks for “{checks[nextItem].label}”? What would go wrong without it?

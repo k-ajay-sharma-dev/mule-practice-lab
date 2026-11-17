@@ -3132,3 +3132,134 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* sync: work is safe here while the account can't be reached */
+.sync-badge.sync-waiting {
+  width: auto;
+  gap: 6px;
+  padding: 0 10px;
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+}
+.sync-note {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* search results while typing */
+.header-search-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+.header-search-list a {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--text);
+}
+.header-search-list a:hover,
+.header-search-list a.active {
+  background: var(--surface-2);
+}
+.header-search-list a.active .header-search-title {
+  color: var(--accent);
+}
+.header-search-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.header-search-empty {
+  padding: 8px 10px;
+}
+.header-search-all {
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+}
+
+/* the hints never push the canvas off the screen */
+.hint-ladder {
+  max-height: 32vh;
+  overflow: auto;
+}
+
+/* the reference one part at a time */
+.reveal-parts {
+  margin: 12px 0;
+  text-align: left;
+}
+.reveal-parts ol {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.reveal-parts > ol > li {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.reveal-parts > ol > li.open {
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+}
+.reveal-part-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.reveal-parts ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+/* phones */
+@media (max-width: 700px) {
+  .problem-table {
+    display: grid;
+    gap: 8px;
+    border: none;
+    background: none;
+  }
+  .problem-row {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .continue-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .prev-next {
+    flex-wrap: wrap;
+  }
+  .sync-note {
+    display: none;
+  }
+  .sync-badge.sync-waiting {
+    width: 38px;
+    padding: 0;
+  }
+  .step-guide-next {
+    display: none;
+  }
+  .step-guide-actions {
+    flex-wrap: wrap;
+  }
+}

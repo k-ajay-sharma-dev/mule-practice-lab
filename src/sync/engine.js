@@ -81,6 +81,7 @@ let timer = null
 let running = false
 let again = false
 let lastRun = 0
+let failures = 0
 
 export function start() {
   const app = initializeApp(useEmulator ? EMULATOR_CONFIG : firebaseConfig)
@@ -135,9 +136,15 @@ async function run() {
   setStatus({ state: 'syncing', error: null })
   try {
     await syncOnce(user.uid)
-    setStatus({ state: 'synced', lastSync: Date.now(), error: null })
+    failures = 0
+    setStatus({ state: 'synced', lastSync: Date.now(), error: null, retryAt: null })
   } catch (error) {
-    setStatus(navigator.onLine ? { state: 'error', error: error?.message ?? String(error) } : { state: 'offline' })
+    // the work stays safe in this browser; try again by itself, waiting longer each time (30s, 1m, 2m, up to 5m)
+    failures++
+    const wait = Math.min(30000 * 2 ** (failures - 1), 300000)
+    const retryAt = Date.now() + wait
+    setStatus(navigator.onLine ? { state: 'error', error: error?.message ?? String(error), retryAt } : { state: 'offline', retryAt })
+    if (!again) timer = setTimeout(run, wait)
   } finally {
     running = false
     lastRun = Date.now()

@@ -9,6 +9,7 @@ import ProblemTimer from '../components/ProblemTimer.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import ReadOnlyLock from '../components/ReadOnlyLock.jsx'
 import WideToggle from '../components/WideToggle.jsx'
+import { useScrollMemory } from '../store/view.js'
 import { validTimer } from '../study/timer.js'
 import NotFound from './NotFound.jsx'
 
@@ -16,6 +17,7 @@ export default function ProblemPage() {
   const { category, problemId } = useParams()
   const entry = useEntry(problemId)
   const progress = useProgress()
+  useScrollMemory(problemId)
   const inReview = Boolean(useReview()[problemId])
   const focus = useFocusSession()
   const focusing = Boolean(focus && !focus.endedAt) // the session picks the next problem, so these ways out are hidden

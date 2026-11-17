@@ -12,7 +12,7 @@ const RATINGS = [
 
 // "Explain it" tab: interviews are spoken, so after the exercise the learner practises explaining
 // the answer out loud, then compares with key points, the reference answer and follow-up questions.
-export default function ExplainPanel({ problem, children, practice = false }) {
+export default function ExplainPanel({ problem, children, practice = false, parts = null }) {
   const entry = useEntry(problem.id)
   const checked = (Array.isArray(entry.checkedPoints) ? entry.checkedPoints : [])
   const keyPoints = problem.keyPoints || []
@@ -41,7 +41,7 @@ export default function ExplainPanel({ problem, children, practice = false }) {
     // design problems: hints first, and seeing the answer brings the problem back to rebuild
     if (practice) {
       return (
-        <RevealGate entry={entry} onReveal={() => revealReference(problem.id)}>
+        <RevealGate entry={entry} onReveal={() => revealReference(problem.id)} parts={parts}>
           {prompts}
         </RevealGate>
       )

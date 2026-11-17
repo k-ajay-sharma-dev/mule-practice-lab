@@ -63,10 +63,18 @@ export function ladderFor(description, solution, checks, missing) {
 }
 
 export function recordHint(problemId, entry, index, level) {
+  recordHints(problemId, entry, [index], level)
+}
+
+export function recordHints(problemId, entry, indices, level) {
   const hints = { ...(entry.hints && typeof entry.hints === 'object' ? entry.hints : {}) }
-  if ((hints[index] ?? 0) >= level) return
-  hints[index] = level
-  updateEntry(problemId, { hints })
+  let changed = false
+  for (const i of indices) {
+    if ((hints[i] ?? 0) >= level) continue
+    hints[i] = level
+    changed = true
+  }
+  if (changed) updateEntry(problemId, { hints })
 }
 
 export const hintsUsed = (entry) => Object.values(entry.hints && typeof entry.hints === 'object' ? entry.hints : {}).reduce((a, b) => a + b, 0)
@@ -77,7 +85,52 @@ export function revealReference(problemId) {
   scheduleReview(problemId, false)
 }
 
-export function RevealGate({ entry, onReveal, children }) {
+// The reference one step at a time: each step of the build shows only its own piece of the model answer, and
+// opening one counts as the last hint for those checks. The full reference stays closed.
+// parts: { steps, checks, ladder, onPart(indices) }
+function RevealParts({ parts }) {
+  const [shown, setShown] = useState([])
+  const { steps, checks, ladder, onPart } = parts
+  if (!steps?.length) return null
+  function show(si) {
+    setShown([...shown, si])
+    onPart(steps[si].items)
+  }
+  return (
+    <div className="reveal-parts">
+      <div className="section-title">Open one part only</div>
+      <ol>
+        {steps.map((s, si) => {
+          const open = shown.includes(si)
+          const pieces = open
+            ? [...new Set(s.items.map((i) => ladder(i).piece ?? `${checks[i].label}. ${ladder(i).missing ?? ''}`))]
+            : []
+          return (
+            <li key={s.title} className={open ? 'open' : ''}>
+              <span className="reveal-part-head">
+                <b className="small">{s.title}</b>
+                {!open && (
+                  <button className="link-btn small" onClick={() => show(si)}>
+                    Show this part
+                  </button>
+                )}
+              </span>
+              {open && (
+                <ul className="small">
+                  {pieces.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+export function RevealGate({ entry, onReveal, children, parts }) {
   const used = hintsUsed(entry)
   if (entry.rebuilding) {
     return (
@@ -99,8 +152,9 @@ export function RevealGate({ entry, onReveal, children }) {
         Stuck? Try the 💡 Hint above the canvas first ({used ? `${used} used so far` : 'none used yet'}). Each hint
         shows one small step. Opening the reference puts this problem on your review list, to rebuild from memory.
       </p>
+      {parts && <RevealParts parts={parts} />}
       <button className="btn btn-primary" onClick={onReveal}>
-        Reveal reference
+        Reveal the whole reference
       </button>
     </div>
   )

@@ -9,6 +9,7 @@ import { rate } from '../store/rating.js'
 import NotesBox from './NotesBox.jsx'
 import { useAutosave } from './useAutosave.js'
 
+import { useProblemTab } from '../store/view.js'
 const TABS = ['scenario', 'checks', 'reference', 'notes']
 const RATINGS = [
   { status: 'solved', label: 'Solved' },
@@ -33,7 +34,7 @@ export default function RamlWorkspace({ problem, guided = true }) {
     files: { ...startFiles, ...fromList(entry.ramlFiles) },
   }))
   const [active, setActive] = useState(MAIN)
-  const [tab, setTab] = useState('scenario')
+  const [tab, setTab] = useProblemTab(problem.id, 'scenario', TABS)
   const [results, setResults] = useState(null)
   const [checkedOn, setCheckedOn] = useState(null)
 
