@@ -3820,6 +3820,46 @@
   border-radius: 9px;
   background: var(--surface);
 }
+.pd-filter {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+.pd-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.pd-range label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.pd-range input {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  color-scheme: dark;
+  font: inherit;
+  font-size: 0.85rem;
+}
+:root[data-theme='light'] .pd-range input {
+  color-scheme: light;
+}
+.pd-range input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pd-range-days {
+  font-variant-numeric: tabular-nums;
+}
 .pd-period {
   height: 30px;
   padding: 0 14px;
@@ -3845,6 +3885,10 @@
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
+}
+.pd-note {
+  margin: -6px 0 0;
+  line-height: 1.5;
 }
 .pd-kpi .stat-value {
   font-variant-numeric: tabular-nums;
@@ -4023,7 +4067,12 @@ a.pd-row:hover {
   border-radius: 3px;
   background: var(--accent);
 }
+.pd-split > .pd-card {
+  display: flex;
+  flex-direction: column;
+}
 .pd-review {
+  margin-top: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -4032,37 +4081,157 @@ a.pd-row:hover {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+/* solved table: fixed columns, the title takes the room and is cut with an ellipsis */
 .pd-solved {
   display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
-.pd-solved li {
-  display: flex;
-  flex-wrap: wrap;
+.pd-solved-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px 120px 72px 72px;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px 10px;
-  padding: 6px 0;
+  gap: 14px;
+  min-height: 42px;
+  padding: 0 4px;
   border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
 }
-.pd-solved li:last-child {
+.pd-solved-row:last-of-type {
   border-bottom: none;
 }
-.pd-solved-title {
+.pd-solved-headrow {
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.pd-solved-row:not(.pd-solved-headrow):hover {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.pd-solved-problem {
   min-width: 0;
+}
+.pd-solved-problem a {
+  display: block;
   overflow: hidden;
-  font-size: 0.88rem;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.pd-solved-meta {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.pd-solved-section-sm {
+  display: none;
+}
+.pd-col-section {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pd-col-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pd-more {
+  justify-self: start;
+  margin-top: 10px;
+}
+.pd-empty {
+  margin: 4px 0;
+}
+
+/* activity: the day map takes the card's width, the numbers sit beside it */
+.pd-activity-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  align-items: start;
+  gap: 24px;
+}
+.pd-heat {
+  min-width: 0;
+}
+.pd-heat-months {
+  position: relative;
+  color: var(--muted);
+  font-size: 11px;
+}
+.pd-heat-months span {
+  position: absolute;
+  top: 0;
+}
+.pd-heat-grid {
+  display: flex;
+}
+.pd-heat-days {
+  display: flex;
+  flex-direction: column;
+  width: 30px;
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+}
+.pd-heat-cols,
+.pd-heat-col {
+  display: flex;
+}
+.pd-heat-col {
+  flex-direction: column;
+}
+.pd-heat-legend {
+  justify-content: flex-end;
+}
+.pd-activity-stats {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+.pd-activity-stats dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.pd-activity-stats dd {
+  margin: 2px 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 1000px) {
+  .pd-solved-row {
+    grid-template-columns: minmax(0, 1fr) 110px 64px 64px;
+  }
+  .pd-col-section {
+    display: none;
+  }
+  .pd-solved-section-sm {
+    display: block;
+  }
+  .pd-solved-row:not(.pd-solved-headrow) {
+    padding: 6px 4px;
+  }
+  .pd-activity-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pd-activity-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 12px 0 0;
+    border-top: 1px solid var(--border);
+    border-left: none;
+  }
+}
+@media (max-width: 560px) {
+  .pd-solved-row {
+    grid-template-columns: minmax(0, 1fr) 64px 56px;
+  }
+  .pd-solved-row > :nth-child(3) {
+    display: none;
+  }
+  .pd-activity-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 1100px) {
   .pd-kpis {
@@ -4076,6 +4245,10 @@ a.pd-row:hover {
   }
   .pd-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pd-filter {
+    width: 100%;
+    justify-items: stretch;
   }
   .pd-periods {
     width: 100%;

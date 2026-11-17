@@ -31,6 +31,30 @@ export function solveEvents(progress) {
   return events.sort((a, b) => a.at.localeCompare(b.at))
 }
 
+// Time on attempts not finished yet: problems opened and worked on but not solved, and "Time it again" runs not
+// solved yet. The clock only runs while the problem is open, so the time from the first start to the pause (or to now,
+// while it is open) is the time spent. An attempt left running for over 12 hours was abandoned, as in study/timer.js.
+const STALE_MS = 12 * 3600000
+export function openAttempts(progress, from, to = null, nowMs = Date.now()) {
+  let seconds = 0
+  let count = 0
+  for (const [id, e] of Object.entries(progress)) {
+    const t = e?.timer
+    if (!t || !problemById.has(id) || typeof t.firstStartedAt !== 'string' || typeof t.startedAt !== 'string') continue
+    const first = Date.parse(t.firstStartedAt)
+    const startDay = isNaN(first) ? null : dayKey(new Date(first))
+    if (!startDay || (from && startDay < from) || (to && startDay > to)) continue
+    if (!t.pausedAt && nowMs - Date.parse(t.startedAt) > STALE_MS) continue
+    const end = t.pausedAt ? Date.parse(t.pausedAt) : nowMs
+    const s = Math.max(0, Math.round((end - first) / 1000))
+    if (s > 0) {
+      seconds += s
+      count++
+    }
+  }
+  return { seconds, count }
+}
+
 // The first day each problem was solved
 export function firstSolves(events) {
   const first = new Map()
@@ -43,6 +67,7 @@ export const PERIODS = [
   { key: 'week', label: 'This week' },
   { key: 'month', label: 'This month' },
   { key: 'all', label: 'All time' },
+  { key: 'custom', label: 'Custom' },
 ]
 
 // The first day of a period, as a day key; null means from the start. Weeks start on Monday.
@@ -54,9 +79,9 @@ export function periodStart(key, now = new Date()) {
   return null
 }
 
-// Totals for one period
-export function periodSummary({ events, activity, first, from }) {
-  const inRange = (day) => !from || day >= from
+// Totals for one period, from and to as day keys (either may be null for an open end)
+export function periodSummary({ events, activity, first, from, to = null }) {
+  const inRange = (day) => (!from || day >= from) && (!to || day <= to)
   const evs = events.filter((e) => inRange(e.day))
   const ids = new Set(evs.map((e) => e.id))
   let firstTime = 0
@@ -91,10 +116,33 @@ export function periodSummary({ events, activity, first, from }) {
 
 // Buckets for the charts: days, weeks or months, with how many problems were solved in each and the running total of
 // problems solved at least once by the end of it. `base` counts solved problems that carry no date at all.
-export function buckets({ period, events, activity, first, base, now = new Date() }) {
+export function buckets({ period, events, activity, first, base, from = null, to = null, now = new Date() }) {
   const today = startOfDay(now)
   let list = []
-  if (period === 'today' || period === 'week') {
+  if (period === 'custom' && from && to) {
+    // a day per bar up to about a month, then a week per bar up to half a year, then a month per bar
+    const a = new Date(`${from}T00:00:00`)
+    const b = new Date(`${to}T00:00:00`)
+    const days = Math.round((b - a) / 86400000) + 1
+    if (days <= 35) {
+      for (let i = 0; i < days; i++) {
+        const d = addDays(a, i)
+        list.push({ from: dayKey(d), to: dayKey(d), label: d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), unit: 'day' })
+      }
+    } else if (days <= 190) {
+      for (let d = a; d <= b; d = addDays(d, 7)) {
+        const end = addDays(d, 6) > b ? b : addDays(d, 6)
+        list.push({ from: dayKey(d), to: dayKey(end), label: d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), unit: 'week' })
+      }
+    } else {
+      for (let m = new Date(a.getFullYear(), a.getMonth(), 1); m <= b; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
+        const start = m < a ? a : m
+        const endOfMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0)
+        const end = endOfMonth > b ? b : endOfMonth
+        list.push({ from: dayKey(start), to: dayKey(end), label: `${m.toLocaleDateString(undefined, { month: 'short' })} '${String(m.getFullYear()).slice(2)}`, unit: 'month' })
+      }
+    }
+  } else if (period === 'today' || period === 'week') {
     const n = period === 'today' ? 14 : 28
     for (let i = n - 1; i >= 0; i--) {
       const d = addDays(today, -i)

@@ -6,7 +6,7 @@ import { LevelBadge } from '../components/Badges.jsx'
 import { statusOf, todayKey, useActivity, useProgress, useReview } from '../store/progress.js'
 import { POINTS, usePoints } from '../store/points.js'
 import { independence } from '../study/independence.js'
-import { buckets, firstSolves, formatDuration, PERIODS, periodStart, periodSummary, solveEvents } from '../study/progressStats.js'
+import { buckets, firstSolves, formatDuration, openAttempts, PERIODS, periodStart, periodSummary, solveEvents } from '../study/progressStats.js'
 
 // One screen for how you are doing: what you solved today, this week, this month or in all, a chart of problems
 // solved, the learning graph (problems solved at least once over time), progress per section and level, points,
@@ -14,6 +14,25 @@ import { buckets, firstSolves, formatDuration, PERIODS, periodStart, periodSumma
 const PERIOD_KEY = 'pl.dashboard.period'
 const LEVELS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT']
 const LEVEL_LABEL = { BEGINNER: 'Beginner', INTERMEDIATE: 'Intermediate', ADVANCED: 'Advanced', EXPERT: 'Expert' }
+
+const RANGE_KEY = 'pl.dashboard.range'
+
+// the last 30 days, until a range is picked
+function defaultRange() {
+  const to = new Date()
+  const from = new Date(to.getFullYear(), to.getMonth(), to.getDate() - 29)
+  return { from: from.toLocaleDateString('en-CA'), to: to.toLocaleDateString('en-CA') }
+}
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+const readRange = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(RANGE_KEY))
+    return DAY.test(v?.from) && DAY.test(v?.to) ? v : defaultRange()
+  } catch {
+    return defaultRange()
+  }
+}
+const shortDate = (key) => new Date(`${key}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 
 const readPeriod = () => {
   try {
@@ -38,23 +57,45 @@ export default function ProgressDashboardPage() {
     }
   }
 
+  const [range, setRangeState] = useState(readRange)
+  // From after To swaps them, and no date goes past today
+  const setRange = (next) => {
+    const today = todayKey()
+    let { from, to } = { ...range, ...next }
+    if (!DAY.test(from) || !DAY.test(to)) return
+    if (to > today) to = today
+    if (from > today) from = today
+    if (from > to) [from, to] = [to, from]
+    setRangeState({ from, to })
+    try {
+      localStorage.setItem(RANGE_KEY, JSON.stringify({ from, to }))
+    } catch {
+      // storage blocked: the range lasts for this visit
+    }
+  }
+
   const data = useMemo(() => {
     const events = solveEvents(progress)
     const first = firstSolves(events)
     const solvedNow = problems.filter((p) => statusOf(progress[p.id]) === 'solved').length
     const base = Math.max(0, solvedNow - first.size)
-    const from = periodStart(period)
-    const sum = periodSummary({ events, activity, first, from })
-    const chart = buckets({ period, events, activity, first, base })
-    return { events, first, solvedNow, from, sum, chart }
-  }, [progress, activity, period])
+    const custom = period === 'custom'
+    const from = custom ? range.from : periodStart(period)
+    const to = custom ? range.to : null
+    const sum = periodSummary({ events, activity, first, from, to })
+    const chart = buckets({ period, events, activity, first, base, from, to })
+    const open = openAttempts(progress, from, to)
+    const revisit = problems.filter((p) => statusOf(progress[p.id]) === 'revisit').length
+    return { events, first, solvedNow, from, to, sum, chart, open, revisit }
+  }, [progress, activity, period, range])
 
-  const { sum, chart, from, solvedNow } = data
-  const periodLabel = PERIODS.find((p) => p.key === period).label.toLowerCase()
+  const { sum, chart, from, to, solvedNow, open, revisit } = data
+  const custom = period === 'custom'
+  const periodLabel = custom ? 'in this range' : PERIODS.find((p) => p.key === period).label.toLowerCase()
   const today = todayKey()
   const due = Object.entries(review).filter(([id, r]) => r.due <= today && problemById.has(id)).length
   const unit = chart[0]?.unit ?? 'day'
-  const inPeriod = (b) => !from || b.to >= from
+  const inPeriod = (b) => (!from || b.to >= from) && (!to || b.from <= to)
 
   return (
     <div className="pd-page">
@@ -64,6 +105,7 @@ export default function ProgressDashboardPage() {
           <h1>Dashboard</h1>
           <p className="muted">What you solved, how much time it took, and how your learning is growing.</p>
         </div>
+        <div className="pd-filter">
         <div className="pd-periods" role="tablist" aria-label="Period">
           {PERIODS.map((p) => (
             <button
@@ -77,6 +119,22 @@ export default function ProgressDashboardPage() {
             </button>
           ))}
         </div>
+        {custom && (
+          <div className="pd-range">
+            <label>
+              <span>From</span>
+              <input type="date" value={range.from} max={todayKey()} onChange={(e) => setRange({ from: e.target.value })} />
+            </label>
+            <label>
+              <span>To</span>
+              <input type="date" value={range.to} max={todayKey()} onChange={(e) => setRange({ to: e.target.value })} />
+            </label>
+            <span className="muted small pd-range-days">
+              {Math.round((new Date(`${range.to}T00:00:00`) - new Date(`${range.from}T00:00:00`)) / 86400000) + 1} days
+            </span>
+          </div>
+        )}
+        </div>
       </header>
 
       <section className="pd-kpis">
@@ -85,17 +143,31 @@ export default function ProgressDashboardPage() {
           value={sum.solved}
           hint={sum.solved ? `${sum.firstTime} first time${sum.again ? `, ${sum.again} again` : ''}` : 'Nothing solved yet'}
         />
-        <Kpi label="Time practised" value={formatDuration(sum.seconds)} hint={sum.avgSeconds ? `${formatDuration(sum.avgSeconds)} per solve` : 'Timed solves only'} />
+        <Kpi
+          label="Time practised"
+          value={formatDuration(sum.seconds + open.seconds)}
+          hint={`${formatDuration(sum.seconds)} on solves${open.seconds ? `, ${formatDuration(open.seconds)} on ${open.count} not finished` : ''}`}
+        />
         <Kpi label="Within estimate" value={sum.inTimePct === null ? '–' : `${sum.inTimePct}%`} hint="Solved inside the estimated time" />
         <Kpi label="Active days" value={sum.activeDays} hint={`${sum.actions} practice actions`} />
         <Kpi label="Day streak" value={streak(activity)} hint={`${Object.keys(activity).length} active days in all`} />
-        <Kpi label="Total solved" value={`${solvedNow} / ${problems.length}`} hint={`${problems.length ? Math.round((solvedNow / problems.length) * 100) : 0}% of all problems`} />
+        <Kpi
+          label="Total solved"
+          value={`${solvedNow} / ${problems.length}`}
+          hint={`${problems.length ? Math.round((solvedNow / problems.length) * 100) : 0}% of all problems${revisit ? `, ${revisit} marked Revisit` : ''}`}
+        />
       </section>
+
+      <p className="muted small pd-note">
+        Time counts while a problem page is open, from opening it until it is solved. Leaving the page pauses the clock.
+        Review, mock interviews and flashcards are not timed, and solving an already solved problem is timed only with
+        <i> Time it again</i>. The time for each problem is in the Solved table below.
+      </p>
 
       <section className="pd-charts">
         <ChartCard
           title="Problems solved"
-          sub={period === 'all' ? `Per ${unit}.` : `Per ${unit}. Bright bars are ${periodLabel}.`}
+          sub={period === 'all' || custom ? `Per ${unit}${custom ? `, ${shortDate(range.from)} to ${shortDate(range.to)}` : ''}.` : `Per ${unit}. Bright bars are ${periodLabel}.`}
           rows={chart}
           value={(b) => b.solved}
           tableHead="Solved"
@@ -111,6 +183,16 @@ export default function ProgressDashboardPage() {
         >
           {(w) => <Line rows={chart} width={w} value={(b) => b.total} />}
         </ChartCard>
+      </section>
+
+      <section className="pd-card">
+        <div className="pd-card-head">
+          <div>
+            <h2>Solved {periodLabel}</h2>
+            <span className="muted small">{sum.ids.size ? `${sum.ids.size} ${sum.ids.size === 1 ? 'problem' : 'problems'}, latest first` : 'Latest first'}</span>
+          </div>
+        </div>
+        <SolvedTable events={sum.events} />
       </section>
 
       <section className="pd-split">
@@ -175,26 +257,19 @@ export default function ProgressDashboardPage() {
         </div>
       </section>
 
+      <section className="pd-card pd-activity">
+        <div className="pd-card-head">
+          <div>
+            <h2>Activity</h2>
+            <span className="muted small">Each square is a day. Brighter means more solved.</span>
+          </div>
+        </div>
+        <Activity activity={activity} />
+      </section>
+
       <PointsCard />
 
       <OnYourOwn progress={progress} />
-
-      <section className="pd-split">
-        <div className="pd-card">
-          <div className="pd-card-head">
-            <h2>Solved {periodLabel}</h2>
-            <span className="muted small">{sum.ids.size ? `${sum.ids.size} problems` : ''}</span>
-          </div>
-          <SolvedList events={sum.events} />
-        </div>
-        <div className="pd-card">
-          <div className="pd-card-head">
-            <h2>Activity</h2>
-            <span className="muted small">Last 18 weeks</span>
-          </div>
-          <Heatmap activity={activity} />
-        </div>
-      </section>
     </div>
   )
 }
@@ -399,32 +474,55 @@ function Line({ rows, width, value }) {
   )
 }
 
-// The problems solved in the period, latest first, once each
-function SolvedList({ events }) {
+// The problems solved in the period, latest first, once each, as a table with fixed columns
+function SolvedTable({ events }) {
+  const [all, setAll] = useState(false)
   const latest = new Map()
   for (const e of events) latest.set(e.id, e)
   const list = [...latest.values()].sort((a, b) => b.at.localeCompare(a.at))
-  if (!list.length) return <p className="muted small">Nothing solved in this period yet. Pick a problem and it shows up here.</p>
+  if (!list.length) return <p className="muted small pd-empty">Nothing solved in this period yet. Pick a problem and it shows up here.</p>
+  const shown = all ? list : list.slice(0, 10)
   return (
-    <ul className="pd-solved">
-      {list.slice(0, 12).map((e) => {
+    <div className="pd-solved" role="table" aria-label="Problems solved">
+      <div className="pd-solved-row pd-solved-headrow" role="row">
+        <span role="columnheader">Problem</span>
+        <span role="columnheader" className="pd-col-section">Section</span>
+        <span role="columnheader">Level</span>
+        <span role="columnheader" className="pd-col-num">Time</span>
+        <span role="columnheader" className="pd-col-num">Solved</span>
+      </div>
+      {shown.map((e) => {
         const p = problemById.get(e.id)
+        const section = categoryBySlug.get(p.category)?.label
         return (
-          <li key={e.id}>
-            <Link to={`/${p.category}/${p.id}`} className="pd-solved-title">
-              {p.title}
-            </Link>
-            <span className="pd-solved-meta">
-              <span className="muted small">{categoryBySlug.get(p.category)?.label}</span>
-              <LevelBadge level={p.level} />
-              {e.seconds > 0 && <span className="mono small muted">{formatDuration(e.seconds)}</span>}
-              <span className="small muted">{new Date(e.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+          <div key={e.id} className="pd-solved-row" role="row">
+            <span role="cell" className="pd-solved-problem">
+              <Link to={`/${p.category}/${p.id}`} title={p.title}>
+                {p.title}
+              </Link>
+              <span className="muted small pd-solved-section-sm">{section}</span>
             </span>
-          </li>
+            <span role="cell" className="muted pd-col-section">
+              {section}
+            </span>
+            <span role="cell">
+              <LevelBadge level={p.level} />
+            </span>
+            <span role="cell" className="mono muted pd-col-num">
+              {e.seconds > 0 ? formatDuration(e.seconds) : '–'}
+            </span>
+            <span role="cell" className="muted pd-col-num">
+              {new Date(e.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+            </span>
+          </div>
         )
       })}
-      {list.length > 12 && <li className="muted small">+ {list.length - 12} more</li>}
-    </ul>
+      {list.length > 10 && (
+        <button className="pd-link-btn small pd-more" onClick={() => setAll(!all)}>
+          {all ? 'Show the latest 10' : `Show all ${list.length}`}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -518,46 +616,124 @@ function streak(activity) {
   return n
 }
 
-const WEEKS = 18
+const GAP = 3
+const DAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', '']
 
-function Heatmap({ activity }) {
-  const end = new Date()
-  const startDay = new Date(end)
-  startDay.setDate(end.getDate() - end.getDay() - (WEEKS - 1) * 7) // start on a Sunday
+// A year of days at most, Monday at the top, sized to the card: as many weeks as fit, and squares as large as fit.
+// Beside it, the numbers for the same range.
+function Activity({ activity }) {
+  const [ref, width] = useWidth()
+  const gridW = Math.max(0, width - 30)
+  const weeks = Math.max(8, Math.min(53, Math.floor((gridW + GAP) / (11 + GAP))))
+  const cell = Math.max(10, Math.min(16, Math.floor((gridW - (weeks - 1) * GAP) / weeks)))
 
-  const weeks = []
-  for (let w = 0; w < WEEKS; w++) {
+  const today = new Date()
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7))
+  const start = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - (weeks - 1) * 7)
+  const cols = []
+  const months = []
+  let lastMonth = -1
+  let active = 0
+  let solved = 0
+  let best = null
+  for (let w = 0; w < weeks; w++) {
     const days = []
     for (let d = 0; d < 7; d++) {
-      const date = new Date(startDay)
-      date.setDate(startDay.getDate() + w * 7 + d)
+      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + d)
       const key = todayKey(date)
       const a = activity[key]
-      const level = !a ? 0 : a.solved >= 2 ? 4 : a.solved === 1 ? 3 : a.actions >= 20 ? 2 : 1
-      days.push({ key, level, future: date > end, a })
+      const future = date > today
+      if (a && !future) {
+        active++
+        solved += a.solved || 0
+        if (!best || (a.solved || 0) > best.solved) best = { key, solved: a.solved || 0 }
+      }
+      const level = !a ? 0 : a.solved >= 3 ? 4 : a.solved === 2 ? 3 : a.solved === 1 ? 2 : 1
+      days.push({ key, level, future, a, date })
+      if (d === 0 && date.getMonth() !== lastMonth) {
+        months.push({ w, label: date.toLocaleDateString(undefined, { month: 'short' }) })
+        lastMonth = date.getMonth()
+      }
     }
-    weeks.push(days)
+    cols.push(days)
   }
+  const step = cell + GAP
 
   return (
-    <div className="heatmap-wrap">
-      <div className="heatmap">
-        {weeks.map((days, i) => (
-          <div key={i} className="heat-col">
-            {days.map((d) => (
-              <span
-                key={d.key}
-                className={`heat-cell heat-${d.future ? 'future' : d.level}`}
-                title={d.a ? `${d.key}: ${d.a.solved} solved, ${d.a.actions} actions` : d.key}
-              />
-            ))}
-          </div>
-        ))}
+    <div className="pd-activity-body">
+      <div ref={ref} className="pd-heat">
+        {width > 0 && (
+          <>
+            <div className="pd-heat-months" style={{ marginLeft: 30, height: 16 }}>
+              {months.map((m, i) =>
+                // skip a label that would run into the next one
+                i < months.length - 1 && (months[i + 1].w - m.w) * step < 28 ? null : (
+                  <span key={m.w} style={{ left: m.w * step }}>
+                    {m.label}
+                  </span>
+                ),
+              )}
+            </div>
+            <div className="pd-heat-grid">
+              <div className="pd-heat-days" style={{ gap: GAP }}>
+                {DAY_LABELS.map((l, i) => (
+                  <span key={i} style={{ height: cell, lineHeight: `${cell}px` }}>
+                    {l}
+                  </span>
+                ))}
+              </div>
+              <div className="pd-heat-cols" style={{ gap: GAP }}>
+                {cols.map((days, i) => (
+                  <div key={i} className="pd-heat-col" style={{ gap: GAP }}>
+                    {days.map((d) => (
+                      <span
+                        key={d.key}
+                        className={`heat-cell heat-${d.future ? 'future' : d.level}`}
+                        style={{ width: cell, height: cell }}
+                        title={
+                          d.future
+                            ? ''
+                            : `${d.date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}: ${d.a ? `${d.a.solved} solved, ${d.a.actions} actions` : 'no practice'}`
+                        }
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="heat-legend muted small pd-heat-legend">
+              Less <span className="heat-cell heat-0" /> <span className="heat-cell heat-1" /> <span className="heat-cell heat-2" />{' '}
+              <span className="heat-cell heat-3" /> <span className="heat-cell heat-4" /> More
+            </div>
+          </>
+        )}
       </div>
-      <div className="heat-legend muted small">
-        Less <span className="heat-cell heat-0" /> <span className="heat-cell heat-1" /> <span className="heat-cell heat-2" />{' '}
-        <span className="heat-cell heat-3" /> <span className="heat-cell heat-4" /> More
-      </div>
+      <dl className="pd-activity-stats">
+        <div>
+          <dt>Active days</dt>
+          <dd>{active}</dd>
+        </div>
+        <div>
+          <dt>Solved in this range</dt>
+          <dd>{solved}</dd>
+        </div>
+        <div>
+          <dt>Current streak</dt>
+          <dd>{streak(activity)} days</dd>
+        </div>
+        <div>
+          <dt>Best day</dt>
+          <dd>
+            {best && best.solved ? (
+              <>
+                {best.solved} <span className="muted small">on {new Date(`${best.key}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+              </>
+            ) : (
+              '–'
+            )}
+          </dd>
+        </div>
+      </dl>
     </div>
   )
 }
