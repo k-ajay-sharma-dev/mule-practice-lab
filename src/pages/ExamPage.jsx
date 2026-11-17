@@ -5,6 +5,7 @@ import PastRounds, { deleteRounds } from '../components/PastRounds.jsx'
 import QuestionCard, { fitsQuestion, initialResponse } from '../components/quiz/QuestionCard.jsx'
 import useRemaining from '../components/useRemaining.js'
 import MultiPick from '../components/MultiPick.jsx'
+import TimePicker from '../components/TimePicker.jsx'
 import { loadProblems, problemById, problems } from '../data/problems.js'
 import { TRACK_OPTIONS, trackLists, trackProblems, TRACKS, tracksLabel } from '../data/tracks.js'
 import {
@@ -52,13 +53,13 @@ function readHistory() {
 const quizLists = (levels, tracks) =>
   trackLists(tracks, problems).map((list) => list.filter((p) => p.exercise === 'quiz' && fitsLevels(levels)(p)))
 
-const newSession = (items, focus) => ({
+const newSession = (items, focus, minutes) => ({
   items,
   focus,
   current: 0,
   responses: {},
   flagged: [],
-  minutes: items.length * MINUTES_PER_QUESTION,
+  minutes: minutes ?? items.length * MINUTES_PER_QUESTION,
   startedIso: new Date().toISOString(),
 })
 
@@ -146,7 +147,10 @@ export default function ExamPage() {
 }
 
 function Setup({ history, onStart, onHistory }) {
-  const [count, setCount] = useState(LENGTHS[0])
+  const [count, setCount] = useState(20)
+  // null follows the suggested time for the length; a picked time stays when the length changes
+  const [chosenMinutes, setMinutes] = useState(null)
+  const minutes = chosenMinutes ?? count * MINUTES_PER_QUESTION
   const [levels, setLevels] = useState(DEFAULT_LEVELS)
   const [tracks, setTracks] = useState([])
   const [details, setDetails] = useState(false)
@@ -165,7 +169,7 @@ function Setup({ history, onStart, onHistory }) {
       const chosen = chooseQuestions(loaded, count, seen, Math.random, (q) => details || !q.detail)
       // a focus made up only of detail questions still gets an exam
       const items = chosen.length ? chosen : chooseQuestions(loaded, count, seen)
-      onStart(newSession(items, tracksLabel(tracks)))
+      onStart(newSession(items, tracksLabel(tracks), minutes))
     } catch {
       setFailed(true)
       setBusy(false)
@@ -177,7 +181,8 @@ function Setup({ history, onStart, onHistory }) {
       <p className="eyebrow">// practice exam</p>
       <h1>Practice Exam</h1>
       <p className="muted">
-        A timed exam drawn from every quiz on the site, with {MINUTES_PER_QUESTION} minutes per question. You see one
+        A timed exam drawn from every quiz on the site. Pick how many questions and how long you have: the suggested
+        time is {MINUTES_PER_QUESTION} minutes per question, but any time works. You see one
         question at a time and no answers until you finish, then a score by topic and a review of each question. Problems
         behind your wrong answers go on your review schedule.
       </p>
@@ -191,11 +196,12 @@ function Setup({ history, onStart, onHistory }) {
           <select className="input" value={count} onChange={(e) => setCount(Number(e.target.value))}>
             {LENGTHS.map((n) => (
               <option key={n} value={n}>
-                {n} questions, {n * MINUTES_PER_QUESTION} minutes
+                {n} questions
               </option>
             ))}
           </select>
         </label>
+        <TimePicker value={minutes} onChange={setMinutes} suggested={count * MINUTES_PER_QUESTION} />
         <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
         <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
       </div>

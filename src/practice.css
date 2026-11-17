@@ -3067,3 +3067,43 @@
   height: 100%;
   background: var(--success);
 }
+
+/* time picker for timed rounds */
+.time-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.time-chips .chip-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.time-own {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.time-own input {
+  width: 72px;
+}
+/* design round: explain your design */
+.explain-round {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.explain-q {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.explain-q p {
+  margin: 0 0 8px;
+}
+.explain-a {
+  margin-bottom: 8px;
+  padding-left: 10px;
+  border-left: 3px solid var(--accent);
+}

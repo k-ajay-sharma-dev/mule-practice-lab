@@ -6,8 +6,10 @@ import useRemaining from '../components/useRemaining.js'
 import WideToggle from '../components/WideToggle.jsx'
 import { categoryBySlug } from '../data/categories.js'
 import { EXERCISE_LABELS, exerciseOf } from '../data/exercises.js'
-import { problemById, problems } from '../data/problems.js'
+import { loadProblem, problemById, problems } from '../data/problems.js'
 import MultiPick from '../components/MultiPick.jsx'
+import TimePicker from '../components/TimePicker.jsx'
+import Markdown from '../components/Markdown.jsx'
 import { TRACK_OPTIONS, TRACKS, trackLists } from '../data/tracks.js'
 import { DEFAULT_LEVELS, evenMix, fitsLevels, LEVEL_OPTIONS } from '../study/mix.js'
 import { checkRunner } from '../runner/client.js'
@@ -57,6 +59,22 @@ const solvedInRound = (entry, startIso, endIso) => {
 }
 const roundEnd = (s) => new Date(new Date(s.startedIso).getTime() + s.minutes * 60000).toISOString()
 
+// A design round: one flow or architecture problem that fits the time, unsolved first.
+function buildDesignRound({ levels, tracks, which, minutes }, progress) {
+  const types = which === 'either' ? ['flow', 'diagram'] : [which]
+  const ofType = (list) => list.filter((p) => types.includes(exerciseOf(p)) && fitsLevels(levels)(p))
+  for (const list of [ofType(evenMix(trackLists(tracks, problems))), ofType(problems)]) {
+    if (!list.length) continue
+    const fresh = list.filter((p) => statusOf(progress[p.id]) !== 'solved')
+    const base = fresh.length ? fresh : list
+    // problems estimated to fit the time; with none, the quickest ones
+    const fits = base.filter((p) => (p.estMinutes ?? 30) <= minutes)
+    const quickest = Math.min(...base.map((p) => p.estMinutes ?? 30))
+    return [pickRandom(fits.length ? fits : base.filter((p) => (p.estMinutes ?? 30) === quickest)).id]
+  }
+  return []
+}
+
 function buildRound({ levels, tracks, skipCode }, progress) {
   const pool = evenMix(trackLists(tracks, problems))
   return ROUND.filter((type) => !(skipCode && type === 'code'))
@@ -93,7 +111,7 @@ export default function MockInterviewPage() {
     results.filter((r) => !r.solved).forEach((r) => scheduleReview(r.id))
     const done = { ...s, finishedIso, results }
     const nextHistory = [
-      { date: done.finishedIso, score: results.filter((r) => r.solved).length, total: results.length, results },
+      { date: done.finishedIso, kind: s.kind ?? 'mixed', score:results.filter((r) => r.solved).length, total: results.length, results },
       ...history,
     ].slice(0, 20)
     setHistory(nextHistory)
@@ -114,16 +132,31 @@ export default function MockInterviewPage() {
     save(null)
   }
 
-  if (session.finishedIso) return <Summary session={session} onClose={() => save(null)} onDelete={deleteThis} />
+  // design round: each follow-up answered out loud and marked; the count joins the round in the history
+  function explained(marks, total) {
+    save({ ...session, explain: marks })
+    const done = Object.values(marks)
+    if (done.length === total) {
+      if (done.some((ok) => !ok)) session.items.forEach((id) => scheduleReview(id))
+      keepHistory(history.map((h) => (h.date === session.finishedIso ? { ...h, explained: done.filter(Boolean).length, asked: total } : h)))
+    }
+  }
+
+  if (session.finishedIso) return <Summary session={session} onClose={() => save(null)} onDelete={deleteThis} onExplain={explained} />
   return <Running session={session} progress={progress} onSelect={(i) => save({ ...session, current: i })} onFinish={() => finish()} />
 }
 
 function Setup({ history, onStart, onHistory }) {
   const progress = useProgress()
-  const [minutes, setMinutes] = useState(45)
+  const [kind, setKind] = useState('mixed')
+  const [which, setWhich] = useState('either')
+  const [chosenMinutes, setMinutes] = useState(null)
+  const suggested = kind === 'design' ? 20 : 45
+  const minutes = chosenMinutes ?? suggested
   const [levels, setLevels] = useState(DEFAULT_LEVELS)
   const [tracks, setTracks] = useState([])
   const [runner, setRunner] = useState('checking')
+  const [empty, setEmpty] = useState(false)
 
   useEffect(() => {
     checkRunner().then((r) => setRunner(r.ok ? 'online' : 'offline'))
@@ -131,8 +164,12 @@ function Setup({ history, onStart, onHistory }) {
 
   function start() {
     // a runner still waking up counts as available; only a definite "offline" drops the DataWeave problem
-    const items = buildRound({ levels, tracks, skipCode: runner === 'offline' }, progress)
-    onStart({ items, current: 0, minutes, startedIso: new Date().toISOString() })
+    const items =
+      kind === 'design'
+        ? buildDesignRound({ levels, tracks, which, minutes }, progress)
+        : buildRound({ levels, tracks, skipCode: runner === 'offline' }, progress)
+    if (!items.length) return setEmpty(true)
+    onStart({ kind, items, current: 0, minutes, startedIso: new Date().toISOString() })
   }
 
   return (
@@ -147,19 +184,34 @@ function Setup({ history, onStart, onHistory }) {
 
       <div className="mock-setup">
         <label className="field">
-          Duration
-          <select className="input" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-            {[30, 45, 60, 90].map((m) => (
-              <option key={m} value={m}>
-                {m} minutes
-              </option>
-            ))}
+          Round
+          <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="mixed">Mixed: one of each kind</option>
+            <option value="design">Design: one flow or architecture, then explain it</option>
           </select>
         </label>
+        {kind === 'design' && (
+          <label className="field">
+            Design
+            <select className="input" value={which} onChange={(e) => setWhich(e.target.value)}>
+              <option value="either">Flow or architecture</option>
+              <option value="flow">Flow design</option>
+              <option value="diagram">Architecture diagram</option>
+            </select>
+          </label>
+        )}
+        <TimePicker value={minutes} onChange={setMinutes} suggested={suggested} />
         <MultiPick label="Difficulty" options={LEVEL_OPTIONS} value={levels} onChange={setLevels} allLabel="Any level" />
         <MultiPick label="Focus" options={TRACK_OPTIONS} value={tracks} onChange={setTracks} />
       </div>
-      {runner === 'offline' && (
+      {kind === 'design' && (
+        <p className="muted small">
+          A design round is one problem picked to fit your time, with no plan box, no hints and no reference. When the
+          time is up, you answer the interviewer's follow-up questions about your design out loud and mark each one.
+        </p>
+      )}
+      {empty && <p className="warn-text small">No problem matches this choice. Try another focus or difficulty.</p>}
+      {runner === 'offline' && kind === 'mixed' && (
         <p className="warn-text small">
           The DataWeave runner is offline, so this round skips the DataWeave problem. Start the runner (see Settings) to
           include it.
@@ -181,6 +233,7 @@ function Setup({ history, onStart, onHistory }) {
                 {h.results
                   .map((r) => `${r.solved ? '✓' : '✗'} ${EXERCISE_LABELS[problemById.get(r.id)?.exercise] ?? r.id}`)
                   .join('  ')}
+                {h.asked > 0 && ` · explained ${h.explained} of ${h.asked}`}
               </span>
             </>
           )}
@@ -254,7 +307,58 @@ function Running({ session, progress, onSelect, onFinish }) {
   )
 }
 
-function Summary({ session, onClose, onDelete }) {
+// After a design round: the interviewer's follow-ups on the problem. Answer each out loud, then compare.
+function ExplainRound({ id, marks, onMark }) {
+  const [problem, setProblem] = useState(null)
+  const [shown, setShown] = useState({})
+  useEffect(() => {
+    let live = true
+    loadProblem(id).then((p) => live && setProblem(p), () => live && setProblem(false))
+    return () => {
+      live = false
+    }
+  }, [id])
+  if (problem === null) return <p className="muted small">Loading the follow-up questions…</p>
+  if (!problem) return null
+  const questions = (problem.followUps?.length ? problem.followUps : (problem.keyPoints ?? []).map((k) => ({ q: 'Did your design cover this, and can you say why?', a: k }))).slice(0, 3)
+  if (!questions.length) return null
+  return (
+    <section className="explain-round">
+      <h2 className="section-heading">
+        Explain your design <span className="muted">({Object.keys(marks).length} / {questions.length})</span>
+      </h2>
+      <p className="muted small">The interviewer asks these next. Answer each one out loud first, then show the answer and mark yourself honestly.</p>
+      {questions.map((f, i) => (
+        <div key={i} className="explain-q">
+          <p>
+            <b>{i + 1}.</b> {f.q}
+          </p>
+          {shown[i] || marks[i] !== undefined ? (
+            <>
+              <div className="explain-a small">
+                <Markdown>{f.a}</Markdown>
+              </div>
+              <div className="rating">
+                <button className={`btn btn-sm${marks[i] === true ? ' active-toggle' : ''}`} onClick={() => onMark({ ...marks, [i]: true }, questions.length)}>
+                  I had it
+                </button>
+                <button className={`btn btn-sm btn-ghost${marks[i] === false ? ' active-toggle' : ''}`} onClick={() => onMark({ ...marks, [i]: false }, questions.length)}>
+                  I missed it
+                </button>
+              </div>
+            </>
+          ) : (
+            <button className="btn btn-sm" onClick={() => setShown({ ...shown, [i]: true })}>
+              I answered it out loud. Show the answer
+            </button>
+          )}
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function Summary({ session, onClose, onDelete, onExplain }) {
   const results = session.results
   const score = results.filter((r) => r.solved).length
   const missed = results.filter((r) => !r.solved).map((r) => problemById.get(r.id)).filter(Boolean)
@@ -302,6 +406,10 @@ function Summary({ session, onClose, onDelete }) {
           )
         })}
       </div>
+
+      {session.kind === 'design' && (
+        <ExplainRound id={session.items[0]} marks={session.explain ?? {}} onMark={onExplain} />
+      )}
 
       {missed.length > 0 && (
         <>

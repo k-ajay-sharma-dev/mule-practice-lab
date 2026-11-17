@@ -5,7 +5,7 @@ import { grade } from './quiz.js'
 
 export const PASS_MARK = 70
 export const MINUTES_PER_QUESTION = 2
-export const LENGTHS = [20, 40, 60]
+export const LENGTHS = [5, 10, 20, 40, 60]
 export const RETAKE_FOCUS = 'Missed questions'
 
 export const itemKey = (item) => `${item.id}:${item.q}`
