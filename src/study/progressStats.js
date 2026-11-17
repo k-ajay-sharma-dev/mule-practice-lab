@@ -35,9 +35,9 @@ export function solveEvents(progress) {
 // solved yet. The clock only runs while the problem is open, so the time from the first start to the pause (or to now,
 // while it is open) is the time spent. An attempt left running for over 12 hours was abandoned, as in study/timer.js.
 const STALE_MS = 12 * 3600000
-export function openAttempts(progress, from, to = null, nowMs = Date.now()) {
-  let seconds = 0
-  let count = 0
+// Each unfinished attempt as { start, end } in milliseconds, kept when its first start falls in the range
+function openSpans(progress, from, to, nowMs) {
+  const spans = []
   for (const [id, e] of Object.entries(progress)) {
     const t = e?.timer
     if (!t || !problemById.has(id) || typeof t.firstStartedAt !== 'string' || typeof t.startedAt !== 'string') continue
@@ -46,13 +46,74 @@ export function openAttempts(progress, from, to = null, nowMs = Date.now()) {
     if (!startDay || (from && startDay < from) || (to && startDay > to)) continue
     if (!t.pausedAt && nowMs - Date.parse(t.startedAt) > STALE_MS) continue
     const end = t.pausedAt ? Date.parse(t.pausedAt) : nowMs
-    const s = Math.max(0, Math.round((end - first) / 1000))
-    if (s > 0) {
-      seconds += s
+    if (end > first) spans.push({ start: first, end })
+  }
+  return spans
+}
+
+export function openAttempts(progress, from, to = null, nowMs = Date.now()) {
+  let seconds = 0
+  let count = 0
+  for (const s of openSpans(progress, from, to, nowMs)) {
+    const sec = Math.round((s.end - s.start) / 1000)
+    if (sec > 0) {
+      seconds += sec
       count++
     }
   }
   return { seconds, count }
+}
+
+// Today hour by hour: minutes practised in each hour, problems solved in it, and the running time so far.
+// A solve keeps only its total time, and attempts can overlap when two problems are open, so each piece of time is
+// packed into the free minutes before it ended: before the solve, or before the pause (or now) for an unfinished
+// attempt. No hour holds more than 60 minutes. Time that does not fit after midnight goes in the first hour shown, so
+// the running total ends on the same number as the Time practised card.
+export function hourBuckets({ events, progress, now = new Date() }) {
+  const day = startOfDay(now)
+  const dayMs = day.getTime()
+  const today = dayKey(day)
+  const nowMs = now.getTime()
+  const seconds = new Array(24).fill(0)
+  const solved = new Array(24).fill(0)
+  const free = new Array(24 * 60).fill(60) // seconds still free in each minute of today
+  let early = 0
+  const items = []
+  const seen = new Set()
+  for (const ev of events) {
+    if (ev.day !== today) continue
+    const at = Date.parse(ev.at)
+    if (!seen.has(ev.id)) {
+      seen.add(ev.id)
+      solved[new Date(at).getHours()]++
+    }
+    if (ev.seconds > 0) items.push({ end: at, sec: ev.seconds })
+  }
+  for (const s of openSpans(progress, today, today, nowMs)) items.push({ end: s.end, sec: (s.end - s.start) / 1000 })
+  for (const it of items.sort((a, b) => a.end - b.end)) {
+    let left = it.sec
+    let m = Math.min(24 * 60, Math.ceil((it.end - dayMs) / 60000)) - 1
+    for (; m >= 0 && left > 0; m--) {
+      const take = Math.min(free[m], left)
+      free[m] -= take
+      seconds[Math.floor(m / 60)] += take
+      left -= take
+    }
+    early += left
+  }
+  const last = now.getHours()
+  // from the first hour with anything in it, showing at least the last six hours
+  let start = Math.max(0, last - 5)
+  for (let h = 0; h < last; h++) if (seconds[h] > 0 || solved[h] > 0) { start = Math.min(start, h); break }
+  seconds[start] += early
+  const label = (h) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), h).toLocaleTimeString(undefined, { hour: 'numeric' })
+  const list = []
+  let run = 0
+  for (let h = start; h <= last; h++) {
+    run += seconds[h]
+    list.push({ from: `h${h}`, to: `h${h}`, label: label(h), unit: 'hour', seconds: Math.round(seconds[h]), solved: solved[h], runSeconds: Math.round(run) })
+  }
+  return list
 }
 
 // The first day each problem was solved

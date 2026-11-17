@@ -6,7 +6,7 @@ import { LevelBadge } from '../components/Badges.jsx'
 import { statusOf, todayKey, useActivity, useProgress, useReview } from '../store/progress.js'
 import { POINTS, usePoints } from '../store/points.js'
 import { independence } from '../study/independence.js'
-import { buckets, firstSolves, formatDuration, openAttempts, PERIODS, periodStart, periodSummary, solveEvents } from '../study/progressStats.js'
+import { buckets, firstSolves, formatDuration, hourBuckets, openAttempts, PERIODS, periodStart, periodSummary, solveEvents } from '../study/progressStats.js'
 
 // One screen for how you are doing: what you solved today, this week, this month or in all, a chart of problems
 // solved, the learning graph (problems solved at least once over time), progress per section and level, points,
@@ -84,12 +84,13 @@ export default function ProgressDashboardPage() {
     const to = custom ? range.to : null
     const sum = periodSummary({ events, activity, first, from, to })
     const chart = buckets({ period, events, activity, first, base, from, to })
+    const hours = period === 'today' ? hourBuckets({ events, progress }) : null
     const open = openAttempts(progress, from, to)
     const revisit = problems.filter((p) => statusOf(progress[p.id]) === 'revisit').length
-    return { events, first, solvedNow, from, to, sum, chart, open, revisit }
+    return { events, first, solvedNow, from, to, sum, chart, hours, open, revisit }
   }, [progress, activity, period, range])
 
-  const { sum, chart, from, to, solvedNow, open, revisit } = data
+  const { sum, chart, hours, from, to, solvedNow, open, revisit } = data
   const custom = period === 'custom'
   const periodLabel = custom ? 'in this range' : PERIODS.find((p) => p.key === period).label.toLowerCase()
   const today = todayKey()
@@ -165,6 +166,49 @@ export default function ProgressDashboardPage() {
       </p>
 
       <section className="pd-charts">
+        {hours ? (
+          <>
+            <ChartCard
+              title="Time by hour"
+              sub="Minutes practised in each hour today."
+              rows={hours}
+              value={(b) => `${minutes(b.seconds)} min, ${b.solved} solved`}
+              tableHead="Practised"
+            >
+              {(w) => (
+                <Bars
+                  rows={hours}
+                  width={w}
+                  value={(b) => minutes(b.seconds)}
+                  strong={() => true}
+                  unit="hour"
+                  max={60}
+                  tip={(b) => `${formatDuration(b.seconds)} practised, ${b.solved} solved`}
+                  label="Bar chart of minutes practised in each hour today"
+                />
+              )}
+            </ChartCard>
+            <ChartCard
+              title="Time graph"
+              sub="Minutes practised so far today."
+              rows={hours}
+              value={(b) => formatDuration(b.runSeconds)}
+              tableHead="By the end of the hour"
+            >
+              {(w) => (
+                <Line
+                  rows={hours}
+                  width={w}
+                  value={(b) => minutes(b.runSeconds)}
+                  tip={(b) => `${formatDuration(b.runSeconds)} by the end of ${b.label}`}
+                  end={(b) => formatDuration(b.runSeconds)}
+                  label="Line chart of minutes practised so far today"
+                />
+              )}
+            </ChartCard>
+          </>
+        ) : (
+          <>
         <ChartCard
           title="Problems solved"
           sub={period === 'all' || custom ? `Per ${unit}${custom ? `, ${shortDate(range.from)} to ${shortDate(range.to)}` : ''}.` : `Per ${unit}. Bright bars are ${periodLabel}.`}
@@ -183,6 +227,8 @@ export default function ProgressDashboardPage() {
         >
           {(w) => <Line rows={chart} width={w} value={(b) => b.total} />}
         </ChartCard>
+          </>
+        )}
       </section>
 
       <section className="pd-card">
@@ -386,11 +432,13 @@ function barPath(x, y, w, h) {
   return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`
 }
 
-function Bars({ rows, width, value, strong, unit }) {
+const minutes = (sec) => Math.round(sec / 60)
+
+function Bars({ rows, width, value, strong, unit, tip, max, label = 'Bar chart of problems solved' }) {
   const [hover, setHover] = useState(null)
   const innerW = width - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
-  const top = niceMax(Math.max(0, ...rows.map(value)))
+  const top = max ?? niceMax(Math.max(0, ...rows.map(value)))
   const slot = innerW / rows.length
   const barW = Math.max(3, Math.min(28, slot - 2))
   const x = (i) => PAD.left + slot * i + slot / 2
@@ -398,7 +446,7 @@ function Bars({ rows, width, value, strong, unit }) {
   const h = hover !== null ? rows[hover] : null
   return (
     <div className="pd-svg-wrap" onMouseLeave={() => setHover(null)}>
-      <svg width={width} height={H} role="img" aria-label="Bar chart of problems solved">
+      <svg width={width} height={H} role="img" aria-label={label}>
         <Axes width={width} top={top} rows={rows} x={x} every={every} />
         {rows.map((b, i) => {
           const v = value(b)
@@ -423,16 +471,14 @@ function Bars({ rows, width, value, strong, unit }) {
       {h && (
         <div className="pd-tip" style={{ left: Math.min(Math.max(x(hover), 70), width - 70), top: 4 }}>
           <b>{unit === 'week' ? `Week of ${h.label}` : h.label}</b>
-          <span>
-            {value(h)} solved
-          </span>
+          <span>{tip ? tip(h) : `${value(h)} solved`}</span>
         </div>
       )}
     </div>
   )
 }
 
-function Line({ rows, width, value }) {
+function Line({ rows, width, value, tip, end, label = 'Line chart of problems solved at least once' }) {
   const [hover, setHover] = useState(null)
   const innerW = width - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
@@ -452,7 +498,7 @@ function Line({ rows, width, value }) {
   }
   return (
     <div className="pd-svg-wrap" onMouseLeave={() => setHover(null)}>
-      <svg width={width} height={H} role="img" aria-label="Line chart of problems solved at least once" onMouseMove={move}>
+      <svg width={width} height={H} role="img" aria-label={label} onMouseMove={move}>
         <Axes width={width} top={top} rows={rows} x={x} every={every} />
         <polygon points={area} className="pd-area" />
         <polyline points={pts} className="pd-line" />
@@ -460,14 +506,14 @@ function Line({ rows, width, value }) {
         <circle cx={x(hover ?? last)} cy={y(value(rows[hover ?? last]))} r="4.5" className="pd-dot" />
         {hover === null && (
           <text x={x(last) - 8} y={y(value(rows[last])) - 10} textAnchor="end" className="pd-end-label">
-            {value(rows[last])}
+            {end ? end(rows[last]) : value(rows[last])}
           </text>
         )}
       </svg>
       {h && (
         <div className="pd-tip" style={{ left: Math.min(Math.max(x(hover), 70), width - 70), top: 4 }}>
           <b>{h.unit === 'week' ? `Week of ${h.label}` : h.label}</b>
-          <span>{value(h)} solved at least once</span>
+          <span>{tip ? tip(h) : `${value(h)} solved at least once`}</span>
         </div>
       )}
     </div>
