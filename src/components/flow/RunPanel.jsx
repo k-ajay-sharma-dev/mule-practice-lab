@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { simulate } from '../../sim/engine.js'
-import { runTest } from '../../sim/tests.js'
+import { runClues, runTest } from '../../sim/tests.js'
 
 // The Run tab of a flow problem: runs the learner's design against the problem's test cases and shows what
 // happened at each step, the log lines, what was sent to other systems, and the answer.
@@ -92,6 +92,11 @@ function RunResult({ result, lines }) {
           ))}
         </ul>
       )}
+      {lines && runClues(result, lines).map((c) => (
+        <p key={c.text} className="run-clue small">
+          <b>Where to look:</b> {c.text} The step is marked on the canvas.
+        </p>
+      ))}
       {result.limit && <p className="sim-limit">{result.limit}</p>}
       {res && (
         <>
@@ -136,11 +141,33 @@ function RunResult({ result, lines }) {
   )
 }
 
-export default function RunPanel({ design, simulation }) {
+// What each component did in a run, for the marks on the canvas: { nodeId: { fail, text } }
+export function traceMarks(trace = []) {
+  const marks = {}
+  for (const e of trace) {
+    if (!e.id) continue
+    if (e.kind === 'error') marks[e.id] = { fail: true, text: e.error?.description ? `${e.text}: ${e.error.description}` : e.text }
+    else if (!marks[e.id]) marks[e.id] = { fail: false, text: e.text }
+  }
+  return marks
+}
+
+// onTrace(marks) hears which run is shown, so the canvas can mark each step of it
+export default function RunPanel({ design, simulation, onTrace }) {
   const tests = simulation?.tests ?? []
   const [picked, setPicked] = useState(0)
   const [custom, setCustom] = useState(null) // { text, result, error }
   const outcomes = useMemo(() => tests.map((t) => runTest(design, simulation, t)), [design, simulation, tests])
+  const shownResult = custom ? custom.result : outcomes[picked]?.result
+  const shownLines = custom ? null : outcomes[picked]?.lines
+  useEffect(() => {
+    if (!shownResult) return onTrace?.(null)
+    const marks = traceMarks(shownResult.trace)
+    // the steps a failed test points at (the slow one, the one that raised the error) are marked too
+    if (shownLines) for (const c of runClues(shownResult, shownLines)) for (const id of c.ids) marks[id] = { fail: true, text: c.text }
+    onTrace?.(marks)
+  }, [shownResult, shownLines, onTrace])
+  useEffect(() => () => onTrace?.(null), [onTrace])
 
   if (!tests.length) {
     return <p className="muted">This problem has no test runs yet. Its design is checked against the requirements only.</p>

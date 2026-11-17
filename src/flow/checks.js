@@ -1,7 +1,7 @@
 import { COMPONENTS } from './catalog.js'
 import { walk } from './model.js'
 import { missingSystems, systemUsesIn, useText } from './systems.js'
-import { runTest, testChecks, testHint } from '../sim/tests.js'
+import { runClues, runTest, testChecks, testHint } from '../sim/tests.js'
 
 // Design checks for flow problems. Each check is { label, rule } and passes or fails
 // against the user's design. Rules:
@@ -421,5 +421,110 @@ export function missingHint(design, rule) {
     }
     default:
       return 'Check this requirement against the scenario.'
+  }
+}
+
+// The components on the canvas that a check is about, so a failed check can point at them. A check about something
+// missing points at nothing; one about the wrong settings, order or place points at the components it names.
+export function ruleNodes(design, rule) {
+  const nodes = index(design)
+  if (rule?.type === 'complete') return nodes.filter((e) => unfinished(design, [e]).length).map((e) => e.node.id)
+  // a failed test run points at the steps that took the time or raised the error
+  if (rule?.type === 'runs') {
+    const { result, lines } = runTest(design, rule.scenario, rule.test)
+    return [...new Set(runClues(result, lines).flatMap((c) => c.ids))]
+  }
+  const types = new Set()
+  const collect = (r) => {
+    if (!r || typeof r !== 'object') return
+    for (const k of ['component', 'first', 'then']) if (r[k]) anyOf(r[k]).forEach((t) => types.add(t))
+    if (r.inFlowWith?.component) anyOf(r.inFlowWith.component).forEach((t) => types.add(t))
+    for (const k of ['rules', 'any', 'all']) if (Array.isArray(r[k])) r[k].forEach(collect)
+  }
+  collect(rule)
+  return nodes.filter((e) => types.has(e.node.type)).map((e) => e.node.id)
+}
+
+// The component types a check names (in nested any/all checks too).
+function ruleTypes(rule) {
+  const types = new Set()
+  const collect = (r) => {
+    if (!r || typeof r !== 'object') return
+    for (const k of ['component', 'first', 'then']) if (r[k]) anyOf(r[k]).forEach((t) => types.add(t))
+    if (r.inFlowWith?.component) anyOf(r.inFlowWith.component).forEach((t) => types.add(t))
+    for (const k of ['rules', 'any', 'all']) if (Array.isArray(r[k])) r[k].forEach(collect)
+  }
+  collect(rule)
+  return types
+}
+
+// which scopes and routers a component sits inside, outermost first, such as "Try › Scatter-Gather"
+const placeOf = (e) => (e.ancestors ?? []).filter((a) => a?.type && COMPONENTS[a.type]).map((a) => componentLabel(a.type)).join(' › ') || 'the flow itself'
+
+const norm = (v) => String(v ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+
+// "Find it" for one failing check: what is wrong, which of your components it is about, and how they differ
+// from the same components in the reference, field by field. Only the parts this check is about are shown.
+// → { hint, mine: [{ id, label, flow }], pairs: [{ label, flow, diffs: [{ field, mine, ref }] }], extra: [{ label, flow, config }], clues }
+export function findIt(design, reference, check) {
+  const rule = check.rule
+  const hint = missingHint(design, rule)
+  const mineAll = index(design)
+  const ids = ruleNodes(design, rule)
+  let clues = []
+  if (rule.type === 'runs') {
+    const { result, lines } = runTest(design, rule.scenario, rule.test)
+    clues = runClues(result, lines)
+  }
+  const types = ruleTypes(rule)
+  for (const e of mineAll) if (ids.includes(e.node.id)) types.add(e.node.type)
+  // an error nobody caught: the error handlers are part of the answer too
+  if (clues.some((c) => c.uncaught)) for (const [t, c] of Object.entries(COMPONENTS)) if (c.kind === 'handler') types.add(t)
+  const mine = mineAll.filter((e) => types.has(e.node.type))
+  const refs = reference ? index(reference).filter((e) => types.has(e.node.type)) : []
+
+  const fieldsOf = (type) => COMPONENTS[type]?.fields ?? []
+  const differences = (a, b) => {
+    const keys = new Set([...fieldsOf(a.node.type).map((x) => x.key), ...Object.keys(b.node.config ?? {})])
+    const out = []
+    for (const key of keys) {
+      const want = b.node.config?.[key]
+      if (want === undefined || want === '') continue
+      if (norm(a.node.config?.[key]) !== norm(want)) {
+        out.push({ field: fieldsOf(a.node.type).find((x) => x.key === key)?.label ?? key, mine: a.node.config?.[key] ?? '', ref: want })
+      }
+    }
+    return out
+  }
+  // pair each reference component with the closest one of yours of the same type
+  const used = new Set()
+  const pairs = []
+  const extra = []
+  for (const r of refs) {
+    let best = null
+    for (const m of mine) {
+      if (used.has(m.node.id) || m.node.type !== r.node.type) continue
+      const d = differences(m, r)
+      const score = d.length + (m.flow?.name === r.flow?.name ? 0 : 0.5)
+      if (!best || score < best.score) best = { m, d, score }
+    }
+    if (!best) {
+      extra.push({ label: componentLabel(r.node.type), flow: r.flow?.name, config: r.node.config ?? {} })
+      continue
+    }
+    used.add(best.m.node.id)
+    const placeMine = placeOf(best.m)
+    const placeRef = placeOf(r)
+    const place = placeMine !== placeRef ? { mine: placeMine, ref: placeRef } : null
+    if (best.d.length || place) pairs.push({ id: best.m.node.id, label: componentLabel(r.node.type), flow: best.m.flow?.name, refFlow: r.flow?.name, diffs: best.d, place })
+  }
+  const unused = mine.filter((m) => !used.has(m.node.id) && refs.length).map((m) => ({ id: m.node.id, label: componentLabel(m.node.type), flow: m.flow?.name }))
+  return {
+    hint,
+    clues,
+    mine: mine.filter((e) => ids.includes(e.node.id)).map((e) => ({ id: e.node.id, label: componentLabel(e.node.type), flow: e.flow?.name })),
+    pairs,
+    extra,
+    unused: rule.type === 'absent' ? unused : [],
   }
 }

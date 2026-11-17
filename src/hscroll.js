@@ -3,7 +3,7 @@
 // press on it and drag. Shift + wheel scrolls sideways too (the browser does that by itself).
 //
 // A drag starts only after the pointer moves a few pixels, mostly sideways, so clicks still work. It never starts on
-// something you type in, press, or drag on purpose, or on code, where dragging selects text.
+// something you type in, press, or drag on purpose, on code, or on any text, where dragging selects the text.
 
 const SKIP = 'input, textarea, select, button, a, label, summary, [contenteditable], pre, code, .monaco-editor, .cm-editor, .no-pan'
 const START = 6 // pixels
@@ -16,6 +16,34 @@ function sideways(el) {
     }
   }
   return null
+}
+
+// True when the pointer is on the letters of some text. A press there is the start of selecting it, so the
+// sideways drag leaves it alone and only starts on empty space.
+function onText(x, y) {
+  let node = null
+  let offset = 0
+  if (document.caretPositionFromPoint) {
+    const p = document.caretPositionFromPoint(x, y)
+    node = p?.offsetNode
+    offset = p?.offset ?? 0
+  } else if (document.caretRangeFromPoint) {
+    const r = document.caretRangeFromPoint(x, y)
+    node = r?.startContainer
+    offset = r?.startOffset ?? 0
+  }
+  if (!node || node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) return false
+  const range = document.createRange()
+  // the caret can sit just after the last letter, so look at the letters on both sides of it
+  for (const at of [offset - 1, offset]) {
+    if (at < 0 || at >= node.length) continue
+    range.setStart(node, at)
+    range.setEnd(node, at + 1)
+    for (const box of range.getClientRects()) {
+      if (x >= box.left - 2 && x <= box.right + 2 && y >= box.top - 2 && y <= box.bottom + 2) return true
+    }
+  }
+  return false
 }
 
 function both(el) {
@@ -68,6 +96,7 @@ export function enableDragScroll() {
     // a component inside the area is dragged to move it; the area itself may sit inside one (a router's routes)
     const movable = e.target.closest?.('[draggable="true"]')
     if (movable && area.contains(movable)) return
+    if (onText(e.clientX, e.clientY)) return
     drag = { area, x: e.clientX, y: e.clientY, left: area.scrollLeft, top: area.scrollTop, panY: both(area), moving: false }
   })
 

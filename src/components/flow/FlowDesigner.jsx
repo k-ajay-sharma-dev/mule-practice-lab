@@ -30,7 +30,8 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 // Props: design, onChange(design), readOnly, history (undo and redo from useUndo),
 // settingsAside (read-only: show a component's settings in a side panel, as the editable designer does, instead of
 // under the component), toolbarEnd (buttons at the end of the toolbar, such as full screen)
-export default function FlowDesigner({ design, onChange, readOnly = false, history = null, settingsAside = false, toolbarEnd = null }) {
+// flags: { nodeId: [labels of failed checks about it] }; runMarks: { nodeId: { fail, text } } from the test run picked
+export default function FlowDesigner({ design, onChange, readOnly = false, history = null, settingsAside = false, toolbarEnd = null, flags = null, runMarks = null }) {
   const aside = readOnly && settingsAside
   const [selectedId, setSelectedId] = useState(null)
   const [armed, setArmed] = useState(null) // component type picked from the palette (tap-to-place)
@@ -40,6 +41,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
   const [pasted, setPasted] = useState('')
   const [notice, setNotice] = useState(null) // { text, warn } after importing XML
   const [pasteError, setPasteError] = useState(null)
+  const [removed, setRemoved] = useState(null) // what was just deleted, for the Undo bar
   const root = useRef(null)
   const touch = useCoarsePointer()
 
@@ -58,6 +60,17 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     : payload?.moveId
       ? COMPONENTS[findItem(design, payload.moveId)?.item.type]?.kind
       : null
+
+  // every delete goes through here, so the Undo bar can offer it back for a few seconds
+  function remove(next, what) {
+    onChange(next)
+    if (history) setRemoved({ what, at: Date.now() })
+  }
+  useEffect(() => {
+    if (!removed) return
+    const t = setTimeout(() => setRemoved(null), 6000)
+    return () => clearTimeout(t)
+  }, [removed])
 
   const ctx = useMemo(
     () => ({
@@ -83,6 +96,10 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
         cancelPlacing()
       },
       change: onChange,
+      remove,
+      flags,
+      runMarks,
+      movingId: payload?.moveId ?? null,
       touch,
       placing,
       startMove: (id) => {
@@ -96,7 +113,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
         setSelectedId(copy.id)
       },
     }),
-    [design, readOnly, aside, selectedId, payload, payloadKind, onChange, touch, placing],
+    [design, readOnly, aside, selectedId, payload, payloadKind, onChange, touch, placing, flags, runMarks, history],
   )
 
   function importXml(text) {
@@ -181,7 +198,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && selectedId) {
       const found = findItem(design, selectedId)
       if (found && !found.ctx.isFlow && !found.ctx.isRoute) {
-        onChange(removeNode(design, selectedId))
+        remove(removeNode(design, selectedId), COMPONENTS[found.item.type]?.label)
         setSelectedId(null)
       }
     }
@@ -286,6 +303,21 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
           </div>
         )}
 
+        {removed && history?.canUndo && (
+          <div className="designer-notice undo-bar small" role="status">
+            <span>Deleted {removed.what ?? 'it'}</span>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                history.undo()
+                setRemoved(null)
+              }}
+            >
+              Undo
+            </button>
+          </div>
+        )}
+
         {view === 'xml' ? (
           <XmlView design={design} readOnly={readOnly} onChange={onChange} />
 
@@ -386,7 +418,7 @@ function Palette({ armed, setArmed }) {
 // ---------- Canvas ----------
 
 function FlowView({ flow }) {
-  const { design, readOnly, selectedId, select, change } = useContext(Ctx)
+  const { design, readOnly, selectedId, select, remove } = useContext(Ctx)
   return (
     <section className={`flow-box ${selectedId === flow.id ? 'selected' : ''}`}>
       <header
@@ -404,7 +436,7 @@ function FlowView({ flow }) {
             title="Remove flow"
             onClick={(e) => {
               e.stopPropagation()
-              if (confirm(`Remove ${flow.name}?`)) change(removeFlow(design, flow.id))
+              if (confirm(`Remove ${flow.name}?`)) remove(removeFlow(design, flow.id), flow.name)
             }}
           >
             ×
@@ -416,7 +448,7 @@ function FlowView({ flow }) {
           <div className="source-row">
             <div className="lane-label">Source</div>
             {flow.source ? (
-              <NodeView node={flow.source} />
+              <NodeView node={flow.source} at={{ key: `${flow.id}:source`, index: 0 }} />
             ) : (
               <Slot containerKey={`${flow.id}:source`} index={0} empty label="Drop a source: HTTP Listener, Scheduler, …" />
             )}
@@ -451,7 +483,7 @@ function StepList({ containerKey, nodes, emptyLabel }) {
       <Slot containerKey={containerKey} index={0} />
       {nodes.map((n, i) => (
         <Fragment key={n.id}>
-          <NodeView node={n} />
+          <NodeView node={n} at={{ key: containerKey, index: i }} />
           <Slot containerKey={containerKey} index={i + 1} />
         </Fragment>
       ))}
@@ -546,10 +578,19 @@ function XmlView({ design, readOnly, onChange }) {
   )
 }
 
-function NodeView({ node }) {
-  const { readOnly, inlineSettings, selectedId, select, setDrag, design, change, touch } = useContext(Ctx)
+// at: { key, index } of the list this component sits in, so a drop on the component lands just above or below it
+function NodeView({ node, at }) {
+  const { readOnly, inlineSettings, selectedId, select, setDrag, design, change, remove, touch, flags, runMarks, canDrop, dropAt, movingId, payloadKind } = useContext(Ctx)
+  const [dropSide, setDropSide] = useState(null)
+  // a drag that ends anywhere (or moves on to a step inside this one) clears the line
+  useEffect(() => {
+    if (!payloadKind) setDropSide(null)
+  }, [payloadKind])
   const def = COMPONENTS[node.type]
   const summary = def.summary?.(node.config, node)
+  const flagged = flags?.[node.id]
+  const ran = runMarks?.[node.id]
+  const droppable = !readOnly && at && movingId !== node.id && canDrop(at.key)
 
   const head = (
     <div
@@ -564,12 +605,39 @@ function NodeView({ node }) {
         <span className="node-title">{def.label}</span>
         {summary && <span className="node-sub">{summary}</span>}
       </span>
+      {ran && (
+        <span className={`run-mark ${ran.fail ? 'fail' : 'ok'}`} title={ran.text}>
+          {ran.fail ? '✗' : '✓'}
+        </span>
+      )}
+      {flagged && !ran && (
+        <span className="check-mark" title={`Failed check: ${flagged.join('; ')}`}>
+          !
+        </span>
+      )}
     </div>
   )
 
   return (
     <div
-      className={`node node-${def.kind} group-${def.group} ${selectedId === node.id ? 'selected' : ''}`}
+      className={`node node-${def.kind} group-${def.group} ${selectedId === node.id ? 'selected' : ''}${flagged ? ' node-flagged' : ''}${ran?.fail ? ' run-failed' : ''}${dropSide ? ` drop-${dropSide}` : ''}`}
+      title={flagged ? `Failed check: ${flagged.join('; ')}` : undefined}
+      onDragOver={(e) => {
+        if (!droppable) return
+        e.preventDefault()
+        e.stopPropagation()
+        const r = e.currentTarget.getBoundingClientRect()
+        setDropSide(e.clientY < r.top + Math.min(r.height / 2, 40) ? 'before' : 'after')
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget) && setDropSide(null)}
+      onDrop={(e) => {
+        if (!droppable) return
+        e.preventDefault()
+        e.stopPropagation()
+        const side = dropSide
+        setDropSide(null)
+        dropAt(at.key, at.index + (side === 'after' ? 1 : 0))
+      }}
       draggable={!readOnly && !touch}
       onDragStart={(e) => {
         e.stopPropagation()
@@ -577,7 +645,10 @@ function NodeView({ node }) {
         e.dataTransfer.effectAllowed = 'move'
         setDrag({ moveId: node.id })
       }}
-      onDragEnd={() => setDrag(null)}
+      onDragEnd={() => {
+        setDrag(null)
+        setDropSide(null)
+      }}
     >
       {head}
       {inlineSettings && selectedId === node.id && <ConfigView fields={def.fields} values={node.config} />}
@@ -616,7 +687,7 @@ function NodeView({ node }) {
                       title="Remove route"
                       onClick={(e) => {
                         e.stopPropagation()
-                        change(removeRoute(design, r.id))
+                        remove(removeRoute(design, r.id), `${def.routeLabel} ${i + 1}`)
                       }}
                     >
                       ×
@@ -710,7 +781,7 @@ function ReadOnlyProperties({ selectedId, onDeselect }) {
 }
 
 function Properties({ selectedId, onDeselect }) {
-  const { design, change, touch, placing, startMove, duplicate } = useContext(Ctx)
+  const { design, change, remove, touch, placing, startMove, duplicate } = useContext(Ctx)
   const found = selectedId ? findItem(design, selectedId) : null
 
   if (!found) {
@@ -838,7 +909,7 @@ function Properties({ selectedId, onDeselect }) {
           <button
             className="btn btn-ghost danger"
             onClick={() => {
-              change(removeNode(design, item.id))
+              remove(removeNode(design, item.id), COMPONENTS[item.type]?.label)
               onDeselect()
             }}
           >

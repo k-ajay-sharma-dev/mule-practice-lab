@@ -3263,3 +3263,166 @@
     flex-wrap: wrap;
   }
 }
+
+/* problem page: the title, its details and the buttons share one slim bar, so the workspace gets the height */
+@media (min-width: 701px) {
+  .problem-head {
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .problem-head-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    min-width: 0;
+  }
+  .problem-head-main .back-link {
+    flex-basis: 100%;
+    font-size: 0.78rem;
+  }
+  .problem-head h1 {
+    margin: 0;
+    font-size: 1.15rem;
+  }
+  .problem-meta {
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+  .prev-next {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .prev-next .btn {
+    padding: 5px 10px;
+    font-size: 0.82rem;
+  }
+}
+
+/* designer: the Undo bar after a delete */
+.undo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* designer: where a dragged component will land when dropped on another one */
+.node.drop-before {
+  box-shadow: 0 -3px 0 0 var(--accent);
+}
+.node.drop-after {
+  box-shadow: 0 3px 0 0 var(--accent);
+}
+
+/* designer: a component a failed check is about */
+.node.node-flagged {
+  outline: 2px dashed var(--warning);
+  outline-offset: 2px;
+}
+.check-mark,
+.run-mark {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.check-mark {
+  background: var(--warning);
+  color: #111;
+}
+.run-mark.ok {
+  background: color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+  color: var(--success, #22c55e);
+}
+.run-mark.fail {
+  background: var(--danger);
+  color: #fff;
+}
+.node.run-failed {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+
+/* Find it: one failing check, where it is and how it differs from the reference */
+.check-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.check-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.find-it-btn {
+  white-space: nowrap;
+}
+.find-it {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 50%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 6%, var(--surface));
+}
+.find-it p {
+  margin: 0;
+}
+.find-it-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.find-it-pair {
+  display: grid;
+  gap: 4px;
+}
+.find-it-pair ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+.find-it-diff {
+  width: 100%;
+  border-collapse: collapse;
+}
+.find-it-diff th,
+.find-it-diff td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.find-it-diff th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.find-it .bad {
+  color: var(--danger);
+}
+.find-it .good {
+  color: var(--success);
+}
+.find-it-note {
+  font-style: italic;
+}
+
+.run-clue {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+}

@@ -101,8 +101,16 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   function deleteSelected() {
     if (selNode) change(removeNode(diagram, selNode.id))
     if (selEdge) change(removeEdge(diagram, selEdge.id))
+    if (history && (selNode || selEdge)) setRemoved(selNode ? selNode.label || 'the component' : 'the connection')
     setSelected(null)
   }
+  // the Undo bar after a delete, for a few seconds
+  const [removed, setRemoved] = useState(null)
+  useEffect(() => {
+    if (!removed) return
+    const t = setTimeout(() => setRemoved(null), 6000)
+    return () => clearTimeout(t)
+  }, [removed])
 
   // Ctrl+Z and Ctrl+Y anywhere on the page, unless the cursor is in something that takes text
   const keys = useRef(null)
@@ -225,6 +233,21 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
               Clear
             </button>
           </div>
+        </div>
+      )}
+
+      {removed && history?.canUndo && (
+        <div className="designer-notice undo-bar small" role="status">
+          <span>Deleted {removed}</span>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => {
+              history.undo()
+              setRemoved(null)
+            }}
+          >
+            Undo
+          </button>
         </div>
       )}
 
@@ -404,7 +427,10 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                 onConnect={(to) => connect(selNode.id, to)}
                 onStartConnect={() => setConnectFrom(selNode.id)}
                 onEdgeKind={(id, kind) => change(updateEdge(diagram, id, { kind }))}
-                onEdgeRemove={(id) => change(removeEdge(diagram, id))}
+                onEdgeRemove={(id) => {
+                change(removeEdge(diagram, id))
+                if (history) setRemoved('the connection')
+              }}
                 onShift={(dir) => change(shiftNode(diagram, selNode.id, dir))}
                 onDelete={deleteSelected}
                 onDuplicate={duplicateSelected}

@@ -7,7 +7,8 @@ import { ladderFor, PlanBox, RebuildBanner, recordHint, recordHints, revealRefer
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
 import SplitHandle, { useSplit } from '../components/SplitHandle.jsx'
-import { designChecks, missingHint, runChecks } from '../flow/checks.js'
+import { designChecks, findIt, missingHint, ruleNodes, runChecks } from '../flow/checks.js'
+import FindIt from '../components/FindIt.jsx'
 import { compareDesigns } from '../flow/compare.js'
 import { countComponents, emptyDesign, restoreDesign } from '../flow/model.js'
 import { systemsIn } from '../flow/systems.js'
@@ -125,6 +126,8 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const hasTests = Boolean(problem.simulation?.tests?.length)
   const [runOpen, setRunOpen] = useState(false)
   const [split, setSplit] = useSplit()
+  const [runMarks, setRunMarks] = useState(null)
+  const [finding, setFinding] = useState(null) // the check whose Find it is open
 
   useEffect(() => {
     if (!full) return
@@ -155,6 +158,27 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const steps = useMemo(() => flowSteps(checks), [checks])
   const live = useMemo(() => runChecks(design, checks), [design, checks])
   const checked = (Array.isArray(entry.checkedPoints) ? entry.checkedPoints : [])
+  // after Check design, the components a failed check is about are marked on the canvas until it passes
+  const findInfo = useMemo(
+    () => (finding !== null && checks[finding] && !live[finding]?.pass ? findIt(design, problem.referenceFlow, checks[finding]) : null),
+    [finding, checks, live, design, problem],
+  )
+  function openFind(i) {
+    setFinding(i)
+    setTab('checks')
+    recordHint(problem.id, entry, i, 3)
+  }
+  const flags = useMemo(() => {
+    // Find it outlines only the parts of the one check it is open for
+    if (findInfo) return Object.fromEntries(findInfo.mine.concat(findInfo.pairs).map((m) => [m.id, [checks[finding].label]]))
+    if (!results || !guided) return null
+    const out = {}
+    checks.forEach((c, i) => {
+      if (live[i]?.pass) return
+      for (const id of ruleNodes(design, c.rule)) (out[id] ??= []).push(c.label)
+    })
+    return Object.keys(out).length ? out : null
+  }, [findInfo, finding, results, guided, checks, live, design])
 
   function checkDesign() {
     const r = runChecks(design, checks)
@@ -217,12 +241,21 @@ export default function FlowWorkspace({ problem, guided = true }) {
                 <ul className="check-list">
                   {checks.map((c, i) => {
                     const r = results?.[i]
+                    const failing = guided && countComponents(design) > 0 && !live[i]?.pass
                     return (
                       <li key={i} className={r ? (r.pass ? 'pass' : 'fail') : ''}>
                         <span className="mark">{r ? (r.pass ? '✓' : '✗') : '○'}</span>
-                        <span>
-                          {c.label}
-                          {guided && r && !r.pass && <span className="check-hint muted small">{missingHint(design, c.rule)}</span>}
+                        <span className="check-body">
+                          <span className="check-line">
+                            {c.label}
+                            {failing && problem.referenceFlow && finding !== i && (
+                              <button className="link-btn small find-it-btn" onClick={() => openFind(i)} title="Show what is wrong, where, and how the reference differs, for this check only">
+                                🔎 Find it
+                              </button>
+                            )}
+                          </span>
+                          {guided && r && !r.pass && finding !== i && <span className="check-hint muted small">{missingHint(design, c.rule)}</span>}
+                          {finding === i && findInfo && <FindIt label={c.label} info={findInfo} onClose={() => setFinding(null)} />}
                         </span>
                       </li>
                     )
@@ -298,7 +331,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
               </div>
             ))}
 
-          {tab === 'run' && <RunPanel design={design} simulation={problem.simulation} />}
+          {tab === 'run' && <RunPanel design={design} simulation={problem.simulation} onTrace={setRunMarks} />}
 
           {tab === 'notes' && (
             <NotesBox problemId={problem.id} />
@@ -316,6 +349,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
             hintFor={(i) => missingHint(design, checks[i].rule)}
             ladder={ladder}
             onHint={(i, level) => recordHint(problem.id, entry, i, level)}
+            onFind={problem.referenceFlow ? openFind : null}
             finish={
               <button className="btn btn-primary btn-sm" onClick={checkDesign}>
                 Check design
@@ -327,6 +361,8 @@ export default function FlowWorkspace({ problem, guided = true }) {
           design={design}
           onChange={setDesign}
           history={history}
+          flags={flags}
+          runMarks={runMarks}
           toolbarEnd={
             <>
               {hasTests && (
@@ -353,7 +389,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
               </button>
             </div>
             <div className="run-drawer-body">
-              <RunPanel design={design} simulation={problem.simulation} />
+              <RunPanel design={design} simulation={problem.simulation} onTrace={setRunMarks} />
             </div>
           </div>
         )}

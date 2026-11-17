@@ -23,7 +23,8 @@ const readOpen = () => {
 // steps come from study/steps.js, results are live, and hintFor(index) says what a failing check still needs.
 // ladder(index) gives the three hints for a failing check ({ scenario, missing, piece }), and onHint(index, level)
 // records each one used.
-export default function StepGuide({ steps, checks, results, hintFor, finish, ladder, onHint }) {
+// onFind(index) opens Find it for a failing check (where it is and how it differs from the reference).
+export default function StepGuide({ steps, checks, results, hintFor, finish, ladder, onHint, onFind }) {
   const [on, setOn] = useState(readOn)
   const [showHints, setShowHints] = useState(false)
   const [hint, setHint] = useState({ item: null, level: 0 })
@@ -100,6 +101,11 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
           {rung && level > 0 && !hidden && (
             <button className="link-btn small" onClick={() => setHidden(true)} title="Close the hints">
               ✕ Close hint
+            </button>
+          )}
+          {onFind && nextItem !== undefined && (
+            <button className="link-btn small find-it-btn" onClick={() => onFind(nextItem)} title="Show what is wrong, where on your canvas, and how the reference differs, for this check only">
+              🔎 Find it
             </button>
           )}
           {step && (
