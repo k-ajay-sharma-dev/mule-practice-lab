@@ -120,7 +120,10 @@ export default function FindIt({ label, info, onClose }) {
         <p className="small muted">
           {info.lines
             ? 'Your boxes, settings and lines here match the reference. Read the hint above, and the Run tab for a test run.'
-            : 'Your settings for these components match the reference. Look at where they sit (which flow, inside which scope, and in what order) against the hint above.'}
+            : info.mine.length === 0
+              ? // nothing was compared, so saying "match" would be a guess
+                'There are no components here to compare with the reference. Read the hint above, and for a test run open the Run tab to follow each step.'
+              : 'Your settings for these components match the reference. Look at where they sit (which flow, inside which scope, and in what order) against the hint above.'}
         </p>
       )}
       <p className="muted small find-it-note">Opening this counts as the last hint for this check.</p>

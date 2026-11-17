@@ -71,5 +71,18 @@ export function runClues(result, lines = []) {
       uncaught: !caught,
     })
   }
+  // a missing or misdirected email or message: the steps that sent them, so Find it compares their settings.
+  // Matched on how each check's text starts (see sim/expect.js), as a queue can be called welcome-emails.
+  const effects = [
+    [/^(\d+ emails?|An email|No email)\b/, (e) => e.type === 'email-send', 'email'],
+    [/^(\d+ messages? sent to|A message sent to|Nothing is sent to)\b/, (e) => /publish/.test(e.type ?? ''), 'message'],
+  ]
+  for (const [about, sends, noun] of effects) {
+    if (!failed.some((l) => about.test(l.text))) continue
+    const steps = trace.filter((e) => e.kind === 'step' && e.id && sends(e))
+    if (!steps.length) continue
+    const where = [...new Set(steps.map((e) => `${e.label} in ${e.flow}`))].join(', ')
+    out.push({ text: `The ${noun} came from ${where}. Compare its settings with what the test expects.`, ids: [...new Set(steps.map((e) => e.id))] })
+  }
   return out
 }

@@ -26,6 +26,19 @@ import { matchPath } from './http.js'
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
+// The rest that went somewhere else, so a wrong address or queue name shows in the message:
+// '; 1 email went to "payload.email" instead'
+function elsewhere(items, place, noun) {
+  if (!items.length) return ''
+  const counts = new Map()
+  for (const item of items) {
+    const where = String(place(item) ?? '').trim() || '(nowhere)'
+    counts.set(where, (counts.get(where) ?? 0) + 1)
+  }
+  const parts = [...counts].slice(0, 3).map(([where, n]) => `${plural(n, noun)} went to "${where}"`)
+  return `; ${parts.join(', ')}${counts.size > 3 ? ', and more' : ''} instead`
+}
+
 export function checkExpectations(result, expect = {}) {
   const out = []
   const add = (ok, text, got) => out.push({ ok, text: ok || got === undefined ? text : `${text} (got ${got})` })
@@ -83,7 +96,8 @@ export function checkExpectations(result, expect = {}) {
     const msgs = result.effects.sent.filter((m) => m.destination.toLowerCase() === String(want.destination).toLowerCase())
     const matching = want.has ? msgs.filter((m) => contains(m.payload, want.has)) : msgs
     const text = `${want.count !== undefined ? plural(want.count, 'message') : 'A message'} sent to ${want.destination}${want.has ? ` with ${brief(want.has)}` : ''}`
-    add(want.count !== undefined ? matching.length === want.count : matching.length > 0, text, plural(matching.length, 'message'))
+    const others = result.effects.sent.filter((m) => !msgs.includes(m))
+    add(want.count !== undefined ? matching.length === want.count : matching.length > 0, text, plural(matching.length, 'message') + elsewhere(others, (m) => m.destination, 'message'))
   }
   for (const dest of expect.notSent ?? []) {
     const n = result.effects.sent.filter((m) => m.destination.toLowerCase() === dest.toLowerCase()).length
@@ -92,7 +106,8 @@ export function checkExpectations(result, expect = {}) {
 
   for (const want of expect.emails ?? []) {
     const n = result.effects.emails.filter((e) => (!want.to || contains(e.to, `~${want.to}`)) && (!want.subject || contains(e.subject, `~${want.subject}`)) && (!want.has || contains(textOf(e.content), `~${want.has}`))).length
-    add(want.count !== undefined ? n === want.count : n > 0, `${want.count !== undefined ? plural(want.count, 'email') : 'An email'}${want.to ? ` to ${want.to}` : ''}${want.subject ? ` about "${want.subject}"` : ''}`, plural(n, 'email'))
+    const others = want.to ? result.effects.emails.filter((e) => !contains(e.to, `~${want.to}`)) : []
+    add(want.count !== undefined ? n === want.count : n > 0, `${want.count !== undefined ? plural(want.count, 'email') : 'An email'}${want.to ? ` to ${want.to}` : ''}${want.subject ? ` about "${want.subject}"` : ''}`, plural(n, 'email') + elsewhere(others, (e) => e.to, 'email'))
   }
   // Object Store keys are looked up in every store unless the test names one, since the store name is the learner's
   for (const want of expect.stored ?? []) {
