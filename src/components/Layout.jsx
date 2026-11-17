@@ -199,6 +199,25 @@ function Sidebar({ collapsed, onToggle, onClose }) {
   const progress = useProgress()
   const today = todayKey()
   const dueCount = Object.entries(review).filter(([id, r]) => r.due <= today && problemById.has(id)).length
+  const { pathname } = useLocation()
+  const [moreOpen, setMoreOpen] = useState(() => {
+    try {
+      return localStorage.getItem('pl.sideMore') === 'open'
+    } catch {
+      return false
+    }
+  })
+  const MORE = ['/tracks', '/flashcards', '/interview', '/readiness', '/projects', '/platform-lab', '/calm', '/search', '/settings']
+  const showMore = moreOpen || MORE.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  function toggleMore() {
+    const next = !showMore
+    setMoreOpen(next)
+    try {
+      localStorage.setItem('pl.sideMore', next ? 'open' : 'closed')
+    } catch {
+      // storage blocked: the choice lasts for this visit
+    }
+  }
 
   const counts = {}
   for (const p of problems) {
@@ -227,16 +246,10 @@ function Sidebar({ collapsed, onToggle, onClose }) {
         <div className="side-group">
           <div className="side-group-title">Study</div>
           {item('/', 'path', 'Learning Path', null, true)}
-          {item('/tracks', 'tracks', 'Topic Tracks')}
           {item('/review', 'review', 'Review', dueCount > 0 && <span className="side-badge">{dueCount}</span>)}
-          {item('/flashcards', 'flashcards', 'Flashcards')}
           {item('/mock', 'mock', 'Mock Interview')}
           {item('/exam', 'exam', 'Practice Exam')}
-          {item('/interview', 'interview', 'Interview Practice')}
           {item('/weak-areas', 'weak', 'Weak Areas')}
-          {item('/readiness', 'readiness', 'Readiness')}
-          {item('/projects', 'projects', 'My Projects')}
-          {item('/calm', 'calm', 'Calm Corner')}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>
@@ -254,10 +267,29 @@ function Sidebar({ collapsed, onToggle, onClose }) {
         <div className="side-group">
           <div className="side-group-title">Tools</div>
           {item('/playground', 'playground', 'Playground')}
-          {item('/platform-lab', 'lab', 'Platform Lab')}
           {item('/cheatsheets', 'cheatsheets', 'Cheat Sheets')}
-          {item('/search', 'search', 'Search')}
-          {item('/settings', 'settings', 'Settings')}
+        </div>
+        {/* used less often: folded away, and open on their own while you are on one of them */}
+        <div className="side-group">
+          <button className="side-more" onClick={toggleMore} aria-expanded={showMore} title={collapsed ? 'More' : undefined}>
+            <span className="side-more-icon" aria-hidden="true">
+              {showMore ? '▾' : '▸'}
+            </span>
+            <span className="side-label">More</span>
+          </button>
+          {showMore && (
+            <>
+              {item('/tracks', 'tracks', 'Topic Tracks')}
+              {item('/flashcards', 'flashcards', 'Flashcards')}
+              {item('/interview', 'interview', 'Interview Practice')}
+              {item('/readiness', 'readiness', 'Readiness')}
+              {item('/projects', 'projects', 'My Projects')}
+              {item('/platform-lab', 'lab', 'Platform Lab')}
+              {item('/calm', 'calm', 'Calm Corner')}
+              {item('/search', 'search', 'Search')}
+              {item('/settings', 'settings', 'Settings')}
+            </>
+          )}
         </div>
       </nav>
       <button className="side-collapse" onClick={onToggle} title={collapsed ? 'Expand menu' : 'Collapse menu'}>

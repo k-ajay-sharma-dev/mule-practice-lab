@@ -3,6 +3,8 @@
 // copy. Skipped when the connection is slow or the person has asked to save data.
 const PAGES = [
   () => import('./pages/ProblemPage.jsx'),
+  // the code editor itself comes from a CDN the first time an editor opens; fetching it now saves that wait
+  () => import('@monaco-editor/react').then((m) => m.loader.init()),
   () => import('./workspaces/DataWeaveWorkspace.jsx'),
   () => import('./workspaces/FlowWorkspace.jsx'),
   () => import('./workspaces/QuizWorkspace.jsx'),
@@ -15,6 +17,21 @@ const PAGES = [
   () => import('./pages/FlashcardsPage.jsx'),
   () => import('./pages/CalmPage.jsx'),
 ]
+
+// A problem's own file loads when a link to it is pointed at or focused, so it is ready by the time it is clicked.
+// Any link of the form #/<category>/<id> counts, wherever it is (lists, the dashboard, tracks, review).
+export function prefetchOnHover() {
+  const seen = new Set()
+  const onPoint = (e) => {
+    const a = e.target.closest?.('a[href]')
+    const m = a?.getAttribute('href')?.match(/#\/[a-z-]+\/([a-z]+-\d+)$/)
+    if (!m || seen.has(m[1])) return
+    seen.add(m[1])
+    import('./data/problems.js').then(({ loadProblem, problemById }) => problemById.has(m[1]) && loadProblem(m[1]).catch(() => seen.delete(m[1])))
+  }
+  document.addEventListener('pointerover', onPoint, { passive: true })
+  document.addEventListener('focusin', onPoint)
+}
 
 const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 200))
 

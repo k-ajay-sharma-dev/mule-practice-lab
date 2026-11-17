@@ -189,6 +189,33 @@ h3 {
   background: var(--surface-2);
   color: var(--text);
 }
+/* the fold for links used less often */
+.side-more {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.side-more:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.side-more-icon {
+  width: 18px;
+  text-align: center;
+}
 .side-link.active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);

@@ -53,6 +53,53 @@ function PointsCard() {
 
 const PHASE_PAGE_SIZE = 10
 
+// The problem you last worked on (its progress carries the time, so this also works across synced devices), and
+// when that one is solved, the next unsolved problem in the same tab.
+function ContinueCard({ progress }) {
+  let last = null
+  let lastAt = ''
+  for (const [id, e] of Object.entries(progress)) {
+    if (e && typeof e.updatedAt === 'string' && e.updatedAt > lastAt && problemById.has(id)) {
+      last = id
+      lastAt = e.updatedAt
+    }
+  }
+  if (!last) return null
+  const p = problemById.get(last)
+  const solved = statusOf(progress[last]) === 'solved'
+  const next = solved ? nextUnsolved(p, progress) : null
+  const target = next ?? p
+  return (
+    <section className="continue-card">
+      <div>
+        <span className="stat-label">{solved ? (next ? 'Next up' : 'Last solved') : 'Continue where you left off'}</span>
+        <Link to={`/${target.category}/${target.id}`} className="continue-title">
+          {target.title}
+        </Link>
+        <span className="muted small">
+          {categoryBySlug.get(target.category)?.label}
+          {solved && next && ` · after ${p.title}`}
+          {!solved && ` · ${statusOf(progress[last]) === 'not-started' ? 'opened' : 'in progress'} ${new Date(lastAt).toLocaleDateString()}`}
+        </span>
+      </div>
+      <Link to={`/${target.category}/${target.id}`} className="btn btn-primary">
+        {solved ? 'Start' : 'Continue'} →
+      </Link>
+    </section>
+  )
+}
+
+// The first unsolved problem after this one in its tab, going round to the start
+function nextUnsolved(p, progress) {
+  const list = problems.filter((x) => x.category === p.category)
+  const i = list.findIndex((x) => x.id === p.id)
+  for (let k = 1; k < list.length; k++) {
+    const x = list[(i + k) % list.length]
+    if (statusOf(progress[x.id]) !== 'solved') return x
+  }
+  return null
+}
+
 // Design problems solved without the reference and with at most two hints per check: the habit to grow.
 function OnYourOwn({ progress }) {
   const stats = useMemo(() => independence(progress), [progress])
@@ -166,6 +213,8 @@ export default function DashboardPage() {
           </button>
         </section>
       )}
+
+      <ContinueCard progress={progress} />
 
       <TodayPlan />
 

@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { categoryBySlug, LEVELS, STATUSES } from '../data/categories.js'
 import { problemsFor } from '../data/problems.js'
 import { statusOf, useProgress } from '../store/progress.js'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import Pagination, { PAGE_SIZES, paginate } from '../components/Pagination.jsx'
 import { EXERCISE_LABELS, exerciseOf } from '../data/exercises.js'
@@ -27,6 +27,29 @@ export default function CategoryPage() {
   const progress = useProgress()
   const navigate = useNavigate()
   const [pageSize, setPageSize] = useState(loadPageSize)
+
+  // the filters are kept per tab: coming back without any in the address brings the last ones back
+  const FILTER_KEYS = ['q', 'level', 'status', 'tag', 'mode']
+  const filterKey = `pl.filters.${category}`
+  const shown = FILTER_KEYS.filter((k) => params.get(k)).map((k) => `${k}=${params.get(k)}`).join('&')
+  useEffect(() => {
+    if (shown) return
+    try {
+      const saved = localStorage.getItem(filterKey)
+      if (saved) setParams(new URLSearchParams(saved), { replace: true })
+    } catch {
+      // storage blocked: start without filters
+    }
+    // only when the tab opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category])
+  useEffect(() => {
+    try {
+      if (shown) localStorage.setItem(filterKey, shown)
+    } catch {
+      // storage blocked: the filters last for this visit
+    }
+  }, [shown, filterKey])
 
   const cat = categoryBySlug.get(category)
   if (!cat) return <NotFound />
@@ -171,7 +194,17 @@ export default function CategoryPage() {
           Random unsolved
         </button>
         {hasFilters && (
-          <button className="btn btn-ghost" onClick={() => setParams({}, { replace: true })}>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              try {
+                localStorage.removeItem(filterKey)
+              } catch {
+                // storage blocked: nothing kept
+              }
+              setParams({}, { replace: true })
+            }}
+          >
             Clear
           </button>
         )}

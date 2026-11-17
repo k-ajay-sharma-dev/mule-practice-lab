@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { enableDragScroll } from './hscroll.js'
-import { prefetchPages } from './prefetch.js'
+import { prefetchOnHover, prefetchPages } from './prefetch.js'
 import { startSync } from './sync/status.js'
 import { ThemeProvider } from './theme.jsx'
 import './styles.css'
@@ -38,6 +38,7 @@ whenIdle(startSync, { timeout: 2000 })
 
 // then the pages people open most, so a first click on them opens at once
 window.addEventListener('load', () => setTimeout(prefetchPages, 1500))
+prefetchOnHover()
 
 // areas wider than their box can be dragged sideways with the mouse (scrollbars are hidden)
 enableDragScroll()

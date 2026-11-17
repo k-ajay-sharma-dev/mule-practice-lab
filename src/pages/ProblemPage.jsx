@@ -3,7 +3,7 @@ import { categoryBySlug } from '../data/categories.js'
 import { problemById, problemsFor } from '../data/problems.js'
 import { useFocusSession } from '../store/focus.js'
 import { readOrigin } from '../store/origin.js'
-import { removeReview, scheduleReview, statusOf, useEntry, useReview } from '../store/progress.js'
+import { removeReview, scheduleReview, statusOf, useEntry, useProgress, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
 import ProblemTimer from '../components/ProblemTimer.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
@@ -15,6 +15,7 @@ import NotFound from './NotFound.jsx'
 export default function ProblemPage() {
   const { category, problemId } = useParams()
   const entry = useEntry(problemId)
+  const progress = useProgress()
   const inReview = Boolean(useReview()[problemId])
   const focus = useFocusSession()
   const focusing = Boolean(focus && !focus.endedAt) // the session picks the next problem, so these ways out are hidden
@@ -31,6 +32,15 @@ export default function ProblemPage() {
   const idx = siblings.findIndex((p) => p.id === problem.id)
   const prev = siblings[idx - 1]
   const next = siblings[idx + 1]
+  // the first unsolved problem after this one, going round to the start; hidden when it is the plain Next
+  let nextOpen = null
+  for (let k = 1; k < siblings.length; k++) {
+    const s = siblings[(idx + k) % siblings.length]
+    if (statusOf(progress[s.id]) !== 'solved') {
+      nextOpen = s
+      break
+    }
+  }
 
   return (
     <div className="problem-page">
@@ -73,6 +83,11 @@ export default function ProblemPage() {
           ) : (
             <span className="btn btn-ghost disabled">Next →</span>
           ))}
+          {!focusing && nextOpen && nextOpen.id !== next?.id && (
+            <Link className="btn btn-ghost" to={`/${category}/${nextOpen.id}`} title={`Next unsolved: ${nextOpen.title}`}>
+              Next unsolved →
+            </Link>
+          )}
           {!focusing && <WideToggle />}
         </div>
       </header>
