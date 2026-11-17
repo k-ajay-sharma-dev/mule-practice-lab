@@ -21,9 +21,12 @@ const readOpen = () => {
 
 // Sits above a designer and shows one small step at a time, ticking each requirement as the design meets it.
 // steps come from study/steps.js, results are live, and hintFor(index) says what a failing check still needs.
-export default function StepGuide({ steps, checks, results, hintFor, finish }) {
+// ladder(index) gives the three hints for a failing check ({ scenario, missing, piece }), and onHint(index, level)
+// records each one used.
+export default function StepGuide({ steps, checks, results, hintFor, finish, ladder, onHint }) {
   const [on, setOn] = useState(readOn)
   const [showHints, setShowHints] = useState(false)
+  const [hint, setHint] = useState({ item: null, level: 0 })
   const [open, setOpen] = useState(readOpen)
   const at = currentStep(steps, results)
 
@@ -51,6 +54,13 @@ export default function StepGuide({ steps, checks, results, hintFor, finish }) {
 
   const step = steps[at]
   const nextItem = step?.items.find((n) => !results[n]?.pass)
+  const level = hint.item === nextItem ? hint.level : 0
+  const rung = ladder && nextItem !== undefined ? ladder(nextItem) : null
+  function nextHint() {
+    const next = level + 1
+    setHint({ item: nextItem, level: next })
+    onHint?.(nextItem, next)
+  }
   function toggleOpen() {
     try {
       localStorage.setItem(OPEN_KEY, open ? 'no' : 'yes')
@@ -74,6 +84,11 @@ export default function StepGuide({ steps, checks, results, hintFor, finish }) {
           </span>
         )}
         <span className="step-guide-actions">
+          {rung && level < 3 && (
+            <button className="link-btn small hint-btn" onClick={nextHint} title="Hints go one small step at a time, so you still do the thinking">
+              {['💡 Hint', '💡 Hint 2 of 3', '💡 Show this piece of the answer'][level]}
+            </button>
+          )}
           {step && (
             <button className="link-btn small" onClick={toggleOpen} aria-expanded={open}>
               {open ? 'Less ▴' : 'All checks ▾'}
@@ -89,6 +104,25 @@ export default function StepGuide({ steps, checks, results, hintFor, finish }) {
           </button>
         </span>
       </div>
+      {rung && level > 0 && (
+        <ol className="hint-ladder small">
+          <li>
+            <b>Think.</b> Which part of the scenario asks for “{checks[nextItem].label}”? What would go wrong without it?
+            {rung.scenario && <q className="hint-quote">{rung.scenario}</q>}
+          </li>
+          {level > 1 && (
+            <li>
+              <b>What is missing.</b> {rung.missing}
+            </li>
+          )}
+          {level > 2 && (
+            <li>
+              <b>This piece of the model answer.</b>{' '}
+              {rung.piece ?? 'The model answer does not cover this in one place. Open the reference for this step only, then close it and build it yourself.'}
+            </li>
+          )}
+        </ol>
+      )}
       {step ? (
         open && <ul className="check-list step-guide-list">
           {step.items.map((n) => {

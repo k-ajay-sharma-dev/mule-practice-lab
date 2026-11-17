@@ -3,11 +3,12 @@ import FlowDesigner from '../components/flow/FlowDesigner.jsx'
 import RunPanel from '../components/flow/RunPanel.jsx'
 import FollowUps from '../components/FollowUps.jsx'
 import Markdown from '../components/Markdown.jsx'
+import { ladderFor, PlanBox, RebuildBanner, recordHint, revealReference, RevealGate, startRebuild } from '../components/PracticeAids.jsx'
 import { useSidebarRoom } from '../components/sidebar.js'
 import StepGuide from '../components/StepGuide.jsx'
 import { designChecks, missingHint, runChecks } from '../flow/checks.js'
 import { compareDesigns } from '../flow/compare.js'
-import { countComponents, restoreDesign } from '../flow/model.js'
+import { countComponents, emptyDesign, restoreDesign } from '../flow/model.js'
 import { systemsIn } from '../flow/systems.js'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { rate } from '../store/rating.js'
@@ -154,8 +155,12 @@ export default function FlowWorkspace({ problem, guided = true }) {
     const r = runChecks(design, checks)
     setResults(r)
     setTab('checks')
-    if (r.every((c) => c.pass)) updateEntry(problem.id, { flow: design, status: 'solved' }, { graded: true })
+    if (r.every((c) => c.pass)) updateEntry(problem.id, { flow: design, status: 'solved', rebuilding: false }, { graded: true })
   }
+  const ladder = useMemo(
+    () => ladderFor(problem.description, problem.solution, checks, (i) => missingHint(design, checks[i].rule)),
+    [problem, checks, design],
+  )
 
   function togglePoint(i) {
     const next = checked.includes(i) ? checked.filter((x) => x !== i) : [...checked, i]
@@ -177,7 +182,9 @@ export default function FlowWorkspace({ problem, guided = true }) {
         <div className="panel-body">
           {tab === 'scenario' && (
             <>
+              {guided && <RebuildBanner entry={entry} onRebuild={() => startRebuild(problem.id, entry, () => setDesign(emptyDesign()))} />}
               <Markdown>{problem.description}</Markdown>
+              {guided && <PlanBox key={problem.id} problemId={problem.id} kind="flow" saved={entry.plan} started={countComponents(design) > 0} />}
               <SystemsList design={problem.referenceFlow} />
               <div className="reveal-gate">
                 <p className="muted small">
@@ -228,12 +235,9 @@ export default function FlowWorkspace({ problem, guided = true }) {
 
           {tab === 'reference' &&
             (!entry.revealed ? (
-              <div className="reveal-gate">
+              <RevealGate entry={entry} onReveal={() => revealReference(problem.id)}>
                 <p className="muted">Finish your design first. Revealing the reference is recorded on this problem.</p>
-                <button className="btn btn-primary" onClick={() => updateEntry(problem.id, { revealed: true })}>
-                  Reveal reference
-                </button>
-              </div>
+              </RevealGate>
             ) : (
               <div className="reference">
                 {problem.referenceFlow && (
@@ -300,6 +304,8 @@ export default function FlowWorkspace({ problem, guided = true }) {
             checks={checks}
             results={live}
             hintFor={(i) => missingHint(design, checks[i].rule)}
+            ladder={ladder}
+            onHint={(i, level) => recordHint(problem.id, entry, i, level)}
             finish={
               <button className="btn btn-primary btn-sm" onClick={checkDesign}>
                 Check design

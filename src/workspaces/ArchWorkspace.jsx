@@ -8,7 +8,8 @@ import StepGuide from '../components/StepGuide.jsx'
 import { archChecks, diagramHint, runDiagramChecks } from '../arch/checks.js'
 import { runArchTest } from '../arch/tests.js'
 import { landscapeOf } from '../arch/landscape.js'
-import { restoreDiagram } from '../arch/model.js'
+import { emptyDiagram, restoreDiagram } from '../arch/model.js'
+import { ladderFor, PlanBox, RebuildBanner, recordHint, startRebuild } from '../components/PracticeAids.jsx'
 import { updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import { diagramSteps } from '../study/steps.js'
 import { useAutosave } from './useAutosave.js'
@@ -75,8 +76,12 @@ export default function ArchWorkspace({ problem, guided = true }) {
     const r = runDiagramChecks(diagram, checks)
     setResults(r)
     setTab('checks')
-    if (r.every((c) => c.pass)) updateEntry(problem.id, { diagram, status: 'solved' }, { graded: true })
+    if (r.every((c) => c.pass)) updateEntry(problem.id, { diagram, status: 'solved', rebuilding: false }, { graded: true })
   }
+  const ladder = useMemo(
+    () => ladderFor(problem.description, problem.solution, checks, (i) => diagramHint(diagram, checks[i].rule)),
+    [problem, checks, diagram],
+  )
 
   const passed = results?.filter((r) => r.pass).length ?? 0
   const checkButton = (
@@ -98,7 +103,9 @@ export default function ArchWorkspace({ problem, guided = true }) {
         <div className="panel-body">
           {tab === 'scenario' && (
             <>
+              {guided && <RebuildBanner entry={entry} onRebuild={() => startRebuild(problem.id, entry, () => setDiagram(emptyDiagram()))} />}
               <Markdown>{problem.description}</Markdown>
+              {guided && <PlanBox key={problem.id} problemId={problem.id} kind="arch" saved={entry.plan} started={diagram.nodes.length > 0} />}
               <Landscape reference={reference} />
               <div className="reveal-gate">
                 <p className="small">
@@ -150,7 +157,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
           {tab === 'run' && <ArchRunPanel diagram={diagram} simulation={simulation} picked={picked} onPick={setPicked} />}
 
           {tab === 'explain' && (
-            <ExplainPanel problem={problem}>
+            <ExplainPanel problem={problem} practice={guided}>
               {reference && (
                 <>
                   <div className="section-title">Reference architecture</div>
@@ -175,6 +182,8 @@ export default function ArchWorkspace({ problem, guided = true }) {
             checks={checks}
             results={live}
             hintFor={(i) => diagramHint(diagram, checks[i].rule)}
+            ladder={ladder}
+            onHint={(i, level) => recordHint(problem.id, entry, i, level)}
             finish={checkButton}
           />
         )}

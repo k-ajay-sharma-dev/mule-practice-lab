@@ -2977,3 +2977,61 @@
     flex: none;
   }
 }
+
+/* ---------- Practice aids for design problems: plan, hint ladder, rebuild ---------- */
+.plan-box {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.plan-box summary {
+  cursor: pointer;
+}
+.plan-box ol {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 2px;
+  padding-left: 20px;
+}
+.plan-box label {
+  display: block;
+  margin-bottom: 3px;
+}
+.plan-box textarea {
+  width: 100%;
+  min-height: 38px;
+  resize: vertical;
+}
+.hint-btn {
+  color: var(--warning);
+  font-weight: 600;
+}
+.hint-ladder {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 2px;
+  padding: 8px 10px 8px 28px;
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.hint-quote {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-style: italic;
+}
+.rebuild-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}

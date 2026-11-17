@@ -1,5 +1,6 @@
 import FollowUps from './FollowUps.jsx'
 import Markdown from './Markdown.jsx'
+import { revealReference, RevealGate } from './PracticeAids.jsx'
 import { updateEntry, useEntry } from '../store/progress.js'
 import { rate } from '../store/rating.js'
 
@@ -11,7 +12,7 @@ const RATINGS = [
 
 // "Explain it" tab: interviews are spoken, so after the exercise the learner practises explaining
 // the answer out loud, then compares with key points, the reference answer and follow-up questions.
-export default function ExplainPanel({ problem, children }) {
+export default function ExplainPanel({ problem, children, practice = false }) {
   const entry = useEntry(problem.id)
   const checked = (Array.isArray(entry.checkedPoints) ? entry.checkedPoints : [])
   const keyPoints = problem.keyPoints || []
@@ -22,8 +23,8 @@ export default function ExplainPanel({ problem, children }) {
   }
 
   if (!entry.revealed) {
-    return (
-      <div className="reveal-gate">
+    const prompts = (
+      <>
         <p className="muted">
           Interviewers ask you to <b>explain</b> it. Say your answer out loud first
           {problem.answerTemplate ? ', covering these points:' : '.'}
@@ -35,6 +36,19 @@ export default function ExplainPanel({ problem, children }) {
             ))}
           </ul>
         )}
+      </>
+    )
+    // design problems: hints first, and seeing the answer brings the problem back to rebuild
+    if (practice) {
+      return (
+        <RevealGate entry={entry} onReveal={() => revealReference(problem.id)}>
+          {prompts}
+        </RevealGate>
+      )
+    }
+    return (
+      <div className="reveal-gate">
+        {prompts}
         <button className="btn btn-primary" onClick={() => updateEntry(problem.id, { revealed: true })}>
           Reveal reference answer
         </button>
