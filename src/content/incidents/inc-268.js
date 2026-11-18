@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Item Changes Made Late at Night Never Reach the Planning Platform",
   level: 'INTERMEDIATE',
-  tags: ["myproject","sql-server","blue-yonder","master-data","watermark"],
+  tags: ["myproject","sql-server","planning-platform","master-data","watermark"],
   estMinutes: 20,
   investigation: {
     logs: [

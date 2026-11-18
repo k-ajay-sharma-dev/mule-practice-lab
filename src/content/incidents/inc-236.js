@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Sales and Inventory Feeds Disagree Because They Were Taken at Different Times",
   level: 'EXPERT',
-  tags: ["myproject","azure-file-share","blue-yonder","database","reconciliation"],
+  tags: ["myproject","azure-file-share","planning-platform","database","reconciliation"],
   estMinutes: 30,
   investigation: {
     logs: [

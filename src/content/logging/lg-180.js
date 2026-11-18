@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Merging Plans and Forecasts",
   level: 'EXPERT',
-  tags: ["logging","myproject","sql-server","merge","blue-yonder","plans"],
+  tags: ["logging","myproject","sql-server","merge","planning-platform","plans"],
   estMinutes: 25,
   quiz: fromLogging(["log-14046","log-14047","log-14048","log-14049","log-14050"]),
   description: `

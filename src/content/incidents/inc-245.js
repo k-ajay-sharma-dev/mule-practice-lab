@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "A Plan File Fails Half Way Into the Database and the Retry Doubles the Orders",
   level: 'ADVANCED',
-  tags: ["myproject","sftp","blue-yonder","plans","database"],
+  tags: ["myproject","sftp","planning-platform","plans","database"],
   estMinutes: 25,
   investigation: {
     logs: [

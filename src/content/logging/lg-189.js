@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "The Daily Integration Report",
   level: 'ADVANCED',
-  tags: ["logging","myproject","email","job-log","monitoring","blue-yonder"],
+  tags: ["logging","myproject","email","job-log","monitoring","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-15041","log-15042","log-15043","log-15044","log-15045"]),
   description: `

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Item Messages Fail With BlobNotFound After the Hub Already Said \"Received\": the Notification Points to the Wrong Container",
   level: 'INTERMEDIATE',
-  tags: ["myproject","azure-blob","claim-check","jms","blue-yonder","validation"],
+  tags: ["myproject","azure-blob","claim-check","jms","planning-platform","validation"],
   estMinutes: 20,
   investigation: {
     logs: [

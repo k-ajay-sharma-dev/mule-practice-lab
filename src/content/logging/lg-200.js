@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Step Timelines for a Nightly Chain",
   level: 'EXPERT',
-  tags: ["logging","myproject","large-files","timeline","monitoring","blue-yonder"],
+  tags: ["logging","myproject","large-files","timeline","monitoring","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-16046","log-16047","log-16048","log-16049","log-16050"]),
   description: `

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Stores Receive Last Week’s Replenishment Plan Because the Control File Arrived First",
   level: 'ADVANCED',
-  tags: ["myproject","azure-file-share","blue-yonder","plans","control-file"],
+  tags: ["myproject","azure-file-share","planning-platform","plans","control-file"],
   estMinutes: 25,
   investigation: {
     logs: [

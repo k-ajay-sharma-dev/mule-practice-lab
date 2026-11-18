@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Outbound Jobs Started From the Support Console Run Twice",
   level: 'ADVANCED',
-  tags: ["myproject","oracle","blue-yonder","outbound","async"],
+  tags: ["myproject","oracle","planning-platform","outbound","async"],
   estMinutes: 25,
   investigation: {
     logs: [

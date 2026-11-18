@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "FTP Uploads to the Planning Platform",
   level: 'ADVANCED',
-  tags: ["logging","myproject","ftp","blue-yonder","idempotency"],
+  tags: ["logging","myproject","ftp","planning-platform","idempotency"],
   estMinutes: 25,
   quiz: fromLogging(["log-14011","log-14012","log-14013","log-14014","log-14015"]),
   description: `

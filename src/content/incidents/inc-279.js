@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "One Bad Row Sends a Whole Product Block to the Failure Queue",
   level: 'INTERMEDIATE',
-  tags: ["myproject","oracle","batch","reject-table","blue-yonder"],
+  tags: ["myproject","oracle","batch","reject-table","planning-platform"],
   estMinutes: 20,
   investigation: {
     logs: [

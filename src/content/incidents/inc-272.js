@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Nightly Sales Extract for the Planning Platform Slows the Stores’ Morning Trade",
   level: 'EXPERT',
-  tags: ["myproject","sql-server","blue-yonder","sales","extract"],
+  tags: ["myproject","sql-server","planning-platform","sales","extract"],
   estMinutes: 30,
   investigation: {
     logs: [

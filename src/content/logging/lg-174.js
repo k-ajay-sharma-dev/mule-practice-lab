@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Fixed Width Exports",
   level: 'ADVANCED',
-  tags: ["logging","myproject","ftp","fixed-width","master-data","blue-yonder"],
+  tags: ["logging","myproject","ftp","fixed-width","master-data","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-14016","log-14017","log-14018","log-14019","log-14020"]),
   description: `

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Restarting a Failed Product Batch Loads Half the Records Twice",
   level: 'EXPERT',
-  tags: ["myproject","batch","blue-yonder","claim-check","reprocessing"],
+  tags: ["myproject","batch","planning-platform","claim-check","reprocessing"],
   estMinutes: 30,
   investigation: {
     logs: [

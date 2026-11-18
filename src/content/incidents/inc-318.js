@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Large Inbound Messages Time Out Before the Hub Sends an Acknowledgement",
   level: 'ADVANCED',
-  tags: ["myproject","large-files","blue-yonder","claim-check","azure-blob"],
+  tags: ["myproject","large-files","planning-platform","claim-check","azure-blob"],
   estMinutes: 25,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Delta Extracts",
   level: 'ADVANCED',
-  tags: ["logging","myproject","sql-server","watermark","blue-yonder"],
+  tags: ["logging","myproject","sql-server","watermark","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-14041","log-14042","log-14043","log-14044","log-14045"]),
   description: `

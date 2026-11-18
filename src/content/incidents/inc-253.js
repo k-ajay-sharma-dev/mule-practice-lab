@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Sales Feed to the Planning Platform Sends a File Twice After a Timeout",
   level: 'INTERMEDIATE',
-  tags: ["myproject","ftp","blue-yonder","sales","rename"],
+  tags: ["myproject","ftp","planning-platform","sales","rename"],
   estMinutes: 20,
   investigation: {
     logs: [

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Item Hub Runs Out of Memory on One Supplier’s 900 MB Message: the Whole Blob Is Read and Parsed at Once",
   level: 'EXPERT',
-  tags: ["myproject","azure-blob","large-files","memory","streaming","blue-yonder"],
+  tags: ["myproject","azure-blob","large-files","memory","streaming","planning-platform"],
   estMinutes: 30,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Job Rows and the Outbound Console",
   level: 'INTERMEDIATE',
-  tags: ["logging","myproject","oracle","job-log","outbound","blue-yonder"],
+  tags: ["logging","myproject","oracle","job-log","outbound","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-15016","log-15017","log-15018","log-15019","log-15020"]),
   description: `

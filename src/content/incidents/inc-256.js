@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Planning Platform Rejects the Location File After a New Store Opens",
   level: 'INTERMEDIATE',
-  tags: ["myproject","ftp","blue-yonder","master-data","fixed-width"],
+  tags: ["myproject","ftp","planning-platform","master-data","fixed-width"],
   estMinutes: 20,
   investigation: {
     logs: [

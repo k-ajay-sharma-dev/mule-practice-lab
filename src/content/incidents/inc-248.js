@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Planning Platform Applies Two Item Updates in the Wrong Order",
   level: 'EXPERT',
-  tags: ["myproject","sftp","blue-yonder","sequence","master-data"],
+  tags: ["myproject","sftp","planning-platform","sequence","master-data"],
   estMinutes: 30,
   investigation: {
     logs: [

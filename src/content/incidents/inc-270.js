@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Loading Forecasts With MERGE Fails on Duplicate Keys in the Source File",
   level: 'ADVANCED',
-  tags: ["myproject","sql-server","blue-yonder","plans","merge"],
+  tags: ["myproject","sql-server","planning-platform","plans","merge"],
   estMinutes: 25,
   investigation: {
     logs: [

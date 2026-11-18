@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Hub Reports a Message as Completed but Some Records Never Reached the Target Tables",
   level: 'EXPERT',
-  tags: ["myproject","oracle","blue-yonder","claim-check","reconciliation"],
+  tags: ["myproject","oracle","planning-platform","claim-check","reconciliation"],
   estMinutes: 30,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Uploads to the Planning Platform",
   level: 'ADVANCED',
-  tags: ["logging","myproject","sftp","outbound","blue-yonder","sequence"],
+  tags: ["logging","myproject","sftp","outbound","planning-platform","sequence"],
   estMinutes: 25,
   quiz: fromLogging(["log-13036","log-13037","log-13038","log-13039","log-13040"]),
   description: `

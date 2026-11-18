@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Job Log Shows Success for a Batch With 3,000 Failed Records",
   level: 'INTERMEDIATE',
-  tags: ["myproject","batch","blue-yonder","on-complete","job-log"],
+  tags: ["myproject","batch","planning-platform","on-complete","job-log"],
   estMinutes: 20,
   investigation: {
     logs: [

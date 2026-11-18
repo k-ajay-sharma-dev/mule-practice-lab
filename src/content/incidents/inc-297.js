@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Team Ignores Integration Alert Emails and Misses a Real Outage",
   level: 'EXPERT',
-  tags: ["myproject","email","blue-yonder","alerts","noise"],
+  tags: ["myproject","email","planning-platform","alerts","noise"],
   estMinutes: 30,
   investigation: {
     logs: [

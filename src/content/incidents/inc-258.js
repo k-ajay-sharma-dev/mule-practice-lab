@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "Allocation Plans Load Into the Wrong Week",
   level: 'ADVANCED',
-  tags: ["myproject","ftp","blue-yonder","plans","database"],
+  tags: ["myproject","ftp","planning-platform","plans","database"],
   estMinutes: 25,
   investigation: {
     logs: [

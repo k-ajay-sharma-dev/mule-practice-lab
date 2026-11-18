@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Planning Platform Rejects a 5 GB Sales File",
   level: 'INTERMEDIATE',
-  tags: ["myproject","large-files","blue-yonder","sftp","split"],
+  tags: ["myproject","large-files","planning-platform","sftp","split"],
   estMinutes: 20,
   investigation: {
     logs: [

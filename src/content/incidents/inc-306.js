@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "A Batch Job Reading a 3 GB Plan File Loads It All Before Starting",
   level: 'ADVANCED',
-  tags: ["myproject","batch","blue-yonder","large-files","streaming"],
+  tags: ["myproject","batch","planning-platform","large-files","streaming"],
   estMinutes: 25,
   investigation: {
     logs: [

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Nightly Chain of Large Files Finishes After Stores Open",
   level: 'EXPERT',
-  tags: ["myproject","large-files","blue-yonder","end-to-end","planning"],
+  tags: ["myproject","large-files","planning-platform","end-to-end","planning"],
   estMinutes: 30,
   investigation: {
     logs: [

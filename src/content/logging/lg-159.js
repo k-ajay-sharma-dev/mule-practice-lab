@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "The Job Run Summary",
   level: 'ADVANCED',
-  tags: ["logging","myproject","azure-blob","job-log","reconciliation","blue-yonder"],
+  tags: ["logging","myproject","azure-blob","job-log","reconciliation","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-12041","log-12042","log-12043","log-12044","log-12045"]),
   description: `

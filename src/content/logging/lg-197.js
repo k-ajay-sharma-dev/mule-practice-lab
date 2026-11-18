@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Split Exports",
   level: 'ADVANCED',
-  tags: ["logging","myproject","large-files","split","control-file","blue-yonder"],
+  tags: ["logging","myproject","large-files","split","control-file","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-16031","log-16032","log-16033","log-16034","log-16035"]),
   description: `

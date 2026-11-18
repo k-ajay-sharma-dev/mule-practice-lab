@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Plans Back From the Planning Platform",
   level: 'ADVANCED',
-  tags: ["logging","myproject","sftp","plans","blue-yonder","oracle"],
+  tags: ["logging","myproject","sftp","plans","planning-platform","oracle"],
   estMinutes: 25,
   quiz: fromLogging(["log-13041","log-13042","log-13043","log-13044","log-13045"]),
   description: `

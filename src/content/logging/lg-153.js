@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Claim Check Notifications",
   level: 'ADVANCED',
-  tags: ["logging","myproject","queues","claim-check","azure-blob","blue-yonder"],
+  tags: ["logging","myproject","queues","claim-check","azure-blob","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-12011","log-12012","log-12013","log-12014","log-12015"]),
   description: `

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Staging and MERGE in Oracle",
   level: 'ADVANCED',
-  tags: ["logging","myproject","oracle","merge","reconciliation","blue-yonder"],
+  tags: ["logging","myproject","oracle","merge","reconciliation","planning-platform"],
   estMinutes: 25,
   quiz: fromLogging(["log-15001","log-15002","log-15003","log-15004","log-15005"]),
   description: `

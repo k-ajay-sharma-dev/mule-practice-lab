@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Restart App Republishes Failed Messages, but the Duplicate Check Rejects Every One",
   level: 'ADVANCED',
-  tags: ["myproject","azure-blob","restart","duplicates","reprocessing","blue-yonder"],
+  tags: ["myproject","azure-blob","restart","duplicates","reprocessing","planning-platform"],
   estMinutes: 25,
   investigation: {
     logs: [

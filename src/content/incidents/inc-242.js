@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Planning Platform Picks Up Item Files Before Upload Ends",
   level: 'INTERMEDIATE',
-  tags: ["myproject","sftp","blue-yonder","outbound","rename"],
+  tags: ["myproject","sftp","planning-platform","outbound","rename"],
   estMinutes: 20,
   investigation: {
     logs: [

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "The Daily Integration Report Says All Jobs Succeeded During an Outage",
   level: 'ADVANCED',
-  tags: ["myproject","email","blue-yonder","job-log","reports"],
+  tags: ["myproject","email","planning-platform","job-log","reports"],
   estMinutes: 25,
   investigation: {
     logs: [

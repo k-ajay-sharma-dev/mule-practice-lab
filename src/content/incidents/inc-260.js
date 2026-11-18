@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: "During Cutover Two Systems Send Inventory to the Planning Platform",
   level: 'EXPERT',
-  tags: ["myproject","ftp","blue-yonder","cutover","database"],
+  tags: ["myproject","ftp","planning-platform","cutover","database"],
   estMinutes: 30,
   investigation: {
     logs: [
