@@ -8,6 +8,7 @@ const VARS = {
   orderId: 10045, startMs: 0, attempt: 2, customerId: 'C-2231', userId: 'U-118', fileName: 'prices.csv', mqMessageId: 'msg-7781',
   messageId: 'msg-7781', deliveryCount: 3, invoiceId: 'INV-5521', employeeId: 'E-3301', recordCount: 120, sku: 'SKU-118',
   shipmentId: 'SH-9001', jobId: 'job-31', accountId: 'A-1001', paymentId: 'pay_881', partnerId: 'P-77', tenantId: 't-9',
+  apiMax: 15000, apiRemaining: 900,
 }
 const ERROR = { errorType: 'HTTP:TIMEOUT', description: 'Read timed out', detailedDescription: 'Read timed out after 5000 ms' }
 const PAYLOAD = {
@@ -18,17 +19,40 @@ const PAYLOAD = {
 
 const ATTRIBUTES = {
   method: 'POST', requestPath: '/orders', queryParams: { page: '1' }, statusCode: 201, fileName: 'prices.csv', path: '/in/prices.csv', size: 48213,
-  headers: { 'x-correlation-id': '7f3c2a' },
+  headers: { 'x-correlation-id': '7f3c2a', 'content-length': '2048' },
 }
 
-// any other vars.x or payload.x the models use get a placeholder, so a missing test value is not reported as
-// invalid DataWeave
-const used = (message, name) => [...message.matchAll(new RegExp(`\\b${name}\\.(\\w+)`, 'g'))].map((m) => m[1])
-function varsFor(message) {
-  return Object.fromEntries(used(message, 'vars').map((k) => [k, VARS[k] ?? `test-${k}`]))
+// any other vars.x, payload.x or attributes.x the models use, at any depth, get a placeholder, so a missing test
+// value is not reported as invalid DataWeave. A path that goes deeper than a fixed test value replaces that value
+// with an object, for example error.errorType.identifier.
+const paths = (message, name) =>
+  [...message.matchAll(new RegExp(`\\b${name}((?:\\.\\w+)+)`, 'g'))].map((m) => m[1].slice(1).split('.'))
+const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v)
+function placeholders(message, name) {
+  const out = {}
+  for (const path of paths(message, name)) {
+    let node = out
+    path.forEach((k, i) => {
+      if (i === path.length - 1) node[k] ??= `test-${k}`
+      else node = isObj(node[k]) ? node[k] : (node[k] = {})
+    })
+  }
+  return out
 }
-function payloadFor(message) {
-  return { ...Object.fromEntries(used(message, 'payload').map((k) => [k, `test-${k}`])), ...PAYLOAD }
+// fixed values win, except where the model reads deeper into them
+function merge(fixed, generated) {
+  const out = { ...generated }
+  for (const [k, v] of Object.entries(fixed)) {
+    if (isObj(generated[k]) && isObj(v)) out[k] = merge(v, generated[k])
+    else if (!isObj(generated[k])) out[k] = v
+  }
+  return out
+}
+const valuesFor = (message, name, fixed) => merge(fixed, placeholders(message, name))
+const ERROR_TYPE = { namespace: 'HTTP', identifier: 'TIMEOUT' }
+function errorFor(message) {
+  const deep = /error\.errorType\.\w/.test(message)
+  return { ...ERROR, ...(deep ? { errorType: ERROR_TYPE } : {}) }
 }
 
 let failed = 0
@@ -40,19 +64,21 @@ for (const e of EXERCISES.filter((x) => x.kind === 'write')) {
   const script = [
     '%dw 2.0',
     header,
-    `var vars = ${JSON.stringify(varsFor(e.model.message))}`,
+    `var vars = ${JSON.stringify(valuesFor(e.model.message, 'vars', VARS))}`,
     'var correlationId = "7f3c2a"',
-    `var error = ${JSON.stringify(ERROR)}`,
-    `var attributes = ${JSON.stringify(ATTRIBUTES)}`,
+    `var error = ${JSON.stringify(errorFor(e.model.message))}`,
+    `var attributes = ${JSON.stringify(valuesFor(e.model.message, 'attributes', ATTRIBUTES))}`,
     'var app = { name: "orders-papi" }',
     'var flow = { name: "post-orders" }',
+    'var mule = { version: "4.6.0" }',
+    'fun p(key: String) = "test-" ++ key',
     '---',
     body,
   ].join('\n')
   const res = await fetch(`${RUNNER}/run`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ script, inputs: [{ name: 'payload', mime: 'application/json', content: JSON.stringify(payloadFor(e.model.message)) }] }),
+    body: JSON.stringify({ script, inputs: [{ name: 'payload', mime: 'application/json', content: JSON.stringify(valuesFor(e.model.message, 'payload', PAYLOAD)) }] }),
   })
   const r = await res.json()
   if (!r.ok) {

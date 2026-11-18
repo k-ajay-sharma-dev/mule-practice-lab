@@ -159,7 +159,20 @@ export default function Layout({ children }) {
           <NavIcon name="menu" />
         </button>
         <Link to="/" className="brand">
-          <span className="brand-mark">{'</>'}</span>
+          <span className="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="6" y1="7" x2="18" y2="7" />
+                <line x1="6" y1="7" x2="12" y2="18" />
+                <line x1="18" y1="7" x2="12" y2="18" />
+              </g>
+              <g fill="currentColor">
+                <circle cx="6" cy="7" r="3" />
+                <circle cx="18" cy="7" r="3" />
+                <circle cx="12" cy="18" r="3" />
+              </g>
+            </svg>
+          </span>
           <span className="brand-name">
             Mule<span className="brand-accent">Practice</span>Lab
           </span>
