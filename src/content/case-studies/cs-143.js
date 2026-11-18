@@ -1,0 +1,145 @@
+export default {
+  id: 'cs-143',
+  category: 'case-studies',
+  title: 'Recruitment Agency Pulling Candidates From Six Job Boards Into One Applicant Tracking System',
+  level: 'INTERMEDIATE',
+  tags: ['canonical-model', 'deduplication', 'personal-data', 'partners'],
+  estMinutes: 40,
+  quiz: [
+    {
+      type: 'single',
+      needsScenario: true,
+      prompt: 'Each job board sends applications in its own format. What is the first design choice?',
+      options: [
+        'Map each board to one canonical application, then run one shared process into the ATS',
+        'Write a full flow per board into the ATS',
+        'Ask the boards to use our format',
+        'Load the raw files into the ATS',
+      ],
+      answer: 0,
+      explain: 'One canonical model keeps the per-board part small. Matching, consent and loading are written once.',
+    },
+    {
+      type: 'single',
+      prompt: 'The same person applies through two boards. How do you avoid two candidate records?',
+      options: [
+        'Match on a normalised email and phone, and link the new application to the existing candidate',
+        'Create a new record every time',
+        'Match on first name only',
+        'Ask the candidate to delete one',
+      ],
+      answer: 0,
+      explain: 'Normalised contact details are the best match keys here. Unclear matches go to a recruiter to decide.',
+    },
+    {
+      type: 'multi',
+      prompt: 'Which three rules protect candidates\' personal data?',
+      options: [
+        'Record the consent and the source of each application',
+        'Delete or anonymise candidates after the agreed retention period',
+        'Keep CVs out of logs and error queues',
+        'Email CVs to every recruiter',
+      ],
+      answer: [0, 1, 2],
+      explain: 'Consent, retention and keeping documents out of logs are the basics for personal data.',
+    },
+    {
+      type: 'single',
+      needsScenario: true,
+      prompt: 'One board sends a burst of 3,000 applications for a new graduate scheme. What keeps the ATS safe?',
+      options: [
+        'Put applications on a queue and load them at a rate the ATS can take',
+        'Load them all at once',
+        'Drop most of them',
+        'Ask the board to slow down',
+      ],
+      answer: 0,
+      explain: 'A queue soaks up the burst and protects the ATS. No application is lost.',
+    },
+    {
+      type: 'match',
+      prompt: 'Match each step to its job.',
+      pairs: [
+        ['Board adapter', 'Turns one board format into the canonical application'],
+        ['Matching', 'Links the application to an existing candidate or creates one'],
+        ['Queue', 'Smooths bursts before the ATS'],
+        ['Retention job', 'Removes data after the agreed period'],
+      ],
+      explain: 'Each step has one job, so a new board needs only a new adapter.',
+    },
+    {
+      type: 'order',
+      prompt: 'Order the project.',
+      items: [
+        'Design the canonical application and match rules',
+        'Build matching, the queue and the ATS loader',
+        'Add the two busiest boards',
+        'Add the other four boards',
+        'Add the retention job and reports',
+      ],
+      explain: 'Core first, then the biggest sources, then the rest, then data care.',
+    },
+  ],
+  description: `
+**Context.** A recruitment agency posts jobs on **six job boards**. Applications arrive by email, file and API, and recruiters key them into the applicant tracking system (ATS).
+
+**Facts gathered so far**
+- Each board sends a different format. Two have APIs with webhooks.
+- About a fifth of candidates apply through more than one board.
+- The ATS has an API with a limit of 10 calls a second.
+- The agency must keep candidate data only for an agreed period and record consent.
+- Big campaigns bring thousands of applications in a day.
+
+**Opinions**
+- Recruiters: "Duplicates waste our time."
+- Compliance: "We must be able to show consent and delete on time."
+- IT: "We keep adding boards."
+
+**Your task.** Design how applications from all boards reach the ATS, with matching, consent and retention.
+`,
+  answerTemplate: `## Decision
+
+## Canonical application
+
+## Board adapters
+
+## Matching
+
+## Load and limits
+
+## Personal data
+
+## Rollout
+
+## Risks
+`,
+  keyPoints: [
+    'One canonical application with an adapter per board.',
+    'Match by normalised email and phone, and send unclear cases to a recruiter.',
+    'A queue protects the ATS from bursts.',
+    'Record consent and source with each application.',
+    'Delete or anonymise after the retention period.',
+    'Keep CVs out of logs and error queues.',
+  ],
+  solution: `
+**Decision.** An intake platform with one adapter per board, a canonical application, matching, a queue and one ATS loader.
+
+**Canonical application.** Candidate details, the job, the board, the consent text and time, and a link to the CV in secure storage.
+
+**Board adapters.** Webhooks for boards with APIs, polling or files for the others.
+
+**Matching.** Normalise email and phone, look up the candidate, link or create. Weak matches go to a review list.
+
+**Load and limits.** Applications wait on a queue and are loaded within the ATS limit.
+
+**Personal data.** CVs stay in secure storage, never in logs. A nightly job removes data past its retention date.
+
+**Risks.** Wrong matches merging two people, a board changing its format, and CVs ending up in error messages.
+`,
+  followUps: [
+    { q: 'Why not match on name and date of birth?', a: 'Many boards do not send a date of birth, and names repeat. Contact details are more reliable here.' },
+    { q: 'What if two candidates share an email?', a: 'Treat it as a weak match and let a recruiter decide.' },
+    { q: 'How do you add a seventh board?', a: 'Write one adapter to the canonical application. Everything after it stays the same.' },
+    { q: 'How do you prove deletion?', a: 'Log the candidate ID and the date of deletion, without the deleted data.' },
+  ],
+}

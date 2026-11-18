@@ -1,0 +1,139 @@
+export default {
+  id: 'cs-141',
+  category: 'case-studies',
+  title: 'Bike Shop Chain Keeping Online Stock in Step With the Tills in Eight Shops',
+  level: 'BEGINNER',
+  tags: ['inventory', 'ecommerce', 'pos', 'sync'],
+  estMinutes: 30,
+  quiz: [
+    {
+      type: 'single',
+      needsScenario: true,
+      prompt: 'Bikes sell online and in the shops. Which system should hold the stock count?',
+      options: [
+        'The till system, as it already counts every shop sale and delivery; the web shop reads from it',
+        'The web shop',
+        'Both, each with its own count',
+        'A spreadsheet updated each evening',
+      ],
+      answer: 0,
+      explain: 'One owner for the count stops the two from drifting apart. The tills already see every sale in the shops.',
+    },
+    {
+      type: 'single',
+      prompt: 'How quickly should a shop sale reach the web shop?',
+      options: [
+        'Within a few minutes, so the last bike in stock is not sold twice',
+        'Once a week',
+        'Only when someone asks',
+        'It does not need to',
+      ],
+      answer: 0,
+      explain: 'Bikes are often one of a kind in a size and colour. A slow update sells a bike that is gone.',
+    },
+    {
+      type: 'multi',
+      prompt: 'Which three help when the last bike is sold in a shop and online at nearly the same time?',
+      options: [
+        'Show online only what is above a small safety stock',
+        'Reserve the bike in the till system when an online order is placed',
+        'Have a clear process to offer the online customer a similar bike or a refund',
+        'Hide every bike that has fewer than ten in stock',
+      ],
+      answer: [0, 1, 2],
+      explain: 'A buffer, a reservation and a plan for the rare clash cover it. Hiding most stock would lose many sales.',
+    },
+    {
+      type: 'single',
+      needsScenario: true,
+      prompt: 'One shop loses internet for a morning. What happens to its sales?',
+      options: [
+        'The till keeps working and sends its sales when the link returns; the web shop may be briefly out of date for that shop',
+        'The shop stops selling',
+        'Sales are lost',
+        'The web shop closes',
+      ],
+      answer: 0,
+      explain: 'Shops must keep trading. Queued sales catch up afterwards, and the safety stock covers the gap.',
+    },
+    {
+      type: 'match',
+      prompt: 'Match each event to what the integration does.',
+      pairs: [
+        ['Sale in a shop', 'Lower the count in the web shop'],
+        ['Online order placed', 'Reserve the item in the till system'],
+        ['Delivery received', 'Raise the count in the web shop'],
+        ['Online order cancelled', 'Release the reservation'],
+      ],
+      explain: 'Every event that changes stock goes one way through the integration, so both sides agree.',
+    },
+    {
+      type: 'order',
+      prompt: 'Order the project.',
+      items: [
+        'Agree that the till system owns the count',
+        'Send shop sales and deliveries to the web shop as they happen',
+        'Reserve stock in the till system for online orders',
+        'Set a safety stock per item',
+        'Check both counts each night and report differences',
+      ],
+      explain: 'Decide the owner, then flow changes both ways, add the buffer, and check nightly.',
+    },
+  ],
+  description: `
+**Context.** A bike shop chain has **eight shops** and a web shop. Stock is counted in the till system. Today staff update web stock by hand each evening.
+
+**Facts gathered so far**
+- Many bikes are single items in a size and colour.
+- Each week several online customers buy a bike that was sold in a shop that day.
+- The till system has an API for stock and sales. The web shop has an API for stock levels and orders.
+- Shop internet links sometimes drop for a few hours.
+
+**Opinions**
+- Owner: "I want to stop apologising to customers."
+- Shop staff: "Never make us wait for the internet to sell a bike."
+
+**Your task.** Design how stock stays in step between the tills and the web shop.
+`,
+  answerTemplate: `## Decision
+
+## Owner of the count
+
+## Changes from shops
+
+## Online orders
+
+## When a shop is offline
+
+## Checks
+
+## Risks
+`,
+  keyPoints: [
+    'The till system owns the stock count.',
+    'Shop sales and deliveries reach the web shop within minutes.',
+    'Online orders reserve stock in the till system.',
+    'A small safety stock covers short delays.',
+    'Shops keep selling when offline and catch up later.',
+    'A nightly check reports differences.',
+  ],
+  solution: `
+**Decision.** The till system owns stock. Mule moves stock changes to the web shop and online orders to the till system.
+
+**Changes from shops.** Each sale or delivery in a shop sends a stock change. Mule updates the web shop count within minutes.
+
+**Online orders.** Mule reserves the item in the till system. If the item is gone, the order is flagged for staff to offer a swap or refund.
+
+**When a shop is offline.** The till queues its sales and sends them when the link returns. Safety stock keeps the web shop from selling the last item during the gap.
+
+**Checks.** A nightly comparison of both counts, with differences sent to the owner.
+
+**Risks.** Sales during an outage, staff changing stock by hand in one system only, and safety stock set too high.
+`,
+  followUps: [
+    { q: 'Why not update the web shop once a night as now?', a: 'A whole day of shop sales can be sold again online. Minutes, not a day, is what fixes the complaints.' },
+    { q: 'What is safety stock?', a: 'A small number held back from online sale, so a short delay does not sell the last item twice.' },
+    { q: 'What if the web shop API is down?', a: 'Queue the changes and send them when it returns, in order per item.' },
+    { q: 'How do you start?', a: 'With one shop and the web shop, then add the others once the counts match each night.' },
+  ],
+}
