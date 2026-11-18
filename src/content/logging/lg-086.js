@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Claims Stored Procedures",
   level: 'INTERMEDIATE',
-  tags: ["logging","database","stored-procedures"],
+  tags: ["myproject", "logging","database","stored-procedures"],
   estMinutes: 15,
   quiz: fromLogging(["log-4051","log-4052","log-4053","log-4054","log-4055"]),
   description: `

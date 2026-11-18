@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Invoice Files over FTP",
   level: 'INTERMEDIATE',
-  tags: ["logging","ftp","files"],
+  tags: ["myproject", "logging","ftp","files"],
   estMinutes: 10,
   quiz: fromLogging(["log-3016","log-3017","log-3018","log-3019","log-3020"]),
   description: `

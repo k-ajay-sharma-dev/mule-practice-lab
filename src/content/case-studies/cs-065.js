@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Department Store Syndicating Product Data From a New PIM to Web, Stores and Marketplaces',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'e-commerce', 'master-data', 'pub-sub', 'events', 'marketplace', 'anypoint-mq', 'saas-integration'],
+  tags: ['myproject', 'retail', 'e-commerce', 'master-data', 'pub-sub', 'events', 'marketplace', 'anypoint-mq', 'saas-integration'],
   estMinutes: 45,
   diagram: {
     task: 'draw the product syndication design: the PIM System API publishing a product-published event to one topic, a queue per channel, one Process API per channel that fetches the full product from the PIM System API, and the commerce platform, marketplaces and store systems behind their own connections.',

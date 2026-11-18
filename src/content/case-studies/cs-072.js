@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Automaker Running Recall and Software Update Campaigns Across 3,000 Dealers',
   level: 'ADVANCED',
-  tags: ['automotive', 'partners', 'api-management', 'batch', 'events', 'notifications', 'compliance', 'crm'],
+  tags: ['myproject', 'automotive', 'partners', 'api-management', 'batch', 'events', 'notifications', 'compliance', 'crm'],
   estMinutes: 55,
   diagram: {
     task: 'draw the campaign design: a VIN expansion job that reads the campaign from the quality system and the affected vehicles from the vehicle registry, writes open campaigns to a campaign store and publishes one event per affected VIN; owner notifications and over-the-air updates acting on that event; and dealers checking a VIN through the gateway against the campaign store.',

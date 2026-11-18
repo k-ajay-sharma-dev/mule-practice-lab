@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Large Files and Streaming",
   level: 'INTERMEDIATE',
-  tags: ["logging","streaming","sftp","large-files"],
+  tags: ["myproject", "logging","streaming","sftp","large-files"],
   estMinutes: 20,
   quiz: fromLogging(["log-3046","log-3047","log-3048","log-3049","log-3050"]),
   description: `

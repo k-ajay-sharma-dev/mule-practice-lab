@@ -3,7 +3,7 @@ export default {
   category: 'dataweave',
   title: 'Prepare SQL Server Bulk Insert Parameters from JSON',
   level: 'INTERMEDIATE',
-  tags: ['json', 'database', 'sql-server', 'bulk-insert', 'dates', 'timezones', 'null-handling'],
+  tags: ['myproject', 'json', 'database', 'sql-server', 'bulk-insert', 'dates', 'timezones', 'null-handling'],
   estMinutes: 25,
   description: `
 A CRM pushes new customers to a Mule API in batches. The flow stores them in SQL Server with one \`db:bulk-insert\`:

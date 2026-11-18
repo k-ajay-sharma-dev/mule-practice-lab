@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Airline Loyalty Programme Taking Mileage Accruals From 180 Partners',
   level: 'INTERMEDIATE',
-  tags: ['airline', 'loyalty', 'partners', 'b2b', 'anypoint-mq', 'idempotency', 'sap', 'batch'],
+  tags: ['myproject', 'airline', 'loyalty', 'partners', 'b2b', 'anypoint-mq', 'idempotency', 'sap', 'batch'],
   estMinutes: 40,
   diagram: {
     task: 'draw partner accruals arriving by API (through the gateway) and by SFTP file, both landing on one queue, an accrual Process API that removes duplicates and posts miles to the loyalty platform, and a nightly billing job that sends partner totals to SAP.',

@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Supermarket Group Merging Two Supply Chains After Acquiring a Regional Chain',
   level: 'EXPERT',
-  tags: ['retail', 'supply-chain', 'm-and-a', 'master-data', 'sap', 'oracle', 'migration', 'governance'],
+  tags: ['myproject', 'retail', 'supply-chain', 'm-and-a', 'master-data', 'sap', 'oracle', 'migration', 'governance'],
   estMinutes: 60,
   quiz: [
     {

@@ -8,7 +8,7 @@ export default {
   category: 'use-cases',
   title: 'Twelve Thousand Students Press Submit at 12:00: Give Each a Receipt at Once, Never Lose an Answer Sheet, and Feed an Answer Store That Takes 30 a Second',
   level: 'EXPERT',
-  tags: ['education', 'burst', 'queue', 'persistence', 'jwt', 'availability', 'sizing'],
+  tags: ['myproject', 'education', 'burst', 'queue', 'persistence', 'jwt', 'availability', 'sizing'],
   estMinutes: 55,
   diagram: {
     task: 'draw the exam website calling an API gateway that checks tokens, then a submissions Experience API. That API puts each answer sheet on a queue with a dead-letter queue, and a submissions Process API reads the queue and saves each sheet in the exam answer store through a System API.',

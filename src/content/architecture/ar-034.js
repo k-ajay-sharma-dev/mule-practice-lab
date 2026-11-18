@@ -3,7 +3,7 @@ export default {
   category: 'architecture',
   title: 'Choosing a Broker: Anypoint MQ, Kafka or JMS',
   level: 'INTERMEDIATE',
-  tags: ['anypoint-mq', 'kafka', 'jms', 'messaging', 'broker-selection'],
+  tags: ['myproject', 'anypoint-mq', 'kafka', 'jms', 'messaging', 'broker-selection'],
   estMinutes: 25,
   quiz: [
     {

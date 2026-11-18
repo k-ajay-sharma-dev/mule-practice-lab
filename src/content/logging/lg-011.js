@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "When a Batch Job Stops",
   level: 'ADVANCED',
-  tags: ["logging","batch","sftp"],
+  tags: ["myproject", "logging","batch","sftp"],
   estMinutes: 10,
   quiz: fromLogging(["log-114","log-115","log-412","log-324"]),
   description: `

@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Transactional Outbox for Reliable Publishing',
   level: 'ADVANCED',
-  tags: ['outbox-pattern', 'dual-write', 'messaging', 'consistency', 'database'],
+  tags: ['myproject', 'outbox-pattern', 'dual-write', 'messaging', 'consistency', 'database'],
   estMinutes: 40,
   diagram: {
     task: 'draw the transactional outbox: the Customer Process API, its database, the relay that publishes CustomerUpdated, and an idempotent downstream consumer.',

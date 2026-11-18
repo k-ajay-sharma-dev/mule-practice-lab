@@ -9,7 +9,7 @@ export default {
   category: 'use-cases',
   title: 'Airline Crew Roster Changes: Tell the Crew, Rebook the Hotel and the Car, and Let a Slow Partner Fall Behind Alone',
   level: 'INTERMEDIATE',
-  tags: ['anypoint-mq', 'exchange', 'fan-out', 'dlq', 'partners', 'aviation'],
+  tags: ['myproject', 'anypoint-mq', 'exchange', 'fan-out', 'dlq', 'partners', 'aviation'],
   estMinutes: 35,
   diagram: {
     task: 'draw the roster change flow: the crew scheduling system calls a webhook Experience API, which publishes each change once to an exchange. The exchange copies it to three queues, one for the crew app notifications, one for hotel bookings and one for crew transport, each with its own consumer Process API and dead-letter queue. The hotel partner is called through a System API.',

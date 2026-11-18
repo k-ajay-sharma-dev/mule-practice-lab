@@ -16,7 +16,7 @@ export default {
   category: 'flows',
   title: 'Custom Error Types and Dead-Lettering Poison Invoices',
   level: 'INTERMEDIATE',
-  tags: ['raise-error', 'custom-errors', 'error-mapping', 'dlq', 'anypoint-mq', 'error-handling'],
+  tags: ['myproject', 'raise-error', 'custom-errors', 'error-mapping', 'dlq', 'anypoint-mq', 'error-handling'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Invoices are consumed from a queue', rule: { type: 'source', component: ['mq-subscriber', 'jms-listener'] } },

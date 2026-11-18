@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Email Connector Protocols: IMAP vs POP3 vs SMTP, Connection Types, Ports and Secure Variants',
   level: 'BEGINNER',
-  tags: ['email', 'imap', 'pop3', 'smtp', 'connectors', 'tls'],
+  tags: ['myproject', 'email', 'imap', 'pop3', 'smtp', 'connectors', 'tls'],
   estMinutes: 15,
   quiz: [
     {

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Nightly Stock Load Truncated: SFTP Listener Picks Up a Half-Uploaded CSV',
   level: 'INTERMEDIATE',
-  tags: ['sftp', 'listener', 'large-files', 'csv', 'data-quality', 'retail', 'inventory'],
+  tags: ['myproject', 'sftp', 'listener', 'large-files', 'csv', 'data-quality', 'retail', 'inventory'],
   estMinutes: 30,
   investigation: {
     logs: [

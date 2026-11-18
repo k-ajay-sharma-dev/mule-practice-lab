@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Sending Files to a Partner",
   level: 'BEGINNER',
-  tags: ["logging","sftp","files","partners"],
+  tags: ["myproject", "logging","sftp","files","partners"],
   estMinutes: 20,
   quiz: fromLogging(["log-9016","log-9017","log-9018","log-9019","log-9020"]),
   description: `

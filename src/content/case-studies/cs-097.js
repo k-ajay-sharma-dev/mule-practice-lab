@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Tax Authority Accepting E-Filed Returns From Software Vendors at the Deadline',
   level: 'INTERMEDIATE',
-  tags: ['public-sector', 'government', 'peak-traffic', 'async', 'anypoint-mq', 'api-management', 'rate-limiting', 'legacy'],
+  tags: ['myproject', 'public-sector', 'government', 'peak-traffic', 'async', 'anypoint-mq', 'api-management', 'rate-limiting', 'legacy'],
   estMinutes: 45,
   diagram: {
     task: 'draw e-filing: vendor software calls the filing Experience API through the gateway; the API stores the return, queues it and answers at once; a Process API drains the queue into the mainframe through a System API at the pace it can take and writes each result to a status store; vendors poll the status store through the same Experience API; failing returns go to a dead-letter queue.',

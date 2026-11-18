@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Supplier Invoices over HTTP into Azure Blob Storage with Date-Based Folders',
   level: 'INTERMEDIATE',
-  tags: ['azure-blob', 'json', 'json-schema', 'http', 'storage', 'error-handling'],
+  tags: ['myproject', 'azure-blob', 'json', 'json-schema', 'http', 'storage', 'error-handling'],
   estMinutes: 25,
   flowChecks: [
     { label: 'Invoices are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener', where: { path: 'invoice' } } },

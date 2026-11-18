@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Nightly Store Inventory Snapshot: Streaming Large Oracle Result Sets, fetchSize and CLOB/BLOB Columns',
   level: 'ADVANCED',
-  tags: ['retail', 'supply-chain', 'oracle', 'database', 'streaming', 'fetch-size', 'clob', 'blob'],
+  tags: ['myproject', 'retail', 'supply-chain', 'oracle', 'database', 'streaming', 'fetch-size', 'clob', 'blob'],
   estMinutes: 30,
   quiz: [
     {

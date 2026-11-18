@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'WMS Shipment Confirmations: ActiveMQ Redelivery, Parking and DLQ Replay',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'wms', 'shipping', 'activemq', 'jms', 'dlq', 'redelivery', 'oracle'],
+  tags: ['myproject', 'supply-chain', 'wms', 'shipping', 'activemq', 'jms', 'dlq', 'redelivery', 'oracle'],
   estMinutes: 40,
   flowChecks: [
     {

@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Global Retailer Choosing Its Supply Chain Messaging Standard: ActiveMQ Artemis, Anypoint MQ or Kafka',
   level: 'EXPERT',
-  tags: ['retail', 'supply-chain', 'activemq', 'artemis', 'anypoint-mq', 'kafka', 'jms', 'oracle', 'decision-record'],
+  tags: ['myproject', 'retail', 'supply-chain', 'activemq', 'artemis', 'anypoint-mq', 'kafka', 'jms', 'oracle', 'decision-record'],
   estMinutes: 60,
   quiz: [
     {

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'JMS Ack Modes Compared: What a Failure Really Does in AUTO, IMMEDIATE, MANUAL and DUPS_OK',
   level: 'ADVANCED',
-  tags: ['jms', 'activemq', 'ack-mode', 'transactions', 'redelivery', 'messaging'],
+  tags: ['myproject', 'jms', 'activemq', 'ack-mode', 'transactions', 'redelivery', 'messaging'],
   estMinutes: 30,
   quiz: [
     {

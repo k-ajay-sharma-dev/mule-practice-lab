@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Stopping an App for a Redeploy",
   level: 'ADVANCED',
-  tags: ["logging","deployment","shutdown","queues"],
+  tags: ["myproject", "logging","deployment","shutdown","queues"],
   estMinutes: 25,
   quiz: fromLogging(["log-10021","log-10022","log-10023","log-10024","log-10025"]),
   description: `

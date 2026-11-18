@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Store Cycle-Count Files from SFTP into Oracle with Bulk Insert',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'store-inventory', 'sftp', 'csv', 'oracle', 'bulk-insert', 'transactions'],
+  tags: ['myproject', 'retail', 'store-inventory', 'sftp', 'csv', 'oracle', 'bulk-insert', 'transactions'],
   estMinutes: 20,
   flowChecks: [
     { label: 'Count files are picked up by an SFTP listener', rule: { type: 'source', component: 'sftp-listener' } },

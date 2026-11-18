@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Batch Jobs: One Summary, Not a Line per Record",
   level: 'INTERMEDIATE',
-  tags: ["logging","batch"],
+  tags: ["myproject", "logging","batch"],
   estMinutes: 15,
   quiz: fromLogging(["log-007","log-204","log-226","log-065","log-304","log-433"]),
   description: `

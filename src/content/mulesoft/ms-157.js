@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Anypoint MQ From CloudHub Apps: Acknowledgement Modes, Lock Timeouts, FIFO Limits and Cross-Region Failover',
   level: 'ADVANCED',
-  tags: ['cloudhub-2', 'cloudhub', 'deployment', 'anypoint-mq', 'messaging', 'failover', 'limits'],
+  tags: ['myproject', 'cloudhub-2', 'cloudhub', 'deployment', 'anypoint-mq', 'messaging', 'failover', 'limits'],
   estMinutes: 35,
   quiz: [
     {

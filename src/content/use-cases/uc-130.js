@@ -10,7 +10,7 @@ export default {
   category: 'use-cases',
   title: 'Tap-On, Tap-Off Bus Fares: Late Taps From Buses Out of Coverage, a Daily Fare Cap and One Charge per Card per Day',
   level: 'EXPERT',
-  tags: ['kafka', 'event-stream', 'iot', 'payments', 'batch', 'idempotency', 'public-transport'],
+  tags: ['myproject', 'kafka', 'event-stream', 'iot', 'payments', 'batch', 'idempotency', 'public-transport'],
   estMinutes: 60,
   diagram: {
     task: 'draw the fare platform: card readers send taps to a taps Experience API that publishes them to an event stream, and fetch the card denylist through their own Experience API and a System API. A journey builder Process API reads the stream and keeps journeys in a journeys database. The rider app reads journeys through its own Experience and Process APIs. A nightly charging job reads the journeys, charges each card once through a payments System API, and adds cards whose charge failed to the denylist through the denylist System API.',

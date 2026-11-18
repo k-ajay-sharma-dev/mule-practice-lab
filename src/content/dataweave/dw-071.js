@@ -3,7 +3,7 @@ export default {
   category: 'dataweave',
   title: 'Validate an SFTP Order CSV into Accepted and Rejected Rows',
   level: 'ADVANCED',
-  tags: ['csv', 'json', 'sftp', 'ftp', 'validation', 'type-conversion', 'try'],
+  tags: ['myproject', 'csv', 'json', 'sftp', 'ftp', 'validation', 'type-conversion', 'try'],
   estMinutes: 30,
   description: `
 A wholesale customer uploads a daily order file to an SFTP folder. A Mule flow reads it with \`sftp:read\` as \`application/csv\`.

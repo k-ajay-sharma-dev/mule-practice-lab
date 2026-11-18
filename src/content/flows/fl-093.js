@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Signed Partner Callbacks: Timestamp Window, Replay Protection and Key Rotation with No Downtime',
   level: 'ADVANCED',
-  tags: ['security', 'hmac', 'webhooks', 'secure-properties', 'idempotency', 'http', 'anypoint-mq'],
+  tags: ['myproject', 'security', 'hmac', 'webhooks', 'secure-properties', 'idempotency', 'http', 'anypoint-mq'],
   estMinutes: 35,
   flowChecks: [
     { label: 'Callbacks are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener', where: { path: 'callbacks' } } },

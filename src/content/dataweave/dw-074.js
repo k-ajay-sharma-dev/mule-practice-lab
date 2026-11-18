@@ -3,7 +3,7 @@ export default {
   category: 'dataweave',
   title: 'Export a PIM Catalogue XML as CSV for Azure Blob Storage',
   level: 'ADVANCED',
-  tags: ['xml', 'csv', 'azure-blob', 'namespaces', 'writer-properties', 'escaping'],
+  tags: ['myproject', 'xml', 'csv', 'azure-blob', 'namespaces', 'writer-properties', 'escaping'],
   estMinutes: 30,
   description: `
 Every night the product information system (PIM) exports its catalogue as XML. A scheduled Mule flow converts it to CSV and stores it with the Azure Storage connector's **Upload Blob** operation in the \`analytics\` container, where a data platform loads it.

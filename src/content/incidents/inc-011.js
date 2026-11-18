@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Half a File Processed: SFTP Listener Grabs Files Mid-Upload',
   level: 'INTERMEDIATE',
-  tags: ['sftp', 'files', 'polling', 'data-integrity'],
+  tags: ['myproject', 'sftp', 'files', 'polling', 'data-integrity'],
   estMinutes: 25,
   investigation: {
     logs: [

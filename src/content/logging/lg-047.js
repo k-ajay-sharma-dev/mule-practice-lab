@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "A VM Queue Between Two Flows",
   level: 'BEGINNER',
-  tags: ["logging","vm","queues","async"],
+  tags: ["myproject", "logging","vm","queues","async"],
   estMinutes: 10,
   quiz: fromLogging(["log-2006","log-2007","log-2008","log-2009","log-2010"]),
   description: `

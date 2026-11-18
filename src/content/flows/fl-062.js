@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Oracle OMS Order Status Changes to Salesforce with a Database Listener',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'order-management', 'oracle', 'db-listener', 'watermark', 'salesforce', 'cdc'],
+  tags: ['myproject', 'retail', 'order-management', 'oracle', 'db-listener', 'watermark', 'salesforce', 'cdc'],
   estMinutes: 30,
   flowChecks: [
     {

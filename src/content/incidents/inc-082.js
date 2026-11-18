@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Nightly Provisioning Batch Never Finishes After an Outage: MANUAL Ack With No jms:recover-session',
   level: 'ADVANCED',
-  tags: ['jms', 'activemq', 'ack-mode', 'redelivery', 'error-handling', 'telecom'],
+  tags: ['myproject', 'jms', 'activemq', 'ack-mode', 'redelivery', 'error-handling', 'telecom'],
   estMinutes: 30,
   investigation: {
     logs: [

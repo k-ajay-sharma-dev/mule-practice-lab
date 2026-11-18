@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'One email:delete Per Message, Yet Dozens of Flagged Emails Disappear From the Shared Folder',
   level: 'INTERMEDIATE',
-  tags: ['email', 'imap', 'data-loss', 'production', 'shared-mailbox'],
+  tags: ['myproject', 'email', 'imap', 'data-loss', 'production', 'shared-mailbox'],
   estMinutes: 25,
   investigation: {
     logs: [

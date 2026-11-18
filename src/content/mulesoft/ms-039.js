@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Choosing Asynchronous Messaging: VM vs Anypoint MQ vs JMS vs Object Store',
   level: 'ADVANCED',
-  tags: ['anypoint-mq', 'vm-connector', 'jms', 'object-store', 'architecture'],
+  tags: ['myproject', 'anypoint-mq', 'vm-connector', 'jms', 'object-store', 'architecture'],
   estMinutes: 25,
   quiz: [
     {

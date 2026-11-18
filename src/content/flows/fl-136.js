@@ -14,7 +14,7 @@ export default {
   category: 'flows',
   title: 'Morning Low Stock Report: a Scheduler, One Database Select and a CSV File, and No File on a Day When Nothing Is Low',
   level: 'BEGINNER',
-  tags: ['scheduler', 'cron', 'database', 'csv', 'file', 'choice', 'retail'],
+  tags: ['myproject', 'scheduler', 'cron', 'database', 'csv', 'file', 'choice', 'retail'],
   estMinutes: 20,
   flowChecks: [
     { label: 'A Scheduler with a cron expression starts the report', rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { set: true } } } },

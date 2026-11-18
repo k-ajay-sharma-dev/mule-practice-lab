@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "When a File Goes Wrong",
   level: 'INTERMEDIATE',
-  tags: ["logging","files","streaming"],
+  tags: ["myproject", "logging","files","streaming"],
   estMinutes: 10,
   quiz: fromLogging(["log-113","log-206","log-416","log-048","log-318"]),
   description: `

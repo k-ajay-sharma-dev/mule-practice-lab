@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Media Agency Loading Spend From 15 Ad Platforms That Correct Their Numbers for Days',
   level: 'ADVANCED',
-  tags: ['analytics', 'batch', 'rate-limits', 'late-data', 'apis'],
+  tags: ['myproject', 'analytics', 'batch', 'rate-limits', 'late-data', 'apis'],
   estMinutes: 45,
   quiz: [
     {

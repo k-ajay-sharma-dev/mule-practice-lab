@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Library Holds Ready for Pickup: Text and Email Members Without Losing a Message',
   level: 'BEGINNER',
-  tags: ['notifications', 'anypoint-mq', 'webhook', 'dlq', 'public-sector'],
+  tags: ['myproject', 'notifications', 'anypoint-mq', 'webhook', 'dlq', 'public-sector'],
   estMinutes: 20,
   diagram: {
     task: 'draw the hold notification flow: the library system sending its webhook to an Experience API, a queue between that API and a notification Process API, a dead-letter queue, the members database the Process API reads contact details from, and the SMS and email provider it calls.',

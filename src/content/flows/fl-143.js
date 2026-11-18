@@ -11,7 +11,7 @@ export default {
   category: 'flows',
   title: 'PATCH a Member: Change Only the Fields Sent, Keep the Rest as They Are, 404 for an Unknown Member and 400 for an Empty Body',
   level: 'INTERMEDIATE',
-  tags: ['patch', 'rest', 'database', 'coalesce', 'partial-update', '404', '400'],
+  tags: ['myproject', 'patch', 'rest', 'database', 'coalesce', 'partial-update', '404', '400'],
   estMinutes: 30,
   flowChecks: [
     { label: 'The API is a PATCH on /members/{memberId}', rule: { type: 'source', component: 'http-listener', where: { path: '/members/{memberId}', allowedMethods: 'PATCH' } } },

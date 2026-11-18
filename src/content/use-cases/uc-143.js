@@ -9,7 +9,7 @@ export default {
   category: 'use-cases',
   title: 'Pothole Reports With Photos From a Council App: Store the Photo at Once, Queue the Report for a Works System That Is Off Every Night, and Accept Only Signed-In Residents',
   level: 'INTERMEDIATE',
-  tags: ['local-government', 'queue', 'file-storage', 'jwt', 'legacy', 'mobile'],
+  tags: ['myproject', 'local-government', 'queue', 'file-storage', 'jwt', 'legacy', 'mobile'],
   estMinutes: 30,
   diagram: {
     task: 'draw the council app calling an API gateway that checks tokens, then a street reports Experience API and a street reports Process API. The Process API stores the photo in photo storage through one System API, and puts the report on a queue. A worker reads the queue and creates the job in the highways works system through another System API.',

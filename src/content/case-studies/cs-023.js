@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Replacing a Legacy Vendor ESB With Anypoint Platform',
   level: 'ADVANCED',
-  tags: ['esb-replacement', 'migration', 'strangler', 'jms', 'governance'],
+  tags: ['myproject', 'esb-replacement', 'migration', 'strangler', 'jms', 'governance'],
   estMinutes: 50,
   quiz: [
     {

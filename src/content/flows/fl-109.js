@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Product List API: Select Rows from a Database and Return Them',
   level: 'BEGINNER',
-  tags: ['database', 'mysql', 'http', 'json', 'retail'],
+  tags: ['myproject', 'database', 'mysql', 'http', 'json', 'retail'],
   estMinutes: 10,
   flowChecks: [
     {

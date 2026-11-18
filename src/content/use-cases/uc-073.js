@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Ship-from-Store: Sourcing, Store Picking and Carrier Labels',
   level: 'ADVANCED',
-  tags: ['retail', 'ship-from-store', 'omnichannel', 'pos', 'tms', 'activemq', 'oracle', 'sla', 'compensation'],
+  tags: ['myproject', 'retail', 'ship-from-store', 'omnichannel', 'pos', 'tms', 'activemq', 'oracle', 'sla', 'compensation'],
   estMinutes: 40,
   diagram: {
     task: 'draw the ship-from-store integration: released orders queued from the OMS, the store-fulfilment Process API using sourcing rules in Oracle and store stock, fulfilment tasks delivered to stores asynchronously, the store app reporting picks through its Experience API, labels and pickups via the TMS, and the SLA watchdog.',

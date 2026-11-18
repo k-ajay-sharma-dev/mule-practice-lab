@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Transforming a Huge File in DataWeave: the streaming Reader Property, @StreamCapable and deferred Output',
   level: 'EXPERT',
-  tags: ['dataweave', 'streaming', 'memory', 'reader-properties', 'writer-properties', 'performance', 'large-files', 'telecom'],
+  tags: ['myproject', 'dataweave', 'streaming', 'memory', 'reader-properties', 'writer-properties', 'performance', 'large-files', 'telecom'],
   estMinutes: 25,
   quiz: [
     {

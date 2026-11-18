@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Daily Order-to-Cash Reconciliation across Salesforce, SAP and Stripe',
   level: 'ADVANCED',
-  tags: ['reconciliation', 'salesforce', 'sap', 'payments', 'data-warehouse', 'batch', 'finance'],
+  tags: ['myproject', 'reconciliation', 'salesforce', 'sap', 'payments', 'data-warehouse', 'batch', 'finance'],
   estMinutes: 40,
   diagram: {
     task: 'draw the daily reconciliation run: the job, the three sources behind their System APIs, the staging database where matching happens, the exception report, the data warehouse and the finance dashboard that reads it.',

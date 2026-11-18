@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Messages That End Up in the DLQ",
   level: 'INTERMEDIATE',
-  tags: ["logging","anypoint-mq","dlq","support"],
+  tags: ["myproject", "logging","anypoint-mq","dlq","support"],
   estMinutes: 15,
   quiz: fromLogging(["log-2026","log-2027","log-2028","log-2029","log-2030"]),
   description: `

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Batch Job Phases, Accept Policies and maxFailedRecords',
   level: 'ADVANCED',
-  tags: ['batch', 'error-handling', 'performance'],
+  tags: ['myproject', 'batch', 'error-handling', 'performance'],
   estMinutes: 30,
   quiz: [
     {

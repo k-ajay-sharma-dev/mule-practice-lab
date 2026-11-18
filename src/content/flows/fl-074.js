@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Nightly Oracle Stored Procedure and Settlement File to SFTP',
   level: 'BEGINNER',
-  tags: ['oracle', 'stored-procedure', 'sftp', 'scheduler', 'csv', 'batch-file'],
+  tags: ['myproject', 'oracle', 'stored-procedure', 'sftp', 'scheduler', 'csv', 'batch-file'],
   estMinutes: 20,
   flowChecks: [
     { label: 'The job runs nightly on a cron Scheduler', rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron' } } },

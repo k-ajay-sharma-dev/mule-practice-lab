@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Order Confirmation Email and SMS from Store Webhooks',
   level: 'BEGINNER',
-  tags: ['webhooks', 'notifications', 'e-commerce', 'idempotency', 'anypoint-mq'],
+  tags: ['myproject', 'webhooks', 'notifications', 'e-commerce', 'idempotency', 'anypoint-mq'],
   estMinutes: 15,
   diagram: {
     task: 'draw the confirmation flow: the store platform webhook, the API that receives it, the queue, the consumer that checks for repeats against a store of processed order numbers, and the email and SMS providers behind a System API.',

@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Polling a Bank SFTP Folder Safely: Half-Written Files and Several Workers',
   level: 'ADVANCED',
-  tags: ['sftp', 'scheduler', 'file-polling', 'claim', 'cluster', 'idempotency', 'archive'],
+  tags: ['myproject', 'sftp', 'scheduler', 'file-polling', 'claim', 'cluster', 'idempotency', 'archive'],
   estMinutes: 40,
   flowChecks: [
     { label: 'The job is driven by a Scheduler, not a file listener', rule: { type: 'source', component: 'scheduler' } },

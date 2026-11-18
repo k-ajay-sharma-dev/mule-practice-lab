@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Airport Flight Events on an ActiveMQ Topic: Priority, Time to Live and Consumer Selectors',
   level: 'ADVANCED',
-  tags: ['activemq', 'jms', 'aviation', 'priority', 'time-to-live', 'message-selector', 'topic'],
+  tags: ['myproject', 'activemq', 'jms', 'aviation', 'priority', 'time-to-live', 'message-selector', 'topic'],
   estMinutes: 35,
   flowChecks: [
     { label: 'Events enter through an HTTP Listener and are validated', rule: { type: 'before', first: 'json-validate', then: 'jms-publish' } },

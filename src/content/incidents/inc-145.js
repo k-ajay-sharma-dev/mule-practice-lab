@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Orders Stranded in a Fallback Queue: "Using fallback queue directly is not supported" After Failover Is Disabled',
   level: 'ADVANCED',
-  tags: ['cloudhub-2', 'deployment', 'anypoint-mq', 'failover', 'disaster-recovery', 'retail'],
+  tags: ['myproject', 'cloudhub-2', 'deployment', 'anypoint-mq', 'failover', 'disaster-recovery', 'retail'],
   estMinutes: 30,
   investigation: {
     logs: [

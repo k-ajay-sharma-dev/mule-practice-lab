@@ -7,7 +7,7 @@ export default {
   category: 'case-studies',
   title: 'Hospital Group Fanning Out ADT Events to Departmental Systems',
   level: 'INTERMEDIATE',
-  tags: ['healthcare', 'hl7', 'mllp', 'pub-sub', 'events', 'anypoint-mq', 'pii', 'dlq'],
+  tags: ['myproject', 'healthcare', 'hl7', 'mllp', 'pub-sub', 'events', 'anypoint-mq', 'pii', 'dlq'],
   estMinutes: 45,
   diagram: {
     task: 'draw ADT distribution: the EHR sends one HL7 v2 feed over MLLP to a listener System API, which archives the raw message and publishes one canonical event to a topic; pharmacy, dietary and bed management each read their own queue and are updated through their own Process and System APIs.',

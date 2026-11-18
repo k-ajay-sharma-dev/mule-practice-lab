@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'E-Commerce Retailer Integrating 12 Parcel Carriers Behind One Shipping API',
   level: 'INTERMEDIATE',
-  tags: ['logistics', 'carrier-integration', 'wms', 'canonical-model', 'track-and-trace', 'anypoint-mq', 'sftp'],
+  tags: ['myproject', 'logistics', 'carrier-integration', 'wms', 'canonical-model', 'track-and-trace', 'anypoint-mq', 'sftp'],
   estMinutes: 40,
   diagram: {
     task: 'draw label creation (the WMS calling one shipping Process API that chooses a carrier and calls one System API per carrier) and tracking (carrier webhooks and SFTP status files feeding one queue that a tracking Process API drains into the OMS).',

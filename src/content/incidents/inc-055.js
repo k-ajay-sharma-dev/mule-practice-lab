@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Store Sales Queue Backlog Grows While the Consumer Looks Healthy',
   level: 'BEGINNER',
-  tags: ['retail', 'activemq', 'jms', 'oracle', 'performance', 'indexes'],
+  tags: ['myproject', 'retail', 'activemq', 'jms', 'oracle', 'performance', 'indexes'],
   estMinutes: 20,
   investigation: {
     logs: [

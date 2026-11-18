@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Enriching Sales Events with a Cached Reference-Data Lookup',
   level: 'INTERMEDIATE',
-  tags: ['cache-scope', 'enrichment', 'object-store', 'anypoint-mq', 'performance'],
+  tags: ['myproject', 'cache-scope', 'enrichment', 'object-store', 'anypoint-mq', 'performance'],
   estMinutes: 25,
   flowChecks: [
     {

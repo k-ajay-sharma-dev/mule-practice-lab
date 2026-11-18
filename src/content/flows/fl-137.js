@@ -13,7 +13,7 @@ export default {
   category: 'flows',
   title: 'Supplier Price List Upload: Insert New SKUs, Update Changed Prices, Leave Equal Prices Alone, and Count All Three',
   level: 'INTERMEDIATE',
-  tags: ['foreach', 'database', 'choice', 'upsert', 'variables', 'procurement'],
+  tags: ['myproject', 'foreach', 'database', 'choice', 'upsert', 'variables', 'procurement'],
   estMinutes: 30,
   flowChecks: [
     {

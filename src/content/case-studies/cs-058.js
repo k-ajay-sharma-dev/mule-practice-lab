@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Grocery Chain Replacing a Point-to-Point ActiveMQ and Oracle Estate With API-Led and Events',
   level: 'ADVANCED',
-  tags: ['retail', 'supply-chain', 'activemq', 'jms', 'oracle', 'api-led', 'events', 'migration'],
+  tags: ['myproject', 'retail', 'supply-chain', 'activemq', 'jms', 'oracle', 'api-led', 'events', 'migration'],
   estMinutes: 55,
   diagram: {
     task: 'draw the target state: channels on Experience APIs, item/price and fulfilment Process APIs, the Oracle merchandising database and the WMS behind System APIs, item and price changes published once to a topic for POS, WMS, analytics and a legacy bridge, and a DLQ for failed deliveries.',

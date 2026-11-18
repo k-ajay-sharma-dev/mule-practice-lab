@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Nightly Price Distribution to 500 Store Queues with a Batch Job',
   level: 'ADVANCED',
-  tags: ['retail', 'pricing', 'stores', 'batch', 'activemq', 'jms', 'oracle', 'bulk-update'],
+  tags: ['myproject', 'retail', 'pricing', 'stores', 'batch', 'activemq', 'jms', 'oracle', 'bulk-update'],
   estMinutes: 40,
   flowChecks: [
     {

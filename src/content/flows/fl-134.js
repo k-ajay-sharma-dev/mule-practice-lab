@@ -9,7 +9,7 @@ export default {
   category: 'flows',
   title: 'Timesheet Upload: Report Every Bad Row at Once, Then Save All the Rows in One Transaction or None of Them',
   level: 'ADVANCED',
-  tags: ['validation', 'database', 'transaction', 'try', 'foreach', 'http-status', 'hr'],
+  tags: ['myproject', 'validation', 'database', 'transaction', 'try', 'foreach', 'http-status', 'hr'],
   estMinutes: 40,
   flowChecks: [
     { label: 'The API is a POST on /timesheets', rule: { type: 'source', component: 'http-listener', where: { path: '/timesheets', allowedMethods: 'POST' } } },

@@ -11,7 +11,7 @@ export default {
   category: 'flows',
   title: 'Forty Price Changes a Minute for One Product: Keep Only the Latest in a Table, Push Once a Minute, and Never Lose a Change That Lands During the Push',
   level: 'EXPERT',
-  tags: ['debounce', 'coalescing', 'database', 'upsert', 'scheduler', 'anypoint-mq', 'marketplace'],
+  tags: ['myproject', 'debounce', 'coalescing', 'database', 'upsert', 'scheduler', 'anypoint-mq', 'marketplace'],
   estMinutes: 55,
   flowChecks: [
     { label: 'Price changes are read from the price-changes queue', rule: { type: 'source', component: 'mq-subscriber', where: { destination: 'price-changes' } } },

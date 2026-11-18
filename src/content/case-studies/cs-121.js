@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Restaurant Chain Sending Online Orders to 900 Kitchens When Store Networks Drop',
   level: 'ADVANCED',
-  tags: ['restaurants', 'store-and-forward', 'queues', 'idempotency', 'edge'],
+  tags: ['myproject', 'restaurants', 'store-and-forward', 'queues', 'idempotency', 'edge'],
   estMinutes: 45,
   quiz: [
     {

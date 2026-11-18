@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Ticketing Company Surviving On-Sale Spikes for a Stadium Tour',
   level: 'EXPERT',
-  tags: ['ticketing', 'spikes', 'rate-limiting', 'queues', 'inventory', 'resilience'],
+  tags: ['myproject', 'ticketing', 'spikes', 'rate-limiting', 'queues', 'inventory', 'resilience'],
   estMinutes: 50,
   quiz: [
     {

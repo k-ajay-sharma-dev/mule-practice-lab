@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Async Scope in Production: Fire and Forget, Lost Work and Reliable Alternatives',
   level: 'ADVANCED',
-  tags: ['async', 'scopes', 'reliability', 'vm', 'anypoint-mq', 'error-handling', 'banking'],
+  tags: ['myproject', 'async', 'scopes', 'reliability', 'vm', 'anypoint-mq', 'error-handling', 'banking'],
   estMinutes: 20,
   quiz: [
     {

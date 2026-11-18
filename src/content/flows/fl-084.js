@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Lab Results from ActiveMQ to an EMR API with Manual Ack and Session Recovery',
   level: 'INTERMEDIATE',
-  tags: ['activemq', 'jms', 'healthcare', 'manual-ack', 'http', 'error-handling'],
+  tags: ['myproject', 'activemq', 'jms', 'healthcare', 'manual-ack', 'http', 'error-handling'],
   estMinutes: 30,
   flowChecks: [
     {

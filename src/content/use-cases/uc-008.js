@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Monthly Payroll Export to an External Provider',
   level: 'BEGINNER',
-  tags: ['sftp', 'pgp', 'flat-file', 'workday', 'pii'],
+  tags: ['myproject', 'sftp', 'pgp', 'flat-file', 'workday', 'pii'],
   estMinutes: 25,
   diagram: {
     task: 'draw the payroll export: the monthly job that reads Workday and the time-tracking system, the provider SFTP it delivers the encrypted file to, and the second flow that picks up the response file and alerts payroll.',

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "JMS Transactions and Rollbacks",
   level: 'ADVANCED',
-  tags: ["logging","jms","transactions","rollback"],
+  tags: ["myproject", "logging","jms","transactions","rollback"],
   estMinutes: 15,
   quiz: fromLogging(["log-2061","log-2062","log-2063","log-2064","log-2065"]),
   description: `

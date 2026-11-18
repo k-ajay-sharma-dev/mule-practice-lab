@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'A Nightly Export Cannot Resume After a Short Outage: the Partner Paging Cursor Expired After Ten Minutes',
   level: 'ADVANCED',
-  tags: ['pagination', 'cursor', 'resume', 'partners', 'batch'],
+  tags: ['myproject', 'pagination', 'cursor', 'resume', 'partners', 'batch'],
   estMinutes: 25,
   investigation: {
     logs: [

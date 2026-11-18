@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Mobile Operator Activating eSIM Postpaid Orders Across BSS and OSS',
   level: 'ADVANCED',
-  tags: ['telecom', 'bss-oss', 'orchestration', 'saga', 'long-running', 'anypoint-mq', 'salesforce', 'tm-forum'],
+  tags: ['myproject', 'telecom', 'bss-oss', 'orchestration', 'saga', 'long-running', 'anypoint-mq', 'salesforce', 'tm-forum'],
   estMinutes: 55,
   diagram: {
     task: 'draw order to activate: Salesforce order events queued to an orchestration Process API that keeps state, calls credit, number, eSIM and billing System APIs, requests network provisioning through a queue, receives results on a queue, and updates the order in Salesforce through its System API.',

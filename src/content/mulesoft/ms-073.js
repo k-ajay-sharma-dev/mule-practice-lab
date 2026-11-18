@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'FTP, SFTP or File Connector? Choosing the Right Transport for Partner File Exchange',
   level: 'INTERMEDIATE',
-  tags: ['ftp', 'sftp', 'file', 'connectors', 'security', 'b2b', 'partner-integration'],
+  tags: ['myproject', 'ftp', 'sftp', 'file', 'connectors', 'security', 'b2b', 'partner-integration'],
   estMinutes: 30,
   quiz: [
     {

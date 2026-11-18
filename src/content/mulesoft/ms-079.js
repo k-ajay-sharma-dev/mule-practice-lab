@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Kafka, Amazon SQS or JMS? Ordering, Consumer Groups, Visibility Timeouts and Dead Letters',
   level: 'ADVANCED',
-  tags: ['kafka', 'sqs', 'jms', 'messaging', 'ordering', 'dlq', 'event-driven'],
+  tags: ['myproject', 'kafka', 'sqs', 'jms', 'messaging', 'ordering', 'dlq', 'event-driven'],
   estMinutes: 35,
   quiz: [
     {

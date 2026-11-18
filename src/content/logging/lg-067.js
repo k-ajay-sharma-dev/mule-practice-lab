@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Watermarks in Object Store",
   level: 'INTERMEDIATE',
-  tags: ["logging","watermark","object-store","sftp"],
+  tags: ["myproject", "logging","watermark","object-store","sftp"],
   estMinutes: 15,
   quiz: fromLogging(["log-3031","log-3032","log-3033","log-3034","log-3035"]),
   description: `

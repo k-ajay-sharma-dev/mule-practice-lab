@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Payment Gateway Webhooks',
   level: 'INTERMEDIATE',
-  tags: ['webhooks', 'hmac', 'retries', 'anypoint-mq'],
+  tags: ['myproject', 'webhooks', 'hmac', 'retries', 'anypoint-mq'],
   estMinutes: 20,
   diagram: {
     task: 'draw the webhook flow: the endpoint the gateway calls, the queue that lets you acknowledge fast, the consumer with its de-duplication store, the order DB, the ticket email and the dead-letter queue.',

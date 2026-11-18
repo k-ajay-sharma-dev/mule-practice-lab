@@ -13,7 +13,7 @@ export default {
   category: 'flows',
   title: 'The Last Seat at a Concert: Take Seats With One Conditional UPDATE, 409 When Too Few Are Left, and Never Read the Count First',
   level: 'ADVANCED',
-  tags: ['concurrency', 'database', 'conditional-update', 'transactions', '409', 'ticketing'],
+  tags: ['myproject', 'concurrency', 'database', 'conditional-update', 'transactions', '409', 'ticketing'],
   estMinutes: 40,
   flowChecks: [
     { label: 'The API is a POST on /events/{eventId}/reservations', rule: { type: 'source', component: 'http-listener', where: { path: '/events/{eventId}/reservations', allowedMethods: 'POST' } } },

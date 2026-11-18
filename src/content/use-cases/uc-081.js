@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Loyalty Points Expiry and Tier Change Notifications',
   level: 'INTERMEDIATE',
-  tags: ['loyalty', 'retail', 'notifications', 'batch', 's3', 'throttling', 'consent'],
+  tags: ['myproject', 'loyalty', 'retail', 'notifications', 'batch', 's3', 'throttling', 'consent'],
   estMinutes: 25,
   diagram: {
     task: 'draw the notification run: the loyalty engine export, the nightly job that selects members, the sent log, the queue that feeds a throttled sender, the CRM for consent and channel, and the email, SMS and push providers.',

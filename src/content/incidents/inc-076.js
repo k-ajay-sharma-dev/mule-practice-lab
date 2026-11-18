@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Operations Alert Emails Fail After the Mail Relay Moves to TLS on Port 465',
   level: 'INTERMEDIATE',
-  tags: ['email', 'smtp', 'tls', 'connectivity', 'configuration', 'production'],
+  tags: ['myproject', 'email', 'smtp', 'tls', 'connectivity', 'configuration', 'production'],
   estMinutes: 25,
   investigation: {
     logs: [

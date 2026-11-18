@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Points Ledger Transactions",
   level: 'INTERMEDIATE',
-  tags: ["logging","database","transactions"],
+  tags: ["myproject", "logging","database","transactions"],
   estMinutes: 15,
   quiz: fromLogging(["log-4046","log-4047","log-4048","log-4049","log-4050"]),
   description: `

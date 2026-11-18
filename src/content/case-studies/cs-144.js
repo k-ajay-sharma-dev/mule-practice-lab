@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Solar Installer Sending Generation Readings and Export Claims to Nine Energy Suppliers',
   level: 'INTERMEDIATE',
-  tags: ['energy', 'partners', 'batch', 'reconciliation', 'iot'],
+  tags: ['myproject', 'energy', 'partners', 'batch', 'reconciliation', 'iot'],
   estMinutes: 40,
   quiz: [
     {

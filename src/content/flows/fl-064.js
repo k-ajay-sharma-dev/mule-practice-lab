@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Routing Click-and-Collect Orders by Store Stock with a Choice Router',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'bopis', 'omnichannel', 'activemq', 'jms', 'oracle', 'choice', 'transactions'],
+  tags: ['myproject', 'retail', 'bopis', 'omnichannel', 'activemq', 'jms', 'oracle', 'choice', 'transactions'],
   estMinutes: 30,
   flowChecks: [
     { label: 'BOPIS orders are consumed from an ActiveMQ queue', rule: { type: 'source', component: 'jms-listener', where: { destination: 'BOPIS' } } },

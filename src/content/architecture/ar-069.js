@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Inventory Availability: Single Source of Truth vs Distributed ATP',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'retail', 'inventory', 'atp', 'caching', 'reservations', 'oracle', 'events'],
+  tags: ['myproject', 'supply-chain', 'retail', 'inventory', 'atp', 'caching', 'reservations', 'oracle', 'events'],
   estMinutes: 55,
   diagram: {
     task: 'draw the availability architecture: channels, the ATP read path, the reservation write path to the inventory system of record, and how stock changes from the WMS and stores keep availability fresh.',

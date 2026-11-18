@@ -12,7 +12,7 @@ export default {
   category: 'flows',
   title: 'Customer Lookup by Email: Pass the Email as an Input Parameter, Never Join It Into the SQL, and Answer 404 When Nobody Matches',
   level: 'BEGINNER',
-  tags: ['database', 'input-parameters', 'sql-injection', 'http-listener', 'choice', '404', 'security'],
+  tags: ['myproject', 'database', 'input-parameters', 'sql-injection', 'http-listener', 'choice', '404', 'security'],
   estMinutes: 20,
   flowChecks: [
     { label: 'The API is a GET on /customers/lookup', rule: { type: 'source', component: 'http-listener', where: { path: '/customers/lookup', allowedMethods: 'GET' } } },

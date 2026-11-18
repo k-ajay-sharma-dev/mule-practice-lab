@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Bi-directional Account Sync with Loop Prevention',
   level: 'INTERMEDIATE',
-  tags: ['two-way-sync', 'salesforce', 'database', 'loop-prevention', 'watermark'],
+  tags: ['myproject', 'two-way-sync', 'salesforce', 'database', 'loop-prevention', 'watermark'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Salesforce changes are captured (listener or scheduled query)', rule: { type: 'source', component: ['sf-listener', 'scheduler'] } },

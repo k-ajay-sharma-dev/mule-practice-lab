@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'ORA-01000 and an Exhausted Pool: Unconsumed Database Results Inside a For Each',
   level: 'EXPERT',
-  tags: ['oracle', 'database', 'cursors', 'connection-pool', 'streaming', 'for-each', 'performance'],
+  tags: ['myproject', 'oracle', 'database', 'cursors', 'connection-pool', 'streaming', 'for-each', 'performance'],
   estMinutes: 40,
   investigation: {
     logs: [

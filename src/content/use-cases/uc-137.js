@@ -7,7 +7,7 @@ export default {
   category: 'use-cases',
   title: 'Electronic Prescriptions From GP Surgeries to a Pharmacy Chain: Mutual TLS at the Gateway, and a Queue for When the Dispensing System Is Down',
   level: 'INTERMEDIATE',
-  tags: ['healthcare', 'mtls', 'api-gateway', 'queue', 'dlq', 'partner-api'],
+  tags: ['myproject', 'healthcare', 'mtls', 'api-gateway', 'queue', 'dlq', 'partner-api'],
   estMinutes: 30,
   diagram: {
     task: 'draw the GP surgery systems calling an API gateway that checks client certificates, then an Experience API that puts each prescription on a queue with a dead-letter queue. An intake Process API takes prescriptions from the queue and writes them to the dispensing system through a System API.',

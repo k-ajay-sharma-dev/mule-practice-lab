@@ -15,7 +15,7 @@ export default {
   category: 'flows',
   title: 'Send Each Order to Its Region\'s Fulfilment Partner From a Routing Table: a New Partner Is a New Row, Not a New Choice Route',
   level: 'INTERMEDIATE',
-  tags: ['dynamic-routing', 'routing-table', 'database', 'http-request', 'anypoint-mq', 'content-based-router'],
+  tags: ['myproject', 'dynamic-routing', 'routing-table', 'database', 'http-request', 'anypoint-mq', 'content-based-router'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Orders are read from the orders-to-fulfil queue', rule: { type: 'source', component: 'mq-subscriber', where: { destination: 'orders-to-fulfil' } } },

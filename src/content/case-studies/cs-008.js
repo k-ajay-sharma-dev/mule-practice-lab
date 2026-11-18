@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Food Delivery Platform Sending Orders to Restaurants',
   level: 'INTERMEDIATE',
-  tags: ['async', 'anypoint-mq', 'webhooks', 'retail', 'idempotency'],
+  tags: ['myproject', 'async', 'anypoint-mq', 'webhooks', 'retail', 'idempotency'],
   estMinutes: 25,
   diagram: {
     task: 'draw the order submission and status design: the app, the Orders API that answers 202 fast, the queue, one adapter per POS vendor, the idempotency store, and the webhook path that brings status back.',

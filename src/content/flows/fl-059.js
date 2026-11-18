@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Releasing Expired Cart Reservations in Oracle on a Schedule',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'e-commerce', 'inventory', 'reservations', 'oracle', 'scheduler', 'transactions'],
+  tags: ['myproject', 'retail', 'e-commerce', 'inventory', 'reservations', 'oracle', 'scheduler', 'transactions'],
   estMinutes: 20,
   flowChecks: [
     { label: 'The clean-up runs on a Scheduler', rule: { type: 'source', component: 'scheduler' } },

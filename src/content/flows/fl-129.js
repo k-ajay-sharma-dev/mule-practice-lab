@@ -10,7 +10,7 @@ export default {
   category: 'flows',
   title: 'Two Event Versions on One Queue: Map v1 and v2 to One Shape, Park the Unknown, Ignore a Repeat',
   level: 'ADVANCED',
-  tags: ['anypoint-mq', 'schema-evolution', 'versioning', 'idempotency', 'parking-queue', 'retail', 'loyalty'],
+  tags: ['myproject', 'anypoint-mq', 'schema-evolution', 'versioning', 'idempotency', 'parking-queue', 'retail', 'loyalty'],
   estMinutes: 40,
   flowChecks: [
     { label: 'A subscriber reads the points-earned queue', rule: { type: 'source', component: 'mq-subscriber', where: { destination: 'points-earned' } } },

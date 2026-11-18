@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Car Rental Booking Saga: Vehicle, Deposit and Insurance with Compensation',
   level: 'EXPERT',
-  tags: ['saga', 'compensation', 'orchestration', 'idempotency', 'anypoint-mq', 'travel'],
+  tags: ['myproject', 'saga', 'compensation', 'orchestration', 'idempotency', 'anypoint-mq', 'travel'],
   estMinutes: 45,
   diagram: {
     task: 'draw the orchestrated saga: the booking channels and Experience API, the request queue, the orchestrator with its saga state log, the three System APIs (fleet, payments, insurer) and their back ends, the booking events topic and notifications, the manual review queue, and the sweeper for stuck sagas.',

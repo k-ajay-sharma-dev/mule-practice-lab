@@ -7,7 +7,7 @@ export default {
   category: 'use-cases',
   title: 'Milk Tankers Out of Coverage All Day Upload Everything at Once at the Depot: Take the Burst Into a Queue and Feed the Co-op ERP at the 50 a Second It Can Take',
   level: 'ADVANCED',
-  tags: ['agriculture', 'burst', 'queue', 'load-levelling', 'sizing', 'store-and-forward'],
+  tags: ['myproject', 'agriculture', 'burst', 'queue', 'load-levelling', 'sizing', 'store-and-forward'],
   estMinutes: 40,
   diagram: {
     task: 'draw the tanker tablets calling a collections Experience API, which puts each collection record on a queue with a dead-letter queue. A collections Process API reads the queue and posts each record to the co-op ERP through a System API.',

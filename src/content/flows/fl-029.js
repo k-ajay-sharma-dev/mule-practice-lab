@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Scheduled Purge of Expired Records with Archive and Batch Delete',
   level: 'INTERMEDIATE',
-  tags: ['scheduler', 'cron', 'batch', 'batch-aggregator', 'data-retention', 's3'],
+  tags: ['myproject', 'scheduler', 'cron', 'batch', 'batch-aggregator', 'data-retention', 's3'],
   estMinutes: 25,
   flowChecks: [
     {

@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Cable Operator Strangling a TIBCO BusinessWorks Estate Behind a Routing Facade',
   level: 'ADVANCED',
-  tags: ['esb-replacement', 'migration', 'strangler', 'tibco', 'jms', 'anypoint-mq', 'telecom', 'api-led'],
+  tags: ['myproject', 'esb-replacement', 'migration', 'strangler', 'tibco', 'jms', 'anypoint-mq', 'telecom', 'api-led'],
   estMinutes: 55,
   diagram: {
     task: 'draw the coexistence period: channels calling only the routing facade, which sends migrated services to Mule and the rest to BusinessWorks; migrated APIs using System APIs and never BusinessWorks; and EMS events reaching migrated consumers through a bridge into Anypoint MQ.',

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'SFTP Polling: Matchers, Half-Written Files and Post-Processing',
   level: 'INTERMEDIATE',
-  tags: ['sftp', 'file', 'polling', 'matchers', 'idempotency'],
+  tags: ['myproject', 'sftp', 'file', 'polling', 'matchers', 'idempotency'],
   estMinutes: 20,
   quiz: [
     {

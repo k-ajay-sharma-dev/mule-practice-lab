@@ -7,7 +7,7 @@ export default {
   category: 'flows',
   title: 'Book a Meeting Room: 201 Created, 409 When the Slot Is Taken, and Let the Primary Key Decide',
   level: 'BEGINNER',
-  tags: ['http', 'database', 'insert', 'http-status', 'error-handling', 'conflict'],
+  tags: ['myproject', 'http', 'database', 'insert', 'http-status', 'error-handling', 'conflict'],
   estMinutes: 20,
   flowChecks: [
     {

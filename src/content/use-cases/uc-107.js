@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Idempotent Receiver for Stadium Gate Ticket Scans',
   level: 'BEGINNER',
-  tags: ['idempotency', 'idempotent-receiver', 'anypoint-mq', 'dlq', 'object-store', 'retries'],
+  tags: ['myproject', 'idempotency', 'idempotent-receiver', 'anypoint-mq', 'dlq', 'object-store', 'retries'],
   estMinutes: 20,
   diagram: {
     task: 'draw the gate scan flow: the scanners, the Experience API, the entry Process API with its processed-scan store and entry state, the queue that feeds the ticketing platform, the consumer that updates it through a System API, and the dead-letter queue.',

@@ -3,7 +3,7 @@ export default {
   category: 'dataweave',
   title: 'Map Oracle Shipment Rows to a Canonical JSON Model',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'oracle', 'database', 'skipNullOn', 'dates', 'lookup'],
+  tags: ['myproject', 'supply-chain', 'oracle', 'database', 'skipNullOn', 'dates', 'lookup'],
   estMinutes: 15,
   description: `
 A \`db:select\` against an Oracle shipment table returns rows exactly as the database names them. Map each row to the canonical shipment model used by the tracking API.

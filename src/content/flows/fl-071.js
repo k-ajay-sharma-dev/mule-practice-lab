@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Partner Price Files over Plain FTP into SQL Server with Archive and Error Folders',
   level: 'INTERMEDIATE',
-  tags: ['ftp', 'csv', 'sql-server', 'bulk-insert', 'file-polling', 'archive', 'error-handling'],
+  tags: ['myproject', 'ftp', 'csv', 'sql-server', 'bulk-insert', 'file-polling', 'archive', 'error-handling'],
   estMinutes: 30,
   flowChecks: [
     {

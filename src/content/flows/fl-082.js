@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Smart Meter Readings: Kafka Batch Listener, Bulk Insert and a Manual Commit on Every Path',
   level: 'ADVANCED',
-  tags: ['kafka', 'consumer-groups', 'offsets', 'postgresql', 'bulk-insert', 'dead-letter', 'json'],
+  tags: ['myproject', 'kafka', 'consumer-groups', 'offsets', 'postgresql', 'bulk-insert', 'dead-letter', 'json'],
   estMinutes: 40,
   flowChecks: [
     {

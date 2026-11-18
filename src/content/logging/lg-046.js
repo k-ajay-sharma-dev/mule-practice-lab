@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Publishing Order Events to Anypoint MQ",
   level: 'BEGINNER',
-  tags: ["logging","anypoint-mq","publish","events"],
+  tags: ["myproject", "logging","anypoint-mq","publish","events"],
   estMinutes: 10,
   quiz: fromLogging(["log-2001","log-2002","log-2003","log-2004","log-2005"]),
   description: `

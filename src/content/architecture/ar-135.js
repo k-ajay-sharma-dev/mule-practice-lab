@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'A Partner File Drop Picked Up by a Scheduled Job',
   level: 'BEGINNER',
-  tags: ['sftp', 'file', 'scheduler', 'polling', 'wms'],
+  tags: ['myproject', 'sftp', 'file', 'scheduler', 'polling', 'wms'],
   estMinutes: 20,
   diagram: {
     task: 'draw a partner file reaching the warehouse system. Use five boxes: a Partner, an SFTP / FTP server, a Batch / scheduled job, a System API, and a Warehouse mgmt (WMS) box. Draw a line from the Partner to the SFTP server. Draw a line from the job to the SFTP server, because the job starts that connection. Then draw a line from the job to the System API, and from the System API to the WMS.',

@@ -10,7 +10,7 @@ export default {
   category: 'flows',
   title: 'A Bank Statement File Sent Twice Under Two Names: Know Each File by a Checksum of Its Content, Skip a Repeat, and Load a Corrected File',
   level: 'ADVANCED',
-  tags: ['sftp', 'checksum', 'idempotency', 'database', 'bulk-insert', 'transactions', 'banking'],
+  tags: ['myproject', 'sftp', 'checksum', 'idempotency', 'database', 'bulk-insert', 'transactions', 'banking'],
   estMinutes: 40,
   flowChecks: [
     { label: 'Statement files are picked up from /inbound/statements', rule: { type: 'source', component: 'sftp-listener', where: { directory: '/inbound/statements' } } },

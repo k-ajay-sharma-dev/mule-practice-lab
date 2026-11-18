@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Supplier Invoice Mailbox over IMAP: Attachments to Azure Blob, Move to Processed Only on Success',
   level: 'INTERMEDIATE',
-  tags: ['email', 'imap', 'attachments', 'azure-blob', 'foreach', 'error-handling'],
+  tags: ['myproject', 'email', 'imap', 'attachments', 'azure-blob', 'foreach', 'error-handling'],
   estMinutes: 30,
   flowChecks: [
     {

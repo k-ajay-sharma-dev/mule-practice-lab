@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Duplicates and Replays",
   level: 'INTERMEDIATE',
-  tags: ["logging","idempotency","dlq"],
+  tags: ["myproject", "logging","idempotency","dlq"],
   estMinutes: 10,
   quiz: fromLogging(["log-103","log-201","log-421","log-223"]),
   description: `

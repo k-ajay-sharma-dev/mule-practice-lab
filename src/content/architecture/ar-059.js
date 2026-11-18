@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Combining API-led with Event-Driven Architecture',
   level: 'ADVANCED',
-  tags: ['api-led', 'event-driven', 'anypoint-mq', 'cdc', 'pub-sub'],
+  tags: ['myproject', 'api-led', 'event-driven', 'anypoint-mq', 'cdc', 'pub-sub'],
   estMinutes: 45,
   diagram: {
     task: 'redesign order creation with events (at least two subscribers) and show how Salesforce customer changes are captured and published.',

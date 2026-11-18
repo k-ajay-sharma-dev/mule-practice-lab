@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Publisher Says "Sent" but Anypoint MQ Consumer Never Receives',
   level: 'INTERMEDIATE',
-  tags: ['anypoint-mq', 'configuration', 'environments', 'messaging'],
+  tags: ['myproject', 'anypoint-mq', 'configuration', 'environments', 'messaging'],
   estMinutes: 20,
   investigation: {
     logs: [

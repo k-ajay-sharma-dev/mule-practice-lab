@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'File-Based Listeners in Production: Matchers, Watermarks, Post-Actions and Half-Written Files',
   level: 'ADVANCED',
-  tags: ['sftp', 'ftp', 'file', 'listener', 'cluster', 'idempotency', 'production'],
+  tags: ['myproject', 'sftp', 'ftp', 'file', 'listener', 'cluster', 'idempotency', 'production'],
   estMinutes: 35,
   quiz: [
     {

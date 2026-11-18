@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'University Syncing Student Records Across Campus Systems',
   level: 'BEGINNER',
-  tags: ['education', 'system-api', 'scheduler', 'batch', 'reuse'],
+  tags: ['myproject', 'education', 'system-api', 'scheduler', 'batch', 'reuse'],
   estMinutes: 25,
   diagram: {
     task: 'draw the enrolment sync: the Student System API over the SIS, the scheduled change poller with its watermark, one delivery path per target system, and how failures become visible.',

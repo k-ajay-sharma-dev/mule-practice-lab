@@ -15,7 +15,7 @@ export default {
   category: 'flows',
   title: 'Export Ready Callbacks: Answer 202 at Once, Call Back Only the Address the Client Registered, Retry a Little, Then Record the Failure',
   level: 'EXPERT',
-  tags: ['async', 'callback', 'webhook', 'ssrf', 'vm-queue', 'until-successful', 'security'],
+  tags: ['myproject', 'async', 'callback', 'webhook', 'ssrf', 'vm-queue', 'until-successful', 'security'],
   estMinutes: 55,
   flowChecks: [
     { label: 'Clients ask for an export with a POST on /exports', rule: { type: 'source', component: 'http-listener', where: { path: '/exports', allowedMethods: 'POST' } } },

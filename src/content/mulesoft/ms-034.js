@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'VM Connector: Transient vs Persistent Queues and Publish-Consume',
   level: 'INTERMEDIATE',
-  tags: ['vm-connector', 'queues', 'async', 'reliability'],
+  tags: ['myproject', 'vm-connector', 'queues', 'async', 'reliability'],
   estMinutes: 15,
   quiz: [
     {

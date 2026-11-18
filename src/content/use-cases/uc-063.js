@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Vendor-Managed Inventory Feed to Suppliers',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'retail', 'vmi', 'edi', 'x12', 'oracle', 'oracle-ebs', 'batch', 'b2b', 'activemq'],
+  tags: ['myproject', 'supply-chain', 'retail', 'vmi', 'edi', 'x12', 'oracle', 'oracle-ebs', 'batch', 'b2b', 'activemq'],
   estMinutes: 35,
   diagram: {
     task: 'draw the VMI integration: the nightly feed job and VMI Process API reading Oracle inventory, delivery to EDI suppliers through the VAN and to API suppliers through the gateway, and supplier-generated orders flowing through a queue into Oracle EBS.',

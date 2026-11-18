@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Security Narrows the Default Egress Rule Group and Apps Fail: Cluster Port 5701, Anypoint MQ and Object Store v2',
   level: 'ADVANCED',
-  tags: ['cloudhub-2', 'deployment', 'egress', 'firewall', 'clustering', 'anypoint-mq', 'insurance'],
+  tags: ['myproject', 'cloudhub-2', 'deployment', 'egress', 'firewall', 'clustering', 'anypoint-mq', 'insurance'],
   estMinutes: 35,
   investigation: {
     logs: [

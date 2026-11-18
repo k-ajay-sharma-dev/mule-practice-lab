@@ -10,7 +10,7 @@ export default {
   category: 'architecture',
   title: 'Election Night Results: Counting Centres Submit Through Mutual TLS and a Queue That Loses Nothing, While a Cached Public Site Takes 1,500 Reads a Second Without Touching the Database',
   level: 'EXPERT',
-  tags: ['read-write-split', 'cache', 'mtls', 'queue', 'dlq', 'availability', 'public-sector'],
+  tags: ['myproject', 'read-write-split', 'cache', 'mtls', 'queue', 'dlq', 'availability', 'public-sector'],
   estMinutes: 55,
   diagram: {
     task: 'draw the counting centre app calling an API gateway, which calls a submissions Experience API. That API puts each result on a queue with a dead-letter queue; a results Process API reads the queue and writes to the results database through a System API. Draw the public results website calling a public Experience API that reads a cache and otherwise the results database through a read System API.',

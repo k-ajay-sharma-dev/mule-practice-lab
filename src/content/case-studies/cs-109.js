@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Hotel Group Pushing Rates and Availability to 40 OTAs Through a Channel Manager',
   level: 'INTERMEDIATE',
-  tags: ['hospitality', 'channel-manager', 'async', 'anypoint-mq', 'rate-limiting', 'idempotency', 'burst-load'],
+  tags: ['myproject', 'hospitality', 'channel-manager', 'async', 'anypoint-mq', 'rate-limiting', 'idempotency', 'burst-load'],
   estMinutes: 40,
   diagram: {
     task: 'draw the two flows: ARI (availability, rates, inventory) changes from the CRS queued and pushed to the channel manager at its rate limit, and OTA reservations from the channel manager queued and written to the CRS.',

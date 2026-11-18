@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Database Calls",
   level: 'INTERMEDIATE',
-  tags: ["logging","database"],
+  tags: ["myproject", "logging","database"],
   estMinutes: 15,
   quiz: fromLogging(["log-010","log-203","log-221","log-418","log-305","log-419"]),
   description: `

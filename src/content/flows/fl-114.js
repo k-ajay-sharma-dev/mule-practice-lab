@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Customer Signup API: Hand the Welcome Email to a Second Flow with a VM Queue',
   level: 'BEGINNER',
-  tags: ['vm', 'async', 'decoupling', 'http', 'email', 'database'],
+  tags: ['myproject', 'vm', 'async', 'decoupling', 'http', 'email', 'database'],
   estMinutes: 12,
   flowChecks: [
     { label: 'An HTTP Listener receives the signup', rule: { type: 'source', component: 'http-listener' } },

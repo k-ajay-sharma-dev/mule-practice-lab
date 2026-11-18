@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Homewares Retailer Replacing a Nightly Oracle Stock Batch With Near-Real-Time Inventory',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'supply-chain', 'inventory', 'oracle', 'activemq', 'jms', 'events'],
+  tags: ['myproject', 'retail', 'supply-chain', 'inventory', 'oracle', 'activemq', 'jms', 'events'],
   estMinutes: 30,
   diagram: {
     task: 'draw the near-real-time inventory flow: store POS and warehouse stock movements sent as messages, one inventory Process API updating Oracle through a System API, stock-changed events fanned out, and the web shop reading stock through an Experience API with a cache.',

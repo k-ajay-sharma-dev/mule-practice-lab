@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Receiving from Anypoint MQ",
   level: 'INTERMEDIATE',
-  tags: ["logging","anypoint-mq","events"],
+  tags: ["myproject", "logging","anypoint-mq","events"],
   estMinutes: 15,
   quiz: fromLogging(["log-202","log-325","log-401","log-225","log-402"]),
   description: `

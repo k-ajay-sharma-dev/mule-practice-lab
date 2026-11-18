@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Running Payroll Across 40 Countries From One HR Core',
   level: 'ADVANCED',
-  tags: ['payroll', 'hr', 'multi-country', 'batch', 'reconciliation'],
+  tags: ['myproject', 'payroll', 'hr', 'multi-country', 'batch', 'reconciliation'],
   estMinutes: 50,
   diagram: {
     task: 'draw the payroll integration: HR changes into a canonical pay-input Process API driven by country config and a payroll calendar, queued per provider to the aggregator and local adapters, and results flowing back to the ERP and analytics.',

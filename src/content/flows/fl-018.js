@@ -15,7 +15,7 @@ export default {
   category: 'flows',
   title: 'Streaming a 4 GB CSV into a Database in Chunks',
   level: 'ADVANCED',
-  tags: ['streaming', 'csv', 'database', 'bulk-insert', 'memory'],
+  tags: ['myproject', 'streaming', 'csv', 'database', 'bulk-insert', 'memory'],
   estMinutes: 30,
   flowChecks: [
     { label: 'The load is started by a nightly Scheduler', rule: { type: 'source', component: 'scheduler' } },

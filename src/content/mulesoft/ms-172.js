@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Sizing Memory and Disk for Batch and Streaming: Block Size, Max Concurrency, File-Store Buffers and Batch History',
   level: 'ADVANCED',
-  tags: ['deployment', 'memory', 'performance', 'batch', 'streaming', 'sizing', 'on-prem'],
+  tags: ['myproject', 'deployment', 'memory', 'performance', 'batch', 'streaming', 'sizing', 'on-prem'],
   estMinutes: 40,
   quiz: [
     {

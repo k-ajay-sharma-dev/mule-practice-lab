@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Large Orders Shipped Twice After a Credit Check Is Added: Processing Outlives the Anypoint MQ Acknowledgement Timeout',
   level: 'ADVANCED',
-  tags: ['anypoint-mq', 'acknowledgement', 'redelivery', 'idempotency', 'timeouts'],
+  tags: ['myproject', 'anypoint-mq', 'acknowledgement', 'redelivery', 'idempotency', 'timeouts'],
   estMinutes: 25,
   investigation: {
     logs: [

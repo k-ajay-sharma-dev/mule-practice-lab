@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'General Ledger Journal Batches from Subledgers into Oracle EBS',
   level: 'INTERMEDIATE',
-  tags: ['oracle-ebs', 'oracle', 'stored-procedure', 'journal-entries', 'sftp', 'sql-server', 'validation', 'finance'],
+  tags: ['myproject', 'oracle-ebs', 'oracle', 'stored-procedure', 'journal-entries', 'sftp', 'sql-server', 'validation', 'finance'],
   estMinutes: 30,
   diagram: {
     task: 'draw the nightly journal load: the collector job, the billing database and the payroll SFTP drop behind their System APIs, the Process API that maps and balances every batch, the segment mapping table, the GL System API and the alert to the GL team.',

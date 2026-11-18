@@ -8,7 +8,7 @@ export default {
   category: 'flows',
   title: 'One Nightly Export From Three Unclustered Mule Servers: a Database Lease, the Database Clock and a Safe Takeover',
   level: 'EXPERT',
-  tags: ['scheduler', 'distributed-lock', 'lease', 'oracle', 'sftp', 'banking', 'on-premises'],
+  tags: ['myproject', 'scheduler', 'distributed-lock', 'lease', 'oracle', 'sftp', 'banking', 'on-premises'],
   estMinutes: 45,
   flowChecks: [
     { label: 'A Scheduler with a cron expression starts the job', rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron', expression: { set: true } } } },

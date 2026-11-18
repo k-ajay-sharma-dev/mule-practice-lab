@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Store Stock Check over JMS Request-Reply with an Oracle Snapshot Fallback',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'store-inventory', 'activemq', 'jms', 'request-reply', 'oracle', 'fallback'],
+  tags: ['myproject', 'retail', 'store-inventory', 'activemq', 'jms', 'request-reply', 'oracle', 'fallback'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Stock checks are served over HTTP', rule: { type: 'source', component: 'http-listener' } },

@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Health Plan Receiving X12 837 Claims From Clearinghouses',
   level: 'INTERMEDIATE',
-  tags: ['healthcare', 'claims', 'edi', 'x12', 'sftp', 'async', 'idempotency', 'dlq', 'pii'],
+  tags: ['myproject', 'healthcare', 'claims', 'edi', 'x12', 'sftp', 'async', 'idempotency', 'dlq', 'pii'],
   estMinutes: 45,
   diagram: {
     task: 'draw claims intake: clearinghouse 837 files on SFTP read by a file intake job, provider portal claims through an Experience API, both feeding one claims queue, a Process API that checks duplicates and submits to the claims engine through a System API, a dead-letter queue, and claim status events turned into 277CA files for the clearinghouses.',

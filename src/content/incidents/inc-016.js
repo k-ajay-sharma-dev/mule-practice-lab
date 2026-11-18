@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'All Endpoints Time Out After a New Reporting Endpoint Goes Live',
   level: 'INTERMEDIATE',
-  tags: ['database', 'connection-pool', 'performance', 'bulkhead'],
+  tags: ['myproject', 'database', 'connection-pool', 'performance', 'bulkhead'],
   estMinutes: 30,
   investigation: {
     logs: [

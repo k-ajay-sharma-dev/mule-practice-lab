@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Store Stock Database",
   level: 'BEGINNER',
-  tags: ["logging","database","update"],
+  tags: ["myproject", "logging","database","update"],
   estMinutes: 10,
   quiz: fromLogging(["log-4016","log-4017","log-4018","log-4019","log-4020"]),
   description: `

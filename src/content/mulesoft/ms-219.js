@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Batch Aggregator, Record Variables and the On Complete Report',
   level: 'ADVANCED',
-  tags: ['batch', 'batch-aggregator', 'on-complete', 'bulk', 'performance', 'error-handling', 'agriculture'],
+  tags: ['myproject', 'batch', 'batch-aggregator', 'on-complete', 'bulk', 'performance', 'error-handling', 'agriculture'],
   estMinutes: 20,
   quiz: [
     {

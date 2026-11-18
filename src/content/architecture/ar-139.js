@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Active-Passive for an Asynchronous Order Pipeline Across Two CloudHub 2.0 Regions: Stranded Messages, a Drain Job and Idempotent Consumers',
   level: 'EXPERT',
-  tags: ['cloudhub-2', 'multi-region', 'disaster-recovery', 'anypoint-mq', 'idempotency', 'dlq', 'rpo-rto'],
+  tags: ['myproject', 'cloudhub-2', 'multi-region', 'disaster-recovery', 'anypoint-mq', 'idempotency', 'dlq', 'rpo-rto'],
   estMinutes: 65,
   diagram: {
     task: 'draw an active-passive order pipeline in two CloudHub 2.0 regions: a global load balancer in front of an ingress per region, an Experience API in each region that hands orders to that region\'s own Anypoint MQ queue, a Process API in each region draining its queue into the ERP through a System API, a dead-letter queue per queue, one replicated idempotency store both Process APIs check, and a drain job that moves stranded messages from the failed region\'s queue into the standby region\'s queue.',

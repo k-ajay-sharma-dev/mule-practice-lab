@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Event Archive and On-Demand Replay for a Downstream Consumer',
   level: 'INTERMEDIATE',
-  tags: ['anypoint-mq', 'replay', 'event-driven', 'archive', 'operations'],
+  tags: ['myproject', 'anypoint-mq', 'replay', 'event-driven', 'archive', 'operations'],
   estMinutes: 30,
   flowChecks: [
     { label: 'An archiver subscribes to its own copy of the event stream', rule: { type: 'source', component: 'mq-subscriber' } },

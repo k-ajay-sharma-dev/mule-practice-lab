@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Deadlocks in the Inventory Database Under Peak Load',
   level: 'ADVANCED',
-  tags: ['database', 'deadlocks', 'transactions', 'concurrency'],
+  tags: ['myproject', 'database', 'deadlocks', 'transactions', 'concurrency'],
   estMinutes: 35,
   investigation: {
     logs: [

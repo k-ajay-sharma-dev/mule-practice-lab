@@ -8,7 +8,7 @@ export default {
   category: 'flows',
   title: 'Van Status Events Arrive Out of Order: Apply Only a Newer One, Insert the First, Drop the Stale, Never Lose One to an Outage',
   level: 'EXPERT',
-  tags: ['anypoint-mq', 'manual-ack', 'ordering', 'idempotency', 'database', 'upsert', 'logistics'],
+  tags: ['myproject', 'anypoint-mq', 'manual-ack', 'ordering', 'idempotency', 'database', 'upsert', 'logistics'],
   estMinutes: 45,
   flowChecks: [
     {

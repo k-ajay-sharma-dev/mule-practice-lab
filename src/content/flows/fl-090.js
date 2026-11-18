@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Receive SAP MATMAS IDocs with the Document Listener and Publish Material Events',
   level: 'INTERMEDIATE',
-  tags: ['sap', 'idoc', 'matmas', 'anypoint-mq', 'idempotency', 'manufacturing'],
+  tags: ['myproject', 'sap', 'idoc', 'matmas', 'anypoint-mq', 'idempotency', 'manufacturing'],
   estMinutes: 30,
   flowChecks: [
     { label: 'IDocs arrive through the SAP Document Listener', rule: { type: 'source', component: 'sap-document-listener', where: { programID: { set: true } } } },

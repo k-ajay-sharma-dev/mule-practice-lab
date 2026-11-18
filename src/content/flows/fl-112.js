@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'New Employee API: Validate the Body and Reject Bad Requests with 400',
   level: 'BEGINNER',
-  tags: ['validation', 'http-status', 'error-handling', 'on-error-propagate', 'database', 'hr'],
+  tags: ['myproject', 'validation', 'http-status', 'error-handling', 'on-error-propagate', 'database', 'hr'],
   estMinutes: 10,
   flowChecks: [
     {

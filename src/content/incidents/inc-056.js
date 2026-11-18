@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'One Malformed ASN Redelivered Thousands of Times and Never Reaches the DLQ',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'activemq', 'jms', 'redelivery', 'dlq', 'error-handling', 'asn'],
+  tags: ['myproject', 'supply-chain', 'activemq', 'jms', 'redelivery', 'dlq', 'error-handling', 'asn'],
   estMinutes: 30,
   investigation: {
     logs: [

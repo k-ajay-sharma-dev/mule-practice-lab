@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'B2B Gateway for 300 Suppliers: Profiles, AS2/SFTP and 997 Tracking',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'edi', 'x12', 'b2b', 'as2', 'sftp', 'oracle', 'wms'],
+  tags: ['myproject', 'supply-chain', 'edi', 'x12', 'b2b', 'as2', 'sftp', 'oracle', 'wms'],
   estMinutes: 45,
   diagram: {
     task: 'draw the B2B gateway: how 300 suppliers connect, how inbound documents are parsed and routed to Oracle and the WMS, how outbound POs and acknowledgements go back, and how missing 997s are tracked.',

@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Power Network Operator Keeping Customers Informed During Storm Outages',
   level: 'INTERMEDIATE',
-  tags: ['utilities', 'outage-management', 'events', 'pub-sub', 'caching', 'notifications', 'peak-traffic', 'activemq'],
+  tags: ['myproject', 'utilities', 'outage-management', 'events', 'pub-sub', 'caching', 'notifications', 'peak-traffic', 'activemq'],
   estMinutes: 40,
   diagram: {
     task: 'draw outage communications: OMS events leave the OMS on a queue; a Process API looks up affected customers in the CRM and publishes outage notices to a topic; one consumer sends SMS and email, another keeps a status cache up to date; the outage map, the app and the IVR all read the cache through one status Experience API and never touch the OMS.',

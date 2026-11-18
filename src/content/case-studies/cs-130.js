@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'Dairy Co-operative Paying 3,000 Farmers for Milk From Tanker, Lab and Weighbridge Data',
   level: 'ADVANCED',
-  tags: ['agriculture', 'payments', 'data-quality', 'batch', 'reconciliation'],
+  tags: ['myproject', 'agriculture', 'payments', 'data-quality', 'batch', 'reconciliation'],
   estMinutes: 45,
   quiz: [
     {

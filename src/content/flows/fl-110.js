@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Order Intake API: Publish Each Order to an Anypoint MQ Queue',
   level: 'BEGINNER',
-  tags: ['anypoint-mq', 'messaging', 'http', 'retail', 'event-driven'],
+  tags: ['myproject', 'anypoint-mq', 'messaging', 'http', 'retail', 'event-driven'],
   estMinutes: 10,
   flowChecks: [
     {

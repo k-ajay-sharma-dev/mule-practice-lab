@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Cold-Chain Temperature Excursions: Oracle Record, TMS Alert with Retries',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'cold-chain', 'iot', 'tms', 'activemq', 'jms', 'oracle', 'until-successful'],
+  tags: ['myproject', 'supply-chain', 'cold-chain', 'iot', 'tms', 'activemq', 'jms', 'oracle', 'until-successful'],
   estMinutes: 40,
   flowChecks: [
     {

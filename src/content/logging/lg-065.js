@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Batch Steps and Accept Policies",
   level: 'INTERMEDIATE',
-  tags: ["logging","batch","accept-policy"],
+  tags: ["myproject", "logging","batch","accept-policy"],
   estMinutes: 15,
   quiz: fromLogging(["log-3021","log-3022","log-3023","log-3024","log-3025"]),
   description: `

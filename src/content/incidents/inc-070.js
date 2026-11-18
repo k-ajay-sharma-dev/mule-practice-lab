@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Purchase Orders Created Twice After Scaling the FTP Intake App to Two Replicas',
   level: 'ADVANCED',
-  tags: ['ftp', 'listener', 'cluster', 'primary-node', 'idempotency', 'duplicates', 'cloudhub'],
+  tags: ['myproject', 'ftp', 'listener', 'cluster', 'primary-node', 'idempotency', 'duplicates', 'cloudhub'],
   estMinutes: 35,
   investigation: {
     logs: [

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'ASN Processing from ActiveMQ: Ack Modes, Manual Ack, Redelivery Count and the DLQ',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'jms', 'activemq', 'ack-mode', 'redelivery', 'dlq', 'asn'],
+  tags: ['myproject', 'supply-chain', 'jms', 'activemq', 'ack-mode', 'redelivery', 'dlq', 'asn'],
   estMinutes: 25,
   quiz: [
     {

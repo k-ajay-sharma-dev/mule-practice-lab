@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Templated Notification Fan-out (Email and SMS)',
   level: 'INTERMEDIATE',
-  tags: ['notifications', 'email', 'sms', 'templates', 'parse-template'],
+  tags: ['myproject', 'notifications', 'email', 'sms', 'templates', 'parse-template'],
   estMinutes: 55,
   flowChecks: [
     { label: 'POST /notifications is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },

@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Object-Level Authorisation from JWT Claims: Stop One Tenant Reading Another Tenant\'s Account',
   level: 'ADVANCED',
-  tags: ['security', 'jwt', 'authorization', 'policies', 'multi-tenant', 'database', 'http'],
+  tags: ['myproject', 'security', 'jwt', 'authorization', 'policies', 'multi-tenant', 'database', 'http'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Statements are served by an HTTP Listener with the account in the path', rule: { type: 'source', component: 'http-listener', where: { path: '{accountId}' } } },

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Two-Week-Old Invoices Suddenly Re-Processed',
   level: 'ADVANCED',
-  tags: ['object-store', 'idempotency', 'sftp', 'ttl', 'duplicates'],
+  tags: ['myproject', 'object-store', 'idempotency', 'sftp', 'ttl', 'duplicates'],
   estMinutes: 35,
   investigation: {
     logs: [

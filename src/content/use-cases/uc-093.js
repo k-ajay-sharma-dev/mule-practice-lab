@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Salesforce Accounts to SAP S/4HANA Business Partners',
   level: 'INTERMEDIATE',
-  tags: ['salesforce', 'sap', 'cdc', 'anypoint-mq', 'id-mapping', 'master-data', 'dlq'],
+  tags: ['myproject', 'salesforce', 'sap', 'cdc', 'anypoint-mq', 'id-mapping', 'master-data', 'dlq'],
   estMinutes: 30,
   diagram: {
     task: 'draw how Salesforce account changes become SAP Business Partners: the change events, the queue, the Process API with its cross-reference table, both System APIs and the dead-letter queue.',

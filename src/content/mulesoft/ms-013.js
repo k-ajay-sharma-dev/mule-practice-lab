@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Database Connector: Parameterized Queries, Bulk Insert and Streaming',
   level: 'INTERMEDIATE',
-  tags: ['database', 'sql-injection', 'bulk', 'streaming', 'watermark'],
+  tags: ['myproject', 'database', 'sql-injection', 'bulk', 'streaming', 'watermark'],
   estMinutes: 20,
   quiz: [
     {

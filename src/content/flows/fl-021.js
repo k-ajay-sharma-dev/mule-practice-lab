@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Throttling Outbound Calls to a Partner Rate Limit',
   level: 'ADVANCED',
-  tags: ['throttling', 'rate-limit', '429', 'anypoint-mq', 'backpressure'],
+  tags: ['myproject', 'throttling', 'rate-limit', '429', 'anypoint-mq', 'backpressure'],
   estMinutes: 30,
   flowChecks: [
     { label: 'The burst is buffered in a queue consumed by an MQ Subscriber', rule: { type: 'source', component: 'mq-subscriber' } },

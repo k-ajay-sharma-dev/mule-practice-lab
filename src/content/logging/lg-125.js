@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "The Nightly Reconciliation Job",
   level: 'BEGINNER',
-  tags: ["logging","batch","reconciliation","metrics"],
+  tags: ["myproject", "logging","batch","reconciliation","metrics"],
   estMinutes: 20,
   quiz: fromLogging(["log-7021","log-7022","log-7023","log-7024","log-7025"]),
   description: `

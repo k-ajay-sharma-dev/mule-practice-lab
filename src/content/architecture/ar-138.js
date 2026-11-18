@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Commands on Anypoint MQ, Facts on Kafka: Two Brokers in One Fulfilment Platform',
   level: 'ADVANCED',
-  tags: ['anypoint-mq', 'kafka', 'messaging', 'event-driven', 'broker-selection', 'dlq', 'wms'],
+  tags: ['myproject', 'anypoint-mq', 'kafka', 'messaging', 'event-driven', 'broker-selection', 'dlq', 'wms'],
   estMinutes: 50,
   diagram: {
     task: 'draw the fulfilment platform: checkout reaches an order Process API, which sends a fulfil command to an Anypoint MQ queue with a dead-letter queue. One fulfilment worker takes commands from the queue, updates the WMS through a System API and publishes fulfilment events to a Kafka topic. At least two consumers read the Kafka topic, and one of them sends customer notifications.',

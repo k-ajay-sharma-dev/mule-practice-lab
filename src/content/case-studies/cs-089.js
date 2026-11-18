@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Bank Sending Real-Time Balance and Transaction Alerts to Six Million Customers',
   level: 'ADVANCED',
-  tags: ['banking', 'events', 'kafka', 'cdc', 'notifications', 'caching', 'dlq'],
+  tags: ['myproject', 'banking', 'events', 'kafka', 'cdc', 'notifications', 'caching', 'dlq'],
   estMinutes: 50,
   diagram: {
     task: 'draw the alert platform: postings captured from the core and published to Kafka, an alert rules Process API that reads preferences from a cache and puts each alert on its own channel queue, channel System APIs for push, SMS and email, a DLQ, and the app changing preferences through the API layers.',

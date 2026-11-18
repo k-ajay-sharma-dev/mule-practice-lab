@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Multi-Region Runtime DR on CloudHub 2.0: Hot Standby Claims APIs, a Global Load Balancer and the Regional Services That Do Not Fail Over',
   level: 'EXPERT',
-  tags: ['cloudhub-2', 'deployment', 'disaster-recovery', 'multi-region', 'anypoint-mq', 'object-store', 'healthcare'],
+  tags: ['myproject', 'cloudhub-2', 'deployment', 'disaster-recovery', 'multi-region', 'anypoint-mq', 'object-store', 'healthcare'],
   estMinutes: 60,
   diagram: {
     task: 'draw a hot standby design for the claims platform across two CloudHub 2.0 regions, with a bring-your-own global load balancer in front of both private spaces, a full API-led stack in each region, a queue in each region, and the reconciliation job keeping its watermark in an external Redis store.',

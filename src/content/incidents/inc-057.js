@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Goods Receipts Vanish: Queue Empty, DLQ Empty, Oracle Missing Rows',
   level: 'BEGINNER',
-  tags: ['supply-chain', 'activemq', 'jms', 'oracle', 'error-handling', 'goods-receipt'],
+  tags: ['myproject', 'supply-chain', 'activemq', 'jms', 'oracle', 'error-handling', 'goods-receipt'],
   estMinutes: 20,
   investigation: {
     logs: [

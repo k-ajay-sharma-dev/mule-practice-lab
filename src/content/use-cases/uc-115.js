@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Change Data Capture from a Vendor Policy Database to Salesforce and Search',
   level: 'ADVANCED',
-  tags: ['cdc', 'kafka', 'sql-server', 'salesforce', 'event-driven', 'reconciliation'],
+  tags: ['myproject', 'cdc', 'kafka', 'sql-server', 'salesforce', 'event-driven', 'reconciliation'],
   estMinutes: 40,
   diagram: {
     task: 'draw the CDC pipeline: the vendor policy database, the CDC connector, the Kafka change topics, the Mule consumer that builds the policy and updates Salesforce through a System API (reading full policies from a replica through a System API), the search and warehouse sinks, the dead-letter topic, and the reconciliation job.',

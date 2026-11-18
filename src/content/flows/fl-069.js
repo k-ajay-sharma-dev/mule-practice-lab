@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Product Recall: Lot Trace and Quarantine in Oracle, then Fan-out to Stores, DCs and Customers',
   level: 'EXPERT',
-  tags: ['supply-chain', 'retail', 'recall', 'traceability', 'oracle', 'stored-procedure', 'activemq', 'jms', 'scatter-gather'],
+  tags: ['myproject', 'supply-chain', 'retail', 'recall', 'traceability', 'oracle', 'stored-procedure', 'activemq', 'jms', 'scatter-gather'],
   estMinutes: 50,
   flowChecks: [
     { label: 'QA raises a recall through an HTTP API', rule: { type: 'source', component: 'http-listener', where: { path: 'recall' } } },

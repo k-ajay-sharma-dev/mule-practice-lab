@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Enrolment Records in a Batch Job",
   level: 'INTERMEDIATE',
-  tags: ["logging","batch"],
+  tags: ["myproject", "logging","batch"],
   estMinutes: 15,
   quiz: fromLogging(["log-3011","log-3012","log-3013","log-3014","log-3015"]),
   description: `

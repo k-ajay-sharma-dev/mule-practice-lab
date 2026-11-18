@@ -7,7 +7,7 @@ export default {
   category: 'use-cases',
   title: 'Job Board Applications Into the Hiring System: One Intake API for Five Boards, a Queue for the Monday Rush, and a Limit for a Board Gone Wrong',
   level: 'INTERMEDIATE',
-  tags: ['partner-api', 'rate-limit', 'anypoint-mq', 'dlq', 'load-levelling', 'hr', 'recruitment'],
+  tags: ['myproject', 'partner-api', 'rate-limit', 'anypoint-mq', 'dlq', 'load-levelling', 'hr', 'recruitment'],
   estMinutes: 30,
   diagram: {
     task: 'draw the intake path: the job boards call an API gateway with a client ID and a rate limit, then an applications Experience API that puts each application on a queue with a dead-letter queue. A Process API takes them from the queue and creates candidates in the hiring system through a System API.',

@@ -3,7 +3,7 @@ export default {
   category: 'dataweave',
   title: 'Read a Carrier Manifest XML with Attributes into JSON',
   level: 'BEGINNER',
-  tags: ['xml', 'json', 'attributes', 'multi-value-selector', 'ftp'],
+  tags: ['myproject', 'xml', 'json', 'attributes', 'multi-value-selector', 'ftp'],
   estMinutes: 15,
   description: `
 A parcel carrier drops a manifest XML file on an FTP server every evening. A Mule flow picks it up with \`ftp:listener\` and must publish it as JSON to the tracking API.

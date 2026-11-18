@@ -12,7 +12,7 @@ export default {
   category: 'flows',
   title: 'Correlation ID Propagation and Structured Logging',
   level: 'INTERMEDIATE',
-  tags: ['correlation-id', 'logging', 'observability', 'tracing', 'anypoint-mq'],
+  tags: ['myproject', 'correlation-id', 'logging', 'observability', 'tracing', 'anypoint-mq'],
   estMinutes: 25,
   flowChecks: [
     { label: 'Checkout requests arrive through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },

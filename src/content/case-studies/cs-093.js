@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'School District Syncing Class Rosters From Its SIS to the LMS',
   level: 'BEGINNER',
-  tags: ['education', 'system-api', 'process-api', 'scheduler', 'batch', 'idempotency', 'pii'],
+  tags: ['myproject', 'education', 'system-api', 'process-api', 'scheduler', 'batch', 'idempotency', 'pii'],
   estMinutes: 30,
   diagram: {
     task: 'draw the roster sync: a scheduled job starts a Process API that reads changed enrolments from the SIS and writes classes and members into the LMS, each through its own System API, keeps a last-run watermark, and reports rejected records to the IT help desk.',

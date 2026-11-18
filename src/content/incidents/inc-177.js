@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Queued Shipping Labels Vanish on Every Redeploy: a Transient VM Queue',
   level: 'INTERMEDIATE',
-  tags: ['vm', 'queues', 'redeploy', 'reliability', 'data-loss'],
+  tags: ['myproject', 'vm', 'queues', 'redeploy', 'reliability', 'data-loss'],
   estMinutes: 20,
   investigation: {
     logs: [

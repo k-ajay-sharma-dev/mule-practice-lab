@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Food Delivery Order Events on Kafka with Three Consumer Groups',
   level: 'INTERMEDIATE',
-  tags: ['kafka', 'consumer-groups', 'partitions', 'offsets', 'event-driven', 'dlq'],
+  tags: ['myproject', 'kafka', 'consumer-groups', 'partitions', 'offsets', 'event-driven', 'dlq'],
   estMinutes: 30,
   diagram: {
     task: 'draw the order event stream: the app and order service that publish, the Kafka topic, the three consumer apps (restaurant notifications, finance ledger, analytics) each in its own consumer group, what each one calls, and the dead-letter topic for the ledger.',

@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'API-led Connectivity for a Retail Supply Chain',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'retail', 'api-led', 'oracle', 'wms', 'tms', 'layers'],
+  tags: ['myproject', 'supply-chain', 'retail', 'api-led', 'oracle', 'wms', 'tms', 'layers'],
   estMinutes: 30,
   diagram: {
     task: 'draw the API-led network for the store app and the supplier portal: Experience, Process and System APIs, the gateway in front of suppliers, and the Oracle, WMS and TMS backends.',

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Broker Fails Over in Two Seconds, Warehouse Orders Stop for Two Hours',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'activemq', 'jms', 'high-availability', 'reconnection', 'wms'],
+  tags: ['myproject', 'supply-chain', 'activemq', 'jms', 'high-availability', 'reconnection', 'wms'],
   estMinutes: 30,
   investigation: {
     logs: [

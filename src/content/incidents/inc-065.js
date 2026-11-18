@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'In-Doubt XA Transactions Lock Inventory Rows After a Server Crash',
   level: 'EXPERT',
-  tags: ['supply-chain', 'activemq', 'jms', 'oracle', 'xa', 'transactions', 'on-prem'],
+  tags: ['myproject', 'supply-chain', 'activemq', 'jms', 'oracle', 'xa', 'transactions', 'on-prem'],
   estMinutes: 45,
   investigation: {
     logs: [

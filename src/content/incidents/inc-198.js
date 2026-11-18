@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Valid Partner Webhooks Fail the Signature Check: the HMAC Is Worked Out Over Re-Written JSON, Not the Raw Body',
   level: 'ADVANCED',
-  tags: ['webhooks', 'hmac', 'security', 'dataweave', 'streaming'],
+  tags: ['myproject', 'webhooks', 'hmac', 'security', 'dataweave', 'streaming'],
   estMinutes: 25,
   investigation: {
     logs: [

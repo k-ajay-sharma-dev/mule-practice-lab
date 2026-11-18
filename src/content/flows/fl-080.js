@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Legacy POP3 Courier Mailbox: Land First, Because the Email Will Not Be There Twice',
   level: 'ADVANCED',
-  tags: ['email', 'pop3', 'postgresql', 'idempotency', 'file', 'error-handling'],
+  tags: ['myproject', 'email', 'pop3', 'postgresql', 'idempotency', 'file', 'error-handling'],
   estMinutes: 40,
   flowChecks: [
     {

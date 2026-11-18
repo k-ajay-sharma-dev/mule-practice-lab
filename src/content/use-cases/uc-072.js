@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Marketplace Order and Stock Sync (Amazon- and eBay-Style)',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'marketplace', 'inventory', 'activemq', 'oracle', 'oracle-ebs', 'throttling', 'polling'],
+  tags: ['myproject', 'retail', 'marketplace', 'inventory', 'activemq', 'oracle', 'oracle-ebs', 'throttling', 'polling'],
   estMinutes: 40,
   diagram: {
     task: 'draw the marketplace integration: inventory-change events from Oracle feeding a stock Process API that coalesces updates before calling one System API per marketplace, a scheduled order poller queuing marketplace orders for the order Process API, and Oracle EBS Order Management behind a System API.',

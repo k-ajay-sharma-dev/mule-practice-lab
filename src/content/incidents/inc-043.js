@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Watermark Sync Finds Zero Changes After Moving to CloudHub',
   level: 'ADVANCED',
-  tags: ['watermark', 'timezones', 'database', 'data-integrity', 'polling'],
+  tags: ['myproject', 'watermark', 'timezones', 'database', 'data-integrity', 'polling'],
   estMinutes: 30,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "SAP Failure and the Dead-Letter Queue",
   level: 'INTERMEDIATE',
-  tags: ["logging","error-handling","dlq"],
+  tags: ["myproject", "logging","error-handling","dlq"],
   estMinutes: 15,
   quiz: fromLogging(["log-003","log-024","log-042","log-062","log-307","log-224"]),
   description: `

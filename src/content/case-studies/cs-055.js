@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Food Manufacturer Building Lot Traceability and a Recall Programme',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'traceability', 'recall', 'lot-tracking', 'sap', 'oracle', 'events'],
+  tags: ['myproject', 'supply-chain', 'traceability', 'recall', 'lot-tracking', 'sap', 'oracle', 'events'],
   estMinutes: 45,
   diagram: {
     task: 'draw the traceability and recall architecture: lot events from plant MES, SAP and the DC WMS feeding a genealogy Process API and a traceability store, and a recall console that blocks batches in SAP, holds stock in the WMS and notifies customers through a recall topic.',

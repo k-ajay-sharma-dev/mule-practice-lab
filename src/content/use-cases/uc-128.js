@@ -9,7 +9,7 @@ export default {
   category: 'use-cases',
   title: 'Grocery Pickers Offer Substitutions: Customers Answer in the App, Silence Means the Default, and Nobody Waits on the Order System',
   level: 'ADVANCED',
-  tags: ['anypoint-mq', 'timeouts', 'state-store', 'push-notifications', 'scheduled-job', 'retail'],
+  tags: ['myproject', 'anypoint-mq', 'timeouts', 'state-store', 'push-notifications', 'scheduled-job', 'retail'],
   estMinutes: 40,
   diagram: {
     task: 'draw the substitution flow: the picker handhelds call a picking Experience API and the grocery app calls a customer Experience API, both reaching one substitutions Process API. It keeps every offer in a substitution store, puts each offer on a queue (with a DLQ) for a notifier that sends a push message, and records the customer\'s decision in the order management system through a System API. A timeout job applies the default to offers nobody answered.',

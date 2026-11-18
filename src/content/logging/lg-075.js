@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Reading the BatchJobResult",
   level: 'ADVANCED',
-  tags: ["logging","batch","on-complete"],
+  tags: ["myproject", "logging","batch","on-complete"],
   estMinutes: 10,
   quiz: fromLogging(["log-3071","log-3072","log-3073","log-3074","log-3075"]),
   description: `

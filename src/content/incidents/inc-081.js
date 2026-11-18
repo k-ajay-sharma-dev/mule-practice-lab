@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Prescription Refills Lost During a Pharmacy System Outage: IMMEDIATE Ack With No Dead Letter Path',
   level: 'INTERMEDIATE',
-  tags: ['jms', 'activemq', 'ack-mode', 'dlq', 'data-loss', 'healthcare'],
+  tags: ['myproject', 'jms', 'activemq', 'ack-mode', 'dlq', 'data-loss', 'healthcare'],
   estMinutes: 25,
   investigation: {
     logs: [

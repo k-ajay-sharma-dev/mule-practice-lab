@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Store Sales Across Time Zones: Oracle DATE, TIMESTAMP and TIMESTAMP WITH TIME ZONE in DataWeave',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'oracle', 'database', 'dataweave', 'time-zones', 'pos'],
+  tags: ['myproject', 'retail', 'oracle', 'database', 'dataweave', 'time-zones', 'pos'],
   estMinutes: 25,
   quiz: [
     {

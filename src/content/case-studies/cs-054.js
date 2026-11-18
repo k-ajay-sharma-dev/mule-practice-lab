@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Electronics Distributor Moving EDI Off a VAN to AS2 and Partner APIs',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'edi', 'x12', 'as2', 'b2b', 'oracle', 'oracle-ebs'],
+  tags: ['myproject', 'supply-chain', 'edi', 'x12', 'as2', 'b2b', 'oracle', 'oracle-ebs'],
   estMinutes: 35,
   diagram: {
     task: 'draw the B2B integration: top partners on direct AS2, smaller resellers on a REST API behind a gateway, the remaining VAN mailbox polled by a job, all inbound orders queued into one purchase-order Process API in front of Oracle EBS, and outbound documents driven by ERP events.',

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Database Connector for Oracle and SQL Server: Connections, Drivers, Pooling, Bulk and Streaming',
   level: 'ADVANCED',
-  tags: ['database', 'oracle', 'sql-server', 'jdbc', 'connection-pool', 'bulk', 'streaming'],
+  tags: ['myproject', 'database', 'oracle', 'sql-server', 'jdbc', 'connection-pool', 'bulk', 'streaming'],
   estMinutes: 35,
   quiz: [
     {

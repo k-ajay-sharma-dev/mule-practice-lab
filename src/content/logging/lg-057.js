@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Order Matters: Anypoint MQ FIFO Queues",
   level: 'ADVANCED',
-  tags: ["logging","anypoint-mq","fifo","ordering"],
+  tags: ["myproject", "logging","anypoint-mq","fifo","ordering"],
   estMinutes: 20,
   quiz: fromLogging(["log-2056","log-2057","log-2058","log-2059","log-2060"]),
   description: `

@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Splitting a Large XML File into Per-Region Files',
   level: 'ADVANCED',
-  tags: ['file', 'xml', 'streaming', 'splitter', 'foreach', 'memory'],
+  tags: ['myproject', 'file', 'xml', 'streaming', 'splitter', 'foreach', 'memory'],
   estMinutes: 35,
   flowChecks: [
     { label: 'The flow is triggered by the arrival of the XML file', rule: { type: 'source', component: ['file-listener', 'sftp-listener'] } },

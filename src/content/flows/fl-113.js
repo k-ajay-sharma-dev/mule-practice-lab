@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Parcel Return API: Send the Confirmation Email in an Async Scope',
   level: 'BEGINNER',
-  tags: ['async', 'email', 'notifications', 'database', 'retail'],
+  tags: ['myproject', 'async', 'email', 'notifications', 'database', 'retail'],
   estMinutes: 10,
   flowChecks: [
     {

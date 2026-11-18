@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Nightly Usage Billing Batch with Checkpoint and Restart',
   level: 'ADVANCED',
-  tags: ['batch', 'sftp', 'oracle', 'restart', 'idempotency', 'reconciliation', 'cloudhub-2', 'telecom'],
+  tags: ['myproject', 'batch', 'sftp', 'oracle', 'restart', 'idempotency', 'reconciliation', 'cloudhub-2', 'telecom'],
   estMinutes: 40,
   diagram: {
     task: 'draw the nightly billing load: the Mule batch job, the mediation SFTP server and the billing database behind their System APIs, the run lock, the checkpoint and control-total table, where failed records are parked and how ops gets the totals.',

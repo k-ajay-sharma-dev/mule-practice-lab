@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Repeatable vs Non-Repeatable Streaming',
   level: 'BEGINNER',
-  tags: ['streaming', 'performance', 'memory'],
+  tags: ['myproject', 'streaming', 'performance', 'memory'],
   estMinutes: 10,
   quiz: [
     {

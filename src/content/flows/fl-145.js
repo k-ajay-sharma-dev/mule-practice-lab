@@ -22,7 +22,7 @@ export default {
   category: 'flows',
   title: 'Order Events for the Analytics Team Without Personal Data: Build the Event From an Allow List, Keep Only the Postcode Area, Leave Test Orders Out',
   level: 'INTERMEDIATE',
-  tags: ['gdpr', 'data-minimisation', 'dataweave', 'anypoint-mq', 'analytics', 'e-commerce'],
+  tags: ['myproject', 'gdpr', 'data-minimisation', 'dataweave', 'anypoint-mq', 'analytics', 'e-commerce'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Completed orders are read from the orders-completed queue', rule: { type: 'source', component: 'mq-subscriber', where: { destination: 'orders-completed' } } },

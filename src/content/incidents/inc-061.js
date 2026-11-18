@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Stock Movements Booked Twice After the WMS API Slows Down',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'activemq', 'jms', 'oracle', 'idempotency', 'inventory'],
+  tags: ['myproject', 'supply-chain', 'activemq', 'jms', 'oracle', 'idempotency', 'inventory'],
   estMinutes: 30,
   investigation: {
     logs: [

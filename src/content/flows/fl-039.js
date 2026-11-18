@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Customer Migration Batch Job with Accept Policies and On Complete Report',
   level: 'INTERMEDIATE',
-  tags: ['batch', 'migration', 'salesforce', 'accept-policy', 'on-complete'],
+  tags: ['myproject', 'batch', 'migration', 'salesforce', 'accept-policy', 'on-complete'],
   estMinutes: 30,
   flowChecks: [
     { label: 'The migration runs as a Batch Job', rule: { type: 'exists', component: 'batch-job' } },

@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'POS Baskets from an ActiveMQ Virtual Topic into Oracle with Manual Ack',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'pos', 'activemq', 'jms', 'manual-ack', 'oracle', 'idempotency'],
+  tags: ['myproject', 'retail', 'pos', 'activemq', 'jms', 'manual-ack', 'oracle', 'idempotency'],
   estMinutes: 30,
   flowChecks: [
     {

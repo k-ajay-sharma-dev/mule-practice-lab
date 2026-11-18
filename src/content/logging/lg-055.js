@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Big Messages and Size Limits",
   level: 'INTERMEDIATE',
-  tags: ["logging","anypoint-mq","message-size","claim-check"],
+  tags: ["myproject", "logging","anypoint-mq","message-size","claim-check"],
   estMinutes: 15,
   quiz: fromLogging(["log-2046","log-2047","log-2048","log-2049","log-2050"]),
   description: `

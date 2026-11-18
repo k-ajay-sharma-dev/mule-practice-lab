@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Customers Get 200 OK for Bookings That Were Never Saved: On Error Continue at the Flow Level',
   level: 'INTERMEDIATE',
-  tags: ['error-handling', 'on-error-continue', 'http-status', 'database'],
+  tags: ['myproject', 'error-handling', 'on-error-continue', 'http-status', 'database'],
   estMinutes: 20,
   investigation: {
     logs: [

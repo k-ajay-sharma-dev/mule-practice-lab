@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Flash-Sale Order Capture Hangs: Diagnosing Oracle Connection Pool Exhaustion and Sizing Pools Across Replicas',
   level: 'EXPERT',
-  tags: ['retail', 'oracle', 'database', 'connection-pool', 'performance', 'flash-sale', 'capacity-planning'],
+  tags: ['myproject', 'retail', 'oracle', 'database', 'connection-pool', 'performance', 'flash-sale', 'capacity-planning'],
   estMinutes: 40,
   quiz: [
     {

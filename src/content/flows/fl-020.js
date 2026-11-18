@@ -8,7 +8,7 @@ export default {
   category: 'flows',
   title: 'Synchronous Request-Reply over JMS with Correlation',
   level: 'ADVANCED',
-  tags: ['jms', 'request-reply', 'correlation', 'mainframe', 'timeout'],
+  tags: ['myproject', 'jms', 'request-reply', 'correlation', 'mainframe', 'timeout'],
   estMinutes: 30,
   flowChecks: [
     { label: 'The balance API is exposed through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Manual Ack and Nack in Anypoint MQ",
   level: 'INTERMEDIATE',
-  tags: ["logging","anypoint-mq","acknowledgement","redelivery"],
+  tags: ["myproject", "logging","anypoint-mq","acknowledgement","redelivery"],
   estMinutes: 15,
   quiz: fromLogging(["log-2021","log-2022","log-2023","log-2024","log-2025"]),
   description: `

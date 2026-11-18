@@ -14,7 +14,7 @@ export default {
   category: 'flows',
   title: 'A Cached Branch List That Is Never Out of Date: Fill on a Miss, Clear on a Change Event',
   level: 'INTERMEDIATE',
-  tags: ['caching', 'object-store', 'invalidation', 'anypoint-mq', 'banking'],
+  tags: ['myproject', 'caching', 'object-store', 'invalidation', 'anypoint-mq', 'banking'],
   estMinutes: 30,
   flowChecks: [
     { label: 'The API is a GET on /branches', rule: { type: 'source', component: 'http-listener', where: { path: '/branches', allowedMethods: 'GET' } } },

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Salesforce Connector in Depth: Replay Sources, Platform Events, Event Quota and Bulk v2 Operations',
   level: 'ADVANCED',
-  tags: ['salesforce', 'platform-events', 'cdc', 'replay', 'streaming', 'bulk-api', 'object-store'],
+  tags: ['myproject', 'salesforce', 'platform-events', 'cdc', 'replay', 'streaming', 'bulk-api', 'object-store'],
   estMinutes: 35,
   quiz: [
     {

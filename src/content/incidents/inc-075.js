@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Supplier Invoices Silently Skipped After Staff Open Them in the Shared Mailbox',
   level: 'INTERMEDIATE',
-  tags: ['email', 'imap', 'watermark', 'polling', 'finance', 'production'],
+  tags: ['myproject', 'email', 'imap', 'watermark', 'polling', 'finance', 'production'],
   estMinutes: 25,
   investigation: {
     logs: [

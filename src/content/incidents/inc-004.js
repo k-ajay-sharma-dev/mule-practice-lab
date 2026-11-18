@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Empty Payload After Switching to Non-Repeatable Streams',
   level: 'INTERMEDIATE',
-  tags: ['streaming', 'dataweave', 'payload', 'performance-tuning'],
+  tags: ['myproject', 'streaming', 'dataweave', 'payload', 'performance-tuning'],
   estMinutes: 25,
   investigation: {
     logs: [

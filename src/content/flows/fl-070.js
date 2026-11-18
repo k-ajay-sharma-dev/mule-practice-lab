@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Pallet Receipts Against ASNs to SAP Goods Receipts, Exactly Once via an Oracle Outbox',
   level: 'EXPERT',
-  tags: ['supply-chain', 'asn', 'goods-receipt', 'sap', 'activemq', 'jms', 'oracle', 'outbox', 'idempotency'],
+  tags: ['myproject', 'supply-chain', 'asn', 'goods-receipt', 'sap', 'activemq', 'jms', 'oracle', 'outbox', 'idempotency'],
   estMinutes: 55,
   flowChecks: [
     { label: 'Dock scans are consumed from the ActiveMQ receipts queue', rule: { type: 'source', component: 'jms-listener', where: { destination: 'DOCK' } } },

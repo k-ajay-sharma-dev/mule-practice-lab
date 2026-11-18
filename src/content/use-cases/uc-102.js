@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Oracle EBS Finance Feed to Snowflake with Change Data Capture',
   level: 'ADVANCED',
-  tags: ['cdc', 'kafka', 'oracle-ebs', 'oracle', 'snowflake', 's3', 'data-warehouse', 'finance'],
+  tags: ['myproject', 'cdc', 'kafka', 'oracle-ebs', 'oracle', 'snowflake', 's3', 'data-warehouse', 'finance'],
   estMinutes: 40,
   diagram: {
     task: 'draw the change data capture feed from the Oracle EBS database to Snowflake: the capture onto Kafka, the Mule loader, the staging bucket, the dead-letter destination, and the hourly check that compares counts and raises alerts.',

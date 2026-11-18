@@ -18,7 +18,7 @@ export default {
   category: 'flows',
   title: 'Stock Reservation API Backed by an Oracle Stored Procedure (IN/OUT)',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'retail', 'inventory', 'reservations', 'oracle', 'stored-procedure', 'api'],
+  tags: ['myproject', 'supply-chain', 'retail', 'inventory', 'reservations', 'oracle', 'stored-procedure', 'api'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Reservations are requested over HTTP (POST /reservations)', rule: { type: 'source', component: 'http-listener', where: { path: 'reservation' } } },

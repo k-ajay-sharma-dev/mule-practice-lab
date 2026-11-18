@@ -26,7 +26,7 @@ export default {
   category: 'flows',
   title: 'Claim Check Pattern for Large Messages over Anypoint MQ',
   level: 'ADVANCED',
-  tags: ['claim-check', 'anypoint-mq', 's3', 'large-payload', 'messaging'],
+  tags: ['myproject', 'claim-check', 'anypoint-mq', 's3', 'large-payload', 'messaging'],
   estMinutes: 30,
   flowChecks: [
     { label: 'Claims are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },

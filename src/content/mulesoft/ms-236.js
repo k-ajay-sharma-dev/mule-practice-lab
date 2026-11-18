@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Dynamic Connector Configurations: One Config per Tenant, Expressions and the Expiration Policy',
   level: 'ADVANCED',
-  tags: ['dynamic-config', 'connector-config', 'expiration-policy', 'multi-tenant', 'sftp', 'connection-pool', 'security', 'saas'],
+  tags: ['myproject', 'dynamic-config', 'connector-config', 'expiration-policy', 'multi-tenant', 'sftp', 'connection-pool', 'security', 'saas'],
   estMinutes: 18,
   quiz: [
     {

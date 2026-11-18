@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Authorising Brokers Behind a Dedicated Load Balancer from X-SSL Client Certificate Headers',
   level: 'INTERMEDIATE',
-  tags: ['security', 'tls', 'mtls', 'dedicated-load-balancer', 'authorization', 'database', 'http'],
+  tags: ['myproject', 'security', 'tls', 'mtls', 'dedicated-load-balancer', 'authorization', 'database', 'http'],
   estMinutes: 25,
   flowChecks: [
     { label: 'Claims arrive through an HTTP Listener', rule: { type: 'source', component: 'http-listener', where: { path: 'submissions' } } },

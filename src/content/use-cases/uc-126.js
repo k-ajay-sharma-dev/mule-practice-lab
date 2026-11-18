@@ -7,7 +7,7 @@ export default {
   category: 'use-cases',
   title: 'Housekeeping Marks Rooms Clean: Updates Reach the Hotel System Even During Its Night Audit',
   level: 'BEGINNER',
-  tags: ['anypoint-mq', 'dlq', 'saas', 'store-and-forward', 'hospitality'],
+  tags: ['myproject', 'anypoint-mq', 'dlq', 'saas', 'store-and-forward', 'hospitality'],
   estMinutes: 20,
   diagram: {
     task: 'draw the room status path: the housekeeping tablets call an Experience API, which puts each update on a queue with a dead-letter queue. A room status Process API takes the updates from the queue and sends them to the property management system through a System API.',

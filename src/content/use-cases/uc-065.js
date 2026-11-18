@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Cross-Dock Planning from Supplier ASNs to Store Loads',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'retail', 'cross-dock', 'asn', 'wms', 'tms', 'activemq', 'oracle', 'stored-procedure', 'pl-sql'],
+  tags: ['myproject', 'supply-chain', 'retail', 'cross-dock', 'asn', 'wms', 'tms', 'activemq', 'oracle', 'stored-procedure', 'pl-sql'],
   estMinutes: 45,
   diagram: {
     task: 'draw the cross-dock planning integration: inbound ASNs into an ActiveMQ queue, the planning Process API using an Oracle PL/SQL allocation schema and the merchandising allocations, the plan published once on a topic to the WMS and TMS System APIs, receipt feedback from the WMS, and the re-plan scheduler.',

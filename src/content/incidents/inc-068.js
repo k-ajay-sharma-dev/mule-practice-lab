@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Black Friday Prices Go Live on Thanksgiving Afternoon',
   level: 'EXPERT',
-  tags: ['retail', 'pricing', 'promotions', 'time-zones', 'oracle', 'dataweave', 'pos'],
+  tags: ['myproject', 'retail', 'pricing', 'promotions', 'time-zones', 'oracle', 'dataweave', 'pos'],
   estMinutes: 45,
   investigation: {
     logs: [

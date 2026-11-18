@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'A Nightly Batch Job from an ERP to a Data Warehouse',
   level: 'BEGINNER',
-  tags: ['batch', 'scheduler', 'erp', 'database'],
+  tags: ['myproject', 'batch', 'scheduler', 'erp', 'database'],
   estMinutes: 20,
   diagram: {
     task: 'draw a nightly job that copies sales from the ERP to the data warehouse. Use four boxes: a Batch / scheduled job, a System API, an ERP, and a Data warehouse. Draw a line from the job to the System API, a line from the System API to the ERP, and a line from the job to the Data warehouse. Each line points from the caller to the system it calls. Draw no line from the job to the ERP, or from the ERP to the Data warehouse.',

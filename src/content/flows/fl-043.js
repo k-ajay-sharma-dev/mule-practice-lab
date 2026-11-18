@@ -25,7 +25,7 @@ export default {
   category: 'flows',
   title: 'Asynchronous Bulk API: 10k Records in Chunks with Job Status',
   level: 'ADVANCED',
-  tags: ['bulk-api', 'async', 'chunking', 'anypoint-mq', 'job-status'],
+  tags: ['myproject', 'bulk-api', 'async', 'chunking', 'anypoint-mq', 'job-status'],
   estMinutes: 35,
   flowChecks: [
     { label: 'Bulk submissions arrive through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },

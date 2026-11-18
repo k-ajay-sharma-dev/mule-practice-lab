@@ -9,7 +9,7 @@ export default {
   category: 'use-cases',
   title: 'Where Is the School Bus? GPS Positions In Through a Queue, Parents Read the Latest One From the District\'s Own Copy',
   level: 'BEGINNER',
-  tags: ['iot', 'gps', 'anypoint-mq', 'experience-api', 'read-model', 'education'],
+  tags: ['myproject', 'iot', 'gps', 'anypoint-mq', 'experience-api', 'read-model', 'education'],
   estMinutes: 20,
   diagram: {
     task: 'draw two paths: the GPS trackers on the buses send positions to an Experience API that puts them on a queue, and a Process API saves the latest position of each bus in a database. The parents\' app calls its own Experience API, which reads the latest positions through a System API.',

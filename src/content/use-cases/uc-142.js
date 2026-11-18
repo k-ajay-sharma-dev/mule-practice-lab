@@ -8,7 +8,7 @@ export default {
   category: 'use-cases',
   title: 'Weather Warnings for a Ski Resort: One Topic Feeds the Lift Control System, the Website and the Staff App, and a Lift System Outage Delays Nobody Else',
   level: 'BEGINNER',
-  tags: ['topic', 'publish-subscribe', 'fan-out', 'dlq', 'notifications', 'leisure'],
+  tags: ['myproject', 'topic', 'publish-subscribe', 'fan-out', 'dlq', 'notifications', 'leisure'],
   estMinutes: 20,
   diagram: {
     task: 'draw the weather service calling a weather alerts Experience API, which publishes each warning to a topic. Three subscribers read the topic, each calling its own System API: one for the lift control system, one for the resort website and one for the staff app notifications. The topic has a dead-letter queue.',

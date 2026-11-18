@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Deadlock Victims (Error 1205) During Parallel Bulk Price Updates in SQL Server',
   level: 'EXPERT',
-  tags: ['sql-server', 'database', 'deadlock', 'parallel-for-each', 'bulk', 'retry', 'pricing'],
+  tags: ['myproject', 'sql-server', 'database', 'deadlock', 'parallel-for-each', 'bulk', 'retry', 'pricing'],
   estMinutes: 40,
   investigation: {
     logs: [

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'End-of-Day POS Lines into Oracle: db:bulk-insert, Chunking and Isolating Error Rows',
   level: 'ADVANCED',
-  tags: ['retail', 'pos', 'oracle', 'database', 'bulk-insert', 'error-handling', 'end-of-day'],
+  tags: ['myproject', 'retail', 'pos', 'oracle', 'database', 'bulk-insert', 'error-handling', 'end-of-day'],
   estMinutes: 30,
   quiz: [
     {

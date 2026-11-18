@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Batch Aggregator Chunks to SFTP",
   level: 'INTERMEDIATE',
-  tags: ["logging","batch","aggregator","sftp"],
+  tags: ["myproject", "logging","batch","aggregator","sftp"],
   estMinutes: 15,
   quiz: fromLogging(["log-3026","log-3027","log-3028","log-3029","log-3030"]),
   description: `

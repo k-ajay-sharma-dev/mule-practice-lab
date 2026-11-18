@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Online Orders from Store Webhooks to the ERP and Warehouse',
   level: 'INTERMEDIATE',
-  tags: ['e-commerce', 'webhooks', 'order-to-cash', 'wms', 'erp', 'idempotency', 'anypoint-mq'],
+  tags: ['myproject', 'e-commerce', 'webhooks', 'order-to-cash', 'wms', 'erp', 'idempotency', 'anypoint-mq'],
   estMinutes: 30,
   diagram: {
     task: 'draw order capture and fulfilment: store webhooks into a queue, the capture Process API with its duplicate check against a store of processed order IDs, the ERP and WMS behind System APIs, shipment confirmations coming back from the WMS, and the tracking update to the store platform.',

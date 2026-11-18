@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'JMS Delivery Settings with ActiveMQ: Persistence, Priority, Time To Live, Reply Patterns and the Factory',
   level: 'INTERMEDIATE',
-  tags: ['jms', 'activemq', 'messaging', 'redelivery', 'request-reply', 'connectors'],
+  tags: ['myproject', 'jms', 'activemq', 'messaging', 'redelivery', 'request-reply', 'connectors'],
   estMinutes: 25,
   quiz: [
     {

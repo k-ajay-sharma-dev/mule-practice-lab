@@ -9,7 +9,7 @@ export default {
   category: 'flows',
   title: 'Webhook Relay with Retries and a Per-Merchant Circuit Breaker',
   level: 'EXPERT',
-  tags: ['circuit-breaker', 'object-store', 'webhook', 'anypoint-mq', 'retry', 'dlq', 'resilience'],
+  tags: ['myproject', 'circuit-breaker', 'object-store', 'webhook', 'anypoint-mq', 'retry', 'dlq', 'resilience'],
   estMinutes: 45,
   flowChecks: [
     { label: 'Provider webhooks are received through an HTTP Listener', rule: { type: 'source', component: 'http-listener' } },

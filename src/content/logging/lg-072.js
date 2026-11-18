@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Max Failed Records in a Batch Job",
   level: 'ADVANCED',
-  tags: ["logging","batch","max-failed-records"],
+  tags: ["myproject", "logging","batch","max-failed-records"],
   estMinutes: 20,
   quiz: fromLogging(["log-3056","log-3057","log-3058","log-3059","log-3060"]),
   description: `

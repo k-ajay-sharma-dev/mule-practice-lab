@@ -9,7 +9,7 @@ export default {
   category: 'use-cases',
   title: 'Electronic Shelf Labels: One Price Change Out to Two Label Vendors and the Online Store, and a Slow Vendor Holds Up Nobody',
   level: 'INTERMEDIATE',
-  tags: ['pub-sub', 'topic', 'dlq', 'fan-out', 'retail', 'pricing'],
+  tags: ['myproject', 'pub-sub', 'topic', 'dlq', 'fan-out', 'retail', 'pricing'],
   estMinutes: 30,
   diagram: {
     task: 'draw the price path: the ERP calls a price changes Process API, which publishes each change to a topic with a dead-letter queue. Three subscribers take their own copy: one for each label vendor\'s cloud and one for the online store, each through its own System API.',

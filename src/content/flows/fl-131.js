@@ -7,7 +7,7 @@ export default {
   category: 'flows',
   title: 'Staff Canteen Wallet: Raise a Business Error When the Balance Is Too Low, and Answer 422',
   level: 'BEGINNER',
-  tags: ['http', 'database', 'raise-error', 'choice', 'http-status', 'error-handling'],
+  tags: ['myproject', 'http', 'database', 'raise-error', 'choice', 'http-status', 'error-handling'],
   estMinutes: 20,
   flowChecks: [
     {

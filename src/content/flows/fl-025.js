@@ -16,7 +16,7 @@ export default {
   category: 'flows',
   title: 'Transactional JMS to Database Processing (XA vs Local)',
   level: 'EXPERT',
-  tags: ['transactions', 'xa', 'jms', 'database', 'exactly-once'],
+  tags: ['myproject', 'transactions', 'xa', 'jms', 'database', 'exactly-once'],
   estMinutes: 40,
   flowChecks: [
     {

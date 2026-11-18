@@ -9,7 +9,7 @@ export default {
   category: 'architecture',
   title: 'Refund Requests Must Survive a Broker Restart: a Persistent Queue Between the Returns Channels and the Payment Provider',
   level: 'BEGINNER',
-  tags: ['activemq', 'jms', 'persistence', 'queue', 'dlq', 'refunds', 'retail'],
+  tags: ['myproject', 'activemq', 'jms', 'persistence', 'queue', 'dlq', 'refunds', 'retail'],
   estMinutes: 20,
   diagram: {
     task: 'draw the online returns portal and the returns desk app calling one refunds Process API, which puts each refund on a queue with a dead-letter queue. A refund worker takes refunds from the queue and calls the payment provider through a System API.',

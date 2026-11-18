@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Purchase Orders to Suppliers as EDI 850 over SFTP, with 855 Acknowledgements Back',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'procurement', 'edi', 'x12', 'sftp', 'oracle', 'activemq', 'jms'],
+  tags: ['myproject', 'supply-chain', 'procurement', 'edi', 'x12', 'sftp', 'oracle', 'activemq', 'jms'],
   estMinutes: 45,
   flowChecks: [
     {

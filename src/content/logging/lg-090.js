@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Deadlocks and Bulk Inserts",
   level: 'ADVANCED',
-  tags: ["logging","database","deadlocks"],
+  tags: ["myproject", "logging","database","deadlocks"],
   estMinutes: 20,
   quiz: fromLogging(["log-4071","log-4072","log-4073","log-4074","log-4075"]),
   description: `

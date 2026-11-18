@@ -3,7 +3,7 @@ export default {
   category: 'api-design',
   title: 'Lab Orders API: A Batch with Client References, Per-Item Status and an Atomic Option',
   level: 'ADVANCED',
-  tags: ['raml', 'api-design', 'bulk', 'batch', 'status-codes', 'query-parameters', 'healthcare'],
+  tags: ['myproject', 'raml', 'api-design', 'bulk', 'batch', 'status-codes', 'query-parameters', 'healthcare'],
   estMinutes: 35,
   description: `
 A hospital group's order system sends blood test orders to a central lab. A ward round produces up to 200 orders at once, and the lab wants one call per round instead of 200.

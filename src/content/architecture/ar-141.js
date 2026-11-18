@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Lease Contract PDFs That Take 30 Seconds: 202 Accepted, a Job Queue, a Status Store and a Callback',
   level: 'INTERMEDIATE',
-  tags: ['async-request-reply', 'long-running', 'anypoint-mq', 'callbacks', 'timeouts', 'partners'],
+  tags: ['myproject', 'async-request-reply', 'long-running', 'anypoint-mq', 'callbacks', 'timeouts', 'partners'],
   estMinutes: 35,
   diagram: {
     task: 'draw the contract document service: dealers calling through the API gateway, an Experience API that records each request in a status store and puts it on a queue, a worker Process API that takes requests from the queue and calls the document generator through a System API, the file store for the finished PDFs, a dead-letter queue, and the callback from the worker to the dealer.',

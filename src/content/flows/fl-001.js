@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'SFTP CSV to Salesforce Upsert',
   level: 'INTERMEDIATE',
-  tags: ['sftp', 'salesforce', 'batch', 'csv'],
+  tags: ['myproject', 'sftp', 'salesforce', 'batch', 'csv'],
   estMinutes: 25,
   flowChecks: [
     { label: 'Triggered by an SFTP listener on the inbound folder', rule: { type: 'source', component: 'sftp-listener' } },

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Statements That Bounce",
   level: 'BEGINNER',
-  tags: ["logging","notifications","personal-data","batch"],
+  tags: ["myproject", "logging","notifications","personal-data","batch"],
   estMinutes: 20,
   quiz: fromLogging(["log-9001","log-9002","log-9003","log-9004","log-9005"]),
   description: `

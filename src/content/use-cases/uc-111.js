@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Pharmacy Home Delivery: Carrier Labels at Packing and Signed Tracking Webhooks',
   level: 'INTERMEDIATE',
-  tags: ['carrier', 'webhooks', 'hmac', 'logistics', 'anypoint-mq', 'healthcare'],
+  tags: ['myproject', 'carrier', 'webhooks', 'hmac', 'logistics', 'anypoint-mq', 'healthcare'],
   estMinutes: 30,
   diagram: {
     task: 'draw both halves: the packing station creating a label through the API layers and the carrier System API, and the carrier tracking webhooks entering through gateway policies, queued by the webhook API, processed into the pharmacy system and SMS updates.',

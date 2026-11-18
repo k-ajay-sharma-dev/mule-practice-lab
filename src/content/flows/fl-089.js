@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Nightly Product Load to Salesforce with Bulk API v2 and a Separate Job Monitor Flow',
   level: 'ADVANCED',
-  tags: ['salesforce', 'bulk-api', 'sftp', 'csv', 'object-store', 'scheduler', 'retail'],
+  tags: ['myproject', 'salesforce', 'bulk-api', 'sftp', 'csv', 'object-store', 'scheduler', 'retail'],
   estMinutes: 40,
   flowChecks: [
     { label: 'A scheduled flow reads the product file and a second scheduled flow monitors the job', rule: { type: 'exists', component: 'scheduler', min: 2 } },

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Nightly Replenishment Dies at Store 300 With ORA-01000',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'retail', 'oracle', 'stored-procedures', 'cursors', 'replenishment'],
+  tags: ['myproject', 'supply-chain', 'retail', 'oracle', 'stored-procedures', 'cursors', 'replenishment'],
   estMinutes: 35,
   investigation: {
     logs: [

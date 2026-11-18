@@ -3,7 +3,7 @@ export default {
   category: 'case-studies',
   title: 'E-commerce Retailer Fixing Duplicate and Lost Orders Between Checkout, OMS and SAP',
   level: 'ADVANCED',
-  tags: ['e-commerce', 'retail', 'idempotency', 'reliability', 'anypoint-mq', 'reconciliation', 'sap', 'error-handling'],
+  tags: ['myproject', 'e-commerce', 'retail', 'idempotency', 'reliability', 'anypoint-mq', 'reconciliation', 'sap', 'error-handling'],
   estMinutes: 50,
   quiz: [
     {

@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Salesforce CPQ Orders into Oracle EBS Order Management',
   level: 'INTERMEDIATE',
-  tags: ['salesforce', 'oracle-ebs', 'oracle', 'stored-procedure', 'activemq', 'jms', 'status-sync', 'dlq'],
+  tags: ['myproject', 'salesforce', 'oracle-ebs', 'oracle', 'stored-procedure', 'activemq', 'jms', 'status-sync', 'dlq'],
   estMinutes: 30,
   diagram: {
     task: 'draw how activated Salesforce CPQ orders become Oracle EBS sales orders and how booked, shipped and invoiced status flows back: the order events, the ActiveMQ queue, the Process API, the status job, both System APIs and the dead-letter queue.',

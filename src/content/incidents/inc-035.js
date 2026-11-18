@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Deployment Never Becomes Healthy Because the Database Is in Maintenance',
   level: 'INTERMEDIATE',
-  tags: ['deployment', 'startup', 'connectivity', 'database', 'resilience'],
+  tags: ['myproject', 'deployment', 'startup', 'connectivity', 'database', 'resilience'],
   estMinutes: 25,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Positive Pay Cheque Issue File to the Bank over SFTP',
   level: 'BEGINNER',
-  tags: ['sftp', 'pgp', 'fixed-width', 'oracle-ebs', 'scheduler', 'finance', 'banking'],
+  tags: ['myproject', 'sftp', 'pgp', 'fixed-width', 'oracle-ebs', 'scheduler', 'finance', 'banking'],
   estMinutes: 15,
   diagram: {
     task: 'draw the daily job that reads issued and voided cheques from Oracle EBS Payables, builds the Positive Pay file and delivers it to the bank SFTP server, with the archive copy and the alert to treasury.',

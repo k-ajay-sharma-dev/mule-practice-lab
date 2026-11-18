@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'HL7 v2 ADT Feed to a FHIR R4 Server for a Care App',
   level: 'INTERMEDIATE',
-  tags: ['hl7', 'fhir', 'mllp', 'healthcare', 'anypoint-mq', 'dlq'],
+  tags: ['myproject', 'hl7', 'fhir', 'mllp', 'healthcare', 'anypoint-mq', 'dlq'],
   estMinutes: 30,
   diagram: {
     task: 'draw the ADT to FHIR flow: the EHR sending over MLLP, the listener that stores each message and ACKs, the raw archive, the queue, the Process API that maps to FHIR, the System API in front of the FHIR server, the dead-letter queue, and the care app reading FHIR through its Experience API.',

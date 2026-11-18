@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Duplicate Prescription Messages",
   level: 'INTERMEDIATE',
-  tags: ["logging","idempotency","queues","dlq"],
+  tags: ["myproject", "logging","idempotency","queues","dlq"],
   estMinutes: 20,
   quiz: fromLogging(["log-7006","log-7007","log-7008","log-7009","log-7010"]),
   description: `

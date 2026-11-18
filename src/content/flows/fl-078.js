@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'SQL Server Outbox to an Amazon SQS FIFO Queue and an Ordered Consumer with a DLQ',
   level: 'ADVANCED',
-  tags: ['sqs', 'fifo', 'aws', 'sql-server', 'outbox', 'dead-letter', 'ordering', 'http'],
+  tags: ['myproject', 'sqs', 'fifo', 'aws', 'sql-server', 'outbox', 'dead-letter', 'ordering', 'http'],
   estMinutes: 45,
   flowChecks: [
     { label: 'A scheduled relay drains the outbox', rule: { type: 'source', component: 'scheduler' } },

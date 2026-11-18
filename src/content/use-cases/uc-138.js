@@ -10,7 +10,7 @@ export default {
   category: 'use-cases',
   title: 'Leavers Lose Access Everywhere by the End of Their Last Day: One Leaver Event, Three Systems, and a Badge System That Is Often Down',
   level: 'INTERMEDIATE',
-  tags: ['hr', 'offboarding', 'security', 'topic', 'fan-out', 'dlq'],
+  tags: ['myproject', 'hr', 'offboarding', 'security', 'topic', 'fan-out', 'dlq'],
   estMinutes: 30,
   diagram: {
     task: 'draw the HR system sending leaver events to an Experience API, which publishes them to a topic. Draw three subscribers, one for the identity directory, one for the badge system and one for payroll, each calling its system through its own System API. The topic has a dead-letter queue.',

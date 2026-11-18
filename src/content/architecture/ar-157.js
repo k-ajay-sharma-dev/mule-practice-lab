@@ -8,7 +8,7 @@ export default {
   category: 'architecture',
   title: 'A Marketing Import and the Sales Team Share One CRM Limit: a Queue and a Consumer That Only Use the Room Left',
   level: 'ADVANCED',
-  tags: ['load-levelling', 'queue', 'crm', 'rate-limits', 'batch', 'dlq', 'b2b'],
+  tags: ['myproject', 'load-levelling', 'queue', 'crm', 'rate-limits', 'batch', 'dlq', 'b2b'],
   estMinutes: 40,
   diagram: {
     task: 'draw the sales app calling the CRM through an Experience API and the CRM System API. Draw the marketing import job putting contacts on a queue with a dead-letter queue, and an import Process API taking them from the queue and writing them through the same CRM System API.',

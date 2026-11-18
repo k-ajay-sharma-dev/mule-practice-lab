@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "JMS Topics and Durable Subscribers",
   level: 'INTERMEDIATE',
-  tags: ["logging","jms","topics","pub-sub"],
+  tags: ["myproject", "logging","jms","topics","pub-sub"],
   estMinutes: 15,
   quiz: fromLogging(["log-2031","log-2032","log-2033","log-2034","log-2035"]),
   description: `

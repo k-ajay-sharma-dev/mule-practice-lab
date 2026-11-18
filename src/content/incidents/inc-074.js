@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Document Archive Uploads Fail With 403 AuthenticationFailed After the SAS Token Expires',
   level: 'INTERMEDIATE',
-  tags: ['azure', 'blob-storage', 'sas', 'credentials', 'monitoring', 'retry', 'insurance'],
+  tags: ['myproject', 'azure', 'blob-storage', 'sas', 'credentials', 'monitoring', 'retry', 'insurance'],
   estMinutes: 30,
   investigation: {
     logs: [

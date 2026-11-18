@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Transactional Outbox for SIM Activation Events',
   level: 'ADVANCED',
-  tags: ['outbox', 'anypoint-mq', 'event-driven', 'idempotency', 'postgresql', 'telecom'],
+  tags: ['myproject', 'outbox', 'anypoint-mq', 'event-driven', 'idempotency', 'postgresql', 'telecom'],
   estMinutes: 35,
   diagram: {
     task: 'draw the activation flow with an outbox: the web shop and store app, the activation Experience and Process APIs, the PostgreSQL database with its outbox table, the relay that publishes to the Anypoint MQ exchange, one queue per subscriber, the provisioning, billing and notification consumers with their System APIs, and the dead-letter queue.',

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Crypto Module for Partner Files: PGP Encrypt, Sign, Decrypt and Checksums',
   level: 'ADVANCED',
-  tags: ['crypto', 'pgp', 'security', 'encryption', 'signing', 'checksums', 'sftp', 'banking'],
+  tags: ['myproject', 'crypto', 'pgp', 'security', 'encryption', 'signing', 'checksums', 'sftp', 'banking'],
   estMinutes: 20,
   quiz: [
     {

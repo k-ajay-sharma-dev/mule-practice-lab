@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Payments Company Reconciling Its Ledger Against Bank Statements Every Morning',
   level: 'INTERMEDIATE',
-  tags: ['payments', 'fintech', 'reconciliation', 'batch', 'sftp', 'iso-20022', 'file-transfer'],
+  tags: ['myproject', 'payments', 'fintech', 'reconciliation', 'batch', 'sftp', 'iso-20022', 'file-transfer'],
   estMinutes: 45,
   diagram: {
     task: 'draw the morning reconciliation: a scheduled job collects camt.053 statements from the bank SFTP, archives them unchanged, matches them against the ledger through a System API, sends unmatched lines through an exceptions queue to the reconciliation workbench, and feeds totals to the finance warehouse.',

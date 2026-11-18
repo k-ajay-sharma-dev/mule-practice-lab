@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Insurance Claim Photo Upload and Damage Assessment',
   level: 'ADVANCED',
-  tags: ['file-upload', 'claim-check', 'object-storage', 'insurance', 'async'],
+  tags: ['myproject', 'file-upload', 'claim-check', 'object-storage', 'insurance', 'async'],
   estMinutes: 45,
   diagram: {
     task: 'draw the claim-photo flow: the mobile Experience API, direct upload to object storage (claim check), the upload-completed processing, the claims core, policy and ECM System APIs, and the asynchronous damage-assessment call with its callback.',

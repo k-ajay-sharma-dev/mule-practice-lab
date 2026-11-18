@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Energy Retailer Exchanging Switching and Meter Read Messages With the Market Hub',
   level: 'ADVANCED',
-  tags: ['utilities', 'energy', 'b2b', 'event-driven', 'kafka', 'partitions', 'idempotency', 'dlq', 'salesforce'],
+  tags: ['myproject', 'utilities', 'energy', 'b2b', 'event-driven', 'kafka', 'partitions', 'idempotency', 'dlq', 'salesforce'],
   estMinutes: 55,
   diagram: {
     task: 'draw market messaging: the market hub sends messages to an inbound Experience API that places them on a stream keyed by meter point; switching and meter-read consumers update CRM and billing through System APIs; every message is archived; outbound messages are queued and sent by one Process API through the only System API that talks to the hub; switch progress is tracked and a scheduled job watches the deadlines.',

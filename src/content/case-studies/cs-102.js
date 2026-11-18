@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Pharma Company Centralising Adverse Event Intake From Every Channel',
   level: 'ADVANCED',
-  tags: ['pharma', 'pharmacovigilance', 'compliance', 'anypoint-mq', 'idempotency', 'dlq', 'oracle', 'salesforce', 'sftp', 'pii'],
+  tags: ['myproject', 'pharma', 'pharmacovigilance', 'compliance', 'anypoint-mq', 'idempotency', 'dlq', 'oracle', 'salesforce', 'sftp', 'pii'],
   estMinutes: 50,
   diagram: {
     task: 'draw adverse event intake: the public web form and the medical information CRM reach an intake Experience API through the gateway; pollers read the safety mailbox and the licensing partners\' SFTP; all channels feed one intake queue; one Process API checks for duplicates and creates cases in the Oracle safety database through a System API; incomplete reports go to a triage queue for safety specialists; failed messages go to a dead-letter queue.',

@@ -3,7 +3,7 @@ export default {
   category: 'architecture',
   title: 'Idempotency and Per-SKU Ordering for Inventory Events',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'inventory', 'idempotency', 'ordering', 'activemq', 'jms', 'kafka', 'oracle'],
+  tags: ['myproject', 'supply-chain', 'inventory', 'idempotency', 'ordering', 'activemq', 'jms', 'kafka', 'oracle'],
   estMinutes: 35,
   quiz: [
     {

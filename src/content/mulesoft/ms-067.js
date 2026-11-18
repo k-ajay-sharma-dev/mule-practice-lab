@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Available-to-Promise over ActiveMQ: JMS Request-Reply with publish-consume, Reply-To, Correlation and Timeouts',
   level: 'ADVANCED',
-  tags: ['retail', 'supply-chain', 'jms', 'activemq', 'request-reply', 'atp', 'timeouts'],
+  tags: ['myproject', 'retail', 'supply-chain', 'jms', 'activemq', 'request-reply', 'atp', 'timeouts'],
   estMinutes: 30,
   quiz: [
     {

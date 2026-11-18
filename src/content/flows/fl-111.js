@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Order Confirmation: Protect the Loyalty Call with a Try Scope',
   level: 'BEGINNER',
-  tags: ['try', 'on-error-continue', 'error-handling', 'http', 'database', 'loyalty', 'retail'],
+  tags: ['myproject', 'try', 'on-error-continue', 'error-handling', 'http', 'database', 'loyalty', 'retail'],
   estMinutes: 10,
   flowChecks: [
     {

@@ -10,7 +10,7 @@ export default {
   category: 'architecture',
   title: 'Month-End Reports Slowing Down Checkout: Move the Reporting Reads to a Read Replica',
   level: 'INTERMEDIATE',
-  tags: ['read-replica', 'reporting', 'database', 'bulkhead', 'system-api', 'retail'],
+  tags: ['myproject', 'read-replica', 'reporting', 'database', 'bulkhead', 'system-api', 'retail'],
   estMinutes: 30,
   diagram: {
     task: 'draw the two paths: checkout from the web shop through its Experience API and the orders System API to the primary orders database, and finance reporting from the reporting tool through a reports Process API and a reporting System API to a read replica that the primary database feeds.',

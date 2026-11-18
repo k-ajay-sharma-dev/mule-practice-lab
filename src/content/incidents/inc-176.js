@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Sign-Up Says Success but Welcome Emails Never Arrive: Errors Inside an Async Scope Do Not Reach the Caller',
   level: 'BEGINNER',
-  tags: ['async', 'error-handling', 'email', 'monitoring'],
+  tags: ['myproject', 'async', 'error-handling', 'email', 'monitoring'],
   estMinutes: 15,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Utility Ingesting Smart-Meter Readings',
   level: 'INTERMEDIATE',
-  tags: ['utilities', 'high-volume', 'batch', 'streaming', 'iot'],
+  tags: ['myproject', 'utilities', 'high-volume', 'batch', 'streaming', 'iot'],
   estMinutes: 35,
   diagram: {
     task: 'draw the smart-meter data flow: the bulk file path into MDM, the separate real-time alarm path to the outage system, the portal usage path, and the bulk route to analytics that does not go through Mule.',

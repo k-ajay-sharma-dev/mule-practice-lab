@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Calling an Oracle Allocation Package: Stored Procedures with IN, OUT, IN OUT and REF CURSOR',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'oracle', 'database', 'stored-procedure', 'ref-cursor', 'allocation'],
+  tags: ['myproject', 'supply-chain', 'oracle', 'database', 'stored-procedure', 'ref-cursor', 'allocation'],
   estMinutes: 30,
   quiz: [
     {

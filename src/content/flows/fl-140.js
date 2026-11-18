@@ -37,7 +37,7 @@ export default {
   category: 'flows',
   title: 'A Nightly Full Sync That Also Catches Closed Stores: Stamp What the Export Holds, Close the Rest, and Refuse to Close Anything on a Short Export',
   level: 'EXPERT',
-  tags: ['scheduler', 'full-sync', 'mark-and-sweep', 'soft-delete', 'database', 'safety-check', 'franchise'],
+  tags: ['myproject', 'scheduler', 'full-sync', 'mark-and-sweep', 'soft-delete', 'database', 'safety-check', 'franchise'],
   estMinutes: 50,
   flowChecks: [
     { label: 'A Scheduler starts the nightly sync', rule: { type: 'source', component: 'scheduler' } },

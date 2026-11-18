@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Seat Supplier Integrating Just-in-Sequence Calls With Car Plants',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'automotive', 'jit', 'jis', 'edifact', 'activemq', 'jms', 'oracle', 'sap'],
+  tags: ['myproject', 'supply-chain', 'automotive', 'jit', 'jis', 'edifact', 'activemq', 'jms', 'oracle', 'sap'],
   estMinutes: 55,
   diagram: {
     task: 'draw the JIS integration at the supplier plant: OEM sequence calls arriving over AS2 into an Experience API, queued in order for a sequencing Process API that feeds the MES and keeps sequence state in Oracle, build-complete events triggering despatch, ASNs back to the OEM, and a gap-monitoring job raising alerts.',

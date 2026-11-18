@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Batch Job Stuck for 20 Hours With 19 Instances Queued Behind It',
   level: 'EXPERT',
-  tags: ['batch', 'database', 'timeouts', 'locks', 'data-freshness'],
+  tags: ['myproject', 'batch', 'database', 'timeouts', 'locks', 'data-freshness'],
   estMinutes: 50,
   investigation: {
     logs: [

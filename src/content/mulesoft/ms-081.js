@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Reading Mail Reliably: Watermark, Read Flags, Imap Matcher, Mark-as-Read, Move, Delete and Expunge',
   level: 'INTERMEDIATE',
-  tags: ['email', 'imap', 'watermark', 'polling', 'connectors', 'primary-node'],
+  tags: ['myproject', 'email', 'imap', 'watermark', 'polling', 'connectors', 'primary-node'],
   estMinutes: 25,
   quiz: [
     {

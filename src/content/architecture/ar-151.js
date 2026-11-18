@@ -12,7 +12,7 @@ export default {
   category: 'architecture',
   title: 'A Data Lake Landing Zone: Land the Raw Extracts First, Curate Them Into the Warehouse After, and Keep Analysts Off the Raw Files',
   level: 'INTERMEDIATE',
-  tags: ['data-lake', 'landing-zone', 'batch', 's3', 'data-warehouse', 'analytics'],
+  tags: ['myproject', 'data-lake', 'landing-zone', 'batch', 's3', 'data-warehouse', 'analytics'],
   estMinutes: 30,
   diagram: {
     task: 'draw two jobs: an extract job that reads the ERP and writes the files unchanged to a raw landing zone in S3, and a curation job that reads the raw zone and loads cleaned tables into the data warehouse. Analysts use the warehouse only.',

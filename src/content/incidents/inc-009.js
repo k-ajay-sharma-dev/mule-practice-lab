@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Customer Names Arrive as "M�ller" in Salesforce',
   level: 'BEGINNER',
-  tags: ['encoding', 'files', 'sftp', 'dataweave'],
+  tags: ['myproject', 'encoding', 'files', 'sftp', 'dataweave'],
   estMinutes: 20,
   investigation: {
     logs: [

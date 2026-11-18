@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Azure Blob Storage with Mule: Containers, Virtual Folders, SAS Tokens and Large Files',
   level: 'INTERMEDIATE',
-  tags: ['azure', 'blob-storage', 'cloud-storage', 'security', 'sas', 'streaming', 'connectors'],
+  tags: ['myproject', 'azure', 'blob-storage', 'cloud-storage', 'security', 'sas', 'streaming', 'connectors'],
   estMinutes: 30,
   quiz: [
     {

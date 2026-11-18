@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'POS End-of-Day Totals to the General Ledger',
   level: 'BEGINNER',
-  tags: ['retail', 'pos', 'sftp', 'scheduler', 'journal-entries', 'finance', 'csv'],
+  tags: ['myproject', 'retail', 'pos', 'sftp', 'scheduler', 'journal-entries', 'finance', 'csv'],
   estMinutes: 15,
   diagram: {
     task: 'draw the nightly flow: the store POS servers dropping their end-of-day files, the scheduled job that reads them, the record of files already posted, the ERP behind a System API, and the finance email.',

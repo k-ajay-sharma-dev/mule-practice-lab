@@ -24,7 +24,7 @@ export default {
   category: 'flows',
   title: 'Appointment Reminders by Text: One Bad Number Must Not Stop the Rest, and Nobody Gets Two Texts',
   level: 'INTERMEDIATE',
-  tags: ['scheduler', 'foreach', 'try', 'on-error-continue', 'database', 'sms', 'healthcare'],
+  tags: ['myproject', 'scheduler', 'foreach', 'try', 'on-error-continue', 'database', 'sms', 'healthcare'],
   estMinutes: 30,
   flowChecks: [
     { label: 'A Scheduler starts the reminder run', rule: { type: 'source', component: 'scheduler' } },

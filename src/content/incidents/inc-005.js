@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'OutOfMemoryError While Processing a Large Price File',
   level: 'ADVANCED',
-  tags: ['memory', 'streaming', 'batch', 'dataweave', 'files'],
+  tags: ['myproject', 'memory', 'streaming', 'batch', 'dataweave', 'files'],
   estMinutes: 35,
   investigation: {
     logs: [

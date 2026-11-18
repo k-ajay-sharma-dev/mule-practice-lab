@@ -7,7 +7,7 @@ export default {
   category: 'flows',
   title: 'Work Order Updates Without Lost Changes: a Version Check With If-Match, 412 and 428',
   level: 'INTERMEDIATE',
-  tags: ['optimistic-locking', 'concurrency', 'http-status', 'database', 'etag', 'postgresql'],
+  tags: ['myproject', 'optimistic-locking', 'concurrency', 'http-status', 'database', 'etag', 'postgresql'],
   estMinutes: 25,
   flowChecks: [
     {

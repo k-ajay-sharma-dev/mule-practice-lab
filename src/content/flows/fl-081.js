@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Nightly Integration Exception Digest: CSV Attachment, HTML Body, Silence When Nothing to Report',
   level: 'BEGINNER',
-  tags: ['email', 'smtp', 'attachments', 'csv', 'scheduler', 'oracle'],
+  tags: ['myproject', 'email', 'smtp', 'attachments', 'csv', 'scheduler', 'oracle'],
   estMinutes: 20,
   flowChecks: [
     { label: 'The digest runs on a nightly cron schedule', rule: { type: 'source', component: 'scheduler', where: { strategy: 'cron' } } },

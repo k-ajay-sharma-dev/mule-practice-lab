@@ -3,7 +3,7 @@ export default {
   category: 'dataweave',
   title: 'Nest a Flat Database Join into Orders with Lines',
   level: 'INTERMEDIATE',
-  tags: ['database', 'oracle', 'sql-server', 'json', 'groupBy', 'pluck', 'orderBy'],
+  tags: ['myproject', 'database', 'oracle', 'sql-server', 'json', 'groupBy', 'pluck', 'orderBy'],
   estMinutes: 30,
   description: `
 A Mule system API reads open and recent orders from the ERP database with a single \`db:select\` (Oracle in production, SQL Server in the DR site):

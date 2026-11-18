@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Goods Receipt from ActiveMQ into Oracle: Transacted JMS Listener, LOCAL vs XA with Bitronix, and the Outbox Alternative',
   level: 'EXPERT',
-  tags: ['supply-chain', 'jms', 'activemq', 'oracle', 'transactions', 'xa', 'bitronix', 'outbox', 'goods-receipt'],
+  tags: ['myproject', 'supply-chain', 'jms', 'activemq', 'oracle', 'transactions', 'xa', 'bitronix', 'outbox', 'goods-receipt'],
   estMinutes: 40,
   quiz: [
     {

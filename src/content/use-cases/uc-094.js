@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Workday New-Hire Provisioning to Active Directory and Payroll',
   level: 'INTERMEDIATE',
-  tags: ['workday', 'provisioning', 'pub-sub', 'anypoint-mq', 'pii', 'dlq', 'hr'],
+  tags: ['myproject', 'workday', 'provisioning', 'pub-sub', 'anypoint-mq', 'pii', 'dlq', 'hr'],
   estMinutes: 30,
   diagram: {
     task: 'draw how a completed hire in Workday reaches Active Directory and the ADP payroll API: the poller, the topic, one Process API per target, their System APIs, the write-back to Workday and the dead-letter queue.',

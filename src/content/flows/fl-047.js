@@ -9,7 +9,7 @@ export default {
   category: 'flows',
   title: 'System API over a Customer Database: Paging and 404/503 Mapping',
   level: 'BEGINNER',
-  tags: ['api-led', 'system-api', 'database', 'pagination', 'error-handling'],
+  tags: ['myproject', 'api-led', 'system-api', 'database', 'pagination', 'error-handling'],
   estMinutes: 25,
   flowChecks: [
     {

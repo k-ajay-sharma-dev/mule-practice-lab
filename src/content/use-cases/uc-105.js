@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Supplier Payment Factory: Five ERPs to Twelve Banks with ISO 20022',
   level: 'EXPERT',
-  tags: ['payments', 'iso20022', 'sftp', 'banking', 'idempotency', 'security', 'human-in-the-loop', 'dlq', 'finance'],
+  tags: ['myproject', 'payments', 'iso20022', 'sftp', 'banking', 'idempotency', 'security', 'human-in-the-loop', 'dlq', 'finance'],
   estMinutes: 50,
   diagram: {
     task: 'draw the payment factory: ERP payment files arriving on the hub SFTP, the collector, the payment factory Process API with its ledger, sanctions screening, the treasury approval app, the outbound bank queue and bank connectivity, the bank status poller and its queue back to the ERPs, alerts and the dead-letter queue.',

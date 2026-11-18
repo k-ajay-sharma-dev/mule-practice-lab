@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Connecting to Oracle: JDBC Driver as a Shared Library, Pool Basics and Safe Store Inventory Lookups',
   level: 'BEGINNER',
-  tags: ['retail', 'oracle', 'database', 'jdbc', 'sql-injection', 'connection-pool'],
+  tags: ['myproject', 'retail', 'oracle', 'database', 'jdbc', 'sql-injection', 'connection-pool'],
   estMinutes: 15,
   quiz: [
     {

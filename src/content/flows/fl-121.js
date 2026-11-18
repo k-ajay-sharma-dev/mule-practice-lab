@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Delete a Saved Address: 204 When It Is Gone, 404 When There Was Nothing to Delete',
   level: 'BEGINNER',
-  tags: ['http', 'database', 'delete', 'http-status', 'choice', 'retail'],
+  tags: ['myproject', 'http', 'database', 'delete', 'http-status', 'choice', 'retail'],
   estMinutes: 15,
   flowChecks: [
     {

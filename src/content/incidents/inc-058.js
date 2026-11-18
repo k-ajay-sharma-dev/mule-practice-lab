@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Stores Miss Price Updates After a "Harmless" Client ID Rename',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'activemq', 'jms', 'topics', 'durable-subscriptions', 'pricing'],
+  tags: ['myproject', 'retail', 'activemq', 'jms', 'topics', 'durable-subscriptions', 'pricing'],
   estMinutes: 30,
   investigation: {
     logs: [

@@ -8,7 +8,7 @@ export default {
   category: 'architecture',
   title: 'Month-End Invoices Must Be Posted by 06:00: Scale the Poster as Competing Consumers on One Queue, Not as Two Subscribers That Post Everything Twice',
   level: 'ADVANCED',
-  tags: ['competing-consumers', 'queue', 'scaling', 'replicas', 'erp', 'finance'],
+  tags: ['myproject', 'competing-consumers', 'queue', 'scaling', 'replicas', 'erp', 'finance'],
   estMinutes: 40,
   diagram: {
     task: 'draw the billing platform publishing each invoice to a queue. One invoice poster Process API reads the queue and posts each invoice to the general ledger through a System API.',

@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Credit Checks over Request and Reply Queues with Correlation IDs',
   level: 'INTERMEDIATE',
-  tags: ['async', 'request-reply', 'correlation-id', 'jms', 'messaging', 'telecom'],
+  tags: ['myproject', 'async', 'request-reply', 'correlation-id', 'jms', 'messaging', 'telecom'],
   estMinutes: 30,
   diagram: {
     task: 'draw the async request and reply: the store app and its Experience API, the Process API that saves a pending check and sends the request, the request queue to the bureau gateway, the separate reply queue, the reply listener, the state store, the timeout sweeper, and how the result reaches the store app.',

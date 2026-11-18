@@ -11,7 +11,7 @@ export default {
   category: 'flows',
   title: 'An Order Shipped in Three Parcels: Tell the Customer Once, When the Last Parcel Is Delivered, Whatever Order the Scans Come In',
   level: 'ADVANCED',
-  tags: ['aggregator', 'anypoint-mq', 'database', 'idempotency', 'transactions', 'logistics'],
+  tags: ['myproject', 'aggregator', 'anypoint-mq', 'database', 'idempotency', 'transactions', 'logistics'],
   estMinutes: 40,
   flowChecks: [
     { label: 'Delivery scans are read from the parcel-delivered queue', rule: { type: 'source', component: 'mq-subscriber', where: { destination: 'parcel-delivered' } } },

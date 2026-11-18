@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Polling SFTP for Files",
   level: 'BEGINNER',
-  tags: ["logging","sftp","scheduler"],
+  tags: ["myproject", "logging","sftp","scheduler"],
   estMinutes: 15,
   quiz: fromLogging(["log-006","log-069","log-414","log-415","log-214"]),
   description: `

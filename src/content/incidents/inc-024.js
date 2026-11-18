@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Order Status Goes Backwards After Scaling the Event Consumer',
   level: 'EXPERT',
-  tags: ['ordering', 'anypoint-mq', 'concurrency', 'event-driven', 'scaling'],
+  tags: ['myproject', 'ordering', 'anypoint-mq', 'concurrency', 'event-driven', 'scaling'],
   estMinutes: 45,
   investigation: {
     logs: [

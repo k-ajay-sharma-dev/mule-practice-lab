@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Agritech Company Feeding Farm Sensor Data to Crop Trading',
   level: 'INTERMEDIATE',
-  tags: ['agriculture', 'iot', 'batch', 'data-pipeline', 'partners'],
+  tags: ['myproject', 'agriculture', 'iot', 'batch', 'data-pipeline', 'partners'],
   estMinutes: 35,
   diagram: {
     task: 'draw where Mule fits: raw sensor data staying in the IoT/data platforms, a nightly forecast import, a consent-checking Process API, the buyer API behind API Manager, and one queued adapter per FMS product.',

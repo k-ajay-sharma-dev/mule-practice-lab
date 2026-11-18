@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Reconnection at Startup: failsDeployment, Test Connection and Backends That Are Down at Deploy Time',
   level: 'INTERMEDIATE',
-  tags: ['reconnection', 'connectors', 'deployment', 'connectivity', 'reliability', 'database', 'healthcare'],
+  tags: ['myproject', 'reconnection', 'connectors', 'deployment', 'connectivity', 'reliability', 'database', 'healthcare'],
   estMinutes: 15,
   quiz: [
     {

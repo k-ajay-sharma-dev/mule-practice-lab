@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Urgent Pharmacy Orders Stuck Behind a Bulk Drop: Separate Queues and Consumers for Each Priority',
   level: 'ADVANCED',
-  tags: ['anypoint-mq', 'priority', 'bulkhead', 'load-levelling', 'dlq', 'healthcare'],
+  tags: ['myproject', 'anypoint-mq', 'priority', 'bulkhead', 'load-levelling', 'dlq', 'healthcare'],
   estMinutes: 40,
   diagram: {
     task: 'draw the order intake for a pharmacy wholesaler: the pharmacy app and its Experience API, the nightly bulk loader for hospital files, one queue for urgent orders and one for bulk orders, each with its own consumer Process API and dead-letter queue, and the System API in front of the WMS that both consumers call.',

@@ -9,7 +9,7 @@ export default {
   category: 'architecture',
   title: 'A Core Banking System That Goes Offline Every Night: Balances From a Copy, Payments Held in a Queue Until It Is Back',
   level: 'EXPERT',
-  tags: ['legacy', 'core-banking', 'batch-window', 'store-and-forward', 'read-models', 'anypoint-mq', 'banking'],
+  tags: ['myproject', 'legacy', 'core-banking', 'batch-window', 'store-and-forward', 'read-models', 'anypoint-mq', 'banking'],
   estMinutes: 60,
   diagram: {
     task: 'draw the app\'s two paths: balance checks through the Experience API and a balances Process API to a balance copy database, and payments through a payments Process API onto a payment queue with a dead-letter queue, drained by a payment poster that posts to the core through its System API and then updates the balance copy.',

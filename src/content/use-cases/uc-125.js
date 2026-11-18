@@ -7,7 +7,7 @@ export default {
   category: 'use-cases',
   title: 'E-Invoice Clearance With a Tax Authority: No Invoice Reaches a Customer Before It Is Cleared, and Month End Still Fits in the Day',
   level: 'EXPERT',
-  tags: ['e-invoicing', 'compliance', 'anypoint-mq', 'rate-limits', 'event-driven', 'erp'],
+  tags: ['myproject', 'e-invoicing', 'compliance', 'anypoint-mq', 'rate-limits', 'event-driven', 'erp'],
   estMinutes: 60,
   diagram: {
     task: 'draw the clearance flow: a poller job that reads new invoices from the ERP through a System API and queues them, a clearance Process API that submits each invoice to the tax authority through its own System API and records the status, a topic of cleared invoices with two subscribers (one that delivers the invoice to the customer, one that writes the clearance ID back to the ERP), and a dead-letter queue for the clearance queue.',

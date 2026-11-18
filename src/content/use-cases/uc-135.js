@@ -10,7 +10,7 @@ export default {
   category: 'use-cases',
   title: 'A Storm Hits: Car Insurance Claims Jump From 4 to 135 a Second, Every Customer Gets a Claim Number at Once, and the Claims Core Takes Them at Its Own Pace',
   level: 'EXPERT',
-  tags: ['insurance', 'load-levelling', 'anypoint-mq', 'dlq', 'read-model', 'process-api', 'spike'],
+  tags: ['myproject', 'insurance', 'load-levelling', 'anypoint-mq', 'dlq', 'read-model', 'process-api', 'spike'],
   estMinutes: 60,
   diagram: {
     task: 'draw the first notice of loss path: the customer app and the claims website call a digital Experience API, the call centre desktop calls its own Experience API, and both call one claims Process API. It checks the policy in a policy copy through a System API, then puts the claim on a queue with a dead-letter queue. A claim intake Process API takes claims from the queue and creates them in the claims core through its System API.',

@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Email Attachments and Sending: Payload Body, Attachment Maps, Timeouts and EMAIL Errors',
   level: 'INTERMEDIATE',
-  tags: ['email', 'attachments', 'smtp', 'imap', 'dataweave', 'error-handling'],
+  tags: ['myproject', 'email', 'attachments', 'smtp', 'imap', 'dataweave', 'error-handling'],
   estMinutes: 20,
   quiz: [
     {

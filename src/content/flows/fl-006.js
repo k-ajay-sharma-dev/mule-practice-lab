@@ -6,7 +6,7 @@ export default {
   category: 'flows',
   title: 'Async Order Hand-off with Anypoint MQ and DLQ Reprocessing',
   level: 'EXPERT',
-  tags: ['anypoint-mq', 'async', 'dlq', 'reliability', 'idempotency'],
+  tags: ['myproject', 'anypoint-mq', 'async', 'dlq', 'reliability', 'idempotency'],
   estMinutes: 40,
   flowChecks: [
     {

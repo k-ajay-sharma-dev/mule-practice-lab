@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "EDI Orders over SFTP",
   level: 'ADVANCED',
-  tags: ["logging","edi","sftp"],
+  tags: ["myproject", "logging","edi","sftp"],
   estMinutes: 15,
   quiz: fromLogging(["log-3061","log-3062","log-3063","log-3064","log-3065"]),
   description: `

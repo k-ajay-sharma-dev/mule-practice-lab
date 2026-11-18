@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Black Friday Checkout Hangs Because the Broker Store Is Full',
   level: 'ADVANCED',
-  tags: ['retail', 'activemq', 'jms', 'flow-control', 'capacity', 'e-commerce'],
+  tags: ['myproject', 'retail', 'activemq', 'jms', 'flow-control', 'capacity', 'e-commerce'],
   estMinutes: 35,
   investigation: {
     logs: [

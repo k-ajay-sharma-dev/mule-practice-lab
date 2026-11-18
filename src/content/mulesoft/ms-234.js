@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'HTTP Streaming in Practice: Chunked Responses, Streaming Modes and Large Downloads',
   level: 'INTERMEDIATE',
-  tags: ['http', 'streaming', 'chunked', 'http-listener', 'http-request', 'memory', 'performance', 'media'],
+  tags: ['myproject', 'http', 'streaming', 'chunked', 'http-listener', 'http-request', 'memory', 'performance', 'media'],
   estMinutes: 15,
   quiz: [
     {

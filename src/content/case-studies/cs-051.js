@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Logistics Company Combining API-Led Layers With an Event-Driven Backbone',
   level: 'ADVANCED',
-  tags: ['api-led', 'event-driven', 'async-api', 'schema-ownership', 'anypoint-mq'],
+  tags: ['myproject', 'api-led', 'event-driven', 'async-api', 'schema-ownership', 'anypoint-mq'],
   estMinutes: 50,
   diagram: {
     task: 'draw the target state: System APIs publishing domain events to a backbone, a tracking Process API building a read model, Experience APIs answering tracking queries from it, and partner webhooks replacing polling.',

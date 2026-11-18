@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Wind Farm Turbine Telemetry with Store-and-Forward Site Buffers',
   level: 'ADVANCED',
-  tags: ['iot', 'buffering', 'mqtt', 'kafka', 'streaming', 'sap'],
+  tags: ['myproject', 'iot', 'buffering', 'mqtt', 'kafka', 'streaming', 'sap'],
   estMinutes: 40,
   diagram: {
     task: 'draw the telemetry platform: turbines publishing to a site buffer, the central ingress and Kafka telemetry topic, the time-series store and data lake, the fault detector and fault topic, the Mule work order flow into SAP PM, the 5 minute grid availability report, and the operator dashboard API.',

@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Cross-Cloud File Relay: Amazon S3 to Azure Blob Storage, File by File',
   level: 'ADVANCED',
-  tags: ['s3', 'azure-blob', 'aws', 'azure', 'migration', 'scheduler', 'error-handling', 'storage'],
+  tags: ['myproject', 's3', 'azure-blob', 'aws', 'azure', 'migration', 'scheduler', 'error-handling', 'storage'],
   estMinutes: 35,
   flowChecks: [
     { label: 'The relay runs on a Scheduler', rule: { type: 'source', component: 'scheduler' } },

@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Store End-of-Day Sales Counted Two and Three Times',
   level: 'ADVANCED',
-  tags: ['retail', 'sftp', 'oracle', 'idempotency', 'pos', 'files'],
+  tags: ['myproject', 'retail', 'sftp', 'oracle', 'idempotency', 'pos', 'files'],
   estMinutes: 35,
   investigation: {
     logs: [

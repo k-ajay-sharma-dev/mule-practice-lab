@@ -7,7 +7,7 @@ export default {
   category: 'architecture',
   title: 'An Online Shop on AWS Hands Orders to Mule Through an SQS Queue: Orders Wait There While the ERP Is Down, and a Bad Order Moves Aside',
   level: 'BEGINNER',
-  tags: ['amazon-sqs', 'cloud-queue', 'hybrid-cloud', 'dlq', 'erp', 'e-commerce'],
+  tags: ['myproject', 'amazon-sqs', 'cloud-queue', 'hybrid-cloud', 'dlq', 'erp', 'e-commerce'],
   estMinutes: 20,
   diagram: {
     task: 'draw the online shop sending each order to an SQS queue, with a dead-letter queue drawn from it. A Mule order intake Process API reads the queue and creates the order in the ERP through a System API.',

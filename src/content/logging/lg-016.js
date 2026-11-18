@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Redelivery and Poison Messages",
   level: 'ADVANCED',
-  tags: ["logging","jms","redelivery"],
+  tags: ["myproject", "logging","jms","redelivery"],
   estMinutes: 15,
   quiz: fromLogging(["log-101","log-102","log-211","log-410","log-411"]),
   description: `

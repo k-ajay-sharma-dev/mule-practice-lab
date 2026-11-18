@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Store Price Updates over ActiveMQ: Queues, Topics, Durable and Shared Subscriptions',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'jms', 'activemq', 'topics', 'durable-subscription', 'pricing'],
+  tags: ['myproject', 'retail', 'jms', 'activemq', 'topics', 'durable-subscription', 'pricing'],
   estMinutes: 15,
   quiz: [
     {

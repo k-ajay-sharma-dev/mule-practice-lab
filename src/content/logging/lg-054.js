@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Fan-out Through an Anypoint MQ Exchange",
   level: 'INTERMEDIATE',
-  tags: ["logging","anypoint-mq","exchange","fan-out"],
+  tags: ["myproject", "logging","anypoint-mq","exchange","fan-out"],
   estMinutes: 15,
   quiz: fromLogging(["log-2041","log-2042","log-2043","log-2044","log-2045"]),
   description: `

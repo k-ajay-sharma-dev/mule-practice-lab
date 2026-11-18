@@ -20,7 +20,7 @@ export default {
   category: 'flows',
   title: 'Processing Invoice Attachments from a Mailbox',
   level: 'INTERMEDIATE',
-  tags: ['email', 'imap', 'attachments', 'pdf', 'ocr'],
+  tags: ['myproject', 'email', 'imap', 'attachments', 'pdf', 'ocr'],
   estMinutes: 35,
   flowChecks: [
     {

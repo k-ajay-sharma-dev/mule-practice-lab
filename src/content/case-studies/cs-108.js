@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Mobile Operator Automating Number Porting Through a National Clearing House',
   level: 'INTERMEDIATE',
-  tags: ['telecom', 'number-porting', 'bss-oss', 'async', 'anypoint-mq', 'long-running', 'status-tracking'],
+  tags: ['myproject', 'telecom', 'number-porting', 'bss-oss', 'async', 'anypoint-mq', 'long-running', 'status-tracking'],
   estMinutes: 40,
   diagram: {
     task: 'draw the port-in design: stores and the app submitting through one Experience API, a porting Process API that keeps the state of each request, the clearing house behind a System API, its responses arriving on a queue, and HLR routing and billing changed through System APIs.',

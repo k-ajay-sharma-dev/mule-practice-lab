@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Urgent Replenishment and Recall Messages: JMS Message Selectors and Priorities',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'retail', 'jms', 'activemq', 'message-selector', 'priority', 'recall'],
+  tags: ['myproject', 'supply-chain', 'retail', 'jms', 'activemq', 'message-selector', 'priority', 'recall'],
   estMinutes: 20,
   quiz: [
     {

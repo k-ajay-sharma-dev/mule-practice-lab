@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'DIY Retailer Modernising Store Integrations for Sites With Unreliable Connectivity',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'store-systems', 'activemq', 'jms', 'store-and-forward', 'pricing', 'sap'],
+  tags: ['myproject', 'retail', 'store-systems', 'activemq', 'jms', 'store-and-forward', 'pricing', 'sap'],
   estMinutes: 45,
   diagram: {
     task: 'draw the store integration: price and promotion changes published once and delivered durably to each store server, the store server applying them to the tills, store sales sent back store-and-forward to a queue, a Process API posting to SAP, and the colleague app using an Experience API.',

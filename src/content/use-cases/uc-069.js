@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Buy Online, Pick Up in Store (BOPIS) with Store Stock and Pick Confirmation',
   level: 'INTERMEDIATE',
-  tags: ['retail', 'bopis', 'click-and-collect', 'omnichannel', 'store-inventory', 'activemq', 'oracle', 'payments', 'api-led'],
+  tags: ['myproject', 'retail', 'bopis', 'click-and-collect', 'omnichannel', 'store-inventory', 'activemq', 'oracle', 'payments', 'api-led'],
   estMinutes: 40,
   diagram: {
     task: 'draw the BOPIS architecture: web and app through a storefront Experience API, store availability with a cache, the BOPIS order Process API with OMS and payment System APIs, pick tasks delivered asynchronously to the store associate app, and the customer "ready for pickup" notification.',

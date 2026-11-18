@@ -5,7 +5,7 @@ export default {
   category: 'case-studies',
   title: 'Insurer Paying Approved Claims Within Minutes Over Faster Payments',
   level: 'INTERMEDIATE',
-  tags: ['insurance', 'payments', 'claims', 'idempotency', 'dlq', 'async', 'sanctions'],
+  tags: ['myproject', 'insurance', 'payments', 'claims', 'idempotency', 'dlq', 'async', 'sanctions'],
   estMinutes: 45,
   diagram: {
     task: 'draw the claim payment flow: ClaimCenter hands approved payments to its System API, which queues them; a payment Process API checks for duplicates, screens the payee, sends the payment through the bank gateway System API, posts to the general ledger and reports the outcome back to ClaimCenter. Add the dead-letter queue.',

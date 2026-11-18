@@ -7,7 +7,7 @@ export default {
   category: 'use-cases',
   title: 'EV Charging Sessions to Billing: Capture the Payment First, Post to the ERP in a Second Stage',
   level: 'INTERMEDIATE',
-  tags: ['webhook', 'anypoint-mq', 'payments', 'erp', 'load-levelling', 'energy'],
+  tags: ['myproject', 'webhook', 'anypoint-mq', 'payments', 'erp', 'load-levelling', 'energy'],
   estMinutes: 35,
   diagram: {
     task: 'draw the billing flow for completed charging sessions: the charge point management system calling an Experience API, a queue of completed sessions, a billing Process API that prices each session from a tariff cache and captures the payment through a System API, a second queue of charged sessions, an invoicing Process API that posts to the ERP through its own System API, and a dead-letter queue for each queue.',

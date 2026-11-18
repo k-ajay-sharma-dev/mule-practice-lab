@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Partner Has the Booking but Our Database Does Not: A Rollback Cannot Undo an HTTP Call',
   level: 'ADVANCED',
-  tags: ['transactions', 'database', 'http', 'consistency'],
+  tags: ['myproject', 'transactions', 'database', 'http', 'consistency'],
   estMinutes: 25,
   investigation: {
     logs: [

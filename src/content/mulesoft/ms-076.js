@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Database Transactions and Error Handling: Rollbacks, Duplicate Keys and Deadlock Retries',
   level: 'ADVANCED',
-  tags: ['database', 'transactions', 'error-handling', 'oracle', 'sql-server', 'idempotency', 'retry'],
+  tags: ['myproject', 'database', 'transactions', 'error-handling', 'oracle', 'sql-server', 'idempotency', 'retry'],
   estMinutes: 35,
   quiz: [
     {

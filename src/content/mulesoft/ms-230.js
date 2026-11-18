@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Compression Module: Gzip a Large Export, Zip Several Files and Extract Partner Archives Safely',
   level: 'ADVANCED',
-  tags: ['compression', 'gzip', 'zip', 'file', 'sftp', 'security', 'streaming', 'manufacturing'],
+  tags: ['myproject', 'compression', 'gzip', 'zip', 'file', 'sftp', 'security', 'streaming', 'manufacturing'],
   estMinutes: 18,
   quiz: [
     {

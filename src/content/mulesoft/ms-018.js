@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Try Scope and Transactions: Local vs XA',
   level: 'ADVANCED',
-  tags: ['transactions', 'try-scope', 'xa', 'database', 'jms'],
+  tags: ['myproject', 'transactions', 'try-scope', 'xa', 'database', 'jms'],
   estMinutes: 30,
   quiz: [
     {

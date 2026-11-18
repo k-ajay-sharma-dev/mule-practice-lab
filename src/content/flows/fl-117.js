@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Shipping Labels with Two Speeds of Retry: Until Successful for Seconds, a Delayed Queue for Minutes',
   level: 'INTERMEDIATE',
-  tags: ['until-successful', 'retry', 'anypoint-mq', 'dlq', 'error-handling', 'shipping', 'sub-flow'],
+  tags: ['myproject', 'until-successful', 'retry', 'anypoint-mq', 'dlq', 'error-handling', 'shipping', 'sub-flow'],
   estMinutes: 30,
   flowChecks: [
     {

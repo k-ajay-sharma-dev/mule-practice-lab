@@ -5,7 +5,7 @@ export default {
   category: 'architecture',
   title: 'Partner File Exchange Hub: SFTP and FTP Intake into Oracle and SQL Server',
   level: 'ADVANCED',
-  tags: ['sftp', 'ftp', 'b2b', 'file-integration', 'oracle', 'sql-server', 'api-led', 'dlq'],
+  tags: ['myproject', 'sftp', 'ftp', 'b2b', 'file-integration', 'oracle', 'sql-server', 'api-led', 'dlq'],
   estMinutes: 60,
   diagram: {
     task: 'draw a partner file exchange hub in which partners deliver files over SFTP (and one legacy FTP server), an intake job picks them up and hands records off asynchronously, and the data reaches Oracle and SQL Server only through System APIs.',

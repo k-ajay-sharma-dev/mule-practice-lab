@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Queue Backlog Warnings",
   level: 'INTERMEDIATE',
-  tags: ["logging","queues","backlog","metrics"],
+  tags: ["myproject", "logging","queues","backlog","metrics"],
   estMinutes: 20,
   quiz: fromLogging(["log-9021","log-9022","log-9023","log-9024","log-9025"]),
   description: `

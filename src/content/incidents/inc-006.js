@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Retry Storm: 429s, Redeliveries and a Growing DLQ',
   level: 'EXPERT',
-  tags: ['retries', 'rate-limiting', 'anypoint-mq', 'dlq', 'backpressure'],
+  tags: ['myproject', 'retries', 'rate-limiting', 'anypoint-mq', 'dlq', 'backpressure'],
   estMinutes: 45,
   investigation: {
     logs: [

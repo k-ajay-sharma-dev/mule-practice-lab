@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Scaling Inventory API for Peak Locks Every App Out of Oracle (ORA-12519)',
   level: 'ADVANCED',
-  tags: ['retail', 'supply-chain', 'oracle', 'connection-pool', 'scaling', 'cloudhub'],
+  tags: ['myproject', 'retail', 'supply-chain', 'oracle', 'connection-pool', 'scaling', 'cloudhub'],
   estMinutes: 35,
   investigation: {
     logs: [

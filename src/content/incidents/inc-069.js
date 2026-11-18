@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'Supplier Invoices Stop Arriving After the Partner Rotates Its SFTP Host Key',
   level: 'INTERMEDIATE',
-  tags: ['sftp', 'listener', 'host-key', 'authentication', 'partner', 'monitoring', 'b2b'],
+  tags: ['myproject', 'sftp', 'listener', 'host-key', 'authentication', 'partner', 'monitoring', 'b2b'],
   estMinutes: 30,
   investigation: {
     logs: [

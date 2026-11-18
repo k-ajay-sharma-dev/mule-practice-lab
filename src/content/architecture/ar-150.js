@@ -9,7 +9,7 @@ export default {
   category: 'architecture',
   title: 'One Notification Service for Every App: a Shared Process API, a Queue With a Dead-Letter Queue, and One Way Out to the SMS and Email Provider',
   level: 'BEGINNER',
-  tags: ['reuse', 'notifications', 'anypoint-mq', 'dlq', 'process-api', 'retail'],
+  tags: ['myproject', 'reuse', 'notifications', 'anypoint-mq', 'dlq', 'process-api', 'retail'],
   estMinutes: 20,
   diagram: {
     task: 'draw the shared notification service: the online shop and the HR portal both call one notifications Process API, which puts each message on a queue with a dead-letter queue. A sender Process API takes messages from the queue and sends them to the email and SMS provider through a System API.',

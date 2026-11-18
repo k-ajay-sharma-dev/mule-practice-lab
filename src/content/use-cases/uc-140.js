@@ -9,7 +9,7 @@ export default {
   category: 'use-cases',
   title: 'Freeze My Card: the App Waits Two Seconds at Most, the Card Processor Gets Every Freeze Even When It Is Down, and Nothing Is Frozen Twice',
   level: 'EXPERT',
-  tags: ['banking', 'cards', 'timeouts', 'queue', 'jwt', 'resilience', 'idempotency'],
+  tags: ['myproject', 'banking', 'cards', 'timeouts', 'queue', 'jwt', 'resilience', 'idempotency'],
   estMinutes: 50,
   diagram: {
     task: 'draw the banking app calling an API gateway that checks tokens, then an Experience API and a card-controls Process API. The Process API calls the card processor through a System API. Beside that call, it puts any freeze it could not finish on a pending queue that it reads itself, and the pending queue has a dead-letter queue.',

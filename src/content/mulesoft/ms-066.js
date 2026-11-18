@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Polling Oracle for Shipment Confirmations: db:listener Watermark vs Scheduler with a Status Column',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'oracle', 'database', 'db-listener', 'watermark', 'polling', 'shipment'],
+  tags: ['myproject', 'supply-chain', 'oracle', 'database', 'db-listener', 'watermark', 'polling', 'shipment'],
   estMinutes: 25,
   quiz: [
     {

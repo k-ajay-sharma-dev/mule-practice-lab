@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Outbound Webhook Delivery Platform for 1,200 Customer Endpoints',
   level: 'ADVANCED',
-  tags: ['webhooks', 'retries', 'dlq', 'hmac', 'anypoint-mq', 'event-driven'],
+  tags: ['myproject', 'webhooks', 'retries', 'dlq', 'hmac', 'anypoint-mq', 'event-driven'],
   estMinutes: 40,
   diagram: {
     task: 'draw the webhook platform: the job service publishing events, the event stream, the fan-out that reads subscriptions, the delivery queue, the delivery worker that signs and calls customer endpoints, the retry queue that feeds back into delivery, the dead-letter queue, the delivery log, the admin portal and its API, and the email to customer admins.',

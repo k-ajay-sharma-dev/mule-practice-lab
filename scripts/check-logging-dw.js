@@ -17,7 +17,7 @@ const PAYLOAD = {
 }
 
 const ATTRIBUTES = {
-  method: 'POST', requestPath: '/orders', queryParams: { page: '1' }, statusCode: 201, fileName: 'prices.csv', size: 48213,
+  method: 'POST', requestPath: '/orders', queryParams: { page: '1' }, statusCode: 201, fileName: 'prices.csv', path: '/in/prices.csv', size: 48213,
   headers: { 'x-correlation-id': '7f3c2a' },
 }
 

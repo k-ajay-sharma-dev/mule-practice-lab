@@ -5,7 +5,7 @@ export default {
   category: 'flows',
   title: 'Database Polling with a Watermark (CDC-style Sync)',
   level: 'INTERMEDIATE',
-  tags: ['database', 'watermark', 'polling', 'scheduler', 'object-store'],
+  tags: ['myproject', 'database', 'watermark', 'polling', 'scheduler', 'object-store'],
   estMinutes: 25,
   flowChecks: [
     {

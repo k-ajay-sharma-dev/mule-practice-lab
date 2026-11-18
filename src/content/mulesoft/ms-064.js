@@ -3,7 +3,7 @@ export default {
   category: 'mulesoft',
   title: 'Supplier Catalogue Upserts in Oracle: MERGE, Sequences and Generated Keys',
   level: 'INTERMEDIATE',
-  tags: ['supply-chain', 'oracle', 'database', 'merge', 'upsert', 'sequences', 'supplier-catalog'],
+  tags: ['myproject', 'supply-chain', 'oracle', 'database', 'merge', 'upsert', 'sequences', 'supplier-catalog'],
   estMinutes: 25,
   quiz: [
     {

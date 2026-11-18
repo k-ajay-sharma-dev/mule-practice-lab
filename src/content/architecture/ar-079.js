@@ -3,7 +3,7 @@ export default {
   category: 'architecture',
   title: 'Highly Available ActiveMQ for Warehouse Messaging and Mule Reconnection',
   level: 'ADVANCED',
-  tags: ['supply-chain', 'activemq', 'artemis', 'jms', 'high-availability', 'reconnection', 'wms'],
+  tags: ['myproject', 'supply-chain', 'activemq', 'artemis', 'jms', 'high-availability', 'reconnection', 'wms'],
   estMinutes: 30,
   quiz: [
     {

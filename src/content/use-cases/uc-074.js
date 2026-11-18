@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Flash Sale with Inventory Reservations in Oracle',
   level: 'EXPERT',
-  tags: ['retail', 'flash-sale', 'inventory', 'reservations', 'oracle', 'activemq', 'scalability', 'concurrency', 'bot-protection'],
+  tags: ['myproject', 'retail', 'flash-sale', 'inventory', 'reservations', 'oracle', 'activemq', 'scalability', 'concurrency', 'bot-protection'],
   estMinutes: 55,
   diagram: {
     task: 'draw the flash-sale architecture: web and app through bot protection and the gateway, a checkout Experience API reading from a cache, the reservation Process API with Oracle behind a System API, payment through a System API, confirmed orders handed to the OMS asynchronously through a queue with a DLQ, and the reservation-expiry sweeper.',

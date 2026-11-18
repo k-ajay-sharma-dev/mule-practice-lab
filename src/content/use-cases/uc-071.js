@@ -5,7 +5,7 @@ export default {
   category: 'use-cases',
   title: 'Gift Card Balance, Activation and Redemption across Channels',
   level: 'ADVANCED',
-  tags: ['retail', 'gift-cards', 'omnichannel', 'pos', 'idempotency', 'oracle', 'activemq', 'reconciliation', 'security'],
+  tags: ['myproject', 'retail', 'gift-cards', 'omnichannel', 'pos', 'idempotency', 'oracle', 'activemq', 'reconciliation', 'security'],
   estMinutes: 45,
   diagram: {
     task: 'draw the gift-card platform: POS, web and app through the gateway to separate store and digital Experience APIs, one gift-card Process API with an idempotency store, the processor behind a System API, timed-out redemptions reversed through a queue, the Oracle gift-card ledger updated asynchronously, and the daily settlement reconciliation.',

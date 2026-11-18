@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Progress of a Long Migration",
   level: 'BEGINNER',
-  tags: ["logging","migration","batch","restart"],
+  tags: ["myproject", "logging","migration","batch","restart"],
   estMinutes: 20,
   quiz: fromLogging(["log-8021","log-8022","log-8023","log-8024","log-8025"]),
   description: `

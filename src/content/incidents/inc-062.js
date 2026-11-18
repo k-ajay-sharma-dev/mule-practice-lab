@@ -3,7 +3,7 @@ export default {
   category: 'incidents',
   title: 'ORA-00001 on Every New Purchase Order After a Database Migration',
   level: 'BEGINNER',
-  tags: ['supply-chain', 'oracle', 'database', 'sequences', 'purchase-orders'],
+  tags: ['myproject', 'supply-chain', 'oracle', 'database', 'sequences', 'purchase-orders'],
   estMinutes: 20,
   investigation: {
     logs: [

@@ -5,7 +5,7 @@ export default {
   category: 'logging',
   title: "Reading Bookings from a JMS Queue",
   level: 'BEGINNER',
-  tags: ["logging","jms","queues","listener"],
+  tags: ["myproject", "logging","jms","queues","listener"],
   estMinutes: 15,
   quiz: fromLogging(["log-2011","log-2012","log-2013","log-2014","log-2015"]),
   description: `
