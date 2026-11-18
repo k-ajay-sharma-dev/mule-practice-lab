@@ -3890,6 +3890,90 @@
   margin: -6px 0 0;
   line-height: 1.5;
 }
+.pd-goal-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.pd-goal-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.pd-goal-stats {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+.pd-goal-value {
+  margin: 2px 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pd-goal-done {
+  color: var(--success);
+  font-weight: 600;
+}
+.pd-ring-track,
+.pd-ring {
+  fill: none;
+  stroke-width: 6;
+}
+.pd-ring-track {
+  stroke: var(--border);
+}
+.pd-ring {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+.pd-ring.done {
+  stroke: var(--success);
+}
+.pd-ring-pct {
+  fill: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.pd-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.pd-goal-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.pd-goal-form input {
+  width: 120px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.pd-goal-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+@media (max-width: 760px) {
+  .pd-goal-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pd-goal-stats {
+    padding: 12px 0 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
 .pd-kpi .stat-value {
   font-variant-numeric: tabular-nums;
 }

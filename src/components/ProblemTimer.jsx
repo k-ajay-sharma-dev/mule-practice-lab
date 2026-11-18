@@ -52,7 +52,8 @@ function HistoryList({ log }) {
   )
 }
 
-// Counts down from the problem's estimated time while the problem is open. Leaving pauses it, and coming back resumes it.
+// Counts down from the problem's estimated time while the problem is open and on screen. Leaving the page, switching to
+// another tab or minimising the window pauses it, and coming back resumes it.
 // Recording happens in the progress store when the problem is solved, whichever way it is solved.
 export default function ProblemTimer({ problem, compact = false }) {
   const { id, estMinutes } = problem
@@ -92,11 +93,15 @@ export default function ProblemTimer({ problem, compact = false }) {
 
     // closing the tab never unmounts this, and a page restored from the back/forward cache never mounts it again
     const restored = (event) => event.persisted && resume()
+    // another tab in front, or the window minimised, is time away from the problem
+    const seen = () => (document.visibilityState === 'hidden' ? pause() : resume())
     window.addEventListener('pagehide', pause)
     window.addEventListener('pageshow', restored)
+    document.addEventListener('visibilitychange', seen)
     return () => {
       window.removeEventListener('pagehide', pause)
       window.removeEventListener('pageshow', restored)
+      document.removeEventListener('visibilitychange', seen)
       pause()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

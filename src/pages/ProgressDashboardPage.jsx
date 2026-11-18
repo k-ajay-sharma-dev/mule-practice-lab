@@ -6,7 +6,21 @@ import { LevelBadge } from '../components/Badges.jsx'
 import { statusOf, todayKey, useActivity, useProgress, useReview } from '../store/progress.js'
 import { POINTS, usePoints } from '../store/points.js'
 import { independence } from '../study/independence.js'
-import { buckets, firstSolves, formatDuration, hourBuckets, openAttempts, PERIODS, periodStart, periodSummary, solveEvents } from '../study/progressStats.js'
+import {
+  buckets,
+  dayTotals,
+  firstSolves,
+  formatDuration,
+  goalMet,
+  goalStreak,
+  hourBuckets,
+  openAttempts,
+  PERIODS,
+  periodEnd,
+  periodStart,
+  periodSummary,
+  solveEvents,
+} from '../study/progressStats.js'
 
 // One screen for how you are doing: what you solved today, this week, this month or in all, a chart of problems
 // solved, the learning graph (problems solved at least once over time), progress per section and level, points,
@@ -33,6 +47,18 @@ const readRange = () => {
   }
 }
 const shortDate = (key) => new Date(`${key}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+
+// The daily goal: problems to solve and minutes to practise each day
+const GOAL_KEY = 'pl.dashboard.goal'
+const DEFAULT_GOAL = { solved: 5, minutes: 60 }
+const readGoal = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(GOAL_KEY))
+    return v?.solved > 0 && v?.minutes > 0 ? { solved: v.solved, minutes: v.minutes } : DEFAULT_GOAL
+  } catch {
+    return DEFAULT_GOAL
+  }
+}
 
 const readPeriod = () => {
   try {
@@ -81,16 +107,17 @@ export default function ProgressDashboardPage() {
     const base = Math.max(0, solvedNow - first.size)
     const custom = period === 'custom'
     const from = custom ? range.from : periodStart(period)
-    const to = custom ? range.to : null
+    const to = custom ? range.to : periodEnd(period)
     const sum = periodSummary({ events, activity, first, from, to })
     const chart = buckets({ period, events, activity, first, base, from, to })
-    const hours = period === 'today' ? hourBuckets({ events, progress }) : null
+    const hours = period === 'today' || period === 'yesterday' ? hourBuckets({ events, progress, day: from }) : null
+    const totals = dayTotals({ events, activity, progress })
     const open = openAttempts(progress, from, to)
     const revisit = problems.filter((p) => statusOf(progress[p.id]) === 'revisit').length
-    return { events, first, solvedNow, from, to, sum, chart, hours, open, revisit }
+    return { events, first, solvedNow, from, to, sum, chart, hours, totals, open, revisit }
   }, [progress, activity, period, range])
 
-  const { sum, chart, hours, from, to, solvedNow, open, revisit } = data
+  const { sum, chart, hours, totals, from, to, solvedNow, open, revisit } = data
   const custom = period === 'custom'
   const periodLabel = custom ? 'in this range' : PERIODS.find((p) => p.key === period).label.toLowerCase()
   const today = todayKey()
@@ -159,8 +186,11 @@ export default function ProgressDashboardPage() {
         />
       </section>
 
+      {period === 'today' && <GoalCard totals={totals} today={today} />}
+
       <p className="muted small pd-note">
-        Time counts while a problem page is open, from opening it until it is solved. Leaving the page pauses the clock.
+        Time counts while a problem page is open and on screen, from opening it until it is solved. Leaving the page,
+        switching to another tab or minimising the window pauses the clock.
         Review, mock interviews and flashcards are not timed, and solving an already solved problem is timed only with
         <i> Time it again</i>. The time for each problem is in the Solved table below.
       </p>
@@ -170,7 +200,7 @@ export default function ProgressDashboardPage() {
           <>
             <ChartCard
               title="Time by hour"
-              sub="Minutes practised in each hour today."
+              sub={`Minutes practised in each hour ${period === 'today' ? 'today' : 'yesterday'}.`}
               rows={hours}
               value={(b) => `${minutes(b.seconds)} min, ${b.solved} solved`}
               tableHead="Practised"
@@ -184,13 +214,13 @@ export default function ProgressDashboardPage() {
                   unit="hour"
                   max={60}
                   tip={(b) => `${formatDuration(b.seconds)} practised, ${b.solved} solved`}
-                  label="Bar chart of minutes practised in each hour today"
+                  label="Bar chart of minutes practised in each hour"
                 />
               )}
             </ChartCard>
             <ChartCard
               title="Time graph"
-              sub="Minutes practised so far today."
+              sub={period === 'today' ? 'Minutes practised so far today.' : 'Minutes practised through yesterday.'}
               rows={hours}
               value={(b) => formatDuration(b.runSeconds)}
               tableHead="By the end of the hour"
@@ -202,7 +232,7 @@ export default function ProgressDashboardPage() {
                   value={(b) => minutes(b.runSeconds)}
                   tip={(b) => `${formatDuration(b.runSeconds)} by the end of ${b.label}`}
                   end={(b) => formatDuration(b.runSeconds)}
-                  label="Line chart of minutes practised so far today"
+                  label="Line chart of minutes practised through the day"
                 />
               )}
             </ChartCard>
@@ -317,6 +347,121 @@ export default function ProgressDashboardPage() {
 
       <OnYourOwn progress={progress} />
     </div>
+  )
+}
+
+function Ring({ value, target, label, text }) {
+  const pct = Math.min(1, target ? value / target : 0)
+  const r = 26
+  const c = 2 * Math.PI * r
+  const done = value >= target
+  return (
+    <div className="pd-goal-item">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label={`${label}: ${text}`}>
+        <circle cx="32" cy="32" r={r} className="pd-ring-track" />
+        <circle
+          cx="32"
+          cy="32"
+          r={r}
+          className={`pd-ring${done ? ' done' : ''}`}
+          strokeDasharray={`${c * pct} ${c}`}
+          transform="rotate(-90 32 32)"
+        />
+        <text x="32" y="37" textAnchor="middle" className="pd-ring-pct">
+          {Math.round(pct * 100)}%
+        </text>
+      </svg>
+      <div>
+        <div className="stat-label">{label}</div>
+        <div className="pd-goal-value">{text}</div>
+        <div className={`small ${done ? 'pd-goal-done' : 'muted'}`}>{done ? '✓ Reached' : 'In progress'}</div>
+      </div>
+    </div>
+  )
+}
+
+// Today against the daily goal, the days in a row it was met, and a form to change it
+function GoalCard({ totals, today }) {
+  const [goal, setGoalState] = useState(readGoal)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(goal)
+  const t = totals.get(today) ?? { solved: 0, seconds: 0 }
+  const streak = goalStreak(totals, goal)
+  const met = goalMet(t, goal)
+  let best = 0
+  for (const v of totals.values()) if (goalMet(v, goal)) best++
+  function save(e) {
+    e.preventDefault()
+    const next = { solved: Math.max(1, Math.min(100, Math.round(Number(draft.solved) || 0))), minutes: Math.max(5, Math.min(720, Math.round(Number(draft.minutes) || 0))) }
+    setGoalState(next)
+    setEditing(false)
+    try {
+      localStorage.setItem(GOAL_KEY, JSON.stringify(next))
+    } catch {
+      // storage blocked: the goal lasts for this visit
+    }
+  }
+  return (
+    <section className="pd-card pd-goal">
+      <div className="pd-card-head">
+        <div>
+          <h2>Daily goal</h2>
+          <span className="muted small">
+            {met ? 'Goal reached for today.' : `${goal.solved} ${goal.solved === 1 ? 'problem' : 'problems'} and ${formatDuration(goal.minutes * 60)} a day.`}
+          </span>
+        </div>
+        {!editing && (
+          <button
+            className="pd-link-btn small"
+            onClick={() => {
+              setDraft(goal)
+              setEditing(true)
+            }}
+          >
+            Change goal
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <form className="pd-goal-form" onSubmit={save}>
+          <label>
+            <span>Problems a day</span>
+            <input type="number" min="1" max="100" value={draft.solved} onChange={(e) => setDraft({ ...draft, solved: e.target.value })} />
+          </label>
+          <label>
+            <span>Minutes a day</span>
+            <input type="number" min="5" max="720" step="5" value={draft.minutes} onChange={(e) => setDraft({ ...draft, minutes: e.target.value })} />
+          </label>
+          <button type="submit" className="btn btn-primary btn-sm">
+            Save
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <div className="pd-goal-body">
+          <Ring value={t.solved} target={goal.solved} label="Problems" text={`${t.solved} of ${goal.solved}`} />
+          <Ring
+            value={Math.floor(t.seconds / 60)}
+            target={goal.minutes}
+            label="Time"
+            text={`${formatDuration(t.seconds)} of ${formatDuration(goal.minutes * 60)}`}
+          />
+          <div className="pd-goal-item pd-goal-stats">
+            <div>
+              <div className="stat-label">Goal streak</div>
+              <div className="pd-goal-value">
+                {streak} {streak === 1 ? 'day' : 'days'}
+              </div>
+              <div className="muted small">
+                {best} {best === 1 ? 'day' : 'days'} met in all
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -69,8 +69,9 @@ export function openAttempts(progress, from, to = null, nowMs = Date.now()) {
 // packed into the free minutes before it ended: before the solve, or before the pause (or now) for an unfinished
 // attempt. No hour holds more than 60 minutes. Time that does not fit after midnight goes in the first hour shown, so
 // the running total ends on the same number as the Time practised card.
-export function hourBuckets({ events, progress, now = new Date() }) {
-  const day = startOfDay(now)
+export function hourBuckets({ events, progress, day: dayKeyIn = null, now = new Date() }) {
+  const day = dayKeyIn ? new Date(`${dayKeyIn}T00:00:00`) : startOfDay(now)
+  const isToday = dayKey(day) === dayKey(now)
   const dayMs = day.getTime()
   const today = dayKey(day)
   const nowMs = now.getTime()
@@ -101,8 +102,12 @@ export function hourBuckets({ events, progress, now = new Date() }) {
     }
     early += left
   }
-  const last = now.getHours()
-  // from the first hour with anything in it, showing at least the last six hours
+  // a past day runs to its last active hour, today to the current hour
+  let last = isToday ? now.getHours() : 23
+  if (!isToday) {
+    while (last > 5 && !seconds[last] && !solved[last]) last--
+  }
+  // from the first hour with anything in it, showing at least six hours
   let start = Math.max(0, last - 5)
   for (let h = 0; h < last; h++) if (seconds[h] > 0 || solved[h] > 0) { start = Math.min(start, h); break }
   seconds[start] += early
@@ -116,6 +121,40 @@ export function hourBuckets({ events, progress, now = new Date() }) {
   return list
 }
 
+// Problems solved and seconds practised on each day, as counted by the Today view: solves with their time, the
+// first solves the activity log holds, and unfinished attempts on the day they started.
+export function dayTotals({ events, activity, progress, nowMs = Date.now() }) {
+  const days = new Map()
+  const get = (day) => {
+    if (!days.has(day)) days.set(day, { ids: new Set(), logged: 0, seconds: 0 })
+    return days.get(day)
+  }
+  for (const ev of events) {
+    const d = get(ev.day)
+    d.ids.add(ev.id)
+    d.seconds += ev.seconds
+  }
+  for (const [day, a] of Object.entries(activity)) if (a?.solved) get(day).logged += a.solved
+  for (const s of openSpans(progress, null, null, nowMs)) get(dayKey(new Date(s.start))).seconds += (s.end - s.start) / 1000
+  const out = new Map()
+  for (const [day, d] of days) out.set(day, { solved: Math.max(d.ids.size, d.logged), seconds: Math.round(d.seconds) })
+  return out
+}
+
+// A day meets the goal when both targets are reached. The streak counts back from today, or from yesterday while
+// today is still in progress.
+export const goalMet = (t, goal) => !!t && t.solved >= goal.solved && t.seconds >= goal.minutes * 60
+export function goalStreak(totals, goal, now = new Date()) {
+  let d = startOfDay(now)
+  if (!goalMet(totals.get(dayKey(d)), goal)) d = addDays(d, -1)
+  let n = 0
+  while (goalMet(totals.get(dayKey(d)), goal)) {
+    n++
+    d = addDays(d, -1)
+  }
+  return n
+}
+
 // The first day each problem was solved
 export function firstSolves(events) {
   const first = new Map()
@@ -125,6 +164,7 @@ export function firstSolves(events) {
 
 export const PERIODS = [
   { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
   { key: 'week', label: 'This week' },
   { key: 'month', label: 'This month' },
   { key: 'all', label: 'All time' },
@@ -135,10 +175,14 @@ export const PERIODS = [
 export function periodStart(key, now = new Date()) {
   const today = startOfDay(now)
   if (key === 'today') return dayKey(today)
+  if (key === 'yesterday') return dayKey(addDays(today, -1))
   if (key === 'week') return dayKey(addDays(today, -((today.getDay() + 6) % 7)))
   if (key === 'month') return dayKey(new Date(today.getFullYear(), today.getMonth(), 1))
   return null
 }
+
+// The last day of a period, as a day key; null means up to today
+export const periodEnd = (key, now = new Date()) => (key === 'yesterday' ? dayKey(addDays(startOfDay(now), -1)) : null)
 
 // Totals for one period, from and to as day keys (either may be null for an open end)
 export function periodSummary({ events, activity, first, from, to = null }) {
