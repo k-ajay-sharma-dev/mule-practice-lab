@@ -290,7 +290,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
           {item('/mock', 'mock', 'Mock Interview')}
           {item('/exam', 'exam', 'Practice Exam')}
           {item('/weak-areas', 'weak', 'Weak Areas')}
-          {item('/mistakes', 'weak', 'Mistakes')}
+          {item('/mistakes', 'mistakes', 'Mistakes')}
         </div>
         <div className="side-group">
           <div className="side-group-title">Practice</div>
