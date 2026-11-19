@@ -281,7 +281,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
             (!entry.revealed ? (
               <RevealGate
                 entry={entry}
-                onReveal={() => revealReference(problem.id)}
+                onReveal={() => revealReference(problem.id, entry)}
                 parts={guided ? { steps, checks, ladder, onPart: (items) => recordHints(problem.id, entry, items, 3) } : null}
               >
                 <p className="muted">Finish your design first. Revealing the reference is recorded on this problem.</p>

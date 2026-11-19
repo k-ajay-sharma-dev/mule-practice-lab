@@ -80,8 +80,14 @@ export function recordHints(problemId, entry, indices, level) {
 export const hintsUsed = (entry) => Object.values(entry.hints && typeof entry.hints === 'object' ? entry.hints : {}).reduce((a, b) => a + b, 0)
 
 // Seeing the answer is fine. It only sticks once you rebuild it yourself, so the problem comes back for review.
-export function revealReference(problemId) {
-  updateEntry(problemId, { revealed: true, revealedAt: new Date().toISOString() })
+// Opening it after you already solved the problem is only a comparison: it is not counted and adds no review.
+export function revealReference(problemId, entry) {
+  const now = new Date().toISOString()
+  if (entry?.status === 'solved' && !entry.rebuilding) {
+    updateEntry(problemId, { revealed: true, revealedAfterSolveAt: now })
+    return
+  }
+  updateEntry(problemId, { revealed: true, revealedAt: now })
   scheduleReview(problemId, false)
 }
 
@@ -169,6 +175,15 @@ export function RebuildBanner({ entry, onRebuild }) {
     )
   }
   if (!entry.revealed) return null
+  if (entry.revealedAfterSolveAt && !entry.revealedAt) {
+    return (
+      <div className="rebuild-banner small">
+        <span>
+          <b>You solved this before opening the reference.</b> It still counts as solved on your own.
+        </span>
+      </div>
+    )
+  }
   return (
     <div className="rebuild-banner small">
       <span>

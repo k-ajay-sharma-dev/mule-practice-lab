@@ -41,7 +41,7 @@ export default function ExplainPanel({ problem, children, practice = false, part
     // design problems: hints first, and seeing the answer brings the problem back to rebuild
     if (practice) {
       return (
-        <RevealGate entry={entry} onReveal={() => revealReference(problem.id)} parts={parts}>
+        <RevealGate entry={entry} onReveal={() => revealReference(problem.id, entry)} parts={parts}>
           {prompts}
         </RevealGate>
       )

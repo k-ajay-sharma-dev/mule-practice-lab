@@ -11,8 +11,15 @@ export const hintCount = (e) => (ok(e) && ok(e.hints) ? Object.values(e.hints).r
 
 // solved again without looking after the reference was opened
 export const rebuilt = (e) => ok(e) && e.rebuilds > 0 && !e.rebuilding && e.status === 'solved' && (e.solvedAt ?? '') > (e.revealedAt ?? '')
+// The reference was opened before the problem was solved. Opening it after solving is only a comparison:
+// new opens record revealedAfterSolveAt instead of revealedAt, and older ones show it as revealedAt after solvedAt.
+const openedBeforeSolve = (e) =>
+  Boolean(e.revealedAt) && !(e.status === 'solved' && !(e.rebuilds > 0) && e.solvedAt && e.solvedAt < e.revealedAt)
 // the answer was seen and not yet rebuilt from memory
-export const sawAnswer = (e) => ok(e) && Boolean(e.revealedAt || e.revealed || e.rebuilding) && !rebuilt(e)
+export const sawAnswer = (e) =>
+  ok(e) &&
+  !rebuilt(e) &&
+  Boolean(e.rebuilding || openedBeforeSolve(e) || (e.revealed && !e.revealedAt && !e.revealedAfterSolveAt))
 // solved with at most two hints per check and without the answer
 export const onOwn = (e) => ok(e) && e.status === 'solved' && !sawAnswer(e) && topHint(e) < 3
 
