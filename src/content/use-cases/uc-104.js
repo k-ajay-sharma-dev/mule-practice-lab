@@ -38,7 +38,7 @@ export default {
         s3: ['system-api', 'sys-netsuite-gl-api'],
         erp3: ['erp', 'NetSuite (acquired entities)'],
         scons: ['system-api', 'sys-consolidation-api'],
-        cons: ['saas', 'Consolidation tool (OneStream)'],
+        cons: ['saas', 'Consolidation tool (SaaS)'],
         sfx: ['system-api', 'sys-fx-rates-api'],
         fx: ['external-api', 'Month-end FX rate provider'],
         ev: ['file-store', 'SOX evidence store (write once)'],
@@ -74,7 +74,7 @@ export default {
     },
   },
   description: `
-A global industrial group with **22 legal entities** runs **six ERP instances**: two SAP S/4HANA (EU and APAC), one Oracle EBS 12.2 (US), two NetSuite accounts (acquired companies) and one Dynamics 365 Finance (Brazil). Consolidation runs in a SaaS tool (OneStream). The close takes **9 working days**; the CFO wants **4**.
+A global industrial group with **22 legal entities** runs **six ERP instances**: two SAP S/4HANA (EU and APAC), one Oracle EBS 12.2 (US), two NetSuite accounts (acquired companies) and one Dynamics 365 Finance (Brazil). Consolidation runs in a SaaS consolidation tool. The close takes **9 working days**; the CFO wants **4**.
 
 Today controllers email spreadsheets: "AP is closed in Brazil", "trial balance uploaded", "FX rates loaded". Steps are missed, trial balances are loaded twice, and auditors spend a week rebuilding evidence.
 
@@ -90,7 +90,7 @@ Facts:
 - When an entity posts a late journal, only **that entity's** trial balance must be extracted and loaded again, not all 22.
 - ERPs have maintenance windows on different weekends.
 - **SOX**: for every automated step, keep who started it, when, the input and output files and their totals.
-- In the tests controllers start 12 SAP steps a minute, SAP can be down for 30 minutes of maintenance, and 1 step in 50 has a mapping error that fails every run.
+- In the tests controllers start 12 SAP steps a minute, SAP can be down for 30 minutes of maintenance, and 1 step in 50 has a mapping error that fails every run. The broker redelivers a failed event about once a minute, and each delivery counts toward the redelivery limit.
 
 **Questions:**
 1. How do you model the close calendar and its dependencies?
@@ -116,7 +116,7 @@ Facts:
   solution: `
 \`\`\`
 Close cockpit --> exp-close-cockpit-api --> prc-close-orchestrator --> step state DB
-                                                |     |--> sys-consolidation-api --> OneStream
+                                                |     |--> sys-consolidation-api --> consolidation tool
                                                 |     |--> sys-fx-rates-api --> rate provider
                                                 |     \\--> SOX evidence store
                                                 \\~~> (close-events) ~~> prc-erp-gl-worker --> sys-sap-gl-api / sys-oracle-ebs-gl-api / sys-netsuite-gl-api ...

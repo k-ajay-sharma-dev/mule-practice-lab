@@ -166,9 +166,9 @@ export const SET_16 = [
   {
     id: 'log-16011',
     kind: 'level',
-    situation: 'A Quayle aggregator group of 500 failed its bulk insert and fell back to row by row.',
+    situation: 'A Quayle batch aggregator group of 500 rows failed its bulk insert because one row was bad, so the flow fell back to inserting the rows one by one.',
     answer: ['WARN'],
-    explain: 'Handled, but a bad row arrived. WARN.',
+    explain: 'The fallback handled it, but a bad row arrived and the group was slower. WARN.',
   },
   {
     id: 'log-16012',
@@ -177,19 +177,19 @@ export const SET_16 = [
     options: [
       'Group fallback finished table=SHIPMENT group=14 rows=500 inserted=499 rejected=1',
       'Fallback',
-      'Rows: <500 rows>',
+      'Group fallback finished group=14 status=done',
       'Insert error, retrying',
     ],
     answer: 0,
-    explain: 'The group, its size and the split between inserted and rejected.',
+    explain: 'It names the table, the group, its size and the split between inserted and rejected. status=done says nothing about the rejected row.',
   },
   {
     id: 'log-16013',
     kind: 'multi',
     situation: 'Which facts show that groups are too large or too small?',
-    options: ['Rows per group', 'Duration per group', 'Fallbacks per run', 'The colour of the dashboard'],
+    options: ['Rows per group', 'Duration per group', 'Fallbacks per run', 'The correlation ID of each group'],
     answers: [0, 1, 2],
-    explain: 'Rows and time per group give throughput. Fallbacks show the cost of bad rows.',
+    explain: 'Rows and time per group give throughput. Fallbacks show the cost of bad rows, because a large group that falls back is slow. A correlation ID helps you trace a group, not size it.',
   },
   {
     id: 'log-16014',

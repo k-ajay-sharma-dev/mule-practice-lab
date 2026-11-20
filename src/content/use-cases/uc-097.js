@@ -66,7 +66,7 @@ A healthcare services group closes its books in **Oracle E-Business Suite 12.2 G
 | Source | How it arrives | Daily volume |
 |---|---|---|
 | Patient billing (in-house) | Journal view in a **SQL Server** database | ~45,000 lines |
-| Payroll (ADP) | CSV journal file on an **SFTP** drop at 21:00 | ~12,000 lines, twice a month |
+| Payroll (outsourced provider) | CSV journal file on an **SFTP** drop at 21:00 | ~12,000 lines, twice a month |
 | Fixed assets tool | REST API, depreciation once a month | ~3,000 lines |
 
 Rules from the GL team:
@@ -95,7 +95,7 @@ Rules from the GL team:
     'A nightly job collects from the billing database, the payroll SFTP drop and the asset API, each through its own System API.',
     'One Process API maps accounts with a mapping table, checks the period is open and checks each batch balances per company and currency.',
     'Valid batches are inserted into GL_INTERFACE with a GROUP_ID, and Journal Import is submitted through FND_REQUEST.SUBMIT_REQUEST in a PL/SQL wrapper.',
-    'The job polls the concurrent request status and reads GL_INTERFACE errors back; failures and unbalanced batches are mailed to the GL team.',
+    'The Process API polls the concurrent request status and reads GL_INTERFACE errors back; failures and unbalanced batches are mailed to the GL team.',
     'A batch key (source + business date + file name) recorded in a control table blocks loading the same batch twice.',
   ],
   solution: `

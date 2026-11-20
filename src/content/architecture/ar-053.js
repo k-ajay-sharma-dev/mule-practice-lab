@@ -109,23 +109,23 @@ export default {
       needsScenario: true,
       prompt: 'In the trip summary, the airline route of a Scatter-Gather fails. What happens, and what should you do?',
       options: [
-        'The failed route is silently skipped',
+        'The failed route is skipped, and the summary comes back with the other two results and no error',
         'Scatter-Gather raises a composite routing error; catch it and return the successful parts with a partial/warnings flag if the business accepts it',
-        'Mule retries the route automatically until it succeeds',
-        'The whole app restarts',
+        'Mule retries the failed route on its own, up to the Scatter-Gather timeout, and then returns all results',
+        'The whole Scatter-Gather fails with HTTP:TIMEOUT, and nothing can be returned to the customer',
       ],
       answer: 1,
-      explain: 'You must decide the partial-failure policy explicitly — degraded responses are often better than failing the whole summary.',
+      explain: 'You must decide the partial-failure policy explicitly. A degraded response is often better than failing the whole summary.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Book trip is half-done when the pod restarts. Where should its state have been?',
       options: [
-        'In flow variables',
-        'In a non-persistent in-memory Object Store',
+        'In flow variables, which travel with the event through every step of the flow',
+        'In an in-memory Object Store, which every flow in the app can read',
         'In a durable process/saga record (database or persistent Object Store) or durable queues, with a recovery job that resumes or compensates',
-        'In the HTTP session of the client',
+        'In the client, which sends the completed steps back with each call',
       ],
       answer: 2,
       explain: 'Statelessness is about request handling: any replica serves any request, while long-running process state is externalised.',
@@ -147,10 +147,10 @@ export default {
       needsScenario: true,
       prompt: 'Why not use the Async scope to aggregate the trip summary?',
       options: [
-        'The Async scope is deprecated',
+        'The Async scope is deprecated in Mule 4 and should not be used in new flows',
         'It is fire-and-forget and does not return results to the main flow, which aggregation needs',
-        'It only works with queues',
-        'It runs sequentially',
+        'It can only start work on a VM or Anypoint MQ queue, not call HTTP',
+        'It runs its steps one after another, so the three calls would not overlap',
       ],
       answer: 1,
       explain: 'Scatter-Gather waits for all routes and hands you their results; the Async scope works on a copy and returns nothing.',
@@ -199,7 +199,7 @@ Numbers: about **20 trip summaries** and **20 customer lookups** a second. The B
 | Customer lookup | **Enrichment** | A primary entity (customer) is decorated with extra attributes from another system, keyed by the primary's id. |
 
 **Mule 4 constructs.**
-- **Aggregation:** \`scatter-gather\` (fixed set of routes in parallel, with a timeout) or \`parallel-foreach\` (dynamic list). Decide the **partial-failure policy**: Scatter-Gather raises a composite routing error if any route fails — catch it and return the successful parts with a \`warnings\`/\`partial\` flag if the business accepts degraded responses (e.g. flight status unavailable). Merge with DataWeave.
+- **Aggregation:** \`scatter-gather\` (fixed set of routes in parallel, with a timeout) or \`parallel-foreach\` (dynamic list). Decide the **partial-failure policy**: Scatter-Gather raises a composite routing error if any route fails. Catch it and return the successful parts with a \`warnings\`/\`partial\` flag if the business accepts degraded responses (e.g. flight status unavailable). Merge with DataWeave.
 - **Orchestration:** sequential flow with \`flow-ref\`s per step, \`choice\` for decisions, \`try\` scopes with \`on-error-continue\`/\`on-error-propagate\` to trigger **compensation** (cancel flight, release hotel). Idempotency keys on each step so retries do not double-book. For long-running or async steps, use queues (Anypoint MQ) and a persisted state instead of holding an HTTP request open.
 - **Enrichment:** call CRM, then loyalty using the customer id (\`target\` variable to keep the main payload), merge. Loyalty tier changes rarely → cache it with a TTL (Cache scope or Object Store).
 
@@ -210,8 +210,8 @@ Numbers: about **20 trip summaries** and **20 customer lookups** a second. The B
 - Statelessness is about **request handling**; the business process can still be long-running as long as its state is externalised.
 
 **Smells.**
-1. **Pass-through:** one call in, one System API call out, no rules — remove it or justify it.
-2. **One Process API per consumer** (\`prc-order-mobile-api\`, \`prc-order-web-api\`) — consumer differences belong in Experience APIs.
+1. **Pass-through:** one call in, one System API call out, no rules. Remove it or justify it.
+2. **One Process API per consumer** (\`prc-order-mobile-api\`, \`prc-order-web-api\`). Consumer differences belong in Experience APIs.
 3. Uses the **SAP/JDBC connector directly** instead of a System API.
 4. Returns UI-ready labels or mobile-specific fields.
 5. Deep synchronous chains (Process → Process → Process) that blow the latency budget.
@@ -224,6 +224,6 @@ Numbers: about **20 trip summaries** and **20 customer lookups** a second. The B
   followUps: [
     { q: 'Scatter-Gather or async scope for aggregation?', a: 'Scatter-Gather waits for all routes and gives you their results, which aggregation needs. The async scope is fire-and-forget; it does not return results to the main flow.' },
     { q: 'What happens to the response time of an aggregation?', a: 'Roughly the slowest route plus merge overhead (not the sum), so set per-route timeouts and decide whether to return partial data rather than wait for a slow dependency.' },
-    { q: 'Should orchestration ever be done by the client instead?', a: 'If business rules are involved, no — every client would reimplement them. Choreography with events is the alternative to central orchestration when steps belong to independent domains.' },
+    { q: 'Should orchestration ever be done by the client instead?', a: 'If business rules are involved, no. Every client would reimplement them. Choreography with events is the alternative to central orchestration when steps belong to independent domains.' },
   ],
 }

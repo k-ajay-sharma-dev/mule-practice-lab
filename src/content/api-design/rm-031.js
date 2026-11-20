@@ -167,7 +167,7 @@ The shared parts now have one home. If the finance team changes \`Money\`, every
 
 \`uses\` gives the library a short name for this file only. Another API could pick a different prefix, because the prefix belongs to the API that chose it.
 
-\`Order\` with no prefix would fail here, even if the library declares it. A prefix is what stops names from two libraries clashing.
+\`Money\` with no prefix would fail in \`api.raml\`, even though the library declares it. A prefix is what stops names from two libraries clashing.
 `,
   followUps: [
     {

@@ -9,18 +9,18 @@ export default {
     logs: [
       { text: '2026-10-14 19:02:11 INFO  [checkout-api] POST /checkout order=88120 received', relevant: false },
       { text: '2026-10-14 19:02:12 WARN  [checkout-api] HTTP:CONNECTIVITY calling payments-gw, attempt 1, retrying in 60000 ms', relevant: true, why: 'Until Successful waits 60 seconds between tries by default.' },
-      { text: '2026-10-14 19:03:12 WARN  [checkout-api] HTTP:CONNECTIVITY calling payments-gw, attempt 2, retrying in 60000 ms', relevant: true, why: 'Each retry holds the same HTTP request open while the shopper waits.' },
-      { text: '2026-10-14 19:07:12 ERROR [checkout-api] MULE:RETRY_EXHAUSTED after 6 attempts', relevant: true, why: 'Five retries after the first try, about five minutes in total. The caller gave up long before.' },
       { text: '2026-10-14 19:02:42 WARN  [web-shop] POST /checkout timed out after 30000 ms, showing "try again"', relevant: true, why: 'The shop stopped waiting after 30 seconds, while Mule kept retrying for minutes.' },
       { text: '2026-10-14 19:02:45 INFO  [checkout-api] POST /checkout order=88120 received', relevant: true, why: 'The shopper pressed again, so a second checkout with its own five minutes of retries started.' },
+      { text: '2026-10-14 19:03:12 WARN  [checkout-api] HTTP:CONNECTIVITY calling payments-gw, attempt 2, retrying in 60000 ms', relevant: true, why: 'Each retry holds the same HTTP request open while the shopper waits.' },
       { text: '2026-10-14 19:04:00 INFO  [stock-sync] 412 stock levels updated', relevant: false },
+      { text: '2026-10-14 19:07:12 ERROR [checkout-api] MULE:RETRY_EXHAUSTED after 6 attempts', relevant: true, why: 'Five retries after the first try, about five minutes in total. The caller gave up long before.' },
     ],
     questions: [
       {
         type: 'single',
         prompt: 'Checkout requests hang for about five minutes when the payment gateway is down. What is the most likely cause?',
         options: [
-          'Until Successful runs with its defaults: 5 retries, 60 seconds apart, inside the HTTP request',
+          'Until Successful runs with its defaults, 5 retries 60 seconds apart, while the shop waits on the request',
           'The HTTP Listener has a response timeout of five minutes that the shop cannot override',
           'The payment gateway holds each connection open for five minutes before it refuses it',
           'The flow uses a Scheduler that only runs the payment step once every five minutes',

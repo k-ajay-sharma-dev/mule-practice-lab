@@ -121,10 +121,10 @@ The two plants send about one sequence call every 10 seconds in all. The line ME
   ],
   solution: `
 **Phases**
-1. **Design and OEM onboarding (months 1–2).** Agree message guidelines, AS2 certificates and test plan with both OEMs; model the sequence call, rack and DESADV.
-2. **Plant platform (months 2–4).** Two-node runtime cluster (or Runtime Fabric on plant servers) and an Artemis HA pair (primary/backup with replication or shared store) in the plant data room. Control plane in the cloud; the plant keeps running if the WAN is down.
-3. **Inbound flow (months 3–5).** \`exp-oem-as2-inbound\` receives DELJIT, returns the MDN, validates the EDIFACT and publishes each call to \`jis-calls\`. \`prc-jis-sequencing\` consumes with a single active consumer per line (Artemis exclusive queue or JMS message groups keyed by line), so calls are processed strictly in order; it checks the OEM sequence number against the last value in Oracle (via \`sys-sequence-db-api\`, using a stored procedure that locks the line row). It then stores the call and creates the MES work order through \`sys-mes-api\`. Duplicates are acknowledged and ignored; gaps raise an alert.
-4. **Despatch (months 5–6).** MES build-complete → \`build-complete\` queue → \`prc-despatch-asn\` assigns seats to racks, posts the delivery in SAP via \`sys-sap-delivery-api\` and sends DESADV through \`sys-oem-as2-outbound\`; invoicing follows from SAP.
+1. **Design and OEM onboarding (months 1 to 2).** Agree message guidelines, AS2 certificates and test plan with both OEMs; model the sequence call, rack and DESADV.
+2. **Plant platform (months 2 to 4).** Two-node runtime cluster (or Runtime Fabric on plant servers) and an Artemis HA pair (primary/backup with replication or shared store) in the plant data room. Control plane in the cloud; the plant keeps running if the WAN is down.
+3. **Inbound flow (months 3 to 5).** \`exp-oem-as2-inbound\` receives DELJIT, returns the MDN, validates the EDIFACT and publishes each call to \`jis-calls\`. \`prc-jis-sequencing\` consumes with a single active consumer per line (Artemis exclusive queue or JMS message groups keyed by line), so calls are processed strictly in order; it checks the OEM sequence number against the last value in Oracle (via \`sys-sequence-db-api\`, using a stored procedure that locks the line row). It then stores the call and creates the MES work order through \`sys-mes-api\`. Duplicates are acknowledged and ignored; gaps raise an alert.
+4. **Despatch (months 5 to 6).** MES build-complete → \`build-complete\` queue → \`prc-despatch-asn\` assigns seats to racks, posts the delivery in SAP via \`sys-sap-delivery-api\` and sends DESADV through \`sys-oem-as2-outbound\`; invoicing follows from SAP.
 5. **Cut-over (month 7).** Parallel run with the legacy program in shadow mode (both receive calls, only legacy feeds MES) and compare outputs for two weeks. Switch over on a weekend non-production day, with legacy kept warm for rollback.
 
 **Resilience.** Failover tests of runtime and broker nodes during planned downtime; MANUAL ack or transacted listeners so a call is acknowledged only after Oracle and MES succeed; the \`jis-calls\` DLQ is monitored with immediate paging, because a stuck call blocks the sequence.
@@ -132,7 +132,7 @@ The two plants send about one sequence call every 10 seconds in all. The line ME
 **Governance.** OEM-specific guideline versions tracked; change freeze rules aligned with OEM production calendars.
 
 **Risks.**
-- A poison call blocking an ordered queue (alert within a minute, runbook to fix and replay, never silently skip).
+- A poison call blocking an ordered queue (move it to the DLQ after its retries, alert within a minute, runbook to fix and replay, never silently skip).
 - Clock or sequence resets at the OEM (agreed reset procedure).
 - WAN loss affecting AS2 if the OEM link is internet-based (dual links or OEM-provided network).
 - MES API latency at shift start.
@@ -140,6 +140,6 @@ The two plants send about one sequence call every 10 seconds in all. The line ME
   followUps: [
     { q: 'Why not run this on CloudHub?', a: 'The line must not depend on the WAN link, and the MES and Oracle are local. Running runtimes and the broker in the plant keeps the critical path local; the cloud control plane is only needed for management.' },
     { q: 'How do you keep strict ordering and still have high availability?', a: 'Use one active consumer per line (exclusive queue or message groups) with a standby node that takes over on failure. Add sequence checks in Oracle so a failover cannot reorder or duplicate calls.' },
-    { q: 'What do you do with a call that fails validation?', a: 'Stop and alert immediately rather than skip it, because the rack must match the line. Operators fix or obtain the call from the OEM portal and replay it; the sequence check ensures it lands in the right place.' },
+    { q: 'What do you do with a call that fails every time?', a: 'Never skip it silently, because the rack must match the line. After its retries it goes to the DLQ, which pages the supervisor at once, so the calls behind it keep flowing and the line does not stop. The sequence check records the gap. Operators fix the call or get it again from the OEM portal and replay it, and the seat is built into its slot in the rack.' },
   ],
 }

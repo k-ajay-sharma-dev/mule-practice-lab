@@ -6,7 +6,7 @@ export default {
   tags: ['join', 'outerJoin', 'dw::core::Arrays', 'multiple-inputs', 'reconciliation'],
   estMinutes: 25,
   description: `
-Finance runs a daily reconciliation between the order system (\`payload\`) and the payment gateway (\`payments\`). A payment's \`ref\` is the order's \`orderId\` — but the order system sends \`orderId\` as a **number** and the gateway sends \`ref\` as a **string**.
+Finance runs a daily reconciliation between the order system (\`payload\`) and the payment gateway (\`payments\`). A payment's \`ref\` is the order's \`orderId\`. But the order system sends \`orderId\` as a **number** and the gateway sends \`ref\` as a **string**.
 
 Return \`{ matched, unpaid, orphanPayments }\`:
 
@@ -18,7 +18,7 @@ Return \`{ matched, unpaid, orphanPayments }\`:
 
 **Rules**
 - \`status\` is \`"PAID"\` when \`paid == amount\`, \`"PARTIAL"\` when \`paid < amount\`, \`"OVERPAID"\` when \`paid > amount\`.
-- \`matched\` and \`unpaid\` are sorted by \`orderId\` ascending (numerically); \`orphanPayments\` by \`ref\` ascending.
+- \`matched\` and \`unpaid\` are sorted by \`orderId\` ascending (numerically); \`orphanPayments\` by \`ref\` ascending as strings (so \`"12"\` comes before \`"7"\`).
 - Each order has at most one payment, and each \`orderId\` is unique.
 `,
   inputs: [
@@ -62,8 +62,8 @@ output application/json
 payload
 `,
   hints: [
-    '`dw::core::Arrays` has `join`, `leftJoin` and `outerJoin(left, right, leftKey, rightKey)`. Each result row is `{ l, r }`; a side with no match is simply absent.',
-    'The key functions must return **strings** — `(o) -> o.orderId as String` and `(p) -> p.ref as String` — which also solves the number-vs-string mismatch.',
+    '`dw::core::Arrays` has `join`, `leftJoin` and `outerJoin(left, right, leftKey, rightKey)`. Each result row is `{ l, r }`; a side with no match is absent (reads as `null`).',
+    'The key functions must return **strings**: `(o) -> o.orderId as String` and `(p) -> p.ref as String`. This also solves the number-vs-string mismatch.',
     'One `outerJoin` gives you all three lists: rows with both sides, rows with only `l`, rows with only `r`.',
   ],
   solution: `%dw 2.0
@@ -97,9 +97,9 @@ var rows = outerJoin(payload, payments, (o) -> o.orderId as String, (p) -> p.ref
 | \`leftJoin\` | LEFT OUTER JOIN | every left item, \`r\` absent when unmatched |
 | \`outerJoin\` | FULL OUTER JOIN | every item from both sides |
 
-Each row is \`{ l: ..., r: ... }\`, so after a single \`outerJoin\` the three reconciliation buckets are just three filters.
+Each row is \`{ l: ..., r: ... }\`, so after a single \`outerJoin\` the three reconciliation buckets are three filters.
 
-**The trap.** The key criteria must return a \`String\`. Returning \`o.orderId\` (a number) fails, and comparing \`1001\` with \`"1001"\` by hand never matches. Casting both sides with \`as String\` is the fix — and it is exactly the kind of type mismatch real gateways produce.
+**The trap.** The key criteria are declared to return a \`String\`, and the two sides hold different types: \`1001\` (a number) and \`"1001"\` (a string). Cast both sides with \`as String\` so they produce the same key. This is exactly the kind of type mismatch real gateways produce.
 
 \`matched\` is sorted by the numeric \`orderId\` coming from the order side, so \`1004\` sorts after \`1003\` as a number.
 `,
@@ -143,7 +143,7 @@ Each row is \`{ l: ..., r: ... }\`, so after a single \`outerJoin\` the three re
     },
     {
       q: 'Why are the orphan refs sorted with "12" before "7"?',
-      a: 'They are strings, so `orderBy` compares them alphabetically. If you want numeric order, sort by `$ as Number` — but only if every ref is guaranteed to be numeric.',
+      a: 'They are strings, so `orderBy` compares them alphabetically. If you want numeric order, sort by `$ as Number`, but only if every ref is guaranteed to be numeric.',
     },
     {
       q: 'When would you not do this join in DataWeave?',

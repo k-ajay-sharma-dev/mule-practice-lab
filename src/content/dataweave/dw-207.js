@@ -13,7 +13,7 @@ Fenwick Supply collects store sales files from an Azure File Share and sends the
 **Rules**
 - Skip names that start with \`~$\` or end with \`.tmp\`. Those are lock or temporary files. List their paths in \`skipped\`.
 - The target folder is \`/stores/archive/yyyy/MM/dd\` for \`LOADED\` and \`/stores/error/yyyy/MM/dd\` for \`REJECTED\`, using the UTC date of \`handledAt\`.
-- The target name is the file name. When that path already exists, or an earlier move in this run already uses it, add \`_2\` before the extension, then \`_3\` and so on, until the path is free.
+- The target name is the file name. When that path already exists, or an earlier move in this run already uses it, add \`_2\` before the extension, then \`_3\` and so on, until the path is free. The extension starts at the last dot. A name with no dot gets the suffix at the end.
 - \`renamed\` is \`true\` when a suffix was added.
 
 Output \`moves\` (\`from\`, \`to\`, \`renamed\`) in input order and \`skipped\`.

@@ -9,7 +9,7 @@ export default {
   estMinutes: 25,
   quiz: fromLogging(["log-16011","log-16012","log-16013","log-16014","log-16015"]),
   description: `
-Quayle Freight writes aggregator groups with bulk inserts and falls back row by row. Log the right detail at the right level.
+Quayle Freight loads shipments with a Batch Job. A Batch Aggregator collects the records into groups, and each group is written with one bulk insert. When a bulk insert fails, the flow inserts that group's rows one by one. Log the right detail at the right level.
 
 Answer every question, then press **Check answers**. The rules for good log lines are at the top of the Logging Lab page.
 `,

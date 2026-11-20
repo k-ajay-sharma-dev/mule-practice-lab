@@ -71,8 +71,8 @@ export default {
       options: [
         'SSE, as it is the recommended transport for several replicas',
         'Streamable HTTP, as it supports load balanced replicas',
-        'SSE, as a load balancer needs a deprecated transport',
-        'Streamable HTTP, as it only runs on a single replica',
+        'SSE, as each client keeps one open stream to the server',
+        'Either one, as the load balancer hides the replicas from the client',
       ],
       answer: 1,
       explain: 'Streamable HTTP is the recommended transport and supports load balanced deployments with several replicas. SSE is deprecated, and an SSE server is single replica only.',

@@ -12,7 +12,7 @@ export default {
       { text: '2026-10-28 02:00:31 INFO  [health] GET /api/health 200 (2 ms)', relevant: false },
       { text: '2026-10-28 02:03:12 ERROR [price-sync] chunk 37: DB:QUERY_EXECUTION - Transaction (Process ID 87) was deadlocked on lock resources with another process and has been chosen as the deadlock victim. Rerun the transaction.', relevant: true, why: 'SQL Server error 1205: two parallel chunks waited on each other\'s locks and one was killed.' },
       { text: '2026-10-28 02:03:40 ERROR [price-sync] chunk 52: DB:QUERY_EXECUTION - ... chosen as the deadlock victim (1205)', relevant: false },
-      { text: '2026-10-28 02:21:40 INFO  [price-sync] Completed: 231 chunks OK, 17 chunks failed — job status COMPLETED_WITH_ERRORS', relevant: true, why: 'Failed chunks are not retried, so 85,000 prices were never updated.' },
+      { text: '2026-10-28 02:21:40 INFO  [price-sync] Completed: 231 chunks OK, 17 chunks failed, job status COMPLETED_WITH_ERRORS', relevant: true, why: 'Failed chunks are not retried, so 85,000 prices were never updated.' },
       { text: '2026-10-28 02:22:00 INFO  [dba] Execution plan for UPDATE item_price: clustered index scan (no index on sku, store_id)', relevant: true, why: 'Without an index on the WHERE columns each UPDATE scans and locks far more than it needs, which makes overlapping locks likely.' },
       { text: '2026-10-28 06:00:00 INFO  [store-sync] Price labels file sent to 210 stores', relevant: false },
     ],
@@ -22,9 +22,9 @@ export default {
         prompt: 'What causes the deadlocks?',
         options: [
           'Eight parallel bulk updates lock overlapping rows/pages of the same table in different orders (amplified by a scan instead of an index seek), so SQL Server kills one of each deadlocked pair with error 1205',
-          'The Parallel For Each loses messages',
-          'SQL Server cannot run more than one UPDATE at a time',
-          'The pool is too small',
+          'Parallel For Each runs the chunks on threads that share one database transaction, so one failed chunk rolls back the others',
+          'SQL Server escalates each bulk update to a table lock, so only one UPDATE on item_price can run and the other seven time out',
+          'The connection pool has fewer than 8 connections, so the parallel chunks fail while waiting for a connection',
         ],
         answer: 0,
         explain: 'Deadlocks need concurrency on overlapping resources acquired in different orders. v3.0.0 added the concurrency; unsorted chunks and table scans provide the overlap.',
@@ -34,9 +34,9 @@ export default {
         prompt: 'Prices go to stores at 06:00. What do you do now (03:00)?',
         options: [
           'Re-run only the 17 failed chunks sequentially, verify the counts, then let the 06:00 label run continue',
-          'Re-run the whole job with maxConcurrency=32 to finish faster',
-          'Cancel the 06:00 run and wait for tomorrow',
-          'Ask the DBA to disable deadlock detection',
+          'Re-run the whole job at once with maxConcurrency=32 so all 248 chunks finish well before 06:00',
+          "Cancel the 06:00 label run for every store and let the next night's job catch up the prices",
+          "Ask the DBA to raise the job's DEADLOCK_PRIORITY and re-run the whole job at concurrency 8",
         ],
         answer: 0,
         explain: 'The failed chunks were rolled back; running them one at a time removes the concurrency that caused the deadlocks. More concurrency would make it worse.',
@@ -45,7 +45,7 @@ export default {
         type: 'multi',
         prompt: 'Which belong in the permanent fix?',
         options: [
-          'Partition the work so parallel chunks never share keys (e.g. chunk by store_id or by SKU range) and sort rows inside each chunk by the clustered key',
+          'Partition the work so parallel chunks never share keys (e.g. chunk by store_id or by SKU range) and sort rows inside each chunk in one fixed key order, such as (store_id, sku)',
           'Add an index supporting the UPDATE predicate (sku, store_id) so each update seeks and locks only its rows',
           'Retry a chunk that fails with error 1205 a few times with a short, varied delay; fail other DB:QUERY_EXECUTION errors immediately',
           'Choose maxConcurrency and chunk size by load testing, keeping each transaction short',
@@ -59,7 +59,7 @@ export default {
         prompt: 'Order the steps of a robust chunk execution.',
         items: [
           'Group price changes by store_id so each chunk owns a key range',
-          'Sort the rows of the chunk by the clustered key',
+          'Sort the rows of the chunk in one fixed key order, (store_id, sku)',
           'Run the chunk\'s db:bulk-update inside its own short transaction',
           'On error 1205, wait briefly and retry the whole chunk (max 3 attempts)',
           'Record chunk result (ok / failed) for reconciliation and alerting',
@@ -109,7 +109,7 @@ export default {
     'Parallel For Each with 8 concurrent bulk updates on the same table, unsorted chunks and table scans create overlapping locks in different orders.',
     'In Mule the deadlock arrives as DB:QUERY_EXECUTION; inspect the vendor code to treat 1205 as retryable.',
     'Immediate: re-run only the failed chunks sequentially before the 06:00 label run.',
-    'Fix: partition chunks by key, sort rows by the clustered key, index the WHERE columns, short transaction per chunk, retry only 1205, tune concurrency by load test.',
+    'Fix: partition chunks by key, sort rows in one fixed key order, index the WHERE columns, short transaction per chunk, retry only 1205, tune concurrency by load test.',
   ],
   solution: `
 **Diagnosis.** 8 chunks update \`item_price\` at once, each in delivery order. Each UPDATE scans the clustered index (no index on \`sku, store_id\`). So parallel chunks lock overlapping rows and pages in different orders. When two transactions each wait for a lock the other holds, SQL Server picks a **deadlock victim**, rolls it back and raises **1205**. Mule reports it as \`DB:QUERY_EXECUTION\`; the job did not retry, so 17 chunks were lost.
@@ -119,16 +119,16 @@ export default {
 **Root cause.** Concurrency was added without partitioning the data or checking the update's access path; the job had no retry for the one error that is meant to be retried ("Rerun the transaction").
 
 **Permanent fix.**
-- Partition chunks so parallel chunks never share keys: group by \`store_id\` (or SKU ranges); sort each chunk by the clustered key.
+- Partition chunks so parallel chunks never share keys: group by \`store_id\` (or SKU ranges); sort each chunk in one fixed key order, such as (store_id, sku).
 - Add an index on \`(sku, store_id)\` (with the DBA) so each update seeks and locks only its rows.
-- Each chunk in its own short transaction; wrap it in Until Successful (3 attempts, short varied delay) that retries **only** when the vendor error is 1205 — other errors fail fast.
-- Pick \`maxConcurrency\` and chunk size by load testing (often 2–4 with sensible chunks beats 8).
+- Each chunk in its own short transaction; wrap it in Until Successful (3 attempts, short varied delay) that retries **only** when the vendor error is 1205. Other errors fail fast.
+- Pick \`maxConcurrency\` and chunk size by load testing (often 2 to 4 with sensible chunks beats 8).
 
 **Prevention.** Performance test with production-size tables before raising concurrency; DBA review of execution plans for bulk statements; alert on any failed chunk instead of reporting "completed with errors".
 `,
   followUps: [
     { q: 'Why not make every chunk run in one big transaction for consistency?', a: 'A long transaction holds locks for the whole run, blocking stores\' reads and making deadlocks more likely. Short transactions per chunk with a reconciliation record are safer.' },
     { q: 'How do you find exactly which resources deadlocked?', a: 'The DBA can read the deadlock graph from SQL Server (for example the system_health extended event session), which shows the two statements, the locks held and the locks requested.' },
-    { q: 'Would MERGE instead of UPDATE avoid deadlocks?', a: 'Not by itself — MERGE also takes locks and can deadlock under concurrency. Partitioning, ordering and indexing matter more than the statement type.' },
+    { q: 'Would MERGE instead of UPDATE avoid deadlocks?', a: 'Not by itself. MERGE also takes locks and can deadlock under concurrency. Partitioning, ordering and indexing matter more than the statement type.' },
   ],
 }

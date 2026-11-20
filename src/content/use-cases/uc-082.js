@@ -102,14 +102,14 @@ Facts:
 ## Expiry and refund
 `,
   keyPoints: [
-    'Locker search results are cached by postcode area for 5 minutes, so 150 searches a second become a few provider calls.',
+    'Locker search results are cached by postcode area for 5 minutes, so 150 searches a second become about 15 provider calls a second, under the limit of 20.',
     'The compartment is reserved once at order placement; a failed reservation offers another locker or home delivery.',
     'Provider webhooks land on exp-locker-webhooks, which checks the signature and queues them.',
     'prc-locker-events updates the OMS, sends the pickup code by SMS and email, and schedules the 48 hour reminder.',
     'An expired event triggers a refund through sys-payments with the order ID as idempotency key.',
   ],
   solution: `
-**Locker search.** exp-checkout calls prc-locker-delivery with the postcode. The Process API rounds it to the postcode district and looks in a **cache** first (5 minute TTL). On a miss it calls sys-locker-provider. Black Friday traffic hits a few hundred districts, so 150 searches a second become one or two provider calls a second. The page says "availability is confirmed when you order", because the cache can be up to 5 minutes old.
+**Locker search.** exp-checkout calls prc-locker-delivery with the postcode. The Process API rounds it to the postcode district and looks in a **cache** first (5 minute TTL). On a miss it calls sys-locker-provider. Black Friday traffic spreads over a few thousand districts, so about 9 searches in 10 hit the cache and the provider gets about 15 calls a second, under its limit of 20. The page says "availability is confirmed when you order", because the cache can be up to 5 minutes old.
 
 **Reservation.** When the order is placed, prc-locker-delivery reserves the compartment through sys-locker-provider, then creates the order in the OMS with the locker ID and reservation ID. If the locker is full, the customer is offered the next nearest locker or home delivery. If the OMS call fails, the reservation is cancelled.
 

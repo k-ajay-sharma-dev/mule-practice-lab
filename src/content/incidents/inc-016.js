@@ -21,9 +21,9 @@ export default {
         prompt: 'What is the most likely root cause?',
         options: [
           'The long report queries occupy all 10 connections of the shared pool, so other endpoints time out waiting for one',
-          'The database server is overloaded',
-          'The /customers query lost its index',
-          'The app runs out of CPU at 09:00',
+          'The database server is overloaded by the new report, so every query from the app runs slowly',
+          'The /customers query lost its index on Friday and now scans the whole table',
+          'The Mule app runs out of CPU and threads when the managers log in at 09:00',
         ],
         answer: 0,
         explain: 'The error is a connection checkout timeout after 30 s (maxWait), the DB runs only 10 queries, and the app CPU is low. Threads wait for the pool.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Raise maxPoolSize to 100',
+          'Raise maxPoolSize to 100 so the reports and the web shop both get connections',
           'Disable or limit the report endpoint (rate limit or maxConcurrency) so critical endpoints get connections',
-          'Restart the app every morning at 09:30',
-          'Increase maxWait to 120 s',
+          'Restart the app every morning at 09:30 to free the stuck connections',
+          'Increase maxWait to 120 s so requests wait for a connection instead of failing',
         ],
         answer: 1,
         explain: 'Protect the critical traffic first. A bigger pool shifts load to the DB, and a longer maxWait makes the web shop wait longer before failing.',
@@ -74,7 +74,7 @@ export default {
 - CPU on the app is low; the database team says DB CPU is moderate but they see **10 long-running queries** from the Mule app at the same time.
 
 ## Change / Context
-- Last Friday a new endpoint \`GET /reports/customer-activity\` was released for the sales team's dashboard, which **10 sales managers open at 09:00**. Its query scans six months of activity and takes **40–90 s**.
+- Last Friday a new endpoint \`GET /reports/customer-activity\` was released for the sales team's dashboard, which **10 sales managers open at 09:00**. Its query scans six months of activity and takes **40 to 90 s**.
 - All endpoints use the **same** \`Database_Config\` with \`<db:pooling-profile maxPoolSize="10" maxWait="30" maxWaitUnit="SECONDS"/>\`.
 - No query timeout is set on any DB operation.
 
@@ -104,15 +104,15 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Identifies connection pool exhaustion: 10 report queries each hold one of the 10 pooled connections for 40–90 s, so other requests wait 30 s (maxWait) and fail with DB:CONNECTIVITY.',
+    'Identifies connection pool exhaustion: 10 report queries each hold one of the 10 pooled connections for 40 to 90 s, so other requests wait 30 s (maxWait) and fail with DB:CONNECTIVITY.',
     'Explains why CPU is low and the DB is not overloaded: requests are waiting for a connection, not working.',
     'Immediate: disable/rate-limit the report endpoint or move the dashboard refresh off 09:00, and confirm the main endpoints recover.',
-    'Permanent fix: bulkhead — a separate DB config/pool (ideally against a read replica or reporting store) for reporting, plus query timeouts and query/index optimisation.',
+    'Permanent fix: a bulkhead, meaning a separate DB config/pool (ideally against a read replica or reporting store) for reporting, plus query timeouts and query/index optimisation.',
     'Considers pre-computing the report (scheduled job/materialised view) instead of running a heavy query per request.',
     'Prevention: monitor pool usage/wait time and query durations, and load test new endpoints together with existing traffic.',
   ],
   solution: `
-**Diagnosis.** All endpoints share one pool of **10 connections**. At 09:00 the ten managers open the dashboard, and each report query holds a connection for **40–90 s**. The pool is empty, so \`GET /customers/{id}\` waits up to \`maxWait\` = **30 s** for a connection and then fails with **DB:CONNECTIVITY** ("checkout ... timed out"). The app's CPU is low because threads are *waiting*; the DB is fine because it's only running 10 queries. When the reports finish, the pool frees up and everything recovers — matching the 09:45 recovery.
+**Diagnosis.** All endpoints share one pool of **10 connections**. At 09:00 the ten managers open the dashboard, and each report query holds a connection for **40 to 90 s**. The pool is empty, so \`GET /customers/{id}\` waits up to \`maxWait\` = **30 s** for a connection and then fails with **DB:CONNECTIVITY** ("checkout ... timed out"). The app's CPU is low because threads are *waiting*; the DB is fine because it's only running 10 queries. When the reports finish, the pool frees up and everything recovers, which matches the 09:45 recovery.
 
 **Immediate mitigation.** Protect the critical endpoints: temporarily **disable** \`/reports/customer-activity\` or limit it (e.g. API Manager rate limit / spike control on that resource, or a flow \`maxConcurrency\` of 2). Ask sales to use yesterday's export meanwhile. Confirm \`/customers\` latency is back to normal.
 
@@ -126,7 +126,7 @@ export default {
 **Prevention.** Monitor pool active/idle/waiting counts and connection wait time, plus slow-query logs on the DB; load test new endpoints *together* with the normal traffic mix; design review question: "which pool/resource does this share with critical traffic?".
 `,
   followUps: [
-    { q: 'Why not just increase maxPoolSize to 50?', a: 'It may hide the problem for a while, but the reports would then use more DB resources and still compete with interactive traffic; the database has its own connection limits. Isolation and making the report cheap fix the cause.' },
+    { q: 'Why not increase maxPoolSize to 50?', a: 'It may hide the problem for a while, but the reports would then use more DB resources and still compete with interactive traffic; the database has its own connection limits. Isolation and making the report cheap fix the cause.' },
     { q: 'How would you prove it is pool exhaustion and not a slow database?', a: 'The error is a checkout timeout, not a query timeout; failing requests wait almost exactly maxWait; the DB shows only ~10 active sessions from the app (all the report query) and the problem starts when the report is called.' },
     { q: 'What is a bulkhead in integration design?', a: 'Isolating resources (pools, threads, apps) per workload so one workload\'s failure or slowness cannot exhaust resources needed by another, like compartments in a ship.' },
   ],

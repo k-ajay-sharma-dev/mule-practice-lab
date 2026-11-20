@@ -14,7 +14,7 @@ Output one object with:
 
 - \`product\`: the top part number
 - \`totalCost\`: the cost of one finished product
-- \`lines\`: every node of the tree, top first, depth first, each with \`part\`, \`level\` (0 for the top), \`qty\`, \`unitCost\` and \`lineCost\` (\`qty\` times \`unitCost\`)
+- \`lines\`: every node of the tree, top first, depth first, each with \`part\`, \`level\` (0 for the top), \`qty\`, \`unitCost\` and \`lineCost\` (\`qty\` times \`unitCost\`). For an assembly, \`unitCost\` is the rolled-up cost of one of it.
 - \`missingCosts\`: the part numbers of bought parts that have no \`unitCost\`, in tree order
 
 A bought part with no \`unitCost\` counts as 0, so the rest of the BOM can still be costed.

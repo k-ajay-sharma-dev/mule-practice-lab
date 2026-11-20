@@ -63,6 +63,7 @@ Two channels use it: the website **checkout** and the **call centre app**. Each 
 - The service answers in about 200 ms.
 - Addresses for a postcode change very rarely, a few new builds a year.
 - About 85% of lookups in a day are for postcodes already looked up that day.
+- Finance wants fewer than **20 calls a second** to reach the paid service at peak.
 
 **Questions:**
 - Draw the design.

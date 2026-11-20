@@ -35,7 +35,7 @@ export default {
         'SMB clients get file locking behaviour on a share, as on a normal network drive',
       ],
       answer: [0, 1, 3],
-      explain: 'Azure Files behaves like a network drive. Blob Storage is object storage reached over HTTP, and it holds very large objects too.',
+      explain: 'Azure Files behaves like a network drive. Blob Storage is object storage reached over HTTP, and it holds very large objects too. (A storage account with hierarchical namespace, used for Data Lake Storage Gen2, does have real blob directories, but plain Blob Storage does not.)',
     },
     {
       type: 'match',
@@ -64,8 +64,8 @@ export default {
       type: 'single',
       prompt: 'When is Azure Files a better choice than Blob Storage?',
       options: [
-        'When you store billions of images for a website',
-        'When existing servers or users need a shared drive path, for example store systems that already write to a network folder',
+        'When a website stores billions of product images',
+        'When existing store systems already write to a network folder',
         'When you need the cheapest storage for archives',
         'When you need events for every new object',
       ],

@@ -135,6 +135,7 @@ The checkout calls \`POST /tax/quote\` with the order and expects \`{ "orderId",
 - Until anyone sets the switch, use the **legacy** engine.
 - Add an admin endpoint \`PUT /admin/flags/tax-provider\` with \`{ "provider": "new" }\` or \`{ "provider": "legacy" }\`. Any other value gets **400**, and the switch stays as it was.
 - The admin endpoint is protected by a policy in API Manager. You do not need to design that.
+- The test runs look for the switch in an Object Store named \`featureFlags\`, under the key \`tax-provider\`. Use those names wherever you keep it.
 
 **Design the flows.**
 `,

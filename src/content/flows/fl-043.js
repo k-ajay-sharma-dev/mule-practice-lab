@@ -241,17 +241,29 @@ export default {
     ),
   ),
   description: `
-A **Product Information (PIM) API** must let retail partners submit catalogue updates in bulk.
+A **Product Information (PIM) API** must let retail partners submit catalogue updates in bulk. Partners send \`POST /pim/v1/bulk/products\` with a body \`{ "items": [ ... ] }\`.
 
-- A request carries **up to 10,000 product records** (≈15 MB JSON).
-- The downstream PIM core accepts at most **500 records per call** and takes 5–20 s per call; it occasionally returns 503.
-- Partners' HTTP clients time out after **30 s**, and the gateway rejects payloads over 20 MB.
-- ~200 bulk jobs/day, with bursts when a partner re-sends its whole catalogue.
+- A request carries **up to 10,000 product records** (about 15 MB of JSON).
+- The PIM core takes records at \`POST /pim-core/products/batch\`. It accepts at most **500 records per call**, takes 5 to 20 s per call, and sometimes returns 503.
+- Partners' HTTP clients time out after **30 s**.
+- About 200 bulk jobs a day, with bursts when a partner resends its whole catalogue.
 - Partners need to know whether **all** records landed, and which chunks failed, without calling support.
-- Mule runs on 2 CloudHub workers; a restart must not lose accepted work.
-- A request outside the size limit is rejected with **413** (or 400). A status request for an unknown job returns **404**.
+- Mule runs on 2 CloudHub workers. A restart must not lose accepted work.
 
-**Design the flow(s):** request contract, validation, chunking, asynchronous processing, failure handling per chunk and the status API.
+Two tables hold the job state:
+- \`bulk_job\` (\`job_id\`, \`client_id\`, \`total_chunks\`, \`status\`, \`created_at\`): one row per accepted request.
+- \`bulk_chunk\` (\`job_id\`, \`chunk_no\`, \`status\`, \`ok_count\`, \`error_json\`): one row per chunk result, with status \`DONE\` or \`FAILED\`. The key is (\`job_id\`, \`chunk_no\`).
+
+**Requirements**
+- Check the size first. A request with no records or more than 10,000 is rejected with **413** (or 400), and nothing is stored or queued.
+- Answer **202** at once with the \`jobId\`. The submit flow never calls the PIM core itself.
+- Write the \`bulk_job\` row before any chunk is queued. Then split the records into chunks of 500 and queue each chunk.
+- Workers take chunks from the queue and call the PIM core, retrying a short outage.
+- Record every chunk result in \`bulk_chunk\`, \`DONE\` or \`FAILED\`. A chunk that keeps failing is recorded as \`FAILED\`, never lost.
+- Acknowledge a chunk message only after its result is recorded.
+- \`GET /pim/v1/bulk/jobs/{jobId}\` returns the job's progress, worked out from its chunk rows. An unknown job returns **404**.
+
+**Design the flows.**
 `,
   answerTemplate: `## API contract (submit and status)
 
@@ -266,29 +278,29 @@ A **Product Information (PIM) API** must let retail partners submit catalogue up
 ## Status calculation
 `,
   keyPoints: [
-    'Submit endpoint validates size (≤10k) and returns 202 Accepted with a jobId and status URL — processing 20 chunks synchronously would blow the 30 s timeout.',
+    'Submit endpoint validates size (≤10k) and returns 202 Accepted with a jobId and status URL. Processing 20 chunks while the partner waits would blow the 30 s timeout.',
     'A job record is persisted first, then DataWeave splits the items (divideBy 500) and each chunk is published to a persistent queue (Anypoint MQ / persistent VM).',
     'Worker flows consume chunks with manual ack, call PIM with bounded retries, and record a per-chunk result idempotently keyed by (jobId, chunkNo).',
-    'A chunk that still fails is recorded as FAILED (with the error) — never silently dropped — and the message is acked or dead-lettered deliberately.',
+    'A chunk that still fails is recorded as FAILED (with the error), never dropped, and the message is acked or dead-lettered deliberately.',
     'The status endpoint derives job status from chunk rows (ACCEPTED / IN_PROGRESS / COMPLETED / COMPLETED_WITH_ERRORS) instead of a shared counter, avoiding race conditions between workers.',
   ],
   solution: `
-**Submit API** — \`POST /pim/v1/bulk/products\`
+**Submit API:** \`POST /pim/v1/bulk/products\`
 1. **Validate** \`1 ≤ sizeOf(items) ≤ 10000\` (413/400 otherwise).
 2. Generate \`jobId\`; DataWeave \`divideBy 500\` from \`dw::core::Arrays\` → list of \`{ jobId, chunkNo, items }\`.
-3. **Insert** \`bulk_job\` (jobId, client, total_chunks, ACCEPTED) **before** publishing — otherwise a fast worker could report on a job that does not exist yet.
+3. **Insert** \`bulk_job\` (jobId, client, total_chunks, ACCEPTED) **before** publishing. Otherwise a fast worker could report on a job that does not exist yet.
 4. **For Each** chunk (saved in a variable first, because the Insert replaces the payload) → Transform to JSON → **Anypoint MQ Publish** \`pim-bulk-chunks\` (persistent, survives restarts, spreads across both workers).
 5. Return **202** \`{ jobId, statusUrl }\`.
 
-**Chunk worker** — MQ Subscriber (MANUAL ack, prefetch tuned to the PIM's capacity)
+**Chunk worker:** MQ Subscriber (MANUAL ack, prefetch tuned to the PIM's capacity)
 - Save \`jobId\` and \`chunkNo\` in variables first: the PIM answer replaces the payload, and the result row needs them.
 - **Until Successful** (3 × 5 s) around the PIM call for 503s.
 - Insert a \`bulk_chunk\` row (DONE + per-record errors returned by PIM), keyed on (jobId, chunkNo) so a redelivery does not double-count, then **Ack**.
 - **On Error Continue**: insert the chunk as FAILED with the error, then Ack (or Nack to let the queue's DLQ policy decide, and record FAILED from the DLQ consumer).
 
-**Status API** — \`GET /pim/v1/bulk/jobs/{jobId}\`: one SQL aggregate over chunk rows; DataWeave derives status. Optionally \`GET .../errors\` returns the failed records so the partner can resubmit only those.
+**Status API:** \`GET /pim/v1/bulk/jobs/{jobId}\`: one SQL aggregate over chunk rows; DataWeave derives status. Optionally \`GET .../errors\` returns the failed records so the partner can resubmit only those.
 
-**Why rows per chunk rather than a counter in Object Store?** Two workers incrementing the same counter race (read–modify–write); inserting immutable rows and counting them is naturally concurrency-safe.
+**Why rows per chunk rather than a counter in Object Store?** Two workers incrementing the same counter race (read, modify, write); inserting immutable rows and counting them is naturally concurrency-safe.
 `,
   followUps: [
     {

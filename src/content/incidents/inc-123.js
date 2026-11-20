@@ -22,9 +22,9 @@ export default {
         prompt: 'The change only added a replica. How did the feature code reach Production?',
         options: [
           'The app runs a SNAPSHOT, which was overwritten in Exchange on Thursday. A redeploy of that version takes the latest snapshot binaries',
-          'Runtime Fabric upgrades apps to the newest asset in Exchange when a replica is added',
-          'The feature branch deployed straight to Production on Thursday',
-          'Mule merges feature branches at start-up',
+          'Runtime Fabric moves an app to the newest release in Exchange whenever its replica count changes',
+          'The feature branch build deployed to Production on Thursday, and the extra replica only made it visible on Monday',
+          'The new replica pulled a different build from the shared Maven cache than the other three replicas',
         ],
         answer: 0,
         explain: 'The docs say that each redeploy refreshes the app with the latest snapshot binaries, and that snapshot assets can change after deployment. That is why they say to avoid them in production.',
@@ -35,8 +35,8 @@ export default {
         options: [
           'The name `1.8.0-SNAPSHOT` now points at the overwritten content, so the good build must be rebuilt from its commit and released under a new version',
           'Nothing: Exchange keeps every SNAPSHOT build, selectable by date',
-          'Runtime Fabric cannot roll back a deployment at all',
-          'The team must first hard-delete the SNAPSHOT from Exchange',
+          'Runtime Fabric keeps only the current deployment, so a rollback is possible only from Runtime Manager history before the replica change',
+          'The team must first hard-delete the SNAPSHOT from Exchange, and then Friday\'s build becomes the latest again',
         ],
         answer: 0,
         explain: 'Running `mvn clean deploy` again overwrites the asset without errors. So there is no earlier artifact under that version to return to.',
@@ -72,7 +72,7 @@ export default {
   description: `
 ## Symptoms
 - Since 09:11 on Monday, 38% of \`POST /shipments\` calls to \`shipping-papi\` fail with \`400\` and the message \`splitPolicy is required\`. No client has changed.
-- The message comes from a split-shipment feature that is still in development.
+- The message comes from a split-shipment feature that is still in development. Only shipments with more than one parcel fail.
 - The only Production change today is CHG-5521, which raised replicas from 3 to 4 before a sales peak.
 
 ## Change / Context

@@ -1054,7 +1054,7 @@ export const SET_4 = [
     ],
     answers: [0, 2, 4],
     explain:
-      'A publish can fail like any call, for example on a limit or a lost connection. Order_Status__e is a high-volume Platform Event, and those are the ones kept for a retention window that a subscriber can replay from. The order ID and a shared correlation ID let you follow one event through publisher and subscriber.',
+      'A publish can fail like any call, for example on a limit or a lost connection. New Platform Events such as Order_Status__e are high-volume events, which Salesforce keeps for 72 hours, so a subscriber can replay them from a stored replay ID. The order ID and a shared correlation ID let you follow one event through publisher and subscriber.',
   },
   {
     id: 'log-4065',

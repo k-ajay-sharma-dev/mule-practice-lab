@@ -72,7 +72,7 @@ export default {
     ),
   ),
   description: `
-Harbourgate Payments, a fictional card acquirer's processing partner, receives a settlement file from each card scheme every morning on its **SFTP server**, folder \`/settlement/in\`. A busy day's \`TXN_<date>_ALL.csv\` is **several gigabytes**, tens of millions of rows:
+Harbourgate Payments, a fictional card payments processor, receives a settlement file from each card scheme every morning on its **SFTP server**, folder \`/settlement/in\`. A busy day's \`TXN_<date>_ALL.csv\` is **several gigabytes**, tens of millions of rows:
 
 \`\`\`
 txn_id,card_suffix,merchant_id,amount,currency,txn_time
@@ -87,7 +87,7 @@ The Mule app runs on workers with a few gigabytes of memory. The first version r
 - Pick up each \`TXN_*.csv\` once the upload has finished.
 - Never hold the whole file in memory.
 - Load the rows in a **Batch Job**, inserting groups of rows with a bulk insert.
-- When the job is done, log the total, loaded and failed counts.
+- When the job is done, log the counts at INFO in the form \`total=<n> loaded=<n> failed=<n>\`.
 - Move the file to \`/settlement/done\` once the job has its records.
 
 **Design the flow.** Say which settings and habits keep memory flat.

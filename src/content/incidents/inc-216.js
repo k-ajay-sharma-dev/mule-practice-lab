@@ -8,7 +8,7 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 12:00:01 INFO  [statement-store] Uploaded blob=stmt/C-2210/2026-10.pdf contentType=application/octet-stream", relevant: true, why: "The PDF is stored with a generic type." },
-      { text: "2026-11-18 12:05:00 INFO  [portal] Download link opened blob=stmt/C-2210/2026-10.pdf", relevant: false },
+      { text: "2026-11-18 12:05:00 INFO  [portal] GET /statements/C-2210/2026-10 streaming blob=stmt/C-2210/2026-10.pdf contentType=application/octet-stream", relevant: false },
       { text: "2026-11-18 12:05:00 WARN  [portal] Browser could not display file, offered download as \"2026-10\"", relevant: true, why: "The browser does not know it is a PDF." },
       { text: "2026-11-18 12:06:00 INFO  [statement-store] Upload config contentType not set", relevant: true, why: "The upload never sets the type." },
       { text: "2026-11-18 12:07:00 INFO  [statement-store] GET /health 200", relevant: false },
@@ -19,9 +19,9 @@ export default {
         prompt: "Why does the browser not open the PDF?",
         options: [
           "The blob was stored with a generic content type, so the browser does not know it is a PDF",
-          "The PDF is damaged",
-          "The link expired",
-          "The portal is down",
+          "The PDF generator wrote a damaged file, so no viewer can open it",
+          "The SAS token in the download link has expired",
+          "The storage account has no CORS rule, so the browser blocks the PDF",
         ],
         answer: 0,
         explain: "Azure returns the content type stored with the blob. A generic type gives the browser no hint.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What should the upload set?",
         options: [
           "Content type application/pdf, and a sensible file name for download",
-          "Nothing",
-          "text/plain",
-          "image/png",
+          "Content type application/octet-stream, so every browser saves the file safely",
+          "Content encoding gzip, so the browser knows how to read the bytes",
+          "A metadata pair type=pdf on the blob",
         ],
         answer: 0,
         explain: "Set the right type at upload so every download is served correctly.",
@@ -44,8 +44,8 @@ export default {
         options: [
           "Update their properties to set the content type",
           "Upload them again with the type",
-          "Leave them, new ones will be fine",
-          "Rename them",
+          "Leave them, because Azure applies the new upload setting to existing blobs",
+          "Rename them so they end in .pdf, and Azure works out the type",
         ],
         answer: [0,1],
         explain: "Old blobs keep the wrong type until their properties are changed or they are uploaded again.",
@@ -55,12 +55,12 @@ export default {
         prompt: "Where does the content type come from?",
         options: [
           "The app knows it made a PDF, so it sets it explicitly",
-          "Azure guesses always",
-          "The browser decides",
-          "The file name only",
+          "Azure Blob Storage works it out from the first bytes of the file",
+          "The browser decides, whatever the server sends",
+          "Azure works it out from the .pdf ending of the blob name",
         ],
         answer: 0,
-        explain: "Do not rely on guessing. The producer knows the type.",
+        explain: "The Blob service stores the type it is given and does not guess one. The producer knows the type, so it sets it.",
       },
       {
         type: 'order',
@@ -81,12 +81,14 @@ export default {
 - Customers say statements download as files with no extension and do not open.
 
 ## Change / Context
-- Statements are generated as PDFs and uploaded to blob storage. The portal gives customers a link to the blob.
+- Statements are generated as PDFs and uploaded to Azure Blob Storage by a Mule app, \`statement-store\`.
+- The portal gives customers a link such as \`/statements/C-2210/2026-10\`. It streams the blob back with the content type stored on the blob.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 12:00:01 INFO  [statement-store] Uploaded blob=stmt/C-2210/2026-10.pdf contentType=application/octet-stream
+2026-11-18 12:05:00 INFO  [portal] GET /statements/C-2210/2026-10 streaming blob=stmt/C-2210/2026-10.pdf contentType=application/octet-stream
 2026-11-18 12:05:00 WARN  [portal] Browser could not display file, offered download as "2026-10"
 2026-11-18 12:06:00 INFO  [statement-store] Upload config contentType not set
 \`\`\`

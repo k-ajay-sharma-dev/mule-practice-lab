@@ -17,10 +17,10 @@ Input: \`{ "account", "openingBalance", "transactions": [ { "id", "postedAt", "t
 
 Output:
 
-- \`account\`, \`openingBalance\` — copied as-is
-- \`entries\` — \`{ "id", "postedAt", "change", "balance" }\` in processing order
-- \`closingBalance\` — balance after the last transaction (the opening balance if there are none)
-- \`lowestBalance\` — the minimum of the opening balance and every running balance
+- \`account\`, \`openingBalance\`: copied as-is
+- \`entries\`: \`{ "id", "postedAt", "change", "balance" }\` in processing order
+- \`closingBalance\`: the balance after the last transaction (the opening balance if there are none)
+- \`lowestBalance\`: the minimum of the opening balance and every running balance
 `,
   inputs: [
     {
@@ -86,7 +86,7 @@ var ledger = sorted reduce ((t, acc = { balance: opening, lowest: opening, entri
   lowestBalance: ledger.lowest
 }`,
   explanation: `
-\`reduce\` is DataWeave's tool for anything that depends on the **previous** item — here, the running balance. Using an object as the accumulator lets one pass compute three things (balance, minimum, entries) without re-scanning the array.
+\`reduce\` is DataWeave's tool for anything that depends on the **previous** item. Here that is the running balance. Using an object as the accumulator lets one pass compute three things (balance, minimum, entries) without re-scanning the array.
 
 The composite sort key works only because the timestamps are fixed-width ISO strings; for mixed formats you would parse them to \`DateTime\` first.
 
@@ -124,7 +124,7 @@ The composite sort key works only because the timestamps are fixed-width ISO str
     },
     {
       q: 'Is `<<` inside reduce a performance concern for very large arrays?',
-      a: 'Each append builds a new immutable array, so very large reductions can get slow. For a pure running total you can instead `map` with an index and compute prefix sums, or stream the data in batches.',
+      a: 'Each append can build a new array, so a reduce over a very large array can get slow and use a lot of memory. For very large statements, process the transactions in batches (for example with a Batch Job or `foreach` with a batch size) and carry the balance from one batch to the next.',
     },
   ],
 }

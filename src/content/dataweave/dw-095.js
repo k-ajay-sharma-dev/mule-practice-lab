@@ -58,7 +58,7 @@ Work out each result before you choose.
     'sizeOf counts characters, array items or object keys.',
   ],
   solution: `
-\`+\` is arithmetic and \`++\` is concatenation, which is the opposite of what people expect coming from Java or JavaScript.
+\`+\` is arithmetic and \`++\` is concatenation. This surprises people who come from Java or JavaScript, where \`+\` also joins strings.
 
 When an operator needs another type, DataWeave converts the value if it can. So \`"10" + 5\` gives \`15\`, and \`"Order-" ++ 42\` gives \`"Order-42"\`.
 

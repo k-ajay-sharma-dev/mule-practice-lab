@@ -22,10 +22,10 @@ export default {
       type: 'single',
       prompt: 'How do you guarantee that Prod runs exactly what was tested?',
       options: [
-        'Rebuild from the same Git commit for Prod',
+        'Rebuild from the same Git commit for Prod, so the code is identical to what was tested',
         'Deploy the same versioned artifact that passed Test; only environment properties differ',
-        'Ask the senior developer to compare the JARs manually',
-        'Run MUnit again in Prod',
+        'Compare the checksum of the Prod JAR with the Test JAR after each Prod deployment',
+        'Run the full MUnit suite again against Prod before switching traffic',
       ],
       answer: 1,
       explain: 'A rebuild can differ (dependencies, local changes). Promoting the identical artifact removes the "untested local build" incident by design.',
@@ -37,7 +37,7 @@ export default {
         'The senior developer\'s personal Anypoint account',
         'A shared admin username and password',
         'A Connected App (client credentials) with only the deployment scopes it needs',
-        'An anonymous API key',
+        'The Organization Administrator account, stored as a pipeline secret',
       ],
       answer: 2,
       explain: 'Connected Apps give the pipeline its own least-privilege identity. Humans keep read-only access to Prod.',
@@ -46,21 +46,21 @@ export default {
       type: 'single',
       prompt: 'A release breaks Prod. What does rollback look like?',
       options: [
-        'Find the previous JAR on someone\'s laptop',
+        'Restore the previous app from a Runtime Manager backup taken before each deployment',
         'Run the deploy job with the previous known-good artifact version from the deployment record',
-        'Revert the Git commit and wait for the next sprint',
-        'Restore a VM snapshot',
+        'Revert the Git commit, rebuild on main and deploy the new build',
+        'Scale the app to zero replicas until a fix is ready',
       ],
       answer: 1,
-      explain: 'Versioned artifacts and a deployment record turn rollback into minutes. It is only safe if DB and contract changes are backward compatible (expand/contract).',
+      explain: 'Versioned artifacts and a deployment record turn rollback into minutes. A revert and rebuild makes a new, untested artifact and takes longer. It is only safe if DB and contract changes are backward compatible (expand/contract).',
     },
     {
       type: 'single',
       prompt: 'API Manager policies differ between Test and Prod because they were clicked by hand. What is the fix?',
       options: [
-        'Take screenshots of Test and copy them to Prod',
+        'Export the Test policies once from API Manager and import them into Prod by hand',
         'Script API instances, Autodiscovery IDs and policies per environment (REST APIs, CLI or IaC) in Git, run by the pipeline',
-        'Remove policies from Test',
+        'Remove policies from Test, so only Prod has policies to keep right',
         'Configure policies inside the Mule app XML instead',
       ],
       answer: 1,
@@ -87,7 +87,7 @@ A retail company has 40 Mule apps and 6 developers. Today:
 - Last month a prod deployment contained code that had **never been tested** (a different local build); rollback took 3 hours because nobody knew which JAR was previously deployed.
 - API Manager policies were configured by hand and differ between Test and Prod.
 
-The company uses **GitHub** and **Jenkins** (or GitHub Actions — your choice), and CloudHub 2.0.
+The company uses **GitHub** and **Jenkins** (or GitHub Actions, your choice), and CloudHub 2.0.
 
 **Questions:**
 - Design the pipeline from commit to production. What runs at each stage?
@@ -108,7 +108,7 @@ The company uses **GitHub** and **Jenkins** (or GitHub Actions — your choice),
 `,
   keyPoints: [
     'Every merge to main triggers a CI build: compile, MUnit tests with a coverage threshold, static checks, and a versioned artifact published once (e.g. to Exchange or an artifact repository).',
-    'The same versioned artifact is promoted Sandbox → Test → Prod; only environment properties change — no rebuild per environment.',
+    'The same versioned artifact is promoted Sandbox → Test → Prod; only environment properties change. There is no rebuild per environment.',
     'Deployment is automated with the Mule Maven plugin or Anypoint CLI using a Connected App (client credentials), not personal accounts.',
     'Rollback = redeploy the previous known-good artifact version through the same pipeline; versions are traceable from Git tag to deployment.',
     'API instances and policies are scripted/automated per environment (API Manager APIs, CLI or Terraform-style tooling) instead of manual clicks.',
@@ -122,9 +122,9 @@ The company uses **GitHub** and **Jenkins** (or GitHub Actions — your choice),
 4. **Automated tests in Test:** smoke tests, integration/regression (Postman/Newman, contract tests), optional performance test for critical APIs.
 5. **Approval gate → Prod:** deploy the **same version** with prod properties; run smoke tests; auto-notify the team.
 
-**Build once, promote.** The pipeline never rebuilds for Prod; it deploys artifact \`1.8.0\` that already passed Test. Environment differences are only in properties (\`env=prod\`, secure properties key from the pipeline's secret store). This removes the "untested local build" incident by design — nobody uploads JARs by hand; Prod permissions for humans are read-only.
+**Build once, promote.** The pipeline never rebuilds for Prod; it deploys artifact \`1.8.0\` that already passed Test. Environment differences are only in properties (\`env=prod\`, secure properties key from the pipeline's secret store). This removes the "untested local build" incident by design: nobody uploads JARs by hand; Prod permissions for humans are read-only.
 
-**Rollback.** Keep a deployment record (app → version → time → commit). Rollback is "run the deploy job with the previous version" — minutes, not hours. CloudHub 2.0 rolling updates keep the old replicas serving until new ones are healthy, so a failed start does not take the API down. Database or contract changes must be backward compatible (expand/contract) so rolling back the app is safe.
+**Rollback.** Keep a deployment record (app → version → time → commit). Rollback is "run the deploy job with the previous version": minutes, not hours. CloudHub 2.0 rolling updates keep the old replicas serving until new ones are healthy, so a failed start does not take the API down. Database or contract changes must be backward compatible (expand/contract) so rolling back the app is safe.
 
 **API Manager as code.** Script the API instance creation, Autodiscovery ID and policies per environment (API Manager REST APIs, Anypoint CLI, or an infrastructure-as-code tool). The scripts are stored in Git and run by the pipeline. Then Test and Prod policies only differ in values (rate limits), not in which policies exist.
 
@@ -135,6 +135,6 @@ The company uses **GitHub** and **Jenkins** (or GitHub Actions — your choice),
   followUps: [
     { q: 'How do you handle 40 apps without 40 different pipelines?', a: 'Use a shared pipeline template/library and a parent POM with common plugins and versions; each app only declares its name and environment properties. Changes to the template roll out to all apps.' },
     { q: 'MUnit tests mock all external systems. How do you know integrations really work?', a: 'MUnit covers flow logic; add integration/contract tests in the Test environment against real or virtualised backends, plus post-deploy smoke tests. Both layers are needed.' },
-    { q: 'The business wants faster releases — daily instead of monthly. What has to be true?', a: 'Fully automated tests and deployments, backward-compatible changes, fast rollback and good monitoring. Small frequent releases reduce risk per change, but only if the pipeline is trusted.' },
+    { q: 'The business wants faster releases, daily instead of monthly. What has to be true?', a: 'Fully automated tests and deployments, backward-compatible changes, fast rollback and good monitoring. Small frequent releases reduce risk per change, but only if the pipeline is trusted.' },
   ],
 }

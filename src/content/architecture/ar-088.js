@@ -87,9 +87,10 @@ Constraints:
 - Two APIs use an external identity provider for client management, and the others use Anypoint.
 - 300 partners already have direct contracts with Tracking at 100 per second.
 - The team wants a Sandbox version of each plan, promoted later to Production.
+- Behind the APIs, Tracking, Rates and Shipments share one Process API, which reaches the transport management system (TMS) and the ERP billing system through System APIs.
 
 For the Run tab:
-- A Base partner may call at 50 per second. A partner that sends 120 a second must get 429 for the calls over its plan, not 503 errors from overloaded APIs.
+- A Base partner may call at 50 per second. A partner that sends 300 a second must get 429 for the calls over its plan, not 503 errors from overloaded APIs.
 - Every call must carry the client id of an application with a contract; a call without one is refused.
 - The TMS answers in about 150 ms.
 
@@ -142,7 +143,7 @@ If a Rate Limiting policy is also on an API instance, the group administrator mu
 
 **Direct and group contracts.** An app can have a direct contract and a group contract on the same API. Only one is **Applied**: the **least restrictive** approved contract. If a partner has Tracking at 100 per second directly and a Base contract at 50 per second, then the direct contract stays applied for Tracking. Moving them to the plan does not lower their limit. To enforce the plan, the direct contract must be revoked, because a revoked contract cannot be applied.
 
-**At run time.** The gateway enforces the contract: Client ID Enforcement refuses a call with no client id, and the SLA limit (50 per second for Base) answers 429 to what is over the plan. Without the limit, a partner sending 120 a second pushes the Experience APIs over capacity and most calls fail with 503, for that partner and for everyone sharing \`prc-shipment\`. The APIs are sized for what the plans let through: 0.2 vCore for each Experience API and 0.5 for \`prc-shipment\` and \`sys-tms\`, which every Experience API calls.
+**At run time.** The gateway enforces the contract: Client ID Enforcement refuses a call with no client id, and the SLA limit (50 per second for Base) answers 429 to what is over the plan. Without the limit, a partner sending 300 a second pushes the Experience APIs over capacity and most calls fail with 503, for that partner and for everyone sharing \`prc-shipment\`. The APIs are sized for what the plans let through: 0.2 vCore for each Experience API and 0.5 for \`prc-shipment\` and \`sys-tms\`, which every Experience API calls.
 
 **Promotion and retirement.** Promote with **API Groups > Promote from environment**. The APIs must already exist in the destination. To include tiers, tick **Import default limits from existent SLA Tiers**, but only the **default limits** are promoted, so individual limits such as Shipments must be set again. To retire a plan, deprecate the group instance: new contracts stop. This does not deprecate the Exchange asset, which you do separately.
 `,
@@ -150,6 +151,6 @@ If a Rate Limiting policy is also on an API instance, the group administrator mu
     { q: 'Why does the diagram show a gateway and not the API Group?', a: 'API Groups package instances for access and contracts. Requests are still handled per API. Portal assets and contracts are where the group exists, and the architecture catalog here has no separate node for it.' },
     { q: 'What are the platform limits?', a: 'Per business group: 1,200 API Groups, 1,200 group versions and 2,000 group instances. An API Group can have up to 100 REST API dependencies in Exchange.' },
     { q: 'Who can do this work?', a: 'The API Group Administrator permission, set at business group level, allows creating, updating and deleting groups, viewing all instances, and configuring SLA tiers and contracts.' },
-    { q: 'When would you not use an API Group?', a: 'When each API has different consumers and no shared plan, or when instances use different identity providers. Direct contracts are then simpler.' },
+    { q: 'When would you not use an API Group?', a: 'When each API has different consumers and no shared plan, or when instances use different identity providers. Direct contracts then do the job with less to manage.' },
   ],
 }

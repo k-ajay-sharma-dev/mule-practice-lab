@@ -97,7 +97,7 @@ Requirements:
 
 The PIM has no events. It offers a search API with an "updated since" filter.
 
-The delta job sends about 1 batch of changes every 2 seconds. A Meta batch takes about **20 seconds**, and Meta can be down for an hour.
+At its busiest, during the weekly full refresh, the job publishes about 1 batch of changes every 2 seconds. A Meta batch takes about **20 seconds**, and Meta can be down for an hour.
 
 **Questions:**
 1. Draw the design.

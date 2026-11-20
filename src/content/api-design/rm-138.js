@@ -192,7 +192,7 @@ Fixed codes matter because the message text may be changed or translated. A form
   followUps: [
     {
       q: 'Some rules span two fields, such as "a VAT number is required for suppliers outside the UK". What goes in field?',
-      a: 'Name the field the user must change, here the VAT number. Some teams also allow a field of null for rules about the whole request, with the detail in the message.',
+      a: 'Name the field the user must change, here the VAT number. For rules about the whole request, some teams use a fixed field value such as \`request\`, because \`field\` is a required string here and cannot be null.',
     },
     {
       q: 'Should a company number that already exists also be a field error in this 400?',

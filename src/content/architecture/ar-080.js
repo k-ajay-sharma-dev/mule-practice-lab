@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'retail', 'data-residency', 'gdpr', 'pii', 'multi-region', 'activemq', 'loyalty', 'analytics'],
   estMinutes: 55,
   diagram: {
-    task: 'draw a regional integration architecture in which EU and US store and loyalty data are processed and stored in-region, and only aggregated or pseudonymised data flows to global analytics.',
+    task: 'draw a regional integration architecture in which EU and US store and loyalty data are processed and stored in-region, and only aggregated or pseudonymised data flows to global analytics. Put "EU" and "US" in the names of the store POS boxes and the regional databases, and name the stream that feeds global analytics after what it carries, such as "aggregates" or "pseudonymised".',
     checks: [
       { label: 'Stores in each region publish to an in-region broker', rule: { type: 'each', of: 'pos', min: 2, edgeTo: ['queue', 'event-stream', 'topic'], kind: 'async' } },
       { label: 'Each region keeps its own customer / loyalty store', rule: { type: 'node', match: ['database', 'crm'], min: 2 } },
@@ -148,7 +148,7 @@ Numbers for sizing:
 | Loyalty member profile, receipts with email | In-region | Pseudonymised member token, no contact data |
 | Employee timesheets | In-region (HR system in region) | Headcount/hours aggregates |
 | Sales lines | In-region with loyalty id | Aggregated by store/day/SKU, loyalty id removed or tokenised |
-| Products, stores, prices | Global | — |
+| Products, stores, prices | Global | Same data |
 
 **Regional cells.**
 \`\`\`
@@ -158,18 +158,18 @@ Numbers for sizing:
                                      └~► global.sales.aggregates ──────────┴─► prc-global-sales ─► Global analytics
  EU loyalty app ─► exp-loyalty-eu ─► prc-loyalty-eu ─► sys-loyalty-eu
 \`\`\`
-- Each region has its own brokers, runtimes and databases. The same API specifications and Mule apps are deployed per region with regional configuration — reuse of design, not of instances.
+- Each region has its own brokers, runtimes and databases. The same API specifications and Mule apps are deployed per region with regional configuration. This is reuse of design, not of instances.
 - India gets its own cell when required; until then it can be an "EU-style" cell configured for in-country hosting.
 - Runtime location: CloudHub 2.0 private spaces in the region, or customer-hosted runtimes; consider the **EU control plane** for EU workloads if management metadata must stay in the EU too.
 
-**Global analytics.** Regional Process APIs publish **aggregates** (store/day/SKU) and **pseudonymised** member metrics (token, tier, spend band). The re-identification key never leaves the region. The global warehouse is fed only from that stream — never directly from regional System APIs.
+**Global analytics.** Regional Process APIs publish **aggregates** (store/day/SKU) and **pseudonymised** member metrics (token, tier, spend band). The re-identification key never leaves the region. The global warehouse is fed only from that stream, never directly from regional System APIs.
 
 **Logs and monitoring.** Payload logging is the most common leak: mask or omit personal fields in logs, keep detailed logs in regional log stores, and send only metrics and correlation ids to global monitoring.
 
 **Sizing and failure handling.**
 - The regional sales Process and System APIs run on 0.5 vCore each, enough for 80 (EU) and 120 (US) sales a second; \`sys-loyalty-eu\` also carries the app's 30 reads a second.
 - \`prc-global-sales\` runs on 1 vCore. After an hour of warehouse downtime (about 720,000 waiting aggregates) it catches up at about 300 a second over the new ones, in well under an hour.
-- The aggregate topic is persistent and has no redelivery limit without a DLQ, so nothing is lost while the warehouse is down, and the regional cells never wait for it.
+- The aggregate topic is persistent and has no redelivery limit, so nothing is lost while the warehouse is down, and the regional cells never wait for it.
 - In total 3.2 vCores, inside the 4 vCore budget.
 
 **Trade-offs.** More environments and pipelines, duplicated broker operations, regional release coordination, and cross-region features (a US member shopping in Paris) need explicit, lawful exchange APIs. In return: a clear compliance story and smaller blast radius per region.
