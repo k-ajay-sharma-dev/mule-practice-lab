@@ -90,6 +90,9 @@ The file changes once a year, when the team adds the next year's holidays and th
 - Answer \`{ "date", "deliveryDay": true }\` for a day that is not in the file.
 - Answer \`{ "date", "deliveryDay": false, "holiday": "Christmas Day" }\` for a day that is.
 - Answer **400** with \`{ "message": "date is required, as yyyy-MM-dd" }\` when no date is given.
+- Read the file from the app's resources as \`classpath://holidays.json\`.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flow.**
 `,

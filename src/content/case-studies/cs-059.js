@@ -93,6 +93,8 @@ export default {
 
 In November the API clients can send 40 orders a second for 30 minutes, the WMS licence allows 20 calls a second, and about 1 order in 50 has data the WMS rejects every time.
 
+All channels put canonical orders on a \`canonical-warehouse-orders\` queue. Try each order at most 5 times, then move it to a dead-letter queue for the onboarding team. Shipment confirmations go to a \`shipment-confirmed\` topic. Name the APIs exp-edi-inbound, exp-client-orders-api, prc-warehouse-orders, prc-client-outbound and sys-wms-api.
+
 **Your task.** Propose:
 - the integration platform architecture
 - the onboarding model
@@ -122,10 +124,10 @@ In November the API clients can send 40 orders a second for 30 minutes, the WMS 
   ],
   solution: `
 **Phases**
-1. **Canonical model and core (months 1–3).** Canonical messages for orders, receipts, shipments and inventory. \`prc-warehouse-orders\` validates against the client profile, de-duplicates on client + order number and calls \`sys-wms-api\` (batching calls where the WMS licence model rewards it).
-2. **Adapters (months 2–5).** \`exp-edi-inbound\` (AS2 + X12 940/943 → canonical) and \`exp-client-orders-api\` (REST behind API Manager, a client ID per client). An SFTP intake job for CSV clients with a configurable column mapping, and an IDoc adapter for the two SAP clients. All publish to \`canonical-warehouse-orders\`.
-3. **Outbound (months 4–6).** WMS shipment and inventory events → \`sys-wms-api\` → \`shipment-confirmed\` topic → \`prc-client-outbound\`, which reads the profile and sends a 945, a CSV or a webhook.
-4. **Migrate existing clients (months 6–15).** Move in waves by channel type, parallel-running with comparison of outputs, oldest custom code first.
+1. **Canonical model and core (months 1 to 3).** Canonical messages for orders, receipts, shipments and inventory. \`prc-warehouse-orders\` takes the queue no faster than the WMS licence allows (20 calls a second), validates against the client profile, de-duplicates on client + order number and calls \`sys-wms-api\` (batching calls where the WMS licence model rewards it). An order rejected 5 times moves to the DLQ. Thirty minutes at 40 orders a second leaves about 36,000 orders queued, which drain in about an hour at the 20 a second the WMS allows.
+2. **Adapters (months 2 to 5).** \`exp-edi-inbound\` (AS2 + X12 940/943 → canonical) and \`exp-client-orders-api\` (REST behind API Manager, a client ID per client). An SFTP intake job for CSV clients with a configurable column mapping, and an IDoc adapter for the two SAP clients. All publish to \`canonical-warehouse-orders\`.
+3. **Outbound (months 4 to 6).** WMS shipment and inventory events → \`sys-wms-api\` → \`shipment-confirmed\` topic → \`prc-client-outbound\`, which reads the profile and sends a 945, a CSV or a webhook.
+4. **Migrate existing clients (months 6 to 15).** Move in waves by channel type, parallel-running with comparison of outputs, oldest custom code first.
 
 **Multi-tenancy.** Client ID in every message and log; client credentials scoped per client; outbound routing only from the profile; separate queues (or message priority/limits) for the top clients so a flash sale cannot starve others; per-client rate limits on the API.
 

@@ -8,7 +8,7 @@ export default {
   tags: ['deployment', 'runtime-fabric', 'disaster-recovery', 'high-availability', 'kubernetes', 'rpo-rto', 'environments'],
   estMinutes: 60,
   diagram: {
-    task: 'draw a Runtime Fabric estate in two regions, with clients entering through a global load balancer that reaches each region\'s ingress, an API-led stack in each region with the ERP reached only through System APIs, state kept in an external replicated database, and scheduled backups written to storage outside the cluster.',
+    task: 'draw a Runtime Fabric estate in two regions, with clients entering through a global load balancer (put "global" in its name) that reaches a separate ingress load balancer in each region, an API-led stack in each region with the ERP reached only through System APIs, state kept in an external replicated database, and scheduled backups written to storage outside the cluster.',
     checks: [
       { label: 'Every client enters through a load balancer', rule: { type: 'each', of: ['web-app', 'partner', 'mobile-app', 'internal-app'], edgeTo: 'load-balancer' } },
       { label: 'A global load balancer plus an ingress in each region', rule: { type: 'node', match: 'load-balancer', min: 3 } },

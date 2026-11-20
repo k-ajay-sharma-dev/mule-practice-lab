@@ -142,13 +142,13 @@ export default {
   description: `
 A **Customer 360 Process API** (\`GET /customers/{id}/360\`) serves the call-centre UI. It must combine:
 
-| System | Data | Typical latency | Notes |
-|---|---|---|---|
-| Salesforce | profile, segment | 300 ms | **mandatory** |
-| SAP (via SAP System API) | open invoices, credit limit | 800 ms, p99 4 s | optional |
-| Zendesk | last 10 tickets | 500 ms | optional, flaky |
+| System | Call | Data | Typical latency | Notes |
+|---|---|---|---|---|
+| Salesforce | \`GET /salesforce/accounts/{id}\` | profile, segment | 300 ms | **mandatory** |
+| SAP (via SAP System API) | \`GET /sap/customers/{id}/finance\` | open invoices, credit limit | 800 ms, p99 4 s | optional |
+| Zendesk | \`GET /zendesk/users/{id}/tickets\` | last 10 tickets | 500 ms | optional, flaky |
 
-**SLA:** respond within **2 seconds**. If an optional system is slow or down, return what you have and flag the missing section. If Salesforce fails, return **502**.
+**SLA:** respond within **2 seconds** with JSON that includes \`customerId\` (the Salesforce \`Id\`). If an optional system is slow or down, return what you have and flag the missing section. If Salesforce fails, return **502**.
 
 The first version used a Scatter-Gather with no timeouts; when SAP hangs, agents wait 30+ seconds, and when Zendesk returns 500, the whole call fails.
 
@@ -178,13 +178,13 @@ The first version used a Scatter-Gather with no timeouts; when SAP hangs, agents
   ],
   solution: `
 **Configuration**
-- \`<scatter-gather timeout="1800" maxConcurrency="3">\` — the gather-level timeout caps total wait; routes that don't finish in time are treated as failed.
+- \`<scatter-gather timeout="1800" maxConcurrency="3">\`. The gather-level timeout caps total wait; routes that don't finish in time are treated as failed.
 - Each HTTP Request gets its own \`responseTimeout\` (Salesforce 1500 ms, SAP 1500 ms, Zendesk 1200 ms), so a slow system fails fast *inside* its route where it can be handled.
 
 **Routes**
-- **Route 0 – Salesforce (mandatory):** query the Account/Contact; no Try, so errors propagate.
-- **Route 1 – SAP (optional):** Try { HTTP Request to SAP System API → Transform } On Error Continue (\`HTTP:TIMEOUT\`, \`HTTP:CONNECTIVITY\`, \`HTTP:SERVICE_UNAVAILABLE\`, \`HTTP:INTERNAL_SERVER_ERROR\`, or \`ANY\`) → payload \`{ available: false, reason: error.errorType.identifier }\`.
-- **Route 2 – Zendesk (optional):** same Try/On Error Continue pattern.
+- **Route 0, Salesforce (mandatory):** query the Account/Contact; no Try, so errors propagate.
+- **Route 1, SAP (optional):** Try { HTTP Request to SAP System API → Transform } On Error Continue (\`HTTP:TIMEOUT\`, \`HTTP:CONNECTIVITY\`, \`HTTP:SERVICE_UNAVAILABLE\`, \`HTTP:INTERNAL_SERVER_ERROR\`, or \`ANY\`) → payload \`{ available: false, reason: error.errorType.identifier }\`.
+- **Route 2, Zendesk (optional):** same Try/On Error Continue pattern.
 
 **Output and merge**
 The gather's payload is an object: \`{ "0": Message, "1": Message, "2": Message }\`. DataWeave:

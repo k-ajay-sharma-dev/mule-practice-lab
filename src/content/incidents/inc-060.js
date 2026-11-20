@@ -21,25 +21,25 @@ export default {
         type: 'single',
         prompt: 'What is blocking checkout?',
         options: [
-          'The broker store is full, mostly with an unconsumed analytics copy queue and an old DLQ, so ActiveMQ blocks producers and the synchronous publish in checkout hangs',
-          'The order consumers are too slow for Black Friday volumes',
-          'The web shop is sending malformed orders',
-          'The Mule app ran out of CPU',
+          'A full store, mostly unread copies and old DLQ messages, blocks the publish',
+          'The order consumers cannot keep up with Black Friday volume on ORDER.CREATED',
+          'The broker’s memoryUsage limit is full of in-flight orders for the 6 consumers',
+          'orders-exp ran out of threads because 240 requests wait on the HTTP listener',
         ],
         answer: 0,
-        explain: 'ORDER.CREATED itself has only 820 pending with 6 consumers. The 9.4 million messages in a queue nobody reads filled storeUsage, and producer flow control blocks every publisher.',
+        explain: 'ORDER.CREATED itself has only 820 pending with 6 consumers. The broker log names the Store, not memory. The 9.4 million messages in a queue nobody reads filled storeUsage, and producer flow control blocks every publisher; the 240 waiting threads are a result, not the cause.',
       },
       {
         type: 'single',
         prompt: 'What is the fastest safe **immediate** action?',
         options: [
-          'Raise the store limit to 100 GB without checking disk',
-          'After confirming with the data team it is no longer needed, purge ANALYTICS.ORDERS.COPY (and export then purge old DLQ messages) to free store space',
-          'Restart the broker',
-          'Stop all order consumers to reduce load',
+          'Restart the broker so KahaDB compacts its journal and frees space',
+          'Confirm with the data team, then purge ANALYTICS.ORDERS.COPY',
+          'Turn producer flow control off for ORDER.CREATED in activemq.xml',
+          'Add six more order consumers so ORDER.CREATED drains faster',
         ],
         answer: 1,
-        explain: 'Freeing the dead copy queue releases most of the space immediately. A restart keeps the persisted messages; raising the limit beyond the real disk risks a hard failure.',
+        explain: 'Freeing the dead copy queue releases most of the space. Then export and purge the old DLQ. A restart keeps the persisted messages. Turning flow control off does not lift the store limit: a full store still blocks or fails sends. ORDER.CREATED holds only 820 messages, so faster consumers free almost nothing.',
       },
       {
         type: 'multi',
@@ -47,7 +47,7 @@ export default {
         options: [
           'Remove the composite destination copy (or give it a real consumer and expiry)',
           'Alert on store and memory percentUsage and on queues with pending messages and zero consumers',
-          'Set a publish timeout and fallback in checkout (e.g. store the order and publish later) so a blocked broker does not hang customers',
+          'A publish timeout and an outbox fallback in checkout',
           'Give the DLQ an expiry or a regular review and replay process',
           'Turn off persistence for ORDER.CREATED to save store space',
         ],
@@ -126,7 +126,7 @@ export default {
 `,
   followUps: [
     { q: 'Can ActiveMQ fail the send instead of blocking?', a: 'Yes, with sendFailIfNoSpace (or sendFailIfNoSpaceAfterTimeout) on systemUsage the producer gets an exception instead of blocking, which lets the app fail fast and use its fallback.' },
-    { q: 'Why did restarting the broker not help?', a: 'The messages are persistent, so after the restart the store is just as full; only consuming, purging or expiring them frees space.' },
+    { q: 'Why did restarting the broker not help?', a: 'The messages are persistent, so after the restart the store is as full as before; only consuming, purging or expiring them frees space.' },
     { q: 'What is the outbox pattern here?', a: 'Checkout writes the order and an outbox row in one database transaction. A separate process publishes outbox rows to the broker, so a broker outage delays messages but never loses or blocks orders.' },
   ],
 }

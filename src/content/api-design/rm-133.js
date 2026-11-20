@@ -212,7 +212,7 @@ types:
   solution: `
 **Named scalar types.** \`Latitude\` and \`Longitude\` are not objects. They are numbers with limits. Because they have names, the same limits apply to the \`lat\` query parameter and to \`GeoPoint.lat\` in the response. If the rule changes, it changes in one place.
 
-**What the types catch.** A latitude of 182 or a longitude of -300 now fails with 400. Swapped values are often caught as well, because a longitude such as 120 is not a valid latitude. A value such as \`0,0\` is a valid point, so the API cannot refuse it. The app should not send a point it does not have.
+**What the types catch.** A latitude of 182 or a longitude of -300 now fails with 400. Swapped values are caught only when the longitude is outside -90 to 90, such as 120. Near this city both swapped numbers are in range, so the app must still send them the right way round. A value such as \`0,0\` is a valid point, so the API cannot refuse it. The app should not send a point it does not have.
 
 **Limits on the search.** \`radiusKm\` stops at 10 and \`limit\` at 50. A caller cannot ask for every dock in the city in one call, which keeps the search fast for everyone.
 

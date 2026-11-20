@@ -103,6 +103,9 @@ export default {
 - Payment status (accepted, rejected, settled) as pacs.002 events for notifications and reporting.
 - Corporate files of up to 50,000 payments must not block online payments.
 - In tests online banking sends 100 instant payments a second while a file adds 100 Bacs payments a second for 10 minutes, and the SWIFT gateway can be closed for an hour.
+- Name the hub prc-payment-hub, the queues \`payments.inbound-bulk\`, \`route.swift\` and \`route.bacs\`, and the System APIs sys-sanctions-api, sys-fraud-scoring-api, sys-core-ledger-api, sys-instant-scheme-api, sys-swift-api and sys-bacs-api.
+- Run exp-payment-initiation-api and prc-payment-hub on 1 vCore each, and the sanctions, fraud, core ledger and instant scheme System APIs on 0.5 vCore each.
+- A queue redelivers a failed message about once a minute. Keep SWIFT payments on their queue until the gateway opens: set no redelivery limit lower than 90.
 
 **Your task.** Design the payment hub integration.
 `,

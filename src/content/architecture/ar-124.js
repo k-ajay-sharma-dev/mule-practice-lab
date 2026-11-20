@@ -56,7 +56,8 @@ A developer suggests a shortcut: call the System API straight from the app. It w
 Some numbers for the design:
 - Staff check their leave about 15 times a second. When a new rota is published, that rises to 45 a second for a couple of minutes.
 - The HR system answers in about 300 ms. Its vendor allows at most 25 API calls a second.
-- Staff sign in, and the app sends a token (a JWT) with each request. An old test build that sends no token is still installed on some phones.
+- Staff sign in, and the app sends a token (a JWT) with each request. An old test build that sends no token is still installed on some phones. Requests with no token must be refused before they reach the HR system.
+- During a rota peak, some requests may be turned away for the app to try again.
 
 **Questions:**
 - Draw the design without the shortcut.

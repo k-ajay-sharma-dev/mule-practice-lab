@@ -34,15 +34,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'The property `batch.max` is `500`. A script does `p(\'batch.max\') + 1`. What should you change?',
+      prompt: 'The property `batch.max` is `500`. A script needs it as a number for a calculation. What is the safest way to write it?',
       options: [
-        'Nothing, it gives 501',
-        'Write the property as 500.0',
-        'Use `${batch.max} + 1` instead',
-        'Convert first: `p(\'batch.max\') as Number + 1`',
+        '`p(\'batch.max\')` alone, as `p` returns a Number for 500',
+        '`p(\'batch.max\') as String`, so the text is kept as it is',
+        '`vars.batch.max`, as Mule copies properties into variables',
+        '`p(\'batch.max\') as Number`, converted before the maths',
       ],
       answer: 3,
-      explain: 'Property values come back as text. Convert them before you do maths with them.',
+      explain: 'Property values come back as text. DataWeave can coerce some text by itself, but an explicit `as Number` makes the type clear and fails early on a bad value. Properties are not copied into `vars`.',
     },
     {
       type: 'single',
@@ -72,7 +72,7 @@ Northmoor Energy reads smart meters every 30 minutes. A Mule app takes each read
 
 A code review found three mistakes:
 - A Logger used \`\${payload.meterId}\` and printed nothing useful.
-- A script added 1 to \`p('batch.max')\` and gave the wrong result.
+- A script used \`p('batch.max')\` in a calculation without converting it from text.
 - A connector had the prod host typed straight into its config, so the test app called prod.
 
 **Questions**
@@ -100,7 +100,7 @@ A code review found three mistakes:
   solution: `
 **1. Two kinds of value.** \`#[...]\` holds DataWeave. Mule works it out for each event, so it can read \`payload\`, \`attributes\` and \`vars\`. \`\${...}\` is a placeholder for a property. Mule replaces it when the app starts, before any event exists. That is why \`\${payload.meterId}\` could never work: there was no property with that name and no payload at start-up.
 
-**2. p().** Inside a script, \`p('tariff.region')\` returns the property value. Properties are text, so \`p('batch.max') as Number\` is needed before adding to it. Secure properties are read the same way, with the \`secure::\` prefix in the name.
+**2. p().** Inside a script, \`p('tariff.region')\` returns the property value. Properties are text, so write \`p('batch.max') as Number\` before you add to it. That makes the type clear and fails early if the value is not a number. Secure properties are read the same way, with the \`secure::\` prefix in the name.
 
 **3. A missing property.** If a placeholder has no value, the app fails to start and names the property. This is safer than a silent default, because the gap shows up on deploy.
 

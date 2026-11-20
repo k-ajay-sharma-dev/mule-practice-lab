@@ -61,14 +61,15 @@ Systems:
 
 Rules:
 - The handheld must download today's count list, then submit counts (item, location in store, counted quantity).
-- Variance = counted − book stock **at the time the count started** (sales during counting must not distort it).
+- Variance compares the counted quantity with book stock **at the time the count started**, corrected for units sold while counting, so sales during counting do not distort it.
 - If the variance is more than **10 % or €200**, the item must be **recounted** by a supervisor before posting.
 - Adjustments must post to EBS by **12:00** the same day.
 - Stores have Wi-Fi but it drops in the back rooms.
 
-Volumes: 600 stores × 50 items = 30,000 counts/day, mostly 07:00–09:00.
-
-- From 07:00 the handhelds read count lists and book stock at about 80 requests a second, and counting must go on when one availability zone is down.
+Volumes and service levels:
+- 600 stores × 50 items = 30,000 counts/day, mostly 07:00 to 09:00.
+- From 07:00 the handhelds read count lists and book stock at about 80 requests a second. Each request must be answered in under 1 second.
+- Counting must go on when one availability zone is down.
 
 **Questions:**
 1. Which APIs do you build?
@@ -114,6 +115,8 @@ Volumes: 600 stores × 50 items = 30,000 counts/day, mostly 07:00–09:00.
 **Recounts.** If |variance| > 10 % or value > €200, the task becomes RECOUNT_REQUIRED and appears on the supervisor's handheld. The second count replaces the first.
 
 **Posting.** Approved variances → **sys-oracle-ebs-inventory** inserts adjustment transactions (a PL/SQL wrapper over the EBS inventory transaction interface, called with \`db:stored-procedure\`) with reason code "cycle count". Then sys-store-inventory updates book stock. A noon check lists stores with unposted counts.
+
+**Capacity.** 80 requests a second at under 1 second needs more than one small worker: the Experience, Process and store-inventory System APIs each run 2 replicas of 0.5 vCore. Two replicas also keep the handhelds working when one availability zone is down.
 
 **Errors.** EBS unavailable → the message is rolled back and redelivered; after the limit it goes to a DLQ and support is alerted before the 12:00 deadline.
 `,

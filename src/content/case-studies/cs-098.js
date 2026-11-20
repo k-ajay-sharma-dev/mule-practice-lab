@@ -97,6 +97,7 @@ Today claimants upload payslips and letters, and 900 caseworkers check them by h
 | Case system | On-premises case management system with a SOAP interface, the record of every decision |
 | Volume | About 40,000 new claims and 150,000 reassessments a month |
 | Tests | 10 to 20 claims a second, the tax service taking 20 seconds for 20 minutes, and an unknown caller sending 5 a second with no token |
+| Diagram | The gateway validates JWTs (jwt policy). Name the System API sys-data-exchange-api and give it a 5 second timeout. The eligibility Process API answers with a partial answer when a lookup fails. Put "audit" in the name of the audit store |
 
 **Your task.** Design how the portal and caseworker app get verified facts, how the agency talks to the data exchange, and how lookups are audited and retried.
 `,
@@ -123,9 +124,9 @@ Today claimants upload payslips and letters, and 900 caseworkers check them by h
     'Yes or no queries and field-level minimisation reduce the personal data the agency holds.',
   ],
   solution: `
-**Channels.** The portal and the caseworker app go through the gateway, which validates the citizen or staff token with the identity provider. \`exp-citizen-claims-api\` exposes "start eligibility check" and "status". \`exp-caseworker-api\` adds the verified facts with source and date, and lets a caseworker trigger a re-check with a reason code.
+**Channels.** The portal and the caseworker app go through the gateway, which validates the citizen or staff JWT against the identity provider's keys. \`exp-citizen-claims-api\` exposes "start eligibility check" and "status". \`exp-caseworker-api\` adds the verified facts with source and date, and lets a caseworker trigger a re-check with a reason code.
 
-**Eligibility.** \`prc-eligibility-check\` decides which facts the claim type needs under the law, builds the questions, calls \`sys-data-exchange-api\` for each agency in parallel (with a 20 second overall limit) and applies the rules. It writes the decision and the facts to the case system through \`sys-case-management-api\`.
+**Eligibility.** \`prc-eligibility-check\` decides which facts the claim type needs under the law, builds the questions, calls \`sys-data-exchange-api\` for each agency in parallel and applies the rules. The System API gives up on an agency after 5 seconds, and the Process API then gives a partial answer: the claim is decided on the facts it has, or marked pending for the missing one. It writes the decision and the facts to the case system through \`sys-case-management-api\`.
 
 **Data exchange System API.** \`sys-data-exchange-api\` is the only component holding the agency certificate and signing keys. It enforces quotas per target agency, maps each legal purpose to the services allowed, and refuses a call that does not carry a purpose code and a claim id. For every call it publishes an audit message (caller, claim id, purpose, agency, service, result code, a hash of the response) to \`lookup-audit\`, which is written to a write-once audit store.
 

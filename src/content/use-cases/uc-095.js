@@ -63,6 +63,7 @@ Facts:
 - EBS has a maintenance window every Sunday 02:00 to 06:00. Orders activated then must not be lost.
 - The EBS team allows writes only through the public API \`OE_ORDER_PUB.PROCESS_ORDER\`, never inserts into base tables.
 - In the tests sales activates 30 orders a minute, EBS stays down 30 minutes after its window, and 1 order in 50 has an option line EBS always rejects.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit. Each order must be tried for about an hour before it goes to the DLQ, so no good order is lost or parked during the 30-minute outage, and rejected orders reach the DLQ.
 
 **Questions:**
 1. How is an activated order picked up?
@@ -92,9 +93,9 @@ Facts:
 
 **Status back.** Every 5 minutes the status job asks **sys-oracle-ebs-om-api** for orders whose header, delivery or invoice changed since the last watermark. It sends the changes to Salesforce as one composite update per 200 orders. Tracking numbers come from the delivery details.
 
-**Downtime.** On Sunday night the System API returns connectivity errors. The transaction rolls back and ActiveMQ redelivers with back-off; orders wait on the queue and flow once EBS is back. The status job skips its runs while EBS is down.
+**Downtime.** On Sunday night the System API returns connectivity errors. The transaction rolls back and ActiveMQ redelivers about once a minute. The queue allows about 60 deliveries, an hour of tries, so orders wait on the queue through the late 30 minutes and flow once EBS is back. The status job skips its runs while EBS is down.
 
-**Errors.** A business error from \`PROCESS_ORDER\` (inactive item, missing price list) is not retried. The message moves to \`DLQ.ORDERS.ACTIVATED\` and the Salesforce order gets an integration status of Failed with the message text, so the rep can fix it and reactivate.
+**Errors.** A business error from \`PROCESS_ORDER\` (inactive item, missing price list) fails on every delivery. After the 60th delivery the message moves to \`DLQ.ORDERS.ACTIVATED\` and the Salesforce order gets an integration status of Failed with the message text, so the rep can fix it and reactivate.
 `,
   followUps: [
     { q: 'Why wrap OE_ORDER_PUB in your own PL/SQL procedure?', a: 'The API takes complex PL/SQL record types that JDBC cannot pass. A wrapper with plain parameters or an XML input keeps the Mule side clean and holds the duplicate check in one place.' },

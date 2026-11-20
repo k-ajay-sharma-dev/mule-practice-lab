@@ -12,12 +12,12 @@ export default {
       prompt: 'In the blameless review, which statement best separates the **trigger** from the **root cause**?',
       options: [
         'Trigger: the address-validation API slowed down. Root cause: it was called synchronously on the checkout critical path with a 60 s timeout and no fallback.',
-        'Trigger: the on-call engineer was paged late. Root cause: the address-validation vendor had an outage.',
-        'Trigger: CPU stayed low. Root cause: the Mule workers were undersized.',
-        'Trigger: the web app retried. Root cause: Saturday-morning traffic was higher than usual.',
+        'Trigger: the vendor had an outage. Root cause: the on-call engineer was paged 50 minutes late because alerts watched only CPU.',
+        'Trigger: Saturday traffic was higher than usual. Root cause: the Mule workers were too small for the load, so their threads ran out.',
+        'Trigger: the web app retried aggressively. Root cause: the vendor broke its 200 ms response time agreement with no warning.',
       ],
       answer: 0,
-      explain: 'Third parties will always slow down sometimes — that is only the trigger. The outage happened because the design let an unessential dependency hold checkout threads for up to 60 s with no fallback. Blaming the vendor or the engineer misses what the team can fix.',
+      explain: 'Third parties will always slow down sometimes, so that is only the trigger. The outage happened because the design let an unessential dependency hold checkout threads for up to 60 s with no fallback. Blaming the vendor or the engineer misses what the team can fix.',
     },
     {
       type: 'single',
@@ -36,13 +36,13 @@ export default {
       needsScenario: true,
       prompt: 'What is the best **immediate** fix for the address-validation call?',
       options: [
-        'Raise the timeout to 120 s so slow responses still succeed',
-        'Cut the timeout to about 2 s and, on timeout or error, accept the address and validate it asynchronously later (flag the order for review)',
-        'Add more replicas of `checkout-papi` so there are more threads to wait',
-        'Retry the call three times before failing the checkout',
+        'Raise the timeout to 120 s so that slow responses still succeed and no order is refused',
+        'Cut the timeout to about 2 s and, on failure, accept the address and validate it later',
+        'Add more replicas of `checkout-papi` so there are more threads to wait on the slow call',
+        'Retry the call three times with a short delay before failing the checkout',
       ],
       answer: 1,
-      explain: 'Address validation is not essential to taking an order, so it needs a short, deliberate timeout plus a fallback. More replicas only give the slow dependency more threads to hold, and synchronous retries multiply the load on a struggling service.',
+      explain: 'Address validation is not essential to taking an order, so it needs a short, deliberate timeout plus a fallback: the order is flagged and the address is checked asynchronously. A longer timeout makes threads wait even longer. More replicas only give the slow dependency more threads to hold, and synchronous retries multiply the load on a struggling service.',
     },
     {
       type: 'single',
@@ -50,7 +50,7 @@ export default {
       prompt: 'Why did restarting the application only help for a few minutes each time?',
       options: [
         'The restart cleared a memory leak that came back after a few minutes',
-        'Restarts freed the threads, but the slow dependency and the client retries were still there, so the threads filled up again',
+        'Restarts freed the threads, but the slow calls and client retries filled them again',
         'CloudHub throttles applications that are restarted more than once an hour',
         'The restart reloaded an old configuration that had the bug',
       ],
@@ -126,7 +126,7 @@ You are the integration architect asked to run the post-incident review and prop
 `,
   answerTemplate: `## Incident analysis (causes and contributing factors)
 
-## Immediate fixes (next 2–4 weeks)
+## Immediate fixes (next 2 to 4 weeks)
 
 ## Design standards for resilience
 
@@ -153,7 +153,7 @@ You are the integration architect asked to run the post-incident review and prop
 - *Recovery*: restarts did not address the cause; no runbook or feature flag to switch the dependency off.
 Write it blamelessly: focus on system conditions, not the engineer.
 
-**Immediate (2–4 weeks).**
+**Immediate (2 to 4 weeks).**
 1. Address-validation timeout reduced to ~2 s; on timeout or error, accept the address and validate asynchronously later (flag order for review).
 2. Feature flag/configuration to disable the call quickly.
 3. Split \`customer-sapi\` into its own deployment; review other co-deployed critical APIs.
@@ -175,13 +175,13 @@ Write it blamelessly: focus on system conditions, not the engineer.
 
 **Testing.** Load tests with dependency slowness simulated (mock servers injecting latency), game days before peak season, and resilience tests added to the CI/CD pipeline for critical APIs.
 
-**Programme.** Month 1: immediate fixes. Months 2–3: top-20 critical APIs meet standards before peak. Months 4–6: remaining apps, game days, review. Governance: architecture review checks the resilience checklist; a monthly reliability review. **Metrics**: SLO attainment, time to detect (target < 5 min), time to recover, number of P1 incidents, % critical APIs compliant.
+**Programme.** Month 1: immediate fixes. Months 2 to 3: top-20 critical APIs meet standards before peak. Months 4 to 6: remaining apps, game days, review. Governance: architecture review checks the resilience checklist; a monthly reliability review. **Metrics**: SLO attainment, time to detect (target < 5 min), time to recover, number of P1 incidents, % critical APIs compliant.
 
 **Risks.** Programme crowded out by features (leadership-backed capacity, e.g. 20% per sprint), alert fatigue (symptom-based, tuned alerts), and fixes that only cover this one dependency (apply standards broadly).
 `,
   followUps: [
     { q: 'Why did restarts only help for a few minutes?', a: 'Restarts freed threads, but the slow dependency and the client retries were still there, so threads filled up again. The cause was the unbounded waiting on a slow dependency, not the runtime state.' },
     { q: 'Is a 2-second timeout always right?', a: 'No. Timeouts should come from the dependency\'s normal latency (e.g. its p99) and the caller\'s own SLA budget. The point is that every call has a deliberate, bounded timeout.' },
-    { q: 'How do you get busy teams to adopt the standards?', a: 'Make them easy (templates, shared libraries, pipeline checks), prioritise the critical APIs first, and tie the work to measurable SLOs that leadership tracks.' },
+    { q: 'How do you get busy teams to adopt the standards?', a: 'Lower the effort (templates, shared libraries, pipeline checks), prioritise the critical APIs first, and tie the work to measurable SLOs that leadership tracks.' },
   ],
 }

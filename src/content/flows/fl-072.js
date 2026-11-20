@@ -180,7 +180,7 @@ export default {
     ),
   ),
   description: `
-A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5–80 MB) to its SFTP server in \`/outbound/remittance\`. You may read, rename and move files there, and \`/archive/remittance\` and \`/error/remittance\` exist. The files must be posted to the internal **Treasury API** during business hours.
+A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5 to 80 MB) to its SFTP server in \`/outbound/remittance\`. You may read, rename and move files there, and \`/archive/remittance\` and \`/error/remittance\` exist. The files must be posted to the internal **Treasury API** during business hours.
 
 **What went wrong last month**
 - The bank's upload of an 80 MB file takes up to two minutes and the file is written **under its final name**. The old integration read a file halfway through and booked only part of the payments.
@@ -188,9 +188,14 @@ A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5–80 MB) to
 - The bank cannot change its upload process this quarter.
 
 **Requirements**
-- Poll every 10 minutes, Monday to Friday 06:00–20:00.
+- Poll every 10 minutes, Monday to Friday 06:00 to 20:00.
 - Each file is processed **exactly once**, even with several workers and after a crash.
 - Processed files are archived with a timestamp in the name; failed files go to the error folder.
+
+**Facts**
+- A file is CSV with the header \`INVOICE_NO,AMOUNT,CCY,VALUE_DATE\`, and \`VALUE_DATE\` is \`yyyyMMdd\`.
+- A file whose modification time is more than 3 minutes old is complete.
+- The Treasury API is \`POST /treasury/v1/remittance-files\` with \`{ sourceFile, remittances: [{ invoiceNo, amount, currency, valueDate }] }\`, where \`sourceFile\` is the file name. It is idempotent on \`sourceFile\`.
 
 **Design the flow.** Explain why you chose a Scheduler + List over the SFTP listener, or when you would choose the listener instead.
 `,
@@ -212,7 +217,7 @@ A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5–80 MB) to
     'Crash recovery: a .processing file older than N minutes was abandoned; a sweeper renames it back. The Treasury API is idempotent on the file name, so a re-run after a lost response is safe.',
   ],
   solution: `
-1. **Scheduler** cron \`0 0/10 6-20 ? * MON-FRI\` (set the time zone). In a Mule cluster the scheduler runs on the primary node only, but separate replicas each run it — so the design must be safe without relying on that.
+1. **Scheduler** cron \`0 0/10 6-20 ? * MON-FRI\` (set the time zone). In a Mule cluster the scheduler runs on the primary node only, but separate replicas each run it, so the design must be safe without relying on that.
 2. **SFTP List** \`/outbound/remittance\`, \`REM_*.csv\`, not recursive. Listing returns attributes (path, size, timestamp) per file.
 3. **Transform**: keep files with \`size > 0\` and \`attributes.timestamp\` older than 3 minutes, sorted by name. Watch the time zone: the reference does not say which zone the timestamp is in, so compare a real file's value with the clock before you rely on the cutoff.
 4. **For Each** file:
@@ -230,7 +235,7 @@ A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5–80 MB) to
     },
     {
       q: 'What if the bank later agrees to upload as REM_x.csv.tmp and rename when finished?',
-      a: 'Then match only *.csv and drop the timestamp filter — the final name only appears once the upload is complete. That is the most reliable fix for half-written files.',
+      a: 'Then match only *.csv and drop the timestamp filter: the final name only appears once the upload is complete. That is the most reliable fix for half-written files.',
     },
     {
       q: 'Why is the archive name stored in a variable instead of computing now() in both the rename and the move?',

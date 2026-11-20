@@ -10,10 +10,10 @@ export default {
       type: 'single',
       prompt: 'What does `jms:publish-consume` do when **no** reply-to destination is configured?',
       options: [
-        'It publishes the request with a temporary reply destination and waits for the reply on it',
-        'It publishes and returns immediately with an empty payload',
-        'It fails because reply-to is mandatory',
-        'It waits for any message on the request queue',
+        'It sends with a temporary reply destination and waits on it',
+        'It publishes and returns at once with an empty payload',
+        'It fails at startup, because a reply-to is mandatory',
+        'It waits for the next message on the request queue',
       ],
       answer: 0,
       explain: 'publish-consume is synchronous request-reply: Mule creates a temporary destination for the reply unless you name one, sets it as JMSReplyTo and blocks until the reply arrives or the wait times out.',
@@ -23,22 +23,22 @@ export default {
       detail: true,
       prompt: 'The responder is a Mule flow with a `jms:listener` on `ATP.REQUEST`. How does it send the answer back?',
       options: [
-        'The listener sends the flow result to the JMSReplyTo destination of the request automatically',
+        'The listener sends the flow result to JMSReplyTo',
         'It must call jms:publish-consume back to the caller',
-        'It sends an HTTP callback to the caller',
-        'The broker copies the request back to the caller',
+        'It must call jms:publish to the ATP.REPLY queue itself',
+        'The broker copies the request back as the reply',
       ],
       answer: 0,
-      explain: 'When a received message carries a reply-to destination, the JMS listener replies to it with the flow result (you can shape the reply with the listener response settings).',
+      explain: 'When a received message carries a reply-to destination, the JMS listener replies to it automatically with the flow result (you can shape the reply with the listener response settings).',
     },
     {
       type: 'single',
       prompt: 'Replies go to a fixed shared queue `ATP.REPLY` read by 3 replicas of the caller. Why is correlation essential?',
       options: [
-        'Each waiting request must pick only the reply whose correlation matches its own request, not any reply on the queue',
-        'JMS requires correlation IDs on every message',
-        'Correlation makes the broker deliver faster',
-        'It is only needed for topics',
+        'Each request must take only the reply that matches its own',
+        'JMS requires a correlation ID on every message it sends',
+        'Correlation lets the broker deliver replies in order',
+        'Without it, the broker drops replies on a shared queue',
       ],
       answer: 0,
       explain: 'On a shared reply queue many replies for many callers are mixed together. The responder must copy the request correlation (message ID or correlation ID) into the reply, and the waiting consumer selects on it.',
@@ -72,13 +72,13 @@ export default {
       needsScenario: true,
       prompt: 'Why might an architect still prefer an HTTP System API for ATP instead of JMS request-reply?',
       options: [
-        'Checkout is synchronous anyway; JMS request-reply adds broker hops, reply-queue management and timeout edge cases without decoupling the caller',
-        'JMS cannot carry JSON',
+        'Checkout waits anyway, so JMS adds hops without decoupling',
+        'JMS cannot carry JSON bodies without a custom converter',
         'JMS request-reply is not supported in Mule 4',
-        'HTTP always guarantees delivery',
+        'HTTP guarantees delivery, while JMS may lose the reply',
       ],
       answer: 0,
-      explain: 'Request-reply over messaging is useful when the responder is only reachable via the broker or needs its load buffering, but the caller still waits. So you do not gain the decoupling of true async.',
+      explain: 'JMS request-reply adds broker hops, reply-queue management and timeout edge cases. Request-reply over messaging is useful when the responder is only reachable via the broker or needs its load buffering, but the caller still waits. So you do not gain the decoupling of true async.',
     },
   ],
   description: `
@@ -140,7 +140,7 @@ The wrong answers came from \`requestReplyPattern="NONE"\`: the consumer then re
 - Late replies on a fixed queue are orphans: set a TTL on replies too, or use temporary destinations whose late replies are discarded with the connection.
 - Size the responder (consumers, WMS capacity) for peak; a timeout only hides overload.
 
-**4. Alternatives.** Checkout waits anyway, so if the WMS can expose an HTTP endpoint, a **System API** with timeouts, caching and circuit breaking is simpler. Keep JMS request-reply when the broker is the only route into the WMS network. If the business accepts "confirm later", use a **fully asynchronous** design: publish an ATP request, confirm the order as pending, and process the reply event when it arrives.
+**4. Alternatives.** Checkout waits anyway, so if the WMS can expose an HTTP endpoint, a **System API** with timeouts, caching and circuit breaking has fewer moving parts. Keep JMS request-reply when the broker is the only route into the WMS network. If the business accepts "confirm later", use a **fully asynchronous** design: publish an ATP request, confirm the order as pending, and process the reply event when it arrives.
 `,
   followUps: [
     {

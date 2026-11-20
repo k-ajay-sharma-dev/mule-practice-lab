@@ -18,7 +18,7 @@ Output one object per period, sorted by start, with:
 
 - \`start\` and \`end\`: copied from the window that starts the period and the window that ends it
 - \`minutes\`: the length of the period
-- \`systems\`: the systems in the period, each once, sorted by name
+- \`systems\`: the systems in the period, each once, sorted by name as text
 
 All times are in UTC.
 `,

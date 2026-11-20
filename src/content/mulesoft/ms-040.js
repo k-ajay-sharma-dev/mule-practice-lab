@@ -10,11 +10,11 @@ export default {
       type: 'match',
       prompt: 'Match each API to where its policies should run.',
       pairs: [
-        ['Customer API — Mule app you can change', 'Autodiscovery in the app'],
-        ['Pricing API — Spring Boot service you cannot change', 'Flex Gateway (or a Mule proxy) in front'],
-        ['Legacy Billing — vendor SOAP service', 'A proxy in front, with the backend reachable only through it'],
+        ['Customer API: Mule app you can change', 'Autodiscovery in the app'],
+        ['Pricing API: Spring Boot service you cannot change', 'Flex Gateway (or a Mule proxy) in front'],
+        ['Legacy Billing: vendor SOAP service', 'A proxy in front, with the backend reachable only through it'],
       ],
-      explain: 'Autodiscovery applies policies inside a Mule implementation with no extra hop. Unmodifiable or non-Mule backends need a proxy — and network rules so the proxy cannot be bypassed.',
+      explain: 'Autodiscovery applies policies inside a Mule implementation with no extra hop. Unmodifiable or non-Mule backends need a proxy, and network rules so the proxy cannot be bypassed.',
     },
     {
       type: 'order',
@@ -32,10 +32,10 @@ export default {
       needsScenario: true,
       prompt: 'In testing, the header check failed with a null claim. Why?',
       options: [
-        'The JWT policy strips claims from the request',
-        'The custom check ran before JWT validation, so no validated claims existed yet',
-        'Custom policies cannot read JWT claims',
-        'The client sent the header in lower case',
+        'The JWT policy strips the claims before later policies run',
+        'The custom check ran before JWT validation had any claims',
+        'Custom policies are not allowed to read JWT claims at all',
+        'The client sent the `X-Tenant-Id` header in lower case',
       ],
       answer: 1,
       explain: 'Policies run in the configured order on the request (and in reverse on the response). A check that depends on JWT claims must come after JWT validation.',
@@ -46,8 +46,8 @@ export default {
       prompt: 'Match each custom policy type to how it is built.',
       pairs: [
         ['Mule 4 custom policy', 'Maven project with a YAML definition and a template using `http-policy:proceed`'],
-        ['Flex Gateway custom policy', 'Policy Development Kit — Rust compiled to WebAssembly'],
-        ['Built-in policy configuration', 'No code — check this option before writing a custom policy'],
+        ['Flex Gateway custom policy', 'Policy Development Kit: Rust compiled to WebAssembly'],
+        ['Built-in policy configuration', 'No code: check this option before writing a custom policy'],
       ],
       explain: 'Both custom types are published to Exchange. A custom policy is code you must test, version and upgrade, so first see whether a built-in policy can be configured to do the job.',
     },
@@ -55,13 +55,13 @@ export default {
       type: 'single',
       prompt: 'The Customer API starts, but its policies have not been downloaded from API Manager yet. What happens to incoming requests?',
       options: [
-        'They pass through unprotected until policies arrive',
-        'The gatekeeper rejects them, so the API is never exposed unprotected',
-        'They are queued in memory',
-        'The app fails to start',
+        'They pass through unprotected until the policies arrive',
+        'The gatekeeper rejects them until the policies are applied',
+        'They are queued in memory until the policies are applied',
+        'The app fails to start until API Manager is reachable',
       ],
       answer: 1,
-      explain: 'Gatekeeper behaviour blocks traffic until policies are applied.',
+      explain: 'Gatekeeper behaviour blocks traffic until policies are applied, so the API is never exposed unprotected.',
     },
     {
       type: 'single',
@@ -119,22 +119,22 @@ Issues found in testing:
   ],
   solution: `
 **Where policies run**
-- **Customer API (Mule, modifiable):** **autodiscovery** — \`<api-gateway:autodiscovery apiId="$\{api.id}" flowRef="main"/>\` in the app. No extra hop.
+- **Customer API (Mule, modifiable):** **autodiscovery**: \`<api-gateway:autodiscovery apiId="$\{api.id}" flowRef="main"/>\` in the app. No extra hop.
 - **Pricing API and Legacy Billing (cannot change):** a **proxy** in front. Options: **Flex Gateway** (lightweight, runs as container/Linux service, managed from API Manager in connected mode), which is the current recommended choice. The other option is a classic **Mule proxy** app that API Manager generates and deploys to CloudHub/RTF/hybrid. The backend must then be reachable only through the proxy (network rules), otherwise policies can be bypassed.
 
 **Ordering:** policies form a chain in the order configured in API Manager (you can reorder them). Request flows top-down; response flows bottom-up. Recommended:
-1. IP allowlist — cheapest rejection
-2. JWT validation — establishes identity
+1. IP allowlist: cheapest rejection
+2. JWT validation: establishes identity
 3. Client ID enforcement
-4. Rate limiting / SLA — only authenticated, identified clients consume quota
-5. Custom \`X-Tenant-Id\` check — depends on the validated JWT claims
+4. Rate limiting / SLA: only authenticated, identified clients consume quota
+5. Custom \`X-Tenant-Id\` check: depends on the validated JWT claims
 
 The testing issue: rate limiting sat before authentication (unauthenticated calls consumed quota) and the custom check ran before JWT validation, so no validated claims existed yet.
 
-**Tenant check — custom policy**
+**Tenant check: custom policy**
 - **Mule 4 custom policy:** a Maven project (custom policy archetype) with a YAML file describing configurable parameters and a template XML using \`http-policy:proceed\` to call the next policy/API. It compares \`attributes.headers."x-tenant-id"\` with a JWT claim and returns 403 otherwise. Publish to Exchange; it then appears in API Manager. Runs on Mule runtimes (autodiscovery or Mule proxy).
 - **Flex Gateway custom policy:** written with the **Policy Development Kit** (Rust compiled to WebAssembly), published to Exchange.
-- Before writing one, check whether a built-in policy can be configured to do it (e.g. some JWT policy options validate claims) — custom policies are code you must test, version and upgrade.
+- Before writing one, check whether a built-in policy can be configured to do it (e.g. some JWT policy options validate claims): custom policies are code you must test, version and upgrade.
 
 **How policies reach the runtime:** the app needs the **API instance ID** and organisation/environment **client ID and secret** (on CloudHub these are provided by the platform when configured; on-prem/RTF you set them). The runtime polls API Manager and downloads the policies. Until they are applied, the **gatekeeper** rejects requests so the API is never exposed unprotected.
 `,

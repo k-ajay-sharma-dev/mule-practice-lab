@@ -140,7 +140,7 @@ The example shows a student who is not marked. \`grade\` and \`finalScore\` must
     },
     {
       q: 'Where does the type nil appear beyond nullable fields?',
-      a: 'It can stand alone, for a value that must be null. It also works in any union, such as Address | nil for a nested object that may be empty.',
+      a: 'It can stand alone, for a value that must be null. It also works in any union, such as Address | nil for a nested object that may be null.',
     },
   ],
 }

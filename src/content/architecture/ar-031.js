@@ -100,19 +100,19 @@ export default {
         'Mappings multiply, because each pair of systems needs its own',
       ],
       answer: 1,
-      explain: 'The costs of one enterprise model are governance and bloat. Agreeing one definition is slow and political, the model grows to the union of all fields, most of them optional, and every change needs cross-team coordination, so teams start bypassing it. A shared model actually makes backend replacement easier, reduces mappings and hides system fields from consumers.',
+      explain: 'The costs of one enterprise model are governance and bloat. Agreeing one definition is slow and political, the model grows to the union of all fields, most of them optional, and every change needs cross-team coordination, so teams start bypassing it. A shared model actually makes backend replacement cheaper, reduces mappings and hides system fields from consumers.',
     },
     {
       type: 'single',
       prompt: 'The Experience API returns SAP fields such as KUNNR and partner functions as they are. What is the risk?',
       options: [
-        'The response is too small',
-        'Consumers become coupled to SAP, so replacing SAP breaks every consumer and mapping logic is duplicated in each one',
-        'SAP fields cannot be serialised to JSON',
-        'There is no risk if it is documented',
+        'The response becomes too large for the mobile app',
+        'Consumers become coupled to SAP, so replacing SAP breaks every one of them',
+        'SAP field names cannot be serialised to JSON',
+        'No risk, as long as the SAP fields are documented in Exchange',
       ],
       answer: 1,
-      explain: 'Pass-through leaks system details upward; the whole point of the layers is that a backend change stops at its System API.',
+      explain: 'Pass-through leaks system details upward, and the mapping logic is duplicated in each consumer. The whole point of the layers is that a backend change stops at its System API.',
     },
     {
       type: 'match',
@@ -130,10 +130,10 @@ export default {
       needsScenario: true,
       prompt: 'How are KUNNR, the Salesforce Account Id and customer_ref linked to one customer?',
       options: [
-        'Each consumer keeps its own mapping table',
-        'A cross-reference store/MDM maps customerId to every system key, owned explicitly',
-        'By matching on customer name at runtime',
-        'They cannot be linked',
+        'Each consumer keeps its own mapping table of system keys',
+        'A cross-reference store or MDM maps customerId to every system key',
+        'By matching on customer name and email at runtime',
+        'KUNNR is copied into every other system as the shared key',
       ],
       answer: 1,
       explain: 'The cross-reference is needed whichever model you choose; owning it explicitly avoids each flow inventing its own.',
@@ -142,13 +142,13 @@ export default {
       type: 'single',
       prompt: 'The billing team wants to rename a field in the published Customer domain type. How is that handled?',
       options: [
-        'Rename it in place as a minor version',
-        'It is a breaking change: new major version with a deprecation period; additive changes would be minor versions',
-        'Rename it silently; consumers will notice',
-        'Create a second Customer type with the new name',
+        'Rename it in place and publish a minor version',
+        'Treat it as breaking: a new major version with a deprecation period',
+        'Rename it in place; consumers will see the change in Exchange',
+        'Create a second Customer type with the new field name',
       ],
       answer: 1,
-      explain: 'Removing or renaming fields breaks consumers. Publish the type in Exchange with semantic versioning and keep it lean.',
+      explain: 'Removing or renaming fields breaks consumers; additive changes are minor versions. Publish the type in Exchange with semantic versioning and keep it lean.',
     },
   ],
   description: `
@@ -163,7 +163,7 @@ A manufacturer has **Customer** data in SAP, Salesforce, a billing SaaS and a su
 
 Two camps in the architecture team:
 - **Camp A:** "Define one enterprise Canonical Customer model; every API speaks it."
-- **Camp B:** "Canonical models become huge committee-owned schemas nobody can change. Just pass system data through and map at the edges."
+- **Camp B:** "Canonical models become huge committee-owned schemas nobody can change. Pass system data through as it is and map at the edges."
 
 Constraints: 12 integration flows exist today, 25 more planned; three delivery teams; the enterprise data team has no capacity to own a global model.
 
@@ -193,7 +193,7 @@ Load: the mobile app looks up about **60 customers a second** and the partner po
     'The Customer Process API that owns the domain model reads the four System APIs in parallel (about 870 ms, not 1.8 s one after another) and gives a partial answer when one source is down, with 0.5 vCore for itself and 0.2 for each System API.',
   ],
   solution: `
-**Canonical model — benefits.**
+**Canonical model: benefits.**
 - With N producers and M consumers, mapping through a common model needs N+M mappings rather than N×M.
 - Consumers do not see \`KUNNR\` or SAP partner functions; replacing the billing SaaS affects only its System API mapping.
 - Shared vocabulary for events and APIs.
@@ -205,9 +205,9 @@ Load: the mobile app looks up about **60 customers a second** and the partner po
 
 **Pass-through problems.** If the Experience API returns SAP fields, the mobile app is coupled to SAP. Swapping SAP for S/4 or another ERP means changing every consumer. It also pushes mapping logic into many consumers, duplicating it.
 
-**Recommendation — "canonical per domain, not per enterprise".**
-- **System APIs:** expose each system's data in a cleaned, documented form close to the source (readable names, standard date/currency formats) — but still system-shaped. Do not force a global model here.
-- **Process API (Customer domain):** owns the **Customer domain model** — a bounded-context model of what "customer" means for this company's processes, with a stable \`customerId\` and a cross-reference to system keys.
+**Recommendation: "canonical per domain, not per enterprise".**
+- **System APIs:** expose each system's data in a cleaned, documented form close to the source (readable names, standard date/currency formats), but still system-shaped. Do not force a global model here.
+- **Process API (Customer domain):** owns the **Customer domain model**: a bounded-context model of what "customer" means for this company's processes, with a stable \`customerId\` and a cross-reference to system keys.
 - **Experience APIs:** shape the domain model for each channel (mobile needs 8 fields, partner portal 20).
 - **Events:** use the domain model for business events (CustomerUpdated), so consumers do not depend on the source system.
 - **Identifiers:** a cross-reference store/MDM maps \`customerId\` ↔ KUNNR ↔ Account Id ↔ customer_ref.
@@ -217,7 +217,7 @@ Load: the mobile app looks up about **60 customers a second** and the partner po
 **Governance and versioning.**
 - Publish the domain types as a RAML library / JSON Schema / OAS component in **Exchange**, owned by the Customer domain team.
 - Rules: additive changes are minor versions; removing/renaming fields is a major version with a deprecation period.
-- Keep it **lean**: add a field when a real consumer needs it, not "just in case".
+- Keep it **lean**: add a field when a real consumer needs it, not on a guess about future needs.
 `,
   followUps: [
     { q: 'Is a canonical model required by API-led connectivity?', a: 'No. API-led connectivity defines layers and reuse; it does not mandate an enterprise canonical model. Many teams use domain-level models at the Process layer instead.' },

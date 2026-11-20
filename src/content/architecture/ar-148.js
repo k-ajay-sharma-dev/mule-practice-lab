@@ -118,7 +118,7 @@ Meal-kit app ─► exp-orders ─┬─► prc-order-commands ~► order-events
                             └─► prc-order-queries ─► Order status view
 \`\`\`
 
-**Writing a change.** \`prc-order-commands\` loads the order's current state, checks the change (no swaps after the cut-off), and appends one event keyed by order ID. Keying by order keeps each order's events in one partition, in order.
+**Writing a change.** \`prc-order-commands\` checks the change against the order's current state (no swaps after the cut-off), and appends one event keyed by order ID. Keying by order keeps each order's events in one partition, in order.
 
 **Reading.** \`prc-order-queries\` answers lookups from the status view. 300 lookups a second need a full vCore each for the Experience API and the query API in this model.
 
@@ -134,7 +134,7 @@ Meal-kit app ─► exp-orders ─┬─► prc-order-commands ~► order-events
   followUps: [
     {
       q: 'Is the Kafka topic enough as an event store?',
-      a: 'It holds the events in order and can keep them for years. It cannot give you all events of one order quickly without reading a partition, so the command side usually keeps a snapshot or a current state per order as well.',
+      a: 'It holds the events in order and can keep them for years. It cannot give you all events of one order quickly without reading a whole partition. So the command side checks changes against the current state from the status view, and some teams use a dedicated event store database for this reason.',
     },
     {
       q: 'What if two changes to one order arrive at the same moment?',

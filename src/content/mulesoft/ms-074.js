@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'An SFTP listener has `watermarkEnabled="false"` and no post-action. The flow finishes successfully. What happens on the next poll?',
       options: [
-        'The same file is picked up and processed again, on every poll, until something removes or moves it',
+        'The same file is processed again on every poll',
         'Mule remembers the file name in memory and skips it',
-        'The listener deletes the file automatically after success',
-        'The file is renamed with a .processed suffix',
+        'The listener deletes the file automatically on success',
+        'The listener renames the file with a .processed suffix',
       ],
       answer: 0,
-      explain: 'Without a watermark or a post-action (autoDelete, moveToDirectory, renameTo) nothing marks the file as done, so every poll finds it again.',
+      explain: 'It is picked up again until something removes or moves it. Without a watermark or a post-action (autoDelete, moveToDirectory, renameTo) nothing marks the file as done, so every poll finds it again.',
     },
     {
       type: 'match',
@@ -33,37 +33,37 @@ export default {
       type: 'single',
       prompt: 'Partners upload 300 MB CSV files over a slow link. Some loads contain only part of the rows. Which listener setting addresses this directly?',
       options: [
-        'timeBetweenSizeCheck (with its unit), so the listener checks the size twice and only processes a file that has stopped growing',
-        'recursive="false"',
-        'applyPostActionWhenFailed="false"',
-        'A larger polling frequency on the scheduling strategy only',
+        'timeBetweenSizeCheck, so only files that stopped growing are read',
+        'recursive="false", so files in upload folders are ignored',
+        'applyPostActionWhenFailed="false", so partial loads are kept',
+        'A longer polling interval, so uploads have time to finish',
       ],
       answer: 0,
-      explain: 'The size check waits the configured time and compares sizes; a file still being written is skipped until a later poll. A slower poll only lowers the odds. The more robust contract is upload-as-.tmp-then-rename, with the matcher ignoring .tmp.',
+      explain: 'With timeBetweenSizeCheck (and its unit) the listener checks the size twice. The size check waits the configured time and compares sizes; a file still being written is skipped until a later poll. A slower poll only lowers the odds. The more robust contract is upload-as-.tmp-then-rename, with the matcher ignoring .tmp.',
     },
     {
       type: 'single',
       prompt: 'An app with an FTP listener runs in a two-node Mule cluster. Both nodes process the same files. What is the standard fix?',
       options: [
-        'Set primaryNodeOnly="true" on the listener so only the primary node polls (another node takes over if it fails)',
+        'Set primaryNodeOnly="true" so only the primary node polls',
         'Give each node a different polling frequency',
-        'Enable lock="true" on the FTP write operation',
-        'Use watermarking, because watermarks prevent two nodes reading the same file at the same time',
+        'Set lock="true" on the FTP read inside the flow',
+        'Enable watermarking so both nodes share the last timestamp',
       ],
       answer: 0,
-      explain: 'File, FTP and SFTP listeners should run on the primary node only in a cluster. Different poll frequencies just make collisions less frequent; a watermark does not stop two nodes from picking up the same new file concurrently.',
+      explain: 'File, FTP and SFTP listeners should run on the primary node only in a cluster; another node takes over if the primary fails. Different poll frequencies only make collisions less frequent; a watermark does not stop two nodes from picking up the same new file concurrently.',
     },
     {
       type: 'multi',
       prompt: 'A failed file must not be lost or retried forever. Which choices help?',
       options: [
-        'In the error handler, move the file to an error directory with sftp:move and alert support',
-        'Be explicit about applyPostActionWhenFailed (default true): decide whether the post-action should also run when the flow fails',
-        'Record a processed-file key (name + size + timestamp) in a persistent object store to detect duplicates',
-        'Set autoDelete="true" and rely on the logs to recover failed files',
+        'Move the file to an error directory in the error handler, and alert',
+        'Set applyPostActionWhenFailed (default true) on purpose',
+        'Record a processed-file key in a persistent object store',
+        'Set autoDelete="true" and rely on the logs to recover files',
       ],
       answer: [0, 1, 2],
-      explain: 'Keep failed files somewhere visible and decide deliberately what the post-action does on failure. Deleting failed files and hoping the logs are enough loses data.',
+      explain: 'Use sftp:move in the error handler. Decide whether the post-action should also run when the flow fails. A key such as name + size + timestamp detects duplicates. Keep failed files somewhere visible and decide deliberately what the post-action does on failure. Deleting failed files and hoping the logs are enough loses data.',
     },
     {
       type: 'order',
@@ -110,7 +110,7 @@ The app is moving from a single on-prem runtime to a **two-node Mule cluster**. 
   keyPoints: [
     'Without watermark or post-action, the listener picks up the same file on every poll.',
     'Post-actions: autoDelete, moveToDirectory, renameTo; applyPostActionWhenFailed (default true) controls whether they run when the flow fails.',
-    'Watermark (default off) picks up only files newer than the last processed timestamp — useful when you cannot move or delete files.',
+    'Watermark (default off) picks up only files newer than the last processed timestamp, useful when you cannot move or delete files.',
     'timeBetweenSizeCheck waits until a file stops growing; the most robust contract is upload as .tmp then rename, with a matcher on the final extension.',
     'In a cluster, run file/FTP/SFTP listeners with primaryNodeOnly="true" to avoid double processing.',
     'Keep failed files (move to /error), alert, and add an idempotency check for business-level duplicates.',
@@ -132,7 +132,7 @@ The app is moving from a single on-prem runtime to a **two-node Mule cluster**. 
 </sftp:listener>
 <!-- error handler: sftp:move the file to /error, log a correlation id, alert support -->
 \`\`\`
-- Archive on success, move to \`/error\` on failure — nothing disappears silently.
+- Archive on success, move to \`/error\` on failure, so nothing disappears silently.
 - Dashboard of files received vs expected per supplier; alert on missing or failed files.
 - Housekeeping job to purge \`/archive\` after the retention period.
 `,
@@ -143,7 +143,7 @@ The app is moving from a single on-prem runtime to a **two-node Mule cluster**. 
     },
     {
       q: 'Why set applyPostActionWhenFailed to false in this design?',
-      a: 'So a failed file is not moved to /archive as if it succeeded; the error handler moves it to /error instead, which makes failures visible and easy to replay.',
+      a: 'So a failed file is not moved to /archive as if it succeeded; the error handler moves it to /error instead, which makes failures visible and ready to replay.',
     },
     {
       q: 'Does primaryNodeOnly help on CloudHub with two independent workers or replicas?',

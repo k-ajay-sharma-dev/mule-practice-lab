@@ -219,7 +219,9 @@ export default {
 The web shop needs a small **Product Lookup API** in front of the product database (Oracle, ~80,000 products).
 
 - \`GET /api/products?q=shoe&limit=20\` searches by name. \`q\` is **required** (min. 3 characters); \`limit\` is optional (default 20, max 100). In the flow the search term is \`attributes.queryParams.q\`.
-- \`GET /api/products/{sku}\` returns one product. A SKU looks like \`ABC-12345\`.
+- \`GET /api/products/{sku}\` returns one product. A SKU looks like \`ABC-12345\` (three capital letters, a dash, five digits).
+- Products are in the table \`products\` with the columns \`sku\`, \`name\`, \`price\`, \`category\` and \`stock\`. The search matches \`q\` anywhere in the name, ignoring case.
+- The search answers \`{ count, items: [{ sku, name, price }] }\`. The detail answers \`{ sku, name, price, inStock }\`.
 - Unknown SKU → **404** with a JSON error body. Bad parameters → **400**, without touching the database.
 - Expected load is ~30 requests/s, p95 under 300 ms.
 
@@ -250,7 +252,7 @@ The web shop needs a small **Product Lookup API** in front of the product databa
 **Two flows**, each with its own HTTP Listener on a shared listener config:
 
 1. **\`GET /api/products\`**
-   - Validate \`attributes.queryParams.q\` with **Validate is-true** (\`sizeOf(q default "") >= 3\`) and \`limit\` with **is-true** on \`(limit default "20") matches /^([1-9][0-9]?|100)$/\` (1–100). The **matches-regex** validator with Value and Regex settings does the same job and raises \`VALIDATION:MISMATCH\`.
+   - Validate \`attributes.queryParams.q\` with **Validate is-true** (\`sizeOf(q default "") >= 3\`) and \`limit\` with **is-true** on \`(limit default "20") matches /^([1-9][0-9]?|100)$/\` (1 to 100). The **matches-regex** validator with Value and Regex settings does the same job and raises \`VALIDATION:MISMATCH\`.
    - Store \`vars.limit\` (default 20) and run a parameterised **Database Select** (\`LOWER(name) LIKE '%' || LOWER(:q) || '%'\`, \`FETCH FIRST :limit ROWS ONLY\`). The wildcards sit in the SQL around the bound value: a plain \`LIKE :q\` with q=shoe only finds a product named exactly "shoe". Never concatenate parameters into SQL.
    - **Transform** into \`{ count, items: [...] }\`. An empty search result is still a **200** with \`count: 0\`. A search that finds nothing is not an error.
 2. **\`GET /api/products/{sku}\`**
@@ -269,7 +271,7 @@ In a real project an **APIkit Router** generated from a RAML/OAS spec would do m
     },
     {
       q: 'What would APIkit change here?',
-      a: 'APIkit validates required query parameters, types, patterns and ranges from the spec and raises APIKIT:BAD_REQUEST, so you no longer need hand-written Validate steps. You just map that error to 400.',
+      a: 'APIkit validates required query parameters, types, patterns and ranges from the spec and raises APIKIT:BAD_REQUEST, so you no longer need hand-written Validate steps. You only map that error to 400.',
     },
     {
       q: 'Should an empty search return 404?',

@@ -32,7 +32,7 @@ export default {
         cdc: ['batch-job', 'CDC connector (journal reader)'],
         k1: ['event-stream', 'logistics.shipment-events.v1', { maxRedelivery: 5 }],
         k2: ['event-stream', 'finance.invoices.v1'],
-        reg: ['saas', 'Schema registry (Avro, backward compatible)'],
+        reg: ['saas', 'Schema registry (Avro, full compatibility)'],
         c1: ['process-api', 'prc-customer-notify (group customer-notify)', { replicas: 2, vCores: '2' }],
         c2: ['process-api', 'prc-partner-events (group partner-feed)'],
         dlt: ['dlq', 'DLT per consumer group'],
@@ -78,7 +78,7 @@ A logistics group has grown by acquisition. **40 development teams** build integ
 The CTO funds a shared **event platform** on a managed Kafka service (Confluent Cloud or similar) and asks you, as the integration architect, to design it and its rules.
 
 Facts:
-- About **25 million events per day** across all domains; the biggest topic (shipment events) peaks at 1,500 per second for about 15 minutes. One Mule vCore handles about 500 events a second, and about 1 shipment event in 100 has data a consumer cannot process.
+- About **25 million events per day** across all domains; the biggest topic (shipment events) peaks at 1,500 per second for about 15 minutes. One Mule vCore handles about 500 events a second, and about 1 shipment event in 100 has data a consumer cannot process. Such an event must go to a dead-letter topic after 5 tries, and the peak must reach customers and the warehouse with no event lost.
 - The AS/400 (DB2 for i) can expose its journal to a CDC tool; no code changes are possible.
 - Partners (shippers, marketplaces) want shipment events by webhook or by pulling an API. They must not get access to the internal cluster.
 - Events must be kept **7 days** on Kafka for replay, and 2 years in the warehouse.
@@ -106,7 +106,7 @@ Facts:
 `,
   keyPoints: [
     'Topics are named <domain>.<entity>-events.v<major>, owned by one producing team, keyed by the business ID that needs ordering, with partitions sized for peak and growth.',
-    'Every topic has a registered schema (Avro or JSON Schema) with backward compatibility enforced by the registry, so a breaking change is rejected at publish time and needs a new major topic.',
+    'Every topic has a registered schema (Avro or JSON Schema) with full (backward and forward) compatibility enforced by the registry, so a breaking change is rejected at publish time and needs a new major topic.',
     'Services with a database publish through a transactional outbox and relay; the AS/400 is captured with log-based CDC, which replaces the four polling jobs.',
     'Each consuming app has its own consumer group, commits after processing, is idempotent by event ID, and sends poison events to its own dead-letter topic.',
     'Partners get events through a partner consumer that stores them and calls webhooks, plus an Experience API to pull; they never see Kafka.',
@@ -125,7 +125,7 @@ Facts:
 
 **Topics and ownership.** One topic per domain event stream: \`logistics.shipment-events.v1\`, \`finance.invoices.v1\`. Exactly one team produces to a topic (enforced with ACLs). The key is the ID whose events must stay ordered (\`shipmentId\`). Partitions: sized for peak with room to grow (48 for shipments), because adding partitions later changes key placement. Events carry an envelope: \`eventId\`, \`type\`, \`occurredAt\`, \`source\`, \`schemaVersion\`, \`correlationId\`.
 
-**Schemas and compatibility.** Every topic has a schema in the **schema registry**; producers serialise with it and consumers read with it. Compatibility is **BACKWARD** (consumers on the new schema can read old events), so adding optional fields is allowed, while renaming or removing a field is rejected. A real breaking change gets a new topic \`...v2\`, and the producer writes both for an agreed period. Schemas are reviewed in pull requests and published in Exchange next to the AsyncAPI document.
+**Schemas and compatibility.** Every topic has a schema in the **schema registry**; producers serialise with it and consumers read with it. Compatibility is **FULL**: consumers on the new schema can read old events (backward), and consumers still on the old schema can read new events (forward). Adding or removing an optional field with a default is allowed, while renaming a field or adding a required one is rejected. Forward compatibility is what protects the 6 consumers that broke last year. A real breaking change gets a new topic \`...v2\`, and the producer writes both for an agreed period. Schemas are reviewed in pull requests and published in Exchange next to the AsyncAPI document.
 
 **Reliable producers.**
 - Services with a database use the **transactional outbox**: the business row and the outbox row in one transaction, a relay publishes and marks rows. The crash-between-write-and-publish loss is gone.
@@ -135,7 +135,8 @@ Facts:
 **Consumer rules.**
 - One consumer group per application, named after it. Never share a group across apps.
 - Commit after processing; be idempotent by \`eventId\` because replays happen.
-- Retry a few times in-process, then write to the app's own dead-letter topic with the error, and commit. One bad event must not stop a partition.
+- Retry up to 5 times, then write to the app's own dead-letter topic with the error, and commit.
+- Size for the peak: at 1,500 events a second and about 500 per vCore, the outbox relay and the customer notification consumer each run 2 replicas of 2 vCores. One bad event must not stop a partition.
 - Monitor lag per group; alerts go to the owning team.
 
 **Partner access.** A partner-feed consumer filters events per partner contract, stores them for 30 days, and sends **signed webhooks**. Partners that prefer pulling use \`GET /events?after={cursor}\` on exp-partner-events-api, with client ID enforcement and SLA tiers in API Manager. One format for all partners, versioned like any API.
@@ -143,7 +144,7 @@ Facts:
 **Platform governance.** The platform team owns the cluster, registry, naming rules, ACLs, Mule and non-Mule producer and consumer templates (outbox relay, consumer with DLT), dashboards and the topic request process. Domain teams own their topics, schemas and consumers, and their on-call. A topic catalogue in Exchange lists owner, schema, key, retention and consumers.
 `,
   followUps: [
-    { q: 'Why enforce backward compatibility in the schema registry?', a: 'A breaking change is rejected when the producer tries to register it. Consumers are protected before any event is published.' },
+    { q: 'Why enforce full compatibility in the schema registry?', a: 'A breaking change is rejected when the producer tries to register it. Consumers are protected before any event is published.' },
     { q: 'Why should two different apps never share a consumer group?', a: 'They would split the partitions between them. Each app would see only part of the events.' },
     { q: 'Why not give partners read access to the Kafka topics?', a: 'It exposes internal events, formats and the cluster to outside parties. An API and webhooks give a stable contract with security policies.' },
     { q: 'How does CDC on the AS/400 help beyond removing polling?', a: 'It captures every change including deletes from the journal. The billing events become one shared topic instead of four private copies.' },

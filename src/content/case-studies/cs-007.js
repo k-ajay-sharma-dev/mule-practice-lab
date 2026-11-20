@@ -21,7 +21,7 @@ export default {
     ],
     reference: diagram(
       {
-        job: ['batch-job', 'enrolment-sync poller (every 5–10 min)'],
+        job: ['batch-job', 'enrolment-sync poller (every 5 to 10 min)'],
         wm: ['cache', 'Watermark (Object Store)'],
         ssis: ['system-api', 'students-sapi'],
         sis: ['saas', 'SIS (REST API + DB view)'],
@@ -83,6 +83,8 @@ export default {
 - Small team (2 developers new to MuleSoft), CloudHub already licensed.
 - Peak load at the start of term: ~20,000 changes in a week, with bursts of 2 changes a second. A target system can be down for an hour, and about 1 change in 50 is rejected by the LMS every time.
 
+**For the diagram.** Name the queues \`enrolments-lms\`, \`enrolments-library\` and \`enrolments-idcard\`. A queue redelivers a failed message about once a minute. Try a library change for up to 2 hours so it survives an hour of downtime. Give an LMS change 10 deliveries, then send it to a dead-letter queue that raises an alert.
+
 **Your task.** Propose a simple MuleSoft design:
 - which APIs/apps you build
 - how changes are detected and delivered
@@ -111,9 +113,9 @@ export default {
 - \`enrolment-sync\` process app: polls for changes and fans out to targets.
 - Small System APIs or connectors for the LMS, library and ID-card systems (start with direct connector calls inside the process app if the team is small; extract them into System APIs once a second consumer appears).
 
-**Change detection.** A Scheduler runs every 5–10 minutes. It reads the last watermark from Object Store, calls \`students-sapi\` for records modified since then, and stores the new watermark only after the batch is handed off. Overlap the window by a minute to avoid missing records written during the poll.
+**Change detection.** A Scheduler runs every 5 to 10 minutes. It reads the last watermark from Object Store, calls \`students-sapi\` for records modified since then, and stores the new watermark only after the batch is handed off. Overlap the window by a minute to avoid missing records written during the poll.
 
-**Delivery.** Publish each change to one Anypoint MQ queue per target (or use a scatter-gather with independent error handling for a very small first version). Each consumer upserts by student ID — so replays are safe. At term start, process in pages and use a Batch Job or \`foreach\` with sensible block size to stay within target API limits.
+**Delivery.** Publish each change to one Anypoint MQ queue per target (or use a scatter-gather with independent error handling for a very small first version). Each consumer upserts by student ID, so replays are safe. At term start, process in pages and use a Batch Job or \`foreach\` with sensible block size to stay within target API limits.
 
 **Errors and monitoring.** \`until-successful\` or MQ redelivery for transient errors; after N attempts move to a dead-letter queue. Alert (Anypoint Monitoring alert or email from an error flow) when the DLQ is non-empty or the poller has not run. Log student ID and correlation ID, not personal data.
 
@@ -122,7 +124,7 @@ export default {
 **Risks.** SIS API rate limits at term start (page and throttle), timestamp gaps (overlap window), team inexperience (use templates and code reviews).
 `,
   followUps: [
-    { q: 'Why not just have the LMS call the SIS directly?', a: 'Then every consumer re-implements SIS access and auth, and an SIS change breaks all of them. A System API isolates that change and is reused by the library, ID-card and future consumers.' },
+    { q: 'Why not have the LMS call the SIS directly?', a: 'Then every consumer re-implements SIS access and auth, and an SIS change breaks all of them. A System API isolates that change and is reused by the library, ID-card and future consumers.' },
     { q: 'How would you prove the new sync works before turning off the CSV jobs?', a: 'Run both in parallel and reconcile daily: counts of active enrolments per target and a sample diff of records. Switch off one script only after a clean week.' },
     { q: 'What if the SIS later offers events or webhooks?', a: 'Replace the poller with an event listener that publishes to the same queues; the downstream consumers do not change. That is the benefit of decoupling detection from delivery.' },
   ],

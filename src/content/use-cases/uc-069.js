@@ -81,9 +81,10 @@ Requirements:
 - Customer gets "ready for pickup" with a QR code; payment is **captured at pickup** (or on pick, depending on policy).
 - Not collected within **5 days** → back to shelf, authorisation released / refund.
 
-Volumes: ~9,000 BOPIS orders/day, peaks of 1,500/hour.
-
-- The store stock database takes about 200 queries a second, and the store app back end can be down for 30 minutes during a release.
+Volumes and limits:
+- ~9,000 BOPIS orders/day, peaks of 1,500/hour.
+- The store stock database takes about 200 queries a second. Availability shown on the product page may be up to 60 seconds old.
+- The store app back end can be down for 30 minutes during a release. Orders must still be taken, and no pick task may be lost.
 
 **Questions:**
 1. Draw the APIs and messaging.
@@ -105,7 +106,7 @@ Volumes: ~9,000 BOPIS orders/day, peaks of 1,500/hour.
 `,
   keyPoints: [
     'Availability: prc-store-availability reads store stock via sys-store-inventory with a short-TTL cache and applies a safety buffer (e.g. show available only if stock ≥ 2).',
-    'Order placement: reserve stock in the store DB, authorise payment, create the OMS order, then publish a pick task — a reservation expires if the flow fails.',
+    'Order placement: reserve stock in the store DB, authorise payment, create the OMS order, then publish a pick task. A reservation expires if the flow fails.',
     'Pick tasks go asynchronously to the store app (ActiveMQ queue with storeId selector or one queue per store); confirmations come back through exp-store-ops.',
     'Partial / not-found picks: offer substitution or re-route to another store, release the reservation and adjust the authorisation.',
     'Capture at pickup on QR scan; a nightly job handles 5-day no-shows (restock, void authorisation).',
@@ -118,10 +119,10 @@ Volumes: ~9,000 BOPIS orders/day, peaks of 1,500/hour.
  Store app -> exp-store-ops -> prc-bopis-order (picked / partial / not found / collected) -> sys-notifications
 \`\`\`
 
-**Availability.** \`GET /availability?sku=&lat=&lon=\` → prc-store-availability finds the nearest stores (store list cached) and reads stock for the SKU in those stores through sys-store-inventory. It caches the result for 60 seconds and applies a **safety buffer** because store stock is only ~95 % accurate. 800 lookups/s mostly hit the cache.
+**Availability.** \`GET /availability?sku=&lat=&lon=\` → prc-store-availability finds the nearest stores (store list cached) and reads stock for the SKU in those stores through sys-store-inventory. It caches the result for 60 seconds and applies a **safety buffer** because store stock is only ~95 % accurate. With a 60 second cache about 9 lookups in 10 are hits, so 800 lookups/s become about 80 database queries a second, well under the 200 the database takes. The storefront and availability APIs run 2 replicas of 1 vCore for the peak. Pick tasks go through the queue, so orders are still accepted while the store app back end is down.
 
 **Order placement** (prc-bopis-order):
-1. Reserve stock in the store: \`UPDATE store_stock SET reserved = reserved + :qty WHERE store_id = :s AND sku = :sku AND on_hand - reserved >= :qty\` — 0 rows updated means no stock → offer another store.
+1. Reserve stock in the store: \`UPDATE store_stock SET reserved = reserved + :qty WHERE store_id = :s AND sku = :sku AND on_hand - reserved >= :qty\`. 0 rows updated means no stock → offer another store.
 2. Authorise payment through sys-payments (idempotency key = order ID).
 3. Create the order in the OMS.
 4. Publish a pick task (persistent) to the store's queue. If step 2 or 3 fails, release the reservation (compensation).
@@ -137,6 +138,6 @@ Volumes: ~9,000 BOPIS orders/day, peaks of 1,500/hour.
   followUps: [
     { q: 'Why a safety buffer on store availability?', a: 'Store stock is never perfectly accurate (theft, misplaced items). Showing "available" only above a small threshold reduces "not found" picks and disappointed customers.' },
     { q: 'How do you make sure only the right store gets a pick task?', a: 'One queue per store, or a shared queue with a JMS message selector on a storeId property; each store\'s consumer only receives its own tasks.' },
-    { q: 'Why capture payment at pickup instead of at order?', a: 'If items are not found or not collected, nothing needs refunding — only the authorisation is voided. Many card schemes require capture only when goods are handed over.' },
+    { q: 'Why capture payment at pickup instead of at order?', a: 'If items are not found or not collected, nothing needs refunding; only the authorisation is voided. Many card schemes require capture only when goods are handed over.' },
   ],
 }

@@ -8,7 +8,7 @@ export default {
   tags: ['security', 'oauth2', 'mtls', 'api-manager'],
   estMinutes: 35,
   diagram: {
-    task: 'draw how partners, the mobile backend and the batch job reach the Payments Status API: where tokens come from, where mTLS and the API Manager policies sit, and how the payments backend is protected.',
+    task: 'draw how partners, the mobile backend and the batch job reach the Payments Status API: where tokens come from, where the API Manager policies sit, and how the payments backend is protected. Partner traffic arrives through its own ingress that checks the mTLS client certificate: draw it as a load balancer box in front of the gateway.',
     checks: [
       { label: 'Partners obtain OAuth tokens from the identity provider (client credentials)', rule: { type: 'each', of: 'partner', edgeTo: 'identity-provider' } },
       { label: 'The customer logs in at the identity provider (user-context token)', rule: { type: 'edge', from: 'mobile-app', to: 'identity-provider' } },
@@ -94,9 +94,9 @@ export default {
   description: `
 A bank exposes a **Payments Status API** (Mule 4, deployed to CloudHub 2.0, managed in API Manager). Three kinds of consumers:
 
-- **Fintech partners** (external, ~30) — server-to-server calls, no end user involved. Regulators require **strong client authentication** and partners must only see their own payments.
-- **Internal mobile backend** — calls on behalf of a logged-in customer; the bank already uses an enterprise identity provider (OAuth 2.0 / OIDC).
-- **Internal batch reconciliation job** — runs nightly inside the corporate network.
+- **Fintech partners** (external, ~30): server-to-server calls, no end user involved. Regulators require **strong client authentication** and partners must only see their own payments.
+- **Internal mobile backend**: calls on behalf of a logged-in customer; the bank already uses an enterprise identity provider (OAuth 2.0 / OIDC).
+- **Internal batch reconciliation job**: runs nightly inside the corporate network.
 
 Constraints: partners are on contract tiers (Gold 50 rps, Silver 10 rps). The security team wants tokens validated **without** a call to the IdP on every request, and payloads must be protected against oversized/malicious JSON.
 
@@ -130,19 +130,19 @@ Numbers for sizing: at peak partners send 60 requests a second in total, the mob
     'Settings that matter: JWT validation on the gateway (it keeps working while the IdP is down, where token introspection would not), a rate limit of about 150 a second in front of a store that takes 200, and 0.5 vCore on each API for 120 requests a second.',
   ],
   solution: `
-**Partners — OAuth 2.0 client credentials + mTLS.** Each partner gets a client registered in the bank's authorization server and obtains tokens with the **client credentials grant**. Tokens are JWTs with scopes such as \`payments:read\`.
+**Partners: OAuth 2.0 client credentials + mTLS.** Each partner gets a client registered in the bank's authorization server and obtains tokens with the **client credentials grant**. Tokens are JWTs with scopes such as \`payments:read\`.
 On top of that, require **mutual TLS**: the partner presents a client certificate issued/approved by the bank. On CloudHub 2.0 this is configured on the Private Space ingress / TLS context (or on a Flex Gateway in front). Optionally bind the token to the certificate (certificate-bound tokens) if the IdP supports it.
 
-**Mobile backend — user-context token.** The app authenticates the customer via the authorization code flow (with PKCE) at the IdP; the mobile backend forwards the user's access token. The API then knows the **customer** and can restrict to their accounts.
+**Mobile backend: user-context token.** The app authenticates the customer via the authorization code flow (with PKCE) at the IdP; the mobile backend forwards the user's access token. The API then knows the **customer** and can restrict to their accounts.
 
 **Internal batch job.** Also client credentials (its own client ID, narrow scopes such as \`payments:reconcile\`). Being "inside the network" is not a reason to skip authentication (zero trust). Optionally restrict with an IP allowlist.
 
 **API Manager policies** (roughly the order requests meet them):
 1. Transport: HTTPS only, mTLS for the partner-facing endpoint.
 2. **IP Allowlist** where relevant (internal-only endpoints).
-3. **JWT Validation** — verify signature against the IdP's JWKS URL (keys cached), check \`iss\`, \`aud\`, \`exp\`, and required scopes. No per-request IdP round trip. (Use the OpenID Connect / OAuth 2.0 access token enforcement policy instead if you need token introspection, e.g. for opaque tokens or instant revocation.)
-4. **Rate Limiting - SLA based** — Gold/Silver SLA tiers in API Manager; each partner's client application is approved on a tier, so limits follow the contract.
-5. **JSON Threat Protection** — max depth, string length, array size.
+3. **JWT Validation**: verify signature against the IdP's JWKS URL (keys cached), check \`iss\`, \`aud\`, \`exp\`, and required scopes. No per-request IdP round trip. (Use the OpenID Connect / OAuth 2.0 access token enforcement policy instead if you need token introspection, e.g. for opaque tokens or instant revocation.)
+4. **Rate Limiting - SLA based**: Gold/Silver SLA tiers in API Manager; each partner's client application is approved on a tier, so limits follow the contract.
+5. **JSON Threat Protection**: max depth, string length, array size.
 6. Spike Control in front of fragile backends.
 
 **Sizing and failure handling.**

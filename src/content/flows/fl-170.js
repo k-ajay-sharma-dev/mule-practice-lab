@@ -1,9 +1,9 @@
 import { design, flow, handler, route, router, scope, source, step } from '../../flow/dsl.js'
 
-const item = (n, gtin = `0501234567${String(8900 + n).padStart(4, '0')}`) => ({ supplierItemId: `SI-${n}`, gtin, supplierId: 'HALDEN-FILTERS', costPrice: 4.1 + n })
+const item = (n, gtin = `0501234567${String(8900 + n).padStart(4, '0')}`) => ({ supplierItemId: `SI-${n}`, gtin, supplierId: 'HALDEN-PAINTS', costPrice: 4.1 + n })
 const items = [1, 2, 3, 4, 5].map((n) => item(n))
 const withGap = items.map((i) => (i.supplierItemId === 'SI-3' ? { ...i, gtin: null } : i))
-const msg = { message: { kind: 'jms', destination: 'PDH.SUPPLIERITEM.WORK', payload: { messageId: 'MSG-93010', senderId: 'HALDEN-FILTERS', blobName: 'inbound/HALDEN-FILTERS/MSG-93010.json' } } }
+const msg = { message: { kind: 'jms', destination: 'PDH.SUPPLIERITEM.WORK', payload: { messageId: 'MSG-93010', senderId: 'HALDEN-PAINTS', blobName: 'inbound/HALDEN-PAINTS/MSG-93010.json' } } }
 const tables = {
   stg_supplier_item: { columns: ['message_id', 'supplier_item_id', { name: 'gtin', notNull: true }, 'supplier_id', 'cost_price'], rows: [] },
   pdh_rejects: { columns: ['message_id', 'record_key', 'reason'], rows: [] },
@@ -122,9 +122,9 @@ export default {
     ]),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) receives SupplierItem documents from suppliers: their item number, GTIN and cost price for every part they sell. A big supplier sends 200,000 lines in one JSON blob in the Azure Blob Storage container \`pdh-inbound\`. A notification on the JMS queue \`PDH.SUPPLIERITEM.WORK\` names it:
+Copperline Home Supply’s product data hub (fictional) receives SupplierItem documents from suppliers: their item number, GTIN and cost price for every product they sell. A big supplier sends 200,000 lines in one JSON blob in the Azure Blob Storage container \`pdh-inbound\`. A notification on the JMS queue \`PDH.SUPPLIERITEM.WORK\` names it:
 
-\`{ "messageId": "MSG-93010", "senderId": "HALDEN-FILTERS", "blobName": "inbound/HALDEN-FILTERS/MSG-93010.json" }\`
+\`{ "messageId": "MSG-93010", "senderId": "HALDEN-PAINTS", "blobName": "inbound/HALDEN-PAINTS/MSG-93010.json" }\`
 
 The blob holds \`{ "senderDocumentId", "items": [ { "supplierItemId", "gtin", "supplierId", "costPrice" } ] }\`. The same load style is used for feeds to the supply chain planning platform, so the team wants it right once.
 
@@ -139,6 +139,13 @@ Inserting 200,000 rows one at a time took over an hour. A plain bulk insert was 
 - If a group's bulk insert fails, leave none of its rows half loaded, then insert that group's records **one by one**, so only the bad rows fail.
 - Write each bad row to \`pdh_rejects\` with the database's reason.
 - In **On Complete**, log the total, successful and failed counts.
+
+**Facts**
+- A row Oracle refuses, such as one with no GTIN, raises **DB:QUERY_EXECUTION**.
+- Keep a group's rows from being half loaded by running its bulk insert in a database transaction of its own.
+- In \`pdh_rejects\`, \`record_key\` is the \`supplierItemId\` and \`reason\` is the error's description.
+- The On Complete log line is INFO and contains the word \`loaded\`.
+- A failed download must fail the flow, so the broker delivers the work again.
 
 **Design the flow.**
 `,

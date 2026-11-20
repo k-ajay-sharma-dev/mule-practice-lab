@@ -8,7 +8,7 @@ export default {
   quiz: [
     {
       type: 'multi',
-      prompt: 'Which values does the Web Service Consumer configuration take from the WSDL? Choose all that apply.',
+      prompt: 'Which values do you set in the connection of a Web Service Consumer configuration? Choose all that apply.',
       options: ['The WSDL location', 'The service', 'The port', 'The SLA tier of the client'],
       answer: [0, 1, 2],
       explain: 'The connection points at a WSDL and picks a service and a port from it. The address can be read from the WSDL or set per environment. SLA tiers belong to API Manager, not to the connector.',
@@ -18,9 +18,9 @@ export default {
       prompt: 'The water company\'s SOAP service has an operation `GetMeterReading`. How does the Consume operation know what to send?',
       options: [
         'It builds the XML body itself from the variables in the flow',
-        'You name the operation, and you build the body element in DataWeave with the namespace from the WSDL',
-        'It sends the JSON payload and the service turns it into XML',
-        'It sends an empty body, and the service reads query parameters',
+        'You name the operation and build the body element in DataWeave',
+        'It sends the JSON payload, and the service turns it into XML',
+        'You name the operation, and it sends the WSDL example as the body',
       ],
       answer: 1,
       explain: 'Consume needs the operation name and a body that fits the WSDL. A Transform with `output application/xml` and the right namespace builds that element. DataSense can show the expected structure.',
@@ -29,13 +29,13 @@ export default {
       type: 'single',
       prompt: 'After Consume succeeds, where is the content of the SOAP response body?',
       options: [
-        'Directly in `payload`, with the envelope removed',
-        'In `attributes.body`',
-        'In `vars.soapResponse`',
-        'In `payload.body`, next to `payload.headers` and `payload.attachments`',
+        'Directly in `payload`, with the SOAP envelope removed',
+        'In `attributes.body`, with the SOAP headers beside it',
+        'In `vars.soapResponse`, which Consume sets for you',
+        'In `payload.body`, next to the headers and attachments',
       ],
       answer: 3,
-      explain: 'The Consume result has three parts: body, headers and attachments. Read the response element from `payload.body`.',
+      explain: 'The Consume result has three parts: `payload.body`, `payload.headers` and `payload.attachments`. Read the response element from `payload.body`.',
     },
     {
       type: 'single',

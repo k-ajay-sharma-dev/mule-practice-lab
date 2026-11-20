@@ -80,6 +80,10 @@ Finance is sometimes late. On those mornings the old job failed with a red alert
 - If the file is not there yet, log a warning and end the run without an error.
 - Any other failure, such as an expired SAS token, must fail the run so someone looks at it.
 
+**Facts**
+- The GET answers the file as plain text. Read it as CSV before the insert.
+- A missing file answers 404, which raises **HTTP:NOT_FOUND**. An expired token answers 403, which raises **HTTP:FORBIDDEN**.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reaching the share from CloudHub

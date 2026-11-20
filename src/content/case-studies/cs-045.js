@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Teams resent central control and the old architecture board was a bottleneck. Which operating model fits best?',
       options: [
-        'A central integration factory that builds every integration so quality stays consistent',
-        'Hub-and-spoke C4E: a small central team builds the paved road (platform, templates, standards, reusable assets) and delivery teams build and own their own integrations',
-        'Let each of the five IT teams choose its own tools and standards on the platform',
-        'Outsource all integration delivery to the partner permanently',
+        'A central integration factory builds every integration, so quality and standards stay the same everywhere',
+        'Hub-and-spoke C4E: a small team builds the platform and templates, and delivery teams own their integrations',
+        'Each of the five IT teams picks its own tools, standards and templates on the shared platform',
+        'The partner builds all integrations for 6 months, then the five teams take over what it built',
       ],
       answer: 1,
-      explain: 'A C4E is an **enablement** model. A central factory recreates the bottleneck teams already resent and does not scale; full autonomy without shared standards just rebuilds point-to-point chaos on a new platform.',
+      explain: 'A C4E is an **enablement** model: the central team builds the paved road (platform, templates, standards, reusable assets) and delivery teams build on it. A central factory recreates the bottleneck teams already resent and does not scale. Full autonomy without shared standards rebuilds point-to-point chaos on a new platform. A partner that builds everything leaves no skills in-house when the contract ends.',
     },
     {
       type: 'order',
@@ -26,7 +26,7 @@ export default {
       items: [
         'Foundations: business groups/environments, SSO, deployment target agreed with security, CI/CD and project templates',
         'Lighthouse 1 delivered jointly with the partner, creating reusable System APIs',
-        'Lighthouses 2–3 led by internal developers, reusing System APIs from lighthouse 1',
+        'Lighthouses 2 and 3 led by internal developers, reusing System APIs from lighthouse 1',
         'Partner moves to review-only, then the contract ends with knowledge in-house',
         'Federation: delivery teams build their own integrations with C4E office hours and a community of practice',
       ],
@@ -49,13 +49,13 @@ export default {
       type: 'single',
       prompt: 'Security and audit are cautious about cloud deployment. What do you do in the first three months?',
       options: [
-        'Pause the programme until security approves a public cloud policy',
-        'Deploy to the CloudHub shared space anyway and fix security later',
-        'Design the deployment target jointly with security early — e.g. CloudHub 2.0 private spaces with VPN, or Runtime Fabric on-premises if cloud is not accepted yet',
-        'Run Mule applications on developer laptops until a decision is made',
+        'Pause the programme until security approves a public cloud policy for the company',
+        'Deploy to the CloudHub shared space now and add the security controls later',
+        'Agree the deployment target with security now, such as private spaces or Runtime Fabric',
+        'Build on developer laptops and shared test servers until security makes a decision',
       ],
       answer: 2,
-      explain: 'Involving security early and offering private connectivity or on-premises runtimes keeps the programme moving without bypassing controls. Waiting kills momentum; ignoring security destroys trust.',
+      explain: 'Involving security early and offering private connectivity (CloudHub 2.0 private spaces with VPN) or on-premises runtimes (Runtime Fabric) keeps the programme moving without bypassing controls. Waiting kills momentum; ignoring security destroys trust.',
     },
     {
       type: 'single',
@@ -63,12 +63,12 @@ export default {
       prompt: 'How should the lighthouse projects be chosen?',
       options: [
         'Start with the most complex legacy system to prove the platform can handle anything',
-        'High business visibility, achievable in 8–12 weeks, and creating System APIs that later projects will reuse',
-        'Pick the cheapest file transfer so the new team cannot fail',
-        'Run all three urgent backlog items in parallel to show speed',
+        'Visible work that fits in 8 to 12 weeks and creates System APIs others will reuse',
+        'Pick the smallest file transfer in the backlog so the new team cannot fail',
+        'Run all three urgent backlog items in parallel to show leadership speed early',
       ],
       answer: 1,
-      explain: 'Lighthouses must show value quickly and seed reuse. The hardest legacy system first is a classic way to stall a new team, and a trivial file transfer proves nothing to leadership.',
+      explain: 'Lighthouses must show value quickly and seed reuse. The hardest legacy system first is a classic way to stall a new team, a trivial file transfer proves nothing to leadership, and three projects at once spread a new team too thin.',
     },
     {
       type: 'multi',
@@ -96,7 +96,7 @@ export default {
     },
   ],
   description: `
-**Context.** A 7,000-employee insurance and pensions administrator has just signed an Anypoint Platform subscription. Nobody in the company has MuleSoft experience. Integration today is done by five separate IT teams using scripts, database links and a little-used old ESB. The CIO hired you as the first integration architect and wants a centre for enablement (C4E) / integration CoE running within 12 months, with visible business value along the way.
+**Context.** A 7,000-employee insurance and pensions administrator has recently signed an Anypoint Platform subscription. Nobody in the company has MuleSoft experience. Integration today is done by five separate IT teams using scripts, database links and a little-used old ESB. The CIO hired you as the first integration architect and wants a centre for enablement (C4E) / integration CoE running within 12 months, with visible business value along the way.
 
 **Situation**
 
@@ -130,32 +130,32 @@ export default {
 ## Risks and how you avoid becoming a bottleneck
 `,
   keyPoints: [
-    'The C4E is an enablement model: a small central team builds foundations, standards and reusable assets, while delivery teams build integrations themselves — federated, not a central factory forever.',
-    'Start with 2–3 high-value lighthouse projects chosen for visible business value and reuse potential, delivered jointly with the partner while upskilling internal staff.',
+    'The C4E is an enablement model: a small central team builds foundations, standards and reusable assets, while delivery teams build integrations themselves. It is federated, not a central factory forever.',
+    'Start with 2 or 3 high-value lighthouse projects chosen for visible business value and reuse potential, delivered jointly with the partner while upskilling internal staff.',
     'Platform foundations early: environments/business groups, identity integration, network connectivity, secrets, CI/CD with templates, logging/monitoring.',
-    'Light, automated governance: templates, Exchange-published assets, API design review for new APIs, automated checks in pipelines — instead of a heavy review board.',
-    'Knowledge transfer is planned and measured (pairing, certifications, internal developers leading by month 4–5) so the partner exit is safe.',
+    'Light, automated governance: templates, Exchange-published assets, API design review for new APIs, automated checks in pipelines, instead of a heavy review board.',
+    'Knowledge transfer is planned and measured (pairing, certifications, internal developers leading by month 5) so the partner exit is safe.',
     'Value tracked with business and reuse metrics (delivery time, assets reused, incidents, retired point-to-point links), reported regularly to leadership.',
   ],
   solution: `
 **Operating model.** Mission: "make integration faster and safer for every team". Hub-and-spoke: a central C4E (platform, architecture, enablement) plus delivery teams in the business IT areas who build and own their APIs. The C4E builds the paved road; teams drive on it.
 
 **People.**
-- Hires: integration architect (you), platform engineer, two senior Mule developers. The partner provides 2–3 consultants for 6 months.
-- Upskill 6–8 of the existing Java/SQL developers via official training, certification and pairing on real projects.
+- Hires: integration architect (you), platform engineer, two senior Mule developers. The partner provides 2 or 3 consultants for 6 months.
+- Upskill 6 to 8 of the existing Java/SQL developers via official training, certification and pairing on real projects.
 - Roles defined: platform owner, API product owners in business areas, C4E champions in each delivery team.
 
-**Months 0–3: foundations + first lighthouse.**
+**Months 0 to 3: foundations + first lighthouse.**
 - Platform: organisation and business-group/environment structure (dev, test, prod), SSO with the corporate IdP and team permissions. Deployment target decision with security (CloudHub 2.0 with private spaces/VPN, or Runtime Fabric on-premises if cloud is not accepted yet). Secure properties and secrets handling, and logging export to the company's monitoring tool.
 - Engineering: project templates (Maven parent POM, error handling, logging with correlation IDs, MUnit setup), CI/CD pipeline, naming and versioning standards. Publish all in Exchange.
 - Lighthouse 1: one urgent backlog item with clear value (e.g. policy data to the customer portal) delivered jointly, designed API-led with reusable System APIs.
 
-**Months 4–8: scale delivery.**
-- Lighthouses 2–3 led by internal developers with partner support. Reuse System APIs from lighthouse 1.
+**Months 4 to 8: scale delivery.**
+- Lighthouses 2 and 3 led by internal developers with partner support. Reuse System APIs from lighthouse 1.
 - Light governance: API design review (30-minute slot, async in pull requests where possible), automated checks (linting of API specs, pipeline gates for tests and coverage), security policies applied through API Manager.
 - Partner exit plan: by month 5 internal staff lead all work; partner reviews only.
 
-**Months 9–12: federation.**
+**Months 9 to 12: federation.**
 - Delivery teams build integrations themselves with C4E support (office hours, community of practice, internal training path).
 - Backlog triage with business priorities; asset catalogue grows; first old ESB/script integrations retired.
 
@@ -167,7 +167,7 @@ export default {
 `,
   followUps: [
     { q: 'Why not have the central team build all integrations so quality is consistent?', a: 'A central factory becomes the bottleneck the teams already resent, and it does not scale. Consistency comes from templates, standards and automated checks, while teams keep ownership and speed.' },
-    { q: 'How do you choose the lighthouse projects?', a: 'High business visibility, achievable in 8–12 weeks, and they create System APIs others will reuse. Avoid the most complex legacy system first.' },
+    { q: 'How do you choose the lighthouse projects?', a: 'High business visibility, achievable in 8 to 12 weeks, and they create System APIs others will reuse. Avoid the most complex legacy system first.' },
     { q: 'How do you prove ROI in year one?', a: 'Baseline current effort and lead times, then report time saved, reuse of assets on later projects, retired scripts and licences, and business outcomes from the lighthouse projects.' },
   ],
 }

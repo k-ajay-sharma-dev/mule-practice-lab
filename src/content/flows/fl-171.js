@@ -116,6 +116,13 @@ The gateway validates the customer's token, and the flow reads the customer ID a
 - A statement that is not the customer's, or does not exist, gets **404**. Do not tell the two apart.
 - If the token service cannot be reached, answer **503**.
 
+**Facts**
+- The 404 body is \`{ "message": "Statement not found" }\`.
+- Ask the token service for \`container\` \`statements\` and the statement's \`blob_name\` as \`blobName\`.
+- A token service that cannot be reached raises **HTTP:CONNECTIVITY**. It can also time out (**HTTP:TIMEOUT**).
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Whose statement is it?

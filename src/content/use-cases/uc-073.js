@@ -64,18 +64,19 @@ export default {
     },
   },
   description: `
-A fashion retailer wants its **450 stores** to fulfil online orders (ship-from-store) to cut delivery times and sell store stock before markdown.
+A homeware retailer wants its **450 stores** to fulfil online orders (ship-from-store) to cut delivery times and sell store stock before markdown.
 
 Systems:
-- **OMS** — owns online orders and releases each line for fulfilment.
-- **Store stock** — held in each store's POS back-office, replicated centrally every few minutes; accuracy ~92 %.
+- **OMS**: owns online orders and releases each line for fulfilment.
+- **Store stock**: held in each store's POS back-office, replicated centrally every few minutes; accuracy ~92 %.
 - **Sourcing rules** in an Oracle schema: store eligibility, distance, stock buffer, **capacity** per store (max orders per hour, by staffing), cut-off times.
-- **TMS** — carrier selection, **shipping labels**, manifests and **pickup booking**.
+- **TMS**: carrier selection, **shipping labels**, manifests and **pickup booking**.
 - A new **store fulfilment app** on tablets (you design its back end).
 
 Requirements:
 - ~25,000 order lines/day sourced from stores (40 % of online), 4× on Black Friday.
-- On Black Friday lines are released at about 3 a second. The central store stock service can be down for 20 minutes, and about 1 line in 200 has a SKU the sourcing rules reject every time.
+- On Black Friday lines are released at about 3 a second. The central store stock service can be down for 20 minutes, and about 1 line in 200 has a SKU the sourcing rules reject every time. No released line may be lost while store stock is down, and a line that cannot be sourced must reach a DLQ within about 30 minutes so the team can fix it the same day.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 - Store must accept and pick within **45 minutes**; otherwise re-source to the next best store (or DC).
 - **Not found** (stock inaccuracy) → re-source within 5 minutes; after 3 failed stores, fall back to the DC.
 - A store must never get more orders than its hourly capacity.
@@ -118,7 +119,7 @@ Requirements:
 \`\`\`
 
 **Sourcing.** For each released line the Process API asks sys-store-stock for candidate stores with stock ≥ buffer. It ranks them with the rules from sys-sourcing (distance, cut-off, markdown priority) and tries to **reserve capacity** in the best one:
-\`UPDATE store_capacity SET used = used + 1 WHERE store_id = :s AND slot_hour = :h AND used < max_orders\` — 1 row updated means capacity was reserved; 0 means try the next store. The assignment row (line ID, store, attempt, version, state ASSIGNED) is inserted in the same transaction, so a line is never assigned twice.
+\`UPDATE store_capacity SET used = used + 1 WHERE store_id = :s AND slot_hour = :h AND used < max_orders\`. 1 row updated means capacity was reserved; 0 means try the next store. The assignment row (line ID, store, attempt, version, state ASSIGNED) is inserted in the same transaction, so a line is never assigned twice.
 
 **Store tasks.** A task message (persistent, storeId as a JMS property) is published; exp-store-fulfilment delivers it to the store's tablets. The associate accepts → picks → packs; each call carries the assignment version. If the task was meanwhile re-sourced, the call is rejected with "task moved" and the associate puts the item back.
 
@@ -131,11 +132,13 @@ Requirements:
 
 **TMS down.** \`HTTP:TIMEOUT\` / connectivity errors → the parcel is queued for labelling with retries; the app shows "label pending" and prints when ready. If still failing near cut-off, an alert goes to operations (fallback: carrier's own portal).
 
+**Store stock down and bad lines.** The \`ORDER.RELEASED\` listener is transactional. The broker redelivers about once a minute, so a redelivery limit of 30 keeps lines through a 20-minute store stock outage, and a line the sourcing rules always reject reaches \`DLQ.STORE.FULFIL\` after about 30 minutes.
+
 **NFRs.** Black Friday 4× volume: sourcing is fast SQL on indexed tables; task queues absorb store bursts; capacity counters prevent overwhelming stores. Dashboards: tasks by state and age per store, re-sourcing rate, not-found rate per store.
 `,
   followUps: [
     { q: 'Why enforce capacity in Oracle instead of in the Process API memory?', a: 'Several Mule workers source concurrently; a conditional UPDATE in the database is atomic across all of them, while in-memory counters would drift or double-book.' },
     { q: 'How do you stop an associate packing a line that was already re-sourced?', a: 'Every action carries the assignment version; the Process API only accepts actions for the current version, so a stale task gets "task moved".' },
-    { q: 'What metric would you show store managers?', a: 'Accept/pick times against SLA, not-found rate and capacity used per hour — they drive both staffing and stock accuracy improvements.' },
+    { q: 'What metric would you show store managers?', a: 'Accept/pick times against SLA, not-found rate and capacity used per hour. They drive both staffing and stock accuracy improvements.' },
   ],
 }

@@ -24,7 +24,7 @@ export default {
       options: [
         'It is received but not acknowledged, and the broker does not redeliver it',
         'It is redelivered automatically, as in AUTO',
-        'It moves straight to the DLQ',
+        'It moves straight to the dead letter queue on the broker',
         'It is acknowledged when the error handler finishes',
       ],
       answer: 0,
@@ -76,13 +76,13 @@ export default {
       detail: true,
       prompt: 'A team sets Max Redelivery on the JMS listener to limit retries on ActiveMQ. Why does this not work?',
       options: [
-        'The docs say Max Redelivery on the listener or config has no effect; use maxRedelivery on the ActiveMQ factory',
-        'It only works for topics',
-        'It only works with MANUAL ack',
-        'It must be set on every jms:publish instead',
+        'It has no effect there; set maxRedelivery on the ActiveMQ factory',
+        'It applies only to topics, so a queue listener ignores it',
+        'It applies only when the listener uses MANUAL ack',
+        'It must be set on each jms:publish, not on the listener',
       ],
       answer: 0,
-      explain: 'The setting that counts is `maxRedelivery` on the ActiveMQ connection factory. Its default is 0, which means no redelivery, and -1 means unlimited.',
+      explain: 'The docs say Max Redelivery on the listener or config has no effect. The setting that counts is `maxRedelivery` on the ActiveMQ connection factory. Its default is 0, which means no redelivery, and -1 means unlimited.',
     },
   ],
   description: `

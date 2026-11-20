@@ -28,10 +28,10 @@ export const SET_14 = [
       'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 serverSize=4101118 mode=BINARY durationMs=5200',
       'Downloaded file',
       'ftp://marrow-int:<password>@ftp.supplier-b.example/out/costs.zip',
-      'Costs: <file content>',
+      'FTP download finished host=ftp.supplier-b.example path=/out/costs.zip sizeBytes=4101118 mode=BINARY durationMs=5200',
     ],
     answer: 0,
-    explain: 'Both sizes and the mode show the copy was exact. An FTP URL with the password must never be logged.',
+    explain: 'Both sizes and the mode show the copy was exact. An FTP URL with the password must never be logged. The last line has no server size, so nothing shows whether the whole file arrived.',
   },
   {
     id: 'log-14003',
@@ -71,7 +71,7 @@ export const SET_14 = [
     id: 'log-14005',
     kind: 'write',
     situation:
-      'A Marrow & Pine download read fewer bytes than the server size. The file is not loaded and will be downloaded again. vars.path, vars.sizeBytes and vars.serverSize hold the facts. Write the line.',
+      'A Marrow & Pine download read fewer bytes than the server size. The file is not loaded and will be downloaded again. vars.path, vars.sizeBytes and vars.serverSize hold the facts. Write the line, with what happens next.',
     available: ['vars.path', 'vars.sizeBytes', 'vars.serverSize', 'payload'],
     level: ['WARN', 'ERROR'],
     checks: [
@@ -94,9 +94,9 @@ export const SET_14 = [
   {
     id: 'log-14006',
     kind: 'level',
-    situation: 'An FTP LIST command timed out after login worked. The job will try again in passive mode at the next run.',
+    situation: 'An FTP LIST command timed out after login worked. The connector uses active mode, and the next run will try again with the same settings.',
     answer: ['ERROR', 'WARN'],
-    explain: 'No files move until someone fixes the mode, so many teams use ERROR.',
+    explain: 'Login worked, so the data channel is the suspect. No files move until someone changes the mode, so many teams use ERROR. WARN fits while one more run may still work.',
   },
   {
     id: 'log-14007',
@@ -104,12 +104,12 @@ export const SET_14 = [
     situation: 'Which line best records the timeout?',
     options: [
       'FTP LIST timed out host=ftp.store-net.example passive=false timeoutMs=30000 loginOk=true',
-      'Timeout',
+      'FTP LIST timed out host=ftp.store-net.example timeoutMs=30000 loginOk=true',
       'FTP broken again',
       'LIST failed for user marrow-int with password …',
     ],
     answer: 0,
-    explain: 'loginOk=true with passive=false points straight at the data channel.',
+    explain: 'loginOk=true with passive=false points straight at the data channel. The second line leaves out the mode, which is the one fact that explains the timeout.',
   },
   {
     id: 'log-14008',
@@ -123,7 +123,7 @@ export const SET_14 = [
     id: 'log-14009',
     kind: 'write',
     situation:
-      'A Marrow & Pine FTP LIST timed out. vars.host, vars.passive and vars.timeoutMs hold the facts. Write the line.',
+      'A Marrow & Pine FTP LIST timed out. vars.host, vars.passive and vars.timeoutMs hold the facts. Write the line, with the error.',
     available: ['vars.host', 'vars.passive', 'vars.timeoutMs', 'vars.password', 'error.errorType', 'error.description'],
     level: ['ERROR', 'WARN'],
     checks: [
@@ -146,7 +146,7 @@ export const SET_14 = [
     id: 'log-14010',
     kind: 'write',
     situation:
-      'A Marrow & Pine FTP connection was refused during the partner maintenance window. The reconnection strategy will retry. vars.partner, vars.host and vars.attempt hold the facts. Write the line.',
+      'A Marrow & Pine FTP connection was refused during the partner maintenance window. The reconnection strategy will retry. vars.partner, vars.host and vars.attempt hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.partner', 'vars.host', 'vars.attempt', 'vars.password', 'error.errorType', 'error.description'],
     level: ['WARN'],
     checks: [
@@ -192,15 +192,15 @@ export const SET_14 = [
     id: 'log-14013',
     kind: 'multi',
     situation: 'Which facts help the planning platform skip a repeat?',
-    options: ['A run ID', 'The final file name', 'The row count', 'The FTP password'],
+    options: ['A run ID', 'The final file name', 'A sequence number per file', 'The FTP password'],
     answers: [0, 1, 2],
-    explain: 'The same run ID twice means a repeat.',
+    explain: 'The same run ID, file name or sequence twice means a repeat. A password never belongs in a log.',
   },
   {
     id: 'log-14014',
     kind: 'write',
     situation:
-      'A Marrow & Pine upload timed out. vars.path and vars.runId hold the facts. The flow will check for the final file before retrying. Write the line.',
+      'A Marrow & Pine upload timed out. vars.path and vars.runId hold the facts. The flow will check for the final file before retrying. Write the line, with the error type and what happens next.',
     available: ['vars.path', 'vars.runId', 'error.errorType', 'error.description', 'payload'],
     level: ['WARN'],
     checks: [
@@ -257,18 +257,18 @@ export const SET_14 = [
       'Field truncated file=locations_20261118.dat record=612 field=storeName width=40 originalLength=47 store=S612',
       'Truncated',
       'Name too long: Marrow & Pine Home Riverside Retail Park …',
-      'Bad data',
+      'Field truncated file=locations_20261118.dat field=storeName width=40 originalLength=47',
     ],
     answer: 0,
-    explain: 'Which record, field and lengths. The business can then shorten the name at source.',
+    explain: 'Which record, field and lengths. The business can then shorten the name at source. The last line has no record or store, so nobody can tell which name to fix.',
   },
   {
     id: 'log-14018',
     kind: 'multi',
     situation: 'Which checks belong before a fixed width file is uploaded?',
-    options: ['Every record has the exact length', 'The record count matches the trailer', 'Truncated fields are reported', 'The file has a nice colour'],
+    options: ['Every record has the exact length', 'The record count matches the trailer', 'Truncated fields are reported', 'Every record is logged at INFO before upload'],
     answers: [0, 1, 2],
-    explain: 'Catch problems before the receiver rejects the whole file.',
+    explain: 'Catch problems before the receiver rejects the whole file. Logging every record floods the log and checks nothing.',
   },
   {
     id: 'log-14019',
@@ -279,7 +279,7 @@ export const SET_14 = [
     level: ['WARN', 'INFO'],
     checks: [
       says(/truncat|cut/i, 'Field truncated'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('record'),
       labelled('field'),
       labelled('width'),
@@ -298,12 +298,12 @@ export const SET_14 = [
     id: 'log-14020',
     kind: 'write',
     situation:
-      'A Marrow & Pine fixed width file failed its record length check and was not uploaded. vars.fileName, vars.badRecords and vars.recordLength hold the facts. Write the line.',
+      'A Marrow & Pine fixed width file failed its record length check and was not uploaded. vars.fileName, vars.badRecords and vars.recordLength hold the facts. Write the line, with what happens next.',
     available: ['vars.fileName', 'vars.badRecords', 'vars.recordLength', 'payload'],
     level: ['ERROR'],
     checks: [
       says(/length check failed|wrong length|not uploaded/i, 'Record length check failed'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('badRecords'),
       labelled('recordLength'),
       next('next=not uploaded, fix mapping'),
@@ -334,10 +334,10 @@ export const SET_14 = [
       'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00 financeTotal=1750000.00',
       'Recon ok',
       'Stores: <260 store totals>',
-      'All good today',
+      'Sales reconciled date=2026-11-18 stores=260 expected=260 ftp=180 sftp=72 share=8 hubTotal=1750000.00',
     ],
     answer: 0,
-    explain: 'Counts by source and both totals in one line.',
+    explain: 'Counts by source and both totals in one line. The last line has no finance total, so it does not show what the hub was checked against.',
   },
   {
     id: 'log-14023',
@@ -412,10 +412,10 @@ export const SET_14 = [
       'DB pool exhausted db=orders maxPoolSize=5 waitMs=5000 errorType=DB:CONNECTIVITY correlationId=7f3c2a',
       'jdbc:sqlserver://sqlprod01:1433;user=app;password=… failed',
       'DB slow',
-      'Error 500',
+      'DB pool exhausted db=orders maxPoolSize=5 errorType=DB:CONNECTIVITY correlationId=7f3c2a',
     ],
     answer: 0,
-    explain: 'The pool size and wait time show the cause. Never log the connection string.',
+    explain: 'The pool size and wait time show the cause. Never log the connection string. The last line has no wait time, so you cannot tell a small pool from a slow database.',
   },
   {
     id: 'log-14028',
@@ -429,7 +429,7 @@ export const SET_14 = [
     id: 'log-14029',
     kind: 'write',
     situation:
-      'A Larkfield request failed waiting for a connection. vars.db, vars.maxPoolSize and vars.waitMs hold the facts. Write the line.',
+      'A Larkfield request failed waiting for a connection. vars.db, vars.maxPoolSize and vars.waitMs hold the facts. Write the line, with the error type and the correlation ID.',
     available: ['vars.db', 'vars.maxPoolSize', 'vars.waitMs', 'vars.connectionString', 'error.errorType', 'correlationId'],
     level: ['ERROR'],
     checks: [
@@ -453,7 +453,7 @@ export const SET_14 = [
     id: 'log-14030',
     kind: 'write',
     situation:
-      'A Larkfield write failed because the database became read only after a failover. It will retry. vars.db, vars.server and vars.attempt hold the facts. Write the line.',
+      'A Larkfield write failed because the database became read only after a failover. It will retry. vars.db, vars.server and vars.attempt hold the facts. Write the line, with the error, what happens next and the correlation ID.',
     available: ['vars.db', 'vars.server', 'vars.attempt', 'vars.connectionString', 'error.errorType', 'error.description', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -479,9 +479,9 @@ export const SET_14 = [
   {
     id: 'log-14031',
     kind: 'level',
-    situation: 'A bulk insert block of 1,000 rows succeeded.',
-    answer: ['DEBUG'],
-    explain: 'Thousands of blocks a night. Log the summary at INFO, blocks at DEBUG.',
+    situation: 'A bulk insert block of 1,000 rows succeeded. There are thousands of blocks a night.',
+    answer: ['DEBUG', 'TRACE'],
+    explain: 'Thousands of blocks a night. Log the summary at INFO, blocks at DEBUG or TRACE.',
   },
   {
     id: 'log-14032',
@@ -491,10 +491,10 @@ export const SET_14 = [
       'Bulk load finished table=sales_stage rows=2000000 blocks=2000 fallbackBlocks=3 rejected=7 durationMs=1260000',
       'Load done',
       'Inserted: <2 million rows>',
-      'DB ok',
+      'Bulk load finished table=sales_stage rows=2000000 blocks=2000 fallbackBlocks=3 durationMs=1260000',
     ],
     answer: 0,
-    explain: 'Rows, blocks, fallbacks, rejects and time in one summary.',
+    explain: 'Rows, blocks, fallbacks, rejects and time in one summary. The last line has no reject count, so 7 rows that never loaded stay hidden.',
   },
   {
     id: 'log-14033',
@@ -533,7 +533,7 @@ export const SET_14 = [
     id: 'log-14035',
     kind: 'write',
     situation:
-      'A Larkfield bulk block failed and the flow switched to row by row for it. vars.table, vars.block and vars.rows hold the facts. Write the line.',
+      'A Larkfield bulk block failed and the flow switched to row by row for it. vars.table, vars.block and vars.rows hold the facts. Write the line, with the error.',
     available: ['vars.table', 'vars.block', 'vars.rows', 'error.errorType', 'error.description', 'payload'],
     level: ['WARN'],
     checks: [
@@ -569,10 +569,10 @@ export const SET_14 = [
       'Deadlock victim, retrying table=stock key=S041-ITM-7731 attempt=1 sqlError=1205 next=retry in 200ms',
       'UPDATE stock SET qty = 12 WHERE store = ’S041’ AND item = ’ITM-7731’ failed',
       'Deadlock!!!',
-      'DB error',
+      'Deadlock victim, retrying table=stock attempt=1 sqlError=1205 next=retry in 200ms',
     ],
     answer: 0,
-    explain: 'Table, key, attempt and code. Not the SQL with its values.',
+    explain: 'Table, key, attempt and code. Not the SQL with its values. The last line has no key, so the DBA cannot match it to the deadlock graph.',
   },
   {
     id: 'log-14038',
@@ -586,7 +586,7 @@ export const SET_14 = [
     id: 'log-14039',
     kind: 'write',
     situation:
-      'A Larkfield update was a deadlock victim. vars.table, vars.key, vars.attempt and vars.sqlError hold the facts. A retry follows. Write the line.',
+      'A Larkfield update was a deadlock victim. vars.table, vars.key, vars.attempt and vars.sqlError hold the facts. A retry follows. Write the line, with what happens next.',
     available: ['vars.table', 'vars.key', 'vars.attempt', 'vars.sqlError', 'vars.sqlText', 'vars.params'],
     level: ['WARN'],
     checks: [
@@ -610,7 +610,7 @@ export const SET_14 = [
     id: 'log-14040',
     kind: 'write',
     situation:
-      'A Larkfield update failed after its last retry and was sent to the reject table. vars.table, vars.key and vars.attempts hold the facts. Write the line.',
+      'A Larkfield update failed after its last retry and was sent to the reject table. vars.table, vars.key and vars.attempts hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.table', 'vars.key', 'vars.attempts', 'error.errorType', 'error.description', 'vars.sqlText'],
     level: ['ERROR'],
     checks: [
@@ -647,10 +647,10 @@ export const SET_14 = [
       'Delta extracted table=item from=2026-11-17T23:55:00 to=2026-11-18T00:00:01 rows=410 overlapMin=5 durationMs=2100',
       'Extracted items',
       'Items: <410 items>',
-      'Delta ok',
+      'Delta extracted table=item rows=410 overlapMin=5 durationMs=2100',
     ],
     answer: 0,
-    explain: 'The window read and the overlap show no gap was left.',
+    explain: 'The window read and the overlap show no gap was left. The last line has no from and to, so nobody can check the windows join up.',
   },
   {
     id: 'log-14043',
@@ -688,7 +688,7 @@ export const SET_14 = [
     id: 'log-14045',
     kind: 'write',
     situation:
-      'A Larkfield delta extract found its stored watermark is later than the newest row in the table, a sign of a restore. It stops and does not move the watermark. vars.table, vars.watermark and vars.maxInTable hold the facts. Write the line.',
+      'A Larkfield delta extract found its stored watermark is later than the newest row in the table, a sign of a restore. It stops and does not move the watermark. vars.table, vars.watermark and vars.maxInTable hold the facts. Write the line, with what happens next.',
     available: ['vars.table', 'vars.watermark', 'vars.maxInTable', 'payload'],
     level: ['ERROR'],
     checks: [
@@ -724,10 +724,10 @@ export const SET_14 = [
       'Duplicate keys removed table=fcst_stage key=store+item+week duplicates=14 rule=keep latest',
       'Duplicates',
       'Rows: <all 28 duplicate rows>',
-      'MERGE will fail maybe',
+      'Duplicate keys removed table=fcst_stage duplicates=14 rule=keep latest',
     ],
     answer: 0,
-    explain: 'The table, key, count and rule. The reject report holds the rows.',
+    explain: 'The table, key, count and rule. The reject report holds the rows. The last line does not name the key columns, so the sender cannot tell which fields repeat.',
   },
   {
     id: 'log-14048',
@@ -765,7 +765,7 @@ export const SET_14 = [
     id: 'log-14050',
     kind: 'write',
     situation:
-      'A Larkfield forecast MERGE failed and was rolled back. Nothing changed in the target. vars.target and vars.rows hold the facts. Write the line.',
+      'A Larkfield forecast MERGE failed and was rolled back. Nothing changed in the target. vars.target and vars.rows hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.target', 'vars.rows', 'error.errorType', 'error.description', 'vars.sqlText', 'payload'],
     level: ['ERROR'],
     checks: [

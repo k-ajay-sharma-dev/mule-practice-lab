@@ -93,9 +93,11 @@ A subscription business syncs data into **Salesforce** from several sources thro
 | Customer updates from support tool | 5,000/day | Real time |
 | Ad-hoc data fixes by admins | unpredictable | Any time |
 
-The org has a **daily API request allocation** and concurrency limits on long-running requests (exact numbers depend on edition and licences). Last month the allocation was exhausted at 16:00 on a sale day; all integrations — including the critical order flow — started failing with \`REQUEST_LIMIT_EXCEEDED\`.
+The org has a **daily API request allocation** and concurrency limits on long-running requests (exact numbers depend on edition and licences). Last month the allocation was exhausted at 16:00 on a sale day; all integrations, including the critical order flow, started failing with \`REQUEST_LIMIT_EXCEEDED\`.
 
-For this design, assume a Salesforce call takes about 400 ms and Mule may send Salesforce at most **20 calls a second** in total, which keeps a sale day inside the allocation. On a sale day order events run at 5 a second with bursts of **50 a second for five minutes**, and customer updates arrive at about 2 a second. When the allocation runs out, Salesforce refuses calls for up to **15 minutes**. No order event may be lost.
+For this design, assume a Salesforce call takes about 400 ms and Mule may send Salesforce at most **20 calls a second** in total, which keeps a sale day inside the allocation. On a sale day order events run at 5 a second with bursts of **50 a second for five minutes**, and customer updates arrive at about 2 a second. When the allocation runs out, Salesforce refuses calls for up to **15 minutes**. No order event may be lost. A queued message that fails is redelivered about once a minute.
+
+The order and customer consumers look up reference data (record types, picklists) that rarely changes, and they read a shared throttle flag that tells less important flows to pause.
 
 **Questions:**
 - How do you reduce the number of API calls for each flow?
@@ -122,9 +124,9 @@ For this design, assume a Salesforce call takes about 400 ms and Mule may send S
   ],
   solution: `
 **Reduce calls per flow.**
-- **Invoices (200k nightly):** Salesforce **Bulk API 2.0** via the Salesforce connector — processed asynchronously in Salesforce and far more efficient in API requests than 200k single calls. Schedule outside business peaks.
+- **Invoices (200k nightly):** Salesforce **Bulk API 2.0** via the Salesforce connector: processed asynchronously in Salesforce and far more efficient in API requests than 200k single calls. Schedule outside business peaks.
 - **Orders (30k/day):** do not call per event. Put events on a queue (Anypoint MQ), consume and group, e.g. every few seconds or every 200 records, then use **sObject Collections / Composite** requests (many records per call). Thousands of calls instead of 30,000.
-- **Customer updates:** **upsert by External ID** — one call, no prior query. Skip records whose relevant fields did not change (compare hash).
+- **Customer updates:** **upsert by External ID**: one call, no prior query. Skip records whose relevant fields did not change (compare hash).
 - Cache picklists/record types/lookups in an Object Store with TTL instead of querying each time.
 
 **Prioritise critical traffic.**
@@ -134,7 +136,7 @@ For this design, assume a Salesforce call takes about 400 ms and Mule may send S
 
 **Absorb bursts.**
 - The queue is the shock absorber: producers publish at 50/s, the consumer drains at a safe rate with limited concurrency (e.g. \`maxConcurrency\` on the consuming flow, limited prefetch).
-- On \`REQUEST_LIMIT_EXCEEDED\` or 429/503-like responses: stop consuming (or nack with delay), back off exponentially, let messages wait in the queue — **do not** retry immediately.
+- On \`REQUEST_LIMIT_EXCEEDED\` or 429/503-like responses: stop consuming (or nack with delay), back off exponentially, let messages wait in the queue: **do not** retry immediately.
 - Make processing idempotent (upsert by external ID) so redelivery is safe.
 
 **Monitoring.**
@@ -150,7 +152,7 @@ For this design, assume a Salesforce call takes about 400 ms and Mule may send S
 - The consumers stay small (0.1 vCore each): the limit, not their size, sets the pace.
 `,
   followUps: [
-    { q: 'Why not just buy more API capacity?', a: 'Sometimes it is the right answer, but it raises cost every year and hides inefficient design. Batching and Bulk API usually reduce calls by an order of magnitude first; buy capacity for genuine growth.' },
+    { q: 'Why not buy more API capacity instead?', a: 'Sometimes it is the right answer, but it raises cost every year and hides inefficient design. Batching and Bulk API usually reduce calls by an order of magnitude first; buy capacity for genuine growth.' },
     { q: 'Does Bulk API make the data appear instantly?', a: 'No, bulk jobs are asynchronous; you submit, Salesforce processes, and you poll job status and fetch failed records. It suits large volumes where minutes of delay are acceptable.' },
   ],
 }

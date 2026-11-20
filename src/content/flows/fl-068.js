@@ -245,13 +245,21 @@ export default {
     ),
   ),
   description: `
-A pharma and fresh-food distributor runs **1,200 refrigerated trailers**. Each trailer's IoT gateway sends a reading every 60 s (load ID, device ID, temperature, GPS, timestamp) to the **ActiveMQ Artemis** queue \`COLDCHAIN.TELEMETRY\` — about **20 readings/s**, more when trailers reconnect and flush buffered readings.
+A pharma and fresh-food distributor runs **1,200 refrigerated trailers**. Each trailer's IoT gateway sends a reading every 60 s (load ID, device ID, temperature, GPS, timestamp) to the **ActiveMQ Artemis** queue \`COLDCHAIN.TELEMETRY\`, about **20 readings/s**, more when trailers reconnect and flush buffered readings.
 
-- Allowed ranges depend on the **product class** of the load (e.g. 2–8 °C for vaccines, −25 to −18 °C for frozen), stored in **Oracle** (\`SHIPMENT_LOAD\`, \`PRODUCT_CLASS\`).
+- Allowed ranges depend on the **product class** of the load (e.g. 2 to 8 °C for vaccines, −25 to −18 °C for frozen), stored in **Oracle** (\`SHIPMENT_LOAD\`, \`PRODUCT_CLASS\`).
 - An out-of-range reading opens an **excursion** in Oracle; further out-of-range readings extend it; an in-range reading closes it.
 - The \`EXCURSION\` table has a \`STATUS\` (OPEN or CLOSED) and a \`TMS_ALERT_STATUS\`, which is set to SENT once the TMS has the alert.
 - The **TMS** (transport management system) must get **one alert per excursion** (plus a reminder if it lasts longer than the class limit), so dispatch can call the driver. The TMS API is flaky: timeouts and 503s several times a day, for up to a minute.
 - If the TMS cannot be reached, **QA must still be told** within 2 minutes.
+
+**Facts**
+- A reading is \`{ loadId, deviceId, tempC, lat, lon, readAt }\`.
+- \`SHIPMENT_LOAD\` has \`LOAD_ID\`, \`TMS_LOAD_REF\`, \`PRODUCT_CLASS\` and \`TRAILER_ID\`. \`PRODUCT_CLASS\` has \`CLASS_CODE\`, \`MIN_TEMP_C\`, \`MAX_TEMP_C\` and \`MAX_EXCURSION_MIN\`.
+- \`EXCURSION\` has \`EXCURSION_ID\`, \`LOAD_ID\`, \`DEVICE_ID\`, \`STATUS\`, \`OPENED_AT\`, \`LAST_TEMP_C\`, \`TMS_ALERT_STATUS\`, \`TMS_ALERT_AT\` and \`CLOSED_AT\`.
+- The DBA team provides \`COLDCHAIN_PKG.RECORD_EXCURSION(loadId, deviceId, tempC, readAt, excursionId OUT, alertNeeded OUT)\`. It opens an excursion or extends the open one, and returns \`alertNeeded\` \`Y\` only when an alert is due.
+- The TMS alert API is \`POST /tms/v1/loads/alerts\` with \`loadReference\` (the load's \`TMS_LOAD_REF\`), the excursion, the reading and the allowed range. A healthy TMS answers within a second; treat a call that takes more than 5 seconds as failed.
+- QA is told on the queue \`COLDCHAIN.ALERTS.ESCALATION\` and by email to \`qa-coldchain@example.com\`.
 
 **Design the flow(s).**
 `,
@@ -284,7 +292,7 @@ A pharma and fresh-food distributor runs **1,200 refrigerated trailers**. Each t
    - **Otherwise** (in range) → close the open excursion.
 4. \`DB:CONNECTIVITY\` → propagate so the reading is redelivered by the broker.
 
-**Why not retry by redelivering the reading?** The excursion is already recorded; redelivery would re-run the whole flow and block the consumer. Retrying just the HTTP call is cheaper, and the escalation queue keeps the alert durable.
+**Why not retry by redelivering the reading?** The excursion is already recorded; redelivery would re-run the whole flow and block the consumer. Retrying only the HTTP call is cheaper, and the escalation queue keeps the alert durable.
 
 **Timing:** 4 waits × 15 s + 5 attempts × 5 s timeout ≈ 85 s worst case, inside the 2-minute QA requirement. Until Successful blocks that consumer thread while waiting, so allow enough consumers for bursts.
 `,

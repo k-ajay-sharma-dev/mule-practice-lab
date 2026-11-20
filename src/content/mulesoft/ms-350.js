@@ -10,22 +10,22 @@ export default {
       type: 'single',
       prompt: 'Store names like "Crème" arrive as "CrÃ¨me" after the flow reads a file from FTP. What does that pattern usually mean?',
       options: [
-        'The FTP server is broken',
-        'UTF-8 bytes were read as a single byte character set such as ISO-8859-1 or Windows-1252',
-        'The file is compressed',
-        'The CSV has too many columns',
+        'Windows-1252 bytes were read as UTF-8 by the CSV reader',
+        'UTF-8 bytes were read as a one byte set such as Windows-1252',
+        'ASCII mode on the FTP transfer changed the accented bytes',
+        'The file was saved as UTF-16 and read as UTF-8',
       ],
       answer: 1,
-      explain: 'Each accented letter is two bytes in UTF-8. Read as a one byte set, it shows as two odd characters.',
+      explain: 'Each accented letter is two bytes in UTF-8. Read as a one byte set such as ISO-8859-1 or Windows-1252, it shows as two odd characters. The reverse mix up gives a replacement character instead.',
     },
     {
       type: 'single',
       prompt: 'The opposite happens: "Crème" shows as "Cr?me" or "Cr�me". What is likely?',
       options: [
-        'The file is in a single byte set such as Windows-1252, and the flow reads it as UTF-8',
-        'The file is empty',
-        'Binary mode was used',
-        'The server time zone is wrong',
+        'The file is in Windows-1252, and the flow reads it as UTF-8',
+        'The file is in UTF-8, and the flow reads it as Windows-1252',
+        'Binary mode on the FTP transfer dropped the high bytes',
+        'The file starts with a byte order mark the reader did not expect',
       ],
       answer: 0,
       explain: 'The single byte for è is not valid UTF-8 on its own, so it becomes a replacement character.',
@@ -34,25 +34,25 @@ export default {
       type: 'single',
       prompt: 'Where do you set the character set when reading a CSV in Mule?',
       options: [
-        'In the FTP server',
-        'In the MIME type of the read, such as application/csv; charset=windows-1252, or the encoding setting of the operation',
-        'In the log4j2 file',
-        'Nowhere, Mule detects it',
+        'In the FTP connection config, which converts the bytes on transfer',
+        'In the MIME type or encoding setting of the read operation',
+        'Nowhere, since the CSV reader detects the encoding from the bytes',
+        'In the output directive of the DataWeave script that maps the rows',
       ],
       answer: 1,
-      explain: 'Without it, the default encoding of the runtime is used, which differs between machines.',
+      explain: 'For example application/csv; charset=windows-1252 on the read. Without it, the default encoding of the runtime is used, which differs between machines. The output directive sets the encoding of what you write, not what you read.',
     },
     {
       type: 'single',
       prompt: 'After a sender upgrade, the mapping of item_id, the first column, returns null in every row, though the header looks right in a text editor. Why?',
       options: [
-        'The header is missing',
-        'The file now starts with a UTF-8 byte order mark, which is glued to the first column name',
-        'The column moved',
-        'ASCII mode added a character',
+        'The sender now quotes the header names, so they no longer match',
+        'The file now starts with a byte order mark glued to the first name',
+        'The sender now ends lines with CRLF, so the header has a trailing CR',
+        'The sender added a new column at the end of each row',
       ],
       answer: 1,
-      explain: 'Some tools add a BOM when saving UTF-8. Readers that do not strip it see it as part of the first name.',
+      explain: 'Some tools add a BOM when saving UTF-8. The DataWeave CSV reader drops it only when it decodes the bytes as UTF-8 itself. Decoded with a one byte set, or turned into text before the CSV read, the BOM stays glued to the first name.',
     },
     {
       type: 'multi',
@@ -60,11 +60,11 @@ export default {
       options: [
         'Agree with the sender to write UTF-8 without a BOM',
         'Strip a leading BOM before the CSV reader, or map the first column by position',
-        'Rename the column in every mapping to include the BOM',
-        'Ignore the first column',
+        'Copy the hidden BOM character into the column name in each mapping',
+        'Read the file as Windows-1252 so the BOM bytes are dropped',
       ],
       answer: [0, 1],
-      explain: 'Fix it at the source if you can, and guard against it in the reader too.',
+      explain: 'Fix it at the source if you can, and guard against it in the reader too. Putting the BOM into mappings breaks again when the sender drops it. Read as Windows-1252, the BOM turns into three odd characters and every accent breaks.',
     },
     {
       type: 'single',
@@ -104,7 +104,7 @@ Brindle Outdoor sends store master data to the planning platform. One feed comes
 
 **2. Setting the encoding.** Put the charset on the MIME type of the read, such as \`application/csv; charset=UTF-8\`, or on the operation's encoding setting. The runtime default depends on the machine and can differ between a laptop and CloudHub.
 
-**3. The null item_id.** The sender started writing a UTF-8 byte order mark. The CSV reader kept it as part of the first header, so the column was named with an invisible character in front, and \`item_id\` did not match.
+**3. The null item_id.** The sender started writing a UTF-8 byte order mark. The DataWeave CSV reader drops a BOM when it decodes the bytes as UTF-8 itself. This flow decoded the file another way first (a one byte set, or the file read as text before the CSV read), so the mark stayed part of the first header, so the column was named with an invisible character in front, and \`item_id\` did not match.
 
 **4. Agreement and guards.** Agree UTF-8 without a BOM in the interface, with a sample file. In the flow, transfer in binary mode, strip a leading BOM if present, and check that the expected headers exist before loading. Fail the file with a clear reason when they do not.
 `,

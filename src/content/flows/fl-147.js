@@ -128,6 +128,11 @@ You may use a table \`received_files\` (\`checksum\` primary key, \`file_name\`,
 - A file with new content is loaded, even if its name was seen before.
 - If loading fails part way, nothing of that file stays in the database, and a later attempt loads it in full.
 
+**Facts**
+- Store \`date\` as \`booked_on\`, \`amount\` as a number, and the file's checksum in \`file_checksum\` on every line.
+- \`received_files.file_name\` is the name the file arrived with.
+- A load that fails must fail the flow (the error is not swallowed), so the file can be tried again.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the file name is not enough

@@ -80,7 +80,7 @@ An online pharmacy delivers **prescription medicines** to patients' homes with o
 - Events can arrive out of order and twice.
 - The **pharmacy dispensing system** (on-prem, legacy) must record "delivered" for each prescription. It is slow (2 to 4 s per call) and offline at night for backups.
 - Patients get an SMS for "out for delivery" and "delivery failed".
-- During a carrier outage about 1 label call in 5 fails for 15 minutes. At night the pharmacy system is offline for about 60 minutes while 2 webhooks a second arrive.
+- About 1 label call in 5 can fail for 15 minutes. Each label must still print within 3 seconds. At night the pharmacy system is offline for about 60 minutes while 2 webhooks a second arrive.
 
 **Describe your solution** for both flows, including what happens when the carrier or the pharmacy system is down.
 `,
@@ -108,7 +108,7 @@ An online pharmacy delivers **prescription medicines** to patients' homes with o
                                                                                                -> SMS
 \`\`\`
 
-**Label creation.** prc-shipments loads the order, checks the rules (cold-chain → next-day service; cold-chain on a Friday → refuse with "hold until Monday"), and calls sys-carrier-api with a **2.5 second timeout**. It stores the tracking number and label against the shipment and returns the label to the station. Send the order number as the carrier's idempotency reference, so a retried call does not buy two labels. If the carrier is down, the station shows "label pending", the parcel goes to a holding shelf, and a retry flow prints the label when the carrier is back.
+**Label creation.** prc-shipments loads the order, checks the rules (cold-chain → next-day service; cold-chain on a Friday → refuse with "hold until Monday"), and calls sys-carrier-api with a **2.5 second timeout**. It stores the tracking number and label against the shipment and returns the label to the station. Send the order number as the carrier's idempotency reference, so a retried call does not buy two labels. sys-carrier-api retries a failed call up to 2 times; a call takes about a second, so a retry still fits in the 3 seconds when 1 call in 5 fails. If the carrier is down, the station shows "label pending", the parcel goes to a holding shelf, and a retry flow prints the label when the carrier is back.
 
 **Webhook endpoint and security.**
 - Gateway policies: IP allow list for the carrier's ranges, payload size limit, rate limit.

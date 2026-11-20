@@ -86,6 +86,10 @@ The support team now keeps the lists in Oracle, in \`job_recipient\` (\`job_name
 - Send **one** email per event to every **active** recipient of that job. The subject holds the job name, the job ID and the status; the body the counts.
 - If a job has nobody listed, send nothing and log a WARN that names the job.
 
+**Facts**
+- \`active\` is 1 for a current recipient and 0 for an old one.
+- Read the recipients into a target variable, so the event stays the payload. Pass the addresses to **Email Send** as one comma separated To list.
+
 **Design the flow.**
 `,
   answerTemplate: `## Finding the recipients

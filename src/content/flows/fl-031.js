@@ -246,6 +246,10 @@ Failures fall into different classes, and Finance wants each class treated diffe
 The DLQ messages must contain the original invoice, an error **type** and a description, so a support person can fix and replay them.
 
 **Facts**
+- An invoice is \`{ invoiceNo, vatId, total, currency }\`. All four fields are required, as the project's schema \`schemas/invoice.json\` says.
+- The \`suppliers\` table has the columns \`vat_id\`, \`erp_vendor_no\` and \`status\` (\`ACTIVE\` or \`BLOCKED\`).
+- The ERP accounts-payable API is \`POST /erp/ap-invoices\`. It takes \`{ vendor, documentNo, amount, currency }\`, with \`vendor\` the supplier's \`erp_vendor_no\`.
+- Dead-lettered invoices go to the Anypoint MQ queue \`invoices-dlq\`. Acknowledge each message yourself, so you decide whether it is removed or returned to the queue.
 - Business error types use the \`APP\` namespace, for example \`APP:ERP_REJECTED\`.
 - HTTP 422 has no error type of its own, so a handler catches it with a \`when\` condition on the response status code.
 

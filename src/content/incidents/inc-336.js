@@ -7,10 +7,10 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 06:00:00 INFO  [job-report] Email sent template=job-report", relevant: false },
-      { text: "2026-11-18 06:30:00 WARN  [support] Report shows <table><tr><td> as text", relevant: true, why: "The client shows tags as text." },
-      { text: "2026-11-18 06:00:00 INFO  [job-report] contentType=text/plain", relevant: true, why: "The body is sent as plain text." },
       { text: "2026-11-17 16:00:00 INFO  [deploy] Template changed to HTML table", relevant: true, why: "The template changed, the type did not." },
+      { text: "2026-11-18 06:00:00 INFO  [job-report] Email sent template=job-report", relevant: false },
+      { text: "2026-11-18 06:00:00 INFO  [job-report] contentType=text/plain", relevant: true, why: "The body is sent as plain text." },
+      { text: "2026-11-18 06:30:00 WARN  [support] Report shows <table><tr><td> as text", relevant: true, why: "The client shows tags as text." },
     ],
     questions: [
       {
@@ -18,9 +18,9 @@ export default {
         prompt: "Why do tags show?",
         options: [
           "The body is HTML but sent with content type text/plain",
-          "The client is old",
-          "The template is broken",
-          "Email stripped styles",
+          "The mail client blocks HTML from unknown senders",
+          "The template has an unclosed tag that breaks the table",
+          "The relay strips the HTML part from every message",
         ],
         answer: 0,
         explain: "The client follows the content type.",
@@ -29,13 +29,13 @@ export default {
         type: 'single',
         prompt: "What is the fix?",
         options: [
-          "Send with text/html and a charset, and ideally a plain text alternative",
-          "Remove the table",
-          "Send as an attachment",
-          "Use images",
+          "Send it as text/html with a charset",
+          "Encode the body as base64 before sending",
+          "Escape the tags so the client reads them",
+          "Ask staff to switch their client to HTML view",
         ],
         answer: 0,
-        explain: "Match type to content.",
+        explain: "Match type to content. A plain text alternative part is a good extra.",
       },
       {
         type: 'multi',
@@ -44,19 +44,19 @@ export default {
           "Escape values inserted into the HTML",
           "Keep styles inline for mail clients",
           "Test in the clients people use",
-          "Load scripts",
+          "Add a script that sorts the table on click",
         ],
         answer: [0,1,2],
-        explain: "Mail clients are limited and values must be safe.",
+        explain: "Mail clients are limited and values must be safe. Most clients block scripts.",
       },
       {
         type: 'single',
         prompt: "Why escape values?",
         options: [
           "A value with < or & can break the layout or inject content",
-          "For speed",
-          "It is optional",
-          "For size",
+          "Escaped values make the email smaller to send",
+          "Mail clients reject HTML that has unescaped text",
+          "It is optional, mail clients escape values for you",
         ],
         answer: 0,
         explain: "Treat data as text.",
@@ -85,9 +85,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 06:30:00 WARN  [support] Report shows <table><tr><td> as text
-2026-11-18 06:00:00 INFO  [job-report] contentType=text/plain
 2026-11-17 16:00:00 INFO  [deploy] Template changed to HTML table
+2026-11-18 06:00:00 INFO  [job-report] contentType=text/plain
+2026-11-18 06:30:00 WARN  [support] Report shows <table><tr><td> as text
 \`\`\`
 
 ## Your tasks

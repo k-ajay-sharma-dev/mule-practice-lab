@@ -151,6 +151,9 @@ A supplier portal calls:
 
 Lists are a few hundred lines, sent once a month.
 
+**Facts**
+- Keep the three counts in variables named \`inserted\`, \`updated\` and \`unchanged\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The endpoint

@@ -72,7 +72,8 @@ The integration team built a first version on the company's **ActiveMQ** broker.
 - In January the portal sends about **70 refunds a second** and the desks about **10**.
 - The payment provider takes about 400 ms per refund and up to 150 a second.
 - Its outages last up to about 20 minutes.
-- About 1 refund in 100 goes to a card that has since been closed. The provider refuses it every time.
+- About 1 refund in 100 goes to a card that has since been closed. The provider refuses it every time. Finance wants those set aside within about an hour.
+- The broker tries a failed refund again about **once a minute**.
 
 **Questions:**
 - Draw the design. Where do refunds wait while the provider is down?

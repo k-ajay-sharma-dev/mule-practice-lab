@@ -201,7 +201,7 @@ export default {
     ),
   ),
   description: `
-A payroll provider drops a **fixed-width** file \`PAYROLL_YYYYMMDD.txt\` (20k–80k lines, header + detail + trailer record) into a shared folder \`/data/in\` every Friday. Downstream, the finance system imports a **CSV** from \`/data/out\`.
+A payroll provider drops a **fixed-width** file \`PAYROLL_YYYYMMDD.txt\` (20,000 to 80,000 lines, header + detail + trailer record) into a shared folder \`/data/in\` every Friday. Downstream, the finance system imports a **CSV** from \`/data/out\`.
 
 **Requirements**
 - Validate: the trailer's record count and total amount must match the detail lines; each detail needs a valid employee ID and amount > 0.

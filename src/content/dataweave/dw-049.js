@@ -10,16 +10,16 @@ Incidents raised in your service portal must be created in an ITSM tool whose AP
 
 | Namespace | URI | Written as |
 |---|---|---|
-| ticket (default) | \`http://example.com/itsm/ticket/v3\` | **no prefix** — declared once as \`xmlns="..."\` on \`Ticket\` |
-| attachment | \`http://example.com/itsm/attachment/v1\` | prefix \`att\` — declared once, on \`att:Attachments\` |
+| ticket (default) | \`http://example.com/itsm/ticket/v3\` | **no prefix**, declared once as \`xmlns="..."\` on \`Ticket\` |
+| attachment | \`http://example.com/itsm/attachment/v1\` | prefix \`att\`, declared once, on \`att:Attachments\` |
 
 **Structure** (see the expected output for the exact shape and attribute order)
 - \`Ticket\` with attributes \`xmlns\`, \`id\` (\`ticketId\`), \`priority\` (\`"P"\` + the number).
-- \`Summary\` — plain text (special characters are escaped normally).
-- \`Description\` — the HTML from \`descriptionHtml\`, written as **CDATA** so the markup is not escaped.
-- \`Reporter\` — attribute \`id\`, text = the reporter's email.
-- \`Comments\` — one \`Comment\` per comment, attributes \`author\` and \`at\`, text as **CDATA**. Leave out \`Comments\` entirely when there are no comments.
-- \`att:Attachments\` — attribute \`count\` (number of attachments), one \`att:File\` per attachment with attributes \`name\` and \`contentType\`, text = the \`url\`. Leave it out entirely when there are no attachments.
+- \`Summary\`: plain text (special characters are escaped normally).
+- \`Description\`: the HTML from \`descriptionHtml\`, written as **CDATA** so the markup is not escaped.
+- \`Reporter\`: attribute \`id\`, text = the reporter's email.
+- \`Comments\`: one \`Comment\` per comment, attributes \`author\` and \`at\`, text as **CDATA**. Leave out \`Comments\` entirely when there are no comments.
+- \`att:Attachments\`: attribute \`count\` (number of attachments), one \`att:File\` per attachment with attributes \`name\` and \`contentType\`, text = the \`url\`. Leave it out entirely when there are no attachments.
 `,
   inputs: [
     {
@@ -66,7 +66,7 @@ payload
 `,
   hints: [
     'CDATA is a type: `payload.descriptionHtml as CData` makes the XML writer emit `<![CDATA[...]]>` instead of escaping `<` and `&`.',
-    'A **default** namespace has no prefix, so `ns` + `prefix#Name` cannot produce it. Add it as an ordinary attribute on the root — `Ticket @(xmlns: "http://...", id: ...)` — and keep the child keys un-prefixed. For `att`, use `ns att ...` and `att#Attachments`.',
+    'A **default** namespace has no prefix, so `ns` + `prefix#Name` cannot produce it. Add it as an ordinary attribute on the root, `Ticket @(xmlns: "http://...", id: ...)`, and keep the child keys un-prefixed. For `att`, use `ns att ...` and `att#Attachments`.',
     'Optional elements: `(Comments: { ... }) if (not isEmpty(payload.comments))`. Repeated elements: spread a mapped array into the object, `{ (payload.comments map (c) -> { Comment @(...): c.text as CData }) }`.',
   ],
   solution: `%dw 2.0
@@ -91,7 +91,7 @@ ns att http://example.com/itsm/attachment/v1
   }
 }`,
   explanation: `
-**CDATA**: \`as CData\` marks a String so the XML writer wraps it in \`<![CDATA[ ... ]]>\`. The HTML arrives at the ITSM tool unchanged, instead of as \`&lt;p&gt;...\`. Plain strings (like \`Summary\`) are still escaped — \`&\` becomes \`&amp;\` — which is correct XML too; CDATA is a readability/contract choice, not a requirement for safety.
+**CDATA**: \`as CData\` marks a String so the XML writer wraps it in \`<![CDATA[ ... ]]>\`. The HTML arrives at the ITSM tool unchanged, instead of as \`&lt;p&gt;...\`. Plain strings (like \`Summary\`) are still escaped (\`&\` becomes \`&amp;\`), which is correct XML too; CDATA is a readability/contract choice, not a requirement for safety.
 
 **Namespaces declared once**: the writer declares a prefix on the **first element that uses it**, and again on any later element outside that element's scope. Putting both \`att\` elements under one \`att:Attachments\` parent means a single declaration. A default namespace is not something \`ns\` can express, so it is written as an \`xmlns\` attribute on the root; un-prefixed children inherit it in the XML text.
 
@@ -144,7 +144,7 @@ Common traps:
     },
     {
       q: 'How do you read CDATA back in DataWeave?',
-      a: 'The XML reader returns CDATA content as a normal String, so `payload.Ticket.Description` is just the HTML — no special handling is needed.',
+      a: 'The XML reader returns CDATA content as a normal String, so `payload.Ticket.Description` is the HTML itself and no special handling is needed.',
     },
     {
       q: 'How would you validate the generated XML against the vendor XSD in Mule?',

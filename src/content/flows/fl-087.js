@@ -236,6 +236,11 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
 - Operations reruns the job sometimes by putting the same file back. A rerun must succeed and must not leave doubled data.
 - Archive the source file to \`/data/sales/archive\` when finished.
 
+**Facts**
+- The dated folder uses the date in the file name: \`sales_20261103.csv\` goes to \`/data/sales/regional/2026-11-03\`. A file can arrive late, so this is not always today.
+- Each region file is named after the region, for example \`NORTH.csv\`.
+- The sales data team's address is \`sales-data@company.example\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file
@@ -254,7 +259,7 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
     'The size check protects against reading a file that is still arriving, and the trailer protects against a file that was cut off before it arrived. They catch different failures.',
     'The trailer is separated from the data with a filter, compared with sizeOf(rows), and removed from the output.',
     'The check runs before any output is written, so a bad file produces no region files at all.',
-    'A missing trailer must also fail. The default goes before the coercion, (trailer.storeId default -1) as Number, because null as Number raises an error of its own. The -1 then makes it a mismatch.',
+    'A missing trailer must also fail. Put the default before the coercion, (trailer.storeId default -1) as Number, so it covers only the missing trailer. The -1 then makes it a mismatch.',
     'groupBy gives one entry per region, and pluck turns it into a list that For Each can loop over.',
     'The docs disagree on file:write: the reference lists Create Parent Directories as true by default, while the File Write page says a write fails by default if directories are missing. The explicit Create Directory step removes the doubt and makes the folder part of the contract, and FILE:FILE_ALREADY_EXISTS is handled for reruns.',
     'OVERWRITE mode makes a rerun replace the files. APPEND would double the data, and CREATE_NEW would fail on the existing file.',
@@ -263,7 +268,7 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
 1. **File Listener** on \`/data/sales/in\`, \`sales_*.csv\`, \`timeBetweenSizeCheck\` of 5 seconds, no post action.
 2. **Set Variables** for the file name and path, plus \`runDate\` taken from the file name, so a late file still lands in the correct day's folder. Do not use \`now()\` for this.
 3. **Transform** to \`vars.sales\`: read the CSV with \`read(payload.^raw, "application/csv")\`. A \`.csv\` file may already be typed from its extension, and \`read\` accepts only a String or Binary. Find the trailer row, filter it out, and build \`{ expected, actual, regions }\`. The trailer has the same number of columns as the data, so the CSV reader treats it as an ordinary row with \`storeId\` holding the count.
-4. **Choice**: if \`expected\` differs from \`actual\`, **Raise Error** \`APP:CONTROL_COUNT_MISMATCH\`. A missing trailer gives \`-1\`, which never matches. Write it as \`(trailer.storeId default -1) as Number\`: the other order, \`trailer.storeId as Number default -1\`, coerces null first and fails with "Cannot coerce Null to Number" before the default can help.
+4. **Choice**: if \`expected\` differs from \`actual\`, **Raise Error** \`APP:CONTROL_COUNT_MISMATCH\`. A missing trailer gives \`-1\`, which never matches. Write it as \`(trailer.storeId default -1) as Number\`, so the default covers only a missing trailer and a count that is not a number still fails with its own error. The other order, \`trailer.storeId as Number default -1\`, also gives \`-1\` for a missing trailer, because \`default\` catches the failed coercion, but it hides a bad count in the same way.
 5. **Try** with **File Create Directory**. On Error Continue for \`FILE:FILE_ALREADY_EXISTS\` lets a rerun carry on. The rest of the flow continues after the Try.
 6. **For Each** region: add to the \`written\` counter, **Transform** to \`application/csv\` (the header is included by default) and **File Write** with mode OVERWRITE.
 7. **File Move** the source to the archive with a timestamped Rename To, and log the totals.

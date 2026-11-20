@@ -257,6 +257,11 @@ Routing rules:
 
 Customer notifications are messages on the queue \`CUSTOMER.NOTIFICATIONS\`.
 
+**Facts**
+- \`STORE_STOCK\` has \`STORE_ID\`, \`SKU\` and \`AVAILABLE_QTY\`.
+- \`STORE_DISTANCE\` has \`FROM_STORE_ID\`, \`TO_STORE_ID\` and \`DISTANCE_KM\`. It also has a 0 km row from each store to itself.
+- A pick request and a ship-to-home message carry the whole order as it arrived.
+
 An order must never be both picked in a store and shipped from the DC, and none may be lost. Taking an order off \`OMS.BOPIS.ORDERS\` and putting it on its next queue must succeed or fail together.
 
 **Design the flow(s).**
@@ -280,7 +285,7 @@ An order must never be both picked in a store and shipped from the DC, and none 
   ],
   solution: `
 1. **JMS On New Message** \`OMS.BOPIS.ORDERS\`, **transactionalAction ALWAYS_BEGIN, LOCAL**. Every JMS Publish in the flow joins this transaction, so "consume order + publish pick request + publish notification" is atomic on the broker. If the OMS does not state the message type, set **Inbound Content-Type** \`application/json\` (the config default is \`*/*\`) so \`vars.order\` can be read with selectors.
-2. **Database Select** — stock rows for the chosen store and stores within 15 km for the order's SKUs. Keep \`orderId\` and the SKU list (\`skuCsv\`) in variables first: the select and the procedure replace the payload, and their parameters still need them.
+2. **Database Select**: stock rows for the chosen store and stores within 15 km for the order's SKUs. Keep \`orderId\` and the SKU list (\`skuCsv\`) in variables first: the select and the procedure replace the payload, and their parameters still need them.
 3. **Transform Message** → \`vars.decision\`: \`chosenOk\` (the chosen store has every line) and \`altStore\` (nearest other store that has every line).
 4. **Choice**
    - \`chosenOk\` → **Stored Procedure** \`RESERVE_ORDER\` → set the payload back to \`vars.order\` (the procedure replaced it) → **JMS Publish** \`#["STORE." ++ storeId ++ ".PICKS"]\`.

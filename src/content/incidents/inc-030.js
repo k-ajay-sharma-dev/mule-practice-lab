@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'Why did latency go from 300 ms to ~1.1 s?',
         options: [
-          'Each request serialises ~5 MB twice into log strings; the async appender queue fills and blocks the request thread, and GC pauses add more',
-          'The products database became slower after the release',
-          'The new transform has an inefficient DataWeave expression',
-          'The log aggregator quota was reached and Mule stopped responding',
+          'Two 5 MB payload logs per request fill the log queue, which then blocks requests',
+          'The products database became slower after Tuesday’s release',
+          'The new transform uses a slow DataWeave expression on large arrays',
+          'The log aggregator quota was reached, so Mule throttles its responses',
         ],
         answer: 0,
         explain: 'Logging `#[payload]` forces the whole payload into a String. At 50 req/s that floods the appender, which then **blocks the caller**: logging cost becomes request latency.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'What do you do **immediately**?',
         options: [
-          'Add more replicas to absorb the logging overhead',
-          'Set the logger category to WARN in Runtime Manager (or hotfix-remove the logger) and ask for the logs with customer pricing to be purged',
-          'Increase the log aggregator quota',
-          'Increase the async appender queue size to 1 million entries',
+          'Add more replicas to absorb the extra logging overhead',
+          'Set the logger category to WARN or remove the logger, and purge the pricing logs',
+          'Ask the log platform team to raise the aggregator quota for this app',
+          'Raise the async appender queue size to one million entries',
         ],
         answer: 1,
         explain: 'Stop the payload logging. Changing the category level needs no code change if the logger has its own category, though applying it restarts the app on CloudHub 2.0. The pricing data in the logs is also a compliance issue to clean up.',
@@ -102,7 +102,7 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Logging #[payload] forces the full (possibly streamed) payload to be read and serialised into a String for each log line — heavy CPU, memory and I/O.',
+    'Logging #[payload] forces the full (possibly streamed) payload to be read and serialised into a String for each log line: heavy CPU, memory and I/O.',
     'Async appenders fill up at this volume and then block the caller, adding latency to the request thread.',
     'Immediate: change the log level/category via Runtime Manager (no code change, but applying it can restart the app) or remove the logger and redeploy.',
     'Fix: log identifiers, sizes and correlation IDs, not bodies; use DEBUG for payload samples, truncated, masked, and only temporarily.',
@@ -120,7 +120,7 @@ Debug-style payload logging promoted to production at INFO level, with no size l
 
 ## Permanent fix
 - Log **metadata**: \`correlationId\`, endpoint, number of products, payload size, duration.
-- If payload samples are really needed, log at DEBUG under a dedicated category, truncate (e.g. first 1–2 KB) and mask sensitive fields.
+- If payload samples are really needed, log at DEBUG under a dedicated category, truncate (e.g. first 1 to 2 KB) and mask sensitive fields.
 - Keep log4j2 async appenders, and size the queue sensibly.
 
 ## Prevention
@@ -129,7 +129,7 @@ Debug-style payload logging promoted to production at INFO level, with no size l
 - Alert on log volume per app; load test with production logging config.
 `,
   followUps: [
-    { q: 'Does logging the payload affect streaming?', a: 'Yes — to log it, Mule must read the whole stream; with a repeatable stream it gets buffered (memory/disk), with a non-repeatable stream it can even be consumed so later processors see an empty payload.' },
+    { q: 'Does logging the payload affect streaming?', a: 'Yes. To log it, Mule must read the whole stream; with a repeatable stream it gets buffered (memory/disk), with a non-repeatable stream it can even be consumed so later processors see an empty payload.' },
     { q: 'How can you change log levels in CloudHub without changing code?', a: 'Runtime Manager lets you set log levels per package or class for a deployed app; that is why using clear logger categories is useful. It needs no new build, but it is not free: the CloudHub 2.0 docs say changing the log level restarts the application, and on CloudHub 1.0 applying settings redeploys it.' },
   ],
 }

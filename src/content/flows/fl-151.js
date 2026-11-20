@@ -85,7 +85,7 @@ Last month the database was restarted during a busy hour. The old flow used AUTO
 **Requirements**
 - Read from \`meter-readings\` and acknowledge each message yourself.
 - Remove a reading from the queue only once it is in the table.
-- When the insert fails, return the reading to the queue so Anypoint MQ delivers it again.
+- When the insert fails, return the reading to the queue so Anypoint MQ delivers it again, and log a WARN.
 
 **Design the flow.**
 `,

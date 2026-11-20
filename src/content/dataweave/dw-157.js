@@ -17,7 +17,7 @@ The input has a \`header\`, the \`codeMaps\` the hub loaded from its cross refer
   - \`sh:DocumentIdentification\` with \`sh:Standard\` (\`GS1\`), \`sh:TypeVersion\`, \`sh:InstanceIdentifier\` (the message id), \`sh:Type\` (\`Item\`) and \`sh:CreationDateAndTime\`
 - Then \`itm:ItemMessage\`, where \`itm\` is \`urn:kestrel:pdh:item:1\`, with the attributes \`count\` (number of items) and \`unmapped\` (number of codes not found in a code map), holding one \`itm:Item\` per row with \`itm:ItemId\`, \`itm:Description\` (trimmed), \`itm:UnitOfMeasure\`, \`itm:Status\` and \`itm:PackQuantity\`
 
-Translate \`UOM_CODE\` through \`codeMaps.uom\` and \`STATUS_CODE\` through \`codeMaps.status\`. An unknown code becomes \`UNMAPPED\`.
+Translate \`UOM_CODE\` through \`codeMaps.uom\` and \`STATUS_CODE\` through \`codeMaps.status\`. An unknown code becomes \`UNMAPPED\`. The \`unmapped\` attribute counts unknown codes, not rows, so a row with both codes unknown adds 2. Keep the elements in the order listed above and the items in row order.
 `,
   inputs: [
     {
@@ -36,9 +36,9 @@ Translate \`UOM_CODE\` through \`codeMaps.uom\` and \`STATUS_CODE\` through \`co
     "status": { "A": "ACTIVE", "D": "DISCONTINUED" }
   },
   "rows": [
-    { "ITEM_ID": "BRK-2201", "DESCRIPTION": "Brake pad set, front ", "UOM_CODE": "PACK", "STATUS_CODE": "A", "PACK_QTY": 4 },
-    { "ITEM_ID": "FLT-0310", "DESCRIPTION": "Oil filter", "UOM_CODE": "EACH", "STATUS_CODE": "D", "PACK_QTY": 1 },
-    { "ITEM_ID": "WPR-1180", "DESCRIPTION": " Wiper blade 18 in", "UOM_CODE": "PAIR", "STATUS_CODE": "A", "PACK_QTY": 2 }
+    { "ITEM_ID": "RLR-2201", "DESCRIPTION": "Paint roller set, 9 in ", "UOM_CODE": "PACK", "STATUS_CODE": "A", "PACK_QTY": 4 },
+    { "ITEM_ID": "HNG-0310", "DESCRIPTION": "Cabinet hinge", "UOM_CODE": "EACH", "STATUS_CODE": "D", "PACK_QTY": 1 },
+    { "ITEM_ID": "HSE-1180", "DESCRIPTION": " Garden hose 18 m", "UOM_CODE": "PAIR", "STATUS_CODE": "A", "PACK_QTY": 2 }
   ]
 }`,
     },
@@ -65,22 +65,22 @@ Translate \`UOM_CODE\` through \`codeMaps.uom\` and \`STATUS_CODE\` through \`co
   </sh:StandardBusinessDocumentHeader>
   <itm:ItemMessage xmlns:itm="urn:kestrel:pdh:item:1" count="3" unmapped="1">
     <itm:Item>
-      <itm:ItemId>BRK-2201</itm:ItemId>
-      <itm:Description>Brake pad set, front</itm:Description>
+      <itm:ItemId>RLR-2201</itm:ItemId>
+      <itm:Description>Paint roller set, 9 in</itm:Description>
       <itm:UnitOfMeasure>PK</itm:UnitOfMeasure>
       <itm:Status>ACTIVE</itm:Status>
       <itm:PackQuantity>4</itm:PackQuantity>
     </itm:Item>
     <itm:Item>
-      <itm:ItemId>FLT-0310</itm:ItemId>
-      <itm:Description>Oil filter</itm:Description>
+      <itm:ItemId>HNG-0310</itm:ItemId>
+      <itm:Description>Cabinet hinge</itm:Description>
       <itm:UnitOfMeasure>EA</itm:UnitOfMeasure>
       <itm:Status>DISCONTINUED</itm:Status>
       <itm:PackQuantity>1</itm:PackQuantity>
     </itm:Item>
     <itm:Item>
-      <itm:ItemId>WPR-1180</itm:ItemId>
-      <itm:Description>Wiper blade 18 in</itm:Description>
+      <itm:ItemId>HSE-1180</itm:ItemId>
+      <itm:Description>Garden hose 18 m</itm:Description>
       <itm:UnitOfMeasure>UNMAPPED</itm:UnitOfMeasure>
       <itm:Status>ACTIVE</itm:Status>
       <itm:PackQuantity>2</itm:PackQuantity>
@@ -170,11 +170,11 @@ sh#StandardBusinessDocument: {
           name: 'payload',
           mime: 'application/json',
           content:
-            '{ "header": { "sender": "KESTREL-PDH", "receiver": "PLANHUB", "messageId": "PDH-ITEM-20261118-0008", "typeVersion": "3.4", "createdAt": "2026-11-18T10:00:00Z" }, "codeMaps": { "uom": { "CASE": "CS" }, "status": { "A": "ACTIVE" } }, "rows": [{ "ITEM_ID": "SPK-0042", "DESCRIPTION": "Spark plug", "UOM_CODE": "CASE", "STATUS_CODE": "A", "PACK_QTY": 10 }] }',
+            '{ "header": { "sender": "KESTREL-PDH", "receiver": "PLANHUB", "messageId": "PDH-ITEM-20261118-0008", "typeVersion": "3.4", "createdAt": "2026-11-18T10:00:00Z" }, "codeMaps": { "uom": { "CASE": "CS" }, "status": { "A": "ACTIVE" } }, "rows": [{ "ITEM_ID": "SCR-0042", "DESCRIPTION": "Wood screw box", "UOM_CODE": "CASE", "STATUS_CODE": "A", "PACK_QTY": 10 }] }',
         },
       ],
       expected:
-        '<?xml version="1.0" encoding="UTF-8"?><sh:StandardBusinessDocument xmlns:sh="http://www.unece.org/cefact/namespaces/StandardBusinessDocumentHeader"><sh:StandardBusinessDocumentHeader><sh:HeaderVersion>1.0</sh:HeaderVersion><sh:Sender><sh:Identifier Authority="KESTREL">KESTREL-PDH</sh:Identifier></sh:Sender><sh:Receiver><sh:Identifier Authority="KESTREL">PLANHUB</sh:Identifier></sh:Receiver><sh:DocumentIdentification><sh:Standard>GS1</sh:Standard><sh:TypeVersion>3.4</sh:TypeVersion><sh:InstanceIdentifier>PDH-ITEM-20261118-0008</sh:InstanceIdentifier><sh:Type>Item</sh:Type><sh:CreationDateAndTime>2026-11-18T10:00:00Z</sh:CreationDateAndTime></sh:DocumentIdentification></sh:StandardBusinessDocumentHeader><itm:ItemMessage xmlns:itm="urn:kestrel:pdh:item:1" count="1" unmapped="0"><itm:Item><itm:ItemId>SPK-0042</itm:ItemId><itm:Description>Spark plug</itm:Description><itm:UnitOfMeasure>CS</itm:UnitOfMeasure><itm:Status>ACTIVE</itm:Status><itm:PackQuantity>10</itm:PackQuantity></itm:Item></itm:ItemMessage></sh:StandardBusinessDocument>',
+        '<?xml version="1.0" encoding="UTF-8"?><sh:StandardBusinessDocument xmlns:sh="http://www.unece.org/cefact/namespaces/StandardBusinessDocumentHeader"><sh:StandardBusinessDocumentHeader><sh:HeaderVersion>1.0</sh:HeaderVersion><sh:Sender><sh:Identifier Authority="KESTREL">KESTREL-PDH</sh:Identifier></sh:Sender><sh:Receiver><sh:Identifier Authority="KESTREL">PLANHUB</sh:Identifier></sh:Receiver><sh:DocumentIdentification><sh:Standard>GS1</sh:Standard><sh:TypeVersion>3.4</sh:TypeVersion><sh:InstanceIdentifier>PDH-ITEM-20261118-0008</sh:InstanceIdentifier><sh:Type>Item</sh:Type><sh:CreationDateAndTime>2026-11-18T10:00:00Z</sh:CreationDateAndTime></sh:DocumentIdentification></sh:StandardBusinessDocumentHeader><itm:ItemMessage xmlns:itm="urn:kestrel:pdh:item:1" count="1" unmapped="0"><itm:Item><itm:ItemId>SCR-0042</itm:ItemId><itm:Description>Wood screw box</itm:Description><itm:UnitOfMeasure>CS</itm:UnitOfMeasure><itm:Status>ACTIVE</itm:Status><itm:PackQuantity>10</itm:PackQuantity></itm:Item></itm:ItemMessage></sh:StandardBusinessDocument>',
     },
   ],
   followUps: [

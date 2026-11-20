@@ -196,6 +196,15 @@ What went wrong this quarter:
 - When the job ends: job row with \`COMPLETED\`, \`COMPLETED_WITH_REJECTS\` or \`FAILED\` and the counts, file to \`/tariffs/done\`, lock released.
 - Any failure before the job: release the lock and log an ERROR.
 
+**Facts**
+- Take the lock with \`UPDATE dbo.job_lock SET locked = 1, locked_at = ... WHERE job_name = 'TARIFF_LOAD' AND locked = 0\`. Release it with \`UPDATE dbo.job_lock SET locked = 0 WHERE job_name = 'TARIFF_LOAD'\`. Decide on the update's \`affectedRows\` in a Choice.
+- The WARN for a held lock mentions the lock. The WARN for a missing file starts \`No tariff file\`.
+- Find the file with SFTP **List** on \`/tariffs/in\`, matcher \`TARIFF_*.csv\`, then read the first one.
+- \`dbo.usp_job_start\` returns \`{ job_id }\`. \`dbo.job_log\` has \`status\`, \`loaded\` and \`failed\`.
+- Write the rates with \`MERGE INTO dbo.tariff_rate\`.
+- Status is \`COMPLETED\` when nothing failed, \`FAILED\` when nothing loaded, else \`COMPLETED_WITH_REJECTS\`.
+- Release the lock on failure in an On Error Propagate, so the run still ends with the original error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The lock

@@ -12,7 +12,7 @@ export default {
       { text: '09:51:02.130 WARN  [customer-sync] HTTP:TOO_MANY_REQUESTS PUT /customers/C-10023 -> 429 X-Ratelimit-Remaining=0 X-Ratelimit-Reset=420', relevant: true, why: 'The shared 100 req/s limit is exhausted: the CRM is back, but the backlog flood hits the rate limit.' },
       { text: '09:51:02.336 WARN  [customer-sync] HTTP:TOO_MANY_REQUESTS PUT /customers/C-10023 -> 429 corrId=e71a', relevant: true, why: 'Retries every 200 ms without backoff, ignoring the reset header. Each retry uses quota too.' },
       { text: '09:51:03.150 ERROR [customer-sync] MULE:RETRY_EXHAUSTED  until-successful retries exhausted corrId=e71a', relevant: false },
-      { text: '09:51:03.152 INFO  [customer-sync] Message nacked id=8c1e... (delivery 3 of 3)', relevant: true, why: 'After 3 deliveries a valid message goes to the DLQ just because it never got a slot.' },
+      { text: '09:51:03.152 INFO  [customer-sync] Message nacked id=8c1e... (delivery 3 of 3)', relevant: true, why: 'After 3 deliveries a valid message goes to the DLQ only because it never got a slot.' },
       { text: '09:51:03.171 INFO  [customer-sync] PUT /customers/C-10023 -> 200 corrId=33c9', relevant: true, why: 'Another event for the same customer succeeds while the older one is still being redelivered, so older data can overwrite newer.' },
       { text: '09:51:04.010 INFO  [metrics] replicas=4 inflight=64 queue.depth=176412', relevant: true, why: '4 replicas x 16 concurrent messages, each retrying 5 times, far exceeds 100 req/s.' },
       { text: '09:51:05.200 INFO  [health] GET /health 200 (2 ms)', relevant: false },
@@ -22,10 +22,10 @@ export default {
         type: 'single',
         prompt: 'Why did things get **worse** after the CRM recovered?',
         options: [
-          'The backlog flushed with 64 concurrent messages and tight retries, far above the shared 100 req/s limit, so almost every call got 429',
-          'The CRM came back with a bug that rejects updates',
-          'The rate limiting policy was lowered during maintenance',
-          'Anypoint MQ lost messages during the outage',
+          'The backlog flood and tight retries go far above the shared 100 req/s limit',
+          'The CRM came back from maintenance with a bug that rejects most updates',
+          'The rate limiting policy on crm-sapi was lowered during the maintenance',
+          'Anypoint MQ lost the messages that were in flight when the CRM went down',
         ],
         answer: 0,
         explain: 'This is a **retry storm**: demand of hundreds of requests per second against a 100 req/s limit, and retries consume quota themselves. During the outage calls failed fast; after recovery they hit the limit.',
@@ -34,10 +34,10 @@ export default {
         type: 'single',
         prompt: 'What is the **first** action to restore service for the web shop?',
         options: [
-          'Replay the DLQ immediately',
-          'Scale customer-sync down to 1 replica with low concurrency (or stop it)',
-          'Raise maxRetries to 20 so messages stop reaching the DLQ',
-          'Remove the rate limiting policy from crm-sapi',
+          'Replay the 42,000 DLQ messages so no customer update is lost',
+          'Scale customer-sync down to 1 replica with low concurrency, or stop it',
+          'Raise maxRetries to 20 so fewer valid messages reach the DLQ',
+          'Remove the rate limiting policy from crm-sapi for the rest of the day',
         ],
         answer: 1,
         explain: 'Stopping the stampede frees the shared quota for interactive users. Replaying the DLQ or adding retries adds load; removing the limit would push the overload onto the CRM.',
@@ -50,7 +50,7 @@ export default {
           'Exponential backoff with jitter that honours Retry-After / X-Ratelimit-Reset, retrying only retryable errors',
           'Separate limits or SLA tiers for the batch sync and the web shop',
           'Event versions or timestamps so crm-sapi rejects older updates',
-          'Raise the DLQ threshold to 50 deliveries',
+          'Raise the DLQ threshold to 50 deliveries so valid messages stay in the queue',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Controlled throughput, polite retries, isolated quotas and version checks address each failure. More deliveries only prolong the storm.',
@@ -72,7 +72,7 @@ export default {
   description: `
 ## Symptoms
 - \`customer-sync\` consumes *CustomerUpdated* events from Anypoint MQ queue \`customer-updates\` and calls \`crm-sapi\` (\`PUT /customers/{id}\`).
-- \`crm-sapi\` had a **40-minute outage** this morning (09:10–09:50) because the CRM was down for maintenance. ~180,000 messages piled up.
+- \`crm-sapi\` had a **40-minute outage** this morning (09:10 to 09:50) because the CRM was down for maintenance. ~180,000 messages piled up.
 - Since the CRM came back at 09:50, things got **worse**, not better: \`crm-sapi\` returns mostly **HTTP 429**, the backlog is not shrinking, and the DLQ \`customer-updates-dlq\` has gone from 0 to **42,000** messages.
 - Other consumers of \`crm-sapi\` (the web shop's "update profile") are also getting 429s, so customers can't update their details.
 - Some customers in the CRM now show **older** data than before the outage.
@@ -122,17 +122,17 @@ export default {
     'Adds ordering/version protection (e.g. compare event timestamp/version before updating, or FIFO per customer) and monitoring/alerts on queue depth, DLQ size and 429 rate; considers a circuit breaker to pause consumption while the target is unavailable.',
   ],
   solution: `
-**Diagnosis.** During the outage 180k messages accumulated. When the CRM recovered, \`customer-sync\` went at it with **4 replicas × 16 concurrent messages = 64 in flight**, each retrying **5 more times every 200 ms**. Every failure also returns the message to the queue for redelivery (up to 3 deliveries). Demand jumps to many hundreds of requests per second against a **shared 100 req/s** limit, so almost every call — including the retries — gets **429**. Retries themselves use up quota, so useful throughput collapses. This is a **retry storm**: the system is busy failing.
+**Diagnosis.** During the outage 180k messages accumulated. When the CRM recovered, \`customer-sync\` went at it with **4 replicas × 16 concurrent messages = 64 in flight**, each retrying **5 more times every 200 ms**. Every failure also returns the message to the queue for redelivery (up to 3 deliveries). Demand jumps to many hundreds of requests per second against a **shared 100 req/s** limit, so almost every call, including the retries, gets **429**. Retries themselves use up quota, so useful throughput collapses. This is a **retry storm**: the system is busy failing.
 
 - **Why worse after recovery**: during the outage requests failed fast (connection errors); after recovery they hit the rate limit and the backlog flood started.
 - **Web shop impact**: the rate limit is shared, so the sync job's retries starve interactive users.
-- **DLQ growth**: after 3 deliveries a message goes to the DLQ, even though it's perfectly valid — it just never got a slot.
+- **DLQ growth**: after 3 deliveries a message goes to the DLQ, even though it is valid. It never got a slot.
 - **Stale data**: events for the same customer are processed in parallel and redelivered later, so an **older** update can be applied **after** a newer one (see C-10023: msg \`f02b\` succeeded while \`8c1e\` was still being retried/redelivered).
 
 **Immediate mitigation.**
-1. **Stop the stampede**: scale \`customer-sync\` to 1 replica with low concurrency (or stop it) — the web shop's 429s should stop within the reset window.
+1. **Stop the stampede**: scale \`customer-sync\` to 1 replica with low concurrency (or stop it). The web shop's 429s should stop within the reset window.
 2. Temporarily give the web shop priority: e.g. an SLA tier/client-specific limit for the interactive client, if available.
-3. **Drain at a controlled rate** (e.g. 50–60 req/s) and watch 429s and latency.
+3. **Drain at a controlled rate** (e.g. 50 to 60 req/s) and watch 429s and latency.
 4. Replay the **DLQ** only after the main queue is drained, and only if each event is newer than what the CRM has (compare an event timestamp/version), to avoid reintroducing stale data. Run a reconciliation for customers updated during the incident.
 
 **Root cause.** Consumer concurrency and retry policy were sized for normal traffic, with no backoff, no awareness of 429/\`X-Ratelimit-Reset\`, and no ordering protection. One shared rate limit lets a batch consumer starve interactive users.

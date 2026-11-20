@@ -145,6 +145,10 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
     // The email subscriber takes 60 orders a second too, more than 0.1 vCore can, so it is sized like the others.
     set(d, 'pn', { vCores: '0.2' })
   })
+  // The WMS drawn as a warehouse system instead of a legacy box.
+  await passes('ar-059', (d) => {
+    d.nodes.find((n) => n.id === 'wms').type = 'wms'
+  })
   await failsOn('ar-059', 'Run: Orders at peak', (d) => set(d, 'exp', { vCores: undefined }))
   // The old design: the order waits for the 2 second loyalty call.
   await failsOn('ar-059', 'Run: Orders at peak', (d) => draw(d, 'po -> sloy'))

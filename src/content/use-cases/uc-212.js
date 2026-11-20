@@ -79,7 +79,7 @@ Last spring the primary region had a four hour storage outage. The notes were sa
 - A large scanned note takes about **12 seconds** to read, for up to half an hour on a busy morning.
 - A regional outage can last **hours**; the test uses 40 minutes.
 - Both APIs run on CloudHub; an availability zone can fail.
-- In this model calls time out after 10 seconds unless set otherwise.
+- In this model calls time out after 10 seconds unless set otherwise, each replica has 128 threads plus 256 per vCore (the smallest is 0.1 vCore), and a read holds a thread in every API it passes while it waits.
 
 **Questions:**
 - Draw the design. In Mule the failover box is a First Successful over two connector configurations, or a choice on the error; draw it as a load balancer in failover mode.
@@ -99,7 +99,7 @@ Last spring the primary region had a four hour storage outage. The notes were sa
     'The secondary is a read only copy that can be minutes behind. Spread reads would show a note signed a minute ago as missing, half the time. Failover reads it only when the primary is gone.',
     'Uploads cannot fail over: the secondary takes no writes. New notes wait, or go to a holding store, until the primary is back.',
     'A 12 second read needs timeouts above it on both APIs, the outer one longer than the inner one, or the Experience API gives up first.',
-    'Slow reads hold threads: 30 reads a second for 12 seconds is about 360 waiting at once. Two replicas of 0.5 vCore give enough threads for that, and one of them alone can carry the load when a zone fails.',
+    'Slow reads hold threads: 30 reads a second for 12 seconds is about 360 waiting at once. Two replicas of 0.1 vCore give about 300 threads, too few. Two of 0.5 vCore give 512, and one of them alone can carry the load when a zone fails.',
     'Failover needs a clear signal: a timeout or a connection error from the primary. A 404 is not an outage and must not send the read to the copy.',
   ],
   solution: `

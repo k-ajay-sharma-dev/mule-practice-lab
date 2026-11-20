@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: 'Why does the CRM search for a space?',
         options: [
-          'In a query string a plus sign is commonly read as a space, and the URL was built by hand without encoding it',
-          'The CRM strips plus signs from all data',
-          'The phone numbers were deleted',
-          'The IVR sends spaces',
+          'A plus in a query string is read as a space, and the hand-built URL did not encode it',
+          'The CRM trims a leading plus from every search value and pads it with a space',
+          'The IVR sends the number with a leading space, which the log does not show',
+          'The HTTP Request encodes the plus twice, so the CRM decodes it to a space',
         ],
         answer: 0,
         explain: 'A plus must be sent as %2B to mean a plus. Building the URL with ++ skips that encoding.',
@@ -30,13 +30,13 @@ export default {
         type: 'single',
         prompt: 'What is the right way to send the phone number?',
         options: [
-          'Pass it in the query parameters of the HTTP Request, so the connector encodes it',
-          'Remove the plus sign',
-          'Add a second plus sign',
-          'Send it in a header called phone',
+          'Set it in the query parameters of the HTTP Request, which encodes it',
+          'Remove the plus sign before joining it into the URL string',
+          'Wrap the number in double quotes inside the hand-built URL',
+          'Replace the plus with `00` before joining it into the URL string',
         ],
         answer: 0,
-        explain: 'Query parameters set on the request are encoded for you. Removing the plus changes the number and may match the wrong person.',
+        explain: 'Query parameters set on the request are encoded for you. Removing the plus or swapping it for `00` changes the value the CRM stores, and may match nobody or the wrong person. Quotes would only be sent as part of the value.',
       },
       {
         type: 'multi',
@@ -49,10 +49,10 @@ export default {
         type: 'single',
         prompt: 'Why did this start with the new IVR?',
         options: [
-          'The IVR sends numbers in international format with a plus. The old web form sent digits only',
-          'The IVR uses a new CRM',
-          'The IVR calls at night',
-          'The IVR has no correlation ID',
+          'The IVR sends numbers with a plus, and the web form sent digits only',
+          'The IVR calls a new CRM search endpoint that decodes differently',
+          'The IVR go-live also replaced the flow that builds the CRM URL',
+          'The IVR sends numbers longer than the CRM phone field allows',
         ],
         answer: 0,
         explain: 'The code was always wrong, but no input had a plus sign until the IVR went live.',
@@ -77,7 +77,7 @@ export default {
 - Lookups by customer ID still work.
 
 ## Change / Context
-- The IVR sends phone numbers in international format, such as \`+447700900123\`.
+- The IVR sends phone numbers in international format, such as \`+447700900123\`. Before it, lookups came only from a web form that sent digits.
 - The flow builds the CRM URL like this: \`"/contacts?phone=" ++ vars.phone\`.
 
 ## Logs

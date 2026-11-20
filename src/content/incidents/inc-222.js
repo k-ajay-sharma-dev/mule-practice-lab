@@ -19,10 +19,10 @@ export default {
         type: 'single',
         prompt: "Why is nothing reprocessed?",
         options: [
-          "The duplicate check finds the failed attempt in the log table and treats it as already done",
-          "The restart app sent nothing",
-          "The messages expired",
-          "The blobs were deleted",
+          "The check finds the failed attempt’s row and treats it as done",
+          "The restart app republished before the database was really back",
+          "The restart app gave each message a new ID the hub cannot match",
+          "The blobs behind the messages expired during the database outage",
         ],
         answer: 0,
         explain: "The check counts every earlier row, whatever its status.",
@@ -31,10 +31,10 @@ export default {
         type: 'single',
         prompt: "What should the duplicate check look for?",
         options: [
-          "A previous attempt that completed successfully",
-          "Any previous row",
-          "Rows from today only",
-          "Nothing",
+          "An earlier attempt with a completed status",
+          "Any earlier row for the message ID",
+          "An earlier row written in the last 24 hours",
+          "An earlier row with the same blob path",
         ],
         answer: 0,
         explain: "A failed attempt must not block a retry. Only success means done.",
@@ -46,7 +46,7 @@ export default {
           "Duplicate check on successful status only",
           "Loads that can run twice without double rows, such as MERGE",
           "A retry count, so a message that keeps failing stops and goes to a person",
-          "Deleting the log table",
+          "Turning off the duplicate check while the restart app republishes",
         ],
         answer: [0,1,2],
         explain: "Allow retries, make them harmless, and stop endless loops.",
@@ -55,10 +55,10 @@ export default {
         type: 'single',
         prompt: "What should happen to rows half loaded by the failed attempt?",
         options: [
-          "The retry must replace or merge them, or the failed attempt must roll back its rows",
-          "Leave them as they are and insert again",
-          "Delete the whole table",
-          "Ignore them",
+          "The retry merges or replaces them, or the failure rolls them back",
+          "Leave them, and let the retry insert the full message again",
+          "Truncate the staging table before every restart app run",
+          "Keep them, and have the retry load only the rows still missing",
         ],
         answer: 0,
         explain: "Otherwise the retry leaves duplicates or hits unique constraint errors.",
@@ -84,6 +84,7 @@ export default {
 ## Change / Context
 - The hub logs every message ID in a log table with a status, and rejects IDs it has seen.
 - A separate restart app consumes the failure queue and republishes to the main queue after a health check.
+- Messages the hub rejects go back to the failure queue.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

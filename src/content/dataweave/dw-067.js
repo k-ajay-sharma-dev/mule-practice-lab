@@ -9,12 +9,12 @@ export default {
 The omnichannel order service sends a basket to a Mule pricing API before checkout. Implement the promotion calculation.
 
 **Inputs**
-- \`payload\` — the basket: \`basketId\` and \`lines\` (\`lineId\`, \`sku\`, \`category\`, \`qty\`, \`unitPrice\`, optional \`clearance\`).
-- \`promotions\` — line promotions, in priority order. Three kinds:
+- \`payload\`: the basket: \`basketId\` and \`lines\` (\`lineId\`, \`sku\`, \`category\`, \`qty\`, \`unitPrice\`, optional \`clearance\`).
+- \`promotions\`: line promotions, in priority order. Three kinds:
   - \`MULTIBUY\` (\`skus\`, \`buy\`, \`pay\`): for every complete group of \`buy\` units of a listed SKU, only \`pay\` are charged. Discount = \`floor(qty / buy) * (buy - pay) * unitPrice\`.
   - \`PERCENT_CATEGORY\` (\`category\`, \`pct\`): discount = \`qty * unitPrice * pct / 100\`.
   - \`AMOUNT_OFF_SKU\` (\`skus\`, \`amount\`): \`amount\` off each unit, never more than the unit price. Discount = \`qty * min(amount, unitPrice)\`.
-- \`coupon\` — a basket coupon \`{ code, pctOff, minSpend }\`, or \`null\`.
+- \`coupon\`: a basket coupon \`{ code, pctOff, minSpend }\`, or \`null\`.
 
 **Rules**
 1. Every discount amount is rounded to 2 decimals (half up) as soon as it is calculated.
@@ -23,7 +23,7 @@ The omnichannel order service sends a basket to a Mule pricing API before checko
 4. The coupon is not combinable: it applies only to lines that got **no** promotion (and are not clearance). Their gross total is the coupon base. The coupon applies when there is a coupon and the base is \`>= minSpend\` and \`> 0\`.
 5. Coupon total = \`base * pctOff / 100\`, rounded to 2 decimals. It is **allocated** to the coupon lines in proportion to their gross (each share rounded to 2 decimals), except the **last** coupon line, which gets the remainder so that the shares add up exactly to the coupon total.
 
-**Output** — \`basketId\`; \`lines\` in input order with \`lineId\`, \`sku\`, \`gross\` (\`qty * unitPrice\`), \`promoId\` (or \`null\`), \`promoDiscount\`, \`couponDiscount\`, \`net\`; \`coupon\` as \`{ code, applied, discount }\` (or \`null\` without coupon); \`totals\` with \`gross\`, \`discount\` (all promo and coupon discounts) and \`net\`.
+**Output** (fields in this order): \`basketId\`; \`lines\` in input order with \`lineId\`, \`sku\`, \`gross\` (\`qty * unitPrice\`), \`promoId\` (or \`null\`), \`promoDiscount\` (\`0\` when none), \`couponDiscount\` (\`0\` when none), \`net\` (\`gross - promoDiscount - couponDiscount\`); \`coupon\` as \`{ code, applied, discount }\` with \`discount\` \`0\` when not applied (or \`coupon: null\` without coupon); \`totals\` with \`gross\`, \`discount\` (all promo and coupon discounts) and \`net\`.
 `,
   inputs: [
     {
@@ -80,7 +80,7 @@ payload
 `,
   hints: [
     'Write `discountFor(promo, line)` with `match` on `promo.kind`; return `0` when the promotion does not cover the line.',
-    'Per line: map every promotion to `{ id, amount }`, drop the zeros, and pick the winner with `reduce (o, acc) -> if (o.amount > acc.amount) o else acc` — strict `>` keeps the earlier one on a tie.',
+    'Per line: map every promotion to `{ id, amount }`, drop the zeros, and pick the winner with `reduce (o, acc) -> if (o.amount > acc.amount) o else acc`. Strict `>` keeps the earlier one on a tie.',
     'Allocation: map the coupon lines with their index; every line except the last gets `round2(total * gross / base)`; the last gets `total - sum(of the others)`.',
     'Build a `lineId → couponDiscount` object so the final line mapping can look the share up with `shares[l.lineId] default 0`.',
     'L2 is a tie: 15% of 29.98 is 4.497 → 4.50, and 2 × 2.25 is also 4.50.',
@@ -142,7 +142,7 @@ var totalDiscount = sum(outLines map ($.promoDiscount + $.couponDiscount))
   explanation: `
 **Evaluate, then choose.** Each line is priced against **every** promotion, the zeros are dropped and \`reduce\` picks the largest. Using strict \`>\` means the accumulator (the earlier promotion) survives a tie, which implements "listed first wins" without any sorting. \`reduce\` on an empty list returns \`null\`, so \`best.id\` is \`null\` and \`best.amount default 0\` gives 0 for lines without a promotion.
 
-**Round early, as specified.** Rule 1 rounds each discount immediately: L2's 15% is 4.497 → 4.50, which ties with the 4.50 amount-off. Comparing the unrounded amounts would make P-TOWEL225 the winner instead (4.497 < 4.50) — in pricing, the rounding point is part of the business rule, and it must be identical in the POS, the web shop and the integration, or the receipt and the web basket disagree by a cent.
+**Round early, as specified.** Rule 1 rounds each discount immediately: L2's 15% is 4.497 → 4.50, which ties with the 4.50 amount-off. Comparing the unrounded amounts would make P-TOWEL225 the winner instead (4.497 < 4.50). In pricing, the rounding point is part of the business rule, and it must be identical in the POS, the web shop and the integration, or the receipt and the web basket disagree by a cent.
 
 **Allocation with a remainder line.** The coupon (10% of 54.16 = 5.42) has to be spread over L3, L4 and L6 so that returns and refunds can give back the right share per line. Rounding each share independently can create or lose a cent (two lines of 5.05 with 10% give 0.505 + 0.505 → 0.51 + 0.51 = 1.02 for a 1.01 coupon). Giving the last line the remainder guarantees that the shares add up exactly to the total.
 

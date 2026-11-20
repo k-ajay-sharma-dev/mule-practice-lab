@@ -68,6 +68,7 @@ Today the tablets post each record straight to the **co-op ERP** through Mule. A
 - The co-op ERP takes about 250 ms per record and up to **50 records a second**.
 - The milk office runs its tanker reports at 19:00 and needs every record by then.
 - About 1 record in 200 is for a farm that has left the co-op and is refused by the ERP.
+- Each upload must be accepted within **400 ms**, even at 18:00, and no record may be lost.
 
 **Questions:**
 - Draw the design.

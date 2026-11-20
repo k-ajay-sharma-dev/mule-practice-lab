@@ -161,7 +161,8 @@ Every night the ERP drops one XML file \`sales_YYYYMMDD.xml\` into \`/data/sales
 - The file is **1.2 GB** with about **3 million** \`<sale>\` elements, from **14 regions**. Records are **not sorted** by region.
 - Each regional team needs **its own valid XML file** in \`/data/sales/out/<REGION>/\` by 06:00 (the file arrives around 01:00).
 - The Mule worker has **2 GB heap**. Loading the file into memory is not an option.
-- The original file is archived after a successful split; on failure it goes to \`/data/sales/error\` and nothing half-written may be published.
+- Each region file keeps the input file's name, for example \`/data/sales/out/EMEA/sales_20261112.xml\`.
+- The original file is moved to \`/data/sales/archive\` after a successful split. On failure it goes to \`/data/sales/error\` and nothing half-written may be published.
 
 **Design the flow(s):**
 - How do you read the file without loading 1.2 GB into memory?
@@ -191,7 +192,7 @@ Every night the ERP drops one XML file \`sales_YYYYMMDD.xml\` into \`/data/sales
 1. **File On New or Updated File** \`/data/sales/in/sales_*.xml\` with a **file-store repeatable stream** (or non-repeatable). Set the XML reader to streaming so DataWeave can iterate \`<sale>\` elements lazily: XML needs both \`streaming=true\` and \`collectionPath=sales.sale\` on the MIME type.
 2. Variables: \`fileName\`, \`runDir = /data/sales/work/<file>\`, and \`regions\` (the set of regions seen so far).
 3. **For Each** over \`payload.sales.*sale\` with **batchSize 2000**. Each iteration holds 2,000 records, not 3 million:
-   - **Transform** \`groupBy region\` on just this chunk → list of \`{ region, fragment }\`.
+   - **Transform** \`groupBy region\` on this chunk only → list of \`{ region, fragment }\`.
    - Inner **For Each** → **File Write** \`<runDir>/<region>.part\` mode **APPEND** (and add the region to \`vars.regions\`).
 4. **Finalise:** For Each region → write \`/data/sales/out/<REGION>/<file>\`: \`<?xml ...?><sales>\` + the part contents (streamed) + \`</sales>\`. Write to a temporary name and rename, so consumers never see a half-written file.
 5. **File Move** the input to \`/data/sales/archive\`, then log a summary.
@@ -201,16 +202,16 @@ Do **not** use Parallel For Each for the append step: two threads appending to t
 `,
   followUps: [
     {
-      q: 'Why not just groupBy the whole payload?',
+      q: 'Why not groupBy the whole payload?',
       a: 'groupBy needs every record in memory to build the groups. 3 million parsed XML elements would need several GB of heap and cause an OutOfMemoryError. Chunked iteration keeps memory flat.',
     },
     {
       q: 'Could a Batch Job do this?',
-      a: 'Yes. Batch streams records into persistent queues and a Batch Aggregator can append per-region chunks. It adds restartability and record-level error tracking, at the cost of disk I/O. For a pure split with no per-record logic, a streaming For Each is simpler.',
+      a: 'Yes. Batch streams records into persistent queues and a Batch Aggregator can append per-region chunks. It adds restartability and record-level error tracking, at the cost of disk I/O. For a pure split with no per-record logic, a streaming For Each is lighter.',
     },
     {
       q: 'How would you make the job restartable halfway?',
-      a: 'Use the run ID as the work directory name and record progress (last processed chunk) in an Object Store. On restart either resume from that chunk or wipe the work directory and start over, which is simpler and safe because nothing was published.',
+      a: 'Use the run ID as the work directory name and record progress (last processed chunk) in an Object Store. On restart either resume from that chunk or wipe the work directory and start over, which needs less code and is safe because nothing was published.',
     },
   ],
 }

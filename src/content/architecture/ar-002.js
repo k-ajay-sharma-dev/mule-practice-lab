@@ -112,9 +112,9 @@ export default {
   description: `
 An insurance company is building three integrations on Mule 4 (CloudHub 2.0):
 
-1. **Quote lookup** — the broker portal calls an API to get a premium quote. Brokers wait on screen; the pricing engine answers in ~300 ms.
-2. **Policy issued notification** — when a policy is issued in the policy admin system, **four** downstream systems need to know: billing, document generation, the data warehouse and a CRM. More consumers are expected next year.
-3. **Claim document upload** — a customer uploads a claim with photos (up to 50 MB). The claims system takes 2–10 minutes to ingest and classify the files.
+1. **Quote lookup**: the broker portal calls an API to get a premium quote. Brokers wait on screen; the pricing engine answers in ~300 ms.
+2. **Policy issued notification**: when a policy is issued in the policy admin system, **four** downstream systems need to know: billing, document generation, the data warehouse and a CRM. More consumers are expected next year.
+3. **Claim document upload**: a customer uploads a claim with photos (up to 50 MB). The claims system takes 2 to 10 minutes to ingest and classify the files.
 
 Numbers for sizing: at peak brokers ask for 100 quotes a second. About 2 policies are issued a second. Customers upload up to 1 claim a second; storing the files takes about 1.5 s, and the claims system takes about 3 minutes per claim. Billing has had outages of 30 minutes. The budget for the APIs is 2 vCores.
 
@@ -141,14 +141,14 @@ Numbers for sizing: at peak brokers ask for 100 quotes a second. About 2 policie
     'Sizing: 100 quotes a second needs 0.5 vCore on the quote APIs. The claim worker needs a timeout longer than the 3 minute ingest, or every claim times out and is tried again.',
   ],
   solution: `
-**1. Quote lookup → synchronous.** The broker is waiting and the pricing engine answers in ~300 ms, so a plain HTTP request/reply API fits. Add a sensible timeout and a clear error (e.g. 503) if the engine is unavailable — there is no value in queuing a quote nobody is waiting for any more.
+**1. Quote lookup → synchronous.** The broker is waiting and the pricing engine answers in ~300 ms, so a plain HTTP request/reply API fits. Add a sensible timeout and a clear error (e.g. 503) if the engine is unavailable: there is no value in queuing a quote nobody is waiting for any more.
 
 **2. Policy issued → asynchronous, publish/subscribe.** The policy system (or a System API in front of it) publishes one \`PolicyIssued\` event to an **Anypoint MQ exchange**; each consumer has its own queue bound to it. Benefits:
-- The publisher does not know or wait for consumers; adding a fifth consumer is just a new bound queue.
+- The publisher does not know or wait for consumers; adding a fifth consumer only needs a new bound queue.
 - If billing is down for 30 minutes, its messages wait in its queue and are processed when it recovers. Other consumers are unaffected.
 - Consumers must be idempotent because delivery is at-least-once.
 
-**3. Claim upload → async with acknowledgement.** Accept the upload (store the files, e.g. in object storage), return **202 Accepted** with a \`claimId\`, and process ingestion in the background (queue-driven worker). A 2–10 minute HTTP call would hit timeouts and hold threads. The customer learns the outcome via a \`GET /claims/{id}/status\` endpoint (polling), a webhook/callback, or an email/push notification triggered by a \`ClaimClassified\` event.
+**3. Claim upload → async with acknowledgement.** Accept the upload (store the files, e.g. in object storage), return **202 Accepted** with a \`claimId\`, and process ingestion in the background (queue-driven worker). A 2 to 10 minute HTTP call would hit timeouts and hold threads. The customer learns the outcome via a \`GET /claims/{id}/status\` endpoint (polling), a webhook/callback, or an email/push notification triggered by a \`ClaimClassified\` event.
 
 **Sizing and failure handling.**
 - At 100 quotes a second, 0.1 vCore (about 50 requests a second) is too small. 0.5 vCore on the quote Experience API and the pricing System API carries the peak. A 2 s timeout on the pricing call fails fast when the engine hangs.

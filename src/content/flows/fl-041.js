@@ -105,13 +105,13 @@ export default {
       {
         name: 'An event is archived',
         about: 'The event is stored, then the message is acknowledged.',
-        trigger: { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9105', eventType: 'OrderShipped', occurredAt: '2026-11-13T09:55:00Z', orderId: 'SO-51001', carrier: 'DHL' } } },
+        trigger: { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9105', eventType: 'OrderShipped', occurredAt: '2026-11-13T09:55:00Z', orderId: 'SO-51001', carrier: 'NorthLine Freight' } } },
         expect: { db: { event_archive: { count: 5, has: { event_id: 'EV-9105', event_type: 'OrderShipped' } } }, ack: 'acked' },
       },
       {
         name: 'The archive database is down',
         about: 'The write fails, so the event goes back to the queue instead of being lost.',
-        trigger: { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9106', eventType: 'OrderShipped', occurredAt: '2026-11-13T09:56:00Z', orderId: 'SO-51002', carrier: 'UPS' } } },
+        trigger: { message: { kind: 'mq', destination: 'order-events.archive', payload: { eventId: 'EV-9106', eventType: 'OrderShipped', occurredAt: '2026-11-13T09:56:00Z', orderId: 'SO-51002', carrier: 'SwiftPost' } } },
         overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
         expect: { ack: 'returned' },
       },
@@ -246,6 +246,13 @@ Last month the **billing** team deployed a bug and silently mis-processed six ho
 - Replays of up to ~200k events; the admin call must answer within seconds with a replay ID.
 - Replayed events must be recognisable so consumers can dedupe and audit them; every replay must be recorded (who, what, when, how many).
 
+**Facts**
+- An event is JSON with at least \`eventId\`, \`eventType\` and \`occurredAt\`. Anypoint MQ can deliver the same event twice.
+- The archive is the PostgreSQL table \`event_archive\` (\`event_id\` unique, \`event_type\`, \`occurred_at\`, \`body\` as JSON text).
+- The consumer queues are \`order-events.billing\`, \`order-events.warehouse\` and \`order-events.crm\`.
+- The replay API is \`POST /admin/v1/replays\` with \`{ from, to, eventTypes, targetQueue }\`. The caller is named in the \`X-Requested-By\` header. A request is invalid when \`to\` is not after \`from\`, the window is longer than 2 days, or \`targetQueue\` is not one of the three consumer queues.
+- Each replay is recorded in \`replay_job\` (\`replay_id\`, \`target_queue\`, \`from_ts\`, \`to_ts\`, \`requested_by\`, \`status\`, \`events\`, \`finished_at\`).
+
 **Design the flow(s):** archiving, the replay API, how the replay runs, safety checks and auditability.
 `,
   answerTemplate: `## Archiving
@@ -261,16 +268,16 @@ Last month the **billing** team deployed a bug and silently mis-processed six ho
 ## Audit
 `,
   keyPoints: [
-    'A dedicated archive queue bound to the exchange feeds an archiver flow that stores each event (DB/S3) and acks only after the write — no event is lost.',
+    'A dedicated archive queue bound to the exchange feeds an archiver flow that stores each event (DB/S3) and acks only after the write: no event is lost.',
     'Archive writes are idempotent on eventId so MQ redeliveries do not create duplicates.',
     'The replay endpoint validates the window size and restricts the target to an allow-list of single consumer queues (never the exchange).',
     'The replay runs asynchronously (Async scope, VM queue or batch) and returns 202 with a replay ID; progress is stored in a replay_job table.',
     'Replayed messages carry a replay marker and the original eventId so consumers can dedupe idempotently and audits can tell them apart.',
   ],
   solution: `
-**Archiver flow** — Anypoint MQ Subscriber on \`order-events.archive\` (MANUAL ack) → Database Insert into \`event_archive\` (\`ON CONFLICT DO NOTHING\` on \`event_id\`) → **Ack**. On error → **Nack** so MQ redelivers (and eventually DLQs). A Scheduler can purge rows older than 90 days.
+**Archiver flow**: Anypoint MQ Subscriber on \`order-events.archive\` (MANUAL ack) → Database Insert into \`event_archive\` (\`ON CONFLICT DO NOTHING\` on \`event_id\`) → **Ack**. On error → **Nack** so MQ redelivers (and eventually DLQs). A Scheduler can purge rows older than 90 days.
 
-**Replay API** — \`POST /admin/v1/replays { from, to, eventTypes, targetQueue }\`, protected by an API Manager policy (client ID + admin role).
+**Replay API**: \`POST /admin/v1/replays { from, to, eventTypes, targetQueue }\`, protected by an API Manager policy (client ID + admin role).
 1. **Validate** the window (positive, max 2 days per request) and that \`targetQueue\` is in an **allow-list** of single consumer queues. Publishing to the exchange would re-send to *every* consumer.
 2. Insert a \`replay_job\` row (who, window, target, status RUNNING). Give the insert a **Target** variable: a Database Insert otherwise replaces the payload with its row count, and the replay still needs the request.
 3. **Async** scope (max concurrency 1, so replays do not compete): Database Select (streaming, ordered by time) → **For Each** → DataWeave adds \`replay: { replayId, originalEventId }\` → **Anypoint MQ Publish** to the target queue. Update the job row with count and COMPLETED.
@@ -282,7 +289,7 @@ Last month the **billing** team deployed a bug and silently mis-processed six ho
 `,
   followUps: [
     {
-      q: 'Why not simply replay by moving messages from a DLQ or re-reading the consumer queue?',
+      q: 'Why not replay by moving messages from a DLQ or re-reading the consumer queue?',
       a: 'Successfully consumed messages are deleted from Anypoint MQ, and the queue TTL is limited. Only an independent archive lets you replay events that were "successfully" but wrongly processed.',
     },
     {

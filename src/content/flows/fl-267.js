@@ -160,6 +160,12 @@ The old flow merged each part as it arrived. When part 9 failed, buyers worked f
 - Not equal: leave \`dbo.po_plan\` alone, delete the job's staging rows, mark the job \`FAILED\` with the counts, and move the control file to \`/plan/error\`.
 - Any error: mark the job \`FAILED\`.
 
+**Facts**
+- Control files match \`PO_PLAN_*.ctl\`. The parts are in the same folder.
+- \`dbo.usp_job_start\` returns \`{ job_id }\`.
+- Take the staged count from the database with \`SELECT COUNT(*) ... FROM dbo.po_plan_staging WHERE job_id = ...\`.
+- On any error, mark the job in an On Error Propagate, so the run still ends with the original error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The control file and the job row

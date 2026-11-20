@@ -316,6 +316,9 @@ EDI-capable suppliers (about 600) exchange **X12 4010** files over the retailer'
 **Facts**
 - \`PO_HEADER.STATUS\` is \`APPROVED\` when the event arrives, \`SENT\` once the supplier has the 850, and \`ACKNOWLEDGED\` or \`REJECTED\` after the 855.
 - Interchange control numbers (ISA13, GS06, ST02) come from the Oracle sequence \`EDI_ICN_SEQ\`.
+- \`SUPPLIER\` has \`SUPPLIER_ID\`, \`EDI_ISA_ID\`, \`EDI_GS_ID\` and \`SFTP_FOLDER\` (for example \`/suppliers/S-4410\`).
+- \`PO_HEADER\` has \`PO_NUMBER\`, \`PO_DATE\`, \`SUPPLIER_ID\`, \`SHIP_TO_DC\`, \`CURRENCY\`, \`STATUS\`, \`EDI_ICN\`, \`SENT_AT\`, \`ACK_DUE_AT\` and \`ACK_AT\`. \`PO_LINE\` has \`PO_NUMBER\`, \`LINE_NO\`, \`SKU\`, \`SUPPLIER_ITEM\`, \`QTY\`, \`UOM\`, \`UNIT_PRICE\`, \`NEED_BY_DATE\` and the ack columns.
+- Move processed 855 files to \`/edi/archive/855\` and failed ones to \`/edi/error/855\`.
 
 **Design the flow(s).**
 `,
@@ -334,27 +337,27 @@ EDI-capable suppliers (about 600) exchange **X12 4010** files over the retailer'
     'Interchange/group/transaction control numbers come from an Oracle sequence and are stored with the PO for 997/855 correlation and audit.',
     'The status guard (only APPROVED POs are read) stops a redelivered event once the PO is SENT; SFTP Write with CREATE_NEW covers the gap before that update only if the file name depends on the PO number alone, because a new ICN in the name makes a new file.',
     'Inbound: SFTP listener → X12 read → line ACK codes written with a Database Bulk Update; header status updated from BAK02.',
-    'A Choice publishes POs with rejected or changed lines to the buyers\' exception queue; fully accepted POs just log.',
+    'A Choice publishes POs with rejected or changed lines to the buyers\' exception queue; fully accepted POs are only logged.',
     'A scheduled monitor finds POs still SENT after ACK_DUE_AT and raises them as exceptions.',
   ],
   solution: `
-**Flow 1 — \`po-to-supplier-850\`**
+**Flow 1: \`po-to-supplier-850\`**
 1. **JMS On New Message** \`PROC.PO.APPROVED\`, with **Inbound Content-Type** \`application/json\` if the procurement app does not state the message type (the config default is \`*/*\`).
-2. **Database Select** header + lines + supplier EDI IDs/folder, \`STATUS = 'APPROVED'\` (a redelivered event for a PO already SENT returns nothing and fails validation — log and drop, or route to a no-op).
+2. **Database Select** header + lines + supplier EDI IDs/folder, \`STATUS = 'APPROVED'\` (a redelivered event for a PO already SENT returns nothing and fails validation, so log and drop, or route to a no-op).
 3. Next control number from \`EDI_ICN_SEQ\`.
 4. **Transform** to the X12 850 structure (BEG, N1 ship-to, PO1 lines, CTT) and **X12 Write** (X12 EDI module) to produce the file text.
 5. **SFTP Write** \`PO_<po>_<icn>.edi\` with **CREATE_NEW**.
 6. **Database Update** \`STATUS = 'SENT'\`, ICN, \`ACK_DUE_AT = +24h\`.
 If the update fails after the file was written, the redelivered event would produce a new ICN and file. So either write the PO status first in a "SENDING" state with the ICN, or make the file name depend only on the PO number so CREATE_NEW rejects the second file.
 
-**Flow 2 — \`supplier-855-inbound\`**
+**Flow 2: \`supplier-855-inbound\`**
 1. **SFTP listener** \`/edi/inbound/855\`, move to archive after success. Set **Apply Post Action When Failed** to false (the default is true), or failed files are archived too.
 2. **X12 Read** (validates envelopes; produce a **997** back to the supplier) → DataWeave → \`vars.ack\` (PO number, BAK02, lines with ACK01/ACK02/ACK05).
 3. **Database Bulk Update** \`PO_LINE\` ack columns; **Database Update** header status, with the PO number and BAK02 taken from \`vars.ack\` (the Bulk Update left only row counts in the payload).
 4. **Choice**: RJ or any line ≠ IA → JMS Publish exception summary to \`PROC.PO.ACK.EXCEPTIONS\`.
 5. Errors → move the file to \`/edi/error/855\`.
 
-**Flow 3 — \`overdue-855-monitor\`** — hourly **Scheduler** → POs \`STATUS = 'SENT' AND ACK_DUE_AT < now\` → publish to the exception queue (with a flag column so the same PO is not raised every hour).
+**Flow 3: \`overdue-855-monitor\`**: hourly **Scheduler** → POs \`STATUS = 'SENT' AND ACK_DUE_AT < now\` → publish to the exception queue (with a flag column so the same PO is not raised every hour).
 `,
   followUps: [
     {

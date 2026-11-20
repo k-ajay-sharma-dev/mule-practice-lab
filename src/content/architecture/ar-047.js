@@ -71,13 +71,13 @@ export default {
       type: 'single',
       prompt: 'Which definition of API-led connectivity would you give in an interview?',
       options: [
-        'A way of putting all integrations into one central ESB owned by the integration team',
-        'Exposing capabilities as reusable, managed APIs in three layers — System (unlock systems of record), Process (compose business logic), Experience (shape data for a consumer)',
-        'A rule that every integration must have exactly three deployed apps',
+        'All integrations in one central ESB owned by the integration team',
+        'Reusable, managed APIs in three layers: System, Process and Experience',
+        'A rule that every integration has exactly three deployed apps',
         'Point-to-point integration with REST instead of SOAP',
       ],
       answer: 1,
-      explain: 'The key words are **reusable**, **managed** and the three responsibilities. The layers are a design model, not a quota of deployables.',
+      explain: 'The key words are **reusable**, **managed** and the three responsibilities: System APIs unlock systems of record, Process APIs compose business logic, Experience APIs shape data for a consumer. The layers are a design model, not a quota of deployables.',
     },
     {
       type: 'match',
@@ -87,20 +87,20 @@ export default {
         ['Centralised ESB hub', 'One team becomes the delivery bottleneck for every project'],
         ['API-led connectivity', 'Extra hops, more deployables and governance effort'],
       ],
-      explain: 'The ESB solved the spaghetti technically but not organisationally. API-led keeps central governance but decentralises delivery — at an honest cost in hops and apps.',
+      explain: 'The ESB solved the spaghetti technically but not organisationally. API-led keeps central governance but decentralises delivery: at an honest cost in hops and apps.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The insurer builds a web portal first, then a broker portal. What does the application network mean for the second project?',
       options: [
-        'It must rebuild its own integrations to the mainframe and billing',
-        'It reuses the Policy System API, Customer System API and Quote Process API and mainly adds a Broker Experience API',
-        'It must wait for the central team to add SOAP services',
-        'Nothing changes; each project is independent',
+        'It rebuilds its own integrations to the mainframe and billing',
+        'It reuses the System APIs and Quote Process API, and adds a Broker Experience API',
+        'It waits for the central team to add new SOAP services',
+        'It copies the web portal’s APIs and changes them for brokers',
       ],
       answer: 1,
-      explain: 'Each project leaves reusable assets behind, so later projects get faster — this compounding reuse is the core business argument.',
+      explain: 'Each project leaves reusable assets behind, so later projects get faster: this compounding reuse is the core business argument.',
     },
     {
       type: 'multi',
@@ -111,19 +111,19 @@ export default {
         'Backends can be replaced behind System APIs without breaking consumers',
         'Consistent security and monitoring through managed APIs',
         'The first project will be cheaper than a point-to-point build',
-        'Three layers add no latency',
+        'Lower latency than direct point-to-point calls',
       ],
       answer: [0, 1, 2],
       explain: 'The first project is usually slightly more expensive because it builds reusable assets, and every hop has a cost. Promising otherwise undermines credibility.',
     },
     {
       type: 'single',
-      prompt: 'An interviewer says: "Isn\'t API-led just an ESB with a new name?" Best reply?',
+      prompt: 'An interviewer says: "Isn\'t API-led an ESB with a new name?" Best reply?',
       options: [
-        'Yes, the runtime is the same',
-        'The difference is the operating model: APIs are products with contracts, discoverable in Exchange and built by many teams under central governance',
+        'Yes, the runtime and the hub model are the same',
+        'No. APIs become products that many teams build and reuse under governance',
         'No, API-led does not use any middleware',
-        'API-led only works on CloudHub',
+        'No, API-led replaces SOAP with REST everywhere',
       ],
       answer: 1,
       explain: 'The runtime can look similar; what changes is ownership, discoverability and self-service reuse.',
@@ -132,10 +132,10 @@ export default {
       type: 'single',
       prompt: 'Must every integration have all three layers?',
       options: [
-        'Yes, always — otherwise it is not API-led',
-        'No — the layers are a design guide; skipping one is fine when it adds no value, as long as the decision is deliberate and documented',
-        'Only System APIs are optional',
-        'Only regulated industries need all three',
+        'Yes, always, or it is not API-led',
+        'No. Skip a layer when it adds no value, and record the decision',
+        'Yes, except System APIs, which are optional',
+        'Only when more than one channel uses the API',
       ],
       answer: 1,
       explain: 'Pass-through layers add latency and cost without value. A deliberate, documented skip is good architecture.',
@@ -146,11 +146,11 @@ This is the most common opening question in a MuleSoft interview:
 
 > "Explain API-led connectivity. Why would a company use it instead of what they had before?"
 
-Context for your answer — a mid-size insurer today has:
+Context for your answer: a mid-size insurer today has:
 
 | System | Integrated with |
 |---|---|
-| Policy admin (mainframe) | CRM, web portal, billing, data warehouse — each via its own custom code |
+| Policy admin (mainframe) | CRM, web portal, billing, data warehouse: each via its own custom code |
 | CRM (Salesforce) | Policy admin, billing, marketing tool |
 | Billing (Oracle DB) | CRM, policy admin, web portal |
 | Legacy ESB | Hosts ~60 tightly coupled SOAP "services", owned by one central team |
@@ -166,7 +166,7 @@ Numbers for the application network after the broker portal project:
 1. Define API-led connectivity in two or three sentences.
 2. Compare it with **point-to-point** integration and a **centralised ESB hub**. What problem does each approach have?
 3. What is an **application network**, and how does API-led build one over time?
-4. What business benefit would you promise the insurer — and what would you *not* promise?
+4. What business benefit would you promise the insurer, and what would you *not* promise?
 `,
   answerTemplate: `## Definition
 
@@ -181,7 +181,7 @@ Numbers for the application network after the broker portal project:
     'Point-to-point creates N×(N-1) brittle links with duplicated logic; a central ESB hub reduces links but becomes a delivery bottleneck owned by one team with tightly coupled services.',
     'API-led decentralises delivery: APIs are products discoverable in Exchange and governed by policies, so other teams can self-serve and reuse them.',
     'The application network is the growing graph of reusable APIs; each project adds assets so later projects are faster (reuse compounds).',
-    'The promise is faster delivery through reuse and decoupling of consumers from backends — not zero cost: extra hops, more deployables and governance overhead are real.',
+    'The promise is faster delivery through reuse and decoupling of consumers from backends: not zero cost: extra hops, more deployables and governance overhead are real.',
     'One shared System API per backend is also the one place to protect it: a rate limit of 35 a second on the Policy System API keeps the mainframe under its 40, whichever portal calls.',
   ],
   solution: `
@@ -207,24 +207,24 @@ Point-to-point                ESB hub                         API-led
 | | Point-to-point | Centralised ESB hub | API-led |
 |---|---|---|---|
 | Coupling | Every consumer knows every backend's protocol and model | Consumers coupled to hub services, often to backend models | Consumers coupled to stable API contracts |
-| Reuse | Almost none — logic copied per link | Possible but gated by one team | Designed in: Exchange discovery, self-service |
+| Reuse | Almost none: logic copied per link | Possible but gated by one team | Designed in: Exchange discovery, self-service |
 | Delivery speed | Fast for the first link, slows exponentially | Bottleneck: central backlog | Distributed teams, governed centrally |
 | Change impact | Change a backend → fix N integrations | Change in hub → regression across all | Change behind a System API → consumers unaffected |
 
-Point-to-point grows roughly as N×(N−1)/2 links. The ESB solved the spaghetti technically but not **organisationally**: one team owns everything, so it becomes the bottleneck. API-led keeps central governance (standards, policies, Exchange) but **decentralises delivery** — the C4E model.
+Point-to-point grows roughly as N×(N−1)/2 links. The ESB solved the spaghetti technically but not **organisationally**: one team owns everything, so it becomes the bottleneck. API-led keeps central governance (standards, policies, Exchange) but **decentralises delivery**: the C4E model.
 
-**Application network.** The network of applications, data and devices connected by reusable APIs. Project 1 (web portal) builds Policy SAPI, Customer SAPI and Quote PAPI. Project 2 (broker portal) reuses those and only adds a Broker EAPI — maybe 30–60% less work. Each project leaves assets behind; the network becomes more valuable as it grows. This is the core business argument.
+**Application network.** The network of applications, data and devices connected by reusable APIs. Project 1 (web portal) builds Policy SAPI, Customer SAPI and Quote PAPI. Project 2 (broker portal) reuses those and only adds a Broker EAPI: maybe 30 to 60% less work. Each project leaves assets behind; the network becomes more valuable as it grows. This is the core business argument.
 
 **Benefits and honest limits.**
 - Promise: faster delivery for subsequent projects, backends replaceable without breaking consumers, consistent security/monitoring, visibility of what exists.
-- Do not promise: that the first project is cheaper (it is usually slightly more expensive — you build reusable assets), or that three layers are free (latency per hop, more deployables, governance effort). Reuse only happens if APIs are designed well and discoverable.
+- Do not promise: that the first project is cheaper (it is usually slightly more expensive: you build reusable assets), or that three layers are free (latency per hop, more deployables, governance effort). Reuse only happens if APIs are designed well and discoverable.
 
 **Sizing and protecting the mainframe.**
 - The shared Quote Process API and the three System APIs carry both portals: 20 quotes a second normally and 72 in the launch spike. 0.2 vCore each serves about 100 a second. The broker Experience API gets 0.2 vCore for its spike, and the web one stays at 0.1. That is 1.1 vCores in all.
 - A **rate limit of 35 a second** on the Policy System API answers 429 to what is over it, so the mainframe never sees more than its 40. Without it, the spike sends all 72 to the mainframe. Because every consumer reuses that one System API, the limit covers them all. A second integration to the mainframe would go around it.
 `,
   followUps: [
-    { q: 'Isn\'t API-led just an ESB with a new name?', a: 'The runtime can look similar, but the difference is the operating model: APIs are products with contracts, discoverable in Exchange and built by many teams under central governance, rather than services hidden inside one team\'s hub.' },
+    { q: 'Isn\'t API-led an ESB with a new name?', a: 'The runtime can look similar, but the difference is the operating model: APIs are products with contracts, discoverable in Exchange and built by many teams under central governance, rather than services hidden inside one team\'s hub.' },
     { q: 'How would you prove the application network is delivering value?', a: 'Track reuse: number of consumers per API, percentage of new projects consuming existing assets, and delivery time for projects vs the baseline. Without measurement, reuse claims are anecdotal.' },
     { q: 'Do all three layers have to exist for every integration?', a: 'No. The layers are a design guide, not a mandate; skipping a layer is fine when the extra layer adds no value, as long as the decision is deliberate and documented.' },
   ],

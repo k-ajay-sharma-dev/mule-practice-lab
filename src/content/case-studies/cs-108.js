@@ -36,7 +36,7 @@ export default {
         soss: ['system-api', 'sys-number-routing-api'],
         hlr: ['legacy', 'HLR and number routing (OSS)'],
         sbill: ['system-api', 'sys-billing-api'],
-        bill: ['legacy', 'Amdocs billing (BSS)'],
+        bill: ['legacy', 'Convergent billing (BSS)'],
         sms: ['notification', 'SMS to customer'],
       },
       [
@@ -80,7 +80,7 @@ The regulator requires a port to complete within **one working day** and fines o
 **Today.** Store staff type the request into the BSS order screen. A back-office team of 14 people re-keys it into the clearing house web portal, watches for results, and raises network and billing tickets. 3% of ports miss the one-day deadline, and customers often lose service for hours because routing and billing are changed at different times.
 
 **Systems**
-- BSS: Amdocs billing and customer management.
+- BSS: a convergent billing and customer management product.
 - OSS: HLR and number routing database, with a provisioning API that accepts one change at a time.
 - Store tablets and the self-care app (new: customers will be able to request a port-in themselves).
 
@@ -89,6 +89,7 @@ The regulator requires a port to complete within **one working day** and fines o
 - Callbacks can arrive twice.
 - The OSS provisioning API allows 20 changes per second.
 - In tests the clearing house sends 60 callbacks a second for 10 minutes on a launch day, and 1 callback in 100 cannot be matched to a port.
+- In the diagram, put "HLR" in the name of the OSS box and "billing" in the name of the billing system. Run the callback System API on 0.5 vCore, name the queue port-responses, and send a response to its DLQ after 5 failed deliveries.
 
 **Your task.** Design the automated port-in process and explain how it meets the one-day rule.
 `,
@@ -114,11 +115,11 @@ The regulator requires a port to complete within **one working day** and fines o
 
 **Submitting.** Store tablets and the self-care app call \`exp-porting-api\`. The Process API validates the number and the customer, stores the request, and calls \`sys-clearing-house-api\` (SOAP, mutual TLS). The response only confirms receipt.
 
-**Callbacks.** \`sys-clearing-house-callback-api\` receives each callback, checks the signature, writes it to the \`port-responses\` queue and returns 200 within milliseconds. The Process API consumes the queue, looks up the request, ignores a message ID it has already processed, and moves the state machine on. Messages that fail after retries go to a DLQ with an alert.
+**Callbacks.** \`sys-clearing-house-callback-api\` (0.5 vCore, enough for 60 callbacks a second) receives each callback, checks the signature, writes it to the \`port-responses\` queue and returns 200 within milliseconds. The Process API consumes the queue, looks up the request, ignores a message ID it has already processed, and moves the state machine on. A message that fails 5 deliveries (for example a port the operator cannot match) goes to the DLQ with an alert.
 
 **Port window.** A scheduler in the Process API picks requests whose window has opened. It calls \`sys-number-routing-api\` (throttled to 20 per second) and then \`sys-billing-api\`. If billing fails, it retries; after three failures the request is flagged for the back office, while routing stays in place because the customer must keep service. The customer gets an SMS when the port completes.
 
-**Monitoring.** A dashboard shows ports by state and age. Any port older than 18 working hours raises an alert, well before the 24 hour regulatory limit.
+**Monitoring.** A dashboard shows ports by state and age. Any port that has used three quarters of its working day raises an alert, well before the regulatory limit.
 `,
   followUps: [
     { q: 'Why not process the callback inside the HTTP request?', a: 'The clearing house expects an acknowledgement within 5 seconds. Routing and billing calls can take longer, and a slow answer makes the clearing house retry and eventually suspend the endpoint.' },

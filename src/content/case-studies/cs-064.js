@@ -98,6 +98,7 @@ export default {
 - A refund must never be paid twice, even if an event is delivered twice.
 - Finance must reconcile Adyen refunds with SAP credit notes every day.
 - After Christmas the returns DC receives about 2 returns a second. Adyen can be down for 20 minutes, and about 1 refund in 50 is for a card it rejects every time.
+- Publish received returns on a \`return-received\` topic. It redelivers a failed refund about once a minute; try each refund for 30 minutes (a redelivery limit of 30), then send it to a refunds dead-letter queue.
 
 **Your task.** Design the returns and refunds integration.
 `,
@@ -132,7 +133,7 @@ export default {
 - For DC returns it calls \`sys-payment-api\`, which calls the Adyen refund API with the idempotency key \`RMA + line\`. A duplicate event gets the same answer back and pays nothing extra.
 - For store returns it skips the payment.
 - In both cases it posts a credit note through \`sys-sap-finance-api\`.
-- Failures are retried 5 times with backoff, then go to the refunds DLQ, which finance works from a dashboard.
+- A failed refund stays on the topic and is redelivered about once a minute for 30 minutes, which rides out a 20 minute Adyen outage. After 30 deliveries it goes to the refunds DLQ, which finance works from a dashboard.
 
 **Stock.** The WMS grade (A sellable, B outlet, C scrap) goes to SAP with the credit note, so stock and valuation stay right.
 

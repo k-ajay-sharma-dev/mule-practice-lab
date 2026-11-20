@@ -54,16 +54,17 @@ export default {
     },
   },
   description: `
-An online ticket shop uses a payment gateway (Stripe-like). When a payment succeeds, fails or is refunded, the gateway sends a **webhook** (HTTP POST, JSON) to your Mule app.
+An online ticket shop uses a payment gateway. When a payment succeeds, fails or is refunded, the gateway sends a **webhook** (HTTP POST, JSON) to your Mule app.
 
 Gateway behaviour:
 - Each request carries a header with an **HMAC-SHA256 signature** computed over the **raw request body** using a shared secret.
 - The gateway expects a **2xx response within 10 seconds**; otherwise it retries with backoff for up to 3 days. Retries can also arrive after a success (network blips).
 - Each event has a unique \`event.id\`.
 
-Your job: update the order in the **order DB** and trigger the ticket email. The order DB sometimes takes 5+ seconds under load.
+Your job: update the order in the **order DB** (reached only through a System API) and trigger the ticket email. The order DB sometimes takes 5+ seconds under load.
 
 - The gateway sends about 5 webhooks a second. The order DB can be down for 20 minutes, and about 1 event in 100 has data it rejects every time.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good events must survive the 20-minute outage, and bad events must reach the DLQ.
 
 **Describe your solution:**
 - How do you verify that a webhook really comes from the gateway?
@@ -87,12 +88,12 @@ Your job: update the order in the **order DB** and trigger the ticket email. The
     'Consumer retries transient failures and sends poison events to a DLQ; the gateway\'s own retries are a safety net, not the main retry mechanism.',
   ],
   solution: `
-**Verify the signature.** Configure the HTTP Listener so you can access the **raw body** (don't transform it before verifying — re-serialised JSON produces a different signature). Compute HMAC-SHA256 over the raw bytes (plus timestamp, if the gateway signs \`timestamp.body\`) with the secret from **secure properties** — e.g. DataWeave \`dw::Crypto::HMACWith\` — and compare with the header. Mismatch → respond 400/401 and log, no further processing. If a timestamp is included, reject events older than ~5 minutes to prevent replays.
+**Verify the signature.** Configure the HTTP Listener so you can access the **raw body** (don't transform it before verifying: re-serialised JSON produces a different signature). Compute HMAC-SHA256 over the raw bytes (plus timestamp, if the gateway signs \`timestamp.body\`) with the secret from **secure properties** (e.g. DataWeave \`dw::Crypto::HMACWith\`) and compare with the header. Mismatch → respond 400/401 and log, no further processing. If a timestamp is included, reject events older than ~5 minutes to prevent replays.
 
 **Acknowledge fast.** After verification, publish the event to an **Anypoint MQ** queue and immediately return **200**. The webhook endpoint does no DB work, so the 10-second limit is never at risk even when the order DB is slow.
 
 **Duplicates.** A consumer flow reads the queue and uses an **Idempotent Message Validator** on \`event.id\` with a **persistent Object Store** (TTL ≥ the gateway's 3-day retry window). Alternatively, it stores processed event IDs in a DB column with a unique constraint. Duplicates are acked and dropped. Updates are written so repeating them is harmless (e.g. set status = PAID).
 
-**Failure handling.** The consumer acks only after the DB update and email trigger succeed. Transient errors → message redelivered (with backoff); after N attempts it moves to a **dead letter queue** and an alert is raised. If publishing to MQ itself fails, return 5xx so the gateway retries later.
+**Failure handling.** The consumer acks only after the DB update and email trigger succeed. Transient errors → message redelivered about once a minute. Set the limit to about 30 deliveries so an event outlasts a 20-minute DB outage; after that it moves to a **dead letter queue** and an alert is raised. If publishing to MQ itself fails, return 5xx so the gateway retries later.
 `,
 }

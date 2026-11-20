@@ -97,7 +97,7 @@ Facts:
 - Existing interfaces: a few CICS transactions (COMMAREA, fixed-width records described by **COBOL copybooks**), **IBM MQ** queues used by an older system, and nightly **fixed-width files** via SFTP.
 - The mainframe team has 3 people, a 6-month change backlog and releases quarterly.
 - The mainframe will be replaced "in about 5 years".
-- Numbers for sizing: CICS transactions take about 800 ms, and the mainframe team allows at most 25 a second from the new channels. Customers make about 5 address changes a second; brokers sometimes push bulk updates at 45 a second. The mainframe changes about 20 to 30 policies a second, and 400 a second for 20 minutes while the nightly COBOL batch runs; the read store should catch up within the hour. The read store has had outages of 15 minutes.
+- Numbers for sizing: CICS transactions take about 800 ms, and the mainframe team allows at most 25 a second from the new channels. Customers make about 5 address changes a second; brokers sometimes push bulk updates at 45 a second, and that must not crowd out customers. The mainframe changes about 20 to 30 policies a second, and 400 a second for 20 minutes while the nightly COBOL batch runs; the read store should get every change and catch up within the hour. The read store has had outages of 15 minutes. A queued message that fails is tried again about once a minute.
 
 **Questions:**
 - Which integration options do you consider (CICS calls, IBM MQ, DB2 direct, files, CDC), and which do you pick for reads vs writes?
@@ -116,7 +116,7 @@ Facts:
 ## Working with the mainframe team
 `,
   keyPoints: [
-    'Options are compared explicitly: synchronous CICS calls (e.g. via IBM CTG or MQ-CICS bridge), IBM MQ messaging, DB2 via JDBC, file transfer, and CDC replication — each with latency, coupling and cost trade-offs.',
+    'Options are compared explicitly: synchronous CICS calls (e.g. via IBM CTG or MQ-CICS bridge), IBM MQ messaging, DB2 via JDBC, file transfer, and CDC replication: each with latency, coupling and cost trade-offs.',
     'Heavy reads are served from an off-mainframe read store fed by CDC or the nightly files plus deltas, so portal traffic does not consume mainframe MIPS.',
     'Writes (address change) go to the mainframe as the system of record through an existing transaction/MQ interface, never by writing DB2 tables directly.',
     'Copybook-based fixed-width records are parsed/generated in DataWeave (flat file schema from the copybook) inside a Mainframe System API, which exposes a canonical JSON model.',
@@ -129,13 +129,13 @@ Facts:
 |---|---|---|
 | CICS transaction (IBM CTG connector / MQ-CICS bridge) | Real-time, reuses validated business logic | Each call costs MIPS; COMMAREA/copybook mapping |
 | IBM MQ (existing queues) | Async, decoupled, mainframe team knows it | Request/reply over MQ adds complexity; still MIPS |
-| DB2 direct (JDBC) | Easy reads | Couples to physical schema; **writes bypass business rules** |
+| DB2 direct (JDBC) | Quick to build for reads | Couples to physical schema; **writes bypass business rules** |
 | Nightly files | No online load | Up to 24 h stale |
 | CDC (replication tool on DB2 logs) | Near-real-time copy, low MIPS impact | Extra product/licence, ops effort |
 
 **Reads vs writes.**
-- **Reads (policies, claims)** — the bulk of portal traffic — come from an **operational read store** (e.g. a cloud/on-prem database) loaded initially from the files and kept current via **CDC** or MQ change events. The Policy System API reads from this store. Freshness: seconds to minutes, acceptable for viewing; show "last updated".
-- **Writes (address change)** go to the mainframe as the **system of record**, via an existing CICS transaction or MQ request (async with confirmation). After success, update the read store (or let CDC bring it back). Never write DB2 tables directly — business rules live in COBOL.
+- **Reads (policies, claims)**, the bulk of portal traffic, come from an **operational read store** (e.g. a cloud/on-prem database) loaded initially from the files and kept current via **CDC** or MQ change events. The Policy System API reads from this store. Freshness: seconds to minutes, acceptable for viewing; show "last updated".
+- **Writes (address change)** go to the mainframe as the **system of record**, via an existing CICS transaction or MQ request (async with confirmation). After success, update the read store (or let CDC bring it back). Never write DB2 tables directly: business rules live in COBOL.
 
 **Controlling load and cost.** The read store absorbs portal and broker traffic; the mainframe sees only writes and CDC. Add **rate limiting** on the System API paths that hit CICS, and caching for reference data. Measure MIPS before/after with the mainframe team.
 - A rate limit of 20 a second on the Policy System API keeps CICS under the agreed 25. On its own it would refuse customers too when brokers push a bulk update, so the broker Experience API gets its own limit of 15 a second. Brokers over it get 429 and retry later; customers are still served.
@@ -143,7 +143,7 @@ Facts:
 - When the read store is down, the sync consumer fails and the changes wait in the change stream. Leave the delivery limit unlimited (or long enough for the outage), or the changes are dropped and the read store stays wrong until the next full load.
 
 **Insulating consumers.**
-- A **Policy System API** (and Claims SAPI) exposes canonical JSON resources (\`/policies/{id}\`, \`/policies/{id}/address\`). Copybook fixed-width ↔ JSON conversion happens inside it with DataWeave flat-file schemas generated from the **COBOL copybooks** (watch EBCDIC encoding, packed decimals/COMP-3, signed fields — test with real samples).
+- A **Policy System API** (and Claims SAPI) exposes canonical JSON resources (\`/policies/{id}\`, \`/policies/{id}/address\`). Copybook fixed-width ↔ JSON conversion happens inside it with DataWeave flat-file schemas generated from the **COBOL copybooks** (watch EBCDIC encoding, packed decimals/COMP-3, signed fields, and test with real samples).
 - Process/Experience APIs never see copybooks or transaction codes. When the new platform arrives in 5 years, re-implement the System API against it (**strangler pattern**), migrating capability by capability; consumers don't change.
 
 **Working with the mainframe team.** Prefer interfaces that already exist (the CICS transactions and MQ queues) to avoid their backlog. Ask early for: copybooks, test region access, transaction volumes, MIPS budget, CDC approval. Agree an interface contract and a test data set. Schedule the one unavoidable change (e.g. enabling CDC) into their quarterly release now.

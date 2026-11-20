@@ -83,7 +83,7 @@ Pell & Rook Hardware, a fictional hardware chain, receives item data from a **su
 **Numbers**
 - About **1 notice a second** most of the day; up to **15 a second** when a big supplier resends.
 - A download takes about 400 ms; at month end, full catalogues take about **25 seconds**.
-- A price job holds locks in Oracle for up to 20 minutes a day; then about **1 write in 10** times out on a lock and works when tried again.
+- A price job holds locks in Oracle for up to 20 minutes a day; then about **1 write in 10** times out on a lock and works when tried again. Each try times out or not on its own. This can happen while a big supplier resends, and lock timeouts should cost a notice seconds, not a minute back on the queue.
 - Oracle maintenance takes up to **40 minutes**.
 - About **1 notice in 100** names a blob the portal never finished writing. It will never load.
 - In this model calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.

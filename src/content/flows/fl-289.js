@@ -101,6 +101,13 @@ The runtime runs **on premises** with a local disk for landing files, \`/data/la
 - A failed load leaves the file in the landing folder.
 - An empty body answers **400** \`{ "error": "EMPTY_UPLOAD" }\`.
 
+**Facts**
+- The upload ID is \`uuid()\`. Land the body as \`/data/landing/<uploadId>.csv\` without parsing it.
+- Hand off \`{ uploadId }\` on a VM queue. The loader reads the file with **File Read** as \`application/csv\`; every value stays text.
+- Check the body with a **Validate** is-true. A false check raises \`VALIDATION:INVALID_BOOLEAN\`; answer 400 from an **On Error Propagate** for that type.
+- Do not catch a failure in the loader. The file stays and \`upload_log\` keeps \`RECEIVED\`.
+- **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
+
 **Design the flows.**
 `,
   answerTemplate: `## Landing the body

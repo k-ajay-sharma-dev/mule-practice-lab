@@ -91,7 +91,8 @@ A national digital identity service already exists for citizen login.
 - Departments own their systems and have different release cycles.
 - Strict data protection rules: citizens see only their own data; access must be auditable.
 - Some department systems are only available during office hours.
-- In the evening the dashboard is opened about 30 times a second while the vehicles mainframe is closed, and it should still answer within a second.
+- In the evening the dashboard is opened about 30 times a second while the vehicles mainframe is closed. It should still answer within a second, calling the departments in parallel and showing what it has without the vehicle part.
+- The gateway must refuse any call without a valid citizen token.
 
 **Your task.** Propose the integration architecture, security model and delivery plan.
 `,
@@ -135,7 +136,7 @@ A national digital identity service already exists for citizen login.
 `,
   followUps: [
     { q: 'How do you stop one department’s outage from breaking the dashboard?', a: 'Call sources in parallel with per-source timeouts and return partial results with a status per service, plus circuit-breaker style fallbacks or cached last-known values.' },
-    { q: 'Who owns the System APIs — the central team or departments?', a: 'Departments, because they know their systems and release cycles; the central team owns the platform, standards and the cross-department Process and Experience APIs.' },
+    { q: 'Who owns the System APIs: the central team or the departments?', a: 'Departments, because they know their systems and release cycles; the central team owns the platform, standards and the cross-department Process and Experience APIs.' },
     { q: 'How do you prioritise which services to move first?', a: 'By citizen volume and pain versus technical risk; a high-volume, simple service proves the platform and gives visible value early.' },
   ],
 }

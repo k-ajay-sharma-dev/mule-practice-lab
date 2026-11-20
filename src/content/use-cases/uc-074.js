@@ -77,7 +77,7 @@ Constraints and targets:
 - Checkout must still feel fast: reservation answer in **< 500 ms p95**.
 - The rest of the website (normal products) must not be affected.
 - Payments: card authorisation through the PSP (3-D Secure possible, may take a minute).
-- The bucketed Oracle stock rows take about 300 reservations a second. Reserves peak at 500 a second for the first 3 minutes, and payments can confirm 120 orders a second for 5 minutes.
+- The bucketed Oracle stock rows take about 300 reservations a second. Reserves peak at 500 a second for the first 3 minutes. The same platform will run bigger drops, so plan for payments confirming up to 120 orders a second for 5 minutes. No paid order may be lost.
 
 **Questions:**
 1. Draw the architecture and the request path from "Reserve" to "Order confirmed".
@@ -101,7 +101,7 @@ Constraints and targets:
   keyPoints: [
     'Edge: CDN/WAF bot protection and a waiting room in front, then gateway spike control and per-customer rate limits; flash traffic isolated on its own Mule workers.',
     'Reservation is an atomic conditional update in Oracle (decrement only if available ≥ qty), with stock split into buckets/rows per size to reduce row-lock contention; one active reservation per customer enforced by a unique constraint.',
-    'Read traffic (product page, "almost sold out" counters) served from a cache refreshed every few seconds — never from Oracle.',
+    'Read traffic (product page, "almost sold out" counters) served from a cache refreshed every few seconds, never from Oracle.',
     'Reservations have an expiry timestamp; a sweeper releases expired ones atomically; payment confirmation converts a reservation to sold only if it is still active.',
     'Paid orders are queued (ActiveMQ) and fed to the OMS at its 50/s limit, with DLQ and replay; the customer gets the confirmation without waiting for the OMS.',
     'Load-test the whole path with production-like data and contention; rehearse the drop with a dummy product.',
@@ -127,18 +127,18 @@ Constraints and targets:
 - Insert into \`FLASH_RESERVATION (drop_id, customer_id, sku, bucket, expires_at, status)\` in the **same transaction**, with a unique constraint on (drop_id, customer_id) → "one pair per customer" is enforced by the database, not by code.
 - Everything in a stored procedure called with \`db:stored-procedure\` (one round trip, IN: drop, sku, customer; OUT: result code, reservation ID), using a dedicated connection pool sized for the expected concurrency.
 
-**Protection.** Bot management and device fingerprinting at the CDN/WAF; verified account required (account age, payment card on file); gateway **spike control** and **rate limiting** per client and per customer; flash APIs deployed on separate workers so normal shopping is unaffected. The product page and "x left" counters come from the cache (refreshed every 2–5 s from Oracle sums), so 200,000 users refreshing never reach the database.
+**Protection.** Bot management and device fingerprinting at the CDN/WAF; verified account required (account age, payment card on file); gateway **spike control** and **rate limiting** per client and per customer, with an overall limit of about 300 reservations a second so the Oracle stock rows are never pushed past what they take; flash APIs deployed on separate workers so normal shopping is unaffected. The product page and "x left" counters come from the cache (refreshed every 2 to 5 s from Oracle sums), so 200,000 users refreshing never reach the database.
 
-**Expiry and OMS.** The sweeper runs every 30 seconds: in one transaction per batch it marks ACTIVE reservations with \`expires_at < SYSTIMESTAMP\` as EXPIRED and adds their units back to their buckets. Payment confirmation checks status = ACTIVE in the same UPDATE, so a payment arriving after expiry fails cleanly (authorisation voided, customer told). 3-D Secure delays: the reservation timer starts at checkout and can be extended once while a payment is pending. The OMS is protected by the queue: 5,000 orders at 50/s drain in under 2 minutes; poison messages → DLQ with replay.
+**Expiry and OMS.** The sweeper runs every 30 seconds: in one transaction per batch it marks ACTIVE reservations with \`expires_at < SYSTIMESTAMP\` as EXPIRED and adds their units back to their buckets. Payment confirmation checks status = ACTIVE in the same UPDATE, so a payment arriving after expiry fails cleanly (authorisation voided, customer told). 3-D Secure delays: the reservation timer starts at checkout and can be extended once while a payment is pending. The OMS is protected by the queue: 5,000 orders at 50/s drain in under 2 minutes, and a bigger drop at 120 a second for 5 minutes drains in about 12 minutes. Poison messages → DLQ with replay.
 
-**Failure modes.** Oracle unavailable → reservations fail fast with "try again" (no queueing of reservations — fairness matters more than throughput). PSP slow → reservation keeps the unit until expiry. Broker down → paid orders are written to an outbox table in the same transaction as SOLD, and published when the broker returns.
+**Failure modes.** Oracle unavailable → reservations fail fast with "try again" (no queueing of reservations, because fairness matters more than throughput). PSP slow → reservation keeps the unit until expiry. Broker down → paid orders are written to an outbox table in the same transaction as SOLD, and published when the broker returns.
 
 **Testing.** Load test with realistic contention (30,000 requests/minute on 12 SKUs), and verify sold + reserved + available = initial stock after every run. Run chaos tests (kill a worker mid-test, slow the PSP) and a public rehearsal drop with a low-value product.
 `,
   followUps: [
     { q: 'Why not keep the stock counter only in a cache like Redis?', a: 'It can be faster, but the stock of record and the one-per-customer rule must survive crashes and be auditable. Many teams use a cache counter as a first gate and Oracle as the final atomic check; for 5,000 units Oracle with buckets is usually enough.' },
-    { q: 'What is wrong with SELECT available, then UPDATE in two steps?', a: 'Two concurrent requests read the same value and both decrement — classic overselling. The check and the decrement must be one atomic conditional UPDATE (or SELECT ... FOR UPDATE inside one transaction).' },
-    { q: 'How do you stop one person with 50 accounts?', a: 'Combine account verification, device and payment-card fingerprinting, address de-duplication after the sale (cancel duplicates), and rate limits per device/IP — no single control is enough.' },
+    { q: 'What is wrong with SELECT available, then UPDATE in two steps?', a: 'Two concurrent requests read the same value and both decrement. That is classic overselling. The check and the decrement must be one atomic conditional UPDATE (or SELECT ... FOR UPDATE inside one transaction).' },
+    { q: 'How do you stop one person with 50 accounts?', a: 'Combine account verification, device and payment-card fingerprinting, address de-duplication after the sale (cancel duplicates), and rate limits per device/IP. No single control is enough.' },
     { q: 'Why does the customer not wait for the OMS order?', a: 'The sale is decided in Oracle and the payment is authorised; the OMS order is a downstream fulfilment step. Queuing it protects the OMS limit and keeps checkout fast.' },
   ],
 }

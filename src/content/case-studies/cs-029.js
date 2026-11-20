@@ -79,6 +79,7 @@ export default {
 - The project tool has a REST API with rate limits (~100 calls/minute) and webhooks for approvals.
 - Finance insists the ERP stays the system of record for money; the project tool is the system of record for project scope.
 - At month end site teams approve about 1 commitment a second. The ERP has a 45 minute patch window, and about 1 approval in 50 has a cost code it rejects every time.
+- Acknowledge each approval webhook at once and process it from a queue. Try each approval for up to 90 minutes, then move it to a dead-letter queue for a project accountant. The queue redelivers a failed message about once a minute, so set its redelivery limit to match.
 
 **Your task.** Propose:
 - the integration architecture
@@ -111,14 +112,14 @@ export default {
 | Commitments, change orders | Project tool | Project tool → ERP (as PO / PO change) |
 | Invoices, actual costs | ERP | ERP → project tool |
 
-**Layers and deployment.** \`erp-sapi\` (SOAP via the Web Service Consumer connector, or database views for reads) runs on a Mule runtime on-premises or in CloudHub with a VPN to the data centre. \`projects-sapi\` wraps the SaaS REST API with a client-side throttle to stay under 100 calls/minute. \`project-costs-papi\` holds mapping and cross-reference logic.
+**Layers and deployment.** \`sys-erp-api\` (SOAP via the Web Service Consumer connector, or database views for reads) runs on a Mule runtime on-premises or in CloudHub with a VPN to the data centre. \`sys-projects-api\` wraps the SaaS REST API with a client-side throttle to stay under 100 calls/minute, and receives the approval webhooks. \`prc-project-costs-api\` holds mapping and cross-reference logic.
 
 **Flows.**
 - *Master data*: a nightly scheduler reads new/changed projects, cost codes and suppliers from ERP (watermark on last-modified) and upserts them into the project tool.
-- *Commitments*: the project tool's approval webhook → queue → \`project-costs-papi\` validates cost codes and supplier, creates the PO in ERP, stores the PO number back on the commitment. Change orders update the existing PO using the stored cross-reference.
+- *Commitments*: the project tool's approval webhook → queue → \`prc-project-costs-api\` validates cost codes and supplier, creates the PO in ERP, stores the PO number back on the commitment. Change orders update the existing PO using the stored cross-reference.
 - *Actual costs*: a daily job extracts posted invoice lines by project/cost code and updates the project tool's cost reports.
 
-**Errors.** Validation errors (unknown cost code, supplier on hold) are not retried blindly. The commitment is marked "sync failed" in the project tool with the reason, and the project accountant fixes and re-approves. Technical errors (ERP down) retry with backoff, then go to a DLQ with alerting. A monthly report compares commitments vs POs per project.
+**Errors.** Technical errors (ERP down) are retried from the queue for up to 90 minutes, which covers the patch window, then go to a DLQ with alerting. Validation errors (unknown cost code, supplier on hold) do not get better with retries. Where the ERP's reply identifies them clearly, mark the commitment "sync failed" in the project tool with the reason at once, so the project accountant fixes and re-approves it. Anything the flow cannot classify follows the retry path and ends in the DLQ. A monthly report compares commitments vs POs per project.
 
 **Rollout.** Pilot on five projects, then all new projects, then backfill open projects.
 

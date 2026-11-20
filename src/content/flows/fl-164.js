@@ -49,6 +49,10 @@ The bank collects payment files from its own SFTP server. Fenwick must put the f
 - Write it, unchanged, to \`/inbound/FENWICK-PAYROLL.csv\` on the bank's SFTP server.
 - If the download fails, write nothing to the bank.
 
+**Facts**
+- A failed download raises **AZURE-STORAGE:CONNECTIVITY**. Do not catch it: the run must end with that error, so alerting picks it up.
+- Overwrite a file of the same name on the SFTP server.
+
 **Design the flow.**
 `,
   answerTemplate: `## When it runs

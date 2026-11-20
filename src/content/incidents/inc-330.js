@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why were three files skipped?",
         options: [
-          "The name pattern does not allow spaces or brackets, and accents are decoded wrongly",
-          "They are empty",
-          "They are locked",
-          "The FTP server hid them",
+          "The name pattern rejects spaces and brackets, and accents are misread",
+          "The three files were still being written when the poll ran",
+          "The files are empty, so the connector skips them",
+          "The FTP server hides files the account does not own",
         ],
         answer: 0,
         explain: "The matcher and encoding both reject them.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the best long term fix?",
         options: [
-          "Agree a file naming rule with the supplier and log unmatched files as warnings",
-          "Accept any name silently",
-          "Rename on the server by hand daily",
-          "Ignore them",
+          "Agree a naming rule with the supplier and warn on unmatched files",
+          "Widen the regex to accept any name and load every file found",
+          "Rename the files on the server by hand each morning",
+          "Ask the supplier to zip the files under simple names",
         ],
         answer: 0,
         explain: "Agree names, and make skips visible.",
@@ -45,7 +45,7 @@ export default {
           "Set the control channel encoding to match the server",
           "Alert when files are left unmatched",
           "Test with real supplier names",
-          "Use a stricter regex",
+          "Make the regex stricter so odd names never get in",
         ],
         answer: [0,1,2],
         explain: "Visibility and correct decoding.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why were the skips silent?",
         options: [
           "Unmatched files are logged only at DEBUG",
-          "They were not",
-          "FTP hides them",
-          "No reason",
+          "The FTP server does not list files with spaces",
+          "Production logging is set to ERROR only",
+          "The warning went to a mailbox nobody reads",
         ],
         answer: 0,
         explain: "Skips should be visible.",
@@ -78,7 +78,7 @@ export default {
   },
   description: `
 ## Symptoms
-- Some supplier price files never load.
+- Some supplier files never load, and no error is raised.
 
 ## Change / Context
 - A new supplier contact started naming files by hand.

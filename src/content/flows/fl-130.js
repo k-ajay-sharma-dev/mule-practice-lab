@@ -267,6 +267,12 @@ Last month the bank took 40 seconds to answer for half an hour. The old flow had
 - Every 5 minutes, settle the UNKNOWN payments: ask the bank, record its answer if it has the payment, and send the payment only if the bank never received it.
 - A payment the bank cannot answer about stays UNKNOWN for the next run, and must not stop the job settling the others.
 
+**Facts**
+- Give the POST to the bank a response timeout of **15 seconds**. The ERP must have its answer within that time.
+- The bank's body is \`{ "endToEndId", "amount", "currency", "creditor": { "iban", "name" } }\`.
+- The answers to the ERP: 201 \`{ "paymentId", "status": "ACCEPTED", "bankReference" }\`, 202 \`{ "paymentId", "status": "UNKNOWN" }\`, 422 \`{ "paymentId", "status": "REJECTED", "reason" }\`.
+- When the status service answers 200, copy its \`status\` and \`bankReference\` to the row.
+
 **How the status gets out:** the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, also when an error handler built the answer.
 
 **Design the flows.** Explain why a timeout must not be treated as a failure.

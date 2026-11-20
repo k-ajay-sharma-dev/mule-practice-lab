@@ -74,7 +74,7 @@ Facts:
 - Bots and resellers aggressively try to buy; the business wants a **fair virtual waiting room**.
 - Today's architecture: the web app calls the ticketing core directly; it **crashed during the last big on-sale**.
 - Integration platform: Anypoint Platform (CloudHub 2.0), API Manager, Anypoint MQ; a managed Redis-compatible cache is available.
-- At the start about 2,000 fans a second try to hold seats, and bots send about 200 requests a second without an admission token. The waiting room should admit about 150 fans a second.
+- At the start about 2,000 fans a second try to hold seats, and bots send about 200 requests a second without an admission token. The waiting room should admit about 150 fans a second and ask the others to wait, and requests without a valid admission token must be refused before they reach the shop API.
 
 **Describe your solution:**
 - What is the end-to-end architecture from waiting room to ticket issue?
@@ -113,12 +113,12 @@ Facts:
 - **System APIs**: Ticketing Core, PSP, Ticket Issuing, Customer.
 - **Cache** (Redis-compatible) for seat availability; **Anypoint MQ** for asynchronous steps (issuing, emails, hold expiry events).
 
-**Waiting room and admission.** Fans join a queue before on-sale time; at start they are given **random positions** (fairness) and admitted at a controlled rate (e.g. 2,000 users/minute, tuned from load tests so hold traffic stays below ~400 req/s at the core). Admitted users receive a signed, short-lived **admission token**; the Experience APIs reject calls without it. This is the main protection — the integration layer cannot make the core faster.
+**Waiting room and admission.** Fans join a queue before on-sale time; at start they are given **random positions** (fairness) and admitted at a controlled rate (about 150 fans a second, tuned from load tests so hold traffic stays below ~400 req/s at the core); the others are asked to wait (429 with a retry time). Admitted users receive a signed, short-lived **admission token** (a JWT), and the waiting room gateway checks it, so calls without it never reach the shop API. This is the main protection, because the integration layer cannot make the core faster.
 
-**Seat availability.** Seat maps are **read-heavy**: serve them from the cache, updated by events from the core (seat held/released/sold) or short-interval snapshots. The cache may be a second stale; the hold call is the authoritative check, and UI handles "seat just taken" gracefully.
+**Seat availability.** Seat maps are **read-heavy**: serve them from the cache, updated by events from the core (seat held/released/sold) or short-interval snapshots. The cache may be a second stale; the hold call is the authoritative check, and UI handles "seat already taken" gracefully.
 
 **Holds and limits.** \`POST /holds\` → Hold Process API:
-1. Check and increment the customer's count for the show atomically (cache \`INCR\` with TTL, or in the core) — reject if > 6.
+1. Check and increment the customer's count for the show atomically (cache \`INCR\` with TTL, or in the core); reject if > 6.
 2. Call the core to **reserve seats atomically** (the core's DB transaction guarantees no double hold; seats either all held or none).
 3. Return hold ID and **expiry = now + 8 min**.
 
@@ -140,7 +140,7 @@ Saga state persisted per order (DB) so a crashed worker can resume; a reconcilia
 **Testing and on-sale operations.** Load tests at ≥ 2× expected peak against a production-like core (or a well-calibrated stub), chaos tests (PSP slow, core errors). Pre-scale workers before on-sale (no reliance on reactive autoscaling only). Live dashboard: admission rate, hold success, core latency, payment failures, queue depth; runbook with clear levers (slow admission rate, pause sales).
 `,
   followUps: [
-    { q: 'Why not hold seats only in Redis and sync to the core later?', a: 'Two sources of truth for seats risks double selling if sync fails. Keep the core authoritative for holds; Redis is a read cache and limit counter only — unless the business moves seat inventory ownership to a new, scalable service.' },
+    { q: 'Why not hold seats only in Redis and sync to the core later?', a: 'Two sources of truth for seats risks double selling if sync fails. Keep the core authoritative for holds; Redis is a read cache and limit counter only, unless the business moves seat inventory ownership to a new, scalable service.' },
     { q: 'How do you choose the waiting-room admission rate?', a: 'Measure core capacity under load: holds/second per admitted user (seat map browsing, retries), then set the rate with headroom; adjust live using core latency and error rate.' },
     { q: 'What if the PSP is down during the on-sale?', a: 'Pause admissions and extend holds of users in checkout (if the core allows), show a clear message, and resume; a long outage means releasing holds and rescheduling, which is a business decision.' },
   ],

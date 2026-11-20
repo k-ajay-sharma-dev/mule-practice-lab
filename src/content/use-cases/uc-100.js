@@ -67,9 +67,9 @@ Facts:
 - The window is **23:00 to 05:00**. The bill run starts at 05:30 and must not see half-loaded data.
 - Every record has a unique **usage id** from mediation.
 - Last quarter the job died at record 1.2 million after a database failover. It was restarted from the beginning, ran past 05:30 and **charged 9,000 customers twice** for the same calls.
-- The app runs on **CloudHub 2.0 with 2 replicas** for availability.
+- The job and its System APIs run on **CloudHub 2.0 with 2 replicas each** for availability.
 - About 0.2% of records are invalid (unknown subscriber, negative duration).
-- In the tests the job loads 1 chunk of 100 records a second. A zone can be down for 20 minutes, and a database failover can fail 3 writes in 10 for 5 minutes.
+- In the tests the job loads 1 chunk of 100 records a second. A zone can be down for 20 minutes, and a database failover can fail 3 writes in 10 for 5 minutes. Through both, 99 % of chunks must load without waiting for the next night.
 
 **Questions:**
 1. How do you structure the job so it can restart without loading anything twice?
@@ -97,7 +97,7 @@ Facts:
   solution: `
 **Structure.** At 23:00 the job takes a **lock** in a persistent Object Store with a time-to-live longer than the window. The second replica fails to get it and does nothing. The job lists the files through **sys-mediation-sftp-api** and writes one row per file to the **checkpoint table** (status NEW). Each file runs through a Mule **batch job**: records are streamed from the CSV, validated in one step, and aggregated in blocks of 1,000 for the load step.
 
-**Loading.** **sys-billing-db-api** bulk inserts each block into a staging table with a \`MERGE\` on \`usage_id\`. If a block is sent twice after a crash, the rows already there are not inserted again. After each block commits, the job updates the checkpoint row with the number of records loaded.
+**Loading.** **sys-billing-db-api** bulk inserts each block into a staging table with a \`MERGE\` on \`usage_id\`. If a block is sent twice after a crash, the rows already there are not inserted again. After each block commits, the job updates the checkpoint row with the number of records loaded. During a database failover a block insert can fail; sys-billing-db-api retries it up to 3 times, and the MERGE makes each retry safe. The job and both System APIs run 2 replicas, which CloudHub 2.0 spreads over zones, so a zone outage leaves a copy of each running.
 
 **Restart.** On restart the job reads the checkpoint table. Files marked DONE are skipped. The file in progress is read again from the start, but blocks already loaded are skipped fast by count, and the MERGE covers any block that was half way. No customer is charged twice, because the usage id is unique in staging.
 

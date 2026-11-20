@@ -61,7 +61,7 @@ export default {
           customers: {
             key: 'customer_no',
             rows: [
-              { customer_no: 'C-40017', name: 'Harbor Freight Ltd', phone: '+44 20 7946 0101', updated_at: '2026-11-12T16:20:00Z', last_modified_by: 'BACKOFFICE' },
+              { customer_no: 'C-40017', name: 'Harbour Lane Ltd', phone: '+44 20 7946 0101', updated_at: '2026-11-12T16:20:00Z', last_modified_by: 'BACKOFFICE' },
               { customer_no: 'C-40018', name: 'Northwind Traders', phone: '+44 161 496 0202', updated_at: '2026-11-12T17:05:00Z', last_modified_by: 'MULE_SYNC' },
             ],
           },
@@ -76,7 +76,7 @@ export default {
           source: 'sf-listener',
           payload: {
             Id: '001Hp00002Xk9QAA',
-            Name: 'Harbor Freight Ltd',
+            Name: 'Harbour Lane Ltd',
             Phone: '+44 20 7946 0199',
             ERP_Customer_No__c: 'C-40017',
             LastModifiedById: '005Hp00000REP042',
@@ -177,11 +177,12 @@ export default {
     ),
   ),
   description: `
-Sales reps edit customer **Accounts in Salesforce**; the back office edits the same customers in the **ERP** (\`customers\` table, \`updated_at\` maintained by a trigger). Both sides must stay in sync for name, phone and address within **5 minutes**.
+Sales reps edit customer **Accounts in Salesforce**; the back office edits the same customers in the **ERP** (\`customers\` table, \`updated_at\` maintained by a trigger). Both sides must stay in sync for name and phone within **5 minutes**.
 
 Facts:
 - ≈3,000 changes/day on each side.
-- Mule writes to Salesforce as a dedicated **integration user**; the ERP has a \`last_modified_by\` column.
+- Mule writes to Salesforce as a dedicated **integration user**. Its user Id is in the property \`sf.integrationUserId\`, and Salesforce puts that Id in \`LastModifiedById\` on every Account it changes.
+- The ERP \`customers\` table has \`customer_no\`, \`name\`, \`phone\`, \`updated_at\` and \`last_modified_by\`. Mule stamps its own ERP writes with \`last_modified_by = 'MULE_SYNC'\`.
 - The shared key is the ERP customer number (\`ERP_Customer_No__c\` on Account, an external ID).
 
 A first prototype caused an **infinite ping-pong**: an ERP change was copied to Salesforce, which fired the Salesforce "modified" event, which was copied back to the ERP, which bumped \`updated_at\`, and so on.
@@ -201,13 +202,13 @@ A first prototype caused an **infinite ping-pong**: an ERP change was copied to 
   keyPoints: [
     'Two flows, one per direction, each with its own change capture (Salesforce listener/CDC, DB table listener or watermark poll).',
     'Every write made by the integration carries an origin marker: Salesforce LastModifiedById = integration user; ERP last_modified_by = MULE_SYNC.',
-    'Each flow first checks the origin marker with a Choice and drops changes the integration itself made — that breaks the loop.',
+    'Each flow first checks the origin marker with a Choice and drops changes the integration itself made: that breaks the loop.',
     'Writes are idempotent: Salesforce upsert on the ERP external ID, DB update by customer number.',
     'Conflicts are resolved with a clear rule (last-writer-wins on timestamps, or field ownership per system), not by whichever event arrives last.',
   ],
   solution: `
 **Salesforce → ERP**
-- **Salesforce Object Listener** (modified Account) — or Change Data Capture / a watermark SOQL poll.
+- **Salesforce Object Listener** (modified Account): or Change Data Capture / a watermark SOQL poll.
 - **Choice**: if \`LastModifiedById\` is the integration user → log and skip (it is our own echo).
 - Otherwise map with DataWeave and **Database Update** setting \`last_modified_by = 'MULE_SYNC'\`. The \`updated_at < :sfModifiedAt\` guard implements last-writer-wins.
 
@@ -219,14 +220,14 @@ A first prototype caused an **infinite ping-pong**: an ERP change was copied to 
 **Why origin markers work:** every write the integration makes is stamped, and each listener ignores stamped changes, so a change crosses the bridge exactly once.
 
 **Hardening**
-- If a system cannot stamp the origin, store a hash of the last synced values per record (Object Store) and skip when the incoming hash matches — "nothing really changed".
-- **Conflicts:** last-writer-wins by timestamp, or field ownership (ERP owns billing address, Salesforce owns phone) — agree with the business.
+- If a system cannot stamp the origin, store a hash of the last synced values per record (Object Store) and skip when the incoming hash matches: "nothing really changed".
+- **Conflicts:** last-writer-wins by timestamp, or field ownership (ERP owns billing address, Salesforce owns phone): agree with the business.
 - Errors: failed records go to an error queue/table for retry; do not advance the watermark past unprocessed rows.
 `,
   followUps: [
     {
       q: 'A user edits an Account in Salesforce one second after Mule updated it. Will your filter drop the user change?',
-      a: 'No — the user change has LastModifiedById = the user, not the integration user, so it passes the Choice. Only changes whose last modifier is the integration are dropped.',
+      a: 'No. The user change has LastModifiedById = the user, not the integration user, so it passes the Choice. Only changes whose last modifier is the integration are dropped.',
     },
     {
       q: 'What if the ERP trigger overwrites last_modified_by with the DB user?',

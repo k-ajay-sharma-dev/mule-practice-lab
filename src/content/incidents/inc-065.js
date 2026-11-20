@@ -21,38 +21,38 @@ export default {
         type: 'single',
         prompt: 'Why are some reservation updates failing with ORA-01591?',
         options: [
-          'Transactions were prepared when the runtime was killed, and the recovery journal was deleted, so Oracle holds their locks as in-doubt and nobody tells it to commit or roll back',
-          'Two Mule nodes are deadlocking on the same rows',
-          'The ActiveMQ broker lost the reservation messages',
-          'The DB user has lost its update privilege',
+          'Prepared XA branches lost their journal, so Oracle keeps them in doubt',
+          'mule-node-1 and the restarted node-2 deadlock on the same rows',
+          'Sessions of the killed node are still open and hold their row locks',
+          'The restart script reset the DB user, which lost its update privilege',
         ],
         answer: 0,
-        explain: 'ORA-01591 and dba_2pc_pending in state "prepared" are in-doubt XA branches. Normally the transaction manager resolves them from its log after restart; that log was wiped.',
+        explain: 'ORA-01591 and dba_2pc_pending in state "prepared" are in-doubt XA branches. Normally the transaction manager resolves them from its log after restart; that log was wiped. A deadlock raises ORA-00060, dead sessions are cleaned up by Oracle, and a lost privilege would fail every update, not 40 SKUs.',
       },
       {
         type: 'single',
         prompt: 'How should the in-doubt transactions be resolved?',
         options: [
-          'Restart Oracle; it will roll everything back',
-          'For each in-doubt transaction, find out whether the other side (ActiveMQ) committed, then have the DBA COMMIT FORCE or ROLLBACK FORCE it accordingly and record the decision',
-          'Delete the locked rows',
-          'Wait; Oracle releases them after 24 hours',
+          'Restart Oracle in a short window so it rolls back the prepared branches',
+          'Per transaction, check the JMS side, then COMMIT FORCE or ROLLBACK FORCE',
+          'Have the DBA ROLLBACK FORCE all 14 at once, since none of them finished',
+          'Restart mule-node-2 again so its transaction manager retries recovery',
         ],
         answer: 1,
-        explain: 'A prepared branch stays in doubt across restarts. A heuristic decision must be made per transaction, consistent with the JMS side, and documented so you can reconcile afterwards.',
+        explain: 'A prepared branch stays in doubt across restarts, and a second Mule restart still has no journal. A heuristic decision must be made per transaction, consistent with the JMS side, and documented so you can reconcile afterwards. Some of the 14 may have committed on the broker, so rolling all of them back blindly can leave confirmed reservations without stock.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'Keep the transaction manager\'s journal on persistent storage and never delete it in start-up scripts',
-          'Grant the integration DB user the privileges Oracle needs for XA recovery (e.g. on DBA_PENDING_TRANSACTIONS) and test recovery',
+          'Keep the transaction journal on persistent storage; never delete it on start',
+          'Give the DB user the privileges Oracle needs for XA recovery, and test it',
           'Alert on rows in dba_2pc_pending and on ORA-01591',
-          'Re-evaluate whether XA is needed; an idempotent consumer with local transactions and an outbox is often simpler',
-          'Raise the JVM heap without understanding the memory growth',
+          'Ask whether XA is needed; an idempotent consumer plus an outbox may do',
+          'Shorten the XA transaction timeout so prepared branches expire sooner',
         ],
         answer: [0, 1, 2, 3],
-        explain: 'XA only works if recovery works: durable logs, recovery privileges, monitoring and rehearsal. Often the better answer is to avoid distributed transactions altogether.',
+        explain: 'XA only works if recovery works: durable logs, recovery privileges, monitoring and rehearsal. Often the better answer is to avoid distributed transactions altogether. A transaction timeout applies before prepare; once a branch is prepared it waits for a decision however long that takes.',
       },
       {
         type: 'order',
@@ -128,7 +128,7 @@ export default {
 - Keep the transaction journal on persistent storage and remove the "clean working directory" step for Mule nodes.
 - Grant the integration user the privileges Oracle requires for XA recovery (for example SELECT on \`DBA_PENDING_TRANSACTIONS\`; check the Oracle documentation for your version) and test that recovery works.
 - Investigate the OOM (heap dump, workload).
-- Ask whether XA is needed: an **idempotent consumer** with a local DB transaction, plus an **outbox** for the confirmation, gives the same business guarantee with much simpler failure modes.
+- Ask whether XA is needed: an **idempotent consumer** with a local DB transaction, plus an **outbox** for the confirmation, gives the same business guarantee with far fewer failure modes.
 
 **Prevention.** Alerts on rows in \`dba_2pc_pending\` and on ORA-01591; a crash-recovery game day; a runbook for heuristic decisions.
 `,

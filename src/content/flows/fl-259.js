@@ -82,6 +82,9 @@ On a normal day it works. In December the worker ran out of memory before the Ba
 - Nothing before the job may need the whole file at once. Log the file size from the attributes instead of a row count.
 - Move the file to \`/tills/done\`.
 
+**Facts**
+- \`dbo.till_txn_staging\` has the file's six columns. \`qty\` and \`amount\` are numbers.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the old flow ran out of memory

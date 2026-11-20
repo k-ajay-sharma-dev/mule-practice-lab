@@ -207,6 +207,11 @@ A customer portal submits about **6,000 orders per day**. A System API must crea
 - When SAP cannot be reached, is busy or times out, the portal must get a **503** so that it can retry.
 - Use the current operation, not the deprecated \`sap:sync-rfc\`. The app uses JCo 3.1.x.
 
+**Facts**
+- The portal sends \`{ salesOrg, channel, division, portalRef, customerNo, items: [{ material, quantity }] }\`.
+- The 201 body is \`{ orderNumber, correlationId }\`, where \`orderNumber\` is the BAPI's \`SALESDOCUMENT\`.
+- A \`RETURN\` row has \`TYPE\`, \`ID\`, \`NUMBER\` and \`MESSAGE\`. \`TYPE\` \`E\` or \`A\` means an error, \`S\`, \`W\` or \`I\` does not.
+
 **Design the flow.** Explain where the transaction starts and ends, and why the RETURN check is inside it.
 `,
   answerTemplate: `## Mapping the request

@@ -7,45 +7,45 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 02:00:00 INFO  [price-batch] Step lookup set vars.costCenter for record", relevant: true, why: "A value is set in step 1." },
-      { text: "2026-11-18 02:00:00 ERROR [price-batch] Step write failed: costCenter is null", relevant: true, why: "Step 2 cannot see it." },
-      { text: "2026-11-18 02:00:00 INFO  [price-batch] Lookup step returns payload unchanged", relevant: true, why: "The value is not on the record." },
+      { text: "2026-11-18 02:00:00 INFO  [price-batch] Job started records=48000", relevant: false },
+      { text: "2026-11-18 02:00:01 INFO  [price-batch] Step lookup: Async scope set vars.costCenter=CC-410 record=1", relevant: true, why: "The value is set inside an Async scope." },
+      { text: "2026-11-18 02:00:01 INFO  [price-batch] Step lookup returns payload unchanged record=1", relevant: true, why: "The value is not on the record payload either." },
+      { text: "2026-11-18 02:00:01 ERROR [price-batch] Step write failed record=1: costCenter is null", relevant: true, why: "The write step cannot see it." },
       { text: "2026-11-18 02:10:00 INFO  [price-batch] On Complete failed=48000", relevant: true, why: "Every record fails." },
-      { text: "2026-11-18 23:59:00 INFO  [price-batch] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why is costCenter null?",
         options: [
-          "The variable was not kept with the record between steps in this setup",
-          "The lookup failed",
-          "The database is down",
-          "A typo in the table",
+          "It is set inside an Async scope, so the record never gets it",
+          "Batch steps never share variables, so each step starts empty",
+          "The lookup query returned no row for any of the records",
+          "The write step runs before the lookup step finishes a record",
         ],
         answer: 0,
-        explain: "Data a later step needs should travel with the record.",
+        explain: "Async works on a copy of the event, so variables it sets do not come back. In Mule 4 batch, a variable set in a step stays with that record.",
       },
       {
         type: 'single',
         prompt: "What is a reliable fix?",
         options: [
-          "Put costCenter on the record payload, or use a record variable as your runtime supports",
-          "Use a global variable",
-          "Run steps in one big step",
-          "Disable batch",
+          "Run the lookup without Async so the value stays with the record",
+          "Set costCenter in On Complete so every step can read it",
+          "Add the same Async scope around the write step as well",
+          "Raise the block size so the Async scope finishes first",
         ],
         answer: 0,
-        explain: "Keep per record data with the record.",
+        explain: "Keep per record data with the record, as a variable or a payload field.",
       },
       {
         type: 'multi',
-        prompt: "What else is true of batch steps?",
+        prompt: "What is true of Mule 4 batch steps?",
         options: [
           "Records move between steps through queues",
+          "Variables set in a step stay with that record",
           "Each record is processed on its own",
-          "Flow variables set before the job may not behave like normal flow vars inside steps",
-          "All records share one payload",
+          "All records in a block share one payload",
         ],
         answer: [0,1,2],
         explain: "Batch is not a normal flow.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "How do you prove the fix?",
         options: [
-          "Test a few records through both steps",
-          "Trust it",
-          "Deploy and wait",
-          "Read logs only",
+          "Run a few records through both steps in a test",
+          "Deploy to production and watch the next night",
+          "Check that the app starts without errors",
+          "Read the changed code and trust the review",
         ],
         answer: 0,
         explain: "Small test first.",
@@ -66,7 +66,7 @@ export default {
         type: 'order',
         prompt: "Order the response.",
         items: [
-          "Move costCenter onto the record",
+          "Remove the Async scope from the lookup",
           "Test with a few records",
           "Rerun the job",
           "Check counts",
@@ -82,13 +82,14 @@ export default {
 
 ## Change / Context
 - A new lookup step was added before the write step.
+- To save time, its database lookup and Set Variable run inside an Async scope.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 02:00:00 INFO  [price-batch] Step lookup set vars.costCenter for record
-2026-11-18 02:00:00 ERROR [price-batch] Step write failed: costCenter is null
-2026-11-18 02:00:00 INFO  [price-batch] Lookup step returns payload unchanged
+2026-11-18 02:00:01 INFO  [price-batch] Step lookup: Async scope set vars.costCenter=CC-410 record=1
+2026-11-18 02:00:01 INFO  [price-batch] Step lookup returns payload unchanged record=1
+2026-11-18 02:00:01 ERROR [price-batch] Step write failed record=1: costCenter is null
 2026-11-18 02:10:00 INFO  [price-batch] On Complete failed=48000
 \`\`\`
 
@@ -111,26 +112,27 @@ These lines are illustrative and were written for this scenario. Real log format
   keyPoints: [
     "Batch records move through queues.",
     "Keep per record data with the record.",
-    "Record variables exist for this.",
+    "Async scopes do not return variables.",
     "Test with a few records.",
     "Batch differs from normal flows.",
     "Check counts after rerun.",
   ],
   solution: `
-**Diagnosis.** The lookup result was not carried with each record to the next step.
+**Diagnosis.** The lookup set costCenter inside an Async scope, so the value never reached the record.
 
 **Immediate mitigation.**
-- Put the value on the record and rerun.
+- Remove the Async scope, test a few records and rerun.
 
-**Root cause.** Assumed flow variable behaviour inside batch.
+**Root cause.** Async was used to save time without knowing it works on a copy of the event.
 
 **Permanent fix.**
-- Record payload field or record variable.
+- Set the value in the step itself, as a record variable or a payload field.
 
 **Prevention.** Small tests for new steps.
 `,
   followUps: [
-    { q: "What is a record variable?", a: "A variable tied to one batch record that follows it through steps." },
+    { q: "What is a record variable?", a: "In Mule 4 batch, a variable set in a step is tied to that record and follows it through later steps." },
+    { q: "Why does Async lose the variable?", a: "Async runs on a copy of the event. Changes it makes are not passed back." },
     { q: "Can On Complete see record variables?", a: "Generally no. It sees the job result." },
     { q: "Why queues between steps?", a: "So records can be processed in parallel and survive restarts." },
     { q: "Is enriching the payload fine?", a: "Yes, if downstream steps ignore the extra field." },

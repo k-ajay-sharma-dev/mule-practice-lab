@@ -125,7 +125,7 @@ Facts:
 `,
   keyPoints: [
     'Target: one Process API per business capability (prc-customer-profile v3, prc-loyalty v2), System APIs per system of record (sys-salesforce-customers, sys-loyalty-engine), brand-specific Experience APIs kept where the channels differ.',
-    'Process APIs are the stable seam: during transition they route to either back end (Salesforce or Dynamics, loyalty SaaS or rewards DB) behind one canonical customer model — channels don\'t care which system answers.',
+    'Process APIs are the stable seam: during transition they route to either back end (Salesforce or Dynamics, loyalty SaaS or rewards DB) behind one canonical customer model, so channels don\'t care which system answers.',
     'Duplicates are resolved with an identity/MDM step (match/merge, golden record in Salesforce) and a cross-reference service (sys-customer-xref) mapping legacy BuildIt IDs to the golden ID.',
     'BuildIt\'s customer-api mixes layers: wrap and replace it rather than reuse it; trade accounts (B2B) become a distinct capability (prc-trade-accounts) modelled as Salesforce business accounts.',
     'Versioning: keep existing Experience contracts stable (brand apps unaffected). Introduce new majors only where the canonical model changes (prc-customer-profile v3 with golden ID and brand memberships), and run old/new in parallel with deprecation dates.',
@@ -147,7 +147,7 @@ Facts:
 | System | **sys-customer-xref** (new) | \`GET /xref?system=BUILDIT&id=\` → goldenId | Legacy ID mapping | Process APIs |
 | System | **sys-loyalty-engine** | unchanged | Loyalty platform | prc-loyalty |
 | System | sys-sap-orders, **sys-sap-ecc-orders** (renamed from sap-ecc-orders-sapi) | unchanged | ERPs | prc-orders |
-| Retired | dynamics-customer-sapi, rewards-db-sapi, customer-api, rewards-api | — | decommissioned month 15–18 | — |
+| Retired | dynamics-customer-sapi, rewards-db-sapi, customer-api, rewards-api | None | Decommissioned in months 15 to 18 | None |
 
 \`\`\`
   HomeCo app/web/POS        BuildIt app        Trade portal
@@ -163,9 +163,9 @@ Facts:
 \`\`\`
 
 **Overlapping System APIs and duplicates.**
-- Do **not** merge sys-salesforce-customers and dynamics-customer-sapi into one "super System API" — System APIs map to systems of record. Instead the **Process layer** owns the unified view.
+- Do **not** merge sys-salesforce-customers and dynamics-customer-sapi into one "super System API". System APIs map to systems of record. Instead the **Process layer** owns the unified view.
 - **Identity resolution**: one-off + continuous matching (deterministic on verified email/phone/loyalty card, probabilistic on name + address) in an MDM tool or Salesforce matching/duplicate rules, with a stewardship queue for uncertain matches. Result: a **golden ID** in Salesforce; sys-customer-xref stores BuildIt Dynamics ID ↔ golden ID (and rewards member ID ↔ loyalty SaaS member ID).
-- Merged customers get **brand memberships** and **consent per brand** (marketing consent given to BuildIt does not automatically transfer to HomeCo — legal review).
+- Merged customers get **brand memberships** and **consent per brand** (marketing consent given to BuildIt does not automatically transfer to HomeCo; legal review).
 
 **Phased migration**
 
@@ -179,10 +179,10 @@ Facts:
 | 5. Clean-up | 15–18 | Remove legacy APIs; deprecate prc-customer-profile v2 after HomeCo Experience APIs migrate to v3 | None |
 
 **Contract stability and versioning.**
-- **Experience contracts stay stable** (brand apps cannot be changed quickly): the change happens underneath — the strongest argument for the Experience/Process split.
+- **Experience contracts stay stable** (brand apps cannot be changed quickly): the change happens underneath. This is the strongest argument for the Experience/Process split.
 - **prc-customer-profile v3** is a new **major** version (golden ID, brand memberships, per-brand consent) deployed alongside v2; HomeCo Experience APIs migrate on their own schedule.
 - **prc-loyalty v2** major (brand-aware rules, merged balances); v1 kept until HomeCo channels migrate.
-- Additive changes to sys-salesforce-customers (business accounts, memberships) are minor if existing fields keep meaning — otherwise v3.
+- Additive changes to sys-salesforce-customers (business accounts, memberships) are minor if existing fields keep meaning; otherwise v3.
 - IDs: v3 responses include \`goldenId\` and \`legacyIds[]\`; v3 accepts legacy IDs and resolves via xref so old app versions keep working.
 
 **Governance consolidation.**
@@ -191,10 +191,10 @@ Facts:
 - Security: BuildIt's client-ID-only APIs move to Okta OAuth + JWT validation; consumer contracts re-issued per app.
 - Architecture board decides ownership: customer domain team owns prc-customer-profile + sys-salesforce-customers.
 
-**Risks and NFRs.** Data-migration reconciliation (counts, balances) per wave; rollback plan per phase (routing switch in the Process API config); dual-run monitoring comparing responses from old and new paths; GDPR basis for merging profiles; capacity for 13 M customers on Salesforce APIs (API limits — cache reads, bulk loads via Bulk API).
+**Risks and NFRs.** Data-migration reconciliation (counts, balances) per wave; rollback plan per phase (routing switch in the Process API config); dual-run monitoring comparing responses from old and new paths; GDPR basis for merging profiles; capacity for 13 M customers on Salesforce APIs (API limits: cache reads, bulk loads via Bulk API).
 `,
   followUps: [
-    { q: 'Why not just keep both networks and integrate them via a few bridge APIs?', a: 'That leaves two sources of truth for customers and loyalty, which contradicts the business goal and doubles run cost. Bridges are fine as a temporary step (phase 1 routing), not as the target.' },
+    { q: 'Why not keep both networks and integrate them via a few bridge APIs?', a: 'That leaves two sources of truth for customers and loyalty, which contradicts the business goal and doubles run cost. Bridges are fine as a temporary step (phase 1 routing), not as the target.' },
     { q: 'BuildIt\'s customer-api mixes process and system logic. Reuse it?', a: 'Treat it as legacy: keep it running while consumers move, but don\'t build on it. Its logic is re-implemented properly in prc-customer-profile v3 and sys APIs, then it is retired.' },
     { q: 'How does the Process API know whether an ID is HomeCo or BuildIt during transition?', a: 'Via sys-customer-xref (or ID format/prefix): it resolves any incoming ID to the golden ID and to the system currently authoritative for that customer, a routing rule that changes per migration phase.' },
     { q: 'What is the biggest non-technical risk?', a: 'Ownership and consent: deciding which team owns the merged customer domain and whether customers\' marketing consents can be combined. Both must be settled early or the technical plan stalls.' },

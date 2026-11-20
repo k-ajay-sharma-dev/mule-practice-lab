@@ -82,7 +82,7 @@ The new design:
 **Numbers**
 - About **2 chunks a second** for half an hour.
 - A MERGE of a chunk takes about 400 ms.
-- Buyers edit orders while the plan loads: about **1 MERGE in 10** is a deadlock victim for up to 20 minutes, and works when tried again.
+- Buyers edit orders while the plan loads: about **1 MERGE in 10** is a deadlock victim for up to 20 minutes, and works when tried again. Each try is a victim or not on its own. Deadlocks should cost a chunk seconds, not a minute back on the queue.
 - The weekly index rebuild makes each MERGE wait about **25 seconds**, for up to half an hour.
 - About **1 chunk in 100** comes from a part garbled in transit; it fails its checks every time.
 - In this model calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
@@ -102,7 +102,7 @@ The new design:
 ## Redelivery and MERGE
 `,
   keyPoints: [
-    'A chunk is small enough to MERGE in one short transaction and large enough that the queue carries hundreds of messages, not millions.',
+    'A chunk is small enough to MERGE in one short transaction and large enough that the queue carries a few thousand messages, not millions.',
     'The notice carries the part name and a line range, not the lines: the file store holds the data (a claim check).',
     'Deadlock victims are retried in the System API, close to the database. A constraint error is not retried.',
     'A 25 second MERGE needs a timeout above it on the System API and on the loader that calls it: 60 seconds on both.',

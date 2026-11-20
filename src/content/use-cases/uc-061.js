@@ -12,7 +12,7 @@ export default {
     checks: [
       { label: 'Shopify order webhooks land on an Experience API and are queued', rule: { type: 'edge', from: 'experience-api', to: ['queue', 'topic'], kind: 'async' } },
       { label: 'Shopify and NetSuite are reached only through System APIs', rule: { type: 'only-via', target: ['saas', 'erp'], from: 'system-api' } },
-      { label: 'The 3PL is never called directly — files are exchanged over SFTP', rule: { type: 'no-edge', from: ['process-api', 'system-api', 'batch-job', 'experience-api'], to: 'wms' } },
+      { label: 'The 3PL is never called directly; files are exchanged over SFTP', rule: { type: 'no-edge', from: ['process-api', 'system-api', 'batch-job', 'experience-api'], to: 'wms' } },
       { label: 'A System API writes and reads the EDI files on the SFTP server', rule: { type: 'edge', from: 'system-api', to: 'file-store' } },
       { label: 'Scheduled jobs build 940 batches and collect 945/846 files', rule: { type: 'edge', from: 'batch-job', to: 'system-api', min: 2 } },
       { label: 'Orders are staged in a database until they are batched', rule: { type: 'edge', from: ['process-api', 'batch-job'], to: 'database' } },
@@ -62,7 +62,7 @@ export default {
     },
   },
   description: `
-A direct-to-consumer skincare brand sells on **Shopify Plus** and keeps finance and inventory valuation in **NetSuite**. It has just outsourced warehousing to a **3PL**. The 3PL WMS only speaks **X12 EDI files over SFTP**:
+A direct-to-consumer skincare brand sells on **Shopify Plus** and keeps finance and inventory valuation in **NetSuite**. It has recently outsourced warehousing to a **3PL**. The 3PL WMS only speaks **X12 EDI files over SFTP**:
 
 | Doc | Meaning | Direction | Timing |
 |---|---|---|---|
@@ -76,7 +76,8 @@ Volumes and SLAs:
 - Orders paid before **14:00** must ship the same day (3PL cut-off for the last 940 file: 14:15).
 - Customers must get a shipping email with tracking within **1 hour** of the 945.
 - Orders can be **cancelled or edited** in Shopify until they are sent to the 3PL.
-- When the promotion opens Shopify can send 80 order webhooks a second for 10 minutes. Shipments come back at about 2 a second, and NetSuite can be down for 30 minutes.
+- When the promotion opens Shopify can send 80 order webhooks a second for 10 minutes. Shipments come back at about 2 a second, and NetSuite can be down for 30 minutes. No order or shipment may be lost.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit. A message that reaches the limit is dropped unless a DLQ is drawn from the queue.
 
 **Questions:**
 1. Describe the flows for orders, shipments, inventory and receipts.
@@ -118,12 +119,12 @@ Volumes and SLAs:
 
 **Inventory and receipts.** The nightly 846 is compared with NetSuite on-hand per SKU; differences above a threshold create an adjustment proposal for the inventory team rather than auto-adjusting. Shopify availability is set from the 846 minus open (READY/SENT) orders. 944 receipts post item receipts against the NetSuite transfer order.
 
-**Error handling.** Malformed EDI → file moved to \`/error\`, alert. NetSuite concurrency limits → retry with back-off on 429-type responses; failed messages go to a DLQ with replay. Every file and order carries a correlation ID.
+**Error handling.** Malformed EDI → file moved to \`/error\`, alert. NetSuite outages and concurrency limits → the shipment message is redelivered about once a minute; a redelivery limit of about 120 keeps it through a 30-minute outage with room to spare, and only then would it move to a DLQ for replay. Every file and order carries a correlation ID.
 
-**Peak.** 25,000 orders/day is ~17 per minute — the queue absorbs bursts; the 940 batch size grows but the file count stays at 4/hour. Run an extra 940 batch at 14:10 to guarantee the cut-off.
+**Peak.** 25,000 orders/day is ~17 per minute on average, but the promotion opens with bursts of 80 webhooks a second. The webhook API needs about 0.5 vCore to answer them at once, and the queue absorbs the burst; the 940 batch size grows but the file count stays at 4/hour. Run an extra 940 batch at 14:10 to guarantee the cut-off.
 `,
   followUps: [
-    { q: 'Why batch 940s every 15 minutes instead of one file per order?', a: 'The 3PL only polls every 15 minutes anyway, fewer files are easier to track and reconcile, and the delay gives a free window for cancellations and edits.' },
+    { q: 'Why batch 940s every 15 minutes instead of one file per order?', a: 'The 3PL only polls every 15 minutes anyway, fewer files are quicker to track and reconcile, and the delay gives a free window for cancellations and edits.' },
     { q: 'How do you know the 3PL actually received a file?', a: 'By the 997 functional acknowledgement matched on the interchange control number. A file with no 997 after 30 minutes triggers an alert.' },
     { q: 'What would you change if the 3PL later offers a REST API?', a: 'Only sys-3pl-edi\'s implementation changes (or a new sys-3pl-api); the Process API keeps working with the canonical order and shipment models.' },
   ],

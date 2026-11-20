@@ -7,9 +7,9 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
+      { text: "2026-11-18 03:00:00 INFO  [ftp-server] prices.zip sizeBytes=4101118", relevant: true, why: "Sizes differ by over a thousand bytes." },
       { text: "2026-11-18 03:00:02 INFO  [price-in] Read /out/prices.zip transferMode=ASCII sizeBytes=4102330", relevant: true, why: "The zip is read in text mode." },
       { text: "2026-11-18 03:00:03 ERROR [price-in] Unzip failed invalid CEN header", relevant: true, why: "The archive is damaged." },
-      { text: "2026-11-18 03:00:00 INFO  [ftp-server] prices.zip sizeBytes=4101118", relevant: true, why: "Sizes differ by over a thousand bytes." },
       { text: "2026-11-18 03:00:03 INFO  [price-in] Previous run used transferMode=BINARY", relevant: true, why: "A config change switched the mode." },
       { text: "2026-11-18 23:59:00 INFO  [price-in] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is the zip broken?",
         options: [
-          "ASCII mode changed line ending bytes inside a binary file",
-          "The server zipped it wrongly",
-          "The disk is full",
-          "The zip is password protected",
+          "ASCII mode changed line ending bytes in a binary file",
+          "The server wrote a broken zip file at 03:00",
+          "The read started before the server upload ended",
+          "The zip is now password protected by the sender",
         ],
         answer: 0,
         explain: "ASCII mode rewrites line endings. Binary files must not be touched.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What is the fix?",
         options: [
           "Use binary mode for this transfer",
-          "Unzip twice",
-          "Use ASCII mode for the server",
-          "Rename the file",
+          "Read the file again in ASCII mode",
+          "Ask the server owner to rezip it",
+          "Use passive mode for the transfer",
         ],
         answer: 0,
         explain: "Binary copies bytes as they are.",
@@ -42,10 +42,10 @@ export default {
         type: 'multi',
         prompt: "When is ASCII mode ever used?",
         options: [
-          "Plain text between systems with different line endings",
+          "Plain text between systems with other line endings",
           "Legacy mainframe text transfers",
           "Never for zip, PDF or images",
-          "Always for zip",
+          "Large zip files sent over slow network links",
         ],
         answer: [0,1,2],
         explain: "Use binary unless you need line ending conversion.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What is the clue in the logs?",
         options: [
           "The size read differs from the size on the server",
-          "The time",
-          "The host",
-          "The user",
+          "The read ran two seconds after the file appeared",
+          "The unzip error came one second after the read",
+          "The path /out/prices.zip is an outbound folder",
         ],
         answer: 0,
         explain: "A byte for byte copy has the same size.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 03:00:00 INFO  [ftp-server] prices.zip sizeBytes=4101118
 2026-11-18 03:00:02 INFO  [price-in] Read /out/prices.zip transferMode=ASCII sizeBytes=4102330
 2026-11-18 03:00:03 ERROR [price-in] Unzip failed invalid CEN header
-2026-11-18 03:00:00 INFO  [ftp-server] prices.zip sizeBytes=4101118
 2026-11-18 03:00:03 INFO  [price-in] Previous run used transferMode=BINARY
 \`\`\`
 

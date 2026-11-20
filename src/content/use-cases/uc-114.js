@@ -76,7 +76,7 @@ Facts:
 - Each turbine controller (SCADA) produces about **200 values per second** (wind speed, rotor speed, power, pitch, temperatures, vibration). A site gateway sends 10 second summaries centrally: about **60 messages per second** in total, plus raw 1 Hz data on request.
 - Site links (microwave, 4G, satellite) **drop for hours**, sometimes 2 days in winter storms. No data may be lost: the regulator and the turbine warranty both need complete history.
 - Fault codes (for example gearbox oil temperature high) must create a **maintenance work order in SAP PM** within 10 minutes of reaching the centre. A turbine can repeat the same fault code hundreds of times while it lasts.
-- The **grid operator** needs each farm's available capacity every 5 minutes through its REST API. Its API sometimes fails 1 call in 5 for half an hour.
+- The **grid operator** needs each farm's available capacity every 5 minutes through its REST API. Its API sometimes fails 1 call in 5 for half an hour, and every report must still reach it.
 - The control room dashboard shows the last 24 hours of any turbine.
 - Data must be kept **10 years**.
 
@@ -123,7 +123,7 @@ Facts:
 
 **Faults to work orders.** A stream job (Kafka Streams or the IoT platform rules) turns repeated fault codes into **fault episodes**: one \`FaultRaised\` and one \`FaultCleared\` per turbine and code. prc-maintenance-orders consumes \`turbine.faults\`, enriches with the SAP functional location of the turbine, and creates a PM notification with external key \`turbineId + faultCode + episodeStart\`. A repeat of the same episode updates the open notification; a cleared event adds a note. Late faults from a backlog still create orders, flagged with the original time.
 
-**Grid report.** Every 5 minutes a Mule job reads the latest values per farm from the time-series DB, and sends one call per farm to the grid operator through sys-grid-operator-api. A farm with no data for 15 minutes is sent as **unknown** with the last known time, never as the old value.
+**Grid report.** Every 5 minutes a Mule job reads the latest values per farm from the time-series DB, and sends one call per farm to the grid operator through sys-grid-operator-api, which retries a failed call up to 2 times; sending the same farm report again is safe. A farm with no data for 15 minutes is sent as **unknown** with the last known time, never as the old value.
 
 **Operations.** Monitor buffer depth per site (from gateway heartbeats), Kafka consumer lag, SAP call errors and the DLQ of the work order flow.
 `,

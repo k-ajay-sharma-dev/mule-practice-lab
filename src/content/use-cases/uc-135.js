@@ -93,11 +93,12 @@ A car insurer takes **first notice of loss** (the first report of a claim) from 
 On a normal day about 4 claims a second come in. Last summer a hail storm hit two cities, and claims jumped to about **135 a second** for most of an hour: 120 from customers online and 15 from agents. The app and the website called the core directly and waited. The core slowed, then stopped answering. Customers got errors, tried again, and some claims were created twice. Agents typed claims on paper and keyed them in two days later.
 
 **Requirements**
-- Every customer and agent gets a **claim number at once**, even when the core is slow or down.
+- Every customer and agent gets a **claim number at once**, even when the core is slow or down: within 400 ms on a normal day and within 500 ms during a storm.
 - A claim must name a **valid policy**. Check it before giving a claim number, without asking the core: a copy of the policy data, refreshed from the core, is available in a database.
 - The core must never get more than 40 claims a second.
 - No claim may be lost. A claim the core refuses every time, such as a vehicle it cannot match, goes to a claims handler.
-- The core can be down for up to an hour during a storm.
+- After a storm of about 45 minutes, every claim must be in the core within about three hours.
+- The core can be down for up to an hour during a storm. A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No good claim may reach the DLQ during that hour.
 
 **Questions:**
 - Draw the design for the three channels.

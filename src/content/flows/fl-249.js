@@ -104,6 +104,11 @@ The support team reads \`dbo.job_log\` each morning. Today every row says \`COMP
   - \`FAILED\` when nothing loaded,
   - \`COMPLETED_WITH_ERRORS\` otherwise.
 
+**Facts**
+- The procedure's result is \`{ job_id }\`.
+- A blank \`delivered_at\` goes in as null, so the database refuses that event.
+- In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

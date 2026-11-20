@@ -94,6 +94,9 @@ Facts:
 - The **rider app** shows today's journeys and the fare so far: about **200 requests a second** at peak.
 - The **card payment provider** takes at most **50 requests a second**. Charging 150,000 cards takes about an hour at 40 a second. On some nights it fails 2 calls in 100 at random.
 - The journeys database fails over to a standby a few times a year, which takes up to 20 minutes.
+- A reader must get its answer to a tap within 200 ms, and the rider app within 300 ms. No tap may be lost.
+- After a database failover, the journeys must catch up within 30 minutes of the database coming back, while new taps keep arriving.
+- On a night when the provider fails 2 calls in 100, at least 995 cards in 1,000 must still be charged.
 
 **Questions:**
 - Draw the platform.

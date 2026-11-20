@@ -21,25 +21,25 @@ export default {
       type: 'single',
       prompt: 'How does Until Successful behave in Mule 4 compared with Mule 3?',
       options: [
-        'It is synchronous: the event waits for the retries and `MULE:RETRY_EXHAUSTED` is raised at the end',
-        'It is still asynchronous and backed by an object store',
-        'It was removed; you must use the reconnection strategy',
-        'It now retries forever by default',
+        'It is synchronous, and raises `MULE:RETRY_EXHAUSTED` when retries run out',
+        'It is still asynchronous, and keeps pending retries in an object store',
+        'It was removed, so you must use a reconnection strategy instead',
+        'It is synchronous, but by default it retries forever until it succeeds',
       ],
       answer: 0,
-      explain: 'Mule 4 Until Successful is **synchronous**. If the app relied on Mule 3 asynchronous retries, redesign with a queue (VM/Anypoint MQ) and redelivery.',
+      explain: 'Mule 4 Until Successful is **synchronous**, and `maxRetries` defaults to 5, not forever. If the app relied on Mule 3 asynchronous retries, redesign with a queue (VM/Anypoint MQ) and redelivery.',
     },
     {
       type: 'single',
       prompt: 'The Mule 3 app tunes a flow-level processing strategy and thread profiles. What do you do in Mule 4?',
       options: [
-        'Copy them over — the attributes are the same',
-        'Remove them; Mule 4 is self-tuning with shared pools, and you limit concurrency with `maxConcurrency`',
+        'Copy them over, since Mule 4 accepts the same attributes',
+        'Remove them, and limit concurrency with `maxConcurrency` where needed',
         'Replace them with a synchronous processing strategy on every flow',
-        'Configure one thread pool per connector in the domain',
+        'Configure one dedicated thread pool per connector in the domain',
       ],
       answer: 1,
-      explain: 'Processing strategies and thread profiles no longer exist. Components declare their processing type and the runtime schedules them on shared pools (the UBER pool by default in 4.3+).',
+      explain: 'Processing strategies and thread profiles no longer exist, because Mule 4 is self-tuning. Components declare their processing type and the runtime schedules them on shared pools (the UBER pool by default in 4.3+).',
     },
     {
       type: 'single',
@@ -57,10 +57,10 @@ export default {
       type: 'single',
       prompt: 'In Mule 4 error handling, what does **On Error Continue** do?',
       options: [
-        'Handles the error and completes the owner (flow or Try) as success',
-        'Logs the error and rethrows it',
-        'Retries the failing processor once',
-        'Rolls back the transaction and rethrows',
+        'Handles the error and completes the flow or Try as a success',
+        'Runs its processors, then rethrows the error to the owner',
+        'Retries the failing processor once, then continues the flow',
+        'Rolls back the transaction, then continues with the next step',
       ],
       answer: 0,
       explain: 'On Error Continue swallows the error; On Error Propagate rethrows it (and rolls back any transaction).',
@@ -116,14 +116,14 @@ Your client still runs 40 Mule 3.9 applications on-prem and plans to migrate the
 **Other changes**
 - **Connectors** are no longer bundled transports; each is a separately versioned module pulled from Exchange as a Maven dependency.
 - **Repeatable streaming** by default, so payloads can be read multiple times.
-- **DataWeave 2.0**: \`%dw 2.0\`, \`output\` instead of \`%output\`, changed function names and \`fun\` syntax — 1.0 scripts need conversion.
+- **DataWeave 2.0**: \`%dw 2.0\`, \`output\` instead of \`%output\`, changed function names and \`fun\` syntax: 1.0 scripts need conversion.
 - **Classloader isolation** between app, runtime and modules; Java code is called with the Java module rather than component classes.
 - The MMA (Mule Migration Assistant) can convert much of this, but the output needs manual review.
 `,
   followUps: [
     {
       q: 'Can you still call Java from Mule 4, and how?',
-      a: 'Yes — with the Java module (New, Invoke, Invoke static) or by calling static methods from DataWeave via java! imports. Classes must be exported/visible to the app through its own classloader.',
+      a: 'Yes: with the Java module (New, Invoke, Invoke static) or by calling static methods from DataWeave via java! imports. Classes must be exported/visible to the app through its own classloader.',
     },
     {
       q: 'What tool helps migrate Mule 3 apps, and what can it not do?',

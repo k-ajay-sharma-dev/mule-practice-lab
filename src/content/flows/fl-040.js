@@ -230,16 +230,23 @@ export default {
   description: `
 When HR records a new hire in **Workday**, a webhook posts \`{ employeeId, name, department, startDate, manager }\` to Mule. The new starter must be set up in four SaaS systems:
 
-1. **Okta** — create and activate the user; returns the \`login\` that every other system needs.
-2. **Microsoft 365** — assign mailbox/licences for that login.
-3. **ServiceNow** — raise a laptop + access request.
-4. **Slack** — provision the user via SCIM.
+1. **Okta**: create and activate the user; returns the \`login\` that every other system needs.
+2. **Microsoft 365**: assign mailbox/licences for that login.
+3. **ServiceNow**: raise a laptop + access request.
+4. **Slack**: provision the user via SCIM.
 
 Volumes are small (≈50 hires/day, peaks of 300 during graduate intake) but each SaaS call can take up to 10 s and any one of them is occasionally down. Requirements:
 
 - One system failing must **not** block the others; the employee should get as much as possible on day one.
 - IT must be told **exactly which systems failed** for which employee, and failed steps should be retryable.
 - Workday may resend the same webhook; it must not create duplicate accounts.
+- If Okta fails, nothing else can run: the webhook is answered with an error and IT is emailed. Workday then resends it later, and that resend must be onboarded, not refused as a duplicate.
+
+**Facts**
+- The webhook is \`POST /hr/v1/hires\`.
+- Okta: \`POST /okta/api/v1/users?activate=true\`. The new user's login is in \`profile.login\` of the answer.
+- Microsoft 365: \`POST /graph/v1.0/users/{login}/assignLicense\`. ServiceNow: \`POST /servicenow/api/now/table/sc_request\`. Slack: \`POST /slack/scim/v2/Users\`. Each answers with an \`id\`.
+- Outcomes are stored in the \`onboarding_status\` table (\`employee_id\`, \`login\`, \`result_json\`, \`created_at\`). Failed systems go to the Anypoint MQ queue \`onboarding-retry\` and IT is emailed at \`it-onboarding@example.com\`.
 
 **Design the flow(s):** ordering/dependencies, parallelism, how partial failures are captured and reported, status persistence and duplicate protection.
 `,
@@ -263,12 +270,12 @@ Volumes are small (≈50 hires/day, peaks of 300 during graduate intake) but eac
   solution: `
 1. **HTTP Listener** \`POST /hr/v1/hires\` → validate → **Idempotent Message Validator** on \`employeeId\` (duplicate → 200 "already in progress").
 2. **Okta first** (HTTP Request): creating the identity is the dependency for everything else. If it fails, the flow-level On Error Propagate alerts IT and returns an error so Workday retries. The docs do not say the validator releases the ID when a flow fails. So remove \`employeeId\` from the \`onboarding-started\` store in that handler, or the retry may be answered as a duplicate.
-3. **Scatter-Gather** (timeout 30 s) with three routes — M365, ServiceNow, Slack. Each route is a **Try** whose **On Error Continue** sets \`{ system, status: "FAILED", error }\` and on success \`{ system, status: "OK", reference }\`. Because no route throws, there is no \`MULE:COMPOSITE_ROUTING\` error and you always get all three outcomes.
+3. **Scatter-Gather** (timeout 30 s) with three routes: M365, ServiceNow, Slack. Each route is a **Try** whose **On Error Continue** sets \`{ system, status: "FAILED", error }\` and on success \`{ system, status: "OK", reference }\`. Because no route throws, there is no \`MULE:COMPOSITE_ROUTING\` error and you always get all three outcomes.
 4. **Transform** aggregates the route results into \`{ results, failed }\`.
-5. **Persist** the outcome per employee (\`onboarding_status\`) — the source of truth for IT dashboards.
+5. **Persist** the outcome per employee (\`onboarding_status\`): the source of truth for IT dashboards.
 6. **Choice**: if \`failed\` is not empty → publish \`{ employeeId, systems: failed }\` to an **Anypoint MQ retry queue** (worker retries with backoff, DLQ after N attempts) and **email** IT with the list; respond **207 Multi-Status**. Otherwise respond 201.
 
-**Alternative:** without catching errors in routes, handle \`MULE:COMPOSITE_ROUTING\` in the flow and read \`error.errorMessage.payload.failures\` / \`results\` — works, but catching per route keeps the logic simpler and the result shape uniform.
+**Alternative:** without catching errors in routes, handle \`MULE:COMPOSITE_ROUTING\` in the flow and read \`error.errorMessage.payload.failures\` / \`results\`: works, but catching per route keeps the logic shorter and the result shape uniform.
 `,
   followUps: [
     {
@@ -281,7 +288,7 @@ Volumes are small (≈50 hires/day, peaks of 300 during graduate intake) but eac
     },
     {
       q: 'Would you use a Batch Job here?',
-      a: 'No — it is a low-volume, per-employee orchestration that needs an immediate per-request result. Batch suits large record sets; here Scatter-Gather plus a retry queue is the right size.',
+      a: 'No. It is a low-volume, per-employee orchestration that needs an immediate per-request result. Batch suits large record sets; here Scatter-Gather plus a retry queue is the right size.',
     },
   ],
 }

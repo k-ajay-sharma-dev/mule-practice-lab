@@ -107,7 +107,7 @@ Customer app ───────┴─► API gateway ─► exp-service-statu
   followUps: [
     {
       q: 'Why not put the status page behind a CDN instead?',
-      a: 'A CDN in front would take even more load off and is worth adding for the public page. The app banner and partner feeds still go through the API, so the cache in the API layer is needed either way.',
+      a: 'A CDN in front would take even more load off and is worth adding for the public page. The app banner still goes through the API, so the cache in the API layer is needed either way.',
     },
     {
       q: 'What if an incident must show at once, not after 30 seconds?',

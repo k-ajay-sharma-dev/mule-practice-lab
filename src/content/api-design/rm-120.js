@@ -366,12 +366,12 @@ The errors give the student something to act on. A 409 says the request clashes 
 
 \`DELETE\` serves both cases: it drops a module or leaves a waitlist. After the census date the 409 says the place is fixed, because funding is counted on that day.
 
-Security splits by action. The advisers' tool that only views timetables holds \`registrations:read\`, and only the portal and the app can register or drop.
+Security splits by action. A client that only shows registrations, such as a timetable display, holds \`registrations:read\` alone. The portal, the app and the advisers' tool also hold \`registrations:write\`, so they can register or drop.
 `,
   followUps: [
     {
       q: 'Some designers return 201 for both outcomes and rely on the body. What is the trade-off?',
-      a: 'One code is simpler for clients that treat every 2xx the same. Two codes let monitoring and gateways count waitlist outcomes without reading bodies. Either works if the outcome field is always present.',
+      a: 'One code is clearer for clients that treat every 2xx the same. Two codes let monitoring and gateways count waitlist outcomes without reading bodies. Either works if the outcome field is always present.',
     },
     {
       q: 'How would you survive 90,000 requests in the first hour?',

@@ -77,6 +77,7 @@ Requirements:
 - If not signed within **14 days**, void the envelope and set the loan to *Expired*.
 - ~1,500 contracts/day. Payout must **never** happen twice or without a completed signature.
 - At month end DocuSign can take 12 seconds to create an envelope, and SharePoint can be down for an hour.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the queue's redelivery limit. No signed contract may be lost while SharePoint is down.
 
 **Describe your solution:**
 - What is the end-to-end flow and which system owns the status?
@@ -108,7 +109,7 @@ Requirements:
 
 The **LOS owns the loan status**; Mule enforces allowed transitions and never skips a step.
 
-**Receiving DocuSign events.** Configure **DocuSign Connect** to POST envelope events to a Mule HTTPS endpoint. Verify the **HMAC signature** header, store the event on a queue and return 200 immediately. The consumer **re-reads the envelope status** from DocuSign (do not trust only the webhook body), deduplicates by envelope ID + status, and processes in order. A scheduled job (every 30 minutes) lists envelopes still *sent/delivered* in our tracking table and polls their status — a safety net for missed webhooks.
+**Receiving DocuSign events.** Configure **DocuSign Connect** to POST envelope events to a Mule HTTPS endpoint. Verify the **HMAC signature** header, store the event on a queue and return 200 immediately. The consumer **re-reads the envelope status** from DocuSign (do not trust only the webhook body), deduplicates by envelope ID + status, and processes in order. A scheduled job (every 30 minutes) lists envelopes still *sent/delivered* in our tracking table and polls their status. This is a safety net for missed webhooks.
 
 **Exactly-once payout.**
 - Payout only starts when: envelope status = *completed* (confirmed via API), documents stored successfully, LOS status set to *Signed*.
@@ -118,7 +119,7 @@ The **LOS owns the loan status**; Mule enforces allowed transitions and never sk
 **Expiry, decline and failures.**
 - *Declined* by a signer → LOS *Declined*, notify the loan officer.
 - *Expired/voided* after 14 days (DocuSign expiration, or a scheduler that voids envelopes past the deadline) → LOS *Expired*.
-- *SharePoint upload fails* → retry with backoff; the payout waits (documents are a compliance requirement). After retries, alert and park the case; the completed envelope stays retrievable in DocuSign, so nothing is lost.
+- *SharePoint upload fails* → the event is rolled back to the queue and redelivered about once a minute. Set the redelivery limit high enough (about 90 deliveries) that an event outlasts a one-hour SharePoint outage; the payout waits (documents are a compliance requirement). After retries, alert and park the case; the completed envelope stays retrievable in DocuSign, so nothing is lost.
 - All steps logged with loan ID as correlation ID; no personal data in logs beyond IDs.
 `,
   followUps: [

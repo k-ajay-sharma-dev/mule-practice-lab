@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Which data model should `sys-sap-customer-api` expose?',
       options: [
-        'The raw SAP structure (KUNNR, \'X\' flags) — zero mapping effort',
-        'A cleaned, system-scoped model with business names and standard types, reusing shared canonical types (address, money, error body)',
+        'The raw SAP structure with KUNNR and X flags, with no mapping',
+        'A cleaned model with business names, reusing shared canonical types',
         'A full enterprise canonical Customer agreed by every department first',
-        'Whatever the first consumer asks for',
+        'The shape the first consumer asks for',
       ],
       answer: 1,
-      explain: 'Raw SoR shapes leak SAP to every consumer; a full enterprise canonical model is expensive and tends to bloat. A cleaned model is the pragmatic default (use the canonical one if it already exists).',
+      explain: 'Raw SoR shapes leak SAP to every consumer; a full enterprise canonical model is expensive and tends to bloat. A cleaned, system-scoped model with standard types and shared types (address, money, error body) is the pragmatic default (use the canonical one if it already exists).',
     },
     {
       type: 'match',
@@ -34,18 +34,18 @@ export default {
       type: 'single',
       prompt: 'The customer-list BAPI has no native paging. Which approach scales best for `GET /customers`?',
       options: [
-        'Fetch every customer and slice in DataWeave',
-        'Key-based paging: sort by customer number and select "greater than the last key", exposed as a cursor (`?after=12345`)',
-        'Do not offer pagination at all',
-        'Cache the whole customer table in memory',
+        'Fetch every customer and slice the page in DataWeave',
+        'Key-based paging: sort by customer number and return a cursor',
+        'Offer no pagination and return every match',
+        'Cache the whole customer table in memory and page from it',
       ],
       answer: 1,
-      explain: 'Max-rows + slicing works but its cost grows with page depth; key-based paging stays efficient. Bulk exports should use a batch path instead.',
+      explain: 'Key-based paging selects customers "greater than the last key" and exposes it as a cursor (`?after=12345`), so it stays efficient. Max-rows + slicing works but its cost grows with page depth. Bulk exports should use a batch path instead.',
     },
     {
       type: 'single',
       prompt: 'Basis allows 10 concurrent RFC connections for your user and the API runs on 2 replicas. How do you size the SAP connection pool?',
-      options: ['10 per replica', '5 per replica, so the total fits the allowance', '20 per replica to handle peaks', 'Unlimited, SAP will queue'],
+      options: ['10 per replica', '5 per replica, so the total fits the allowance', '20 per replica to handle peaks', '1 per replica, so calls never overlap'],
       answer: 1,
       explain: 'The limit applies to the SAP user across all replicas, so the per-replica pool must add up to at most 10.',
     },
@@ -65,13 +65,13 @@ export default {
       type: 'single',
       prompt: 'Why not let each Process API do the SAP-to-clean mapping?',
       options: [
-        'Process APIs cannot run DataWeave',
-        'Every Process API touching SAP would repeat the mapping and be coupled to SAP; the System API is the one place that knows SAP',
-        'Because mapping is faster in System APIs',
-        'It is fine — mapping location does not matter',
+        'Process APIs cannot run DataWeave on SAP data',
+        'Each Process API would repeat the mapping and be coupled to SAP',
+        'Mapping runs faster in System APIs',
+        'It makes no difference where the mapping lives',
       ],
       answer: 1,
-      explain: 'Containing SAP knowledge in one layer is what makes a SAP change or replacement cheap.',
+      explain: 'The System API is the one place that knows SAP. Containing SAP knowledge in one layer is what makes a SAP change or replacement cheap.',
     },
   ],
   description: `
@@ -142,13 +142,13 @@ Recommended: **cleaned, system-scoped** model, reusing shared canonical *types* 
 **Pagination and filtering.**
 - **Filters:** pass \`name\`, \`country\`, \`modifiedSince\` through to the BAPI selection parameters, so SAP does the filtering. Do not fetch everything and filter in Mule unless the set is small.
 - **Pagination:** the contract offers \`page\`/\`pageSize\` (with a max, e.g. 200). Implementation options:
-  1. Call the BAPI with max-rows = page × pageSize and slice in DataWeave — simple, but cost grows with page number; set a maximum page depth.
-  2. **Key-based** paging: sort by customer number and use "customer number greater than last key" as a selection — efficient, exposed as a cursor (\`?after=12345\`).
-  3. For bulk export use cases, do not use this API — provide a batch/extract path instead.
+  1. Call the BAPI with max-rows = page × pageSize and slice in DataWeave: simple, but cost grows with page number; set a maximum page depth.
+  2. **Key-based** paging: sort by customer number and use "customer number greater than last key" as a selection: efficient, exposed as a cursor (\`?after=12345\`).
+  3. For bulk export use cases, do not use this API: provide a batch/extract path instead.
 - Return pagination metadata (\`page\`, \`pageSize\`, \`hasMore\` or \`next\`) consistently, defined once as a trait/fragment.
 
 **Protecting SAP.**
-- SAP connector connection pool sized to ≤ 10 per replica — and total across replicas must fit the allowance (e.g. 2 replicas × 5).
+- SAP connector connection pool sized so that the total across replicas fits the allowance of 10 (e.g. 2 replicas × 5).
 - API Manager **Spike Control / Rate Limiting** policy so upstream gets 429 instead of overwhelming SAP.
 - Timeouts on the RFC call; no blind retries on writes (idempotency first).
 - Cache read-mostly lookups (country/status code tables, customer master by id with short TTL) in Object Store.
@@ -156,6 +156,6 @@ Recommended: **cleaned, system-scoped** model, reusing shared canonical *types* 
   followUps: [
     { q: 'Why not let the Process API do the SAP-to-canonical mapping?', a: 'Then every Process API that touches SAP repeats the same mapping and becomes coupled to SAP. The System API is the one place that knows SAP, so a SAP change or replacement is contained there.' },
     { q: 'Should a System API expose every BAPI field?', a: 'No. Expose what consumers need plus what is plausibly reusable; adding fields later is a non-breaking change, removing them is breaking.' },
-    { q: 'Offset pagination or cursor pagination for a System API?', a: 'Cursor/key-based scales better and is stable under concurrent inserts; offset is simpler for UIs that need page numbers. Pick one standard for the organisation and define it in a shared fragment.' },
+    { q: 'Offset pagination or cursor pagination for a System API?', a: 'Cursor/key-based scales better and is stable under concurrent inserts; offset suits UIs that need page numbers. Pick one standard for the organisation and define it in a shared fragment.' },
   ],
 }

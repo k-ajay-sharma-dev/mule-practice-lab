@@ -94,6 +94,8 @@ More than 60 downstream systems consume employee data today:
 - HR data model differences (job codes, org structures) between regions.
 - Downstream apps look up about 20 workers a second, a regional HR system can be down for hours, and Active Directory can be down for 60 minutes while about 2 leavers a second are recorded.
 
+**For the diagram.** The workers Process API calls the HR systems in parallel. When one is down, it answers with the data it has and leaves that region out. Leaver events go to their own priority queue named \`worker-terminated\`. That queue redelivers a failed message about once a minute; try each leaver for up to 2 hours so none is lost while Active Directory is down.
+
 **Your task.** Propose an integration strategy for the transition and the end state.
 `,
   answerTemplate: `## End-state architecture
@@ -121,7 +123,7 @@ More than 60 downstream systems consume employee data today:
 
 **Transition (coexistence).**
 - Build \`workers-papi\` and events **first**, fed by the existing regional HR systems via \`hr-<region>-sapi\` adapters mapped to the canonical model.
-- Migrate downstream consumers from direct HR feeds to the API/events — this decoupling is the key enabler.
+- Migrate downstream consumers from direct HR feeds to the API/events. This decoupling is the key enabler.
 - As each region moves to the global HCM, switch that region's source in the routing configuration. Consumers see no change.
 - Parallel run per region: compare canonical output from old and new HR systems for a payroll cycle before switching.
 
@@ -134,7 +136,7 @@ More than 60 downstream systems consume employee data today:
 **Risks.** Payroll errors during cutover (parallel payroll runs), model disagreements between regions (HR data governance board), inaccurate cross-references, and long tail of undocumented consumers (discovery early).
 `,
   followUps: [
-    { q: 'Why build the canonical API before the HCM rollout instead of integrating the new HCM directly?', a: 'Because otherwise every consumer is rewired twice — once per regional system change. Decoupling first means each region cutover becomes a source switch, not 60 integration changes.' },
+    { q: 'Why build the canonical API before the HCM rollout instead of integrating the new HCM directly?', a: 'Because otherwise every consumer is rewired twice, once per regional system change. Decoupling first means each region cutover becomes a source switch, not 60 integration changes.' },
     { q: 'How do you find the undocumented consumers?', a: 'Network and database access logs, file transfer server logs, service accounts on the HR systems, and asking system owners; then plan to turn off old feeds deliberately and watch who complains in test.' },
     { q: 'What is your biggest risk?', a: 'Payroll accuracy during cutover, because errors directly affect employees. Mitigate with parallel payroll runs and sign-off by payroll owners before each regional switch.' },
   ],

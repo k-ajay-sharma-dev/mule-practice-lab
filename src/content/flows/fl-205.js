@@ -96,6 +96,12 @@ The supplier's server has a **maintenance window** from 00:45 to about 01:05, an
 - On success, mark those orders \`SENT\` and log \`SENT\`.
 - If it still fails, keep the file in \`/data/outbox/pending\` on the Mule host, leave the orders READY, and log \`FAILED\`.
 
+**Facts**
+- Run at 00:50 each night. Write \`job_log\` rows with \`job_name\` \`SUPPLIER_ORDERS\` and \`status\` \`SENT\` or \`FAILED\`. \`detail\` is free text, such as the file name.
+- Retry the FTP Write in an **Until Successful** at least 3 times, a minute or more apart. Together they must cover about 20 minutes.
+- When the retries run out, Mule raises \`MULE:RETRY_EXHAUSTED\`. Catch only that, with On Error Continue, and park the file under the same name.
+- A database failure is not caught. The run fails and nothing is parked.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the orders

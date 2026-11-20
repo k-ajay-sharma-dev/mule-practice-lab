@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'POS sales are stored in a `DATE` column as **store local time**. The Mule app runs on CloudHub with the JVM in UTC. A Chicago sale at 21:30 local time is read and sent to the ERP as `21:30Z`. What went wrong?',
       options: [
-        'The DATE had no zone, so it was interpreted in the JVM time zone (UTC), not the store zone',
-        'Oracle converted the time to UTC when storing it',
-        'DataWeave always formats dates in UTC',
-        'The JDBC driver rounded the time',
+        'The zone-less DATE was read in the JVM zone, UTC',
+        'Oracle converted the time to UTC when it stored it',
+        'DataWeave always writes DateTime values in UTC',
+        'The JDBC driver shifted DATE values to the DB zone',
       ],
       answer: 0,
-      explain: 'A zone-less value is read as a timestamp in the runtime JVM time zone. For a store-local value you must attach the store time zone yourself (or store UTC/WITH TIME ZONE in the first place).',
+      explain: 'The DATE had no zone, so it was interpreted in the JVM time zone (UTC), not the store zone. A zone-less value is read as a timestamp in the runtime JVM time zone. For a store-local value you must attach the store time zone yourself (or store UTC/WITH TIME ZONE in the first place).',
     },
     {
       type: 'single',
@@ -36,22 +36,22 @@ export default {
       needsScenario: true,
       prompt: 'In DataWeave, how do you correctly turn the store-local value into an instant for the Chicago store?',
       options: [
-        'Take the local date-time (as LocalDateTime) and append the store zone: (row.SALE_TS as LocalDateTime) ++ ("America/Chicago" as TimeZone)',
+        '(row.SALE_TS as LocalDateTime) ++ ("America/Chicago" as TimeZone)',
         "row.SALE_TS >> 'America/Chicago'",
         "row.SALE_TS as String {format: 'yyyy-MM-dd HH:mm'}",
         'now() ++ ("America/Chicago" as TimeZone)',
       ],
       answer: 0,
-      explain: '`++` attaches a zone to a LocalDateTime without moving the wall-clock time. `>>` **shifts** an instant to another zone (same instant, different wall clock), which would move 21:30 to 16:30 or similar. A zone region must be coerced from a string: `|America/Chicago|` does not parse, although an offset literal such as `|-06:00|` does.',
+      explain: 'Take the local date-time as a LocalDateTime and append the store zone. `++` attaches a zone to a LocalDateTime without moving the wall-clock time. `>>` **shifts** an instant to another zone (same instant, different wall clock), which would move 21:30 to 16:30 or similar. A zone region must be coerced from a string: `|America/Chicago|` does not parse, although an offset literal such as `|-06:00|` does.',
     },
     {
       type: 'single',
       prompt: 'What does `|2026-11-03T03:30:00Z| >> "America/Chicago"` return?',
       options: [
-        'The same instant expressed in Chicago time: 2026-11-02T21:30:00-06:00',
-        '2026-11-03T03:30:00-06:00 — the zone is replaced and the time kept',
-        'A LocalDateTime without a zone',
-        'An error, >> only works on Dates',
+        'The same instant in Chicago time: 2026-11-02T21:30:00-06:00',
+        '2026-11-03T03:30:00-06:00, with the zone replaced',
+        'A LocalDateTime of 2026-11-02T21:30:00, without a zone',
+        'An error, because >> works only on Date values',
       ],
       answer: 0,
       explain: 'The `>>` operator changes the zone while keeping the instant, so the wall-clock time changes. After 1 Nov 2026 Chicago is on CST (UTC-6).',
@@ -79,7 +79,7 @@ STORES    (STORE_ID VARCHAR2(6), TZ VARCHAR2(40))                             --
 \`\`\`
 
 The app was moved from an on-prem server (JVM time zone America/New_York) to **CloudHub 2.0** (JVM in UTC). Since then:
-- Sales at 21:30 in Chicago are sent to SAP as \`21:30Z\` — six hours off — so hourly sales reports show the evening peak in mid-afternoon.
+- Sales at 21:30 in Chicago are sent to SAP as \`21:30Z\` (six hours off), so hourly sales reports show the evening peak in mid-afternoon.
 - Finance also asks why some late-evening West Coast sales were booked to the **next** business date when the team tried to "fix" it by converting to UTC first.
 - The extract query \`WHERE SALE_TS >= :fromDate\` sometimes misses or double-counts the last hour.
 - Around the November daylight-saving change, totals for one hour looked doubled.
@@ -108,7 +108,7 @@ The app was moved from an on-prem server (JVM time zone America/New_York) to **C
   solution: `
 **1. Types.** \`DATE\` = date + time to the second, no zone. \`TIMESTAMP\` = plus fractional seconds, no zone. \`TIMESTAMP WITH TIME ZONE\` = keeps an offset or region. \`TIMESTAMP WITH LOCAL TIME ZONE\` = stored normalised to the DB time zone and presented in the session time zone.
 
-**2. Why the times moved.** \`SALE_TS\` has no zone. JDBC hands it to Mule as a timestamp, and it becomes a DateTime in the **JVM default time zone**. On-prem the value was read as New York time and written back out as New York wall-clock text, so the mistake stayed invisible; on CloudHub the JVM is in UTC, so 21:30 local became \`21:30Z\` — which is 15:30 in Chicago. The attempted fix (convert to UTC, then take the date) is also wrong: a 21:30 sale in Los Angeles is 05:30Z the next day, so its UTC date is the next business date.
+**2. Why the times moved.** \`SALE_TS\` has no zone. JDBC hands it to Mule as a timestamp, and it becomes a DateTime in the **JVM default time zone**. On-prem the value was read as New York time and written back out as New York wall-clock text, so the mistake stayed invisible; on CloudHub the JVM is in UTC, so 21:30 local became \`21:30Z\`, which is 15:30 in Chicago. The attempted fix (convert to UTC, then take the date) is also wrong: a 21:30 sale in Los Angeles is 05:30Z the next day, so its UTC date is the next business date.
 
 **3. DataWeave.**
 \`\`\`dataweave
@@ -134,12 +134,12 @@ payload map (row) -> do {
 **4. Parameters and model.**
 - Bind the extract window as parameters (\`:fromTs\`, \`:toTs\`) built in DataWeave per time zone, rather than formatting strings into SQL; use half-open windows (\`>= from AND < to\`) to avoid double counting.
 - Store new events as UTC (\`TIMESTAMP\` in UTC by convention) or \`TIMESTAMP WITH TIME ZONE\`, and keep the store zone on the store master.
-- During the "fall back" hour local times repeat (01:00–01:59 occurs twice), so a DATE in local time is **ambiguous** — another reason to store instants.
+- During the "fall back" hour local times repeat (01:00–01:59 occurs twice), so a DATE in local time is **ambiguous**. That is another reason to store instants.
 - Do not depend on the JVM time zone; if legacy data must be read, convert explicitly as above.
 `,
   followUps: [
     {
-      q: 'Could you just set the JVM time zone of the CloudHub app to America/Chicago?',
+      q: 'Could you set the JVM time zone of the CloudHub app to America/Chicago?',
       a: 'It would hide the problem for one zone only; stores are in four zones. Explicit conversion with the store time zone is correct everywhere and independent of where the app runs.',
     },
     {

@@ -111,6 +111,12 @@ Last month a line failed halfway through an order. The header and the first line
 - One bad order must not stop the others. Write \`po_number\`, \`run_id\` and the reason to \`dbo.po_reject\`.
 - Archive the file to \`/plan/po/archive\` when every order has been handled.
 
+**Facts**
+- Use the SFTP listener on \`/plan/po\`, \`PO_PLAN_*.json\`, with a size check wait. Archive the file under its own name.
+- Handle each order in a **For Each**. Insert the header, then bulk insert its lines, in a **Try** with the transactional action \`ALWAYS_BEGIN\`.
+- A line with no \`qty\` fails on the NOT NULL column. The reject \`reason\` is the error description.
+- A failed order must not fail the run: catch it with On Error Continue and write the reject row.
+
 **Design the flow.** Explain where the transaction starts and ends, and why the error handler is where it is.
 `,
   answerTemplate: `## One order at a time

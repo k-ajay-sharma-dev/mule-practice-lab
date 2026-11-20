@@ -32,7 +32,7 @@ export default {
       {
         name: 'A declaration is sent',
         about: 'The broker gets the declaration with its correlation ID, it is saved as SUBMITTED, and the caller gets 202 at once.',
-        trigger: { http: { method: 'POST', path: '/declarations', body: { shipmentRef: 'AF-55188', goods: [{ hsCode: '8708.30', value: 1840 }] } } },
+        trigger: { http: { method: 'POST', path: '/declarations', body: { shipmentRef: 'AF-55188', goods: [{ hsCode: '9403.60', value: 1840 }] } } },
         expect: {
           status: 202,
           bodyHas: { status: 'SUBMITTED' },
@@ -127,6 +127,13 @@ Ashdown's apps call \`POST /declarations\` with \`{ "shipmentRef", "goods" }\`. 
 - Apply each reply to its declaration: status and MRN.
 - The broker may send a reply twice. A declaration that has had its answer is not changed again, and a repeat is not an error.
 - A reply whose \`correlationId\` matches no declaration goes to \`customs-replies-unmatched\` with a WARN.
+
+**Facts**
+- The message on \`customs-requests\` is the request body with \`correlationId\` added.
+- Write the status \`'SUBMITTED'\` as a literal in the SQL, in the insert and in the reply's update. Name the update's ID parameter \`:correlationId\`.
+- Park an unmatched reply as it arrived.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flows.**
 `,

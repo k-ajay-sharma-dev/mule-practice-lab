@@ -70,7 +70,7 @@ export default {
   description: `
 **Context.** A pharmaceutical wholesaler distributes vaccines, biologics and insulin from four temperature-controlled warehouses to hospitals and pharmacies. It uses its own refrigerated fleet and two subcontracted carriers.
 
-**The problem today.** Data loggers record temperatures, but data is downloaded from loggers only when they come back to the depot, so excursions are found days later. An inspector recently asked how the company knows each delivery stayed within 2–8 °C, and the answer took two weeks to assemble.
+**The problem today.** Data loggers record temperatures, but data is downloaded from loggers only when they come back to the depot, so excursions are found days later. An inspector recently asked how the company knows each delivery stayed within 2 to 8 °C, and the answer took two weeks to assemble.
 
 **Goals**
 - Detect temperature excursions within 5 minutes during transport and storage.
@@ -80,13 +80,15 @@ export default {
 **Constraints**
 | Item | Detail |
 |---|---|
-| Devices | 1,500 connected loggers and vehicle gateways, sending a reading every 1–5 minutes; they buffer when out of coverage |
+| Devices | 1,500 connected loggers and vehicle gateways, sending a reading every 1 to 5 minutes; they buffer when out of coverage |
 | Shipments | TMS knows which logger travels with which shipment and the product temperature limits |
 | Quality | QMS is a SaaS product with a REST API for opening deviations |
 | Compliance | Records must be complete, tamper-evident and kept for several years (GDP expectations, kept generic) |
 | Carriers | Subcontracted carriers use their own loggers and portals |
 
 The loggers send about 10 readings a second in all. At worst about 1 excursion a second needs a deviation, and the QMS can be down for an hour.
+
+Every device sends a client ID, checked at the gateway. Readings go on a \`temperature-readings\` stream and excursions on an \`excursion-events\` topic. A subscription redelivers a failed message about once a minute, so its redelivery limit must cover an hour-long QMS outage, or be left unlimited. Name the APIs exp-telemetry-ingest-api, prc-excursion-detection, prc-qa-case, prc-alerting, sys-tms-api and sys-qms-api.
 
 **Your task.** Propose the architecture for:
 - telemetry ingestion
@@ -117,10 +119,10 @@ The loggers send about 10 readings a second in all. At worst about 1 excursion a
   ],
   solution: `
 **Phases**
-1. **Ingest (months 1–2).** Loggers and gateways post batches of readings to \`exp-telemetry-ingest-api\` behind the gateway (client ID per device fleet, mTLS). The API validates and publishes each reading (device ID, timestamp in UTC, temperature, location) to the \`temperature-readings\` stream, keyed by device so order is kept per device.
+1. **Ingest (months 1 to 2).** Loggers and gateways post batches of readings to \`exp-telemetry-ingest-api\` behind the gateway (client ID per device fleet, mTLS). The API validates and publishes each reading (device ID, timestamp in UTC, temperature, location) to the \`temperature-readings\` stream, keyed by device so order is kept per device.
 2. **Archive (month 2).** A consumer writes every reading to a compliance data lake (write-once storage, retention policy). Out-of-order readings from buffered devices are stored by device timestamp, not arrival time.
-3. **Detect (months 3–4).** \`prc-excursion-detection\` resolves device → shipment → product limits via \`sys-tms-api\` (cached per shipment). It evaluates rules (outside 2–8 °C for longer than the allowed duration, missing readings for more than N minutes) and publishes \`ExcursionDetected\` to \`excursion-events\`.
-4. **Act (months 4–5).** \`prc-qa-case\` opens a deviation in the QMS through \`sys-qms-api\`, linking the shipment and readings; \`prc-alerting\` notifies QA on-call and the driver. When QA releases or rejects the stock, the decision is recorded against the shipment.
+3. **Detect (months 3 to 4).** \`prc-excursion-detection\` resolves device → shipment → product limits via \`sys-tms-api\` (cached per shipment). It evaluates rules (outside 2 to 8 °C for longer than the allowed duration, missing readings for more than N minutes) and publishes \`ExcursionDetected\` to \`excursion-events\`.
+4. **Act (months 4 to 5).** \`prc-qa-case\` opens a deviation in the QMS through \`sys-qms-api\`, linking the shipment and readings. If the QMS is down, the event stays on its subscription and is retried until the QMS is back; \`prc-alerting\` notifies QA on-call and the driver. When QA releases or rejects the stock, the decision is recorded against the shipment.
 5. **Carriers (month 6).** Poll or receive carrier logger data and publish it to the same stream with the same model.
 
 **Governance.** Validated system approach for the parts that make GxP decisions (documented requirements, testing, change control). Clocks synchronised; time zones handled as UTC.

@@ -66,7 +66,7 @@ A retail bank wants customers to see their **account balances and last 10 transa
 | Channel | Who | Needs |
 |---|---|---|
 | **Mobile banking app** (iOS/Android) | Logged-in customers | All accounts with balance, available balance, last 10 transactions, nicknames |
-| **Chatbot** (web + WhatsApp, built on a conversational platform) | Logged-in customers | "What is my balance?" — short text answer for one account, no transaction list |
+| **Chatbot** (web + WhatsApp, built on a conversational platform) | Logged-in customers | "What is my balance?": short text answer for one account, no transaction list |
 
 | Back-end system | Holds | Access |
 |---|---|---|
@@ -142,7 +142,7 @@ Facts:
        [Mainframe via MQ]     [PostgreSQL]
 \`\`\`
 
-**Call sequence — mobile shows balances**
+**Call sequence: mobile shows balances**
 1. App calls \`GET /me/accounts\` on exp-mobile-banking with the customer's OAuth access token.
 2. API Manager policy (**JWT Validation** or **OAuth 2.0 token enforcement**) validates the token; the Experience API reads the customer ID from the token claim.
 3. exp-mobile-banking calls prc-customer-accounts \`GET /customers/{customerId}/accounts\` (client ID/secret of the Experience API app).

@@ -7,10 +7,10 @@ export default {
   estMinutes: 30,
   investigation: {
     logs: [
+      { text: "2026-11-18 06:30:00 INFO  [sales-extract] Schedule moved from 02:00 to 06:30 after last month’s failure", relevant: true, why: "The extract now overlaps opening." },
       { text: "2026-11-18 06:30:00 INFO  [sales-extract] Started full scan of sales_line rows=480000000", relevant: true, why: "A full scan of a huge table." },
       { text: "2026-11-18 07:00:00 WARN  [pos-api] Average checkout write ms=2400", relevant: true, why: "Store checkouts slow down." },
       { text: "2026-11-18 07:00:00 INFO  [dba] PAGEIOLATCH waits high, tempdb spills from sales extract", relevant: true, why: "The extract uses heavy IO." },
-      { text: "2026-11-18 06:30:00 INFO  [sales-extract] Schedule moved from 02:00 to 06:30 after last month’s failure", relevant: true, why: "The extract now overlaps opening." },
       { text: "2026-11-18 23:59:00 INFO  [sales-extract] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why are checkouts slow?",
         options: [
-          "A full scan extract runs during opening hours and competes for IO",
-          "Stores have bad network",
-          "The POS is broken",
-          "Tempdb is full",
+          "A full scan extract runs during opening and competes for IO",
+          "Store networks are slow when all tills log in at opening",
+          "The POS API has too few database connections at 07:00",
+          "Tempdb ran out of space, so all writes now wait for it",
         ],
         answer: 0,
         explain: "The schedule change moved heavy work into trading hours.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the best design?",
         options: [
-          "Extract only yesterday’s partition or changes, from a replica, before opening",
-          "Scan more",
-          "Run at noon",
-          "Add indexes everywhere",
+          "Extract only yesterday’s data, from a replica, before opening",
+          "Keep the full scan but run it at 12:00 when trade is lighter",
+          "Add an index on every column the extract selects",
+          "Give the extract a higher priority than the POS writes",
         ],
         answer: 0,
         explain: "Less data, another server, quiet hours.",
@@ -43,9 +43,9 @@ export default {
         prompt: "What else helps?",
         options: [
           "Partition sales by date",
-          "Stream the result to file instead of building it in tempdb",
+          "Stream the result to a file, not into tempdb",
           "Agree a latest finish time with stores",
-          "Run it twice",
+          "Run the full scan again at noon as a check",
         ],
         answer: [0,1,2],
         explain: "Reduce the work and protect trading.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Why was the schedule moved?",
         options: [
-          "A past failure was fixed by running later, which created a new problem",
-          "Stores asked",
-          "The platform asked",
-          "At random",
+          "Last month’s failure was worked around by running later",
+          "Stores asked for fresher sales data in the morning",
+          "The planning platform now imports at 08:00, not 03:00",
+          "The DBA moved it to free the 02:00 backup window",
         ],
         answer: 0,
         explain: "Fix the cause, not the time.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 06:30:00 INFO  [sales-extract] Schedule moved from 02:00 to 06:30 after last month’s failure
 2026-11-18 06:30:00 INFO  [sales-extract] Started full scan of sales_line rows=480000000
 2026-11-18 07:00:00 WARN  [pos-api] Average checkout write ms=2400
 2026-11-18 07:00:00 INFO  [dba] PAGEIOLATCH waits high, tempdb spills from sales extract
-2026-11-18 06:30:00 INFO  [sales-extract] Schedule moved from 02:00 to 06:30 after last month’s failure
 \`\`\`
 
 ## Your tasks

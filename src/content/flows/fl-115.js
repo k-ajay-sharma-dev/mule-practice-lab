@@ -136,6 +136,10 @@ A **Cache scope** keeps the result of the steps inside it. The first call runs t
 - Keep the cached entry for **one hour**.
 - Write a log line each time the reference API is called, so you can see the cache working. The line says "cache miss".
 
+**Facts**
+- The reference API answers \`{ "items": [{ "isoCode": "EUR", "displayName": "Euro", "minorUnits": 2, "active": true, ... }] }\`.
+- \`GET /currencies\` returns a JSON array of \`{ code, name, decimals }\`, taken from \`isoCode\`, \`displayName\` and \`minorUnits\`.
+
 **Design the flow.** Which steps go inside the Cache scope?
 `,
   answerTemplate: `## Trigger

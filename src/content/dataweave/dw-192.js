@@ -13,7 +13,7 @@ Quayle Freight receives delivery files from small carriers by email. A Mule flow
 - \`vars.allowedSenders\`, \`vars.processedIds\` (Message-IDs already handled) and \`vars.maxBytes\`
 
 **Rules, in this order**
-1. A Message-ID already processed goes to \`alreadyDone\`.
+1. A Message-ID already processed goes to \`alreadyDone\`, a list of the Message-IDs only.
 2. The sender address, trimmed and in lower case, must be in the allowed list, compared in lower case. If not: \`Sender not allowed\`.
 3. CSV files are attachments whose name ends with \`.csv\` in any case. With none: \`No CSV attachment\`.
 4. Any CSV larger than \`vars.maxBytes\`: \`Attachment too large: \` followed by the names, joined with \`, \`.

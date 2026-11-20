@@ -63,7 +63,7 @@ export default {
     },
   },
   description: `
-A fashion retailer sees **60,000 carts a day**, and about **70 % are abandoned**. Marketing wants reminders:
+A cookware retailer sees **60,000 carts a day**, and about **70 % are abandoned**. Marketing wants reminders:
 - **1 hour** after the last change to a cart with no order: an email, or an app push if the shopper uses the app and allowed push.
 - **24 hours** later, a second email with a **10 % voucher**, for loyalty members only.
 - Never remind after the order is placed, even if the order came from another device.
@@ -75,7 +75,8 @@ Facts:
 - The OMS publishes an event for every order placed.
 - Salesforce holds consent and loyalty tier; its API allows about **100,000 calls a day** for this integration.
 - The storefront answers in under 200 ms and must not get slower.
-- At the sale peak the website and app send about **80 cart changes a second**. 100,000 Salesforce calls a day is about 1 call a second.
+- At the sale peak the website and app send about **80 cart changes a second**, and no cart change may be lost.
+- 100,000 Salesforce calls a day is about 1 call a second. A bug in the scan must never use up the daily allowance.
 
 **Questions:**
 1. How do cart changes reach the reminder logic without slowing the storefront?
@@ -101,7 +102,7 @@ Facts:
     'The frequency cap and quiet hours are checked from the cart record and the shopper time zone; due reminders in quiet hours wait until 08:00.',
   ],
   solution: `
-**Capturing cart events.** exp-storefront already handles every cart change. After it answers the shopper, it publishes a small event to **cart-events**: shopper ID, cart ID, items, value, time. The publish is async, so the storefront stays under 200 ms. The OMS publishes **order placed** events to the same queue.
+**Capturing cart events.** exp-storefront already handles every cart change. After it answers the shopper, it publishes a small event to **cart-events**: shopper ID, cart ID, items, value, time. The publish is async, so the storefront stays under 200 ms; at 80 changes a second exp-storefront needs about 0.5 vCore. The OMS publishes **order placed** events to the same queue.
 
 **Cart state.** prc-cart-tracker consumes the queue and keeps one record per shopper in a persistent store (Object Store or a small database):
 - last change time and cart value;
@@ -111,7 +112,7 @@ An order placed event closes the record, whatever device the order came from, be
 
 **Finding idle carts.** A Scheduler runs **every 5 minutes**. It selects records that are open, last changed more than 1 hour ago, and without a first reminder. It also selects records that had a first reminder 24 hours ago and no second one. Polling the store is safer than in-memory timers, which are lost on a restart or a redeploy.
 
-**Consent and channel.** For each due cart, the job calls sys-crm-consent. About 40,000 carts are abandoned, but only shoppers who are known and not capped are checked, a few thousand calls a day. Results are cached for 1 hour. No consent means no reminder, and the record is marked so it is not checked again. The channel is push when the shopper has the app with push allowed, otherwise email.
+**Consent and channel.** For each due cart, the job calls sys-crm-consent. About 40,000 carts are abandoned, but only shoppers who are known and not capped are checked, a few thousand calls a day. Results are cached for 1 hour. sys-crm-consent also has a rate limit of 1 call a second (100,000 a day), so a bug that checks consent too often gets 429 answers instead of using up the Salesforce allowance. No consent means no reminder, and the record is marked so it is not checked again. The channel is push when the shopper has the app with push allowed, otherwise email.
 
 **Caps, quiet hours and vouchers.**
 - Cap: skip the shopper when any reminder was sent in the last 3 days.

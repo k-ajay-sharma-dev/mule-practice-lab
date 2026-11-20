@@ -81,7 +81,7 @@ A mobile operator wants customers to **change their tariff plan** themselves, in
 | **Salesforce** (CRM) | Customer, contract, commitment end date, interaction history | REST |
 | **Billing** (Amdocs / CSG-style) | Current plan, rating, bill cycle, outstanding debt | SOAP |
 | **Product catalogue** | Plans, prices, eligibility rules (device, contract type) | REST |
-| **Network provisioning** (HSS/PCRF via an OSS gateway) | Activates data allowances, roaming flags | Async — accepts job, calls back in 5 s–10 min |
+| **Network provisioning** (HSS/PCRF via an OSS gateway) | Activates data allowances, roaming flags | Async: accepts a job, calls back in 5 s to 10 min |
 
 Business rules:
 - Upgrades are effective **immediately**; downgrades only at the **next bill cycle**, and not during a commitment period.
@@ -146,7 +146,7 @@ Business rules:
   -catalogue   subscriptions    -customer       provisioning
 \`\`\`
 
-**Sequence — customer upgrades in the app**
+**Sequence: customer upgrades in the app**
 1. App → exp-myaccount-app \`GET .../plan-options\` → prc-plan-eligibility: reads current plan + debt (billing), contract end date (CRM), plans + rules (catalogue, cached 1 h). Returns eligible plans, price delta and effective date (immediate for upgrades).
 2. App → exp-myaccount-app \`POST .../plan-changes\` with header \`Idempotency-Key\`.
 3. exp-myaccount-app → prc-plan-change \`POST /plan-changes\` (channel = APP, customer from token).
@@ -155,7 +155,7 @@ Business rules:
 6. OSS gateway calls back → prc-plan-change \`/provisioning-callback\` → state \`COMPLETED\`, logs an interaction in Salesforce, publishes a "plan changed" event (Anypoint MQ) for SMS/email notification.
 7. App polls \`GET /me/plan-changes/{id}\` or receives a push.
 
-**Eligibility and override.** All rules live in prc-plan-eligibility (debt, commitment, downgrade timing, device compatibility). The store Experience API may send \`override: true, reason\` only if the caller is the store client app **and** the staff JWT has the \`plan-override\` role (checked in exp-retail-store). prc-plan-change then skips only the overridable rules (e.g. commitment period) — debt rules stay mandatory — and records who overrode and why.
+**Eligibility and override.** All rules live in prc-plan-eligibility (debt, commitment, downgrade timing, device compatibility). The store Experience API may send \`override: true, reason\` only if the caller is the store client app **and** the staff JWT has the \`plan-override\` role (checked in exp-retail-store). prc-plan-change then skips only the overridable rules (e.g. commitment period). Debt rules stay mandatory. It records who overrode and why.
 
 **Failure handling.**
 - Provisioning failure callback or timeout (no callback in 15 min, scheduled sweep) → **compensate**: \`PUT /plan\` back to the old plan in billing, state \`FAILED_COMPENSATED\`, CRM interaction + customer notification.
@@ -169,7 +169,7 @@ Business rules:
   followUps: [
     { q: 'Why split eligibility and plan change into two Process APIs?', a: 'They have different consumers and characteristics: eligibility is a high-volume, cacheable read used also by marketing; plan change is a low-volume, stateful write saga. Splitting keeps each simple and independently scalable.' },
     { q: 'Why does prc-plan-change re-check eligibility when the screen already showed eligible plans?', a: 'State can change between browsing and submitting (a payment becomes overdue), and a client could call the POST directly. Business rules must be enforced at write time on the server.' },
-    { q: 'Could you use a distributed XA transaction instead of compensation?', a: 'No — billing SOAP, an async OSS gateway and Salesforce do not take part in a shared XA transaction. Long-running cross-system changes need a saga with compensating actions.' },
-    { q: 'Downgrades take effect at the next bill cycle — what changes?', a: 'prc-plan-change schedules the billing change for the cycle date (many billing systems accept a future-dated plan change). Provisioning is triggered at that date by a scheduler or a billing event, with the same state machine.' },
+    { q: 'Could you use a distributed XA transaction instead of compensation?', a: 'No. Billing SOAP, an async OSS gateway and Salesforce do not take part in a shared XA transaction. Long-running cross-system changes need a saga with compensating actions.' },
+    { q: 'Downgrades take effect at the next bill cycle. What changes?', a: 'prc-plan-change schedules the billing change for the cycle date (many billing systems accept a future-dated plan change). Provisioning is triggered at that date by a scheduler or a billing event, with the same state machine.' },
   ],
 }

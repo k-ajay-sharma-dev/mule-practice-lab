@@ -12,7 +12,7 @@ Return \`{ orderId, businessDays, count }\`.
 
 **Rules**
 - The window runs from \`from\` to \`to\`, **both inclusive**.
-- A business day is Monday–Friday and not in \`holidays\`. (A holiday that falls on a weekend changes nothing.)
+- A business day is Monday to Friday and not in \`holidays\`. (A holiday that falls on a weekend changes nothing.)
 - \`businessDays\` is a list of \`yyyy-MM-dd\` strings in chronological order; \`count\` is its length.
 - If \`to\` is before \`from\`, the window is invalid: \`businessDays\` is \`[]\` and \`count\` is \`0\`.
 `,
@@ -53,7 +53,7 @@ payload
   hints: [
     '`daysBetween(start, end)` gives the number of days between two dates. Generate offsets `0 to n` and add each one to the start date.',
     'Turn an offset into a period with `days(i)` from `dw::core::Periods` (or build `("P" ++ i ++ "D") as Period`). `d.dayOfWeek` is 1 for Monday … 7 for Sunday.',
-    'What does `0 to -3` produce? Try it — then guard the invalid window explicitly.',
+    'What does `0 to -3` produce? Try it, then guard the invalid window explicitly.',
   ],
   solution: `%dw 2.0
 import days from dw::core::Periods
@@ -76,7 +76,7 @@ var business = allDays
   count: sizeOf(business)
 }`,
   explanation: `
-**Generating a date range.** DataWeave has no "date range" operator, but it has integer ranges and date arithmetic: \`(0 to n) map (start + days(i))\` produces every date from \`start\` to \`start + n\`. \`daysBetween\` returns a plain \`Number\` of days across month and year boundaries; \`end - start\` instead returns a period value (for two dates this engine prints it as \`PT336H\`), which you then have to unpack.
+**Generating a date range.** DataWeave has no "date range" operator, but it has integer ranges and date arithmetic: \`(0 to n) map (start + days(i))\` produces every date from \`start\` to \`start + n\`. \`daysBetween\` returns a plain \`Number\` of days across month and year boundaries; \`end - start\` instead returns a period value (two dates 14 days apart print as \`PT336H\`, a count of hours), which you then have to unpack.
 
 **Filtering.** \`dayOfWeek\` follows ISO-8601 (Monday = 1, Sunday = 7), so \`<= 5\` keeps weekdays. Holidays arrive as strings, so the date is formatted first and then looked up with \`contains\`; comparing a \`Date\` with a \`String\` would never match.
 
@@ -107,11 +107,11 @@ var business = allDays
     },
     {
       q: 'Why use `daysBetween` instead of subtracting the dates?',
-      a: '`end - start` returns a period/duration value (e.g. `PT336H`), not a number, so you must extract the days from it before using it in a range. `daysBetween` states the intent and returns a Number directly.',
+      a: '`end - start` returns a period value (for example `P14D`), not a number, so you must extract the days from it before using it in a range. `daysBetween` states the intent and returns a Number directly.',
     },
     {
       q: 'Where should the holiday calendar come from in a real API?',
-      a: 'From a cached lookup — an Object Store, a config file per country, or a calendar System API — passed into the transform as a variable, not hard-coded in the script.',
+      a: 'From a cached lookup (an Object Store, a config file per country, or a calendar System API), passed into the transform as a variable, not hard-coded in the script.',
     },
   ],
 }

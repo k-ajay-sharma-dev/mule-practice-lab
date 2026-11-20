@@ -86,6 +86,8 @@ export default {
 - Floor supervisors must know about a blocked robot within 30 seconds.
 - In peak season the FC ships 180,000 orders a day.
 - Task events reach 120 a second for 20 minutes at peak. The WMS releases about 20 pick tasks a second, and the fleet manager can restart for 10 minutes.
+- Name the APIs sys-wms-api, prc-robot-task-dispatch, sys-fleet-manager-api, prc-task-status and prc-robot-alerts. Run sys-wms-api and prc-task-status on 0.5 vCore each.
+- Released tasks wait on a \`pick-tasks\` queue. It redelivers a failed message about once a minute; try each task for 30 minutes (a redelivery limit of 30), then send it to a dead-letter queue.
 
 **Your task.** Design the integration between the WMS, the robot fleet and the data lake.
 `,

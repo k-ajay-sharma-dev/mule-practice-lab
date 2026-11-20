@@ -27,6 +27,8 @@ Marrow & Pine Home loads supplier item messages into Oracle. Before the load, Mu
 **Reject rows**: \`RUN_ID\`, \`LINE_NO\`, \`SUPPLIER_ID\`, \`ITEM_ID\` and \`REASON_CODES\`, the codes joined with commas.
 
 **Job log**: \`RUN_ID\`, \`MESSAGE_ID\`, \`DOCUMENT_ID\`, \`STATUS\`, \`TOTAL\`, \`GOOD\`, \`REJECTED\`. Status is \`SUCCESS\` with no rejects, \`FAILED\` when nothing is good, otherwise \`PARTIAL\`.
+
+**Output**: an object with \`stageRows\` and \`rejectRows\` (both lists, in input order) and \`jobLog\` (one object). \`UNIT_COST\` is the cost as sent.
 `,
   inputs: [
     {

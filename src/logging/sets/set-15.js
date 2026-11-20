@@ -28,10 +28,10 @@ export const SET_15 = [
       'Item merge finished jobId=J-7001 staged=60000 inserted=410 updated=59590 rejected=0 durationMs=118000',
       'MERGE INTO item USING item_stage ON (…) WHEN MATCHED … finished',
       'Merged',
-      'Items: <60,000 rows>',
+      'Item merge finished staged=60000 inserted=410 updated=59590 rejected=0 durationMs=118000',
     ],
     answer: 0,
-    explain: 'Counts tie to the job and add up. The SQL text adds nothing.',
+    explain: 'Counts tie to the job and add up. The SQL text adds nothing. The last line has no job ID, so it cannot be tied to the job row.',
   },
   {
     id: 'log-15003',
@@ -70,7 +70,7 @@ export const SET_15 = [
     id: 'log-15005',
     kind: 'write',
     situation:
-      'Counts do not add up after a Fenwick load: staged 4,800, loaded 4,740, rejected 0. The hub sends PARTIAL, not COMPLETED. vars.jobId, vars.staged, vars.loaded and vars.rejected hold the facts. Write the line.',
+      'Counts do not add up after a Fenwick load: staged 4,800, loaded 4,740, rejected 0. The hub sends PARTIAL, not COMPLETED. vars.jobId, vars.staged, vars.loaded and vars.rejected hold the facts. Write the line, with what happens next.',
     available: ['vars.jobId', 'vars.staged', 'vars.loaded', 'vars.rejected', 'payload'],
     level: ['ERROR'],
     checks: [
@@ -107,10 +107,10 @@ export const SET_15 = [
       'Row rejected table=ITEM itemId=ITM-4410 oraCode=ORA-12899 column=DESCRIPTION next=written to reject table',
       'INSERT INTO item VALUES (’ITM-4410’, ’a very long description …’) failed',
       'Bad row',
-      'Oracle error',
+      'Row rejected table=ITEM itemId=ITM-4410 oraCode=ORA-12899 next=written to reject table',
     ],
     answer: 0,
-    explain: 'Table, key, code and column. Not the statement with the values.',
+    explain: 'Table, key, code and column. Not the statement with the values. The last line has no column, so the sender does not know which field is too long.',
   },
   {
     id: 'log-15008',
@@ -124,7 +124,7 @@ export const SET_15 = [
     id: 'log-15009',
     kind: 'write',
     situation:
-      'A Fenwick row was rejected. vars.table, vars.itemId, vars.oraCode and vars.column hold the facts. Write the line.',
+      'A Fenwick row was rejected and goes to the reject table. vars.table, vars.itemId, vars.oraCode and vars.column hold the facts. Write the line, with what happens next.',
     available: ['vars.table', 'vars.itemId', 'vars.oraCode', 'vars.column', 'vars.sqlText', 'vars.params'],
     level: ['WARN'],
     checks: [
@@ -148,7 +148,7 @@ export const SET_15 = [
     id: 'log-15010',
     kind: 'write',
     situation:
-      'A Fenwick block hit ORA-00001 on insert and was retried as a MERGE. vars.table, vars.block and vars.rows hold the facts. Write the line.',
+      'A Fenwick block hit ORA-00001 on insert and was retried as a MERGE. vars.table, vars.block and vars.rows hold the facts. Write the line, with the error.',
     available: ['vars.table', 'vars.block', 'vars.rows', 'error.errorType', 'error.description', 'vars.sqlText'],
     level: ['WARN', 'INFO'],
     checks: [
@@ -181,13 +181,13 @@ export const SET_15 = [
     kind: 'choice',
     situation: 'Which line best records the procedure call?',
     options: [
-      'Procedure finished name=PKG_OUT.GET_ITEMS fromDate=2026-11-17 rows=0 durationMs=1200 expectedRows=>0',
+      'Procedure finished name=PKG_OUT.GET_ITEMS fromDate=2026-11-17 rows=0 durationMs=1200',
       'Called procedure',
       'BEGIN PKG_OUT.GET_ITEMS(:1, :2); END; with params [’2026-11-17’, cursor]',
-      'Done',
+      'Procedure finished name=PKG_OUT.GET_ITEMS rows=0 durationMs=1200',
     ],
     answer: 0,
-    explain: 'Name, input range, row count and time. Not the raw call.',
+    explain: 'Name, input range, row count and time. Not the raw call. The last line has no input date, so you cannot tell a wrong window from a day with no data.',
   },
   {
     id: 'log-15013',
@@ -201,12 +201,12 @@ export const SET_15 = [
     id: 'log-15014',
     kind: 'write',
     situation:
-      'A Fenwick procedure finished. vars.procedure, vars.fromDate, vars.rows and vars.durationMs hold the facts. Write the line.',
+      'A Fenwick procedure finished normally and returned rows. vars.procedure, vars.fromDate, vars.rows and vars.durationMs hold the facts. Write the line.',
     available: ['vars.procedure', 'vars.fromDate', 'vars.rows', 'vars.durationMs', 'vars.params', 'payload'],
-    level: ['INFO', 'WARN'],
+    level: ['INFO'],
     checks: [
       says(/procedure (finished|complete|returned)/i, 'Procedure finished'),
-      labelled('name', 'name=$(vars.procedure)'),
+      labelled('(name|procedure)', 'name=$(vars.procedure)'),
       labelled('fromDate'),
       labelled('rows'),
       durationVar,
@@ -225,12 +225,12 @@ export const SET_15 = [
     id: 'log-15015',
     kind: 'write',
     situation:
-      'A Fenwick async procedure call failed. The job row is set to FAILED. vars.procedure, vars.jobId and the error hold the facts. Write the line.',
+      'A Fenwick async procedure call failed. The job row is set to FAILED. vars.procedure, vars.jobId and the error hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.procedure', 'vars.jobId', 'error.errorType', 'error.description', 'vars.params'],
     level: ['ERROR'],
     checks: [
       says(/procedure failed|call failed/i, 'Procedure failed'),
-      labelled('name', 'name=$(vars.procedure)'),
+      labelled('(name|procedure)', 'name=$(vars.procedure)'),
       labelled('jobId'),
       errorFacts,
       next('next=job set to FAILED'),
@@ -261,10 +261,10 @@ export const SET_15 = [
       'Outbound job started jobId=J-901 type=Location trigger=console requestedBy=support-07 status=STARTED',
       'Job started by jane.doe@fenwick.example from 10.1.2.3',
       'Started',
-      'Location!',
+      'Outbound job started jobId=J-901 type=Location trigger=console status=STARTED',
     ],
     answer: 0,
-    explain: 'A user ID, not an email address, is enough to trace who asked.',
+    explain: 'A user ID, not an email address, is enough to trace who asked. The last line leaves out who asked, which support needs when two jobs collide.',
   },
   {
     id: 'log-15018',
@@ -284,7 +284,7 @@ export const SET_15 = [
     checks: [
       says(/job started|started/i, 'Outbound job started'),
       labelled('jobId'),
-      labelled('type', 'type=$(vars.jobType)'),
+      labelled('(type|jobType)', 'type=$(vars.jobType)'),
       labelled('trigger'),
       labelled('requestedBy'),
       { not: /userEmail/, say: 'Log the user ID, not the email address.' },
@@ -302,12 +302,12 @@ export const SET_15 = [
     id: 'log-15020',
     kind: 'write',
     situation:
-      'A Fenwick start request was refused because a job of the same type is already running. vars.jobType and vars.runningJobId hold the facts. The API returns 409. Write the line.',
+      'A Fenwick start request was refused because a job of the same type is already running. vars.jobType, vars.runningJobId and vars.requestedBy hold the facts. The API returns 409. Write the line.',
     available: ['vars.jobType', 'vars.runningJobId', 'vars.requestedBy', 'payload'],
     level: ['INFO', 'WARN'],
     checks: [
       says(/already running|refused|conflict/i, 'Job already running, request refused'),
-      labelled('type', 'type=$(vars.jobType)'),
+      labelled('(type|jobType)', 'type=$(vars.jobType)'),
       labelled('runningJobId'),
       labelled('requestedBy'),
       noPayload,
@@ -325,7 +325,7 @@ export const SET_15 = [
   {
     id: 'log-15021',
     kind: 'level',
-    situation: 'A Fenwick run waited 10 seconds for a row lock on the job table and gave up with ORA-30006.',
+    situation: 'A Fenwick run waited 10 seconds for a row lock on the job table and gave up with ORA-30006. The run will try again next time.',
     answer: ['WARN'],
     explain: 'The run will try later. WARN shows contention.',
   },
@@ -337,10 +337,10 @@ export const SET_15 = [
       'Lock wait timed out table=OUT_JOB waitSec=10 oraCode=ORA-30006 next=retry next run',
       'Locked',
       'SELECT … FOR UPDATE WAIT 10 failed with params …',
-      'DB stuck',
+      'Lock wait timed out waitSec=10 oraCode=ORA-30006 next=retry next run',
     ],
     answer: 0,
-    explain: 'Table, wait and code. Support can then ask the DBA who held it.',
+    explain: 'Table, wait and code. Support can then ask the DBA who held it. The last line has no table, so the DBA cannot tell which lock to look for.',
   },
   {
     id: 'log-15023',
@@ -376,7 +376,7 @@ export const SET_15 = [
     id: 'log-15025',
     kind: 'write',
     situation:
-      'A Fenwick run failed mid transaction and rolled back. vars.jobId and vars.rowsClaimed hold the facts. Write the line.',
+      'A Fenwick run failed mid transaction and rolled back. vars.jobId and vars.rowsClaimed hold the facts. Write the line, with the error.',
     available: ['vars.jobId', 'vars.rowsClaimed', 'error.errorType', 'error.description', 'vars.sqlText'],
     level: ['ERROR'],
     checks: [
@@ -411,10 +411,10 @@ export const SET_15 = [
       'Email sent template=job-report jobId=J-5521 recipients=4 sizeBytes=18400',
       'Email sent to anna@marrow.example, raj@marrow.example, …',
       'Email body: Dear team, the job …',
-      'Mail ok',
+      'Email sent template=job-report recipients=4 sizeBytes=18400',
     ],
     answer: 0,
-    explain: 'Template, job and a count. Addresses and bodies stay out.',
+    explain: 'Template, job and a count. Addresses and bodies stay out. The last line has no job ID, so nobody can tell which job’s report went out.',
   },
   {
     id: 'log-15028',
@@ -435,9 +435,8 @@ export const SET_15 = [
       says(/sent/i, 'Report sent'),
       labelled('template'),
       labelled('jobId'),
-      labelled('recipients', 'recipients=$(vars.recipientCount)'),
+      labelled('(recipients|recipientCount)', 'recipients=$(vars.recipientCount)'),
       noRecipients,
-      noPersonal,
       noVague,
     ],
     model: {
@@ -450,7 +449,7 @@ export const SET_15 = [
     id: 'log-15030',
     kind: 'write',
     situation:
-      'A Marrow & Pine email failed with a temporary SMTP error. The job status is not changed. It will retry. vars.template, vars.jobId, vars.smtpCode and vars.attempt hold the facts. Write the line.',
+      'A Marrow & Pine email failed with a temporary SMTP error. The job status is not changed. It will retry. vars.template, vars.jobId, vars.smtpCode and vars.attempt hold the facts. Write the line, with what happens next.',
     available: ['vars.template', 'vars.jobId', 'vars.smtpCode', 'vars.attempt', 'vars.recipients', 'error.description'],
     level: ['WARN'],
     checks: [
@@ -486,11 +485,11 @@ export const SET_15 = [
     options: [
       'Mail processed mailbox=supplier-asn messageId=<a1b2@supplier-c.example> asn=7710 attachments=1 movedTo=Processed',
       'Mail from bob.supplier@supplier-c.example subject "ASN 7710 for your Leeds store" processed',
-      'Processed mail',
+      'Mail processed mailbox=supplier-asn asn=7710 attachments=1 movedTo=Processed',
       'Attachment: <base64 …>',
     ],
     answer: 0,
-    explain: 'Message ID and ASN number. Sender addresses and content stay out.',
+    explain: 'Message ID and ASN number. Sender addresses and content stay out. The second line has no message ID, so the email cannot be found in the mailbox or checked for a repeat.',
   },
   {
     id: 'log-15033',
@@ -512,7 +511,7 @@ export const SET_15 = [
       labelled('mailbox'),
       labelled('messageId'),
       labelled('asn'),
-      labelled('movedTo', 'movedTo=$(vars.folder)'),
+      labelled('(movedTo|folder)', 'movedTo=$(vars.folder)'),
       { not: /vars\.from|vars\.subject/, say: 'Leave out the sender address and subject. They can hold personal data.' },
       noPayload,
       noVague,
@@ -562,19 +561,19 @@ export const SET_15 = [
     options: [
       'Report stored, summary emailed jobId=J-6101 rejects=410000 container=reports blob=rejects_20261118.csv sizeBytes=38000000',
       'Report link https://…/rejects.csv?sv=…&sig=… emailed',
-      'Big report',
+      'Report stored, summary emailed jobId=J-6101 rejects=410000 sizeBytes=38000000',
       'Rejects: <410,000 rows>',
     ],
     answer: 0,
-    explain: 'Where it is stored and how big. Not the signed link.',
+    explain: 'Where it is stored and how big. Not the signed link. The second line does not say where the report is stored, so nobody can find it later.',
   },
   {
     id: 'log-15038',
     kind: 'multi',
-    situation: 'Which facts should alert someone on a reject report?',
-    options: ['A reject count far above normal', 'The job ID', 'The top reject reason', 'The font used'],
+    situation: 'Which facts belong on a reject rate alert?',
+    options: ['The reject rate against the normal rate', 'The job ID', 'The top reject reason', 'Every rejected row'],
     answers: [0, 1, 2],
-    explain: 'A spike in rejects is a data problem worth chasing.',
+    explain: 'A spike in rejects is a data problem worth chasing. The rows belong in the stored report, not the alert.',
   },
   {
     id: 'log-15039',
@@ -588,7 +587,7 @@ export const SET_15 = [
       labelled('jobId'),
       labelled('rejects'),
       labelled('container'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      labelled('(blob|blobName)', 'blob=$(vars.blobName)'),
       labelled('sizeBytes'),
       { not: /vars\.link|sig=/, say: 'Do not log the signed link.' },
       noPayload,
@@ -641,10 +640,10 @@ export const SET_15 = [
       'Daily report built date=2026-11-18 expected=42 completed=38 failed=2 missing=2 missingJobs=plan-in,alloc-in',
       'All integrations OK',
       'Report: <full HTML report>',
-      'Report sent',
+      'Daily report built date=2026-11-18 expected=42 completed=38 failed=2',
     ],
     answer: 0,
-    explain: 'Expected against completed shows missing runs, not only failures.',
+    explain: 'Expected against completed shows missing runs, not only failures. The last line leaves the 2 jobs that never ran unnamed and uncounted.',
   },
   {
     id: 'log-15043',
@@ -715,11 +714,11 @@ export const SET_15 = [
     options: [
       'Impact alert raised impact=stores without plans stores=260 cause=plan-in failed jobId=J-7720 route=on-call',
       'ERROR in plan-in',
-      'Alert!!!',
+      'Impact alert raised cause=plan-in failed jobId=J-7720 route=on-call',
       'Plan load: <stack trace>',
     ],
     answer: 0,
-    explain: 'The impact, the scale, the cause and who was told.',
+    explain: 'The impact, the scale, the cause and who was told. The third line gives only the technical cause, so on call cannot see that 260 stores are affected.',
   },
   {
     id: 'log-15048',

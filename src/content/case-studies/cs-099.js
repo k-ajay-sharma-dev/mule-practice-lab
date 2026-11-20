@@ -86,6 +86,7 @@ export default {
 | Network model | Premises are linked to a transformer and feeder; an outage event lists affected transformers |
 | Opt-in | SMS only to customers who opted in; regulatory reporting needs proof of each notification |
 | Tests | 800 status lookups a second in a storm, and the SMS provider down for 30 minutes with a broker restart while the OMS sends 20 events a second |
+| Diagram | Run the status Experience API on 2 replicas of 1 vCore each, enough for 800 lookups a second |
 
 **Your task.** Design the event flow from the OMS to customers and the status channels.
 `,
@@ -111,11 +112,11 @@ export default {
   solution: `
 **Events.** The OMS publishes to \`oms.outage-events\`. \`prc-outage-events\` consumes them in order per outage id, resolves the affected transformers to premises and customers through \`sys-crm-customer-api\` (with a cached premises-by-transformer index refreshed nightly), and publishes one notice per outage to \`outage-notices\`: outage id, status, estimated restoration, affected premises count and the list of customer ids.
 
-**Notifications.** \`prc-customer-notifications\` subscribes to the topic. For each customer who opted in, it sends SMS or email through the provider, at most one message per outage change, and records each send for regulatory reporting. It throttles to the provider's limit; a queue holds the rest. Priority services customers are flagged to a call list instead of SMS only.
+**Notifications.** \`prc-customer-notifications\` subscribes to the topic. For each customer who opted in, it sends SMS or email through the provider, at most one message per outage change, and records each send for regulatory reporting. It throttles to the provider's limit; its durable subscription on the topic holds the rest. Priority services customers are flagged to a call list instead of SMS only.
 
-**Status.** \`prc-outage-status\` subscribes to the same topic and writes outage status keyed by outage id and premises to the status cache. \`exp-outage-status-api\` serves the map, the app and the IVR from the cache only, with HTTP caching and a CDN in front of the map tiles.
+**Status.** \`prc-outage-status\` subscribes to the same topic and writes outage status keyed by outage id and premises to the status cache. \`exp-outage-status-api\` (2 replicas of 1 vCore) serves the map, the app and the IVR from the cache only, with HTTP caching and a CDN in front of the map tiles.
 
-**Storms.** At 300,000 affected customers the status reads are served from the cache, and notifications wait on the queue in front of the SMS provider. The OMS only produces events.
+**Storms.** At 300,000 affected customers the status reads are served from the cache, and notifications wait on the topic subscription in front of the SMS provider. The OMS only produces events.
 
 **Later.** Regulatory reporting and the priority call list become more subscribers to \`outage-notices\`.
 `,

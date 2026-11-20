@@ -25,7 +25,7 @@ export default {
         'A second encryption with the partner\'s public key',
         'A signature made with our private key',
         'A checksum file next to the payments file',
-        'A longer passphrase',
+        'A hash of the file, encrypted with the partner\'s public key',
       ],
       answer: 1,
       explain: 'Only we hold our private key, so a signature made with it proves the sender. The partner checks it with our public key.',
@@ -46,7 +46,7 @@ export default {
       type: 'single',
       prompt: 'A plain file arrives with a SHA-256 checksum file next to it, and the values match. What does that show?',
       options: [
-        'The file was not changed between making the checksum and checking it',
+        'The file arrived whole and unchanged',
         'The file came from the partner',
         'The file was encrypted on the way',
         'Nobody else has read the file',

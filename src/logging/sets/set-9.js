@@ -29,11 +29,11 @@ export const SET_9 = [
       'Email failed',
       'Statement not delivered landlordId=L-4410 statementId=ST-2026-11-4410 reason=mailbox does not exist next=paper copy queued correlationId=7f3c2a',
       'Email to jane.doe@example.com failed: 550 user unknown',
-      'SMTP error',
+      'Statement not delivered landlordId=L-4410 statementId=ST-2026-11-4410 reason=mailbox does not exist correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'IDs let support find the landlord in the CRM without putting the address in the logs. The reason and the next step say what to fix and what already happened.',
+      'IDs let support find the landlord in the CRM without putting the address in the logs. The reason and the next step say what to fix and what already happened. The last line has no next step, so support cannot tell whether the landlord will get the statement at all.',
   },
   {
     id: 'log-9003',
@@ -54,7 +54,7 @@ export const SET_9 = [
     id: 'log-9004',
     kind: 'write',
     situation:
-      'A Larchmont statement bounced, and a paper copy is queued. vars.landlordId and vars.statementId hold the IDs, vars.email the address. Write the line.',
+      'A Larchmont statement email failed with an error because the mailbox does not exist, and a paper copy is queued. vars.landlordId and vars.statementId hold the IDs, vars.email the address. Write the line.',
     available: ['vars.landlordId', 'vars.statementId', 'vars.email', 'error.errorType', 'error.description', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -116,13 +116,13 @@ export const SET_9 = [
     situation: 'Which line should Cobalt log for a client still calling v1?',
     options: [
       'Deprecated API version called clientId=app-118 path=/v1/parcels retireOn=2027-01-31 correlationId=7f3c2a',
-      'v1 used',
+      'Deprecated API version called path=/v1/parcels retireOn=2027-01-31 correlationId=7f3c2a',
       'Old API!!!',
       'Deprecated call, headers={client_id=app-118, client_secret=...}',
     ],
     answer: 0,
     explain:
-      'The client ID, path and date are what the team needs to contact the client. The last line leaks the client secret.',
+      'The client ID, path and date are what the team needs to contact the client. The second line has no clientId, so the team cannot tell whom to chase. The last line leaks the client secret.',
   },
   {
     id: 'log-9008',
@@ -205,14 +205,14 @@ export const SET_9 = [
     kind: 'choice',
     situation: 'The Pelham meter database became unreachable. Which line should the health check log?',
     options: [
-      'Health check failed',
+      'Dependency status changed dependency=meter-db from=UP to=DOWN',
       'Dependency status changed dependency=meter-db from=UP to=DOWN errorType=DB:CONNECTIVITY',
       'meter-db DOWN (logged again on every probe, every 10 seconds)',
       'Health: full config dump with the database URL, user name and password',
     ],
     answer: 1,
     explain:
-      'One line when the status changes, with the dependency and the error, is enough to alert on. Repeating it every probe floods the logs, and the last line leaks the configuration.',
+      'One line when the status changes, with the dependency and the error, is enough to alert on. The first line leaves out the error type, so nobody can tell a network fault from a failed login. Repeating it every probe floods the logs, and the last line leaks the configuration.',
   },
   {
     id: 'log-9013',
@@ -233,13 +233,13 @@ export const SET_9 = [
     id: 'log-9014',
     kind: 'write',
     situation:
-      'A Pelham dependency went from UP to DOWN, so the app now reports itself unhealthy and the load balancer stops sending it traffic. vars.dependency names it and vars.previous holds its last status. Write the line.',
+      'A Pelham dependency went from UP to DOWN, so the app now reports itself unhealthy and the load balancer stops sending it traffic. vars.dependency names it and vars.previous holds its last status. Write the line with the dependency, its old status and its new status.',
     available: ['vars.dependency', 'vars.previous', 'error.errorType', 'error.description', 'payload'],
     level: ['ERROR'],
     checks: [
       says(/status changed|down|unreachable|fail/i, 'Dependency status changed'),
       labelled('dependency'),
-      labelled('to', 'to=DOWN'),
+      { must: /=\s*"?DOWN\b/i, say: 'Label the new status, such as to=DOWN.' },
       errorFacts,
       noPayload,
       noSecrets,
@@ -290,14 +290,14 @@ export const SET_9 = [
     kind: 'choice',
     situation: 'Which line should Sandford log when the upload finishes?',
     options: [
-      'File sent',
+      'Partner file uploaded fileName=orders-20261118.csv remotePath=/in/orders durationMs=8120',
       'Upload complete: see attached',
       'Partner file uploaded fileName=orders-20261118.csv sizeBytes=4813220 checksum=9c1f7a... remotePath=/in/orders durationMs=8120',
       'Uploaded to sftp://sandford:<the real password>@sftp.distributor.example/in',
     ],
     answer: 2,
     explain:
-      'Size and checksum let both sides prove the file arrived whole. The last line puts a password in the logs.',
+      'Size and checksum let both sides prove the file arrived whole. The first line has neither, so it cannot settle a claim that the file was cut short. The last line puts a password in the logs.',
   },
   {
     id: 'log-9018',
@@ -379,14 +379,14 @@ export const SET_9 = [
     kind: 'choice',
     situation: 'Which line should Grayling log when the queue backlog goes above target?',
     options: [
-      'Queue is big',
+      'Queue backlog above target queue=orders-in depth=18450 consumers=2',
       'WARN WARN',
       'Backlog: [first 100 messages ...]',
       'Queue backlog above target queue=orders-in depth=18450 oldestAgeS=1500 targetS=600 consumers=2',
     ],
     answer: 3,
     explain:
-      'Depth, the age of the oldest message against the target, and the number of consumers say how bad it is and what to try. Message bodies say nothing about the backlog.',
+      'Depth, the age of the oldest message against the target, and the number of consumers say how bad it is and what to try. The first line gives the depth but not how long orders have waited, which is what the target is about. Message bodies say nothing about the backlog.',
   },
   {
     id: 'log-9023',

@@ -21,7 +21,7 @@ export default {
     {
       type: 'single',
       prompt: 'The rates API normally answers in 300 ms and the Order API SLA is 3 s. Which `responseTimeout` fits?',
-      options: ['About 1,500–2,000 ms', '30,000 ms', '300 ms exactly', 'Leave the default — timeouts only matter for POST'],
+      options: ['About 1,500 to 2,000 ms', '30,000 ms', '300 ms exactly', 'Leave the default, as timeouts only matter for POST'],
       answer: 0,
       explain: 'The timeout must fit inside the 3 s SLA with room for a fallback, while being well above normal latency. 300 ms exactly would fail on normal jitter.',
     },
@@ -30,10 +30,10 @@ export default {
       needsScenario: true,
       prompt: 'Why did a hanging rates API make the Order API stop answering **unrelated** requests?',
       options: [
-        'In-flight events piled up holding connections and concurrency until the app ran out of capacity',
-        'Mule stops all flows when one connector is unhealthy',
-        'The HTTP Listener has a single thread',
-        'The rates API returned 503, which triggered the gatekeeper',
+        'Waiting calls piled up and used up connections and concurrency',
+        'Mule stops every flow while one of its connectors is unhealthy',
+        'The HTTP Listener has a single thread that the call kept busy',
+        'The rates API returned 503, which tripped the API gatekeeper',
       ],
       answer: 0,
       explain: 'Without a sensible timeout, every waiting call keeps an event in flight. Short timeouts, bounded `maxConnections` and a fallback isolate the dependency (bulkhead).',
@@ -42,13 +42,13 @@ export default {
       type: 'single',
       prompt: 'How do you make a 404 from the rates API a normal response for this call only?',
       options: [
-        'Add `<http:success-status-code-validator values="200..299,404"/>` to that request and branch on `attributes.statusCode`',
-        'Set `followRedirects="true"` on the config',
-        'Add an error mapping from `HTTP:NOT_FOUND` to `ANY`',
-        'Configure a reconnection strategy for 404',
+        'Add a success status code validator with `200..299,404` to that request',
+        'Set `followRedirects="true"` on the HTTP Request configuration',
+        'Add an error mapping from `HTTP:NOT_FOUND` to `ANY` on that request',
+        'Add `HTTP:NOT_FOUND` to the reconnection strategy of that config',
       ],
       answer: 0,
-      explain: 'A response validator on that one request makes 404 non-failing and keeps the body available as `payload`. By default anything outside 200..399 raises a typed error such as `HTTP:NOT_FOUND`.',
+      explain: 'A response validator on that one request makes 404 non-failing and keeps the body available as `payload`. The flow then branches on `attributes.statusCode`. By default anything outside 200..399 raises a typed error such as `HTTP:NOT_FOUND`.',
     },
     {
       type: 'single',
@@ -56,8 +56,8 @@ export default {
       options: [
         'That `connectionIdleTimeout` is lower than the load balancer idle timeout',
         'That `responseTimeout` is higher than the load balancer idle timeout',
-        'That the response validator accepts 5xx',
-        'That the listener uses HTTPS',
+        'That the response validator accepts 5xx status codes',
+        'That the TLS context trusts the new load balancer certificate',
       ],
       answer: 0,
       explain: 'If the LB drops idle connections sooner than Mule does, Mule reuses a dead pooled connection. Keep Mule idle timeout below the LB one (or disable persistent connections as a last resort).',
@@ -75,7 +75,7 @@ export default {
 An **Order Process API** calls a third-party **Shipping Rates API**. Observed issues in production:
 
 - Normally the rates API answers in 300 ms. During a provider incident it hung for minutes; the Order API stopped answering **all** requests, even ones that don't need shipping rates.
-- When a ZIP code is unknown, the provider returns **404** with a JSON body \`{"reason":"ZIP_UNKNOWN"}\`. The business wants that treated as "no rates available" and the order to continue — but Mule raises \`HTTP:NOT_FOUND\`.
+- When a ZIP code is unknown, the provider returns **404** with a JSON body \`{"reason":"ZIP_UNKNOWN"}\`. The business wants that treated as "no rates available" and the order to continue: but Mule raises \`HTTP:NOT_FOUND\`.
 - After moving to a new load balancer, some calls fail with "connection reset" errors on the first request after a quiet period.
 - The Order API's own SLA is 3 seconds.
 
@@ -94,7 +94,7 @@ An **Order Process API** calls a third-party **Shipping Rates API**. Observed is
 ## Connection reset errors
 `,
   keyPoints: [
-    'Connection timeout (in the TCP client socket properties of the connection, default 30000 ms) limits establishing the TCP connection; response timeout (on the request) limits waiting for the response — on expiry the error is HTTP:TIMEOUT.',
+    'Connection timeout (in the TCP client socket properties of the connection, default 30000 ms) limits establishing the TCP connection; response timeout (on the request) limits waiting for the response: on expiry the error is HTTP:TIMEOUT.',
     'Without a sensible responseTimeout, waiting requests pile up and consume capacity/connections, starving other requests.',
     'Response validator: success-status-code-validator with values like 200..299,404 makes 404 non-failing; then branch on attributes.statusCode.',
     'Connection pool settings: maxConnections, connectionIdleTimeout and usePersistentConnections; idle timeout must be lower than the load balancer\'s idle timeout to avoid reused dead connections.',
@@ -102,12 +102,12 @@ An **Order Process API** calls a third-party **Shipping Rates API**. Observed is
   ],
   solution: `
 **Timeouts**
-- **Connection timeout** (\`connectionTimeout\` in the TCP client socket properties of the request connection, not on the connection element itself) — time to establish the TCP/TLS connection. Choose a low value, e.g. 2,000 ms.
-- **Response timeout** (\`responseTimeout\` on the HTTP Request operation; if unset, Mule's default response timeout applies) — time to wait for the response. With a 300 ms normal latency and a 3 s SLA, ~1,500–2,000 ms. Expiry raises **\`HTTP:TIMEOUT\`**, which you handle (e.g. "rates unavailable, use default shipping" or 503).
+- **Connection timeout** (\`connectionTimeout\` in the TCP client socket properties of the request connection, not on the connection element itself): time to establish the TCP/TLS connection. Choose a low value, e.g. 2,000 ms.
+- **Response timeout** (\`responseTimeout\` on the HTTP Request operation; if unset, Mule's default response timeout applies): time to wait for the response. With a 300 ms normal latency and a 3 s SLA, ~1,500 to 2,000 ms. Expiry raises **\`HTTP:TIMEOUT\`**, which you handle (e.g. "rates unavailable, use default shipping" or 503).
 
-**Why everything slowed down:** each hanging call keeps an event in flight, holding a connection from the pool and the flow's concurrency. As requests keep arriving, in-flight events accumulate until the app hits its concurrency/connection/memory limits and everything queues — a classic missing-timeout cascade. Short timeouts, a bounded \`maxConnections\` and a fallback isolate the dependency (bulkhead); a circuit-breaker style pattern (e.g. a flag in Object Store after N failures) helps further.
+**Why everything slowed down:** each hanging call keeps an event in flight, holding a connection from the pool and the flow's concurrency. As requests keep arriving, in-flight events accumulate until the app hits its concurrency/connection/memory limits and everything queues: a classic missing-timeout cascade. Short timeouts, a bounded \`maxConnections\` and a fallback isolate the dependency (bulkhead); a circuit-breaker style pattern (e.g. a flag in Object Store after N failures) helps further.
 
-**404 as success** — on this request only:
+**404 as success**: on this request only:
 \`\`\`xml
 <http:request method="GET" config-ref="shippingRates" path="/rates"
     responseTimeout="2000">
@@ -122,7 +122,7 @@ An **Order Process API** calls a third-party **Shipping Rates API**. Observed is
   </when>
 </choice>
 \`\`\`
-By default only 2xx/3xx (200..399) count as success; anything else raises a typed error like \`HTTP:NOT_FOUND\`. Alternatively keep the default and handle \`HTTP:NOT_FOUND\` in a Try with On Error Continue — but the validator makes the intent explicit and keeps the body available as \`payload\`.
+By default only 2xx/3xx (200..399) count as success; anything else raises a typed error like \`HTTP:NOT_FOUND\`. Alternatively keep the default and handle \`HTTP:NOT_FOUND\` in a Try with On Error Continue: but the validator makes the intent explicit and keeps the body available as \`payload\`.
 
 **Connection reset:** Mule reuses pooled persistent connections. If the load balancer closes idle connections sooner than Mule's \`connectionIdleTimeout\`, Mule reuses a connection the LB already dropped → reset. Set \`connectionIdleTimeout\` **below** the LB's idle timeout (or disable persistent connections as a last resort). Also review \`maxConnections\` (default unlimited) to cap concurrency towards the provider, and TLS/proxy settings for the new path.
 `,

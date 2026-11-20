@@ -25,7 +25,7 @@ The new contract adds a **changes feed**, so each integration fetches only what 
   - \`product\`: an optional \`Product\`, left out for deletes.
 - A type \`ChangesPage\` with a required \`changes\` list of \`Change\`, a required string \`nextToken\` and a required boolean \`hasMore\`.
 - A type \`Problem\` with a required string \`message\`.
-- \`GET /products\` returns \`Product[]\` with 200 and a \`X-Changes-Token\` response header.
+- \`GET /products\` returns \`Product[]\` with 200 and an \`X-Changes-Token\` response header.
 - \`GET /product-changes\` has a required string query parameter \`since\` and an optional integer \`limit\` from 1 to 500, default 100.
 - It returns a \`ChangesPage\` with 200, a \`Problem\` with 400, and a \`Problem\` with 410.
 `,

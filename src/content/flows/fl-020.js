@@ -156,7 +156,7 @@ export default {
 A bank's **Account Balance API** (\`GET /accounts/{id}/balance\`, p95 < 1.5 s) must get the balance from a **mainframe** that is only reachable through **IBM MQ**:
 - Requests go to queue \`BAL.REQ\`; the mainframe writes replies to a **shared, fixed** queue \`BAL.RPLY\` and copies the request's **JMSMessageID into JMSCorrelationID**.
 - 300 req/s peak across **4 replicas**.
-- Sometimes the mainframe answers after 10+ s (or never).
+- Sometimes the mainframe answers after 10+ s (or never). The mainframe team cannot set an expiry on replies, so a late reply stays on \`BAL.RPLY\` until your application removes it.
 - A reply is XML: \`<BalanceReply><AccountId>…</AccountId><Available>…</Available><Ledger>…</Ledger><AsOf>…</AsOf></BalanceReply>\`. The API answers JSON \`{ accountId, available, ledger, asOf }\` with the amounts as numbers, and **504** when the mainframe does not reply in time.
 
 **Design the flow(s):** how the request is sent, how each replica gets *its own* reply from a shared reply queue, timeouts, late replies, and scaling.
@@ -176,17 +176,17 @@ A bank's **Account Balance API** (\`GET /accounts/{id}/balance\`, p95 < 1.5 s) m
   keyPoints: [
     'JMS connector (with the IBM MQ client libraries) configured; Publish Consume operation used for request-reply with the reply-to destination set.',
     'Reply correlated by JMSCorrelationID, consuming from the fixed reply queue with a message selector so a replica only takes its own reply.',
-    'Reply timeout set below the API SLA; on timeout the API returns 504 and the late reply is discarded (reply message expiry).',
-    'Late or orphan replies expire via message TTL or are drained by a cleanup consumer so the reply queue does not fill.',
+    'Reply timeout set below the API SLA; on timeout the API returns 504 and the late reply is not used.',
+    'Late or orphan replies are drained by a scheduled Consume with a selector on old messages (or expire, where the backend can set a reply TTL) so the reply queue does not fill.',
     'Connection caching/sessions and a dedicated reply-consuming strategy sized for 300 req/s across replicas.',
   ],
   solution: `
 1. **Config:** **JMS connector** with a generic/IBM MQ connection factory (IBM MQ client JARs as shared libraries), connection caching enabled. Alternatively MuleSoft's **IBM MQ connector**, which offers the same request-reply pattern.
 2. **Request:** DataWeave builds the mainframe copybook/fixed-length or XML request. **JMS Publish Consume** to \`BAL.REQ\` with \`reply-to\` = \`BAL.RPLY\`, a message **time-to-live** (e.g. 5 s, so stale requests aren't processed after the caller gave up), and consume \`maximumWait\` ≈ 1200 ms.
-3. **Correlation:** the mainframe sets \`JMSCorrelationID = JMSMessageID\` of the request. With a fixed reply queue, the consumer must use a **selector** \`JMSCorrelationID = '<request id>'\` so each waiting request only receives its reply — Publish Consume handles this correlation; check the correlation strategy configured on the operation matches the backend's behaviour (message ID vs correlation ID).
+3. **Correlation:** the mainframe sets \`JMSCorrelationID = JMSMessageID\` of the request. With a fixed reply queue, the consumer must use a **selector** \`JMSCorrelationID = '<request id>'\` so each waiting request only receives its reply. Publish Consume handles this correlation; check the correlation strategy configured on the operation matches the backend's behaviour (message ID vs correlation ID).
 4. **Response:** DataWeave maps the reply to \`{ accountId, available, ledger, asOf }\`.
 5. **Timeout:** \`JMS:TIMEOUT\` → On Error Propagate → **504** \`{ code: "BACKEND_TIMEOUT" }\`. Do not retry automatically (the request may still be processed).
-6. **Late replies:** ask the mainframe team to set reply expiry. Otherwise a **Scheduler** runs **JMS Consume** with a selector on \`JMSTimestamp\` that matches only replies older than N seconds, so \`BAL.RPLY\` never fills up. Do not put a plain listener on \`BAL.RPLY\`: with no selector it would compete with Publish Consume for live replies, and a listener's selector cannot change with the clock. One Consume takes one message, so loop it if late replies are frequent.
+6. **Late replies:** reply expiry set by the mainframe would be the cleanest fix, but it is not available here. So a **Scheduler** runs **JMS Consume** with a selector on \`JMSTimestamp\` that matches only replies older than N seconds, so \`BAL.RPLY\` never fills up. Do not put a plain listener on \`BAL.RPLY\`: with no selector it would compete with Publish Consume for live replies, and a listener's selector cannot change with the clock. One Consume takes one message, so loop it if late replies are frequent.
 7. **Scaling:** 300 req/s with ~400 ms average → ~120 in-flight requests. Selector-based consumers on a shared queue cost broker CPU; agree with MQ admins on indexes on correlation ID, or use a **reply queue per replica** (or temporary queues) when the backend honours JMSReplyTo.
 `,
   followUps: [

@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'How do you make one JAR load the right property file in dev, qa and prod?',
       options: [
-        '`<configuration-properties file="config/config-${env}.yaml"/>` with `env` supplied at deployment',
+        'Load `config/config-${env}.yaml` and set `env` at deployment',
         'Swap `prod-config.yaml` into the XML before the production build',
-        'Build a separate JAR per environment with Maven profiles',
-        'Put all three environments in one YAML file and pick with a Choice router',
+        'Build a separate JAR for each environment with Maven profiles',
+        'Keep all three environments in one YAML and pick with a Choice',
       ],
       answer: 0,
-      explain: 'A placeholder in the file name plus a deployment property selects the file at runtime — no rebuild, no XML edits.',
+      explain: 'A placeholder in the file name plus a deployment property selects the file at runtime: no rebuild, no XML edits.',
     },
     {
       type: 'order',
@@ -41,13 +41,13 @@ export default {
       type: 'single',
       prompt: 'Where should the Secure Properties decryption key come from?',
       options: [
-        'Supplied at deployment per environment (e.g. `-Dsecure.key` or a protected property), stored in a vault or pipeline secret',
-        'Hardcoded in the `secure-properties:config` element',
+        'Supplied at deployment per environment, from a vault or pipeline secret',
+        'Hardcoded in the `key` attribute of the `secure-properties:config`',
         'Stored in `config-prod.yaml` next to the encrypted values',
-        'Committed to Git in an encrypted ZIP',
+        'Committed to Git inside an encrypted ZIP the pipeline unpacks',
       ],
       answer: 0,
-      explain: 'The key must never be in the project. Different keys per environment limit the blast radius if one leaks.',
+      explain: 'The key is passed at deployment (e.g. `-Dsecure.key` or a protected property) and must never be in the project. Different keys per environment limit the blast radius if one leaks.',
     },
     {
       type: 'single',
@@ -67,7 +67,7 @@ A **Payroll System API** must run in **dev**, **qa** and **prod** from the **sam
 
 - \`config.yaml\` with dev values hardcoded, and a \`prod-config.yaml\` that developers swap in by editing the XML before a production build.
 - The database password and an API key in plain text in \`config.yaml\`, committed to Git.
-- A colleague set \`db.host\` in Runtime Manager's *Properties* tab, but the app still connects to the value in the YAML — or does it? Nobody is sure which value wins.
+- A colleague set \`db.host\` in Runtime Manager's *Properties* tab, but the app still connects to the value in the YAML. Or does it? Nobody is sure which value wins.
 
 **Questions**
 1. How do you structure property files so one JAR works in every environment? Show the configuration.
@@ -87,7 +87,7 @@ A **Payroll System API** must run in **dev**, **qa** and **prod** from the **sam
     'One file per environment (e.g. config-dev.yaml, config-prod.yaml) loaded via a placeholder like config-$\{env}.yaml, with env supplied at deployment.',
     'Deployment/system properties override environment variables and values from configuration-properties files, so Runtime Manager properties win over the YAML.',
     'Secure Properties: values encrypted as ![...] in a secure file, loaded by secure-properties:config, referenced as $\{secure::name}.',
-    'The decryption key is never in the project — it is passed at deployment (e.g. -Dsecure.key or a protected deployment property) per environment.',
+    'The decryption key is never in the project: it is passed at deployment (e.g. -Dsecure.key or a protected deployment property) per environment.',
     'On CloudHub 1.0, property names listed under secureProperties in mule-artifact.json are hidden in Runtime Manager; on CloudHub 2.0 that setting has no effect, so use Protect on the Properties tab.',
   ],
   solution: `
@@ -107,14 +107,14 @@ A **Payroll System API** must run in **dev**, **qa** and **prod** from the **sam
       driverClassName="org.postgresql.Driver"/>
 </db:config>
 \`\`\`
-At deployment set \`env=prod\` (and \`secure.key\`) — no rebuild, no XML edits. Keep common values in a shared \`config-common.yaml\` if useful.
+At deployment set \`env=prod\` (and \`secure.key\`): no rebuild, no XML edits. Keep common values in a shared \`config-common.yaml\` if useful.
 
 **Precedence** (highest first): **deployment properties / system properties** (Runtime Manager *Properties*, \`-D\` on the runtime) → **environment variables** → **configuration properties files** (including secure ones) → **global properties**. So a \`db.host\` set in Runtime Manager **does override** the YAML. If it appears not to, check the name exactly matches (YAML nesting \`db: host:\` = \`db.host\`) and that the app was restarted/redeployed after the change.
 
 **Secure properties**
 1. Encrypt each secret with the Secure Properties Tool (same algorithm/mode as the config), producing values like \`password: "![k1Jx9...]"\` in \`secure-prod.yaml\`.
-2. Reference as \`$\{secure::db.password}\` — the \`secure::\` prefix tells Mule to read from the secure config and decrypt.
-3. The **key** is supplied at runtime (\`-Dsecure.key=...\` or a protected deployment property), different per environment, and stored in a vault / pipeline secret — never in Git.
+2. Reference as \`$\{secure::db.password}\`: the \`secure::\` prefix tells Mule to read from the secure config and decrypt.
+3. The **key** is supplied at runtime (\`-Dsecure.key=...\` or a protected deployment property), different per environment, and stored in a vault / pipeline secret: never in Git.
 4. Rotate the leaked plain-text password: it is in Git history.
 
 **Hiding in Runtime Manager:** it depends on the target. On CloudHub 1.0, list the property names in \`mule-artifact.json\`:
@@ -129,7 +129,7 @@ Their values are then hidden in Runtime Manager. On **CloudHub 2.0** that settin
       a: 'The secure:: prefix reads from the secure properties file and decrypts it. A value set directly as a deployment property is used as a plain placeholder ($\{name}) and should be protected/hidden instead.',
     },
     {
-      q: 'Why not just use environment variables for everything?',
+      q: 'Why not use environment variables for everything?',
       a: 'You can for some values, but files keep non-secret configuration versioned and reviewable with the code, while only secrets and the environment selector come from the platform at deploy time.',
     },
     {

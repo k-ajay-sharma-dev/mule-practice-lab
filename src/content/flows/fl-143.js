@@ -132,6 +132,8 @@ A first version ran \`UPDATE members SET email = :email, phone = :phone, marketi
 - Answer **404** with \`{ "message": "No member M-9999" }\` for an unknown member.
 - Answer **400** with \`{ "message": "Send at least one of email, phone, marketingOptIn" }\` when none of the fields is sent.
 
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## PATCH and PUT

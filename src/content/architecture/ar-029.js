@@ -12,7 +12,7 @@ export default {
       options: [
         'Context: the forces and constraints behind the decision',
         'Alternatives considered: the options rejected, and why',
-        'Consequences: what becomes easier and what becomes harder',
+        'Consequences: what gets better and what gets harder',
         'Implementation: the full code of the flows',
         'Requirements: the full requirements document for the project',
       ],
@@ -24,13 +24,13 @@ export default {
       needsScenario: true,
       prompt: 'The new architect asks why customer updates go through Anypoint MQ. Which ADR section answers that best?',
       options: [
-        'The title',
-        'The context and the rejected alternatives (e.g. direct call rejected because ERP outages would surface as Salesforce errors and lose updates)',
-        'The date',
-        'The list of deciders',
+        'The title, which names the decision',
+        'The context and the rejected alternatives',
+        'The decision, which says what was built',
+        'The list of deciders and the date',
       ],
       answer: 1,
-      explain: 'A diagram shows *what* was built; the context and rejected alternatives explain *why* the simpler-looking option was not chosen.',
+      explain: 'A diagram or the decision itself shows *what* was built; the context and rejected alternatives explain *why* the direct call was not chosen. For example, it was rejected because ERP outages would surface as Salesforce errors and lose updates.',
     },
     {
       type: 'multi',
@@ -43,7 +43,7 @@ export default {
         'Updates for one customer stay in order with no design work',
       ],
       answer: [0, 1, 2],
-      explain: 'Consequences list what becomes easier **and** what becomes harder. An ADR with only positives is a sales pitch. Ordering is one of the costs here: it must be handled per customer, with a FIFO queue or a version check.',
+      explain: 'Consequences list what gets better **and** what becomes harder. An ADR with only positives is a sales pitch. Ordering is one of the costs here: it must be handled per customer, with a FIFO queue or a version check.',
     },
     {
       type: 'multi',
@@ -63,10 +63,10 @@ export default {
       needsScenario: true,
       prompt: 'Two years later the team moves the sync to Kafka. What happens to ADR-0007?',
       options: [
-        'Edit ADR-0007 to say Kafka',
-        'Delete ADR-0007',
-        'Write ADR-0015 with its own context and mark ADR-0007 as Superseded by ADR-0015',
-        'Leave ADR-0007 as Accepted and say nothing',
+        'Edit ADR-0007 so it says Kafka',
+        'Delete ADR-0007, since it no longer applies',
+        'Write ADR-0015 and mark ADR-0007 as Superseded by it',
+        'Leave ADR-0007 as Accepted and add a note at the end',
       ],
       answer: 2,
       explain: 'Accepted ADRs are immutable. The chain of superseded records shows how the system evolved and prevents repeated debates.',
@@ -75,17 +75,17 @@ export default {
       type: 'single',
       prompt: 'Where should ADRs be stored?',
       options: [
-        'In personal email',
-        'Numbered files in the Git repo of the app or a central architecture repo, linked from the Exchange asset',
-        'Only in a slide deck',
-        'In code comments of one flow',
+        'In each architect\'s personal notes',
+        'As numbered files in Git, linked from the Exchange asset',
+        'In the slide deck of the design review',
+        'In code comments of the flow they affect',
       ],
       answer: 1,
-      explain: 'Next to the code or API asset, ADRs are findable by new developers and consumers.',
+      explain: 'Kept in the Git repo of the app or a central architecture repo, next to the code or API asset, ADRs are findable by new developers and consumers.',
     },
   ],
   description: `
-Your integration team made a decision six months ago: **customer updates from Salesforce to the ERP go through Anypoint MQ instead of a direct synchronous API call.** A new architect joins and asks "why did we do this? A direct call is simpler." Nobody remembers the full reasoning; the Confluence page only has a diagram.
+Your integration team made a decision six months ago: **customer updates from Salesforce to the ERP go through Anypoint MQ instead of a direct synchronous API call.** A new architect joins and asks "why did we do this? A direct call has fewer parts." Nobody remembers the full reasoning; the Confluence page only has a diagram.
 
 The CTO asks you to introduce **Architecture Decision Records (ADRs)** for integration choices.
 
@@ -110,25 +110,25 @@ Constraints:
 `,
   keyPoints: [
     'An ADR is short and records one decision: context, decision, alternatives considered, consequences (positive and negative) and status.',
-    'The value is in the context and rejected alternatives, which explain why the simpler-looking option was not chosen.',
+    'The value is in the context and rejected alternatives, which explain why the option that looks lighter was not chosen.',
     'ADRs are stored with the code or architecture repo (e.g. docs/adr/0007-*.md), numbered and immutable once accepted.',
     'Only significant, hard-to-reverse or cross-team decisions need ADRs (messaging choice, API style, security model), not routine implementation details.',
     'A changed decision gets a new ADR that supersedes the old one; the old one is marked Superseded, not edited away.',
   ],
   solution: `
 **Template (lightweight, Michael Nygard style).**
-- **Title & number** — "ADR-0007: Use Anypoint MQ for Salesforce → ERP customer sync"
-- **Status** — Proposed / Accepted / Deprecated / Superseded by ADR-xxxx
-- **Context** — forces, constraints, requirements, numbers
-- **Decision** — one or two sentences in active voice
-- **Alternatives considered** — and why rejected
-- **Consequences** — what becomes easier, what becomes harder, follow-up actions
+- **Title & number**: "ADR-0007: Use Anypoint MQ for Salesforce → ERP customer sync"
+- **Status**: Proposed / Accepted / Deprecated / Superseded by ADR-xxxx
+- **Context**: forces, constraints, requirements, numbers
+- **Decision**: one or two sentences in active voice
+- **Alternatives considered**: the other options and why they were rejected
+- **Consequences**: what gets better, what gets harder, follow-up actions
 - Date, deciders, links (Exchange asset, tickets)
 
 **Example ADR-0007.**
-- *Context:* ERP is down for maintenance every Sunday 02:00–06:00 and slows down during month-end close. Salesforce users must not wait for the ERP when saving a customer. About 5,000 updates/day, bursts after imports. Updates for the same customer must apply in order.
+- *Context:* ERP is down for maintenance every Sunday 02:00 to 06:00 and slows down during month-end close. Salesforce users must not wait for the ERP when saving a customer. About 5,000 updates/day, bursts after imports. Updates for the same customer must apply in order.
 - *Decision:* Salesforce changes are captured by a Mule app and published to an Anypoint MQ queue; an ERP consumer applies them with retries and a DLQ.
-- *Alternatives:* (1) Direct synchronous call — rejected: ERP outages would surface as Salesforce errors and lose updates. (2) Nightly batch — rejected: business needs updates within minutes. (3) Kafka — rejected: no existing Kafka platform; volume does not justify running one.
+- *Alternatives:* (1) Direct synchronous call, rejected: ERP outages would surface as Salesforce errors and lose updates. (2) Nightly batch, rejected: business needs updates within minutes. (3) Kafka, rejected: no existing Kafka platform; volume does not justify running one.
 - *Consequences:* + ERP outages buffered, load levelled. − Eventual consistency (minutes); ordering must be handled per customer (FIFO queue or version check); need DLQ monitoring and a replay procedure.
 
 **What deserves an ADR.** Messaging vs synchronous, broker choice, API style, security pattern (mTLS vs OAuth), deployment target, canonical model or not, build vs buy. Not: variable naming, which DataWeave function to use.

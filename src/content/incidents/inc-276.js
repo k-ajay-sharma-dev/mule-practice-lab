@@ -7,20 +7,21 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 09:00:00 INFO  [job-log] New job id=4021", relevant: false },
+      { text: "2026-11-18 09:00:00 INFO  [job-log] New job id=4021", relevant: true, why: "The last ID before the restart." },
       { text: "2026-11-18 09:30:00 INFO  [dba] Database restarted for patching", relevant: true, why: "A restart happened." },
       { text: "2026-11-18 09:40:00 INFO  [job-log] New job id=4041", relevant: true, why: "IDs jumped by 20." },
       { text: "2026-11-18 09:40:00 INFO  [dba] Sequence JOB_SEQ cache=20", relevant: true, why: "The sequence caches 20 values." },
+      { text: "2026-11-18 23:59:00 INFO  [job-log] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why do IDs jump?",
         options: [
-          "Cached sequence values are lost when the database restarts",
-          "Rows were deleted",
-          "Another app used them",
-          "A bug",
+          "Cached sequence values are lost on a restart",
+          "Jobs 4022 to 4040 were deleted by a purge",
+          "Another app used the same sequence at 09:30",
+          "The patch changed the sequence step to 20",
         ],
         answer: 0,
         explain: "Cached values in memory are discarded.",
@@ -30,9 +31,9 @@ export default {
         prompt: "Is this a problem?",
         options: [
           "No, sequences are unique but not gap free",
-          "Yes, data is lost",
-          "Yes, IDs repeat",
-          "Yes, it breaks keys",
+          "Yes, jobs 4022 to 4040 were lost",
+          "Yes, old IDs will be used again",
+          "Yes, foreign keys to jobs now break",
         ],
         answer: 0,
         explain: "Gaps are normal.",
@@ -44,7 +45,7 @@ export default {
           "After a restart with a cache",
           "After a rollback",
           "With RAC nodes using their own caches",
-          "Never",
+          "Only when the sequence is NOCACHE",
         ],
         answer: [0,1,2],
         explain: "Sequences never promise no gaps.",
@@ -53,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What if the business needs gap free numbers?",
         options: [
-          "Use a separate numbering table locked per use, accepting slower inserts",
-          "Set cache to 0 and hope",
-          "Use MAX plus 1",
-          "Use random numbers",
+          "Use a numbering table locked per use, with slower inserts",
+          "Set the sequence to NOCACHE so no number is ever skipped",
+          "Use SELECT MAX(id) plus 1 with no lock on the table",
+          "Use a bigger cache so restarts lose fewer numbers",
         ],
         answer: 0,
         explain: "Gap free needs serialisation.",
@@ -85,6 +86,7 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 09:00:00 INFO  [job-log] New job id=4021
 2026-11-18 09:30:00 INFO  [dba] Database restarted for patching
 2026-11-18 09:40:00 INFO  [job-log] New job id=4041
 2026-11-18 09:40:00 INFO  [dba] Sequence JOB_SEQ cache=20

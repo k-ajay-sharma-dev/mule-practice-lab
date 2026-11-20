@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is DC01 slow?",
         options: [
-          "The cached plan was built for a small store and is poor for a huge one",
-          "DC01 is offline",
-          "The index is missing",
-          "The API is broken",
+          "The cached plan was built for a small store and is poor for DC01",
+          "The 06:00 patch dropped the index the procedure relies on",
+          "DC01 rows are locked by a stock count running at 09:00",
+          "The API sends DC01 as text, so SQL Server scans the table",
         ],
         answer: 0,
         explain: "This is parameter sniffing.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What can the DBA try?",
         options: [
-          "OPTION (RECOMPILE) or a plan that suits both, such as OPTIMIZE FOR",
-          "Delete DC01",
-          "Restart SQL Server daily",
-          "Add NOLOCK",
+          "OPTION (RECOMPILE), or OPTIMIZE FOR a plan that suits both",
+          "Restart SQL Server each morning to clear the plan cache",
+          "Add WITH (NOLOCK) to the stock query in the procedure",
+          "Rebuild all indexes on the stock table every night",
         ],
         answer: 0,
         explain: "Fit the plan to the parameter.",
@@ -42,10 +42,10 @@ export default {
         type: 'multi',
         prompt: "What can the integration do?",
         options: [
-          "Use a separate procedure for distribution centres",
+          "A separate procedure for distribution centres",
           "Page results for very large stores",
           "Raise the timeout only for DC calls",
-          "Call it in a loop",
+          "Retry each DC call three times in a row",
         ],
         answer: [0,1,2],
         explain: "Treat big and small differently.",
@@ -54,13 +54,13 @@ export default {
         type: 'single',
         prompt: "Why did it work yesterday?",
         options: [
-          "Yesterday the plan was built for DC01 first",
-          "Data changed",
-          "The network was faster",
-          "Luck",
+          "Yesterday’s cached plan suited large stores",
+          "DC01 had far fewer rows yesterday",
+          "Yesterday the API cached DC01 stock",
+          "The patch changed the procedure code",
         ],
         answer: 0,
-        explain: "The first call after a recompile decides the plan.",
+        explain: "The first call after a restart or recompile decides the plan. Today that was S001.",
       },
       {
         type: 'order',
@@ -82,6 +82,7 @@ export default {
 
 ## Change / Context
 - All calls use the same stored procedure.
+- DC01 lookups were fast yesterday. SQL Server was patched and restarted at 06:00 today, which cleared the plan cache.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

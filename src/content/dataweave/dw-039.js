@@ -11,7 +11,7 @@ A logging and analytics platform only indexes **flat** key/value documents. Befo
 **Rules**
 - The result is a single-level object. Each key is the path to a leaf, segments joined with \`.\`.
 - Object keys are used as path segments; array elements use their **0-based index** (\`items.1.sku\`).
-- Leaves are strings, numbers, booleans and \`null\` — copied unchanged.
+- Leaves are strings, numbers, booleans and \`null\`, copied unchanged.
 - An **empty** object or array is also a leaf: keep it as \`{}\` / \`[]\` under its path so no information is lost.
 - Keys appear depth-first in document order. The input root is always an object; an empty root gives \`{}\`.
 `,
@@ -58,7 +58,7 @@ payload
   hints: [
     'Write a recursive `fun flat(value, path: String): Object` that returns a (flat) object for any value, and use `match` with `case is Object`, `case is Array`, `case else`.',
     'For objects, `mapObject ((v, k) -> flat(v, ...))` merges the objects your recursion returns. For arrays, `{ (arr map ((v, i) -> flat(v, ...))) }` spreads the returned objects into one.',
-    'A leaf becomes `{ (path): value }` — the parentheses make the key dynamic. Handle the empty object/array case before recursing, and do not add a leading dot at the root.',
+    'A leaf becomes `{ (path): value }`; the parentheses make the key dynamic. Handle the empty object/array case before recursing, and do not add a leading dot at the root.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -82,11 +82,11 @@ flat(payload, "")`,
 
 - \`mapObject\` merges the objects returned for each key into one flat object;
 - for arrays, \`map\` returns a list of flat objects and \`{ ( ... ) }\` spreads them into one;
-- a leaf returns \`{ (path): value }\` — a one-key object with a dynamic key.
+- a leaf returns \`{ (path): value }\`, a one-key object with a dynamic key.
 
 **Paths.** \`child\` only adds a dot when there is already a prefix, so top-level keys stay \`orderId\`, not \`.orderId\`. Array indexes are numbers, so convert them with \`as String\` before concatenating.
 
-**The trap: empty containers.** Without the \`isEmpty\` checks, \`"meta": {}\` maps over zero keys and simply **disappears** (and so does \`[]\`). The output then cannot be unflattened back to the original. The root check (\`path != ""\`) keeps an empty root as \`{}\` instead of \`{ "": {} }\`.
+**The trap: empty containers.** Without the \`isEmpty\` checks, \`"meta": {}\` maps over zero keys and **disappears** (and so does \`[]\`). The output then cannot be unflattened back to the original. The root check (\`path != ""\`) keeps an empty root as \`{}\` instead of \`{ "": {} }\`.
 `,
   tests: [
     {
@@ -113,7 +113,7 @@ flat(payload, "")`,
     },
     {
       q: 'Is this recursion safe for deeply nested input?',
-      a: 'It recurses once per nesting level, not per element, so depth — not size — is the limit; real payloads are rarely more than a few dozen levels deep. Very wide arrays are fine because `map` iterates.',
+      a: 'It recurses once per nesting level, not per element, so depth, not size, is the limit; real payloads are rarely more than a few dozen levels deep. Very wide arrays are fine because `map` iterates.',
     },
     {
       q: 'How would you use `[0]` style array paths instead, e.g. `items[0].sku`?',

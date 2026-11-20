@@ -7,10 +7,10 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 06:00:00 ERROR [job-report] SMTP send failed: 530 5.7.0 Must issue a STARTTLS command first", relevant: true, why: "The server now requires TLS." },
-      { text: "2026-11-18 06:00:00 INFO  [job-report] smtp config port=25 starttls=false", relevant: true, why: "The app uses plain SMTP." },
       { text: "2026-11-17 20:00:00 INFO  [mail-team] Relay now requires STARTTLS on port 587", relevant: true, why: "A notice was sent." },
-      { text: "2026-11-18 06:00:00 INFO  [job-report] Report not sent, job status COMPLETED", relevant: true, why: "The job itself worked." },
+      { text: "2026-11-18 06:00:00 INFO  [job-report] smtp config port=25 starttls=false", relevant: true, why: "The app uses plain SMTP." },
+      { text: "2026-11-18 06:00:01 ERROR [job-report] SMTP send failed: 530 5.7.0 Must issue a STARTTLS command first", relevant: true, why: "The server now requires TLS." },
+      { text: "2026-11-18 06:00:01 INFO  [job-report] Report not sent, job status COMPLETED", relevant: true, why: "The job itself worked." },
       { text: "2026-11-18 23:59:00 INFO  [job-report] GET /health 200", relevant: false },
     ],
     questions: [
@@ -19,9 +19,9 @@ export default {
         prompt: "Why did sending fail?",
         options: [
           "The relay requires STARTTLS and the app sends without it",
-          "The recipients are wrong",
-          "The report is too big",
-          "The job failed",
+          "The report recipients were removed from the relay allow list",
+          "The report file is larger than the relay size limit",
+          "The SMTP password expired during the relay change",
         ],
         answer: 0,
         explain: "530 Must issue STARTTLS.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What is the fix?",
         options: [
           "Use port 587 with STARTTLS, and the app trusts the server certificate",
-          "Use port 25 with no TLS",
-          "Stop sending reports",
-          "Send from a laptop",
+          "Switch to port 465 and keep starttls=false as it is",
+          "Keep port 25 and raise the SMTP connection timeout",
+          "Retry the send every hour on port 25 until it is accepted",
         ],
         answer: 0,
         explain: "Match the relay rules.",
@@ -55,9 +55,9 @@ export default {
         prompt: "How should report emails be sent?",
         options: [
           "Asynchronously after the job, with their own retry",
-          "Inside the main transaction",
-          "Before the job starts",
-          "Never",
+          "Inside the main transaction, so a failure rolls back the job",
+          "Before the job starts, to warn users that it is running",
+          "At the end of the job, failing the job if the send fails",
         ],
         answer: 0,
         explain: "Separate the side effect.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 06:00:00 ERROR [job-report] SMTP send failed: 530 5.7.0 Must issue a STARTTLS command first
-2026-11-18 06:00:00 INFO  [job-report] smtp config port=25 starttls=false
 2026-11-17 20:00:00 INFO  [mail-team] Relay now requires STARTTLS on port 587
-2026-11-18 06:00:00 INFO  [job-report] Report not sent, job status COMPLETED
+2026-11-18 06:00:00 INFO  [job-report] smtp config port=25 starttls=false
+2026-11-18 06:00:01 ERROR [job-report] SMTP send failed: 530 5.7.0 Must issue a STARTTLS command first
+2026-11-18 06:00:01 INFO  [job-report] Report not sent, job status COMPLETED
 \`\`\`
 
 ## Your tasks

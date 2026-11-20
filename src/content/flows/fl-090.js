@@ -192,7 +192,7 @@ A manufacturer keeps its material master in **SAP S/4HANA**. Each change must re
 - Three consumers must get the data, and they must not depend on the speed of each other or of SAP. Events are published to the Anypoint MQ destination \`material-events\`.
 - The event contains the IDoc number, material, base unit, deletion flag and descriptions per language.
 - The same IDoc can be sent again by the SAP team for reprocessing. Without a real change it must not produce a second event.
-- Failures must be easy to trace to an **IDoc number**. The IDoc number is the \`DOCNUM\` field of the IDoc control record.
+- Each failure must be traceable to an **IDoc number**. The IDoc number is the \`DOCNUM\` field of the IDoc control record.
 
 **Design the flow.** Also list what you must agree with the SAP team.
 `,
@@ -226,6 +226,7 @@ A manufacturer keeps its material master in **SAP S/4HANA**. Each change must re
 **Errors.**
 - \`MULE:DUPLICATE_MESSAGE\`: On Error Continue with a warning. It is expected and not a failure.
 - Anything else: log the IDoc number and propagate, so that the failure is visible.
+- A resend after a failed publish must not be dropped as a duplicate. Test whether the validator keeps the IDoc number when the flow fails. If it does, remove the key in the error handler (Object Store Remove on the validator's store), or record the number only after the publish.
 
 **Agree with the SAP team.** Gateway host, service and program ID; the partner profile and port; how a failed IDoc appears in SAP and how it is reprocessed (a reprocessed IDoc may keep or change its number, so test the idempotency key); and whether a new IDoc number is used when the material really changes.
 `,

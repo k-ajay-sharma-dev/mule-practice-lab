@@ -40,23 +40,22 @@ export default {
     ),
     simulation: {
       systems: [
-        { match: { type: 'external-api', label: 'openai' }, latencyMs: 2000 },
-        { match: { type: 'external-api', label: 'anthropic' }, latencyMs: 2000 },
+        { match: 'external-api', latencyMs: 2000 },
       ],
       tests: [
         {
           name: 'A caller without a token',
           about: 'The three agents send 5 prompts a second in all, each with its JWT. A script that found the endpoint sends 20 a second with no token. The policies refuse the script, and the agents get their answers.',
           traffic: [
-            { name: 'agents', from: 'internal-app', rps: 5, to: { label: 'openai' } },
-            { name: 'script', from: 'internal-app', rps: 20, auth: 'none', to: { label: 'openai' } },
+            { name: 'agents', from: 'internal-app', rps: 5, to: 'external-api' },
+            { name: 'script', from: 'internal-app', rps: 20, auth: 'none', to: 'external-api' },
           ],
           expect: { answers: [{ flow: 'agents', minSuccess: 0.99 }, { flow: 'script', minRefused: 0.99 }], notReached: [{ flow: 'script', node: 'external-api' }] },
         },
         {
           name: 'The identity provider is down',
           about: 'The identity provider is down for the whole run. Tokens already issued are valid for an hour, so the agents keep calling the models.',
-          traffic: [{ name: 'agents', from: 'internal-app', rps: 5, to: { label: 'anthropic' } }],
+          traffic: [{ name: 'agents', from: 'internal-app', rps: 5, to: 'external-api' }],
           incidents: [{ down: 'identity-provider' }],
           expect: { answers: [{ minSuccess: 0.99 }] },
         },
@@ -76,7 +75,7 @@ The company wants a single governed endpoint in front of two providers, with a s
 
 Some numbers for the design:
 - The three agents send about 5 prompts a second in all. A model answers in about 2 seconds.
-- A script that found the old endpoint has sent 20 prompts a second with no token.
+- A script that found the old endpoint has sent 20 prompts a second with no token. It must be refused before it reaches a provider.
 - The identity provider has had outages. The agents must keep working while it is down, with the tokens they already hold.
 
 **Questions:**

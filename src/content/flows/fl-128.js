@@ -103,6 +103,10 @@ The team first put a Cache scope with a 24 hour expiry in front of the call. Cus
 
 The Object Store operations: **Retrieve** returns the value for a key, or its Default value when the key is not there. **Store** saves a value under a key. **Remove** deletes a key, and raises **OS:KEY_NOT_FOUND** when there is no such key.
 
+**Facts**
+- Use the Object Store \`branch_cache\` and keep the whole list under the key \`branches\`, exactly as the branch master returned it.
+- \`GET /branches\` answers 200 with that list as its body.
+
 **Design the flows.** Say which kind of object store you would use and why.
 `,
   answerTemplate: `## Reading the branches
@@ -136,7 +140,7 @@ The Object Store operations: **Retrieve** returns the value for a key, or its De
 2. **Try** around **Remove** key \`branches\`, with **On Error Continue** for \`OS:KEY_NOT_FOUND\`.
 3. Log the change at INFO.
 
-**Why clear and not refresh.** The change flow could call the branch master and store the new list at once. Removing the key is simpler: the next request fills it, and if five changes arrive in a minute, the branch master is called once, not five times.
+**Why clear and not refresh.** The change flow could call the branch master and store the new list at once. Removing the key is less work: the next request fills it, and if five changes arrive in a minute, the branch master is called once, not five times.
 
 **Two replicas.** Anypoint MQ gives each message to one subscriber, so only one replica runs the change flow. With an in-memory store the other replica would keep its old list. A persistent object store on CloudHub is shared by the app's replicas, so one Remove is enough.
 
@@ -145,7 +149,7 @@ The Object Store operations: **Retrieve** returns the value for a key, or its De
   followUps: [
     {
       q: 'Why not keep the Cache scope and invalidate it?',
-      a: 'You can: the Cache scope stores its entries in an object store through a caching strategy, and that can be invalidated. Plain Object Store operations make the key, the store and the removal visible in the flow, which is easier to reason about when two flows share it.',
+      a: 'You can: the Cache scope stores its entries in an object store through a caching strategy, and that can be invalidated. Plain Object Store operations make the key, the store and the removal visible in the flow, which is clearer when two flows share it.',
     },
     {
       q: 'What happens if a request reads the branch master at the same moment as the change event is handled?',

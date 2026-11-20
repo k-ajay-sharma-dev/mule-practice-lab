@@ -98,7 +98,7 @@ Today one flow saves the customer and then sends a welcome email through the mai
 A **VM queue** is a queue inside the Mule app. One flow puts a message on it with **VM Publish**, and another flow picks it up with a **VM Listener**. The first flow does not wait for the second one.
 
 **Requirements**
-- Save the customer in the \`customers\` table.
+- Save the customer in the \`customers\` table, with the columns \`email\`, \`first_name\` and \`country\`. The database fills \`customer_id\`.
 - Put the signup on a VM queue called \`welcome-emails\`.
 - A second flow reads that queue and sends the email.
 - Answer the form with the email and the status \`REGISTERED\`.

@@ -112,7 +112,7 @@ A logistics group exchanges files with **120 partners**:
 - Suppliers send invoices and advance shipping notices.
 - A customs broker exchanges declarations.
 
-Volumes: ~9,000 files per day, from 1 KB to 300 MB (CSV, fixed-width, XML).
+Volumes: about 9,000 files per day, from 1 KB to 300 MB (CSV, fixed-width, XML).
 
 Today every partner has its own point-to-point script. Some write into the **Oracle** order database through database links. Others drop files that a SQL Server Agent job imports into the **SQL Server** billing database.
 
@@ -131,7 +131,7 @@ Constraints:
 Numbers for sizing:
 - Intake reads about 40 order records and 20 billing records a second. Between 06:00 and 06:10 most partners deliver at once, and this rises to 160 order and 60 billing records a second.
 - Oracle takes at most 120 writes a second (40 ms each). SQL Server takes at most 80 (30 ms each).
-- Oracle has a 10 minute maintenance window, and no record may be lost or parked in the DLQ because of it. A record that still fails after 20 minutes of redelivery goes to the DLQ.
+- Oracle has a 10 minute maintenance window, and no record may be lost or parked in the DLQ because of it. The broker redelivers a failed record about once a minute, and a record that still fails after 20 minutes of redelivery goes to the DLQ.
 - The budget for the integration apps is 2 vCores.
 
 **Questions:**
@@ -153,10 +153,10 @@ Numbers for sizing:
   keyPoints: [
     'One managed SFTP landing zone with per-partner accounts and folders; plain FTP only as a VPN-restricted exception.',
     'An intake job (listener on the primary node only) picks up files with size check / rename contract, archives or moves them to /error.',
-    'Intake parses and validates, then hands records to a queue — decoupling file arrival from database load speed.',
+    'Intake parses and validates, then hands records to a queue, decoupling file arrival from database load speed.',
     'Process API consumes records and writes through sys-orders-oracle and sys-billing-sqlserver; databases are reached only through System APIs.',
     'Repeated failures go to a DLQ; every file is tracked (partner, name, rows, status) for operations.',
-    'Onboarding is configuration: account, keys, folder, file type mapping and expected schedule — not a new script.',
+    'Onboarding is configuration: account, keys, folder, file type mapping and expected schedule, not a new script.',
     'Sizing: 0.5 vCore for the intake (220 records a second at the burst) and for the loader, so the queue drains after the burst; the databases are never pushed past 120 and 80 writes a second.',
     'Deliveries before the DLQ is about 20: long enough to ride out the 10 minute Oracle window, short enough to park records that keep failing.',
   ],

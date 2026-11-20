@@ -92,6 +92,7 @@ export default {
 - Peak 1,500 API requests per second across partners; 4 million ledger events a day.
 - Regulators expect the fintech to show who accessed which customer data and when.
 - In tests partners send 20 requests a second, an unknown caller sends 10 a second with no token, and one partner endpoint is down for 2 hours.
+- The gateway enforces OAuth 2.0 client credentials tokens. Give each partner its own webhook queue (for example \`webhooks.partner-{id}\`). A queue redelivers a failed message about once a minute, so 24 hours of retries is a redelivery limit of 1440; after that a webhook goes to a dead-letter queue.
 
 **Your task.** Design the BaaS integration platform, including tenancy, security and webhooks.
 `,

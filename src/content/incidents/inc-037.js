@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause?',
         options: [
-          'IAM removed `finance.all`; the IdP drops it from the request, so the token has no scopes and the API needs `finance.invoices.write`',
-          'The client secret expired, so the token is invalid',
-          'The finance API is down',
-          'The token is cached past its expiry',
+          'IAM removed `finance.all`, so the token has no scope for the new write rule',
+          'The client secret expired, so the IdP now issues invalid tokens',
+          'The finance API is down and returns 403 during its maintenance',
+          'The token is cached past its expiry and the API rejects it',
         ],
         answer: 0,
         explain: 'A **401** would mean an invalid token. **403 insufficient_scope** with `scope=""` means the token is valid but carries no permissions.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'How do you restore service?',
         options: [
-          'Increase the retry count to 20',
-          'IAM grants `finance.invoices.write` to the client, update the scope property, clear the token cache and replay failed invoices',
-          'Rotate the client secret',
-          'Switch to the password grant type',
+          'Raise the retry count to 20 so calls succeed once the IdP settles',
+          'Get `finance.invoices.write` granted, request it, clear the token cache, replay',
+          'Rotate the client secret and restart so a fresh token is fetched',
+          'Switch the client to the password grant with a service account',
         ],
         answer: 1,
         explain: 'Grant and request the right scope, force a new token, then replay what failed since 09:00.',
@@ -101,15 +101,15 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    '401 = not authenticated (bad/expired token); 403 insufficient_scope = token valid but lacks the required permission.',
-    'The token response scope is empty because the IdP dropped the removed scope — token issuance still "succeeds".',
+    '401 means not authenticated (bad or expired token); 403 insufficient_scope means the token is valid but lacks the required permission.',
+    'The token response scope is empty because the IdP dropped the removed scope. Token issuance still "succeeds".',
     'Immediate: have IAM grant finance.invoices.write to the client and update the requested scope property; evict cached tokens.',
-    'Do not retry 403s — they will not succeed and add load; route to error handling / replay later.',
+    'Do not retry 403s. They will not succeed and add load; route to error handling / replay later.',
     'Prevention: IdP changes go through consumer impact review; monitor 403 rate and log granted scopes.',
   ],
   solution: `
 ## Diagnosis
-The token call works, but the token comes back with **no scopes** (\`scope=""\`) because \`finance.all\` was removed from the client and the IdP drops scopes the client isn't allowed. The finance API then says **403 insufficient_scope**: we are authenticated, just not authorised. Nothing in Mule changed; the contract with the IdP did.
+The token call works, but the token comes back with **no scopes** (\`scope=""\`) because \`finance.all\` was removed from the client and the IdP drops scopes the client isn't allowed. The finance API then says **403 insufficient_scope**: we are authenticated, but not authorised. Nothing in Mule changed; the contract with the IdP did.
 
 ## Immediate mitigation
 Ask IAM to grant \`finance.invoices.write\` (and any read scopes needed) to \`invoice-papi-prod\`; change the scope property to request it; restart or clear the token cache so a new token is fetched. Replay invoices that failed since 09:00.

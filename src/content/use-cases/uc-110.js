@@ -63,6 +63,7 @@ Facts:
 - About **60,000 ADT messages per day**, peaks of 15 per second at 08:00.
 - The EHR waits for an HL7 **ACK** for each message and sends the next one only after it. If no ACK comes in 30 seconds it resends, and after 5 failures it stops the interface and pages the EHR team.
 - The FHIR server allows conditional updates (\`PUT Patient?identifier=...\`) and returns 429 when overloaded. It takes about 10 writes a second, and the 08:00 peak of 15 a second lasts about 30 minutes. About 1 message in 50 cannot be mapped.
+- To keep the EHR moving, each ACK must come back within 1 second, even during the peak. A message that fails mapping 5 times must go to a DLQ, and no message may be lost.
 - Messages for one patient must be applied in order (an A03 before its A01 would create a discharge for a visit that does not exist).
 - Patient data must not leave the hospital network except to the approved FHIR server. Mule runs on **Runtime Fabric** on-prem plus CloudHub 2.0 in a private space.
 
@@ -110,7 +111,7 @@ Use **conditional PUT** by identifier, so a resend updates the same resource ins
 
 **Ordering and retries.** Anypoint MQ FIFO queues keep order within a message group. With the MRN as the group ID, different patients can be processed in parallel while each patient stays in order. On 429 or 5xx from the FHIR server, retry with backoff without moving to the next message of that patient.
 
-**Errors.** A mapping error (unknown ward code, missing MRN) goes to the DLQ after retries, with the error in a message property. Operations fix the reference data and replay. Later messages of that MRN go to a hold list until the failed one is fixed, otherwise a discharge could be applied without its admission.
+**Errors.** A mapping error (unknown ward code, missing MRN) goes to the DLQ after 5 deliveries, with the error in a message property. Operations fix the reference data and replay. Later messages of that MRN go to a hold list until the failed one is fixed, otherwise a discharge could be applied without its admission.
 
 **Security.** MLLP stays inside the hospital network on RTF. The FHIR server is called over TLS with OAuth 2.0 client credentials. The app reads FHIR only through exp-care-app-api, which checks that the signed-in patient owns the record.
 `,

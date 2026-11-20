@@ -74,7 +74,8 @@ Requirements:
 - Patients search by clinic, treatment type (30 or 60 minutes) and date; results in **under 2 seconds**.
 - ~3,000 searches/hour, ~400 bookings/day; Monday mornings are busy.
 - On Monday morning patients send up to 15 searches a second. The PMS answers in about 1.5 s and Microsoft Graph in about 1.2 s, and only 1 search in 5 can come from the cache.
-- **No double bookings** — two patients may try the same slot at the same moment.
+- Microsoft Graph sometimes slows to about 10 seconds a call. Patients must then still see the PMS slots within 2 seconds, without the Outlook data.
+- **No double bookings**: two patients may try the same slot at the same moment.
 - Booking confirmation by email/SMS; cancellations up to 24 hours before must free the slot everywhere.
 - Patient data is health-related (special category data under GDPR).
 
@@ -109,9 +110,9 @@ Requirements:
 All return a **canonical slot**: clinicId, therapistId, start, end, treatment types.
 
 **Computing availability.**
-- *PMS clinics:* PMS returns free slots; subtract the therapist's **Outlook busy blocks** (training, holidays) fetched via Graph \`getSchedule\` (free/busy) — this avoids reading private event details.
+- *PMS clinics:* PMS returns free slots; subtract the therapist's **Outlook busy blocks** (training, holidays) fetched via Graph \`getSchedule\` (free/busy). This avoids reading private event details.
 - *Outlook clinics:* working hours (from a config table per therapist) minus busy times from Graph, cut into 30/60-minute slots in DataWeave.
-- Calls for multiple therapists run in parallel (**Parallel For Each** or Scatter-Gather) with timeouts.
+- Calls for multiple therapists run in parallel (**Parallel For Each** or Scatter-Gather) with timeouts. If Graph does not answer within the timeout (e.g. 1.8 s), return the PMS slots as a partial answer with a flag, and re-check the slot at booking time.
 
 **Performance.** Cache computed availability per clinic+date in an **Object Store with a short TTL** (1–2 minutes) and invalidate it on any booking/cancellation through our API. Most searches then hit the cache; the risk of a stale slot is covered by the re-check at booking time. Graph has throttling limits, so caching also keeps you under them.
 
@@ -122,7 +123,7 @@ All return a **canonical slot**: clinicId, therapistId, start, end, treatment ty
 4. Release the lock, invalidate the cache, publish \`BookingCreated\`.
 Use the client's request ID as an idempotency key so a retried POST does not create two appointments.
 
-**Cancellations, notifications and data protection.** Cancellation (≥ 24 h before) deletes/cancels the booking in the system of record, invalidates the cache, and publishes \`BookingCancelled\`. A notification flow consumes these events and sends email/SMS through the provider — asynchronous so booking stays fast. Health data: only the minimum (treatment type, not diagnosis) goes to calendars; Outlook event titles show a booking reference, not the patient's condition. No patient details in logs; HTTPS everywhere; tokens for Graph via an app registration with least privilege (calendar scopes only).
+**Cancellations, notifications and data protection.** Cancellation (≥ 24 h before) deletes/cancels the booking in the system of record, invalidates the cache, and publishes \`BookingCancelled\`. A notification flow consumes these events and sends email/SMS through the provider. It is asynchronous so booking stays fast. Health data: only the minimum (treatment type, not diagnosis) goes to calendars; Outlook event titles show a booking reference, not the patient's condition. No patient details in logs; HTTPS everywhere; tokens for Graph via an app registration with least privilege (calendar scopes only).
 `,
   followUps: [
     { q: 'A therapist adds a holiday in Outlook directly. When do patients stop seeing those slots?', a: 'Within the cache TTL; for faster reaction subscribe to Graph change notifications on the therapist calendars and invalidate the cache on change.' },

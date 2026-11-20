@@ -72,7 +72,8 @@ Facts:
 - Carriers retry a webhook if they do not get a **2xx within 5 seconds**, and the same event may arrive twice.
 - Events can arrive out of order (a "Delivered" before the last "In transit").
 - Orders and shipments are already in an **Oracle** database owned by the order team.
-- The morning burst can reach 90 events a second for 2 minutes. The webhook URL is public, so expect callers that are not carriers.
+- The morning burst can reach 90 events a second for 2 minutes. The business wants every webhook answered within 1 second, well inside the carriers' 5 seconds, and no tracking event may be lost.
+- The webhook URL is public, so expect callers that are not carriers. Each carrier gets its own client credentials.
 
 **Questions:**
 1. Describe the APIs.
@@ -106,12 +107,12 @@ Facts:
 
 **Receiving.** API Manager policies on the gateway check the carrier's IP allow-list and HMAC header. The Experience API validates the payload is JSON, adds the carrier name and a correlation ID, \`jms:publish\`es it to the topic and returns **202**. No database work happens inline, so the 5-second carrier timeout is never at risk.
 
-**Normalising.** The Process API (a durable subscriber — or a queue fed by a virtual topic) maps each carrier event with a lookup table: \`(carrier, code) → canonicalStatus\`, e.g. \`OFD\` and \`Out for delivery\` → OUT_FOR_DELIVERY. Unknown codes map to IN_TRANSIT and are logged for the team to add.
+**Normalising.** The Process API (a durable subscriber, or a queue fed by a virtual topic) maps each carrier event with a lookup table: \`(carrier, code) → canonicalStatus\`, e.g. \`OFD\` and \`Out for delivery\` → OUT_FOR_DELIVERY. Unknown codes map to IN_TRANSIT and are logged for the team to add.
 
 **Storing and ordering.**
-- Insert into \`SHIPMENT_TRACKING_EVENT\` with a unique key on (carrier, tracking number, event code, event time) — a duplicate raises a constraint error that is caught and ignored.
+- Insert into \`SHIPMENT_TRACKING_EVENT\` with a unique key on (carrier, tracking number, event code, event time). A duplicate raises a constraint error that is caught and ignored.
 - Update the shipment's current status only if the new status ranks higher (or has a later event time); Delivered is final.
-- Use bind parameters in every \`db:insert\` / \`db:update\` and store event time as TIMESTAMP WITH TIME ZONE — carriers send different time zones.
+- Use bind parameters in every \`db:insert\` / \`db:update\` and store event time as TIMESTAMP WITH TIME ZONE, because carriers send different time zones.
 
 **Notifications.** If the current status changed to OUT_FOR_DELIVERY, DELIVERED or EXCEPTION, the Process API calls **sys-notifications** with the template and customer ID; the System API hides the push/SMS provider.
 
@@ -120,8 +121,8 @@ Facts:
 **Errors.** Database down → the listener rolls back and the message is redelivered; after the limit it lands in the DLQ. Bursts of 50/s are absorbed by the topic/queue.
 `,
   followUps: [
-    { q: 'Why return 202 rather than 200 from the webhook?', a: '202 Accepted says "received, will process later", which is exactly what happens. Either is fine for most carriers — what matters is answering fast.' },
-    { q: 'Why an ActiveMQ topic rather than a queue?', a: 'Other consumers (analytics, the customer-service tool) will want the same events. A topic — or a virtual topic with one queue per consumer — lets them subscribe without changing the publisher.' },
-    { q: 'What if a carrier cannot send webhooks?', a: 'Add a scheduled poller that calls that carrier\'s tracking API and publishes the same canonical event to the topic — the rest of the flow is unchanged.' },
+    { q: 'Why return 202 rather than 200 from the webhook?', a: '202 Accepted says "received, will process later", which is exactly what happens. Either is fine for most carriers. What matters is answering fast.' },
+    { q: 'Why an ActiveMQ topic rather than a queue?', a: 'Other consumers (analytics, the customer-service tool) will want the same events. A topic, or a virtual topic with one queue per consumer, lets them subscribe without changing the publisher.' },
+    { q: 'What if a carrier cannot send webhooks?', a: 'Add a scheduled poller that calls that carrier\'s tracking API and publishes the same canonical event to the topic. The rest of the flow is unchanged.' },
   ],
 }

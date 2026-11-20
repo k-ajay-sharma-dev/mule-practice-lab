@@ -11,7 +11,7 @@ export default {
   tags: ['merger', 'api-led', 'facade', 'bulkhead', 'timeouts', 'banking'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the accounts landscape after the merger: the Northbay app and the Crestwell app both calling one accounts Experience API, one accounts Process API that reads the customer directory to find which core holds an account, and one System API for each core banking system.',
+    task: 'draw the accounts landscape after the merger: the Northbay app and the Crestwell app both calling one accounts Experience API, one accounts Process API that reads the customer directory to find which core holds an account, and one System API for each core banking system. Draw each core as a Legacy box, and put the brand name in the name of each app and each core. Name the directory database customer directory. Set a timeout on each System API, and size the shared APIs so a slow core cannot use up their threads.',
     checks: [
       { label: 'One Experience API serves both brands\' apps', rule: { type: 'each', of: 'experience-api', edgeFrom: 'mobile-app', count: 2, some: true } },
       { label: 'One accounts Process API calls the System APIs of both cores', rule: { type: 'each', of: 'process-api', edgeTo: 'system-api', count: 2, some: true } },
@@ -78,6 +78,7 @@ What the team knows:
 - The Northbay core answers in about **300 ms**. The Crestwell core answers in about **500 ms**, but while it runs its daytime batch it takes up to **8 seconds** per call for 20 minutes or so.
 - At peak, Northbay customers make about **150** balance requests a second and Crestwell customers about **80**.
 - The Crestwell core is stopped for maintenance one evening a month.
+- The apps show "balance not available, try again shortly" when an answer takes more than **2 seconds**, so waiting longer than that on a core helps nobody.
 
 A first design had one System API calling both cores. In testing, a slow Crestwell core held that API's threads, and Northbay customers' balances failed too.
 

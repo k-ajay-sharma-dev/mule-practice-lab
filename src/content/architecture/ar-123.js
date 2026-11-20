@@ -58,7 +58,7 @@ The bank uses three API layers:
 Some numbers for the design:
 - On a normal day the app asks for about 20 balances a second. The mainframe answers in about 400 ms, and a balance must show in under a second.
 - On payday mornings the app sends up to 45 requests a second for a few minutes.
-- The mainframe team allows at most 30 requests a second. More than that slows down the branches and the ATMs.
+- The mainframe team allows at most 30 requests a second. More than that slows down the branches and the ATMs. On payday the app may turn some requests away and ask the customer to try again.
 
 **Questions:**
 - Draw the path of one balance request.

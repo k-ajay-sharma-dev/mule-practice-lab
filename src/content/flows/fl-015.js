@@ -295,15 +295,15 @@ export default {
             '%dw 2.0\noutput text/plain\nvar tpl = payload[0]\nvar data = vars.message.data\n---\n(data pluck ((v, k) -> { k: k as String, v: v as String }))\n  reduce ((e, acc = tpl.body) -> acc replace ("{{" ++ e.k ++ "}}") with e.v)',
         }),
         step('email-send', { toAddresses: '#[vars.message.email]', subject: '#[vars.subject]', contentType: 'text/html' }),
-        step('db-update', { sql: "UPDATE notification_status SET status = 'SENT' WHERE id = :notificationId AND channel = 'EMAIL'" }),
+        step('db-insert', { sql: "INSERT INTO notification_status (id, channel, status) VALUES (:notificationId, 'EMAIL', 'SENT')" }),
         step('mq-ack', { ackToken: '#[vars.ackToken]' }),
       ],
       [
         handler('on-error-continue', { type: 'MULE:DUPLICATE_MESSAGE' }, [step('mq-ack', { ackToken: '#[vars.ackToken]' })]),
         handler('on-error-continue', { type: 'ANY' }, [
           step('set-variable', { variableName: 'reason', value: '#[error.description]' }),
-          step('db-update', {
-            sql: "UPDATE notification_status SET status = 'FAILED', reason = :reason WHERE id = :notificationId AND channel = 'EMAIL'",
+          step('db-insert', {
+            sql: "INSERT INTO notification_status (id, channel, status, reason) VALUES (:notificationId, 'EMAIL', 'FAILED', :reason)",
           }),
           // Without this the redelivery would be dropped as a duplicate and the email never sent.
           step('os-remove', { key: '#[vars.message.notificationId ++ "-EMAIL"]', objectStore: 'sent-notifications' }),
@@ -328,7 +328,7 @@ export default {
             '%dw 2.0\noutput application/x-www-form-urlencoded\nvar text = payload[0].body as String\n---\n{ To: vars.message.phone, Body: if (sizeOf(text) > 160) text[0 to 159] else text }',
         }),
         step('http-request', { method: 'POST', path: '/v1/messages', responseTimeout: 5000 }),
-        step('db-update', { sql: "UPDATE notification_status SET status = 'SENT' WHERE id = :notificationId AND channel = 'SMS'" }),
+        step('db-insert', { sql: "INSERT INTO notification_status (id, channel, status) VALUES (:notificationId, 'SMS', 'SENT')" }),
         step('mq-ack', { ackToken: '#[vars.ackToken]' }),
       ],
       [
@@ -339,8 +339,8 @@ export default {
         ]),
         handler('on-error-continue', { type: 'ANY' }, [
           step('set-variable', { variableName: 'reason', value: '#[error.description]' }),
-          step('db-update', {
-            sql: "UPDATE notification_status SET status = 'FAILED', reason = :reason WHERE id = :notificationId AND channel = 'SMS'",
+          step('db-insert', {
+            sql: "INSERT INTO notification_status (id, channel, status, reason) VALUES (:notificationId, 'SMS', 'FAILED', :reason)",
           }),
           step('os-remove', { key: '#[vars.message.notificationId ++ "-SMS"]', objectStore: 'sent-notifications' }),
           step('mq-nack', { ackToken: '#[vars.ackToken]' }),
@@ -354,11 +354,19 @@ A telecom wants a reusable **Notification API**: \`POST /notifications\` with \`
 **Requirements**
 - Look up the customer's **contact preferences** (email, SMS, both, none) and language (en/fr) from a Preferences DB.
 - Render the message from a **template per event type and language**; marketing must be able to edit wording without a code release.
-- Send email via **SMTP** and SMS via an **SMS provider REST API** (e.g. Twilio).
+- Send email via **SMTP** and SMS via an **SMS provider REST API**.
 - Volume: 200k notifications on bill day within 4 hours. One channel failing must not stop the other.
-- Respond to the caller quickly with an acceptance id.
+- Respond to the caller quickly with **202** and an acceptance id.
 - An accepted notification must not be lost, even if the app restarts while sending it.
 - A redelivered message must not send the same email or SMS twice.
+- Record a status (\`SENT\`, or \`FAILED\` with a reason) for each channel of each notification.
+
+**Data and names**
+- \`contact_preferences\` table: one row per channel the customer wants, with \`customer_id\`, \`channel\` (\`EMAIL\` or \`SMS\`), \`language\`, \`email\` and \`phone\`. No row means no messages.
+- \`notification_templates\` table: \`event_type\`, \`channel\`, \`language\`, \`subject\` and \`body\`. Bodies hold placeholders such as \`{{amount}}\` that are filled from \`data\`.
+- \`notification_status\` table: \`id\`, \`channel\`, \`status\` and \`reason\`.
+- SMS provider: \`POST /v1/messages\` with a form body of \`To\` (the phone number) and \`Body\` (at most 160 characters).
+- If you use Anypoint MQ, the request queue is \`notifications.requested\`.
 
 **Design the flow(s):** API front door, channel fan-out, templating, sending, failure handling.
 `,
@@ -388,7 +396,7 @@ A telecom wants a reusable **Notification API**: \`POST /notifications\` with \`
 4. **Email worker:** subscriber on \`notifications.email\` → render → **Email connector Send** (SMTP config) with HTML body. Ack on success.
 5. **SMS worker:** subscriber on \`notifications.sms\` → render (short text, max length check in DataWeave) → HTTP Request to the SMS provider (or its Exchange connector). Handle **429** with backoff.
 6. **Failures:** transient errors → Nack/redeliver; after max deliveries the message lands in the channel's DLQ. Each worker writes a status row (\`SENT\`, \`FAILED\`, reason) so \`GET /notifications/{id}\` can report it.
-7. **Throughput:** 200k in 4 h ≈ 14/s — scale worker concurrency per channel to what SMTP relay and SMS provider allow, not to the inbound rate.
+7. **Throughput:** 200k in 4 h ≈ 14/s. Scale worker concurrency per channel to what SMTP relay and SMS provider allow, not to the inbound rate.
 `,
   followUps: [
     { q: 'Why not use Scatter-Gather to send email and SMS in parallel?', a: 'It is synchronous and fails the whole event if one route fails; retries would resend the channel that already succeeded. Separate queues isolate channels and make retries per-channel.' },

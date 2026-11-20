@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'node-b clock is about 3 minutes behind, so fresh tokens have an nbf in its future',
-          'The identity provider signs some tokens with a wrong key',
-          'The JWT policy on node-b has a different audience',
-          'Tokens expire too early',
+          'node-b clock is about 3 minutes behind, so fresh tokens look not yet valid',
+          'The identity provider signs some tokens with an old, rotated key',
+          'The JWT policy on node-b came back from the restore with another audience',
+          'Tokens expire too early because the IdP token lifetime is too short',
         ],
         answer: 0,
         explain: 'Only node-b rejects, with "not yet valid", and date -u shows a 3 min 20 s offset. Once a token is older than the skew, node-b accepts it, which is why retrying later works.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Disable nbf validation in the JWT policy',
+          'Disable nbf validation in the JWT policy until node-b is rebuilt',
           'Drain node-b from the F5 pool, fix its time sync, verify the offset and add it back',
           'Ask the IdP to issue tokens with nbf 5 minutes in the past',
-          'Restart both nodes',
+          'Restart both nodes so their JWT policies reload together',
         ],
         answer: 1,
         explain: 'Remove the faulty node so users stop failing, then fix the clock. Weakening validation hides a broken server.',
@@ -48,7 +48,7 @@ export default {
           'A small leeway (30 to 60 s) for nbf and exp if the validator supports it',
           'Clock offset monitoring with alerts above a few seconds',
           'Verify time sync in the snapshot restore runbook',
-          'A 10-minute leeway to be safe',
+          'A 10-minute leeway on nbf and exp to be safe',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Small leeway covers normal drift; a large one would hide a broken clock and accept expired tokens for too long.',
@@ -70,7 +70,7 @@ export default {
   description: `
 ## Symptoms
 - Mobile app users intermittently get **401** from \`accounts-xapi\` immediately after logging in. Retrying a few minutes later usually works.
-- About **half** of the failing requests per hour; the other half succeed with the same token.
+- About **half** of the calls fail. The other half succeed with the same kind of fresh token.
 - Tokens are fresh: issued seconds before the failing call, with a 15-minute lifetime.
 
 ## Change / Context
@@ -122,7 +122,7 @@ mule-node-b: Tue Nov  3 08:12:07 UTC 2026
 
 **Permanent fix.**
 - Ensure NTP/chrony is enabled, pointed at reliable servers, and starts on boot on all Mule nodes; avoid conflicting hypervisor time sync.
-- If the validator supports it, allow a **small leeway** (e.g. 30–60 s) for \`nbf\`/\`exp\`/\`iat\` — enough for normal drift, not enough to hide a broken clock.
+- If the validator supports it, allow a **small leeway** (e.g. 30 to 60 s) for \`nbf\`/\`exp\`/\`iat\`: enough for normal drift, not enough to hide a broken clock.
 
 **Prevention.** Monitor clock offset on every server and alert above a few seconds; add "verify time sync" to the restore/rebuild runbook; dashboards of 401 rate **per node** would have shown a single node failing.
 `,

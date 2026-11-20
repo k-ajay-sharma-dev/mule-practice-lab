@@ -10,14 +10,14 @@ Larkfield Grocers reloads its store forecast table in SQL Server every night fro
 
 \`payload.staged\` holds row counts per store in the shadow table. \`vars.live\` holds the counts in the current live table. \`vars.maxDropPct\` is the largest drop allowed per store.
 
-**Rules**, for every store in either list, sorted by \`storeId\`:
+**Rules**, for every store in either list, each once, sorted by \`storeId\` as text. A store missing from a list has 0 rows there.
 - \`MISSING\` when the store is live but has no staged rows (absent or 0)
 - \`NEW\` when the store is not live yet
 - \`DROP\` when staged rows are lower than live rows by more than \`maxDropPct\` percent
 - otherwise \`OK\`
 - \`changePct\`: \`(staged - live) / live * 100\` rounded to a whole number, or \`null\` for \`NEW\`
 
-\`swap\` is \`true\` only when no store is \`MISSING\` or \`DROP\`. \`problems\` lists the store IDs that block it.
+\`swap\` is \`true\` only when no store is \`MISSING\` or \`DROP\`. \`problems\` lists the store IDs that block it, in the same order as \`stores\`. \`totals\` are the sums of the two input lists.
 
 Output \`swap\`, \`totals\` (\`live\`, \`staged\`), \`problems\` and \`stores\` (\`storeId\`, \`liveRows\`, \`stagedRows\`, \`changePct\`, \`status\`).
 `,

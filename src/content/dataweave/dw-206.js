@@ -13,7 +13,7 @@ Brindle Outdoor sends item files to its product data hub with a claim check. A s
 **Rules**
 - Drop everything from \`?\` onwards. That part can hold a SAS token, which must never reach a log.
 - \`account\` is the host up to the first dot. \`container\` is the first path segment. \`blobName\` is the rest of the path.
-- \`fileName\` is the last segment of the blob name. \`folder\` is the blob name without it, or \`""\`.
+- \`fileName\` is the last segment of the blob name. \`folder\` is the blob name without it and its slash, or \`""\`. With no blob name, \`blobName\`, \`folder\` and \`fileName\` are all \`""\`.
 - \`hadQuery\` is \`true\` when the URL had a \`?\` part.
 - \`reason\` is the first that applies: \`NOT_HTTPS\`, \`WRONG_ACCOUNT\`, \`WRONG_CONTAINER\`, \`NO_BLOB_NAME\`, otherwise \`null\`.
 - \`valid\` is \`true\` when \`reason\` is \`null\`.

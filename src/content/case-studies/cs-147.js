@@ -11,25 +11,25 @@ export default {
       needsScenario: true,
       prompt: 'Three providers have different APIs. How should checkout talk to them?',
       options: [
-        'Through one payment API with a common model, and one adapter per provider behind it',
-        'Checkout calls each provider directly',
-        'Pick one provider and ignore the others',
-        'Build three checkouts',
+        'Through one payment API with a common model and an adapter per provider',
+        'Checkout calls each provider’s API directly, chosen by country',
+        'The order system calls the providers and checkout reads the result',
+        'One checkout page per provider, each built for that provider’s API',
       ],
       answer: 0,
-      explain: 'Checkout stays simple and the same. Adding or removing a provider changes only an adapter.',
+      explain: 'Checkout stays the same for every country. Adding or removing a provider changes only an adapter, while direct calls or one page per provider spread three sets of rules across the front end.',
     },
     {
       type: 'single',
       prompt: 'The customer is sent to the provider to approve, and comes back. How do you know the result?',
       options: [
-        'Confirm with the provider by API or signed webhook, never only from the return URL',
-        'Trust the return URL parameters',
-        'Assume approval',
-        'Ask the customer',
+        'Confirm with the provider by API or a signed webhook',
+        'Read the status from the return URL parameters',
+        'Treat the customer returning to the retailer as approval',
+        'Read the status the provider page stored in a browser cookie',
       ],
       answer: 0,
-      explain: 'A return URL can be changed by anyone. A server-side check or a signed webhook is the real answer.',
+      explain: 'Anything in the browser, such as a return URL or a cookie, can be changed by the customer. A server-side check or a signed webhook is the real answer.',
     },
     {
       type: 'multi',
@@ -38,23 +38,23 @@ export default {
         'Payment captured when the order ships',
         'Refunds, full or partial',
         'The provider cancelling the plan',
-        'Every page the customer viewed',
+        'Each instalment the customer pays to the provider',
       ],
       answer: [0, 1, 2],
-      explain: 'The order and the money must stay in step after checkout too.',
+      explain: 'The order and the money must stay in step after checkout too. Instalments are between the customer and the provider, who pays the retailer in full, so the order system does not need them.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'A webhook says "approved", but the order was already cancelled for timing out. What do you do?',
       options: [
-        'Void or refund the approval with the provider, and record why',
-        'Ship the order anyway',
-        'Ignore the webhook',
-        'Approve the order twice',
+        'Void the approval with the provider, and record why',
+        'Reopen the cancelled order and ship it, as payment is approved',
+        'Ignore the webhook, because the order is already cancelled',
+        'Store the approval and leave it for finance to find in reconciliation',
       ],
       answer: 0,
-      explain: 'Late events happen. The rule must say what wins, and the money must be put back.',
+      explain: 'Late events happen. The rule must say what wins, and the money must be put back. Ignoring the approval leaves the customer with a plan for an order that will never ship.',
     },
     {
       type: 'match',
@@ -75,13 +75,13 @@ export default {
         'Build the first provider adapter with sessions, capture and refund',
         'Add webhook handling with signature checks and idempotency',
         'Add the second and third providers',
-        'Reconcile provider settlements against orders daily',
+        'Reconcile each weekly provider settlement against orders',
       ],
       explain: 'Model first, prove it with one provider, add events, then more providers, then reconciliation.',
     },
   ],
   description: `
-**Context.** An online fashion retailer wants to offer **buy now pay later** through **three providers**, chosen by country.
+**Context.** An online homeware retailer wants to offer **buy now pay later** through **three providers**, chosen by country.
 
 **Facts gathered so far**
 - Each provider sends the customer to its own page to approve, then back to the retailer.
@@ -132,7 +132,7 @@ export default {
 
 **After checkout.** The order system asks for capture on shipping and refund on return. A late approval for a cancelled order is voided.
 
-**Reconciliation.** Daily import of provider settlement reports, matched to captures and refunds, with gaps sent to finance.
+**Reconciliation.** Each weekly provider settlement report is imported when it arrives and matched to captures and refunds, with gaps sent to finance.
 
 **Risks.** Provider API changes, webhooks out of order, and partial refunds rounded differently.
 `,

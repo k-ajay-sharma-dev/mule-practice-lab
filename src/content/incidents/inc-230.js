@@ -1,16 +1,16 @@
 export default {
   id: 'inc-230',
   category: 'incidents',
-  title: "The REST Reader Starts Failing Every Night at Midnight",
+  title: "The REST Reader Stops Working at Midnight and Never Recovers",
   level: 'INTERMEDIATE',
   tags: ["myproject","azure-file-share","sas","rest"],
   estMinutes: 20,
   investigation: {
     logs: [
+      { text: "2026-11-17 23:55:04 INFO  [share-reader] List directory ok found=14", relevant: true, why: "It worked five minutes earlier." },
       { text: "2026-11-18 00:00:04 ERROR [share-reader] List directory failed status=403 code=AuthenticationFailed detail=Signed expiry time has passed", relevant: true, why: "The SAS token expired." },
       { text: "2026-11-18 00:00:04 INFO  [share-reader] Using SAS from secure property share.sas", relevant: true, why: "The token is fixed in config." },
-      { text: "2026-11-17 23:55:04 INFO  [share-reader] List directory ok found=14", relevant: true, why: "It worked five minutes earlier." },
-      { text: "2026-11-18 08:30:00 INFO  [ops] Token generated 2026-11-11 by script, validity 7 days", relevant: true, why: "Someone made a 7 day token by hand." },
+      { text: "2026-11-18 08:30:00 INFO  [ops] Token generated 2026-11-11 00:00 by script, validity 7 days", relevant: true, why: "Someone made a 7 day token by hand." },
       { text: "2026-11-18 23:59:00 INFO  [share-reader] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why do calls fail from midnight?",
         options: [
-          "The SAS token expired",
-          "The share was deleted",
-          "The REST API changed",
-          "The worker restarted",
+          "The 7 day SAS token reached its expiry time",
+          "The account key behind the SAS was rotated",
+          "The stored access policy on the share was revoked",
+          "The worker restarted and lost its secure properties",
         ],
         answer: 0,
         explain: "The error says the signed expiry time has passed.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the quick fix?",
         options: [
-          "Issue a new SAS with the needed rights and update the secure property",
-          "Make the share public",
-          "Use the account key in the URL",
-          "Turn off the check",
+          "Issue a new SAS with only the needed rights and update the property",
+          "Issue a new SAS with full rights on the account so it fits every share",
+          "Put the storage account key in the secure property instead of a SAS",
+          "Change the clock on the worker back so the token is valid again",
         ],
         answer: 0,
         explain: "Restore access with the least rights needed.",
@@ -45,7 +45,7 @@ export default {
           "Use an identity such as a service principal, with tokens renewed automatically",
           "Generate the SAS from a stored access policy so it can be revoked",
           "Alert well before any token expires",
-          "Make SAS tokens valid for 20 years",
+          "Issue SAS tokens valid for 20 years so they never expire in production",
         ],
         answer: [0,1,2],
         explain: "Avoid hand made tokens that expire without warning.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What must never happen with a SAS?",
         options: [
           "It must never be written to logs or code",
-          "It must never be used over HTTPS",
-          "It must never have an expiry",
-          "It must never be renewed",
+          "It must never be kept in a secure property",
+          "It must never include the list permission",
+          "It must never be used by more than one flow",
         ],
         answer: 0,
         explain: "A SAS is a credential. Anyone with it has access.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-17 23:55:04 INFO  [share-reader] List directory ok found=14
 2026-11-18 00:00:04 ERROR [share-reader] List directory failed status=403 code=AuthenticationFailed detail=Signed expiry time has passed
 2026-11-18 00:00:04 INFO  [share-reader] Using SAS from secure property share.sas
-2026-11-17 23:55:04 INFO  [share-reader] List directory ok found=14
-2026-11-18 08:30:00 INFO  [ops] Token generated 2026-11-11 by script, validity 7 days
+2026-11-18 08:30:00 INFO  [ops] Token generated 2026-11-11 00:00 by script, validity 7 days
 \`\`\`
 
 ## Your tasks

@@ -16,7 +16,7 @@ export default {
         'The flow stops silently with a null payload',
       ],
       answer: 1,
-      explain: 'In Mule 4 a Choice without `otherwise` simply continues when nothing matches — no error.',
+      explain: 'In Mule 4 a Choice without `otherwise` continues when nothing matches. No error is raised.',
     },
     {
       type: 'single',
@@ -26,7 +26,7 @@ export default {
         '3 attempts, then the original error',
         '4 attempts (1 + 3 retries), then MULE:RETRY_EXHAUSTED',
         '3 attempts, then MULE:RETRY_EXHAUSTED',
-        'It retries forever',
+        '4 attempts, then the original error from the last try',
       ],
       answer: 1,
       explain: '`maxRetries` counts retries, not total executions.',
@@ -53,7 +53,7 @@ export default {
       type: 'single',
       detail: true,
       prompt: '`db.host` is in `config.yaml` and also passed as `-Ddb.host=...` at deployment. Which value wins?',
-      options: ['The value in config.yaml', 'The system property (-D)', 'Whichever is defined last alphabetically', 'Deployment fails on the conflict'],
+      options: ['The value in config.yaml', 'The system property (-D)', 'The value in config.yaml, since the app loads it last', 'Deployment fails on the conflict'],
       answer: 1,
       explain: 'System/deployment properties override properties from configuration files.',
     },
@@ -81,7 +81,7 @@ Interviewers and the MuleSoft developer certifications like short scenarios wher
 6. \`#[payload.price * 1.2]\` in a Set Payload, where \`payload\` is a JSON **string** read from a file without a MIME type. What happens?
 7. A property \`db.host\` is defined in \`config.yaml\` and also passed as \`-Ddb.host=...\` at deployment. Which value wins?
 8. A **Scheduler** runs every minute on an app with **2 CloudHub 2.0 replicas without clustering**. How many times per minute does the job run?
-9. A batch job's **Batch Aggregator** with \`size="100"\` — is the aggregator's payload a single record or a list?
+9. A batch job's **Batch Aggregator** with \`size="100"\`: is the aggregator's payload a single record or a list?
 10. You need the HTTP status code of an outbound call stored in a variable but also keep the current payload. What do you set?
 11. A **sub-flow** contains an error handler. Is that valid?
 12. In API Manager, policies changed but the app was not redeployed. Do the new policies apply?
@@ -102,20 +102,20 @@ Interviewers and the MuleSoft developer certifications like short scenarios wher
   solution: `
 | # | Answer | Why |
 |---|---|---|
-| 1 | The event passes through **unchanged**; no error. | In Mule 4 a Choice without \`otherwise\` simply continues when nothing matches. |
+| 1 | The event passes through **unchanged**; no error. | In Mule 4 a Choice without \`otherwise\` continues when nothing matches. |
 | 2 | The **original** payload (the whole collection). | For Each restores the payload after iteration; collect results in a variable if needed. |
 | 3 | The value **before** the Async (or null if unset). | Async works on a copy of the event on another thread. |
 | 4 | **4 attempts** (1 + 3 retries), then \`MULE:RETRY_EXHAUSTED\`. | maxRetries counts retries, not total executions. |
 | 5 | **200** (with the error JSON as body). | On Error Continue marks the flow as successful, so the normal response builder runs. Set \`vars.httpStatus\` and use it in the response builder. |
 | 6 | It fails (or does not do what you expect): the value is untyped text/binary, so \`.price\` cannot be selected as a JSON field. | DataWeave reads based on MIME type; declare \`application/json\` on the source or use \`read()\`. |
 | 7 | The **system property** (\`-D\`). | System/deployment properties override properties from configuration files. |
-| 8 | **Twice** — once per replica. | Without clustering, schedules run on all CloudHub 2.0 replicas independently; with clustering they run on the primary only. CloudHub 1.0 differs: the Scheduler docs say a multi-worker deployment runs it on the primary node only. |
+| 8 | **Twice**, once per replica. | Without clustering, schedules run on all CloudHub 2.0 replicas independently; with clustering they run on the primary only. CloudHub 1.0 differs: the Scheduler docs say a multi-worker deployment runs it on the primary node only. |
 | 9 | A **list** of records (when not in streaming mode). | The aggregator collects records and processes them as a group, e.g. for bulk upserts. |
 | 10 | \`target="resp"\` and \`targetValue="#[attributes.statusCode]"\` (or \`#[message]\` to keep both body and attributes). | Target leaves payload and attributes untouched. |
 | 11 | **No.** | Sub-flows have no error handler; wrap steps in a Try scope or use a private flow. |
 | 12 | **Yes.** | Policies are applied by the runtime from API Manager dynamically; no redeploy is needed. |
 
-**Exam technique:** read every word — "no otherwise", "without clustering", "On Error Continue" — the trap is usually in a single qualifier. When two answers look right, choose the one that reflects Mule 4 behaviour rather than Mule 3 habits (e.g. no inbound/outbound properties, payload restored after For Each).
+**Exam technique:** read every word ("no otherwise", "without clustering", "On Error Continue"). The trap is usually in a single qualifier. When two answers look right, choose the one that reflects Mule 4 behaviour rather than Mule 3 habits (e.g. no inbound/outbound properties, payload restored after For Each).
 `,
   followUps: [
     {

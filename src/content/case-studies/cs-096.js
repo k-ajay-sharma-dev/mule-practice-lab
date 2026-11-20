@@ -103,6 +103,7 @@ Sites are paid from SAP S/4HANA. A clinical supply depot ships kits to sites.
 | Privacy | Participants are pseudonymised: only subject numbers leave the site; GDPR applies to EU trials |
 | Blinding | Only the unblinded supply team and the depot may see kit numbers with arms |
 | Tests | IRT sends 2 webhooks a second while EDC is down for an hour, and SAP fails 1 payment call in 10 |
+| Diagram | Name the blinded topic trial-events-blinded and the unblinded queue supply-restricted. Draw the depot as an external API. The SAP System API retries a failed call twice |
 
 **Your task.** Design the integration between IRT, EDC, CTMS, SAP and the depot, and show how the design protects the blind.
 `,
@@ -142,7 +143,7 @@ The arm field is removed by an allow-list mapping, not a deny-list, so a new ven
 
 **Unblinded consumer.** \`prc-drug-supply\` is the only app with permission to read \`supply-restricted\`. It sends kit assignments to the depot through \`sys-depot-api\`. The queue, the app and its logs sit in a separate business group with access for the unblinded supply team only.
 
-**Site payments.** A monthly job starts \`prc-site-payments\`, which reads payable visits from CTMS and posts supplier invoices through \`sys-sap-ap-api\`.
+**Site payments.** A monthly job starts \`prc-site-payments\`, which reads payable visits from CTMS and posts supplier invoices through \`sys-sap-ap-api\`. The SAP System API retries a failed call twice, and the invoice key makes a retry safe.
 
 **Validation and audit.** Each message carries a correlation id. Every message in and out is logged with its id and outcome (not its clinical content) to an audit store. Releases follow change control with documented tests. Personal data is limited to subject numbers.
 

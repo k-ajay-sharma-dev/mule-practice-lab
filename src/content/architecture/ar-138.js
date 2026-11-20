@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'anypoint-mq', 'kafka', 'messaging', 'event-driven', 'broker-selection', 'dlq', 'wms'],
   estMinutes: 50,
   diagram: {
-    task: 'draw the fulfilment platform: checkout reaches an order Process API, which sends a fulfil command to an Anypoint MQ queue with a dead-letter queue. One fulfilment worker takes commands from the queue, updates the WMS through a System API and publishes fulfilment events to a Kafka topic. At least two consumers read the Kafka topic, and one of them sends customer notifications.',
+    task: 'draw the fulfilment platform: checkout reaches an order Process API, which sends a fulfil command to an Anypoint MQ queue named fulfil-order, with a dead-letter queue. One Process API named fulfilment worker takes commands from the queue, updates the WMS through a System API and publishes fulfilment events to a Kafka topic (an Event stream box). At least two consumers read the Kafka topic: one sends customer notifications, and the other is a Data warehouse box named Analytics lake.',
     checks: [
       { label: 'Checkout reaches the order Process API through an Experience API', rule: { type: 'path', from: 'web-app', via: 'experience-api', to: 'process-api', kind: 'sync' } },
       { label: 'Fulfil commands go from a Process API to an Anypoint MQ queue as async messages', rule: { type: 'edge', from: 'process-api', to: 'queue', kind: 'async' } },

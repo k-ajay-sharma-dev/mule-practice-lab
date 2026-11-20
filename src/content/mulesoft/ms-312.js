@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'What is the main difference between IMAP and POP3?',
       options: [
-        'IMAP sends mail, POP3 reads it',
-        'IMAP works with mail that stays on the server, with folders and flags such as Seen. POP3 downloads from the inbox and usually deletes',
-        'POP3 is newer',
-        'They are the same protocol on different ports',
+        'IMAP sends mail and POP3 reads it, so a mailbox reader needs POP3',
+        'IMAP keeps mail on the server with folders and flags. POP3 downloads and usually deletes',
+        'POP3 is the newer protocol and adds the folders that IMAP lacks',
+        'They are one protocol, with IMAP on a TLS port and POP3 on a plain one',
       ],
       answer: 1,
-      explain: 'For an integration that must mark or move processed mail, IMAP is the usual choice.',
+      explain: 'IMAP flags include Seen. For an integration that must mark or move processed mail, IMAP is the usual choice.',
     },
     {
       type: 'match',
@@ -32,10 +32,10 @@ export default {
       type: 'single',
       prompt: 'How does Mule pick up new mail from a mailbox?',
       options: [
-        'The mail server calls a Mule HTTP endpoint',
-        'An Email connector listener, such as On New Email for IMAP, polls the folder on a schedule',
-        'With a JMS listener',
-        'It cannot',
+        'The mail server calls a Mule HTTP endpoint each time a mail arrives',
+        'An Email connector listener, such as On New Email for IMAP, polls the folder',
+        'A JMS listener receives the mails that the server puts on a queue',
+        'An SMTP listener in Mule receives each mail as the server relays it',
       ],
       answer: 1,
       explain: 'Polling means mail waits up to one interval. Set the interval to what the business needs.',
@@ -47,7 +47,7 @@ export default {
         'Mark it as Seen and only read unseen mail',
         'Move it to a Processed folder',
         'Delete it, when no copy is needed',
-        'Nothing, IMAP forgets it',
+        'Copy it to the Sent folder so the server flags it as handled',
       ],
       answer: [0, 1, 2],
       explain: 'Moving to a folder leaves a trail people can check. Deleting leaves none.',
@@ -56,10 +56,10 @@ export default {
       type: 'single',
       prompt: 'A support person opens the shared mailbox in a mail client and reads a new order mail before Mule polls. What happens with a Seen based filter?',
       options: [
-        'Mule still processes it',
+        'Mule still processes it, since the listener ignores flags set by clients',
         'The client marks it Seen, so Mule skips it and the order is missed',
-        'The mail is deleted',
-        'Mule processes it twice',
+        'The client deletes it from the server once it has been read',
+        'Mule processes it twice, once for the client read and once on its poll',
       ],
       answer: 1,
       explain: 'Do not let people use the integration mailbox, or move processed mail out instead of relying on the Seen flag.',
@@ -68,13 +68,13 @@ export default {
       type: 'single',
       prompt: 'What does the listener give you for each message?',
       options: [
-        'Only the subject',
-        'The body as the payload and attributes such as from, to, subject, received date, headers and attachments',
-        'A file path',
-        'The SMTP log',
+        'Only the subject and sender, with the body fetched by a later operation',
+        'The content as the payload, with from, to, subject, date and headers as attributes',
+        'A path to an .eml file that the listener saved in the working directory',
+        'The raw SMTP transcript of the delivery as a single string',
       ],
       answer: 1,
-      explain: 'Attachments come as parts you can route by name and content type.',
+      explain: 'The payload holds the body and the attachments. Attachments are a map keyed by attachment name, so you read one with `payload.attachments."po.csv"` and the body with `payload.body`.',
     },
   ],
   description: `
@@ -105,7 +105,7 @@ Fenwick Supply gets purchase order confirmations from a few small suppliers by e
   solution: `
 **1. IMAP or POP3.** IMAP keeps mail on the server, supports folders and keeps flags such as Seen. That lets the flow move processed mail to a folder and leave a trail. POP3 downloads from the inbox and usually deletes, with no folders. IMAP fits better here.
 
-**2. Picking up mail.** Use the Email connector with an IMAPS configuration on port 993 and the listener for new mail on the inbox. The listener polls on a schedule. Each message arrives with the body as payload and attributes with the sender, subject, date and attachments.
+**2. Picking up mail.** Use the Email connector with an IMAPS configuration on port 993 and the listener for new mail on the inbox. The listener polls on a schedule. Each message arrives with the content as payload and attributes with the sender, subject, date and headers. The payload holds the body in \`payload.body\` and the attachments in \`payload.attachments\`, a map keyed by attachment name.
 
 **3. Not twice.** After the attachment is processed, move the mail to a Processed folder, or to an Error folder when it fails. Also record the Message-ID header in a table, so a repeat delivery or a restored message is spotted.
 

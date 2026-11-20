@@ -125,18 +125,18 @@ A grocery chain with 400 stores is replacing its old integration scripts. Three 
 2. **Stock level** checks for the e-commerce site: when a customer opens a product page, show whether the nearest store has stock. Store inventory DB is central (Oracle).
 3. **Sales transactions** from POS to the finance system and the loyalty program. Each store sends ~3,000 transactions/day; loyalty points should appear within a few minutes; finance only needs data by the next morning.
 
-Numbers for sizing: at peak the website sends 300 stock checks a second. The Oracle inventory DB answers in about 50 ms and takes at most 100 queries a second; a stock answer may be up to a minute old. Sales arrive at about 20 a second, and 80 a second for half an hour of the Saturday peak. The finance system has had outages of an hour.
+Numbers for sizing: at peak the website sends 300 stock checks a second. The Oracle inventory DB answers in about 50 ms and takes at most 100 queries a second; a stock answer may be up to a minute old. The Oracle DB sometimes stops answering for a while; product pages must still load fast and show "stock unavailable" when stock is unknown. Sales arrive at about 20 a second, and 80 a second for half an hour of the Saturday peak. The finance system has had outages of an hour, and no sale may be lost or dead-lettered because of one. A queued message that fails is tried again about once a minute.
 
 **Questions:**
 - For each flow: batch, near-real-time (event/stream), or real-time request/reply? Justify.
 - Which Mule 4 building blocks would you use?
 - What happens when a run or a message fails in each design?
 `,
-  answerTemplate: `## Flow 1 — Price updates
+  answerTemplate: `## Flow 1: Price updates
 
-## Flow 2 — Stock checks
+## Flow 2: Stock checks
 
-## Flow 3 — Sales transactions
+## Flow 3: Sales transactions
 
 ## Failure handling
 `,
@@ -149,11 +149,11 @@ Numbers for sizing: at peak the website sends 300 stock checks a second. The Ora
     'Settings that matter: a 60 s stock cache keeps Oracle under 100 queries a second; a 1 s timeout, a circuit breaker and a "stock unavailable" partial answer keep pages fast when Oracle hangs; the loyalty consumer is sized for the peak while the finance consumer may lag.',
   ],
   solution: `
-**Flow 1 — Price updates: batch.** The business need is "complete set active by 07:00", not "each change in seconds". A **Scheduler** at e.g. 22:00 reads approved changes (watermark on approval timestamp), and a **Batch Job** (or a set-based file per store over SFTP if POS systems accept files) delivers them. Batch gives record-level error handling, step-by-step processing and a summary in the On Complete phase. Size the window: 200k records over 400 stores must finish well before 07:00 with time for a rerun.
+**Flow 1, price updates: batch.** The business need is "complete set active by 07:00", not "each change in seconds". A **Scheduler** at e.g. 22:00 reads approved changes (watermark on approval timestamp), and a **Batch Job** (or a set-based file per store over SFTP if POS systems accept files) delivers them. Batch gives record-level error handling, step-by-step processing and a summary in the On Complete phase. Size the window: 200k records over 400 stores must finish well before 07:00 with time for a rerun.
 
-**Flow 2 — Stock check: real-time request/reply.** A customer is waiting, so a synchronous \`GET /stores/{id}/stock?sku=\` System/Process API is right. Protect the Oracle DB with short timeouts, connection pooling, and a short-TTL cache (stock does not need to be exact to the second — show "limited stock" wording). Batch would show stale data; events alone would need a local copy of all stock (possible later as a read model if load grows).
+**Flow 2, stock check: real-time request/reply.** A customer is waiting, so a synchronous \`GET /stores/{id}/stock?sku=\` System/Process API is right. Protect the Oracle DB with short timeouts, connection pooling, and a short-TTL cache (stock does not need to be exact to the second: show "limited stock" wording). Batch would show stale data; events alone would need a local copy of all stock (possible later as a read model if load grows).
 
-**Flow 3 — Sales: event-driven.** Each POS transaction is published as an event (Anypoint MQ exchange or Kafka topic), and **two consumers**: loyalty (processes in minutes) and finance. Finance can either consume the same events and load them, or a nightly job aggregates them — both are fine because finance's need is next-day. One event stream serves both latencies; the producer does not know the consumers.
+**Flow 3, sales: event-driven.** Each POS transaction is published as an event (Anypoint MQ exchange or Kafka topic), and **two consumers**: loyalty (processes in minutes) and finance. Finance can either consume the same events and load them, or a nightly job aggregates them: both are fine because finance's need is next-day. One event stream serves both latencies; the producer does not know the consumers.
 
 **Failure handling.**
 - *Batch:* failed records collected (accept policy, failed-record report), job is **rerunnable/idempotent** (upsert prices by SKU+store+effective date); alert if not finished by e.g. 05:00.

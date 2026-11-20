@@ -84,6 +84,7 @@ export default {
 | Privacy | Claims carry PHI; HIPAA rules on minimum necessary access, encryption and audit apply |
 | Duplicates | A duplicate is the same provider, member, service date and billed lines |
 | Tests | A Monday file splits into 200 claims a second for 10 minutes, and 1 claim in 100 is always rejected |
+| For the diagram | Name the intake job claims-file-intake and run it on 0.5 vCore. Put claims on a \`claims-in\` queue; give each claim 5 deliveries, then send it to a dead-letter queue |
 
 **Your task.** Design the intake from file and portal to adjudication, and the acknowledgements back to clearinghouses.
 `,
@@ -116,7 +117,7 @@ export default {
 
 **Processing.** \`prc-claim-submission\` consumes \`claims-in\` with a fixed number of consumers so the rate stays under 25 claims a second. It computes a duplicate key (hash of provider NPI, member id, service dates and billed lines) and checks the key store. A duplicate gets status "rejected as duplicate" and never reaches the engine. Otherwise it calls \`sys-claims-engine-api\`, which owns the CICS call and maps the mainframe responses.
 
-**Errors.** Transient mainframe errors are retried with backoff. A claim that fails three deliveries lands on \`claims-in-dlq\` and an operator is alerted. Validation failures produce a rejected status, not a dead letter.
+**Errors.** Transient mainframe errors are retried with backoff. A claim that fails 5 deliveries lands on \`claims-in-dlq\` and an operator is alerted. Validation failures produce a rejected status, not a dead letter.
 
 **Status.** Every outcome (accepted, rejected, duplicate) is published to \`claim-status-events\`. \`prc-277ca-builder\` groups them per clearinghouse and writes 277CA files every hour.
 

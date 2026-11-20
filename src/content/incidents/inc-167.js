@@ -91,6 +91,7 @@ export default {
 - \`mcp-order-tools\` is a Mule app on CloudHub 2.0. It uses MCP Connector in the server role, so agents can call its tools.
 - The app was built last year on the **SSE Server** connection (\`<mcp:sse-server-connection>\`), and it ran on one replica. SSE (Server-Sent Events) keeps a connection open so that a server can push updates to a client.
 - At 14:01 platform operations raised the replica count from 1 to 2 (a replica is one running copy of the app), to prepare for the holiday peak. The change note says "no code change, low risk".
+- The MCP Connector docs list Streamable HTTP as the recommended transport and SSE as deprecated. For several replicas, the connector reference asks for a Sessions Object Store distributed across all replicas, and on CloudHub 2.0 for persistence plus the Clustered option.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

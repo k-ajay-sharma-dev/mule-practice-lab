@@ -96,6 +96,8 @@ export default {
 - The IBM i system will be replaced in about 4 years; the dealer API must not change when it is.
 - Each dealer group must only see its own claims.
 - The IBM i can be down for 30 minutes during the Monday peak of 900 claims an hour.
+- Callers enter through an API gateway that enforces a client ID per dealer group.
+- Accepted claims wait on a \`warranty-claims\` queue. It redelivers a failed message about once a minute; try each claim for an hour (a redelivery limit of 60), then send it to a dead-letter queue.
 
 **Your task.** Design the warranty claims integration.
 `,
@@ -126,7 +128,7 @@ The dealer ID comes from the client application, never from the request body, so
 
 **Accepting a claim.** \`prc-warranty-claims\` validates the VIN, the repair code and the parts, stores the attachments in the S3 bucket (one folder per claim, encrypted) and returns \`202 Accepted\` with a claim number. It then publishes the claim to \`warranty-claims\`. The Monday peak of 900 an hour is absorbed by the queue.
 
-**Loading.** \`prc-claim-loader\` reads the queue and calls \`sys-warranty-api\`, which inserts the claim into the DB2 staging table and calls the stored procedure. One consumer with a 5 per second limit protects the IBM i. The claim carries a link to its attachments, which reviewers open from a viewer. After 5 failed attempts the claim goes to the DLQ for the warranty support team.
+**Loading.** \`prc-claim-loader\` reads the queue and calls \`sys-warranty-api\`, which inserts the claim into the DB2 staging table and calls the stored procedure. One consumer with a 5 per second limit protects the IBM i. The claim carries a link to its attachments, which reviewers open from a viewer. A failed claim is redelivered about once a minute for an hour, which rides out a 30 minute IBM i outage. After 60 deliveries it goes to the DLQ for the warranty support team.
 
 **Decisions.** A poller reads decided claims every 15 minutes through \`sys-warranty-api\` and publishes \`claim-decided\`.
 - \`prc-dealer-credits\` posts the credit note through \`sys-sap-billing-api\` for approved amounts.
@@ -136,8 +138,8 @@ The dealer ID comes from the client application, never from the request body, so
 `,
   followUps: [
     { q: 'Why not send attachments to the IBM i system with the claim?', a: 'It has no attachment storage and large files would slow it down. Storing them in S3 and passing a link keeps the claim small.' },
-    { q: 'How do you make sure one dealer cannot see another dealer claims?', a: 'The dealer ID comes from the client credentials, and every query is filtered by it. The request body cannot override it.' },
+    { q: 'How do you make sure one dealer cannot see another dealer’s claims?', a:'The dealer ID comes from the client credentials, and every query is filtered by it. The request body cannot override it.' },
     { q: 'Why poll for decisions instead of having the IBM i system call out?', a: 'The RPG application is not built to make HTTP calls. A poller on a staging table is low risk and 15 minutes is well inside the 2 day goal.' },
-    { q: 'What happens to a claim that the IBM i system rejects as malformed?', a: 'After a few retries the loader moves it to the dead-letter queue. The support team fixes it and replays it, and the dealer sees the status in the meantime.' },
+    { q: 'What happens to a claim that the IBM i system rejects as malformed?', a: 'After an hour of redeliveries the loader moves it to the dead-letter queue. The support team fixes it and replays it, and the dealer sees the status in the meantime.' },
   ],
 }

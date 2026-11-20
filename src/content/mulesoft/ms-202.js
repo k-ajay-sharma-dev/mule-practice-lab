@@ -37,7 +37,7 @@ export default {
         'Direct calls bypass the proxy, so their token data never reaches cost management',
         'Direct calls are billed by MuleSoft as well, so they appear on a separate invoice',
         'Direct calls are counted after a delay, once the provider has closed its billing',
-        'Direct calls have no tokens, as tokens exist only in calls that use a Model Proxy',
+        'Direct calls are counted only once the calling agent is in the Agent Registry',
       ],
       answer: 0,
       explain: 'Routing, caching and policy run in front of every call through a proxy, and token data from those calls feeds cost management. Traffic that bypasses the proxy is not in those figures.',

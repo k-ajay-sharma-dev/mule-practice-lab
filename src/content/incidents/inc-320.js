@@ -9,19 +9,19 @@ export default {
     logs: [
       { text: "2026-11-18 00:00:00 INFO  [chain] Extract sales from SQL Server started", relevant: true, why: "Step 1." },
       { text: "2026-11-18 02:30:00 INFO  [chain] Upload sales to planning platform via SFTP finished", relevant: true, why: "Step 2 ends at 02:30." },
-      { text: "2026-11-18 05:40:00 INFO  [planning-platform] Plan run finished, files ready", relevant: true, why: "The platform takes three hours." },
+      { text: "2026-11-18 05:40:00 INFO  [planning-platform] Plan run finished, files ready", relevant: true, why: "The platform plan run takes 3 h 10 min." },
       { text: "2026-11-18 08:20:00 INFO  [chain] Plans loaded into store database", relevant: true, why: "Stores open at 08:00." },
       { text: "2026-11-18 23:59:00 INFO  [chain] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
-        prompt: "Where is most of the time?",
+        prompt: "Where does the time go in the steps the integration team owns?",
         options: [
-          "Extract and upload take 2.5 hours and plan load takes 2.7 hours",
-          "The platform",
-          "SFTP only",
-          "Nowhere",
+          "Extract and upload take 2.5 hours, plan load about 2 h 40 min",
+          "Almost all of it in the SFTP upload, about 2 hours",
+          "Mostly in the plan load, which takes over 4 hours",
+          "Evenly, about 1 hour in each of the four steps",
         ],
         answer: 0,
         explain: "Measure each step.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What gives the best gain?",
         options: [
-          "Send deltas instead of full extracts, and load plans with bulk MERGE",
-          "Faster SFTP",
-          "Start later",
-          "More logs",
+          "Send deltas, not full extracts, and load plans with bulk MERGE",
+          "Move SFTP to a faster cipher and keep full extracts",
+          "Start the chain at 01:00 so the database is quieter",
+          "Add detailed logs to each step to find slow rows",
         ],
         answer: 0,
         explain: "Less data and faster loads.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why a timeline alert?",
         options: [
           "To act before stores open, not after",
-          "For reports",
-          "For billing",
-          "No reason",
+          "To build a weekly report of late runs",
+          "To bill the planning platform for delays",
+          "To restart the chain when it runs late",
         ],
         answer: 0,
         explain: "Know early.",
@@ -81,7 +81,7 @@ export default {
 - Stores open without plans three days a week.
 
 ## Change / Context
-- A nightly chain moves sales out and plans back.
+- A nightly chain moves sales out and plans back. Stores open at 08:00.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

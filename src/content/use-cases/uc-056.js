@@ -76,7 +76,7 @@ An airline built **Project 1** two years ago: online check-in for its **mobile a
 |---|---|---|---|---|
 | Experience | exp-mobile-checkin | v1 | \`GET /me/trips\`, \`POST /me/trips/{pnr}/checkin\`, \`GET /me/boarding-passes\` | Mobile app |
 | Experience | exp-kiosk-checkin | v1 | \`POST /sessions\` (PNR + surname or passport scan), \`POST /sessions/{id}/checkin\`, \`POST /sessions/{id}/bag-tags\` | Kiosks (CUSS) |
-| Process | prc-checkin | v1 | \`POST /bookings/{pnr}/checkin\` — checks in **all passengers on all eligible segments** of the PNR; response \`{ boardingPasses: [{ passenger, flight, seat, barcode }] }\` | both Experience APIs |
+| Process | prc-checkin | v1 | \`POST /bookings/{pnr}/checkin\`: checks in **all passengers on all eligible segments** of the PNR; response \`{ boardingPasses: [{ passenger, flight, seat, barcode }] }\` | both Experience APIs |
 | Process | prc-trip-details | v1 | \`GET /bookings/{pnr}\`, \`GET /customers/{id}/bookings\` | both Experience APIs |
 | System | sys-pss-reservations | v1 | \`GET /pnrs/{locator}\` | Process APIs |
 | System | sys-dcs | v1 | \`POST /flights/{flight}/{date}/passengers/{id}/acceptance\`, \`POST .../seat\`, \`GET .../boarding-pass\` | prc-checkin |
@@ -86,14 +86,14 @@ An airline built **Project 1** two years ago: online check-in for its **mobile a
 **Project 2 requirement.** The airline joins a partnership: **4 partner airlines** must be able to **through-check-in** passengers on connecting itineraries. A passenger checking in on a partner's app for *Partner flight → our flight* should get the boarding pass for **our** leg too.
 
 Partner needs:
-- Check in **a specific passenger on a specific segment** (not the whole PNR) — partners only know the passengers and segments in their own booking, referenced by our PNR locator **or** by ticket number.
+- Check in **a specific passenger on a specific segment** (not the whole PNR). Partners only know the passengers and segments in their own booking, referenced by our PNR locator **or** by ticket number.
 - Send **travel document data (APIS)** they already collected, so the passenger isn't asked again.
 - Receive the boarding pass as **IATA BCBP** barcode data plus structured fields; ours today returns only an opaque \`barcode\` image string.
 - Expected volume: ~30,000 check-ins/day from partners; each partner is a separate company with its own SLA and security review.
 
 Also: the mobile team wants per-passenger check-in too ("check in only me, not my colleague").
 
-- The DCS takes about 40 calls a second. The mobile app sends 15 check-ins a second at peak, partners about 5, and a partner with a bug could send 100.
+- The DCS takes about 40 calls a second. The mobile app sends 15 check-ins a second at peak, partners about 5, and a partner with a bug could send 100. Partners together may send at most 20 check-ins a second (more gets 429), the DCS must never get more than 40 calls a second, and mobile check-ins must keep working. Callers without a registered partner client ID must be refused.
 
 **Questions:**
 1. Which APIs are **reused as-is**, which are **new**, and which **change**?
@@ -114,27 +114,27 @@ Also: the mobile team wants per-passenger check-in too ("check in only me, not m
 ## External-consumer security and NFRs
 `,
   keyPoints: [
-    'New: exp-partner-checkin (B2B contract, OAuth client per partner, mTLS) — the only new Experience API; partners never touch Process APIs directly.',
+    'New: exp-partner-checkin (B2B contract, OAuth client per partner, mTLS), the only new Experience API; partners never touch Process APIs directly.',
     'prc-checkin needs per-passenger/per-segment check-in, APIS data input and structured BCBP output; the resource model change (and response structure change) is breaking → prc-checkin v2 deployed alongside v1.',
     'sys-dcs gains BCBP data retrieval as an additive operation (v1.x minor); sys-pss-reservations gains lookup by ticket number (additive, minor); sys-apis-submission is reused as-is.',
     'prc-trip-details, sys-loyalty, exp-kiosk-checkin are reused unchanged; exp-mobile-checkin migrates to prc-checkin v2 to get per-passenger check-in.',
     'Rollout: v1 and v2 run in parallel, consumers migrate at their own pace, v1 deprecated in Exchange with a sunset date, tracked via API Manager analytics of who still calls v1.',
-    'Partner scoping: a partner may only check in passengers holding a ticket/segment marketed or operated within the partnership agreement — enforced in prc-checkin v2, not in the Experience API alone.',
+    'Partner scoping: a partner may only check in passengers holding a ticket/segment marketed or operated within the partnership agreement. This is enforced in prc-checkin v2, not in the Experience API alone.',
   ],
   solution: `
 **Classification**
 
 | API | Project 2 status | Change type | Reason |
 |---|---|---|---|
-| **exp-partner-checkin** | **NEW** (v1) | — | External B2B contract for partners |
+| **exp-partner-checkin** | **NEW** (v1) | New | External B2B contract for partners |
 | exp-mobile-checkin | Changed | **minor** (v1.1, new optional resource) | Adds \`POST /me/trips/{pnr}/passengers/{paxId}/checkin\`, internally moves to prc-checkin v2 |
-| exp-kiosk-checkin | Reused as-is | — | Stays on prc-checkin v1 until kiosk release cycle (slow, hardware certified) |
+| exp-kiosk-checkin | Reused as-is | None | Stays on prc-checkin v1 until kiosk release cycle (slow, hardware certified) |
 | **prc-checkin** | Changed | **MAJOR → v2** | New resource model (passenger × segment), new request body (APIS data), new response structure (BCBP fields); old clients would break |
-| prc-trip-details | Reused as-is | — | — |
+| prc-trip-details | Reused as-is | None | No new needs |
 | sys-pss-reservations | Changed | minor (v1.1) | Additive: \`GET /tickets/{ticketNo}\` → PNR + passenger + segments |
 | sys-dcs | Changed | minor (v1.1) | Additive: \`GET .../boarding-pass?format=bcbp\` returns BCBP string + fields |
-| sys-apis-submission | Reused as-is | — | Already accepts passenger document data |
-| sys-loyalty | Reused as-is | — | — |
+| sys-apis-submission | Reused as-is | None | Already accepts passenger document data |
+| sys-loyalty | Reused as-is | None | No new needs |
 
 **prc-checkin v2 resources**
 - \`POST /checkins\` body: \`{ pnr | ticketNumber, passengers: [{ paxRef, segments: [...], travelDocument? }], channel, partnerCode? }\`
@@ -160,9 +160,9 @@ Also: the mobile team wants per-passenger check-in too ("check in only me, not m
 1. Publish prc-checkin **v2** spec in Exchange (new asset major version), implement, deploy alongside v1 (separate API instance in API Manager, base path \`/v2\`).
 2. Mobile and the new partner API consume v2 from day one; kiosks remain on v1.
 3. Mark v1 **deprecated** in Exchange/API Manager with a sunset date; API Manager analytics shows remaining v1 client apps; v1 removed after kiosks migrate.
-4. Minor changes (sys-dcs, sys-pss-reservations v1.1) are additive and deployed in place — existing consumers unaffected.
+4. Minor changes (sys-dcs, sys-pss-reservations v1.1) are additive and deployed in place, so existing consumers are unaffected.
 
-**Sequence — partner through-check-in (Partner flight PX123 → our flight XY456)**
+**Sequence: partner through-check-in (Partner flight PX123 → our flight XY456)**
 1. Partner DCS/app → exp-partner-checkin \`POST /v1/through-checkins\` with ticket number, passenger, our segment, travel document data. Policies: Client ID enforcement, JWT validation, mTLS, SLA-based rate limit per partner.
 2. exp-partner-checkin maps the partner contract → prc-checkin v2 \`POST /checkins { ticketNumber, passengers, partnerCode }\`.
 3. prc-checkin v2 → sys-pss-reservations \`GET /tickets/{ticketNo}\`: find PNR and segment; **verify the partner may act on this segment** (partnership agreement table: carrier codes, codeshare/interline rules) and that the ticket is valid for travel.
@@ -180,8 +180,8 @@ Also: the mobile team wants per-passenger check-in too ("check in only me, not m
 `,
   followUps: [
     { q: 'Could you avoid a major version by adding the new fields to prc-checkin v1?', a: 'Adding optional response fields would be minor, but changing the resource from whole-PNR check-in to passenger × segment and the response structure changes semantics for existing clients. If v1 behaviour cannot stay identical for old clients, it is a major version.' },
-    { q: 'Why not let partners call prc-checkin v2 directly — it already has the right resources?', a: 'Process APIs are internal contracts that evolve with the business. Partners need a stable, separately secured and documented contract; the Experience API absorbs partner-specific mapping and protects internal APIs from external change requests.' },
+    { q: 'Why not let partners call prc-checkin v2 directly, since it already has the right resources?', a: 'Process APIs are internal contracts that evolve with the business. Partners need a stable, separately secured and documented contract; the Experience API absorbs partner-specific mapping and protects internal APIs from external change requests.' },
     { q: 'How do you know when v1 can be retired?', a: 'API Manager analytics and contracts show which client applications still call v1; once traffic is zero (kiosks migrated) after the announced sunset date, the v1 instance is removed and the Exchange version marked deprecated/removed.' },
-    { q: 'What about partners that only speak IATA EDIFACT (IATCI)?', a: 'Add another Experience-layer adapter that translates IATCI messages to the same prc-checkin v2 call — the Process and System layers stay unchanged, which is exactly the reuse API-led aims for.' },
+    { q: 'What about partners that only speak IATA EDIFACT (IATCI)?', a: 'Add another Experience-layer adapter that translates IATCI messages to the same prc-checkin v2 call. The Process and System layers stay unchanged, which is exactly the reuse API-led aims for.' },
   ],
 }

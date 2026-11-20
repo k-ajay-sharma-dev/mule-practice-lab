@@ -80,6 +80,7 @@ export default {
 - The ERP must not receive more than ~20 requests per second.
 - Dealers use about five different DMS vendors.
 - Dealers check stock about 40 times a second, and a DMS with a bug can push that to 400. The logistics system takes about 30 requests a second.
+- A short-lived stock cache answers about 8 in 10 reads. Put a rate limit of about 100 requests a second on the gateway, so the cache misses stay under the logistics limit.
 
 **Your task.** Propose the APIs, security and onboarding approach.
 `,
@@ -98,7 +99,7 @@ export default {
     'Each dealer (or DMS vendor) gets its own client application/credentials, so access can be tracked and revoked per dealer.',
     'API Manager policies: client ID enforcement or OAuth 2.0, plus SLA-based rate limiting per client.',
     'Stock queries are cached (short TTL) or served from a periodically refreshed read store so the ERP stays under its request limit.',
-    'Dealers can only see/order for their own dealer code — enforced in the API, not just trusted from the request.',
+    'Dealers can only see/order for their own dealer code. This is enforced in the API, not trusted from the request.',
     'API specs and docs are published to an Exchange portal so DMS vendors can self-serve and test against a mock or sandbox.',
   ],
   solution: `

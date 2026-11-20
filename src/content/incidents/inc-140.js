@@ -10,10 +10,10 @@ export default {
       { text: '2026-10-13 13:58:41 INFO  [runtime] exp-card-settlement: status RUNNING, 3 replicas STARTED', relevant: false },
       { text: '2026-10-13 14:02:10 INFO  [audit] private space prod-payments: TLS context b2b-partners created, truststore added, user m.okafor', relevant: true, why: 'The only change in the space. It is for a different domain, and the failures begin straight after it.' },
       { text: '2026-10-13 14:02:55 INFO  [exp-b2b-orders] GET /health 200 (3 ms) client verified CN=partner-qa', relevant: false },
-      { text: '2026-10-13 14:03:18 ERROR [legacy-gateway] TLS handshake with settle.example-bank.com:443 failed: received fatal alert: unrecognized_name', relevant: true, why: 'The handshake fails before any HTTP request. Unrecognized name is the alert the docs give for a connection without SNI.' },
+      { text: '2026-10-13 14:03:18 ERROR [legacy-gateway] TLS handshake with settle.bank.example.com:443 failed: received fatal alert: unrecognized_name', relevant: true, why: 'The handshake fails before any HTTP request. Unrecognized name is the alert the docs give for a connection without SNI.' },
       { text: '2026-10-13 14:03:19 INFO  [exp-card-settlement] POST /v1/settlements 200 (88 ms) client=acquirer-two', relevant: true, why: 'Another client of the same app on the same domain still succeeds, so the app and the certificate are healthy.' },
-      { text: '2026-10-13 14:11:40 INFO  [noc] openssl s_client -connect settle.example-bank.com:443 -servername settle.example-bank.com: Verify return code 0', relevant: true, why: 'With SNI, the handshake works.' },
-      { text: '2026-10-13 14:12:02 ERROR [noc] openssl s_client -connect settle.example-bank.com:443 -noservername: alert unrecognized name', relevant: true, why: 'Without SNI, the same host fails. This one difference reproduces the fault.' },
+      { text: '2026-10-13 14:11:40 INFO  [noc] openssl s_client -connect settle.bank.example.com:443 -servername settle.bank.example.com: Verify return code 0', relevant: true, why: 'With SNI, the handshake works.' },
+      { text: '2026-10-13 14:12:02 ERROR [noc] openssl s_client -connect settle.bank.example.com:443 -noservername: alert unrecognized name', relevant: true, why: 'Without SNI, the same host fails. This one difference reproduces the fault.' },
       { text: '2026-10-13 14:15:00 INFO  [scheduler] settlement-file job completed, 18,204 records', relevant: false },
       { text: '2026-10-13 14:20:31 INFO  [monitoring] exp-card-settlement CPU 21%, heap 44%, no restarts', relevant: false },
     ],
@@ -22,10 +22,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause?',
         options: [
-          'At least one custom domain in the private space now uses a truststore, so CloudHub 2.0 rejects TLS connections without SNI, and the legacy gateway does not send SNI',
-          'The certificate for `settle.example-bank.com` expired at 14:02',
-          'The new TLS context replaced the certificate of the settlement domain',
-          'The new truststore does not contain the certificate of the legacy gateway, so client authentication failed on the settlement domain',
+          'A truststore in the space makes CloudHub 2.0 refuse connections without SNI, which the gateway never sends',
+          'The certificate for `settle.bank.example.com` expired at 14:02, at the same moment as the change',
+          'The new TLS context replaced the certificate of the settlement domain with the b2b certificate',
+          'The new truststore lacks the legacy gateway’s certificate, so client authentication fails',
         ],
         answer: 0,
         explain: 'The rule applies to the private space, not to one context. A space with no truststore accepts a connection that omits SNI, and once any custom domain uses a truststore, such connections fail with the alert `unrecognized name`.',
@@ -34,22 +34,22 @@ export default {
         type: 'single',
         prompt: 'Which evidence best separates this from a certificate or application fault?',
         options: [
-          'The same host fails with `-noservername` and works with `-servername`, and another client of the same app keeps working',
-          'CPU is at 21%',
-          'The settlement file job completed',
-          'The health check of `exp-b2b-orders` passed',
+          'The host fails with `-noservername` and works with `-servername`',
+          'CPU is at 21% with no restarts, so the app itself is healthy',
+          'The 14:15 settlement-file job completed with 18,204 records',
+          'The `exp-b2b-orders` health check passed with a verified client',
         ],
         answer: 0,
-        explain: 'A controlled test that changes only SNI proves the variable. An expired certificate would fail with or without SNI, and for all clients.',
+        explain: 'A controlled test that changes only SNI proves the variable. An expired certificate would fail with or without SNI, and for all clients. Another client of the same app still working supports this. The other facts show the app is healthy, but not why the handshake fails.',
       },
       {
         type: 'single',
         prompt: 'Settlement files are due at 16:00 and the partner cannot change its gateway today. What is the safest immediate action?',
         options: [
-          'Remove the truststore from the new context, or postpone that go-live, so that no custom domain in the space uses a truststore, and confirm the legacy gateway can connect',
-          'Add the certificate of the legacy gateway to the new truststore',
-          'Enable Last-Mile Security on `exp-card-settlement`',
-          'Restart all replicas of `exp-card-settlement`',
+          'Remove the truststore from the new context for now, then retest the gateway',
+          'Add the legacy gateway’s certificate to the new b2b-partners truststore',
+          'Enable Last-Mile Security on `exp-card-settlement` and redeploy the app',
+          'Restart all replicas of `exp-card-settlement`, so the ingress reloads',
         ],
         answer: 0,
         explain: 'The docs state that a private space that does not use a truststore still accepts a connection without SNI. The trade-off is a delay for the mTLS project, which has not gone live. Adding a certificate does not help, because the client never sends a hostname.',
@@ -59,10 +59,10 @@ export default {
         prompt: 'Which belong in the permanent fix and prevention?',
         options: [
           'The partner upgrades its gateway to send the application hostname in the SNI extension',
-          'If a client truly cannot send SNI, keep its traffic in a private space that does not use a truststore, and put mTLS domains elsewhere',
+          'If a client cannot send SNI, serve it from a private space with no truststore',
           'Test all existing clients with `-noservername` before adding a truststore to any custom domain',
           'Treat TLS context changes as changes to the whole private space in change control',
-          'Change the read-response timeout to 3600 seconds',
+          'Raise the ingress read-response timeout to 3600 seconds for slow legacy clients',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Long term, every client should send SNI, which is what the docs ask for. The read-response timeout has nothing to do with a failed handshake.',
@@ -83,22 +83,22 @@ export default {
   },
   description: `
 ## Symptoms
-- Tuesday 14:03: \`legacy-gateway\`, an acquirer's old payment appliance, can no longer reach \`settle.example-bank.com\`. Its logs show a fatal TLS alert.
+- Tuesday 14:03: \`legacy-gateway\`, an acquirer's old payment appliance, can no longer reach \`settle.bank.example.com\`. Its logs show a fatal TLS alert.
 - Other clients of the same API work normally. Runtime Manager shows \`exp-card-settlement\` as RUNNING with 3 replicas, and no requests from the appliance reach the app.
 - The acquirer must deliver settlement files by 16:00.
 
 ## Change / Context
-- Private space \`prod-payments\` has served \`settle.example-bank.com\` for two years with a custom TLS context that has **no truststore**.
-- At 14:02 another team added a new TLS context for \`b2b.example-bank.com\`, with a **truststore** for mutual TLS. This is for a different domain and a different app, so no one told the settlement team.
+- Private space \`prod-payments\` has served \`settle.bank.example.com\` for two years with a custom TLS context that has **no truststore**.
+- At 14:02 another team added a new TLS context for \`b2b.bank.example.com\`, with a **truststore** for mutual TLS. This is for a different domain and a different app, so no one told the settlement team.
 - The legacy appliance connects with an older TLS stack that does not send Server Name Indication (SNI). The vendor offers no quick update.
 
 ## Logs
 \`\`\`
 14:02:10 INFO  [audit] private space prod-payments: TLS context b2b-partners created, truststore added
-14:03:18 ERROR [legacy-gateway] TLS handshake with settle.example-bank.com:443 failed:
+14:03:18 ERROR [legacy-gateway] TLS handshake with settle.bank.example.com:443 failed:
          received fatal alert: unrecognized_name
 14:03:19 INFO  [exp-card-settlement] POST /v1/settlements 200 (88 ms) client=acquirer-two
-14:11:40 INFO  [noc] openssl s_client ... -servername settle.example-bank.com: Verify return code 0
+14:11:40 INFO  [noc] openssl s_client ... -servername settle.bank.example.com: Verify return code 0
 14:12:02 ERROR [noc] openssl s_client ... -noservername: alert unrecognized name
 \`\`\`
 

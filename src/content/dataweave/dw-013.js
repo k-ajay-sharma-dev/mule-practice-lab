@@ -10,10 +10,10 @@ The invoice PDF generator does no formatting of its own: it prints exactly the s
 
 For each line in \`payload.lines\` (keep the input order) output:
 
-- \`item\` — copied as-is
-- \`qty\` — copied as-is (a number)
-- \`unitPrice\` — formatted as a **string** with a comma thousands separator and **exactly 2 decimals**, e.g. \`1250\` → \`"1,250.00"\`
-- \`lineTotal\` — \`qty × unitPrice\`, formatted the same way
+- \`item\`: copied as-is
+- \`qty\`: copied as-is (a number)
+- \`unitPrice\`: formatted as a **string** with a comma thousands separator and **exactly 2 decimals**, e.g. \`1250\` → \`"1,250.00"\`
+- \`lineTotal\`: \`qty × unitPrice\`, formatted the same way
 
 Then add a top-level \`total\`: the sum of all line totals, formatted the same way. Output shape: \`{ "lines": [...], "total": "..." }\`.
 
@@ -50,8 +50,8 @@ payload
 `,
   hints: [
     '`n as String {format: "#,##0.00"}` uses Java DecimalFormat patterns: `,` is the grouping separator, `0` forces a digit.',
-    'Compute the totals as **numbers** first and format only at the very end — you cannot add formatted strings.',
-    'On an empty array, `lines.x` gives `null`; `sum(... default [])` keeps the total at `0`.',
+    'Compute the totals as **numbers** first and format only at the very end. You cannot add formatted strings.',
+    '`map` on an empty array gives `[]`, and `sum([])` is `0`, so an invoice with no lines needs no special case.',
   ],
   solution: `%dw 2.0
 output application/json

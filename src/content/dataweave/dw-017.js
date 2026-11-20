@@ -64,11 +64,11 @@ output application/json
 The order of operations is the whole exercise: **normalize → filter → deduplicate**.
 
 - Deduplicating on the raw email misses \`"Asha.Rao@Example.com "\` vs \`"asha.rao@example.com"\`.
-- Deduplicating before filtering keeps one blank contact (it is "distinct" from the real emails) — and if a blank record came first, it would be the one kept.
+- Deduplicating before filtering keeps one blank contact (it is "distinct" from the real emails). If a blank record came first, it would be the one kept.
 
 \`distinctBy\` keeps the first occurrence and the original order, so no sorting is needed.
 
-**Syntax trap:** the parentheses around \`payload map (c) -> {...}\` are required. A lambda body extends as far right as possible, so without them \`filter\` would be applied inside the lambda to each single object — and fail.
+**Syntax trap:** the parentheses around \`payload map (c) -> {...}\` are required. A lambda body extends as far right as possible, so without them \`filter\` would be applied inside the lambda to each single object and fail.
 `,
   tests: [
     {
@@ -97,7 +97,7 @@ The order of operations is the whole exercise: **normalize → filter → dedupl
       a: 'Sort by source priority first (e.g. `orderBy (if ($.source == "CRM") 0 else 1)`), then `distinctBy`. Or `groupBy $.email` and pick the preferred record from each group.',
     },
     {
-      q: 'How is `distinctBy` different from `distinctBy $` on a whole object?',
+      q: 'How is `distinctBy $.email` different from `distinctBy $` on a whole object?',
       a: '`distinctBy $` compares entire items, so two records with the same email but different names are both kept. Using a key expression like `$.email` defines what "duplicate" means.',
     },
   ],

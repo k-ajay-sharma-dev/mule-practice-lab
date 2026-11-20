@@ -96,6 +96,11 @@ The company's mail relay answers **421 try again later** (a 4xx reply) when it i
 - When it fails, add 1 to \`attempts\` and set \`next_try_at\` later each time: 1, 2, 4, then 8 minutes from now.
 - When the fifth try fails, set \`FAILED\` with an ERROR log, and stop trying that email.
 
+**Facts**
+- Pass now as \`yyyy-MM-ddTHH:mm:ss\` text and compare it with \`next_try_at <= :now\`. In the tests now is 2026-11-13T10:00:00.
+- Count the fifth try too: a \`FAILED\` email ends with \`attempts\` 5.
+- The ERROR log names the email as \`email <id>\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Choosing what to send

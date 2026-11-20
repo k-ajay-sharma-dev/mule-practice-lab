@@ -20,7 +20,7 @@ Larkfield Grocers runs an SFTP hub. Each distribution center sends plan confirma
 
 **Per sender**, sort the candidates by sequence. Those that continue without a gap from the last loaded sequence go to \`process\`. The rest go to \`hold\`, since a missing file must come first. \`missing\` lists the sequence numbers between the last loaded one and the highest candidate that have no candidate file. An empty file does not fill its number.
 
-Output one entry per sender found in the listing, sorted by sender, with \`sender\`, \`lastSeq\`, \`process\`, \`hold\`, \`missing\`, \`duplicates\`, \`conflicts\` and \`rejected\`. The path lists keep sequence order for \`process\` and \`hold\` and listing order for the others.
+\`missing\` holds numbers (such as \`125\`), in ascending order. Output a list with one entry per sender found in the listing, sorted by sender as text, with \`sender\`, \`lastSeq\`, \`process\`, \`hold\`, \`missing\`, \`duplicates\`, \`conflicts\` and \`rejected\`. The path lists keep sequence order for \`process\` and \`hold\` and listing order for the others, and are empty lists when nothing applies.
 `,
   inputs: [
     {

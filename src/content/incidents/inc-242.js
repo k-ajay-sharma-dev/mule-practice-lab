@@ -19,9 +19,9 @@ export default {
         prompt: "What went wrong?",
         options: [
           "Mule wrote straight to the final name so the platform saw an incomplete file",
-          "The platform is slow",
-          "The file is too large",
-          "The encoding is wrong",
+          "The platform import has a row limit and stopped at 210400 rows",
+          "The 812 MB file is above the SFTP server’s file size limit",
+          "The file encoding changed, so the platform stopped at a bad row",
         ],
         answer: 0,
         explain: "The reader cannot tell a growing file from a finished one.",
@@ -31,9 +31,9 @@ export default {
         prompt: "How should Mule write the file?",
         options: [
           "Write to a temp name such as .tmp, then rename to the final name",
-          "Write it twice",
-          "Write it slower",
-          "Zip it",
+          "Write the final name, then write it again to be sure",
+          "Upload earlier at night so the import never overlaps",
+          "Zip the file so the upload ends before the next poll",
         ],
         answer: 0,
         explain: "The platform only sees the final name when complete.",
@@ -45,7 +45,7 @@ export default {
           "A trailer with the row count",
           "A control file written last",
           "A checksum in the control file",
-          "A comment in the log",
+          "An INFO line in the Mule log",
         ],
         answer: [0,1,2],
         explain: "The receiver can verify completeness.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Which SFTP operation finishes the write?",
         options: [
-          "rename, or move, within the same server",
-          "copy",
-          "delete",
-          "list",
+          "A rename or move on the same server",
+          "A copy from the temp name to the final name",
+          "A second write that appends the trailer",
+          "A list of the folder to check the size",
         ],
         answer: 0,
         explain: "A rename on the same server is quick and atomic.",
@@ -78,7 +78,7 @@ export default {
   },
   description: `
 ## Symptoms
-- Item master import in the planning platform is missing a quarter of items.
+- Item master import in the planning platform is missing most of the items.
 
 ## Change / Context
 - Mule uploads the nightly item file to the platform’s SFTP folder. The platform polls that folder.

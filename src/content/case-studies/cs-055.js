@@ -93,6 +93,8 @@ export default {
 
 The plants send about 20 lot events a second and 200 a second at shift change. A recall sends about 5 notices a second, and a retailer portal can be down for 30 minutes.
 
+Publish lot events to a \`lot-events\` stream and recall notices to a \`recall-notices\` topic. A subscription redelivers a failed message about once a minute, so its redelivery limit must cover a 30 minute portal outage, or be left unlimited. Name the APIs exp-recall-console-api, prc-lot-genealogy, prc-recall-api, sys-trace-store-api, sys-sap-batch-api, sys-wms-api and sys-customer-edi-api. Give prc-lot-genealogy and sys-trace-store-api 0.5 vCore each for the shift-change burst.
+
 **Your task.** Design:
 - the traceability data flow
 - the recall process
@@ -119,9 +121,9 @@ The plants send about 20 lot events a second and 200 a second at shift change. A
   ],
   solution: `
 **Phases**
-1. **Capture (months 1–3).** MES writes consumption/production events to a JMS queue (or an outbound table read by a \`db:listener\` with a watermark column). SAP batch and delivery events via IDocs; WMS shipment confirmations via its event feed. All are mapped to a common \`LotEvent\` (lot, parent lot, quantity, location, time, source) and published to \`lot-events\`.
-2. **Store and query (months 3–5).** \`prc-lot-genealogy\` validates and de-duplicates (source + event ID) and calls \`sys-trace-store-api\`. That API writes links into an Oracle traceability store with indexes for both directions (hierarchical queries with \`CONNECT BY\` or recursive \`WITH\`). Back-fill two years of history from SAP and MES extracts.
-3. **Recall (months 5–7).** \`exp-recall-console-api\` → \`prc-recall-api\`: run the trace, show affected batches, customers and stock positions, and on approval block batches in SAP, publish a \`RecallNotice\` to the \`recall-notices\` topic. Subscribers place WMS holds and send customer notices (EDI, portal or email) with lot lists. Customer acknowledgements are tracked.
+1. **Capture (months 1 to 3).** MES writes consumption/production events to a JMS queue (or an outbound table read by a \`db:listener\` with a watermark column). SAP batch and delivery events via IDocs; WMS shipment confirmations via its event feed. All are mapped to a common \`LotEvent\` (lot, parent lot, quantity, location, time, source) and published to \`lot-events\`.
+2. **Store and query (months 3 to 5).** \`prc-lot-genealogy\` validates and de-duplicates (source + event ID) and calls \`sys-trace-store-api\`. That API writes links into an Oracle traceability store with indexes for both directions (hierarchical queries with \`CONNECT BY\` or recursive \`WITH\`). Back-fill two years of history from SAP and MES extracts.
+3. **Recall (months 5 to 7).** \`exp-recall-console-api\` → \`prc-recall-api\`: run the trace, show affected batches, customers and stock positions, and on approval block batches in SAP, publish a \`RecallNotice\` to the \`recall-notices\` topic. Subscribers place WMS holds through \`sys-wms-api\` and send customer notices (EDI, portal or email) with lot lists through \`sys-customer-edi-api\`. If a retailer portal is down, the notice stays on its subscription and is retried until the portal is back. Customer acknowledgements are tracked.
 4. **Prove it (ongoing).** Quarterly mock recalls with a timer, results reported to QA leadership.
 
 **Architecture.** Event-driven capture, API-led access. Nothing queries MES or WMS live during a recall; the store already has the links.

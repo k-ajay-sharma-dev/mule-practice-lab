@@ -1,5 +1,8 @@
 import { diagram } from '../../arch/dsl.js'
 
+// The WMS may be drawn as a legacy box or as a warehouse system.
+const WMS = { type: ['legacy', 'wms'] }
+
 export default {
   id: 'ar-059',
   category: 'architecture',
@@ -55,23 +58,23 @@ export default {
     simulation: {
       systems: [
         { match: 'erp', latencyMs: 400 },
-        { match: 'legacy', latencyMs: 300 },
+        { match: WMS, latencyMs: 300 },
         { match: 'saas', latencyMs: 2000, maxRps: 150 },
       ],
       tests: [
         {
           name: 'Orders at peak',
           about: 'The web shop places 60 orders a second for ten minutes. Each order is answered in under a second, and both the warehouse and the loyalty platform get every order.',
-          traffic: [{ name: 'orders', from: 'web-app', rps: 60, kind: 'write', to: ['erp', 'legacy', 'saas'] }],
+          traffic: [{ name: 'orders', from: 'web-app', rps: 60, kind: 'write', to: ['erp', WMS, 'saas'] }],
           expect: {
             answers: [{ minSuccess: 0.99, maxMs: 1000 }],
-            delivered: [{ to: 'legacy', min: 0.97 }, { to: 'saas', min: 0.97 }],
+            delivered: [{ to: WMS, min: 0.97 }, { to: 'saas', min: 0.97 }],
           },
         },
         {
           name: 'Loyalty is down and the broker restarts',
           about: 'The loyalty platform is down from minute 3 to minute 8, and the broker restarts at minute 6. Orders are still taken, no loyalty message is lost, and the backlog is gone by minute 20.',
-          traffic: [{ name: 'orders', from: 'web-app', rps: 60, kind: 'write', to: ['erp', 'legacy', 'saas'] }],
+          traffic: [{ name: 'orders', from: 'web-app', rps: 60, kind: 'write', to: ['erp', WMS, 'saas'] }],
           incidents: [{ down: 'saas', at: 3, forMin: 5 }, { restart: ['queue', 'topic'], at: 6 }],
           durationMin: 20,
           expect: {
@@ -100,7 +103,7 @@ Numbers to design for:
 - At peak the web shop places 60 orders a second.
 - SAP creates an order in about 400 ms and the WMS answers in 300 ms. The loyalty platform takes about 2 s per call and takes at most 150 calls a second.
 - The order POST must answer in under a second, even when the loyalty platform is down for several minutes.
-- No loyalty or warehouse message may be lost, even if the broker restarts while messages wait.
+- No loyalty or warehouse message may be lost, even if the broker restarts while messages wait. A queued message that fails is redelivered about once a minute.
 
 **Questions:**
 1. Redesign order creation using events. Which layer **publishes** and which layers **subscribe**?
@@ -141,7 +144,7 @@ exp-*  --POST /orders-->  prc-order-api --> sys-sap-order-api  (sync: must succe
 \`\`\`
 - \`prc-order-api\` does the **must-be-synchronous** part (validate, create in SAP), returns **201** in ~500 ms, and publishes \`OrderCreated\`.
 - With Anypoint MQ: publish to a **message exchange** bound to one **queue per subscriber**, so each consumer has independent pace, retries and a **DLQ**. (Kafka or another broker works the same conceptually with topics and consumer groups.)
-- Loyalty being down no longer fails orders; its queue simply builds up and drains later.
+- Loyalty being down no longer fails orders; its queue builds up and drains later.
 - To avoid "SAP order created but event lost", use the **transactional outbox** or publish with reliable retries; consumers are idempotent.
 - Fraud scoring: if fraud must *block* the order, it is part of the synchronous command (or the order is created in a "pending" state and the event-driven flow approves/rejects it).
 
@@ -152,8 +155,8 @@ exp-*  --POST /orders-->  prc-order-api --> sys-sap-order-api  (sync: must succe
 - Layers still apply: System hides the SoR's change mechanism; Process owns business meaning and routing.
 
 **Event design and documentation.**
-- **Thin** event (\`orderId\`, \`eventType\`, \`occurredAt\`) — consumers call back \`GET /orders/{id}\`: always current data, but load on the API and coupling at read time.
-- **Fat** event (full order snapshot) — consumers are autonomous, but payload/PII and schema evolution concerns.
+- **Thin** event (\`orderId\`, \`eventType\`, \`occurredAt\`): consumers call back \`GET /orders/{id}\`: always current data, but load on the API and coupling at read time.
+- **Fat** event (full order snapshot): consumers are autonomous, but payload/PII and schema evolution concerns.
 - Common compromise: business-relevant fields + id; include an \`eventId\`, \`correlationId\`, \`schemaVersion\`.
 - Document with **AsyncAPI** specs published to Exchange (alongside RAML/OAS) so events are discoverable and reused like APIs.
 

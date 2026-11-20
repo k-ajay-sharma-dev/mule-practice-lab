@@ -14,7 +14,7 @@ Output one object per visitor, sorted by \`visitor\`, with a \`sessions\` list i
 
 - \`start\` and \`end\`: the \`at\` values of its first and last view, as they arrived
 - \`pages\`: how many views it holds
-- \`minutes\`: whole minutes from \`start\` to \`end\`
+- \`minutes\`: whole minutes from \`start\` to \`end\` (every \`at\` value falls on a whole minute)
 
 A DateTime turns into epoch seconds with \`as Number\`, which makes gaps a matter of subtraction.
 `,

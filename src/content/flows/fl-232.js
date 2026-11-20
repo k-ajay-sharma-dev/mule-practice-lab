@@ -136,6 +136,11 @@ which checks each row, moves the good ones into \`store_sales\` and marks the ba
 - Staging and the apply are all or nothing. If either fails, nothing is left in staging, no ACK goes out, and the notification goes back to the queue.
 - Then publish \`{ messageId, batchNo, applied, rejected }\` to \`STORE.SALES.ACK\`.
 
+**Facts**
+- The listener's ack mode is AUTO. Do not catch errors: a failed run then returns the notification to the queue.
+- Name the procedure parameters as it does: \`p_batch_no\`, \`p_applied\`, \`p_rejected\`. The result holds the outputs under those names.
+- Map \`store\` to \`store_id\` and \`businessDate\` to \`business_date\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The claim check

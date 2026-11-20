@@ -102,7 +102,7 @@ Facts:
 ## Consistency and failure handling
 `,
   keyPoints: [
-    'A return record (RMA) with a state machine (Requested → LabelIssued → Received → Inspected → Refunded/Rejected) owned by one system — D365 or a Returns Process API store.',
+    'A return record (RMA) with a state machine (Requested → LabelIssued → Received → Inspected → Refunded/Rejected) owned by one system: D365 or a Returns Process API store.',
     'Inspection CSV picked up from SFTP, validated, split per return line, and processed idempotently (file name + line or RMA + line as key; files archived after processing).',
     'Refund amount calculated from inspected-OK lines only, using original paid prices (discounts, shipping rules) and never above the remaining refundable amount.',
     'Refund call uses an idempotency key per RMA/refund attempt and checks the remaining refundable amount on the order before issuing.',
@@ -111,7 +111,7 @@ Facts:
   solution: `
 **Process and ownership.** Create a **Returns Process API** that orchestrates the steps and keeps the **RMA state**. Alternatively, it uses D365 return orders as the system of record if the business already works there. States: *Requested → LabelIssued → InTransit → Received → Inspected → Refunded / PartiallyRefunded / Rejected*. Each step publishes an event (Anypoint MQ) so Shopify status, customer emails and reporting can follow.
 
-**Return creation.** The Shopify return request (app/webhook or a custom returns page) calls \`POST /returns\`: validate the order is within 30 days and the items were delivered and not already returned. Then create the RMA in D365 (return order), request a return label from the carrier API, and email it to the customer. Store the mapping Shopify order ↔ D365 sales order ↔ RMA.
+**Return creation.** The Shopify return request (app/webhook or a custom returns page) calls \`POST /returns\`: validate the order is within 30 days and the items were delivered and not already returned. Then create the RMA in D365 (return order) and request a return label from the carrier API **in parallel** (Scatter-Gather), so the slowest call (about 1.5 s) sets the time, not the sum of 2.3 s. Email the label to the customer. Store the mapping Shopify order ↔ D365 sales order ↔ RMA.
 
 **Inspection files.** An SFTP listener (or scheduled poll) picks up the 3PL CSV every 2 hours:
 - Move the file to a *processing* folder, parse it with DataWeave, validate (known RMA, known SKU, quantity ≤ returned quantity).
@@ -125,7 +125,7 @@ Facts:
 - **Store credit:** issue a Shopify gift card for amount × 1.10.
 - Then create the **credit note** in D365 referencing the original invoice, and post stock movements (OK items back to sellable stock, damaged to a quarantine location).
 
-**Consistency and failure handling.** This is a small **saga**: each step is idempotent and its result stored in the RMA record, so a failed step can be retried without repeating completed ones. The refund to the customer is the critical step for satisfaction; if D365 is down, the credit note is retried later from a queue. Nothing is "compensated" by refunding twice — the RMA state guards it. A **daily reconciliation** compares refunds in the payment provider/Shopify with credit notes in D365 and lists differences to finance. Dashboards show RMAs stuck in a state beyond SLA (e.g. *Received* but not refunded after 48 hours) — directly addressing the 3-week complaint.
+**Consistency and failure handling.** This is a small **saga**: each step is idempotent and its result stored in the RMA record, so a failed step can be retried without repeating completed ones. The refund to the customer is the critical step for satisfaction; if D365 is down, the credit note is retried later from a queue. Nothing is "compensated" by refunding twice: the RMA state guards it. A **daily reconciliation** compares refunds in the payment provider/Shopify with credit notes in D365 and lists differences to finance. Dashboards show RMAs stuck in a state beyond SLA (e.g. *Received* but not refunded after 48 hours). This directly addresses the 3-week complaint.
 `,
   followUps: [
     { q: 'The 3PL sends the same CSV twice with one corrected line. What happens?', a: 'Unchanged lines are skipped by the line key; a changed result for an already refunded line is not auto-applied but sent to customer service as an exception.' },

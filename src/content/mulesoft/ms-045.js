@@ -35,7 +35,12 @@ export default {
       type: 'single',
       detail: true,
       prompt: 'How does each Mule app replica run on RTF?',
-      options: ['As a pod running the Mule runtime with the app', 'As a VM per app', 'Inside the RTF agent process', 'As a CloudHub worker'],
+      options: [
+        'As a Kubernetes pod with its own Mule runtime',
+        'As a separate VM that the agent creates per app',
+        'Inside the RTF agent process, sharing one runtime',
+        'As a CloudHub worker linked to the cluster',
+      ],
       answer: 0,
       explain: 'The agent creates the Kubernetes objects for the app in an environment-linked namespace; each replica is a pod.',
     },
@@ -45,8 +50,8 @@ export default {
       options: [
         'Object Store v2 in MuleSoft\'s cloud, with no configuration',
         'Persistence Gateway, backed by a PostgreSQL database you provide',
-        'Kubernetes snapshots it automatically',
-        'Nothing — Object Store cannot be used on RTF',
+        'A Kubernetes volume that RTF mounts by default',
+        'None, because Object Store cannot be used on RTF',
       ],
       answer: 1,
       explain: 'The docs describe Persistence Gateway as what lets apps store and share data across replicas and restarts. It keeps the data in a PostgreSQL database you create.',
@@ -59,23 +64,23 @@ export default {
         ['A node is lost', 'Kubernetes reschedules pods; ≥2 spread replicas stay available'],
         ['RTF agent down', 'Apps keep running; management operations fail until it recovers'],
       ],
-      explain: 'The runtime plane is independent of management for serving traffic — which is why a control-plane outage does not take apps down.',
+      explain: 'The runtime plane is independent of management for serving traffic. That is why a control-plane outage does not take apps down.',
     },
     {
       type: 'single',
       prompt: 'On RTF, who is responsible for the ingress controller, TLS certificates and Kubernetes/node upgrades?',
       options: [
         'MuleSoft, exactly as on CloudHub 2.0',
-        'The customer — RTF trades higher operational effort for keeping workloads in its own account',
-        'The RTF agent does all of it automatically',
-        'The cloud provider (AWS/Azure) by default',
+        'The customer, who runs the cluster and its networking',
+        'The RTF agent, which handles all of it automatically',
+        'The cloud provider (AWS/Azure), by default',
       ],
       answer: 1,
-      explain: 'On CloudHub 2.0 MuleSoft runs the infrastructure and ingress; on RTF the cluster, networking, TLS and upgrades of Kubernetes and the agent are yours.',
+      explain: 'RTF trades higher operational effort for keeping workloads in your own account. On CloudHub 2.0 MuleSoft runs the infrastructure and ingress; on RTF the cluster, networking, TLS and upgrades of Kubernetes and the agent are yours.',
     },
   ],
   description: `
-A regulated insurer must keep runtime traffic and data inside its own cloud account but wants Anypoint Platform for management. The platform team runs **Amazon EKS** (or AKS/OpenShift — your choice) and proposes **Runtime Fabric (RTF)**. The architecture review board asks:
+A regulated insurer must keep runtime traffic and data inside its own cloud account but wants Anypoint Platform for management. The platform team runs **Amazon EKS** (or AKS/OpenShift, your choice) and proposes **Runtime Fabric (RTF)**. The architecture review board asks:
 
 | Topic | Question from the board |
 |---|---|
@@ -115,7 +120,7 @@ A regulated insurer must keep runtime traffic and data inside its own cloud acco
     'Running apps keep serving if the control plane is unreachable; deployments and policy/config changes wait until connectivity returns.',
   ],
   solution: `
-**Control vs runtime plane:** Runtime Manager, API Manager, Exchange, Monitoring and Access Management run in MuleSoft's cloud (control plane). Apps, their data and their traffic stay in your cluster (runtime plane). The **RTF agent** initiates **outbound** connections to the control plane — no inbound connectivity from MuleSoft into the cluster is needed. The cluster also needs outbound access to pull Mule runtime images and app artifacts.
+**Control vs runtime plane:** Runtime Manager, API Manager, Exchange, Monitoring and Access Management run in MuleSoft's cloud (control plane). Apps, their data and their traffic stay in your cluster (runtime plane). The **RTF agent** initiates **outbound** connections to the control plane. No inbound connectivity from MuleSoft into the cluster is needed. The cluster also needs outbound access to pull Mule runtime images and app artifacts.
 
 **Components:** RTF installs into a dedicated namespace: the agent and supporting components (e.g. for resource caching, log/metric forwarding, persistence gateway). When you deploy from Runtime Manager, the agent creates the Kubernetes objects for the app in an environment-linked namespace; each **replica is a pod** running the Mule runtime with your app. RTF on your own Kubernetes (EKS/AKS/GKE/OpenShift) is the current model; the older appliance model installed on VMs/bare metal has been phased out in favour of it.
 
@@ -125,7 +130,7 @@ A regulated insurer must keep runtime traffic and data inside its own cloud acco
 
 **Ops:** you upgrade Kubernetes, nodes and the RTF agent; you pick Mule runtime versions per app. Logs/metrics go to Anypoint Monitoring (subscription dependent) and/or to your own stack (Splunk, ELK) through log forwarding.
 
-**Sizing:** each app replica declares a CPU **reserved** amount and a CPU **limit** plus memory; these become Kubernetes requests/limits. Allowing bursting above reserved CPU improves startup and peaks but risks noisy neighbours — use node pools, namespaces and quotas to isolate critical apps. Licensing consumption is generally tied to the reserved capacity; confirm the exact counting with your subscription.
+**Sizing:** each app replica declares a CPU **reserved** amount and a CPU **limit** plus memory; these become Kubernetes requests/limits. Allowing bursting above reserved CPU improves startup and peaks but risks noisy neighbours. Use node pools, namespaces and quotas to isolate critical apps. Licensing consumption is generally tied to the reserved capacity; confirm the exact counting with your subscription.
 
 **RTF vs CloudHub 2.0**
 | | RTF | CloudHub 2.0 |
@@ -147,7 +152,7 @@ A regulated insurer must keep runtime traffic and data inside its own cloud acco
     },
     {
       q: 'Can you run API gateways on RTF?',
-      a: 'Yes — Mule proxies can be deployed to RTF, and Flex Gateway can also run in Kubernetes alongside it.',
+      a: 'Yes. Mule proxies can be deployed to RTF, and Flex Gateway can also run in Kubernetes alongside it.',
     },
     {
       q: 'What breaks most often in RTF projects?',

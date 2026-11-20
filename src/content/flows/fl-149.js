@@ -122,6 +122,10 @@ The marketplace has warned the seller: more than one price update per product pe
 
 You may use a PostgreSQL table \`pending_prices\` (\`sku\` primary key, \`price\`, \`changed_at\`, \`version\`).
 
+**Facts**
+- \`changed_at\` holds the change's \`changedAt\`. \`version\` starts at 1 for a new row and goes up by one each time the row's price is replaced.
+- PostgreSQL can upsert with \`INSERT ... ON CONFLICT (sku) DO UPDATE ... WHERE ...\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Taking in changes

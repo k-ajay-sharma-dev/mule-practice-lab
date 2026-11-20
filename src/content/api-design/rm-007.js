@@ -19,7 +19,7 @@ A property is required unless its name ends with a question mark. \`cancelledOn?
   - \`status\`: required, one of \`ACTIVE\`, \`LAPSED\`, \`CANCELLED\`.
   - \`coverLevel\`: optional, one of \`BASIC\`, \`STANDARD\`, \`PREMIUM\`.
   - \`cancelledOn\`: an optional \`date-only\`, left out of the data until a policy is cancelled.
-- Write each enum on the property. If you prefer named types, call them \`PolicyStatus\` and \`CoverLevel\`.
+- You can write each enum on the property. If you prefer named types, call them \`PolicyStatus\` and \`CoverLevel\`.
 - \`GET /policies/{policyNumber}\` returns a \`Policy\` with status 200, or 404.
 `,
   starter: `#%RAML 1.0

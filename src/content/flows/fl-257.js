@@ -195,6 +195,14 @@ The portal expects ACKs on \`supplier.items.ack\`: \`RECEIVED\` as soon as a not
 - Through a Batch Job: an item with no cost fails; the others are MERGEd into staging in groups; each failed item goes to the reject table with reason \`LOAD_FAILED\`.
 - When the job ends: job row and final ACK with \`COMPLETED\`, \`PARTIAL\` or \`FAILED\` and the counts, \`msg_log\` to \`PROCESSED\`, then the email, which must never hold up or fail the rest.
 
+**Facts**
+- Status is \`COMPLETED\` when nothing failed, \`FAILED\` when nothing loaded, and \`PARTIAL\` otherwise.
+- Every ACK is JSON with \`messageId\` and \`status\`. The final ACK adds \`loaded\` and \`failed\`.
+- The WARN for a duplicate and the email subject both name the message ID.
+- The Stored Procedure result holds the new ID as \`job_id\`.
+- Download the blob from container \`inbound\` with the name in \`blobName\`.
+- In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Duplicate check and RECEIVED

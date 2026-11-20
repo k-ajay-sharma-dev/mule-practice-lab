@@ -80,8 +80,9 @@ Facts:
 - The **customer information system (CIS)** knows which premises (and customers) are connected to which node, plus contact preferences and language.
 - A storm can create **hundreds of outages in an hour**, affecting up to **300,000 customers**; ETRs may change many times.
 - SMS provider: **100 messages/second** contract limit. Email and push providers are much faster.
-- In a storm the platform can make 300 SMS updates a second for 10 minutes, and the SMS provider can be down for 20 minutes.
-- Regulation: **planned outages** must be notified **at least 48 hours** in advance; **medically vulnerable customers** (life-support register) must be phoned by the call centre, not just messaged.
+- In a storm the platform can make 300 SMS updates a second for 10 minutes. Every SMS of that wave must be sent within 45 minutes of the storm starting.
+- A long outage can make 50 SMS and 100 email updates a second for an hour, and the SMS provider can be down for 20 minutes. Emails must keep flowing while SMS is down, and no update may be lost.
+- Regulation: **planned outages** must be notified **at least 48 hours** in advance; **medically vulnerable customers** (life-support register) must be phoned by the call centre, not only messaged.
 - Customers complained about receiving 7 updates in one evening.
 
 **Describe your solution:**
@@ -127,7 +128,7 @@ The Process API expands nodes to customers in streaming pages and creates one no
 
 State per customer + outage (last message sent, last ETR) lives in a fast store (Object Store or Redis-style cache with TTL).
 
-**Channel delivery and throttling.** Notifications go to **one queue per channel**. The SMS consumer runs with fixed concurrency and a rate limit so it never exceeds 100 msg/s (≈ 360,000/hour — a full storm wave in under an hour). Use priority: restored and new-outage messages ahead of ETR updates (separate high/low queues). 429/5xx from providers → retry with backoff; permanent failures (invalid number) → mark contact invalid in CIS.
+**Channel delivery and throttling.** Notifications go to **one queue per channel**. The SMS consumer runs with fixed concurrency and a rate limit so it never exceeds 100 msg/s (about 360,000 an hour). A 10-minute wave of 300 a second is 180,000 SMS, so the last one goes out about 30 minutes after the storm starts. The SMS System API needs enough capacity to really send 100 a second (in this model 0.5 vCore), and the notification API must take the 150 updates a second of a long outage (1 vCore). Use priority: restored and new-outage messages ahead of ETR updates (separate high/low queues). 429/5xx from providers → retry with backoff; permanent failures (invalid number) → mark contact invalid in CIS.
 
 **Vulnerable customers.** Customers on the life-support register produce a **call-centre task** (CRM case or call-list API) with high priority, plus messages. **Planned outages** come from the work-management system; a daily Scheduler finds jobs starting in ≥ 48h and notifies affected customers, recording proof of notification for the regulator.
 

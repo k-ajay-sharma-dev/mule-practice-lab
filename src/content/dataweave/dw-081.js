@@ -22,7 +22,7 @@ A freight forwarder submits customs declarations to a broker as a daily file. Th
 | \`HS_CODE\` | \`hsCode\` |
 | \`DESCRIPTION\` | \`description\` |
 | \`ORIGIN\` | \`origin\` |
-| \`VALUE_EUR\` | \`value\` with exactly 2 decimals |
+| \`VALUE_EUR\` | \`value\` with exactly 2 decimals, a half rounded up (\`2.345\` gives \`2.35\`) |
 | \`DANGEROUS\` | \`Y\` when \`dangerous\` is true, otherwise \`N\` |
 | \`REMARKS\` | \`remarks\`, an empty value when it is \`null\` |
 

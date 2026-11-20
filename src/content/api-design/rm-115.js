@@ -25,7 +25,7 @@ The network has chosen **HL7 FHIR** shapes for patient data, so that new apps ca
 - \`Bundle\` has a required \`type\` whose only value is \`searchset\`, a required integer \`total\` of at least 0, and an optional \`entry\` of type \`BundleEntry[]\`. \`BundleEntry\` has a required \`resource\` of type \`Patient\`.
 - \`OperationOutcome\` has a required \`issue\` of type \`Issue[]\`. \`Issue\` has a required \`severity\` that is one of \`fatal\`, \`error\`, \`warning\`, \`information\`.
 - \`GET /Patient\` returns a \`Bundle\` with status 200, or an \`OperationOutcome\` with status 400 when the search has no usable parameter.
-- \`GET /Patient\` has optional query parameters \`identifier\` (with a pattern for \`system|value\`), \`family\` (a string), \`birthdate\` (a date with no time) and \`_count\` (an integer from 1 to 50).
+- \`GET /Patient\` has optional query parameters \`identifier\` (with a pattern for \`system|value\`: some text, exactly one bar, and some text), \`family\` (a string), \`birthdate\` (a date with no time) and \`_count\` (an integer from 1 to 50).
 - \`GET /Patient/{id}\` returns a \`Patient\` with status 200, or an \`OperationOutcome\` with status 404 or 410.
 - The API is read-only: no \`post\`, \`put\` or \`delete\` on either resource.
 - A scheme \`oauth2\` of type \`OAuth 2.0\` with the grant \`client_credentials\`. Both methods need the scope \`system/Patient.read\`.

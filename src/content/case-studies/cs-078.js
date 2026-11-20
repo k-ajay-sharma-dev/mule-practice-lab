@@ -69,6 +69,7 @@ export default {
 - Each site has its own credentials so the society can see who calls and switch off a site that misbehaves.
 - Partner traffic (expected peak 300 requests per second when a best-buy table is published) must never overload the core.
 - In tests the core takes 20 queries a second, the cache answers 19 reads in 20, and a scraper sends 20 reads a second with no client ID.
+- Name the APIs exp-savings-rates-api and sys-core-products-api, and run exp-savings-rates-api on 1 vCore.
 
 **Your task.** Design the rates API: the layers, how partners are let in, how the core is protected, and how you replace the CSV emails.
 `,
@@ -108,7 +109,7 @@ Comparison sites     Society website
 \`\`\`
 A Process API adds little here because there is no orchestration: one source, one read model. If a second source appears (for example a separate ISA product system), add \`prc-savings-products-api\` then.
 
-**Letting partners in.** Publish the API in Exchange with a public portal page. Each site requests access and gets its own client ID and secret. Apply Client ID Enforcement and an SLA based rate limit: standard tier 10 requests per second, premium tier for the two largest sites. Scrapers get blocked at the website and pointed to the API.
+**Letting partners in.** Publish the API in Exchange with a public portal page. Each site requests access and gets its own client ID and secret. Apply Client ID Enforcement and an SLA based rate limit: standard tier 10 requests per second, premium tier 100 requests per second for the two largest sites, so all 12 sites together can reach the 300 a second peak. Scrapers get blocked at the website and pointed to the API.
 
 **Protecting the core.** The Experience API reads from the cache first. On a miss it calls the System API, which runs one query for the full product list (60 rows) and returns it. With a 5 minute TTL the core sees at most 12 queries an hour from this API, far below the 20 per second limit. The System API also has a small connection pool so a burst cannot open many JDBC connections.
 

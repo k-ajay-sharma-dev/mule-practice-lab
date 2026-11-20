@@ -121,6 +121,11 @@ The folders \`processed\`, \`error\` and \`empty\` exist next to \`in\`.
 - Post each finished file, then move it to \`processed\`.
 - If the LIMS rejects a file, move it to \`error\` and carry on with the others.
 
+**Facts**
+- Each item File List returns has \`payload\` (the file's content) and \`attributes\` with \`fileName\`, \`path\`, \`size\` and \`timestamp\` (the last modified time, in UTC).
+- \`runId\` is the file name without \`.csv\`. \`results\` is the CSV's rows.
+- A file keeps its name when it is moved. The run ends without an error even when a file is rejected.
+
 **Design the flow.**
 `,
   answerTemplate: `## Listing and looping

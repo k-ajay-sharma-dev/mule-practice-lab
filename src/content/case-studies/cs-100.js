@@ -92,6 +92,7 @@ export default {
 | Systems | Salesforce for customers and contracts; a SaaS billing platform with a REST API |
 | Audit | Every message in and out kept for 7 years, available to the regulator on request |
 | Tests | 20 hub messages a second, 150 a second for 15 minutes at month end, and billing down for an hour |
+| Diagram | Run the inbound Experience API on 0.5 vCore and the billing System API on 1 vCore, so billing catches up with the month-end backlog within the hour |
 
 **Your task.** Design the inbound and outbound market messaging, ordering, deadline tracking and audit.
 `,
@@ -122,7 +123,7 @@ export default {
 
 **Switching.** \`prc-switching\` handles registration, loss, gain and objection messages. It checks the message id against the tracker to drop duplicates, updates the customer and contract in Salesforce through \`sys-crm-api\` and the billing account through \`sys-billing-api\`, and records the switch state and deadline in the tracker. Replies to the hub (confirmations, objections) are put on \`market-outbound\`.
 
-**Meter reads.** \`prc-meter-reads\` sends reads to billing through \`sys-billing-api\`. It has its own consumer group, so a month-end surge does not delay switching.
+**Meter reads.** \`prc-meter-reads\` sends reads to billing through \`sys-billing-api\`, which runs on 1 vCore because both consumers use it. It has its own consumer group, so a month-end surge does not delay switching.
 
 **Outbound.** \`prc-market-outbound\` consumes \`market-outbound\` and calls \`sys-market-hub-api\`, which owns the hub credentials and stays under 300 messages a second. Hub errors are retried with backoff.
 

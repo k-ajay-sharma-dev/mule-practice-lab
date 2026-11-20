@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'What does zero trust mean for calls between internal APIs?',
       options: [
-        'Remove network segmentation because it is no longer needed',
-        'Every call is authenticated and authorised regardless of network location, with least privilege; segmentation stays as defence in depth',
-        'Only Experience APIs need authentication',
-        'All internal APIs share one strong client secret',
+        'Remove network segmentation, since every call is now checked',
+        'Authenticate and authorise every call, wherever it comes from',
+        'Authenticate every call once, at the edge gateway',
+        'Give all internal APIs one strong shared client secret',
       ],
       answer: 1,
-      explain: '"Internal" grants no trust. The pen-test showed why: any app in the network could call the Payments System API.',
+      explain: '"Internal" grants no trust. The pen-test showed why: any app in the network could call the Payments System API. Least privilege applies to every call, and segmentation stays as defence in depth.',
     },
     {
       type: 'match',
@@ -94,25 +94,25 @@ export default {
       prompt: 'How should the Payments System API learn which end user triggered a payment?',
       options: [
         'A plain `X-User-Id` header set by the caller',
-        'A verifiable token — OAuth token exchange or a signed internal JWT issued by the Experience API — validated downstream',
+        'A verifiable token, from token exchange or a signed internal JWT',
         'The client id of the calling app',
-        'The source IP address',
+        'The `sub` claim of the caller’s client credentials token',
       ],
       answer: 1,
-      explain: 'Any internal caller could forge a plain header. The audit requirement (`client_id` + `sub` + correlation id) needs a token that can be verified.',
+      explain: 'Any internal caller could forge a plain header, and a client credentials token names the calling app, not the user. The audit requirement (`client_id` + `sub` + correlation id) needs a token that carries the user and can be verified downstream.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'How do services get their identity instead of the shared client ID/secret?',
       options: [
-        'Each Mule app gets its own OAuth client (client credentials) and obtains short-lived JWTs with the target audience and scopes; secrets are rotated automatically',
-        'One client per environment shared by all apps',
-        'Hard-coded API keys in each app',
-        'IP allowlists only',
+        'Each app gets its own OAuth client and short-lived, scoped tokens',
+        'One OAuth client per environment, shared by all apps in it',
+        'An API key per app, set once in its properties file',
+        'IP allowlists on each API, with no tokens',
       ],
       answer: 0,
-      explain: 'Per-service identities make least privilege and revocation possible; a compromised app can only call what it is allowed to.',
+      explain: 'Each Mule app uses the client credentials grant to get short-lived JWTs with the target audience and scopes, and its secret is rotated automatically. Per-service identities make least privilege and revocation possible; a compromised app can only call what it is allowed to.',
     },
     {
       type: 'order',
@@ -130,10 +130,10 @@ export default {
       type: 'single',
       prompt: 'A team worries that validating a JWT on every hop will hurt latency. What is the right answer?',
       options: [
-        'Validate only at the edge',
-        'Local signature validation with cached JWKS keys is cheap; callers cache tokens until shortly before expiry; avoid per-request introspection on hot paths',
-        'Use introspection on every call — it is the fastest',
-        'Skip validation for GET requests',
+        'Validate the token only at the edge gateway',
+        'Validate signatures locally with cached keys; avoid per-call introspection',
+        'Introspect every token at the IdP, which is the most accurate check',
+        'Skip validation on GET requests, which change nothing',
       ],
       answer: 1,
       explain: 'The expensive parts are fetching tokens and remote introspection, both avoidable; local JWT validation costs little.',
@@ -198,12 +198,12 @@ The CISO mandates a **zero-trust** model: "never trust the network; authenticate
 - Network policies/segmentation remain as an additional layer (private spaces, firewall rules), not the only one.
 
 **End-user identity propagation.**
-- Do not pass \`X-User-Id: 123\` as a plain header — any internal caller could forge it.
+- Do not pass \`X-User-Id: 123\` as a plain header: any internal caller could forge it.
 - Options: **OAuth token exchange** (the Experience API exchanges the user token for a downstream token that contains both user and service identity). Or the Experience API issues a **signed internal JWT** containing the user subject, which downstream APIs validate.
 - Payments System API logs \`client_id\` (which service) + \`sub\` (which user) + correlation ID for every payment → satisfies the audit requirement.
 
 **Rollout.**
-1. **Discover** real call graphs (API analytics, logs) — who calls whom.
+1. **Discover** real call graphs (API analytics, logs): who calls whom.
 2. Platform work: IdP client provisioning automation, certificate issuance/rotation, shared policy templates, a client library for token acquisition and caching.
 3. Apply policies in **audit/permissive mode** first where possible (log unauthenticated calls), fix callers, then enforce.
 4. Order: Payments and other high-risk System APIs first, then remaining System APIs, then Process APIs.

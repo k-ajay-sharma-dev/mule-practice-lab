@@ -12,7 +12,7 @@ export default {
       prompt: 'Match each API to its core policy set.',
       pairs: [
         ['Customer Mobile EAPI', 'JWT validation / OAuth 2.0 token enforcement + JSON threat protection'],
-        ['Partner Orders EAPI', 'Client ID enforcement + Rate Limiting – SLA Based'],
+        ['Partner Orders EAPI', 'Client ID enforcement + Rate Limiting (SLA-based)'],
         ['Orders PAPI', 'Client ID enforcement + spike control'],
         ['Customers / Inventory SAPI', 'Client ID enforcement + IP allowlist + rate limit sized to the backend'],
       ],
@@ -21,27 +21,27 @@ export default {
     {
       type: 'single',
       needsScenario: true,
-      prompt: 'Why does **Rate Limiting – SLA Based** belong on the Partner EAPI and not on the System APIs?',
+      prompt: 'Why does **Rate Limiting (SLA-based)** belong on the Partner EAPI and not on the System APIs?',
       options: [
-        'It is only available on Experience APIs',
-        'It enforces per-contract tiers (Gold/Silver/Bronze) — a partner/commercial concept; SAPIs have a few internal callers and need limits sized to backend capacity',
-        'System APIs cannot have client applications',
-        'It is slower than other policies',
+        'API Manager offers it only on Experience APIs',
+        'Tiers are a partner concept; SAPI limits follow backend capacity',
+        'System APIs cannot have client applications or contracts',
+        'It adds too much latency to internal API calls',
       ],
       answer: 1,
-      explain: 'Partner tiers at the SAPI would duplicate limits and couple internal APIs to commercial arrangements.',
+      explain: 'It enforces per-contract tiers (Gold/Silver/Bronze), a partner and commercial concept. SAPIs have a few internal callers and need limits sized to backend capacity. Partner tiers at the SAPI would duplicate limits and couple internal APIs to commercial arrangements.',
     },
     {
       type: 'single',
       prompt: 'Why is IP allowlisting on the Customer Mobile EAPI a bad idea?',
       options: [
-        'It is too slow',
+        'It adds a lookup that slows every mobile call',
         'Mobile clients call from arbitrary IP addresses',
         'IP allowlist conflicts with JWT validation',
         'API Manager does not support it on Experience APIs',
       ],
       answer: 1,
-      explain: 'IP allowlists suit callers from known ranges — like Process APIs calling System APIs in a private network.',
+      explain: 'IP allowlists suit callers from known ranges, like Process APIs calling System APIs in a private network.',
     },
     {
       type: 'match',
@@ -57,19 +57,19 @@ export default {
       type: 'single',
       prompt: 'System APIs do not validate user tokens. How does the end-user customer ID reach them?',
       options: [
-        'It cannot — System APIs never need it',
-        'The EAPI validates the token, extracts claims and sends them downstream as explicit headers or fields along with a correlation ID; downstream layers authenticate the calling app',
-        'API Manager injects the user ID automatically',
-        'Each SAPI calls the IdP for every request',
+        'It cannot; System APIs never need the user ID',
+        'The EAPI reads the token claims and passes them as headers',
+        'API Manager injects the user ID into every request',
+        'Each SAPI calls the IdP to look up the user per request',
       ],
       answer: 1,
-      explain: 'Each hop trusts context because it authenticates its immediate caller. End-to-end token validation is a deliberate exception when regulation demands it.',
+      explain: 'The EAPI validates the token, extracts claims and sends them downstream as explicit headers or fields, with a correlation ID. Each hop trusts context because it authenticates its immediate caller. End-to-end token validation is a deliberate exception when regulation demands it.',
     },
     {
       type: 'multi',
       prompt: 'What is wrong with "OAuth 2.0, Rate Limiting and IP Allowlist on **every** API"?',
       options: [
-        'OAuth on System APIs forces every Process API to obtain and refresh tokens for internal calls without real benefit',
+        'OAuth on System APIs makes each Process API fetch tokens for no gain',
         'IP allowlist cannot work for mobile clients',
         'One identical rate limit ignores each layer\'s consumers and backend capacity',
         'API Manager allows only one policy per API',
@@ -108,7 +108,7 @@ A colleague's proposal: "Apply OAuth 2.0, Rate Limiting and IP Allowlist to **ev
     'Experience APIs face the outside world: authenticate users/partners (OAuth 2.0 token enforcement or JWT validation), apply threat protection, CORS for browser clients, and SLA-based rate limiting for partners.',
     'Process APIs authenticate calling applications (client ID enforcement) and may use spike control to protect themselves.',
     'System APIs: client ID enforcement plus IP allowlist (callers come from known internal ranges) and protective rate limiting to shield fragile backends.',
-    'Rate Limiting – SLA Based ties limits to the contract tier, so it requires client applications and contracts — ideal for partners.',
+    'Rate Limiting (SLA-based) ties limits to the contract tier, so it requires client applications and contracts. That suits partners.',
     'Context such as user ID or correlation ID flows downstream as headers set by the implementation or header injection; each layer still authenticates its immediate caller.',
   ],
   solution: `
@@ -116,22 +116,22 @@ A colleague's proposal: "Apply OAuth 2.0, Rate Limiting and IP Allowlist to **ev
 | API | Policies | Why |
 |---|---|---|
 | Customer Mobile EAPI | **JWT Validation** or **OAuth 2.0 access token enforcement** (against the company IdP), **JSON threat protection**, CORS if a web client exists, rate limiting / spike control | Authenticates the end user at the edge; protects against malformed/huge payloads |
-| Partner Orders EAPI | **Client ID enforcement** or OAuth client credentials, **Rate Limiting – SLA Based** (Gold/Silver/Bronze tiers), threat protection, optionally IP allowlist per partner | Each partner is a client application with a contract on a tier |
+| Partner Orders EAPI | **Client ID enforcement** or OAuth client credentials, **Rate Limiting (SLA-based)** (Gold/Silver/Bronze tiers), threat protection, optionally IP allowlist per partner | Each partner is a client application with a contract on a tier |
 | Orders PAPI | **Client ID enforcement**, **spike control** | Callers are known apps; smooth bursts from the batch app |
 | SAPIs | **Client ID enforcement**, **IP allowlist** (internal CIDR ranges / private space), **rate limiting** sized to backend capacity | Only Process APIs should call them; protect the legacy backend |
 
 Optional: **Header injection/removal** at EAPI to strip internal headers from responses or add a correlation header; **Message logging** temporarily for troubleshooting (mind PII).
 
 **SLA tiers and traffic shaping**
-SLA tiers are defined per API instance; each contract is assigned a tier, and **Rate Limiting – SLA Based** enforces the tier's limits per client application. That's a commercial/partner concept, so it belongs at the Partner EAPI. System APIs have a handful of internal consumers; a simple **Rate Limiting** or **Spike Control** sized to the backend's capacity is the right tool there. Applying partner tiers at the SAPI would duplicate limits and couple internal APIs to commercial arrangements.
+SLA tiers are defined per API instance; each contract is assigned a tier, and **Rate Limiting (SLA-based)** enforces the tier's limits per client application. That's a commercial/partner concept, so it belongs at the Partner EAPI. System APIs have a handful of internal consumers; a simple **Rate Limiting** or **Spike Control** sized to the backend's capacity is the right tool there. Applying partner tiers at the SAPI would duplicate limits and couple internal APIs to commercial arrangements.
 
 **Propagating identity and context**
 - The EAPI validates the user token and extracts claims (e.g. \`sub\`, customer ID). The implementation sends them downstream as explicit headers or request fields, e.g. \`x-customer-id\`, along with a correlation ID.
-- Downstream layers trust these because they authenticate the **calling application** (client ID / IP allowlist / mTLS) — a zero-trust-ish chain where each hop authenticates its immediate caller.
-- If regulation demands end-to-end user identity, pass a token downstream and validate JWTs at the PAPI too — a deliberate exception, not the default.
+- Downstream layers trust these because they authenticate the **calling application** (client ID / IP allowlist / mTLS): a zero-trust-ish chain where each hop authenticates its immediate caller.
+- If regulation demands end-to-end user identity, pass a token downstream and validate JWTs at the PAPI too. That is a deliberate exception, not the default.
 
 **Critique of the proposal**
-- OAuth on System APIs forces every Process API to obtain and refresh tokens for internal calls — complexity without benefit when client ID + network controls suffice.
+- OAuth on System APIs forces every Process API to obtain and refresh tokens for internal calls: complexity without benefit when client ID + network controls suffice.
 - IP allowlist on the Mobile EAPI is impossible (mobile clients have arbitrary IPs).
 - One identical rate limit everywhere is wrong: limits should match each layer's consumers and backend capacity.
 - Consistency should come from **standard policy sets per layer** (ideally automated in CI/CD and checked by governance), not identical policies on every API.
@@ -147,7 +147,7 @@ SLA tiers are defined per API instance; each contract is assigned a tier, and **
     },
     {
       q: 'Can you apply policies automatically to many APIs?',
-      a: 'Yes — automated policies in API Manager apply to all API instances in an environment, and the Anypoint CLI or API Manager APIs can apply policies per instance from a pipeline.',
+      a: 'Yes. Automated policies in API Manager apply to all API instances in an environment, and the Anypoint CLI or API Manager APIs can apply policies per instance from a pipeline.',
     },
     {
       q: 'Where should CORS be applied?',

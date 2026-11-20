@@ -95,10 +95,11 @@ Trades must flow to:
 
 **Constraints**
 - Trade amendments and cancellations are frequent; order of events per trade matters.
-- Peaks at market open/close and during volatile days (5–10x normal).
+- Peaks at market open/close and during volatile days (5 to 10x normal).
 - 24/7 operation for some markets; downtime around gate closure has direct financial and regulatory cost.
 - Existing systems are a mix of vendor products (on-premises) and SaaS; the ETRM vendor provides a message-based outbound interface.
 - The ETRM captures about 10 trades a second, and an auction result can bring 300 a second for 5 minutes. The trade reporting service can be down for an hour.
+- In the diagram, the event stream keeps each event until its consumer succeeds: set no redelivery limit on it, so nothing is parked during an outage. Give the ingestion app 1 vCore for the auction peak.
 
 **Your task.** Propose the integration architecture. Include:
 - how you guarantee correctness (ordering, no loss, no duplicates)
@@ -118,13 +119,13 @@ Trades must flow to:
 
 ## Reconciliation and audit
 
-## Where MuleSoft fits — and where it does not
+## Where MuleSoft fits, and where it does not
 
 ## Roll-out and risks
 `,
   keyPoints: [
     'A canonical trade event model with trade ID and version/sequence number; every amendment or cancellation is a new versioned event, and consumers apply them in order per trade.',
-    'An event backbone (e.g. Kafka partitioned by trade ID, or Anypoint MQ FIFO queues with the trade ID as message group) gives per-trade ordering and lets each consumer (risk, scheduling, settlement, reporting) process independently.',
+    'An event backbone (e.g. Kafka partitioned by trade ID, or Anypoint MQ FIFO queues at lower volume) gives per-trade ordering and lets each consumer (risk, scheduling, settlement, reporting) process independently.',
     'At-least-once delivery plus idempotent consumers (keyed on trade ID + version) gives effectively-once outcomes; out-of-order or stale versions are detected and handled.',
     'Deadline-critical flows (nominations, regulatory reports) are monitored against deadlines with alerts well before cut-off, and have a manual fallback procedure.',
     'High availability across zones/data centres with tested failover; no single Mule app or broker is a single point of failure for gate-closure flows.',
@@ -143,20 +144,20 @@ Trades must flow to:
 
 **Deadline-critical flows.** Nomination and reporting deadlines modelled explicitly: each item has a due time; dashboards show items not yet acknowledged; alerts at T-60 and T-15 minutes; a documented manual submission fallback (operator portals) tested regularly. Reporting includes acknowledgement handling and resubmission of rejects.
 
-**Availability and DR.** Runtimes in multiple availability zones (CloudHub 2.0 replicas across zones, or Runtime Fabric spanning data centres for on-prem proximity); backbone replicated; active/active for ingestion where ordering allows, active/passive with fast failover where single-writer is needed. Regular failover drills near — but not during — gate closure.
+**Availability and DR.** Runtimes in multiple availability zones (CloudHub 2.0 replicas across zones, or Runtime Fabric spanning data centres for on-prem proximity); backbone replicated; active/active for ingestion where ordering allows, active/passive with fast failover where single-writer is needed. Regular failover drills near gate closure, but never during it.
 
 **Reconciliation and audit.** Intraday reconciliation of trade count and latest version per trade across ETRM, risk, settlement and reporting; end-of-day full recon. Every event stored with its processing history for audit; correlation by trade ID.
 
-**Where MuleSoft fits.** Connectivity to vendor systems, exchanges and operators, transformation to/from canonical and partner formats, orchestration of nominations and reporting, API exposure and policies, operational monitoring. **Not** the right place for the event store itself, sub-millisecond algorithmic trading paths, or heavy risk calculations — those belong to the streaming platform, the trading systems and the risk engine.
+**Where MuleSoft fits.** Connectivity to vendor systems, exchanges and operators, transformation to/from canonical and partner formats, orchestration of nominations and reporting, API exposure and policies, operational monitoring. **Not** the right place for the event store itself, sub-millisecond algorithmic trading paths, or heavy risk calculations. Those belong to the streaming platform, the trading systems and the risk engine.
 
 **Roll-out.** Start with read-only real-time positions (risk feed) running in parallel with the nightly process; then regulatory reporting (high value, high risk, with parallel run and reconciliation); then nominations and settlement. Never cut over around a regulatory change date.
 
 **Risks.** Ordering bugs causing wrong positions (version checks, replay tests), missed deadlines (alerting + manual fallback), ETRM vendor interface limits, and volatility peaks (load testing at 10x).
 `,
   followUps: [
-    { q: 'How do you guarantee ordering if you scale consumers horizontally?', a: 'Partition by trade ID so all events for one trade go to the same partition/consumer (or use FIFO with a group key). Keep version checks in the consumer as a safety net.' },
+    { q: 'How do you guarantee ordering if you scale consumers horizontally?', a: 'Partition by trade ID so all events for one trade go to the same partition/consumer (or use a FIFO queue, which keeps strict order at lower throughput). Keep version checks in the consumer as a safety net.' },
     { q: 'What happens if the backbone is down 20 minutes before gate closure?', a: 'Alerts fire at the predefined thresholds and operations switch to the tested manual fallback for nominations, while the platform fails over; afterwards the backlog is replayed and reconciled.' },
-    { q: 'Why not just use Mule with VM queues for everything?', a: 'VM queues are in-app and not a durable, replayable, cross-application event log; for an auditable trade lifecycle with replay and per-trade ordering you need a proper broker or streaming platform, with Mule as the connectivity and transformation layer.' },
+    { q: 'Why not use Mule with VM queues for everything?', a: 'VM queues are in-app and not a durable, replayable, cross-application event log; for an auditable trade lifecycle with replay and per-trade ordering you need a proper broker or streaming platform, with Mule as the connectivity and transformation layer.' },
     { q: 'How do you measure success?', a: 'Trade-to-risk latency, reporting rejection and late-report rates, nominations submitted before deadline (target 100%), and reconciliation breaks per day trending to zero.' },
   ],
 }

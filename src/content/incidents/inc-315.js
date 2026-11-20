@@ -9,8 +9,8 @@ export default {
     logs: [
       { text: "2026-11-18 02:00:00 INFO  [catalog-in] Received catalog.json sizeBytes=1500000000", relevant: true, why: "A huge JSON file." },
       { text: "2026-11-18 02:00:00 INFO  [catalog-in] Format: {\"items\": [ … ]}", relevant: true, why: "One array in an object." },
+      { text: "2026-11-18 02:00:00 INFO  [catalog-in] Reader streaming=false", relevant: true, why: "Streaming is off." },
       { text: "2026-11-18 02:02:00 ERROR [catalog-in] OutOfMemoryError while reading JSON", relevant: true, why: "Memory runs out." },
-      { text: "2026-11-18 02:02:00 INFO  [catalog-in] Reader streaming=false", relevant: true, why: "Streaming is off." },
       { text: "2026-11-18 23:59:00 INFO  [catalog-in] GET /health 200", relevant: false },
     ],
     questions: [
@@ -19,9 +19,9 @@ export default {
         prompt: "Why does parsing fail?",
         options: [
           "The reader builds the whole document in memory",
-          "The JSON is invalid",
-          "The file is late",
-          "Network",
+          "The JSON has a syntax error near the end of the file",
+          "The catalog file was still being written when read",
+          "The network dropped part of the file during transfer",
         ],
         answer: 0,
         explain: "Streaming is off.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What helps?",
         options: [
-          "Enable streaming and process items one by one, or ask for JSON lines",
-          "Bigger worker",
-          "Read twice",
-          "Convert to XML",
+          "Enable streaming and handle items one by one, or use JSON lines",
+          "Move to a worker with twice the heap and keep the reader",
+          "Read the file twice, once for each half of the array",
+          "Convert the JSON to XML first, since XML streams better",
         ],
         answer: 0,
         explain: "Read items as a stream.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What limits streaming of JSON?",
         options: [
           "Accessing data in a way that needs the whole document",
-          "Nothing",
-          "File names",
-          "Encoding",
+          "Nothing, since every JSON file can be streamed",
+          "Long file names on the landing folder",
+          "A UTF-8 encoding with multibyte characters",
         ],
         answer: 0,
         explain: "Read items in order once.",
@@ -88,8 +88,8 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 02:00:00 INFO  [catalog-in] Received catalog.json sizeBytes=1500000000
 2026-11-18 02:00:00 INFO  [catalog-in] Format: {"items": [ … ]}
+2026-11-18 02:00:00 INFO  [catalog-in] Reader streaming=false
 2026-11-18 02:02:00 ERROR [catalog-in] OutOfMemoryError while reading JSON
-2026-11-18 02:02:00 INFO  [catalog-in] Reader streaming=false
 \`\`\`
 
 ## Your tasks

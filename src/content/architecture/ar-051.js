@@ -94,10 +94,10 @@ export default {
       type: 'match',
       prompt: 'Match each case to the layers you would build.',
       pairs: [
-        ['A — HR dashboard, read-only Workday list', 'A System API called directly by the dashboard'],
-        ['B — Product details from SAP, PIM and WMS for mobile', 'All three layers'],
-        ['C — Nightly Salesforce → data warehouse sync', 'A scheduled Process-layer app, no Experience API'],
-        ['D — Partner order status, carrier data next year', 'An Experience API over the SAP System API now; add a Process API later'],
+        ['A: HR dashboard, read-only Workday list', 'A System API called directly by the dashboard'],
+        ['B: Product details from SAP, PIM and WMS for mobile', 'All three layers'],
+        ['C: Nightly Salesforce → data warehouse sync', 'A scheduled Process-layer app, no Experience API'],
+        ['D: Partner order status, carrier data next year', 'An Experience API over the SAP System API now; add a Process API later'],
       ],
       explain: 'Build a layer only when it has a responsibility: no orchestration in A, real aggregation in B, no channel in C, and an external consumer to protect in D.',
     },
@@ -106,23 +106,23 @@ export default {
       needsScenario: true,
       prompt: 'In case D, will adding `prc-order-status-api` next year be a breaking change for the partner?',
       options: [
-        'Yes — the partner must migrate to a new API',
-        'No — the Experience API already decouples the partner; only its implementation changes',
+        'Yes, the partner must move to the new Process API',
+        'No, the Experience API contract stays the same',
         'Yes, unless the partner calls the Process API directly',
-        'It depends on the carrier',
+        'Yes, because the response gains new carrier fields',
       ],
       answer: 1,
-      explain: 'The Experience contract stays the same while the implementation switches from the System API to the new Process API.',
+      explain: 'The Experience contract stays the same while the implementation switches from the System API to the new Process API. New optional fields are an additive change, not a breaking one.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'In case B, why not put the aggregation of SAP, PIM and WMS inside the mobile Experience API?',
       options: [
-        'Experience APIs cannot call more than one API',
-        'Web, kiosk and partners would each need the same aggregation, so it would be duplicated per channel',
-        'It would be slower',
-        'Aggregation is only allowed in System APIs',
+        'Experience APIs may call only one API each',
+        'Web, kiosk and partners would each have to repeat it',
+        'It would be slower than in a Process API',
+        'Aggregation is allowed only in System APIs',
       ],
       answer: 1,
       explain: 'Reusable composition belongs in the Process layer so every channel gets the same product view.',
@@ -131,13 +131,13 @@ export default {
       type: 'single',
       prompt: 'What is the main risk of Experience → System directly?',
       options: [
-        'It is forbidden by API Manager',
-        'Business logic creeps into the Experience API and is duplicated when a second channel arrives; the consumer is coupled to one system\'s domain boundary',
-        'System APIs cannot accept external traffic',
-        'It doubles the vCore cost',
+        'API Manager does not allow it',
+        'Logic creeps into the Experience API and is copied per channel',
+        'System APIs cannot take traffic from outside the network',
+        'It doubles the vCore cost of the integration',
       ],
       answer: 1,
-      explain: 'The skip is fine while there is no orchestration or rule; it becomes a problem when logic starts to accumulate in the Experience layer.',
+      explain: 'The skip is fine while there is no orchestration or rule; it becomes a problem when logic starts to accumulate in the Experience layer and a second channel arrives. The consumer is also coupled to one system’s domain boundary.',
     },
     {
       type: 'single',
@@ -157,9 +157,9 @@ export default {
       prompt: 'What does "API-led is logical, not physical" mean here?',
       options: [
         'Layers exist only on diagrams and need no contracts',
-        'Layers are design responsibilities; a thin layer can be a module or flow in the same app, keeping the contract boundary without a network hop',
-        'All layers must run on the same server',
-        'Physical deployment decides which layer an API belongs to',
+        'Layers are responsibilities; a thin one can be a flow in the same app',
+        'All layers must run in the same Mule app',
+        'The deployment decides which layer an API belongs to',
       ],
       answer: 1,
       explain: 'You can keep the separation of responsibilities and still avoid paying for an extra deployment and hop.',
@@ -202,18 +202,18 @@ Every caller must present a **client ID**: the HR dashboard and the partner are 
     'Layers exist to add value (decoupling, composition, consumer shaping); a layer that only forwards calls adds latency, cost and maintenance with no benefit.',
     'Experience → System is acceptable when there is no orchestration or business rule, and the consumer needs roughly the System API\'s shape; the consumer is then coupled to that system\'s domain contract.',
     'Process-only (no Experience layer) is fine for internal or system-to-system consumers (batch, events) where no channel-specific shaping or external security is needed.',
-    'When composition is known to be coming soon, introducing the Process API early avoids a later breaking change for consumers — a judgement on likelihood and cost.',
+    'When composition is known to be coming soon, introducing the Process API early avoids a later breaking change for consumers: a judgement on likelihood and cost.',
     'The policy should be explicit and documented (ADR), with the default being "build the layer only when it has a responsibility".',
     'Where a Process API aggregates, it calls the System APIs in parallel (Scatter-Gather), so the slowest system sets the time. Client-id enforcement sits wherever the caller comes in: the gateway for case A, the partner Experience API for case D.',
   ],
   solution: `
-**Case A — HR dashboard, Workday only.** Build \`sys-workday-worker-api\` and let the dashboard call it (via the gateway with client-id enforcement). No Process API: there is no orchestration. An Experience API is only needed if the dashboard needs a materially different shape or different security (e.g. external users). **Exp → Sys (or consumer → Sys) is fine.**
+**Case A: HR dashboard, Workday only.** Build \`sys-workday-worker-api\` and let the dashboard call it (via the gateway with client-id enforcement). No Process API: there is no orchestration. An Experience API is only needed if the dashboard needs a materially different shape or different security (e.g. external users). **Exp → Sys (or consumer → Sys) is fine.**
 
-**Case B — product details from 3 systems.** All three layers: three System APIs, a \`prc-product-api\` that aggregates (reused by web, kiosk, partners), and an Experience API (or shared digital-channel Experience API) for the mobile shape. Putting the aggregation in the Experience API would duplicate it for every channel.
+**Case B: product details from 3 systems.** All three layers: three System APIs, a \`prc-product-api\` that aggregates (reused by web, kiosk, partners), and an Experience API (or shared digital-channel Experience API) for the mobile shape. Putting the aggregation in the Experience API would duplicate it for every channel.
 
-**Case C — nightly batch.** The batch job is itself an application, not a user channel. Typical design: a scheduled Process-layer app (or a batch app) that reads from \`sys-sfdc-account-api\` (or the Salesforce connector, if there is no reuse case and volumes are large) and writes to the warehouse. **No Experience layer.** For high-volume bulk loads, going through REST System APIs record-by-record can be inefficient; many teams use Bulk API / database loaders directly and document the exception.
+**Case C: nightly batch.** The batch job is itself an application, not a user channel. Typical design: a scheduled Process-layer app (or a batch app) that reads from \`sys-sfdc-account-api\` (or the Salesforce connector, if there is no reuse case and volumes are large) and writes to the warehouse. **No Experience layer.** For high-volume bulk loads, going through REST System APIs record-by-record can be inefficient; many teams use Bulk API / database loaders directly and document the exception.
 
-**Case D — partner order status, carrier coming next year.** Two options:
+**Case D: partner order status, carrier coming next year.** Two options:
 - Build \`exp-partner-api\` → \`sys-sap-order-api\` now, add \`prc-order-status-api\` next year. The Experience API's contract to the partner stays the same; only its implementation changes. Since the Experience layer already decouples the partner, adding the Process layer later is **not** a breaking change for the partner.
 - Build the Process API now if other consumers will need the same combined status.
 Either is defensible; the key point is the Experience API protects the external consumer.

@@ -70,7 +70,7 @@ The scanners call the LIMS through Mule today. Every Sunday the LIMS is **upgrad
 - The Sunday upgrade lasts up to **3 hours**.
 - About 1 scan in 500 names a ward that has closed. The LIMS refuses those every time.
 
-In this model, a failed delivery is tried again about once a minute.
+A scanner must get its answer within **half a second**, and no scan may be lost. In this model, a failed delivery is tried again about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 - Draw the design.

@@ -65,6 +65,11 @@ Last month the platform loaded half a file: its loader ran while the Mule app wa
 - Send every item that is not a draft, as \`ITEMS_<yyyyMMdd>.csv\`.
 - The platform must never see a file that is still being written.
 
+**Facts**
+- Write the file as \`/inbound/items/ITEMS_<yyyyMMdd>.csv.tmp\`, which the loader ignores, then rename it to \`ITEMS_<yyyyMMdd>.csv\`. No \`.tmp\` file may be left.
+- The date in the name is the run date.
+- Do not catch a failed write. The run fails, and no file with the final name appears.
+
 **Design the flow.**
 `,
   answerTemplate: `## Schedule and query

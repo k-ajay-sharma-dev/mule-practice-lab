@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'How do you make the API style guide enforceable rather than a PDF?',
       options: [
-        'Ask the architecture board to read every spec more carefully',
-        'Encode it as governance rulesets (MuleSoft-provided plus a custom company ruleset in Exchange) and publish shared fragments teams import',
-        'Email the PDF to all 9 teams every quarter',
-        'Let each team write its own rules',
+        'Ask the architecture board to check every spec against the PDF',
+        'Encode it as governance rulesets and publish shared fragments that teams import',
+        'Publish the PDF in Exchange and link it from every API',
+        'Let each team turn the PDF into its own rules',
       ],
       answer: 1,
-      explain: 'Rulesets give violations while the spec is written and in CI; fragments (error type, paging traits, security schemes) make the standard the easiest path.',
+      explain: 'Rulesets (MuleSoft-provided plus a custom company ruleset in Exchange) show violations while the spec is written and in CI. Fragments (error type, paging traits, security schemes) make the standard the shortest path.',
     },
     {
       type: 'match',
@@ -35,9 +35,9 @@ export default {
       prompt: 'What should the architecture board still review by hand?',
       options: [
         'Naming conventions and pagination parameters',
-        'Resource model, API boundaries vs existing APIs (reuse), data ownership, security classification',
-        'Whether descriptions and examples exist',
-        'Every spec line by line in a weekly 2-hour meeting',
+        'Resource model, API boundaries and reuse, and data ownership',
+        'Whether each operation has a description and examples',
+        'Every spec line by line in the weekly meeting',
       ],
       answer: 1,
       explain: 'Machines check the mechanical rules; people judge domain design and reuse, which rulesets cannot assess.',
@@ -59,13 +59,13 @@ export default {
       needsScenario: true,
       prompt: 'What do you do with existing non-conforming APIs?',
       options: [
-        'Block them all until they conform',
-        'Ignore them; rules apply only to new APIs',
-        'Run governance in report mode, prioritise high-traffic/external APIs, fix non-breaking issues now and breaking ones in the next major version',
-        'Rewrite them all in one sprint',
+        'Block them all in production until they conform',
+        'Ignore them, since the rules apply only to new APIs',
+        'Report on them, fix non-breaking issues now and breaking ones in the next major',
+        'Rewrite them all in one sprint so they conform at once',
       ],
       answer: 2,
-      explain: 'Running services must not be broken overnight; non-breaking fixes (descriptions, policies) are quick wins, naming and error-format changes wait for a major version.',
+      explain: 'Run governance in report mode and start with high-traffic and external APIs. Running services must not be broken overnight; non-breaking fixes (descriptions, policies) are quick wins, naming and error-format changes wait for a major version.',
     },
     {
       type: 'single',
@@ -73,9 +73,9 @@ export default {
       prompt: 'How do you introduce blocking rules without frustrating teams?',
       options: [
         'Make every rule an error from day one',
-        'Start with errors only for critical rules (security, error format) and warnings for style, then tighten',
-        'Make every rule a warning forever',
-        'Let teams disable rules they dislike',
+        'Make security and error-format rules errors and style rules warnings, then tighten',
+        'Make every rule a warning, so no build ever fails',
+        'Let teams switch off the rules they disagree with',
       ],
       answer: 1,
       explain: 'Gradual tightening builds trust. Security-critical rules are errors from the start and have no exceptions.',
@@ -126,7 +126,7 @@ The CTO asks you to set up **API governance** that improves quality **without sl
 - **CI:** the pipeline validates the spec against the same rulesets (e.g. via Anypoint CLI governance commands) and **fails the build** on errors; warnings are reported. Contract tests check that the implementation matches the spec (APIkit routing from the spec helps here).
 - **Runtime:** **automated policies** in API Manager per environment for baseline controls, and the deployment pipeline refuses to promote an API whose instance lacks the required security policy. Periodic report: APIs in prod without client-ID/OAuth = 0.
 
-**Human review — keep it fast.**
+**Human review: keep it fast.**
 - The board reviews **only what machines can't check**: resource model, API boundaries vs existing APIs (reuse!), data ownership, security classification.
 - **Asynchronous** review in pull requests/Exchange comments with a 2-day SLA, plus a short checklist. A synchronous meeting only for new domains or exceptions.
 - **Federate:** each team has a trained "API champion" who reviews first; the central team coaches.

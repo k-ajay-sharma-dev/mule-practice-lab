@@ -7,11 +7,11 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 03:00:00 INFO  [loc-out] Uploaded /to-planning/locations.txt", relevant: true, why: "The upload works." },
-      { text: "2026-11-18 03:20:00 ERROR [planning-platform] Permission denied reading /to-planning/locations.txt", relevant: true, why: "The reader cannot open it." },
-      { text: "2026-11-18 03:00:00 INFO  [sftp-server] File mode 600 owner=larkfield-int", relevant: true, why: "Only the owner can read." },
       { text: "2026-11-17 18:00:00 INFO  [sftp-server] Server umask changed to 077", relevant: true, why: "The server default changed." },
-      { text: "2026-11-18 23:59:00 INFO  [loc-out] GET /health 200", relevant: false },
+      { text: "2026-11-18 03:00:00 INFO  [loc-out] Uploaded /to-planning/locations.txt", relevant: true, why: "The upload works." },
+      { text: "2026-11-18 03:00:00 INFO  [sftp-server] File mode 600 owner=larkfield-int", relevant: true, why: "Only the owner can read." },
+      { text: "2026-11-18 03:20:00 ERROR [planning-platform] Permission denied reading /to-planning/locations.txt", relevant: true, why: "The reader cannot open it." },
+      { text: "2026-11-18 03:25:00 INFO  [loc-out] GET /health 200", relevant: false },
     ],
     questions: [
       {
@@ -19,45 +19,45 @@ export default {
         prompt: "Why can the platform not read?",
         options: [
           "New files are created readable only by the uploader after a umask change",
-          "The file is empty",
-          "The name is wrong",
-          "SFTP failed",
+          "The upload did not finish, so the file is still locked for writing",
+          "The planning account’s SSH key expired, so its reads are refused",
+          "The file name is wrong, so the platform reads a missing file",
         ],
         answer: 0,
-        explain: "File permissions block the reader.",
+        explain: "File permissions block the reader. Mode 600 lets only the owner read.",
       },
       {
         type: 'single',
         prompt: "Who fixes it?",
         options: [
-          "The SFTP server owner sets the right umask or group, agreed with both sides",
-          "Mule alone",
-          "The planning team alone",
-          "Nobody",
+          "The SFTP server owner, with a umask or group agreed by both sides",
+          "The integration team, by renaming the file after upload",
+          "The planning team, by reading with the uploader’s login",
+          "The network team, by opening the firewall for reads",
         ],
         answer: 0,
-        explain: "Server side settings.",
+        explain: "It is a server side setting. Sharing a login hides who did what.",
       },
       {
         type: 'multi',
         prompt: "What can the uploader do meanwhile?",
         options: [
-          "Set file permissions after upload if the server allows it",
+          "Set permissions after upload, if allowed",
           "Ask for a shared group",
           "Test reads with the reader account",
-          "Upload twice",
+          "Upload the file again under a new name",
         ],
         answer: [0,1,2],
-        explain: "Check access from the reader’s side.",
+        explain: "Check access from the reader’s side. A new upload gets the same mode 600.",
       },
       {
         type: 'single',
         prompt: "What should a new interface test include?",
         options: [
           "A read by the receiving account",
-          "Only the upload",
-          "Only login",
-          "Nothing",
+          "An upload by the sending account",
+          "A login test from both accounts",
+          "A file size check after upload",
         ],
         answer: 0,
         explain: "End to end, not only your side.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 03:00:00 INFO  [loc-out] Uploaded /to-planning/locations.txt
-2026-11-18 03:20:00 ERROR [planning-platform] Permission denied reading /to-planning/locations.txt
-2026-11-18 03:00:00 INFO  [sftp-server] File mode 600 owner=larkfield-int
 2026-11-17 18:00:00 INFO  [sftp-server] Server umask changed to 077
+2026-11-18 03:00:00 INFO  [loc-out] Uploaded /to-planning/locations.txt
+2026-11-18 03:00:00 INFO  [sftp-server] File mode 600 owner=larkfield-int
+2026-11-18 03:20:00 ERROR [planning-platform] Permission denied reading /to-planning/locations.txt
 \`\`\`
 
 ## Your tasks

@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'How should the webhook flow answer a duplicate?',
       options: [
-        'With a 500, so the provider knows something went wrong',
-        'With a 409, and let the provider go on retrying',
-        'With no response, so the provider times out',
-        'With a 200 from an On Error Continue for `MULE:DUPLICATE_MESSAGE`, so the provider stops retrying',
+        'With a 500, so the provider knows the call went wrong',
+        'With a 409, so the provider sees it as a conflict',
+        'With a 503, so the provider tries again a bit later',
+        'With a 200 from an On Error Continue for the duplicate',
       ],
       answer: 3,
-      explain: 'The event was handled the first time. A success code tells the provider to stop. An error code makes it retry again and again.',
+      explain: 'The event was handled the first time. Catch `MULE:DUPLICATE_MESSAGE` in an On Error Continue and return a 200, which tells the provider to stop. An error code such as 409, 500 or 503 makes it retry again and again.',
     },
     {
       type: 'single',
@@ -60,7 +60,7 @@ export default {
       options: [
         'A clean run, because the key is removed when the flow fails',
         'A clean run, because keys are kept only after success',
-        'A duplicate error, because the key was stored when the event passed the validator',
+        'A duplicate error, because the key was stored at the validator',
         'A clean run, because a failed flow clears the object store',
       ],
       answer: 2,

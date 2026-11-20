@@ -23,7 +23,7 @@ The API sits behind API Manager, and the OAuth 2.0 policy will be configured fro
 This problem has two files. Use the tabs above the editor to move between them.
 
 **Finding 1: a scheme type RAML does not know**
-\`oauth2\` has \`type: OAuth2\`. The built-in type is \`OAuth 2.0\`, and tools that read the contract ignore a scheme they do not recognise.
+\`oauth2\` has \`type: OAuth2\`. The built-in type is \`OAuth 2.0\`. RAML only allows another type name when it starts with \`x-\`, so tools that read the contract will not treat this scheme as OAuth.
 
 **Finding 2: scopes used but never declared**
 Methods use \`claims:write\`, and the delete needs an admin scope, but \`settings.scopes\` lists only \`claims:read\`.

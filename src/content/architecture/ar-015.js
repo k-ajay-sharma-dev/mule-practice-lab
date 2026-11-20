@@ -24,10 +24,10 @@ export default {
       type: 'single',
       prompt: 'Some apps return `200 OK` with `{ "status": "failed" }`. Why is that a problem?',
       options: [
-        'It makes the payload too large',
-        'Clients, gateways, monitoring and retry logic all read the status code, so failures look like successes',
-        'JSON cannot contain the word "failed"',
-        'It is fine as long as it is documented',
+        'Gateways cache every 200 response, so the failure is served again later',
+        'Clients, gateways, monitoring and retries read the status code, so failures look like successes',
+        'It is fine as long as the body format is documented in Exchange',
+        'The error never reaches the app logs, so support cannot find it',
       ],
       answer: 1,
       explain: 'The HTTP status is the contract tooling understands. A proper status plus a standard error body lets consumers program against both.',
@@ -38,34 +38,34 @@ export default {
       prompt: 'How should the framework be distributed to 60 apps?',
       options: [
         'Copy the 300 lines of error XML into each project',
-        'A shared Mule library (mule-plugin dependency) with global error handlers, logging and DataWeave modules, imported and set as the default error handler',
-        'A wiki page with the recommended XML',
+        'A shared Mule library added as a dependency and set as the default error handler',
+        'A wiki page with the recommended XML for each vendor',
         'A separate Mule app that every API calls on error',
       ],
       answer: 1,
-      explain: 'A dependency is reused, not copied, so a fix ships by bumping a version instead of editing 60 apps.',
+      explain: 'A dependency (a mule-plugin with global error handlers, logging and DataWeave modules) is reused, not copied, so a fix ships by bumping a version instead of editing 60 apps. A separate error app adds a network call to every failure.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'An Anypoint MQ consumer receives a message with invalid data. What should the framework do?',
       options: [
-        'Return HTTP 400 to the publisher',
-        'Nack and redeliver it forever',
-        'Classify it as non-retryable and move it to the DLQ immediately with error code and correlation ID, and alert support',
-        'Swallow it with On Error Continue and ack',
+        'Return HTTP 400 to the publisher of the message',
+        'Nack it so it is redelivered until it succeeds',
+        'Treat it as non-retryable and move it to the DLQ with its error code',
+        'Swallow it with On Error Continue and ack it',
       ],
       answer: 2,
-      explain: 'Async consumers have no HTTP caller. Bad data will never succeed, so retrying only wastes capacity; connectivity or timeout errors are the ones to retry with backoff.',
+      explain: 'Async consumers have no HTTP caller. Bad data will never succeed, so retrying only wastes capacity; connectivity or timeout errors are the ones to retry with backoff. The DLQ message carries the error code and correlation ID, and support gets an alert.',
     },
     {
       type: 'single',
       prompt: 'A System API returns 500 to the Process API. What does the Process API return to its caller?',
       options: [
         '500 with the System API\'s stack trace',
-        '502, with the standard error body, because a downstream dependency failed',
-        '200 with an empty body',
-        '400 because the request must have been wrong',
+        '502 with the standard error body',
+        '500 with the System API\'s error body passed on unchanged',
+        '400, so the caller does not retry',
       ],
       answer: 1,
       explain: 'Errors are propagated with meaning: a downstream failure becomes a gateway-type error at the next layer, never a leaked stack trace.',
@@ -87,7 +87,7 @@ export default {
 An airline has 60 Mule 4 apps built by 4 vendors. Every app handles errors differently:
 
 - Some return \`200 OK\` with \`{ "status": "failed" }\` in the body; others return a raw Java stack trace with 500.
-- Consumers cannot tell a **validation error** from a **backend timeout**, so they retry everything — including bad requests.
+- Consumers cannot tell a **validation error** from a **backend timeout**, so they retry everything, including bad requests.
 - The 24×7 support team cannot see which errors need action.
 - Each vendor copies the same 300 lines of error XML into every project; fixing a bug means changing 60 apps.
 
@@ -111,7 +111,7 @@ You are asked to design a **common error-handling and logging framework** that a
 `,
   keyPoints: [
     'One error response schema for all APIs (e.g. RFC 7807 problem+json style: type/code, message, correlationId, timestamp, details), published as a shared fragment in Exchange.',
-    'Explicit mapping table: validation errors → 400, auth → 401/403, not found → 404, conflicts → 409, backend connectivity/timeout → 502/503/504, unexpected → 500 — with no stack traces in responses.',
+    'Explicit mapping table: validation errors → 400, auth → 401/403, not found → 404, conflicts → 409, backend connectivity/timeout → 502/503/504, unexpected → 500, with no stack traces in responses.',
     'The framework is packaged as a shared Mule library (plugin dependency) containing global error handlers and logging sub-flows, imported via a dependency, not copied.',
     'Async consumers never return HTTP codes: they classify errors as retryable vs non-retryable, retry with backoff, and send poison messages to a DLQ with error context.',
     'Framework changes follow semantic versioning; apps upgrade by bumping the dependency version through CI/CD, and a parent POM can centralise the version.',
@@ -122,7 +122,7 @@ You are asked to design a **common error-handling and logging framework** that a
 { "code": "BACKEND_TIMEOUT", "message": "Booking system did not respond in time",
   "correlationId": "c0a8...", "timestamp": "2026-05-01T10:15:00Z", "details": [] }
 \`\`\`
-Use a proper HTTP status — never \`200\` for a failure. Error \`code\` values are a controlled list that consumers can program against.
+Use a proper HTTP status: never \`200\` for a failure. Error \`code\` values are a controlled list that consumers can program against.
 
 **Mapping (example).**
 | Mule error type | HTTP | Retry? |
@@ -146,7 +146,7 @@ Apps raise **custom error types** (\`raise-error type="APP:NOT_FOUND"\`) for bus
 
 **Versioning and rollout.** Semver the library; a **parent POM** pins the recommended version; Renovate/Dependabot-style PRs or a pipeline check flag apps on old versions. Breaking changes (new response shape) require a major version and coordinated rollout with API contract changes.
 
-**Trade-off:** a shared library creates coupling — a bug affects everyone, so it needs its own MUnit test suite and an owner (typically the C4E/platform team).
+**Trade-off:** a shared library creates coupling: a bug affects everyone, so it needs its own MUnit test suite and an owner (typically the C4E/platform team).
 `,
   followUps: [
     { q: 'Why not handle errors only at the Experience API and let lower layers throw anything?', a: 'Each API is reusable by other consumers, so each must have a clean contract on its own. Lower layers return standard errors; upper layers translate them into their consumer\'s context.' },

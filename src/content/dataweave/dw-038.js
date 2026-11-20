@@ -6,7 +6,7 @@ export default {
   tags: ['csv', 'xml', 'groupBy', 'attributes', 'repeating-elements'],
   estMinutes: 30,
   description: `
-The warehouse management system drops a flat CSV — one row per shipment **line** — and the carrier gateway expects one XML manifest with a \`shipment\` element per shipment and a repeating \`line\` element inside it.
+The warehouse management system drops a flat CSV (one row per shipment **line**), and the carrier gateway expects one XML manifest with a \`shipment\` element per shipment and a repeating \`line\` element inside it.
 
 Build:
 
@@ -68,7 +68,7 @@ payload
 `,
   hints: [
     'Turn the rows into a list of shipments first: `(payload groupBy $.shipmentId) pluck ((rows, id) -> rows)` gives an array of row-arrays, one per shipment.',
-    'Repeating elements: inside an object, `(rows map ((r) -> { line @(...): null }))` — the outer parentheses spread every `{ line: ... }` into the parent, so you get many `line` keys.',
+    'Repeating elements: inside an object, `(rows map ((r) -> { line @(...): null }))`. The outer parentheses spread every `{ line: ... }` into the parent, so you get many `line` keys.',
     'Conditional attribute: `@(id: ..., (hazmat: "true") if hz)`. CSV values are strings, so sort with `orderBy ($.lineNo as Number)` and multiply with `as Number`; format the total with `as String {format: "0.00"}`.',
   ],
   solution: `%dw 2.0
@@ -141,7 +141,7 @@ SHP-9,UPS,2025-03-01,1,K-1,2,0.1,N`,
     },
     {
       q: 'How do you add a namespace to `manifest`?',
-      a: 'Declare it in the header — `ns mf http://example.com/manifest` — and prefix the keys: `mf#manifest`, `mf#shipment`, and so on.',
+      a: 'Declare it in the header (`ns mf http://example.com/manifest`) and prefix the keys: `mf#manifest`, `mf#shipment`, and so on.',
     },
   ],
 }

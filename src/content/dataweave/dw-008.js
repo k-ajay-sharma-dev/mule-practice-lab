@@ -8,13 +8,13 @@ export default {
   description: `
 Orders arrive as \`payload\`. Earlier in the flow, customers were fetched from the CRM and stored in the variable \`customers\` (here it is a second input).
 
-Enrich every order with its customer:
+Enrich every order with its customer. Each output order has \`orderId\`, \`amount\` and a \`customer\` object, in that order. The \`customerId\` field is replaced by the object.
 
 - \`customer.id\`, \`customer.name\`, \`customer.segment\`
 - If the customer is **not found**, use name \`"UNKNOWN"\` and segment \`"NONE"\` (keep the id)
 - Keep the order of \`payload\`
 
-Assume thousands of orders and customers — avoid searching the whole customer list for every order.
+Assume thousands of orders and customers. Avoid searching the whole customer list for every order.
 `,
   inputs: [
     {
@@ -49,7 +49,7 @@ output application/json
 payload
 `,
   hints: [
-    'The second input is available by its name, just like `payload`: `customers`.',
+    'The second input is available by its name, like `payload`: `customers`.',
     'Build a lookup once: `var byId = customers groupBy $.id` gives `{ "C-1": [ ... ], "C-2": [ ... ] }`.',
     '`byId[o.customerId][0]` is null for unknown ids, so `default` handles the missing customer.',
   ],

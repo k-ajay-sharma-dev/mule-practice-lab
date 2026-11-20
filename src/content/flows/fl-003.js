@@ -207,18 +207,20 @@ export default {
     ]),
   ),
   description: `
-You are building the **Orders System API** from a RAML spec published in Exchange:
+You are building the **Orders System API** from a RAML spec published in Exchange. The HTTP Listener path is \`/api/*\`, so the resources below are served under \`/api\`:
 
-- \`GET /orders?status=&page=\` — list orders from a PostgreSQL database.
-- \`GET /orders/{orderId}\` — single order; \`orderId\` is a UUID.
-- \`POST /orders\` — create; body must match the \`Order\` type (JSON).
+- \`GET /orders?status=&page=\`: list orders from a PostgreSQL database.
+- \`GET /orders/{orderId}\`: single order; \`orderId\` is a UUID. Return the order row as JSON.
+- \`POST /orders\`: create; body must match the \`Order\` type (JSON: \`id\`, \`customerId\`, \`total\`, \`status\`). Insert it and answer with \`{ id }\`.
+
+Orders live in the \`orders\` table with columns \`id\`, \`customer_id\`, \`total\` and \`status\`.
 
 Consumers complain that today:
 - a wrong \`Content-Type\` returns **500** with a Java stack trace,
 - an unknown order ID returns **200 with an empty body**,
 - \`DELETE /orders/123\` returns **500** instead of a meaningful status.
 
-**Requirements:** a consistent JSON error body \`{ code, message, correlationId }\` and correct statuses: 400, 404, 405, 406, 415, 500 (and 503 if the DB is unreachable). Error bodies must never expose internals: no stack trace and no \`error.detailedDescription\`.
+**Requirements:** a consistent JSON error body \`{ code, message, correlationId }\` (the Mule correlation ID, which the HTTP Listener takes from the caller's \`X-Correlation-ID\` header when one is sent) and correct statuses: 400, 404, 405, 406, 415, 500 (and 503 if the DB is unreachable). Error bodies must never expose internals: no stack trace and no \`error.detailedDescription\`.
 
 **Design the flows:** generated structure, routing, where validation happens, how each status is produced, and how a "not found" from the DB becomes a 404.
 `,
@@ -269,7 +271,7 @@ Each handler sets \`vars.httpStatus\` and the payload. The listener error respon
 
 **DB unavailable:** map \`DB:CONNECTIVITY\` → 503 (optionally with a \`Retry-After\` header).
 
-**Catch-all:** \`ANY\` → 500 with a generic message — never return \`error.detailedDescription\` or stack traces to consumers; log them with the correlation ID instead.
+**Catch-all:** \`ANY\` → 500 with a generic message. Never return \`error.detailedDescription\` or stack traces to consumers; log them with the correlation ID instead.
 
 **Error body** (DataWeave): \`{ code: error.errorType.identifier, message: "...", correlationId: correlationId }\`, \`output application/json\`.
 `,

@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Where are the missing orders?',
         options: [
-          'In the US East queue `orders-created`, because the publisher uses the US broker URL and queues are regional',
-          'They were lost because the consumer did not ACK them',
-          'In the EU queue, but the consumer lacks permission to read them',
-          'In the dead-letter queue after failing processing',
+          'In the US East queue `orders-created`, because the publisher uses the US URL',
+          'Lost, because the consumer received them but never acknowledged them',
+          'In the EU queue, but the consumer has no permission to read them',
+          'In the dead-letter queue, after they failed processing too many times',
         ],
         answer: 0,
         explain: 'Anypoint MQ queues are **regional**; a same-named queue in another region is a different queue. The publisher writes to US, the consumer reads EU.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'What must you check **first** before draining?',
         options: [
-          'The message TTL on the US queue, to know how much time you have before messages expire',
-          'The consumer heap size',
-          'The publisher worker size',
-          'The Anypoint MQ client app secret rotation date',
+          'The message TTL on the US queue, which tells you how long until messages expire',
+          'The consumer heap size, in case all 212 messages arrive at once',
+          'The acknowledgement timeout on the EU queue, so moved messages are not redelivered',
+          'The expiry date of the MQ client app secret that the publisher uses',
         ],
         answer: 0,
         explain: 'Messages expire after their TTL; knowing it tells you how urgent the drain is.',
@@ -105,7 +105,7 @@ export default {
 `,
   keyPoints: [
     'Anypoint MQ queues are regional: a queue with the same name in another region is a different queue.',
-    'The publisher is writing to the US East queue; the consumer reads the EU queue — both "work", nothing errors.',
+    'The publisher is writing to the US East queue; the consumer reads the EU queue. Both "work", and nothing errors.',
     'Immediate: fix the publisher URL and drain the messages already in the US queue (temporary consumer or re-publish) before they expire (TTL).',
     'Delete the duplicate queue in the wrong region so misconfiguration fails fast instead of silently.',
     'Prevention: region/URL as environment-managed properties, end-to-end synthetic message checks, and alerts on queue depth and consumer throughput.',
@@ -132,7 +132,7 @@ Region-specific configuration copied from an old file, combined with a duplicate
 - Migration checklist that lists every region-specific setting (MQ URL, Object Store, control plane URLs).
 `,
   followUps: [
-    { q: 'Would a DLQ have caught this?', a: 'No — the messages were never delivered and failed; a DLQ only receives messages that exceed the max delivery attempts on the queue they are in.' },
+    { q: 'Would a DLQ have caught this?', a: 'No. The messages were never delivered and failed; a DLQ only receives messages that exceed the max delivery attempts on the queue they are in.' },
     { q: 'What happens if the messages exceed their TTL?', a: 'Anypoint MQ deletes them when the TTL expires, so you would have to re-send them from the source system.' },
   ],
 }

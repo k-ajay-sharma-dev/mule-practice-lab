@@ -21,42 +21,47 @@ export default {
         type: 'single',
         prompt: 'What is the root cause?',
         options: [
-          'The DLB blocks CloudHub 2.0 traffic by default, and the CloudHub 2.0 infrastructure CIDR ranges were never added to its allowlist',
-          'CloudHub 2.0 apps cannot call CloudHub 1.0 apps at all, so sys-inventory must migrate in the same wave',
-          'The target URL must change, because CloudHub 2.0 cannot resolve DLB vanity domains',
-          'The mapping rule for sys-inventory was lost during the deployment of prc-orders',
+          'The CloudHub 2.0 infrastructure ranges were never added to the DLB allowlist',
+          'CloudHub 2.0 apps cannot call CloudHub 1.0 apps, so sys-inventory must move in wave 1',
+          'CloudHub 2.0 cannot resolve DLB vanity domains, so the target URL must change',
+          'The deployment of prc-orders removed the DLB mapping rule for sys-inventory',
         ],
         answer: 0,
         explain: 'CloudHub 2.0 uses a separate infrastructure CIDR pool. The guide states that a CloudHub 2.0 app can keep the same target URL, and that the DLB blocks it until those ranges are on the allowlist.',
       },
       {
-        type: 'multi',
-        prompt: 'Which ranges does the migration guide list for the DLB allowlist?',
-        options: ['100.64.0.0/16', '100.66.0.0/16', '100.67.0.0/16', '100.68.0.0/16', '10.0.0.0/8'],
-        answer: [0, 1, 2, 3],
-        explain: 'These four are the CloudHub 2.0 infrastructure CIDR ranges in the guide. Adding a broad private range would widen access without solving the problem.',
+        type: 'single',
+        prompt: 'Why does the same URL work from exp-web on CloudHub 1.0?',
+        options: [
+          'Its calls come from the VPC range on the allowlist, and CloudHub 2.0 calls do not',
+          'exp-web calls the sys-inventory worker directly, so its calls never pass the DLB',
+          'The DLB serves exp-web from a response cache, so the allowlist is never checked',
+          'exp-web sends a client certificate, and the DLB lets any caller with one through',
+        ],
+        answer: 0,
+        explain: 'The allowlist holds the corporate network and Anypoint VPC range and one partner range. CloudHub 2.0 traffic comes from a separate infrastructure CIDR pool, which the migration guide lists for the DLB allowlist (100.64.0.0/16, 100.66.0.0/16, 100.67.0.0/16 and 100.68.0.0/16). The log shows exp-web calling the same DLB URL.',
       },
       {
         type: 'single',
         prompt: 'What is the right immediate action?',
         options: [
-          'Add the CloudHub 2.0 infrastructure CIDR ranges to the DLB allowlist, confirm that upstream TLS 1.2 or higher is enabled, and retest',
-          'Roll sys-inventory forward to CloudHub 2.0 tonight',
-          'Add a DENY rule to the private space for the failed traffic',
-          'Change prc-orders to call the worker directly on port 8091',
+          'Add the CloudHub 2.0 infrastructure ranges to the DLB allowlist and retest',
+          'Move sys-inventory to CloudHub 2.0 tonight, ahead of its planned wave 3',
+          'Add 10.0.0.0/8 to the DLB allowlist, so any private address can call it',
+          'Change prc-orders to call the sys-inventory worker directly on port 8091',
         ],
         answer: 0,
-        explain: 'This restores the path with a change on the DLB alone. Calling workers directly would lose load balancing and depends on internal connectivity that the guide says not to assume.',
+        explain: 'This restores the path with a change on the DLB alone. Also confirm that upstream TLS 1.2 or higher is enabled. 10.0.0.0/8 does not hold the 100.x ranges and would widen access. Calling workers directly would lose load balancing and depends on internal connectivity that the guide says not to assume.',
       },
       {
         type: 'multi',
         prompt: 'Which checks belong in the runbook for every later wave?',
         options: [
           'Add the DLB allowlist step to the plan before the first app moves',
-          'If the VPC was upgraded, validate internal calls with the Network Tools application, since firewall rules outside 80, 443 and 30500 to 32500 are removed',
-          'For calls from CloudHub 1.0 to CloudHub 2.0, add an ingress firewall rule for the VPC CIDR and check the TLS context',
+          'If the VPC was upgraded, test internal calls with Network Tools, as some firewall rules are removed',
+          'For calls from CloudHub 1.0 to CloudHub 2.0, add an ingress rule for the VPC CIDR',
           'Keep backend allowlists holding both the old and the new static IPs until decommissioning',
-          'Remove the DLB allowlist entirely during the migration',
+          'Remove the DLB allowlist for the length of the migration, so no wave is blocked by it',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Coexistence needs network work in both directions. Removing the allowlist would expose the DLB to every source to save one step.',
@@ -83,7 +88,7 @@ export default {
 ## Change / Context
 - A retailer is migrating from **CloudHub 1.0** to **CloudHub 2.0** in waves. Wave 1 moved \`prc-orders\` to a new, manually created private space \`ps-retail-eu\`.
 - \`sys-inventory\` stays on CloudHub 1.0 until wave 3, behind the DLB \`lb-retail-prod\` on \`apis.retail-example.com\`.
-- The DLB has an allowlist for the corporate network and one partner range.
+- The DLB has an allowlist: \`10.40.0.0/16\` for the corporate network and the Anypoint VPC, and \`203.0.113.0/24\` for one partner.
 - The wave plan covered the Transit Gateway, the backend allowlists and the Ingress tab. It had no DLB changes.
 
 ## Logs

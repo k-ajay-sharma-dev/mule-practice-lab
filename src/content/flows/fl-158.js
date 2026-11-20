@@ -107,7 +107,7 @@ export default {
     ),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) moves a notification to the JMS queue \`PDH.INBOUND.FAILED\` when processing fails for a reason outside the message, such as Oracle or blob storage being down. Once the cause is fixed, support must put those messages back on the main queue \`PDH.INBOUND.NOTIFY\`.
+Copperline Home Supply’s product data hub (fictional) moves a notification to the JMS queue \`PDH.INBOUND.FAILED\` when processing fails for a reason outside the message, such as Oracle or blob storage being down. Once the cause is fixed, support must put those messages back on the main queue \`PDH.INBOUND.NOTIFY\`.
 
 Today a support engineer does this by hand in the broker console. You build a small **restart app** they call with \`POST /pdh/restart\`.
 
@@ -117,7 +117,12 @@ Today a support engineer does this by hand in the broker console. You build a sm
 - Otherwise take the messages from \`PDH.INBOUND.FAILED\` one at a time and publish each to \`PDH.INBOUND.NOTIFY\`, until the failure queue is empty. Move at most 500 per call.
 - Answer \`{ "status": "DONE", "moved": n }\`.
 
-JMS Consume waits up to its maximum wait for a message and raises \`JMS:TIMEOUT\` when none comes.
+**Facts**
+- JMS Consume waits up to its maximum wait for a message and raises \`JMS:TIMEOUT\` when none comes. An empty queue is a success, not a failure.
+- Check Oracle with a Database Select that returns no rows. If Oracle is down it raises **DB:CONNECTIVITY**. Blob storage that is down raises **AZURE-STORAGE:CONNECTIVITY**.
+- Publish each message unchanged.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
 
 **Design the flow.**
 `,

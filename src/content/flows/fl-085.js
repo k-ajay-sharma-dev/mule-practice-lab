@@ -172,6 +172,9 @@ The current design sends everything with default settings. When the Frankfurt di
 
 **Facts**
 - Each published message carries two JMS properties: \`eventKind\` (the event kind) and \`hub\` (the hub code).
+- The events go to the ActiveMQ destination \`OPS.FLIGHT.EVENTS\`. The body is the event as received, and the event schema is \`schemas/flight-event-v1.json\`.
+- The Frankfurt gate display app takes gate changes and position updates for hub \`FRA\` at \`POST /displays/fra/events\`.
+- The alert app emails each safety notice to \`duty-managers@company.example\`.
 
 **Requirements**
 - Publish once. Each application receives its own copy.
@@ -237,7 +240,7 @@ Use one consumer per topic listener. Under JMS 1.1 a subscription cannot have mo
 
 **What the settings do not guarantee.**
 - **Priority is a hint**, not a contract. It only matters while messages wait, and buffered messages can still go first. It cannot make a slow consumer fast.
-- **Time to live** starts when the message is sent. An expired message is simply not delivered. It is not a report: if a business process needs to know about expired events, build that yourself. Check on your broker what happens to expired messages and whether clocks are in sync.
+- **Time to live** starts when the message is sent. An expired message is not delivered. It is not a report: if a business process needs to know about expired events, build that yourself. Check on your broker what happens to expired messages and whether clocks are in sync.
 - **A durable subscriber with a selector** still accumulates its matching messages while offline, so monitor it and remove subscriptions that are no longer used.
 `,
   followUps: [

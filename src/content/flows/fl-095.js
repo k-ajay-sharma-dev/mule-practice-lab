@@ -231,6 +231,9 @@ Tokens carry these claims:
 
 The database has an \`accounts\` table (\`account_id\`, \`tenant_id\`) and a \`statements\` table (\`statement_id\`, \`account_id\`, \`tenant_id\`, \`period\`, \`closing_balance\`).
 
+**Facts**
+- A 200 answer is \`{ accountId, statements: [{ statementId, period, closingBalance }] }\`, newest period first.
+
 **Requirements**
 - Read the tenant and scope from the claims the policy validated, not from anything else in the request. The policy places those claims on the authentication data of the Mule event.
 - No tenant claim: **401**. Missing scope \`statements:read\`: **403**.

@@ -1,16 +1,16 @@
 export default {
   id: 'inc-220',
   category: 'incidents',
-  title: "Item Messages Fail With BlobNotFound After the Hub Already Said \"Received\": the Notification Points to the Wrong Container",
+  title: "Item Messages Fail With BlobNotFound After the Hub Already Said \"Received\": the Hub Still Reads the Old Container",
   level: 'INTERMEDIATE',
   tags: ["myproject","azure-blob","claim-check","jms","planning-platform","validation"],
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 06:00:01 INFO  [item-hub] Notification received messageId=N-9001 blob=items/2026-11-18/batch-41.json container=inbound", relevant: true, why: "A JMS notification points to a blob." },
+      { text: "2026-11-18 06:00:00 INFO  [sender] Blob written container=inbound-items blob=items/2026-11-18/batch-41.json", relevant: true, why: "The sender now writes to a new container." },
+      { text: "2026-11-18 06:00:01 INFO  [item-hub] Notification received messageId=N-9001 blob=items/2026-11-18/batch-41.json", relevant: true, why: "A JMS notification points to a blob path." },
       { text: "2026-11-18 06:00:01 INFO  [item-hub] ACK published status=RECEIVED messageId=N-9001", relevant: true, why: "The hub tells the sender it has the message before checking the blob." },
-      { text: "2026-11-18 06:00:02 ERROR [item-hub] Download failed status=404 code=BlobNotFound container=inbound", relevant: true, why: "The blob is not where the notification says." },
-      { text: "2026-11-18 06:00:02 INFO  [sender] Blob written container=inbound-items", relevant: true, why: "The sender changed its container this week." },
+      { text: "2026-11-18 06:00:02 ERROR [item-hub] Download failed status=404 code=BlobNotFound container=inbound", relevant: true, why: "The hub looks in its configured container, which no longer gets the files." },
       { text: "2026-11-18 06:01:00 INFO  [item-hub] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,22 +18,22 @@ export default {
         type: 'single',
         prompt: "Why does the download fail?",
         options: [
-          "The sender moved to another container, so the blob is not where the notification points",
-          "The blob was deleted",
-          "The key expired",
-          "The file is too big",
+          "The platform now writes to inbound-items, but the hub reads inbound",
+          "The hub downloads before the platform has finished writing the blob",
+          "The hub’s SAS token expired, and Azure answers 404 to hide the blob",
+          "A lifecycle rule deleted the blob between the write and the download",
         ],
         answer: 0,
-        explain: "BlobNotFound with a container the sender no longer uses shows a mismatch.",
+        explain: "The sender wrote the blob to inbound-items, and the hub looked in inbound. The path is right but the container is not.",
       },
       {
         type: 'single',
         prompt: "What is wrong with the order of steps?",
         options: [
-          "The hub sent RECEIVED before checking the blob exists, so the sender thinks all is well",
-          "Nothing",
-          "The ACK should never be sent",
-          "The download should be first",
+          "RECEIVED went out before the hub checked the blob exists",
+          "The hub validated the notification before downloading the blob",
+          "The ACK went to the sender instead of to a shared status queue",
+          "The hub should download the blob before reading the notification",
         ],
         answer: 0,
         explain: "An ACK must mean \"I have it and can read it\". Check the blob first.",
@@ -45,7 +45,7 @@ export default {
           "The notification passes its schema",
           "The message ID is not a duplicate",
           "The blob exists where it says",
-          "The blob has been processed",
+          "The items in the blob have been loaded",
         ],
         answer: [0,1,2],
         explain: "Check what is needed to accept the work. Processing comes later.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What should the hub send when the blob is missing?",
         options: [
-          "A clear REJECTED answer with the reason, so the sender can fix and resend",
-          "RECEIVED anyway",
-          "Nothing",
-          "An email to the CEO",
+          "REJECTED with the reason, so the sender can fix and resend",
+          "RECEIVED, then retry the download every hour until it works",
+          "No ACK at all, so the sender times out and resends by itself",
+          "RECEIVED, and open a support ticket for the hub team",
         ],
         answer: 0,
         explain: "A negative ACK with a reason lets the sender act without a support call.",
@@ -82,16 +82,17 @@ export default {
 
 ## Change / Context
 - The platform writes each message as a JSON file in blob storage and sends a small JMS notification with the blob path.
+- The hub reads blobs from the container named in its own config, \`inbound\`.
 - The hub validates the notification, publishes a RECEIVED ACK, then downloads the blob.
-- The platform moved its files to a new container this week.
+- On Monday the platform moved its files to a new container, \`inbound-items\`. Nobody told the integration team.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 06:00:01 INFO  [item-hub] Notification received messageId=N-9001 blob=items/2026-11-18/batch-41.json container=inbound
+2026-11-18 06:00:00 INFO  [sender] Blob written container=inbound-items blob=items/2026-11-18/batch-41.json
+2026-11-18 06:00:01 INFO  [item-hub] Notification received messageId=N-9001 blob=items/2026-11-18/batch-41.json
 2026-11-18 06:00:01 INFO  [item-hub] ACK published status=RECEIVED messageId=N-9001
 2026-11-18 06:00:02 ERROR [item-hub] Download failed status=404 code=BlobNotFound container=inbound
-2026-11-18 06:00:02 INFO  [sender] Blob written container=inbound-items
 \`\`\`
 
 ## Your tasks
@@ -119,7 +120,7 @@ These lines are illustrative and were written for this scenario. Real log format
     "Reprocess the failed notifications.",
   ],
   solution: `
-**Diagnosis.** The sender now writes to a different container. The notification still names the old one, so the download returns BlobNotFound. The hub had already sent RECEIVED.
+**Diagnosis.** The sender now writes to a different container. The hub still reads the old one, so the download returns BlobNotFound. The hub had already sent RECEIVED.
 
 **Immediate mitigation.**
 - Agree the right container, then reprocess the failed notifications.

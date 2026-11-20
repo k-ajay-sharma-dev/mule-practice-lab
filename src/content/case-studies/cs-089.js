@@ -91,7 +91,11 @@ export default {
 
 **Volumes.** 25 million postings a day, peak 1,200 per second at lunchtime and on payday. About 15% of postings trigger an alert.
 
+**For the diagram**
 - In tests 180 push alerts a second arrive at the payday peak, and the SMS aggregator can be down for 30 minutes while push alerts keep flowing.
+- Name the APIs prc-alert-rules, sys-alert-preferences-api, sys-push-api, sys-sms-api and sys-email-api, and the queues \`alerts.push\`, \`alerts.sms\` and \`alerts.email\`.
+- Run the CDC capture job on 1 vCore, and prc-alert-rules and sys-push-api on 0.5 vCore each.
+- A queue redelivers a failed message about once a minute. Keep SMS alerts on their queue through a 30 minute outage: set no redelivery limit lower than 60.
 
 **Requirements**
 - Customers choose alerts and channels in the app (for example push for every card payment, SMS for balance below 100 EUR) and quiet hours.
@@ -127,7 +131,7 @@ export default {
 
 **Rules.** \`prc-alert-rules\` runs several replicas in one consumer group. For each posting it looks up the customer's preferences in the cache (loaded on a miss from \`sys-alert-preferences-api\`), checks quiet hours and thresholds, and builds an alert per chosen channel. Low balance alerts use the balance after posting carried in the event.
 
-**Delivery.** Alerts go to \`alerts.push\`, \`alerts.sms\` and \`alerts.email\`. Each channel System API consumes its own queue at the rate its provider allows: SMS at 100 per second, push at thousands. A provider outage fills only its queue. After 5 failed attempts a message moves to the DLQ and an alert is raised.
+**Delivery.** Alerts go to \`alerts.push\`, \`alerts.sms\` and \`alerts.email\`. Each channel System API consumes its own queue at the rate its provider allows: SMS at 100 per second, push at thousands. A provider outage fills only its queue. A failed alert is redelivered about once a minute for at least an hour, so a 30 minute SMS outage loses nothing; after that it moves to the DLQ and an alert is raised.
 
 **Duplicates.** The message ID is \`postingId + channel\`. Each channel System API keeps sent IDs for 48 hours and skips repeats.
 

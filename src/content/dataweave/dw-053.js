@@ -86,7 +86,7 @@ payload map (row) -> {
 - **Lookup**: \`statuses[null]\` and \`statuses["XX"]\` are both \`null\`, so one \`default\` covers unknown and missing codes.
 
 Common traps:
-- \`null as LocalDateTime {...}\` throws — the null check must come first.
+- \`null as LocalDateTime {...}\` throws, so the null check must come first.
 - Forgetting \`as String\` on the id: \`880101\` and \`"880101"\` are different JSON values for the consuming API.
 `,
   tests: [

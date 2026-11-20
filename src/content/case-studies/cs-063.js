@@ -77,6 +77,8 @@ On a sale evening checkout can ask for 80 slot lists a second, and the TMS can s
 **Constraints**
 - The TMS team will not let the web shop or app call the TMS directly.
 - A second sales channel (showroom tablets) is planned for next year and must reuse the same logic.
+- Name the APIs exp-checkout-api, prc-delivery-slots, sys-tms-api and sys-erp-stock-api. Run exp-checkout-api and prc-delivery-slots on 0.5 vCore each.
+- prc-delivery-slots caches slot lists for 60 seconds. It gives up on the TMS after 3 seconds, has a circuit breaker, and on failure returns a partial answer (an empty list with a flag) so checkout offers "we will call you".
 
 **Your task.** Design the integration that returns delivery slots at checkout and books the chosen slot.
 `,

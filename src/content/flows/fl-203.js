@@ -101,6 +101,13 @@ The platform's rule: a data file is complete only once its \`.ok\` file exists. 
 - A marker whose data file is missing goes to \`/plan/out/error\`.
 - Any other failure leaves both files where they are for the next poll.
 
+**Facts**
+- Listen for \`FCST_*.ok\`. Keep the marker's path in \`vars.okPath\`, and the data file's path (the same path with \`.csv\`) in \`vars.dataPath\`. Read the data file with **FTP Read** on \`vars.dataPath\`.
+- Store \`units\` as a number. Each file holds one week: take it from the first row.
+- Put the delete and the bulk insert in a **Try** with the transactional action \`ALWAYS_BEGIN\`.
+- A missing data file raises \`FTP:ILLEGAL_PATH\`. Catch only that, with On Error Continue. A database error such as \`DB:CONNECTIVITY\` is not caught, so the run fails.
+- Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Starting from the marker

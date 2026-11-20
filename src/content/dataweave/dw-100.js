@@ -30,7 +30,7 @@ Work out each result before you choose.
       body: '[1, 2, 2, 3] -- [2]',
       right: '[1, 3]',
       wrong: ['[1, 2, 3]', '[1, 2, 2, 3]', '[3]'],
-      explain: '`--` removes every element equal to one on the right, not just the first match.',
+      explain: '`--` removes every element equal to one on the right, not only the first match.',
     }),
     out({
       body: '[1, 2, 3, 4, 5][1 to 3]',

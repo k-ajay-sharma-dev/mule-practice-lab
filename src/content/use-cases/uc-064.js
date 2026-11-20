@@ -78,7 +78,8 @@ Volumes and rules:
 - Vendor stock (846 / API / CSV) must hide out-of-stock items on the website within **4 hours**.
 - Invoices are paid only if they match the shipped quantity and agreed cost (2-way match against the drop-ship PO + 856).
 - The customer must see one consolidated order with tracking per vendor shipment.
-- Orders reach the integration at up to 1 a second. The VAN can be down for 30 minutes, and about 1 order in 100 has an item the VAN rejects every time.
+- Orders reach the integration at up to 1 a second. The VAN can be down for 30 minutes, and about 1 order in 100 has an item the VAN rejects every time. No good order may be lost while the VAN is down, and an order the VAN always rejects must be set aside in a DLQ for review.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. Draw the architecture. How do you support three vendor channels without three copies of the business logic?
@@ -131,7 +132,7 @@ Inbound documents from all channels are mapped to the same canonical Ack/Shipmen
 
 **Invoices.** Match each invoice line against PO cost × shipped quantity with a tolerance (e.g. 1 % or 2 currency units). Match → send to AP in the ERP; mismatch → hold with reason for AP review.
 
-**Idempotency and ordering.** Unique key per vendor + document ID; duplicates are acknowledged and ignored. A shipment that arrives before the acknowledgement is accepted and counts as acknowledgement. Transactional JMS listener; poison messages go to the DLQ after the redelivery limit.
+**Idempotency and ordering.** Unique key per vendor + document ID; duplicates are acknowledged and ignored. A shipment that arrives before the acknowledgement is accepted and counts as acknowledgement. Transactional JMS listener. The broker redelivers about once a minute, so a redelivery limit of about 60 keeps good orders through a 30-minute VAN outage, while an order the VAN always rejects reaches the DLQ after an hour.
 
 **Errors.** One vendor's failures never block the others (per-vendor error handling and queues can be split later). \`DB:CONNECTIVITY\` → redelivery; mapping errors → vendor-specific error report emailed to vendor operations.
 `,

@@ -10,22 +10,22 @@ export default {
       type: 'single',
       prompt: 'Why bundle the Error type, `pageable` trait and security scheme into a RAML **Library** rather than separate single fragments?',
       options: [
-        'Libraries are the only fragments Exchange accepts',
-        'A Library holds many types, traits, resource types and security schemes under a namespace (`uses: common: ...`), avoiding name collisions',
-        'Libraries enforce security at runtime',
-        'Single fragments cannot be versioned',
+        'Exchange accepts only Library fragments as shared assets',
+        'One namespaced asset holds them all and avoids name collisions',
+        'A Library makes APIkit enforce the scheme at runtime',
+        'Single fragments cannot be versioned in Exchange',
       ],
       answer: 1,
-      explain: 'A Trait fragment holds exactly one trait and is `!include`d; a Library groups related definitions, and the `common.` namespace keeps them distinct from a spec\'s own `Error` type.',
+      explain: 'A Library holds many types, traits, resource types and security schemes under a namespace (`uses: common: ...`). A Trait fragment holds exactly one trait and is `!include`d; a Library groups related definitions, and the `common.` namespace keeps them distinct from a spec\'s own `Error` type.',
     },
     {
       type: 'single',
       prompt: 'The team publishes `common-api-lib` 1.1.0. What happens to the 18 specs depending on 1.0.0?',
       options: [
-        'They pick up 1.1.0 automatically on the next build',
-        'Nothing changes until each spec owner bumps the dependency — specs reference an exact version',
-        'Exchange deprecates 1.0.0 and the specs fail to validate',
-        'Only specs in the same business group update',
+        'They pick up 1.1.0 automatically on their next build',
+        'Nothing, until each spec owner bumps the version it uses',
+        'Exchange deprecates 1.0.0, so those specs fail to validate',
+        'Only specs in the same business group are updated',
       ],
       answer: 1,
       explain: 'The `exchange_modules` path is pinned to an exact asset version; upgrading is an explicit change.',
@@ -38,19 +38,19 @@ export default {
         ['Rename `pageSize` to `size` in the `pageable` trait', 'Major'],
         ['Fix a typo in a trait description', 'Patch'],
       ],
-      explain: 'Renaming or removing, or making something required, can break every API that adopts it — that is a major.',
+      explain: 'Renaming or removing, or making something required, can break every API that adopts it. That is a major.',
     },
     {
       type: 'single',
       prompt: 'A team copied the System API `Customer` type into its mobile Experience API and it drifted. What is the best guidance?',
       options: [
-        'Always share the System API type everywhere so it cannot drift',
-        'Share cross-cutting definitions everywhere, but let Experience APIs define consumer-shaped types and map them — drift is fine only if it is a deliberate consumer view',
-        'Ban domain types from all specs',
-        'Move the type into API Manager',
+        'Share the System API type everywhere so it cannot drift',
+        'Share cross-cutting parts; let Experience APIs own their types',
+        'Ban domain types from all specs and use plain objects',
+        'Generate the Experience type from the System type at build',
       ],
       answer: 1,
-      explain: 'Sharing the System type into the Experience layer couples the mobile contract to the CRM\'s shape — exactly what API-led layering prevents.',
+      explain: 'Share cross-cutting definitions everywhere, but let Experience APIs define consumer-shaped types and map them. Drift is fine only if it is a deliberate consumer view. Sharing or generating from the System type couples the mobile contract to the CRM\'s shape, which is what API-led layering prevents.',
     },
     {
       type: 'order',
@@ -69,13 +69,13 @@ export default {
       needsScenario: true,
       prompt: 'Does the `clientIdEnforcement` security scheme in the library enforce client credentials at runtime?',
       options: [
-        'Yes, APIkit rejects calls without `client_id`',
-        'No — it documents the contract; enforcement comes from API Manager policies or the implementation',
-        'Yes, Exchange blocks calls without credentials',
-        'Only on CloudHub 2.0',
+        'Yes, APIkit rejects calls that lack a `client_id` header',
+        'No, it documents it; an API Manager policy enforces it',
+        'Yes, Exchange blocks calls that lack valid credentials',
+        'Only when the app is deployed to CloudHub 2.0',
       ],
       answer: 1,
-      explain: 'RAML security schemes describe security; a Client ID Enforcement policy (or OAuth/JWT policy) enforces it.',
+      explain: 'RAML security schemes describe security; enforcement comes from the implementation or an API Manager policy such as Client ID Enforcement, OAuth or JWT validation.',
     },
   ],
   description: `
@@ -188,7 +188,7 @@ The path is \`exchange_modules/<groupId>/<assetId>/<version>/<file>\`; the group
 
 **Sharing domain types across layers**
 - Cross-cutting definitions: share everywhere.
-- Domain types: sharing \`Customer\` from the System API into the Experience API couples the mobile contract to the CRM's shape — exactly what API-led layering is meant to prevent. Prefer: a canonical type shared between System and Process layers if the organisation genuinely has one, while Experience APIs define their own consumer-shaped types and map in the Process/Experience implementation. The "drift" found in the audit is acceptable only if it is a deliberate consumer view, not an accidental copy.
+- Domain types: sharing \`Customer\` from the System API into the Experience API couples the mobile contract to the CRM's shape, which is what API-led layering is meant to prevent. Prefer: a canonical type shared between System and Process layers if the organisation genuinely has one, while Experience APIs define their own consumer-shaped types and map in the Process/Experience implementation. The "drift" found in the audit is acceptable only if it is a deliberate consumer view, not an accidental copy.
 
 **Rollout**
 1. Agree the standard (error shape, paging names) in an architecture review; publish \`common-api-lib\` 1.0.0.

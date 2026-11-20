@@ -94,7 +94,7 @@ Facts:
     'Matching rules configurable by finance, match rate and exceptions reported daily.',
   ],
   solution: `
-**Receiving files.** One SFTP listener per bank (On New or Updated File, with a moved-to/archive directory). If banks encrypt files, decrypt with the **Cryptography module (PGP)**. Every raw file is first archived unchanged (immutable storage with retention) — the original is the audit evidence.
+**Receiving files.** One SFTP listener per bank (On New or Updated File, with a moved-to/archive directory). If banks encrypt files, decrypt with the **Cryptography module (PGP)**. Every raw file is first archived unchanged (immutable storage with retention). The original is the audit evidence.
 
 **Normalisation.**
 - **camt.053**: XML; DataWeave maps \`Stmt\` (account, statement ID, sequence, balances \`OPBD\`/\`CLBD\`) and each \`Ntry\`/\`TxDtls\` (amount, credit/debit, booking date, end-to-end ID, remittance information \`Ustrd\`/\`Strd\`, debtor name and IBAN).

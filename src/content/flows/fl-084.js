@@ -234,7 +234,7 @@ The clinical safety officer has one rule: **a result may be delayed, but it must
 - **On Error Continue** for \`APP:INVALID_RESULT\` and \`HTTP:BAD_REQUEST\`: **Publish** to \`LAB.RESULTS.PARKED\` with persistent delivery, then **Ack**. The ack comes after the publish, so a failed publish cannot lose the result.
 - **On Error Continue** for everything else: **JMS Recover Session** with \`#[vars.ackId]\`. The XML example on the MuleSoft ack page places recover-session in an On Error Continue, while the Studio steps on that page use On Error Propagate. The page does not explain the difference, so either is acceptable here.
 
-**Why recover-session and not just a failed flow?** In AUTO mode a failed flow leads to redelivery on its own. In MANUAL mode the docs state that received but unacknowledged messages are not redelivered by the broker, so the application has to ask.
+**Why recover-session and not only a failed flow?** In AUTO mode a failed flow leads to redelivery on its own. In MANUAL mode the docs state that received but unacknowledged messages are not redelivered by the broker, so the application has to ask.
 
 **Redelivery settings.** Configure them on the ActiveMQ connection factory: \`maxRedelivery\` (default 0, no redelivery; -1 is unlimited) and \`redeliveryDelay\` (default 1000 ms). A delay of 1 second would use up the attempts well before a 10 minute EMR restart ends, so the values must be sized for the real outage. The reference uses 5 attempts at 30 seconds as a starting point. For longer outages, stop the source or add a retry queue. Check on your broker where a message goes when the redelivery limit is reached, and monitor that destination, because the requirement says nothing may be lost.
 

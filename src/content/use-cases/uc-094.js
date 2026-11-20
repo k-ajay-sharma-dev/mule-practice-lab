@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'workday', 'provisioning', 'pub-sub', 'anypoint-mq', 'pii', 'dlq', 'hr'],
   estMinutes: 30,
   diagram: {
-    task: 'draw how a completed hire in Workday reaches Active Directory and the ADP payroll API: the poller, the topic, one Process API per target, their System APIs, the write-back to Workday and the dead-letter queue.',
+    task: 'draw how a completed hire in Workday reaches Active Directory and the PayNorth payroll API: the poller, the topic, one Process API per target, their System APIs, the write-back to Workday and the dead-letter queue.',
     checks: [
       { label: 'A scheduled job picks up completed hires from Workday', rule: { type: 'path', from: 'batch-job', to: 'saas' } },
       { label: 'Each hire is published once to a topic', rule: { type: 'edge', from: ['batch-job', 'process-api'], to: 'topic', kind: 'async' } },
@@ -29,14 +29,14 @@ export default {
         ppay: ['process-api', 'prc-payroll-enrolment'],
         sad: ['system-api', 'sys-active-directory-api (on-prem)'],
         ad: ['legacy', 'Active Directory'],
-        sadp: ['system-api', 'sys-adp-payroll-api'],
-        adp: ['external-api', 'ADP payroll API'],
+        spn: ['system-api', 'sys-paynorth-payroll-api'],
+        pn: ['external-api', 'PayNorth payroll API'],
         dlq: ['dlq', 'provisioning-dlq'],
         mail: ['notification', 'Alert to IT and HR operations'],
       },
       [
         'job -> swd', 'swd -> wd', 'job ~> topic', 'topic ~> pad', 'topic ~> ppay', 'pad -> sad', 'sad -> ad',
-        'ppay -> sadp', 'sadp -> adp', 'pad -> swd', 'pad ~> dlq', 'ppay ~> dlq', 'pad -> mail',
+        'ppay -> spn', 'spn -> pn', 'pad -> swd', 'pad ~> dlq', 'ppay ~> dlq', 'pad -> mail',
       ],
     ),
     simulation: {
@@ -47,8 +47,8 @@ export default {
       ],
       tests: [
         {
-          name: 'ADP is down for an hour',
-          about: 'The poller publishes 6 hires a minute while the ADP API is down for an hour. Every hire still gets its AD login at once, and the payroll copies wait and go through when ADP is back, with none lost or sent to the DLQ.',
+          name: 'Payroll API is down for an hour',
+          about: 'The poller publishes 6 hires a minute while the PayNorth API is down for an hour. Every hire still gets its AD login at once, and the payroll copies wait and go through when PayNorth is back, with none lost or sent to the DLQ.',
           traffic: [{ name: 'hires', from: 'batch-job', rps: 0.1, to: ['legacy', 'external-api'], kind: 'write' }],
           incidents: [{ down: 'external-api', at: 5, forMin: 60 }],
           durationMin: 120,
@@ -69,7 +69,7 @@ A logistics company hires about **120 people a week** across 9 sites. **Workday 
 
 Targets:
 - **Active Directory** on-premises: user account in the right OU (by site and department), groups by job profile, email address created through the Exchange hybrid sync. AD is only reachable from the data centre.
-- **ADP Workforce Now** payroll: employee record with pay group, tax data and bank details, by REST API.
+- **PayNorth** payroll: employee record with pay group, tax data and bank details, by REST API.
 
 Facts:
 - A hire is created in Workday 2 to 30 days before the start date. Data can still change (start date moves, hire is rescinded).
@@ -77,7 +77,8 @@ Facts:
 - The username and email created in AD must be stored back in Workday, because other systems read them from there.
 - AD provisioning must not wait for payroll, and a payroll error must not block the login.
 - Bank details and national IDs are sensitive and must never be logged.
-- In the tests the poller publishes 6 hires a minute, the ADP API can be down for an hour, and 1 hire in 50 has data both targets reject.
+- In the tests the poller publishes 6 hires a minute, the PayNorth API can be down for an hour, and 1 hire in 50 has data both targets reject.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit. No hire may be lost or sent to the DLQ during the one-hour outage, and hires that are always rejected must reach the DLQ.
 
 **Questions:**
 1. How do you detect hires and changes in Workday?
@@ -105,24 +106,24 @@ Facts:
 Workday <-- sys-workday-api <-- Hire poller --> (worker-hired exchange)
                                                   |--> [ad queue]      --> prc-ad-provisioning   --> sys-active-directory-api --> AD
                                                   |                                \\--> sys-workday-api (username, email)
-                                                  \\--> [payroll queue] --> prc-payroll-enrolment --> sys-adp-payroll-api --> ADP
+                                                  \\--> [payroll queue] --> prc-payroll-enrolment --> sys-paynorth-payroll-api --> PayNorth
 \`\`\`
 
 **Detecting hires.** Every 15 minutes the poller asks **sys-workday-api** for workers changed since the last run (Get_Workers with a transaction log window). It picks hires whose start date is within 3 business days, plus changes and rescinds for workers already provisioned. The window end is stored as the next watermark.
 
-**Fan-out.** Each event (\`HIRE\`, \`CHANGE\`, \`RESCIND\`) is published once to the \`worker-hired\` exchange. Two queues are bound to it: one for AD, one for payroll. Each Process API consumes its own queue at its own speed. If ADP is down, the payroll queue grows while logins are still created.
+**Fan-out.** Each event (\`HIRE\`, \`CHANGE\`, \`RESCIND\`) is published once to the \`worker-hired\` exchange. Two queues are bound to it: one for AD, one for payroll. Each Process API consumes its own queue at its own speed. If PayNorth is down, the payroll queue grows while logins are still created.
 
 **Active Directory.** **prc-ad-provisioning** builds the username (first initial plus surname, with a number if taken), picks the OU and groups from a mapping table, and creates the account disabled with an activation date. It then writes the username and email back through **sys-workday-api**. **sys-active-directory-api** uses the LDAP connector and runs on Runtime Fabric in the data centre, because AD is not reachable from CloudHub.
 
-**Payroll.** **prc-payroll-enrolment** maps the worker to the ADP employee object, including pay group and bank details, and calls **sys-adp-payroll-api**. The bank account is masked in every log line.
+**Payroll.** **prc-payroll-enrolment** maps the worker to the PayNorth employee object, including pay group and bank details, and calls **sys-paynorth-payroll-api**. The bank account is masked in every log line.
 
-**Idempotency and changes.** Both targets use the Workday employee id as the key. A retried message finds the existing account and updates it. A rescind disables the AD account and terminates the pending ADP record. A rehire reactivates the old account instead of creating a second one.
+**Idempotency and changes.** Both targets use the Workday employee id as the key. A retried message finds the existing account and updates it. A rescind disables the AD account and terminates the pending PayNorth record. A rehire reactivates the old account instead of creating a second one.
 
-**Errors.** Business errors (missing cost centre) go straight to the DLQ with an alert to HR operations. Connection errors are redelivered with back-off; after 5 attempts they go to the DLQ.
+**Errors.** Business errors (missing cost centre) go straight to the DLQ with an alert to HR operations. Connection errors are redelivered about once a minute. The redelivery limit is about 90 deliveries, so a hire outlasts a one-hour PayNorth outage; after that it goes to the DLQ.
 `,
   followUps: [
     { q: 'Why one queue per target instead of one queue that both apps read?', a: 'Consumers on one queue compete, so each message would reach only one target. Separate queues bound to an exchange give every target its own copy and its own retry.' },
     { q: 'How do you protect bank details in transit and in logs?', a: 'TLS on every hop and encrypted queues. Logging uses a masking function, and payload logging is switched off in production.' },
-    { q: 'What happens if the start date moves after the account was created?', a: 'The change event updates the activation date in AD and the hire date in ADP. Both use the employee id, so nothing is duplicated.' },
+    { q: 'What happens if the start date moves after the account was created?', a: 'The change event updates the activation date in AD and the hire date in PayNorth. Both use the employee id, so nothing is duplicated.' },
   ],
 }

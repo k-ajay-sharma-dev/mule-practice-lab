@@ -100,7 +100,7 @@ export default {
               'choice',
               {},
               [
-                route({ expression: '#[payload.failedRecords * 2 > payload.totalRecords]' }, [
+                route({ expression: '#[payload.failedRecords >= 1000 or payload.failedRecords * 2 > payload.totalRecords]' }, [
                   step('db-update', jobUpdate('"FAILED"')),
                   step('sftp-move', { sourcePath: '#[vars.filePath]', targetPath: '/prices/error', overwrite: 'true' }),
                   step('email-send', {
@@ -138,9 +138,15 @@ The job runs with max failed records -1. A few bad rows a night are normal. But 
 **Requirements**
 - Stop the job once it is clear the file is broken: after **1,000** failed rows.
 - When the job ends, decide:
-  - more than half the rows failed: job \`FAILED\`, file to \`/prices/error\`, email \`pricing-support@brindle.example\` with "FAILED" in the subject;
-  - otherwise: \`COMPLETED\` or \`COMPLETED_WITH_ERRORS\`, file to \`/prices/done\`.
+  - 1,000 rows or more failed, or more than half the rows failed: job \`FAILED\`, file to \`/prices/error\`, email \`pricing-support@brindle.example\` with "FAILED" in the subject;
+  - otherwise: \`COMPLETED\` when nothing failed, else \`COMPLETED_WITH_ERRORS\`, file to \`/prices/done\`.
 - Write \`loaded\` and \`failed\` to the job row in both cases.
+
+**Facts**
+- The job is named \`PRICE_CHANGES_IN\`. \`dbo.usp_job_start\` returns \`{ job_id }\`.
+- \`dbo.job_log\` has \`job_id\`, \`job_name\`, \`status\`, \`loaded\` and \`failed\`. \`dbo.price_change\` has \`sku\`, \`store_group\`, \`new_price\`, \`effective\` and \`job_id\`.
+- A blank price goes in as null, so the database refuses that row.
+- In On Complete the payload is the job result, with \`successfulRecords\`, \`failedRecords\` and \`totalRecords\`.
 
 **Design the flow.**
 `,
@@ -157,14 +163,14 @@ The job runs with max failed records -1. A few bad rows a night are normal. But 
     'Pick a limit well above the bad rows of a normal night and far below a whole file. 1,000 out of 2 million fits here.',
     'The decision needs the job result, so the file move and the email live in On Complete, not after the Batch Job step.',
     'Variables set before the job, such as filePath and jobId, are still there in On Complete.',
-    'A stopped job reports fewer processed records than the total. Compare failedRecords with totalRecords, or check processedRecords, on your Mule version.',
+    'A stopped job counts all 2 million rows in totalRecords but processed only a few thousand, so "more than half failed" alone never fires. Testing failedRecords against the limit catches the stop.',
   ],
   solution: `
 1. **SFTP On New or Updated File** on \`/prices/in\`, size check wait 15 seconds.
 2. **Set Variable** \`filePath\`, \`fileName\`; **Stored Procedure** \`usp_job_start\`; **Set Variable** \`jobId\`.
 3. **Batch Job** (max failed records 1000), step \`insert-price\`: **Database Insert**.
 4. **On Complete**: **Choice**
-   - \`payload.failedRecords * 2 > payload.totalRecords\`: **Database Update** FAILED, **SFTP Move** to \`/prices/error\`, **Email Send**.
+   - \`payload.failedRecords >= 1000 or payload.failedRecords * 2 > payload.totalRecords\`: **Database Update** FAILED, **SFTP Move** to \`/prices/error\`, **Email Send**.
    - otherwise: **Database Update** COMPLETED or COMPLETED_WITH_ERRORS, **SFTP Move** to \`/prices/done\`.
 
 **What a stopped job leaves behind.** Rows inserted before the stop stay in \`dbo.price_change\` under the failed job's ID. Tell the store systems to read only rows of COMPLETED jobs, or delete the failed job's rows in the FAILED branch.

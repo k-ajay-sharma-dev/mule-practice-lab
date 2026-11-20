@@ -235,7 +235,14 @@ Systems (each already has, or will get, its own System API):
 - Then check availability for the priced lines.
 - An unknown customer must give a clear business error, not a 500.
 
-**Load:** ~10 quotes/s, 5 s end-to-end SLA.
+**Load:** ~10 quotes/s, 5 s end-to-end SLA. Even when a System API hangs, the portal gets an answer inside 5 s.
+
+**Facts**
+- The portal calls the Experience API \`POST /exp-sales-portal/v1/quotes\`. The Process API is \`POST /prc-quotes/v1/quotes\`. Both take \`{ customerId, lines: [{ sku, quantity }] }\`.
+- CRM System API: \`GET /sys-crm/v1/customers/{customerId}\` answers \`{ id, name, segment }\`, or 404 for an unknown customer.
+- ERP: \`POST /sys-erp/v1/contract-prices\`. Pricing engine: \`POST /sys-pricing/v1/list-prices\`. Both take \`{ lines }\` and answer \`[{ sku, quantity, unitPrice }]\`.
+- Inventory: \`POST /sys-inventory/v1/availability\` takes the priced lines and answers \`[{ sku, available }]\` with the quantity in stock.
+- The quote is \`{ quoteId, customerId, segment, lines: [{ sku, quantity, unitPrice, available }], total }\`, where \`available\` is true when the stock covers the quantity and \`total\` is the sum of quantity times unit price.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-quotes/v1/quotes\`), and let layers call each other with HTTP Request pointing at the lower API's path. Draw the Process API in full; one System API flow is enough to show the pattern.
 
@@ -254,7 +261,7 @@ Systems (each already has, or will get, its own System API):
   keyPoints: [
     'Orchestration (call order, branching, combining results) is the job of the Process API; System APIs stay single-purpose and unaware of each other.',
     'The calls are sequential because they depend on each other: the segment decides the pricing source, and availability is checked for the priced lines.',
-    'A Choice on the customer segment selects the pricing System API — the Experience API never needs to know B2B and B2C are priced differently.',
+    'A Choice on the customer segment selects the pricing System API: the Experience API never needs to know B2B and B2C are priced differently.',
     'Each HTTP Request replaces the payload, so the request, customer and prices are saved in variables (or use the request target) before the next call.',
     'Errors from System APIs are translated into Process-level meaning: CRM 404 → 422 UNKNOWN_CUSTOMER, timeouts/503 → 503; per-call timeouts add up within the 5 s budget.',
   ],
@@ -275,7 +282,7 @@ Systems (each already has, or will get, its own System API):
    sys-crm         sys-erp         sys-pricing     sys-inventory   SYSTEM
 \`\`\`
 
-**prc-quotes** — \`POST /prc-quotes/v1/quotes\`
+**prc-quotes**: \`POST /prc-quotes/v1/quotes\`
 1. Save the request (\`vars.request\`).
 2. HTTP Request \`GET /sys-crm/v1/customers/{customerId}\` (1.5 s) → \`vars.customer\`.
 3. Set Payload back to \`vars.request\`: the CRM answer replaced it, and the pricing APIs need the quote lines.

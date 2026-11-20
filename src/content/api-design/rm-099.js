@@ -6,7 +6,7 @@ export default {
   tags: ['raml', 'api-design', 'file-upload', 'multipart', 'data-types', 'real-estate'],
   estMinutes: 30,
   description: `
-A letting agency's inspectors visit 600 homes a week. At the end of each room, the tablet app uploads up to 20 photos together with the room name, the time they were taken and a short note. Base64 inside JSON made each upload a third bigger and broke the 10 MB gateway limit, so the team moves to **multipart/form-data**.
+A letting agency's inspectors visit 600 homes a week. At the end of each room, the tablet app uploads up to 20 photos together with the room name, the time they were taken and a short note. Base64 inside JSON made each upload a third bigger and slow on site Wi-Fi, so the team moves to **multipart/form-data**.
 
 In a multipart request, each property of the body type is one form part. A property of type \`file\` is a binary part, and an array of files means the part can repeat. Facets on the file type state what the server accepts:
 - \`fileTypes\` lists the allowed media types.
@@ -165,7 +165,7 @@ The body names \`multipart/form-data\` as its media type. Without it, the defaul
 
 413 and 415 are separate because the fix is different: a smaller photo, or a different format. The gateway or the Mule flow can reject both before the files are written anywhere.
 
-In Mule, the HTTP Listener receives the parts, and DataWeave reads them as \`payload.parts.photos\` and so on. Large uploads should be streamed to storage such as S3, not held whole in memory.
+In Mule, the HTTP Listener receives the parts, and DataWeave reads the fields under \`payload.parts\`. The repeated photo parts come back with the multi-value selector \`payload.parts.*photos\`. Large uploads should be streamed to storage such as S3, not held whole in memory.
 `,
   followUps: [
     {

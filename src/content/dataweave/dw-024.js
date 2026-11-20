@@ -18,11 +18,11 @@ Counterparty names may contain commas or pipes, so they are wrapped in double qu
 
 Produce this JSON:
 
-- \`fileDate\` — the H date formatted as \`yyyy-MM-dd\`
-- \`bank\` — the bank code
-- \`transactions\` — one object per D line, in file order: \`reference\`, \`bookingDate\` (string, as received), \`counterparty\` (without quotes), \`amount\` — a **number**, **negative** for \`DR\` lines
-- \`declaredCount\` — the trailer count as a number
-- \`countMatches\` — \`true\` when \`declaredCount\` equals the number of D lines
+- \`fileDate\`: the H date formatted as \`yyyy-MM-dd\`
+- \`bank\`: the bank code
+- \`transactions\`: one object per D line, in file order: \`reference\`, \`bookingDate\` (string, as received), \`counterparty\` (without quotes), \`amount\` (a **number**, **negative** for \`DR\` lines)
+- \`declaredCount\`: the trailer count as a number
+- \`countMatches\`: \`true\` when \`declaredCount\` equals the number of D lines
 
 The script must tell the CSV reader about the file format itself (the input arrives as plain \`application/csv\`).
 `,
@@ -82,16 +82,16 @@ var details = payload filter ($.column_0 == "D")
   countMatches: (trailer.column_1 as Number) == sizeOf(details)
 }`,
   explanation: `
-With the default settings the reader would treat \`H|20261101|NORDBANK\` as the header row and split on commas — so \`"Acme, Inc"\` would break the whole file. Two reader properties fix that:
+With the default settings the reader would treat \`H|20261101|NORDBANK\` as the header row and split on commas, so \`"Acme, Inc"\` would break the whole file. Two reader properties fix that:
 
-- \`header=false\` — every line is data; columns get generated names \`column_0\`, \`column_1\`, …
-- \`separator="|"\` — split on pipes. Quoted values (the default \`quote\` is \`"\`) are kept together even when they contain the separator, and the quotes are removed.
+- \`header=false\`: every line is data; columns get generated names \`column_0\`, \`column_1\`, …
+- \`separator="|"\`: split on pipes. Quoted values (the default \`quote\` is \`"\`) are kept together even when they contain the separator, and the quotes are removed.
 
-Rows with fewer fields (H and T) simply have fewer columns, so one reader handles all three record types.
+Rows with fewer fields (H and T) have fewer columns, so one reader handles all three record types.
 
 Traps:
 - Every CSV value is a **String**. \`"1250.50"\` must be coerced with \`as Number\` before negating or comparing.
-- Comparing \`d.column_5 == "DR"\` is exact — \`"dr"\` would not match. Agree on the code list with the bank.
+- Comparing \`d.column_5 == "DR"\` is exact, so \`"dr"\` would not match. Agree on the code list with the bank.
 - \`as Date {format: "yyyyMMdd"}\` parses; a second \`as String {format: ...}\` re-formats.
 `,
   tests: [
@@ -129,11 +129,11 @@ T|1`,
     },
     {
       q: 'How would you handle a 2 GB statement file?',
-      a: 'Enable streaming on the CSV reader (`streaming=true`) and make sure the script only walks the data once — the `filter` calls here iterate the payload three times, which forces it into memory.',
+      a: 'Enable streaming on the CSV reader (`streaming=true`) and make sure the script only walks the data once. The `filter` calls here iterate the payload three times, which forces it into memory.',
     },
     {
       q: 'What if the bank escapes quotes inside a value as `""`?',
-      a: 'The default escape character is a backslash, so `"O""Brien"` is read as just `O`. Setting `escape="\\""` on the reader makes `""` mean one literal quote.',
+      a: 'The default escape character is a backslash, so a doubled quote is not read as one literal quote and the value comes out wrong. Setting `escape="\\""` on the reader makes `""` mean one literal quote. Test it with a sample file from the bank.',
     },
   ],
 }

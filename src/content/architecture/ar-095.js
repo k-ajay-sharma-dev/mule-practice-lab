@@ -8,7 +8,7 @@ export default {
   tags: ['cloudhub', 'cloudhub-2', 'deployment', 'migration', 'dlb', 'ingress', 'api-led'],
   estMinutes: 55,
   diagram: {
-    task: 'draw the coexistence state in the middle of the migration: clients keep calling the existing DLB domain, the DLB serves one Experience API still on CloudHub 1.0 and forwards to private space ingress for a migrated one, the migrated Process API calls a CloudHub 1.0 System API back through the DLB, and backends are reached only through System APIs.',
+    task: 'draw the coexistence state in the middle of the migration: clients keep calling the existing DLB domain, the DLB serves one Experience API still on CloudHub 1.0 and forwards to private space ingress for a migrated one, the migrated Process API calls a CloudHub 1.0 System API back through the DLB, and backends are reached only through System APIs. Name the migrated partner Experience API exp-partner-orders and the portal Experience API that has not moved exp-portal.',
     checks: [
       { label: 'Partners and web clients still enter through the dedicated load balancer', rule: { type: 'each', of: ['partner', 'web-app'], min: 2, edgeTo: { type: 'load-balancer', label: ['dlb', 'dedicated'] } } },
       { label: 'There are two load balancing layers: the DLB and private space ingress', rule: { type: 'node', match: 'load-balancer', min: 2 } },

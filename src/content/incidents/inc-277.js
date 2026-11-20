@@ -7,7 +7,7 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 06:00:00 INFO  [stock-query] Building IN list size=1240", relevant: true, why: "The list is long." },
+      { text: "2026-11-18 06:00:00 INFO  [stock-query] Building IN list size=1020", relevant: true, why: "The list is long." },
       { text: "2026-11-18 06:00:00 ERROR [stock-query] ORA-01795: maximum number of expressions in a list is 1000", relevant: true, why: "Oracle limits IN lists." },
       { text: "2026-11-18 06:00:00 INFO  [stock-query] Stores opened this month=40", relevant: true, why: "Growth pushed it over." },
       { text: "2026-11-18 06:00:01 WARN  [stock-query] Stock export skipped", relevant: false },
@@ -18,9 +18,9 @@ export default {
         prompt: "Why does it fail?",
         options: [
           "Oracle allows at most 1,000 expressions in an IN list",
-          "The table is big",
-          "Stores are wrong",
-          "Timeouts",
+          "The 40 new store IDs are not in the stock table yet",
+          "The query is too long for the bind buffer",
+          "The new stores push the query past its timeout",
         ],
         answer: 0,
         explain: "ORA-01795.",
@@ -29,10 +29,10 @@ export default {
         type: 'single',
         prompt: "What is a good fix?",
         options: [
-          "Load IDs into a global temporary table and join, or query in chunks of under 1,000",
-          "Split the database",
-          "Remove stores",
-          "Raise the limit",
+          "Join to a temporary table of IDs, or query in chunks under 1,000",
+          "Ask the DBA to raise the IN list limit in the database settings",
+          "Leave the 20 newest stores out of the list until next month",
+          "Send the IDs as one comma separated string bind variable",
         ],
         answer: 0,
         explain: "Join or chunk.",
@@ -54,9 +54,9 @@ export default {
         prompt: "Why avoid building SQL strings?",
         options: [
           "Injection risk and no plan reuse",
-          "It is slow to type",
-          "It is not allowed",
-          "No reason",
+          "Oracle rejects SQL built at runtime",
+          "Strings cannot hold 1,000 IDs",
+          "It turns off the IN list limit",
         ],
         answer: 0,
         explain: "Use binds.",
@@ -85,7 +85,7 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 06:00:00 INFO  [stock-query] Building IN list size=1240
+2026-11-18 06:00:00 INFO  [stock-query] Building IN list size=1020
 2026-11-18 06:00:00 ERROR [stock-query] ORA-01795: maximum number of expressions in a list is 1000
 2026-11-18 06:00:00 INFO  [stock-query] Stores opened this month=40
 \`\`\`

@@ -64,8 +64,10 @@ Requirements:
 - SAP owns **credit limit and payment terms**. They are shown read-only in Salesforce.
 - The SAP customer number must be written back to the Salesforce account, because invoices and orders refer to it.
 - Volumes: about **300 new customers a day** and **2,000 account updates**. A mass territory realignment can change **40,000 accounts** in one evening.
-- SAP is down on Saturday nights for patching.
-- In the tests a realignment sends 100 changes a second for 7 minutes, SAP takes at most 20 a second, and 1 account in 100 has a tax ID SAP always rejects.
+- SAP is down on Saturday nights for patching, in a fixed window.
+- A realignment sends about 100 changes a second for 7 minutes. SAP takes at most 20 a second. Every change must be accepted at once and reach SAP within the hour; none may be lost.
+- About 1 account in 100 has a tax ID SAP always rejects. Such a change must go to a dead-letter queue after 5 tries.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. How do you detect the changes in Salesforce?
@@ -83,7 +85,7 @@ Requirements:
 `,
   keyPoints: [
     'Subscribe to Salesforce Change Data Capture on Account (with replay id stored) instead of polling.',
-    'Publish each change to an Anypoint MQ queue; the Process API consumes it at a rate SAP can take, and the queue holds messages through the Saturday outage.',
+    'Publish each change to an Anypoint MQ queue; the Process API consumes it at a rate SAP can take, and the queue holds messages through the Saturday patch window while the listener is stopped.',
     'A cross-reference table (Salesforce id ↔ SAP BP number) decides create or update and makes redelivery safe.',
     'Only the fields Salesforce owns are sent to SAP; credit limit and payment terms are never overwritten from Salesforce.',
     'The SAP number is written back through sys-salesforce-api; messages that fail after retries go to a DLQ with an alert.',
@@ -97,7 +99,7 @@ Salesforce --CDC--> sys-salesforce-api --> [account-changes] --> prc-customer-sy
 
 **Detecting changes.** The Salesforce connector subscribes to the \`AccountChangeEvent\` channel. The replay id of the last processed event is stored, so after a restart the app resumes without gaps. Events that are not relevant (no customer status, or only fields SAP does not need) are filtered out here.
 
-**Buffering.** Each relevant change becomes one message on the \`account-changes\` queue with the account id as a property. The Process API listens with a small number of parallel consumers. During the realignment burst the queue grows and drains over the night, and SAP never sees more than its agreed rate. On Saturday nights the messages wait in the queue.
+**Buffering.** Each relevant change becomes one message on the \`account-changes\` queue with the account id as a property. The Process API listens with a small number of parallel consumers. During the realignment burst the queue grows and drains within the hour (42,000 changes at 20 a second take about 35 minutes), and SAP never sees more than its agreed rate. sys-salesforce-api runs on 0.5 vCore so it takes the 100 a second burst at once. On Saturday nights the listener is stopped for the patch window, so the messages wait in the queue without using up their 5 deliveries.
 
 **Create or update.** The Process API looks up the account id in the **cross-reference table**:
 - not found → create the Business Partner with the customer role, store the new BP number, then write it back to Salesforce;
@@ -105,7 +107,7 @@ Salesforce --CDC--> sys-salesforce-api --> [account-changes] --> prc-customer-sy
 
 If two messages for the same account arrive close together, the cross-reference row is created with a unique key, so the second one becomes an update and not a second customer.
 
-**Errors.** SAP business errors (invalid tax ID for the country) are not retried. The message goes to the DLQ and the account owner gets a task in Salesforce with the reason. Connection errors are retried by redelivery; after 5 attempts the message lands in the DLQ and support is alerted.
+**Errors.** The queue has a redelivery limit of 5. A short connection error is retried by redelivery, about once a minute. A SAP business error (invalid tax ID for the country) fails the same way every time, so after 5 deliveries the message lands in the DLQ. The account owner gets a task in Salesforce with the reason, and support is alerted.
 
 **Credit data back.** A separate small flow reads credit limit changes from SAP and updates the read-only fields in Salesforce through the same System API.
 `,

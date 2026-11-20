@@ -48,11 +48,11 @@ export default {
       options: [
         'Send a sample task and work out the offer from the error message',
         'Read the agent card that the remote agent serves',
-        'Open the runtime logs of the remote agent',
+        'Call `tools/list` on the remote agent through MCP',
         'Look up the agent in the Mule app\'s own Object Store',
       ],
       answer: 1,
-      explain: 'Capability discovery is part of A2A. An agent describes itself in its agent card, and the A2A Connector client has a Get Card operation that fetches the card.',
+      explain: 'Capability discovery is part of A2A. An agent describes itself in its agent card, and the A2A Connector client has a Get Card operation that fetches the card. `tools/list` belongs to MCP, which lists tools rather than describing an agent.',
     },
     {
       type: 'single',

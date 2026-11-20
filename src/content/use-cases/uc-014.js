@@ -61,8 +61,8 @@ export default {
   description: `
 A supermarket chain is launching a loyalty programme. A SaaS **loyalty engine** holds member accounts and point balances (REST API). Points are earned and spent in:
 
-- **400 stores** — POS sends each finished basket (with member card number) to a central hub; stores sometimes go offline and send backlogs later.
-- **Web shop and mobile app** — points can be **redeemed at checkout** (1 point = €0.01) in real time.
+- **400 stores**: POS sends each finished basket (with member card number) to a central hub; stores sometimes go offline and send backlogs later.
+- **Web shop and mobile app**: points can be **redeemed at checkout** (1 point = €0.01) in real time.
 
 Rules and facts:
 - 1 point per €1 spent, excluding tobacco and gift cards; double points on promoted products.
@@ -70,7 +70,7 @@ Rules and facts:
 - Returns must **reverse** the points earned on the returned items.
 - A member must never be able to spend the same points twice (two devices checking out at once).
 - The loyalty engine API allows 200 requests/second and is unavailable ~1 hour/month for maintenance.
-- On a Saturday morning the hub sends 120 baskets a second while checkouts redeem points 30 times a second. About 1 basket in 200 is malformed.
+- On a Saturday morning the hub sends 120 baskets a second while checkouts redeem points 30 times a second. About 1 basket in 200 is malformed and fails every time; it must reach a DLQ after a few tries without holding up the others.
 
 **Describe your solution:**
 - How do points get from POS baskets into the loyalty engine?
@@ -91,17 +91,17 @@ Rules and facts:
   keyPoints: [
     'Accrual is asynchronous: baskets queued (Anypoint MQ or Kafka) and posted by throttled consumers below 200 req/s; stores never wait for the loyalty engine.',
     'Accrual idempotency key = store + till + transaction number, so re-sent store backlogs never award points twice.',
-    'Points rules (exclusions, promos) applied in one place — preferably the loyalty engine, otherwise a Process API with rules from configuration.',
+    'Points rules (exclusions, promos) applied in one place: preferably the loyalty engine, otherwise a Process API with rules from configuration.',
     'Redemption uses a reserve/hold then confirm or release pattern tied to the order, so concurrent checkouts cannot spend the same balance.',
     'Returns post negative transactions referencing the original basket; maintenance window handled by queueing accruals and degrading redemption gracefully.',
   ],
   solution: `
-**Accrual flow.** POS hub → **Loyalty Process API** \`POST /baskets\` (or the hub drops baskets onto a queue directly). The API validates and **enqueues** to Anypoint MQ (or Kafka if the hub already uses it) and returns 202. Consumers post accrual transactions to the loyalty engine via a **Loyalty System API**, throttled to stay under the 200 req/s limit (e.g. fixed number of consumers × \`maxConcurrency\`). 120 baskets/s × 60% ≈ 72/s at peak — within limits, but the queue protects against bursts when offline stores reconnect with hours of backlog.
+**Accrual flow.** POS hub → **Loyalty Process API** \`POST /baskets\` (or the hub drops baskets onto a queue directly). The API validates and **enqueues** to Anypoint MQ (or Kafka if the hub already uses it) and returns 202. Consumers post accrual transactions to the loyalty engine via a **Loyalty System API**, throttled to stay under the 200 req/s limit (e.g. fixed number of consumers × \`maxConcurrency\`). 120 baskets/s × 60% ≈ 72/s at peak. That is within limits, but the queue protects against bursts when offline stores reconnect with hours of backlog.
 
-**Points calculation.** Prefer configuring earning rules (exclusions, double-points promos) **in the loyalty engine** — that is its job. If it cannot, calculate in the Process API with DataWeave using rule tables (excluded categories, promo SKUs with multipliers and dates) loaded from a config store and cached. Send line-level detail so returns can be reversed per line.
+**Points calculation.** Prefer configuring earning rules (exclusions, double-points promos) **in the loyalty engine**, because that is its job. If it cannot, calculate in the Process API with DataWeave using rule tables (excluded categories, promo SKUs with multipliers and dates) loaded from a config store and cached. Send line-level detail so returns can be reversed per line.
 
 **Real-time redemption.** At checkout the web shop calls \`POST /members/{id}/redemptions\` with order ID and points:
-1. **Reserve (hold)** the points in the loyalty engine — balance check and hold in one atomic operation on the engine side. Return a redemption ID.
+1. **Reserve (hold)** the points in the loyalty engine: balance check and hold in one atomic operation on the engine side. Return a redemption ID.
 2. On successful payment/order confirmation, **confirm** the redemption.
 3. On abandoned checkout or payment failure, **release** it; holds also expire automatically after e.g. 30 minutes.
 
@@ -109,12 +109,12 @@ If the engine has no native hold, implement the hold where the balance lives (ne
 
 **Duplicates and concurrency.**
 - Accrual idempotency key: \`storeId-tillId-txnNo-date\`. Pass it to the engine as the external transaction ID (if supported) and keep a processed-keys record (Object Store/DB with TTL) to skip duplicates from store backlogs.
-- Redemption idempotency key: order ID — a retried call returns the existing reservation.
+- Redemption idempotency key: order ID. A retried call returns the existing reservation.
 - Two devices at once: the atomic reserve on the engine guarantees only one succeeds when the balance is insufficient for both.
 
-**Returns.** The return transaction references the original basket; Mule posts a **negative accrual** for the returned lines (and if points were redeemed on that order, refunds them as per policy). Balance may go negative if points were already spent — a business decision to agree.
+**Returns.** The return transaction references the original basket; Mule posts a **negative accrual** for the returned lines (and if points were redeemed on that order, refunds them as per policy). Balance may go negative if points were already spent. That is a business decision to agree.
 
-**Downtime.** Accruals simply wait in the queue and drain afterwards. Redemption cannot work without the balance: the web shop shows "points temporarily unavailable" and lets the customer pay normally (fast-fail with circuit breaker, not timeouts). Schedule maintenance outside peak hours.
+**Downtime.** Accruals wait in the queue and drain afterwards. Redemption cannot work without the balance: the web shop shows "points temporarily unavailable" and lets the customer pay normally (fast-fail with circuit breaker, not timeouts). Schedule maintenance outside peak hours.
 `,
   followUps: [
     { q: 'How do customers see their balance in the app if accruals are delayed?', a: 'Show the balance from the engine plus a "pending points" figure, and set expectations ("points appear within X minutes"). The queue lag is monitored against that promise.' },

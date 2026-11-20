@@ -114,8 +114,8 @@ export default {
       prompt: 'A second request with the same key arrives while the first is still `IN_PROGRESS`. What should the Process API do?',
       options: [
         'Call the provider again, since the provider dedupes anyway',
-        'Return 409 Conflict (or 202 "still processing") without calling the provider',
-        'Wait for the first request and then charge again to be safe',
+        'Return 409 Conflict (or 202) without calling the provider',
+        'Return 200 with an empty body so the app stops retrying',
         'Delete the record and treat the new request as fresh',
       ],
       answer: 1,
@@ -151,7 +151,7 @@ export default {
       pairs: [
         ['Same key, status COMPLETED', 'The stored original response (same status and body)'],
         ['Same key, status IN_PROGRESS', '409 Conflict or 202 still processing'],
-        ['Same key, different request body hash', '422 — a client bug'],
+        ['Same key, different request body hash', '422: a client bug'],
         ['New key', 'Insert IN_PROGRESS and process the payment'],
       ],
       explain: 'Storing the body hash and the final response with the key lets every retry get a consistent answer, and catches clients that reuse a key for a different payment.',
@@ -170,14 +170,14 @@ Mobile app → Payments Experience API → Payments Process API
 Incidents in the last quarter:
 - Customers on bad mobile networks **tapped "Pay" twice** or the app retried after a timeout → **charged twice**.
 - The Process API timed out waiting for the provider (it took 35 s), retried, and the provider had actually succeeded the first time.
-- Receipts were sometimes **emailed 2–3 times**.
+- Receipts were sometimes **emailed 2 to 3 times**.
 
 The Process API runs on **2 replicas** on CloudHub 2.0. The payment provider supports an \`Idempotency-Key\` request header (keys kept 24 h).
 
 Numbers for sizing:
 - On the bill due date customers make up to **40 payments a second**.
 - The payment provider answers in about **2 s**, the billing DB in 50 ms, and the email provider in 500 ms.
-- Every app must survive the loss of one **availability zone**, and the email provider can be down for a few minutes.
+- Every app must survive the loss of one **availability zone**, and the email provider can be down for a few minutes. No receipt may be lost. A queued message that fails is tried again about once a minute.
 - The budget for all the Mule apps is **2.5 vCores**.
 
 **Design idempotency end to end:**
@@ -219,10 +219,10 @@ Numbers for sizing:
 
 **Storage and TTL.** Keep the record at least as long as clients may retry and ≥ the provider's 24 h window (e.g. 48 h). Add a timeout for stale \`IN_PROGRESS\` rows (crashed worker) that triggers reconciliation rather than blind reprocessing.
 
-**Unknown outcome.** A timeout means "unknown", not "failed". Because the provider receives the **same \`Idempotency-Key\`**, the Process API can safely retry (until-successful with backoff) — the provider returns the original result instead of charging again. If retries are exhausted, leave the record \`IN_PROGRESS\`/\`UNKNOWN\` and resolve it by querying the provider's payment status or via a reconciliation job; tell the user "payment pending", not "failed". Also set the HTTP timeout to match the provider's realistic latency.
+**Unknown outcome.** A timeout means "unknown", not "failed". Because the provider receives the **same \`Idempotency-Key\`**, the Process API can safely retry (until-successful with backoff): the provider returns the original result instead of charging again. If retries are exhausted, leave the record \`IN_PROGRESS\`/\`UNKNOWN\` and resolve it by querying the provider's payment status or via a reconciliation job; tell the user "payment pending", not "failed". Also set the HTTP timeout to match the provider's realistic latency.
 
 **Downstream consumers.**
-- *Billing:* conditional update — \`UPDATE invoice SET status='PAID', payment_id=:id WHERE id=:inv AND status<>'PAID'\`; re-running it is harmless.
+- *Billing:* conditional update: \`UPDATE invoice SET status='PAID', payment_id=:id WHERE id=:inv AND status<>'PAID'\`; re-running it is harmless.
 - *Receipts:* Anypoint MQ is at-least-once, so the consumer uses an **Idempotent Message Validator** on \`paymentId\` with a persistent Object Store (TTL of a few days). It acks only after the email is sent. Accept that the tiny window between "email sent" and "key stored" can still produce a rare duplicate; exactly-once across an external email system is not achievable, only effectively-once.
 
 **Sizing and failure handling.**

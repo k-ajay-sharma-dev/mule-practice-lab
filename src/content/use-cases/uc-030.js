@@ -97,9 +97,9 @@ The mapping table lives outside the code: a small database table, a CSV in a con
 2. Post the journal / vendor invoice via the ERP's OData API.
 3. On success, mark the report **Exported** in the expense tool and store the ERP document number on it.
 
-Because of step 1, if the flow crashes between steps 2 and 3, the next run just marks it exported — no double booking.
+Because of step 1, if the flow crashes between steps 2 and 3, the next run only marks it exported. There is no double booking.
 
-**Errors.** Business errors from the ERP (closed project, blocked vendor) are not retried; the report is flagged with the error message and finance receives a daily list. Technical errors (timeouts, 5xx) are retried on the next run. Receipts stay in the expense tool; the journal carries the receipt URL for auditors.
+**Errors.** Business errors from the ERP (closed project, blocked vendor) are not retried; the report is flagged with the error message and finance receives a daily list. Technical errors (5xx, dropped calls) are retried a few times by the D365 System API, with a call timeout above the 15 seconds a month-end posting can take; what still fails is retried on the next run. Receipts stay in the expense tool; the journal carries the receipt URL for auditors.
 `,
   followUps: [
     { q: 'How do foreign-currency expenses work?', a: 'The expense tool usually stores the original and converted amount; book the company-currency amount (with the rate used) so the reimbursement matches what the employee was promised.' },

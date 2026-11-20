@@ -179,6 +179,9 @@ Facts:
 - The fraud service takes **400 ms to 2 seconds**, and about **1%** of calls fail. Twice a year it is down for an hour.
 - The fraud team says a missing signal is a compliance finding. A late signal, within an hour, is fine.
 - Peak load is **10 payments per second**.
+- The API is \`POST /payments\`. Mule authorises with \`POST /psp/v3/authorisations\`, which answers \`{ paymentId, cardHash, amount, currency, status }\`. The caller gets \`{ paymentId, status }\`.
+- The fraud signal is \`{ paymentId, cardHash, amount, outcome }\`, where \`outcome\` is the PSP \`status\`. Wait at most **3 seconds** for the fraud service.
+- Failed signals wait on the VM queue \`fraud-signal-retry\`. Retry them at least **5 seconds** apart.
 
 A developer put the fraud call in an **Async scope** with no other changes. Response times are now good, but the fraud team found 3,000 missing signals after the last outage, and on the day the fraud service slowed down to 30 seconds per call, hundreds of fraud calls piled up, the app ran short of threads and payment calls started to time out.
 
@@ -244,7 +247,7 @@ An **Async scope** runs its steps on another thread while the flow carries on. E
     },
     {
       q: 'Would this design work on CloudHub 2.0 with three replicas?',
-      a: 'Each replica would have its own VM queue, and a replica that is replaced loses its messages. Use Anypoint MQ for the retry queue in that case.',
+      a: 'Not as it stands. CloudHub 2.0 has no persistent VM queues. Without clustering each replica has its own in-memory queue, and a replica that is replaced loses its messages. Clustering shares the queues in memory, but a stop of every replica still loses them. Use Anypoint MQ for the retry queue in that case.',
     },
     {
       q: 'Could the payment be authorised but the signal never sent if Mule crashes?',

@@ -11,7 +11,7 @@ A legacy core-banking SOAP service returns accounts. The mobile Experience API n
 **Rules**
 - Only accounts with \`status="OPEN"\`.
 - For each: \`id\` (attribute), \`owner\`, \`balance\` as a **number**, and \`currency\` (attribute of \`Balance\`).
-- The response may contain **one or many** accounts — the output must always be an array.
+- The response may contain **one or many** accounts. The output must always be an array.
 `,
   inputs: [
     {
@@ -52,7 +52,7 @@ payload
 `,
   hints: [
     'Selectors match the local name, so `payload.Envelope.Body` works without declaring namespaces.',
-    '`.Account` returns only the **first** match. The multi-value selector `.*Account` returns all of them as an array — even when there is only one.',
+    '`.Account` returns only the **first** match. The multi-value selector `.*Account` returns all of them as an array, even when there is only one.',
     'Attributes are read with `.@name`, e.g. `a.@status` or `a.Balance.@currency`.',
   ],
   solution: `%dw 2.0

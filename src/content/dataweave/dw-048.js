@@ -106,15 +106,15 @@ keyed map (k, i) -> {
   duplicateOf: (keyed filter ((x, j) -> j < i and x.key == k.key))[0].id
 }`,
   explanation: `
-An idempotency key is only as good as its **canonicalization**: two requests that mean the same payment must produce byte-for-byte the same input to the hash. That is why every part is normalized (spaces, case, number format, null) before hashing — \`1250.5\` and \`1250.50\` are the same JSON number but would format differently without an explicit pattern.
+An idempotency key is only as good as its **canonicalization**: two requests that mean the same payment must produce byte-for-byte the same input to the hash. That is why every part is normalized (spaces, case, number format, null) before hashing. \`1250.5\` and \`1250.50\` are the same JSON number but would format differently without an explicit pattern.
 
-- \`dw::Crypto\` provides \`MD5\`, \`SHA1\` and \`hashWith\`. \`MD5\`/\`SHA1\` return the **hex string** directly; they accept Binary, so coerce the String with an explicit encoding — otherwise non-ASCII references (\`Zürich\`) can hash differently on another runtime.
+- \`dw::Crypto\` provides \`MD5\`, \`SHA1\` and \`hashWith\`. \`MD5\`/\`SHA1\` return the **hex string** directly; they accept Binary, so coerce the String with an explicit encoding; otherwise non-ASCII references (\`Zürich\`) can hash differently on another runtime.
 - The separator matters: without \`|\`, the parts \`"AB" + "C"\` and \`"A" + "BC"\` would collide.
 - \`map\` passes the index, and \`filter\` can use one too, so "first earlier match" is \`filter (j < i and same key)\` then \`[0]\`; an empty result gives \`null\` for free.
 
 Common traps:
 - Hashing the raw input (or \`write(p, "application/json")\`): whitespace, key order and \`1250.5\` vs \`1250.50\` all change the key, so retries are not recognized.
-- Slicing \`keyed[0 to i - 1]\` for "earlier" items: for \`i = 0\` that is \`[0 to -1]\`, which is the **whole** array — the first payment would be its own duplicate.
+- Slicing \`keyed[0 to i - 1]\` for "earlier" items: for \`i = 0\` that is \`[0 to -1]\`, which is the **whole** array, so the first payment would be its own duplicate.
 - \`hashWith(..., "SHA-1")\` returns **Binary**, not hex; you would need \`dw::core::Binaries::toHex\` and \`lower\`. \`SHA1\` already gives the hex string.
 `,
   tests: [
@@ -138,8 +138,8 @@ Common traps:
       a: 'The Idempotent Message Validator: it computes an id per message (a DataWeave expression such as this key) and stores it in an Object Store; a repeated id raises `MULE:DUPLICATE_MESSAGE`. Use a persistent or shared Object Store in a cluster, with a TTL.',
     },
     {
-      q: 'Why SHA-1 or SHA-256 rather than just sending the canonical string as the key?',
-      a: 'A hash has a fixed length that fits header limits, and it does not leak IBANs and references into proxy logs. Collisions are irrelevant for this purpose; SHA-256 (`hashWith` + `toHex`) is preferred if security policy forbids SHA-1.',
+      q: 'Why SHA-1 or SHA-256 rather than sending the canonical string itself as the key?',
+      a: 'A hash has a fixed length that fits header limits, and it does not leak IBANs and references into proxy logs. Accidental collisions are not a practical concern here; SHA-256 (`hashWith` + `toHex`) is preferred if security policy forbids SHA-1.',
     },
     {
       q: 'Why not use a UUID generated per request as the key?',

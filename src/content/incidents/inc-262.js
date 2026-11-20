@@ -7,8 +7,8 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 08:00:01 ERROR [order-db] Connection failed: The driver could not establish a secure connection. PKIX path building failed", relevant: true, why: "The driver now checks the server certificate." },
       { text: "2026-11-18 07:50:00 INFO  [deploy] mssql-jdbc upgraded to a major new version", relevant: true, why: "A driver upgrade went in." },
+      { text: "2026-11-18 08:00:01 ERROR [order-db] Connection failed: The driver could not establish a secure connection. PKIX path building failed", relevant: true, why: "The driver now checks the server certificate." },
       { text: "2026-11-18 08:00:01 INFO  [order-db] url=jdbc:sqlserver://sqlprod01:1433;databaseName=orders", relevant: true, why: "No encryption settings in the URL." },
       { text: "2026-11-18 08:01:00 INFO  [dba] Server uses an internal CA certificate", relevant: true, why: "The certificate is from an internal CA." },
       { text: "2026-11-18 23:59:00 INFO  [order-db] GET /health 200", relevant: false },
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does the connection fail?",
         options: [
-          "Newer drivers encrypt by default and the app does not trust the internal CA",
-          "The password expired",
-          "The database is down",
-          "Port 1433 is closed",
+          "The new driver encrypts by default and the app does not trust the CA",
+          "The new driver needs a databaseName that matches the server name",
+          "The server certificate expired at 08:00 on the day of the deploy",
+          "The new driver uses a different default port than 1433",
         ],
         answer: 0,
         explain: "PKIX errors mean the certificate is not trusted.",
@@ -30,22 +30,22 @@ export default {
         type: 'single',
         prompt: "What is the right fix?",
         options: [
-          "Add the internal CA to the trust store used by the app",
-          "Set trustServerCertificate=true forever",
-          "Downgrade and forget",
-          "Turn off TLS on the server",
+          "Add the internal CA to the app’s trust store",
+          "Set trustServerCertificate=true in the URL",
+          "Pin the old driver version for good",
+          "Set encrypt=false in the connection URL",
         ],
         answer: 0,
-        explain: "Trust the CA properly, keep encryption.",
+        explain: "Trust the CA properly, keep encryption. The other options may restore service, but they drop encryption, drop certificate checks or block future upgrades.",
       },
       {
         type: 'multi',
         prompt: "What should an upgrade test cover?",
         options: [
-          "Connection with production like TLS settings",
+          "A connection with live TLS settings",
           "A few typical queries",
           "Stored procedure calls",
-          "Only the build",
+          "A clean build with no tests run",
         ],
         answer: [0,1,2],
         explain: "Driver upgrades change defaults.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Why is trustServerCertificate=true risky?",
         options: [
-          "It accepts any certificate, so a man in the middle is not detected",
-          "It is slow",
-          "It disables queries",
-          "It is not supported",
+          "It accepts any certificate, so an attacker in the middle is missed",
+          "It turns off encryption, so data goes over the network in clear text",
+          "It makes the driver check the certificate on every query, adding delay",
+          "It works only with Windows authentication, not SQL logins",
         ],
         answer: 0,
         explain: "It is acceptable only as a short stopgap, if at all.",
@@ -86,8 +86,8 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 08:00:01 ERROR [order-db] Connection failed: The driver could not establish a secure connection. PKIX path building failed
 2026-11-18 07:50:00 INFO  [deploy] mssql-jdbc upgraded to a major new version
+2026-11-18 08:00:01 ERROR [order-db] Connection failed: The driver could not establish a secure connection. PKIX path building failed
 2026-11-18 08:00:01 INFO  [order-db] url=jdbc:sqlserver://sqlprod01:1433;databaseName=orders
 2026-11-18 08:01:00 INFO  [dba] Server uses an internal CA certificate
 \`\`\`

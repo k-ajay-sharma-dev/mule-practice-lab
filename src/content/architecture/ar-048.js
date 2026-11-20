@@ -79,7 +79,7 @@ export default {
     },
   },
   description: `
-An interviewer says: *"Walk me through the three layers. For each one, tell me what it is responsible for — and, just as important, what must **not** go in it."*
+An interviewer says: *"Walk me through the three layers. For each one, tell me what it is responsible for and, equally important, what must **not** go in it."*
 
 Use this example domain: an e-commerce company with **SAP** (orders, materials), **Salesforce** (customers), a **warehouse management system** (stock, via SOAP) and two consumers: a **mobile app** and a **marketplace partner**.
 
@@ -96,7 +96,7 @@ For the diagram's Run tab: the mobile app sends about 30 order requests a second
 
 ## Experience layer
 
-## Placement of (a)–(e)
+## Placement of (a) to (e)
 `,
   keyPoints: [
     'System APIs expose one system of record (or one system + entity area), hide its protocol, auth and data quirks, and contain no cross-system business rules.',
@@ -135,9 +135,9 @@ For the diagram's Run tab: the mobile app sends about 30 order requests a second
 - (b) VIP free shipping: **Process** (business rule, all channels must get the same answer).
 - (c) Remove unused fields: **Experience** (mobile-specific).
 - (d) Retry WMS SOAP timeout: **System** (backend-specific resilience; the Process layer may also have an overall timeout budget).
-- (e) Partner OAuth scopes: **Experience** — enforced by API Manager policy on the partner Experience API.
+- (e) Partner OAuth scopes: **Experience**: enforced by API Manager policy on the partner Experience API.
 
-**Rule of thumb:** each layer has one reason to change — backend change → System; rule change → Process; channel change → Experience.
+**Rule of thumb:** each layer has one reason to change: backend change → System; rule change → Process; channel change → Experience.
 
 **The same placement as settings.**
 - **System:** \`sys-wms-stock-api\` retries a failed SOAP call **twice**. With 1 call in 10 timing out, about 1 in 1,000 still fails after the retries, and no other layer needs to know.

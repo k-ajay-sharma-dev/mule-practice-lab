@@ -125,6 +125,10 @@ The team added \`alert_state\` (\`alert_key\` key, \`last_sent_at\` as \`yyyy-MM
 - Two consumers may handle the same key at once: read the row and lock it in a transaction, so the count is right.
 - Send the email after the transaction, and never let a mail problem fail the message.
 
+**Facts**
+- Compare times as \`yyyy-MM-ddTHH:mm:ss\` text: the row is due when \`last_sent_at\` is before now minus one hour. In the tests now is 2026-11-13T10:00:00.
+- The subject carries the alert key. When alerts were held back, the body says \`<n> more since the last email.\`
+
 **Design the flow.**
 `,
   answerTemplate: `## Why throttle alerts

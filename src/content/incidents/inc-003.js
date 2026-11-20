@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause of the duplicates?',
         options: [
-          'The mobile app retries after 10 s while the ERP still processes the first request, and POST /orders is not idempotent',
-          'The ERP has a bug that creates two orders for large baskets',
-          'Customers double-click the checkout button',
-          'orders-papi has two replicas that both process each request',
+          'The app retries after 10 s while the first ERP call is still running',
+          'The ERP creates two orders for one request when it is under peak load',
+          'Customers double-tap the checkout button when the app is busy',
+          'Two orders-papi replicas both pick up and process each request',
         ],
         answer: 0,
         explain: 'Same basket, different correlation IDs, 10 s apart: that is the client retry. At peak the ERP takes 8 to 15 s, so the first call is still running and both succeed. A double-click would be milliseconds apart, not 10 s.',
@@ -34,9 +34,9 @@ export default {
         prompt: 'What do you do **right now** to limit the damage?',
         options: [
           'Scale orders-papi to more replicas so the ERP call finishes faster',
-          'Turn off the mobile auto-retry (or raise its timeout above the worst ERP time), then find and cancel the duplicates before they ship',
-          'Restart the ERP',
-          'Add an Until Successful scope around the ERP call',
+          'Turn off the mobile auto-retry, then find and cancel the duplicates before they ship',
+          'Restart erp-sapi to clear any stuck connections to the ERP',
+          'Add an Until Successful scope around the ERP call so the server retries instead',
         ],
         answer: 1,
         explain: 'Stop new duplicates at the source and clean up the existing ones before they are shipped and charged. More Mule replicas do not make the ERP faster, and more retries create more duplicates.',
@@ -48,7 +48,7 @@ export default {
           'The client sends an Idempotency-Key header (per checkout, or the basket ID) and retries with the same key',
           'An Idempotent Message Validator on a persistent Object Store with a TTL, keyed on that key',
           'Mark the key as in progress before calling the ERP, and store the original response to return on repeats',
-          'Remove all client retries permanently',
+          'Remove all client retries and show an error after 10 s instead',
         ],
         answer: [0, 1, 2],
         explain: 'Idempotency makes retries safe instead of forbidden. Marking the key before the ERP call also catches a retry that arrives while the first call is still running, as in this incident.',
@@ -71,12 +71,12 @@ export default {
 ## Symptoms
 - Customer service reports customers charged and shipped **twice** for the same basket. About 1.5% of yesterday's orders are duplicates.
 - Duplicates happen mostly between 12:00 and 14:00 (lunchtime peak).
-- Every duplicate pair has the **same basket ID** and items, created 10–12 s apart.
+- Every duplicate pair has the **same basket ID** and items, created 10 to 12 s apart.
 
 ## Context
 - Mobile app → \`orders-exp-api\` → \`orders-papi\` → \`erp-sapi\` (\`POST /orders\` creates an order in the ERP).
 - Last sprint the mobile team added an **automatic retry**: if no response in 10 s, resend the same request (up to 2 times).
-- At peak, ERP order creation takes 8–15 s.
+- At peak, ERP order creation takes 8 to 15 s.
 
 ## Logs (orders-papi)
 \`\`\`
@@ -105,15 +105,15 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Client timeout (10 s) is shorter than server processing time (8–15 s), so the client retries while the first request is still running; both succeed.',
-    'Each retry gets a new correlation ID and nothing on the server recognises it as the same request — the POST is not idempotent.',
+    'Client timeout (10 s) is shorter than server processing time (8 to 15 s), so the client retries while the first request is still running; both succeed.',
+    'Each retry gets a new correlation ID and nothing on the server recognises it as the same request. The POST is not idempotent.',
     'Immediate: disable or lengthen the client auto-retry (feature flag/config) and identify and cancel/refund existing duplicates.',
     'Permanent fix: an idempotency key (e.g. Idempotency-Key header or basket ID) checked server-side with an Idempotent Message Validator / Object Store, returning the original result for repeats.',
-    'Handles the in-flight case: store the key as "processing" before calling the ERP so a concurrent retry is rejected (e.g. 409) or waits, not just after completion.',
+    'Handles the in-flight case: store the key as "processing" before calling the ERP so a concurrent retry is rejected (e.g. 409) or waits, not only after completion.',
     'Prevention: retry only idempotent operations or with idempotency keys, client timeouts aligned with server SLAs, backoff, and an alert/reconciliation for duplicate orders.',
   ],
   solution: `
-**Diagnosis.** The logs show the same \`basketId\` arriving twice, 10 s apart, with **different correlation IDs** — that is the mobile app's automatic retry. The first request is still waiting on the ERP (8–15 s at peak), the client gives up at 10 s and resends, and **both** requests create an order. Peak hours make the ERP slower, so more requests cross the 10 s line.
+**Diagnosis.** The logs show the same \`basketId\` arriving twice, 10 s apart, with **different correlation IDs**. That is the mobile app's automatic retry. The first request is still waiting on the ERP (8 to 15 s at peak), the client gives up at 10 s and resends, and **both** requests create an order. Peak hours make the ERP slower, so more requests cross the 10 s line.
 
 **Immediate mitigation.**
 - Turn off the mobile auto-retry (remote config / feature flag) or raise its timeout above the worst ERP time.

@@ -6,10 +6,11 @@ export default {
   tags: ['recursion', 'match', 'mapObject', 'pii', 'security'],
   estMinutes: 30,
   description: `
-Before payloads are written to the logging platform, personal data must be masked — **wherever it appears**, at any depth, in objects or arrays.
+Before payloads are written to the logging platform, personal data must be masked **wherever it appears**, at any depth, in objects or arrays.
 
 **Rules**
-- Sensitive field names: \`email\`, \`ssn\`, \`phone\`, \`number\` — matched **case-insensitively**.
+- Sensitive field names: \`email\`, \`ssn\`, \`phone\`, \`number\`, matched **case-insensitively**. Keep the original key spelling in the output.
+- A sensitive field always holds a string or a number.
 - Mask by replacing every character except the **last 4** with \`*\` (keep the length).
 - Values of 4 characters or fewer are left as they are.
 - Numbers in sensitive fields are masked as strings.
@@ -83,7 +84,7 @@ maskAll(payload)`,
   explanation: `
 The recursion only needs three cases: objects (rebuild each key), arrays (recurse into each item) and everything else (return as-is).
 
-\`(key)\` in parentheses keeps the original key — including its case — instead of creating a key literally named "key".
+\`(key)\` in parentheses keeps the original key, including its case, instead of creating a key literally named "key".
 `,
   tests: [
     {

@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'The migrated firewall rule allows 10.20.0.0/25 instead of /24, so workers with IPs .128-.255 are dropped',
-          'The Oracle listener is overloaded',
-          'The IPsec VPN tunnel is flapping',
-          'DNS resolves the Oracle host differently per worker',
+          'The migrated rule allows 10.20.0.0/25, not /24, so workers above .127 are dropped',
+          'The Oracle listener is overloaded and drops new connections at random',
+          'The IPsec VPN tunnel flaps, so calls fail while it reconnects',
+          'DNS resolves the Oracle host to a different address on some workers',
         ],
         answer: 0,
         explain: 'The firewall log shows .37 allowed by a /25 rule and .201 denied. Workers get new VPC IPs on each deployment, which is why the failing set changes after a redeploy.',
@@ -108,7 +108,7 @@ ALLOW tcp 10.20.0.37:41877 -> 172.16.8.15:1521 rule=MULE-VPC-ORACLE (10.20.0.0/2
 ## Prevention
 `,
   keyPoints: [
-    'Identifies the migrated rule allows 10.20.0.0/25 (10.20.0.0–10.20.0.127) instead of /24, so workers with IPs in the upper half (e.g. 10.20.0.201) are dropped.',
+    'Identifies the migrated rule allows 10.20.0.0/25 (10.20.0.0 to 10.20.0.127) instead of /24, so workers with IPs in the upper half (e.g. 10.20.0.201) are dropped.',
     'Explains the moving failures: worker private IPs are assigned from the VPC CIDR on each deployment, so a redeploy changes which workers fall outside the rule.',
     'Reads the error correctly: "connect timed out" (silent drop by firewall) rather than "connection refused" (port closed) or an unknown host (DNS).',
     'Immediate: ask the network team to correct the rule to the full VPC CIDR; any workaround that relies on worker IPs (scaling down to "good" workers) is fragile because IPs change on restart.',
@@ -116,7 +116,7 @@ ALLOW tcp 10.20.0.37:41877 -> 172.16.8.15:1521 rule=MULE-VPC-ORACLE (10.20.0.0/2
     'Prevention: synthetic connectivity checks from the VPC to every critical backend after network changes, with alerts.',
   ],
   solution: `
-**Diagnosis.** The new firewall log says it all: \`10.20.0.37\` is allowed by rule *MULE-VPC-ORACLE* (**10.20.0.0/25**), \`10.20.0.201\` is denied by implicit deny. A \`/25\` covers only **10.20.0.0–10.20.0.127**; the VPC is a \`/24\` (0–255). The migration was not "1:1" — the prefix was changed (typo or tool conversion). CloudHub workers get private IPs **from the VPC range on each deployment**, so whichever workers land in .128–.255 can't reach Oracle, and a redeploy reshuffles that. The error is **connect timed out** because a firewall *drop* gives no response (a *reject* or a closed port would be "connection refused"; DNS problems would be "unknown host"). The HTTP API works because it's reached via a different rule/subnet.
+**Diagnosis.** The new firewall log says it all: \`10.20.0.37\` is allowed by rule *MULE-VPC-ORACLE* (**10.20.0.0/25**), \`10.20.0.201\` is denied by implicit deny. A \`/25\` covers only **10.20.0.0 to 10.20.0.127**; the VPC is a \`/24\` (0 to 255). The migration was not "1:1". The prefix was changed (typo or tool conversion). CloudHub workers get private IPs **from the VPC range on each deployment**, so whichever workers land in .128 to .255 can't reach Oracle, and a redeploy reshuffles that. The error is **connect timed out** because a firewall *drop* gives no response (a *reject* or a closed port would be "connection refused"; DNS problems would be "unknown host"). The HTTP API works because it's reached via a different rule/subnet.
 
 **Immediate mitigation.** Escalate to the network team with the firewall log lines: change the rule source to **10.20.0.0/24**. Verify from every worker (logs with worker IP, or a network-diagnostics app deployed in the same VPC). If the fix will take time, a short-term workaround is to stop the failing workers' traffic (scale down to workers in the allowed range). But it's fragile because IPs change on restart.
 
@@ -131,7 +131,7 @@ ALLOW tcp 10.20.0.37:41877 -> 172.16.8.15:1521 rule=MULE-VPC-ORACLE (10.20.0.0/2
 `,
   followUps: [
     { q: 'How do you tell a DNS issue, a firewall drop and a closed port apart from Mule errors?', a: 'DNS problems give UnknownHostException-type errors immediately; a closed port or firewall reject gives "connection refused" quickly; a firewall drop or routing problem gives a connect timeout after the configured timeout.' },
-    { q: 'Why can\'t you just give the workers static IPs?', a: 'Private IPs of CloudHub workers in a VPC are assigned dynamically from the VPC CIDR. Firewall rules must therefore cover the whole CIDR (static IPs exist only for the public egress side and need a separate setup).' },
+    { q: 'Why can\'t you give the workers static IPs?', a: 'Private IPs of CloudHub workers in a VPC are assigned dynamically from the VPC CIDR. Firewall rules must therefore cover the whole CIDR (static IPs exist only for the public egress side and need a separate setup).' },
     { q: 'How would you have detected this before users did?', a: 'A post-change connectivity test from the VPC as part of the network change plan, and a per-worker health check that alerts when any worker cannot reach a critical dependency.' },
   ],
 }

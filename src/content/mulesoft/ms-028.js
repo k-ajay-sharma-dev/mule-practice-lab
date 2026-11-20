@@ -23,13 +23,13 @@ export default {
       type: 'single',
       prompt: "`attributes.headers.'X-Correlation-Id'` is always null although the client sends it. Why?",
       options: [
-        'The listener stores header names in lower case, so use `attributes.headers."x-correlation-id"`',
-        'Custom headers are removed by the listener',
-        'Headers are only available in `vars`',
-        'The client must send it as a query parameter',
+        'Header names are stored in lower case, so the key does not match',
+        'The HTTP Listener removes custom `X-` headers from the request',
+        'Headers are only available in `vars` after a Set Variable step',
+        'Headers must be read with `attributes.queryParams` instead',
       ],
       answer: 0,
-      explain: 'HTTP header names are case-insensitive; the listener normalises them to lower case.',
+      explain: 'HTTP header names are case-insensitive; the listener normalises them to lower case, so use `attributes.headers."x-correlation-id"`.',
     },
     {
       type: 'match',
@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'How do you make `POST /shipments` return 201 with a `Location` header?',
       options: [
-        'Set `vars.httpStatus = 201` and `vars.outboundHeaders = { Location: ... }`, used by `<http:response statusCode="#[vars.httpStatus default 200]">` and its headers',
-        'Set the payload to `201`',
-        'Add `Location` to `attributes.headers`',
-        'POST responses are always 201 automatically',
+        'Set `vars.httpStatus` and headers, and use them in `http:response`',
+        'Set the payload to `201`, and the listener uses it as the status',
+        'Add `Location` to `attributes.headers` before the flow ends',
+        'Nothing, because the listener answers every POST with 201',
       ],
       answer: 0,
-      explain: 'Response status and headers are expressions on the listener builders. Attributes are read-only request data.',
+      explain: 'Set `vars.httpStatus = 201` and `vars.outboundHeaders = { Location: ... }`, used by `<http:response statusCode="#[vars.httpStatus default 200]">` and its headers. Response status and headers are expressions on the listener builders. Attributes are read-only request data, and the default success status is 200.',
     },
     {
       type: 'order',
@@ -63,7 +63,7 @@ export default {
         'On Error Propagate for `APP:NOT_FOUND` sets `vars.httpStatus = 404` and a JSON payload',
         'The listener error-response builder sends the 404 with that body',
       ],
-      explain: 'Without this, an unhandled error gives 500 with the error description — the "Java-like" text the clients saw.',
+      explain: 'Without this, an unhandled error gives 500 with the error description: the "Java-like" text the clients saw.',
     },
     {
       type: 'multi',
@@ -116,7 +116,7 @@ Current behaviour:
   solution: `
 **HttpRequestAttributes** (what the listener puts in \`attributes\`): \`method\`, \`scheme\`, \`version\`, \`requestUri\`, \`requestPath\`, \`listenerPath\`, \`relativePath\`, \`uriParams\`, \`queryParams\`, \`queryString\`, \`headers\`, \`remoteAddress\`, \`localAddress\`, and client certificate info for mutual TLS.
 
-**Repeated params and headers** — both are **MultiMaps**:
+**Repeated params and headers**: both are **MultiMaps**:
 \`\`\`dataweave
 %dw 2.0
 output application/json
@@ -145,7 +145,7 @@ HTTP header names are case-insensitive; the listener stores them in lower case, 
 **POST → 201:** after the insert, set
 \`vars.httpStatus = 201\` and \`vars.outboundHeaders = { Location: "/shipments/" ++ payload.trackingId }\`.
 
-**Not found → 404:** raise a custom error (e.g. \`Raise Error type="APP:NOT_FOUND"\`) when the lookup is empty. In the error handler, \`On Error Propagate type="APP:NOT_FOUND"\` sets \`vars.httpStatus = 404\` and a JSON payload \`{ "message": "Shipment not found" }\` — the error-response builder sends it. (Alternatively On Error Continue with the same vars — then the normal response builder is used.)
+**Not found → 404:** raise a custom error (e.g. \`Raise Error type="APP:NOT_FOUND"\`) when the lookup is empty. In the error handler, \`On Error Propagate type="APP:NOT_FOUND"\` sets \`vars.httpStatus = 404\` and a JSON payload \`{ "message": "Shipment not found" }\`: the error-response builder sends it. (Alternatively On Error Continue with the same vars: then the normal response builder is used.)
 
 **Which builder is used**
 | Flow outcome | Builder |
@@ -154,7 +154,7 @@ HTTP header names are case-insensitive; the listener stores them in lower case, 
 | Error caught by **On Error Continue** | \`http:response\` (the flow is considered successful) |
 | Error **propagated** out of the flow | \`http:error-response\` |
 
-So the status/headers logic must exist in whichever builder your error strategy ends up using — a common bug is setting \`vars.httpStatus\` in On Error Continue but only configuring the error-response builder.
+So the status/headers logic must exist in whichever builder your error strategy ends up using: a common bug is setting \`vars.httpStatus\` in On Error Continue but only configuring the error-response builder.
 `,
   followUps: [
     {

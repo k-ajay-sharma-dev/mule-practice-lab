@@ -79,6 +79,8 @@ The dispensing system runs in the chain's data centre. It is patched one evening
 - About **60 prescriptions a second** on Monday mornings.
 - The dispensing system takes about 300 ms per prescription and up to 150 a second.
 - About 1 prescription in 500 has a drug code the dispensing system does not know.
+- A surgery must get its receipt within **300 ms**. No prescription may be lost.
+- A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No good prescription may reach the DLQ during a 30-minute patch window.
 
 **Questions:**
 - Draw the design.

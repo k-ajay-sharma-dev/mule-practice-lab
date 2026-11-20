@@ -23,13 +23,13 @@ export default {
       needsScenario: true,
       prompt: 'What is the right way to use the Mule Migration Assistant (MMA) here?',
       options: [
-        'As an accelerator: run it, then review, refactor and test its output, planning for manual rework',
-        'As a one-click converter whose output can go straight to production',
-        'Not at all — it cannot read Mule 3 projects',
-        'Only for DevKit connectors',
+        'Run it on each app, then review, refactor and test the output by hand',
+        'Run it on each app and deploy the output once it compiles cleanly',
+        'Skip it and rewrite every app from scratch in Anypoint Studio 7',
+        'Use it to convert the DevKit connectors, and migrate flows by hand',
       ],
       answer: 0,
-      explain: 'MMA converts much of the configuration and flags what it cannot convert, but its output needs review and manual work. Treating it as a finished conversion is the tempting mistake that leads to hidden behaviour differences.',
+      explain: 'MMA converts much of the configuration and flags what it cannot convert, but its output needs review and manual work. Treating it as a finished conversion is the tempting mistake that leads to hidden behaviour differences. Rewriting all 85 apps from scratch throws away a useful accelerator. MMA does not convert DevKit connectors; they need the Mule SDK or a replacement.',
     },
     {
       type: 'order',
@@ -49,26 +49,26 @@ export default {
       needsScenario: true,
       prompt: 'Few automated tests exist. What do you do before migrating an app?',
       options: [
-        'Capture its behaviour — MUnit tests for key flows and recorded production input/output pairs — so the Mule 4 version can be compared',
-        'Nothing; test the Mule 4 version manually after go-live',
-        'Write unit tests for the Mule 3 Java components only',
-        'Rely on the MMA report as the test evidence',
+        'Record production input and output pairs, and write MUnit tests for the key flows',
+        'Write MUnit tests for the Mule 4 version once it is migrated, then go live',
+        'Write unit tests for the custom Java components, which carry the risk',
+        'Use the MMA report of converted elements as the test evidence',
       ],
       answer: 0,
-      explain: 'Without a baseline you cannot prove the migrated app behaves the same. Recorded input/output pairs catch subtle differences (encoding, nulls, streaming) that manual checks miss.',
+      explain: 'Without a baseline you cannot prove the migrated app behaves the same. Recorded input/output pairs catch subtle differences (encoding, nulls, streaming) that manual checks miss. Tests written only after migration describe the new behaviour, not the old one. Java components are a small part of the logic, and the MMA report shows what was converted, not whether it behaves the same.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'How do you cut over a shipment-tracking app without unplanned downtime?',
       options: [
-        'Deploy the Mule 4 version alongside, route a slice of traffic or replay messages, compare outputs, then switch with a tested rollback',
-        'Undeploy the Mule 3 app and deploy Mule 4 in the same maintenance window, with no way back',
-        'Run both versions permanently and let consumers choose',
-        'Migrate all 15 tracking apps in one weekend',
+        'Run Mule 4 alongside, compare outputs, then switch with a tested rollback',
+        'Swap Mule 3 for Mule 4 in one maintenance window and redeploy Mule 3 if it fails',
+        'Point consumers at the Mule 4 version one by one, with no comparison step',
+        'Migrate all 15 tracking apps together in one well-rehearsed weekend',
       ],
       answer: 0,
-      explain: 'Parallel run plus a rehearsed rollback removes the risk of a one-way switch. Big-bang migration of all critical apps concentrates risk exactly where downtime is not allowed.',
+      explain: 'A parallel run with replayed messages or a slice of traffic, plus a rehearsed rollback, removes the risk of a one-way switch. A maintenance window is planned downtime, and an untested redeploy is not a rollback. Moving consumers without comparing outputs finds differences in production. Big-bang migration of all critical apps concentrates risk exactly where downtime is not allowed.',
     },
     {
       type: 'single',
@@ -127,13 +127,13 @@ The apps use:
     'Handles new feature demand with a freeze or a "build new features only on Mule 4" rule to avoid double work.',
   ],
   solution: `
-**Assessment (month 0–1).** Inventory all 85 apps: owner, criticality, traffic, connectors/transports used, MEL density, custom Java, DevKit connectors, external dependencies. Decommission dead apps. Group into waves: simple/low-risk → medium → critical tracking apps → apps blocked by custom connectors.
+**Assessment (months 0 to 1).** Inventory all 85 apps: owner, criticality, traffic, connectors/transports used, MEL density, custom Java, DevKit connectors, external dependencies. Decommission dead apps. Group into waves: simple/low-risk → medium → critical tracking apps → apps blocked by custom connectors.
 
 **Tooling.** Run the **Mule Migration Assistant** on a sample to see what it converts and what it flags. Treat its output as a starting point: review, simplify and refactor. Decide the target platform at the same time (CloudHub 2.0, Runtime Fabric or customer-hosted Mule 4) since it affects config, deployment and logging.
 
 **Technical changes.**
 - MEL → DataWeave 2.0 expressions; DataWeave 1.0 scripts → 2.0 (syntax differences, e.g. \`%dw 2.0\`, \`output\`, function definitions).
-- Inbound/outbound properties → \`attributes\` and variables; sessions vars → explicit variables or headers.
+- Inbound/outbound properties → \`attributes\` and variables; session variables → explicit variables or headers.
 - Exception strategies → \`error-handler\` with \`on-error-propagate\` / \`on-error-continue\` and typed errors.
 - Transports → Mule 4 connectors (File, FTP/SFTP, JMS, HTTP); streaming is repeatable by default.
 - DevKit connectors → rewrite with the **Mule SDK** or replace with an existing connector / HTTP calls.

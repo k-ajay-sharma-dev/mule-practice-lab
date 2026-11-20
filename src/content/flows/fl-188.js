@@ -85,6 +85,12 @@ Mule posts each order to Holloway's order API, \`POST /orders/v1/dealer-orders\`
 - If the API refuses it with 400, move it to \`/error/orders\` for the sales team.
 - If the API cannot be reached, leave the file where it is so it is tried again.
 
+**Facts**
+- Each file holds one order. \`orderRef\` and \`dealerId\` come from the first row. \`lines\` is a list of \`{ sku, qty }\`, with \`qty\` as a number.
+- A 400 raises \`HTTP:BAD_REQUEST\`. Catch only that, with On Error Continue, so the file is parked and the run ends cleanly.
+- Do not catch \`HTTP:CONNECTIVITY\`. The run fails and the file stays in \`/outbound/orders\`.
+- Keep the file path in a variable before the HTTP Request, which replaces the attributes.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up files

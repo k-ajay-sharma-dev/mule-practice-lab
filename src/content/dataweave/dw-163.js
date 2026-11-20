@@ -10,13 +10,13 @@ Kestrel Home Supply runs a product data hub. When the hub has loaded a GS1 style
 
 Metadata names must be valid C# identifiers and are not case sensitive, and the values travel as HTTP headers. The team uses these rules:
 
-1. Drop sender entries whose value is null or an empty string.
+1. Drop sender entries whose value is null or an empty string. These are not listed anywhere.
 2. Clean each sender name: lower case, every character that is not \`a-z\`, \`0-9\` or \`_\` becomes \`_\`, and a name that starts with a digit gets \`_\` in front.
-3. Values become text. A value with any character outside printable ASCII is URL encoded.
-4. The hub entries are \`status\` (always \`PROCESSED\`), \`jobid\`, \`goodcount\`, \`badcount\` and \`processedat\`, taken from \`job\`.
-5. A sender entry whose clean name equals a hub name, or the name of an earlier kept sender entry, is dropped. List its original name in \`dropped\`.
+3. Values become text (a number such as \`40\` becomes \`"40"\`). A value with any character outside printable ASCII (space to \`~\`) is URL encoded as a whole with \`encodeURIComponent\`, so its spaces become \`%20\` too.
+4. The hub entries, in this order, are \`status\` (always \`PROCESSED\`), \`jobid\`, \`goodcount\`, \`badcount\` and \`processedat\` (from \`jobId\`, \`goodCount\`, \`badCount\` and \`finishedAt\` in \`job\`).
+5. A sender entry whose clean name equals a hub name, or the name of an earlier kept sender entry, is dropped. List its original name in \`dropped\`, in input order.
 
-Output \`metadata\` (kept sender entries in input order, then the hub entries), \`renamed\` (\`from\` and \`to\` for kept sender entries whose name changed) and \`dropped\`.
+Output \`metadata\` (kept sender entries in input order, then the hub entries), \`renamed\` (\`from\` and \`to\` for kept sender entries whose name changed, in input order) and \`dropped\`. Lists with nothing in them are empty arrays.
 `,
   inputs: [
     {

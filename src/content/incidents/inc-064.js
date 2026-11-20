@@ -1,7 +1,7 @@
 export default {
   id: 'inc-064',
   category: 'incidents',
-  title: 'Nightly Replenishment Dies at Store 300 With ORA-01000',
+  title: 'Nightly Replenishment Dies Halfway With ORA-01000',
   level: 'ADVANCED',
   tags: ['myproject', 'supply-chain', 'retail', 'oracle', 'stored-procedures', 'cursors', 'replenishment'],
   estMinutes: 35,
@@ -11,7 +11,7 @@ export default {
       { text: '01:00:00.402 INFO  [replen] {call PKG_REPLEN.CALC_STORE_NEED(:p_store, :p_lines, :p_status)} store=0001 p_status=NO_ORDER', relevant: true, why: 'The procedure opens the p_lines REF CURSOR, but since v4.2 the flow reads it only when p_status=ORDER.' },
       { text: '01:00:00.950 INFO  [replen] store=0002 p_status=ORDER lines=37 -> published to REPLEN.ORDERS', relevant: false },
       { text: '01:02:00.000 INFO  [health] GET /health 200 (2 ms)', relevant: false },
-      { text: '01:03:41.330 ERROR [replen] DB:QUERY_EXECUTION ORA-01000: maximum open cursors exceeded store=0301', relevant: true, why: 'The session has hit OPEN_CURSORS (300): one unread cursor per store that did not need an order.' },
+      { text: '01:03:41.330 ERROR [replen] DB:QUERY_EXECUTION ORA-01000: maximum open cursors exceeded store=0334', relevant: true, why: 'The session has hit OPEN_CURSORS (300): one unread cursor per store that did not need an order (about 9 in 10 of the first 333 stores).' },
       { text: '01:03:41.400 INFO  [dba] v$open_cursor for SID 1422 (program=replen-papi): 300 rows, sql_text=SELECT ... FROM REPLEN_NEED_V', relevant: true, why: 'All open cursors belong to the Mule session and are the procedure\'s p_lines query.' },
       { text: '01:03:42.000 INFO  [replen] Run aborted, 0 of 612 stores confirmed', relevant: false },
       { text: '01:04:00.000 INFO  [metrics] cpu=11% heap=44%', relevant: false },
@@ -21,56 +21,56 @@ export default {
         type: 'single',
         prompt: 'What is causing ORA-01000?',
         options: [
-          'Each procedure call opens a REF CURSOR that the flow no longer reads for NO_ORDER stores, so cursors stay open on the session until it exceeds OPEN_CURSORS',
-          'The REPLEN_NEED_V view is too slow',
-          'Too many connections are open in the pool',
-          'The database ran out of tablespace',
+          'Unread p_lines cursors for NO_ORDER stores stay open on the session',
+          'Each call opens a new pooled connection, and the pool hits its maximum',
+          'REPLEN_NEED_V is slow, so cursors from earlier calls are still running',
+          'The For Each keeps every store’s result in memory until the loop ends',
         ],
         answer: 0,
-        explain: 'v$open_cursor shows 300 open cursors on the Mule session, all from the p_lines query, and the failure arrives at about store 300, which matches OPEN_CURSORS=300.',
+        explain: 'v$open_cursor shows 300 open cursors on the Mule session, all from the p_lines query. The failure arrives at store 334: with about 9 in 10 stores unread, that is about 300 open cursors, which matches OPEN_CURSORS=300. The pool, the view and the heap would give different errors.',
       },
       {
         type: 'single',
         prompt: 'What gets tonight\'s orders out **now**?',
         options: [
-          'Raise OPEN_CURSORS to 100 000 permanently',
-          'Roll back to v4.1 (which read every cursor) or hot-fix the flow to always consume p_lines, then rerun the replenishment for all stores',
-          'Run the job twice',
-          'Restart the database',
+          'Rerun the job now; it confirms 330 stores, then rerun it for the rest',
+          'Roll back to v4.1 or hot-fix the flow to read p_lines, then rerun',
+          'Lower the pool’s maxPoolSize so the loop reuses fewer sessions',
+          'Restart replen-papi so the pool opens a fresh session, then rerun',
         ],
         answer: 1,
-        explain: 'Restore the behaviour that closed the cursors and rerun before the DC cut-off. A temporary OPEN_CURSORS increase by the DBA can be a stop-gap, but not a fix.',
+        explain: 'Restore the behaviour that closed the cursors and rerun before the DC cut-off. The run confirms nothing until it ends (0 of 612), and a fresh session fails again after about 330 stores. Pool size does not change cursors per session. A temporary OPEN_CURSORS increase by the DBA can be a stop-gap, but not a fix.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix**?',
         options: [
-          'Always fully consume (or explicitly handle) every REF CURSOR OUT parameter returned to Mule',
-          'Change the procedure so it does not open p_lines when there is nothing to order (or returns lines only in a separate call)',
-          'Process stores in separate, smaller executions (e.g. a VM queue or batch job) so resources are released per store',
+          'Always fully read (or explicitly handle) every REF CURSOR output',
+          'Change the procedure so it opens p_lines only for ORDER stores',
+          'Process stores in separate executions, e.g. one VM message per store',
           'Monitor open cursors per session for integration users',
-          'Catch ORA-01000 and retry the same store',
+          'Catch ORA-01000 and retry the same store after a short wait',
         ],
         answer: [0, 1, 2, 3],
-        explain: 'Close what you open, do not open what you do not need, and avoid one huge execution holding resources. Retrying on the same session just hits the limit again.',
+        explain: 'Close what you open, do not open what you do not need, and avoid one huge execution holding resources. Retrying on the same session only hits the limit again.',
       },
     ],
   },
   description: `
 ## Symptoms
 - The nightly replenishment run (\`replen-papi\`) calculates store needs and publishes replenishment orders to the DC by 03:00.
-- Since Tuesday the run fails after about **300 of 612 stores** with ORA-01000, and no store orders are confirmed. DC planners are building waves by hand.
+- Since Tuesday the run fails after about **330 of 612 stores** with ORA-01000, and no store orders are confirmed. DC planners are building waves by hand.
 
 ## Change / Context
 - The flow loops over stores with **For Each** in a single execution and calls \`db:stored-procedure\` \`{call PKG_REPLEN.CALC_STORE_NEED(:p_store, :p_lines, :p_status)}\`; \`p_lines\` is an OUT **SYS_REFCURSOR**.
-- Release **v4.2** (Monday) added an optimisation: "only read p_lines when p_status = 'ORDER'". Around half the stores return \`NO_ORDER\`.
+- Release **v4.2** (Monday) added an optimisation: "only read p_lines when p_status = 'ORDER'". On a normal night about 9 in 10 stores return \`NO_ORDER\`.
 - Oracle \`OPEN_CURSORS = 300\`.
 
 ## Logs
 \`\`\`
 01:00:00.402 INFO  [replen] {call PKG_REPLEN.CALC_STORE_NEED(:p_store, :p_lines, :p_status)}
   store=0001 p_status=NO_ORDER
-01:03:41.330 ERROR [replen] DB:QUERY_EXECUTION ORA-01000: maximum open cursors exceeded store=0301
+01:03:41.330 ERROR [replen] DB:QUERY_EXECUTION ORA-01000: maximum open cursors exceeded store=0334
 01:03:41.400 INFO  [dba] v$open_cursor for SID 1422 (program=replen-papi): 300 rows,
   sql_text=SELECT ... FROM REPLEN_NEED_V
 \`\`\`

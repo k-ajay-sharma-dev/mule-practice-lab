@@ -14,7 +14,7 @@ When a till closes a receipt, the POS publishes it to a JMS queue and a Mule flo
 - Tier bonus multipliers: \`BASIC\` 1, \`SILVER\` 1.25, \`GOLD\` 1.5. A tier not in this list counts as \`BASIC\`.
 - \`bonusPoints\` = \`basePoints * (multiplier - 1)\`, rounded **down**.
 - \`totalPoints\` = \`basePoints + bonusPoints\`.
-- A guest receipt has \`"member": null\`: \`memberId\` and \`tier\` are \`null\` and all three point fields are \`0\` — but \`eligibleSpend\` is still reported (the store dashboards use it to show "points you could have earned").
+- A guest receipt has \`"member": null\`: \`memberId\` and \`tier\` are \`null\` and all three point fields are \`0\`, but \`eligibleSpend\` is still reported (the store dashboards use it to show "points you could have earned").
 
 Output one object: \`receiptId\`, \`memberId\`, \`tier\`, \`eligibleSpend\`, \`basePoints\`, \`bonusPoints\`, \`totalPoints\`.
 `,
@@ -56,7 +56,7 @@ payload
     'Filter the lines with `!(["GIFT_CARD", "FEES"] contains $.category)`, map each to `$.qty * $.unitPrice` and `sum` the result.',
     '`floor(n)` rounds down; `floor(75 * 0.5)` is `37`.',
     'Keep the multipliers in an object and look them up with a dynamic selector: `multipliers[tier] default 1` handles unknown tiers.',
-    'Selecting `.id` on a `null` member gives `null`, so `payload.member.id` needs no special case — but the points do.',
+    'Selecting `.id` on a `null` member gives `null`, so `payload.member.id` needs no special case. The points do.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -78,13 +78,13 @@ var bonus = if (member == null) 0 else floor(base * (multiplier - 1))
   totalPoints: base + bonus
 }`,
   explanation: `
-**Eligible spend.** \`filter\` then \`map\` then \`sum\` is the standard "total of some lines" pattern. \`sum([])\` is \`0\`, so a receipt that only sells a gift card simply earns nothing. DataWeave numbers are decimals, so \`2 * 12.99 + 49.95\` is exactly \`75.93\` — no floating-point drift like \`75.93000000000001\`.
+**Eligible spend.** \`filter\` then \`map\` then \`sum\` is the standard "total of some lines" pattern. \`sum([])\` is \`0\`, so a receipt that only sells a gift card earns nothing. DataWeave numbers are decimals, so \`2 * 12.99 + 49.95\` is exactly \`75.93\`, with no floating-point drift like \`75.93000000000001\`.
 
-**Rounding.** Loyalty programmes almost always round **down** (never give away a fraction of a point). Rounding happens twice: once for the base, once for the bonus. Computing \`floor(eligible * 1.5)\` in one step would give \`113\` instead of \`112\` — a different rule, which is why the rule must be written down precisely and agreed with the loyalty team.
+**Rounding.** Loyalty programmes almost always round **down** (never give away a fraction of a point). Rounding happens twice: once for the base, once for the bonus. Computing \`floor(eligible * 1.5)\` in one step would give \`113\` instead of \`112\`. That is a different rule, which is why the rule must be written down precisely and agreed with the loyalty team.
 
 **Lookup with a default.** \`multipliers[member.tier default "BASIC"]\` is a dynamic key selector; an unknown tier returns \`null\`, and \`default 1\` turns it into the BASIC multiplier.
 
-**Guests.** \`member.id\` on a \`null\` member is \`null\` (null-safe selectors), so the object shape stays the same for guests and members — the consumer never has to check whether a key exists.
+**Guests.** \`member.id\` on a \`null\` member is \`null\` (null-safe selectors), so the object shape stays the same for guests and members, and the consumer never has to check whether a key exists.
 `,
   tests: [
     {

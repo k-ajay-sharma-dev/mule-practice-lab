@@ -34,7 +34,7 @@ export default {
   simulation: {
     systems: {
       db: { tables: { processed_blob_events: { key: 'event_id', rows: [seen] } } },
-      calls: { 'azure-download-blob': { payload: { supplierId: 'HALDEN-FILTERS', items: [{ supplierItemId: 'SI-1', costPrice: 4.1 }] } } },
+      calls: { 'azure-download-blob': { payload: { supplierId: 'HALDEN-PAINTS', items: [{ supplierItemId: 'SI-1', costPrice: 4.1 }] } } },
       http: [{ method: 'POST', path: '/catalog/v1/imports', respond: { status: 202, body: { importId: 'IMP-1' } } }],
     },
     tests: [
@@ -52,7 +52,7 @@ export default {
           status: 200,
           maxMs: 500,
           connector: [{ type: 'azure-download-blob', settings: { container: 'supplier-drops', fileName: 'feeds/halden-2026-11-13.json' }, count: 1 }],
-          calls: [{ method: 'POST', path: '/catalog/v1/imports', count: 1, has: { supplierId: 'HALDEN-FILTERS' } }],
+          calls: [{ method: 'POST', path: '/catalog/v1/imports', count: 1, has: { supplierId: 'HALDEN-PAINTS' } }],
           db: { processed_blob_events: { count: 2 } },
         },
       },
@@ -127,6 +127,12 @@ Two facts about Event Grid that matter here:
 - Answer the validation handshake.
 - For every \`BlobCreated\` event, hand \`{ eventId, blobName }\` to a second flow over a VM queue, and answer 200 at once. Ignore other event types.
 - The second flow records the event in \`processed_blob_events\` (\`event_id\`, \`blob_name\`) and skips one already recorded. For a new one, it downloads the blob from \`supplier-drops\` and posts it to \`POST /catalog/v1/imports\`.
+
+**Facts**
+- \`eventId\` is the event's \`id\`. \`blobName\` is the part of \`subject\` after \`/blobs/\`, such as \`feeds/halden-2026-11-13.json\`.
+- \`processed_blob_events\` is a PostgreSQL table with a primary key on \`event_id\`. Record the event before the download.
+- Post the downloaded feed as it is to the import.
+- Answer Event Grid within half a second.
 
 **Design the flows.**
 `,

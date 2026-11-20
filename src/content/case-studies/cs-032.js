@@ -81,6 +81,8 @@ export default {
 - Corrections happen (a goal is re-assigned to another player) and must reach everyone.
 - Contracts include SLAs and an audit of who received which data, when.
 - On the final match day pollers send about 1,500 requests a second and the stats store takes 300 reads a second. Licensee webhooks can be down for 20 minutes while 50 events a second arrive.
+- Name the APIs exp-live-api, exp-stats-api, prc-match-events-api, prc-licensee-push, prc-delay-buffer, sys-match-feed-api and sys-stats-store-api. The match-events Process API keeps a short response cache, so about 9 polls in 10 never reach the store.
+- Run exp-live-api and prc-match-events-api on 2 replicas of 2 vCores each. Give sys-stats-store-api 1 vCore and prc-licensee-push 0.5 vCore, so the push consumer can catch up after an outage.
 
 **Your task.** Propose the distribution architecture, product/tier model and how you handle ordering and corrections.
 `,
@@ -105,24 +107,24 @@ export default {
     'Delivery is logged per consumer for SLA and audit evidence.',
   ],
   solution: `
-**Ingestion.** \`match-feed-sapi\` receives provider messages (push or polling), validates them, assigns a per-match sequence number if the provider does not, and publishes to the backbone. Use Anypoint MQ (FIFO queues where per-match order matters) for moderate scale; if the league expects much higher fan-out or long replay windows, a streaming platform such as Kafka with the Mule Kafka connector is a better backbone. Events are also written to the stats store.
+**Ingestion.** \`sys-match-feed-api\` receives provider messages (push or polling), validates them, assigns a per-match sequence number if the provider does not, and publishes to the backbone. Use Anypoint MQ (FIFO queues where per-match order matters) for moderate scale; if the league expects much higher fan-out or long replay windows, a streaming platform such as Kafka with the Mule Kafka connector is a better backbone. Events are also written to the stats store.
 
 **Distribution.**
-- *Push*: per-licensee delivery flows consume their subscription and push to webhooks with retries; for very low latency, a streaming endpoint (e.g. WebSocket or SSE) served by a dedicated gateway/service may be required — call this out honestly, as long-lived streaming connections are not a typical Mule HTTP pattern.
-- *Pull*: \`live-eapi\` exposes \`GET /matches/{id}/events?afterSeq=n\` so pollers fetch only new events; responses cached for 1 s to absorb polling storms.
+- *Push*: \`prc-licensee-push\` consumes each licensee's subscription and pushes to its webhook with retries. For very low latency, a streaming endpoint (e.g. WebSocket or SSE) served by a dedicated gateway or service may be required. Call this out honestly, as long-lived streaming connections are not a typical Mule HTTP pattern.
+- *Pull*: \`exp-live-api\` exposes \`GET /matches/{id}/events?afterSeq=n\` so pollers fetch only new events; responses cached for 1 s to absorb polling storms.
 
-**Tiers.** Exchange/portal products: Media (delayed 30–60 s, free), Club (delayed), Licensee Real-time (paid, SLA). API Manager applies client ID enforcement and SLA-based rate limits. The delayed product reads from a buffer that releases events after the configured delay.
+**Tiers.** Exchange/portal products: Media (delayed 30 to 60 s, free), Club (delayed), Licensee Real-time (paid, SLA). API Manager applies client ID enforcement and SLA-based rate limits. The delayed product reads from \`prc-delay-buffer\`, which releases events after the configured delay.
 
 **Ordering and corrections.** Consumers process by \`(matchId, seq)\`; gaps are detected and filled via the pull API. A correction is a new event \`type: CORRECTION, corrects: seq 412\`, so audit history stays intact. Replay: any consumer can re-request from a sequence number after an outage.
 
-**Historical API.** \`stats-eapi\` over a database built from the same events; heavy caching because data rarely changes after a match.
+**Historical API.** \`exp-stats-api\` over a database built from the same events; heavy caching because data rarely changes after a match.
 
 **Resilience.** Load test with 10 parallel simulated matches at 3x event rate; replicas across availability zones; runbook for match day.
 
 **Risks.** Latency targets (measure end to end), unlicensed redistribution (contracts plus watermarking/per-client identifiers), provider outage (fallback manual input feed).
 `,
   followUps: [
-    { q: 'Would you use Anypoint MQ or Kafka here?', a: 'Anypoint MQ is simpler and fine at this volume, with FIFO queues for ordering. If fan-out grows to thousands of consumers or long replay is required, a log-based platform like Kafka fits better, and Mule integrates through its connector.' },
+    { q: 'Would you use Anypoint MQ or Kafka here?', a: 'Anypoint MQ needs less to run and is fine at this volume, with FIFO queues for ordering. If fan-out grows to thousands of consumers or long replay is required, a log-based platform like Kafka fits better, and Mule integrates through its connector.' },
     { q: 'How do you implement the delayed tier?', a: 'A consumer holds events in a time-ordered buffer and releases them only when event time + delay has passed; the delayed API reads only released events, so free users never see real-time data.' },
     { q: 'How do you prove SLA compliance?', a: 'Measure provider-received and consumer-delivered timestamps per event and client, aggregate them into SLA reports, and keep the logs for the contractual period.' },
   ],

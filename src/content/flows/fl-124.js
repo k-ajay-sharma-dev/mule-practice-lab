@@ -142,6 +142,10 @@ The carrier waits up to **5 seconds** for an answer. On any answer other than 2x
 - Answer 200 once the events are published.
 - If Salesforce cannot take the events, answer **503** so the carrier sends the batch again.
 
+**Facts**
+- Map \`trackingNumber\` to \`Tracking_Number__c\`, \`orderNumber\` to \`Order_Number__c\`, \`scannedAt\` to \`Delivered_At__c\` and \`signedBy\` to \`Signed_By__c\`.
+- Assume the listener's response status is \`#[vars.httpStatus default 200]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## What is wrong with updating Cases from Mule

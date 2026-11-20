@@ -112,22 +112,22 @@ export default {
       needsScenario: true,
       prompt: 'Why not route the Kubernetes services through a Mule API proxy on CloudHub?',
       options: [
-        'Mule proxies cannot apply rate limiting',
-        'It adds a round trip from on-prem to the cloud and back, more latency and vCore cost, and a dependency on cloud connectivity for on-prem traffic',
-        'API Manager cannot manage proxies',
-        'Kubernetes services cannot be called over HTTP',
+        'Mule proxies cannot apply rate limiting or client ID enforcement',
+        'It sends on-prem traffic to the cloud and back, adding latency, vCores and a cloud dependency',
+        'API Manager cannot manage a proxy whose backend runs on-prem',
+        'A proxy on CloudHub cannot reach services in a private data center',
       ],
       answer: 1,
-      explain: 'A gateway close to the service is simpler and faster. A Mule proxy is useful when you cannot change an implementation, not as a hop for every on-prem call.',
+      explain: 'A gateway close to the service is faster and has fewer moving parts. A Mule proxy can apply the same policies and reach on-prem over a VPN, but it is useful when you cannot change an implementation, not as a hop for every on-prem call.',
     },
     {
       type: 'single',
       prompt: 'Security asks whether API policies can replace the WAF. What is the right answer?',
       options: [
-        'Yes, Client ID Enforcement blocks all attacks',
-        'No: the WAF/edge handles OWASP, bot and DDoS filtering; the gateway handles identity, contracts and quotas — both are needed for internet traffic',
-        'Yes, if JSON Threat Protection is enabled',
-        'No, and the gateway is not needed if there is a WAF',
+        'Yes, Client ID Enforcement and rate limits stop most attacks',
+        'No: the WAF filters OWASP, bot and DDoS traffic, the gateway checks identity and quotas',
+        'Yes, if JSON Threat Protection is applied to every API',
+        'No, and once a WAF is in place the API gateway can be dropped',
       ],
       answer: 1,
       explain: 'They solve different problems. Internet traffic passes the WAF first and then the gateway; neither replaces the other.',
@@ -148,22 +148,22 @@ export default {
       type: 'single',
       prompt: 'How do you get one view of "who calls what" across Mule and non-Mule APIs?',
       options: [
-        'A separate tool per gateway type',
-        'Register Flex Gateway in connected mode so Mule APIs and Flex APIs share API Manager: same client apps, contracts, Exchange catalogue and analytics',
-        'Parse reverse-proxy logs with a script',
-        'Move all microservices into Mule',
+        'Keep a separate analytics tool for each type of gateway',
+        'Run Flex Gateway in connected mode, so all APIs share API Manager and its analytics',
+        'Run Flex Gateway in local mode and ship its config files to API Manager',
+        'Move all the microservices into Mule apps',
       ],
       answer: 1,
-      explain: 'Connected mode puts Flex Gateway under the same control plane as Mule gateways, so policies and analytics live in one place.',
+      explain: 'Connected mode puts Flex Gateway under the same control plane as Mule gateways, so client apps, contracts, the Exchange catalogue, policies and analytics live in one place. Local mode is configured with files on the gateway and is not managed from API Manager.',
     },
     {
       type: 'single',
       prompt: 'Flex Gateway in connected mode loses its connection to the control plane. What happens?',
       options: [
-        'All traffic is blocked immediately',
-        'All policies are removed and traffic flows unprotected',
-        'It keeps enforcing the last known configuration, but new policies or contracts cannot be pushed until it reconnects',
-        'It switches to a Mule runtime',
+        'It blocks all traffic until the connection returns',
+        'It removes all policies and lets traffic through unprotected',
+        'It keeps enforcing its last configuration, but new policies wait for the reconnect',
+        'It forwards traffic to the control plane, which enforces the policies instead',
       ],
       answer: 2,
       explain: 'The data plane keeps working with its last configuration. Run at least two replicas and monitor the connection.',
@@ -180,7 +180,7 @@ A logistics company has a mixed landscape:
 Numbers: the microservices handle about **100 requests a second** (80 ms each), and partners normally send 40, with bursts of 300. The SOAP service answers in 400 ms and handles about 20 a second. The WAF adds about 20 ms. Internal apps call the internal Mule APIs about 30 times a second with a JWT from the corporate IdP. Every caller, inside or outside, must prove who it is.
 
 **Questions:**
-- For each group of APIs, where would you enforce API policies: inside the Mule runtime (Mule gateway / autodiscovery), a Mule API proxy, or **Flex Gateway** — and where would that gateway run?
+- For each group of APIs, where would you enforce API policies: inside the Mule runtime (Mule gateway / autodiscovery), a Mule API proxy, or **Flex Gateway**, and where would that gateway run?
 - How do internet (north-south) and internal (east-west) traffic differ in your design?
 - How do you get one consistent view and policy management across all of them?
 `,
@@ -195,7 +195,7 @@ Numbers: the microservices handle about **100 requests a second** (80 ms each), 
 ## Central management and visibility
 `,
   keyPoints: [
-    'Mule APIs enforce policies in their own runtime via API Autodiscovery (embedded Mule gateway) — no extra hop needed.',
+    'Mule APIs enforce policies in their own runtime via API Autodiscovery (embedded Mule gateway): no extra hop needed.',
     'Non-Mule services (Kubernetes microservices, .NET) are protected by Flex Gateway, deployed close to them (e.g. as an ingress in the Kubernetes cluster or on a Linux/Docker host in the data center).',
     'Flex Gateway in connected mode is managed from API Manager, so policies, contracts and analytics are visible in one place alongside Mule APIs.',
     'Internet traffic passes a WAF/edge layer (DDoS, OWASP filtering) before the gateway; the gateway handles API-level concerns (client ID, OAuth, rate limiting, SLA tiers).',
@@ -203,11 +203,11 @@ Numbers: the microservices handle about **100 requests a second** (80 ms each), 
     'Policy settings: client ID enforcement on both Flex Gateways and the partner Mule APIs, JWT validation on the internal APIs, and a rate limit of 80 a second on the Kubernetes Flex Gateway (15 on the SOAP one) so a burst never reaches the services.',
   ],
   solution: `
-**Mule APIs on CloudHub 2.0.** Use **API Autodiscovery**: policies from API Manager run inside the Mule runtime itself (the "Mule gateway"). No separate proxy, no extra network hop. A Mule **API proxy app** is only useful when you cannot change the implementation or want policies isolated from the implementation lifecycle — not needed here.
+**Mule APIs on CloudHub 2.0.** Use **API Autodiscovery**: policies from API Manager run inside the Mule runtime itself (the "Mule gateway"). No separate proxy, no extra network hop. A Mule **API proxy app** is only useful when you cannot change the implementation or want policies isolated from the implementation lifecycle. It is not needed here.
 
-**Kubernetes microservices.** Use **Anypoint Flex Gateway** (Envoy-based, lightweight) running in the on-prem Kubernetes cluster — as the ingress gateway for the partner-facing services (or close to them). Register it in **connected mode** so API Manager applies the same policy types (Client ID Enforcement, Rate Limiting/SLA-based, JWT Validation, etc.). The microservice teams keep their stack; MuleSoft does not need to rewrite them.
+**Kubernetes microservices.** Use **Anypoint Flex Gateway** (Envoy-based, lightweight) running in the on-prem Kubernetes cluster, as the ingress gateway for the partner-facing services (or close to them). Register it in **connected mode** so API Manager applies the same policy types (Client ID Enforcement, Rate Limiting/SLA-based, JWT Validation, etc.). The microservice teams keep their stack; MuleSoft does not need to rewrite them.
 
-**Legacy SOAP service.** Replace the old reverse proxy with a **Flex Gateway** instance on a Linux host/container in the data center DMZ, or a Mule proxy if SOAP-specific mediation is needed. If partners will later get a modern REST contract, wrap it with a Mule System API instead — that's a separate decision from gateway placement.
+**Legacy SOAP service.** Replace the old reverse proxy with a **Flex Gateway** instance on a Linux host/container in the data center DMZ, or a Mule proxy if SOAP-specific mediation is needed. If partners will later get a modern REST contract, wrap it with a Mule System API instead: that's a separate decision from gateway placement.
 
 **North-south vs east-west.**
 - *Internet → company:* DNS → **CDN/WAF** (e.g. the company's existing edge provider) → public ingress of the Private Space or the DMZ Flex Gateway → API. WAF handles OWASP/bot/DDoS; the gateway handles **identity, contracts, quotas**. Don't expect API policies to replace a WAF or vice versa.
@@ -220,7 +220,7 @@ Numbers: the microservices handle about **100 requests a second** (80 ms each), 
 **Trade-offs.** Flex Gateway adds a component to operate (versions, scaling, HA with at least 2 replicas). Embedding policies in Mule apps avoids a hop but couples policy upgrades to the runtime. The decision is per workload: *Mule app → embedded; non-Mule → Flex*.
 `,
   followUps: [
-    { q: 'Why not route the Kubernetes services through a Mule proxy on CloudHub instead of running Flex Gateway?', a: 'That adds an extra network round trip from on-prem to the cloud and back, increases latency and cost per vCore, and creates a dependency on cloud connectivity for on-prem traffic. A gateway close to the service is simpler and faster.' },
+    { q: 'Why not route the Kubernetes services through a Mule proxy on CloudHub instead of running Flex Gateway?', a: 'That adds an extra network round trip from on-prem to the cloud and back, increases latency and cost per vCore, and creates a dependency on cloud connectivity for on-prem traffic. A gateway close to the service is faster and has fewer moving parts.' },
     { q: 'What happens if Flex Gateway loses connection to the Anypoint control plane?', a: 'In connected mode, the gateway keeps enforcing the last known configuration, but you cannot push new policies or contracts until the connection returns. Run at least two replicas and monitor the connection.' },
     { q: 'Traffic grows 10x on partner APIs. Where is the scaling pressure?', a: 'On the edge/WAF and the gateway replicas first, then the backends. Flex Gateway scales horizontally (more replicas behind the load balancer); rate limits per client protect backends from being the bottleneck.' },
   ],

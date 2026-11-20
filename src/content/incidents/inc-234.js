@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "What went wrong?",
         options: [
-          "The flow trusted the control file before all plan files had arrived and loaded part of the set",
-          "The plans were wrong",
-          "The share lost files",
-          "The regions are misconfigured",
+          "The control file came first, and the flow loaded only part of the set",
+          "The platform sent last week’s files again for regions 8 to 12",
+          "The share hid five files that were still locked by the upload",
+          "The flow skipped five files whose row counts did not match",
         ],
         answer: 0,
         explain: "The control file was written first, not last.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What should the flow do when files are missing?",
         options: [
-          "Wait and check again, and alert if the set is not complete by a cut off",
-          "Load what is there",
-          "Delete the control file",
-          "Use last week’s plans for all",
+          "Wait and check again, and alert if it is not complete by a cut off",
+          "Load the files present now and the rest on the next poll",
+          "Delete the control file so the platform sends the set again",
+          "Keep last week’s plans for all 12 regions until tomorrow",
         ],
         answer: 0,
         explain: "Load the set only when it is complete.",
@@ -45,7 +45,7 @@ export default {
           "Every file named in the control file is present",
           "Row counts match the control file",
           "Each file has a valid trailer",
-          "The control file exists",
+          "The control file is newer than last week’s",
         ],
         answer: [0,1,2],
         explain: "The control file alone proves nothing until its contents match.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What should the platform team change?",
         options: [
           "Write the control file last, after every plan file",
-          "Write the control file first",
-          "Stop sending a control file",
-          "Send one big file",
+          "Write the control file first, with a ten minute delay",
+          "Stop sending a control file and send a fixed set of 12",
+          "Upload the 12 plan files in parallel to finish sooner",
         ],
         answer: 0,
         explain: "Last means complete.",
@@ -81,7 +81,9 @@ export default {
 - Five regions got last week’s replenishment quantities.
 
 ## Change / Context
-- The planning platform drops 12 regional plan files and a control file on the share each morning.
+- The planning platform drops 12 regional plan files and a control file on the share every Wednesday morning.
+- The control file lists each plan file name and its row count.
+- The flow starts loading as soon as it sees the control file.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

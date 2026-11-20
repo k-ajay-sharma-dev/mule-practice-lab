@@ -59,7 +59,7 @@ export default {
           http: {
             method: 'POST',
             path: '/webhooks/payments',
-            headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+            headers: { 'x-webhook-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
             body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
           },
         },
@@ -77,7 +77,7 @@ export default {
             http: {
               method: 'POST',
               path: '/webhooks/payments',
-              headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+              headers: { 'x-webhook-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
               body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
             },
           },
@@ -86,7 +86,7 @@ export default {
             http: {
               method: 'POST',
               path: '/webhooks/payments',
-              headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+              headers: { 'x-webhook-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
               body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
             },
           },
@@ -104,7 +104,7 @@ export default {
           http: {
             method: 'POST',
             path: '/webhooks/payments',
-            headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+            headers: { 'x-webhook-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
             body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
           },
         },
@@ -119,7 +119,7 @@ export default {
             http: {
               method: 'POST',
               path: '/webhooks/payments',
-              headers: { 'stripe-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
+              headers: { 'x-webhook-signature': 't=1731492000,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd' },
               body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
             },
           },
@@ -128,7 +128,7 @@ export default {
             http: {
               method: 'POST',
               path: '/webhooks/payments',
-              headers: { 'stripe-signature': 't=1731492060,v1=8f14e45fceea167a5a36dedd4bea2543c4ab0d1e2f7a8b9c0d1e2f3a4b5c6d7e' },
+              headers: { 'x-webhook-signature': 't=1731492060,v1=8f14e45fceea167a5a36dedd4bea2543c4ab0d1e2f7a8b9c0d1e2f3a4b5c6d7e' },
               body: { id: 'evt_1Q2w3eAbCd', type: 'invoice.paid', invoiceId: 'INV-2041', amount: 1250 },
             },
           },
@@ -160,7 +160,7 @@ export default {
       [
         step('validation', {
           check: 'is-not-blank-string',
-          expression: '#[attributes.headers."stripe-signature"]',
+          expression: '#[attributes.headers."x-webhook-signature"]',
           message: 'Missing webhook signature',
         }),
         step('set-variable', { variableName: 'eventId', value: '#[payload.id]' }),
@@ -187,7 +187,7 @@ export default {
     ),
   ),
   description: `
-**Stripe-style payment webhooks** arrive at \`POST /webhooks/payments\` (~50k/day). For each event, the flow updates the invoice in **NetSuite** and publishes a notification.
+**Payment provider webhooks** arrive at \`POST /webhooks/payments\` (~50k/day). For each event, the flow updates the invoice in **NetSuite** (\`PATCH /netsuite/invoices/{invoiceId}\`), publishes a notification to the Anypoint MQ queue \`payment-notifications\`, and answers \`{ received: true }\`.
 
 **Facts**
 - The provider guarantees *at-least-once* delivery.
@@ -226,15 +226,15 @@ Duplicates have caused **double invoice updates** and duplicate customer emails.
 **Flow**
 1. HTTP Listener \`POST /webhooks/payments\` → verify the signature header.
 2. **Idempotent Message Validator**: \`idExpression="#[payload.id]"\`, \`objectStore="processedEvents"\`.
-   - \`processedEvents\`: \`<os:object-store persistent="true" entryTtl="4" entryTtlUnit="DAYS"/>\` — backed by Object Store v2 so it is shared by both replicas and survives redeploys. Without clustering, CloudHub 2.0 replicas only share a store through Object Store v2, and \`persistent="true"\` on local disk does not survive a restart there.
+   - \`processedEvents\`: \`<os:object-store persistent="true" entryTtl="4" entryTtlUnit="DAYS"/>\`, backed by Object Store v2 so it is shared by both replicas and survives redeploys. Without clustering, CloudHub 2.0 replicas only share a store through Object Store v2, and \`persistent="true"\` on local disk does not survive a restart there.
 3. Update the invoice in NetSuite, publish the notification.
 4. Return 200.
 
-**Duplicates:** the validator raises \`MULE:DUPLICATE_MESSAGE\`. Catch it with **On Error Continue** (type \`MULE:DUPLICATE_MESSAGE\`), log at INFO, and return **200** — the event was already handled, and a non-2xx would make the provider retry for 3 days.
+**Duplicates:** the validator raises \`MULE:DUPLICATE_MESSAGE\`. Catch it with **On Error Continue** (type \`MULE:DUPLICATE_MESSAGE\`), log at INFO, and return **200**. The event was already handled, and a non-2xx would make the provider retry for 3 days.
 
-**Failure after the ID is stored:** the validator records the ID *before* the rest of the flow runs. If NetSuite then fails, the provider's retry would be dropped as a duplicate → the event is lost. Fix: in the On Error Propagate for other errors, call \`os:remove\` with key \`payload.id\`. Save the ID in a variable first, since the payload may have changed. Then return 5xx so the provider retries. Alternative pattern: check with \`os:contains\` first and \`os:store\` only after success — but that leaves a window where two near-simultaneous duplicates both pass, so the validator plus remove-on-failure is usually preferred.
+**Failure after the ID is stored:** the validator records the ID *before* the rest of the flow runs. If NetSuite then fails, the provider's retry would be dropped as a duplicate → the event is lost. Fix: in the On Error Propagate for other errors, call \`os:remove\` with key \`payload.id\`. Save the ID in a variable first, since the payload may have changed. Then return 5xx so the provider retries. Alternative pattern: check with \`os:contains\` first and \`os:store\` only after success, but that leaves a window where two near-simultaneous duplicates both pass, so the validator plus remove-on-failure is usually preferred.
 
-**Retention:** the provider retries for 3 days, so TTL must cover that: **4 days** gives margin. 50k/day × 4 ≈ 200k keys — fine for OSv2.
+**Retention:** the provider retries for 3 days, so TTL must cover that: **4 days** gives margin. 50k/day × 4 ≈ 200k keys, which is fine for OSv2.
 
 **Latency:** to stay under the provider's 10 s timeout under load, consider: validate → dedupe → publish to Anypoint MQ/VM → 200, and do NetSuite asynchronously (then apply the same idempotency on the consumer side, e.g. NetSuite upsert by external ID).
 `,

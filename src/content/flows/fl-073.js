@@ -202,7 +202,7 @@ Around **400 suppliers** submit invoices as JSON to a new **Invoice Intake API**
     },
     {
       q: 'What if the date folder should reflect the invoice date instead of the receipt date?',
-      a: 'Use payload.invoiceDate for the prefix. The name stays deterministic, but a corrected invoice with a different date would land in another folder — receipt date is simpler for audits, invoice date for business browsing.',
+      a: 'Use payload.invoiceDate for the prefix. The name stays deterministic, but a corrected invoice with a different date would land in another folder. Receipt date suits audits better, invoice date for business browsing.',
     },
     {
       q: 'Auditors need invoices to be unchangeable for 10 years. What changes?',

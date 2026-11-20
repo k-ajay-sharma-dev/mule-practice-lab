@@ -22,7 +22,8 @@ Each morning the finance team reconciles the payment service provider's settleme
 - \`matched\`: \`{ reference, amount, currency }\`, using the settlement values
 - \`mismatched\`: \`{ reference, reasons, settlement, ledger }\`, where \`reasons\` holds \`"AMOUNT"\` and/or \`"CURRENCY"\` in that order, and \`settlement\` and \`ledger\` are each \`{ amount, currency }\`
 - \`missing\`: \`{ inLedger, inSettlement }\`, two lists of references. \`inLedger\` holds those absent from the ledger, and \`inSettlement\` holds those absent from the settlement file.
-- Every list is sorted by reference ascending.
+- Keys in this order: \`summary\`, \`matched\`, \`mismatched\`, \`missing\`. References in the output are the normalised ones (trimmed, upper case), and amounts are numbers.
+- Every list is sorted by reference ascending, compared as text.
 `,
   inputs: [
     {
@@ -81,7 +82,7 @@ output application/json
 }
 `,
   hints: [
-    'Normalise first. Map both files to the same shape, `{ reference, amount, currency }`, with `upper(trim(...))` for the reference and `as Number` for the amount. Everything after that is simpler.',
+    'Normalise first. Map both files to the same shape, `{ reference, amount, currency }`, with `upper(trim(...))` for the reference and `as Number` for the amount. Every later step then works on one shape.',
     'For a lookup by reference, use `groupBy`: `var ledgerByRef = rows groupBy ((r) -> r.reference)`. Then `ledgerByRef[ref]` is an array of one row, or `null` when there is no such reference.',
     'Build the `reasons` list by concatenation: `(if (...) ["AMOUNT"] else []) ++ (if (...) ["CURRENCY"] else [])`. An empty list means the row is matched.',
     'Use `abs(a - b) > 0.01` for the amount check. Numbers read from text are exact decimals in DataWeave, so `75.01 - 75.00` is exactly `0.01`.',
@@ -151,7 +152,7 @@ var notInSettlement = (posted filter ((l) -> settlementByRef[l.reference] == nul
 `,
   tests: [
     {
-      name: 'Both reasons and a difference just over the tolerance',
+      name: 'Both reasons and a difference slightly over the tolerance',
       inputs: [
         {
           name: 'payload',

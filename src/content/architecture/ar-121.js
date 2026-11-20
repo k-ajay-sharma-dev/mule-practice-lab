@@ -8,7 +8,7 @@ export default {
   tags: ['api-led', 'system-api', 'layers', 'retail'],
   estMinutes: 20,
   diagram: {
-    task: 'draw one System API in front of a database. Use four boxes: two Process API boxes, one System API box and one Database box. Draw a line from each Process API to the System API, and a line from the System API to the Database.',
+    task: 'draw one System API in front of a database. Use four boxes: two Process API boxes named orders API and returns API, one System API box and one Database box. Draw a line from each Process API to the System API, and a line from the System API to the Database.',
     checks: [
       { label: 'Both Process APIs call the System API', rule: { type: 'each', of: 'process-api', min: 2, edgeTo: 'system-api' } },
       { label: 'One System API is shared by both', rule: { type: 'node', match: 'system-api', min: 1, max: 1 } },
@@ -60,7 +60,7 @@ The plan: both Process APIs stop connecting to the database and share one System
 
 Some numbers for the design:
 - At peak the orders API looks up 40 customers a second and the returns API 20. A database query takes about 30 ms.
-- Both teams now depend on one System API, so it must survive the loss of one availability zone.
+- Both teams now depend on one System API. It and both Process APIs must keep answering when one availability zone is lost.
 - The budget for the three APIs is 1 vCore.
 
 **Questions:**

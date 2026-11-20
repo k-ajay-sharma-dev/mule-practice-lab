@@ -177,9 +177,9 @@ export default {
     ),
   ),
   description: `
-An insurer's **claims portal** submits new claims as JSON with embedded documents (photos, PDFs, base64). Most are 1–3 MB, but **10% are 15–40 MB**.
+An insurer's **claims portal** submits new claims as JSON with embedded documents (photos, PDFs, base64). Most are 1 to 3 MB, but **10% are 15 to 40 MB**.
 
-The legacy **claims system** (SOAP \`SubmitClaim\`) is slow (5–60 s) and is down for maintenance every night for an hour, so the architects want a queue between the portal and the legacy system.
+The legacy **claims system** (SOAP \`SubmitClaim\`) is slow (5 to 60 s) and is down for maintenance every night for an hour, so the architects want a queue between the portal and the legacy system.
 
 Constraints:
 - **Anypoint MQ messages are limited to 10 MB**; large messages also slow brokers and inflate costs.
@@ -187,6 +187,12 @@ Constraints:
 - No claim may be lost: a claim stays on the queue until the claims system has accepted it. Documents must arrive unaltered (integrity check required by the regulator).
 - Documents must be kept for 7 years anyway, in the corporate **S3** bucket \`acme-claims-documents\`.
 - ≈8,000 claims/day.
+
+**Facts**
+- The portal posts each claim to \`POST /claims/v1/submissions\`. A claim has a \`policyNo\`, the claimant and a \`documents\` list. Answer **202** with a \`claimId\`.
+- The queue is the Anypoint MQ queue \`claims-intake\`. Its message must carry the \`policyNo\` and where the claim is stored.
+- The checksum is the hex SHA-256 of the claim written as JSON: \`write(payload, "application/json")\`. Compute it the same way on both sides.
+- A claim the consumer cannot submit, including one whose checksum does not match, goes back to the queue. The queue's own dead-letter queue catches it after its maximum deliveries.
 
 **Design the flow(s):** intake, where the large body goes, what the queue message contains, the consumer, integrity checking and failure handling.
 `,
@@ -210,20 +216,20 @@ Constraints:
     'The API returns 202 with the claimId quickly; the slow/unavailable legacy system only affects the queue backlog, not the portal.',
   ],
   solution: `
-**Intake flow** — \`POST /claims/v1/submissions\`
+**Intake flow**: \`POST /claims/v1/submissions\`
 1. **Validate** size (≤ 50 MB) and mandatory fields.
 2. Generate \`claimId\`; compute **SHA-256** of the claim written as JSON (\`write(payload, "application/json")\`), and save \`policyNo\` in a variable. The worker hashes the document it reads back the same way, so equal hashes prove nothing changed. Hashing the raw bytes (\`payload.^raw\`) at both ends works too.
 3. **S3 Put Object** \`claims/yyyy/MM/dd/{claimId}.json\` in \`acme-claims-documents\` (the "claim"). This also satisfies the 7-year retention requirement. Its output is a Put Object Response, not your claim, which is why step 2 saved what the ticket needs.
 4. DataWeave builds the small **claim-check** message: \`{ claimId, policyNo, bucket, key, sha256, receivedAt }\` (< 1 KB).
 5. **Anypoint MQ Publish** \`claims-intake\` (queue with DLQ, max deliveries e.g. 10) → respond **202**.
 
-**Worker flow** — MQ Subscriber \`claims-intake\`, **MANUAL** ack
+**Worker flow**: MQ Subscriber \`claims-intake\`, **MANUAL** ack
 1. **S3 Get Object** by key, with Output Mime Type \`application/json\` so DataWeave can select fields from the body.
-2. **Validate** the checksum — a mismatch is a hard error (alert, DLQ).
+2. **Validate** the checksum: a mismatch is a hard error (alert, DLQ).
 3. DataWeave → SOAP \`SubmitClaim\` via **Web Service Consumer**.
 4. **Ack**. On error → **Nack**, which returns the message to the queue; after max deliveries it lands in the DLQ for ops. Nack sets no wait of its own, so the nightly outage can use up the deliveries: size them for that, or replay the DLQ when the legacy system is back.
 
-**Clean-up:** nothing to delete — the S3 object is the retained record. If storage were temporary, an S3 lifecycle rule or a Scheduler would purge processed objects.
+**Clean-up:** nothing to delete: the S3 object is the retained record. If storage were temporary, an S3 lifecycle rule or a Scheduler would purge processed objects.
 `,
   followUps: [
     {
@@ -231,7 +237,7 @@ Constraints:
       a: 'The API returns an error and the portal retries; the orphaned object is harmless (same claimId is not reused) and can be swept by a lifecycle rule or a reconciliation job comparing S3 keys with processed claims.',
     },
     {
-      q: 'Why not just raise the payload limit or compress the message?',
+      q: 'Why not raise the payload limit or compress the message?',
       a: 'MQ has a hard 10 MB limit, and compression is unpredictable for images/PDFs. Large messages also hurt broker throughput and retries re-send the whole payload; a reference keeps the queue light.',
     },
     {

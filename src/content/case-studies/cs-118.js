@@ -36,7 +36,7 @@ export default {
         sl: ['system-api', 'sys-legacy-billing-api'],
         l: ['legacy', 'Legacy billing (Oracle, Java)'],
         pay: ['payment', 'Payment provider (tokens)'],
-        stores: ['external-api', 'Apple and Google app stores'],
+        stores: ['external-api', 'Mobile app stores'],
         es: ['experience-api', 'exp-app-store-notifications-api'],
         tp: ['topic', 'subscription-changed'],
         qent: ['queue', 'entitlement-updates', { maxRedelivery: 5 }],
@@ -76,7 +76,7 @@ export default {
   description: `
 **Context.** A video streaming service has **30 million paying subscribers in 22 countries**. Subscriptions are billed by a home-grown platform (Java on Oracle) built 11 years ago. It renews about 1 million subscriptions a day, charges cards through a payment provider using stored tokens, and handles 14 currencies and local tax rules badly. The company has signed for **Zuora Billing** and wants the legacy platform gone in 18 months.
 
-**Other subscription sources.** 22% of subscribers pay through the Apple App Store or Google Play. Those stores bill the customer and send server notifications; they stay as they are.
+**Other subscription sources.** 22% of subscribers pay through the two big mobile app stores. Those stores bill the customer and send server notifications; they stay as they are.
 
 **What depends on billing today**
 - **Entitlements**: whether a customer may watch, and at which quality and number of screens, is read by every playback request (40,000 per second at peak). The entitlement store is updated by the legacy platform writing into its tables directly.
@@ -89,6 +89,7 @@ export default {
 - A customer belongs to exactly one billing platform at a time.
 - Finance must sign off each country after comparing legacy and Zuora totals for one full billing cycle.
 - In tests the renewal run publishes 200 subscription events a second for 30 minutes, and 1 entitlement update in 100 always fails.
+- In the diagram, draw Zuora as SaaS and legacy billing as a legacy box with "billing" in its name. Name the cohort store Cohort map, the entitlement database Entitlements store and its queue entitlement-updates (an update goes to the DLQ after 5 failed deliveries). Run sys-zuora-api and sys-entitlement-api on 0.5 vCore each for the 200 events a second.
 
 **Proposed by the vendor.** Export all subscriptions over one weekend and switch.
 
@@ -123,7 +124,7 @@ export default {
 
 **Canonical event.** \`SubscriptionChanged\` (customer, plan, status, entitlement level, period end, source platform). \`sys-zuora-api\` turns Zuora notifications into it; \`sys-legacy-billing-api\` publishes from an outbox table added to the legacy platform; \`exp-app-store-notifications-api\` verifies and maps store notifications. All go to \`subscription-changed\`.
 
-**Entitlements.** \`sys-entitlement-api\` consumes \`entitlement-updates\` and is the only writer of the entitlement store. Updates are idempotent and ordered by event time per customer; failures retry and then go to a DLQ with a page to the on-call team, because a lost update means a paying customer without access. The direct legacy table writes are switched off once the event path is proven.
+**Entitlements.** \`sys-entitlement-api\` consumes \`entitlement-updates\` and is the only writer of the entitlement store. Updates are idempotent and ordered by event time per customer; an update that fails 5 deliveries goes to a DLQ with a page to the on-call team, because a lost update means a paying customer without access. The direct legacy table writes are switched off once the event path is proven.
 
 **Migrating a cohort.** \`cohort-migration\`:
 1. Picks customers whose next renewal is at least 3 days away.

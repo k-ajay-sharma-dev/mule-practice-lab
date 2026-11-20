@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'Why does the deployment fail?',
         options: [
-          'Mule tests DB connectivity at startup, the DB is in planned maintenance, and the failed test blocks deployment',
-          'The HTTP endpoint fix contains a syntax error',
-          'The SMTP server rejected the alert email configuration',
-          'CloudHub ran out of capacity in the region',
+          'The startup DB connectivity test fails during maintenance and blocks deployment',
+          'The HTTP endpoint fix contains a syntax error that stops the app loading',
+          'The SMTP server rejected the alert email configuration at startup',
+          'CloudHub ran out of capacity in the region during the deployment',
         ],
         answer: 0,
         explain: 'The connectivity test on `Database_Config` fails with connection refused during the 22:00-23:00 window, and that failure prevents the app from initialising.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'Will redeploying the **old** version restore service right now?',
         options: [
-          'Yes, the old version worked an hour ago',
-          'No, it tests the same DB connection at startup and will fail the same way until the DB is back or startup behaviour is relaxed',
-          'Yes, because old versions skip connectivity tests',
-          'Only if you add more replicas',
+          'Yes, because the old version was running fine an hour ago',
+          'No, it runs the same DB test at startup and fails until the DB is back',
+          'Yes, because only new deployments run connectivity tests',
+          'Only if you deploy it with more replicas than before',
         ],
         answer: 1,
         explain: 'The problem is the dependency, not the version. Options: ask the DBA to finish early, or deploy with relaxed startup behaviour so the app starts and serves what it can; inform the call centre.',
@@ -76,7 +76,7 @@ export default {
 ## Change / Context
 - The app has three configs: HTTP listener, Database (customer DB) and an SMTP config for alert emails. The Database config's reconnection element sets \`failsDeployment="true"\` (the default is false).
 - The DBA team scheduled **maintenance on the customer DB from 22:00 to 23:00**.
-- The deployment strategy used is not rolling — the old version was replaced.
+- The deployment strategy used is not rolling: the old version was replaced.
 
 ## Logs
 \`\`\`
@@ -105,14 +105,14 @@ export default {
 `,
   keyPoints: [
     'Mule tests connectivity of configs at startup; with a failing connection (and failsDeployment/ reconnection behaviour) the app does not start.',
-    'The DB is down for planned maintenance, so a release in that window cannot start — the app code is not the problem.',
-    'Immediate: avoid restarting into the DB outage — redeploy the previous version only if it would start, or wait for the DB / restore and communicate; next time keep the old version running.',
+    'The DB is down for planned maintenance, so a release in that window cannot start. The app code is not the problem.',
+    'Immediate: avoid restarting into the DB outage. Redeploy the previous version only if it would start, or wait for the DB / restore and communicate; next time keep the old version running.',
     'Fix: decide per connector whether a dependency should block startup; use reconnection strategies and lazy connection so the app can start and return 503 for DB-dependent endpoints.',
     'Process: zero-downtime/rolling deployments, a change calendar check and readiness checks before cutting traffic.',
   ],
   solution: `
 ## Diagnosis
-On startup Mule initialises configurations and **tests connectivity**. The DB is in planned maintenance, the connectivity test fails, and the app is configured so that this failure prevents deployment. The old version was already stopped, so the service is fully down — the HTTP fix itself is irrelevant.
+On startup Mule initialises configurations and **tests connectivity**. The DB is in planned maintenance, the connectivity test fails, and the app is configured so that this failure prevents deployment. The old version was already stopped, so the service is fully down. The HTTP fix itself is irrelevant.
 
 ## Immediate mitigation
 - Any version (old or new) will fail to start the same way while the DB is down, so redeploying the old one doesn't help by itself.

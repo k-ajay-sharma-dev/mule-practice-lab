@@ -76,13 +76,15 @@ export default {
 
 **Problems today**
 - Tracking status is assembled at request time by calling TMS, WMS and telematics: \`GET /shipments/{id}/tracking\` p95 is 2.5 s and fails when any system is down.
-- Large shippers poll the tracking API every few minutes for thousands of parcels — 80% of all API traffic.
+- Large shippers poll the tracking API every few minutes for thousands of parcels. This is 80% of all API traffic.
 - Scan events from depots are sent point-to-point to 6 systems by a legacy script.
 - A pilot with Kafka-style event streaming was started by one team, and another uses Anypoint MQ; nobody knows who decides event formats.
 
 **Goals.** Real-time tracking for customers and partners, fewer polling calls, resilient flows, and a clear architecture for when to use APIs and when to use events.
 
 **Numbers to design for.** The portal asks for about 300 tracking pages a second, depots scan about 20 parcels a second, and about 1 shipper webhook in 50 fails every time.
+- Name the APIs exp-tracking-portal-api, exp-partner-tracking-api, prc-tracking, prc-customer-notify, sys-scan-api, sys-tms-api and sys-telematics-adapter. Give exp-tracking-portal-api and prc-tracking 1 vCore each.
+- The partner API pushes webhooks from the event backbone. Deliver each event at most 5 times, then park it in a \`webhook-dlq\` dead-letter queue.
 
 **Your task.** Design the target architecture combining API-led connectivity with an event-driven backbone: decision rules for sync vs async, key events and APIs, event schema ownership and governance, and a migration path.
 `,
@@ -146,17 +148,17 @@ Often both: \`POST /pickups\` (sync accept, returns booking ID) → \`PickupBook
 | ParcelScanned | Depot operations | Tracking, billing, customer notifications |
 | ShipmentPlanned / RouteChanged | Transport planning (TMS) | Tracking, warehouse, ETA |
 | ParcelStored / ParcelPicked | Warehouse | Tracking, inventory reporting |
-| VehiclePositionUpdated | Fleet (telematics) | ETA calculation only — high volume, not sent to everyone |
+| VehiclePositionUpdated | Fleet (telematics) | ETA calculation only (high volume, not sent to everyone) |
 | DeliveryCompleted | Last-mile | Tracking, billing, Salesforce |
 
 **Schema governance.**
-- The **producing domain owns** the event schema — like a System API owns its contract.
+- The **producing domain owns** the event schema, as a System API owns its contract.
 - Specs as **AsyncAPI** assets in Exchange alongside RAML/OAS; standard envelope (eventId, type, version, occurredAt, correlationId, source) plus a business payload.
 - Compatibility rules: additive changes only within a major version; breaking changes publish a new event version in parallel for a migration period.
 - Consumers must be idempotent (eventId) and tolerate out-of-order events (use sequence/timestamps per parcel).
 - C4E reviews new event types for naming and to avoid "CRUD events" that leak database tables.
 
-**Partners and polling.** Offer **webhooks** (partner registers a URL; \`exp-partner-tracking-api\` pushes status changes, signed, with retries and a DLQ) and a **bulk** \`POST /tracking/search\` for reconciliation. Keep polling but with SLA tiers so it can't dominate capacity. Expected result: most of the 80% polling traffic disappears.
+**Partners and polling.** Offer **webhooks** (partner registers a URL; \`exp-partner-tracking-api\` pushes status changes, signed, with up to 5 deliveries and then \`webhook-dlq\`) and a **bulk** \`POST /tracking/search\` for reconciliation. Keep polling but with SLA tiers so it can't dominate capacity. Expected result: most of the 80% polling traffic disappears.
 
 **Platform choice.** Use Anypoint MQ (or the existing broker) for queues and pub/sub between Mule apps; where long retention, replay and very high throughput are needed (telematics, scan streams), a streaming platform consumed via the relevant Mule connector. Write the guidance down so teams stop choosing ad hoc.
 
@@ -169,8 +171,8 @@ Often both: \`POST /pickups\` (sync accept, returns booking ID) → \`PickupBook
 **Risks.** Eventual consistency confusing customers (show "last updated" time), duplicate/out-of-order events (idempotency, sequencing), schema sprawl (ownership and review), and operational maturity (DLQ monitoring, replay procedures, tracing with correlation IDs across async hops).
 `,
   followUps: [
-    { q: 'Does event-driven architecture replace API-led connectivity?', a: 'No, they complement each other. APIs remain the way to query and command; events distribute facts. The layered thinking — unlock systems, compose processes, tailor experiences — applies to both.' },
-    { q: 'Who should own the ParcelScanned schema — the tracking team or depot operations?', a: 'Depot operations, the producing domain, because it knows what a scan means and is accountable for publishing it correctly. Consumers request changes but do not own the contract.' },
+    { q: 'Does event-driven architecture replace API-led connectivity?', a: 'No, they complement each other. APIs remain the way to query and command; events distribute facts. The layered thinking (unlock systems, compose processes, tailor experiences) applies to both.' },
+    { q: 'Who should own the ParcelScanned schema: the tracking team or depot operations?', a: 'Depot operations, the producing domain, because it knows what a scan means and is accountable for publishing it correctly. Consumers request changes but do not own the contract.' },
     { q: 'How do you make webhooks reliable?', a: 'Retry with backoff on failure, sign payloads so partners can verify them, and include an event ID for deduplication. Park repeated failures in a DLQ with alerts, and offer a bulk query endpoint so partners can reconcile missed events.' },
   ],
 }

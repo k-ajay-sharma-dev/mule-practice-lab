@@ -10,7 +10,7 @@ export default {
   diagram: {
     task: 'draw where Mule fits: raw sensor data staying in the IoT/data platforms, a nightly forecast import, a consent-checking Process API, the buyer API behind API Manager, and one queued adapter per FMS product.',
     checks: [
-      { label: 'Sensors feed the IoT platform directly — raw telemetry does not flow through Mule', rule: { type: 'edge', from: 'device', to: ['saas', 'data-warehouse', 'event-stream'] } },
+      { label: 'Sensors feed the IoT platform directly; raw telemetry does not flow through Mule', rule: { type: 'edge', from: 'device', to: ['saas', 'data-warehouse', 'event-stream'] } },
       { label: 'No sensor talks to the API layers', rule: { type: 'no-edge', from: 'device', to: ['api-gateway', 'experience-api', 'process-api', 'system-api'] } },
       { label: 'A scheduled job imports the nightly forecast output through a System API', rule: { type: 'path', from: 'batch-job', to: 'data-warehouse', via: 'system-api' } },
       { label: 'Outbound flows check a central consent service', rule: { type: 'edge', from: 'process-api', to: { type: ['system-api', 'database', 'cache'], label: ['consent'] } } },
@@ -71,7 +71,7 @@ export default {
     },
   },
   description: `
-**Context.** An agritech company supplies soil-moisture, weather and yield sensors to 3,000 farms. Readings go to an IoT cloud platform (vendor-managed). The company now offers a service where farms can share aggregated yield forecasts with grain buyers and a commodity trading desk, who use them to pre-contract harvests. Farms also want forecasts in their farm-management software (FMS) — four popular FMS products, each with its own API.
+**Context.** An agritech company supplies soil-moisture, weather and yield sensors to 3,000 farms. Readings go to an IoT cloud platform (vendor-managed). The company now offers a service where farms can share aggregated yield forecasts with grain buyers and a commodity trading desk, who use them to pre-contract harvests. Farms also want forecasts in their farm-management software (FMS). There are four popular FMS products, each with its own API.
 
 **Goals**
 - Daily yield forecasts per field shared with authorised buyers/trading desk.
@@ -84,6 +84,8 @@ export default {
 - Buyers must not see individual farm identities unless the farm opts in.
 - Raw readings: ~50 million/day; buyers need aggregates, not raw data.
 - The nightly import pushes about 10 forecasts a second to the FMS products, and one FMS can be down for 2 hours. Buyers request forecasts about 20 times a second.
+- Give each FMS product its own delivery queue (for example \`fms-a-deliveries\`). A queue redelivers a failed message about once a minute, so set the redelivery limit to cover at least a 2 hour outage (240 deliveries covers 4 hours).
+- Buyers call through API Manager with a client ID, and a central consent service is checked before anything is shared. Name the APIs exp-buyer-forecast-api, prc-forecast-api, sys-forecast-api, sys-consent-api and sys-fms-<vendor>-api.
 
 **Your task.** Propose what Mule should and should not do in this pipeline, the API products for buyers and FMS vendors, and how consent is enforced.
 `,
@@ -111,14 +113,14 @@ export default {
 
 **Flow.**
 1. Nightly, the forecast job writes results (per field, crop, expected yield, confidence, as-of date) to a data store/object storage.
-2. \`forecast-sapi\` reads new results (batch job with watermark).
-3. \`forecast-papi\` joins with \`consent-sapi\` and farm master data, then produces (a) per-farm outputs for FMS and (b) aggregated outputs for buyers.
+2. A nightly batch job reads new results through \`sys-forecast-api\` (with a watermark).
+3. \`prc-forecast-api\` joins with \`sys-consent-api\` and farm master data, then produces (a) per-farm outputs for FMS and (b) aggregated outputs for buyers.
 
-**Buyer API.** \`buyer-forecast-eapi\`: \`GET /forecasts?crop=wheat&region=...\` returning aggregates (minimum number of farms per aggregate to prevent re-identification). Opted-in farms appear individually in \`GET /offers\`. Client ID + OAuth, per-buyer rate limits and contracts managed in API Manager; usage reported per buyer.
+**Buyer API.** \`exp-buyer-forecast-api\`: \`GET /forecasts?crop=wheat&region=...\` returning aggregates (minimum number of farms per aggregate to prevent re-identification). Opted-in farms appear individually in \`GET /offers\`. Client ID + OAuth, per-buyer rate limits and contracts managed in API Manager; usage reported per buyer.
 
-**FMS.** \`fms-<vendor>-sapi\` per product behind a common internal contract. Farms connect their FMS via OAuth consent; refresh tokens are stored encrypted. A queue per FMS vendor isolates outages and rate limits.
+**FMS.** \`sys-fms-<vendor>-api\` per product behind a common internal contract. Farms connect their FMS via OAuth consent; refresh tokens are stored encrypted. A queue per FMS vendor isolates outages and rate limits. With a redelivery about once a minute, a limit of 240 keeps FMS A's forecasts through a 2 hour outage.
 
-**Consent.** \`consent-sapi\` stores per-farm, per-purpose grants (share with FMS, share aggregated, share identified with buyer X). Every outbound flow checks it at send time (cached with a short TTL); withdrawal events invalidate the cache immediately. Consent changes are audited.
+**Consent.** \`sys-consent-api\` stores per-farm, per-purpose grants (share with FMS, share aggregated, share identified with buyer X). Every outbound flow checks it at send time (cached with a short TTL); withdrawal events invalidate the cache immediately. Consent changes are audited.
 
 **Late data.** Forecasts are versioned by as-of date; when late readings change a forecast, a new version is published and consumers see the newest.
 

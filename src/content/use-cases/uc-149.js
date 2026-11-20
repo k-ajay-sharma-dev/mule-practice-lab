@@ -79,7 +79,7 @@ Students sign in through the university's identity service, which issues a JWT.
 **Numbers**
 - A few sheets a second during the exam, then about **200 a second for three minutes** at the deadline.
 - The answer store takes about 200 ms per sheet and up to **30 a second**.
-- The rule from the exams office: every student gets a **receipt with a time** within a second of pressing submit. That time decides whether the sheet was on time.
+- The rule from the exams office: every student gets a **receipt with a time** within half a second of pressing submit, even if a zone fails or the broker restarts at the deadline. That time decides whether the sheet was on time.
 - Marking starts an hour after the deadline.
 
 **Questions:**

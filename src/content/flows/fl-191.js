@@ -103,6 +103,12 @@ New growers are added every month, and the team does not want a new flow or list
 - Move a loaded file to that grower's \`archive\`, a file that fails to that grower's \`error\`.
 - A bad file from one grower must not stop the others.
 
+**Facts**
+- Read the growers with \`active = 1\`. Take every \`*.csv\` in each grower's \`out\` folder.
+- \`qty\` must be stored as a number. A file whose quantity is not a number is a bad file.
+- \`file_name\` is the file's own name. Files keep their names when moved to \`/growers/<grower_id>/archive\` or \`/growers/<grower_id>/error\`.
+- Wrap each file's load and move in a Try with On Error Continue. The run must not fail because of one file.
+
 **Design the flow.**
 `,
   answerTemplate: `## One flow for every grower

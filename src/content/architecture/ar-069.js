@@ -93,9 +93,9 @@ Problems today:
 Numbers for sizing:
 - Checkouts reserve stock **100 times a second**, and up to **600 a second** for the first two minutes of a sale.
 - A reservation in Oracle takes about 40 ms. With its ERP jobs, Oracle can take about **300 reservations a second**; the DBA wants **280 or less**.
-- The WMS publishes about **300 stock changes a second** at peak and the stores **200**.
+- The WMS publishes about **300 stock changes a second** at peak and the stores **200**. Stock changes made in Oracle by the ERP jobs must reach the availability view too.
 - Reservations must keep working when one availability zone fails.
-- The budget for the reservation and stock event APIs is **10 vCores** (the read path is sized on its own).
+- The budget for all the APIs is **10 vCores**.
 
 **Questions:**
 - Should there be ONE source of truth for inventory, or should each channel hold its own availability? Defend your answer.
@@ -114,7 +114,7 @@ Numbers for sizing:
 ## Overselling and safety stock
 `,
   keyPoints: [
-    'One system of record for the inventory ledger and reservations (Oracle via sys-oracle-inventory); availability is a derived, distributed read model — not a second truth.',
+    'One system of record for the inventory ledger and reservations (Oracle via sys-oracle-inventory); availability is a derived, distributed read model, not a second truth.',
     'A dedicated ATP Process API serves reads from a read model/cache built from inventory events, so 8,000 reads/s never touch Oracle.',
     'Reservations are synchronous and atomic against the system of record (conditional update / reservation row), which is where overselling is prevented.',
     'WMS, POS and Oracle changes are published as events; the ATP service applies them per SKU-location in order and tolerates seconds of staleness.',

@@ -79,6 +79,11 @@ export default {
 - The S/4HANA migration should not force a rewrite of the MES side.
 - SAP releases about 1 production order a second per plant, the WAN to a plant can be down for 3 hours, and a plant sends about 5 confirmations a second, 1 in 100 of which SAP rejects every time.
 
+**Naming and settings for the diagram**
+- Draw plants A and B. Name the MES boxes \`MES plant A\` and \`MES plant B\`, and the plant flows \`prc-plant-a-mes-sync\` and \`prc-plant-b-mes-sync\`.
+- Name the queues \`plant-a-orders\`, \`plant-b-orders\`, \`plant-a-confirmations\` and \`plant-b-confirmations\`.
+- A queue redelivers a failed message about once a minute. Try each production order for up to 5 hours (a redelivery limit of 300). Give a confirmation 10 deliveries, then send it to a dead-letter queue.
+
 **Your task.** Propose the integration design: runtimes and deployment, how IDocs are received and acknowledged, how confirmations get back to SAP, and how you deal with outages.
 `,
   answerTemplate: `## Deployment and runtimes

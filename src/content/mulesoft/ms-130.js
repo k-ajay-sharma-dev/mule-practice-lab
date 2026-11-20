@@ -23,13 +23,13 @@ export default {
       detail: true,
       prompt: 'A new job runs `mvn clean deploy -DmuleDeploy` for an app that has never been published. The plugin configuration is valid. What is missing?',
       options: [
-        'The prerequisite: the application must already be published in Exchange, which is a separate `mvn clean deploy` without `muleDeploy`',
-        'Nothing, because `muleDeploy` publishes to Exchange and then deploys in the same step',
-        'A `mule:undeploy` step, because a deployment needs an empty target',
-        'The `-Dmule.artifact` parameter, which is mandatory for CloudHub 2.0',
+        'A first publish of the app to Exchange, by `mvn clean deploy` alone',
+        'Nothing; `muleDeploy` publishes to Exchange and deploys in one step',
+        'A `mule:undeploy` step first, because the target must be empty',
+        'The `-Dmule.artifact` parameter, which CloudHub 2.0 requires',
       ],
       answer: 0,
-      explain: 'The CloudHub 2.0 and Runtime Fabric pages both list publication in Exchange under the steps to complete first. The upload and the deployment are two different behaviours of the goal.',
+      explain: 'The CloudHub 2.0 and Runtime Fabric pages both list publication in Exchange under the steps to complete first. That is a separate `mvn clean deploy` without `muleDeploy`. The upload and the deployment are two different behaviours of the goal.',
     },
     {
       type: 'single',
@@ -147,7 +147,7 @@ A retail group runs 18 Mule applications on CloudHub 2.0, and about 40 deploymen
 
 **Why two stages run deploy.** The difference is one parameter. If \`muleDeploy\` is not set, the plugin uploads the artifacts to the repository in \`distributionManagement\`. That is the publish stage, with Exchange as the repository. If it is set, the plugin deploys using the strategy in the configuration. That is the deploy stage. Naming the stages "Publish to Exchange" and "Deploy to Test" removes most of the confusion.
 
-**Production stage.** \`mvn clean deploy -DmuleDeploy\` packages the project again, so the stage does not simply reuse what was tested. Use \`mvn mule:deploy\`, which the CloudHub 2.0 page gives for deploying without rebuilding, and run it from the same tagged commit with production parameters. That way the version tested is the version released.
+**Production stage.** \`mvn clean deploy -DmuleDeploy\` packages the project again, so the stage does not reuse what was tested. Use \`mvn mule:deploy\`, which the CloudHub 2.0 page gives for deploying without rebuilding, and run it from the same tagged commit with production parameters. That way the version tested is the version released.
 
 **Verification and timeouts.** With \`skipDeploymentVerification\` set to \`true\` the plugin does not check the status of the deployed app. So a deployment that fails to start can leave the job green, which is worse than the timeout. Remove the setting and raise \`deploymentTimeout\` for the slow app. It is the time allowed, in milliseconds, between the start of the deployment and confirmation, and it defaults to \`600000\`. For a 13-minute start, a value such as \`1200000\` leaves some margin.
 

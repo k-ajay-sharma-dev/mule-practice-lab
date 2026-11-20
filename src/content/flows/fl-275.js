@@ -90,6 +90,9 @@ The grades go to \`dbo.store_grade\` (\`store\`, \`grade\`) in SQL Server. The j
 - Move **every** snapshot found to \`outbound/grades/archive\` after a good load, so the folder does not fill up.
 - An empty folder is normal.
 
+**Facts**
+- If the load fails, let the error end the run and leave every snapshot in the folder.
+
 **Design the flow.**
 `,
   answerTemplate: `## Finding the newest snapshot

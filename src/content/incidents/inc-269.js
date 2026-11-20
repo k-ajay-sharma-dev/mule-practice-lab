@@ -9,8 +9,8 @@ export default {
     logs: [
       { text: "2026-11-18 11:00:00 INFO  [report] Started weekly sales report on orders table", relevant: true, why: "A big read query." },
       { text: "2026-11-18 11:00:30 WARN  [order-api] Update waiting on lock, blocked by session 112", relevant: true, why: "Writers are blocked." },
-      { text: "2026-11-18 11:05:00 ERROR [order-api] Query timeout after 30000 ms", relevant: true, why: "Updates time out." },
-      { text: "2026-11-18 11:05:00 INFO  [dba] Isolation level read committed, snapshot off", relevant: true, why: "Readers take shared locks." },
+      { text: "2026-11-18 11:01:00 ERROR [order-api] Query timeout after 30000 ms", relevant: true, why: "Updates time out." },
+      { text: "2026-11-18 11:05:00 INFO  [dba] Session 112 holds a table S lock after lock escalation, isolation read committed, snapshot off", relevant: true, why: "Readers take shared locks, and the escalated table lock is held until the scan ends." },
       { text: "2026-11-18 23:59:00 INFO  [report] GET /health 200", relevant: false },
     ],
     questions: [
@@ -19,9 +19,9 @@ export default {
         prompt: "Why are updates blocked?",
         options: [
           "The long report holds shared locks that block writers",
-          "The order table is full",
-          "The API is slow",
-          "Indexes are wrong",
+          "The order API opens too few database connections",
+          "Session 112 is an order update that never committed",
+          "A missing index makes each order update scan the table",
         ],
         answer: 0,
         explain: "Readers and writers block each other under read committed without snapshot.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What is a lasting fix?",
         options: [
           "Enable read committed snapshot, or run reports on a replica",
-          "Kill reports forever",
-          "Use NOLOCK everywhere",
-          "Bigger server",
+          "Raise the order API query timeout to ten minutes",
+          "Run the report twice a week so each run is shorter",
+          "Move the database to a server with more CPU",
         ],
         answer: 0,
         explain: "Readers then use row versions instead of locks.",
@@ -45,7 +45,7 @@ export default {
           "Run heavy reports outside trading hours",
           "Use a reporting copy of the data",
           "Index the report query",
-          "Make updates retry forever",
+          "Make order updates retry with no limit",
         ],
         answer: [0,1,2],
         explain: "Move or shorten the heavy read.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What should the order API do on lock timeout?",
         options: [
-          "Fail clearly and let the caller retry, with an alert",
-          "Hang forever",
-          "Lose the update silently",
-          "Restart",
+          "Fail clearly so the caller can retry, and alert",
+          "Wait with no timeout until the lock is released",
+          "Return 200 and drop the update without a log",
+          "Restart the app to clear the lock on the table",
         ],
         answer: 0,
         explain: "Visible failure with a retry plan.",
@@ -78,7 +78,7 @@ export default {
   },
   description: `
 ## Symptoms
-- Order updates time out every Monday at 11:00.
+- Order updates time out every Wednesday from 11:00.
 
 ## Change / Context
 - A weekly report runs on the live orders table.
@@ -88,8 +88,8 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 11:00:00 INFO  [report] Started weekly sales report on orders table
 2026-11-18 11:00:30 WARN  [order-api] Update waiting on lock, blocked by session 112
-2026-11-18 11:05:00 ERROR [order-api] Query timeout after 30000 ms
-2026-11-18 11:05:00 INFO  [dba] Isolation level read committed, snapshot off
+2026-11-18 11:01:00 ERROR [order-api] Query timeout after 30000 ms
+2026-11-18 11:05:00 INFO  [dba] Session 112 holds a table S lock after lock escalation, isolation read committed, snapshot off
 \`\`\`
 
 ## Your tasks

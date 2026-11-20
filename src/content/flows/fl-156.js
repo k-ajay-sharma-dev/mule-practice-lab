@@ -83,6 +83,12 @@ The team asked whether Anypoint MQ can give some messages a higher priority. It 
 - Answer **202** with \`{ repairId, lane }\`, where lane is \`emergency\` or \`routine\`.
 - Each queue has a subscriber flow of its own that creates the job, so the emergency lane can be given more consumers and never waits on the routine one.
 
+**Facts**
+- Publish the repair as it arrived. The subscriber sends that message as the body of \`POST /field-service/v1/jobs\`, which answers 201.
+- Match \`EMERGENCY\` in any case (\`emergency\` counts too).
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Choosing the lane

@@ -165,12 +165,13 @@ export default {
     ),
   ),
   description: `
-A supplier drops a CSV of contacts (5k–50k rows) on SFTP every night in \`/inbound/contacts/\`.
+A supplier drops a CSV of contacts (5,000 to 50,000 rows) on SFTP every night in \`/inbound/contacts/\`. The columns are \`externalId\`, \`firstName\`, \`lastName\` and \`email\`.
 
 **Requirements**
 - Pick up each new file once; move it to \`/archive/\` on success, \`/error/\` on failure.
 - Validate each row (email format, mandatory \`externalId\`).
-- Upsert valid rows to Salesforce \`Contact\` on \`External_Id__c\`.
+- Upsert valid rows to Salesforce \`Contact\` on \`External_Id__c\`, in bulk chunks rather than one call per row.
+- A bad row, or a chunk that Salesforce rejects, must not stop the run: every row is counted as processed or failed, and the file is still archived.
 - Email a summary (processed / failed counts) to the ops team; attach failed rows as CSV.
 
 **Design the flow(s):** sources, processors, scopes, error handling, and where DataWeave is used.
@@ -197,10 +198,10 @@ A supplier drops a CSV of contacts (5k–50k rows) on SFTP every night in \`/inb
 1. **Trigger:** SFTP *On New or Updated File* on \`/inbound/contacts/\`, matcher \`*.csv\`, with *Auto delete* off. Stream the content (repeatable file-store stream).
 2. **Parse:** DataWeave reads the CSV (\`input payload application/csv\`) and maps rows to objects.
 3. **Batch Job**
-   - *Step 1 – Validate:* check email regex and \`externalId\`; invalid records raise an error and become failed records. Set \`maxFailedRecords="-1"\` so the job keeps going: by default it stops at the first failed record.
-   - *Step 2 – Upsert* (accept \`NO_FAILURES\`): **Batch Aggregator size 200** → Salesforce *Upsert* \`Contact\` on \`External_Id__c\`.
-   - *Step 3 – Collect failures* (accept \`ONLY_FAILURES\`): append failed rows to an Object Store / temp file.
-   - *On Complete:* build summary from \`payload.successfulRecords\` / \`failedRecords\`, generate the failures CSV, send via Email connector.
+   - *Step 1, Validate:* check email regex and \`externalId\`; invalid records raise an error and become failed records. Set \`maxFailedRecords="-1"\` so the job keeps going: by default it stops at the first failed record.
+   - *Step 2, Upsert* (accept \`NO_FAILURES\`): **Batch Aggregator size 200** → Salesforce *Upsert* \`Contact\` on \`External_Id__c\`.
+   - *Step 3, Collect failures* (accept \`ONLY_FAILURES\`): append failed rows to an Object Store / temp file.
+   - *On Complete:* build the summary from the batch result counts (\`payload.processedRecords\`, \`payload.failedRecords\`), generate the failures CSV, send via Email connector.
 4. **File handling:** after the job is dispatched, move the file to \`/archive/\`; a flow-level On Error Propagate moves it to \`/error/\` and alerts if parsing fails.
 5. **Idempotency:** the file move prevents double pick-up; Salesforce upsert on an external ID makes reruns safe.
 `,

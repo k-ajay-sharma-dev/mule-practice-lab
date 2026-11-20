@@ -90,7 +90,7 @@ export default {
     },
   },
   description: `
-An electronics retailer expects **10× normal traffic on Black Friday**: up to **1,200 checkouts/s** for the first 15 minutes of the doorbuster sale, then ~300/s for hours.
+An electronics retailer expects **10× normal traffic on Black Friday**: up to **1,200 checkouts/s** for the first 15 minutes of the doorbuster sale, then about 300/s for hours.
 
 Current synchronous chain: \`exp-checkout → prc-checkout → sys-oracle-orders → Oracle\` plus payment authorisation. Oracle order inserts (several tables, triggers, sequence calls) top out at about **150 orders/s**.
 
@@ -103,8 +103,10 @@ What happened last year:
 Facts:
 - Customers must see "order received" with an order number within 3 seconds.
 - The card must be **authorised** before confirming (the payment provider handles 2,000 TPS).
+- Checkout checks stock availability. Oracle is the bottleneck, so those reads must not go to Oracle.
 - The WMS starts picking 30 minutes after order creation anyway.
-- ActiveMQ and Anypoint MQ are both available.
+- ActiveMQ and Anypoint MQ are both available. The broker redelivers a failed message about once a minute.
+- An order that keeps failing must be set aside in a dead-letter queue.
 
 Numbers for sizing:
 - In the doorbuster the web sends **800 checkouts a second** and the app **400**, for 15 minutes. Then **200** and **100** for hours.
@@ -142,7 +144,7 @@ Numbers for sizing:
                                                             ├─► ATP cache (no Oracle read)
                                                             ├─► sys-payment ─► provider (authorise)
                                                             └~► orders.accepted (persistent queue)  ◄── 202 + order number to customer
-                                                                     ~► prc-order-ingest (concurrency tuned to ~150/s)
+                                                                     ~► prc-order-ingest (concurrency tuned to about 450/s)
                                                                               ─► sys-oracle-orders ─► Oracle
                                                                               └~► DLQ
 \`\`\`
@@ -154,7 +156,7 @@ Numbers for sizing:
 Do the arithmetic in the interview: at 150/s, the 15-minute burst alone leaves roughly 1,050 × 900 ≈ 950k orders queued, and the sustained 300/s afterwards would keep the backlog **growing**. A queue levels **peaks**; it does not fix **sustained** under-capacity. So the design also raises Oracle write throughput to comfortably above 300/s (batched inserts with \`db:bulk-insert\`, slimmer triggers, a dedicated order-ingest schema). Then the burst backlog drains within an hour or two, which the business must accept explicitly.
 
 **Backpressure.**
-- Gateway spike control / rate limiting returns **429** when beyond tested capacity — controlled degradation instead of collapse.
+- Gateway spike control / rate limiting returns **429** when beyond tested capacity: controlled degradation instead of collapse.
 - HTTP timeouts and bounded pools on the payment call; a circuit breaker if the provider struggles.
 - Queue limits and alerts on depth/age; the ingest consumer never scales beyond what Oracle can take.
 
@@ -164,12 +166,12 @@ Do the arithmetic in the interview: at 150/s, the 15-minute burst alone leaves r
 - \`exp-checkout-api\`, \`prc-checkout\` and \`sys-payment\` each run 4 replicas of 1 vCore (about 2,000 requests a second), so 1,200 a second keeps them under 70% busy.
 - The gateway rate limit of 1,500 a second matches the tested capacity: what is over it gets 429, and nothing behind it fails with 503.
 - \`prc-order-ingest\` and \`sys-oracle-orders\` run on 1 vCore each, with a rate limit of 450 a second on the System API. The doorbuster leaves about 675,000 orders queued; they drain at about 150 a second over the 300 that still arrive, in a little over an hour.
-- The queue is persistent, so a broker restart during an Oracle outage loses nothing. In total 14 vCores, inside the 16 vCore budget.
+- The queue is persistent, so a broker restart during an Oracle outage loses nothing. Its redelivery limit is unset (or well above 20), so a 20 minute outage sends nothing to the DLQ. In total 14 vCores, inside the 16 vCore budget.
 
 **Trade-offs:** order status queries must handle "accepted but not yet in Oracle" (read from the queue-side status or a small status store); more moving parts to monitor; a backlog means downstream reports lag.
 `,
   followUps: [
-    { q: 'Why not just autoscale the Mule apps to 20 replicas?', a: 'More replicas push more load onto Oracle, which is the real bottleneck; it makes the pool exhaustion worse. Scale the front, but drain to Oracle at a fixed rate.' },
+    { q: 'Why not autoscale the Mule apps to 20 replicas instead?', a: 'More replicas push more load onto Oracle, which is the real bottleneck; it makes the pool exhaustion worse. Scale the front, but drain to Oracle at a fixed rate.' },
     { q: 'The payment authorisation succeeds but the queue publish fails. What now?', a: 'Treat publish failure as a checkout failure: void or let the authorisation expire, return an error, and alert. Alternatively write the order to a durable local outbox first so publish is retried without losing it.' },
     { q: 'How do you rehearse this before Black Friday?', a: 'Load-test the full path at 1.5× forecast, verify 429 behaviour and queue drain rates, and run a game day with Oracle deliberately slowed down.' },
   ],

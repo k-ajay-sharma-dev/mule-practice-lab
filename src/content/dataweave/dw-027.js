@@ -10,11 +10,11 @@ A carrier aggregator sends shipment status as XML. Some elements repeat, some ar
 
 Return an array with one object per \`Shipment\`, in document order:
 
-- \`id\` — the \`id\` attribute of \`Shipment\`
-- \`carrier\` — text of \`Carrier\`
-- \`trackingNumber\` — text of \`Tracking\`, or \`null\` when the element is absent
-- \`packages\` — one number per \`Package\`: its weight **in kilograms**. \`Weight\` has a \`unit\` attribute of \`kg\` or \`g\` (grams are divided by 1000). No packages → \`[]\`.
-- \`totalWeightKg\` — sum of \`packages\` (\`0\` when there are none)
+- \`id\`: the \`id\` attribute of \`Shipment\`
+- \`carrier\`: text of \`Carrier\`
+- \`trackingNumber\`: text of \`Tracking\`, or \`null\` when the element is absent
+- \`packages\`: one number per \`Package\`, in document order: its weight **in kilograms**. \`Weight\` has a \`unit\` attribute of \`kg\` or \`g\` (grams are divided by 1000). No packages → \`[]\`.
+- \`totalWeightKg\`: sum of \`packages\` (\`0\` when there are none)
 
 Every field must always be present, even when the XML has no value for it.
 `,
@@ -56,7 +56,7 @@ payload
 `,
   hints: [
     '`payload.Shipments.Shipment` returns only the **first** match. Use the multi-value selector `*Shipment` to get all of them as an array.',
-    'For a shipment without packages, `s.*Package` is `null`, not `[]` — add `default []`.',
+    'For a shipment without packages, `s.*Package` is `null`, not `[]`. Add `default []`.',
     'Attributes are read with `@`: `p.Weight.@unit`. Element text is a String, so coerce with `as Number`.',
   ],
   solution: `%dw 2.0
@@ -79,8 +79,8 @@ payload.Shipments.*Shipment map (s) -> do {
   explanation: `
 XML has no arrays, only repeated elements, so DataWeave reads \`<Package>\` twice as an object with two \`Package\` keys:
 
-- \`s.Package\` — the **first** \`Package\` only. With a single shipment or a single package this looks right and hides the bug until production.
-- \`s.*Package\` — **all** \`Package\` values as an array. When there are none, the result is \`null\`, hence \`default []\`.
+- \`s.Package\`: the **first** \`Package\` only. With a single shipment or a single package this looks right and hides the bug until production.
+- \`s.*Package\`: **all** \`Package\` values as an array. When there are none, the result is \`null\`, hence \`default []\`.
 
 Absent optional elements select as \`null\` (\`s.Tracking\`), which is exactly what the JSON should contain.
 
@@ -107,7 +107,7 @@ Absent optional elements select as \`null\` (\`s.Tracking\`), which is exactly w
   followUps: [
     {
       q: 'What does `payload.Shipments.Shipment.Carrier` return when there are three shipments?',
-      a: 'Only `"DHL"` — the single-value selector picks the first match at each step. `payload.Shipments.*Shipment.Carrier` returns all three carriers as an array.',
+      a: 'Only `"DHL"`. The single-value selector picks the first match at each step. `payload.Shipments.*Shipment.Carrier` returns all three carriers as an array.',
     },
     {
       q: 'How would you read every `Weight` in the document, regardless of nesting?',

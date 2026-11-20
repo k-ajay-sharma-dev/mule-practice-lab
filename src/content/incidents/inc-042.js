@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is wrong with the certificate deployment?',
         options: [
-          'The keystore contains only the leaf; the server does not send the intermediate CA, so strict clients cannot build the chain',
-          'The new certificate is self-signed',
-          'The certificate has expired',
-          'The private key does not match the certificate',
+          'The keystore holds only the leaf, so the server never sends the intermediate CA',
+          'The new certificate was issued for a different host name than api.partners.example',
+          'The new certificate is self-signed, so no client truststore contains its issuer',
+          'The listener now offers only TLS 1.3, which older partner clients cannot negotiate',
         ],
         answer: 0,
         explain: 'openssl shows depth 0 only and "unable to verify the first certificate": the classic missing-intermediate symptom.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'Why does Chrome still show a valid padlock?',
         options: [
-          'Browsers cache common intermediates or fetch them via the AIA extension; Java and OpenSSL clients rely on the server sending them',
-          'Chrome ignores certificate errors for public CAs',
-          'Chrome uses a different port',
-          'The browser path goes through a different load balancer',
+          'Browsers cache common intermediates or fetch them through the AIA extension',
+          'Chrome only warns on chain errors for public CAs and still shows the padlock',
+          'Chrome reaches the API through HTTP/2, which skips full chain validation',
+          'Browser traffic goes to a load balancer that still has the old keystore',
         ],
         answer: 0,
         explain: 'Browser testing hides a missing intermediate, which is why it is not enough to verify a renewal.',
@@ -44,10 +44,10 @@ export default {
         type: 'single',
         prompt: 'What is the correct fix?',
         options: [
-          'Ask every partner to import our intermediate and leaf into their truststores',
-          'Rebuild the keystore so the private key entry has the full chain (leaf + intermediate), redeploy (rolling) and verify with openssl',
-          'Switch the listener to plain HTTP until partners update',
-          'Add the root CA to our truststore',
+          'Import the intermediate CA into the listener’s truststore and redeploy',
+          'Rebuild the keystore with the full chain on the key entry, redeploy, check with openssl',
+          'Add the root CA to the keystore as a separate trusted certificate entry',
+          'Turn on insecure mode in the listener TLS context until partners retry',
         ],
         answer: 1,
         explain: 'The server must present the chain. The truststore is for verifying the other side, not for what we present.',
@@ -84,7 +84,7 @@ javax.net.ssl.SSLHandshakeException: PKIX path building failed: ... unable to fi
 09:12:40.012 DEBUG [partner-gateway-eapi] TLS handshake failed with client 203.0.113.44: Received fatal alert: certificate_unknown
 # openssl s_client -connect api.partners.example:443 -showcerts
 Certificate chain
- 0 s:CN = api.partners.example   i:CN = Example Public CA – Intermediate G2
+ 0 s:CN = api.partners.example   i:CN = Example Public CA - Intermediate G2
 Verify return code: 21 (unable to verify the first certificate)
 \`\`\`
 
@@ -109,12 +109,12 @@ Verify return code: 21 (unable to verify the first certificate)
     'openssl s_client showing a chain depth of only 0 and "unable to verify the first certificate" confirms the missing intermediate.',
     'Browsers often still work because they cache intermediates or fetch them via AIA; Java/OpenSSL clients usually do not.',
     'Fix: rebuild the keystore with the private key entry containing the full chain (leaf + intermediate(s)), redeploy, verify with openssl.',
-    'Do not ask partners to add our intermediate/leaf to their truststores — the server must send the chain.',
+    'Do not ask partners to add our intermediate/leaf to their truststores. The server must send the chain.',
     'Prevention: certificate renewal runbook with chain verification and expiry monitoring.',
   ],
   solution: `
 ## Diagnosis
-The TLS server must send its certificate **plus the intermediate CA certificate(s)**; clients only have the **root** in their truststore. The new keystore contains just the leaf, so \`openssl s_client\` shows a single certificate (depth 0) and "unable to verify the first certificate". Java (PKIX) and OpenSSL-based clients cannot build a path to the root and abort the handshake. Browsers work because they cache common intermediates or download them using the certificate's AIA extension — which hides the problem during manual testing.
+The TLS server must send its certificate **plus the intermediate CA certificate(s)**; clients only have the **root** in their truststore. The new keystore contains only the leaf, so \`openssl s_client\` shows a single certificate (depth 0) and "unable to verify the first certificate". Java (PKIX) and OpenSSL-based clients cannot build a path to the root and abort the handshake. Browsers work because they cache common intermediates or download them using the certificate's AIA extension, which hides the problem during manual testing.
 
 ## Immediate mitigation
 Rebuild the keystore so the **private key entry contains the full chain** (leaf → intermediate), e.g. by importing a PKCS#12 created from key + leaf + intermediate bundle. Update the listener's TLS context, redeploy (rolling) and verify with \`openssl s_client -showcerts\` that the chain now has depth 1+. Then ask partners to retry and replay failures.

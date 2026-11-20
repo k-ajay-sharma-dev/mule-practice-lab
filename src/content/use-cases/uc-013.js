@@ -75,6 +75,7 @@ Requirements:
 - ~400 incidents/month go to Dev; comment volume is low, but bursts happen during major incidents.
 - Jira Cloud rate-limits API calls; ServiceNow is reachable only through its REST API with an integration user.
 - During a major incident Jira can send 3 updates a second, ServiceNow can be down for 20 minutes, and about 1 update in 50 maps to a status ServiceNow rejects.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good updates must survive the 20-minute outage, and rejected ones must reach the DLQ for a person to fix.
 
 **Describe your solution:**
 - How do you trigger the sync in each direction?
@@ -110,13 +111,13 @@ Mule calls ServiceNow through the **ServiceNow connector** / Table API and Jira 
 **Correlation.** On create, Mule stores the **Jira key** in a custom field on the incident (\`u_jira_key\`) and the **incident number** in a Jira custom field. A small mapping table (sys_id ↔ Jira key) gives quick lookups and survives field edits. Every later event resolves the counterpart through this mapping.
 
 **Status mapping and loop prevention.**
-- A configurable mapping per Jira project: e.g. Jira *In Progress* → SN *In Progress*; Jira *Done* → SN *Resolved* (with resolution notes from the last Jira comment); SN *On Hold* (awaiting user) → Jira label or comment only. Not every status needs a twin — agree which transitions matter.
-- Jira status changes are applied via the **transitions** API (you cannot set status directly) — look up the transition ID valid from the current status.
-- Loop prevention: Mule writes as an **integration user** in both systems; events whose author is the integration user are discarded. Comments are prefixed (\`[ServiceNow – J. Smith]\`) so people see their origin.
+- A configurable mapping per Jira project: e.g. Jira *In Progress* → SN *In Progress*; Jira *Done* → SN *Resolved* (with resolution notes from the last Jira comment); SN *On Hold* (awaiting user) → Jira label or comment only. Not every status needs a twin: agree which transitions matter.
+- Jira status changes are applied via the **transitions** API (you cannot set status directly). Look up the transition ID valid from the current status.
+- Loop prevention: Mule writes as an **integration user** in both systems; events whose author is the integration user are discarded. Comments are prefixed (\`[ServiceNow: J. Smith]\`) so people see their origin.
 
 **Attachments.** On an attachment event, download it from ServiceNow's Attachment API as a stream and upload to Jira's attachments endpoint (multipart/form-data). Do this without loading 20 MB into memory more than needed (repeatable file-store stream). Skip if the same file name + size was already synced.
 
-**Failure handling.** Consumers retry with exponential backoff on 429/5xx (respect Jira's \`Retry-After\`), then move to a **DLQ** with an alert. Events are processed **in order per incident** (e.g. single consumer per message group, or compare "updated" timestamps and ignore older events). A nightly reconciliation compares open linked items in both systems and fixes drift caused by missed webhooks.
+**Failure handling.** Consumers retry with exponential backoff on 429/5xx (respect Jira's \`Retry-After\`), then move to a **DLQ** with an alert. With redelivery about once a minute, a limit of about 30 deliveries lets an update outlast a 20-minute ServiceNow outage. Events are processed **in order per incident** (e.g. single consumer per message group, or compare "updated" timestamps and ignore older events). A nightly reconciliation compares open linked items in both systems and fixes drift caused by missed webhooks.
 `,
   followUps: [
     { q: 'A Jira project changes its workflow. What breaks?', a: 'Only the mapping for that project: transitions not found are logged as business errors and alerted, and the mapping table is updated without redeploying code.' },

@@ -147,6 +147,14 @@ WEB_ORDERS_MOVE, 0, 2026-11-13T09:50:00Z
 - If the lock is held, log a WARN and do nothing.
 - If there are no new orders, give the lock back at once.
 - Release the lock when the job ends, and also when the run fails before the job starts.
+- When the job ends, log \`moved=<n> failed=<n>\`.
+
+**Facts**
+- Take the lock with \`UPDATE dbo.job_lock SET locked = 1, locked_at = ... WHERE job_name = 'WEB_ORDERS_MOVE' AND locked = 0\`. Release it with \`UPDATE dbo.job_lock SET locked = 0 WHERE job_name = 'WEB_ORDERS_MOVE'\`.
+- A Database Update returns \`affectedRows\`. Decide on it in a Choice.
+- \`dbo.web_order_inbox\` has \`order_id\`, \`store\`, \`total\` and \`status\`. \`dbo.erp_order_staging\` has \`order_id\`, \`store\` and \`total\`.
+- The skip WARN mentions the lock.
+- When the run fails, free the lock in an On Error Propagate, so the run still ends with the original error.
 
 **Design the flow.**
 `,

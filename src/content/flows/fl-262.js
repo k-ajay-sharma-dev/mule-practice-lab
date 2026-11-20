@@ -82,6 +82,11 @@ The first version read the whole table into a list and split it with DataWeave. 
 - Write a part file per million rows, under a \`.tmp\` name, then rename it.
 - Write the control file only after every part is in place.
 
+**Facts**
+- \`<date>\` is the run date as \`yyyyMMdd\`. Parts are numbered from 1.
+- A part file has the columns \`business_date\`, \`store\`, \`sku\` and \`units\`.
+- If the FTP server fails, let the error end the run. No control file may be written.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the rows

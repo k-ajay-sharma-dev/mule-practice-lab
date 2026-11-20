@@ -7,21 +7,21 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
-      { text: "2026-11-18 01:00:00 ERROR [cost-in] Connect failed host=ftp.supplier-b.example error=Connection refused", relevant: true, why: "The server is down." },
-      { text: "2026-11-18 01:00:00 INFO  [cost-in] Reconnection strategy none", relevant: true, why: "No retry is configured." },
-      { text: "2026-11-18 01:00:00 INFO  [supplier-b] Maintenance window Tuesday 00:30 to 01:30", relevant: true, why: "The partner has a weekly window." },
-      { text: "2026-11-18 01:00:01 INFO  [cost-in] Job ended, next run tomorrow 01:00", relevant: true, why: "No retry until tomorrow." },
-      { text: "2026-11-18 23:59:00 INFO  [cost-in] GET /health 200", relevant: false },
+      { text: "2026-11-17 01:00:00 ERROR [cost-in] Connect failed host=ftp.supplier-b.example error=Connection refused", relevant: true, why: "The server is down." },
+      { text: "2026-11-17 01:00:00 INFO  [cost-in] Reconnection strategy none", relevant: true, why: "No retry is configured." },
+      { text: "2026-11-17 01:00:00 INFO  [supplier-b] Maintenance window Tuesday 00:30 to 01:30", relevant: true, why: "The partner has a weekly window." },
+      { text: "2026-11-17 01:00:01 INFO  [cost-in] Job ended, next run tomorrow 01:00", relevant: true, why: "No retry until tomorrow." },
+      { text: "2026-11-17 23:59:00 INFO  [cost-in] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why does the job fail every Tuesday?",
         options: [
-          "It runs during the partner maintenance window with no retry",
-          "The files are missing",
-          "The password expires",
-          "The job is broken",
+          "It runs in the partner’s maintenance window with no retry",
+          "The supplier uploads Tuesday costs only after 01:30",
+          "The FTP password expires each Tuesday at midnight",
+          "Tuesday’s cost file is too large to fetch",
         ],
         answer: 0,
         explain: "The timing matches the window.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the best fix?",
         options: [
-          "Move the schedule outside the window and add a reconnection strategy with backoff",
-          "Retry every second",
-          "Ask the partner to stop maintenance",
-          "Run twice",
+          "Move the run outside the window and add reconnection with backoff",
+          "Add a reconnection strategy that retries every second for a minute",
+          "Ask the partner to skip maintenance in our peak season",
+          "Run the job twice, at 01:00 and again at 01:05",
         ],
         answer: 0,
         explain: "Avoid the window and recover from short outages.",
@@ -45,7 +45,7 @@ export default {
           "Maintenance windows",
           "Session limits",
           "Expected file times",
-          "Their staff home addresses",
+          "Their server hardware model",
         ],
         answer: [0,1,2],
         explain: "Operational facts that affect jobs.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What should happen if all retries fail?",
         options: [
           "Alert and retry later in a defined window",
-          "Wait a day silently",
-          "Delete the job",
-          "Skip the data",
+          "Log a WARN and wait for the next run",
+          "Mark the day’s costs as loaded",
+          "Copy yesterday’s cost file instead",
         ],
         answer: 0,
         explain: "Visible failure with a plan.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 01:00:00 ERROR [cost-in] Connect failed host=ftp.supplier-b.example error=Connection refused
-2026-11-18 01:00:00 INFO  [cost-in] Reconnection strategy none
-2026-11-18 01:00:00 INFO  [supplier-b] Maintenance window Tuesday 00:30 to 01:30
-2026-11-18 01:00:01 INFO  [cost-in] Job ended, next run tomorrow 01:00
+2026-11-17 01:00:00 ERROR [cost-in] Connect failed host=ftp.supplier-b.example error=Connection refused
+2026-11-17 01:00:00 INFO  [cost-in] Reconnection strategy none
+2026-11-17 01:00:00 INFO  [supplier-b] Maintenance window Tuesday 00:30 to 01:30
+2026-11-17 01:00:01 INFO  [cost-in] Job ended, next run tomorrow 01:00
 \`\`\`
 
 ## Your tasks

@@ -14,7 +14,7 @@ Turn one page into JSON:
 - \`path\`: the \`DirectoryPath\` attribute of the root element
 - \`directories\`: the \`Name\` of each \`Directory\` entry, in order
 - \`files\`: one entry per \`File\`, in order, with \`name\` and \`sizeBytes\` (a number from \`Properties/Content-Length\`)
-- \`toPick\`: the names of files that end with \`.csv\` and are larger than zero bytes. Upload tools leave temporary names such as \`.part\`, and an empty file is not ready.
+- \`toPick\`: the names of files that end with \`.csv\` (an exact, case sensitive match, so \`.CSV\` is not picked) and are larger than zero bytes, in order. Upload tools leave temporary names such as \`.part\`, and an empty file is not ready.
 - \`nextMarker\`: the \`NextMarker\` text, or \`null\` when it is empty or missing
 - \`morePages\`: \`true\` when there is a next marker
 

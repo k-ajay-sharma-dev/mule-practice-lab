@@ -10,10 +10,10 @@ export default {
       type: 'order',
       prompt: 'Put the circuit breaker states in the order they occur when the hotel partner fails and later recovers.',
       items: [
-        'Closed — calls flow and failures are counted',
-        'Open — calls are rejected immediately during the cool-down',
-        'Half-Open — a limited number of trial calls are let through',
-        'Closed again — the trial calls succeeded and counters are reset',
+        'Closed: calls flow and failures are counted',
+        'Open: calls are rejected immediately during the cool-down',
+        'Half-Open: a limited number of trial calls are let through',
+        'Closed again: the trial calls succeeded and counters are reset',
       ],
       explain: 'Crossing the failure threshold opens the circuit; after the cool-down a few trial calls decide whether to close it again or re-open.',
     },
@@ -28,19 +28,19 @@ export default {
         'A rate-limiting policy on the Trip API at the gateway',
       ],
       answer: [0, 1, 2],
-      explain: 'A bulkhead separates resources **per dependency**. A bigger shared pool just gives the slow dependency more to consume, and gateway rate limiting protects the API as a whole, not one dependency from another.',
+      explain: 'A bulkhead separates resources **per dependency**. A bigger shared pool only gives the slow dependency more to consume, and gateway rate limiting protects the API as a whole, not one dependency from another.',
     },
     {
       type: 'single',
       prompt: 'The Trip API runs on 2 replicas. Which statement about circuit state is accurate?',
       options: [
-        'Circuit state must be in a shared persistent Object Store, otherwise the breaker does not work',
-        'An in-memory Object Store gives each replica its own breaker (simple, each learns within seconds); a shared persistent store makes replicas agree but adds latency to every call',
-        'Mule automatically synchronises flow variables across replicas',
-        'Circuit state belongs in the API gateway configuration',
+        'It must be in a shared persistent Object Store, or the breaker fails',
+        'Per-replica state works; a shared store makes replicas agree but costs latency',
+        'It can live in a flow variable, which every replica can read',
+        'It belongs in an API Manager policy on the Trip API',
       ],
       answer: 1,
-      explain: 'Both options are valid — it is a conscious trade-off between consistency across replicas and per-call overhead.',
+      explain: 'Both stores are valid. An in-memory store gives each replica its own breaker, and each learns within seconds. A shared persistent store makes replicas agree but adds latency to every call. It is a conscious trade-off. A flow variable lives only for one event.',
     },
     {
       type: 'single',
@@ -49,8 +49,8 @@ export default {
       options: [
         'Every error, including 400 Bad Request',
         'Timeouts, connectivity errors and 5xx responses',
-        'Only 404 Not Found',
-        'Only errors logged at ERROR level',
+        'Every 4xx and 5xx response from the partner',
+        'Only connectivity errors, not timeouts',
       ],
       answer: 1,
       explain: 'The breaker measures dependency **health**. A 4xx caused by bad input says nothing about whether the partner is up.',
@@ -62,21 +62,21 @@ export default {
       options: [
         'HTTP 500 with the circuit-open error',
         'HTTP 503 for the whole request',
-        'HTTP 200 with flights and `"hotels": { "status": "UNAVAILABLE" }` (recommendations empty or cached)',
+        'HTTP 200 with flights and a hotels status of UNAVAILABLE',
         'Wait until the circuit closes and then answer',
       ],
       answer: 2,
-      explain: 'Hotels are important but not critical: degrade gracefully with a clear indicator. Only a failure of the critical Flights dependency justifies a 503.',
+      explain: 'Hotels are important but not critical: degrade gracefully with a clear indicator such as `"hotels": { "status": "UNAVAILABLE" }`, and empty or cached recommendations. Only a failure of the critical Flights dependency justifies a 503.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Why combine the breaker with a short (e.g. 3 s) hotel timeout instead of 30 s?',
       options: [
-        'Short timeouts are required by the Object Store',
-        'A breaker driven by 30-second timeouts reacts far too slowly — threads stay blocked long before it opens',
-        'Because the hotel partner rejects long requests',
-        'It makes the hotel partner faster',
+        'The Object Store keeps circuit state for only a few seconds',
+        'With 30 s timeouts, threads stay blocked long before the breaker opens',
+        'The breaker counts only calls that finish in under 5 seconds',
+        'A short timeout makes the hotel partner answer faster',
       ],
       answer: 1,
       explain: 'The breaker only helps once it trips; short timeouts free threads quickly and let it detect the slowdown in seconds.',
@@ -88,10 +88,10 @@ A travel company's **Trip Process API** (CloudHub 2.0, 2 replicas) aggregates th
 | Dependency | Importance | Behaviour |
 |---|---|---|
 | Flights System API | Critical | Stable |
-| Hotel partner API | Important | Frequently slow (20–30 s) during partner deployments |
+| Hotel partner API | Important | Frequently slow (20 to 30 s) during partner deployments |
 | Recommendations API | Nice to have | Occasionally down |
 
-During a hotel partner slowdown, **all** Trip API operations — including flight-only searches — became slow and then failed, because worker threads and HTTP connections were stuck waiting on the hotel partner.
+During a hotel partner slowdown, **all** Trip API operations, including flight-only searches, became slow and then failed, because worker threads and HTTP connections were stuck waiting on the hotel partner.
 
 The team wants a **circuit breaker** and **bulkheads**. Mule 4 does not ship a dedicated circuit-breaker scope in the core runtime, so the design must be built from available building blocks or a reusable module.
 
@@ -119,20 +119,20 @@ The team wants a **circuit breaker** and **bulkheads**. Mule 4 does not ship a d
   ],
   solution: `
 **Patterns.**
-- **Circuit breaker:** *Closed* — calls flow, failures counted. When failures exceed a threshold (e.g. 5 consecutive failures or 50% in the last 30 s) → *Open* — calls are rejected immediately for a cool-down (e.g. 30 s). Then *Half-Open* — a limited number of trial calls; success → Closed, failure → Open again.
-- **Bulkhead:** like ship compartments — separate pools of resources per dependency so a leak in one does not sink the ship.
+- **Circuit breaker:** in *Closed* state calls flow and failures are counted. When failures exceed a threshold (e.g. 5 consecutive failures or 50% in the last 30 s) it goes to *Open*: calls are rejected immediately for a cool-down (e.g. 30 s). Then *Half-Open*: a limited number of trial calls; success → Closed, failure → Open again.
+- **Bulkhead:** like ship compartments: separate pools of resources per dependency so a leak in one does not sink the ship.
 
 **Circuit breaker in Mule 4.**
 - Wrap the hotel call in a reusable component (sub-flow, or better a custom Mule module / shared plugin so all apps use the same logic):
   1. Read state for key \`hotel-partner\` from an **Object Store** (state, failureCount, openedAt).
   2. If Open and cool-down not elapsed → raise a custom error \`APP:CIRCUIT_OPEN\` immediately.
   3. Otherwise call; on success reset counters (Half-Open → Closed); on qualifying errors (timeouts, 5xx, connectivity) increment and possibly Open.
-- **Replicas:** with an in-memory store each replica has its own breaker — acceptable and simpler (each learns independently within seconds). A persistent/shared Object Store makes replicas agree but adds latency on each call; choose consciously.
+- **Replicas:** with an in-memory store each replica has its own breaker. That is acceptable and needs no shared store (each learns independently within seconds). A persistent/shared Object Store makes replicas agree but adds latency on each call; choose consciously.
 - Only count failures that indicate dependency health (timeouts, 5xx), not 4xx caused by bad input.
 - Combine with **short timeouts** (e.g. 3 s for hotels): a breaker driven by 30 s timeouts reacts too slowly.
 
 **Bulkheads.**
-- **Separate HTTP requester configs** per dependency, each with its own connection pool (\`maxConnections\`) and timeouts — a stuck hotel pool cannot take flight connections.
+- **Separate HTTP requester configs** per dependency, each with its own connection pool (\`maxConnections\`) and timeouts: a stuck hotel pool cannot take flight connections.
 - Put each dependency call in its own flow with **\`maxConcurrency\`** limiting simultaneous hotel calls; excess requests fail fast (or wait briefly) instead of piling up.
 - Run dependency calls **in parallel** (Scatter-Gather) with per-route timeouts so the aggregate response time is bounded by the slowest *allowed* route.
 - Strongest bulkhead: deploy the hotel integration as a **separate app/replica set** (it is a separate System API anyway) and scale it independently.

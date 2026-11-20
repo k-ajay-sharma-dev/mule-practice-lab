@@ -286,15 +286,22 @@ export default {
   description: `
 A bank's treasury portal and payment engines need **FX spot rates**. Sources:
 
-- **Primary** — a commercial market-data vendor (REST, intraday, **flaky**: brief 502/timeouts several times an hour, usually gone within a second).
-- **Secondary** — a central-bank daily reference feed (XML, very reliable, only daily rates, EUR base).
+- **Primary**: a commercial market-data vendor (REST, intraday, **flaky**: brief 502/timeouts several times an hour, usually gone within a second).
+- **Secondary**: a central-bank daily reference feed (XML, very reliable, only daily rates, EUR base).
 - If both are down, the business accepts the **last rate we successfully served**, clearly flagged as stale, rather than an error.
 
 SLA: the Process API must answer within **5 s**; ~30 req/s. Callers must be able to tell where a rate came from.
 
+**Facts**
+- The treasury portal calls \`GET /exp-treasury/v1/rates?base=EUR\`. The Process API is \`GET /prc-fx/v1/rates?base=EUR\` and answers \`{ base, asOf, rates, source, stale }\`, with \`rates\` such as \`{ "USD": 1.0842 }\`. If no source and no stored rate is available, it answers **503**.
+- The two System APIs are \`GET /sys-fx-primary/v1/rates?base=...\` and \`GET /sys-fx-secondary/v1/rates?base=...\`. Both answer \`{ base, asOf, rates }\`.
+- The vendor API is \`GET /marketdata/v2/spot?base=...\`. It answers \`{ baseCcy, timestamp, quotes: [{ ccy, bid, ask, mid }] }\`; use the \`mid\` rate.
+- The central bank publishes \`GET /stats/eurofxref-daily.xml\`: \`Envelope/Cube/Cube\` with a \`time\` attribute holds one \`Cube\` per currency, with \`currency\` and \`rate\` attributes.
+- When the vendor stays down, the primary System API must give up after a few quick retries and answer 503, so the Process API still has time for its fallbacks.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/sys-fx-primary/v1/rates\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
-**Design the flow(s):** which layer retries, which layer falls back, how the timeouts add up, how the last-known-good value is kept, and what happens when everything fails. (Connector reconnection strategies are configuration, not canvas components — mention them in your answer.)
+**Design the flow(s):** which layer retries, which layer falls back, how the timeouts add up, how the last-known-good value is kept, and what happens when everything fails. (Connector reconnection strategies are configuration, not canvas components: mention them in your answer.)
 `,
   answerTemplate: `## Layers and responsibilities
 
@@ -310,7 +317,7 @@ SLA: the Process API must answer within **5 s**; ~30 req/s. Callers must be able
 `,
   keyPoints: [
     'Retry where the failure is understood: the System API knows its vendor has short blips, so it retries a few times quickly (Until Successful + reconnection strategy on the connector config).',
-    'Fallback is a business decision ("secondary or stale is acceptable"), so it belongs in the Process API — First Successful tries primary, then secondary, then last-known-good.',
+    'Fallback is a business decision ("secondary or stale is acceptable"), so it belongs in the Process API: First Successful tries primary, then secondary, then last-known-good.',
     'Timeout budget must add up. Primary is first call + 2 retries = 3 × 600 ms, plus 2 × 300 ms waits ≈ 2.4 s. Primary + secondary 2 s + cache lookup stays under the 5 s SLA. Default retry settings (5 × 60 s) would blow it.',
     'Every fresh answer refreshes a last-known-good copy in Object Store; the response says source and stale so callers can decide.',
     'When all routes fail, First Successful throws an error, which is mapped to 503. The docs do not name its type (MULE:ROUTING is the generic routing error), so catch ANY or confirm the type in a test. Never retry at every layer, or retries multiply.',
@@ -338,18 +345,18 @@ SLA: the Process API must answer within **5 s**; ~30 req/s. Callers must be able
  +----------------------------+
 \`\`\`
 
-**sys-fx-primary** — Until Successful (\`maxRetries 2\`, \`300 ms\`) around the vendor call (600 ms timeout); the HTTP Requester config also has a reconnection strategy for socket-level failures. \`MULE:RETRY_EXHAUSTED\` → 503. The vendor model is mapped to a canonical \`{ base, asOf, rates }\`.
+**sys-fx-primary**: Until Successful (\`maxRetries 2\`, \`300 ms\`) around the vendor call (600 ms timeout); the HTTP Requester config also has a reconnection strategy for socket-level failures. \`MULE:RETRY_EXHAUSTED\` → 503. The vendor model is mapped to a canonical \`{ base, asOf, rates }\`.
 
-**sys-fx-secondary** — maps the central-bank XML to the same canonical shape.
+**sys-fx-secondary**: maps the central-bank XML to the same canonical shape.
 
-**prc-fx-rates** — **First Successful** with three routes; each route sets \`vars.source\`. A Choice stores fresh results as last-known-good. Transform adds \`source\` and \`stale\`. All routes failing → First Successful throws an error → 503 \`RATES_UNAVAILABLE\`.
+**prc-fx-rates**: **First Successful** with three routes; each route sets \`vars.source\`. A Choice stores fresh results as last-known-good. Transform adds \`source\` and \`stale\`. All routes failing → First Successful throws an error → 503 \`RATES_UNAVAILABLE\`.
 
 **Why not retry in the Process API too?** Retries at several layers multiply (3 × 3 × 3 attempts) and destroy the timeout budget. Retry once, in the layer closest to the cause.
 `,
   followUps: [
     {
       q: 'The primary returns HTTP 400 for an unsupported currency. Should Until Successful retry it?',
-      a: 'No — a 4xx will not succeed on retry. Only retry transient errors: either map 4xx to a non-retried outcome inside the scope (e.g. treat it as a response and validate after the scope) or configure the requester so only connectivity/5xx raise errors.',
+      a: 'No. A 4xx will not succeed on retry. Only retry transient errors: either map 4xx to a non-retried outcome inside the scope (e.g. treat it as a response and validate after the scope) or configure the requester so only connectivity/5xx raise errors.',
     },
     {
       q: 'Should the secondary be tried when the primary returns 404 "no rate for this currency pair"?',

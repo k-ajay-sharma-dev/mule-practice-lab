@@ -25,14 +25,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Quillon Couriers log when it rejects a webhook with a bad signature?',
     options: [
-      'Invalid signature',
+      'Webhook rejected: signature check failed source=payhub status=401 correlationId=7f3c2a',
       'Webhook rejected: signature check failed source=payhub eventId=evt_2291 status=401 correlationId=7f3c2a',
       'Webhook rejected, expected 9f2c41... got 1a7e03..., signing key=whsec_...',
       'Webhook {"id":"evt_2291","data":{"amount":120.00,"card":{...}}}',
     ],
     answer: 1,
     explain:
-      'It says what happened, from where, which event and what the sender got back. The third line leaks the signing key, and the last dumps the body with card data.',
+      'It says what happened, from where, which event and what the sender got back. The first line has no eventId, so you cannot ask the sender about that event. The third line leaks the signing key, and the last dumps the body with card data.',
   },
   {
     id: 'log-8003',
@@ -114,14 +114,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Orrin Hardware log when the shadow engine gives a different price?',
     options: [
-      'Prices differ!',
+      'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5',
       'ERROR new engine wrong',
       'Shadow price mismatch quoteId=Q-7781 sku=SKU-118 oldPrice=19.90 newPrice=18.40 diffPct=-7.5 served=old',
       'Mismatch: request={...full quote...} old={...} new={...}',
     ],
     answer: 2,
     explain:
-      'Labelled numbers can be charted and grouped by product. served=old shows the customer got the old price. The full quote is large and may hold customer data.',
+      'Labelled numbers can be charted and grouped by product. served=old shows the customer got the old price. The first line has the same numbers but does not say which price the customer got. The full quote is large and may hold customer data.',
   },
   {
     id: 'log-8008',
@@ -142,7 +142,7 @@ export const SET_8 = [
     id: 'log-8009',
     kind: 'write',
     situation:
-      'The Orrin shadow engine priced a quote differently. vars.quoteId, vars.sku, vars.oldPrice, vars.newPrice and vars.diffPct hold the facts. The customer got the old price. Write the line.',
+      'The Orrin shadow engine priced a quote differently. vars.quoteId, vars.sku, vars.oldPrice, vars.newPrice and vars.diffPct hold the facts. The customer got the old price. Say which engine served the customer. Write the line.',
     available: ['vars.quoteId', 'vars.sku', 'vars.oldPrice', 'vars.newPrice', 'vars.diffPct', 'payload', 'payload.customer.email', 'correlationId'],
     level: ['INFO', 'WARN'],
     checks: [
@@ -168,7 +168,7 @@ export const SET_8 = [
     id: 'log-8010',
     kind: 'write',
     situation:
-      'The Orrin shadow call to the new pricing engine timed out. The customer got the old price as normal. vars.quoteId holds the quote. Write the line.',
+      'The Orrin shadow call to the new pricing engine timed out. The customer got the old price as normal. vars.quoteId holds the quote. Write the line, and say the customer was not affected.',
     available: ['vars.quoteId', 'error.errorType', 'error.description', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -207,11 +207,11 @@ export const SET_8 = [
       'Tenant config missing',
       'Payroll export failed: tenant setting missing tenantId=t-9 setting=bankFileFormat status=500 correlationId=7f3c2a',
       'Payroll export failed for Bramblewood Ltd, employees: [{"name":"...","salary":...}]',
-      'Missing setting',
+      'Payroll export failed: tenant setting missing setting=bankFileFormat status=500 correlationId=7f3c2a',
     ],
     answer: 1,
     explain:
-      'The tenant ID and the setting name tell support exactly what to fix. The third line puts salaries in a log shared by all clients.',
+      'The tenant ID and the setting name tell support exactly what to fix. The last line has no tenantId, so in an app shared by 400 clients nobody knows whose settings to fix. The third line puts salaries in a log shared by all clients.',
   },
   {
     id: 'log-8013',
@@ -292,14 +292,14 @@ export const SET_8 = [
     kind: 'choice',
     situation: 'Which line should Bellmont log when a sync conflict is settled by a rule?',
     options: [
-      'Conflict',
+      'Sync conflict resolved customerId=C-2231 field=phone correlationId=7f3c2a',
       'Conflict: CRM phone +44 7700 900123, ERP phone +44 7700 900456',
       'WARN!!! data mismatch',
       'Sync conflict resolved customerId=C-2231 field=phone winner=erp rule=erp-wins-contact-fields correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It names the record, the field, which side won and why. The second line copies phone numbers, which are personal data, into the logs.',
+      'It names the record, the field, which side won and why. The first line leaves out the winner and the rule, so a user who lost a change gets no answer. The second line copies phone numbers, which are personal data, into the logs.',
   },
   {
     id: 'log-8018',
@@ -382,13 +382,13 @@ export const SET_8 = [
     situation: 'Which progress line should the Wrenfield migration log?',
     options: [
       'Progress',
-      'Still running...',
+      'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100',
       'Policy migration progress migrated=850000 total=2000000 failed=312 ratePerMin=4100 lastPolicyId=P-850000',
       'Migrated policy P-000001 (one line for every policy)',
     ],
     answer: 2,
     explain:
-      'The counts and the rate show how far the job is and when it will end. lastPolicyId shows where to restart. One line per policy is 2 million lines that bury the failures.',
+      'The counts and the rate show how far the job is and when it will end. lastPolicyId shows where to restart, and the second line lacks it. One line per policy is 2 million lines that bury the failures.',
   },
   {
     id: 'log-8023',

@@ -20,7 +20,7 @@ Brindle Outdoor collects store master files from a supplier FTP server. A schedu
 - \`waiting\`: matching files with a size above 0 that changed less than \`minAgeMinutes\` ago
 - \`ready\`: the other matching files, oldest \`modified\` first
 
-Each list holds file names. \`empty\` and \`waiting\` keep listing order.
+The prefix and \`.csv\` checks are case sensitive. Output the keys in the order \`ready\`, \`waiting\`, \`empty\`. Each list holds file names and is empty when nothing matches. \`empty\` and \`waiting\` keep listing order.
 `,
   inputs: [
     {

@@ -26,10 +26,10 @@ export const SET_11 = [
       'Profile updated for Sam Reid, new number 07700 900123, new postcode BS1 4DJ',
       'Customer profile updated customerId=C-48120 fields=postcode,contactNumber channel=app correlationId=7f3c2a',
       'Profile saved!!!',
-      'Update ok',
+      'Customer profile updated customerId=C-48120 channel=app correlationId=7f3c2a',
     ],
     answer: 1,
-    explain: 'Log which fields changed, not their values. The customer ID finds the record, and the values stay in the system that owns them.',
+    explain: 'Log which fields changed, not their values. The customer ID finds the record, and the values stay in the system that owns them. The last line does not say which fields changed, so it cannot answer when the number was changed.',
   },
   {
     id: 'log-11003',
@@ -107,12 +107,12 @@ export const SET_11 = [
     situation: 'Which line best records a stock hold that ran out?',
     options: [
       'Stock hold expired holdId=H-77120 sku=TV-5501 qty=1 heldForSec=900 next=stock released',
-      'Hold gone',
+      'Stock hold expired holdId=H-77120 sku=TV-5501 qty=1 heldForSec=900',
       'Timer fired',
       'Basket: <the whole basket>',
     ],
     answer: 0,
-    explain: 'Which hold, which item, how many, how long, and that the stock went back. Support can answer "why was it in my basket and now sold out?".',
+    explain: 'Which hold, which item, how many, how long, and that the stock went back. The second line does not say the stock was released, so support cannot tell whether it is on sale again. Support can answer "why was it in my basket and now sold out?".',
   },
   {
     id: 'log-11008',
@@ -131,7 +131,7 @@ export const SET_11 = [
     id: 'log-11009',
     kind: 'write',
     situation:
-      'A Copperleaf hold ran out. vars.holdId, vars.sku, vars.qty and vars.heldForSec hold the facts. Write the line.',
+      'A Copperleaf hold ran out, and the stock went back on sale. vars.holdId, vars.sku, vars.qty and vars.heldForSec hold the facts. Write the line.',
     available: ['vars.holdId', 'vars.sku', 'vars.qty', 'vars.heldForSec', 'vars.basket', 'payload'],
     level: ['INFO', 'DEBUG'],
     checks: [
@@ -157,7 +157,7 @@ export const SET_11 = [
     available: ['vars.holdId', 'vars.sku', 'error.errorType', 'error.description', 'payload'],
     level: ['WARN'],
     checks: [
-      says(/not released|release failed|could not release/i, 'Stock hold not released'),
+      says(/not released|release failed|(could not|failed to|unable to) release/i, 'Stock hold not released'),
       labelled('holdId'),
       labelled('sku'),
       errorFacts,
@@ -187,13 +187,13 @@ export const SET_11 = [
     kind: 'choice',
     situation: 'Which line best records a failed webhook attempt?',
     options: [
-      'Webhook failed',
+      'Webhook delivery failed merchantId=M-3310 eventId=ev_88120 eventType=payment.settled status=503',
       'Webhook delivery failed merchantId=M-3310 eventId=ev_88120 eventType=payment.settled status=503 attempt=1 of 4 next=retry in 60s',
       'Webhook body: {"paymentId":"pay_441","cardLast4":"4242",…} signature=t=1700,v1=…',
       'Merchant down',
     ],
     answer: 1,
-    explain: 'Merchant, event, status, which attempt and what is next. The third line logs the body and the signature header.',
+    explain: 'Merchant, event, status, which attempt and what is next. The first line leaves out the attempt and the next step, so nobody can tell whether Quayside will try again. The third line logs the body and the signature header.',
   },
   {
     id: 'log-11013',
@@ -241,7 +241,7 @@ export const SET_11 = [
     available: ['vars.merchantId', 'vars.eventId', 'vars.attempts', 'payload'],
     level: ['ERROR', 'WARN'],
     checks: [
-      says(/gave up|given up|failed after|not delivered/i, 'Webhook not delivered'),
+      says(/gave up|given up|failed after|not delivered|undelivered|abandon/i, 'Webhook not delivered'),
       labelled('merchantId'),
       labelled('eventId'),
       labelled('attempts'),
@@ -272,11 +272,11 @@ export const SET_11 = [
     options: [
       'Slow search durationMs=3210 targetMs=1000 filters=3 sort=price results=412 page=1 correlationId=7f3c2a',
       'Search for "gift for my wife Jane, budget 20" was slow',
-      'SLOW!!!',
+      'Slow search durationMs=3210 targetMs=1000 correlationId=7f3c2a',
       'Search: <the whole response>',
     ],
     answer: 0,
-    explain: 'Time, target and the shape of the query explain most slow searches. The text a customer typed can hold personal details, so leave it out.',
+    explain: 'Time, target and the shape of the query explain most slow searches. The third line says it was slow but not what kind of search it was, so the slow cases cannot be grouped. The text a customer typed can hold personal details, so leave it out.',
   },
   {
     id: 'log-11018',
@@ -355,12 +355,12 @@ export const SET_11 = [
     situation: 'Which line best records the refused change?',
     options: [
       'Order status change refused orderId=NF-20117 from=PLACED to=SHIPPED source=wms reason=not allowed correlationId=7f3c2a',
-      'Bad status',
+      'Order status change refused orderId=NF-20117 from=PLACED to=SHIPPED correlationId=7f3c2a',
       'Order NF-20117 broken',
       'Status error: <the whole message>',
     ],
     answer: 0,
-    explain: 'From, to and who sent it make the problem clear. The source tells you which team to talk to.',
+    explain: 'From, to and who sent it make the problem clear. The source tells you which team to talk to, and the second line leaves it out.',
   },
   {
     id: 'log-11023',
@@ -383,10 +383,10 @@ export const SET_11 = [
     available: ['vars.orderId', 'vars.fromStatus', 'vars.toStatus', 'vars.source', 'payload', 'correlationId'],
     level: ['INFO'],
     checks: [
-      says(/status (changed|updated)|moved/i, 'Order status changed'),
+      says(/status (change|update)|moved/i, 'Order status changed'),
       labelled('orderId'),
-      labelled('from', 'from=$(vars.fromStatus)'),
-      labelled('to', 'to=$(vars.toStatus)'),
+      { must: /\bfrom(Status)?\s*"?\s*[=:]/i, say: 'Label the old status, such as from=$(vars.fromStatus).' },
+      { must: /\bto(Status)?\s*"?\s*[=:]/i, say: 'Label the new status, such as to=$(vars.toStatus).' },
       labelled('source'),
       corr,
       noPayload,
@@ -409,8 +409,8 @@ export const SET_11 = [
     checks: [
       says(/refused|rejected|not allowed|invalid/i, 'Order status change refused'),
       labelled('orderId'),
-      labelled('from', 'from=$(vars.fromStatus)'),
-      labelled('to', 'to=$(vars.toStatus)'),
+      { must: /\bfrom(Status)?\s*"?\s*[=:]/i, say: 'Label the old status, such as from=$(vars.fromStatus).' },
+      { must: /\bto(Status)?\s*"?\s*[=:]/i, say: 'Label the new status, such as to=$(vars.toStatus).' },
       labelled('source'),
       next('next=sent to review queue'),
       corr,
@@ -430,8 +430,8 @@ export const SET_11 = [
     id: 'log-11026',
     kind: 'level',
     situation: 'Elmstead Council checks its partner certificates every morning. One certificate expires in 21 days.',
-    answer: ['WARN', 'INFO'],
-    explain: 'Nothing is broken yet, and there is time. WARN puts it on the team\'s list, and INFO is fine while more than a month is left.',
+    answer: ['WARN'],
+    explain: 'Nothing is broken yet, but 21 days is inside the usual 30 day renewal window. WARN puts it on the team\'s list. INFO fits only while more than a month is left.',
   },
   {
     id: 'log-11027',
@@ -439,12 +439,12 @@ export const SET_11 = [
     situation: 'Which line best warns about the certificate?',
     options: [
       'Certificate expires soon alias=planning-portal-client expiresOn=2026-12-09 daysLeft=21 usedBy=planning-sync',
-      'Cert warning',
+      'Certificate expires soon alias=planning-portal-client expiresOn=2026-12-09 daysLeft=21',
       'Certificate: -----BEGIN CERTIFICATE-----MIIF…',
       'Certificate password is Elm…',
     ],
     answer: 0,
-    explain: 'Which certificate, when it expires, how long is left and which app uses it. Never log the certificate body or its password.',
+    explain: 'Which certificate, when it expires, how long is left and which app uses it. The second line leaves out the app, so the team does not know what to retest after the renewal. Never log the certificate body or its password.',
   },
   {
     id: 'log-11028',
@@ -521,10 +521,10 @@ export const SET_11 = [
       'Quota threshold reached clientId=app-2210 plan=standard used=80000 quota=100000 percent=80 periodEnds=2026-11-30',
       'Client nearly out',
       'Quota! client_secret=…',
-      'Usage high',
+      'Quota threshold reached clientId=app-2210 used=80000 quota=100000 percent=80',
     ],
     answer: 0,
-    explain: 'Who, which plan, how much of how much, and when it resets. Sales and support can act on this line.',
+    explain: 'Who, which plan, how much of how much, and when it resets. Sales and support can act on this line. The last line has no plan and no reset date, so nobody can tell whether the client will run out before the month ends.',
   },
   {
     id: 'log-11033',
@@ -571,7 +571,7 @@ export const SET_11 = [
     available: ['vars.clientId', 'vars.plan', 'vars.periodEnds', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
-      says(/quota (used|exhausted|reached)|limit reached|out of quota/i, 'Quota used up'),
+      says(/quota (used|exhausted|reached|exceeded)|limit reached|out of quota/i, 'Quota used up'),
       labelled('clientId'),
       labelled('plan'),
       labelled('periodEnds'),
@@ -602,12 +602,12 @@ export const SET_11 = [
     situation: 'Which line best records that a replica took the lock?',
     options: [
       'Job lock acquired job=billing-run lockKey=billing-2026-11-18 holder=replica-2 ttlSec=3600',
-      'Locked',
+      'Job lock acquired job=billing-run holder=replica-2 ttlSec=3600',
       'I am the leader!!!',
       'Lock acquired, object store password=…',
     ],
     answer: 0,
-    explain: 'Which job, which run, which replica and how long the lock lasts. Two holders for one key would point straight at a problem.',
+    explain: 'Which job, which run, which replica and how long the lock lasts. Two holders for one key would point straight at a problem. The second line has no lock key, so it cannot be tied to one run.',
   },
   {
     id: 'log-11038',
@@ -630,7 +630,7 @@ export const SET_11 = [
     available: ['vars.job', 'vars.lockKey', 'vars.holder', 'vars.ttlSec', 'payload'],
     level: ['INFO'],
     checks: [
-      says(/lock (acquired|taken|obtained)/i, 'Job lock acquired'),
+      says(/lock (acquired|taken|obtained)|(acquired|took|obtained) (the )?(job )?lock/i, 'Job lock acquired'),
       labelled('job'),
       labelled('lockKey'),
       labelled('holder'),
@@ -684,11 +684,11 @@ export const SET_11 = [
     options: [
       'Refund approved refundId=RF-90117 amount=7250.00 requestedBy=U-311 approvedBy=U-482 correlationId=7f3c2a',
       'Approved by Helen in finance',
-      'Refund ok',
+      'Refund approved refundId=RF-90117 amount=7250.00 approvedBy=U-482 correlationId=7f3c2a',
       'Refund approved, account 12345678 sort code 20-00-00',
     ],
     answer: 0,
-    explain: 'The refund, the amount, and both people by user ID. Bank details are not needed in the log.',
+    explain: 'The refund, the amount, and both people by user ID. The third line has no requestedBy, so it cannot prove two different people were involved. Bank details are not needed in the log.',
   },
   {
     id: 'log-11043',
@@ -767,11 +767,11 @@ export const SET_11 = [
     options: [
       'One line per rejected request with its full headers',
       'Requests shed windowSec=60 rejected=12000 accepted=48000 maxConcurrent=400 retryAfterSec=5',
-      'Too busy',
+      'Requests shed windowSec=60 rejected=12000 retryAfterSec=5',
       'Overload!!!',
     ],
     answer: 1,
-    explain: 'One line a minute with counts and the limit tells the story. 12,000 lines a minute would add load at the worst moment.',
+    explain: 'One line a minute with counts and the limit tells the story. The third line has no accepted count or limit, so nobody can tell how far demand was past capacity. 12,000 lines a minute would add load at the worst moment.',
   },
   {
     id: 'log-11048',

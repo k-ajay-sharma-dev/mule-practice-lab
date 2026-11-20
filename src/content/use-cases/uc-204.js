@@ -103,7 +103,7 @@ Larkfield Grocers, a fictional grocery chain, is rebuilding its nightly sales ba
 **Numbers**
 - About **1 group a second** for half an hour; the report job makes about 1 call a second while it runs.
 - An SFTP read takes about 400 ms; Christmas files take about **25 seconds** per read.
-- A SQL Server call takes about 100 ms. The stock job causes **deadlocks** on about **1 call in 10** for up to 20 minutes.
+- A SQL Server call takes about 100 ms. The stock job causes **deadlocks** on about **1 call in 10** for up to 20 minutes. Each try is a victim or not on its own, and the report job may lose fewer than 1 call in 100 to them.
 - SQL Server patching takes up to **40 minutes** once a month.
 - About **1 group in 100** holds a store code that is refused every time, until the store is set up.
 - Last year an availability zone failed for 20 minutes.

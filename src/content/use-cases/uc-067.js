@@ -51,14 +51,15 @@ export default {
     },
   },
   description: `
-A fashion retailer has **350 stores**. Each store server runs the POS and already publishes every completed transaction (sale, return, void) as an XML message to the central **ActiveMQ Artemis** broker on the queue \`POS.SALES\`. Messages are queued locally in the store when the WAN link is down and forwarded later.
+A home and garden retailer has **350 stores**. Each store server runs the POS and already publishes every completed transaction (sale, return, void) as an XML message to the central **ActiveMQ Artemis** broker on the queue \`POS.SALES\`. Messages are queued locally in the store when the WAN link is down and forwarded later.
 
 The **merchandising system** (on Oracle 19c) needs the sales to update stock, open-to-buy and sales reports. It imports from staging tables (\`SALES_STG_HEADER\`, \`SALES_STG_LINE\`) every 15 minutes.
 
 Facts:
-- ~1.2 million transactions/day; peak Saturday 14:00–16:00: **150 messages/second**.
+- ~1.2 million transactions/day; peak Saturday 14:00 to 16:00: **150 messages/second**. At the peak the queue must never hold more than about 2 minutes of sales, and no sale may be lost.
 - Average 3 lines per transaction.
-- About 1 sale in 1,000 has data the staging tables reject every time.
+- About 1 sale in 1,000 has data the staging tables reject every time. Such a sale must go to a DLQ after 5 tries so the other sales keep flowing.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 - A store can come back online after an outage and forward **thousands** of messages at once.
 - Stores send an end-of-day total (count and amount per register) at closing.
 - Finance must be able to prove that every store's sales reached the merchandising system.
@@ -82,7 +83,7 @@ Facts:
   keyPoints: [
     'jms:listener on POS.SALES in a transaction with several concurrent consumers; the store queue-and-forward already covers WAN outages.',
     'DataWeave maps the POS XML to header and line rows; returns and voids keep their transaction type and link to the original sale.',
-    'sys-merch-sales writes with parameterised inserts — db:bulk-insert for the lines — inside one local transaction per message (or small batch).',
+    'sys-merch-sales writes with parameterised inserts (db:bulk-insert for the lines) inside one local transaction per message (or small batch).',
     'Unique key (store, register, business date, transaction number) makes redelivered or re-forwarded messages harmless.',
     'Poison messages go to DLQ.POS.SALES after the Artemis max-delivery-attempts; the end-of-day check compares store totals with staged totals.',
   ],
@@ -92,15 +93,15 @@ Facts:
                   \\--> [DLQ.POS.SALES]          EOD job (23:30) -> sys-merch-sales (compare totals)
 \`\`\`
 
-**Consuming.** \`jms:listener\` on \`POS.SALES\`, \`transactionalAction="ALWAYS_BEGIN"\`, ~8 concurrent consumers (enough for 150 msg/s with fast inserts; tune after load testing). The message is only removed from the queue when the flow completes.
+**Consuming.** \`jms:listener\` on \`POS.SALES\`, \`transactionalAction="ALWAYS_BEGIN"\`, ~8 concurrent consumers on 0.5 vCore, with the System API also on 0.5 vCore (enough for 150 msg/s with fast inserts; tune after load testing). The message is only removed from the queue when the flow completes.
 
 **Mapping.** DataWeave converts the POS XML into one header row and N line rows. Amounts as decimals, business date and timestamp with the store's time zone, transaction type SALE / RETURN / VOID, original transaction reference for returns.
 
 **Writing.** The Process API calls **sys-merch-sales** (\`POST /sales-transactions\`). The System API inserts the header with \`db:insert\` and lines with \`db:bulk-insert\` using bind parameters. A unique constraint on (store, register, business date, transaction number) on the header table makes the insert idempotent: a duplicate raises a constraint violation which the flow treats as "already processed" and acknowledges.
 
 **Bad messages.**
-- Oracle down → \`DB:CONNECTIVITY\` → rollback → Artemis redelivers with a delay. Messages wait safely; nothing is lost.
-- Invalid XML or unknown item → after the configured max delivery attempts Artemis moves the message to its dead-letter address (\`DLQ.POS.SALES\`). Alert on DLQ depth; a support flow lets corrected messages be replayed.
+- Oracle down → \`DB:CONNECTIVITY\` → rollback → Artemis redelivers with a delay. With only 5 attempts, an Oracle outage longer than a few minutes moves good sales to the DLQ too, so they are replayed from the DLQ once Oracle is back (or the listener is paused while Oracle is down).
+- Invalid XML or unknown item → after 5 delivery attempts (\`max-delivery-attempts\`) Artemis moves the message to its dead-letter address (\`DLQ.POS.SALES\`). Alert on DLQ depth; a support flow lets corrected messages be replayed.
 
 **Reconciliation.** Stores publish an EOD total message. At 23:30 a job compares, per store and register, the POS totals with the sum in staging. Differences → report to the store operations team (most often a store still offline). A store that is offline is re-checked the next morning.
 

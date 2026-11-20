@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'cloudhub-2', 'multi-region', 'disaster-recovery', 'anypoint-mq', 'idempotency', 'dlq', 'rpo-rto'],
   estMinutes: 65,
   diagram: {
-    task: 'draw an active-passive order pipeline in two CloudHub 2.0 regions: a global load balancer in front of an ingress per region, an Experience API in each region that hands orders to that region\'s own Anypoint MQ queue, a Process API in each region draining its queue into the ERP through a System API, a dead-letter queue per queue, one replicated idempotency store both Process APIs check, and a drain job that moves stranded messages from the failed region\'s queue into the standby region\'s queue.',
+    task: 'draw an active-passive order pipeline in two CloudHub 2.0 regions: a global load balancer in front of an ingress per region, an Experience API in each region that hands orders to that region\'s own Anypoint MQ queue, a Process API in each region draining its queue into the ERP through a System API, a dead-letter queue per queue, one replicated idempotency store both Process APIs check, and a drain job that moves stranded messages from the failed region\'s queue into the standby region\'s queue. Put "global" in the name of the global load balancer, put the region (eu-central or eu-west) in the name of every ingress, API and queue, and name the store Idempotency keys.',
     checks: [
       { label: 'A global load balancer plus an ingress for each region', rule: { type: 'node', match: 'load-balancer', min: 3 } },
       { label: 'The global load balancer routes to the ingress in each region', rule: { type: 'edge', from: { type: 'load-balancer', label: ['global', 'glb', 'dns', 'route 53'] }, to: 'load-balancer', min: 2 } },
@@ -99,7 +99,7 @@ export default {
     },
   },
   description: `
-A European fashion retailer takes orders through an API-led pipeline on **CloudHub 2.0**. \`exp-orders\` accepts an order, puts it on the Anypoint MQ queue \`orders-submitted\`, and answers **202 Accepted**. \`prc-order-fulfilment\` reads the queue and creates the sales order in SAP S/4HANA through \`sys-erp-orders\`.
+A European sports goods retailer takes orders through an API-led pipeline on **CloudHub 2.0**. \`exp-orders\` accepts an order, puts it on the Anypoint MQ queue \`orders-submitted\`, and answers **202 Accepted**. \`prc-order-fulfilment\` reads the queue and creates the sales order in SAP S/4HANA through \`sys-erp-orders\`.
 
 Volumes: about **80,000 orders a day**, peaks of **150 a second** during sales. The queue normally holds fewer than 200 messages. SAP creates at most **60 sales orders a second** and takes about 300 ms for each, so during a sale peak the queue holds thousands of orders and drains afterwards. The budget for the APIs in both regions is **3 vCores**.
 
@@ -107,7 +107,7 @@ The board wants the pipeline to survive the loss of the **eu-central** region:
 - **RTO 30 minutes:** orders must be accepted again within 30 minutes.
 - **No order may be lost or created twice in SAP.**
 - An order already accepted may be **delayed by a few hours** during a disaster.
-- SAP has its own DR and stays reachable from both regions.
+- SAP has its own DR and stays reachable from both regions. It can still be unavailable for a few minutes at a time. A failing order is redelivered about once a minute, so the redelivery limit must cover a short SAP outage before an order moves to the dead-letter queue.
 
 The team picked **active-passive**: eu-west has a private space with all apps deployed and running, but the global load balancer sends it no traffic.
 
@@ -189,7 +189,7 @@ orders-submitted (eu-central) ~► drain job ~► orders-submitted (eu-west)
   followUps: [
     {
       q: 'Why not make both regions active and split the traffic?',
-      a: 'It is possible with the shared idempotency store, but every failure then strands messages in a region that was taking half the load. Active-passive keeps the stranded set small and the steps simpler.',
+      a: 'It is possible with the shared idempotency store, but every failure then strands messages in a region that was taking half the load. Active-passive keeps the stranded set small and the steps short.',
     },
     {
       q: 'Could the Experience API write to both regional queues on every order?',

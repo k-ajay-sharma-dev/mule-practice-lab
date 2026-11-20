@@ -131,7 +131,7 @@ types:
 /customers:
   /lookup:
     post:
-      description: Finds a customer by email. The email travels in the body so it stays out of URLs and access logs.
+      description: Finds a customer by email. The email travels in the body so it stays out of URLs and access logs. The call changes nothing and is safe to repeat.
       body:
         type: LookupRequest
       responses:

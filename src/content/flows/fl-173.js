@@ -4,12 +4,12 @@ const row = (id, recipient, status = 'READY', attempts = 0) => ({
   message_id: id,
   message_type: 'Item',
   recipient_id: recipient,
-  body: `{"messageId":"${id}","items":[{"gtin":"05012345678900","description":"Brake pad set, front"}]}`,
+  body: `{"messageId":"${id}","items":[{"gtin":"05012345678900","description":"Cordless drill, 18V"}]}`,
   status,
   attempts,
   blob_name: null,
 })
-const rows = [row('OUT-70001', 'STORE-GRP-NORTH'), row('OUT-70002', 'HALDEN-FILTERS'), row('OUT-69990', 'STORE-GRP-SOUTH', 'SENT')]
+const rows = [row('OUT-70001', 'STORE-GRP-NORTH'), row('OUT-70002', 'HALDEN-PAINTS'), row('OUT-69990', 'STORE-GRP-SOUTH', 'SENT')]
 const down = { 'azure-upload-blob': { fault: { type: 'AZURE-STORAGE:CONNECTIVITY', description: 'Unable to reach the storage account' } } }
 
 export default {
@@ -55,7 +55,7 @@ export default {
           noError: true,
           connector: [
             { type: 'azure-upload-blob', settings: { container: 'pdh-outbound' }, count: 2 },
-            { type: 'azure-upload-blob', settings: { fileName: 'outbound/HALDEN-FILTERS/OUT-70002.json' }, count: 1 },
+            { type: 'azure-upload-blob', settings: { fileName: 'outbound/HALDEN-PAINTS/OUT-70002.json' }, count: 1 },
           ],
           sent: [
             { destination: 'PDH.OUTBOUND.NOTIFY', count: 2 },
@@ -127,7 +127,7 @@ export default {
     ]),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) generates outbound messages in Oracle (Item updates for store groups, orders for suppliers). Each one lands in the table \`pdh_outbound_messages\` (\`message_id\`, \`message_type\`, \`recipient_id\`, \`body\`, \`status\`, \`attempts\`, \`blob_name\`) with status \`READY\`. \`body\` is the JSON document.
+Copperline Home Supply’s product data hub (fictional) generates outbound messages in Oracle (Item updates for store groups, orders for suppliers). Each one lands in the table \`pdh_outbound_messages\` (\`message_id\`, \`message_type\`, \`recipient_id\`, \`body\`, \`status\`, \`attempts\`, \`blob_name\`) with status \`READY\`. \`body\` is the JSON document.
 
 Recipients take them the same way the hub takes inbound documents, by claim check: the document goes to the Azure Blob Storage container \`pdh-outbound\`, and a small notification goes to the JMS queue \`PDH.OUTBOUND.NOTIFY\`:
 
@@ -139,6 +139,12 @@ Recipients take them the same way the hub takes inbound documents, by claim chec
 - Announce it on \`PDH.OUTBOUND.NOTIFY\`. A notification must never point at a blob that is not there.
 - Then set \`status\` to \`SENT\` and save the blob name. If a support user cancelled the message meanwhile (status no longer READY), do not overwrite that.
 - A failure on one message must not stop the others. Count it in \`attempts\`. On the **fifth** failure set \`status\` to \`FAILED\`.
+
+**Facts**
+- Message IDs grow over time, so oldest first means ordered by \`message_id\`.
+- Write the statuses as literals in the SQL: the Select reads \`status = 'READY'\`, and the final update sets \`'SENT'\` with the guard \`AND status = 'READY'\`.
+- Count a failure and set \`'FAILED'\` in one update of \`attempts\`. A message below five failures stays \`READY\`.
+- The notification's fields come from the row: \`message_id\`, \`message_type\`, \`recipient_id\` and the blob name.
 
 **Design the flow.**
 `,

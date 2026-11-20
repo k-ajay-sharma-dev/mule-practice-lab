@@ -33,13 +33,13 @@ export default {
       type: 'single',
       prompt: 'A Scheduler-driven job runs on 2 replicas with clustering **disabled**. What happens?',
       options: [
-        'Only the first replica runs the job',
-        'Every replica runs the scheduler, so the job must be idempotent — or enable clustering / use a lock',
-        'CloudHub 2.0 disables schedulers on multiple replicas',
-        'The job alternates between replicas',
+        'Only the first replica to start runs the job',
+        'Each replica runs its own copy of the schedule',
+        'CloudHub 2.0 pauses schedulers when there are 2+ replicas',
+        'The ingress hands each run to one replica in turn',
       ],
       answer: 1,
-      explain: 'Without clustering, application schedules run on all replicas independently. With clustering they run once, on the primary replica. Do not carry this over from CloudHub 1.0: the Scheduler docs say a multi-worker CloudHub deployment runs it only on the primary node.',
+      explain: 'So the job must be idempotent, or you enable clustering or use a lock. Without clustering, application schedules run on all replicas independently. With clustering they run once, on the primary replica. Do not carry this over from CloudHub 1.0: the Scheduler docs say a multi-worker CloudHub deployment runs it only on the primary node.',
     },
     {
       type: 'single',
@@ -57,22 +57,22 @@ export default {
       type: 'single',
       prompt: 'The partner allowlists the old CH1 static IPs. What should you do?',
       options: [
-        'Nothing — CloudHub 2.0 keeps the CH1 static IPs',
-        'Reserve the private space egress IPs early, have the partner add them, and run both in parallel during cutover',
-        'Route partner calls through the CH1 DLB forever',
-        'Ask the partner to disable the allowlist',
+        'Nothing, because CloudHub 2.0 keeps the CH1 static IPs',
+        'Have the partner add the private space egress IPs first',
+        'Keep routing partner calls through the old CH1 DLB',
+        'Use the shared space, whose IPs the partner already allows',
       ],
       answer: 1,
-      explain: 'Outbound traffic now comes from the private space egress IPs, so the partner\'s rules must be updated before cutover.',
+      explain: 'Outbound traffic now comes from the private space egress IPs, so the partner\'s rules must be updated before cutover. Reserve the new IPs early and allow both sets during cutover. The shared space has no IPs the partner knows.',
     },
     {
       type: 'single',
       prompt: 'With the default **rolling update** strategy, why must the code tolerate two versions running briefly during a deployment?',
       options: [
-        'CloudHub 2.0 always runs blue and green versions for a day',
-        'Replicas are updated incrementally, so old and new replicas serve traffic at the same time',
-        'Ingress caches responses from the old version',
-        'It does not — a rolling update stops all replicas first',
+        'CloudHub 2.0 keeps blue and green versions for a day',
+        'Replicas are replaced one at a time, so old and new overlap',
+        'Ingress caches responses from the old version for a while',
+        'It does not, because a rolling update stops all replicas first',
       ],
       answer: 1,
       explain: 'A rolling update replaces replicas incrementally, which also means long-running work on an old replica can be interrupted. The alternative Recreate strategy terminates the replicas before redeploying.',
@@ -109,7 +109,7 @@ The migration team asks:
     'A private space has its own network (CIDR), private connectivity to on-prem (VPN / transit gateway), ingress with custom domains and TLS contexts, and firewall rules.',
     'Replicas scale horizontally (count) and vertically (vCore size); the default rolling update replaces replicas incrementally, and Recreate is the alternative.',
     'Apps keep listening on the platform HTTP port property; ingress routes public/private endpoints and paths to them.',
-    'Outbound traffic from a private space can use static/egress IPs that partners can allowlist — verify and update partner rules during migration.',
+    'Outbound traffic from a private space can use static/egress IPs that partners can allowlist. Verify and update partner rules during migration.',
   ],
   solution: `
 **Replacement map**
@@ -124,12 +124,12 @@ The migration team asks:
 
 **Replicas:** a replica is an isolated container running one instance of the app with a chosen vCore size. Scale out by increasing replica count, scale up by changing size. The default rolling update replaces replicas incrementally, so code must tolerate two versions running briefly (the Recreate strategy terminates replicas before redeploying instead). Replicas can be **clustered** (Mule clustering option) when you need cluster features such as primary-node-only schedulers or shared VM queues; otherwise each replica is independent and application schedules run on all of them. That differs from a multi-worker CH1 app, where the Scheduler docs say it runs only on the primary node, so a scheduled job can start running twice after migration.
 
-**Ingress:** each app can have a public endpoint (platform-generated URL) and, in a private space, private endpoints. The ingress terminates TLS (with your certificates in a TLS context for \`api.acme.com\`), routes by host/path to the app, and can optionally re-encrypt to the app (last-mile security). The app itself keeps listening on the expected HTTP port — keep using \`$\{http.port}\` rather than hard-coding.
+**Ingress:** each app can have a public endpoint (platform-generated URL) and, in a private space, private endpoints. The ingress terminates TLS (with your certificates in a TLS context for \`api.acme.com\`), routes by host/path to the app, and can optionally re-encrypt to the app (last-mile security). The app itself keeps listening on the expected HTTP port. Keep using \`$\{http.port}\` rather than hard-coding.
 
 **Typical app changes**
 - Remove CH1-specific assumptions: \`mule-worker-\` URLs, DLB mapping rules, port 8082 HTTPS listeners when TLS now terminates at ingress.
 - **Persistence:** in-memory state is lost when replicas restart; use Object Store v2 or external stores.
-- **Schedulers:** without clustering, every replica runs the scheduler — make jobs idempotent or enable clustering / use a lock.
+- **Schedulers:** without clustering, every replica runs the scheduler. Make jobs idempotent or enable clustering / use a lock.
 - Logging: use platform logging or supported log forwarding; don't write to local files.
 - Properties/secure properties set per deployment in Runtime Manager, as before.
 
@@ -142,7 +142,7 @@ The migration team asks:
     },
     {
       q: 'Why would you choose a shared space over a private space?',
-      a: 'For apps that only need public endpoints and call public SaaS APIs — it is simpler and has no network to manage. Anything needing private connectivity or custom domains belongs in a private space.',
+      a: 'For apps that only need public endpoints and call public SaaS APIs. It needs less setup and has no network to manage. Anything needing private connectivity or custom domains belongs in a private space.',
     },
     {
       q: 'What is the effect of a rolling update on a long-running batch job?',

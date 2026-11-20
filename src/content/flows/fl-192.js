@@ -131,6 +131,12 @@ Folders \`/reads/done\`, \`/reads/duplicates\` and \`/reads/corrections\` exist.
 - The same name and a different size: replace that file's rows with the new ones, update its size and set status \`CORRECTED\`. Move it to \`corrections\`.
 - Rows and the file record change together or not at all.
 
+**Facts**
+- Listen for \`READS_*.csv\`. The SFTP listener gives the size in bytes in \`attributes.size\`. Store that number in \`file_size\` and compare with it.
+- Store \`reading\` as a number, and each row's \`file_name\` as the file's name.
+- Each load is a **Try** with the transactional action \`ALWAYS_BEGIN\`. A correction deletes the rows with that \`file_name\` first.
+- Log a repeat at WARN. Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Knowing a file by its name

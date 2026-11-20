@@ -73,13 +73,13 @@ export default {
       needsScenario: true,
       prompt: 'Why is full three-layer API-led (36 APIs) weak value for this team?',
       options: [
-        'MuleSoft does not support Shopify',
-        'Costs multiply (specs, instances, pipelines, apps, vCores) while the main benefits — reuse by many consumers and decoupling across teams — are small with one team and few consumers',
-        'API-led only works for companies above 1,000 people',
-        'Syncs cannot be built in Mule',
+        'API-led needs a C4E in place before any layer can be built',
+        'Costs grow with every app, while reuse and cross-team decoupling stay small',
+        'Three hops make each 3PL update slower than the partner allows',
+        'Nightly batch syncs cannot be exposed through REST APIs in Mule',
       ],
       answer: 1,
-      explain: 'Four developers would each own ~9 apps, and most Process/Experience APIs would have exactly one caller.',
+      explain: 'Specs, API instances, pipelines, apps and vCores all multiply. Four developers would each own about 9 apps, and most Process and Experience APIs would have exactly one caller.',
     },
     {
       type: 'multi',
@@ -98,13 +98,13 @@ export default {
       type: 'single',
       prompt: 'Shopify and Postgres are accessed directly via connectors inside a process app. Is that acceptable?',
       options: [
-        'No — every backend must always have a System API',
-        'Yes, as a documented trade-off: connectivity code is isolated in its own flows/modules, so extracting a System API later is a small refactor',
-        'Yes, and no documentation is needed',
-        'Only for Postgres',
+        'No: every backend must always have its own System API',
+        'Yes, if the connector code sits in its own flows and the choice is recorded',
+        'Yes, and no record is needed, since only one app uses them',
+        'Only if the connector calls are wrapped in a Process API first',
       ],
       answer: 1,
-      explain: 'With a single consumer, a System API now is premature; isolating the code keeps the door open. Record it in an ADR with the triggers to revisit.',
+      explain: 'With a single consumer, a System API now is premature. Isolating the connectivity code keeps extraction later a small refactor. Record the trade-off in an ADR with the triggers to revisit.',
     },
     {
       type: 'multi',
@@ -126,34 +126,41 @@ export default {
       needsScenario: true,
       prompt: 'How do you frame this answer in the interview?',
       options: [
-        '"API-led is pointless for small teams."',
-        '"Always three layers — that is the MuleSoft way."',
-        '"API-led is a set of principles applied proportionately; the layers are a logical model, not a quota of deployables" — then give a right-sized design and growth triggers',
-        'Avoid the question and talk about DataWeave',
+        '"API-led does not pay off for small teams, so we skip it."',
+        '"Always three layers, because that is the standard MuleSoft way."',
+        '"API-led is principles applied in proportion; layers are logical, not an app quota."',
+        '"Build the 36 APIs now, so no rework is needed later."',
       ],
       answer: 2,
-      explain: 'The devil\'s-advocate question tests judgement: show you know both the value and the costs, and avoid both dogma and dismissal.',
+      explain: 'The devil\'s-advocate question tests judgement: show you know both the value and the costs, avoid both dogma and dismissal, then give a right-sized design and growth triggers.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'What is the minimum governance you would keep?',
       options: [
-        'None — the team is small',
-        'Specs for anything consumed outside the team, client-id enforcement on exposed APIs, one project template with error handling and logging, naming conventions, and ADRs for layering decisions',
-        'A full C4E with weekly design boards',
-        'Only a naming convention',
+        'None, since one small team owns everything',
+        'Specs for exposed APIs, client-id, one project template, naming rules, ADRs',
+        'A full C4E with weekly design review boards',
+        'A naming convention for apps and nothing more',
       ],
       answer: 1,
-      explain: 'Cheap, high-value guardrails keep the estate consistent and make it easy to grow later.',
+      explain: 'Cheap, high-value guardrails keep the estate consistent and make growing later less work. The template carries standard error handling and logging.',
     },
   ],
   description: `
 A senior interviewer plays devil's advocate:
 
-> "We're a 4-developer integration team at a 300-person company. We have Salesforce, NetSuite, a Postgres-based warehouse app and Shopify — about 12 integrations, mostly syncs. A consultant proposed 3 layers × 12 integrations = 36 APIs. **Convince me we shouldn't do API-led** — or tell me how you'd right-size it."
+> "We're a 4-developer integration team at a 300-person company. We have Salesforce, NetSuite, a Postgres-based warehouse app and Shopify, about 12 integrations, mostly syncs. A consultant proposed 3 layers × 12 integrations = 36 APIs. **Convince me we shouldn't do API-led**, or tell me how you'd right-size it."
 
 Constraints: limited vCores/capacity, no C4E, one team owns everything, only one external consumer (a 3PL partner).
+
+The 12 integrations group into three sync apps:
+- **Order sync** takes the 3PL order updates and works on Salesforce, NetSuite and Shopify.
+- **Customer sync** works on Salesforce and the Postgres warehouse app.
+- **Finance sync** works on NetSuite.
+
+The team wants a System API only for a system that more than one sync app uses.
 
 Numbers:
 - The 3PL partner sends up to **20 order updates a second**. Each one touches Salesforce, NetSuite and Shopify. A retry loop on its side has sent **150 a second** before.
@@ -180,9 +187,9 @@ Numbers:
   keyPoints: [
     'Full three-layer API-led for 12 mostly-sync integrations multiplies apps, deployments, specs, policies and runtime cost for a single team with little reuse demand. The benefits (decoupling across teams, reuse by many consumers) are weakest here.',
     'API-led still pays off for systems used by several integrations (a System API per core SaaS) and for the single external consumer (an Experience API/gateway boundary).',
-    'Right-size: System APIs only where reused, sync jobs as Process-layer apps calling connectors or System APIs, one partner-facing API, co-located deployments, shared templates — keep logical layering in code even when physically merged.',
+    'Right-size: System APIs only where reused, sync jobs as Process-layer apps calling connectors or System APIs, one partner-facing API, co-located deployments, shared templates. Keep logical layering in code even when physically merged.',
     'Grow when there are new channels/consumers, more teams, a backend replacement on the roadmap, duplicated logic appearing, or external consumers multiplying.',
-    'Frame it as "API-led is a set of principles applied proportionately" — show judgement, not rejection.',
+    'Frame it as "API-led is a set of principles applied proportionately". Show judgement, not rejection.',
     'The one partner API carries the policies that matter: client-id enforcement and a rate limit of 30 a second, which keeps a misbehaving partner from flooding NetSuite. Six small apps at 0.1 vCore fit the budget with room to spare.',
   ],
   solution: `
@@ -194,8 +201,8 @@ Numbers:
 - **Governance overhead** with no C4E to run it.
 
 **Where API-led still adds value.**
-- **System APIs for the most-shared systems:** if Salesforce and NetSuite are each touched by 5+ integrations, use one System API (or at least one shared connector config + DataWeave module). It avoids repeating auth, mapping and API-limit handling.
-- **The 3PL partner:** an explicit Experience/partner API with client-id enforcement and rate limiting decouples an external party from internal systems — worth it even for one consumer.
+- **System APIs for the shared systems:** Salesforce and NetSuite are each used by two sync apps, so each gets one System API. It avoids repeating auth, mapping and API-limit handling.
+- **The 3PL partner:** an explicit Experience/partner API with client-id enforcement and rate limiting decouples an external party from internal systems. It is worth it even for one consumer.
 - **Contracts and Exchange** for anything consumed by another team (e.g. the e-commerce team).
 - **Principles** cost nothing: separate connectivity code from business logic from consumer shaping, inside the code base.
 
@@ -205,12 +212,12 @@ Numbers:
                     |
              [order-sync-app]  [customer-sync-app]  [finance-sync-app]   <- "process" apps (schedulers/listeners)
                  |     \\           |                     |
-          [sys-salesforce-api]  [sys-netsuite-api]   (only where 3+ integrations share the system)
+          [sys-salesforce-api]  [sys-netsuite-api]   (only where two or more sync apps share the system)
            Shopify / Postgres accessed directly via connectors inside process apps (single use)
 \`\`\`
-- ~6–8 apps instead of 36; low-traffic apps on small sizes; non-critical syncs on 1 replica.
+- 6 apps instead of 36; low-traffic apps on small sizes; non-critical syncs on 1 replica.
 - Inside each app, keep **logical layers**: separate flows/files for connectivity (system), orchestration (process) and output mapping (experience); shared DataWeave and error-handling modules. Splitting later is then a refactor, not a rewrite.
-- One project template, one error contract, one logging standard — cheap and valuable.
+- One project template, one error contract, one logging standard: cheap and valuable.
 - Document the decision in an **ADR** with the triggers for revisiting.
 - **Policies on the partner API**: client-id enforcement refuses callers without a registered ID, and a rate limit of **30 a second** answers 429 to the rest of a flood. NetSuite then sees at most 30 of its 40 calls a second, even when the 3PL retries in a loop.
 - **Sizing**: at these volumes every app runs on one 0.1 vCore replica, 0.6 vCores for the six apps. The consultant's 36 apps would need 3.6 vCores at the same size before any traffic.
@@ -223,9 +230,9 @@ Numbers:
 - Partner/external consumers multiplying → formal Experience layer and SLA tiers.
 
 **Interview framing.**
-- Open with: "API-led is a set of principles — decouple systems, compose logic, shape for consumers — applied proportionately. The three layers are a logical model, not a quota of deployables."
+- Open with: "API-led is a set of principles (decouple systems, compose logic, shape for consumers) applied proportionately. The three layers are a logical model, not a quota of deployables."
 - Show you know its value (application network, reuse, change isolation) **and** its costs (hops, apps, governance).
-- Give a concrete right-sized design and explicit **growth triggers** — that demonstrates architectural judgement, which is what the devil's-advocate question tests.
+- Give a concrete right-sized design and explicit **growth triggers**. That demonstrates architectural judgement, which is what the devil's-advocate question tests.
 - Avoid both extremes: "always three layers" (dogma) and "API-led is pointless" (dismissive).
 `,
   followUps: [

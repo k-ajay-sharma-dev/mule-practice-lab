@@ -7,20 +7,20 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
+      { text: "2026-11-18 02:40:00 INFO  [copy-job] Retry on network error at offset 2147483648, resumed", relevant: true, why: "A resume happened at 2 GB." },
       { text: "2026-11-18 03:00:00 INFO  [copy-job] Copied history.csv sizeBytes=3000000000", relevant: false },
       { text: "2026-11-18 03:00:00 INFO  [copy-job] Source MD5 missing, no check", relevant: true, why: "No integrity check." },
       { text: "2026-11-18 06:00:00 WARN  [warehouse] Row 21400233 malformed", relevant: true, why: "One row is broken." },
-      { text: "2026-11-18 06:01:00 INFO  [copy-job] Retry on network error at offset 2147483648, resumed", relevant: true, why: "A resume happened at 2 GB." },
     ],
     questions: [
       {
         type: 'single',
         prompt: "What likely broke the row?",
         options: [
-          "The resume after a network error wrote data at the wrong offset, and nothing checked the result",
-          "The source was bad",
-          "Encoding",
-          "The warehouse",
+          "The 2 GB resume wrote at a wrong offset and nothing checked it",
+          "The source file on the share already had the bad row",
+          "The copy changed the file encoding partway through",
+          "The warehouse loader misreads rows past 21 million",
         ],
         answer: 0,
         explain: "Resumes need verification.",
@@ -30,9 +30,9 @@ export default {
         prompt: "What should the copy do?",
         options: [
           "Compare a checksum or at least size and row count after copy",
-          "Trust the copy",
-          "Copy twice",
-          "Skip resumes",
+          "Trust the copy, since the resume step reported success",
+          "Copy the file twice and keep the later copy",
+          "Open the file in a viewer to spot broken rows",
         ],
         answer: 0,
         explain: "Verify integrity.",
@@ -44,7 +44,7 @@ export default {
           "A hash computed by the sender",
           "A hash computed while streaming the copy",
           "A control file with the hash",
-          "The file name",
+          "The file’s last modified time",
         ],
         answer: [0,1,2],
         explain: "Compare source and target.",
@@ -54,9 +54,9 @@ export default {
         prompt: "Why is offset 2 GB suspicious?",
         options: [
           "It is 2^31, where integer overflow bugs often appear",
-          "It is random",
-          "It is the file end",
-          "It is normal",
+          "It is the default resume point for every file copy",
+          "It is where the file share stores its first block",
+          "It is the end of the file, so the copy was complete",
         ],
         answer: 0,
         explain: "Large file bugs cluster at type limits.",
@@ -85,9 +85,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 02:40:00 INFO  [copy-job] Retry on network error at offset 2147483648, resumed
+2026-11-18 03:00:00 INFO  [copy-job] Copied history.csv sizeBytes=3000000000
 2026-11-18 03:00:00 INFO  [copy-job] Source MD5 missing, no check
 2026-11-18 06:00:00 WARN  [warehouse] Row 21400233 malformed
-2026-11-18 06:01:00 INFO  [copy-job] Retry on network error at offset 2147483648, resumed
 \`\`\`
 
 ## Your tasks

@@ -57,7 +57,7 @@ export default {
     },
   },
   description: `
-Tallow & Finch, a fictional food wholesaler, publishes one price list per customer group each night. The pricing team saves them to an **Azure File Share**, \`price-lists\`. About 300 partner shops fetch their list through a prices API; a share System API on a runtime with the share mounted reads the files.
+Tallow & Finch, a fictional food wholesaler, publishes one price list per customer group each night. The pricing team saves them to an **Azure File Share**, \`price-lists\`. About 300 partner shops fetch their list through a prices API; a share System API on a runtime with the share mounted reads the files. Each shop has its own client ID, and a call without one must be refused before it costs a read.
 
 At 06:00 every shop's till fetches the day's prices at once, and keeps polling every few seconds until it gets them. Last month the share started refusing reads, shops opened with yesterday's prices, and the API itself answered 503.
 

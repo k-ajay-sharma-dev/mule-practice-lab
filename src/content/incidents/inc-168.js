@@ -88,7 +88,7 @@ export default {
 - A security review now asks why. A red team (testers who act like attackers) sends test prompts that should look risky, and both go straight through with no flag.
 
 ## Change / Context
-- Rogue Agent Detection is a policy on a model proxy. It checks each incoming prompt against anomaly rules and flags risky behaviour for human review.
+- Rogue Agent Detection is a policy on a model proxy. It checks each incoming prompt against anomaly rules and flags risky behaviour for human review. The anomaly types PII Leak, Privilege Escalation and Prompt Injection come with built in definitions. The type Custom has none.
 - \`mp-hr-assistant\`: the engineer filled in the required fields and saved. The **Anomalies to Detect** list was left empty, to be "tuned later".
 - \`mp-loan-support\`: the engineer added one rule with the anomaly type **Custom**, to cover lending rules, and left **Detection Prompt** empty.
 - JWT Validation is on both proxies. A JWT (JSON Web Token) is a signed token that carries claims about the caller.

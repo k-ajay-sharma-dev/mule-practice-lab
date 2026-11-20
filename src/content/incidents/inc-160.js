@@ -22,10 +22,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause of the missing logs?',
         options: [
-          'Agent 3.0.0 removed the DaemonSet log forwarder, and the required migration was not completed: app-scoped forwarding was off and apps were not redeployed onto sidecar forwarding',
-          'The Anypoint Monitoring ingest endpoint is unreachable from the cluster',
-          'The apps stopped writing logs because their log level changed',
-          'The subscription was downgraded during the upgrade',
+          'Agent 3.0 dropped the DaemonSet forwarder, and the apps were never moved onto sidecar log forwarding',
+          'The cluster can no longer reach the Anypoint Monitoring ingest endpoint since the upgrade',
+          'The upgrade reset the root log level of every app, so the apps stopped writing log entries',
+          'The upgrade reset the fabric’s subscription tier, so log search no longer covers this fabric',
         ],
         answer: 0,
         explain: 'Metrics still flow, so the network path works. The docs say that failing to complete the migration may disrupt log forwarding, and that apps forwarding through the DaemonSet must be redeployed.',
@@ -34,10 +34,10 @@ export default {
         type: 'single',
         prompt: 'What is the correct recovery on this fabric?',
         options: [
-          'Enable application-scoped log forwarding through the Runtime Fabric API, redeploy the apps a few at a time, then verify in Anypoint Monitoring',
-          'Reinstall the `am-log-forwarder` DaemonSet by hand with kubectl',
-          'Restart every worker node',
-          'Reinstall Runtime Fabric with `rtfctl`',
+          'Enable app-scoped log forwarding, then redeploy the apps in batches and check Log Search',
+          'Reapply the `am-log-forwarder` DaemonSet manifest with kubectl, then check Log Search',
+          'Restart the worker nodes one at a time, so that every replica starts with the new agent',
+          'Restart every app replica with `kubectl rollout restart`, then check Log Search',
         ],
         answer: 0,
         explain: 'The fix follows the documented migration steps, which are written for before the upgrade, so they are the closest documented route rather than a stated recovery procedure. A redeployment, triggered by any update to the app, switches it to sidecar forwarding. Agent 3.0.0 has no DaemonSet mechanism to restore.',
@@ -154,7 +154,7 @@ curl -X PATCH -H 'Authorization: Bearer {authToken}' \\
 `,
   followUps: [
     {
-      q: 'Why not just downgrade the agent?',
+      q: 'Why not downgrade the agent?',
       a: 'A downgrade path exists (PATCH or `helm upgrade` plus turning daemon-set forwarding back on), but the page is written for version 2.x and it adds another change during an incident. Moving forward with the documented migration is cleaner, so confirm with Support before going back.',
     },
     {

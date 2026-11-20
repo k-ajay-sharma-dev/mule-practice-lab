@@ -85,6 +85,7 @@ The product owner's rules:
 **Numbers**
 - About **30 freezes and unfreezes a second** at the evening peak, much more after news of a data breach.
 - The processor normally answers in about 300 ms. It has had outages of 20 minutes and slow spells of 8 seconds.
+- A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No freeze may reach the DLQ during a 20-minute outage.
 
 **Questions:**
 - Draw the design.

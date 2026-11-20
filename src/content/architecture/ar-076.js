@@ -10,25 +10,25 @@ export default {
       type: 'single',
       prompt: 'The WMS sends stock deltas ("SKU 123 at DC2: −2") over ActiveMQ. The Mule consumer updates Oracle, then crashes before acknowledging; the broker redelivers. What is the most robust fix?',
       options: [
-        'Record the event id in a processed-events table in the SAME Oracle transaction as the stock update, and skip events already recorded',
-        'Switch the listener to ackMode IMMEDIATE so the message is acknowledged before processing',
-        'Lower the redelivery count to 0 so redeliveries never happen',
-        'Add an in-memory list of processed ids in the Mule app',
+        'Write the event id to a processed-events table in the same transaction as the update',
+        'Switch the listener to ackMode IMMEDIATE so the message is acked before processing',
+        'Set a redelivery limit of 1, so any redelivered message goes to the DLQ',
+        'Keep the processed event ids in an in-memory list inside the Mule app',
       ],
       answer: 0,
-      explain: 'Committing the dedup record atomically with the business change makes the update idempotent across crashes and replicas. IMMEDIATE ack turns a duplicate into a **lost** message; an in-memory list disappears on restart and is not shared between replicas.',
+      explain: 'Committing the dedup record atomically with the business change makes the update idempotent across crashes and replicas; events already recorded are skipped. IMMEDIATE ack turns a duplicate into a **lost** message. A redelivery limit of 1 sends real, unapplied messages to the DLQ. An in-memory list disappears on restart and is not shared between replicas.',
     },
     {
       type: 'single',
       prompt: 'To keep up, the team raises the JMS listener to 8 consumers. Now "set to 5" and "set to 3" for the same SKU sometimes apply in the wrong order. Which change keeps parallelism AND per-SKU order?',
       options: [
-        'Set the JMSXGroupID property to SKU + location when publishing, so the broker delivers each group to one consumer at a time',
-        'Go back to a single consumer for the whole queue',
-        'Use a non-durable topic instead of a queue',
-        'Sort messages by JMSTimestamp inside each consumer',
+        'Set the JMSXGroupID property to SKU + location when publishing',
+        'Go back to one consumer for the whole inventory queue',
+        'Publish to a topic so each consumer gets its own copy',
+        'Sort the messages by JMSTimestamp inside each consumer',
       ],
       answer: 0,
-      explain: 'ActiveMQ **message groups** pin all messages with the same group id to one consumer while other groups are processed in parallel. A single consumer works but throws away throughput; sorting inside a consumer cannot see messages held by other consumers.',
+      explain: 'ActiveMQ **message groups** pin all messages with the same group id to one consumer while other groups are processed in parallel. A single consumer works but throws away throughput. A topic gives every consumer every update, so stock would be applied 8 times. Sorting inside a consumer cannot see messages held by other consumers.',
     },
     {
       type: 'multi',
@@ -47,13 +47,13 @@ export default {
       type: 'single',
       prompt: 'An event for SKU 123 / DC2 with sequence 41 arrives after sequence 42 was already applied. What should the consumer do?',
       options: [
-        'Ignore it (and log/metric it) because a newer state is already applied',
-        'Apply it, because every message must be processed',
-        'Throw an error so it is redelivered until sequence 43 arrives',
-        'Move the whole queue to the DLQ',
+        'Skip it and count it, because a newer state is already applied',
+        'Apply it, because every message must be processed exactly once',
+        'Throw an error so the broker redelivers it later in the right order',
+        'Send it to the DLQ so an operator can apply it by hand',
       ],
       answer: 0,
-      explain: 'With absolute quantities, an older sequence is stale by definition. Retrying it can never succeed and only burns redeliveries; skipping it is correct, but count it so a systematic ordering problem is visible.',
+      explain: 'With absolute quantities, an older sequence is stale by definition. Applying it would overwrite newer stock. Retrying it can never succeed and only burns redeliveries, and an operator should not apply stale data either. Skipping it is correct, but count it so a systematic ordering problem is visible.',
     },
     {
       type: 'match',
@@ -117,7 +117,7 @@ MERGE INTO stock s USING (SELECT :sku sku, :loc loc, :qty qty, :seq seq FROM dua
   WHEN MATCHED THEN UPDATE SET s.qty = e.qty, s.seq = e.seq WHERE e.seq > s.seq
   WHEN NOT MATCHED THEN INSERT (sku, loc, qty, seq) VALUES (e.sku, e.loc, e.qty, e.seq);
 \`\`\`
-A duplicate fails the unique constraint (caught as a known \`DB:QUERY_EXECUTION\` and treated as "already processed"), or simply matches no rows because its sequence is not higher. Ack only after commit.
+A duplicate fails the unique constraint (caught as a known \`DB:QUERY_EXECUTION\` and treated as "already processed"), or matches no rows because its sequence is not higher. Ack only after commit.
 
 **Ordering with parallelism.** Order matters per SKU-location, not globally:
 - **ActiveMQ:** publish with \`JMSXGroupID = sku|location\`; the broker sends a group to one consumer at a time, so 8 consumers still work in parallel across groups.

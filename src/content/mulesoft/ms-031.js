@@ -11,7 +11,7 @@ export default {
       detail: true,
       prompt: 'The Card System API returned **422** with a JSON body. Inside the error handler, where is that body?',
       options: [
-        '`payload` — the HTTP Request replaced it before failing',
+        '`payload`, which the HTTP Request replaced before failing',
         '`error.errorMessage.payload`',
         '`error.cause.payload`',
         '`error.description`',
@@ -50,9 +50,9 @@ export default {
       prompt: 'A DataWeave transformation fails. What should you expect in `error.errorMessage`?',
       options: [
         'Always the input payload of the transformation',
-        'Usually null — so read it with `default`',
-        'The generated script source',
-        'An HTTP 500 response',
+        'Usually null, so read it with `default`',
+        'The source text of the DataWeave script',
+        'An HTTP 500 response built by the runtime',
       ],
       answer: 1,
       explain: 'Only components that produce a message as part of the failure (like HTTP Request with a response) populate it. Always guard with `default`.',
@@ -62,22 +62,22 @@ export default {
       detail: true,
       prompt: 'One route of a Scatter-Gather fails. Which error is raised, and where are the per-route details?',
       options: [
-        'The failing route\'s own error type; other routes are discarded',
-        '`MULE:COMPOSITE_ROUTING`; the error message payload exposes the successful results and the failures per route',
-        '`MULE:UNKNOWN`; details are only in the log',
-        '`HTTP:CONNECTIVITY`; details are in `error.cause`',
+        'The failing route error type, and the other results are discarded',
+        '`MULE:COMPOSITE_ROUTING`, with results and failures per route',
+        '`MULE:UNKNOWN`, and the details are only written to the log',
+        '`HTTP:CONNECTIVITY`, with the details held in `error.cause`',
       ],
       answer: 1,
-      explain: 'Scatter-Gather wraps route failures in **MULE:COMPOSITE_ROUTING**, and its error message lets you see which route failed and decide if a partial response is acceptable.',
+      explain: 'Scatter-Gather wraps route failures in **MULE:COMPOSITE_ROUTING**, and its error message payload exposes the successful results and the failures, so you can see which route failed and decide if a partial response is acceptable.',
     },
     {
       type: 'single',
       prompt: 'The downstream 422 body is a stream and you use it in both a Logger and the response Transform. What is the safe approach?',
       options: [
-        'Nothing special — error bodies are always strings',
-        'Read it once (e.g. into a variable) before using it repeatedly',
-        'Use `error.description` instead of the body',
-        'Call the card API again to get a fresh copy',
+        'Nothing special, because error bodies are always strings',
+        'Read it once into a variable, then use that value twice',
+        'Use `error.description` instead of the body in both places',
+        'Call the card API again to get a fresh copy of the body',
       ],
       answer: 1,
       explain: 'The body may be a stream; consuming it once and storing the parsed value avoids an empty or failing second read.',
@@ -118,7 +118,7 @@ The product team wants the client to receive the **downstream code and message**
   keyPoints: [
     'error.errorType has namespace and identifier (e.g. HTTP:SERVICE_UNAVAILABLE) and a parent type hierarchy. The HTTP connector has no HTTP:UNPROCESSABLE_ENTITY type, so select a 422 by error.errorMessage.attributes.statusCode (e.g. in the handler\'s when).',
     'error.description is a human-readable message; error.detailedDescription adds more detail; error.cause is the underlying Java exception.',
-    'error.errorMessage is the message produced by the failing component — for HTTP Request it holds the response body (payload) and attributes (statusCode, headers).',
+    'error.errorMessage is the message produced by the failing component: for HTTP Request it holds the response body (payload) and attributes (statusCode, headers).',
     'Return a sanitized, consistent error body to clients; log the technical detail (type, description, cause) with the correlation ID.',
     'For Scatter-Gather (MULE:COMPOSITE_ROUTING) the per-route results and failures are available through the error message payload.',
   ],
@@ -126,7 +126,7 @@ The product team wants the client to receive the **downstream code and message**
 **Fields of \`error\`** (available inside error handlers)
 | Field | Content |
 |---|---|
-| \`errorType\` | \`namespace\` + \`identifier\`, e.g. \`HTTP:SERVICE_UNAVAILABLE\`; has a \`parentErrorType\` chain (422 has no dedicated HTTP type — match it on the status code) |
+| \`errorType\` | \`namespace\` + \`identifier\`, e.g. \`HTTP:SERVICE_UNAVAILABLE\`; has a \`parentErrorType\` chain (422 has no dedicated HTTP type: match it on the status code) |
 | \`description\` | short human-readable explanation |
 | \`detailedDescription\` | longer explanation, often including the component |
 | \`cause\` | the underlying Java \`Throwable\` |
@@ -138,7 +138,7 @@ The product team wants the client to receive the **downstream code and message**
 - \`error.errorMessage.attributes.statusCode\` → \`422\`
 - \`error.errorMessage.attributes.headers\` → response headers
 
-Note the body may be a stream — read it once (or into a variable) before using it repeatedly.
+Note the body may be a stream: read it once (or into a variable) before using it repeatedly.
 
 **Client body**
 \`\`\`dataweave
@@ -152,7 +152,7 @@ var downstream = error.errorMessage.payload default {}
   correlationId: correlationId
 }
 \`\`\`
-Set \`vars.httpStatus = error.errorMessage.attributes.statusCode default 500\` (or map it to your own contract — e.g. 422 stays 422, 5xx from the backend becomes 502).
+Set \`vars.httpStatus = error.errorMessage.attributes.statusCode default 500\` (or map it to your own contract: e.g. 422 stays 422, 5xx from the backend becomes 502).
 
 **Logging vs returning**
 - Log at ERROR: \`error.errorType\`, \`error.description\`, status code, correlation ID, and optionally a truncated downstream body.
@@ -163,11 +163,11 @@ Set \`vars.httpStatus = error.errorMessage.attributes.statusCode default 500\` (
   followUps: [
     {
       q: 'How do you check an error type including its parents in DataWeave?',
-      a: 'Compare error.errorType.namespace and identifier, or walk parentErrorType. In configuration it is simpler to match with the type attribute of On Error handlers, which already respects the hierarchy.',
+      a: 'Compare error.errorType.namespace and identifier, or walk parentErrorType. In configuration it is clearer to match with the type attribute of On Error handlers, which already respects the hierarchy.',
     },
     {
       q: 'What is error.errorMessage when a DataWeave transformation fails?',
-      a: 'Usually null — only components that produce a message as part of the failure (like HTTP Request with a response) populate it. Always use default when reading it.',
+      a: 'Usually null: only components that produce a message as part of the failure (like HTTP Request with a response) populate it. Always use default when reading it.',
     },
     {
       q: 'Where does the "failed: unprocessable entity (422)" text come from?',

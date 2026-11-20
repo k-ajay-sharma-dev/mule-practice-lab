@@ -69,7 +69,9 @@ Facts:
 - The platform waits **5 seconds** for a 200 reply. Without one it retries the same webhook up to **19 times over 48 hours**, so the same order can arrive more than once.
 - The email service has a REST API (100 requests a second). The SMS provider has a REST API (20 messages a second).
 - The confirmation should reach the customer within **2 minutes** of the order.
-- At a 5 a second peak the email service can be down for 60 minutes, and about 1 order in 100 has contact details the providers always reject.
+- The brand wants the webhook answered within 1 second.
+- At a 5 a second peak the email service can be down for 60 minutes. No confirmation may be lost while it is down. About 1 order in 100 has contact details the providers always reject, and those must end in a dead-letter queue.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. How do you receive the webhook safely and reply in time?
@@ -90,9 +92,9 @@ Facts:
   keyPoints: [
     'The webhook API checks the HMAC signature, puts the order on an Anypoint MQ queue and replies 200 within a second.',
     'Sending happens in a separate consumer, so slow providers never make the platform retry.',
-    'The order ID is stored in a persistent Object Store before sending, so a repeated webhook sends nothing.',
+    'The order ID is checked in a persistent Object Store and recorded after sending, so a repeated webhook sends nothing.',
     'One System API wraps the email and SMS providers, with templates and rate limits in one place.',
-    'Failed sends are retried with backoff by redelivery; after the limit the message goes to a dead-letter queue for support.',
+    'Failed sends are retried by redelivery about once a minute; a limit of about 90 deliveries covers a one-hour outage, and after the limit the message goes to a dead-letter queue for support.',
   ],
   solution: `
 **Receiving the webhook.** exp-store-webhooks exposes POST /webhooks/orders. It computes the HMAC of the raw body with the shared secret and compares it with the header. A bad signature gets 401 and nothing else happens. A good one is published to the **order-confirmations** queue in Anypoint MQ, and the API replies 200. This takes well under a second, so the platform never times out.
@@ -104,14 +106,14 @@ Facts:
 **Sending.** sys-notifications hides the two providers. It renders the template (order number, items, delivery estimate) and calls the email API. It sends the SMS only when the order says the customer opted in. The SMS limit of 20 a second is kept with a fixed number of consumer threads (for example 4 threads, each about 5 calls a second), so the peak is spread over a few minutes and still inside the 2 minute target for most customers.
 
 **Failures.**
-- Email service down: the consumer does not acknowledge, so Anypoint MQ redelivers after the acknowledgement timeout. After 10 deliveries the message moves to **order-confirmations-dlq**. Support can replay it from there once the provider is back.
-- A bad payload (missing email) goes straight to the DLQ, since retrying cannot fix it.
+- Email service down: the consumer does not acknowledge, so Anypoint MQ redelivers it about once a minute. The queue allows about 90 deliveries, so a one-hour outage sends nothing to the DLQ; the confirmations go out when the service is back. Only after 90 deliveries does a message move to **order-confirmations-dlq**, where support can replay it.
+- Contact details the providers always reject keep failing and reach the DLQ after their last delivery. A payload the consumer can see is bad (missing email) can be sent to the DLQ at once, since retrying cannot fix it.
 - An alert fires when the DLQ holds more than 20 messages.
 `,
   followUps: [
     { q: 'Why not send the email inside the webhook call?', a: 'The platform waits only 5 seconds. A slow email service would cause timeouts and platform retries. Queuing first keeps the reply fast and the work safe.' },
     { q: 'Where do you keep the HMAC secret?', a: 'In a secure property, encrypted with the Secure Configuration Properties module. The key comes from the runtime at deploy time, never from the repository.' },
-    { q: 'Why record the order ID after sending and not before?', a: 'Recording first means a crash after recording loses the confirmation forever. Recording after sending risks one duplicate in a rare crash, which customers forgive more easily.' },
+    { q: 'Why record the order ID after sending and not before?', a: 'Recording first means a crash after recording loses the confirmation forever. Recording after sending risks one duplicate in a rare crash, which customers forgive far sooner.' },
     { q: 'How would you add push notifications later?', a: 'Add a push provider behind sys-notifications and a channel rule in the consumer. The webhook API and the queue stay unchanged.' },
   ],
 }

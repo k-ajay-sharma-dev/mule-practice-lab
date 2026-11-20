@@ -95,7 +95,7 @@ Brindle Outdoor, a fictional outdoor gear retailer, is wiring its planning platf
 - **Back**: replenishment plans. A collector job reads each plan file and puts a notification on a queue. A plans Process API writes the plan to SQL Server, through the same System API, and to the **WMS**, through a WMS System API.
 
 **Numbers**
-- About **2 outbound files a second** and **3 plans a second** during the night run.
+- About **2 outbound files a second** and **3 plans a second** during the night run. The platform loads the outbound files at a fixed time and will not wait for them.
 - The WMS has up to **an hour** of maintenance a month.
 - At month end, files are large: reads and writes on the share take about **20 seconds** for half an hour.
 - APIs run on CloudHub 2.0 across availability zones; a zone can fail for 20 minutes.

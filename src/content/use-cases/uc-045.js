@@ -104,7 +104,7 @@ Facts:
   keyPoints: [
     'Ingest once (MLLP listener), persist and ACK, publish a canonical ADT event to a durable partitioned log keyed by patient ID (e.g. Kafka) so order is kept per patient while partitions scale.',
     'Original HL7 kept with each event for consumers that need it unchanged; canonical model used for routing/filtering.',
-    'One delivery adapter per consumer (or a configuration-driven adapter) with its own filter, mapping (HL7 version/Z-segments, FHIR, JSON), offset and error handling — consumers isolated from each other.',
+    'One delivery adapter per consumer (or a configuration-driven adapter) with its own filter, mapping (HL7 version/Z-segments, FHIR, JSON), offset and error handling, so consumers are isolated from each other.',
     'Consumer-owned offsets/retention allow catch-up after downtime and controlled replay from a point in time.',
     'Merges (A40) propagated in order with explicit re-link semantics; poison messages park only the affected patient stream, not the whole consumer.',
     'Strangler migration: parallel-run each consumer interface with output comparison against the old engine, then cut over one consumer at a time with rollback.',
@@ -117,7 +117,7 @@ Facts:
 4. **Subscription registry**: config (in Git/DB) describing for each consumer: filter, target format/version, mapping, endpoint, transport.
 5. Monitoring/replay tooling.
 
-**Ingestion and canonical event.** Parse HL7 (HL7 EDI connector or a parser) to extract key fields: event type, patient identifiers, visit number, ward/bed, consent flags, timestamps. Publish an envelope: canonical fields + **original HL7 message** + message control ID. ACK only after the publish is acknowledged by the log (\`acks=all\`) — no loss. Duplicate EHR sends are detected by message control ID.
+**Ingestion and canonical event.** Parse HL7 (HL7 EDI connector or a parser) to extract key fields: event type, patient identifiers, visit number, ward/bed, consent flags, timestamps. Publish an envelope: canonical fields + **original HL7 message** + message control ID. ACK only after the publish is acknowledged by the log (\`acks=all\`), so nothing is lost. Duplicate EHR sends are detected by message control ID.
 
 **Ordering and scaling.** Kafka guarantees order **within a partition**; keying by patient ID means all events for a patient land in one partition in order, while throughput scales with partitions (e.g. 24) and consumers process partitions in parallel. Each adapter processes one partition sequentially (per-partition ordering) but many partitions concurrently. 80 msg/s is modest; the design is for ordering and isolation more than raw scale.
 
@@ -129,7 +129,7 @@ Facts:
 
 Consent rules for the regional exchange checked against the consent service before delivery. Each consumer's mapping is tested with MUnit using a shared library of real (de-identified) ADT samples.
 
-**Delivery, catch-up and replay.** Each adapter owns its offset: if the bed-management system is down for 3 hours, its adapter retries with backoff, then pauses consuming (not skipping) and alerts. When the system returns, it resumes from its offset — all missed events, in order. **Replay**: reset a consumer group offset to a timestamp (via admin tooling with approvals) to resend after a consumer data loss. Other consumers are unaffected.
+**Delivery, catch-up and replay.** Each adapter owns its offset: if the bed-management system is down for 3 hours, its adapter retries with backoff, then pauses consuming (not skipping) and alerts. When the system returns, it resumes from its offset and gets all missed events, in order. **Replay**: reset a consumer group offset to a timestamp (via admin tooling with approvals) to resend after a consumer data loss. Other consumers are unaffected.
 
 **Poison messages.** A message the target rejects permanently (AR) would block the partition. Park **only that patient's events** in a per-consumer hold store (subsequent events for that patient also parked to keep order) and continue other patients; an analyst fixes and releases them.
 

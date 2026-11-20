@@ -70,7 +70,7 @@ export default {
     },
   },
   description: `
-A fashion retailer receives ~40% of its contact-centre calls asking **"where is my order?" (WISMO)**. It wants one order-status capability used by three channels.
+A home furnishings retailer receives ~40% of its contact-centre calls asking **"where is my order?" (WISMO)**. It wants one order-status capability used by three channels.
 
 | Channel | Users | Needs |
 |---|---|---|
@@ -87,7 +87,7 @@ A fashion retailer receives ~40% of its contact-centre calls asking **"where is 
 Facts:
 - ~15,000 WISMO lookups/hour at peak (Black Friday 3×).
 - Target **< 1 s p95** for web and app.
-- On Black Friday refreshes can bring 30 web and 15 app tracking lookups a second. A 10 minute cache answers about 7 lookups in 10, and the carrier aggregator can be down for 20 minutes.
+- On Black Friday refreshes can bring 30 web and 15 app tracking lookups a second. A 10 minute cache answers about 7 lookups in 10, and the carrier aggregator can be down for 20 minutes. Customers must still see the order status while it is down.
 - Guests must not be able to enumerate other people's orders.
 - Agents need extra fields customers must **not** see.
 
@@ -111,7 +111,7 @@ Facts:
 ## NFRs
 `,
   keyPoints: [
-    'System APIs per back end: sys-oms-orders, sys-wms-shipments, sys-carrier-tracking — each hiding protocol (REST/SOAP) and vendor model.',
+    'System APIs per back end: sys-oms-orders, sys-wms-shipments, sys-carrier-tracking, each hiding protocol (REST/SOAP) and vendor model.',
     'One Process API prc-order-status composes the order, shipments and tracking events into a canonical OrderStatus model.',
     'Experience APIs per channel: exp-web-orders, exp-mobile-orders, exp-agent-orders; the agent one exposes internal fields, customer ones filter them.',
     'Guest lookup requires order number + email match (verified in the Process API) plus rate limiting to stop enumeration.',
@@ -144,12 +144,12 @@ Facts:
     [OMS]            [WMS]        [Carrier aggregator]
 \`\`\`
 
-**Sequence — guest lookup on the website**
+**Sequence: guest lookup on the website**
 1. Browser → exp-web-orders \`GET /orders/A12345?email=...\` (client ID enforcement + Rate Limiting per IP/client).
 2. exp-web-orders → prc-order-status \`GET /orders/A12345/status\` passing the email as a verification header/parameter.
 3. prc-order-status → sys-oms-orders: get the order. If the order's email doesn't match → return **404** (not 403, to avoid confirming existence).
 4. In parallel: sys-wms-shipments (shipments + tracking numbers) and then sys-carrier-tracking per tracking number.
-5. prc-order-status derives a single customer status (e.g. *Dispatched — arriving Thursday*) and returns canonical OrderStatus with an \`internal\` section.
+5. prc-order-status derives a single customer status (e.g. *Dispatched, arriving Thursday*) and returns canonical OrderStatus with an \`internal\` section.
 6. exp-web-orders maps to the web model and **drops** the internal section.
 
 **Agent-only data.** The Process API returns one canonical model including internal fields; each Experience API decides what to expose. exp-agent-orders is only callable by the Service Cloud client application (client ID + OAuth scope \`orders:agent\`), so customer channels can never reach it.
@@ -165,6 +165,6 @@ Facts:
   followUps: [
     { q: 'Why return 404 rather than 403 when the email does not match?', a: 'A 403 confirms that the order number exists, which helps attackers enumerate orders. A 404 reveals nothing.' },
     { q: 'Could Service Cloud call prc-order-status directly instead of an Experience API?', a: 'It is sometimes accepted for internal consumers, but a dedicated Experience API keeps Salesforce-specific shaping and security out of the Process API and lets the agent screen change independently.' },
-    { q: 'Where would proactive "your parcel is delayed" notifications fit?', a: 'An event-driven process (carrier webhooks into a Process API or Anypoint MQ) reusing sys-carrier-tracking and sys-oms-orders, publishing to a notification System API — no change to the WISMO Experience APIs.' },
+    { q: 'Where would proactive "your parcel is delayed" notifications fit?', a: 'An event-driven process (carrier webhooks into a Process API or Anypoint MQ) reusing sys-carrier-tracking and sys-oms-orders, publishing to a notification System API, with no change to the WISMO Experience APIs.' },
   ],
 }

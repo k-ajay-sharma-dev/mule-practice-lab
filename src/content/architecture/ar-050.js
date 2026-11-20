@@ -36,12 +36,12 @@ export default {
       prompt: 'Where does the environment (dev, qa, prod) appear?',
       options: [
         'In the Exchange asset name',
-        'Not in the asset name — API Manager instances are per environment, though deployed app names often get a suffix for uniqueness (sys-sap-order-api-dev)',
-        'In every URI path',
-        'In the RAML title',
+        'Not in the asset name; at most as a suffix on the deployed app name',
+        'In every URI path, after the version',
+        'In the RAML title and the base URI',
       ],
       answer: 1,
-      explain: 'One spec, one asset; the environment is an attribute of the instance and deployment, not of the API design.',
+      explain: 'One spec, one asset; the environment is an attribute of the instance and deployment, not of the API design. API Manager instances are per environment, and deployed app names often get a suffix for uniqueness (sys-sap-order-api-dev).',
     },
     {
       type: 'single',
@@ -60,9 +60,9 @@ export default {
       type: 'match',
       prompt: 'Match each resource to the layer it belongs to.',
       pairs: [
-        ['GET /orders?customerId=&status=&page=', 'System — mirrors the SoR entities, cleanly'],
-        ['POST /orders that validates, prices, reserves stock and creates in SAP', 'Process — a business capability'],
-        ['GET /me/orders?limit=10', "Experience — the consumer's view, identity from the token"],
+        ['GET /orders?customerId=&status=&page=', 'System: mirrors the SoR entities, cleanly'],
+        ['POST /orders that validates, prices, reserves stock and creates in SAP', 'Process: a business capability'],
+        ['GET /me/orders?limit=10', "Experience: the consumer's view, identity from the token"],
       ],
       explain: '`/me` works at the Experience layer because the customer comes from the OAuth token; Process and System resources stay channel-neutral.',
     },
@@ -78,7 +78,7 @@ export default {
 You are setting standards for a new MuleSoft programme. Teams currently produce names like \`SAPCustomerService\`, \`getOrdersAPI-v2\`, \`mobileapp\`, \`customer_process_new\`.
 
 **Define:**
-1. A naming convention for **Exchange assets / API instances / Mule applications** that shows layer, system/domain and entity — with examples for each layer (e.g. \`sys-sap-customer-api\`, \`prc-order-api\`, \`exp-mobile-api\`).
+1. A naming convention for **Exchange assets / API instances / Mule applications** that shows layer, system/domain and entity: with examples for each layer (e.g. \`sys-sap-customer-api\`, \`prc-order-api\`, \`exp-mobile-api\`).
 2. How you handle **versions** and **environments** in names (or why you don't).
 3. The **resource model** for each layer for an Order domain backed by SAP (orders) and Salesforce (customers): give the main URIs and methods.
 4. Two rules that stop System APIs leaking SAP terminology (e.g. \`VBELN\`, \`KUNNR\`, BAPI names) into URIs.
@@ -107,16 +107,16 @@ You are setting standards for a new MuleSoft programme. Teams currently produce 
 | Process | \`prc-<business-capability>-api\` | \`prc-order-api\`, \`prc-customer-360-api\`, \`prc-order-fulfilment-api\` |
 | Experience | \`exp-<consumer>-<domain?>-api\` | \`exp-mobile-api\`, \`exp-partner-order-api\`, \`exp-web-checkout-api\` |
 
-Some organisations use suffixes (\`customer-sapi\`, \`order-papi\`, \`mobile-eapi\`) — either is fine; **consistency** matters more than the choice. Keep the system name in System APIs (you want to know it wraps SAP) but **not** in Process/Experience names (they must be backend-agnostic).
+Some organisations use suffixes (\`customer-sapi\`, \`order-papi\`, \`mobile-eapi\`): either is fine; **consistency** matters more than the choice. Keep the system name in System APIs (you want to know it wraps SAP) but **not** in Process/Experience names (they must be backend-agnostic).
 
 **Versions and environments.**
-- Asset version follows semantic versioning in Exchange (1.2.0); the **major** version appears in the base path: \`/api/v1/orders\`. Do not create \`order-api-v2\` as a separate asset — publish a new major version of the same asset.
+- Asset version follows semantic versioning in Exchange (1.2.0); the **major** version appears in the base path: \`/api/v1/orders\`. Do not create \`order-api-v2\` as a separate asset: publish a new major version of the same asset.
 - Environment is not part of the API name; API Manager instances are per environment. Deployed application names must often be unique per control plane / domain, so teams commonly suffix the app name: \`sys-sap-order-api-dev\`, \`-qa\`, \`-prod\`.
 
 **Resource model (Order domain).**
 
 \`\`\`
-sys-sap-order-api            (System — mirrors the SoR's entities, cleanly)
+sys-sap-order-api            (System: mirrors the SoR's entities, cleanly)
   GET  /orders?customerId=&status=&fromDate=&page=&pageSize=
   GET  /orders/{orderId}
   GET  /orders/{orderId}/lines
@@ -127,12 +127,12 @@ sys-sfdc-customer-api
   GET  /customers?email=
   GET  /customers/{customerId}
 
-prc-order-api                (Process — business capability)
+prc-order-api                (Process: business capability)
   POST /orders                 -> validate, price, reserve stock, create in SAP
   GET  /orders/{orderId}       -> order + customer + shipment status aggregated
   POST /orders/{orderId}/cancellation
 
-exp-mobile-api               (Experience — the consumer's view)
+exp-mobile-api               (Experience: the consumer's view)
   GET  /me/orders?limit=10     -> customer taken from the token, lean payload
   GET  /me/orders/{orderId}
   POST /me/orders
@@ -149,6 +149,6 @@ Reusable **RAML fragments / OAS components** (shared data types for \`Order\`, \
   followUps: [
     { q: 'Should the Process API be called prc-sap-order-api?', a: 'No. Process APIs must be independent of the backend; putting SAP in the name signals coupling and becomes wrong the day SAP is replaced.' },
     { q: 'How do you enforce naming standards across 20 teams?', a: 'Document them, provide project templates/archetypes, and check them in design reviews and CI; Anypoint API Governance rulesets can also check spec conventions such as kebab-case paths.' },
-    { q: 'Is it OK for an Experience API to have screen-oriented resources like /home?', a: 'Yes, in moderation. Experience APIs exist to fit the consumer, and a backend-for-frontend endpoint per screen can reduce round trips on mobile; just keep business logic out of it.' },
+    { q: 'Is it OK for an Experience API to have screen-oriented resources like /home?', a: 'Yes, in moderation. Experience APIs exist to fit the consumer, and a backend-for-frontend endpoint per screen can reduce round trips on mobile. Keep business logic out of it.' },
   ],
 }

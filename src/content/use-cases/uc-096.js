@@ -78,6 +78,7 @@ Facts:
 - SAP sends delivery (\`DESADV\`) and billing (\`INVOIC\`) IDocs when goods issue and billing are posted.
 - Each retailer has its own 850 variant (item numbers by UPC or by buyer part number, ship-to codes).
 - In the tests the retailers send 5 POs a second for 30 minutes before a holiday, SAP posts at most 3 orders a second, and 1 PO in 100 has an item number SAP cannot find.
+- A PO that fails is redelivered. After about 5 tries it must reach a DLQ so the team can fix it, and no PO may be lost.
 
 **Questions:**
 1. What does the AS2 endpoint do, and what does it not do?
@@ -116,7 +117,7 @@ Retailer --AS2--> exp-b2b-as2-inbound --> [edi-inbound] --> prc-customer-edi-ord
 
 **Tracking.** Every document updates the tracking row: 850 received, order number, 855 sent, 997 received, 856 sent, 810 sent. A dashboard lists POs where the truck left but no 856 was sent, so the team acts before the retailer issues a chargeback.
 
-**Errors.** A mapping error (unknown UPC) goes to the DLQ and the customer service team fixes the item cross-reference and replays it. SAP connection errors are redelivered with back-off.
+**Errors.** \`edi-inbound\` allows 5 deliveries. A mapping error (unknown UPC) fails each time and then goes to the DLQ and the customer service team fixes the item cross-reference and replays it. SAP connection errors are redelivered with back-off.
 `,
   followUps: [
     { q: 'Why not call the SAP BAPI inside the AS2 request?', a: 'The retailer only needs the MDN. If SAP is slow the AS2 session times out and the retailer resends, which creates more duplicates.' },

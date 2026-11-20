@@ -103,22 +103,22 @@ export default {
       type: 'single',
       prompt: 'Partners cannot move to REST within 18 months. How do you keep them working after the ESB is gone?',
       options: [
-        'Keep the ESB running for partners only',
-        'Expose the same WSDL through a Mule SOAP facade (APIkit for SOAP) that translates to the new REST Process APIs, preserving WS-Security and mutual TLS',
-        'Force partners to change by a hard deadline',
-        'Give partners direct database access',
+        'Keep the ESB running for the partners only, past its support end',
+        'A Mule SOAP facade with the same WSDL over the new Process APIs',
+        'Publish REST APIs and give partners a hard deadline to move',
+        'Give partners a REST client library to drop into their SOAP code',
       ],
       answer: 1,
-      explain: 'A facade keeps the partner contract identical while the implementation moves to API-led; new consumers use the REST APIs.',
+      explain: 'A facade (APIkit for SOAP) keeps the partner contract identical, including WS-Security and mutual TLS, while the implementation moves to API-led. New consumers use the REST APIs.',
     },
     {
       type: 'single',
       prompt: 'What happens to the XSLT transformations inside the ESB?',
       options: [
-        'Copy them unchanged forever',
-        'They may run temporarily via the XML module as a bridge, but the target is DataWeave, tested with recorded ESB inputs/outputs as golden files',
-        'Rewrite them all in Java',
-        'Move them to the consumers',
+        'Keep them unchanged in the XML module for good',
+        'Run them in the XML module for now; rewrite in DataWeave with golden files',
+        'Rewrite them all as Java components',
+        'Move each transformation into the consumers that need it',
       ],
       answer: 1,
       explain: 'Reusing XSLT short term protects the deadline; golden-file MUnit tests prove the DataWeave rewrite has parity.',
@@ -139,13 +139,13 @@ export default {
       type: 'single',
       prompt: 'Where do business rules hidden in ESB orchestrations go?',
       options: [
-        'Into the Experience APIs',
-        'To their proper owner: domain rules to Process APIs, system-of-record rules back to that system, volatile complex rules to a rules engine — each documented in an ADR',
-        'Into a single shared System API',
-        'They are dropped',
+        'Into the Experience APIs, close to each consumer',
+        'To their owner: Process APIs, the system of record, or a rules engine',
+        'Into one shared System API that every flow calls',
+        'Into a DataWeave module shared by all the new apps',
       ],
       answer: 1,
-      explain: 'Extracting rules deliberately avoids recreating the ESB inside Mule.',
+      explain: 'Domain rules go to Process APIs, system-of-record rules back to that system, and volatile complex rules to a rules engine, each documented in an ADR. Extracting rules deliberately avoids recreating the ESB inside Mule.',
     },
   ],
   description: `
@@ -161,7 +161,9 @@ A utilities company runs a 12-year-old ESB (not MuleSoft) with:
 
 Leadership wants to move to MuleSoft with API-led connectivity, REST/JSON as the target style, and **no big-bang cutover**. Partners cannot be forced to change their integration within 18 months.
 
-Numbers for the first wave, the consolidated GetCustomer service:
+The first wave is the consolidated GetCustomer service. It reads the customer database (through stored procedures) and SAP. Internal apps and partners must keep calling the same endpoints while services move one by one, and the services not yet moved keep running on the ESB against the same backends.
+
+Numbers for the first wave:
 - At peak, internal apps send **60 calls a second** and partners **20**.
 - The old ESB has had outages. A service already moved to Mule must keep answering when the ESB is down.
 - The new APIs run on CloudHub 2.0 and must survive the loss of **one availability zone**.
@@ -195,12 +197,12 @@ Numbers for the first wave, the consolidated GetCustomer service:
   ],
   solution: `
 **Discovery and assessment.**
-- Collect 6–12 months of **traffic logs** per operation: consumer, volume, errors. Combine with ESB configuration export to map dependencies (which backends, which stored procedures).
+- Collect 6 to 12 months of **traffic logs** per operation: consumer, volume, errors. Combine with ESB configuration export to map dependencies (which backends, which stored procedures).
 - Score each service: business criticality, consumers (internal/partner), complexity (orchestration, transactions), data sensitivity.
-- Outcome buckets: **Retire** (no traffic — confirm with owners, switch off and watch for 30 days), **Consolidate** (6 GetCustomer variants → one Customer System/Process API + facades), **Rehost** (simple pass-through), **Redesign** (complex orchestrations).
+- Outcome buckets: **Retire** (no traffic: confirm with owners, switch off and watch for 30 days), **Consolidate** (6 GetCustomer variants → one Customer System/Process API + facades), **Rehost** (simple pass-through), **Redesign** (complex orchestrations).
 - Expect a large part of the estate to shrink: the target is not 180 Mule apps.
 
-**Migration pattern — strangler fig.**
+**Migration pattern: strangler fig.**
 1. Put a **routing layer** (API gateway or a Mule routing proxy) in front of the ESB endpoints; DNS/consumer endpoints point to it. Initially it forwards everything to the ESB.
 2. Build target **System APIs** for backends (DB, SAP, billing) and **Process APIs** for the domains.
 3. Per service: implement on Mule, **compare** (shadow traffic or replay recorded requests and diff responses), then switch the route. Rollback = switch back.
@@ -213,12 +215,12 @@ Numbers for the first wave, the consolidated GetCustomer service:
 **Business logic and XSLT.**
 - Extract rules: domain rules → Process APIs; rules that belong to the system of record → push back to it; complex, frequently changing rules → rules engine. Document each in an ADR.
 - XSLT: Mule can run XSLT (XML module) as a short-term bridge for complex mappings, but the target is **DataWeave** with MUnit tests using recorded ESB inputs/outputs as golden files.
-- Stored-procedure-heavy services: wrap in a System API first (lift), refactor later — do not block the deadline.
+- Stored-procedure-heavy services: wrap in a System API first (lift), refactor later: do not block the deadline.
 
 **Waves, risk, progress.**
 - Wave 0: platform (CI/CD, security, logging, routing layer), retire unused services.
 - Wave 1: low-risk, high-volume read services (prove the pattern).
-- Wave 2–3: core domains and partner services; leave complex transactional orchestrations for when the team is experienced, but before month 15 to keep buffer.
+- Wave 2 to 3: core domains and partner services; leave complex transactional orchestrations for when the team is experienced, but before month 15 to keep buffer.
 - Risk controls: parallel run, feature-flag routing, cutover windows, rollback rehearsed, performance tests against ESB baselines.
 - Track: services retired/migrated/remaining, % of traffic on Mule, defects after cutover, partner readiness. Make the licence end date a visible milestone with contingency (short ESB support extension negotiated early as insurance).
 

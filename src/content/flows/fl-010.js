@@ -170,10 +170,10 @@ export default {
     ),
   ),
   description: `
-Your **Order Process API** calls a partner **Inventory API** to reserve stock. The partner is flaky:
+Your **Order Process API** (\`POST /orders/{orderId}/reservations\`) calls a partner **Inventory API** (\`POST /reservations\`) to reserve stock. The partner answers with the reservation \`id\`, and your API returns \`{ orderId, reservationId, status: "RESERVED" }\`. The partner is flaky:
 - ~2% of calls fail with **503** or **socket timeouts** and succeed if retried a second later.
-- Bad requests return **400** (e.g. unknown SKU) — retrying will never help.
-- The calling UI times out after **10 s**.
+- Bad requests return **400** (e.g. unknown SKU). Retrying will never help, so the caller gets **400** at once.
+- The calling UI times out after **10 s**. If the partner stays down, answer with a 5xx before that.
 
 **Design the flow(s):**
 - How do you retry only transient failures, how many times and how far apart?
@@ -201,7 +201,7 @@ Your **Order Process API** calls a partner **Inventory API** to reserve stock. T
   solution: `
 1. **Retry scope:** HTTP Request \`POST /reservations\` inside **Until Successful** with \`maxRetries="3"\` and \`millisBetweenRetries="1000"\`. HTTP \`responseTimeout\` 2000 ms → worst case ≈ 4 attempts × 2 s + 3 s waits ≈ 11 s; tune (e.g. 1500 ms timeout) to fit the 10 s budget.
 2. **Only transient errors retried:** Until Successful retries on *any* error. Inside it, put a **Try** with **On Error Continue** for \`HTTP:BAD_REQUEST\` / \`HTTP:NOT_FOUND\` that sets \`vars.permanentError\` and ends the attempt "successfully". After the scope, a Choice raises a custom error (Raise Error \`APP:INVALID_SKU\`) when the flag is set. \`HTTP:SERVICE_UNAVAILABLE\`, \`HTTP:TIMEOUT\` and \`HTTP:CONNECTIVITY\` still propagate and trigger a retry.
-3. **Reconnection strategy** on the HTTP Request config (\`reconnection\` with a count/frequency) only handles failing to *connect* — it complements, not replaces, Until Successful.
+3. **Reconnection strategy** on the HTTP Request config (\`reconnection\` with a count/frequency) only handles failing to *connect*. It complements, not replaces, Until Successful.
 4. **Exhausted:** Until Successful raises \`MULE:RETRY_EXHAUSTED\`. In the flow error handler, an On Error Propagate for that type sets \`httpStatus = 503\` and an error body \`{ code: "INVENTORY_UNAVAILABLE", correlationId }\`. \`APP:INVALID_SKU\` maps to 400.
 5. **Idempotency:** send \`orderId\` as an idempotency key header / reservation reference so if a timed-out call actually succeeded, the retry is recognised by the partner instead of reserving twice.
 `,

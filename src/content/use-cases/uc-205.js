@@ -59,7 +59,8 @@ The first run failed every part. The relay's calls gave up after the default 10 
 **Numbers**
 - About **one part every five seconds** while the export runs, for half an hour.
 - Reading a part from the landing server starts in about 500 ms. An upload takes about **2 minutes**, and up to 4 at year end.
-- At busy times about **1 upload in 10** is refused at login, for up to 20 minutes.
+- At busy times about **1 upload in 10** is refused at login, for up to 20 minutes. Each try is refused or not on its own.
+- Fewer than **1 part in 100** may fail, even at busy times.
 - In this model calls time out after 10 seconds unless set otherwise.
 
 **Questions:**
@@ -87,7 +88,7 @@ history-parts-relay ─► Brindle landing SFTP
 history-parts-relay ─► Planning platform SFTP
 \`\`\`
 
-**Settings.** \`history-parts-relay\`: timeout 300 seconds (5 minutes), 2 retries.
+**Settings.** \`history-parts-relay\`: timeout 300 seconds (5 minutes), 2 retries. One retry still loses 1 part in 100; two lose about 1 in 1,000.
 
 **On the SFTP connector.** Check the connection and response timeouts of the SFTP config too: a socket timeout shorter than the upload fails it the same way.
 `,

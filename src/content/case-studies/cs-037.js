@@ -90,6 +90,8 @@ It has bought a SaaS order management system (OMS) to decide where each order is
 - Peak sale events generate 8x normal orders.
 - The OMS vendor provides REST APIs and webhooks, with rate limits.
 - The web shop takes about 10 orders a second, up to 100 at a sale peak, and the OMS takes 50 calls a second. Stores send about 10 stock movements a second, and the OMS can be down for 30 minutes.
+- Web and marketplace orders wait on an \`order-submissions\` queue, store movements on a \`stock-movements\` queue, and OMS status changes go to an \`order-status\` topic.
+- Name the APIs exp-web-orders-api, exp-store-api, prc-orders-api, prc-inventory-api, prc-returns-api, prc-customer-notify, sys-marketplace-api and sys-oms-api. Give exp-web-orders-api 0.5 vCore so it can accept 100 orders a second.
 
 **Your task.** Propose the integration architecture for inventory, orders, fulfilment status and returns.
 `,
@@ -116,18 +118,18 @@ It has bought a SaaS order management system (OMS) to decide where each order is
 **Responsibilities.** OMS: order lifecycle, routing, ATP calculation. POS/WMS: stock movements. Commerce/marketplaces: capture. Mule: connectivity, transformation, event distribution, and protecting the OMS rate limits.
 
 **Inventory.**
-- \`pos-sapi\`: stores publish stock movements (sale, return, receipt, adjustment) as events. Where POS cannot push, an agent or small store-side integration batches deltas every few minutes and holds them locally when offline (store-and-forward), then sends in order.
-- \`wms-sapi\`: warehouse stock deltas via WMS events or frequent polling.
-- \`inventory-papi\` aggregates deltas and updates the OMS in batches that respect its rate limits; a nightly full snapshot reconciles drift.
+- Stores publish stock movements (sale, return, receipt, adjustment) to the \`stock-movements\` queue. Where POS cannot push, a store-side agent batches deltas every few minutes and holds them locally when offline (store-and-forward), then sends in order.
+- Warehouse stock deltas come from WMS events or frequent polling through a WMS System API.
+- \`prc-inventory-api\` aggregates deltas and updates the OMS in batches that respect its rate limits; a nightly full snapshot reconciles drift.
 - ATP shown to channels comes from the OMS (cached for a short time at the Experience layer for browse pages).
 
-**Orders.** \`web-orders-eapi\` and \`marketplace-<name>-sapi\` (polling or webhooks from marketplaces) → \`orders-papi\` → OMS create order with the channel order ID as idempotency key. Payment is authorised in the channel; capture happens on shipment.
+**Orders.** \`exp-web-orders-api\` and \`sys-marketplace-api\` (polling or webhooks from marketplaces) → \`order-submissions\` queue → \`prc-orders-api\` → \`sys-oms-api\` → OMS create order with the channel order ID as idempotency key. Payment is authorised in the channel; capture happens on shipment.
 
-**Fulfilment.** OMS routes an order to a store; the store app shows a pick list (via OMS or a store Experience API). If a picker cannot find the item, they reject → OMS re-routes. Status webhooks from OMS → Mule → Anypoint MQ exchange → notifications, commerce platform, marketplace status updates, finance.
+**Fulfilment.** OMS routes an order to a store; the store app shows a pick list (via OMS or a store Experience API). If a picker cannot find the item, they reject → OMS re-routes. Status webhooks from OMS → \`sys-oms-api\` → \`order-status\` exchange in Anypoint MQ → notifications, commerce platform, marketplace status updates, finance.
 
-**Returns.** Any store can accept a return: POS calls \`returns-papi\`, which looks up the order in OMS, records the return, triggers refund via the original channel's payment provider and restocks the store inventory.
+**Returns.** Any store can accept a return: POS calls \`exp-store-api\` and \`prc-returns-api\`, which looks up the order in OMS, records the return, triggers refund via the original channel's payment provider and restocks the store inventory.
 
-**Peak.** Queue order submissions between channels and OMS to absorb 8x spikes; load test against the OMS sandbox limits; pre-scale replicas.
+**Peak.** Queue order submissions between channels and OMS to absorb 8x spikes. Ten minutes at 100 orders a second against an OMS limit of 50 leaves about 30,000 orders queued, which drain in about 12 minutes at 40 a second of spare OMS capacity; load test against the OMS sandbox limits; pre-scale replicas.
 
 **Risks.** Overselling from inaccurate store stock (buffers, pick rejection), OMS rate limits (batching, queues), store offline (store-and-forward, reconciliation), and status mismatches across marketplaces (single status event source).
 `,

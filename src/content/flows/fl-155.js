@@ -91,6 +91,12 @@ The table \`posted_payments\` (\`payment_id\`, \`account_no\`, \`amount\`) is yo
 - A repeat is acknowledged and logged, not treated as an error.
 - If billing fails, record nothing, so the payment is delivered again and credited later.
 
+**Facts**
+- In the lookup SQL, name the payment ID parameter \`:paymentId\`.
+- Insert \`payment_id\`, \`account_no\` and \`amount\` from the message.
+- Billing answers 201 when it accepts a credit. A 503 from billing must fail the flow (do not catch it), so the listener returns the message to the queue.
+- Log a repeat at INFO or WARN.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why repeats happen

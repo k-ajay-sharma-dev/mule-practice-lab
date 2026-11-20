@@ -289,12 +289,19 @@ export default {
     ),
   ),
   description: `
-A telecom onboards new customers from its mobile app. Today the **Customer Onboarding Process API** synchronously creates the customer in the **CRM** (via \`sys-crm\`) and then calls the marketing platform, the billing system and the loyalty programme one after the other — signup takes 6 s and fails whenever any of them is down.
+A telecom onboards new customers from its mobile app. Today the **Customer Onboarding Process API** synchronously creates the customer in the **CRM** (via \`sys-crm\`) and then calls the marketing platform, the billing system and the loyalty programme one after the other: signup takes 6 s and fails whenever any of them is down.
 
 New target design:
-- The app must get its answer (customer id, **201**) as soon as the CRM has created the customer — p95 < 2 s, ~5 signups/s, 50/s during campaigns.
+- The app must get its answer (customer id, **201**) as soon as the CRM has created the customer: p95 < 2 s, ~5 signups/s, 50/s during campaigns.
 - Marketing, billing and loyalty react to a **CustomerCreated** domain event; more subscribers will follow (fraud scoring next quarter) without changing the Process API.
-- An event must **never be lost**, even if Anypoint MQ is briefly unreachable after the CRM commit. Consumers must cope with duplicates.
+- An event must **never be lost**, even if Anypoint MQ is briefly unreachable after the CRM commit. Consumers must cope with duplicates, and an event whose first delivery failed must still be processed when it is redelivered.
+
+**Facts**
+- The app calls \`POST /exp-mobile/v1/signup\`. The Process API is \`POST /prc-customers/v1/customers\` with \`{ email, firstName, country, marketingOptIn }\` (the project's schema \`schemas/customer.json\`). It answers \`{ customerId, status: "CREATED" }\`.
+- \`sys-crm\` is \`POST /sys-crm/v1/customers\` and answers the new customer with its \`id\`.
+- The event is \`{ eventId, eventType: "CustomerCreated", version, occurredAt, correlationId, data: { customerId, ... } }\`, published to the Anypoint MQ exchange \`customer-events-exchange\`.
+- Events that cannot be published go to the \`event_outbox\` table (\`event_id\`, \`event_type\`, \`body\` as JSON text, \`published\` true or false, \`created_at\`).
+- Marketing's queue is \`welcome-journey-queue\`. Its subscriber calls \`POST /sys-marketing/v1/contacts\`.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-customers/v1/customers\`), and let layers call each other with HTTP Request pointing at the lower API's path. Event consumers are flows too (use the \`prc-\` prefix for process-level subscribers).
 
@@ -312,9 +319,9 @@ New target design:
 `,
   keyPoints: [
     'API-led and event-driven combine: the synchronous request goes exp → prc → sys only as far as needed for the answer; side effects become a domain event.',
-    'Publish only after the System API call succeeded — the event states a fact ("CustomerCreated"), with eventId, type, version, timestamp and correlationId.',
+    'Publish only after the System API call succeeded: the event states a fact ("CustomerCreated"), with eventId, type, version, timestamp and correlationId.',
     'Publish to an exchange so new subscribers (fraud scoring) bind their own queue without changing the publisher.',
-    'The CRM commit and the MQ publish are not one transaction: a failed publish is caught (Try + On Error Continue) and parked in an outbox that a scheduled relay re-publishes — no lost events, no failed signup.',
+    'The CRM commit and the MQ publish are not one transaction: a failed publish is caught (Try + On Error Continue) and parked in an outbox that a scheduled relay re-publishes: no lost events, no failed signup.',
     'Delivery is at-least-once (relay and redelivery can duplicate), so subscribers are idempotent on eventId.',
   ],
   solution: `
@@ -339,7 +346,7 @@ New target design:
 
 **Synchronous path:** \`exp-mobile-signup\` → \`prc-customer-onboarding\` validates, calls \`sys-crm\` and returns **201** as soon as the CRM has the customer. Nothing else is on the critical path.
 
-**Event:** Transform to \`vars.event\` — \`{ eventId, eventType: "CustomerCreated", version, occurredAt, correlationId, data: {...} }\`. Publish to an **exchange**; each consumer binds its own queue (with its own DLQ).
+**Event:** Transform to \`vars.event\`: \`{ eventId, eventType: "CustomerCreated", version, occurredAt, correlationId, data: {...} }\`. Publish to an **exchange**; each consumer binds its own queue (with its own DLQ).
 
 **No lost events:** the CRM commit already happened, so a publish failure must not turn into a 5xx (the app would retry and create a duplicate customer). The **Try** catches \`ANYPOINT-MQ:*\` errors with **On Error Continue** and inserts the event, written as JSON text, into \`event_outbox\`. A **Scheduler** relay re-publishes unpublished rows and marks them published. (A stricter variant writes *every* event to the outbox and only the relay publishes.)
 
@@ -352,14 +359,14 @@ New target design:
     },
     {
       q: 'Is the event part of the Process API contract?',
-      a: 'Yes — publish its schema (e.g. AsyncAPI) in Exchange and version it like an API. Subscribers depend on it as much as HTTP consumers depend on the RAML/OAS.',
+      a: 'Yes. Publish its schema (e.g. AsyncAPI) in Exchange and version it like an API. Subscribers depend on it as much as HTTP consumers depend on the RAML/OAS.',
     },
     {
       q: 'Billing must process events for the same customer in order. What changes?',
       a: 'Use a FIFO queue for that consumer (or a message group per customerId) and process sequentially; carry a sequence/version so out-of-order or duplicate events can be detected.',
     },
     {
-      q: 'Who owns the outbox table — the Process API or the CRM?',
+      q: 'Who owns the outbox table: the Process API or the CRM?',
       a: 'The Process API (its own small store). A true transactional outbox would write the event in the same transaction as the business data, which is only possible if the Process API owns that database; with a SaaS CRM, the catch-and-park approach plus idempotent consumers is the practical compromise.',
     },
   ],

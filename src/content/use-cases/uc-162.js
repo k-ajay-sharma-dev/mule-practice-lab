@@ -75,7 +75,9 @@ A **migration job** in Mule will copy the archive. New saves go through a case d
 - Case workers save about **300 documents a second**, and **600 a second** for half an hour when the weekend shift starts.
 - The share serves up to 400 reads a second at about 80 ms. In this scenario, the storage account takes about **1,000 writes a second** at about 250 ms.
 - On busy periods storage answers about **1 write in 20** with "server busy".
-- In this model one vCore serves about 500 requests a second, and the smallest size is 0.1 vCore.
+- A case worker's save must finish within **800 ms**.
+- The APIs run on CloudHub 2.0 across availability zones, and a zone can fail for 15 minutes.
+- In this model one vCore serves about 500 requests a second, the smallest size is 0.1 vCore, and an app with one replica stops when its zone fails.
 
 **Questions:**
 - Draw the design.

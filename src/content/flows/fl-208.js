@@ -92,6 +92,12 @@ Things that went wrong with the old script:
 - Archive the source only after the WMS copy is complete.
 - Move an empty file to \`/plan/out/waves/empty\` instead of relaying it.
 
+**Facts**
+- Listen for \`WAVE_*.dat\` with a size check wait. The listener gives the size in bytes in \`attributes.size\`: test it in a **Choice**.
+- Write the WMS copy as \`/wms/in/waves/<file name>.part\`, then rename it to \`<file name>\`. No \`.part\` file may be left. Use no Transform.
+- Files keep their names when moved to \`archive\` or \`empty\` under \`/plan/out/waves\`.
+- Do not catch a failed write. The run fails and the source stays.
+
 **Design the flow.** Mention the FTP settings that keep the bytes unchanged.
 `,
   answerTemplate: `## Picking up a wave

@@ -158,7 +158,7 @@ types:
   followUps: [
     {
       q: 'How is a union different from one type with many optional properties?',
-      a: 'A union keeps the rules of each case. With optional properties, a payment with neither cardToken nor mandateId would be valid, and so would one with both.',
+      a: 'A union keeps the rules of each case. With optional properties, a payment with neither cardToken nor mandateId would be valid, and kind would not say which fields to expect.',
     },
     {
       q: 'What does (CardPayment | DirectDebit)[] mean?',

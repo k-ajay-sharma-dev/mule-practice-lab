@@ -74,7 +74,8 @@ A Mule **export job** reads the rows through a **shipment data System API** in f
 **Numbers**
 - About **1 part a second** while the export runs, for half an hour.
 - An upload takes about **8 seconds**; at year end about **a minute**.
-- When another team runs a bulk copy into the same storage account, about **1 upload in 10** is refused with \`503 Server Busy\` for up to 20 minutes.
+- When another team runs a bulk copy into the same storage account, about **1 upload in 10** is refused with \`503 Server Busy\` for up to 20 minutes. Each try is refused or not on its own.
+- Fewer than **1 part in 100** may fail, even while the account throttles.
 - Last year an availability zone failed for 20 minutes during a night run.
 - In this model calls time out after 10 seconds unless set otherwise.
 
@@ -106,7 +107,7 @@ shipment-parts-export ─► sys-shipment-data ─► Shipments SQL Server
 shipment-parts-export ─► Planning exchange container
 \`\`\`
 
-**Settings.** \`shipment-parts-export\`: 2 replicas, timeout 120 seconds, 2 retries. \`sys-shipment-data\`: 2 replicas.
+**Settings.** \`shipment-parts-export\`: 2 replicas, timeout 120 seconds, 2 retries (one retry still loses 1 part in 100; two lose about 1 in 1,000). \`sys-shipment-data\`: 2 replicas.
 
 **Uploading 200 MB.** Stream the part to the upload and check that your connector sends large blobs in blocks. A block upload can also resume a part instead of starting again.
 `,

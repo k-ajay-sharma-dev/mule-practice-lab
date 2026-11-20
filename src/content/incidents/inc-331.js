@@ -7,45 +7,45 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
-      { text: "2026-11-18 04:00:00 INFO  [cost-in] Connected host=ftp.supplier-d.example", relevant: true, why: "Login works." },
-      { text: "2026-11-18 04:00:01 INFO  [cost-in] 227 Entering Passive Mode (10,20,0,15,195,80)", relevant: true, why: "The server gives a private IP." },
-      { text: "2026-11-18 04:00:31 ERROR [cost-in] Data connection timed out to 10.20.0.15:50000", relevant: true, why: "Mule cannot reach a private address." },
       { text: "2026-11-17 20:00:00 INFO  [supplier-d] Server moved behind NAT firewall", relevant: true, why: "The partner changed their network." },
-      { text: "2026-11-18 23:59:00 INFO  [cost-in] GET /health 200", relevant: false },
+      { text: "2026-11-18 04:00:00 INFO  [cost-in] Connected host=ftp.supplier-d.example.com", relevant: true, why: "Login works." },
+      { text: "2026-11-18 04:00:01 INFO  [cost-in] 227 Entering Passive Mode (10,20,0,15,195,80)", relevant: true, why: "The server gives a private IP. The port is 195 x 256 + 80 = 50000." },
+      { text: "2026-11-18 04:00:31 ERROR [cost-in] Data connection timed out to 10.20.0.15:50000", relevant: true, why: "Mule cannot reach a private address." },
+      { text: "2026-11-18 04:05:00 INFO  [cost-in] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why does the data connection fail?",
         options: [
-          "The server advertises its private address in the PASV reply, which Mule cannot reach",
-          "Login failed",
-          "The file is missing",
-          "Mule is down",
+          "The PASV reply gives a private address that Mule cannot reach",
+          "The FTP login now fails because the partner reset the password",
+          "Port 50000 is blocked by the Mule firewall for outbound traffic",
+          "The cost file is missing, so the server never opens a data port",
         ],
         answer: 0,
-        explain: "NAT hides the server behind a public address.",
+        explain: "NAT hides the server behind a public address, but the server still reports its private one.",
       },
       {
         type: 'single',
         prompt: "What should the partner change?",
         options: [
-          "Configure the server to advertise its public address for passive mode",
-          "Turn off the firewall",
-          "Use active mode only",
-          "Nothing",
+          "Set the server to advertise its public address in PASV replies",
+          "Open ports 49152 to 65535 on the partner firewall to everyone",
+          "Lower the data connection timeout so retries happen sooner",
+          "Allow the Mule IP addresses on port 21 only, as before the move",
         ],
         answer: 0,
-        explain: "A server side NAT setting.",
+        explain: "A server side NAT setting. Open ports do not help while the reply names a private address.",
       },
       {
         type: 'multi',
         prompt: "What can the client try?",
         options: [
           "EPSV, which does not send an IP address",
-          "A client option to use the control connection host for data",
+          "Use the control connection host for data",
           "Moving to SFTP, which uses one connection",
-          "Opening every port",
+          "Switching the transfer type to binary",
         ],
         answer: [0,1,2],
         explain: "Avoid relying on the advertised IP.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why does SFTP avoid this?",
         options: [
           "It uses a single connection for commands and data",
-          "It is faster",
-          "It has no firewall",
-          "It is the same",
+          "It encrypts the data, so firewalls let it through",
+          "It always uses active mode behind NAT",
+          "It sends the public IP in its own replies",
         ],
         answer: 0,
         explain: "One port, no data channel.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 04:00:00 INFO  [cost-in] Connected host=ftp.supplier-d.example
+2026-11-17 20:00:00 INFO  [supplier-d] Server moved behind NAT firewall
+2026-11-18 04:00:00 INFO  [cost-in] Connected host=ftp.supplier-d.example.com
 2026-11-18 04:00:01 INFO  [cost-in] 227 Entering Passive Mode (10,20,0,15,195,80)
 2026-11-18 04:00:31 ERROR [cost-in] Data connection timed out to 10.20.0.15:50000
-2026-11-17 20:00:00 INFO  [supplier-d] Server moved behind NAT firewall
 \`\`\`
 
 ## Your tasks

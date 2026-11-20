@@ -114,7 +114,7 @@ payload map (n) -> {
     },
     {
       q: 'What would happen with 12.5?',
-      a: 'The function would reach 0.5, where no value fits, so `top` is null and the next step has nothing to subtract. Add a check that the number is whole, for example `n mod 1 == 0`, to the range check.',
+      a: 'The function would reach 0.5, where no value fits, so `top` is null and the next step has nothing to subtract. Add a check that the number is whole, for example `(n mod 1) == 0`, to the range check. The brackets are needed, because `mod` binds looser than `==`.',
     },
   ],
 }

@@ -218,7 +218,7 @@ export default {
   description: `
 An electricity network operator collects readings from **2.1 million smart meters**. Head-end systems publish them to the Kafka topic \`meter.readings.v1\` (24 partitions, about **6,000 messages per second** at the top of each hour). Each message is JSON: \`{ "meterId": "...", "readAt": "...", "kwh": 1.42 }\`.
 
-The readings must be loaded into the **PostgreSQL** table \`meter_reading\`, which has a primary key on \`(meter_id, read_at)\`. A single-row insert per message cannot keep up, so the team wants to insert in batches.
+The readings must be loaded into the **PostgreSQL** table \`meter_reading\` (\`meter_id\`, \`read_at\`, \`kwh\`), which has a primary key on \`(meter_id, read_at)\`. A single-row insert per message cannot keep up, so the team wants to insert in batches.
 
 **Requirements**
 - Use the batch listener and write each batch with **one bulk statement**.
@@ -279,7 +279,7 @@ After the loop the handler calls **Commit**. This is the step people forget. On 
 `,
   followUps: [
     {
-      q: 'Would AUTO mode be simpler here?',
+      q: 'Would AUTO mode need fewer steps here?',
       a: 'Yes, AUTO commits if the flow finishes successfully, so the handler would need no Commit step. MANUAL makes the decision explicit on each path, and the team can see it in the flow. Choose it when the commit point needs to differ from flow completion, and test the failure behaviour for either mode.',
     },
     {

@@ -62,6 +62,7 @@ Facts:
 - Member contact details and preferences (text or email) are in a **members database**.
 - The provider has an outage of up to half an hour a few times a year.
 - Some members have an old phone number that the provider rejects every time.
+- The queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. A hold must survive a half-hour outage, and a hold that always fails must reach the DLQ.
 
 **Questions:**
 - Draw a design that never loses a "hold ready" message.
@@ -93,7 +94,7 @@ Library management system ─► exp-library-events ~► holds-ready ~► prc-me
 2. \`prc-member-notifications\` subscribes to the queue. For each hold it reads the member's preference and contact details, then asks the provider to send a text or an email.
 3. When the provider answers, the message is acknowledged and removed from the queue.
 
-**During a provider outage.** The call fails, so the Process API does not acknowledge the message. The queue delivers it again later. With 2 holds a second, a 20 minute outage leaves about 2,400 messages waiting, and they are all sent within minutes of the provider coming back. The redelivery limit of 40 tries is set so that a message is not given up during an outage like this.
+**During a provider outage.** The call fails, so the Process API does not acknowledge the message. The queue delivers it again later. With 2 holds a second, a 20 minute outage leaves about 2,400 messages waiting, and they are all sent within minutes of the provider coming back. The queue redelivers about once a minute, so a redelivery limit of 40 tries covers an outage of up to half an hour with some room, and no message is given up during it.
 
 **Messages that can never be sent.** A wrong phone number fails on every try. After 40 tries the queue moves it to \`holds-ready DLQ\`. The library team checks the DLQ each morning, fixes the member's details, and moves the message back to the queue.
 `,

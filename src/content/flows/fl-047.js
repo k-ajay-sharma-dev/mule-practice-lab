@@ -167,16 +167,16 @@ export default {
     ),
   ),
   description: `
-You own the **Customers System API** — the only way the rest of the application network may read the legacy customer database (PostgreSQL, table \`cust_master\`, ~4 million rows, cryptic columns like \`first_nm\`, \`status_cd\`).
+You own the **Customers System API**: the only way the rest of the application network may read the legacy customer database (PostgreSQL, table \`cust_master\`, ~4 million rows, cryptic columns: \`customer_id\`, \`first_nm\`, \`last_nm\`, \`email_addr\` and \`status_cd\`, which is \`A\` for active).
 
 Resources:
-- \`GET /sys-customers/v1/customers?page=&pageSize=\` — paged list (default 50, max 200).
-- \`GET /sys-customers/v1/customers/{customerId}\` — one customer.
+- \`GET /sys-customers/v1/customers?page=&pageSize=\`: paged list (default 50, max 200).
+- \`GET /sys-customers/v1/customers/{customerId}\`: one customer.
 
 Constraints:
 - Callers are Process APIs; they must never see table or column names.
 - An unknown id must return **404**, not 200 with \`[]\`.
-- During DB maintenance windows the database is unreachable — callers need **503** so they can fall back or retry.
+- During DB maintenance windows the database is unreachable: callers need **503** so they can fall back or retry.
 - p95 latency budget: **300 ms**.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/sys-customers/v1/customers\`), and let layers call each other with HTTP Request pointing at the lower API's path. Here you only draw the system layer (one flow per resource is fine).
@@ -194,9 +194,9 @@ Constraints:
 ## Database unavailable / other errors
 `,
   keyPoints: [
-    'A System API unlocks exactly one system and exposes a stable, system-neutral contract — callers never see table or column names.',
+    'A System API unlocks exactly one system and exposes a stable, system-neutral contract: callers never see table or column names.',
     'Paging belongs in the SQL (LIMIT/OFFSET or keyset) with a capped pageSize; selecting 4 million rows and slicing in DataWeave would blow memory and the 300 ms budget.',
-    'An empty result is not an error to the database — the API must turn it into APP:NOT_FOUND explicitly and map it to 404.',
+    'An empty result is not an error to the database: the API must turn it into APP:NOT_FOUND explicitly and map it to 404.',
     'DB:CONNECTIVITY maps to 503 so Process APIs can tell "try later" apart from "bad request" or "not found".',
     'A catch-all ANY handler returns a generic 500 and logs the detail with the correlation ID instead of leaking stack traces.',
   ],
@@ -213,13 +213,13 @@ Constraints:
       PostgreSQL cust_master
 \`\`\`
 
-**sys-customers-list** — HTTP Listener \`GET /sys-customers/v1/customers\`
+**sys-customers-list**: HTTP Listener \`GET /sys-customers/v1/customers\`
 1. Set Variable \`page\` and \`pageSize\` (default 50, \`min(..., 200)\` caps it).
-2. Database Select \`... ORDER BY customer_id LIMIT :pageSize OFFSET :offset\` — paging in the database. A stable \`ORDER BY\` is mandatory or pages overlap.
+2. Database Select \`... ORDER BY customer_id LIMIT :pageSize OFFSET :offset\`: paging in the database. A stable \`ORDER BY\` is mandatory or pages overlap.
 3. Transform Message maps \`first_nm\` → \`firstName\`, \`status_cd == "A"\` → \`active\` and wraps it in \`{ page, pageSize, items }\`.
 
-**sys-customers-get** — HTTP Listener \`GET /sys-customers/v1/customers/{customerId}\`
-1. Database Select by id (parameterised — never string-concatenate SQL).
+**sys-customers-get**: HTTP Listener \`GET /sys-customers/v1/customers/{customerId}\`
+1. Database Select by id (parameterised: never string-concatenate SQL).
 2. Choice: \`isEmpty(payload)\` → Raise Error \`APP:NOT_FOUND\`; otherwise Transform \`payload[0]\` to the API model.
 
 **Error mapping** (On Error Propagate, status passed via \`vars.httpStatus\` to the listener's error response):
@@ -243,7 +243,7 @@ For very deep pages (page 50,000) OFFSET gets slow; keyset paging (\`WHERE custo
     },
     {
       q: 'Should the System API apply business rules such as "hide inactive customers"?',
-      a: 'No — that is process-layer logic. The System API returns what the system holds (with an active flag and filters as query parameters); deciding who may see what belongs above it.',
+      a: 'No. That is process-layer logic. The System API returns what the system holds (with an active flag and filters as query parameters); deciding who may see what belongs above it.',
     },
   ],
 }

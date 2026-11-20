@@ -98,6 +98,8 @@ export default {
 - More channels are coming next year: a second marketplace region and a print catalogue supplier.
 - The PIM read API limit must not be exceeded.
 - The PIM publishes about 2 products a second on a normal day. The marketplaces can be down for 30 minutes, and about 1 listing in 50 has data a marketplace rejects every time.
+- Name the PIM System API sys-pim-api and the channel queues \`product.commerce\`, \`product.marketplaces\` and \`product.stores\`.
+- A queue redelivers a failed message about once a minute. Try each listing for an hour (a redelivery limit of 60 on \`product.marketplaces\`), then send it to a dead-letter queue.
 
 **Your task.** Design the product syndication integration.
 `,
@@ -130,7 +132,9 @@ export default {
 - \`prc-marketplace-listings\` maps to each marketplace attribute set, respects their rate limits and sends rejected products to the DLQ with the marketplace error, so merchandisers can fix them in the PIM.
 - \`prc-store-items\` writes item records through \`sys-store-items-api\`, which the store POS and shelf label system load every 30 minutes.
 
-**Season launches.** The queues absorb 60,000 changes. Commerce catches up in about 20 minutes; marketplaces take longer, which no longer affects other channels.
+**Season launches.** The queues absorb 60,000 changes. At 10 PIM reads a second, one cached read per change, commerce catches up in about 100 minutes; marketplaces take longer, which no longer affects other channels.
+
+**Rejected listings.** \`product.marketplaces\` redelivers a failed listing about once a minute for an hour (a redelivery limit of 60), which rides out a 30 minute marketplace outage. A listing that still fails goes to the product DLQ.
 
 **New channels.** Add a queue bound to the exchange and a new Process API. Existing flows do not change.
 `,

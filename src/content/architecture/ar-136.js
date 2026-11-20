@@ -8,7 +8,7 @@ export default {
   tags: ['flex-gateway', 'api-gateway', 'api-manager', 'policies', 'kubernetes', 'security', 'oauth2'],
   estMinutes: 35,
   diagram: {
-    task: 'draw how the mobile app and partner systems reach three non-Mule services through a cloud load balancer and Flex Gateway, with tokens issued by the identity provider, the gateway fetching signing keys from it, analytics sent to Anypoint Monitoring, and no route around the gateway. Draw each service as a System API box, because it plays that role even though it is not Mule.',
+    task: 'draw how the mobile app and partner systems reach three non-Mule services through a cloud load balancer and Flex Gateway, with tokens issued by the identity provider, the gateway fetching signing keys from it, analytics sent to Anypoint Monitoring, and no route around the gateway. Draw each service as a System API box named after the service, because it plays that role even though it is not Mule.',
     checks: [
       { label: 'The mobile app and partners both enter through the load balancer', rule: { type: 'each', of: ['mobile-app', 'partner'], min: 2, edgeTo: 'load-balancer' } },
       { label: 'The load balancer sends traffic to Flex Gateway', rule: { type: 'edge', from: 'load-balancer', to: 'api-gateway' } },

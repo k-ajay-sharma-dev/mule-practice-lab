@@ -13,34 +13,34 @@ export default {
       { text: '2026-10-30 01:42:07 WARN  [meter-loader] On Error Continue: parked M-4418977 in METER_ERRORS partition=4 offset=88120506', relevant: true, why: 'The record is handled and the flow finishes successfully, but there is no commit in this log, unlike the success path.' },
       { text: '2026-10-30 02:15:00 INFO  [health] GET /api/health 200 (2 ms)', relevant: false },
       { text: '2026-10-30 03:30:00 WARN  [kafka-monitor] group=meter-loader lag=1,840,212 (threshold 100,000)', relevant: true, why: 'Lag is measured from the committed offset. The flow is busy handling records, yet the committed offset has stopped moving.' },
+      { text: '2026-10-30 03:50:18 INFO  [meter-loader] Replica restarted by rolling deployment; resuming from committed offset partition=4 offset=88120506', relevant: true, why: 'A consumer resumes from the last committed offset, so everything parked since 01:42 is read again.' },
+      { text: '2026-10-30 03:50:19 WARN  [meter-errors] Duplicate parked record M-4418977 partition=4 offset=88120506 (second occurrence)', relevant: true, why: 'This is the repeat: billing is still down, so the same offset goes down the error path a second time, as a direct result of the missing commit.' },
       { text: '2026-10-30 04:05:40 INFO  [billing-sapi] Service restored, GET /health 200', relevant: false },
-      { text: '2026-10-30 04:30:18 INFO  [meter-loader] Replica restarted by rolling deployment; resuming from committed offset partition=4 offset=88120506', relevant: true, why: 'A consumer resumes from the last committed offset, so everything parked since 01:42 is read again.' },
-      { text: '2026-10-30 04:30:19 WARN  [meter-errors] Duplicate parked record M-4418977 partition=4 offset=88120506 (second occurrence)', relevant: true, why: 'This is the repeat: the same offset is being processed a second time, as a direct result of the missing commit.' },
     ],
     questions: [
       {
         type: 'single',
         prompt: 'What is the root cause of the lag and the repeats?',
         options: [
-          'With MANUAL ack, the On Error Continue path has no Commit, so handled records were never committed',
-          'The topic has too few partitions for the load',
-          'AUTO ack commits only every hour',
-          'Kafka resent the records because the billing API failed',
+          'With MANUAL ack, the On Error Continue path never calls Commit',
+          'The topic has too few partitions for the replay load after the outage',
+          'The listener’s session timed out during the outage and lost its offsets',
+          'Kafka redelivers records whose flow failed, like a JMS broker does',
         ],
         answer: 0,
-        explain: 'The docs require Commit at the end of the flow when it finishes successfully, including through On Error Continue. The committed offset stood still during the outage, so a restart resumed from there. Kafka has no knowledge of the billing API.',
+        explain: 'The docs require Commit at the end of the flow when it finishes successfully, including through On Error Continue. The committed offset stood still during the outage, so a restart resumed from there. Kafka has no knowledge of the billing API and does not redeliver per record, and the restart resumed from a stored offset, so none was lost.',
       },
       {
         type: 'single',
         prompt: 'The lag alert is firing and a replica restart has started repeats. What should you do first?',
         options: [
-          'Stop the rolling restart if you can, and check that repeats cannot double-bill before anything else is reprocessed',
-          'Delete the topic to clear the lag',
-          'Change the group ID so the lag number resets',
-          'Add parallel consumers to clear the lag faster',
+          'Stop further restarts and check that repeats cannot double-bill',
+          'Reset the group’s offsets to latest so the backlog is skipped',
+          'Change the group ID so the lag number starts again from zero',
+          'Add parallel consumers so the 1.8 million records clear faster',
         ],
         answer: 0,
-        explain: 'Repeats are a business risk here, so protect billing first. A new group ID hides the metric and changes where consumption starts, and more consumers would just reprocess faster.',
+        explain: 'Repeats are a business risk here, so protect billing first. A new group ID or an offset reset hides the metric and skips records that may never have reached billing, and more consumers would only reprocess faster.',
       },
       {
         type: 'multi',
@@ -50,7 +50,7 @@ export default {
           'Store the Consumer Commit Key in a variable early in the flow',
           'Make the billing write and the error table idempotent on meter id and read time',
           'Add an MUnit test that drives the error path and verifies Commit is called',
-          'Switch to IMMEDIATE ack, so commits can never be forgotten',
+          'Switch to IMMEDIATE ack, so no path can forget to commit',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Commit on every path that ends successfully, and design for repeats. IMMEDIATE commits before the flow runs, so a failure after receipt would no longer be covered by the commit logic at all.',
@@ -72,7 +72,7 @@ export default {
   description: `
 ## Symptoms
 - Billing was down from 01:42 to 04:05. The Kafka dashboard for \`meter-loader\` showed lag climbing to **1.8 million** during that time, although the app logged steady activity.
-- After a routine rolling deployment at 04:30, the error table began to show the **same records a second time**.
+- After a routine rolling deployment at 03:50, while billing was still down, the error table began to show the **same records a second time**.
 - The app is healthy, and billing is working again.
 
 ## Change / Context
@@ -84,8 +84,8 @@ export default {
 01:42:07 ERROR [meter-loader] HTTP:SERVICE_UNAVAILABLE billing-sapi 503 for M-4418977 partition=4 offset=88120506
 01:42:07 WARN  [meter-loader] On Error Continue: parked M-4418977 in METER_ERRORS partition=4 offset=88120506
 03:30:00 WARN  [kafka-monitor] group=meter-loader lag=1,840,212 (threshold 100,000)
-04:30:18 INFO  [meter-loader] Replica restarted by rolling deployment; resuming from committed offset partition=4 offset=88120506
-04:30:19 WARN  [meter-errors] Duplicate parked record M-4418977 partition=4 offset=88120506 (second occurrence)
+03:50:18 INFO  [meter-loader] Replica restarted by rolling deployment; resuming from committed offset partition=4 offset=88120506
+03:50:19 WARN  [meter-errors] Duplicate parked record M-4418977 partition=4 offset=88120506 (second occurrence)
 \`\`\`
 
 ## Your tasks
@@ -113,7 +113,7 @@ export default {
     'Fix: Commit on every successful path, idempotent writes, and a test of the error path.',
   ],
   solution: `
-**Diagnosis.** The listener uses MANUAL ack, so only \`kafka:commit\` records progress. The success path has it, but the On Error Continue path ends after the insert. During the outage every record took that path, so the committed offset stayed at the start of the outage while the flow kept working. Consumer lag is measured from the committed offset, which is why it climbed. When a replica restarted, the consumer resumed from that offset, as any Kafka consumer does, and read the same records again.
+**Diagnosis.** The listener uses MANUAL ack, so only \`kafka:commit\` records progress. The success path has it, but the On Error Continue path ends after the insert. During the outage every record took that path, so the committed offset stayed at the start of the outage while the flow kept working. Consumer lag is measured from the committed offset, which is why it climbed. When a replica restarted, the consumer resumed from that offset, as any Kafka consumer does, and read the same records again. Billing was still down, so they were parked a second time. (Once billing recovered at 04:05, the first successful commit moved the committed offset forward again, because a Kafka commit covers every earlier offset in the partition.)
 
 The connector reference does not say what happens if Commit is not called, including whether the listener keeps polling. So rest the diagnosis on the requirement it does state, on what these logs show, and on the general Kafka rule that a group resumes from its committed offset.
 

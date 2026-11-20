@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'The hospital wants to move 180 interfaces off the old interface engine before its support ends in 18 months. Which approach carries the least clinical risk?',
       options: [
-        'Rebuild all 180 interfaces in Mule and switch everything over on one weekend',
-        'Move interfaces in waves grouped by receiving system, starting with low-risk feeds, with parallel running and a rollback to the old engine for each wave',
-        'Start with the lab results feed, because it is the most important',
-        'Ask each departmental vendor to connect directly to the EHR instead',
+        'Rebuild all 180 interfaces in Mule, test them together and cut over on one weekend',
+        'Move waves by receiving system, low-risk feeds first, each with a parallel run and rollback',
+        'Move the lab results feeds first, since they carry the most clinical value',
+        'Move one interface at a time in the order the old engine lists them',
       ],
       answer: 1,
-      explain: 'Waves by receiving system let one vendor test and go live at a time. Starting with low-risk feeds builds the patterns and the team\'s confidence before results, orders and medication feeds move, and each wave can roll back.',
+      explain: 'Waves by receiving system let one vendor test and go live at a time. Starting with low-risk feeds builds the patterns and the team\'s confidence before results, orders and medication feeds move, and each wave can roll back. A weekend cut-over of 180 feeds has no safe rollback. Lab results first puts the riskiest feed on an untried platform. Moving one interface at a time in list order makes each receiving vendor test many times and will not finish in 18 months.',
     },
     {
       type: 'multi',
@@ -37,13 +37,13 @@ export default {
       type: 'single',
       prompt: 'During parallel running, both engines receive the EHR feed. How should the new interface handle its output so the receiving system is not affected?',
       options: [
-        'Send to the live receiving system too, and let it ignore duplicates',
-        'Write output to a comparison store (or a test instance of the receiver) until cut-over, while only the old engine sends to the live system',
-        'Send to the live system on alternate days',
-        'Do not produce output until cut-over day',
+        'Send to the live receiving system too, and let it drop duplicates by message id',
+        'Write output to a comparison store; only the old engine sends to the live system',
+        'Send a sample of messages to the live system so the department can check them',
+        'Hold its output in a queue and deliver all of it to the receiver at cut-over',
       ],
       answer: 1,
-      explain: 'Only one engine may deliver to a live clinical system, or patients could get duplicate orders or results. The new interface writes its output where it can be compared, then takes over at cut-over.',
+      explain: 'Only one engine may deliver to a live clinical system, or patients could get duplicate orders or results. The new interface writes its output where it can be compared (or to a test instance of the receiver), then takes over at cut-over. Few clinical systems drop duplicates reliably, a live sample still creates duplicates, and replaying a held queue at cut-over would resend messages the old engine already delivered.',
     },
     {
       type: 'order',
@@ -74,13 +74,13 @@ export default {
       needsScenario: true,
       prompt: 'Clinical safety staff ask how the team will know a feed has silently stopped after cut-over. What is the best answer?',
       options: [
-        'Departments will call the help desk',
-        'Alerts on message flow per interface compared with its normal rate for the time of day, plus alerts on negative ACKs and queue depth',
-        'A weekly report of message counts',
-        'Turn on debug logging for every interface',
+        'Alerts on errors and exceptions raised by each Mule application',
+        'Alerts when an interface\'s message rate falls below its normal rate for that hour',
+        'A daily report of message counts per interface, reviewed each morning',
+        'Health checks that confirm each MLLP listener port is open',
       ],
       answer: 1,
-      explain: 'A silent stop raises no error, so alerts must watch for missing traffic as well as failures. Rates compared with the usual pattern catch a stopped feed within minutes.',
+      explain: 'A silent stop raises no error, so alerts must watch for missing traffic as well as failures. Rates compared with the usual pattern for that hour catch a stopped feed within minutes; add alerts on negative ACKs and queue depth too. Error alerts miss a feed that stops sending, a daily report finds it a day late, and an open port says nothing about whether messages flow.',
     },
   ],
   description: `
@@ -95,7 +95,7 @@ export default {
 **Goals**
 - Every needed interface runs on MuleSoft before support ends.
 - No clinical incident caused by the migration.
-- Fewer, simpler interfaces at the end, with monitoring the clinical safety team trusts.
+- Fewer, clearer interfaces at the end, with monitoring the clinical safety team trusts.
 
 **Constraints**
 | Item | Detail |

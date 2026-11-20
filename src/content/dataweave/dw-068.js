@@ -8,7 +8,7 @@ export default {
   description: `
 A parcel carrier drops a manifest XML file on an FTP server every evening. A Mule flow picks it up with \`ftp:listener\` and must publish it as JSON to the tracking API.
 
-Most of the data is in **attributes**, and a manifest can contain any number of \`parcel\` elements — including exactly one, or none.
+Most of the data is in **attributes**, and a manifest can contain any number of \`parcel\` elements, including exactly one, or none.
 
 **Rules**
 - \`manifestId\`, \`carrier\` and \`shipDate\` come from the attributes of \`manifest\`.
@@ -16,12 +16,15 @@ Most of the data is in **attributes**, and a manifest can contain any number of 
 - \`weightKg\` is a number.
 - \`recipient\` is an object with the element text as \`name\` plus its \`city\` and \`country\` attributes.
 - \`parcelCount\` is the number of parcels.
+- All other values stay strings, as in the file.
+
+**Output shape** (keys in this order): \`manifestId\`, \`carrier\`, \`shipDate\`, \`parcelCount\`, \`parcels\`. Each parcel has \`trackingNo\`, \`service\`, \`weightKg\` (from the \`parcel\` attributes) and \`recipient\` (\`name\`, \`city\`, \`country\`), in that order and in document order.
 `,
   inputs: [
     {
       name: 'payload',
       mime: 'application/xml',
-      content: `<manifest id="MF-2201" carrier="DHL" shipDate="2026-11-02">
+      content: `<manifest id="MF-2201" carrier="SwiftParcel" shipDate="2026-11-02">
   <parcel trackingNo="JD014600003128" weightKg="2.40" service="EXPRESS">
     <recipient city="Utrecht" country="NL">A. de Vries</recipient>
   </parcel>
@@ -35,7 +38,7 @@ Most of the data is in **attributes**, and a manifest can contain any number of 
     mime: 'application/json',
     content: `{
   "manifestId": "MF-2201",
-  "carrier": "DHL",
+  "carrier": "SwiftParcel",
   "shipDate": "2026-11-02",
   "parcelCount": 2,
   "parcels": [
@@ -62,7 +65,7 @@ payload
   hints: [
     'Attributes are read with the `@` selector: `payload.manifest.@carrier`.',
     'The single-value selector `.parcel` returns only the **first** parcel. The multi-value selector `.*parcel` returns all of them as an array.',
-    'When there are no parcels, `.*parcel` returns `null` — add `default []`.',
+    'When there are no parcels, `.*parcel` returns `null`, so add `default []`.',
     'Attribute values are strings; convert with `as Number`.',
   ],
   solution: `%dw 2.0
@@ -87,7 +90,7 @@ var parcels = m.*parcel default []
   }
 }`,
   explanation: `
-**Single vs multi-value selector.** XML has no arrays: repeating elements are just repeated keys. \`m.parcel\` returns the first match only, so a mapping built with it works in a test with one parcel and silently loses data in production. \`m.*parcel\` always returns an array of every match, which is why it is the safe choice for anything that *can* repeat — even if today's sample has one.
+**Single vs multi-value selector.** XML has no arrays: repeating elements are repeated keys. \`m.parcel\` returns the first match only, so a mapping built with it works in a test with one parcel and silently loses data in production. \`m.*parcel\` always returns an array of every match, which is why it is the safe choice for anything that *can* repeat, even if today's sample has one.
 
 **Empty is \`null\`, not \`[]\`.** When no element matches, \`.*parcel\` returns \`null\`; \`default []\` turns that into an empty array so \`map\` and \`sizeOf\` keep working.
 
@@ -101,11 +104,11 @@ var parcels = m.*parcel default []
           name: 'payload',
           mime: 'application/xml',
           content:
-            '<manifest id="MF-2202" carrier="PostNL" shipDate="2026-11-03"><parcel trackingNo="3SABCD1234567" weightKg="0.85" service="MAILBOX"><recipient city="Delft" country="NL">J. Bakker</recipient></parcel></manifest>',
+            '<manifest id="MF-2202" carrier="PolderPost" shipDate="2026-11-03"><parcel trackingNo="3SABCD1234567" weightKg="0.85" service="MAILBOX"><recipient city="Delft" country="NL">J. Bakker</recipient></parcel></manifest>',
         },
       ],
       expected:
-        '{ "manifestId": "MF-2202", "carrier": "PostNL", "shipDate": "2026-11-03", "parcelCount": 1, "parcels": [ { "trackingNo": "3SABCD1234567", "service": "MAILBOX", "weightKg": 0.85, "recipient": { "name": "J. Bakker", "city": "Delft", "country": "NL" } } ] }',
+        '{ "manifestId": "MF-2202", "carrier": "PolderPost", "shipDate": "2026-11-03", "parcelCount": 1, "parcels": [ { "trackingNo": "3SABCD1234567", "service": "MAILBOX", "weightKg": 0.85, "recipient": { "name": "J. Bakker", "city": "Delft", "country": "NL" } } ] }',
     },
     {
       name: 'Empty manifest',
@@ -113,10 +116,10 @@ var parcels = m.*parcel default []
         {
           name: 'payload',
           mime: 'application/xml',
-          content: '<manifest id="MF-2203" carrier="UPS" shipDate="2026-11-03"></manifest>',
+          content: '<manifest id="MF-2203" carrier="BlueRoute" shipDate="2026-11-03"></manifest>',
         },
       ],
-      expected: '{ "manifestId": "MF-2203", "carrier": "UPS", "shipDate": "2026-11-03", "parcelCount": 0, "parcels": [] }',
+      expected: '{ "manifestId": "MF-2203", "carrier": "BlueRoute", "shipDate": "2026-11-03", "parcelCount": 0, "parcels": [] }',
     },
   ],
   followUps: [

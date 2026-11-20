@@ -86,9 +86,9 @@ output application/json
 payload.PosLog
 `,
   hints: [
-    'Attributes are read with `@`: `t.@store`, `l.@amount`. They are strings — convert with `as Number`.',
+    'Attributes are read with `@`: `t.@store`, `l.@amount`. They are strings, so convert with `as Number`.',
     '`payload.PosLog.*Transaction` returns all transactions as an array; `t.*Line` returns `null` for a transaction without lines, so add `default []`.',
-    'Flatten all counted lines into one list of simple objects (`store`, `dept`, `sign`, `qty`, `amount`) with `flatMap`; then grouping and summing is easy.',
+    'Flatten all counted lines into one list of simple objects (`store`, `dept`, `sign`, `qty`, `amount`) with `flatMap`; then grouping and summing is plain work.',
     '`sum([])` is `0`, which handles "no returns" for free.',
   ],
   solution: `%dw 2.0
@@ -126,13 +126,13 @@ var lines = txns flatMap (t) -> ((t.*Line default []) filter ($.@voided != "true
   explanation: `
 **Normalise first, aggregate second.** XML with attributes and nested repeating elements is awkward to aggregate directly. The solution first turns every counted line into a flat record with a \`sign\` (+1 for SALE, −1 for RETURN). After that, every figure is a plain \`sum\` over a filtered list.
 
-**Repeating elements.** \`*Transaction\` and \`*Line\` (multi-value selectors) always return an array — even when there is only one element. With the single-value selector \`t.Line\` you would get only the **first** line. For a transaction without lines (\`NO_SALE\`), \`t.*Line\` is \`null\`, hence \`default []\`.
+**Repeating elements.** \`*Transaction\` and \`*Line\` (multi-value selectors) always return an array, even when there is only one element. With the single-value selector \`t.Line\` you would get only the **first** line. For a transaction without lines (\`NO_SALE\`), \`t.*Line\` is \`null\`, hence \`default []\`.
 
 **Attributes are strings.** \`l.@amount\` is \`"7.98"\`; summing strings fails, so convert with \`as Number\`. Comparisons such as \`t.@cancelled != "true"\` work on the string value, and a missing attribute is \`null\`, which is also \`!= "true"\`.
 
-**Filters before grouping.** Cancelled and non-sale transactions are removed before \`groupBy\`, so a store whose only activity was a drawer opening never shows up — matching the rule "at least one counted transaction".
+**Filters before grouping.** Cancelled and non-sale transactions are removed before \`groupBy\`, so a store whose only activity was a drawer opening never shows up, matching the rule "at least one counted transaction".
 
-**Precedence.** \`flatMap (t) -> (...) map (l) -> ...\` — the \`map\` is inside the \`flatMap\` lambda (the lambda body extends as far right as possible), which is exactly what is wanted here because the line mapper needs \`t\`. The outer \`groupBy ... pluck\` is wrapped in parentheses so that \`orderBy\` applies to the result, not to each object.
+**Precedence.** In \`flatMap (t) -> (...) map (l) -> ...\`, the \`map\` is inside the \`flatMap\` lambda (the lambda body extends as far right as possible), which is exactly what is wanted here because the line mapper needs \`t\`. The outer \`groupBy ... pluck\` is wrapped in parentheses so that \`orderBy\` applies to the result, not to each object.
 `,
   tests: [
     {

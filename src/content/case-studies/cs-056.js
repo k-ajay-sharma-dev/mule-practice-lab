@@ -82,10 +82,12 @@ Weekend promotions are often wrong in a handful of stores.
 | Store server | One Linux server per store; IT can install software on it |
 | Messaging | Central ActiveMQ Classic cluster already operated by the infrastructure team |
 | Tills | Read prices from the store server's local database; cannot call central systems |
-| Volume | 2–5 million price lines in a big promotional week; ~1.5 million sale lines a day |
+| Volume | 2 to 5 million price lines in a big promotional week; ~1.5 million sale lines a day |
 | Outages | Store links can be down for up to 2 days |
 
 The store servers send about 30 sale lines a second. SAP can be down for 30 minutes, and about 1 sale in 100 has data SAP rejects every time.
+
+Sales arrive centrally on a \`store-sales\` queue, which redelivers a failed message about once a minute. Try each sale for about an hour (60 deliveries), so a 30 minute SAP outage loses nothing, then move it to a dead-letter queue. Name the APIs exp-store-colleague-api, prc-price-distribution, prc-store-sales, prc-store-inventory, sys-pricing-api and sys-sap-retail-api.
 
 **Your task.** Propose:
 - the store integration design for price distribution, sales upload and the colleague app
@@ -125,12 +127,12 @@ The store servers send about 30 sale lines a second. SAP can be down for 30 minu
 **Risks.**
 - Disk full on a store server during long outages (sizing and alerts).
 - Price storms after a big promotion load (throttle publishing, prioritise near-dated changes).
-- Poison messages (ActiveMQ redelivery policy then DLQ).
+- Poison messages (a redelivery limit of 60, about an hour, then the \`store-sales\` DLQ).
 - Operating 300 small brokers (automation, standard configuration).
 `,
   followUps: [
     { q: 'Why not let tills call a central price API directly?', a: 'Tills must keep trading when the link is down, so prices must already be in the store. A central API would make each till depend on the WAN.' },
-    { q: 'Why a virtual topic instead of a plain topic with durable subscribers?', a: 'Virtual topics give each store a normal queue, which is easier to monitor, can have multiple consumers and fits load balancing and DLQ handling better than durable topic subscriptions.' },
+    { q: 'Why a virtual topic instead of a plain topic with durable subscribers?', a: 'Virtual topics give each store a normal queue, which is clearer to monitor, can have multiple consumers and fits load balancing and DLQ handling better than durable topic subscriptions.' },
     { q: 'How do you stop an old price overwriting a newer one after an outage?', a: 'Each price carries a version or effective timestamp; the store agent compares it to the stored version and discards older messages.' },
   ],
 }

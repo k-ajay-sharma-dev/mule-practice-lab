@@ -11,7 +11,8 @@ A wave of pick tasks is released from order management to the warehouse. Before 
 **Location format**: \`ZONE-AISLE-BAY\`, e.g. \`A-03-12\` = zone \`A\`, aisle 3, bay 12.
 
 **Rules**
-- Skip tasks with \`qty\` of 0 or less (short-allocated lines).
+- Skip tasks with \`qty\` of 0 or less (short-allocated lines). A zone with no remaining tasks does not appear.
+- Bay numbers are always below 100.
 - One group per zone, zones in alphabetical order.
 - Inside a zone the picker walks a **serpentine** path:
   - aisles in ascending order;
@@ -121,10 +122,10 @@ The heart of the problem is a **composite, direction-aware sort key**. \`orderBy
 
 - \`100 - bay\` flips the direction in even aisles (bays are assumed to stay below 100).
 - Zero-padding is essential: as strings, \`"10"\` sorts before \`"9"\`.
-- \`groupBy\` gives an object keyed by zone. Object key order is not something to rely on, so \`pluck\` it into an array and sort the zones explicitly.
+- \`groupBy\` gives an object keyed by zone, in order of first appearance, not alphabetical. \`pluck\` it into an array and sort the zones explicitly.
 
 Common traps:
-- Sorting by the raw location string — it walks every aisle in the same direction, so the picker walks back down each even aisle empty-handed.
+- Sorting by the raw location string: it walks every aisle in the same direction, so the picker walks back down each even aisle empty-handed.
 - Numbering \`seq\` across the whole wave instead of per zone.
 - Filtering after grouping: a zone whose tasks are all zero-quantity would then appear with \`pickCount: 0\`.
 `,

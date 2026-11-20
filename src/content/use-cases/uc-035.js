@@ -70,6 +70,7 @@ Facts:
   - Anonymous website chats are stored only if they contain an email the customer gave voluntarily; otherwise only statistics are kept.
 - Attachments (screenshots, PDFs, up to 10 MB) must be kept with the case.
 - At the evening peak about 1 conversation closes each second. Salesforce can be down for 20 minutes, and about 1 transcript in 100 is rejected by Salesforce every time.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good conversations must survive the 20-minute outage, and rejected ones must reach the DLQ for the service team.
 
 **Describe your solution:**
 - How do you receive and fetch transcripts?
@@ -96,7 +97,7 @@ Facts:
     'Upsert by conversation ID makes webhook retries and re-opened chats safe.',
   ],
   solution: `
-**Receiving and fetching.** A webhook endpoint verifies the platform's signature, puts the conversation ID on **Anypoint MQ** and returns 200. A consumer calls the chat API for the transcript and metadata (bot/agent, tags, escalation, customer identity token). Peak throughput is low (~12k/day), so a small consumer pool easily meets 5 minutes.
+**Receiving and fetching.** A webhook endpoint verifies the platform's signature, puts the conversation ID on **Anypoint MQ** and returns 200. A consumer calls the chat API for the transcript and metadata (bot/agent, tags, escalation, customer identity token). Peak throughput is low (~12k/day), so a small consumer pool meets 5 minutes with room to spare.
 
 **Customer identification.**
 - App users: the chat carries the authenticated customer ID → look up the **Person Account/Contact** by an external ID field.
@@ -115,7 +116,7 @@ Masking as an independent, unit-tested module (MUnit with many real-world sample
 - Escalated or tagged "complaint" → create a **Case** (or update an open case for the same customer and topic in the last 7 days), with the transcript linked.
 - Attachments: download from the chat platform as a stream and upload as **ContentVersion** (Salesforce Files) linked to the Case; scan for malware if the bank requires it.
 
-**Errors and duplicates.** Upsert by conversation ID means duplicate webhooks or re-closed chats update the same record. Salesforce limit errors/5xx → retry with backoff; failed messages after retries → DLQ and alert. A daily count reconciliation compares closed conversations with stored transcripts.
+**Errors and duplicates.** Upsert by conversation ID means duplicate webhooks or re-closed chats update the same record. Salesforce limit errors/5xx → the message is redelivered about once a minute, and a redelivery limit of about 30 outlasts a 20-minute outage. Messages still failing after that → DLQ and alert. A daily count reconciliation compares closed conversations with stored transcripts.
 `,
   followUps: [
     { q: 'Why mask in Mule rather than in Salesforce?', a: 'Once the data reaches Salesforce it is already stored, indexed and possibly in audit history. Masking before storage (and before logging) keeps sensitive data out of every downstream system.' },

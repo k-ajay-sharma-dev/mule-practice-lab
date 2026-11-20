@@ -67,7 +67,8 @@ The shop team already uses **Amazon SQS** and can send to a queue with a few lin
 - About **40 orders a second** on a busy afternoon.
 - The ERP takes about 300 ms per order and up to 100 orders a second.
 - Patch windows last up to **30 minutes**.
-- About 1 order in 200 has a product code the ERP does not know yet. It fails every time until someone fixes the product.
+- About 1 order in 200 has a product code the ERP does not know yet. It fails every time until someone fixes the product. The product team wants those orders set aside within about an hour.
+- An order that fails is read again about **once a minute**, when its visibility timeout ends.
 
 **Questions:**
 - Draw the design.

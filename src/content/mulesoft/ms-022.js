@@ -21,35 +21,35 @@ export default {
       type: 'single',
       prompt: 'A team changed a shared type and broke three APIs overnight. What prevents this?',
       options: [
-        'Publish fragments to Exchange as versioned assets, pin consumers to a version, and release breaking changes as a new major version',
-        'Copy the types into each API so changes cannot spread',
-        'Always use the latest fragment version automatically',
-        'Store fragments in a shared network folder',
+        'Publish fragments as versioned Exchange assets and pin each version',
+        'Copy the shared types into each API so a change cannot spread',
+        'Make every API use the latest fragment version automatically',
+        'Keep fragments in a shared Git folder that each API reads',
       ],
       answer: 0,
-      explain: 'With semantic versioning and pinned dependencies, consumers upgrade deliberately. Copy-pasting is exactly what caused the drift.',
+      explain: 'With semantic versioning and pinned dependencies, consumers upgrade deliberately, and breaking changes go out as a new major version. Copy-pasting is exactly what caused the drift.',
     },
     {
       type: 'single',
       detail: true,
       prompt: 'Can an OAS 3.0 spec reference a RAML 1.0 Library fragment from Exchange?',
       options: [
-        'No — a spec uses one language and RAML fragments cannot be referenced from OAS (or vice versa)',
-        'Yes — Design Center converts it automatically',
-        'Yes, with `uses:` in the OAS file',
-        'Only for data types, not traits',
+        'No, RAML fragments cannot be referenced from an OAS spec',
+        'Yes, Design Center converts the library to OAS automatically',
+        'Yes, by declaring it with `uses:` at the top of the OAS file',
+        'Only for data types in the library, not for its traits',
       ],
       answer: 0,
-      explain: 'You can mix languages **across** APIs, but not share fragments between them; shared types as JSON Schema are one way to bridge both.',
+      explain: 'A spec uses one language. You can mix languages **across** APIs, but not share fragments between them; shared types as JSON Schema are one way to bridge both.',
     },
     {
       type: 'single',
       prompt: 'What is the OAS 3.0 mechanism for reusing pagination parameters?',
       options: [
-        'Reusable `components.parameters` referenced with `$ref` on each operation',
-        'Traits, exactly as in RAML',
-        'Resource types',
-        'Overlays applied by API Manager',
+        'Reusable `components.parameters` referenced with `$ref`',
+        'Traits declared in the OAS file and applied with `is:`',
+        'Resource types declared under `x-resourceTypes`',
+        'Overlays that API Manager applies at deploy time',
       ],
       answer: 0,
       explain: 'OAS has `components` (schemas, parameters, responses, securitySchemes) referenced with `$ref`, but no direct equivalent of traits or resource types.',
@@ -72,8 +72,8 @@ export default {
       options: [
         'Making an optional field required',
         'Adding a new optional field',
-        'Adding an example',
-        'Improving a description',
+        'Adding an example to the type',
+        'Improving the description of a field',
       ],
       answer: 0,
       explain: 'Renaming/removing fields or making an optional field required breaks existing consumers. Compatible additions are a minor version.',
@@ -117,11 +117,11 @@ Your Integration CoE is defining standards for **60+ APIs** across business grou
 **RAML vs OAS:** both are first-class in Anypoint: API Designer, the mocking service, Exchange portals and APIkit scaffolding support RAML 1.0 and OAS 3.0 (and OAS 2.0). RAML's strengths are its reuse constructs (traits, resource types, libraries) and readability; OAS is the industry standard with broad tooling and familiarity outside MuleSoft. A single API spec uses one language; you can mix *across* APIs, but shared fragments written in RAML can't be referenced from an OAS spec and vice versa. So the CoE should pick a primary standard (or maintain shared types as JSON Schema usable from both).
 
 **Fragments (RAML)**
-- **Trait** \`pageable\` — standard query params and response headers.
-- **ResourceType** \`collection\` / \`item\` — standard GET/POST/PUT/DELETE shapes and error responses.
-- **DataType / Library** — \`Customer\`, \`Address\`, \`Error\` types in a \`common-types\` library.
+- **Trait** \`pageable\`: standard query params and response headers.
+- **ResourceType** \`collection\` / \`item\`: standard GET/POST/PUT/DELETE shapes and error responses.
+- **DataType / Library**: \`Customer\`, \`Address\`, \`Error\` types in a \`common-types\` library.
 - **Example / NamedExample** fragments for documentation and mocks.
-- **SecurityScheme** — e.g. client ID headers or OAuth 2.0.
+- **SecurityScheme**: e.g. client ID headers or OAuth 2.0.
 
 \`\`\`yaml
 #%RAML 1.0 Trait
@@ -137,7 +137,7 @@ Applied as \`is: [pageable]\` on a method.
 
 **Publishing and versioning:** fragments are **published to Exchange** as their own assets (\`acme-common-types:1.2.0\`). API specs add them as **dependencies** in Design Center and reference them with \`exchange_modules/...\` paths, pinned to a version. Use **semantic versioning**: compatible additions → minor; breaking changes (renaming/removing fields, making optional required) → **new major**. Consumers upgrade deliberately, so a fragment change can't silently break other APIs. Add API Governance rulesets / reviews to the publishing process.
 
-**OAS reuse:** \`components\` (\`schemas\`, \`parameters\`, \`responses\`, \`securitySchemes\`) referenced via \`$ref\` — locally or from external files/Exchange dependencies. There's no direct equivalent of traits/resource types; pagination is a set of reusable \`parameters\` you reference on each operation.
+**OAS reuse:** \`components\` (\`schemas\`, \`parameters\`, \`responses\`, \`securitySchemes\`) referenced via \`$ref\`: locally or from external files/Exchange dependencies. There's no direct equivalent of traits/resource types; pagination is a set of reusable \`parameters\` you reference on each operation.
 
 **Benefits of Exchange:**
 

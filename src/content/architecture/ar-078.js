@@ -14,7 +14,7 @@ export default {
   tags: ['myproject', 'supply-chain', 'xa', 'outbox', 'transactions', 'activemq', 'jms', 'oracle', 'idempotency'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the outbox design. Show the WMS, the wms.receipts queue, prc-goods-receipt, Oracle, an outbox relay, the receipt.posted topic, and its three subscribers: AP, replenishment and the supplier portal.',
+    task: 'draw the outbox design. Show the WMS, the wms.receipts queue, prc-goods-receipt, Oracle, an outbox relay, the receipt.posted topic, and its three subscribers: AP, replenishment and the supplier portal. Put "AP", "replenishment" and "supplier portal" in the names of the three subscribers.',
     checks: [
       { label: 'Receipts reach prc-goods-receipt through the wms.receipts queue', rule: { type: 'path', from: 'wms', via: 'queue', to: RECEIPT } },
       { label: 'prc-goods-receipt writes the receipt and the outbox row to Oracle', rule: { type: 'edge', from: RECEIPT, to: DB } },
@@ -57,9 +57,9 @@ export default {
           traffic: [{ name: 'events', from: { type: ['batch-job', 'process-api'], label: ['relay', 'outbox'] }, rps: 5, to: ['process-api', 'web-app'], kind: 'write' }],
           expect: {
             delivered: [
-              { to: { label: 'ap 3-way' }, min: 0.99 },
-              { to: { label: 'replenishment' }, min: 0.99 },
-              { to: { label: 'supplier portal' }, min: 0.99 },
+              { to: { type: SUBSCRIBERS, label: ['ap', 'accounts payable'] }, min: 0.99 },
+              { to: { type: SUBSCRIBERS, label: 'replenishment' }, min: 0.99 },
+              { to: { type: SUBSCRIBERS, label: 'supplier portal' }, min: 0.99 },
             ],
           },
         },
@@ -78,13 +78,13 @@ export default {
       type: 'single',
       prompt: 'prc-goods-receipt consumes a receipt from ActiveMQ, inserts it into Oracle and publishes "receipt.posted". What does an XA transaction (Bitronix) give you here?',
       options: [
-        'The JMS receive, the Oracle insert and the JMS publish commit or roll back together under one transaction manager',
-        'Exactly-once delivery to every downstream HTTP API',
-        'Automatic deduplication of messages the supplier sent twice',
-        'Faster processing because the commits are batched',
+        'The receive, the Oracle insert and the publish commit or roll back together',
+        'Exactly-once delivery of receipt.posted to every downstream HTTP API',
+        'Automatic removal of receipts that the WMS sent twice',
+        'Faster processing, because the three commits are batched into one',
       ],
       answer: 0,
-      explain: 'XA coordinates **transactional resources** (the JMS session and the Oracle connection) with two-phase commit. It does not cover HTTP calls, does not dedupe business duplicates, and is slower, not faster.',
+      explain: 'XA coordinates **transactional resources** (the JMS session and the Oracle connection) with two-phase commit under one transaction manager. It does not cover HTTP calls, does not dedupe business duplicates, and is slower, not faster.',
     },
     {
       type: 'multi',
@@ -104,10 +104,10 @@ export default {
       needsScenario: true,
       prompt: 'In the outbox alternative, what happens in the single LOCAL Oracle transaction?',
       options: [
-        'Insert the goods receipt AND insert a row into an OUTBOX table describing the "receipt.posted" event',
-        'Insert the receipt and publish to ActiveMQ inside a try scope',
-        'Only insert the outbox row; the receipt is inserted later by the relay',
-        'Publish to ActiveMQ first, then insert the receipt',
+        'Insert the goods receipt and an OUTBOX row describing the event',
+        'Insert the goods receipt and publish to ActiveMQ inside a try scope',
+        'Insert only the OUTBOX row; the relay inserts the receipt later',
+        'Publish to ActiveMQ first, then insert the goods receipt',
       ],
       answer: 0,
       explain: 'The business row and the event row commit atomically in one local Oracle transaction. Publishing to the broker inside the same flow without XA would reintroduce the dual-write problem.',
@@ -122,17 +122,17 @@ export default {
         'A relay flow reads unsent OUTBOX rows in order',
         'The relay publishes "receipt.posted" to ActiveMQ and marks the row as sent',
       ],
-      explain: 'The inbound side relies on ack-after-commit plus a unique key for idempotency; the outbound side relies on the relay, which may publish a row twice if it crashes between publish and mark — so subscribers must be idempotent.',
+      explain: 'The inbound side relies on ack-after-commit plus a unique key for idempotency; the outbound side relies on the relay, which may publish a row twice if it crashes between publish and mark, so subscribers must be idempotent.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The relay publishes an outbox event, then crashes before marking the row as sent. What is the consequence and the correct design response?',
       options: [
-        'The event is published again after restart; subscribers deduplicate on the event id',
-        'The event is lost; add XA to the relay',
-        'Oracle rolls back the receipt; the supplier must resend',
-        'ActiveMQ detects the duplicate automatically, so nothing is needed',
+        'The event is published again after restart; subscribers dedupe on the event id',
+        'The event is lost, because the relay never marked the row as sent',
+        'Oracle rolls back the receipt, so the WMS must send it again',
+        'ActiveMQ spots the duplicate publish and drops it, so nothing is needed',
       ],
       answer: 0,
       explain: 'The outbox gives **at-least-once** publishing. That is acceptable because each event carries a stable id and consumers are idempotent; the broker does not deduplicate business events for you.',
@@ -155,11 +155,11 @@ A grocery DC posts **goods receipts** from the WMS. Flow today in \`prc-goods-re
 3. \`jms:publish\` of \`receipt.posted\` to a topic, used by AP (3-way match), replenishment and the supplier portal.
 
 Problems seen:
-- A crash between steps 2 and 3 left receipts in Oracle **without** the event — AP could not match invoices.
+- A crash between steps 2 and 3 left receipts in Oracle **without** the event, so AP could not match invoices.
 - Another time, Oracle failed after the message had already been acknowledged on receipt, and the receipt was **lost**.
 - Volume: 300 receipts/minute at peak; Mule runs on 2 on-prem nodes; the DBA dislikes long-held locks.
 - After a stock take the WMS can post **80 receipts a second** for 20 minutes. Oracle takes up to **150 writes a second** and answers in about 40 ms.
-- Oracle has had outages of **ten minutes**. No receipt may be lost when it is down.
+- Oracle has had outages of **ten minutes**. No receipt may be lost when it is down. ActiveMQ redelivers a failed message about **once a minute**.
 
 The team debates: **XA transaction** (Bitronix) spanning the JMS listener, Oracle and the publish, or a **transactional outbox**.
 
@@ -179,21 +179,21 @@ The team debates: **XA transaction** (Bitronix) spanning the JMS listener, Oracl
   keyPoints: [
     'The flow is a dual write (Oracle + broker) with no atomicity; IMMEDIATE ack acknowledges on receipt, before processing succeeds, so a failure loses the message (AUTO acks only after the flow completes successfully).',
     'XA (Bitronix transaction manager, listener starting an XA transaction, database operations joining it) makes receive, insert and publish atomic, at the cost of throughput, XA drivers and recovery handling.',
-    'Outbox: one local Oracle transaction writes the receipt and an OUTBOX row; a relay publishes later — simpler and faster, but at-least-once.',
+    'Outbox: one local Oracle transaction writes the receipt and an OUTBOX row; a relay publishes later. It is lighter to run and faster, but at-least-once.',
     'Inbound idempotency (unique key on ASN/receipt line) plus ack-after-commit covers the consuming side without XA.',
     'Whatever you choose, downstream consumers must be idempotent because brokers deliver at least once.',
     'Ack after commit means a failed receipt is delivered again, so an Oracle outage only delays receipts. Size prc-goods-receipt above the peak (0.5 vCore here) so a stock take does not leave a growing backlog.',
   ],
   solution: `
-**What goes wrong.** Two independent writes (Oracle and ActiveMQ) without a shared transaction: a crash between them leaves one done and the other not. With IMMEDIATE ack the inbound message is acknowledged as soon as it is consumed, so when processing fails it is never redelivered. (AUTO would ack only if the flow completes successfully — but an on-error-continue handler also counts as success.)
+**What goes wrong.** Two independent writes (Oracle and ActiveMQ) without a shared transaction: a crash between them leaves one done and the other not. With IMMEDIATE ack the inbound message is acknowledged as soon as it is consumed, so when processing fails it is never redelivered. (AUTO would ack only if the flow completes successfully, but an on-error-continue handler also counts as success.)
 
-**Option 1 — XA.**
+**Option 1: XA.**
 - Configure the Bitronix transaction manager; the \`jms:listener\` begins an **XA** transaction (\`transactionalAction\` ALWAYS_BEGIN, \`transactionType\` XA); \`db:insert\`, the stored procedure and \`jms:publish\` **join** it.
 - Use an Oracle XA data source and an XA-enabled ActiveMQ connection factory.
 - Result: all three commit together or roll back (the message is redelivered).
 - Costs: 2PC latency and longer lock holds, a recovery log on durable storage per node, in-doubt transactions after crashes, and XA cannot include HTTP calls.
 
-**Option 2 — Outbox.**
+**Option 2: Outbox.**
 \`\`\`
  wms.receipts ─► prc-goods-receipt ─► [Oracle local tx: GOODS_RECEIPT + PO update + OUTBOX row] ─► ack
  outbox-relay (scheduler / db:listener on OUTBOX) ─► jms:publish receipt.posted ─► mark sent
@@ -201,17 +201,17 @@ The team debates: **XA transaction** (Bitronix) spanning the JMS listener, Oracl
 - Inbound: MANUAL ack (or a local JMS transaction) after the Oracle commit; a unique constraint on ASN + line makes redeliveries harmless.
 - Outbound: the relay publishes in order and marks rows; a crash may publish twice.
 
-**Recommendation.** At 300/minute both work; the **outbox** is simpler to operate on two nodes, avoids XA recovery, keeps lock times short and is independent of broker XA support. Choose XA when the team already runs it well and strict atomicity without a relay delay is required.
+**Recommendation.** At 300/minute both work; the **outbox** is less work to operate on two nodes, avoids XA recovery, keeps lock times short and is independent of broker XA support. Choose XA when the team already runs it well and strict atomicity without a relay delay is required.
 
 **Settings that matter.**
 - The inbound queue redelivers a receipt until Oracle commits it. Acknowledging on receipt, or a delivery limit with no dead-letter queue, drops the receipts that fail during an outage.
 - \`receipt.posted\` is a **topic**, so each of the three subscribers gets every event. On one shared queue they would compete, and each would see only a third.
 - \`prc-goods-receipt\` gets 0.5 vCore. At 0.1 vCore it moves about 50 receipts a second, so 80 a second for 20 minutes leaves a backlog of tens of thousands.
 
-**Consumers.** AP, replenishment and the portal deduplicate on \`receiptId\`/event id — in both options, because delivery is at least once.
+**Consumers.** AP, replenishment and the portal deduplicate on \`receiptId\`/event id in both options, because delivery is at least once.
 `,
   followUps: [
-    { q: 'Can you just put jms:publish inside a try scope after the insert and retry it?', a: 'Retries do not help if the app crashes between the commit and the publish — the event is lost. You need either atomicity (XA) or a durable record of the intent (outbox).' },
+    { q: 'Can you put jms:publish inside a try scope after the insert and retry it?', a: 'Retries do not help if the app crashes between the commit and the publish: the event is lost. You need either atomicity (XA) or a durable record of the intent (outbox).' },
     { q: 'How do you keep outbox events in order per PO?', a: 'Read outbox rows ordered by a sequence column, process them with a single relay instance or per-PO grouping, and publish with a message group id of the PO number.' },
     { q: 'How do you stop the OUTBOX table growing forever?', a: 'Mark rows as sent and purge them after a retention window with a scheduled job, or partition the table by date and drop old partitions.' },
   ],

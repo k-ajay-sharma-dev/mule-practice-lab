@@ -24,13 +24,13 @@ export default {
       needsScenario: true,
       prompt: 'How does an app associate itself with the domain?',
       options: [
-        'A Maven dependency on the domain with classifier `mule-domain` and scope `provided`',
-        'An `<import>` of the domain XML file inside the app',
-        'By deploying the app into the domain folder',
-        'A property `mule.domain=bank-domain` in Runtime Manager',
+        'A Maven dependency on the domain with the `mule-domain` classifier',
+        'An `<import>` of the domain XML file inside the app config',
+        'Deploying the app jar into the `domains` folder of the runtime',
+        'A `mule.domain=bank-domain` property set in Runtime Manager',
       ],
       answer: 0,
-      explain: 'The pom dependency links app and domain; the domain is deployed to the runtime **before** its apps.',
+      explain: 'The pom dependency (classifier `mule-domain`, scope `provided`) links app and domain; the domain is deployed to the runtime **before** its apps.',
     },
     {
       type: 'match',
@@ -46,10 +46,10 @@ export default {
       type: 'single',
       prompt: 'What is the main operational drawback of a domain?',
       options: [
-        'Apps depend on the domain: they fail to start if its JAR is missing or still deploying',
-        'Domains double memory use per app',
+        'Apps fail to start if the domain JAR is missing or still deploying',
+        'Each app in a domain uses about twice as much memory',
         'Apps in a domain cannot define any global elements of their own',
-        'Domains disable Runtime Manager monitoring',
+        'Runtime Manager cannot monitor apps that belong to a domain',
       ],
       answer: 0,
       explain: 'Coupling and shared fate are the cost, so plan any domain change together with its apps. Apps can still define their own non-conflicting global elements.',
@@ -59,13 +59,13 @@ export default {
       needsScenario: true,
       prompt: 'The bank later moves to CloudHub 2.0. What happens to the domain design?',
       options: [
-        'Domains are not supported; use platform ingress with path routing, per-app pools, and a broker instead of shared VM queues',
-        'The domain is deployed as a separate CloudHub 2.0 app',
-        'Domains work the same on CloudHub 2.0 and Runtime Fabric',
-        'Only the VM part of the domain is supported',
+        'Domains are not supported, so use ingress, per-app pools and a broker',
+        'The domain is deployed as a separate CloudHub 2.0 application',
+        'Domains work the same way on CloudHub 2.0 and Runtime Fabric',
+        'Only the shared VM config of the domain is still supported',
       ],
       answer: 0,
-      explain: 'Domains are for standalone/hybrid runtimes. On CloudHub 2.0 and RTF each app runs isolated in its own replicas.',
+      explain: 'Domains are for standalone/hybrid runtimes. On CloudHub 2.0 and RTF each app runs isolated in its own replicas. Use platform ingress with path routing, per-app connection pools and a broker instead of shared VM queues.',
     },
   ],
   description: `
@@ -95,12 +95,12 @@ A colleague proposes a **Mule domain project**.
 ## CloudHub 2.0 / RTF
 `,
   keyPoints: [
-    'A domain project holds shared global configurations (e.g. HTTP listener config, DB config, JMS/VM config, TLS context) for apps deployed to the same runtime — no flows.',
+    'A domain project holds shared global configurations (e.g. HTTP listener config, DB config, JMS/VM config, TLS context) for apps deployed to the same runtime: no flows.',
     'Apps reference the domain as a Maven dependency with the mule-domain classifier (provided scope); the domain is deployed to the runtime before its apps.',
     'A shared HTTP listener config lets many apps listen on one port with different base paths.',
     'Shared connector configs give one connection pool instead of one per app; VM configs in the domain allow VM queues between apps of that domain.',
-    'Drawbacks: coupling — apps fail to start if the domain JAR is missing or still deploying; all apps share fate and must use compatible versions.',
-    'Domains are for standalone/hybrid runtimes only — not CloudHub/CloudHub 2.0 or Runtime Fabric, where each app is isolated.',
+    'Drawbacks: coupling, as apps fail to start if the domain JAR is missing or still deploying; all apps share fate and must use compatible versions.',
+    'Domains are for standalone/hybrid runtimes only: not CloudHub/CloudHub 2.0 or Runtime Fabric, where each app is isolated.',
   ],
   solution: `
 **What a domain is:** a special Mule project (\`mule-domain\` packaging) that contains **global elements shared** by all apps associated with it on the same runtime: connector configurations such as HTTP listener, DB, JMS and VM configs, TLS contexts, and shared properties. It can't contain **flows** or business logic.
@@ -138,17 +138,17 @@ Apps then use \`config-ref="sharedHttps"\` with distinct paths (\`/payments/*\`,
 - **Coupling:** apps that reference the domain **fail to start** if its JAR is missing or still deploying. The docs do not state what a domain redeploy does to running apps, so test it on your runtime version and plan it as a change to all of them.
 - Shared fate: a misbehaving app can exhaust the shared pool for everyone.
 - Version alignment: the domain's connector versions are fixed for all apps.
-- VM queues only work within one runtime/cluster — not a replacement for a broker.
+- VM queues only work within one runtime/cluster: not a replacement for a broker.
 
 **CloudHub 2.0 / RTF:** domains are **not supported**; each app runs in its own replica(s) with its own port and resources. Use the platform's ingress (one hostname, path-based routing to apps), separate connection pools sized per app, and a message broker (Anypoint MQ, JMS) instead of shared VM queues.
 `,
   followUps: [
     {
       q: 'Can an app still have its own HTTP listener config when it uses a domain?',
-      a: 'Yes — an app can define its own global elements in addition to the domain\'s, as long as they don\'t conflict (e.g. a different port).',
+      a: 'Yes: an app can define its own global elements in addition to the domain\'s, as long as they don\'t conflict (e.g. a different port).',
     },
     {
-      q: 'Why not just put a reverse proxy in front with different ports per app?',
+      q: 'Why not put a reverse proxy in front with different ports per app?',
       a: 'That also works and avoids domain coupling; many teams prefer it. The firewall rule stays on one port at the proxy, and each app keeps its own lifecycle.',
     },
     {

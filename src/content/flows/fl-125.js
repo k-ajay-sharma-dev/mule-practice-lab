@@ -198,6 +198,12 @@ The DBA has created this table, with one row per job:
 - A server must never give back a lease that another server holds.
 - The three servers' clocks can differ by up to a minute.
 
+**Facts**
+- The job row already exists with \`job_name = 'interest-export'\`. A free lease has \`owner\` null and a \`lease_until\` in the past.
+- A lease lasts **30 minutes**. Run the Scheduler every 10 minutes through the window.
+- The business date is today's date. Export the rows of \`daily_interest\` for that date as CSV with the columns \`account\`, \`amount\` and \`currency\`, and overwrite a file of the same name.
+- After the file is written, set \`last_completed_date\` to the business date and give the lease back (\`owner\` null). On a failure, give the lease back and let the error propagate, so the run shows as failed.
+
 **Design the flow.** Explain why a SELECT followed by an UPDATE is not enough.
 `,
   answerTemplate: `## Why every server ran the job

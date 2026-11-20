@@ -153,6 +153,11 @@ The legacy **ERP order gateway** only accepts its own XML format. The ERP team a
 - Respond with an XML acknowledgement containing the partner's order number. In the partner XML it is the element \`/Order/Header/OrderNumber\`, and the acknowledgement carries it as \`OrderNumber\` too.
 - The security team asked how the API is protected against **XML External Entity (XXE)** attacks.
 
+**Facts**
+- The project keeps the XSD in \`schemas/partner-order-v3.xsd\` and the stylesheet in \`xslt/partner-to-erp-order.xsl\`.
+- The ERP order gateway is \`POST /erp/order-gateway/import\`.
+- A valid order is answered with **202** and \`<OrderAck>\` holding \`OrderNumber\`, \`Status\` and \`CorrelationId\`.
+
 **Design the flow.** Would you keep the XSLT or rewrite it in DataWeave?
 `,
   answerTemplate: `## Receiving the order
@@ -170,7 +175,7 @@ The legacy **ERP order gateway** only accepts its own XML format. The ERP team a
   keyPoints: [
     'XML module Validate Schema with the existing XSD (W3C) before any transformation; it raises XML-MODULE:SCHEMA_NOT_HONOURED with the violations in the description.',
     'Validate Schema also lists XML-MODULE:INVALID_INPUT_XML. The docs do not define it, but the name points to input that cannot be parsed, so test with malformed XML. Both are mapped to 400 with an XML rejection body (On Error Propagate + httpStatus).',
-    'Reusing the ERP team\'s tested XSLT via XSLT Transform is pragmatic during migration; DataWeave is MuleSoft\'s recommended choice for new mappings and is easier to test in the project.',
+    'Reusing the ERP team\'s tested XSLT via XSLT Transform is pragmatic during migration; DataWeave is MuleSoft\'s recommended choice for new mappings and can be tested inside the project.',
     'XPath Extract (or DataWeave) pulls the order number for the log and the acknowledgement.',
     'Expand Entities defaults to NEVER in the XML module, which blocks XXE; DataWeave\'s XML reader does not resolve external entities by default either.',
     'ERP unavailable → 503 so the partner retries; the partner\'s order number is the key the ERP uses to reject duplicates.',
@@ -178,7 +183,7 @@ The legacy **ERP order gateway** only accepts its own XML format. The ERP team a
   solution: `
 1. **HTTP Listener** \`POST /b2b/v1/orders\`.
 2. **Validate Schema** (XML module) with \`schemas/partner-order-v3.xsd\`, schema language W3C. Fails with \`XML-MODULE:SCHEMA_NOT_HONOURED\` (XSD violations). \`XML-MODULE:INVALID_INPUT_XML\` is also listed for this operation; the docs do not say which error malformed XML gives, so handle both and confirm with a test.
-3. **XPath Extract** \`/Order/Header/OrderNumber\` into a variable (the operation returns a list of strings; take the first). DataWeave \`payload.Order.Header.OrderNumber\` works just as well.
+3. **XPath Extract** \`/Order/Header/OrderNumber\` into a variable (the operation returns a list of strings; take the first). DataWeave \`payload.Order.Header.OrderNumber\` works as well.
 4. **XSLT Transform** with the ERP team's \`partner-to-erp-order.xsl\` (output \`application/xml\`).
 5. **HTTP Request** \`POST\` to the ERP order gateway with a response timeout.
 6. Respond **202** with \`<OrderAck>\` (order number, status, correlation ID).

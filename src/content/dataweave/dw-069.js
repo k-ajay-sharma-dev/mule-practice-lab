@@ -11,11 +11,12 @@ A procurement platform accepts supplier invoices only as XML that validates agai
 **Target format**
 - One root element \`Invoice\` in the namespace \`urn:acme:invoice:v2\` with prefix \`inv\`; **every** element uses this namespace.
 - The root declares the XML Schema instance namespace (\`http://www.w3.org/2001/XMLSchema-instance\`, prefix \`xsi\`) and carries \`xsi:schemaLocation="urn:acme:invoice:v2 invoice-v2.xsd"\`, followed by the attributes \`number\` and \`currency\`.
-- \`IssueDate\` — the issue date.
-- \`PurchaseOrderRef\` — the PO reference. The XSD makes it nillable: when it is \`null\`, write an empty element with \`xsi:nil="true"\`.
-- \`Supplier\` — the supplier name as text, with attribute \`vatId\`.
-- \`Lines\` with attribute \`count\`, containing one \`Line\` per input line with attributes \`no\` (1-based position) and \`sku\`, and children \`Description\`, \`Quantity\`, \`UnitPrice\` and \`Amount\` (\`qty * unitPrice\`).
-- \`Total\` — sum of the line amounts.
+- The root's children, in this order:
+  - \`IssueDate\`: the issue date, as given.
+  - \`PurchaseOrderRef\`: the PO reference. The XSD makes it nillable: when it is \`null\`, write an empty element with \`xsi:nil="true"\`.
+  - \`Supplier\`: the supplier name as text, with attribute \`vatId\`.
+  - \`Lines\` with attribute \`count\` (number of lines), containing one \`Line\` per input line with attributes \`no\` (1-based position) and \`sku\`, and children \`Description\`, \`Quantity\` (as given), \`UnitPrice\` and \`Amount\` (\`qty * unitPrice\`).
+  - \`Total\`: sum of the line amounts.
 - \`UnitPrice\`, \`Amount\` and \`Total\` always have 2 decimals.
 `,
   inputs: [
@@ -97,7 +98,7 @@ inv#Invoice @(
   inv#Total: money(sum(lines map ($.qty * $.unitPrice)))
 }`,
   explanation: `
-**Namespaces.** \`ns inv urn:acme:invoice:v2\` binds a prefix to a URI for the script; \`inv#Invoice\` creates an element in that namespace. The writer declares a namespace on the first element that needs it — here the root — and nested elements reuse the declaration. What the XSD validates is the **URI**; the prefix is only a local alias.
+**Namespaces.** \`ns inv urn:acme:invoice:v2\` binds a prefix to a URI for the script; \`inv#Invoice\` creates an element in that namespace. The writer declares a namespace on the first element that needs it (here the root), and nested elements reuse the declaration. What the XSD validates is the **URI**; the prefix is only a local alias.
 
 **Namespaced attributes.** \`xsi#schemaLocation\` and \`xsi#nil\` are attributes in the XML Schema instance namespace, so \`xsi\` is declared on the root as well.
 

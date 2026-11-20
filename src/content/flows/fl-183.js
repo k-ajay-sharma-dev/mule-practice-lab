@@ -86,6 +86,11 @@ Mule posts each new file to the journey planner: \`POST /journey-planner/v1/time
 - Post the new files oldest first.
 - If a post fails, the next poll must send that file again. A later file must never move the watermark past it.
 
+**Facts**
+- Each item File List returns has \`payload\` (the file's content) and \`attributes\`. \`attributes.timestamp\` is the last modified time, in UTC without a zone, such as \`2026-11-13T09:00:00\`. Store the watermark as that text.
+- Pick and sort the new files in one Transform after the List, on \`attributes.timestamp\`.
+- A failed post must fail the run. Do not catch it.
+
 **Design the flow.** Say why moving files to a processed folder is not an option, and what replaces it.
 `,
   answerTemplate: `## Why a watermark

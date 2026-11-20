@@ -87,6 +87,8 @@ export default {
 - Customer data is sensitive; data minimisation and encryption are mandatory.
 - The fraud engine vendor offers a synchronous REST scoring API and a Kafka-based event ingest.
 - Plan for 400 scores a second from the payment hub and 800 online-banking events a second. The scoring engine can slow to 2 seconds for 10 minutes.
+- The payment hub calls one lean scoring System API. It times out after 120 ms, has a circuit breaker, and on failure returns a partial answer so the risk policy decides. Run it on 2 replicas of 1 vCore each.
+- Run the online-banking events System API on 2 replicas of 1 vCore each. Name the APIs sys-fraud-scoring-api, sys-online-banking-events-api, prc-fraud-alert-router, sys-case-mgmt-api, sys-contact-api and sys-payment-hub-api.
 
 **Your task.** Propose:
 - the architecture
@@ -109,7 +111,7 @@ export default {
 `,
   keyPoints: [
     'Only the instant-payment decision is synchronous (payment hub → fraud scoring); everything else is asynchronous event streaming.',
-    'The synchronous path is as short as possible — ideally the payment hub calls the scoring API directly or through a single lean API, with strict timeouts.',
+    'The synchronous path is as short as possible: the payment hub calls the scoring engine through a single lean System API with a strict timeout and a circuit breaker.',
     'Events are published to Kafka topics keyed by customer/account so per-customer ordering is preserved for the fraud engine profiles.',
     'A documented fallback policy when scoring times out (e.g. release low-value, hold high-value) agreed with the risk team.',
     'Mule adapts systems that cannot publish events themselves and routes fraud decisions/alerts to case management and contact systems.',
@@ -117,17 +119,17 @@ export default {
   ],
   solution: `
 **Two paths.**
-- *Synchronous (decisioning)*: payment hub → scoring API → decision (release / hold / reject) within 150 ms. Each extra hop costs latency, so either the hub calls the vendor directly or a lean Mule API (no heavy transformation, pooled connections, tight timeouts) fronts it for policy enforcement and observability. Measure p99, not averages.
+- *Synchronous (decisioning)*: payment hub → scoring API → decision (release / hold / reject) within 150 ms. Each extra hop costs latency, so one lean \`sys-fraud-scoring-api\` (no heavy transformation, pooled connections, tight timeouts) fronts the vendor for policy enforcement and observability. Calling the vendor directly is the other option if even one hop is too much. Measure p99, not averages.
 - *Asynchronous (context)*: logins, device changes, payee changes, card authorisations → Kafka topics → fraud engine ingest. Seconds of latency are acceptable.
 
 **Streaming design.** Topics per event type (\`banking.login.v1\`, \`banking.payee-change.v1\`, \`payments.instant.v1\`); key = customer ID so events for one customer stay ordered within a partition. Schemas versioned in a schema registry. Retention long enough to replay after an engine outage.
 
 **Mule's role.**
-- Publish events from systems that cannot produce to Kafka (e.g. the online-banking platform's webhooks, legacy card switch files) using the Kafka connector.
-- Consume decision and alert topics and route them: \`case-mgmt-sapi\` creates fraud cases; \`contact-sapi\` triggers customer verification messages (SMS/app push); \`payment-hub-sapi\` releases or rejects held payments after manual review.
+- Publish events from systems that cannot produce to Kafka (the online-banking platform's webhooks through \`sys-online-banking-events-api\`, legacy card switch files through a scheduled publisher) using the Kafka connector.
+- \`prc-fraud-alert-router\` consumes decision and alert topics and routes them: \`sys-case-mgmt-api\` creates fraud cases; \`sys-contact-api\` triggers customer verification messages (SMS/app push); \`sys-payment-hub-api\` releases or rejects held payments after manual review.
 - Expose APIs for agents to look up fraud status.
 
-**Failure behaviour.** Timeout on scoring at, say, 120 ms → apply a fallback rule set agreed with risk (e.g. low-value payments to known payees released; others held for a short review window). Every fallback decision is logged and re-scored asynchronously afterwards. Circuit breaker on the scoring API to avoid piling up requests during an outage.
+**Failure behaviour.** Timeout on scoring at 120 ms → return a partial answer and apply a fallback rule set agreed with risk (e.g. low-value payments to known payees released; others held for a short review window). Every fallback decision is logged and re-scored asynchronously afterwards. Circuit breaker on the scoring API to avoid piling up requests during an outage.
 
 **Security.** Events carry tokenised account/card numbers and only the attributes the model needs; encryption in transit (TLS) and at rest; ACLs per topic; secrets in a vault; no personal data in Mule logs.
 

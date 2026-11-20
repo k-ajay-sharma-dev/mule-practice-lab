@@ -11,50 +11,50 @@ export default {
       needsScenario: true,
       prompt: 'The app needs loans, renewals and reservations from the old library system. How should it reach them?',
       options: [
-        'Through an API in Mule that wraps the library system, so the app never calls it directly',
-        'The app connects to the library database',
-        'Staff copy data into the app each day',
-        'The app reads the library website',
+        'Through an API in Mule that wraps the library web service',
+        'The app calls the library web service directly from each phone',
+        'The app connects to the library system database with a read user',
+        'A nightly export of loans is loaded into the app’s own database',
       ],
       answer: 0,
-      explain: 'An API hides the old system, protects it from load, and lets you replace it later without changing the app.',
+      explain: 'An API hides the old system, protects it from load, and lets you replace it later without changing the app. Direct calls expose a fragile system to every phone, and a nightly export cannot renew or reserve.',
     },
     {
       type: 'single',
       prompt: 'A member tries to renew a book that someone else has reserved. What should the API return?',
       options: [
-        'A clear "cannot renew, reserved by another member" answer, with the due date unchanged',
-        'A generic error',
-        'Renew it anyway',
-        'Nothing',
+        'A clear "reserved by another member" answer, with the due date unchanged',
+        'A 500 error with the message the library system returned',
+        'A success, with the renewal queued until the reservation is filled',
+        'A success, since the library system will refuse it later anyway',
       ],
       answer: 0,
-      explain: 'A business rule that says no is a normal answer. The member needs to know why.',
+      explain: 'A business rule that says no is a normal answer, not a server error. The member needs to know why, and must not be told a renewal worked when it did not.',
     },
     {
       type: 'multi',
-      prompt: 'Which three protect members\' data in the app?',
+      prompt: 'Which three protect members’ data in the app?',
       options: [
         'Members log in, and the API returns only their own loans',
-        'The API never returns other members\' names on reservations',
+        'The API never returns other members’ names on reservations',
         'Tokens are short-lived and checked on each call',
-        'The app keeps a copy of every member\'s record',
+        'The app sends the card number and PIN with every API call',
       ],
       answer: [0, 1, 2],
-      explain: 'Each member sees only their own data. A copy of every record on a phone would be a risk.',
+      explain: 'Each member sees only their own data. Sending the card number and PIN on every call spreads the secret across every request and log, where a short-lived token limits the damage of a leak.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The library system goes offline every night from 1 to 2 for backups. What should the app do then?',
       options: [
-        'Show the loans from a recent cache and say renewals are paused until 2 AM',
-        'Crash',
-        'Let renewals succeed and lose them',
-        'Hide the app',
+        'Show cached loans and say renewals are paused until 2 AM',
+        'Show an error page for the whole app until 2 AM',
+        'Accept renewals and tell members they are done, then send them at 2 AM',
+        'Retry each renewal against the library system until it answers',
       ],
       answer: 0,
-      explain: 'Be honest about the window. Reading from a cache is fine, but renewals must wait for the real system.',
+      explain: 'Be honest about the window. Reading from a cache is fine, but renewals must wait for the real system, which may refuse them. Retrying for an hour holds the member and adds load at 2 AM.',
     },
     {
       type: 'match',
@@ -124,7 +124,7 @@ export default {
 
 **Business rules.** The library system decides. The API turns its answers into clear messages, such as "reserved by another member".
 
-**Security.** Members log in through the council identity service. The API reads the member from the token and returns only their own data.
+**Security.** Members log in once with their card number and PIN through an identity service, which issues a short-lived token. The API reads the member from the token and returns only their own data.
 
 **Backup window.** Loans are cached for a short time. Between 1 and 2, renewals and reservations answer "paused until 2 AM".
 

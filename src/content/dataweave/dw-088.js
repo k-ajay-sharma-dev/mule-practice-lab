@@ -9,13 +9,13 @@ export default {
 The Workday connector's Human Resources operation returns a \`Get_Workers\` response as XML. The identity platform needs JSON. The sample is a simplified version of the Workday structure, and every element is in the namespace \`urn:com.workday/bsvc\`.
 
 **Rules**
-- Output \`{ "workers": [...] }\`, one object per \`Worker\`. It is an empty array when there are no workers.
+- Output \`{ "workers": [...] }\`, one object per \`Worker\` in document order, with the keys in the order listed below. It is an empty array when there are no workers.
 - \`workerId\`: the \`ID\` under \`Worker_Reference\` whose \`type\` attribute is \`Employee_ID\`. If there is none, use the one of type \`Contingent_Worker_ID\`.
 - \`workerType\`: \`EMPLOYEE\` or \`CONTINGENT\`, depending on which ID was used.
 - \`firstName\` and \`lastName\` come from \`Name_Detail_Data\`.
 - \`email\`: the \`Email_Address\` of the \`Email_Address_Data\` whose \`Usage_Type\` is \`WORK\`, or \`null\` if there is none. A worker can have several addresses.
 - \`jobTitle\`: \`Business_Title\` from the \`Position_Data\`.
-- \`active\`: a boolean, where \`Active\` value \`1\` is \`true\`.
+- \`active\`: a boolean, where \`Active\` value \`1\` is \`true\` and any other value is \`false\`.
 - \`hireDate\`: Workday adds a time zone offset to dates (\`2021-03-01-08:00\`). Output only \`yyyy-MM-dd\`.
 `,
   inputs: [
@@ -126,7 +126,7 @@ payload
   hints: [
     'Declare the namespace with `ns wd urn:com.workday/bsvc` and select with `wd#Worker`.',
     'Use the multi-value selector for anything that repeats: `.*wd#Worker`, `.*wd#ID`, `.*wd#Email_Address_Data`.',
-    'A namespaced attribute is read with `@wd#type`. Filter the IDs by that attribute.',
+    'A namespaced attribute is read with `@wd#\'type\'` (the word `type` is quoted). Filter the IDs by that attribute.',
     'A small function that returns the ID of a given type keeps the mapping readable.',
     'The first 10 characters of the date are the date itself: `value[0 to 9]`.',
   ],

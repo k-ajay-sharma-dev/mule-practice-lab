@@ -122,6 +122,10 @@ Oracle tables:
 - A report with no recipients is a failure.
 - Support often reruns the job after fixing something. A type already \`SENT\` today is skipped, so nobody gets a second copy.
 
+**Facts**
+- \`log_date\` and \`run_date\` are \`yyyy-MM-dd\` text. In the tests today is 2026-11-13.
+- The ERROR log names the report type.
+
 **Design the flow.**
 `,
   answerTemplate: `## Which reports

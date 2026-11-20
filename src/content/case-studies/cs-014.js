@@ -72,6 +72,7 @@ export default {
 - The billing platform is the source of truth for direct customers only.
 - The playback service is owned by another team and is not built on MuleSoft.
 - At kick-off of a big match the playback service checks about 1,200 entitlements a second, and the checks must keep working if an availability zone goes down.
+- In the diagram, the playback service calls an entitlement System API that reads from a cache. Run that API on 3 replicas, so it survives the loss of a zone, with enough vCores per replica (2) that the remaining replicas carry the full load.
 
 **Your task.** Propose the design for collecting purchase events and serving entitlement checks.
 `,

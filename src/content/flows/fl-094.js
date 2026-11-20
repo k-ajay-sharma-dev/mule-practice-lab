@@ -238,6 +238,7 @@ For each request, the DLB sends these headers to the app:
 | \`X-SSL-Client-Serial\` | Serial number |
 
 **Facts**
+- Brokers send claims as JSON to \`POST /claims/v1/submissions\`.
 - The \`authorised_brokers\` table has the columns \`broker_id\`, \`cert_dn\`, \`cert_serial\` and \`status\`. An active broker has the status \`ACTIVE\`.
 
 **Requirements**

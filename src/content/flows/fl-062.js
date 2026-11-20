@@ -133,6 +133,12 @@ A retailer's **order management system** runs on **Oracle**. Store associates an
 - The OMS team will not install triggers that call out, nor Oracle GoldenGate; read-only access to a view is fine.
 - A Salesforce outage must not lose changes.
 
+**Facts**
+- The OMS team gives you the read-only view \`ORDER_STATUS_V\` over \`ORDER_HEADER\`, with the same columns.
+- \`Customer_Order__c\` has the fields \`OMS_Order_Id__c\` (the \`ORDER_ID\` as text), \`Status__c\`, \`Carrier__c\`, \`Tracking_Number__c\` and \`Status_Changed_At__c\`. \`Status__c\` takes Created, Allocated, Picked, Shipped, Delivered, Cancelled or Returned, in the order of the codes above.
+- Salesforce has short blips of a few seconds. Retry those before you give up on a change.
+- A change that still fails after retries is parked in the Oracle table \`INTEGRATION_ERROR\` (\`ERROR_ID\`, \`INTERFACE\`, \`BUSINESS_KEY\`, \`PAYLOAD\`, \`ERROR_TEXT\`, \`STATUS\`, \`CREATED_AT\`). \`ERROR_ID\` comes from the sequence \`INTEGRATION_ERROR_SEQ\`, \`BUSINESS_KEY\` is the order id and a new row has \`STATUS\` \`NEW\`.
+
 **Design the flow(s).**
 `,
   answerTemplate: `## Change detection
@@ -154,8 +160,8 @@ A retailer's **order management system** runs on **Oracle**. Store associates an
     'Oracle watermark caveat: a trigger timestamp is set at update time, not commit time, so a long transaction can commit a row with an older timestamp than the watermark. Keep an overlap window or use an ORA_ROWSCN/sequence-based column.',
   ],
   solution: `
-1. **Database On Table Row** — table/view \`ORDER_STATUS_V\`, **watermarkColumn** \`LAST_UPDATED_TS\`, **idColumn** \`ORDER_ID\`, frequency 15 s. The listener selects only rows with a higher watermark than the last poll; each row triggers one flow execution.
-2. **Transform Message** — status code lookup (\`CR → Created\` ...), carrier, tracking, timestamp → a one-element list of \`Customer_Order__c\` records.
+1. **Database On Table Row**: table/view \`ORDER_STATUS_V\`, **watermarkColumn** \`LAST_UPDATED_TS\`, **idColumn** \`ORDER_ID\`, frequency 15 s. The listener selects only rows with a higher watermark than the last poll; each row triggers one flow execution.
+2. **Transform Message**: status code lookup (\`CR → Created\` ...), carrier, tracking, timestamp → a one-element list of \`Customer_Order__c\` records.
 3. **Until Successful** (3 retries, 5 s) → **Salesforce Upsert** \`Customer_Order__c\` on \`OMS_Order_Id__c\`. Check \`payload.items.successful\` and raise an error for record-level failures (validation rules, locked records).
 4. **On Error Continue** → **Database Insert** into \`INTEGRATION_ERROR\` (business key, payload, error, status NEW) + log. The Transform has replaced the row by then, so keep \`ORDER_ID\` in a variable at the start, and pass the record as JSON text and \`error.description\` as the insert's parameters. A small replay flow (or an ops API) re-submits NEW rows later.
 
@@ -172,10 +178,10 @@ A retailer's **order management system** runs on **Oracle**. Store associates an
     },
     {
       q: 'How is this different from Salesforce CDC in the other direction?',
-      a: 'Here Mule polls Oracle — a pull with a delay of one polling interval. Salesforce CDC pushes events with a replay ID; Oracle offers similar push via GoldenGate/LogMiner-based tools, which the OMS team ruled out.',
+      a: 'Here Mule polls Oracle: a pull with a delay of one polling interval. Salesforce CDC pushes events with a replay ID; Oracle offers similar push via GoldenGate/LogMiner-based tools, which the OMS team ruled out.',
     },
     {
-      q: 'Two status changes for the same order arrive in one poll — can they overtake each other?',
+      q: 'Two status changes for the same order arrive in one poll. Can they overtake each other?',
       a: 'Yes, if the listener runs rows concurrently. Upserting the latest status and timestamp, and ignoring updates older than Status_Changed_At__c (or limiting concurrency to 1 per order), prevents an older status overwriting a newer one.',
     },
   ],

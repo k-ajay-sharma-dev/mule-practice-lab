@@ -14,7 +14,7 @@ A hospital group is publishing lab results to its clinical apps. The contract ha
 
 Every path is relative to the file that holds it. This catches many people. \`types/lab-result.raml\` sits in \`types\`, so it reaches the examples folder with \`../examples/\`, and it reaches a file beside it by name alone.
 
-A fragment stands on its own. It does not see the types declared in \`api.raml\`, so one fragment brings in another with \`!include\`.
+A fragment should stand on its own. Some parsers, AMF among them, let it use a type name declared in \`api.raml\`, but the fragment then breaks when another file includes it. So one fragment brings in another with \`!include\`.
 
 This problem has six files. Use the tabs above the editor to move between them.
 
@@ -260,7 +260,7 @@ example: !include ../examples/lab-result.json
     'A library is for named parts shared across APIs. A fragment is for one piece in its own file.',
     'uses takes a plain path, and !include brings in fragments and examples.',
     'Every path is relative to the file that holds it, so a fragment in types needs ../examples/.',
-    'A fragment does not see the types in api.raml, so it brings in what it needs itself.',
+    'A fragment should not rely on type names from api.raml, so it brings in what it needs itself.',
     'Examples in their own files are still checked against the type.',
   ],
   solution: `
@@ -268,7 +268,7 @@ Each part sits where it fits. \`Error\` and \`traced\` are shared, so they live 
 
 The two example paths look different on purpose. \`api.raml\` writes \`examples/not-found.json\`, and the fragment writes \`../examples/lab-result.json\`. Both point into the same folder, each from its own place.
 
-\`range\` includes the fragment and does not name \`ReferenceRange\`. That name only exists in \`api.raml\`, and a fragment cannot see it. The same file serves both places, so the shape is written once.
+\`range\` includes the fragment and does not name \`ReferenceRange\`. That name is declared in \`api.raml\`, and a fragment that leans on it only works when \`api.raml\` is the file that includes it. The same file serves both places, so the shape is written once.
 `,
   followUps: [
     {

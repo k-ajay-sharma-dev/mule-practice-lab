@@ -8,6 +8,7 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 11:00:01 INFO  [blob-intake] Event received id=evt-5501 type=BlobCreated blob=sales/2026-11-18/store-118.csv", relevant: true, why: "An event for a new blob." },
+      { text: "2026-11-18 11:00:31 INFO  [blob-intake] Loaded rows=8400 blob=store-118.csv", relevant: true, why: "The first load worked." },
       { text: "2026-11-18 11:00:31 WARN  [blob-intake] Processing took 31 s, response to Event Grid after timeout", relevant: true, why: "The answer to Event Grid came late." },
       { text: "2026-11-18 11:01:05 INFO  [blob-intake] Event received id=evt-5501 type=BlobCreated (retry)", relevant: true, why: "Event Grid sent the same event again." },
       { text: "2026-11-18 11:01:40 INFO  [blob-intake] Loaded rows=8400 blob=store-118.csv", relevant: true, why: "The file was loaded a second time." },
@@ -19,10 +20,10 @@ export default {
         type: 'single',
         prompt: "Why was the file loaded twice?",
         options: [
-          "Event Grid did not get a timely success answer and delivered the same event again",
-          "The store sent two files",
-          "The blob was copied",
-          "The database duplicated rows",
+          "Event Grid got no answer in time, so it sent the same event again",
+          "The store uploaded the file twice, so two BlobCreated events fired",
+          "The staging insert was retried by the database driver after 31 s",
+          "Two Mule workers each got their own copy of the event at once",
         ],
         answer: 0,
         explain: "Event delivery is at least once. A slow answer looks like a failure and triggers a retry.",
@@ -32,9 +33,9 @@ export default {
         prompt: "What should the event handler do first?",
         options: [
           "Accept the event quickly and process it in the background",
-          "Process the whole file before answering",
-          "Ignore events",
-          "Answer with an error",
+          "Load the whole file first, so success means the data is in",
+          "Answer with an error while busy, so Event Grid tries later",
+          "Turn off retries on the subscription so each event comes once",
         ],
         answer: 0,
         explain: "A fast answer avoids most retries. Background work can take as long as it needs.",
@@ -46,7 +47,7 @@ export default {
           "Record processed event IDs or blob names with their version, and skip repeats",
           "Load with MERGE on a business key",
           "Mark the blob as processed with metadata or by moving it",
-          "Hope events are never repeated",
+          "Add workers so each load ends within the 30 second delivery timeout",
         ],
         answer: [0,1,2],
         explain: "At least once delivery needs an idempotent consumer.",
@@ -55,10 +56,10 @@ export default {
         type: 'single',
         prompt: "What key identifies \"the same file\"?",
         options: [
-          "The blob name plus its ETag or version, so a real update is still loaded",
-          "The event time",
-          "The file size",
-          "The store name only",
+          "The blob name plus its ETag, so a real update is still loaded",
+          "The event time, since a retry arrives with a later time",
+          "The blob name alone, since each store sends one file a day",
+          "The file size and row count, since a repeat has the same values",
         ],
         answer: 0,
         explain: "A file can be legitimately replaced. The ETag tells a new version from a repeat.",
@@ -89,6 +90,7 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 11:00:01 INFO  [blob-intake] Event received id=evt-5501 type=BlobCreated blob=sales/2026-11-18/store-118.csv
+2026-11-18 11:00:31 INFO  [blob-intake] Loaded rows=8400 blob=store-118.csv
 2026-11-18 11:00:31 WARN  [blob-intake] Processing took 31 s, response to Event Grid after timeout
 2026-11-18 11:01:05 INFO  [blob-intake] Event received id=evt-5501 type=BlobCreated (retry)
 2026-11-18 11:01:40 INFO  [blob-intake] Loaded rows=8400 blob=store-118.csv

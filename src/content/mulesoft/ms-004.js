@@ -26,7 +26,7 @@ export default {
         ['ServiceNow polling watermark', 'Persistent, no short TTL'],
         ['Webhook dedup IDs, duplicates within 48 h', 'Persistent, entryTtl about 3 days'],
       ],
-      explain: 'A lost token just costs one extra fetch; a lost watermark causes re-sends; dedup IDs must be shared across replicas and expire a bit after the duplicate window.',
+      explain: 'A lost token only costs one extra fetch; a lost watermark causes re-sends; dedup IDs must be shared across replicas and expire a bit after the duplicate window.',
     },
     {
       type: 'order',
@@ -67,9 +67,9 @@ export default {
   description: `
 An integration runs on **CloudHub 2.0 with 2 replicas** and has three state needs:
 
-1. **OAuth token cache** for a Workday API — token valid 60 minutes, fetched ~once an hour, used on every request.
+1. **OAuth token cache** for a Workday API: token valid 60 minutes, fetched ~once an hour, used on every request.
 2. **Watermark** for a scheduler that polls ServiceNow every 5 minutes for incidents updated since the last run. Losing it means re-sending a full day of incidents.
-3. **Processed-message IDs** for de-duplication of webhook events — ~200k events/day, duplicates arrive within 48 hours.
+3. **Processed-message IDs** for de-duplication of webhook events: ~200k events/day, duplicates arrive within 48 hours.
 
 A developer used a single \`<os:object-store>\` with \`persistent="false"\` for all three. After a redeploy, the scheduler re-sent thousands of incidents, and duplicates are still slipping through on one replica.
 
@@ -96,13 +96,13 @@ A developer used a single \`<os:object-store>\` with \`persistent="false"\` for 
     'Object Store v2 is shared by all replicas of the same application and survives redeploys; on CloudHub 2.0 local disk is cleared on restart, so persistent="true" is only durable when the store is Object Store v2.',
     'Watermark → persistent store with no short TTL; read with Retrieve (default value) and update with Store only after a successful run.',
     'Dedup IDs → persistent store with an entry TTL slightly above the 48 h duplicate window (e.g. 3 days) so the store does not grow forever.',
-    'Token cache → either is acceptable; TTL just under the token lifetime (e.g. 55 min); in-memory means each replica fetches its own token.',
-    'OSv2 has limits (per-key value size, a maximum retention/TTL, API rate limits) and is not a database — no queries across keys.',
+    'Token cache → either is acceptable; TTL a little under the token lifetime (e.g. 55 min); in-memory means each replica fetches its own token.',
+    'OSv2 has limits (per-key value size, a maximum retention/TTL, API rate limits) and is not a database: no queries across keys.',
   ],
   solution: `
 **In-memory store problems:** \`persistent="false"\` keeps entries in the replica's heap. A redeploy/restart wipes them (the watermark was lost → full re-send). Each of the 2 replicas also has its own copy (an ID stored on replica A is unknown to replica B → duplicates slip through).
 
-**Token cache:** a small store with \`entryTtl\` ≈ 55 minutes (below the 60-minute token lifetime). In-memory is acceptable — the worst case is one extra token request per replica after a restart. Persistent works too and shares the token across replicas, at the cost of a network call to OSv2 per read.
+**Token cache:** a small store with \`entryTtl\` ≈ 55 minutes (below the 60-minute token lifetime). In-memory is acceptable: the worst case is one extra token request per replica after a restart. Persistent works too and shares the token across replicas, at the cost of a network call to OSv2 per read.
 
 **Watermark:** **persistent** object store, no expiry (or the longest allowed). Pattern:
 1. \`os:retrieve\` key \`snow-incidents-watermark\` with a *default value* (e.g. now minus 1 day) for the first run.
@@ -110,12 +110,12 @@ A developer used a single \`<os:object-store>\` with \`persistent="false"\` for 
 3. After successful processing, \`os:store\` the max updated timestamp. Don't store it before processing completes, or a failure skips data.
 Also make sure only one replica polls (e.g. enable clustering on CloudHub 2.0 so the Scheduler runs on the primary node only), otherwise two replicas race on the same watermark.
 
-**Processed-message IDs:** **persistent** store shared across replicas, \`entryTtl\` of ~3 days (covers the 48 h window with margin). Usually paired with the Idempotent Message Validator pointing at this store. 200k keys/day × 3 days ≈ 600k keys — fine for OSv2, but watch API usage.
+**Processed-message IDs:** **persistent** store shared across replicas, \`entryTtl\` of ~3 days (covers the 48 h window with margin). Usually paired with the Idempotent Message Validator pointing at this store. 200k keys/day × 3 days ≈ 600k keys: fine for OSv2, but watch API usage.
 
 **Object Store v2 considerations:**
 - Persistent stores are scoped to the application (all replicas); other apps need the Object Store REST API.
 - There is a maximum TTL of 30 days, a per-value size limit (10 MB), and request-rate limits depending on subscription.
-- Every operation is a remote HTTP call — don't use it as a high-throughput database.
+- Every operation is a remote HTTP call: don't use it as a high-throughput database.
 - Set expiry explicitly with \`entryTtl\` / \`entryTtlUnit\` on the store definition rather than relying on platform defaults.
 
 **Watermark operations:** \`os:retrieve\` (with default value), \`os:store\` (overwrite/\`failIfPresent=false\`), optionally \`os:contains\` and \`os:remove\` for resets.

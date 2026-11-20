@@ -82,6 +82,12 @@ The platform's rule for its \`/inbound/sales\` folder:
 - Mark the rows sent (\`exported = 1\`) only once both files are written.
 - If there is nothing new, write no files at all.
 
+**Facts**
+- Work out the file name once, with the run's timestamp, and use it for both files.
+- Build the control line with a **Set Payload**, using \`sizeOf\` on the selected rows, such as \`DAILY_SALES_20261113023000.csv|3\`.
+- Mark only the rows that were in the file, by \`sale_id\`.
+- Do not catch a failed write. The run fails and no row is marked.
+
 **Design the flow.**
 `,
   answerTemplate: `## Choosing the rows

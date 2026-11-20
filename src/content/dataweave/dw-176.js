@@ -27,7 +27,7 @@ Build JSON:
   - \`Trailer total X does not match Y\`, where Y is the sum of qty over the good receipts
 - \`valid\`: \`true\` when there are no errors
 
-Skip blank lines. Numbers in messages are written without leading zeros.
+Skip blank lines. Numbers in messages are written without leading zeros. Output the keys in the order \`dc\`, \`receiptDate\`, \`valid\`, \`errors\`, \`receipts\`, with empty lists when there is nothing to list.
 `,
   inputs: [
     {

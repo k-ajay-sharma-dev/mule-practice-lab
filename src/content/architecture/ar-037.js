@@ -97,7 +97,9 @@ A bank is launching a new **mobile banking app** (iOS/Android). Backends:
 
 Requirements:
 - Login with biometrics after first login; sessions should not require re-entering passwords daily.
-- Home screen shows accounts, balances and last 5 transactions in **under 1 second**.
+- Home screen shows accounts, balances, last 5 transactions and card status in **under 1 second**. When the card processor does not answer, it still shows accounts and balances, without the cards part.
+- All mobile traffic must pass an API gateway, which checks tokens and applies rate limits before a request reaches Mule.
+- When a transaction posts, the customer gets a push notification. Sending it must never slow down an app request.
 - Customers must only ever see their own data.
 - Expected 500,000 users, peaks at salary day (10× normal).
 - Mobile app releases are slow (app-store review, users not updating), so old app versions stay in use for months.

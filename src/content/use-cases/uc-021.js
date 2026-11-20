@@ -26,7 +26,7 @@ export default {
         p: ['process-api', 'prc-subscription-api'],
         ssf: ['system-api', 'sys-salesforce-cpq-api'],
         sbill: ['system-api', 'sys-billing-api', { retries: 3 }],
-        bill: ['saas', 'Subscription billing (Zuora-like)'],
+        bill: ['saas', 'Subscription billing platform'],
         sprod: ['system-api', 'sys-product-platform-api (entitlements, usage)'],
         prod: ['saas', 'Product platform'],
         usage: ['batch-job', 'Daily usage aggregation & bulk upload'],
@@ -68,7 +68,7 @@ A B2B software company sells **annual and monthly subscriptions** with usage-bas
 
 Systems:
 - **Salesforce Sales Cloud + CPQ**: quotes and closed-won opportunities (new deals, upgrades, renewals, cancellations).
-- A **subscription billing platform** (Zuora-like, REST API): subscriptions, invoices, payment collection.
+- A **subscription billing platform** (REST API): subscriptions, invoices, payment collection.
 - The company's own **product platform**: provisions tenants, enforces plan limits, and produces **usage records** (~8 million API-call usage events/day across 4,000 customers).
 - **NetSuite** (ERP): general ledger, revenue recognition, financial reporting.
 
@@ -122,7 +122,7 @@ A common **customer ID** (Salesforce Account ID) is stored as external ID in eve
 4. Writes back to Salesforce: billing account/subscription numbers, tenant ID, status. Failures at any step → retry, then alert the deal desk with the exact step; completed steps are not repeated.
 15-minute SLA: event-driven, no nightly batch.
 
-**Amendments.** An upgrade quote (CPQ amendment) becomes an **amendment** in the billing platform (add/update product effective on date) — **proration is calculated by the billing platform**, not in Mule. Entitlements upgrade immediately. Downgrades are scheduled at the renewal date (the billing platform holds the future-dated change; Mule or a scheduler applies the entitlement change on that date). Cancellations stop renewal and schedule deprovisioning at term end.
+**Amendments.** An upgrade quote (CPQ amendment) becomes an **amendment** in the billing platform (add/update product effective on date). **Proration is calculated by the billing platform**, not in Mule. Entitlements upgrade immediately. Downgrades are scheduled at the renewal date (the billing platform holds the future-dated change; Mule or a scheduler applies the entitlement change on that date). Cancellations stop renewal and schedule deprovisioning at term end.
 
 **Usage.** 8M raw events/day must not become 8M API calls:
 - The product platform writes usage events to its own store/stream; a **daily Mule batch** reads aggregated counts per customer per metric (aggregation done at the source via a query, or in a Batch Job with streaming).

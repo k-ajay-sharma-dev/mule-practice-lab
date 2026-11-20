@@ -73,6 +73,10 @@ The PostgreSQL table \`permits\` has \`permit_id\`, \`plate\`, \`zone\`, \`valid
 - Create the file at the right size, then write its content.
 - If the create call fails, write nothing and fail the run.
 
+**Facts**
+- A permit is still valid when \`valid_to\` is today or later. The CSV has the table's five columns.
+- An expired SAS token answers 403, which raises **HTTP:FORBIDDEN**. Do not catch it.
+
 **Design the flow.** Say which headers each call needs and where they would be set.
 `,
   answerTemplate: `## Why REST, not a mount

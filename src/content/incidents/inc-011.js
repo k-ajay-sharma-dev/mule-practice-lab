@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'The listener reads the file while the partner is still uploading it under its final name',
-          'The CSV parser stops at a malformed row',
-          'The inventory database rejects rows silently',
-          'The SFTP connection drops during the read',
+          'The listener reads the file while the partner is still uploading it',
+          'The CSV parser stops silently at the first malformed row in the file',
+          'The inventory database drops rows silently when a batch is too large',
+          'The SFTP connection to the partner drops partway through the read',
         ],
         answer: 0,
         explain: 'Only large, slow uploads are affected, the size at pickup is too small, and the archive is truncated too. A 10 s poll catches the file before it is finished.',
@@ -32,20 +32,20 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Re-process the archived file',
-          'Ask the partner to re-send the file, re-run the import, and check past runs against their records',
-          'Increase the polling frequency to 1 s',
-          'Nothing, tomorrow’s file will overwrite the stock levels',
+          'Re-process the copy in /archive to load the missing rows',
+          'Ask the partner to re-send the file, re-run the import, check past runs',
+          'Poll every 1 s so the listener sees the complete file sooner',
+          'Leave it, since tomorrow’s full file will reset all stock levels',
         ],
         answer: 1,
-        explain: 'The archive copy is truncated, so it cannot be trusted. Faster polling would make the problem worse.',
+        explain: 'The archive copy is truncated, so it cannot be trusted. Faster polling would make the problem worse, and waiting a day leaves wrong stock levels driving sales.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix**?',
         options: [
           'Partner uploads as .tmp (or to /staging) and renames to .csv when complete',
-          'Or a separate .done trigger file after the data file',
+          'A separate .done trigger file uploaded after the data file',
           'Listener size check (timeBetweenSizeCheck) as a safety net',
           'Validate the TRL row count and route mismatches to an error folder with an alert',
           'Increase the polling interval to 10 minutes',
@@ -118,7 +118,7 @@ export default {
 **Root cause.** No agreed "file is complete" signal between producer and consumer, and no completeness check in the flow.
 
 **Permanent fix.**
-- **Best**: partner uploads as \`stock_YYYYMMDD.csv.tmp\` (or to a \`/staging\` folder) and **renames** to \`.csv\` when finished — rename is atomic on the server, and the matcher only accepts \`*.csv\`.
+- **Best**: partner uploads as \`stock_YYYYMMDD.csv.tmp\` (or to a \`/staging\` folder) and **renames** to \`.csv\` when finished. A rename is atomic on the server, and the matcher only accepts \`*.csv\`.
 - Alternative: a **trigger/done file** (\`stock_YYYYMMDD.done\`) uploaded after the data file; the flow listens for \`.done\` and then reads the data file.
 - Safety net: configure the listener's **size check** (\`timeBetweenSizeCheck\` + unit), so a file is only processed if its size didn't change between two checks. This helps but is not a guarantee if the upload stalls.
 - **Validate** the trailer: if \`TRL\` count ≠ rows parsed, or the trailer is missing, move the file to an error folder and alert instead of loading.

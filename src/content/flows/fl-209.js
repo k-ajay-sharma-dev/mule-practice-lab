@@ -146,6 +146,13 @@ Support at \`planning-support@brindle.example\` wants an email after every run: 
 - Mark the job \`COMPLETED\` with the counts. Send the report without holding up the run.
 - On any failure, mark the job \`FAILED\` and email support.
 
+**Facts**
+- Run at 23:30. Call the procedure with the job name \`MASTER_DATA_OUT\`. It returns a row with \`job_id\`.
+- The entities are \`ITEMS\`, \`LOCATIONS\` and \`SUPPLIERS\`. Use one \`<stamp>\` (\`yyyyMMddHHmm\`) for every file in the run. Write the three data files from one **For Each**.
+- The control file is \`/inbound/master/MASTER_<stamp>.ctl\`, with lines such as \`ITEMS_202611132330.csv|3\`.
+- The email subject contains \`COMPLETED\` or \`FAILED\`. Send the success email from an **Async** scope.
+- Handle a failure in an On Error Propagate: update the job, email support, and let the run fail.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

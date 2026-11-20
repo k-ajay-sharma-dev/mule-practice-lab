@@ -18,7 +18,7 @@ Brindle Outdoor runs a product data hub. A JMS listener takes notifications that
 
 \`wasRedelivered\` is \`true\` when the flag is set or the delivery count is above 1.
 
-Output \`results\` (\`messageId\`, \`action\`, \`wasRedelivered\`) in the input order, and \`summary\` with one count per action in the order \`PROCESS\`, \`SKIP_DUPLICATE\`, \`DEAD_LETTER\`, including zeros.
+Output \`results\` (\`messageId\`, \`action\`, \`wasRedelivered\`) in the input order, and \`summary\`, an object with one key per action holding its count, in the order \`PROCESS\`, \`SKIP_DUPLICATE\`, \`DEAD_LETTER\`, including zeros.
 `,
   inputs: [
     {

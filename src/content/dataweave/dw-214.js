@@ -6,13 +6,13 @@ export default {
   tags: ['myproject', 'large-files', 'parallel', 'planning-platform', 'reduce', 'json'],
   estMinutes: 30,
   description: `
-Larkfield Grocers gets a nightly plan from the planning platform as several part files of very different sizes. Three workers each stream one part at a time into Oracle staging. The parts were handed out in name order, so one worker got the two largest parts and finished an hour after the others. The load window is tight.
+Larkfield Grocers gets a nightly plan from the planning platform as several part files of very different sizes. Three workers each stream one part at a time into Oracle staging. The parts were handed out in name order, so one worker got far more megabytes than the others and finished an hour after the others. The load window is tight.
 
 \`payload.parts\` lists the parts: \`name\` and \`sizeMb\`. \`vars.workers\` is the number of workers. \`vars.maxPartMb\` is the largest part one worker may take, set by its temp disk.
 
 **Rules**
 - Parts with \`sizeMb\` 0 go to \`empty\`. Parts above \`maxPartMb\` go to \`tooLarge\`. Neither list is assigned. Both lists keep input order.
-- Sort the other parts by size, largest first. Equal sizes go by name.
+- Sort the other parts by size, largest first. Equal sizes go by name, A to Z as text.
 - Give each part, in that order, to the worker with the smallest total so far. On a tie, the lowest worker number wins.
 - Workers are numbered from 1. Each lists its \`parts\` in the order given and its total \`sizeMb\`.
 - \`spreadPct\`: the largest worker total minus the smallest, as a whole percent of the largest. 0 when the largest is 0.

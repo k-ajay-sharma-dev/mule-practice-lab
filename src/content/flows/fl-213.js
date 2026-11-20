@@ -91,6 +91,12 @@ Support wants bad lines kept in \`dbo.receipt_rejects\` (\`file_name\`, \`line\`
 - Insert good lines into staging and bad lines into rejects, each only when there are some.
 - Move the file to \`/mnt/scm-share/receipts/done\`.
 
+**Facts**
+- Use the File listener on the mount, \`RCPT_*.csv\`, with a size check wait.
+- Test the SKU first: a line with both faults gets \`SKU_MISSING\`.
+- Every row carries \`file_name\` (the file's name) and \`line\` as in the file. Store \`qty\` as a number.
+- Skip an empty list with a **Choice** before each bulk insert. The file keeps its name in \`done\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the file

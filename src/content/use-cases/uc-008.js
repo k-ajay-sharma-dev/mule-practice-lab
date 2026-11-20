@@ -87,15 +87,15 @@ Requirements:
   solution: `
 **Collecting the data.** A Scheduler with a cron expression for the 20th (e.g. \`0 0 6 20 * ?\`) starts the flow. It reads active workers with compensation and bank data from **Workday**. It uses the Workday connector against the HR web services, or a custom Workday report exposed as a REST/RaaS endpoint. The custom report is a common choice because it returns exactly the fields needed. Hours for the period come from the time-tracking API. DataWeave joins both on employee ID (\`groupBy\` the hours, then map workers) and computes gross amounts where needed.
 
-**Building the file.** Use DataWeave's **flat file** output with a schema describing each record type (header, detail, trailer) — fixed field lengths, padding, numeric formats with implied decimals. The trailer contains the **record count** and the **sum of gross pay**, computed from the same payload so they always match. Validate before sending: no employee without bank details, totals non-zero, count equals the number of active workers.
+**Building the file.** Use DataWeave's **flat file** output with a schema describing each record type (header, detail, trailer): fixed field lengths, padding, numeric formats with implied decimals. The trailer contains the **record count** and the **sum of gross pay**, computed from the same payload so they always match. Validate before sending: no employee without bank details, totals non-zero, count equals the number of active workers.
 
 **Security.**
 - **In transit:** SFTP, with the provider's host key pinned.
 - **Payload:** encrypt with the provider's PGP public key using the **Cryptography module (PGP encrypt)** before writing to SFTP. Optionally sign with our private key.
 - **At rest:** do not write plain files to local disk; stream from DataWeave to encryption to SFTP. Keys and passwords live in **secure properties**/a vault, never in code.
-- **Logs:** log only counts, file name and a correlation ID — never salary or IBANs. Restrict who can see the app's logs in Runtime Manager.
+- **Logs:** log only counts, file name and a correlation ID, never salary or IBANs. Restrict who can see the app's logs in Runtime Manager.
 
-**Confirmation and rejects.** A second flow polls the provider's outbound SFTP folder (SFTP *On New or Updated File*) for the response file, decrypts it, and parses accepted/rejected lines. If rejects exist, it creates a task/email for the payroll team with employee ID and reason (e.g. invalid IBAN). Corrections are sent as a small **correction file** per the provider's process — not by resending the whole month, which could pay people twice. If no response arrives within 2 hours, alert.
+**Confirmation and rejects.** A second flow polls the provider's outbound SFTP folder (SFTP *On New or Updated File*) for the response file, decrypts it, and parses accepted/rejected lines. If rejects exist, it creates a task/email for the payroll team with employee ID and reason (e.g. invalid IBAN). Corrections are sent as a small **correction file** per the provider's process, not by resending the whole month, which could pay people twice. If no response arrives within 2 hours, alert.
 `,
   followUps: [
     { q: 'The file upload failed halfway. What now?', a: 'Upload to a temporary name and rename after a complete write (or use the provider\'s "ready" marker convention), so the provider never processes a partial file. Retry the whole upload; keep a record of the file sent so you never send two different files for the same run.' },

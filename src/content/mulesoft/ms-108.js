@@ -73,8 +73,8 @@ export default {
       type: 'single',
       prompt: 'v1 of an API is deprecated in API Manager while consumers move to v2. What happens to apps that already have contracts with v1?',
       options: [
-        'Their contracts stay active, but no new contracts can be created for that instance',
-        'All contracts are revoked at once',
+        'Their contracts stay active, but no new contracts can be made',
+        'All existing contracts are revoked at once',
         'Their requests get a warning header from the gateway',
         'Their contracts move to v2 automatically',
       ],

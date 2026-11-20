@@ -68,7 +68,7 @@ export default {
       type: 'single',
       prompt: 'During an incident, every service at a retailer shows as conforming to its Governance Strategy, yet customers report failed orders. What should the team conclude, and where should it look next?',
       options: [
-        'Conformance proves the fault is with the customers, so no check is needed',
+        'Conformance proves the services are healthy, so check the client apps',
         'Conformance is not the same as healthy traffic, so check Monitor for errors',
         'The Governance Strategy has blocked the orders, so remove the strategy now',
         'The Open Policies have expired, so author all of them again for each gateway',

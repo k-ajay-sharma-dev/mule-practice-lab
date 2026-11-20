@@ -1,11 +1,11 @@
 import { design, flow, handler, route, router, source, step } from '../../flow/dsl.js'
 
-const work = (messageId, messageType, senderId = 'RIDGEWAY-BRAKES') => ({
+const work = (messageId, messageType, senderId = 'RIDGEWAY-TOOLS') => ({
   message: { kind: 'jms', destination: 'PDH.INBOUND.WORK', payload: { messageId, messageType, senderId, blobName: `inbound/${senderId}/${messageId}.json` } },
 })
-const itemDoc = { senderDocumentId: 'RB-ITEM-20261113-01', lines: [{ gtin: '05012345678900', description: 'Brake pad set, front', brand: 'Ridgeway' }] }
+const itemDoc = { senderDocumentId: 'RB-ITEM-20261113-01', lines: [{ gtin: '05012345678900', description: 'Cordless drill, 18V', brand: 'Ridgeway' }] }
 const recadvDoc = { senderDocumentId: 'ND-RA-554120', lines: [{ lineNo: 1, gtin: '05012345678900', qtyReceived: 24, poNumber: 'PO-2026-118840' }] }
-const known = { sender_id: 'RIDGEWAY-BRAKES', sender_document_id: 'RB-ITEM-20261112-07', message_id: 'MSG-90300' }
+const known = { sender_id: 'RIDGEWAY-TOOLS', sender_document_id: 'RB-ITEM-20261112-07', message_id: 'MSG-90300' }
 
 export default {
   id: 'fl-166',
@@ -47,7 +47,7 @@ export default {
         trigger: work('MSG-90501', 'Item'),
         expect: {
           ack: 'acked',
-          connector: [{ type: 'azure-download-blob', settings: { container: 'pdh-inbound', fileName: 'inbound/RIDGEWAY-BRAKES/MSG-90501.json' }, count: 1 }],
+          connector: [{ type: 'azure-download-blob', settings: { container: 'pdh-inbound', fileName: 'inbound/RIDGEWAY-TOOLS/MSG-90501.json' }, count: 1 }],
           sent: [{ destination: 'PDH.ITEM.WORK', count: 1, has: { messageId: 'MSG-90501', senderDocumentId: 'RB-ITEM-20261113-01' } }],
           notSent: ['PDH.ACK', 'PDH.RECADV.WORK'],
           db: { pdh_sender_documents: { count: 2 } },
@@ -132,9 +132,9 @@ export default {
     ),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) takes in GS1 style documents by claim check: the sender uploads the JSON document to the Azure Blob Storage container \`pdh-inbound\`, and the intake flow puts a small notification on the JMS queue \`PDH.INBOUND.WORK\`:
+Copperline Home Supply’s product data hub (fictional) takes in GS1 style documents by claim check: the sender uploads the JSON document to the Azure Blob Storage container \`pdh-inbound\`, and the intake flow puts a small notification on the JMS queue \`PDH.INBOUND.WORK\`:
 
-\`{ "messageId": "MSG-90501", "messageType": "Item", "senderId": "RIDGEWAY-BRAKES", "blobName": "inbound/RIDGEWAY-BRAKES/MSG-90501.json" }\`
+\`{ "messageId": "MSG-90501", "messageType": "Item", "senderId": "RIDGEWAY-TOOLS", "blobName": "inbound/RIDGEWAY-TOOLS/MSG-90501.json" }\`
 
 The document in the blob looks like \`{ "senderDocumentId": "RB-ITEM-20261113-01", "lines": [ ... ] }\`.
 
@@ -147,6 +147,11 @@ You build the **router**: the flow between the intake and the process flows. Eac
 - Send the document, with \`messageId\`, \`senderId\` and \`messageType\` added, to the work queue for its type.
 - A repeat, an invalid document or a type without a process flow raises an error, answered with \`{ messageId, senderId, status: "REJECTED", reason }\` on \`PDH.ACK\`. These are acknowledged, not retried.
 - If blob storage or Oracle is down, send nothing and let the broker deliver the work again.
+
+**Facts**
+- A document that fails the schema raises **JSON:SCHEMA_NOT_HONOURED**. Blob storage that is down raises **AZURE-STORAGE:CONNECTIVITY**, and Oracle down raises **DB:CONNECTIVITY**. Those two must fail the flow.
+- Record a new sender document with its \`sender_id\`, \`sender_document_id\` and the \`message_id\` of this notification.
+- The REJECTED ACK takes \`messageId\` and \`senderId\` from the notification.
 
 **Design the flow.**
 `,

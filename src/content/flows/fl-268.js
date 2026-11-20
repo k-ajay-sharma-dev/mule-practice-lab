@@ -99,6 +99,12 @@ The DBA team offers two SQL Server tables: \`dbo.sales_line_staging\` (\`file_na
 - Loading the same file twice must not double anything.
 - No DataWeave \`groupBy\` over the lines.
 
+**Facts**
+- \`<date>\` in the totals file name is the date from the sales file name.
+- \`file_name\` is the sales file's name. \`units\` and \`amount\` are numbers.
+- A rerun replaces: delete the file's staging rows before the job, and its totals in On Complete before you build them again.
+- Build the totals with \`INSERT INTO dbo.store_day_totals ... SELECT ... GROUP BY\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why groupBy fails here

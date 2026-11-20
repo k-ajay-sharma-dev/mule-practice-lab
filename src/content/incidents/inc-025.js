@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why does cart-papi return 503 while CPU is at 20%?',
         options: [
-          'Little’s law: 40 req/s x 4 s latency needs ~160 in flight, but maxConcurrency is 50, so the flow applies back-pressure',
-          'The workers are out of memory',
-          'The load balancer is misconfigured',
-          'inventory-sapi returns 503 and cart-papi passes it through',
+          '40 req/s at 4 s each needs ~160 in flight, but maxConcurrency caps it at 50',
+          'The workers run low on heap and reject new requests to protect memory',
+          'The load balancer sends most sale traffic to one worker and drops the rest',
+          'inventory-sapi returns 503 and cart-papi passes the status through',
         ],
         answer: 0,
         explain: 'Max throughput is 50 / 4 s = 12.5 req/s per worker. The rest is rejected with FLOW_BACK_PRESSURE. Threads are waiting, not computing.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'A colleague proposes maxConcurrency=500 and 4 vCores. What happens?',
         options: [
-          'It fixes the 503s',
-          'cart-papi sends many more concurrent calls to the already overloaded inventory database, so latency and failures get worse',
-          'Nothing changes',
-          'It reduces latency to 250 ms',
+          'The 503s stop, because 500 slots cover the ~160 requests in flight',
+          'More concurrent calls hit the overloaded inventory database, so it gets worse',
+          'Nothing changes, because the HTTP listener has its own fixed limit of 50',
+          'Latency drops back to 250 ms, because 4 vCores process requests faster',
         ],
         answer: 1,
         explain: 'The bottleneck is inventory-sapi. Scaling the caller pushes more load onto the callee; maxConcurrency is actually protecting it.',
@@ -115,7 +115,7 @@ export default {
     'Permanent fix: timeouts sized from latency budgets, circuit breaker and fallback around inventory, cached/pre-computed stock, client retries with backoff, and capacity tests at sale volumes.',
   ],
   solution: `
-**Diagnosis.** **Little's law**: concurrency = throughput × latency. Each worker gets 40 req/s and each request now waits ~4 s on inventory-sapi, so it needs **~160 requests in flight**. The flow allows **50**. Max throughput per worker is therefore 50 / 4 s ≈ **12.5 req/s**; the rest is rejected. When the flow can't accept more events, Mule applies **back-pressure** and the HTTP Listener responds **503** (\`FLOW_BACK_PRESSURE\`). CPU is ~20% because the 50 in-flight requests are just **waiting on I/O**. The web shop's **immediate retries** turn every 503 into up to 3 requests, so the effective load is even higher. The true bottleneck is **inventory-sapi's database**, not cart-papi.
+**Diagnosis.** **Little's law**: concurrency = throughput × latency. Each worker gets 40 req/s and each request now waits ~4 s on inventory-sapi, so it needs **~160 requests in flight**. The flow allows **50**. Max throughput per worker is therefore 50 / 4 s ≈ **12.5 req/s**; the rest is rejected. When the flow can't accept more events, Mule applies **back-pressure** and the HTTP Listener responds **503** (\`FLOW_BACK_PRESSURE\`). CPU is ~20% because the 50 in-flight requests are only **waiting on I/O**. The web shop's **immediate retries** turn every 503 into up to 3 requests, so the effective load is even higher. The true bottleneck is **inventory-sapi's database**, not cart-papi.
 
 **Immediate mitigation.**
 - **Reject the colleague's proposal as stated.** With maxConcurrency 500 and more vCores, cart-papi would send **3x more concurrent calls** to inventory-sapi, whose DB is already overloaded: latency rises further, timeouts start, and the whole chain fails harder. Scaling the caller doesn't fix a bottleneck in the callee.

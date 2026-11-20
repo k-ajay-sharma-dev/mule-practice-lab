@@ -7,7 +7,7 @@ export default {
   estMinutes: 30,
   investigation: {
     logs: [
-      { text: '2026-10-20 16:41:12 INFO  [ci] munit-maven-plugin: Tests: 22 - Failed: 0 - Errors: 0 - Skipped: 0', relevant: true, why: 'The suite passed on the release that broke production, so it was unable to see this defect.' },
+      { text: '2026-10-20 16:41:12 INFO  [ci] munit-maven-plugin: Tests: 22, Failed: 0, Errors: 0, Skipped: 0', relevant: true, why: 'The suite passed on the release that broke production, so it was unable to see this defect.' },
       { text: '2026-10-20 16:41:13 INFO  [ci] MUnit Coverage Summary: Application Coverage: 91.30%', relevant: true, why: 'Coverage was high, because coverage shows what executed, not that the outbound request was checked.' },
       { text: '2026-10-21 07:02:03 INFO  [runtime] payment-capture: deployment applied, 2 replicas STARTED', relevant: false },
       { text: '2026-10-21 07:05:41 INFO  [payment-capture] Capture requested order=O-88213 amount=129.90', relevant: false },
@@ -22,22 +22,22 @@ export default {
         type: 'single',
         prompt: 'Why did the MUnit suite stay green even though every real capture fails?',
         options: [
-          'The test mocks `http:request`, so the configured success response comes back whatever the flow sends, and nothing asserts the outbound payload',
-          'Transform Message was mocked, so the new mapping never ran in the test',
-          'MUnit skips DataWeave scripts by default',
-          'The mock raised `HTTP:BAD_REQUEST`, but the test ignored the error',
+          'The mock returns success whatever the flow sends, and nothing asserts the outbound payload',
+          'Transform Message was mocked too, so the renamed field never ran in the test at all',
+          'MUnit runs DataWeave in a lenient mode, so a missing required field is not reported',
+          'The mock raised `HTTP:BAD_REQUEST`, but `verify-call` counted the call as a success',
         ],
         answer: 0,
-        explain: 'Mock When returns a configured response instead of executing the real operation. Transform Message cannot be mocked, so the broken mapping did run in the test: it was just never checked.',
+        explain: 'Mock When returns a configured response instead of executing the real operation. Transform Message cannot be mocked, so the broken mapping did run in the test. Nothing ever checked its output.',
       },
       {
         type: 'single',
         prompt: 'What is the right immediate action?',
         options: [
-          'Roll back to the previous version, confirm one capture succeeds, then reprocess the failed captures in a controlled way',
-          'Add `merchantReference` to the mock response and re-run the tests',
-          'Retry the failed captures in a loop until the PSP accepts them',
-          'Raise the error-rate alert threshold',
+          'Roll back, confirm one capture works, then reprocess the failed captures carefully',
+          'Add `merchantReference` to the mock response, re-run the tests and redeploy',
+          'Retry the failed captures in a loop until the PSP starts to accept them again',
+          'Ask the PSP to make `merchantReference` optional until the next release',
         ],
         answer: 0,
         explain: 'The previous configuration is known to work, and a 400 will not succeed on retry. The mock is not the production problem.',
@@ -49,8 +49,8 @@ export default {
           'Assertions on the outbound fields at the PSP call, in a `spy` with `before-call` or in a `then-call` mock flow',
           'An assertion on the request payload built by the mapping, using an expected example taken from the PSP specification',
           'A non-mocked integration or contract test against the PSP sandbox, tagged and run in the pipeline',
-          'Asserting that the payload equals the value the mock itself returns',
-          'Raising the coverage requirement to 100%',
+          'An assertion that the flow’s final payload equals the value the mock itself returns',
+          'Raising the coverage requirement to 100%, so that every processor in the flow runs in a test',
         ],
         answer: [0, 1, 2],
         explain: 'Test what crosses the boundary. Asserting the value your own mock returned is circular, and more coverage would not have helped because the mapping already executed. The docs do not describe a spy and a mock on the same processor, so make an assertion fail once to confirm that a spy fires.',
@@ -95,7 +95,7 @@ export default {
 
 ## Logs
 \`\`\`
-16:41:12 INFO  [ci] Tests: 22 - Failed: 0 - Errors: 0 - Skipped: 0
+16:41:12 INFO  [ci] Tests: 22, Failed: 0, Errors: 0, Skipped: 0
 16:41:13 INFO  [ci] Application Coverage: 91.30%
 07:05:42 ERROR [payment-capture] HTTP POST /v3/captures failed: HTTP:BAD_REQUEST status 400
           {"error":"merchantReference is required"}
@@ -157,6 +157,6 @@ The docs do not describe a spy and a mock on the same processor, so make an asse
   followUps: [
     { q: 'Would raising coverage to 100% have helped?', a: 'No. The mapping already executed in the test. Coverage counts processors that ran, and a wrong field name still runs.' },
     { q: 'Should we stop mocking external systems?', a: 'No. Mocks keep unit tests fast and independent. Keep them, but assert what you send, and cover the real contract with a smaller set of sandbox or contract tests.' },
-    { q: 'Could the mock itself have helped?', a: 'A then-call flow can act on the incoming event, so it could return an error when a required field is missing. A spy with assertions is simpler and clearer, though.' },
+    { q: 'Could the mock itself have helped?', a: 'A then-call flow can act on the incoming event, so it could return an error when a required field is missing. A spy with assertions is clearer, though.' },
   ],
 }

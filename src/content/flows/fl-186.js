@@ -115,6 +115,13 @@ Each worker has a property \`worker.id\` (\`w1\`, \`w2\`).
 - If the post fails, the file must become available again for either worker.
 - If a worker dies while it holds a file, the file must not be stuck for ever. Hand back any claim older than 30 minutes.
 
+**Facts**
+- Name the worker flow \`manifest-worker\` and a second flow \`claim-sweeper\`, which runs every 10 minutes.
+- Claim a file by renaming it to \`<file name>.claimed-<worker.id>\`, such as \`MAN_88120.json.claimed-w1\`. Read and post the claimed file, then move it to \`/mnt/ops-share/manifests/processed\` under its own name.
+- If another worker took the file first, the rename fails with \`FILE:ILLEGAL_PATH\` or \`FILE:FILE_ALREADY_EXISTS\`. Skip that file. Give the claim and the work each their own Try with On Error Continue.
+- When the post fails, rename the claimed file back to its own name. The run must not fail.
+- The sweeper lists \`*.claimed-*\`. A claim's age is its \`attributes.timestamp\`, the last modified time in UTC without a zone. Test it in a **Choice** against the current UTC time minus \`PT30M\`, and rename the file back to the name without the claim suffix.
+
 **Design the flows.**
 `,
   answerTemplate: `## Why two workers clash

@@ -10,7 +10,7 @@ export default {
       type: 'match',
       prompt: 'Match each part of the Customer 360 API to the best construct.',
       pairs: [
-        ['CRM, Billing and Loyalty calls — three different sources', 'Scatter-Gather'],
+        ['CRM, Billing and Loyalty calls: three different sources', 'Scatter-Gather'],
         ['Fetch details for each of N orders', 'Parallel For Each with maxConcurrency'],
         ['Loop where each step depends on the previous one and vars must persist', 'For Each'],
       ],
@@ -33,7 +33,7 @@ export default {
         'Scatter-Gather returns the other two results and `loyalty` is null',
         'Scatter-Gather waits for all routes, then raises MULE:COMPOSITE_ROUTING',
         'Scatter-Gather cancels the other routes immediately and raises HTTP:CONNECTIVITY',
-        'The Loyalty route is retried automatically',
+        'Scatter-Gather retries the Loyalty route once, then continues',
       ],
       answer: 1,
       explain: 'By default any route failure makes the whole router fail with COMPOSITE_ROUTING. For an optional source, wrap that route in a Try with On Error Continue that sets a null payload.',
@@ -42,13 +42,13 @@ export default {
       type: 'single',
       prompt: 'Why set `maxConcurrency` on the Parallel For Each over 50 orders?',
       options: [
-        'Without it the orders are processed sequentially',
-        'To avoid 50 simultaneous calls that can exhaust the HTTP connection pool or overload the Order API',
+        'Without it, the orders are processed one after another',
+        'To stop 50 calls at once from overloading the Order API',
         'It is required for the output to keep the input order',
-        'It sets the timeout per order',
+        'It sets the timeout that applies to each order call',
       ],
       answer: 1,
-      explain: 'Unbounded parallelism protects nobody. Latency for the order part then is roughly ceil(N / concurrency) × 150 ms.',
+      explain: 'Fifty simultaneous calls can exhaust the HTTP connection pool or overload the Order API. Unbounded parallelism protects nobody. Latency for the order part then is roughly ceil(N / concurrency) × 150 ms.',
     },
     {
       type: 'single',
@@ -66,10 +66,10 @@ export default {
       type: 'single',
       prompt: 'Inside Parallel For Each you set `vars.total`. What does the flow see after the router?',
       options: [
-        'The value from the last element',
-        'The sum of all elements',
-        'The change is not propagated back — return data via the payload',
-        'A list of all values',
+        'The value set by the last element that finished',
+        'The sum of the values set by all the elements',
+        'No change, because variables set inside are not propagated',
+        'A list holding the value set by each element',
       ],
       answer: 2,
       explain: 'Variables set inside Parallel For Each are not propagated back; return what you need through the payload, e.g. `payload map $.payload`.',
@@ -86,7 +86,7 @@ A **Customer 360 Experience API** must return in under 1.5 s. For one customer i
 
 It must also fetch details for each of the customer's **N orders** (N up to 50) from the Order System API, 150 ms each.
 
-The first version runs everything sequentially and takes 1.3 s + N × 150 ms. A teammate swapped the order loop to **For Each** "with maxConcurrency" — which does not exist there.
+The first version runs everything sequentially and takes 1.3 s + N × 150 ms. A teammate swapped the order loop to **For Each** "with maxConcurrency": which does not exist there.
 
 **Questions**
 1. Which router fits the three different sources and which fits the N order calls?
@@ -116,7 +116,7 @@ The first version runs everything sequentially and takes 1.3 s + N × 150 ms. A 
 **Choice:** three *different* calls → **Scatter-Gather**. Same call per order → **Parallel For Each** with \`maxConcurrency\`. Latency becomes roughly max(400, 600, 300) + ceil(N / concurrency) × 150 ms.
 
 **Output shapes**
-- Scatter-Gather: \`{ "0": Message, "1": Message, "2": Message }\` — each value has \`payload\` and \`attributes\`.
+- Scatter-Gather: \`{ "0": Message, "1": Message, "2": Message }\`: each value has \`payload\` and \`attributes\`.
 - Parallel For Each: \`[ Message, Message, ... ]\` in the input order.
 
 \`\`\`dataweave
@@ -146,14 +146,14 @@ For orders: \`payload map $.payload\`.
 \`\`\`
 Then the router succeeds and \`loyalty\` is null. Required routes (CRM) should still fail the whole request.
 
-**maxConcurrency and timeout:** without a limit, 50 orders means 50 simultaneous calls — which can exhaust the HTTP connection pool or overload the Order API (and its rate limits). \`maxConcurrency\` caps parallel routes. \`timeout\` bounds how long the router waits; routes still running are treated as failed.
+**maxConcurrency and timeout:** without a limit, 50 orders means 50 simultaneous calls, which can exhaust the HTTP connection pool or overload the Order API (and its rate limits). \`maxConcurrency\` caps parallel routes. \`timeout\` bounds how long the router waits; routes still running are treated as failed.
 
 **For Each vs Parallel For Each**
 | | For Each | Parallel For Each |
 |---|---|---|
 | Execution | Sequential | Parallel (bounded by maxConcurrency) |
 | Payload after | **Original payload restored** | List of result messages |
-| Vars set inside | Visible after the loop | Not propagated back — return data via payload |
+| Vars set inside | Visible after the loop | Not propagated back: return data via payload |
 | Batch size | \`batchSize\` groups elements | n/a |
 | Error | Stops at first failure | Collects into COMPOSITE_ROUTING |
 `,
@@ -168,7 +168,7 @@ Then the router succeeds and \`loyalty\` is null. Required routes (CRM) should s
     },
     {
       q: 'When would you choose Batch instead of Parallel For Each?',
-      a: 'For large data sets (thousands to millions of records) where you need persistence of progress, per-record error handling and aggregation — Parallel For Each keeps everything in memory for one event.',
+      a: 'For large data sets (thousands to millions of records) where you need persistence of progress, per-record error handling and aggregation. Parallel For Each keeps everything in memory for one event.',
     },
   ],
 }

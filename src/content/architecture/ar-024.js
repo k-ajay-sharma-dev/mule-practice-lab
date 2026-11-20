@@ -95,23 +95,23 @@ export default {
       needsScenario: true,
       prompt: 'Why is XA/2PC not viable for the subscription order?',
       options: [
-        'Mule 4 does not support XA at all',
-        'The participants are HTTP services (Salesforce, bureau, billing API, payment provider, async provisioning), not XA resource managers — and locks held for 30 s to 10 minutes would kill availability',
-        'XA is too slow for 2-second calls but fine otherwise',
-        'XA only works with Anypoint MQ',
+        'Mule 4 does not support XA transactions at all',
+        'The participants are HTTP services, not XA resources, and locks would be held for minutes',
+        'XA works here, but only if every call finishes within 2 seconds',
+        'XA works with Anypoint MQ, but not with an Oracle database',
       ],
       answer: 1,
-      explain: 'XA needs every participant to join a transaction under one transaction manager. In Mule it fits local XA-capable resources such as a database plus JMS/IBM MQ, not REST services.',
+      explain: 'XA needs every participant to join a transaction under one transaction manager. Salesforce, the bureau, the billing API, the payment provider and async provisioning are HTTP services, and locks held for 30 s to 10 minutes would hurt availability. In Mule XA fits local XA-capable resources such as a database plus JMS or IBM MQ, not REST services or Anypoint MQ.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Orchestration or choreography for this saga?',
       options: [
-        'Choreography: each system reacts to events, no central owner',
-        'Orchestration: an order process/orchestrator owns the state machine, giving one status and clear compensations',
-        'Neither — use a single synchronous flow with retries',
-        'Both at once for redundancy',
+        'Choreography: each system reacts to events, with no central owner',
+        'Orchestration: one orchestrator owns the state machine, status and compensations',
+        'Neither: one synchronous flow that retries each step until it works',
+        'Choreography, with the online shop tracking progress from the events',
       ],
       answer: 1,
       explain: 'Many steps, strict ordering and the need to answer "where is order 123?" favour a central orchestrator. Choreography would scatter logic across systems you do not control.',
@@ -158,13 +158,13 @@ export default {
       needsScenario: true,
       prompt: 'Cancelling the contract fails because billing is down. What happens?',
       options: [
-        'Ignore it; the saga is over',
-        'Retry with backoff; if it still fails, send it to a compensation DLQ with alert and a manual task carrying all context',
-        'Retry immediately in a tight loop until it works',
-        'Charge the customer anyway',
+        'Ignore it, because the saga has already ended',
+        'Retry with backoff, then move it to a compensation DLQ with an alert and a manual task',
+        'Retry it at once in a tight loop until billing answers',
+        'Keep retrying with no limit for as long as billing is down',
       ],
       answer: 1,
-      explain: 'Compensations can fail too. They are never dropped silently: retries first, then a human with full context.',
+      explain: 'Compensations can fail too. They are never dropped silently, and they must not loop for ever: retries first, then a human with a manual task that carries all the context.',
     },
   ],
   description: `
@@ -174,10 +174,10 @@ A telecom operator sells a **new mobile subscription** online. One customer orde
 2. Run a **credit check** (external bureau, REST, ~2 s, sometimes times out).
 3. Reserve a **phone number** in the number inventory (on-prem Oracle DB).
 4. Create the **contract** in the billing system (SAP BRIM, via API; can take up to 30 s).
-5. **Activate the SIM** in the network provisioning system (async, completes in 1–10 minutes, sends a callback).
+5. **Activate the SIM** in the network provisioning system (async, completes in 1 to 10 minutes, sends a callback).
 6. Charge the **first month** via the payment provider.
 
-On launch day the shop sends about **5 orders a second**. The saga state DB answers in 20 ms and SAP BRIM in about 3 s. Every app must survive the loss of one availability zone, and billing can reject cancel requests for 20 minutes at a time.
+On launch day the shop sends about **5 orders a second**. The saga state DB answers in 20 ms and SAP BRIM in about 3 s. Every app must survive the loss of one availability zone, and billing can reject cancel requests for 20 minutes at a time. A queued step message that fails is tried again about once a minute. A cancel that still fails after about five tries must go to a person, not loop in the queue or be lost.
 
 Today a single Mule flow calls them in sequence. When step 5 fails, the customer is billed for a contract with no working SIM, and the reserved number is never released. A developer proposes "use XA transactions so it is all-or-nothing".
 
@@ -207,7 +207,7 @@ Today a single Mule flow calls them in sequence. When step 5 fails, the customer
     'Settings that matter: 2 replicas of every app, so a crash or zone loss leaves another replica to take the step messages, and Deliveries before the DLQ of 5 on the saga steps queue with a DLQ drawn from it, so a step that keeps failing ends with a person and never loops or disappears.',
   ],
   solution: `
-**Why not 2PC/XA.** XA needs every participant to be an **XA resource manager** coordinated by one transaction manager (prepare/commit). Salesforce, the credit bureau, SAP BRIM's API, the payment provider and an async provisioning callback are **HTTP services**, not XA resources — they cannot join a transaction. Even if they could, holding locks for 30 s to 10 minutes would destroy availability. XA in Mule (via the Bitronix-based transaction manager) is for **local resources**: e.g. consume from IBM MQ/JMS and write to a database atomically. Here: not applicable.
+**Why not 2PC/XA.** XA needs every participant to be an **XA resource manager** coordinated by one transaction manager (prepare/commit). Salesforce, the credit bureau, SAP BRIM's API, the payment provider and an async provisioning callback are **HTTP services**, not XA resources: they cannot join a transaction. Even if they could, holding locks for 30 s to 10 minutes would destroy availability. XA in Mule (via the Bitronix-based transaction manager) is for **local resources**, such as consuming from IBM MQ/JMS and writing to a database atomically. Here: not applicable.
 
 **Saga style.** **Orchestration**: a *Subscription Order Process API* (or a dedicated orchestrator app) runs a state machine. Choreography (each service reacting to events) would scatter the logic over systems we don't control and make "where is order 123?" hard. Orchestration gives one owner, one status, clear compensations.
 
@@ -224,19 +224,19 @@ Today a single Mule flow calls them in sequence. When step 5 fails, the customer
 
 Moving charge from "early" to authorize-then-capture-at-the-end fixes the "billed but no SIM" incident.
 
-**Saga state and recovery.** Persist a saga record per order in a **durable database** (orderId, current step, per-step status, external IDs, attempts, timestamps) — written **before** and **after** each step. Drive steps via **Anypoint MQ** messages (one message per next step) so a crashed replica's work is redelivered to another. Each step call is **idempotent** (idempotency keys/external IDs), so re-executing after a crash is safe. The async SIM callback is correlated by orderId; a scheduler detects sagas stuck past their timeout and triggers compensation or retry.
+**Saga state and recovery.** Persist a saga record per order in a **durable database** (orderId, current step, per-step status, external IDs, attempts, timestamps): written **before** and **after** each step. Drive steps via **Anypoint MQ** messages (one message per next step) so a crashed replica's work is redelivered to another. Each step call is **idempotent** (idempotency keys/external IDs), so re-executing after a crash is safe. The async SIM callback is correlated by orderId; a scheduler detects sagas stuck past their timeout and triggers compensation or retry.
 
 **Settings.** Every app runs **2 replicas** (0.1 vCore each is enough for 5 orders a second), so when a replica or a whole zone is lost, the other replica accepts orders, takes the step messages from the queue and resumes from the saga state. The saga steps queue is persistent and has **Deliveries before the DLQ set to 5**, with the compensation DLQ drawn from it. A cancel that billing keeps rejecting is tried 5 times, about once a minute, and then moves to the DLQ. With no limit it would loop in the queue for as long as billing fails; with a limit but no DLQ it would be dropped.
 
 **Failed compensations and the customer.**
 - Compensations are retried with backoff; if they still fail (e.g. billing down) → **compensation DLQ + alert + manual task** with all context. Never silently drop.
-- Customer sees **"Order received — activating your SIM"** (202 Accepted + status endpoint/notifications), then success or a clear failure with "you have not been charged".
+- Customer sees **"Order received, activating your SIM"** (202 Accepted + status endpoint/notifications), then success or a clear failure with "you have not been charged".
 
-**Trade-offs.** Sagas give availability and loose coupling but accept **temporary inconsistency** (e.g. a number reserved for a failed order for minutes) and require careful design of every compensation. Business must accept that some states are "pending" — that's an explicit product decision.
+**Trade-offs.** Sagas give availability and loose coupling but accept **temporary inconsistency** (e.g. a number reserved for a failed order for minutes) and require careful design of every compensation. Business must accept that some states are "pending": that's an explicit product decision.
 `,
   followUps: [
     { q: 'When would you choose choreography instead?', a: 'When there are few steps, independent services owned by different teams react to a business event, and no single process needs strict ordering. It avoids a central orchestrator but makes end-to-end status and compensation logic harder to see.' },
-    { q: 'Isn\'t a saga just reinventing a workflow engine? Why build it in Mule?', a: 'For a few sagas with moderate complexity, a Mule orchestrator with a state table and queues is reasonable. If there are many long-running, human-in-the-loop processes, a BPM/workflow engine is a better tool, with Mule integrating the systems.' },
+    { q: 'Isn\'t a saga only reinventing a workflow engine? Why build it in Mule?', a: 'For a few sagas with moderate complexity, a Mule orchestrator with a state table and queues is reasonable. If there are many long-running, human-in-the-loop processes, a BPM/workflow engine is a better tool, with Mule integrating the systems.' },
     { q: 'What if traffic grows 10x on launch day?', a: 'The queue-driven orchestrator scales by adding consumers; slow backends (billing, provisioning) are the limit, so the queue absorbs the peak and the order status stays "in progress" longer instead of failing.' },
   ],
 }

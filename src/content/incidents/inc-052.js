@@ -31,13 +31,13 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Remove the policy from the prod sys-hr-api instance, tell security it is temporarily rolled back with a re-apply date, and replay failed transactions',
-          'Copy the sandbox client app credentials into prc-payroll-api too',
-          'Allow anonymous access permanently',
-          'Restart both Process APIs',
+          'Remove the policy in prod, agree a re-apply date with security, replay failures',
+          'Copy the sandbox client credentials into prc-payroll-api’s prod.yaml as well',
+          'Add an IP allowlist policy before the client ID policy so internal calls pass',
+          'Approve a contract for the sandbox client app on the prod sys-hr-api instance',
         ],
         answer: 0,
-        explain: 'Restore onboarding and payroll quickly; the audit finding stays open and is fixed properly. Sandbox credentials are not valid for prod.',
+        explain: 'Restore onboarding and payroll quickly; the audit finding stays open and is fixed properly. Sandbox credentials have no contract on the prod instance. An allowlist policy does not skip the client ID check. A prod contract for the sandbox client mixes environments and still leaves payroll, which sends no credentials, failing.',
       },
       {
         type: 'multi',
@@ -45,8 +45,8 @@ export default {
         options: [
           'One client application per consumer per environment, e.g. prc-payroll-api-prod',
           'Contract requested and approved for each environment\'s API instance',
-          'client_id/client_secret as secure properties per environment, never copied between environments',
-          'One shared client application for all Process APIs in all environments',
+          'client_id/client_secret as secure properties per environment, never copied',
+          'One shared client application for all Process APIs, with a contract per env',
         ],
         answer: [0, 1, 2],
         explain: 'Separate, clearly named client apps keep credentials, access and analytics isolated per consumer and environment.',
@@ -109,7 +109,7 @@ export default {
     'prc-payroll-api fails because it sends no credentials; prc-onboarding-api fails because it sends sandbox credentials, and no prod client application has a contract with the prod instance.',
     'Immediate: remove/disable the policy in prod (or apply it to a test instance) to restore service, then prepare credentials and contracts before re-applying.',
     'Permanent fix: one client application per consuming app per environment, contract requested and approved for each environment\'s instance, credentials stored as secure properties per environment, never copied between environments.',
-    'Rollout: inventory callers (analytics/logs), onboard all consumers first, verify in each environment, then enforce — ideally automated via CI/CD and API Manager APIs.',
+    'Rollout: inventory callers (analytics/logs), onboard all consumers first, verify in each environment, then enforce, ideally automated via CI/CD and API Manager APIs.',
     'Recognises the audit goal remains valid and that service-to-service auth should be part of the API-led design from day one.',
   ],
   solution: `
@@ -117,14 +117,14 @@ export default {
 
 | Caller | Sends | Result |
 |---|---|---|
-| prc-payroll-api | nothing | 401 — no credentials |
-| prc-onboarding-api | sandbox client ID/secret (copied into prod.yaml) | 401 — not valid for the prod instance |
+| prc-payroll-api | nothing | 401: no credentials |
+| prc-onboarding-api | sandbox client ID/secret (copied into prod.yaml) | 401: not valid for the prod instance |
 
 Sandbox "worked" because only onboarding was tested there, with sandbox credentials that did have a sandbox contract. Payroll was never tested, and nobody checked who calls the prod instance.
 
-The Process API then turns a 401 into a 500 for the portal — technically correct (it's our fault, not the user's), but the alert should have pointed at the credential problem.
+The Process API then turns a 401 into a 500 for the portal. That is technically correct (it's our fault, not the user's), but the alert should have pointed at the credential problem.
 
-**Immediate mitigation.** Remove the policy from the prod \`sys-hr-api\` instance to restore onboarding and payroll (it takes effect quickly on the gateway). Inform security that the control is temporarily rolled back with a planned re-apply date — the audit finding stays open, not ignored. Check whether any onboarding/payroll transactions failed during the window and replay them.
+**Immediate mitigation.** Remove the policy from the prod \`sys-hr-api\` instance to restore onboarding and payroll (it takes effect quickly on the gateway). Inform security that the control is temporarily rolled back with a planned re-apply date. The audit finding stays open, not ignored. Check whether any onboarding/payroll transactions failed during the window and replay them.
 
 **Root cause.** A security policy was applied to a shared System API without (1) knowing its consumers, (2) onboarding them as client applications in every environment, and (3) environment-specific credentials. Credentials were copied between environment property files.
 
@@ -142,7 +142,7 @@ Exchange / API Manager (sandbox)
 - Store \`client_id\`/\`client_secret\` as **secure properties** per environment (or in a secrets manager) and send them as headers from the Process API's requester config.
 - Consider OAuth 2.0 client credentials with an identity provider for service-to-service calls if the organisation needs scopes and token lifetimes; client ID enforcement is a basic identification control.
 
-**Prevention — rollout checklist for any new policy on a shared API.**
+**Prevention: rollout checklist for any new policy on a shared API.**
 1. Find all callers (API analytics, logs, contracts).
 2. Create client apps and contracts for each caller in each environment; deploy credentials **before** enforcement.
 3. Apply in sandbox with all callers tested, then prod in a change window with a rollback plan.
@@ -152,6 +152,6 @@ Exchange / API Manager (sandbox)
   followUps: [
     { q: 'Are client applications defined per environment?', a: 'Client applications are created in Exchange at business-group level, but contracts are with specific API instances, and API instances belong to an environment. Using separate client apps per environment keeps credentials and access isolated.' },
     { q: 'Is Client ID Enforcement real authentication?', a: 'It identifies the calling application and enables contracts, SLA tiers and analytics, but a shared secret in a header is weaker than OAuth 2.0 or mTLS. For sensitive System APIs combine it with network restrictions, mTLS or OAuth.' },
-    { q: 'Why not just whitelist the internal network instead?', a: 'IP allowlisting tells you a call came from inside, not which application made it. You lose per-consumer visibility, contracts and rate limits — and anything compromised inside the network gets full access.' },
+    { q: 'Why not allowlist the internal network instead?', a: 'IP allowlisting tells you a call came from inside, not which application made it. You lose per-consumer visibility, contracts and rate limits, and anything compromised inside the network gets full access.' },
   ],
 }

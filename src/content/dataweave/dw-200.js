@@ -10,7 +10,7 @@ Hollin Garden Supply picks up CSV files from an SFTP folder. Small files are fin
 
 \`payload\` is the folder listing with \`fileName\` and \`size\` in bytes. \`vars.streamOverBytes\` and \`vars.rejectOverBytes\` hold the limits.
 
-For each file, in listing order:
+Return \`files\`, one entry per file in listing order, with:
 
 - \`fileName\`
 - \`sizeMb\`: the size in MB (1 MB = 1,048,576 bytes), rounded to 1 decimal

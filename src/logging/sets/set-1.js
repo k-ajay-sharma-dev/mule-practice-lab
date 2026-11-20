@@ -91,9 +91,9 @@ export const SET_1 = [
     kind: 'level',
     situation:
       'APIkit rejects a POST /claims request because incidentDate is not a valid date. The handler for APIKIT:BAD_REQUEST sends 400 back to the caller.',
-    answer: ['WARN'],
+    answer: ['WARN', 'INFO'],
     explain:
-      'The caller made the mistake and the API handled it with a clear 400. WARN lets the team count bad requests. ERROR would page someone for a problem that is not theirs.',
+      'The caller made the mistake and the API handled it with a clear 400. WARN lets the team count bad requests, and INFO is fair when bad requests are part of normal use. ERROR would page someone for a problem that is not theirs.',
   },
   {
     id: 'log-1007',
@@ -146,7 +146,7 @@ export const SET_1 = [
     situation:
       'Write the logger in the On Error Propagate for APIKIT:BAD_REQUEST of the Claims Experience API. The API answers 400. error.description says which field failed. The request body holds the claimant name and phone.',
     available: ['error.errorType', 'error.description', 'attributes.method', 'attributes.requestPath', 'payload', 'payload.claimant.phone', 'correlationId'],
-    level: ['WARN'],
+    level: ['WARN', 'INFO'],
     checks: [says(/rejected|invalid|bad request|400|refused/i, 'Claim request rejected'), errorFacts, status(400), path, corr, noPayload, noPersonal, noVague],
     model: {
       level: 'WARN',
@@ -881,7 +881,7 @@ export const SET_1 = [
     id: 'log-1055',
     kind: 'write',
     situation:
-      'A request reaches the Order Process API after its Client ID Enforcement policy passed. You want each first line to show which app called. The client ID is in attributes.headers.client_id and the secret in attributes.headers.client_secret. Write the first logger of the flow.',
+      'A request reaches the Order Process API after its Client ID Enforcement policy passed. You want each first line to show the HTTP method and which app called. The client ID is in attributes.headers.client_id and the secret in attributes.headers.client_secret. Write the first logger of the flow.',
     available: ['attributes.method', 'attributes.requestPath', 'attributes.headers.client_id', 'attributes.headers.client_secret', 'attributes.headers', 'payload', 'correlationId'],
     level: ['INFO'],
     checks: [

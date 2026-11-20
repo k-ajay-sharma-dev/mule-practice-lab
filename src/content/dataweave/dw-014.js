@@ -12,11 +12,11 @@ Input: \`{ "asOf": "dd/MM/yyyy", "invoices": [ { "invoiceNo", "issueDate", "term
 
 For each invoice (keep the input order) output:
 
-- \`invoiceNo\` — copied as-is
-- \`issueDate\` — the issue date formatted \`yyyy-MM-dd\`
-- \`dueDate\` — issue date **plus** \`termsDays\` calendar days, formatted \`yyyy-MM-dd\`
-- \`daysOverdue\` — the number of days from \`dueDate\` to \`asOf\` when \`asOf\` is **after** \`dueDate\`; otherwise \`0\` (an invoice due *on* the \`asOf\` date is not overdue)
-- \`status\` — \`"OVERDUE"\` when \`daysOverdue > 0\`, otherwise \`"OPEN"\`
+- \`invoiceNo\`: copied as-is
+- \`issueDate\`: the issue date formatted \`yyyy-MM-dd\`
+- \`dueDate\`: issue date **plus** \`termsDays\` calendar days, formatted \`yyyy-MM-dd\`
+- \`daysOverdue\`: the number of days from \`dueDate\` to \`asOf\` when \`asOf\` is **after** \`dueDate\`; otherwise \`0\` (an invoice due *on* the \`asOf\` date is not overdue)
+- \`status\`: \`"OVERDUE"\` when \`daysOverdue > 0\`, otherwise \`"OPEN"\`
 
 Calendar rules apply: month lengths and leap years must be handled correctly.
 `,

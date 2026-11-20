@@ -88,6 +88,7 @@ export default {
 - Every decision (title, territory, platform, action, time sent, time confirmed) must be kept for 7 years.
 - Operations must see every day where a platform does not match the rights.
 - In tests 12,000 changes leave the scheduler at 100 a second, the OTT platform takes 20 calls a second, and the OTT platform can be down for 30 minutes.
+- In the diagram, name the scheduler window-scheduler and run it on 0.5 vCore, name the rights System API sys-rights-api, the platform queues ott-availability and partner-availability, and the reconciliation job nightly-reconciliation.
 
 **Your task.** Design the integration that turns rights into availability on every platform, and how you prove compliance.
 `,
@@ -119,7 +120,7 @@ Both write to \`availability-triggers\`.
 **Distribution.** Per-platform queues fed from the topic:
 - \`ott-availability\` → \`sys-ott-platform-api\` publishes or unpublishes and records the platform confirmation.
 - \`partner-availability\` → \`sys-partner-feed-api\` calls the takedown API for partners that offer one, and adds the change to the next feed for the others (feeds move from daily to hourly to meet 60 minutes).
-Failures retry with backoff, then go to the DLQ and alert the rights desk, because a takedown may not be lost.
+While a platform is down, its queue keeps the persistent messages and redelivers them with no delivery limit, so a 30 minute outage loses nothing. A change the platform rejects on its content goes to the DLQ and alerts the rights desk, because a takedown may not be lost.
 
 **Audit.** The topic also feeds the audit store; System APIs add confirmation records. A report per studio shows decision and confirmation times.
 

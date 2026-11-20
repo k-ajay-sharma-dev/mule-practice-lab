@@ -70,6 +70,7 @@ Today Mule asks the three boards one after another. A search takes nearly two se
 - About **100 searches a second** when a new age group is invited.
 - The north board answers in about 400 ms, central in about 600 ms, south in about 800 ms.
 - The rule from the programme: a search answers within **two seconds**, always, with whatever slots it has.
+- When all three boards are healthy, a search should show all their slots within **1.2 seconds**.
 
 **Questions:**
 - Draw the design.

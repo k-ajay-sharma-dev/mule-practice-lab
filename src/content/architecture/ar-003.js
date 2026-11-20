@@ -88,16 +88,16 @@ export default {
 A logistics company tracks parcels. Scanners in 40 depots send **scan events** (\`RECEIVED\`, \`SORTED\`, \`LOADED\`, \`DELIVERED\`) to a Mule Experience API at peaks of **~1,500 events/second**.
 
 Consumers:
-- **Tracking service** — updates the customer-facing parcel status. Status must never go backwards (a late \`SORTED\` must not overwrite \`DELIVERED\`).
-- **Billing** — charges per delivered parcel; must not charge twice.
-- **Analytics** — loads everything into the data lake; order does not matter.
+- **Tracking service**: updates the customer-facing parcel status. Status must never go backwards (a late \`SORTED\` must not overwrite \`DELIVERED\`).
+- **Billing**: charges per delivered parcel; must not charge twice.
+- **Analytics**: loads everything into the data lake; order does not matter.
 
 Constraints: some events are malformed (bad parcel IDs); the tracking DB occasionally has 5-minute maintenance windows.
 
 Numbers for sizing: outside the peak, scanners send about 400 events a second; the 1,500 a second peak lasts about ten minutes each morning. Each queue should be empty again within the hour. A message that fails is tried again about once a minute. The budget for the APIs is 12 vCores.
 
 **Design the messaging layer with Anypoint MQ:**
-- Queues vs exchanges — what do you create and how are they bound?
+- Queues vs exchanges: what do you create and how are they bound?
 - Standard or FIFO queues for each consumer? Justify with the throughput and ordering needs.
 - How do you handle poison messages and outages (acknowledgement mode, redelivery, DLQ)?
 - How do you meet "status never goes backwards" and "never charge twice"?
@@ -112,7 +112,7 @@ Numbers for sizing: outside the peak, scanners send about 400 events a second; t
 `,
   keyPoints: [
     'One exchange (e.g. parcel-scan-events) with a separate queue per consumer bound to it, so each consumer gets its own copy and backlog.',
-    'Standard queues chosen for the throughput; FIFO is not used for the 1,500 msg/s fan-out (FIFO has lower throughput and cannot be bound to an exchange).',
+    'Standard queues chosen for the throughput; FIFO is not used for the 1,500 msg/s fan-out (FIFO has lower throughput and binds only to a FIFO exchange, not to a standard one).',
     'Ordering for tracking enforced in the consumer: compare event timestamp/status rank with the stored state and ignore older/lower events.',
     'Billing deduplicates on a business key (parcelId + DELIVERED) e.g. idempotent message validator with persistent Object Store or a unique DB constraint.',
     'MANUAL acknowledgement: ack after successful processing, nack (or let lock expire) on transient errors so the message is redelivered.',
@@ -123,10 +123,10 @@ Numbers for sizing: outside the peak, scanners send about 400 events a second; t
   solution: `
 **Topology.** The Experience API validates the payload shape and publishes each scan to an **exchange** \`parcel-scan-events\`. Three queues are bound to it: \`tracking-q\`, \`billing-q\`, \`analytics-q\`. Each consumer app subscribes to its own queue, so a slow consumer (analytics) builds its own backlog without affecting the others. A fourth consumer later = one more bound queue.
 
-**Standard vs FIFO.** Use **standard queues**. FIFO queues give strict ordering but have much lower throughput and **cannot be bound to an exchange**, so they do not fit a 1,500 msg/s fan-out. Global ordering is not really needed anyway — only per-parcel ordering for tracking, which the consumer can enforce itself. Analytics doesn't care about order at all.
+**Standard vs FIFO.** Use **standard queues**. FIFO queues give strict ordering but have much lower throughput, and they bind only to a **FIFO exchange**, not to a standard one, so they do not fit a 1,500 msg/s fan-out. Global ordering is not really needed anyway, only per-parcel ordering for tracking, which the consumer can enforce itself. Analytics doesn't care about order at all.
 
 **Ack, redelivery, DLQ.**
-- Subscriber with **MANUAL acknowledgement**: ack only after the DB write succeeds; on a transient error (tracking DB maintenance) nack or let the lock time out so the message comes back. Add reconnection / backoff so the app does not spin during a 5-minute outage — messages simply wait in the queue.
+- Subscriber with **MANUAL acknowledgement**: ack only after the DB write succeeds; on a transient error (tracking DB maintenance) nack or let the lock time out so the message comes back. Add reconnection / backoff so the app does not spin during a 5-minute outage. Messages wait in the queue.
 - Configure each queue with a **dead letter queue** and a **max delivery count**. Validation failures (bad parcel ID) should be routed to the DLQ quickly, not retried forever.
 - Pick the count with the outages in mind. With a retry about once a minute, a count of 5 moves good tracking messages to the DLQ during a 5 minute DB window. A count of 10 rides it out, and the backlog drains when the DB is back.
 - Alert on DLQ depth; provide a replay process (move messages back after a fix).
@@ -134,7 +134,7 @@ Numbers for sizing: outside the peak, scanners send about 400 events a second; t
 **Sizing.** One vCore serves about 500 events a second, so the scan API needs 3 vCores for the 1,500 a second peak; 2 replicas of 2 vCores give room above the peak. Each consumer gets 2 replicas of 1 vCore: during the peak its queue grows, and afterwards it takes 1,000 a second against 400 arriving, so the backlog is gone within the hour. In all 10 vCores, inside the budget of 12.
 
 **Ordering and duplicates.**
-- *Tracking:* store the current status with a rank (\`RECEIVED\`=1 … \`DELIVERED\`=4) and the event timestamp. Update only if the incoming event is newer/higher — a conditional update (\`UPDATE … WHERE rank < :newRank\`). Out-of-order and duplicate events then become no-ops.
+- *Tracking:* store the current status with a rank (\`RECEIVED\`=1 … \`DELIVERED\`=4) and the event timestamp. Update only if the incoming event is newer/higher: a conditional update (\`UPDATE … WHERE rank < :newRank\`). Out-of-order and duplicate events then become no-ops.
 - *Billing:* delivery is at-least-once, so dedupe on \`parcelId\` + event type. Use an **Idempotent Message Validator** backed by a **persistent Object Store** (with a TTL longer than the redelivery window) and/or a unique constraint on the billing table. The DB constraint is the strongest guarantee.
 `,
 }

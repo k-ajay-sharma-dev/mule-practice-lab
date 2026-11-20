@@ -250,7 +250,7 @@ The order system only wants **one JSON shape**:
 4. Each known route calls the **sub-flow** \`write-and-archive\`: **File Write** to \`/data/normalised\`, then **File Move** to \`/data/archive\` with a timestamped name.
 5. **On Error Continue** at flow level moves the file to quarantine. A malformed JSON file with the right extension ends up here, as does a CSV with a value that is not a number.
 
-**Extension or MIME type?** The extension is the simplest reliable signal here. The file attributes hold the name and path, and they have no separate content type field. If partners mislabel files, a parse failure in a known route still lands in quarantine, so the outcome is safe. You could also check the first bytes of the file (\`{\`, \`<\`) to detect the format.
+**Extension or MIME type?** The extension is a cheap and reliable signal here. The file attributes hold the name and path, and they have no separate content type field. If partners mislabel files, a parse failure in a known route still lands in quarantine, so the outcome is safe. You could also check the first bytes of the file (\`{\`, \`<\`) to detect the format.
 
 **Why not use Move To Directory on the listener?** Apply Post Action When Failed defaults to true, so the file would go to the archive even after a failure, which is the wrong folder here. The explicit moves also let one file go to two different places, depending on the outcome.
 

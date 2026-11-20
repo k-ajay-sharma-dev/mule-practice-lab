@@ -69,6 +69,10 @@ In this scenario, List Blobs gives each blob as \`{ "name": "recordings/2026/07/
 - Delete each recording last modified **more than 90 days** ago.
 - Keep everything else.
 
+**Facts**
+- Age is counted in whole days, from the date of \`lastModified\` to today's date. In the tests, today is 13 November 2026.
+- Delete Blob takes the blob's full \`name\` as listed.
+
 **Design the flow.**
 `,
   answerTemplate: `## Listing the recordings

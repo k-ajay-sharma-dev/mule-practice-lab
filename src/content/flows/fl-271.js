@@ -85,6 +85,11 @@ Today a failed notice goes back to the broker and is redelivered again and again
 - When anything fails, publish the notice **exactly as it arrived**, with the error type and reason, to \`pdh.items.failure\`, then let the main queue move on.
 - If even the failure queue cannot be reached, the notice must not be lost.
 
+**Facts**
+- The listener uses ack mode \`AUTO\`.
+- Keep the notice in a variable before you transform it.
+- \`errorType\` is \`error.errorType.asString\` and \`reason\` is \`error.description\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Storing the notice

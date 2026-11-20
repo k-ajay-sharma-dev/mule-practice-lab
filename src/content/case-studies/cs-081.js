@@ -23,7 +23,7 @@ export default {
     reference: diagram(
       {
         portal: ['web-app', 'Broker portal'],
-        brk: ['partner', 'Broker platforms (Acturis, Applied Epic)'],
+        brk: ['partner', 'Broker platforms'],
         gw: ['api-gateway', 'API Manager: OAuth 2.0, client ID per firm', { auth: 'oauth2' }],
         idp: ['identity-provider', 'Broker identity (Okta)'],
         ep: ['experience-api', 'exp-broker-portal-api'],
@@ -76,7 +76,7 @@ export default {
 
 **The problem today**
 - Brokers email a change request. An underwriting assistant re-keys it into the policy admin system on IBM i, and the endorsement document is posted 5 to 8 days later.
-- Large broker groups ask for an API so their broker platforms (Acturis, Applied Epic) can send changes without re-keying.
+- Large broker groups ask for an API so their broker platforms (two widely used broker software products) can send changes without re-keying.
 - Small brokers want a web portal.
 
 **Systems**
@@ -85,6 +85,7 @@ export default {
 - A document generation SaaS that takes 5 to 40 seconds per endorsement pack.
 - Okta for broker user identity.
 - In tests brokers make 1 to 5 changes a second, a pack takes 40 seconds, and an unknown caller sends 2 changes a second with no token.
+- The gateway enforces OAuth 2.0 tokens from Okta. Document requests wait on a \`policy-documents.requests\` queue; prc-policy-documents and sys-docgen-api each wait up to 60 seconds for a pack.
 
 **Goals**
 - Simple changes (about 70%) are priced and bound online in under 1 minute; the rest are referred to an underwriter.

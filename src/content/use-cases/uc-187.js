@@ -52,11 +52,13 @@ Brindle Outdoor, a fictional outdoor gear retailer, gives store staff a handheld
 
 The first version let the app run SQL against Oracle with a shared account. The DBA team wants that gone: one account, used by one API, with the queries they can see and tune.
 
-Oracle runs with a standby. When it fails over (for patching, about once a month) connections drop for a few minutes, and about **one call in five** fails during that time. A second try nearly always works.
+Oracle runs with a standby. When it fails over (for patching, about once a month) connections drop for a few minutes, and about **one call in five** fails during that time. Each try fails or works on its own, so a second try usually works, but not always.
 
 **Numbers**
 - About **40 lookups a second** in trading hours.
 - Oracle answers in about 40 ms.
+- Lookups must answer in under half a second.
+- Even during a failover, at least **98 in 100 lookups** must be answered. Work out how many retries that needs.
 
 **Questions:**
 - Draw the design.
@@ -85,7 +87,7 @@ Oracle runs with a standby. When it fails over (for patching, about once a month
 Store handheld app ─► exp-store-stock ─► sys-stock-oracle ─► Oracle
 \`\`\`
 
-**Settings.** \`sys-stock-oracle\`: 2 retries on Oracle calls, with a short wait between them. In Mule that is an Until Successful around the Database Select, or the connection's reconnection strategy for lost connections.
+**Settings.** \`sys-stock-oracle\`: 2 retries on Oracle calls, with a short wait between them. With one try in five failing, one retry still loses 1 in 25 lookups (96 percent answered). Two retries lose about 1 in 125 (over 99 percent). In Mule that is an Until Successful around the Database Select, or the connection's reconnection strategy for lost connections.
 
 **Why not retry in the Experience API too?** Retries at two layers multiply: 3 tries times 3 tries is 9 calls to Oracle for one lookup. Retry once, close to the system.
 `,

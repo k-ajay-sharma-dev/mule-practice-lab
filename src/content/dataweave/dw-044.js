@@ -88,8 +88,8 @@ payload
 `,
   hints: [
     'You need "one input record → many output rows", then one flat list: that is `flatMap` over `payload.records`.',
-    '`acc.Contacts.records` is `null` when `Contacts` is null — normalize with `default []` and branch on `isEmpty(...)` to emit a single row with nulls.',
-    'Quoting is a writer property on the output directive: `quoteValues=true`. The escape character defaults to a backslash, so also set `escape="\\""` to get doubled quotes. Build the name with `if (c.FirstName == null) c.LastName else c.FirstName ++ " " ++ c.LastName` — `++` with a null operand fails.',
+    '`acc.Contacts.records` is `null` when `Contacts` is null. Normalize with `default []` and branch on `isEmpty(...)` to emit a single row with nulls.',
+    'Quoting is a writer property on the output directive: `quoteValues=true`. The escape character defaults to a backslash, so also set `escape="\\""` to get doubled quotes. Build the name with `if (c.FirstName == null) c.LastName else c.FirstName ++ " " ++ c.LastName`, because `++` with a null operand fails.',
   ],
   solution: `%dw 2.0
 output application/csv quoteValues=true, escape="\\""
@@ -114,13 +114,13 @@ payload.records flatMap (acc) -> do {
   explanation: `
 \`flatMap\` is \`map\` followed by \`flatten\`: each account returns an **array** of rows (one per contact, or exactly one), and the arrays are concatenated in order.
 
-Why the explicit empty-contacts branch? \`[] map ...\` returns \`[]\`, so an account without contacts would silently disappear from the export — a classic "LEFT JOIN turned into INNER JOIN" bug.
+Why the explicit empty-contacts branch? \`[] map ...\` returns \`[]\`, so an account without contacts would silently disappear from the export: a classic "LEFT JOIN turned into INNER JOIN" bug.
 
 Why keep the null keys (\`ContactId: null\`) instead of leaving them out? The CSV writer takes its header from the **first** row and writes values by position. Every row must have the same keys in the same order, otherwise columns shift.
 
 Other traps:
-- Salesforce returns \`null\` for an empty child relationship, not \`{ "records": [] }\`. Selecting \`.records\` on null is fine (it gives null), but mapping over null is not what you want — normalize with \`default []\`.
-- With the default writer settings, \`Acme, Inc\` is written as \`Acme\\, Inc\` — the writer **escapes** the separator with a backslash instead of quoting it, which an RFC 4180 parser reads as two columns. \`quoteValues=true\` wraps every value in quotes (the header stays unquoted unless you add \`quoteHeader=true\`).
+- Salesforce returns \`null\` for an empty child relationship, not \`{ "records": [] }\`. Selecting \`.records\` on null is fine (it gives null), but mapping over null is not what you want, so normalize with \`default []\`.
+- Do not rely on the default writer settings for a strict RFC 4180 loader. With the default settings, a value such as \`Acme, Inc\` comes out escaped with a backslash (\`Acme\\, Inc\`) instead of quoted, which an RFC 4180 parser reads as two columns. \`quoteValues=true\` wraps every value in quotes (the header stays unquoted unless you add \`quoteHeader=true\`).
 - The escape character also defaults to a backslash, so \`The "Best" Shop\` would become \`"The \\"Best\\" Shop"\`. \`escape="\\""\` makes it \`"The ""Best"" Shop"\`.
 - Do not concatenate quote characters yourself: the writer would then escape them again.
 `,

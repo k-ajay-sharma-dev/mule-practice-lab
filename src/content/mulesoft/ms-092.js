@@ -10,9 +10,9 @@ export default {
       type: 'single',
       prompt: 'The suite has one `mock-when processor="http:request"` with no `with-attributes`. The flow makes carrier calls and a separate FX call. Why does the test give unrealistic results?',
       options: [
-        'With no attribute filter the mock applies to any `http:request`, so carrier calls and the FX call all receive the same canned response',
+        'With no filter it matches every `http:request`, so all calls get one response',
         'A mock without attributes is ignored, so both calls go to the real systems',
-        'Only the first `http:request` in the flow is mocked',
+        'Only the first `http:request` in the flow is mocked, the rest run',
         'MUnit rejects the suite because `with-attributes` is mandatory',
       ],
       answer: 0,
@@ -23,25 +23,25 @@ export default {
       detail: true,
       prompt: 'Each carrier is called inside a For Each and must return a different rate. What is the documented way to mock that?',
       options: [
-        '`then-call` a test flow whose Choice evaluates `vars.counter` and sets a different payload per iteration',
+        '`then-call` a test flow that returns a different payload per call',
         'Three `then-return` blocks inside one `mock-when`, used in turn',
-        'A `spy` that overwrites the payload after each call',
+        'A `spy` that overwrites the payload after each carrier call',
         'Three separate tests, each with one fixed `then-return`',
       ],
       answer: 0,
-      explain: '`then-return` gives a static value. `then-call` invokes a flow, which suits values that change over time or by input. A spy could not help, because its changes do not persist.',
+      explain: 'The test flow can use a Choice on `vars.counter` to set a different payload per iteration. `then-return` gives a static value. `then-call` invokes a flow, which suits values that change over time or by input. A spy could not help, because its changes do not persist.',
     },
     {
       type: 'single',
       prompt: 'The FX request uses `target="fx"`. The test mocks it with a `then-return` payload, yet `vars.fx` is wrong in the next Transform Message. How should the mock be written?',
       options: [
-        'Define the target variable in the mock: `then-return` with `munit-tools:variables` and a `munit-tools:variable key="#[\'fx\']"`',
+        'Set the `fx` variable in the mock, with `munit-tools:variables` in `then-return`',
         'Keep the payload mock, because MUnit copies it into the target variable',
-        'Mock the Transform Message that reads `vars.fx`',
-        'Remove `target="fx"` from the flow while testing',
+        'Mock the Transform Message that reads `vars.fx` instead',
+        'Remove `target="fx"` from the flow while the test runs',
       ],
       answer: 0,
-      explain: 'The docs say that when you mock a processor that stores its result in a target variable, you define that variable value in the mock configuration. They add that you assert the variable rather than the payload.',
+      explain: 'Use a `munit-tools:variable key="#[\'fx\']"` inside `munit-tools:variables`. The docs say that when you mock a processor that stores its result in a target variable, you define that variable value in the mock configuration. They add that you assert the variable rather than the payload.',
     },
     {
       type: 'multi',
@@ -60,8 +60,8 @@ export default {
       type: 'single',
       prompt: 'A `spy` on the MQ publish sets `vars.quoteChecked` inside `before-call`, and the next processor reads it. What does it see?',
       options: [
-        'The variable is not there, because changes made inside a spy do not persist outside it',
-        'The variable, because `before-call` runs first',
+        'It is not set, because changes inside a spy do not persist',
+        'The variable, because `before-call` runs before the processor',
         'The variable, but only when the processor is also mocked',
         'An error, because `set-variable` is not allowed inside a spy',
       ],
@@ -112,7 +112,7 @@ What the reviewers found:
 - The test cannot give each carrier a different rate, so "pick the cheapest" is never really exercised.
 - \`vars.fx\` is wrong because the mock sets a payload, not the target variable.
 - The only assertion is \`payload != null\`.
-- Someone tried to mock the "Pick cheapest" Transform Message to make the test simpler.
+- Someone tried to mock the "Pick cheapest" Transform Message to make the test shorter.
 
 **Questions**
 1. How do you target a mock at one specific call, and which attributes can you match on?

@@ -10,10 +10,10 @@ export default {
       type: 'single',
       prompt: 'There are seven Customer System APIs over SAP. How do you fix ownership?',
       options: [
-        'Let each business unit keep its own',
-        'One owning team per shared system of record publishes the sys-sap-* APIs to all business groups through Exchange, with a backlog that accepts requests from every BU; duplicates are consolidated',
-        'The C4E builds and owns every System API',
-        'Whoever needed the API first owns it',
+        'Each business unit keeps its own Customer System API for its own needs',
+        'One SAP team owns the sys-sap-* APIs for every business group and merges duplicates',
+        'The C4E builds and owns every System API in the organisation',
+        'The team that first needed each API keeps owning it for everyone',
       ],
       answer: 1,
       explain: '"Owned by whoever needed it first" is how duplicates appear. A shared system needs one accountable owner run as an internal product.',
@@ -55,10 +55,10 @@ export default {
       type: 'single',
       prompt: 'What do Anypoint business groups give the business units?',
       options: [
-        'Completely separate organisations with their own identity providers',
-        'Their own environments, capacity allocation and role-based access under a root org that enforces shared standards',
-        'Separate copies of Exchange that cannot share assets',
-        'Exemption from central security policies',
+        'Separate Anypoint organisations, each with its own identity provider',
+        'Their own environments, vCore allocation and permissions under the root org',
+        'Their own private Exchange, with no sharing of assets across groups',
+        'Their own subscription and licence contract with MuleSoft',
       ],
       answer: 1,
       explain: 'Business groups balance BU autonomy with central control, and Exchange assets can still be shared so reuse crosses BG boundaries.',
@@ -67,17 +67,17 @@ export default {
       type: 'single',
       prompt: 'Is one enterprise canonical data model a good idea at this scale?',
       options: [
-        'Yes — one Customer model for all 400 APIs',
-        'Prefer canonical models per bounded context plus shared primitive types (address, money, codes), with explicit translation at boundaries',
-        'No — every API should invent its own types',
-        'Only for System APIs',
+        'Yes: one Customer model shared by all 400 APIs',
+        'Models per bounded context, shared primitive types, translation at boundaries',
+        'No: each API defines its own types, with nothing shared',
+        'Only at the System layer, where it mirrors the SAP structures',
       ],
       answer: 1,
       explain: 'A single model for everything tends to bloat and change slowly; per-context models with an anti-corruption layer scale better.',
     },
   ],
   description: `
-A global manufacturer (5 business units, 40 integration developers across 8 teams, ~400 APIs) runs one Anypoint organisation. Problems:
+A global manufacturer (5 business units, 40 integration developers across 8 teams, about 400 APIs) runs one Anypoint organisation. Problems:
 
 - Every team creates its own \`sys-sap-*\` APIs; there are **seven** different Customer System APIs.
 - The "Process layer" has become a dumping ground with no clear ownership.
@@ -87,7 +87,7 @@ A global manufacturer (5 business units, 40 integration developers across 8 team
 **Questions:**
 1. How do you organise ownership: Anypoint **business groups**, teams and API-led layers? Who owns System APIs over shared systems like SAP?
 2. How do **domain-driven design** ideas (bounded contexts, domain ownership) map to the three layers?
-3. How do API-led, **data mesh** and the **composable enterprise** relate — complementary or competing?
+3. How do API-led, **data mesh** and the **composable enterprise** relate: complementary or competing?
 4. What is governed **centrally** vs **federated**?
 `,
   answerTemplate: `## Organisation and ownership
@@ -117,10 +117,10 @@ Anypoint root org  (platform team + C4E: standards, identity, shared policies, E
 \`\`\`
 - **Business groups** give BUs their own environments, capacity allocation and role-based access while the root org enforces shared standards. Exchange assets can be shared across the org so reuse crosses BG boundaries.
 - **Shared SoR (SAP):** exactly **one** owning team publishes \`sys-sap-*\` APIs, run as an internal product with a backlog that accepts requests from all BUs. Seven Customer System APIs → consolidate to one per system (and one Customer Process API owned by the Customer domain, ideally backed by MDM).
-- **Avoid** "System APIs owned by whoever needed them first" — that is how duplicates appear.
+- **Avoid** "System APIs owned by whoever needed them first". That is how duplicates appear.
 
 **DDD mapped to layers.**
-- **Bounded contexts** (Order, Customer, Product, Service) define **Process-layer ownership**: each domain team owns its Process APIs, its business events (\`OrderPlaced\`) and its canonical model *within* the context. No enterprise-wide canonical model forced on everyone — translation happens at context boundaries (anti-corruption layer).
+- **Bounded contexts** (Order, Customer, Product, Service) define **Process-layer ownership**: each domain team owns its Process APIs, its business events (\`OrderPlaced\`) and its canonical model *within* the context. No enterprise-wide canonical model forced on everyone. Translation happens at context boundaries (anti-corruption layer).
 - **System layer** aligns to systems of record (technical boundary), but can be split per context when one system (SAP) serves multiple domains: \`sys-sap-order-api\` vs \`sys-sap-material-api\`, each with clear owners.
 - **Experience layer** aligns to channels/consumer journeys and is owned by channel teams.
 - The "dumping ground" Process layer is fixed by assigning every Process API to a domain; an API that no domain wants to own is a design smell.

@@ -15,7 +15,7 @@ Larkfield Grocers loads item messages into two Oracle staging tables: one row pe
 - \`IS_PRIMARY\` is \`"Y"\` for the first barcode marked \`primary: true\`. If none is marked, the first barcode of the item is primary. All others are \`"N"\`.
 - If there are fewer keys than rows, do not assign any. Return \`ok: false\`, empty lists and the error \`Need X item keys and Y barcode keys, got A and B\`.
 
-**Output**: \`ok\`, \`items\` with \`ITEM_KEY\`, \`ITEM_ID\` and \`BARCODE_COUNT\`, and \`barcodes\` with \`BARCODE_KEY\`, \`ITEM_KEY\`, \`GTIN\` and \`IS_PRIMARY\`. Extra keys are fine and stay unused.
+**Output**: \`ok\`, \`items\` with \`ITEM_KEY\`, \`ITEM_ID\` and \`BARCODE_COUNT\` (after removing duplicate GTINs), and \`barcodes\` with \`BARCODE_KEY\`, \`ITEM_KEY\`, \`GTIN\` and \`IS_PRIMARY\`. Extra keys are fine and stay unused.
 `,
   inputs: [
     {

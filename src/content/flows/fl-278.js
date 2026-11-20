@@ -116,6 +116,12 @@ The first line is \`<file>|<status>|<loaded>|<rejected>\`, with status \`ACCEPTE
 - Every refused line, whether it failed its check or its group failed in Oracle, goes to \`asn_reject\`.
 - Write the ACK only when every line is done, with the real counts and the refused lines.
 
+**Facts**
+- \`file_name\` is the file's own name, such as \`ASN_20261113_04.csv\`. Store \`qty\` as a number.
+- Let the job go on after failed lines: set the Batch Job's max failed records to -1. Otherwise it stops at the first refused line.
+- The reject lines of the ACK come from \`asn_reject\`, read back by \`file_name\`. Put each ACK line on its own line.
+- Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## The Batch Job

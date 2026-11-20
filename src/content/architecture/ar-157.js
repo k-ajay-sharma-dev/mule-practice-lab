@@ -78,7 +78,8 @@ Marketing will not move the import to the night, because campaigns start the sam
 - The sales team makes about **60 calls a second** in office hours.
 - The import reads **150 contacts a second** from its file, for about 15 minutes.
 - The CRM takes about 120 calls a second in all, and about 120 ms a call.
-- About 1 row in 200 has an email address the CRM refuses.
+- About 1 row in 200 has an email address the CRM refuses. Marketing wants those rows back within the hour to fix them.
+- CRM outages last up to about 10 minutes. The broker tries a failed message again about **once a minute**.
 
 **Questions:**
 - Draw the design.
@@ -126,7 +127,7 @@ Marketing contact import ~► contact-imports ~► prc-contact-import ─┘
     },
     {
       q: 'The sales team is busier at 10:00 on Mondays. Does a fixed pace still work?',
-      a: 'Set the pace for the busiest hour, or watch the CRM\'s answers: when it starts returning 429, the consumer slows down. A fixed, low pace is the simplest safe start.',
+      a: 'Set the pace for the busiest hour, or watch the CRM\'s answers: when it starts returning 429, the consumer slows down. A fixed, low pace is a safe place to start.',
     },
   ],
 }

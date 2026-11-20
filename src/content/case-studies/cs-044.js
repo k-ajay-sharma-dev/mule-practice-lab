@@ -11,7 +11,7 @@ export default {
     task: 'draw the coexistence state of the strangler: channels on core-agnostic Experience and Process APIs, a product-location registry, System APIs for both the mainframe and the new core, and events from both cores feeding downstream systems.',
     checks: [
       { label: 'Mobile, web and branch/contact-centre each call an Experience API', rule: { type: 'each', of: ['mobile-app', 'web-app', 'internal-app'], min: 3, edgeTo: 'experience-api' } },
-      { label: 'Channels see only core-agnostic Process APIs — Experience APIs never call System APIs', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
+      { label: 'Channels see only core-agnostic Process APIs: Experience APIs never call System APIs', rule: { type: 'no-edge', from: 'experience-api', to: 'system-api' } },
       { label: 'The mainframe is reached only through System APIs (no screen-scraping or direct CICS from channels)', rule: { type: 'only-via', target: 'legacy', from: 'system-api' } },
       { label: 'The new core is reached only through System APIs', rule: { type: 'only-via', target: ['saas', 'erp'], from: 'system-api' } },
       { label: 'The accounts Process API routes to both the mainframe and the new-core System APIs', rule: { type: 'edge', from: { type: 'process-api', label: ['account'] }, to: 'system-api', min: 2 } },
@@ -89,6 +89,8 @@ The board has approved a move to a modern cloud-native core banking product over
 - Customers hold products on both cores during the transition (e.g. current account on mainframe, savings on new core).
 - Mainframe skills are scarce; three key experts retire within two years.
 - Online banking asks for about 300 balances a second at peak and shows about 50 account overviews a second, and the new core can be down for 15 minutes.
+- Name the APIs exp-mobile-api, exp-web-api, exp-branch-api, prc-accounts-api, prc-payments-api, sys-mf-accounts-api and sys-nc-accounts-api.
+- prc-accounts-api asks both cores in parallel and returns a partial answer when one core fails. Give exp-web-api, prc-accounts-api and sys-mf-accounts-api 1 vCore each for the Monday peak.
 
 **Your task.** Propose:
 - the target architecture
@@ -122,16 +124,16 @@ The board has approved a move to a modern cloud-native core banking product over
   solution: `
 **Principles.** No big bang; channels decoupled from cores first; one source of truth per product at any time; every migration wave reversible; measure everything.
 
-**Phase 0–1: facade (year 1).**
-- System APIs over the mainframe: \`mf-accounts-sapi\`, \`mf-payments-sapi\`, \`mf-customer-sapi\` using whatever interface is available (CICS via an approved connector or a mainframe-side API layer, MQ via the IBM MQ connector, files where unavoidable).
-- Process APIs in business terms: \`accounts-papi\`, \`payments-papi\`, \`customer-papi\`. Channel Experience APIs call only these.
-- Migrate channels off screen-scraping and direct CICS calls onto the APIs — a large but valuable programme on its own (and the first visible benefit).
+**Phases 0 and 1: facade (year 1).**
+- System APIs over the mainframe: \`sys-mf-accounts-api\`, \`sys-mf-payments-api\`, \`sys-mf-customer-api\` using whatever interface is available (CICS via an approved connector or a mainframe-side API layer, MQ via the IBM MQ connector, files where unavoidable).
+- Process APIs in business terms: \`prc-accounts-api\`, \`prc-payments-api\`, \`prc-customer-api\`. Channel Experience APIs call only these.
+- Migrate channels off screen-scraping and direct CICS calls onto the APIs. This is a large but valuable programme on its own (and the first visible benefit).
 
-**Phase 2: new products on new core (year 2).** New savings products are launched only on the new core (\`nc-accounts-sapi\`). \`accounts-papi\` routes by product via a **product-location registry** (customer + product → core). Aggregated views (\`GET /customers/{id}/accounts\`) fan out to both cores and merge.
+**Phase 2: new products on new core (year 2).** New savings products are launched only on the new core (\`sys-nc-accounts-api\`). \`prc-accounts-api\` routes by product via a **product-location registry** (customer + product → core). Aggregated views (\`GET /customers/{id}/accounts\`) call both cores in parallel and merge; if one core is down, the view returns the other core's accounts as a partial answer.
 
-**Phase 3+: migrate existing products (years 2–5).** Order by risk and value: simple savings → term deposits → loans → current accounts and payments (most interconnected, last). Within a product, migrate by customer cohorts (staff first, then small cohorts, then larger). For each wave: freeze window, extract → transform → load, reconcile, switch registry entries, monitor, keep a rollback path until sign-off.
+**Phase 3 onwards: migrate existing products (years 2 to 5).** Order by risk and value: simple savings → term deposits → loans → current accounts and payments (most interconnected, last). Within a product, migrate by customer cohorts (staff first, then small cohorts, then larger). For each wave: freeze window, extract → transform → load, reconcile, switch registry entries, monitor, keep a rollback path until sign-off.
 
-**Coexistence.** Internal transfers between a mainframe current account and a new-core savings account are orchestrated in \`payments-papi\` as a two-step transfer with idempotent posting and reconciliation (no distributed transaction). Customer master data has one owner (a customer master/MDM), synchronised to both cores.
+**Coexistence.** Internal transfers between a mainframe current account and a new-core savings account are orchestrated in \`prc-payments-api\` as a two-step transfer with idempotent posting and reconciliation (no distributed transaction). Customer master data has one owner (a customer master/MDM), synchronised to both cores.
 
 **Data migration.** Dedicated tooling for bulk loads (Mule can orchestrate but bulk ETL/migration tools may be better for volumes); multiple dress rehearsals with production-like data; automated reconciliation of record counts, balances, accrued interest and limits; business sign-off per wave.
 
@@ -147,7 +149,7 @@ The board has approved a move to a modern cloud-native core banking product over
 `,
   followUps: [
     { q: 'Why start with new products rather than migrating an existing one?', a: 'New products need no data migration, so the bank proves the new core, APIs, operations and controls with low risk and real customers before attempting the harder migrations.' },
-    { q: 'What happens to the facade at the end of the programme?', a: 'It stays. The Process APIs are the stable business interface; once the mainframe is gone, the mainframe System APIs are retired and routing simply always points to the new core.' },
+    { q: 'What happens to the facade at the end of the programme?', a: 'It stays. The Process APIs are the stable business interface; once the mainframe is gone, the mainframe System APIs are retired and routing always points to the new core.' },
     { q: 'How do you roll back a migration wave?', a: 'Keep the source accounts frozen but intact until sign-off, and capture transactions posted to the new core during the window. Have a rehearsed procedure to reverse registry entries and replay those transactions on the old core.' },
     { q: 'Would you use Mule for the bulk data migration?', a: 'Mule can orchestrate and handle moderate volumes with batch jobs, but for very large one-off migrations a dedicated migration/ETL tool or the core vendor\'s loaders are often more efficient; Mule then focuses on coexistence and APIs.' },
   ],

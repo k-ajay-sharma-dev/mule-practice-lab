@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Why does `payload map { id: $.column_0 }` fail on the pipe-delimited file?',
       options: [
-        'DataWeave cannot map over CSV at all',
-        'The file has no declared MIME type, so it is read as binary and DataWeave cannot navigate rows and columns',
-        'The column must be called `$.col1`',
-        'File Read always returns a Java String',
+        'DataWeave cannot map over a CSV payload in any form',
+        'The file has no declared MIME type, so it is read as binary',
+        'Headerless columns must be called `$.col1`, not `$.column_0`',
+        'File Read always returns a Java String, not CSV rows',
       ],
       answer: 1,
-      explain: 'DataWeave picks its **reader** from the incoming MIME type. With an unknown type the content is binary, hence the coercion error.',
+      explain: 'DataWeave picks its **reader** from the incoming MIME type. With an unknown type the content is binary, so DataWeave cannot navigate rows and columns, hence the coercion error.',
     },
     {
       type: 'single',
@@ -37,10 +37,10 @@ export default {
       detail: true,
       prompt: 'What does `#[{ count: sizeOf(payload), source: "nightly" }]` in Set Payload produce?',
       options: [
-        'A JSON string',
-        'A Java Map (application/java)',
-        'Plain text',
-        'Whatever the HTTP Request expects',
+        'A JSON string with the two fields',
+        'A Java Map (`application/java`)',
+        'Plain text in the `text/plain` type',
+        'Whatever type the next HTTP Request expects',
       ],
       answer: 1,
       explain: 'Inline expressions without an output directive produce Java objects. Use `#[output application/json --- {...}]` or a Transform Message with `output application/json`.',
@@ -50,10 +50,10 @@ export default {
       needsScenario: true,
       prompt: 'A teammate fixes step 2 by setting `mimeType="application/json"` on Set Payload while keeping the same inline expression. Does that work?',
       options: [
-        'Yes, it converts the Java Map to JSON text',
-        'No, it only labels the value; it does not convert a Java object into JSON text',
-        'Yes, but only for HTTP Request',
-        'No, Set Payload has no mimeType attribute',
+        'Yes, it converts the Java Map into JSON text',
+        'No, it only labels the value and does not convert it',
+        'Yes, but only when the next step is an HTTP Request',
+        'No, because Set Payload has no `mimeType` attribute',
       ],
       answer: 1,
       explain: 'The `mimeType` attribute declares a type; it is not a transformation. The conversion needs an `output application/json` directive.',
@@ -123,7 +123,7 @@ Problems:
   solution: `
 **Why binary:** a file with an unknown extension or no declared type is typed as \`application/octet-stream\` (or generic text). DataWeave chooses its **reader** from the incoming MIME type; with binary it cannot navigate rows/columns, hence the coercion error.
 
-**Declare it — option 1: on the operation**
+**Declare it, option 1: on the operation**
 \`\`\`xml
 <file:read path="#[vars.fileName]"
            outputMimeType="application/csv; header=false; separator=|"/>
@@ -144,7 +144,7 @@ Option 1 is preferred: every downstream component sees the correct type, and Stu
 \`\`\`xml
 <set-payload value='#[output application/json --- { count: sizeOf(payload), source: "nightly" }]'/>
 \`\`\`
-or use a Transform Message with \`output application/json\`. Set Payload also has a \`mimeType\` attribute, but that only labels the value — it does not convert a Java object into JSON text.
+or use a Transform Message with \`output application/json\`. Set Payload also has a \`mimeType\` attribute, but that only labels the value: it does not convert a Java object into JSON text.
 
 **Operation settings**
 | Setting | Effect |

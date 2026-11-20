@@ -83,6 +83,8 @@ export default {
 - The core banking system opens accounts through a SOAP service and allows 15 concurrent calls.
 - Analysts work 08:00 to 20:00. Referred cases must keep until they are picked up.
 - In tests about 2 applications and 2 vendor results arrive a second, screening fails 1 call in 5, and core banking can be down for 20 minutes.
+- Name the queues \`kyc.vendor-results\` and \`kyc.manual-review\`. sys-screening-api tries a failed screening call 2 more times.
+- A queue redelivers a failed message about once a minute. Keep vendor results on their queue until core banking is back: set no redelivery limit lower than 30.
 
 **Your task.** Design the integration for the onboarding journey, including referrals, privacy and failure handling.
 `,
@@ -124,7 +126,7 @@ export default {
 
 **Privacy.** Images never pass through the Process API or CRM. The System API stores them in an encrypted bucket with object lock for 5 years and passes only a reference. Logs show the application ID, not the name or document number.
 
-**Failures.** Screening timeout: retry once, then refer. Core banking busy: queue the opening request and retry with backoff (the customer sees "account being set up"). Idempotency: the application ID is the key for account opening so a retry cannot open two accounts. Poison messages on the result queue go to a DLQ.
+**Failures.** Screening error or timeout: \`sys-screening-api\` retries twice, then the application is referred. Core banking busy: queue the opening request and retry with backoff (the customer sees "account being set up"). Idempotency: the application ID is the key for account opening so a retry cannot open two accounts. Poison messages on the result queue go to a DLQ.
 
 **Risks.** Vendor webhook outage (poll the vendor for checks older than 30 minutes), sanctions list updates during a pending application (screen again right before opening), and analysts overwhelmed at launch (forecast the 8% referral rate and staff for it).
 `,

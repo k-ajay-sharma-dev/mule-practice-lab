@@ -63,8 +63,8 @@ export default {
           expect: { backlog: [{ queue: { type: 'queue', label: 'payment' }, maxEnd: 0 }], lost: { max: 0 }, dlq: { max: 0 } },
         },
         {
-          name: 'Some stored cards are declined',
-          about: 'Allocation queues 20 charges a second, and 1 card in 50 is declined every time. Those charges end in the DLQ, so the customer can be asked for a new card, and the others keep flowing.',
+          name: 'Some stored cards always fail',
+          about: 'Allocation queues 20 charges a second, and for 1 card in 50 the provider returns an error every time. Those charges end in the DLQ for a person to check, and the others keep flowing.',
           traffic: [{ name: 'charges', from: { type: 'process-api', label: 'allocation' }, rps: 20, forMin: 30, to: 'payment', kind: 'write', poison: 0.02 }],
           durationMin: 60,
           expect: { dlq: { min: 100 }, lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'payment' }, maxEnd: 0 }] },
@@ -87,7 +87,9 @@ Facts:
 - The provider limit for this merchant is **100 transactions a second**.
 - The DC WMS publishes a **goods receipt** message when a delivery is booked in.
 - The OMS creates the fulfilment order and the WMS ships it.
-- When a big delivery arrives, allocation queues about **20 charges a second**. The provider can be down for 20 minutes, and about 1 stored card in 50 is declined every time.
+- When a big delivery arrives, allocation queues about **20 charges a second**. The provider can be down for 20 minutes, and no pre-order may be lost or sent to a DLQ because of that.
+- For about 1 stored card in 50 the provider returns a technical error every time (not a clean decline). Such a charge must end in a dead-letter queue for a person to check.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. What happens at pre-order time?
@@ -121,7 +123,7 @@ Facts:
 1. charge the token through sys-payments with the pre-order ID as **idempotency key**;
 2. success: mark PAID, create the order in the OMS, email "your console is on its way";
 3. decline: mark ON_HOLD with an expiry 48 hours later, email a link to update the card.
-Technical errors (timeouts, 5xx) are retried by redelivery; after 5 tries the message goes to the DLQ for a person to check, because a charge may or may not have happened. The idempotency key makes a manual retry safe.
+A clean decline is a business answer, so the message is acknowledged. Technical errors (timeouts, 5xx) are retried by redelivery, about once a minute; a limit of 30 deliveries rides out a 20-minute provider outage, and after 30 tries the message goes to the DLQ for a person to check, because a charge may or may not have happened. The idempotency key makes a manual retry safe.
 
 **Holds and reallocation.** The hourly job finds ON_HOLD pre-orders past their expiry. It sets them back to PENDING at the end of the line (or cancels them, by policy) and asks prc-allocation to allocate the freed units to the next oldest pre-orders. If the customer updates the card in time, the pre-order goes back to the payment queue.
 

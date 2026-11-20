@@ -228,6 +228,9 @@ The **customer-insights** team needs:
 - PostgreSQL has a planned 10-minute maintenance window every month; no events may be lost.
 - The \`orders\` table has \`order_id\` as its primary key and stores the event's version in \`event_version\`.
 - The dead-letter topic is \`orders.v1.dlt\`.
+- An event is JSON: \`{ type, orderId, customerId, status, total: { amount, currency }, version, occurredAt }\`.
+- \`orders\` has \`order_id\`, \`customer_id\`, \`status\`, \`total_amount\`, \`currency\`, \`event_version\`, \`occurred_at\` and \`raw_event\` (jsonb). \`customers\` has \`customer_id\`, \`segment\`, \`region\` and \`lifetime_value\`.
+- A redelivered event with the same version must still be published if the earlier attempt failed before publishing.
 
 **Design the flow(s).**
 `,
@@ -253,7 +256,7 @@ The **customer-insights** team needs:
   ],
   solution: `
 **Flow \`order-events-projection\`**
-1. **Kafka Message Listener** — consumer config with topic \`orders.v1\` and group \`order-projection\`; AUTO acknowledgement so offsets are committed after successful processing. Up to 12 consumers in total (one per partition) across replicas.
+1. **Kafka Message Listener**: consumer config with topic \`orders.v1\` and group \`order-projection\`; AUTO acknowledgement so offsets are committed after successful processing. Up to 12 consumers in total (one per partition) across replicas.
 2. **Transform** the event into typed values, parsing it with \`read(payload, "application/json")\` because the listener's output is Binary. Keep it as the payload and in \`vars.evt\`; **Validate** \`orderId\` and \`customerId\` are present.
 3. **Database Insert** (PostgreSQL via generic JDBC connection) with \`ON CONFLICT (order_id) DO UPDATE ... WHERE orders.event_version <= EXCLUDED.event_version\`, all values as \`:named\` parameters (the raw event stored as \`jsonb\`). Its result goes to a target variable (\`vars.upsert\`), so the payload still holds the event for the customer lookup.
    - Newer or equal version → 1 row affected.
@@ -263,7 +266,7 @@ The **customer-insights** team needs:
    - \`DB:CONNECTIVITY\` / \`KAFKA:CONNECTIVITY\` → **On Error Propagate**: the offset is not committed. The docs do not say how the listener then re-reads the record, so test it, because no event may be lost during the maintenance window. Configure reconnection with back-off and alert on consumer lag.
    - Anything else (validation, bad data, \`DB:QUERY_EXECUTION\` from a constraint) → **On Error Continue**: publish \`{ error, original }\` to \`orders.v1.dlt\` and commit, so one bad record does not stop the partition.
 
-**Ordering:** input is keyed by \`orderId\` (order of one order preserved); output is re-keyed by \`customerId\`. Because one customer's orders can come from different input partitions, two of that customer's orders are only ordered as they are processed — acceptable since each event carries its own order version.
+**Ordering:** input is keyed by \`orderId\` (order of one order preserved); output is re-keyed by \`customerId\`. Because one customer's orders can come from different input partitions, two of that customer's orders are only ordered as they are processed. That is acceptable, since each event carries its own order version.
 
 **Dual write:** database commit and Kafka publish are not atomic. With the \`<=\` rule a crash between them leads to a redelivery that re-publishes (at least once downstream). If even that is not acceptable, use a transactional outbox table drained by a separate flow.
 `,

@@ -163,7 +163,7 @@ export default {
     ),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) routes each document type to a process flow of its own. You build the one for **ReceivingAdvice**: a distribution centre telling the hub what it received against purchase orders.
+Copperline Home Supply’s product data hub (fictional) routes each document type to a process flow of its own. You build the one for **ReceivingAdvice**: a distribution centre telling the hub what it received against purchase orders.
 
 The router has already downloaded the document and puts it on the JMS queue \`PDH.RECADV.WORK\`:
 
@@ -183,6 +183,12 @@ Oracle tables:
 - Send the final ACK to \`PDH.ACK\`: \`{ messageId, senderDocumentId, status, accepted, rejected }\`, with status \`PROCESSED\` or \`PROCESSED_WITH_ERRORS\`.
 - Email \`pdh-support@copperline.example\` a summary. A mail problem must not fail or slow the run.
 - If the load fails, mark the job \`FAILED\` and put the document's header (without the lines) on \`PDH.INBOUND.FAILED\`, where the restart app picks it up later. No ACK in that case.
+
+**Facts**
+- \`job_id\` is a new UUID made in the flow.
+- Write the statuses \`'STARTED'\`, \`'COMPLETE'\` and \`'FAILED'\` as literals in the SQL.
+- \`accepted\` and \`rejected\` in the ACK are the good and bad line counts, the same numbers as \`good_count\` and \`bad_count\`.
+- A failed load is handled: the run ends without an error, so the broker does not deliver the document again. The failure queue is how it comes back.
 
 **Design the flow.**
 `,

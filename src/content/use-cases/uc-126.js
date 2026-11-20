@@ -68,6 +68,11 @@ Today the tablet app calls the PMS's API directly. Two things go wrong:
 
 About 1 update in 100 is for a room number the PMS does not know, after rooms were renumbered in one hotel. The PMS refuses those every time.
 
+Requirements:
+- A tablet gets its answer within 300 ms, even when the PMS is slow or offline.
+- No update may be lost.
+- The queue redelivers a failed update about once a minute, and every delivery counts toward its redelivery limit. No good update may reach the DLQ because of the night audit, and refused updates must reach the DLQ.
+
 **Questions:**
 - Draw a design where a tablet never waits on the PMS.
 - What happens to updates sent during the night audit?

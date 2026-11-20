@@ -16,7 +16,7 @@ Output one object per clashing pair, with:
 - \`first\` and \`second\`: the ids of the two bookings, the one that starts earlier first
 - \`overlapMinutes\`: how many minutes the two share
 
-Sort by \`room\`, then by the start of \`first\`. List each pair once.
+Sort by \`room\` as text, then by the start of \`first\`, then by the start of \`second\`. List each pair once. Times are always on the whole minute, and no two bookings in one room start at the same time.
 
 Two time ranges overlap when each one starts before the other ends. The shared part runs from the later start to the earlier end.
 `,

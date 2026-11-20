@@ -13,6 +13,7 @@ Quayle Freight pulls receipts files from a distribution center FTP server. When 
 **Rules** for each kept line:
 - \`code\` is the three digit number. \`text\` is what follows the space.
 - \`kind\` comes from the first digit: \`1\` \`PRELIMINARY\`, \`2\` \`SUCCESS\`, \`3\` \`NEEDS_MORE\`, \`4\` \`TRANSIENT\`, \`5\` \`PERMANENT\`.
+- \`code\` is a number, not text. A first digit outside 1 to 5 gives \`kind\` \`UNKNOWN\`.
 - \`retry\` is \`true\` only for \`TRANSIENT\`.
 - A line that does not start with three digits and a space gets \`code\` \`null\`, \`kind\` \`UNKNOWN\`, \`retry\` \`false\` and the whole line as \`text\`.
 

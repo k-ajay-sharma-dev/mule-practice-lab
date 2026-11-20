@@ -16,7 +16,7 @@ An 856 is a **flat list of segments** that describes a **tree** through \`HL\` (
 | \`HL02\` | id of the **parent** level (empty for the shipment) |
 | \`HL03\` | level code: \`S\` shipment, \`O\` order, \`P\` pack (pallet/carton), \`I\` item |
 
-All segments after an \`HL\` up to the next \`HL\` belong to that level. **Use \`HL02\` to attach levels** — do not assume a child directly follows its parent.
+All segments after an \`HL\` up to the next \`HL\` belong to that level. **Use \`HL02\` to attach levels**; do not assume a child directly follows its parent.
 
 **Segments you need**
 
@@ -33,7 +33,7 @@ All segments after an \`HL\` up to the next \`HL\` belong to that level. **Use \
 
 **Output**
 - \`asnNumber\`, \`shipDate\` (\`yyyy-MM-dd\`), \`carrier\`, \`billOfLading\` (\`null\` if there is no \`REF*BM\`)
-- \`orders\` (in HL order): \`poNumber\`, \`packs\` (\`sscc\`, \`items\`), \`looseItems\` (items whose parent is the order itself)
+- \`orders\` (in HL order, as are packs and items): \`poNumber\`, \`packs\` (\`sscc\`, \`items\`), \`looseItems\` (items whose parent is the order itself)
 - each item: \`sku\` (VP), \`upc\` (UP or \`null\`), \`qty\` (number), \`uom\`
 - \`totalUnits\`: sum of all item quantities
 - \`hlCountOk\`: \`CTT01\` equals the number of \`HL\` segments
@@ -112,8 +112,8 @@ segs
 `,
   hints: [
     'First tag every non-HL segment with the id of the HL it belongs to. A `reduce` that carries `{ current: <HL id>, out: [...] }` does this in one pass; then `groupBy` the tag.',
-    'Build a flat list of nodes `{ id, parent, level }` from the HL segments. "Children of X at level L" is then just `nodes filter ($.parent == X and $.level == L)` — no recursion needed for a fixed 4-level shape.',
-    'For `LIN`, `drop 2` and `divideBy 2` (from `dw::core::Arrays`) turn the rest into qualifier/value pairs. Remember a lambda body extends as far right as possible — wrap pipelines in parentheses.',
+    'Build a flat list of nodes `{ id, parent, level }` from the HL segments. "Children of X at level L" is then `nodes filter ($.parent == X and $.level == L)`, with no recursion needed for a fixed 4-level shape.',
+    'For `LIN`, `drop 2` and `divideBy 2` (from `dw::core::Arrays`) turn the rest into qualifier/value pairs. Remember a lambda body extends as far right as possible, so wrap pipelines in parentheses.',
   ],
   solution: `%dw 2.0
 import drop, divideBy from dw::core::Arrays
@@ -174,20 +174,20 @@ var allItems = (nodes filter ($.level == "I")) map item($)
   explanation: `
 The 856 is a tree serialised as a list. The solution turns it back into a tree in three steps:
 
-1. **Ownership** — one \`reduce\` walks the segments carrying the current HL id and tags every other segment with it. \`ST\`/\`BSN\` come before any HL and get \`hl: null\` (filtered out); \`CTT\`/\`SE\` are tagged to the last HL, which is harmless because nobody looks for them there.
-2. **Nodes** — the HL segments become \`{ id, parent, level }\`. Note \`HL*1**S\` splits into \`["HL", "1", "", "S"]\`: the empty parent keeps its position.
-3. **Assembly** — \`children(parentId, level)\` filters the node list. Because the 856 shape is fixed (S → O → P → I, or O → I), nesting \`map\`s three levels deep is clearer than a generic recursive builder.
+1. **Ownership**: one \`reduce\` walks the segments carrying the current HL id and tags every other segment with it. \`ST\`/\`BSN\` come before any HL and get \`hl: null\` (filtered out); \`CTT\`/\`SE\` are tagged to the last HL, which is harmless because nobody looks for them there.
+2. **Nodes**: the HL segments become \`{ id, parent, level }\`. Note \`HL*1**S\` splits into \`["HL", "1", "", "S"]\`: the empty parent keeps its position.
+3. **Assembly**: \`children(parentId, level)\` filters the node list. Because the 856 shape is fixed (S → O → P → I, or O → I), nesting \`map\`s three levels deep is clearer than a generic recursive builder.
 
-Why \`HL02\` and not position? Partners may send all orders first and their packs later (the hidden test does). A "remember the last order I saw" approach silently puts items under the wrong PO — the kind of bug that only shows up as a receiving discrepancy at the dock.
+Why \`HL02\` and not position? Partners may send all orders first and their packs later (the hidden test does). A "remember the last order I saw" approach silently puts items under the wrong PO, the kind of bug that only shows up as a receiving discrepancy at the dock.
 
 Engine details:
-- \`segOf\` uses the multi-value selector \`.seg\`, which returns \`null\` on an empty array, hence the \`default []\` in the callers.
+- \`segOf\` uses the multi-value selector \`.seg\`; on an empty array it gives \`null\`, not \`[]\`, so the callers need their \`default []\`.
 - \`drop 2\` skips the segment id and \`LIN01\` (an assigned id, usually empty), so the qualifier pairs line up regardless of how many there are or their order.
 - \`totalUnits\` sums **all** \`I\` levels, loose or packed, in one pass over the nodes.
 
 Common traps:
 - Counting segments instead of HLs for \`hlCountOk\` (\`CTT01\` in an 856 is the HL count).
-- Reading the SCAC from \`TD502\` — that is the code qualifier (\`2\` = SCAC); the code itself is \`TD503\`.
+- Reading the SCAC from \`TD502\`: that is the code qualifier (\`2\` = SCAC); the code itself is \`TD503\`.
 `,
   tests: [
     {

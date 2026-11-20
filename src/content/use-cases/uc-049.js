@@ -14,7 +14,7 @@ export default {
       { label: 'Web, mobile and voice each still enter through an Experience API', rule: { type: 'each', of: ['web-app', 'mobile-app', 'chatbot'], min: 3, edgeTo: 'experience-api' } },
       { label: 'The voice Experience API reuses the existing prc-billing-account', rule: { type: 'edge', from: { type: 'experience-api', label: ['voice', 'alexa', 'assistant'] }, to: { type: 'process-api', label: ['billing'] } } },
       { label: 'The voice Experience API reuses the existing prc-meter-reading', rule: { type: 'edge', from: { type: 'experience-api', label: ['voice', 'alexa', 'assistant'] }, to: { type: 'process-api', label: ['meter', 'reading'] } } },
-      { label: 'No new Process API — only the two from Project 1', rule: { type: 'node', match: 'process-api', min: 2, max: 2 } },
+      { label: 'No new Process API, only the two from Project 1', rule: { type: 'node', match: 'process-api', min: 2, max: 2 } },
       { label: 'Next bill date comes from the existing billing System API (minor version)', rule: { type: 'edge', from: { type: 'process-api', label: ['billing'] }, to: { type: 'system-api', label: ['billing'] } } },
       { label: 'Experience APIs never call the SAP System APIs directly', rule: { type: 'no-edge', from: 'experience-api', to: { type: 'system-api', label: ['sap', 'isu', 'billing', 'meter'] } } },
       { label: 'SAP IS-U is reached only through System APIs', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
@@ -102,7 +102,7 @@ The voice platform handles account linking with the supplier's identity provider
   keyPoints: [
     'Only one new API is strictly required: exp-voice-assistant, shaping short spoken responses for the voice platform.',
     'prc-billing-account, prc-meter-reading and all System APIs are reused; the voice channel inherits their validation and business rules.',
-    'The "next bill date" need is met by adding a field/resource to sys-sap-isu-billing and prc-billing-account — a backwards-compatible minor change, not a new major version.',
+    'The "next bill date" need is met by adding a field/resource to sys-sap-isu-billing and prc-billing-account: a backwards-compatible minor change, not a new major version.',
     'Additive, optional changes (new resource or new field) are non-breaking under semantic versioning; renaming/removing fields or changing types would require v2.',
     'Reuse is measurable: Exchange/API Manager show the new consumer, and Project 2 delivery time drops because most of the network already exists.',
   ],
@@ -117,7 +117,7 @@ The voice platform handles account linking with the supplier's identity provider
 | prc-billing-account | **Reused + minor change** (v1.1) | Add \`GET /accounts/{id}/next-bill\` (or field \`nextBillDate\`) |
 | prc-meter-reading | **Reused as-is** | Same validation rules apply to a spoken reading |
 | sys-sap-isu-billing | **Reused + minor change** (v1.1) | Add \`GET /contract-accounts/{id}/billing-schedule\` (reads the IS-U schedule) |
-| sys-sap-isu-meters | Reused as-is | — |
+| sys-sap-isu-meters | Reused as-is | Same reading operations |
 | sys-customer-identity | Reused as-is | Map voice account-link token to customer |
 
 **New Experience API: exp-voice-assistant**
@@ -140,12 +140,12 @@ The voice platform handles account linking with the supplier's identity provider
             +----------[SAP IS-U]------+
 \`\`\`
 
-**Sequence — "submit a meter reading of 45219"**
+**Sequence: "submit a meter reading of 45219"**
 1. Voice platform resolves intent + slot (reading = 45219) and calls exp-voice-assistant \`POST /me/meter-readings\` with the linked-account OAuth token.
-2. OAuth 2.0 token enforcement policy validates the token; exp-voice-assistant maps the user to the contract account (via sys-customer-identity or a claim).
+2. A **JWT Validation** policy checks the token's signature locally with Okta's public keys (cached from its JWKS endpoint), so calls keep working while Okta is down; calls without a token are refused. exp-voice-assistant maps the user to the contract account (via sys-customer-identity or a claim).
 3. exp-voice-assistant → prc-meter-reading \`POST /accounts/{id}/readings\` (existing contract).
-4. prc-meter-reading → sys-sap-isu-meters: get estimate, validate range, submit reading — **exact same logic as web and mobile**.
-5. Response mapped to speech: *"Thanks, I've submitted 45219. Your next bill will use this reading."* If the reading is outside the expected range, the Process API returns its existing business error. The voice API turns it into *"That looks higher than expected — please check and try again."*
+4. prc-meter-reading → sys-sap-isu-meters: get estimate, validate range, submit reading. This is **the same logic as web and mobile**.
+5. Response mapped to speech: *"Thanks, I've submitted 45219. Your next bill will use this reading."* If the reading is outside the expected range, the Process API returns its existing business error. The voice API turns it into *"That looks higher than expected. Please check and try again."*
 
 **Versioning decisions.**
 - Adding a new resource or an **optional** field is backwards-compatible → publish **v1.1** (minor) in Exchange; existing consumers are not affected and keep calling \`/v1\`.
@@ -157,7 +157,7 @@ The voice platform handles account linking with the supplier's identity provider
 `,
   followUps: [
     { q: 'Why not make the voice platform call exp-customer-mobile?', a: 'Its payloads are designed for screens, and coupling the voice skill to it means a mobile change could break voice. A thin dedicated Experience API is cheap because all logic is in the reused Process APIs.' },
-    { q: 'Is adding a mandatory query parameter to an existing resource a minor change?', a: 'No — existing consumers would start getting 400 errors. Make it optional with a default, or introduce it in a new major version.' },
+    { q: 'Is adding a mandatory query parameter to an existing resource a minor change?', a: 'No. Existing consumers would start getting 400 errors. Make it optional with a default, or introduce it in a new major version.' },
     { q: 'How do you show the business the value of reuse?', a: 'Track consumers per API in Exchange/API Manager and compare effort: Project 2 built one API and extended two instead of building a full stack, which is the core argument for API-led connectivity.' },
   ],
 }

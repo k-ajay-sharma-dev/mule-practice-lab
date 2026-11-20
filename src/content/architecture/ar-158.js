@@ -12,7 +12,7 @@ export default {
   tags: ['sizing', 'cost', 'cloudhub-2', 'replicas', 'availability-zones', 'banking'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the customer portal and the mobile app, each with its own Experience API, both calling one accounts Process API, which reads the core banking system through a System API. Then set the replicas and vCores of each API.',
+    task: 'draw the customer portal and the mobile app, each with its own Experience API, both calling one accounts Process API, which reads the core banking system (a Legacy box) through a System API. Then set the replicas and vCores of each API.',
     checks: [
       { label: 'The portal calls its own Experience API', rule: { type: 'edge', from: 'web-app', to: 'experience-api' } },
       { label: 'The mobile app calls its own Experience API', rule: { type: 'edge', from: 'mobile-app', to: 'experience-api' } },

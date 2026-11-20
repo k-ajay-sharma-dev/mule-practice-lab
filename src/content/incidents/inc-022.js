@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'Catastrophic backtracking (ReDoS) in the companyName regex with a nested quantifier on a long almost-matching value',
-          'A memory leak causing constant GC',
-          'A traffic spike from all partners',
-          'The CRM System API is slow',
+          'Catastrophic backtracking in the new companyName regex on a long, failing value',
+          'A memory leak that keeps the garbage collector running all the time',
+          'A traffic spike from all partners after a marketing campaign',
+          'Worker threads blocked while they wait on a slow CRM System API',
         ],
         answer: 0,
         explain: 'Threads are RUNNABLE in java.util.regex frames, traffic and memory are normal, and the pattern ([A-Za-z0-9]+\\s?)+ can split letters in exponentially many ways before failing.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'Why does a restart only help for about 10 minutes?',
         options: [
-          'The partner retries the same failing request every 10 minutes',
-          'The JVM needs 10 minutes to warm up',
-          'The regex is cached for 10 minutes',
-          'A scheduler runs every 10 minutes',
+          'The partner portal retries the same failing request every 10 minutes',
+          'The JVM needs about 10 minutes to warm up its JIT compiler after a restart',
+          'DataWeave caches the compiled regex for 10 minutes before it rebuilds it',
+          'A Scheduler in the app re-validates all customers every 10 minutes',
         ],
         answer: 0,
         explain: 'The restart kills the stuck threads, but the trigger arrives again with the next retry.',
@@ -47,7 +47,7 @@ export default {
           'Ask partner P-77 to pause retries, or block that client temporarily in API Manager',
           'Hotfix a cheap length/character check before the regex runs and return 400',
           'Restart the workers to free threads stuck in regex matching',
-          'Add more vCores and wait',
+          'Scale up to workers with more vCores and wait for the load to settle',
         ],
         answer: [0, 1, 2],
         explain: 'Stop the trigger, reject the bad input cheaply, then clear the stuck threads. More CPU only lets the regex burn more.',
@@ -59,17 +59,17 @@ export default {
           'Rewrite the pattern without ambiguity, e.g. ^[A-Za-z0-9]+(\\s[A-Za-z0-9]+)*$',
           'maxLength and pattern in the RAML/OAS type so APIkit rejects bad input at the edge',
           'Unit tests with long non-matching strings and a ReDoS check in CI',
-          'Run the regex in a Scatter-Gather to parallelise it',
+          'Run the regex check in an Async scope so requests return quickly',
         ],
         answer: [0, 1, 2],
-        explain: 'An unambiguous pattern runs in linear time, and spec validation bounds input before any flow logic runs.',
+        explain: 'An unambiguous pattern runs in linear time, and spec validation bounds input before any flow logic runs. An Async scope still burns the same CPU.',
       },
     ],
   },
   description: `
 ## Symptoms
 - At 13:20 \`customer-onboarding-papi\` went to **100% CPU on both workers**. Latency for all endpoints rose to tens of seconds and the load balancer started returning 504s.
-- A restart brought CPU down — for about 10 minutes, then 100% again.
+- A restart brought CPU down, but only for about 10 minutes, then 100% again.
 - Traffic volume is normal. Memory is normal.
 
 ## Change / Context
@@ -126,13 +126,13 @@ payload.companyName matches /^([A-Za-z0-9]+\\s?)+$/
 
 **Immediate mitigation.**
 1. Stop the trigger: ask partner P-77 to pause retries, and/or deploy a hotfix that **rejects** \`companyName\` longer than, say, 100 characters or containing characters outside the allowed set **before** the regex runs (a cheap check). An API Manager policy blocking that client temporarily also works.
-2. **Restart** the workers — threads stuck in regex matching won't stop on their own.
+2. **Restart** the workers. Threads stuck in regex matching won't stop on their own.
 3. Reply to the partner with a 400 and the reason.
 
 **Root cause.** A regex vulnerable to catastrophic backtracking, applied to unbounded user input with no length limit, in a synchronous request path.
 
 **Permanent fix.**
-- Rewrite the pattern without ambiguity: \`^[A-Za-z0-9]+(\\s[A-Za-z0-9]+)*$\` — each character can be matched in only one way, so it runs in linear time. (Also rethink: do company names really exclude \`&\`, \`.\`, \`-\` and accents?)
+- Rewrite the pattern without ambiguity: \`^[A-Za-z0-9]+(\\s[A-Za-z0-9]+)*$\`. Each character can be matched in only one way, so it runs in linear time. (Also rethink: do company names really exclude \`&\`, \`.\`, \`-\` and accents?)
 - **Bound input size** first: \`maxLength\` in the RAML/OAS type so APIkit rejects long values before any flow logic.
 - Prefer API-spec validation (\`pattern\`, \`maxLength\`) at the edge over ad-hoc regexes in the middle of flows.
 

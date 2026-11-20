@@ -76,6 +76,11 @@ The point of sale export copies large stores' files slowly. Last month a half co
 - Write it, unchanged, to \`/inbound/sales\` on the planning platform's SFTP server.
 - Move it to \`/mnt/scm-share/sales/archive\` only once the upload worked. If the upload fails, leave it where it is.
 
+**Facts**
+- The File listener's **time between size checks** setting makes it wait until a file stops growing.
+- A failed upload raises **SFTP:CONNECTIVITY**. Do not catch it: the run must end with that error.
+- Keep the file's name in the archive. Overwrite a file of the same name on the SFTP server.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading from the share

@@ -72,6 +72,7 @@ The architect proposes a **canary release**: run both versions side by side behi
 - Start with **5%** to version 2.
 - Both versions read product data through the same System API in front of the **product database**.
 - The vCore budget for this part of the estate is **1 vCore**.
+- Version 1 and the System API must keep answering if one **availability zone** of the region fails.
 
 **Questions:**
 - Draw the design for the first canary day.

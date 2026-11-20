@@ -58,10 +58,10 @@ output application/json
   explanation: `
 Two separate ideas work together here:
 
-1. **Dynamic key** — \`(upper(r.currency)): r.rate\`. A bare key such as \`currency: ...\` is always the literal name \`currency\`; the parentheses tell DataWeave to evaluate the expression and use its result as the key name.
-2. **Object spread** — \`{ ( [ {EUR: 0.92}, {GBP: 0.79} ] ) }\` merges every object in the array into one object.
+1. **Dynamic key**: \`(upper(r.currency)): r.rate\`. A bare key such as \`currency: ...\` is always the literal name \`currency\`; the parentheses tell DataWeave to evaluate the expression and use its result as the key name.
+2. **Object spread**: \`{ ( [ {EUR: 0.92}, {GBP: 0.79} ] ) }\` merges every object in the array into one object.
 
-The common trap is returning \`payload map { ... }\` directly: that is an **array** of one-field objects, not a lookup object. Another trap is \`reduce\` with \`++\` — it works, but it is harder to read and rebuilds the object on every step.
+The common trap is returning \`payload map { ... }\` directly: that is an **array** of one-field objects, not a lookup object. Another trap is \`reduce\` with \`++\`. It works, but it is harder to read and rebuilds the object on every step.
 
 An empty array spreads into nothing, so the edge case \`[]\` → \`{}\` needs no special code.
 `,

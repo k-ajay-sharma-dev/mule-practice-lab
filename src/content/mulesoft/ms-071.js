@@ -10,22 +10,22 @@ export default {
       type: 'single',
       prompt: 'The listener is `transactionalAction="ALWAYS_BEGIN" transactionType="LOCAL" ackMode="IMMEDIATE"` on the JMS config. The flow inserts the goods receipt into Oracle with `db:insert` and then publishes `GR.POSTED` with `transactionalAction="ALWAYS_JOIN"`. What do the DB insert and the JMS publish do?',
       options: [
-        'The JMS publish (same JMS config) joins the local JMS transaction; the DB insert cannot join it and commits on its own',
-        'Both join the local transaction',
-        'Neither joins; LOCAL transactions only apply to the listener',
-        'The DB insert joins and the publish runs outside',
+        'The publish joins the JMS transaction; the insert commits alone',
+        'Both the insert and the publish join the JMS transaction',
+        'Neither joins, as LOCAL covers only the listener receive',
+        'The insert joins it, and the publish runs outside it',
       ],
       answer: 0,
-      explain: 'A local transaction belongs to one resource — here the JMS session: all operations in it must use the same connector and the same global config. Operations on another resource (Oracle) cannot join it and run with their own commit.',
+      explain: 'The JMS publish uses the same JMS config, so it joins the local JMS transaction. A local transaction belongs to one resource, here the JMS session: all operations in it must use the same connector and the same global config. Operations on another resource (Oracle) cannot join it and run with their own commit.',
     },
     {
       type: 'single',
       prompt: 'With that LOCAL JMS transaction, Oracle commits the receipt and then the runtime crashes before the JMS commit. What happens next?',
       options: [
-        'The message is redelivered and the receipt would be inserted again unless the consumer is idempotent',
+        'It is redelivered, so it is inserted again unless idempotent',
         'Oracle rolls back the insert because JMS did not commit',
-        'The message is lost',
-        'The broker sends the message to the DLQ immediately',
+        'The message is lost, since Oracle already committed',
+        'The broker moves the message to the DLQ right away',
       ],
       answer: 0,
       explain: 'This is the duplicate window of "DB first, then ack": the broker never got a commit, so it redelivers. A unique key on the receipt number turns the second insert into a no-op.',
@@ -35,14 +35,14 @@ export default {
       detail: true,
       prompt: 'What is needed to make the JMS consume, the Oracle inserts and the JMS publish one XA transaction in Mule 4?',
       options: [
-        'A transaction manager — the Bitronix module (bti:transaction-manager)',
-        'An XA-capable JMS connection (e.g. the ActiveMQ XA Connection type in JMS connector 2.x — older 1.x versions used enableXA — or a generic XA connection)',
-        'An XA data source for Oracle (e.g. a Bitronix XA data source pool referenced by the DB config)',
-        'transactionType="XA" on the listener (or Try) that begins the transaction',
-        'Setting ackMode="MANUAL" on the listener',
+        'A transaction manager: the Bitronix module',
+        'An XA-capable JMS connection to ActiveMQ',
+        'An XA data source for Oracle, used by the DB config',
+        'transactionType="XA" where the transaction begins',
+        'Setting ackMode="MANUAL" on the JMS listener',
       ],
       answer: [0, 1, 2, 3],
-      explain: 'XA needs a transaction manager plus XA-capable resources, and the transaction must be begun as XA. MANUAL ack plays no part: in a transaction the message is acknowledged only after the transaction completes.',
+      explain: 'The pieces: `bti:transaction-manager`; the ActiveMQ XA Connection type in JMS connector 2.x (older 1.x versions used enableXA) or a generic XA connection; a Bitronix XA data source pool referenced by the DB config; and XA on the listener or Try that begins it. XA needs a transaction manager plus XA-capable resources, and the transaction must be begun as XA. MANUAL ack plays no part: in a transaction the message is acknowledged only after the transaction completes.',
     },
     {
       type: 'single',
@@ -61,13 +61,13 @@ export default {
       needsScenario: true,
       prompt: 'The team picks the **transactional outbox** instead of XA. What does that mean here?',
       options: [
-        'In one Oracle LOCAL transaction insert the receipt and an OUTBOX row; a separate flow publishes OUTBOX rows to GR.POSTED and marks them sent',
+        'One Oracle transaction writes the receipt and an OUTBOX row',
         'Publish GR.POSTED first and insert into Oracle afterwards',
-        'Use an Async scope to publish after the insert',
-        'Store the message in an Object Store and publish it later',
+        'Publish from an Async scope once the insert has run',
+        'Keep the event in an Object Store and publish it later',
       ],
       answer: 0,
-      explain: 'The receipt and the "event to publish" commit atomically in Oracle. Publishing is then at-least-once from the outbox, so consumers of GR.POSTED must be idempotent.',
+      explain: 'In one Oracle LOCAL transaction insert the receipt and an OUTBOX row; a separate flow publishes OUTBOX rows to GR.POSTED and marks them sent. The receipt and the "event to publish" commit atomically in Oracle. Publishing is then at-least-once from the outbox, so consumers of GR.POSTED must be idempotent.',
     },
     {
       type: 'order',
@@ -90,10 +90,10 @@ A grocery DC posts **goods receipts** when pallets are received against a purcha
 3. Publish \`GR.POSTED\` on ActiveMQ for invoice matching (3-way match) and replenishment.
 
 Incidents:
-- After a node crash, a receipt was posted **twice** — finance paid for 2 pallets that arrived once.
+- After a node crash, a receipt was posted **twice**, and finance paid for 2 pallets that arrived once.
 - During a broker failover, \`GR.POSTED\` was published for a receipt whose Oracle transaction later rolled back; invoice matching approved an invoice for goods not in the system.
 
-The architect proposes **XA with Bitronix** across ActiveMQ and Oracle. The platform team runs Mule on **CloudHub 2.0 replicas** and is worried about XA recovery. A developer suggests "just use a LOCAL transaction on the listener".
+The architect proposes **XA with Bitronix** across ActiveMQ and Oracle. The platform team runs Mule on **CloudHub 2.0 replicas** and is worried about XA recovery. A developer suggests "a LOCAL transaction on the listener is enough".
 
 **Questions**
 1. What exactly does a LOCAL transaction on the JMS listener cover, and what does it not cover?
@@ -121,7 +121,7 @@ The architect proposes **XA with Bitronix** across ActiveMQ and Oracle. The plat
 **1. LOCAL on the listener.** \`transactionalAction="ALWAYS_BEGIN" transactionType="LOCAL"\` makes the JMS session transacted: the message is acknowledged only after the transaction completes, and \`jms:publish\` on the **same JMS config** can join, so the publish and the consume commit together. Set its \`transactionalAction\` explicitly to ALWAYS_JOIN or JOIN_IF_POSSIBLE: the reference lists JOIN_IF_POSSIBLE as the default, but the JMS transactions page says other components do not join by default. Oracle operations are a **different resource**: a Single Resource transaction needs the same connector and the same global config, so they stay outside it with their own commit. A Try with ALWAYS_BEGIN for a DB transaction is not possible here either, because ALWAYS_BEGIN raises an error when a Single Resource transaction already exists. The config docs require ack mode IMMEDIATE when the transaction type is LOCAL or MULTI. On a rollback the message returns to the destination for redelivery; on ActiveMQ Classic check \`maxRedelivery\` on the factory configuration, whose default of 0 means no redelivery.
 
 **2. Incidents.**
-- **Duplicate receipt**: Oracle committed, then the node died before the JMS commit. The broker redelivered and the receipt was inserted again — no unique key on the receipt number.
+- **Duplicate receipt**: Oracle committed, then the node died before the JMS commit. The broker redelivered and the receipt was inserted again, because there was no unique key on the receipt number.
 - **Phantom GR.POSTED**: the publish and the DB work were not atomic. In the failing version, the publish was effectively committed before the Oracle transaction rolled back (e.g. a publish on a different, non-transacted config, or an outer DB transaction that failed after the publish).
 
 **3. XA with Bitronix.**

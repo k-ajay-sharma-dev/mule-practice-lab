@@ -11,6 +11,7 @@ export default {
       { text: "2026-11-18 03:00:00 INFO  [item-batch] Group marked failed, 500 records failed", relevant: true, why: "All 500 count as failed." },
       { text: "2026-11-18 03:05:00 INFO  [item-batch] On Complete failed=500", relevant: false },
       { text: "2026-11-18 07:00:00 WARN  [buyers] 500 items missing", relevant: true, why: "The business sees the gap." },
+      { text: "2026-11-18 07:30:00 INFO  [dba] Group 7 has one row with ITEM_DESC null, 499 rows valid", relevant: true, why: "Only one row was bad." },
     ],
     questions: [
       {
@@ -18,9 +19,9 @@ export default {
         prompt: "Why did 500 records fail?",
         options: [
           "The bulk insert is all or nothing for the group",
-          "All 500 were bad",
-          "The database is down",
-          "Locks",
+          "All 500 rows in group 7 had a NULL in a required column",
+          "The database was down while group 7 was inserted",
+          "Another session locked the item table during group 7",
         ],
         answer: 0,
         explain: "One NULL fails the whole statement.",
@@ -29,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the standard fix?",
         options: [
-          "On bulk failure, insert that group row by row and send only bad rows to a reject table",
-          "Smaller groups only",
-          "Ignore errors",
-          "Retry the group forever",
+          "On bulk failure, retry that group row by row and reject bad rows",
+          "Cut the aggregator size to 50 so fewer rows fail at once",
+          "Skip any group that fails and log the group number",
+          "Retry the whole group until the insert succeeds",
         ],
         answer: 0,
         explain: "Fallback isolates the bad row.",
@@ -44,7 +45,7 @@ export default {
           "A try scope around the bulk insert",
           "A for each over the group on error",
           "A reject table with key and reason",
-          "Deleting the group",
+          "Dropping the failed group from the run",
         ],
         answer: [0,1,2],
         explain: "Catch, iterate, record.",
@@ -54,9 +55,9 @@ export default {
         prompt: "Why not always insert row by row?",
         options: [
           "It is much slower for the normal case",
-          "It is not allowed",
-          "It uses no memory",
-          "No reason",
+          "Row by row inserts are not allowed in a batch step",
+          "Row inserts cannot record a reject reason",
+          "Oracle limits a session to one insert per second",
         ],
         answer: 0,
         explain: "Bulk first, row by row only on failure.",
@@ -88,6 +89,7 @@ These lines are illustrative and were written for this scenario. Real log format
 2026-11-18 03:00:00 ERROR [item-batch] Bulk insert failed group=7 rows=500 ORA-01400 cannot insert NULL
 2026-11-18 03:00:00 INFO  [item-batch] Group marked failed, 500 records failed
 2026-11-18 07:00:00 WARN  [buyers] 500 items missing
+2026-11-18 07:30:00 INFO  [dba] Group 7 has one row with ITEM_DESC null, 499 rows valid
 \`\`\`
 
 ## Your tasks

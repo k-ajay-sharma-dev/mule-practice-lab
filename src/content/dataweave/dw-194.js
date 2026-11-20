@@ -14,14 +14,14 @@ Fenwick Supply sends job reports and alerts through an outbox table. A sender fl
 - \`vars.now\`: the current time in UTC
 - \`vars.maxAttempts\` and \`vars.retryDelaysMinutes\`, such as \`[5, 15, 60]\`
 
-**Rules for each result**
-- \`ATTEMPTS\` becomes the old value plus 1.
+**Rules for each result**, giving one entry in \`updates\` with \`ID\`, \`STATUS\`, \`ATTEMPTS\`, \`NEXT_TRY_UTC\` and \`LAST_ERROR\`, in input order:
+- \`ATTEMPTS\` becomes the old value plus 1. The rules below use this new value.
 - A 2xx code: \`SENT\`.
 - A 4xx code with \`ATTEMPTS\` below \`maxAttempts\`: \`RETRY\`. \`NEXT_TRY_UTC\` is now plus the delay at position \`ATTEMPTS - 1\` in the delay list, or the last delay when the list is shorter, as \`yyyy-MM-dd HH:mm:ss\`.
 - Anything else: \`FAILED\`.
 - \`NEXT_TRY_UTC\` is null unless the status is \`RETRY\`. \`LAST_ERROR\` is null for \`SENT\`, otherwise the code, a space and the text.
 
-**Alerts**: one per \`FAILED\` row with \`ID\` and \`kind\`: \`CHECK_CREDENTIALS\` for 535, \`PERMANENT_ERROR\` for other 5xx codes, otherwise \`RETRIES_EXHAUSTED\`.
+**Alerts**: a list \`alerts\`, one per \`FAILED\` row in input order, with \`ID\` and \`kind\`: \`CHECK_CREDENTIALS\` for 535, \`PERMANENT_ERROR\` for other 5xx codes, otherwise \`RETRIES_EXHAUSTED\`.
 
 Also return \`pauseSending\`, true when any result is 535, since every later send would fail the same way, and a \`summary\` with \`sent\`, \`retry\` and \`failed\` counts.
 `,

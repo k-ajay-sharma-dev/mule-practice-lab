@@ -74,6 +74,7 @@ New rules from the CFO:
 - From the moment a change is requested, the vendor gets a **payment block** in SAP until the change is approved or rejected, so no payment goes to either account by mistake.
 - Approver and requester must be different people. Changes above 50,000 EUR of open items need a second approver.
 - Every step is kept in an **audit trail** for 10 years.
+- AP clerks sign in to the approval app and send a token (a JWT) with every call. A caller without a valid token must be refused.
 - About **250 bank changes a month**. The call-back should be done within 2 business days.
 - In the tests clerks approve 6 changes a minute while a script without a token tries the same, and Coupa sends 6 requests a minute while SAP is down for 30 minutes.
 
@@ -114,12 +115,12 @@ AP approval app --> exp-ap-approvals --> prc-vendor-bank-change
 2. **prc-vendor-bank-change** stores a request in state RECEIVED and sets a **payment block** on the vendor in SAP through **sys-sap-vendor-api**.
 3. It calls the validation service through **sys-bank-validation-api**. A name or country mismatch moves the request to REJECTED.
 4. It creates a call-back task for the AP team with the phone number from SAP, not from the request.
-5. The clerk calls the vendor and records the result in the **AP approval app**. **exp-ap-approvals** checks the clerk's role and passes the decision to the Process API. The Process API refuses an approver who is the requester, and asks for a second approver above the threshold.
+5. The clerk calls the vendor and records the result in the **AP approval app**. **exp-ap-approvals** validates the clerk's token with a JWT validation policy, so a caller without one is refused, checks the clerk's role and passes the decision to the Process API. The Process API refuses an approver who is the requester, and asks for a second approver above the threshold.
 6. On approval it writes the new bank details to SAP, then lifts the payment block.
 
 **Long-running state.** The request state lives in the audit database, not in a flow variable. Each event (validation result, approval, timeout) loads the request, checks the allowed transition and saves the new state. A daily job escalates requests waiting for a call-back over 2 days.
 
-**No way around it.** Only the Process API's client id may call the bank operations of the SAP System API (client id enforcement plus a policy on that resource). The nightly vendor sync from SAP to Coupa never writes bank fields back. The approval app only reaches the Process API.
+**No way around it.** Only the Process API's client id may call the bank operations of the SAP System API (client id enforcement plus a policy on that resource). The old nightly vendor sync from Coupa to SAP no longer carries bank fields. The approval app only reaches the Process API.
 
 **Audit.** Each transition is stored with time, actor, old and new IBAN (masked except the last 4 digits), the validation result and the call-back notes.
 `,

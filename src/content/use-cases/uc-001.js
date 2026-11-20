@@ -51,7 +51,7 @@ export default {
     },
   },
   description: `
-The e-commerce site must show the latest **price and stock** for ~200k products held in an ERP database.
+The e-commerce site must show the latest **price and stock** for ~900k products held in an ERP database. On a busy night most of them change.
 
 - The ERP has a \`last_modified\` column on the products table.
 - The e-commerce platform has a bulk REST endpoint accepting up to 500 products per call.
@@ -78,6 +78,6 @@ The e-commerce site must show the latest **price and stock** for ~200k products 
 
 **Move in chunks.** Use a Batch Job with a **Batch Aggregator of 500**, mapping rows to the e-commerce format in DataWeave and calling the bulk endpoint. Because the target is an upsert, sending the same product twice is harmless.
 
-**Recover safely.** Save the new watermark (max \`last_modified\` processed) **only after the job completes** without fatal errors. If it fails halfway, the next run re-reads from the old watermark and re-sends — safe because of idempotent upserts. Failed records are logged with IDs and reported in the On Complete phase.
+**Recover safely.** Save the new watermark (max \`last_modified\` processed) **only after the job completes** without fatal errors. If it fails halfway, the next run re-reads from the old watermark and re-sends. This is safe because of idempotent upserts. Failed records are logged with IDs and reported in the On Complete phase.
 `,
 }

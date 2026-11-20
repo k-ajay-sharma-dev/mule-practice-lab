@@ -77,6 +77,7 @@ Facts:
 - Some prices are **store-specific** (regional zones), others national. Online uses the national price plus delivery zone overrides.
 - Head office needs to know, per store, which change set is active.
 - A markdown run sends about 100 store change sets a second for 10 minutes, and the store servers take at most 30 a second in all. About 1 delivery in 20 fails because a store is offline.
+- Every store must have the markdown prices within an hour of the run, and no change set may be lost while a store is offline.
 
 **Describe your solution:**
 - How do you distribute change sets to 800 stores efficiently?
@@ -130,7 +131,7 @@ Alternative when both support it: send both with the same future effective time 
 `,
   followUps: [
     { q: 'Why Kafka instead of a simple queue?', a: 'Per-store ordering, retention for replay and many independent consumers (stores, online, analytics) fit a partitioned log. Anypoint MQ with per-store FIFO queues also works but means 800 queues to manage.' },
-    { q: 'What if a store server applies a price but the confirmation is lost?', a: 'The retry re-sends the same version; the store server reports it is already applied, and the worker records success — idempotency by version.' },
-    { q: 'Could stores pull prices instead?', a: 'Yes — stores could poll a Price API for "changes since version X". Pull handles offline stores naturally but needs software changes in 800 store servers; push is chosen when stores cannot be changed.' },
+    { q: 'What if a store server applies a price but the confirmation is lost?', a: 'The retry re-sends the same version; the store server reports it is already applied, and the worker records success. This is idempotency by version.' },
+    { q: 'Could stores pull prices instead?', a: 'Yes, stores could poll a Price API for "changes since version X". Pull handles offline stores naturally but needs software changes in 800 store servers; push is chosen when stores cannot be changed.' },
   ],
 }

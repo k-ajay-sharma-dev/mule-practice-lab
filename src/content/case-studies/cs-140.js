@@ -11,7 +11,7 @@ export default {
       needsScenario: true,
       prompt: 'Customers report outages before the team knows. What do you measure first?',
       options: [
-        'Error rate and response time of the most used APIs, against agreed targets',
+        'Error rate and response time of the top APIs against targets',
         'CPU and memory of every app, with alerts above 80 percent',
         'Health check endpoints on every app, polled each minute',
         'Error counts from the logs of every app, summed per day',
@@ -23,7 +23,7 @@ export default {
       type: 'single',
       prompt: 'Today 900 alerts fire a week and people ignore them. What do you change?',
       options: [
-        'Alert only when a target is at risk, each alert with an owner and a runbook',
+        'Alert only when a target is at risk, with an owner and runbook',
         'Raise the CPU and memory thresholds so fewer alerts fire',
         'Send every alert to one shared channel that all teams watch',
         'Group the alerts into one summary email each morning',
@@ -38,10 +38,10 @@ export default {
         'One correlation ID passed through every layer and logged on every line',
         'The same field names for IDs and status in every app',
         'Logs from every app in one place with search by field',
-        'A different log format per team',
+        'Full request and response payloads on every log line at INFO',
       ],
       answer: [0, 1, 2],
-      explain: 'One request seen across all its hops is what you need in an incident. That only works with one ID, one naming and one place to search.',
+      explain: 'One request seen across all its hops is what you need in an incident. That only works with one ID, one naming and one place to search. Full payloads raise cost and risk exposing personal data without linking the hops.',
     },
     {
       type: 'single',

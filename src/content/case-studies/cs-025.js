@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'Which statement about the control plane and runtime plane is correct?',
       options: [
-        'Payloads are processed in the runtime plane, so regional runtimes keep personal data in-region — but you must also keep personal data out of what reaches the control plane (logs, analytics, monitoring)',
-        'Moving the control plane to the EU automatically makes every runtime compliant',
-        'The control plane processes every API request payload',
-        'Runtime location does not matter as long as the control plane is regional',
+        'Runtimes process payloads, but logs and analytics can reach the control plane',
+        'An EU control plane makes every runtime it manages compliant for EU data',
+        'The control plane processes every API request payload as it passes through',
+        'Regional runtimes keep all data in-region, whatever the logs and analytics hold',
       ],
       answer: 0,
-      explain: 'Residency of payload processing is decided by where runtimes run; the control plane holds metadata, analytics and possibly logs, so personal data must not leak into those. A regional control plane alone does not move processing.',
+      explain: 'Residency of payload processing is decided by where runtimes run. The control plane holds metadata, analytics and possibly logs, so personal data must not leak into those. A regional control plane alone does not move processing, and payloads never pass through it. Regional runtimes are not enough on their own if logs or analytics carry personal data out.',
     },
     {
       type: 'single',
@@ -37,7 +37,7 @@ export default {
         'Runtime Fabric or customer-hosted runtimes in-country',
         'CloudHub 2.0 in the nearest other country',
         'The existing US CloudHub workers with encryption',
-        'No runtime — call the US APIs over a VPN',
+        'No local runtime: stores call the US APIs over a private VPN',
       ],
       answer: 0,
       explain: 'Runtime Fabric (or customer-hosted Mule) lets you process data in-country when no cloud region fits. Encryption or a VPN does not change where the data is processed.',
@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'A loyalty member from the EU shops in an APAC store. How is the visit handled?',
       options: [
-        'The visited region calls a global loyalty router with a pseudonymous member token; the home region does the lookup/earn and returns only what is needed (points, tier)',
-        'Replicate every loyalty profile to every region nightly',
-        'Refuse loyalty for members shopping abroad',
-        'Move the member’s full profile to the visited region for the visit',
+        'The home region does the lookup and returns only points and tier',
+        'Every loyalty profile is replicated to every region each night',
+        'The APAC store calls the EU customer System API for the full profile',
+        'The member’s full profile is moved to the visited region for the visit',
       ],
       answer: 0,
-      explain: 'A minimal, pseudonymised, just-in-time exchange keeps global features working with approved transfers only. Global replication of profiles is exactly the transfer the laws restrict.',
+      explain: 'The visited region calls a global loyalty router with a pseudonymous member token, and the home region does the lookup or earn. This minimal, on-demand exchange keeps global features working with approved transfers only. Global replication, a full-profile read or a profile move are exactly the transfers the laws restrict.',
     },
     {
       type: 'multi',
@@ -118,7 +118,7 @@ export default {
     'Starts with data classification and a data-flow inventory: which fields are personal data, where they are stored/processed/logged, and the residency rule per country.',
     'Distinguishes control plane (management, metadata, analytics) from runtime plane (where payloads are processed), and chooses per region: e.g. an EU control plane where needed, and regional runtimes (CloudHub 2.0 regions/private spaces or Runtime Fabric in-country).',
     'Personal data is stored and processed in-region by regional System/Process APIs; global APIs handle only non-personal or pseudonymised data.',
-    'Cross-region scenarios use minimal, approved transfers (e.g. tokenised IDs, consent-based just-in-time lookups) instead of replicating customer data globally.',
+    'Cross-region scenarios use minimal, approved transfers (e.g. tokenised IDs, consent-based on-demand lookups) instead of replicating customer data globally.',
     'Logs and monitoring are checked: personal data masked or removed, log forwarding to regional log stores, and awareness of what the platform\'s telemetry contains.',
     'Governance: residency rules as policies/standards in the API lifecycle, design reviews, automated checks, and auditable documentation of data flows.',
   ],
@@ -132,7 +132,7 @@ export default {
 
 **Regional architecture.** Per region: \`customers-sapi\`, \`loyalty-sapi\`, \`orders-sapi\` backed by regional data stores, and regional Process APIs. Global layer: product, pricing, inventory and other non-personal APIs remain shared. Store checkout calls its regional APIs → latency usually improves.
 
-**Cross-region use cases.** Loyalty member shopping abroad: the visited region calls a global \`loyalty-router-papi\` with a **pseudonymous member token**; the home region performs the lookup/earn and returns only what is needed (points balance, tier) — no full profile copied. Transfers logged and allowed only where legal rules permit. Data warehouse: regional warehouses or pseudonymised/aggregated feeds to the global one.
+**Cross-region use cases.** Loyalty member shopping abroad: the visited region calls a global \`loyalty-router-papi\` with a **pseudonymous member token**; the home region performs the lookup/earn and returns only what is needed (points balance, tier). No full profile is copied. Transfers logged and allowed only where legal rules permit. Data warehouse: regional warehouses or pseudonymised/aggregated feeds to the global one.
 
 **Logs and monitoring.** Masking in DataWeave/logging standards; log forwarding to regional log stores (e.g. per-region SIEM); limit platform log retention where possible; review what Anypoint Monitoring captures.
 

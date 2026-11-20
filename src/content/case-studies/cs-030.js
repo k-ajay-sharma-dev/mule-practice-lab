@@ -87,6 +87,8 @@ export default {
 - Licensing: a partner must only receive sections and image rights they paid for.
 - The CMS emits a "published/updated/unpublished" event per article.
 - At busy times the CMS sends about 1 event a second, and a partner webhook can be down for an hour. Pull partners poll about 20 times a second, a buggy aggregator can push that to 300, and the feed store takes 60 reads a second.
+- Each partner queue redelivers a failed message about once a minute. Try each push delivery for up to 2 hours, so an hour-long webhook outage loses nothing, then move it to a dead-letter queue.
+- Pull partners send a client ID. Put a rate limit of about 50 requests a second on the gateway, and give the feed Experience and System APIs 0.5 vCore each.
 
 **Your task.** Propose a design that replaces the scripts and makes partner onboarding straightforward.
 `,
@@ -110,13 +112,13 @@ export default {
     'Takedowns are high-priority events that must be delivered and confirmed; failures are alerted immediately.',
   ],
   solution: `
-**Architecture.** \`cms-sapi\` receives CMS events → \`syndication-papi\` builds the canonical article (text, metadata, section, image references with rights) → publishes to an Anypoint MQ exchange. Each partner has a queue bound to the exchange; a partner-delivery flow consumes its queue, filters, transforms and delivers.
+**Architecture.** \`sys-cms-api\` receives CMS events → \`prc-syndication-api\` builds the canonical article (text, metadata, section, image references with rights) → publishes to an Anypoint MQ exchange. Each partner has a queue bound to the exchange; a partner-delivery flow consumes its queue, filters, transforms and delivers.
 
 **Transformation.** One DataWeave module per partner format (JSON, RSS/Atom, XML). Shared functions (dates, author, image URLs) live in a reusable DataWeave library published to Exchange.
 
 **Push vs pull.**
 - *Push*: webhook (HTTP POST with retries and backoff) or SFTP upload. After retries are exhausted, the message moves to a partner DLQ and the partner manager is alerted.
-- *Pull*: \`partner-feed-eapi\` with \`GET /feeds/{partnerId}?since=...\` reading a per-partner feed store; client ID enforcement and rate limiting in API Manager.
+- *Pull*: \`exp-partner-feed-api\` with \`GET /feeds/{partnerId}?since=...\` reading a per-partner feed store; client ID enforcement and rate limiting in API Manager.
 
 **Licensing and takedowns.** A partner configuration record holds allowed sections, image-rights categories, format, delivery method and endpoint. Articles or images outside the licence are filtered out before delivery. Unpublish/correction events carry a priority flag; for push partners they are delivered first, for pull partners the feed returns a "removed" entry. Each takedown delivery is logged as evidence.
 
@@ -127,6 +129,6 @@ export default {
   followUps: [
     { q: 'Why one queue per partner instead of one shared queue?', a: 'Isolation: if one partner endpoint is down, its messages wait in its own queue while the other eleven keep receiving content on time.' },
     { q: 'How would you prove a takedown was delivered?', a: 'Record the delivery attempt, response code and timestamp per partner for every takedown event, and alert on any takedown not confirmed within the agreed time.' },
-    { q: 'Where would you store partner configuration?', a: 'In a small database or config service owned by the syndication team, cached in the Mule app — not in properties files that need a redeploy for every change.' },
+    { q: 'Where would you store partner configuration?', a: 'In a small database or config service owned by the syndication team, cached in the Mule app, not in properties files that need a redeploy for every change.' },
   ],
 }

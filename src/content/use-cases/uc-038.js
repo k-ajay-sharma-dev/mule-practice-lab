@@ -60,7 +60,7 @@ export default {
     },
   },
   description: `
-A fashion e-commerce company (≈ €600M/year online) wants every order checked by an external **fraud-scoring service** before payment is captured.
+An online sporting goods company (≈ €600M/year online) wants every order checked by an external **fraud-scoring service** before payment is captured.
 
 Facts:
 - Checkout is a microservice that calls a **Checkout Process API** in Mule. The fraud vendor exposes \`POST /score\` (order, device fingerprint, customer history, shipping/billing addresses) and returns a score 0–100 plus reasons.
@@ -121,7 +121,7 @@ All unscored orders are published to a queue and **re-scored asynchronously** wh
 `,
   followUps: [
     { q: 'Why not retry the fraud call once on timeout?', a: 'A second attempt adds another 250 ms and breaks the budget; the async re-score handles the miss without hurting the customer.' },
-    { q: 'Could you call the fraud vendor asynchronously for all orders?', a: 'Yes if shipment can always wait for the result — then checkout is never affected. The trade-off is that declines happen after the customer sees a confirmation, which needs a clear cancellation process.' },
+    { q: 'Could you call the fraud vendor asynchronously for all orders?', a: 'Yes if shipment can always wait for the result; then checkout is never affected. The trade-off is that declines happen after the customer sees a confirmation, which needs a clear cancellation process.' },
     { q: 'How do you protect PII sent to the vendor?', a: 'Send only required fields, over TLS with OAuth/mTLS, under a data processing agreement; hash emails where the vendor supports it and never log the full payload.' },
   ],
 }

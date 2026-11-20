@@ -19,22 +19,22 @@ export default {
         type: 'single',
         prompt: 'Why was the same message processed by two replicas?',
         options: [
-          'It was not acknowledged within 60 seconds, so Anypoint MQ made it available again and another replica took it',
-          'The publisher sent it twice',
-          'Both replicas share one subscriber thread',
-          'The queue is a FIFO queue',
+          'It was not acknowledged within 60 seconds, so Anypoint MQ released it again',
+          'The publisher sent the order twice, once to each replica’s subscription',
+          'Replica 1 sent a NACK when the credit check started, so the message returned',
+          'The queue is a FIFO queue, which hands each message to every replica',
         ],
         answer: 0,
-        explain: 'A message being processed is locked only for the acknowledgement timeout. After that it can be delivered again, even while the first consumer is still working on it.',
+        explain: 'A message being processed is locked only for the acknowledgement timeout. After that it can be delivered again, even while the first consumer is still working on it. The same `messageId` with `deliveryCount=2` shows one message delivered twice, not two messages.',
       },
       {
         type: 'single',
         prompt: 'Why did this start this week?',
         options: [
-          'The new credit check made large orders take about 90 seconds, past the 60 second timeout',
-          'The queue was renamed',
-          'Replica 2 was added this week',
-          'The order format changed',
+          'The new credit check pushed large orders past the 60 second timeout',
+          'The acknowledgement timeout was lowered to 60 seconds on Monday',
+          'Large orders now arrive in several messages, one per group of lines',
+          'The credit check sends a second order message when it approves credit',
         ],
         answer: 0,
         explain: 'Small orders still finish in time. Only orders slow enough to pass 60 seconds are delivered twice.',
@@ -46,19 +46,19 @@ export default {
           'Raise the acknowledgement timeout above the slowest processing time, with a margin',
           'Make shipment creation idempotent on the order ID',
           'Put a time limit on the credit check call so processing has an upper bound',
-          'Run a single replica forever',
+          'Scale `fulfil-app` down to a single replica',
         ],
         answer: [0, 1, 2],
-        explain: 'A longer lock removes the cause, the idempotency check makes a repeat harmless, and a time limit keeps processing inside the lock. One replica only hides the problem and removes capacity.',
+        explain: 'A longer lock removes the cause, the idempotency check makes a repeat harmless, and a time limit keeps processing inside the lock. With one replica the released message comes back to the same app and is still processed twice.',
       },
       {
         type: 'single',
         prompt: 'Why is a longer timeout alone not enough?',
         options: [
-          'Processing can still exceed any fixed value on a bad day, and a crash after the work but before the acknowledgement also causes a repeat',
-          'Long timeouts are not allowed',
-          'It makes the queue slower for every message',
-          'It turns off redelivery',
+          'Delivery is still at least once, for example after a crash before the ack',
+          'Anypoint MQ caps the acknowledgement timeout below 90 seconds',
+          'A longer timeout delays every message on the queue by that amount',
+          'A longer timeout turns off redelivery, so failed messages are lost',
         ],
         answer: 0,
         explain: 'Queues deliver at least once. The consumer must cope with a repeat, so idempotency is the real protection.',
@@ -85,7 +85,7 @@ export default {
 ## Change / Context
 - \`fulfil-app\` runs on two replicas and reads orders from an Anypoint MQ queue.
 - The subscriber acknowledges a message when the flow finishes. Its acknowledgement timeout is 60 seconds.
-- On Monday a credit check call was added before the shipment is created. For large orders it takes up to 90 seconds.
+- On Monday a credit check call was added before the shipment is created. For large orders it takes about 90 seconds.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

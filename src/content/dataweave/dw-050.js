@@ -82,9 +82,9 @@ output application/json
 payload
 `,
   hints: [
-    'In the XML model, attributes are attached to the element\'s **key**. Inside `obj pluck (value, key) -> ...`, `key.@` is the attribute object of that element (or `null` when it has none), and `typeOf(value)` tells you whether it is a String (text), an Object (children) or Null (empty).',
-    'Write two mutually recursive functions: `element(value, attrs)` for one element, and `children(obj)` that converts every child with `pluck` and then merges repeats with `groupBy $.name` — `groupBy` keeps first-appearance order.',
-    'In `children`, map the groups back to an object: `groups mapObject (items, name) -> { (name): if (sizeOf(items) > 1) items.value else items[0].value }`. The root is just `children(payload)`.',
+    'In the XML model, attributes are attached to the element\'s **key**. Inside `obj pluck (value, key) -> ...`, `key.@` is the attribute object of that element (`null` when it has none), and `typeOf(value)` tells you whether it is a String (text), an Object (children) or Null (empty).',
+    'Write two mutually recursive functions: `element(value, attrs)` for one element, and `children(obj)` that converts every child with `pluck` and then merges repeats with `groupBy $.name`; `groupBy` keeps first-appearance order.',
+    'In `children`, map the groups back to an object: `groups mapObject (items, name) -> { (name): if (sizeOf(items) > 1) items.value else items[0].value }`. The root is `children(payload)`.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -115,7 +115,7 @@ DataWeave's XML model is an object whose **keys carry the attributes** (\`key.@\
 
 - \`element\` decides the shape of one element from two facts: does it have attributes, and is its value text, children or empty.
 - \`children\` converts all children, then \`groupBy $.name\` merges repeated names. \`groupBy\` keeps groups in first-appearance order, so \`product\`, \`tag\` etc. stay where they first occurred.
-- \`items.value\` collects the converted values of a group — including \`null\`s — into an array.
+- \`items.value\` collects the converted values of a group (including \`null\`s) into an array.
 - Recursion ends naturally at text and empty elements.
 
 Common traps:
@@ -160,7 +160,7 @@ Common traps:
     },
     {
       q: 'Is there a cheaper alternative if only one document type is needed?',
-      a: 'Yes — a specific mapping with selectors (`payload.catalog.*product map ...`, `$.price.@currency`) is faster, typed and easier to read. A generic converter is only worth it when many document types must follow one convention.',
+      a: 'Yes. A specific mapping with selectors (`payload.catalog.*product map ...`, `$.price.@currency`) is faster, typed and clearer to read. A generic converter is only worth it when many document types must follow one convention.',
     },
   ],
 }

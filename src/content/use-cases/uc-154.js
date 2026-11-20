@@ -79,7 +79,9 @@ Most stores close at 21:00, so most movements arrive in the ten minutes after. L
 - The planning platform answers in about 200 ms and takes up to **150 a second**.
 - The platform is sometimes down for maintenance for up to **30 minutes**.
 - About 1 movement in 1,000 is for a store code the platform does not know.
-- In this model one vCore serves about 500 requests a second, and a failed delivery is tried again about once a minute.
+- A store must get its answer within **500 ms**, even if one availability zone fails at 21:00. No movement may be lost.
+- The planners need every movement in the platform by **22:45**.
+- In this model one vCore serves about 500 requests a second, and a failed delivery is tried again about once a minute. Every delivery counts toward the redelivery limit.
 
 **Questions:**
 - Draw the design.

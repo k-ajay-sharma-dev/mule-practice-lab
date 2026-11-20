@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause of the 500s?',
         options: [
-          'The partner renamed `customer.address` and omits `discount`; the selector returns null and `as Number` / arithmetic on null fails',
+          'The partner renamed the address and drops discount, so null reaches `as Number`',
           'DataWeave throws an error as soon as you select a key that does not exist',
-          'The partner is sending invalid JSON that cannot be parsed',
-          'A deployment on our side broke the mapping at 02:00',
+          'The partner now sends invalid JSON that our listener cannot parse',
+          'An automatic deployment on our side changed the mapping at 02:00',
         ],
         answer: 0,
         explain: 'DataWeave returns **null** for a missing key; the error comes later when null is coerced to Number or used in subtraction. No deployment happened on our side.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Ask the partner to roll back v3.1 and wait',
-          'Hotfix the mapping to accept both shapes, deploy, let the partner retries flow, and reconcile the rest',
+          'Ask the partner to roll back v3.1 and wait for their next release window',
+          'Hotfix the mapping for both shapes, let partner retries flow, reconcile the rest',
           'Return 200 for every webhook so the partner stops retrying',
-          'Restart the app to clear the failed messages',
+          'Restart the app to clear the failed messages from memory',
         ],
         answer: 1,
         explain: 'A tolerant mapping restores the flow and the partner retries do the replay for you. Returning 200 would silently drop orders.',
@@ -57,10 +57,10 @@ export default {
         type: 'single',
         prompt: 'Which prevention step would have caught this **before** 02:00?',
         options: [
-          'A versioned contract with the partner plus contract tests using their sample payloads in CI',
-          'More workers for partner-orders-papi',
-          'Longer HTTP response timeouts',
-          'Logging the full payload at INFO level',
+          'A versioned contract, plus contract tests with partner sample payloads in CI',
+          'Scaling partner-orders-papi out to more workers before 02:00',
+          'Longer HTTP response timeouts on the webhook listener',
+          'Logging the full payload of every webhook at INFO level',
         ],
         answer: 0,
         explain: 'A versioned endpoint with a deprecation period, and contract tests with the partner payloads, catch breaking schema changes. Scaling or timeouts do not.',
@@ -152,7 +152,7 @@ var addr = payload.customer.shippingAddress default payload.customer.address
 - Alert on error rate per partner so a spike at 02:00 pages someone immediately.
 `,
   followUps: [
-    { q: 'What does payload.a.b return if a does not exist?', a: 'null — selectors on null return null, so the error only appears later when the value is coerced, used in arithmetic, or passed to a function that does not accept null.' },
+    { q: 'What does payload.a.b return if a does not exist?', a: 'null. Selectors on null return null, so the error only appears later when the value is coerced, used in arithmetic, or passed to a function that does not accept null.' },
     { q: 'Why return 400 instead of 500 for a bad payload?', a: '500 says "our fault, retry later", so the partner keeps retrying something that will never succeed; 400 says the request is invalid and should be fixed by the sender.' },
   ],
 }

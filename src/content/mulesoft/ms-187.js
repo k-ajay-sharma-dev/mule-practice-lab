@@ -125,7 +125,7 @@ A junior developer asks: "Do I now write a flow, a listener and all the checks b
   followUps: [
     {
       q: 'Does APIkit work with OAS as well as RAML?',
-      a: 'Yes. APIkit for REST can scaffold from a RAML or an OAS spec. An OAS spec must be published to Exchange first, as scaffolding from a local OAS file is not supported.',
+      a: 'Yes. APIkit for REST can scaffold from a RAML or an OAS spec. A common route is to publish the spec to Exchange or Design Center and import it from there, which works for both formats.',
     },
     {
       q: 'Why is checking requests in the router better than checking in each flow?',

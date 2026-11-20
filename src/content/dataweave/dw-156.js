@@ -11,7 +11,7 @@ Pellmark Garden Supplies receives one JSON batch of web orders each night. The i
 Rules:
 
 1. An order without a \`customerId\` (missing, null or empty) is rejected with the reason \`no customer\`.
-2. Otherwise, an order with no lines is rejected with the reason \`no lines\`.
+2. Otherwise, an order with no lines (\`lines\` missing or empty) is rejected with the reason \`no lines\`.
 3. Every other order becomes a message with:
    - \`messageId\`: the batch id, a dash and the order id
    - \`orderingKey\`: the customer id, so one customer's orders can be kept in order

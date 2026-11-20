@@ -82,6 +82,7 @@ Donor records live in Salesforce (a non-profit data model). Money is posted to a
 - Donor personal data and consent preferences (marketing opt-in) must be respected.
 - Agency files vary in quality (missing postcodes, misspelled names).
 - During an appeal online gifts reach about 1 a second. Salesforce can be down for 30 minutes, and about 1 gift in 50 has data it rejects every time.
+- Acknowledge each webhook at once and process the gift from a queue. Try each gift for up to an hour, then move it to a dead-letter queue for a person to fix. The queue redelivers a failed message about once a minute, so set its redelivery limit to match.
 
 | Channel | Volume | Delivery |
 | --- | --- | --- |
@@ -111,16 +112,16 @@ Donor records live in Salesforce (a non-profit data model). Money is posted to a
     'Finance gets a daily aggregated summary that reconciles to the sum of individual donations, with idempotent posting so reruns do not double count.',
   ],
   solution: `
-**Layers (kept small).** \`donation-platform-sapi\`, \`salesforce-donors-sapi\`, \`finance-sapi\` and one \`donations-papi\` that holds the matching, consent and campaign-mapping logic. No Experience API is needed yet — there are no external consumers.
+**Layers (kept small).** \`sys-donation-platform-api\` (which also receives the webhooks), \`sys-salesforce-donors-api\`, \`sys-finance-api\` and one \`prc-donations-api\` that holds the matching, consent and campaign-mapping logic. No Experience API is needed yet, because there are no external consumers.
 
 **Online gifts.**
 1. The donation platform calls a webhook endpoint; the flow validates the signature, publishes the payload to an Anypoint MQ queue and returns 200 immediately (protects against appeal-night spikes).
-2. A consumer calls \`donations-papi\`: find-or-create donor, create the gift record with the platform's gift ID as an external ID (upsert, so redelivery is harmless).
-3. A scheduler runs hourly to poll the platform API for gifts changed since the last watermark — catches anything the webhook missed.
+2. A consumer calls \`prc-donations-api\`: find-or-create donor, create the gift record with the platform's gift ID as an external ID (upsert, so redelivery is harmless).
+3. A scheduler runs hourly to poll the platform API for gifts changed since the last watermark. It catches anything the webhook missed.
 
-**Agency files.** An SFTP listener (or scheduled poll) picks up files; DataWeave maps and validates each row (mandatory fields, amount > 0, postcode format). Valid rows go through the same \`donations-papi\`; invalid rows are written to a rejects CSV emailed/returned to the agency. A file-level control total (row count, sum) is checked before processing.
+**Agency files.** An SFTP listener (or scheduled poll) picks up files; DataWeave maps and validates each row (mandatory fields, amount > 0, postcode format). Valid rows go through the same \`prc-donations-api\`; invalid rows are written to a rejects CSV emailed/returned to the agency. A file-level control total (row count, sum) is checked before processing.
 
-**Donor matching.** Exact email match → existing donor; otherwise name + postcode; if only a weak match, create the gift against a holding record and raise a Salesforce task for a supporter-care person to merge. Consent flags from the source are stored with source and timestamp — never overwritten with "opted in" by default.
+**Donor matching.** Exact email match → existing donor; otherwise name + postcode; if only a weak match, create the gift against a holding record and raise a Salesforce task for a supporter-care person to merge. Consent flags from the source are stored with source and timestamp, and never overwritten with "opted in" by default.
 
 **Finance.** A nightly job aggregates the day's gifts by fund/campaign and posts one journal per fund with a deterministic reference (date + fund), so a rerun updates rather than duplicates. It also stores a reconciliation record (count/amount) that staff can check.
 
@@ -131,6 +132,6 @@ Donor records live in Salesforce (a non-profit data model). Money is posted to a
   followUps: [
     { q: 'Why not let each channel write directly to Salesforce?', a: 'Matching, consent and campaign rules would be implemented three times and drift apart. A single Process API keeps one set of rules and makes adding a new channel cheap.' },
     { q: 'How do you avoid double-counting if the webhook and the poll both see the same gift?', a: 'Both paths upsert on the platform gift ID as an external ID in Salesforce, so the second write is an update with no new record.' },
-    { q: 'What would you log?', a: 'Correlation ID, source, gift ID, outcome and error code — not names, addresses or bank details. Personal data stays in the systems of record.' },
+    { q: 'What would you log?', a: 'Correlation ID, source, gift ID, outcome and error code, but not names, addresses or bank details. Personal data stays in the systems of record.' },
   ],
 }

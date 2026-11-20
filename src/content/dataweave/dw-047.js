@@ -9,7 +9,7 @@ export default {
 A retailer sends purchase orders as **X12 850** EDI. There is no EDI module in this project yet, so the integration team wants a quick DataWeave parser for a small subset. The file arrives as \`text/plain\`.
 
 **Syntax**
-- Segments end with \`~\`. Line breaks or spaces around segments are noise — trim each segment and ignore empty ones.
+- Segments end with \`~\`. Line breaks or spaces around segments are noise: trim each segment and ignore empty ones.
 - Elements inside a segment are separated by \`*\`. Element 0 is the segment id; X12 positions count from 1 after it, so \`BEG03\` is element index **3**. Empty elements (\`**\`) keep their position.
 
 **Segments used**
@@ -18,14 +18,14 @@ A retailer sends purchase orders as **X12 850** EDI. There is no EDI module in t
 |---|---|
 | \`BEG\` | \`BEG03\` = PO number, \`BEG05\` = PO date \`yyyyMMdd\` |
 | \`N1\` | party: \`N101\` = role (\`ST\` ship-to, \`BT\` bill-to), \`N102\` = name |
-| \`PO1\` | line: \`PO101\` line no, \`PO102\` quantity, \`PO103\` unit, \`PO104\` unit price; from \`PO106\` on, **qualifier/value pairs** — \`VP\` = vendor part number, \`UP\` = UPC |
+| \`PO1\` | line: \`PO101\` line no, \`PO102\` quantity, \`PO103\` unit, \`PO104\` unit price; from \`PO106\` on, **qualifier/value pairs** (\`VP\` = vendor part number, \`UP\` = UPC, in any order) |
 | \`ST\` / \`SE\` | transaction start / end; \`SE01\` = number of segments from \`ST\` to \`SE\` **inclusive** |
 
-\`GS\`/\`GE\` (functional group envelope) can surround the transaction — they are **not** counted in \`SE01\`.
+\`GS\`/\`GE\` (functional group envelope) can surround the transaction. They are **not** counted in \`SE01\`.
 
 **Output**
 - \`poNumber\`, \`poDate\` (formatted \`yyyy-MM-dd\`), \`shipTo\` and \`billTo\` (the N1 names; \`null\` if that role is missing)
-- \`lines\`: per PO1 in order — \`line\`, \`qty\`, \`unitPrice\` (numbers), \`uom\`, \`sku\` (the \`VP\` value), \`upc\` (the \`UP\` value, or \`null\`)
+- \`lines\`: per PO1 in order: \`line\`, \`qty\`, \`unitPrice\` (numbers), \`uom\`, \`sku\` (the \`VP\` value), \`upc\` (the \`UP\` value, or \`null\`)
 - \`totalAmount\`: sum of \`qty * unitPrice\`
 - \`segmentCountOk\`: \`true\` when \`SE01\` equals the actual number of segments from \`ST\` to \`SE\`
 `,
@@ -68,7 +68,7 @@ payload
   hints: [
     'Build a list of segments as arrays of elements: `(payload splitBy "~") map trim($) filter (not isEmpty($)) map ($ splitBy "*")`. Then `seg[0]` is the id and `seg[3]` is element 03.',
     'For the qualifier pairs, `drop` the first 6 elements and group the rest in pairs with `divideBy 2` (both from `dw::core::Arrays`). Then find the pair whose first entry is the qualifier.',
-    'For the segment count, take the positions of `ST` and `SE` in the list of segment ids (`indexOf`) — do not just count every segment in the file.',
+    'For the segment count, take the positions of `ST` and `SE` in the list of segment ids (`indexOf`). Do not count every segment in the file.',
   ],
   solution: `%dw 2.0
 import drop, divideBy from dw::core::Arrays
@@ -107,12 +107,12 @@ var lines = segments("PO1") map (p) -> {
 Turning the file into an **array of arrays** (segments → elements) makes the rest plain indexing:
 
 - \`splitBy "~"\` then \`trim\` removes the line breaks; \`filter (not isEmpty($))\` drops the empty piece after the last \`~\`.
-- \`splitBy "*"\` keeps empty elements between separators, so \`BEG*00*SA*PO-7781**20261102\` still has the date at index 5. (Trailing empty elements are dropped, which is harmless here — a missing index just returns \`null\`.)
+- \`splitBy "*"\` keeps empty elements between separators, so \`BEG*00*SA*PO-7781**20261102\` still has the date at index 5. (\`splitBy\` drops empty elements at the end, which is harmless here: a missing index returns \`null\`.)
 - Qualifier/value pairs are position-independent: \`UP\` may come before \`VP\`. \`drop 6\` + \`divideBy 2\` gives \`[["UP","0123..."], ["VP","SKU-200"]]\`, and a \`filter\` picks the pair. A missing qualifier gives \`[][0][1]\` → \`null\`.
 - \`SE01\` counts only the transaction set, so subtract the positions of \`ST\` and \`SE\` instead of using \`sizeOf(segs)\`, which would include \`GS\`/\`GE\`.
 
 Common traps:
-- Hard-coding \`p[7]\` for the SKU — it breaks as soon as a partner sends \`UP\` first.
+- Hard-coding \`p[7]\` for the SKU: it breaks as soon as a partner sends \`UP\` first.
 - Counting segments with \`sizeOf\` over the whole file (gives 10 here, not 8).
 - Not trimming segments: the id of every segment after the first becomes \`"\\nBEG"\` and nothing matches.
 `,

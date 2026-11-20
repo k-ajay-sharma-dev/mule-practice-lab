@@ -7,24 +7,24 @@ export default {
   estMinutes: 30,
   investigation: {
     logs: [
+      { text: '20:41:00.000 INFO  [pricing-engine] Published weekly price batch W45 (2 400 messages) to PRICE.UPDATES', relevant: true, why: 'The weekly batch was published between the old app stopping (20:40) and the new subscription starting (21:00).' },
       { text: '21:00:03.010 INFO  [deploy] store-price-sync v3.0.0 started, connection clientId=store-price-sync-prod-v3', relevant: true, why: 'The client ID changed in this release. A durable subscription is identified by clientId plus subscription name, so this is a NEW subscription.' },
       { text: '21:00:03.402 INFO  [jms] Durable subscriber created: clientId=store-price-sync-prod-v3 subscriptionName=price-sync topic=PRICE.UPDATES', relevant: true, why: 'The new subscription only receives messages published after it was created.' },
       { text: '21:00:04.000 INFO  [health] GET /health 200 (2 ms)', relevant: false },
-      { text: '21:05:00.000 INFO  [amq-console] Durable subscriber clientId=store-price-sync-prod subscriptionName=price-sync active=false pending=18420', relevant: true, why: 'The old subscription still exists, is offline and keeps collecting every price update, including the ones published during the deploy window.' },
       { text: '21:05:00.010 INFO  [amq-console] PRICE.UPDATES enqueued=+2400 since 20:40', relevant: false },
       { text: '21:06:11.200 INFO  [price] Sent 312 price changes to POS store=0107', relevant: false },
-      { text: '20:41:00.000 INFO  [pricing-engine] Published weekly price batch W45 (2 400 messages) to PRICE.UPDATES', relevant: true, why: 'The weekly batch was published between the old app stopping (20:40) and the new subscription starting (21:00).' },
-      { text: '21:07:30.000 INFO  [metrics] amq.store.percentUsage=61 (was 22 last week)', relevant: false },
+      { text: 'Mon 07:05:00.000 INFO  [amq-console] Durable subscriber clientId=store-price-sync-prod subscriptionName=price-sync active=false pending=18420', relevant: true, why: 'The old subscription still exists, is offline and keeps collecting every price update, including the W45 batch published during the deploy window.' },
+      { text: 'Mon 07:07:30.000 INFO  [metrics] amq.store.percentUsage=61 (was 22 last week)', relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: 'Why did stores miss the W45 price batch?',
         options: [
-          'Changing the clientId created a new durable subscription that did not exist when the batch was published; the batch went to the old, now orphaned subscription',
-          'Topics never keep messages, so durable subscriptions do not work on ActiveMQ',
-          'The pricing engine published to the wrong topic',
-          'The POS systems rejected the prices',
+          'The new clientId made a new subscription; W45 went only to the old one',
+          'The broker discarded W45 because no subscriber was connected at 20:41',
+          'The subscriptionName must change with the clientId, so the new app reads nothing',
+          'The new app dropped W45 as duplicates of prices it had already sent',
         ],
         answer: 0,
         explain: 'A durable subscription is keyed by clientId + subscription name. The renamed client got a fresh subscription; the 2,400 messages sit in the old one, which nobody consumes any more.',
@@ -33,23 +33,23 @@ export default {
         type: 'single',
         prompt: 'What is the best **immediate** recovery?',
         options: [
-          'Ask the pricing team to republish the W45 batch (or replay it from the pricing database), then confirm the stores have it',
-          'Delete the new subscription',
-          'Restart every POS',
-          'Wait; the stores will receive the batch next week',
+          'Have the pricing team republish W45, then check prices in a few stores',
+          'Create a second v3 subscription with a new name so it receives W45',
+          'Delete the old subscription so the broker re-routes its messages to v3',
+          'Restart store-price-sync so the new subscription replays from 20:40',
         ],
         answer: 0,
-        explain: 'Get the missing prices to the stores quickly from the source of truth. Alternatively, temporarily start a consumer with the old clientId to drain the old subscription, but republishing is simpler and verifiable.',
+        explain: 'Get the missing prices to the stores quickly from the source of truth. Alternatively, temporarily start a consumer with the old clientId to drain the old subscription, but republishing is quicker to verify. A new subscription only gets messages published after it exists, and deleting the old one destroys the W45 messages it holds.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and clean-up**?',
         options: [
-          'Treat clientId and subscriptionName as a fixed contract, documented and not derived from version numbers',
-          'Remove the orphaned durable subscription after its content is no longer needed, so it stops filling the broker store',
+          'A fixed, documented clientId and subscriptionName, not tied to versions',
+          'Remove the orphaned subscription once its messages are no longer needed',
           'Monitor inactive durable subscribers and their pending counts',
-          'Consider virtual topics (or Artemis queues bound to the address) so each consumer reads a queue that does not depend on a clientId',
-          'Use a non-durable subscriber to avoid the problem',
+          'Consider virtual topics so each consumer reads its own queue',
+          'Switch to a non-durable subscriber so no orphan can fill the store',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Stable identity, clean-up of orphans, monitoring, and queue-based fan-out. A non-durable subscriber loses everything published while the app is down.',
@@ -75,7 +75,7 @@ export default {
 - Broker store usage has jumped from 22% to 61%.
 
 ## Change / Context
-- Sunday 20:40–21:00, v3.0.0 of \`store-price-sync\` was deployed. A refactor moved the \`clientId\` of the JMS connection to a property \`$\{app.name}-$\{env}-$\{app.major}\`, which now resolves to \`store-price-sync-prod-v3\` (it was \`store-price-sync-prod\`).
+- Sunday 20:40 to 21:00, v3.0.0 of \`store-price-sync\` was deployed. A refactor moved the \`clientId\` of the JMS connection to a property \`$\{app.name}-$\{env}-$\{app.major}\`, which now resolves to \`store-price-sync-prod-v3\` (it was \`store-price-sync-prod\`).
 - The subscription name \`price-sync\` was unchanged.
 - The pricing engine published the weekly batch W45 at **20:41**.
 
@@ -84,7 +84,7 @@ export default {
 20:41:00.000 INFO  [pricing-engine] Published weekly price batch W45 (2 400 messages) to PRICE.UPDATES
 21:00:03.402 INFO  [jms] Durable subscriber created: clientId=store-price-sync-prod-v3
   subscriptionName=price-sync topic=PRICE.UPDATES
-21:05:00.000 INFO  [amq-console] Durable subscriber clientId=store-price-sync-prod
+Mon 07:05:00.000 INFO  [amq-console] Durable subscriber clientId=store-price-sync-prod
   subscriptionName=price-sync active=false pending=18420
 \`\`\`
 
@@ -112,7 +112,7 @@ export default {
     'Fix: stable documented clientId, remove orphaned subscriptions, monitor inactive durable subscribers, consider virtual topics / queue-based fan-out.',
   ],
   solution: `
-**Diagnosis.** On a topic, a durable subscription is identified by **clientId + subscription name**. Changing the clientId from \`store-price-sync-prod\` to \`store-price-sync-prod-v3\` created a **brand-new** subscription at 21:00. Messages published before that moment (the W45 batch at 20:41) were stored only for the **old** subscription. That subscription is now inactive and still collecting every price update (18,420 pending), so broker store usage climbs.
+**Diagnosis.** On a topic, a durable subscription is identified by **clientId + subscription name**. Changing the clientId from \`store-price-sync-prod\` to \`store-price-sync-prod-v3\` created a **brand-new** subscription at 21:00. Messages published before that moment (the W45 batch at 20:41) were stored only for the **old** subscription. That subscription is now inactive and still collecting every price update (18,420 pending by Monday morning), so broker store usage climbs.
 
 **Immediate mitigation.** Ask the pricing team to **republish W45** (or replay it from the pricing tables) and spot-check prices in a few stores. If republishing is not possible, start a temporary consumer with the old clientId to drain and forward the old subscription, filtering out messages already delivered by the new one. Inform store operations which items were wrong and since when.
 

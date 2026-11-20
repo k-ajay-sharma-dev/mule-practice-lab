@@ -66,6 +66,7 @@ A cold-chain logistics company runs **2,500 refrigerated trucks**. Each truck ha
 
 Facts:
 - Each truck sends one message every **10 seconds** (≈ 250 msg/s, ~22 million/day). When many trucks reconnect at once, backlogs can push this to 750 msg/s for 5 minutes.
+- The excursion detector can restart and be down for 10 minutes. After a burst or a restart it must catch up on everything it missed within half an hour, so size it for more than the average rate.
 - Trucks lose connectivity in tunnels and rural areas. They then send **buffered backlogs** (out of order, up to 6 hours old).
 - Pharmaceutical customers require an **alert within 2 minutes** when a compartment is outside its range (e.g. 2–8 °C) for more than 5 consecutive minutes.
 - Raw data must be retained **5 years** for audits (GDP, Good Distribution Practice).
@@ -116,9 +117,9 @@ Mule *could* subscribe to MQTT directly (there is an MQTT connector) for small v
 **Excursion detection.**
 - Use **event time** (device timestamp), not arrival time. Keep state per truck+compartment: when did the current out-of-range run start?
 - Trigger an alert when the run exceeds 5 minutes of event time; send *recovery* when back in range.
-- Out-of-order/late data: windowing with an allowed lateness; backlog data that reveals a past excursion still produces an alert flagged **late** ("excursion between 02:10 and 02:40 detected on reconnect") — the customer still needs it for product release decisions.
+- Out-of-order/late data: windowing with an allowed lateness; backlog data that reveals a past excursion still produces an alert flagged **late** ("excursion between 02:10 and 02:40 detected on reconnect"). The customer still needs it for product release decisions.
 - Missing data is a risk too: no telemetry from an active truck for 15 minutes → "connectivity lost" alert.
-- If no stream processor is available, a Mule consumer can keep this state in a fast external store keyed by truck — but call out that this is the weaker option.
+- If no stream processor is available, a Mule consumer can keep this state in a fast external store keyed by truck, but call out that this is the weaker option.
 
 **TMS updates.** A Mule scheduled flow every 5 minutes reads the latest position per active shipment (from the aggregator topic/state or time-series DB). It sends **one bulk update** (or one call per shipment, throttled). That is ~2,500 updates per 5 minutes instead of 75,000 raw messages. Skip trucks that have not moved.
 

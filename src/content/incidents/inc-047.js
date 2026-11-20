@@ -1,7 +1,7 @@
 export default {
   id: 'inc-047',
   category: 'incidents',
-  title: 'Mobile App Shows "Something Went Wrong" for Orders That Simply Do Not Exist',
+  title: 'Mobile App Shows "Something Went Wrong" for Orders That Do Not Exist',
   level: 'INTERMEDIATE',
   tags: ['api-led', 'error-handling', 'error-mapping', 'http-status-codes', 'layers'],
   estMinutes: 20,
@@ -22,10 +22,10 @@ export default {
         type: 'single',
         prompt: 'In which layer does the 404 first become a 500?',
         options: [
-          'prc-order-api: its catch-all on-error-propagate type="ANY" returns 500 for HTTP:NOT_FOUND',
-          'sys-sap-api: it should return 200 with an empty body',
-          'exp-mobile-api: it is the first layer to see the error',
-          'SAP: the BAPI raises an exception',
+          'prc-order-api: its catch-all ANY handler maps HTTP:NOT_FOUND to 500',
+          'sys-sap-api: a 404 for a lookup with 0 rows should be a 200 with null',
+          'exp-mobile-api: its catch-all ANY handler maps the incoming 404 to 500',
+          'SAP: the BAPI raises an exception when it finds no matching order',
         ],
         answer: 0,
         explain: 'sys-sap-api returns a correct 404. The Process API is the first hop that loses the meaning; the Experience API then repeats the mistake.',
@@ -34,13 +34,13 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Make sys-sap-api return 200 with an empty order so nobody raises an error',
-          'Hotfix prc-order-api and exp-mobile-api with an HTTP:NOT_FOUND handler (before ANY) returning 404 with a clear body; tune the alert and brief support meanwhile',
-          'Disable the 5xx alert permanently',
-          'Restart all three apps',
+          'Make sys-sap-api return 200 with an empty order so no layer raises an error',
+          'Add an HTTP:NOT_FOUND handler returning 404 in both upper APIs; tune the alert',
+          'Hotfix only exp-mobile-api to turn every 500 from prc-order-api into a 404',
+          'Raise the 5xx alert threshold on exp-mobile-api and add a support FAQ entry',
         ],
         answer: 1,
-        explain: 'Fix the mapping where the meaning is lost; until then avoid paging on-call for client errors. Hiding a 404 as 200 would break the contract.',
+        explain: 'Fix the mapping where the meaning is lost; until then avoid paging on-call for client errors. Hiding a 404 as 200 would break the contract. Turning every 500 into 404 would hide real outages. A higher threshold leaves the user message wrong.',
       },
       {
         type: 'match',
@@ -58,11 +58,11 @@ export default {
         options: [
           'Specific handlers per error type, with type="ANY" only as the last fallback',
           'One standard error body (code, message, correlationId) across all layers',
-          'Shared error-handling template, RAML documents 404/400/503, MUnit tests mocking a 404 and 503 from the SAPI',
-          'Return 500 for every error so monitoring catches everything',
+          'A shared error template and MUnit tests that mock a 404 and a 503 from the SAPI',
+          'Pass every System API status through unchanged to the mobile app',
         ],
         answer: [0, 1, 2],
-        explain: 'Deliberate mapping, a common error contract and tests. If every client mistake becomes 500, the 5xx rate stops meaning anything.',
+        explain: 'Deliberate mapping, a common error contract and tests. Passing statuses through blindly sends a 401 about our own SAP credentials to the user, as if they had logged in wrongly.',
       },
     ],
   },
@@ -111,7 +111,7 @@ export default {
     'Reads the logs top-down by correlation ID: the System API returns a correct 404, the HTTP requester in prc-order-api raises HTTP:NOT_FOUND, and a catch-all handler turns it into 500; the Experience API repeats the same mistake.',
     'Distinguishes client errors (4xx: caller can fix it) from server errors (5xx: we must fix it) and explains why turning a 404 into a 500 causes false alerts and a wrong user message.',
     'Immediate: deploy a small handler fix in prc-order-api and exp-mobile-api for HTTP:NOT_FOUND → 404, and tune the alert so the team is not paged for client errors meanwhile.',
-    'Permanent fix: each layer maps errors deliberately — specific on-error handlers per error type (HTTP:NOT_FOUND, HTTP:BAD_REQUEST, HTTP:TIMEOUT, HTTP:SERVICE_UNAVAILABLE), a consistent error body, and translation into the meaning that layer\'s consumer needs.',
+    'Permanent fix: each layer maps errors deliberately, with specific on-error handlers per error type (HTTP:NOT_FOUND, HTTP:BAD_REQUEST, HTTP:TIMEOUT, HTTP:SERVICE_UNAVAILABLE), a consistent error body, and translation into the meaning that layer\'s consumer needs.',
     'Prevention: a shared error-handling library or template, RAML error responses documented per resource, and tests that assert status codes for "not found" and "backend down" cases.',
   ],
   solution: `
@@ -135,13 +135,13 @@ In Mule 4 the HTTP requester's default validator treats any response with a stat
 
 **Root cause.** Error handling was copy-pasted as a single catch-all in every layer. Nobody designed how errors should travel through an API-led chain, so a **client error was reported as a server error**.
 
-**Permanent fix — map errors per layer.**
+**Permanent fix: map errors per layer.**
 
 | From lower layer | Process API returns | Experience API returns |
 |---|---|---|
 | 404 not found | 404 (business: order not found) | 404 + user-friendly message/code for the app |
 | 400 bad request | 400 if caused by caller input, otherwise 500 (our bug) | 400 with field errors |
-| 401/403 from SAPI | 500/502 (our credentials are wrong — not the user's fault) | 502/503 generic |
+| 401/403 from SAPI | 500/502 (our credentials are wrong, not the user's fault) | 502/503 generic |
 | timeout / 503 | 503 or 504 | 503 + "try again later" |
 
 - Use specific \`on-error-propagate\` / \`on-error-continue\` handlers per error type, with \`type="ANY"\` only as the last fallback.
@@ -151,7 +151,7 @@ In Mule 4 the HTTP requester's default validator treats any response with a stat
 **Prevention.** Shared error-handling module/template published in Exchange; RAML/OAS documents 404/400/503 responses for each resource; MUnit tests that mock the System API returning 404 and 503 and assert the Process/Experience status codes; alert on 5xx only, and track 4xx separately as a product signal.
 `,
   followUps: [
-    { q: 'Should the Process API just pass through whatever status the System API returned?', a: 'Not blindly. A 404 for "order not found" can pass through, but a 401 from the System API means the Process API\'s own credentials are wrong. Returning 401 to the end user would be misleading. Each layer translates errors into what its consumer can act on.' },
+    { q: 'Should the Process API pass through whatever status the System API returned?', a: 'Not blindly. A 404 for "order not found" can pass through, but a 401 from the System API means the Process API\'s own credentials are wrong. Returning 401 to the end user would be misleading. Each layer translates errors into what its consumer can act on.' },
     { q: 'What is the difference between on-error-propagate and on-error-continue here?', a: 'on-error-propagate rethrows the error so the HTTP listener returns an error response (status from the handler), while on-error-continue treats the flow as successful and returns the payload set in the handler. Both can set a 404 status; propagate is typical for genuine error responses.' },
     { q: 'Why does it matter for alerting?', a: 'If every client mistake becomes a 500, the 5xx rate stops meaning "we have a problem", on-call gets paged for nothing, and real outages are harder to spot.' },
   ],

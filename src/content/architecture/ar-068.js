@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'retail', 'activemq', 'jms', 'store-and-forward', 'network-of-brokers', 'oracle', 'resilience'],
   estMinutes: 45,
   diagram: {
-    task: 'draw the store-to-HQ hub and spoke: how POS sales reach Oracle through the store and HQ brokers, how failures are isolated, and how price changes flow back to the stores.',
+    task: 'draw the store-to-HQ hub and spoke: how POS sales reach Oracle through the store and HQ brokers, how failures are isolated, and how price changes flow back to the stores. Put "price" in the name of the HQ app that publishes price changes.',
     checks: [
       { label: 'The POS publishes sales asynchronously to a store-local broker', rule: { type: 'edge', from: 'pos', to: ['queue', 'event-stream'], kind: 'async' } },
       { label: 'The store broker forwards to the HQ hub broker (store-and-forward)', rule: { type: 'edge', from: 'queue', to: ['queue', 'event-stream'], kind: 'async' } },
@@ -74,7 +74,7 @@ export default {
     },
   },
   description: `
-A fashion retailer runs **400 stores across 3 countries**. Each store has a back-office server, a POS system and a **4G-backup broadband link** that drops several times a week (from seconds to a full day). HQ runs **Oracle Retail** and an **ActiveMQ** cluster.
+A home goods retailer runs **400 stores across 3 countries**. Each store has a back-office server, a POS system and a **4G-backup broadband link** that drops several times a week (from seconds to a full day). HQ runs **Oracle Retail** and an **ActiveMQ** cluster.
 
 Today stores call an HQ REST API for every sale. When the link drops, the POS queues sales in memory and has lost data twice after a reboot.
 
@@ -82,12 +82,13 @@ Requirements:
 - Every sale reaches Oracle **exactly once in effect**, within 5 minutes when the link is up.
 - Price and promotion changes (up to 50,000 per night) must reach **every** store, including stores offline at the time.
 - A single store that floods the hub (bug, replay of a week of data) must not slow down the other 399.
+- A sale that keeps failing at HQ must be set aside in a dead-letter queue, so it cannot block the rest.
 - Store IT is minimal: anything at the store must be zero-touch.
 
 Numbers for sizing:
-- At peak the stores send **30 sales a second** in total. A store with a bug once replayed a week of sales at **300 a second** on top of that for five minutes.
+- At peak the stores send **30 sales a second** in total. A store with a bug once replayed a week of sales at **300 a second** on top of that for five minutes. After such a flood the hub must be empty again within **40 minutes**.
 - Oracle Retail takes about **200 ms** per write and accepts at most **100 writes a second**. The DBA wants the integration to stay at **90 a second or less**, so Oracle keeps room for its own jobs.
-- Oracle can be down for **20 minutes**, and the brokers restart for patching.
+- Oracle can be down for **20 minutes**, and the brokers restart for patching. The HQ broker redelivers a failed message about **once a minute**, and no sale may reach the dead-letter queue only because Oracle was down.
 - The nightly price run publishes **80 changes a second** for ten minutes; a store can be offline for 30 minutes of it.
 - The budget for the HQ Mule apps is **2 vCores**.
 
@@ -128,9 +129,9 @@ Numbers for sizing:
 
 **Store.** A lightweight ActiveMQ broker on the back-office server, deployed and configured by an image (zero touch). The POS publishes each sale as a **persistent** message to the local queue; the broker writes it to disk before acknowledging, so a reboot does not lose it.
 
-**Store → HQ.** A **duplex network connector** from the store broker to the HQ hub (the store dials out, so no inbound firewall holes at the store). When the link is down, messages simply accumulate locally; when it returns they are forwarded. Forwarding is at-least-once, so the HQ consumer must be idempotent.
+**Store → HQ.** A **duplex network connector** from the store broker to the HQ hub (the store dials out, so no inbound firewall holes at the store). When the link is down, messages accumulate locally; when it returns they are forwarded. Forwarding is at-least-once, so the HQ consumer must be idempotent.
 
-**HQ consumption.** \`prc-store-sales\` uses a \`jms:listener\` on the hub queue with MANUAL ack (or a transaction). It calls \`sys-oracle-retail\`, which does an Oracle **MERGE keyed by store id + transaction id** (duplicate = no-op). After the configured redelivery limit, poison messages go to a **DLQ** with the store id in the properties for triage.
+**HQ consumption.** \`prc-store-sales\` uses a \`jms:listener\` on the hub queue with MANUAL ack (or a transaction). It calls \`sys-oracle-retail\`, which does an Oracle **MERGE keyed by store id + transaction id** (duplicate = no-op). After the configured redelivery limit, poison messages go to a **DLQ** with the store id in the properties for triage. With redelivery about once a minute, the limit must be above 20 (or unlimited), so a 20 minute Oracle outage sends nothing to the DLQ.
 
 **HQ → stores.** \`prc-price-distribution\` publishes to a **durable per-store destination** (\`store.<id>.prices\`) that the network connector forwards when the store is online. Messages carry \`priceVersion\` and \`effectiveFrom\`; the store applies only versions newer than what it has. A JMS expiration can drop superseded messages for stores offline for days, followed by a full price snapshot on reconnect.
 

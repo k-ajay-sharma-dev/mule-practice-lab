@@ -6,11 +6,11 @@ export default {
   tags: ['supply-chain', 'invoice-matching', 'three-way-match', 'lookup', 'multiple-inputs', 'tolerance'],
   estMinutes: 35,
   description: `
-Accounts payable only pays a supplier invoice when it agrees with what was **ordered** and what was **received** — the classic **3-way match**. You get three inputs:
+Accounts payable only pays a supplier invoice when it agrees with what was **ordered** and what was **received**: the classic **3-way match**. You get three inputs:
 
 - \`payload\`: the supplier invoice (\`invoiceNo\`, \`poNumber\`, \`lines\` with \`poLine\`, \`qty\`, \`unitPrice\`)
 - \`po\`: the purchase order (\`lines\` with \`line\`, \`sku\`, \`qty\`, \`unitPrice\`)
-- \`receipts\`: goods receipts from the warehouse; a PO line can be received across **several** receipts
+- \`receipts\`: goods receipts from the warehouse; a PO line can be received across **several** receipts, and a receipt may have no \`lines\` field
 
 **Checks per invoice line**, producing a list of \`exceptions\` (in this order):
 1. No PO line with that number → \`["NO_PO_LINE"]\` and no other checks.
@@ -19,7 +19,7 @@ Accounts payable only pays a supplier invoice when it agrees with what was **ord
 
 **Output**
 - \`invoiceNo\`
-- \`lines\`: \`poLine\`, \`sku\`, \`invoicedQty\`, \`receivedQty\`, \`poPrice\`, \`invoicePrice\`, \`priceVariancePct\` (\`(invoice − po) / po × 100\`, rounded to 2 decimals), \`exceptions\`. Fields that cannot be known (no PO line) are \`null\`.
+- \`lines\`: \`poLine\`, \`sku\`, \`invoicedQty\`, \`receivedQty\`, \`poPrice\`, \`invoicePrice\`, \`priceVariancePct\` (\`(invoice − po) / po × 100\`, rounded to 2 decimals), \`exceptions\`. When there is no PO line, \`sku\`, \`poPrice\` and \`priceVariancePct\` are \`null\`; \`receivedQty\` is still the total received (\`0\` if none).
 - \`invoiceTotal\`: Σ \`qty × unitPrice\` over all invoice lines
 - \`matchedAmount\`: the same sum over lines **without** exceptions
 - \`status\`: \`MATCHED\` when no line has exceptions, otherwise \`ON_HOLD\`
@@ -135,13 +135,13 @@ fun amount(ls) = sum(ls map ($.invoicedQty * $.invoicePrice))
 The match is three joins on the PO line number, so the first job is to build **lookups** rather than search arrays per line:
 
 - \`poLines\`: \`{ "1": [ {...} ], "2": [ ... ] }\` from \`groupBy\`.
-- \`receivedByLine\`: receipts flattened with \`flatMap\`, grouped by line, then \`mapObject\` turns each group into its total — \`{ "1": 100, "2": 50 }\`. Line 3 is absent, hence \`default 0\`.
+- \`receivedByLine\`: receipts flattened with \`flatMap\`, grouped by line, then \`mapObject\` turns each group into its total: \`{ "1": 100, "2": 50 }\`. Line 3 is absent, hence \`default 0\`.
 
 Keys are converted to strings because object keys are always strings; \`poLines[1]\` would be an index access, not a key lookup.
 
-**Tolerance**: the variance is computed unrounded and compared with \`> 2\`, so exactly 2 % passes and 2.004 % fails. Rounding first would quietly widen the tolerance. Only increases are checked — a supplier that bills less is not blocked.
+**Tolerance**: the variance is computed unrounded and compared with \`> 2\`, so exactly 2 % passes and 2.004 % fails. Rounding first would quietly widen the tolerance. Only increases are checked; a supplier that bills less is not blocked.
 
-**Missing PO line**: \`pl\` is \`null\`, and \`null.sku\` / \`null.unitPrice\` are simply \`null\` in DataWeave, so the output record needs no special case.
+**Missing PO line**: \`pl\` is \`null\`, and \`null.sku\` / \`null.unitPrice\` are \`null\` in DataWeave, so the output record needs no special case.
 
 \`every\` (imported from \`dw::core::Arrays\`) gives the header status; an empty invoice would count as \`MATCHED\`, which is worth raising with the business.
 

@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause of the 504s?',
         options: [
-          'The new Loyalty System API call is slow and hangs until its 60 s timeout, longer than the load balancer waits',
-          'Workers are out of CPU because of the new DataWeave mapping',
-          'The /orders endpoint was removed from the RAML in v2.4.0',
-          'A memory leak introduced in v2.4.0',
+          'The new loyalty call hangs for up to 60 s, longer than the load balancer waits',
+          'The new DataWeave mapping for points is heavy and saturates the worker CPU',
+          'The order lookup became slow after the release and holds threads on its queries',
+          'The load balancer health check fails, so it drops the workers from the pool',
         ],
         answer: 0,
         explain: 'Only endpoints that call Loyalty fail, CPU and memory are normal, and the log shows a 60 s HTTP:TIMEOUT on the loyalty call. The load balancer times out first, so clients see **504**.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now** to restore service?',
         options: [
-          'Raise the HTTP Request timeout to 120 s',
+          'Raise the loyalty request timeout to 120 s so the calls can finish',
           'Roll back to v2.3.x, or switch the loyalty call off with a feature flag',
-          'Add two more workers',
-          'Restart the application',
+          'Scale out from 2 to 4 workers to absorb the waiting requests',
+          'Restart both workers to clear the blocked threads',
         ],
         answer: 1,
         explain: 'Remove the failing dependency from the request path first. More workers or a restart do not fix a dependency that hangs, and a longer timeout makes it worse.',
@@ -82,9 +82,9 @@ The new HTTP Request operation for Loyalty was copied from a batch integration a
 \`\`\`
 09:21:04.118 INFO  [orders] Fetching order 88123 corrId=7f2c
 09:21:04.402 INFO  [orders] Calling loyalty-sapi /points/C-4410 corrId=7f2c
-09:22:04.405 ERROR [orders] HTTP:TIMEOUT  Timeout exceeded (60000 ms) corrId=7f2c
 09:21:05.010 INFO  [orders] Fetching order 88124 corrId=a91d
 09:21:05.311 INFO  [orders] Calling loyalty-sapi /points/C-0091 corrId=a91d
+09:22:04.405 ERROR [orders] HTTP:TIMEOUT  Timeout exceeded (60000 ms) corrId=7f2c
 \`\`\`
 
 ## Your tasks
@@ -112,12 +112,12 @@ The new HTTP Request operation for Loyalty was copied from a batch integration a
     'Prevention: timeouts below LB timeout for every outbound call, load test new dependencies, alerts on latency.',
   ],
   solution: `
-**Diagnosis.** Each \`/orders\` request now makes a synchronous call to the Loyalty SAPI. Those calls hang until the **60 s HTTP Request timeout**. The load balancer gives up sooner (commonly 30–60 s), so clients get **504** while the app is still waiting. CPU is low because threads are *blocked on I/O*, not working. \`/health\` is fine because it doesn't call Loyalty.
+**Diagnosis.** Each \`/orders\` request now makes a synchronous call to the Loyalty SAPI. Those calls hang until the **60 s HTTP Request timeout**. The load balancer gives up sooner (commonly 30 to 60 s), so clients get **504** while the app is still waiting. CPU is low because threads are *blocked on I/O*, not working. \`/health\` is fine because it doesn't call Loyalty.
 
 **Immediate mitigation.** Roll back to the previous version (or toggle the loyalty feature off via a property/feature flag) and confirm 504s stop. Check Loyalty SAPI health with its team.
 
 **Permanent fix.**
-- Set an explicit **response timeout** on the loyalty request (e.g. 2–3 s), well below the LB timeout.
+- Set an explicit **response timeout** on the loyalty request (e.g. 2 to 3 s), well below the LB timeout.
 - Wrap it in **Try** with a **fallback**: return the order without points (\`loyaltyPoints: null\`) when it fails.
 - Consider calling it in parallel with the order fetch (Scatter-Gather) and caching points briefly.
 

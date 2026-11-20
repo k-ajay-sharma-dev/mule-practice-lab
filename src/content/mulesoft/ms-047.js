@@ -17,7 +17,7 @@ export default {
         'Deploy and operate with Runtime Manager',
         'Observe with Anypoint Monitoring',
       ],
-      explain: 'The spec is designed and shared first; everything later — scaffolding, the API instance, docs — is driven from it.',
+      explain: 'The spec is designed and shared first; everything later (scaffolding, the API instance, docs) is driven from it.',
     },
     {
       type: 'match',
@@ -35,10 +35,10 @@ export default {
       needsScenario: true,
       prompt: 'What is the central artefact handed from one stage to the next?',
       options: [
-        'The Studio project folder',
-        'The API specification as a versioned Exchange asset',
-        'The deployable JAR',
-        'The API Manager policy list',
+        'The Studio project folder in the team Git repo',
+        'The API spec, as a versioned Exchange asset',
+        'The deployable JAR built by the CI pipeline',
+        'The policy set exported from API Manager',
       ],
       answer: 1,
       explain: 'From the spec come the scaffolded project, the API instance and the consumer docs. The JAR and API instance ID come later.',
@@ -48,32 +48,32 @@ export default {
       needsScenario: true,
       prompt: 'Why is design-first especially valuable for the Process API team that will consume this System API?',
       options: [
-        'It makes the System API faster at runtime',
-        'With the contract and a mock in Exchange, they can start immediately instead of waiting for the CRM integration',
-        'It removes the need for MUnit tests',
-        'It lets them skip API Manager',
+        'It makes the System API respond faster at runtime',
+        'They can build against the published contract and mock now',
+        'It lets them skip MUnit tests for the calls they make',
+        'It lets them call the CRM directly while the API is built',
       ],
       answer: 1,
-      explain: 'Feedback on names, types and paging happens when it is cheap, and layers can be built in parallel.',
+      explain: 'With the contract and a mock in Exchange, they can start immediately instead of waiting for the CRM integration. Feedback on names, types and paging happens when it is cheap, and layers can be built in parallel.',
     },
     {
       type: 'single',
       prompt: 'Can you create an API instance in API Manager before the implementation exists?',
       options: [
         'No, an app with autodiscovery must be deployed first',
-        'Yes — it is created from the Exchange asset, so policies and SLA tiers can be configured early',
-        'Only for proxies',
-        'Only in the Sandbox environment',
+        'Yes, from the Exchange asset, and add policies early',
+        'Only when the instance is a proxy, not a basic endpoint',
+        'Only in a Sandbox environment, not in production',
       ],
       answer: 1,
-      explain: 'The instance simply has no runtime connected until an app with autodiscovery (or a proxy) is deployed.',
+      explain: 'It is created from the Exchange asset, so policies and SLA tiers can be configured early. The instance has no runtime connected until an app with autodiscovery (or a proxy) is deployed.',
     },
     {
       type: 'single',
       prompt: 'The spec moves from 1.0.0 to 1.1.0. What happens to consumers on 1.0.x?',
       options: [
         'They break and must upgrade immediately',
-        'They are unaffected, because a minor version must be backward compatible',
+        'They are unaffected, as minor versions stay compatible',
         'They are moved to 1.1.0 automatically by Exchange',
         'They lose access until a new contract is approved',
       ],
@@ -82,7 +82,7 @@ export default {
     },
   ],
   description: `
-Your team must build a new **Customers System API** that wraps a legacy CRM database. The architect insists on a **design-first** approach using Anypoint Platform end to end. A new developer asks: "Why can't I just open Studio, build the flows, and deploy?"
+Your team must build a new **Customers System API** that wraps a legacy CRM database. The architect insists on a **design-first** approach using Anypoint Platform end to end. A new developer asks: "Why can't I open Studio, build the flows, and deploy?"
 
 | Stage | Anypoint component |
 |---|---|
@@ -117,7 +117,7 @@ Your team must build a new **Customers System API** that wraps a legacy CRM data
   solution: `
 | Stage | Component | For the Customers System API |
 |---|---|---|
-| Design | **Design Center – API Designer** | Write the RAML/OAS: resources (\`/customers\`, \`/customers/{id}\`), data types, examples, error responses. Use the mocking service to try it. |
+| Design | **Design Center (API Designer)** | Write the RAML/OAS: resources (\`/customers\`, \`/customers/{id}\`), data types, examples, error responses. Use the mocking service to try it. |
 | Share | **Anypoint Exchange** | Publish the spec as a REST API asset (e.g. \`customers-sapi\` 1.0.0). It gets generated documentation, an API console and a mock. |
 | Build | **Anypoint Studio / Anypoint Code Builder + APIkit** | Import the spec from Exchange, scaffold flows, implement DB access and mappings, write MUnit tests. |
 | Manage | **API Manager** | Create an API instance from the Exchange asset in each environment, apply policies (e.g. client ID enforcement, IP allowlist), define SLA tiers, approve client contracts. |
@@ -129,7 +129,7 @@ Your team must build a new **Customers System API** that wraps a legacy CRM data
 **Why design-first matters in API-led**
 - The System API is consumed by Process APIs built by other teams. With the contract and a mock in Exchange, those teams can start immediately instead of waiting for the CRM integration.
 - Feedback on naming, types and paging happens when it is cheap, before code exists.
-- The contract becomes the reusable asset — discoverable in Exchange, which is the whole point of API-led reuse.
+- The contract becomes the reusable asset, discoverable in Exchange, which is the whole point of API-led reuse.
 - APIkit validates requests against the same contract at runtime, so the spec and the implementation cannot silently drift.
 
 **On a change to 1.1.0:** edit in Design Center → publish 1.1.0 to Exchange → update the dependency in the project and re-scaffold (commit first and review the diff) → implement and test → update the API instance to the new asset version in API Manager → redeploy via Runtime Manager (ideally through CI/CD) → monitoring continues. Consumers on 1.0.x are unaffected because a minor version must be backward compatible.
@@ -143,7 +143,7 @@ Building straight in Studio "works", but you lose the reviewable contract, the m
     },
     {
       q: 'Can you create an API instance in API Manager before the implementation exists?',
-      a: 'Yes. The instance is created from the Exchange asset, so you can configure policies and SLA tiers early; it simply has no runtime connected until an app with autodiscovery (or a proxy) is deployed.',
+      a: 'Yes. The instance is created from the Exchange asset, so you can configure policies and SLA tiers early; it has no runtime connected until an app with autodiscovery (or a proxy) is deployed.',
     },
     {
       q: 'What is the difference between the Exchange version and the API instance version?',

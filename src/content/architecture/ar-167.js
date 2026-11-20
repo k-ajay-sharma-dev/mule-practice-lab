@@ -13,7 +13,7 @@ export default {
   tags: ['bulkhead', 'threads', 'system-api', 'erp', 'isolation', 'retail'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the store staff app calling its Experience API, and the finance reporting tool calling its own. Draw the ERP stock service and the ERP report service, each reached through its own System API.',
+    task: 'draw the store staff app calling its Experience API, and the finance reporting tool calling its own. Draw the ERP stock service and the ERP report service, each reached through its own System API. Draw both services as ERP boxes, and keep staff, finance, stock and report in the box names.',
     checks: [
       { label: 'The staff app calls an Experience API', rule: { type: 'edge', from: { type: 'internal-app', label: 'staff' }, to: 'experience-api' } },
       { label: 'The finance tool calls an Experience API', rule: { type: 'edge', from: { type: 'internal-app', label: 'finance' }, to: 'experience-api' } },

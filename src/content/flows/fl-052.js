@@ -175,13 +175,16 @@ export default {
     ),
   ),
   description: `
-A retailer's **website** renders category pages (product tiles: title, image, badges). The data comes from the **Catalog Process API**, which merges the PIM (product content) and the DAM (images). That Process API is slow: **p95 3 s**, because the PIM is slow — and it is also used by the stores' kiosk app and the marketing feed.
+A retailer's **website** renders category pages (product tiles: title, image, badges). The data comes from the **Catalog Process API**, which merges the PIM (product content) and the DAM (images). That Process API is slow: **p95 3 s**, because the PIM is slow. It is also used by the stores' kiosk app and the marketing feed.
 
 Facts:
 - Category pages get **~400 req/s** at peak, but there are only ~1,500 category × locale combinations.
 - Product content changes a few times a day; **10 minutes of staleness is acceptable** to the business.
 - The web team wants **p95 < 300 ms** and a clear error (not a hang) if the catalog is slow.
 - The web front end authenticates to the Experience API with a **client id/secret** issued in Exchange.
+- The Experience API is \`GET /exp-web/v1/categories/{categoryId}/products?locale=...\` (default locale \`en-GB\`). When the catalog takes too long, it answers **504**.
+- The Catalog Process API is \`GET /prc-catalog/v1/categories/{categoryId}/products?locale=...\`. It answers \`{ category: { name }, products: [{ productId, content: { title }, media: [{ url }], badges }] }\`.
+- The Process API reads \`GET /sys-pim/v1/products?category=...\` (product content) and \`GET /sys-dam/v1/assets?category=...\` (\`[{ productId, url }]\`).
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-web/v1/categories/{categoryId}/products\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
@@ -199,7 +202,7 @@ Facts:
 `,
   keyPoints: [
     'Caching the Process API response in the Experience API turns ~400 req/s into about one call per key every 10 minutes; p95 drops to cache-hit latency.',
-    'The cache key must contain everything that changes the response (category + locale) — and nothing user-specific, or the hit rate collapses and data can leak between users.',
+    'The cache key must contain everything that changes the response (category + locale): and nothing user-specific, or the hit rate collapses and data can leak between users.',
     'TTL follows the business tolerance (10 minutes) and the object store gets a max-entries limit; personalised data (prices per customer, stock) would not be cached here.',
     'Explicit timeouts per hop (4 s exp → 3.5 s process → 3 s system) and HTTP:TIMEOUT mapped to 504 give the web a clear failure instead of a hang.',
     'Client id enforcement and rate limiting are API Manager policies on the Experience API, not flow logic.',
@@ -227,19 +230,19 @@ Facts:
 **exp-web-catalog**
 1. Set Variable \`cacheKey = categoryId:locale\`.
 2. **Cache** scope with a caching strategy whose key is \`vars.cacheKey\`, backed by an object store with a 600 s TTL and a max-entries limit. Inside: HTTP Request to the Process API with a 4 s response timeout.
-3. Transform (outside the cache, cheap) shapes the web tile model — or put it inside to cache the final shape.
+3. Transform (outside the cache, cheap) shapes the web tile model: or put it inside to cache the final shape.
 4. Errors: \`HTTP:TIMEOUT\` → 504, \`HTTP:NOT_FOUND\` → 404, anything else → 502.
 
-**prc-catalog-category** — Scatter-Gather over \`sys-pim\` and \`sys-dam\`, merge images into products. It is reused by kiosk and feed, which may cache with different TTLs.
+**prc-catalog-category**: Scatter-Gather over \`sys-pim\` and \`sys-dam\`, merge images into products. It is reused by kiosk and feed, which may cache with different TTLs.
 
 **Why cache in the Experience layer here?** The tolerance (10 min) is a *web* decision; the kiosk may need fresher data. If every consumer accepted the same staleness, caching in the Process API would serve everyone.
 
-**Client id:** apply *Client ID Enforcement* (and *Rate Limiting – SLA based*) in API Manager on \`exp-web\`; the web app sends \`client_id\`/\`client_secret\` headers. The flow does not check them.
+**Client id:** apply *Client ID Enforcement* (and *Rate Limiting - SLA based*) in API Manager on \`exp-web\`; the web app sends \`client_id\`/\`client_secret\` headers. The flow does not check them.
 `,
   followUps: [
     {
       q: 'The web is deployed on 4 workers. Is the cache shared?',
-      a: 'Only if the caching strategy uses a persistent/shared object store (Object Store v2 in CloudHub). An in-memory store gives each worker its own cache — fine for a 10-minute catalog cache, but hit rate is lower and entries can differ briefly between workers.',
+      a: 'Only if the caching strategy uses a persistent/shared object store (Object Store v2 in CloudHub). An in-memory store gives each worker its own cache: fine for a 10-minute catalog cache, but hit rate is lower and entries can differ briefly between workers.',
     },
     {
       q: 'Marketing changes a product title and wants it live immediately. How?',
@@ -247,7 +250,7 @@ Facts:
     },
     {
       q: 'Why not use the HTTP Caching policy in API Manager instead of a Cache scope?',
-      a: 'That is a valid alternative for whole-response caching of GETs and keeps the flow simpler; the Cache scope gives finer control (partial caching, custom keys, caching only one of several calls).',
+      a: 'That is a valid alternative for whole-response caching of GETs and keeps the flow smaller; the Cache scope gives finer control (partial caching, custom keys, caching only one of several calls).',
     },
   ],
 }

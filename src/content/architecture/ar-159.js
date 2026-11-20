@@ -11,13 +11,13 @@ export default {
   tags: ['event-streaming', 'kafka', 'fraud', 'data-warehouse', 'consumer-groups', 'payments'],
   estMinutes: 50,
   diagram: {
-    task: 'draw the card terminals sending transactions to an Experience API that publishes them to an event stream. Draw two consumers of the stream: a fraud scoring Process API that calls the fraud scoring service through a System API, and a warehouse loader job that writes to the data warehouse.',
+    task: 'draw the card terminals sending transactions to an Experience API that publishes them to an event stream. Draw two consumers of the stream: a fraud scoring Process API that calls the fraud scoring service through a System API, and a warehouse loader job that writes to the data warehouse. Draw the terminals as an IoT device box and the scoring service as a Third-party API box with scoring in its name.',
     checks: [
       { label: 'The terminals send to an Experience API', rule: { type: 'edge', from: 'device', to: 'experience-api' } },
       { label: 'Transactions go through an event stream before they are scored', rule: { type: 'path', from: 'device', via: 'event-stream', to: scoring } },
       { label: 'Transactions go through the same event stream before they reach the warehouse', rule: { type: 'path', from: 'device', via: 'event-stream', to: 'data-warehouse' } },
       { label: 'The stream has two consumers', rule: { type: 'each', of: 'event-stream', edgeTo: ['process-api', 'batch-job'], count: 2 } },
-      { label: 'The fraud path never waits on the warehouse', rule: { type: 'no-path', from: 'process-api', to: 'data-warehouse' } },
+      { label: 'The fraud path never waits on the warehouse', rule: { type: 'no-path', from: { type: 'process-api', label: 'fraud' }, to: 'data-warehouse' } },
       { label: 'The scoring service is reached only through a System API', rule: { type: 'only-via', target: scoring, from: 'system-api' } },
       { label: 'Every line to or from the stream is an async message', rule: { type: 'lines', touching: 'event-stream', kind: 'async' } },
     ],

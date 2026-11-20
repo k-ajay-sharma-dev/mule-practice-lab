@@ -7,8 +7,9 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 02:00:00 INFO  [broker] Planned restart for patching", relevant: true, why: "The broker restarts in the night." },
-      { text: "2026-11-18 01:59:58 INFO  [claims-intake] Sent 340 messages queue=claims.new persistentDelivery=false", relevant: true, why: "Messages were sent as non-persistent." },
+      { text: "2026-11-18 01:45:00 INFO  [claims-worker] Stopped for patch window", relevant: false },
+      { text: "2026-11-18 01:59:58 INFO  [claims-intake] Sent 340 messages since 01:45 queue=claims.new persistentDelivery=false", relevant: true, why: "Messages were sent as non-persistent." },
+      { text: "2026-11-18 02:00:00 INFO  [broker] Planned restart for patching", relevant: true, why: "The broker restarts with the claims still waiting on the queue." },
       { text: "2026-11-18 02:03:10 INFO  [broker] Started, queue claims.new depth=0", relevant: true, why: "After the restart the queue is empty." },
       { text: "2026-11-18 02:03:15 INFO  [claims-worker] Waiting for messages", relevant: true, why: "The worker never receives the 340 claims." },
       { text: "2026-11-18 02:05:00 INFO  [broker] Disk usage 8%", relevant: false },
@@ -18,10 +19,10 @@ export default {
         type: 'single',
         prompt: "Why were 340 claims lost?",
         options: [
-          "They were sent as non-persistent, so the broker kept them only in memory and lost them on restart",
-          "The worker deleted them",
-          "The disk was full",
-          "The queue was renamed",
+          "They were non-persistent, held only in memory, and lost on restart",
+          "The worker acknowledged them before it stopped for the patch window",
+          "The broker moved them to ActiveMQ.DLQ during the restart",
+          "They expired on the queue while the worker was stopped",
         ],
         answer: 0,
         explain: "Non-persistent messages are not written to disk, so a restart loses them.",
@@ -30,10 +31,10 @@ export default {
         type: 'single',
         prompt: "When is non-persistent delivery acceptable?",
         options: [
-          "When losing a message does no harm, such as a frequent status ping",
-          "For claims",
-          "For payments",
-          "Always, it is faster",
+          "When a lost message does no harm, such as a frequent status ping",
+          "When the broker restarts only in a planned patch window",
+          "When the consumer runs all the time and reads within seconds",
+          "When the producer logs each message ID it sends",
         ],
         answer: 0,
         explain: "Speed is fine to trade only when a lost message can be ignored.",
@@ -45,7 +46,7 @@ export default {
           "Find the claims sent before the restart and send them again",
           "Set persistent delivery for this queue",
           "Check other producers for the same setting",
-          "Turn off patching",
+          "Keep the worker running through the patch window",
         ],
         answer: [0,1,2],
         explain: "Recover, fix this producer and look for the same mistake elsewhere.",
@@ -54,10 +55,10 @@ export default {
         type: 'single',
         prompt: "Why did nobody notice in testing?",
         options: [
-          "Tests did not restart the broker while messages were waiting",
-          "Tests used a different broker version",
-          "Tests had fewer claims",
-          "Tests ran at night",
+          "Tests never restarted the broker with messages waiting",
+          "The test broker writes all messages to disk by default",
+          "Tests sent too few claims to fill the broker memory",
+          "Tests ran with the worker on, which acks before a restart",
         ],
         answer: 0,
         explain: "Loss only shows when the broker stops with messages on the queue.",
@@ -84,12 +85,13 @@ export default {
 ## Change / Context
 - Last month a developer set persistent delivery to false on the claims publisher to speed up a load test.
 - The setting was released to production with the change.
+- The claims worker is stopped at 01:45 for the patch window. New claims wait on the queue until it starts again.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 01:59:58 INFO  [claims-intake] Sent 340 messages since 01:45 queue=claims.new persistentDelivery=false
 2026-11-18 02:00:00 INFO  [broker] Planned restart for patching
-2026-11-18 01:59:58 INFO  [claims-intake] Sent 340 messages queue=claims.new persistentDelivery=false
 2026-11-18 02:03:10 INFO  [broker] Started, queue claims.new depth=0
 2026-11-18 02:03:15 INFO  [claims-worker] Waiting for messages
 \`\`\`

@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the main cause of the deadlocks?',
         options: [
-          'Concurrent transactions update the same SKUs in different orders, made more likely by higher concurrency, no index and an HTTP call inside the transaction',
-          'The database is out of CPU',
-          'SQL Server has a bug with local transactions',
-          'The For Each runs lines in parallel',
+          'Concurrent orders lock the same SKUs in opposite order inside long transactions',
+          'The database runs out of CPU under the promotion load and kills sessions',
+          'The local transaction is never committed, so its row locks are held forever',
+          'The For Each runs the order lines in parallel inside one transaction',
         ],
         answer: 0,
         explain: 'SO-99812 locks 77 then 12, SO-99813 locks 12 then 77. Concurrency 32, scans on a missing index and longer-held locks make it frequent at peak.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'Can the orders in inventory-errors be replayed safely?',
         options: [
-          'Yes, the deadlock victim was fully rolled back, so replaying them is safe',
-          'No, their stock was already reserved',
-          'Only after restoring the database from backup',
-          'Only manually, line by line',
+          'Yes, the victim transaction was fully rolled back, so nothing was reserved',
+          'No, the lines updated before the deadlock kept their reserved stock',
+          'Only after the DBA restores stock_level from last night’s backup',
+          'Only line by line, after checking each SKU by hand in the database',
         ],
         answer: 0,
         explain: 'A deadlock victim transaction is rolled back completely, so nothing was reserved. Replay them and check stock totals.',
@@ -69,7 +69,7 @@ export default {
   },
   description: `
 ## Symptoms
-- \`inventory-sapi\` reserves stock for incoming orders. During today's promotion (~8x normal order rate) **2–4% of reservations fail** with a database error; the order goes to an error queue.
+- \`inventory-sapi\` reserves stock for incoming orders. During today's promotion (~8x normal order rate) **2 to 4% of reservations fail** with a database error; the order goes to an error queue.
 - At normal load the error is almost never seen.
 - The DBA confirms **deadlock graphs** in SQL Server between sessions from the Mule app, all on table \`stock_level\`.
 
@@ -120,7 +120,7 @@ export default {
 - **Missing index on \`(sku, warehouse)\`** → each UPDATE scans and locks more rows/pages than the one it needs, so even orders with *different* SKUs can collide.
 - **HTTP call inside the transaction** → locks held ~300 ms longer.
 
-**Immediate mitigation.** Reduce \`maxConcurrency\` (e.g. back to 8) to cut contention. Victim transactions were **fully rolled back**, so the orders in \`inventory-errors\` can be **replayed** safely; replay them and check stock totals. Ask the DBA whether the index can be added online now — often the single biggest win.
+**Immediate mitigation.** Reduce \`maxConcurrency\` (e.g. back to 8) to cut contention. Victim transactions were **fully rolled back**, so the orders in \`inventory-errors\` can be **replayed** safely; replay them and check stock totals. Ask the DBA whether the index can be added online now. It is often the single biggest win.
 
 **Root cause.** Inconsistent lock ordering in a multi-row transaction, made worse by unnecessary lock scope (no index) and lock duration (remote call inside the transaction), exposed by a large increase in concurrency.
 
@@ -128,7 +128,7 @@ export default {
 - **Consistent lock order**: sort order lines by \`sku, warehouse\` before the For Each (DataWeave \`orderBy\`). Transactions then wait for each other instead of deadlocking.
 - **Index** \`stock_level(sku, warehouse)\` so each UPDATE locks one row.
 - **Short transactions**: only the UPDATEs + INSERT inside the transactional Try scope; call pricing after commit (or asynchronously).
-- **Retry on deadlock**: a deadlock is a *transient* error — retry the **whole transaction** a few times with jittered backoff (not just the failed statement), only for the deadlock error.
+- **Retry on deadlock**: a deadlock is a *transient* error. Retry the **whole transaction** a few times with jittered backoff (not only the failed statement), only for the deadlock error.
 - Optionally a single set-based statement/stored procedure for all lines.
 
 **Prevention.** Performance tests with realistic overlapping data (same popular SKUs, random line order) at peak concurrency; DB monitoring for deadlocks with alerts; design rule: *no remote calls inside DB transactions*; review concurrency changes together with the DBA.

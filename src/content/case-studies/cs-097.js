@@ -40,8 +40,8 @@ export default {
       tests: [
         {
           name: 'The last hours before the deadline',
-          about: 'Vendors send 100 returns a second, and 500 a second for 30 minutes before the deadline. Every return is accepted in under 2 seconds, and the mainframe never gets more than its 60 a second.',
-          traffic: [{ name: 'returns', from: 'partner', rps: 100, spikes: [{ at: 5, forMin: 30, rps: 500 }], to: 'legacy', kind: 'write' }],
+          about: 'Vendors send 100 returns a second, and 500 a second for 10 minutes before the deadline. Every return is accepted in under 2 seconds, and the mainframe never gets more than its 60 a second.',
+          traffic: [{ name: 'returns', from: 'partner', rps: 100, spikes: [{ at: 5, forMin: 10, rps: 500 }], to: 'legacy', kind: 'write' }],
           durationMin: 60,
           expect: { answers: [{ minSuccess: 0.99, maxMs: 2000 }], peakRps: [{ node: 'legacy', max: 60 }], lost: { max: 0 } },
         },
@@ -75,8 +75,9 @@ export default {
 | Vendors | Accredited vendors use client certificates; they must not be able to see one another's submissions |
 | Legal | The filing time that counts is the time the authority received the return, not when it was processed |
 | Retention | Submitted returns are kept unchanged for 7 years as legal evidence |
-| Peak | Deadline day is 9% of the year's volume; the last 6 hours carry half of that |
-| Tests | 100 returns a second, 500 a second for 30 minutes, and an unknown caller sending 10 a second with no certificate |
+| Peak | Deadline day is 9% of the year's volume, about 1 million returns; the last 6 hours carry half of that, in bursts of up to 500 a second |
+| Tests | 100 returns a second, 500 a second for 10 minutes, and an unknown caller sending 10 a second with no certificate |
+| Diagram | The gateway checks client certificates (mTLS policy). Run exp-efile-api on 2 replicas of 1 vCore each |
 
 **Your task.** Design the new e-filing intake and the status flow.
 `,
@@ -101,11 +102,11 @@ export default {
     'Failed returns go to a dead-letter queue with a reason, and are reprocessed or rejected with a clear status.',
   ],
   solution: `
-**Access.** Vendors call \`exp-efile-api\` through the gateway with mTLS and client ID. A rate limit per vendor (with a burst allowance) and a spike control policy protect the API. Each vendor can only read submissions it filed, enforced by the client id stored with every submission.
+**Access.** Vendors call \`exp-efile-api\` (2 replicas of 1 vCore) through the gateway with mTLS and client ID. A rate limit per vendor (with a burst allowance) and a spike control policy protect the API. Each vendor can only read submissions it filed, enforced by the client id stored with every submission.
 
 **Accepting.** \`exp-efile-api\` checks the XML against the schema and size limit, writes the original to encrypted storage (write once, 7 years), records the received time, and publishes a small message (submission id, storage key, vendor) to \`returns-in\`. It answers 202 with the submission id in well under 2 seconds. Duplicate submissions from vendor retries are found by a vendor-supplied idempotency key.
 
-**Processing.** \`prc-return-processing\` consumes \`returns-in\` with enough consumers to stay at about 55 a second. It loads the return from storage, calls \`sys-tax-mainframe-api\` and writes the result to the status store. During the 00:00 to 02:00 window the consumers stop and the queue holds the returns. At 500 a second for 6 hours the backlog is about 10 million messages at most; at 55 a second it clears well inside 48 hours.
+**Processing.** \`prc-return-processing\` consumes \`returns-in\` with enough consumers to stay at about 55 a second. It loads the return from storage, calls \`sys-tax-mainframe-api\` and writes the result to the status store. During the 00:00 to 02:00 window the consumers stop and the queue holds the returns. The last 6 hours bring about 500,000 returns. At 55 a second the mainframe posts about 200,000 an hour, so the backlog peaks at a few hundred thousand messages and clears within hours, well inside 48 hours.
 
 **Status.** Vendors call \`GET /submissions/{id}\` on the same Experience API, which reads the status store only. Results with rejection reasons are kept for 90 days.
 
@@ -115,7 +116,7 @@ export default {
 `,
   followUps: [
     { q: 'Why is the receipt time recorded by the Experience API and not by the mainframe?', a: 'The law counts the time the authority received the return. A return that waits in the queue past midnight must still count as filed on time.' },
-    { q: 'How big can the queue backlog get and is that a problem?', a: 'At 500 a second for 6 hours the backlog reaches about 10 million small messages. That is fine for a durable queue if messages carry a storage key and not the full return.' },
+    { q: 'How big can the queue backlog get and is that a problem?', a: 'The last 6 hours bring about 500,000 returns, and the mainframe posts about 200,000 an hour, so the backlog peaks at a few hundred thousand small messages. That is fine for a durable queue if messages carry a storage key and not the full return.' },
     { q: 'Why not let vendors wait for the mainframe result in the same call?', a: 'The call would last as long as the backlog. Timeouts would trigger vendor retries, which add load and recreate last year\'s outage.' },
     { q: 'How do you stop one vendor\'s retries from hurting others?', a: 'Apply a rate limit and spike control per client id in API Manager. Idempotency keys turn a retried return into the same submission instead of a new one.' },
   ],

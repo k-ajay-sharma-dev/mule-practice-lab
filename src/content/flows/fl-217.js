@@ -100,6 +100,12 @@ Inserting row by row took nine hours. One big insert ran out of memory.
 - When the job ends, write the loaded and failed counts to the job row, with status \`COMPLETED\` or \`COMPLETED_WITH_ERRORS\`.
 - Move the file to \`/history/done\`.
 
+**Facts**
+- The procedure's result has \`job_id\`. Name the job parameter \`jobName\`.
+- Insert in groups of 500 rows. Store \`units\` and \`net_sales\` as numbers.
+- A failed group must not stop the job: set max failed records to -1, so the counts reach the job row.
+- On Complete's payload has \`successfulRecords\` and \`failedRecords\`. The status is \`COMPLETED_WITH_ERRORS\` when any record failed.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

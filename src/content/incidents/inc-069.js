@@ -7,11 +7,11 @@ export default {
   estMinutes: 30,
   investigation: {
     logs: [
-      { text: '2026-10-11 02:00:00 INFO  [partner-notice] Supplier Nordline: SFTP platform migration window 01:00–03:00 CET, new host key fingerprint attached', relevant: true, why: 'The partner changed its SFTP server and host key during the night; nobody acted on the notice.' },
+      { text: '2026-10-09 15:05:00 INFO  [shared-mailbox] Notice from supplier Nordline: SFTP platform migration Sat night 01:00 to 03:00 CET, new host key fingerprint attached', relevant: true, why: 'The partner changed its SFTP server and host key during the night; nobody acted on the notice.' },
       { text: '2026-10-11 02:41:10 WARN  [sftp-listener nordline-invoices] Could not obtain connection: SFTP:CONNECTIVITY - reject HostKey: sftp.nordline.example (host key does not match known hosts entry)', relevant: true, why: 'Strict host-key checking rejects the new key: the listener cannot connect at all.' },
       { text: '2026-10-11 02:41:40 WARN  [sftp-listener nordline-invoices] Could not obtain connection: SFTP:CONNECTIVITY - reject HostKey: sftp.nordline.example', relevant: false },
       { text: '2026-10-11 06:00:00 INFO  [health] GET /api/health 200 (3 ms)', relevant: false },
-      { text: '2026-10-11 07:15:22 INFO  [invoice-load] Supplier Acme Parts: 412 invoices loaded from /inbound/acme', relevant: false },
+      { text: '2026-10-11 07:15:22 INFO  [invoice-load] Supplier Acme Supplies: 412 invoices loaded from /inbound/acme', relevant: false },
       { text: '2026-10-12 09:12:05 WARN  [sftp-listener nordline-invoices] Could not obtain connection: SFTP:CONNECTIVITY - Auth fail for user mule_ap (publickey)', relevant: true, why: 'After ops loosened host-key checking, the next layer fails: the new server does not recognise the app\'s public key for this user, so authentication fails.' },
       { text: '2026-10-12 09:30:00 INFO  [ap-dashboard] Nordline invoices received today: 0 (expected ~350)', relevant: true, why: 'The business symptom: no files for two days, and no alert fired because the flow never ran.' },
       { text: '2026-10-12 09:31:44 INFO  [runtime] Application ap-invoice-intake status: RUNNING, 2 workers healthy', relevant: false },
@@ -21,25 +21,25 @@ export default {
         type: 'single',
         prompt: 'Why did Nordline invoices stop arriving without any alert?',
         options: [
-          'The listener cannot connect (host key changed, then key authentication fails); connection failures in a polling source happen before any flow execution, so the flow error handler and its alert never run',
-          'The partner stopped sending invoices',
-          'The invoice flow has a DataWeave bug that drops the files',
-          'The CloudHub workers are down',
+          'The listener cannot connect, and source connection errors never run the flow',
+          'Nordline’s new server has no invoice files yet, so there is nothing to pick up',
+          'The flow reads the files but a DataWeave error drops them before the error handler',
+          'The email alert fires, but it goes to the shared mailbox that nobody watches',
         ],
         answer: 0,
-        explain: 'The app is RUNNING and other suppliers load fine; only this connection fails. Errors in establishing the source connection are logged as warnings but do not create events, so on-error alerts in the flow are never triggered.',
+        explain: 'The app is RUNNING and other suppliers load fine; only this connection fails. Errors in establishing the source connection are logged as warnings but do not create events, so on-error alerts in the flow are never triggered. The listener never got far enough to see whether files exist or to read one.',
       },
       {
         type: 'single',
         prompt: 'What is the right immediate action?',
         options: [
-          'Verify the new host key fingerprint with the partner out of band, update the trusted known hosts entry, confirm which public key / user the new server expects, then reprocess the backlog',
-          'Disable host-key checking permanently so it never fails again',
-          'Ask the partner to email the invoices as attachments from now on',
-          'Restart the application until it connects',
+          'Verify the new fingerprint out of band, fix known hosts and the user key',
+          'Keep the relaxed host-key check and generate a new key pair for mule_ap',
+          'Accept whatever host key the server presents now and store it in known hosts',
+          'Restart the application so the listener reconnects with fresh sessions',
         ],
         answer: 0,
-        explain: 'Trust the new key only after checking the fingerprint through a separate channel (the notice, a call). Turning off host-key verification removes protection against impostor servers.',
+        explain: 'Trust the new key only after checking the fingerprint through a separate channel (the notice, a call). Turning off host-key verification, or trusting whatever key answers, removes protection against impostor servers. A restart does not change the key or the credentials.',
       },
       {
         type: 'multi',
@@ -70,7 +70,7 @@ export default {
   },
   description: `
 ## Symptoms
-- Monday 09:30: accounts payable reports **no invoices from supplier Nordline since Saturday** (normally ~350 per day). Payment run is on Wednesday.
+- Monday 09:30: accounts payable reports **no invoices from supplier Nordline since the weekend** (normally ~350 per day). Payment run is on Wednesday.
 - The app \`ap-invoice-intake\` (CloudHub, 2 workers) shows RUNNING; invoices from 11 other suppliers arrive normally.
 - No alert fired. The flow's error handler sends an email on any failure.
 
@@ -112,7 +112,7 @@ export default {
     'Prevention: file-arrival monitoring per partner, alerts on listener connection warnings, a managed process for partner key rotations; never disable host-key checking.',
   ],
   solution: `
-**Diagnosis.** The listener has not connected since 02:41 on Saturday. First, the new server presented a **different host key** and strict host-key checking rejected it — the protection worked as designed. After Sunday's hotfix relaxed the check, the connection reached authentication and failed with **Auth fail (publickey)**: the new server does not recognise the app's public key for user \`mule_ap\`. No alert fired because a failing **source connection** never produces an event; the flow and its error handler never run.
+**Diagnosis.** The listener has not connected since 02:41 on Sunday (the Saturday night migration). First, the new server presented a **different host key** and strict host-key checking rejected it: the protection worked as designed. After Sunday's hotfix relaxed the check, the connection reached authentication and failed with **Auth fail (publickey)**: the new server does not recognise the app's public key for user \`mule_ap\`. No alert fired because a failing **source connection** never produces an event; the flow and its error handler never run.
 
 **Immediate mitigation.**
 - Verify the new host key fingerprint with Nordline through a separate channel and put it in the known hosts entry; **restore strict checking**.
@@ -128,7 +128,7 @@ export default {
 **Prevention.** "Expected files" monitoring per partner (count and latest arrival time) that alerts on silence; a partner registry with contacts, fingerprints and key expiry dates; never ship hotfixes that disable host-key verification.
 `,
   followUps: [
-    { q: 'Why is disabling host-key checking dangerous?', a: 'Without it, the app will send its credentials to and accept files from any server answering on that address — including a man-in-the-middle. The host key is how SFTP proves the server identity.' },
+    { q: 'Why is disabling host-key checking dangerous?', a: 'Without it, the app will send its credentials to and accept files from any server answering on that address, including a man-in-the-middle. The host key is how SFTP proves the server identity.' },
     { q: 'How would you detect "no files" generically for many partners?', a: 'Record each file received (partner, name, time, rows) in a table or metrics; a scheduled check compares against each partner\'s expected schedule and alerts on gaps.' },
     { q: 'Could the reconnection strategy have helped?', a: 'It retries connections, which helps with short network blips; it cannot fix a changed host key or rejected credentials. Those need a configuration change, so the important part is that the failure is noticed.' },
   ],

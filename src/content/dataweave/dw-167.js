@@ -14,7 +14,7 @@ Larkfield Grocers stores write a nightly inventory snapshot to an Azure file sha
 
 Build JSON:
 
-- \`store\`: from the header
+- \`store\`: from the header, as text with its leading zeros
 - \`snapshotDate\`: the header date written as \`yyyy-MM-dd\`
 - \`valid\`: \`true\` when there are no errors
 - \`errors\`: a list of messages, in this order:

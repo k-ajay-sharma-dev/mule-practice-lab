@@ -281,13 +281,14 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
 - The integration must survive app restarts and a **6-hour** outage without losing changes.
 - Changes made *by the integration user itself* (ERP → Salesforce sync) must not bounce back to the ERP (loop).
 - CDC events for updates contain **only changed fields**.
+- If a listener fails, the integration team must be alerted and the missed changes recovered.
 
 **Facts**
 - The event header lists the changed field names in \`ChangeEventHeader.changedFields\`.
 - When Salesforce cannot send the full change, it sends a gap event. Its \`changeType\` starts with \`GAP_\` (for example \`GAP_UPDATE\`).
 - The header's \`commitUser\` is the ID of the user who made the change. The integration user's ID is in the property \`sfdc.integrationUserId\`.
-- The ERP customer API: \`POST /erp/customers\` creates, \`PATCH /erp/customers/{sfId}\` changes some fields, \`PUT /erp/customers/{sfId}\` replaces the record and \`POST /erp/customers/{sfId}/deactivate\` deactivates it.
-- The Postgres reporting table is \`account_report (sf_id, name, country, updated_at)\`. Account changes are handed to the Anypoint MQ queue \`sfdc.account.changes\`.
+- The ERP customer API: \`POST /erp/customers\` creates, \`PATCH /erp/customers/{sfId}\` changes only the fields it is sent (keyed by their Salesforce field names, such as \`Phone\`), \`PUT /erp/customers/{sfId}\` replaces the record and \`POST /erp/customers/{sfId}/deactivate\` deactivates it.
+- The Postgres reporting table is \`account_report (sf_id, name, country, updated_at)\`, filled from \`Name\` and \`BillingCountry\`. A field an event does not carry keeps its stored value. Account changes are handed to the Anypoint MQ queue \`sfdc.account.changes\`.
 
 **Design the flow(s):** subscription, replay/resume, handling partial-field events, loop prevention, and what to do when you fall outside the retention window.
 `,
@@ -316,13 +317,13 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
 2. **Subscriber flow:** Salesforce connector **Replay channel listener** on \`/data/AccountChangeEvent\`. The name may differ by connector version; it is a streaming/subscribe channel source. Use replay option "from replay ID" with the stored value, or "only new" for first start. A second flow (or a custom channel) for Opportunity.
 3. **Resume:** after an event is processed successfully, **Object Store Store** \`replayId\` per channel (persistent OS). On restart the listener resumes from that ID, so a 6-hour outage replays everything missed (within retention).
 4. **Hand-off:** to keep up with 500k bursts, the listener does minimal work: dedupe + publish to **Anypoint MQ** (\`sfdc.account.changes\`), then store the replay ID. Downstream workers update ERP and Postgres independently with their own retries/DLQ.
-5. **Process change events (DataWeave):** read \`ChangeEventHeader.changeType\` (CREATE/UPDATE/DELETE/UNDELETE/GAP_*), \`recordIds\` (may be multiple — fan out per ID), \`changedFields\`. For UPDATE, map only changed fields into a PATCH for the ERP; for CREATE send the full record; DELETE → deactivate in ERP. Keep the record ID and the event fields in variables first: the ERP call replaces the payload, and the Postgres upsert still needs them. That upsert uses \`COALESCE(EXCLUDED.name, account_report.name)\` so a field the update event does not carry keeps its stored value instead of becoming null.
+5. **Process change events (DataWeave):** read \`ChangeEventHeader.changeType\` (CREATE/UPDATE/DELETE/UNDELETE/GAP_*), \`recordIds\` (may be multiple, so fan out per ID), \`changedFields\`. For UPDATE, map only changed fields into a PATCH for the ERP; for CREATE send the full record; DELETE → deactivate in ERP. Keep the record ID and the event fields in variables first: the ERP call replaces the payload, and the Postgres upsert still needs them. That upsert uses \`COALESCE(EXCLUDED.name, account_report.name)\` so a field the update event does not carry keeps its stored value instead of becoming null.
 6. **GAP / overflow events:** for \`GAP_*\` or overflow change types, re-query the record from Salesforce (Query by ID) and sync the full state.
 7. **Loop prevention:** skip events where \`commitUser\` equals the integration user's ID, or set a "last updated by integration" marker.
 8. **Beyond retention:** the connector docs do not state what happens when the stored replay ID is too old. Errors at the source sit outside \`ANY\`, so a flow error handler alone may never see it. Monitor the subscription (for example alert when no events arrive), then start from "only new" and trigger a delta resync job (SOQL on \`LastModifiedDate\` since the last processed time, via Bulk API).
 `,
   followUps: [
-    { q: 'Platform Events vs CDC — when would you use which?', a: 'CDC publishes record changes automatically for enabled objects; Platform Events are custom business events you publish explicitly (e.g. OrderSubmitted) with your own schema. Use CDC for data sync, Platform Events for business events.' },
+    { q: 'Platform Events vs CDC: when would you use which?', a: 'CDC publishes record changes automatically for enabled objects; Platform Events are custom business events you publish explicitly (e.g. OrderSubmitted) with your own schema. Use CDC for data sync, Platform Events for business events.' },
     { q: 'Why store the replay ID after processing and not on receipt?', a: 'Storing after processing gives at-least-once delivery: a crash mid-processing replays the event. Downstream must therefore be idempotent.' },
     { q: 'How do you scale the subscriber across replicas?', a: 'A streaming subscription should have one active consumer per channel to avoid duplicates; scale by handing work to a queue consumed by many workers, not by running the listener on every replica.' },
   ],

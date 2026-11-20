@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'cdc', 'kafka', 'sql-server', 'salesforce', 'event-driven', 'reconciliation'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the CDC pipeline: the vendor policy database, the CDC connector, the Kafka change topics, the Mule consumer that builds the policy and updates Salesforce through a System API (reading full policies from a replica through a System API), the search and warehouse sinks, the dead-letter topic, and the reconciliation job.',
+    task: 'draw the CDC pipeline: the policy admin database, the CDC connector, the Kafka change topics, the Mule consumer that builds the policy and updates Salesforce through a System API (reading full policies from a replica through a System API), the search and warehouse sinks, the dead-letter topic, and the reconciliation job.',
     checks: [
       { label: 'Changes flow from the policy database into Kafka', rule: { type: 'path', from: { type: ['sql-server', 'database'], label: 'policy admin' }, to: 'event-stream' } },
       { label: 'No integration queries the vendor primary database', rule: { type: 'no-edge', from: ['process-api', 'system-api', 'batch-job', 'experience-api'], to: { type: ['sql-server', 'database'], label: 'policy admin' } } },
@@ -77,7 +77,7 @@ Facts:
 - About 2 million policies, **150,000 row changes per day**, peaks of 50 per second during the nightly renewal batch.
 - A policy is spread over 9 tables. One business change often touches 4 or 5 of them in one transaction.
 - The DBA team agrees to enable **SQL Server CDC** and allows a read replica (Always On secondary).
-- Salesforce API limit: 1 million calls per 24 hours shared with other integrations, so this sync may use about 20 calls a second. The renewal peak lasts about 30 minutes, and about 1 change in 100 fails a Salesforce validation rule.
+- Salesforce API limit: 1 million calls per 24 hours shared with other integrations, so this sync may use about 20 calls a second. The renewal peak lasts about 30 minutes, and about 1 change in 100 fails a Salesforce validation rule. A change that fails 5 tries must be parked on a dead-letter topic, and no change may be lost.
 
 **Describe your solution:**
 - How are changes captured and published?
@@ -125,7 +125,7 @@ At 150,000 rows per day this is about 40,000 policy updates and under 2,000 comp
 
 **Initial load and schema changes.** Debezium takes a consistent **snapshot** first, then streams from the log position it recorded. For 2 million policies, the Salesforce side is loaded with Bulk API 2.0 from the snapshot. Vendor upgrades add or rename columns: register schemas in a schema registry with backward compatibility, and test the upgrade in a lower environment with CDC on. SQL Server needs a new capture instance after a column change.
 
-**Errors and reconciliation.** A policy that fails mapping or Salesforce validation goes to \`cdc.policy.sync.DLT\` after 3 retries. The search and warehouse sinks are independent consumer groups and do not wait for Salesforce. Every night a job compares policy counts and a checksum of key fields per product between the replica and Salesforce, and re-queues any difference.
+**Errors and reconciliation.** A policy that fails mapping or Salesforce validation goes to \`cdc.policy.sync.DLT\` after 5 tries. The search and warehouse sinks are independent consumer groups and do not wait for Salesforce. Every night a job compares policy counts and a checksum of key fields per product between the replica and Salesforce, and re-queues any difference.
 `,
   followUps: [
     { q: 'What does log-based CDC give you that polling a last_modified column does not?', a: 'It sees deletes and changes in tables without timestamps. It reads the log, so it adds no heavy queries on the production tables.' },

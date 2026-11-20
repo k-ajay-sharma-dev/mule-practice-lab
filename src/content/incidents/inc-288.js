@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "What is wrong?",
         options: [
-          "An email failure after a good load marked the job as failed and caused a reload",
-          "The load failed",
-          "The data is wrong",
-          "Nothing",
+          "A mail timeout after a good load marked the job FAILED",
+          "The load did not commit, so the reload repeats it",
+          "The restart app reloads every job at 03:10 by schedule",
+          "The load committed only part of the 260,000 rows",
         ],
         answer: 0,
         explain: "The side effect controls the outcome.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What should change?",
         options: [
-          "Send email asynchronously, and set the job status from the load result only",
-          "Retry the load",
-          "Remove email",
-          "Raise timeouts",
+          "Set status from the load result and send email asynchronously",
+          "Retry the email inside the same error handler before failing",
+          "Raise the SMTP connect timeout so the send can finish",
+          "Send the email before the load so a mail error fails early",
         ],
         answer: 0,
         explain: "Separate the outcome from notification.",
@@ -45,7 +45,7 @@ export default {
           "Log them with the job ID",
           "Retry a few times",
           "Alert if all retries fail",
-          "Reload the data",
+          "Reload the data so a new email is sent",
         ],
         answer: [0,1,2],
         explain: "Treat email as its own small job.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why is the reload harmful?",
         options: [
           "It wastes time and could duplicate data if not idempotent",
-          "It is fine",
-          "It is faster",
-          "It improves data",
+          "It is harmless, since a reload always gives the same result",
+          "It sends a second email that confuses the stock team",
+          "It locks the stock table for the rest of the morning",
         ],
         answer: 0,
         explain: "Unneeded work and risk.",
@@ -78,7 +78,7 @@ export default {
   },
   description: `
 ## Symptoms
-- The stock load reloads every night after a mail outage.
+- The stock load ran twice this morning during a mail outage.
 
 ## Change / Context
 - The job sends a completion email in the same flow and error handler.

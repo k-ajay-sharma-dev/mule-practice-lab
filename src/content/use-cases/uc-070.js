@@ -67,21 +67,23 @@ export default {
     },
   },
   description: `
-A sportswear retailer lets customers **return online orders in any of its 420 stores** (BORIS — buy online, return in store). Today store staff cannot see online orders, so they issue store credit and finance fixes things manually.
+An outdoor equipment retailer lets customers **return online orders in any of its 420 stores** (BORIS: buy online, return in store). Today store staff cannot see online orders, so they issue store credit and finance fixes things manually.
 
 Systems:
-- **Store POS** — needs a new "return online order" function.
-- **Salesforce Order Management** — online orders, lines, return eligibility, refund status.
-- **Online PSP** — card / wallet payments of online orders; refunds must go back to the **original tender**.
-- **Store inventory** (Oracle) — returned items go back into **store** stock, not the DC.
-- **Oracle EBS** — finance: online sales are booked in the e-commerce legal entity; the return happens in a store entity, so an **inter-company settlement** entry is needed.
+- **Store POS**: needs a new "return online order" function.
+- **Salesforce Order Management**: online orders, lines, return eligibility, refund status.
+- **Online PSP**: card / wallet payments of online orders; refunds must go back to the **original tender**.
+- **Store inventory** (Oracle): returned items go back into **store** stock, not the DC.
+- **Oracle EBS**: finance. Online sales are booked in the e-commerce legal entity; the return happens in a store entity, so an **inter-company settlement** entry is needed.
 
 Rules and facts:
 - Staff scan the order QR code from the email or search by order number + email.
 - Eligible: within 30 days, not final-sale, not already returned. Response at the till in **< 2 seconds**.
 - Refund must be issued at the till (customer gets confirmation immediately); finance entries can follow within an hour.
 - ~6,000 store returns of online orders/day; peak in January.
-- Tills send up to 2 refunds a second. Oracle EBS can be down for 45 minutes, and devices on store networks without a client ID must not reach the API.
+- Tills send up to 2 refunds a second. Each till has its own client ID, and devices on store networks without a client ID must not reach the API.
+- Oracle EBS can be down for 45 minutes. No finance entry may be lost, and finance wants entries retried for up to 90 minutes before anyone has to step in.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 - If the online lookup is unavailable, a manager can approve an **offline return** (store credit only) that must be reconciled later.
 
 **Questions:**
@@ -127,11 +129,11 @@ Rules and facts:
 
 **Preventing double refunds.** The OMS rejects a second return for lines already in progress/returned. The PSP idempotency key makes a POS retry return the original refund instead of a new one. If the PSP times out, the Process API checks refund status before retrying.
 
-**Inventory and finance.** Consumers of the topic (own queues per consumer): sys-store-inventory adds stock to the store with reason "online return" (MERGE on store + SKU). sys-oracle-ebs-finance creates the inter-company entry (e-commerce entity owes nothing, store entity reverses revenue) through the EBS interface tables. Both are idempotent on return ID.
+**Inventory and finance.** Consumers of the topic (own queues per consumer): sys-store-inventory adds stock to the store with reason "online return" (MERGE on store + SKU). sys-oracle-ebs-finance creates the inter-company entry (the e-commerce entity reverses the sale and refund, and the store entity takes the returned stock, with a charge between the two) through the EBS interface tables. Both are idempotent on return ID. The broker redelivers about once a minute, so a redelivery limit of about 90 keeps the finance entries through a 45-minute EBS outage.
 
 **Offline returns.** If the lookup fails (\`HTTP:TIMEOUT\` / connectivity) the POS offers offline mode: manager approval, store credit only, stored locally and published to \`POS.RETURNS.OFFLINE\` when connectivity returns. The Process API matches it with the OMS; mismatches (already returned elsewhere) are flagged to loss prevention.
 
-**NFRs.** < 2 s at the till: OMS and PSP calls have tight timeouts (e.g. 800 ms) and the slow work (inventory, finance) is async. Monitoring of refund failures per store; DLQ on each consumer queue.
+**NFRs.** < 2 s at the till: OMS and PSP calls have timeouts that fit the 2 second budget (the PSP refund alone takes about 800 ms) and the slow work (inventory, finance) is async. Monitoring of refund failures per store; DLQ on each consumer queue.
 `,
   followUps: [
     { q: 'Why not refund to store credit always and avoid the PSP call?', a: 'Consumer law and customer expectations usually require refunds to the original payment method; store credit is only acceptable as an exception (offline mode).' },

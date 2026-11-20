@@ -106,7 +106,7 @@ The **Validate** component checks one rule. If the rule holds, nothing changes a
 - Expose \`POST /employees\` with an HTTP Listener.
 - Check that \`payload.email\` is present, with the message \`email is required\`.
 - Check that it is a valid address, with the message \`email is not a valid address\`.
-- Insert the employee only when both checks pass, then return \`{ "status": "CREATED" }\`.
+- Insert the employee into the \`employees\` table, with the columns \`full_name\` and \`email\`, only when both checks pass. The database fills \`employee_id\`. Then return \`{ "status": "CREATED" }\`.
 - For a failed check, return HTTP status **400** with \`{ "code": "BAD_REQUEST", "message": "..." }\`, using the Validate message. 400 means the caller sent a bad request.
 
 **How the status gets out:** the listener has an Error Response setting that is not shown on the canvas. Assume its status code is \`#[vars.httpStatus default 500]\` and its body is \`#[payload]\`. Your handler only needs to set the variable \`httpStatus\` and the payload.

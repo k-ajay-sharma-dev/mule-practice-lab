@@ -25,10 +25,11 @@ Prices and product data are **not** in the order. They come from a product maste
    - \`NO_PRICE\`: no price valid on the order date
 
 **Output**
-- \`orderId\`, \`orderDate\`, \`currency\`
-- \`lines\` (priced lines in input order) with \`lineId\`, \`orderedSku\`, \`sku\`, \`substituted\`, \`description\`, \`qty\`, \`unitPrice\`, \`vatRate\`, \`netAmount\`, \`vatAmount\`, \`grossAmount\`
-- \`unmatched\` (\`lineId\`, \`sku\` as ordered, \`reason\`)
-- \`totals\` (\`net\`, \`vat\`, \`gross\`) over the priced lines
+Keys in this order:
+- \`orderId\`, \`orderDate\`, \`currency\`, copied from the order
+- \`lines\` (priced lines in input order) with \`lineId\`, \`orderedSku\`, \`sku\` (the resolved SKU), \`substituted\` (\`true\` when the two differ), \`description\`, \`qty\`, \`unitPrice\`, \`vatRate\`, \`netAmount\`, \`vatAmount\`, \`grossAmount\`; \`unitPrice\` and \`vatRate\` are numbers
+- \`unmatched\` in input order (\`lineId\`, \`sku\` as ordered, \`reason\`), \`[]\` if none
+- \`totals\` (\`net\`, \`vat\`, \`gross\`): sums of the priced line values, not rounded again
 `,
   inputs: [
     {
@@ -110,7 +111,7 @@ fun round2(n) = round(n * 100) / 100
 }
 `,
   hints: [
-    'Index the XML **once**: `{ (productMaster.products.*product map (p) -> { (p.@sku): { ... } }) }` gives an object you can look up with `bySku[sku]` — much cheaper than a `filter` over all products for every line.',
+    'Index the XML **once**: `{ (productMaster.products.*product map (p) -> { (p.@sku): { ... } }) }` gives an object you can look up with `bySku[sku]`. That is much cheaper than a `filter` over all products for every line.',
     'Copy what you need into the index as plain values (`replacedBy`, `description`, `vatRate` as Number, and the prices as `{ from, to, amount }` with dates converted). In XML, attributes belong to the element (the key), so read them while you still have the element rather than relying on them after re-keying.',
     'Write a recursive `resolve(sku, hops)` that returns `{ sku, error }`: unknown → `UNKNOWN_SKU`, no `replacedBy` → done, `hops == 5` → `REPLACEMENT_LOOP`, else recurse with the successor.',
     'Valid price: `p.from <= d and (p.to == null or d <= p.to)`; then `orderBy $.from` and take `[-1]`.',
@@ -182,13 +183,13 @@ var totalVat = sum(priced map $.vatAmount)
   totals: { net: totalNet, vat: totalVat, gross: totalNet + totalVat }
 }`,
   explanation: `
-**Two sources, one lookup.** The order (JSON from HTTP) and the product master (XML from a file) are joined on SKU. Turning the XML into a keyed object once — \`{ (array of { (sku): data }) }\` — makes every lookup a key access. Filtering the product list per line would be O(lines × products), which hurts with a 50,000-product master file.
+**Two sources, one lookup.** The order (JSON from HTTP) and the product master (XML from a file) are joined on SKU. Turning the XML into a keyed object once (\`{ (array of { (sku): data }) }\`) makes every lookup a key access. Filtering the product list per line would be O(lines × products), which hurts with a 50,000-product master file.
 
 **Normalise while indexing.** The index holds plain DataWeave values: numbers, \`Date\`s and a list of \`{ from, to, amount }\`. Attributes are read while the XML element is still at hand; after that the rest of the script never deals with XML again, and the price check is a simple date comparison.
 
 **Recursion with a guard.** \`resolve\` follows \`replacedBy\` one hop at a time (LMP-080 → LMP-090 → LMP-100). Master data does contain cycles (A replaced by B, B by A) after manual edits; without the hop limit the script would recurse until it fails. Returning \`{ sku, error }\` instead of throwing lets each line fail on its own.
 
-**Effective dating.** Prices change over time; the order date — not "today" — selects the price, so an order created on 30 June and processed on 1 July still gets the June price. Sorting the valid prices by \`validFrom\` and taking the last one resolves overlaps deterministically.
+**Effective dating.** Prices change over time; the order date, not "today", selects the price, so an order created on 30 June and processed on 1 July still gets the June price. Sorting the valid prices by \`validFrom\` and taking the last one resolves overlaps deterministically.
 
 **Partial success.** An unknown SKU should not block the other lines from being invoiced. Separating priced lines and \`unmatched\` lets the flow invoice what it can and send the rest to a work queue for the master data team.
 

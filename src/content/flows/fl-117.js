@@ -229,6 +229,12 @@ The queue \`label-requests-delayed\` already exists. It has a **default delivery
 - Count the slow retries in the message. After **4** slow retries, send the request to the DLQ.
 - Use the same steps for the first attempt and for the slow retries.
 
+**Facts**
+- A request looks like \`{ "shipmentId": "SHP-88120", "orderId": "ORD-55120", "weightKg": 2.4, "postcode": "LS1 4AP" }\`. Send it to the carrier as it is.
+- Quick retries: at most **3**, between **1 and 5 seconds** apart.
+- Keep the slow retry count in the field \`retryAttempt\`. A new request has none, the first slow retry carries \`1\`, and so on.
+- The DLQ gets the request as it arrived.
+
 **Design the flows.** How long can a request wait in the worst case before it reaches the DLQ?
 `,
   answerTemplate: `## Quick retries
@@ -263,9 +269,9 @@ The queue \`label-requests-delayed\` already exists. It has a **default delivery
    - **Database Update** that saves the label URL and tracking number. Its input parameters take those from the carrier's answer and the shipment ID from \`vars.request\`, because the answer replaced the payload.
 3. **On Error Continue** for \`MULE:RETRY_EXHAUSTED\` on the Try, with a **Choice**:
    - \`vars.attempt < 4\`: **Transform** \`(vars.request - "retryAttempt") ++ { retryAttempt: vars.attempt + 1 }\`, **Publish** to \`label-requests-delayed\`, and log a warning.
+   - Otherwise: **Publish** the original request to \`label-requests-dlq\` and log an error.
 
 **Why remove the old count first.** A DataWeave object can hold the same key twice. On a slow retry the request already has \`retryAttempt\`, so \`vars.request ++ { retryAttempt: 2 }\` gives an object with two \`retryAttempt\` keys, and \`payload.retryAttempt\` reads the first one, which is still 1. The count would never grow and the request would never reach the DLQ.
-   - Otherwise: **Publish** the original request to \`label-requests-dlq\` and log an error.
 
 **Worst case.** Each attempt costs at most about 21 seconds: three calls of up to 5 seconds and two waits of 3 seconds. The first attempt plus 4 slow retries, 10 minutes apart, means a request reaches the DLQ after about 41 minutes. That covers the 30 minute outages.
 

@@ -17,16 +17,17 @@ A Mule poller lists the share and reads every control file. Decide what to do wi
 
 **Rules for each data file, first match wins**
 1. Its name is in \`processed\`: **alreadyProcessed**
-2. No control file with the same base name: **waiting**
+2. No entry in \`vars.controls\` with the same base name (the name without its extension): **waiting**
 3. The control \`bytes\` differs from \`sizeBytes\`: **mismatched**
 4. Otherwise: **ready**
 
-A name that is neither a valid data file name nor a \`.ctl\` file is **ignored**. A control file whose data file is not in the listing is an **orphan control**.
+A name that is neither a valid data file name (the whole name must match the pattern) nor a \`.ctl\` file is **ignored**. A listed \`.ctl\` file whose valid data file is not in the listing is an **orphan control**.
 
-**Output**
-- \`ready\`: sorted by file name, each with \`file\`, \`store\`, \`businessDate\` (\`yyyy-MM-dd\`), \`seq\` (a number) and \`records\` (from the control file)
-- \`waiting\`, \`alreadyProcessed\`, \`orphanControls\`, \`ignored\`: names in listing order
+**Output**, with the keys in this order (each list empty when nothing matches):
+- \`ready\`: sorted by file name as text, each with \`file\`, \`store\`, \`businessDate\` (\`yyyy-MM-dd\`), \`seq\` (a number) and \`records\` (from the control file)
+- \`waiting\`: names in listing order
 - \`mismatched\`: in listing order, each with \`file\`, \`expectedBytes\` and \`actualBytes\`
+- \`alreadyProcessed\`, \`orphanControls\`, \`ignored\`: names in listing order
 `,
   inputs: [
     {

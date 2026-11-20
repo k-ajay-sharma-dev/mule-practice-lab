@@ -218,6 +218,11 @@ A home-improvement chain changes prices and promotions every night.
 - Ops need a per-store record of what was sent so they can re-send a single store, and a summary email every morning.
 - Re-running the job must not re-send prices already delivered.
 
+**Facts**
+- \`PRICE_CHANGE\` has \`CHANGE_ID\`, \`PRICE_ZONE\`, \`SKU\`, \`NEW_PRICE\`, \`PROMO_ID\` and \`EFFECTIVE_FROM\`.
+- \`STORE_PRICE_CHANGE\` has \`CHANGE_ID\`, \`STORE_ID\`, \`DIST_STATUS\`, \`SENT_AT\` and \`ERROR_TEXT\`. Rows that are \`PENDING\` or \`FAILED\` still have to go out. A row is set to \`SENT\` once its store has it.
+- The summary goes by email to \`store-systems@example.com\`.
+
 **Design the flow(s).**
 `,
   answerTemplate: `## Trigger and source query
@@ -242,7 +247,7 @@ A home-improvement chain changes prices and promotions every night.
   ],
   solution: `
 1. **Scheduler** \`0 30 1 * * ?\`.
-2. **Database Select** (streaming, fetch size ~5,000) — store × SKU rows with \`DIST_STATUS\` PENDING or FAILED, **ordered by store**.
+2. **Database Select** (streaming, fetch size ~5,000): store × SKU rows with \`DIST_STATUS\` PENDING or FAILED, **ordered by store**.
 3. **Batch Job** \`store-price-distribution\`, block size 500, **max failed records -1**.
    - **publish-to-stores** (NO_FAILURES): **Batch Aggregator size 1,000** → DataWeave groups the chunk by store → **For Each** store group → keep \`storeId\` in a variable, set the payload to the JSON body → **JMS Publish** to \`#["STORE." ++ vars.storeId ++ ".PRICES"]\` (persistent, TTL ~20 h). 1,000 prices × ~150 bytes ≈ 150 KB per message.
    - **mark-sent** (NO_FAILURES): Batch Aggregator 2,000 → **Database Bulk Update** \`SET DIST_STATUS = 'SENT'\` by change ID + store ID.

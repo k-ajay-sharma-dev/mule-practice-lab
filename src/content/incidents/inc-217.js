@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is the DP-04 scan gone?",
         options: [
-          "Both uploads used the same name in the same second, and the second overwrote the first",
-          "DP-04 never uploaded",
-          "Azure lost it",
-          "The container is full",
+          "Both uploads in that second used one name, so the second replaced the first",
+          "The DP-04 upload failed, and support linked DP-09’s scan to it by mistake",
+          "Azure kept the first upload and dropped the second as a duplicate",
+          "Two writes to one blob at once leave it corrupt, so the scan is lost",
         ],
         answer: 0,
         explain: "A blob name is a key. Uploading to an existing name replaces the content.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What makes a good blob name here?",
         options: [
-          "A business ID such as depot and delivery ID, plus a unique part, under a date prefix",
-          "The time to the second",
-          "A random number only",
-          "The scanner model",
+          "Depot and delivery ID plus a unique part, under a date prefix",
+          "The upload time to the millisecond, so that names no longer clash",
+          "A random UUID only, since it is always unique in the container",
+          "The depot ID and the upload time to the second, under a date prefix",
         ],
         answer: 0,
         explain: "Business IDs make names meaningful and unique. A date prefix helps listing.",
@@ -45,7 +45,7 @@ export default {
           "Upload only if the blob does not already exist",
           "Turn on blob versioning or soft delete to recover overwritten data",
           "Use a unique ID in every name",
-          "Upload slower",
+          "Retry each upload once if it overwrote a blob",
         ],
         answer: [0,1,2],
         explain: "A condition on upload, versioning for recovery, and unique names each reduce the risk.",
@@ -54,13 +54,13 @@ export default {
         type: 'single',
         prompt: "Can the lost scan be recovered?",
         options: [
-          "Only if versioning or soft delete was on, or the scanner kept a copy",
-          "Always",
-          "Never",
-          "By renaming the blob",
+          "Not from storage here, only from a copy the scanner or depot kept",
+          "Yes, Azure keeps the previous content of every blob for seven days",
+          "Yes, from the container’s change feed, which holds each upload",
+          "Yes, by asking Azure support to roll the blob back an hour",
         ],
         answer: 0,
-        explain: "Without versioning or soft delete, the overwritten content is gone from storage.",
+        explain: "Versioning and soft delete are off, so the overwritten content is gone from storage. Only a rescan or a local copy helps.",
       },
       {
         type: 'order',
@@ -81,7 +81,8 @@ export default {
 - Some proof of delivery scans show the wrong delivery. Others are missing.
 
 ## Change / Context
-- Each depot scanner uploads to one container. The blob name is the upload time to the second.
+- The scanners at every depot upload to one shared container. The blob name is the upload time to the second.
+- Blob versioning and soft delete are not turned on.
 - Upload is set to overwrite existing blobs.
 
 ## Logs

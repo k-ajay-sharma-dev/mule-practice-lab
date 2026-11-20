@@ -61,7 +61,8 @@ Last year the upload API filed each document while the bureau waited. The docume
 **Numbers**
 - The bureau sends about **250 documents a second for an hour**.
 - The document system answers in about 300 ms and takes up to **200 a second**.
-- Everything must be filed within **two hours** of the bureau starting.
+- Everything must be filed within **two hours** of the bureau starting, and no document may be lost.
+- The bureau must get an answer to each upload within **500 ms**.
 - In this model, one vCore serves about 500 simple requests a second, and the smallest size is 0.1 vCore.
 
 **Questions:**

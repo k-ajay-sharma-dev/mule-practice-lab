@@ -268,7 +268,7 @@ export default {
   description: `
 An online shop reserves stock when a customer enters checkout, so items are not sold twice during payment.
 
-- The cart has 1–20 lines; the **Warehouse Management System (WMS)** reserves **one line per call** (\`POST /reservations\` → \`reservationId\`, \`409\` if insufficient stock, \`DELETE /reservations/{id}\` to release).
+- The cart has 1 to 20 lines; the **Warehouse Management System (WMS)** reserves **one line per call** (\`POST /wms/api/reservations\` → \`reservationId\`, \`409\` if insufficient stock, \`DELETE /wms/api/reservations/{reservationId}\` to release, \`POST /wms/api/reservations/commit\` to confirm at checkout).
 - The WMS is flaky: ~2% of calls fail with 503 or time out.
 - A hold must be **all or nothing**: if any line cannot be reserved, lines already reserved must be released and the shop gets 409.
 - A hold **expires after 15 minutes** if checkout is not completed (abandoned carts, browser closed, Mule restart mid-request). Expired stock must go back on sale within 2 minutes.
@@ -276,7 +276,9 @@ An online shop reserves stock when a customer enters checkout, so items are not 
 - Peak: 50 holds/s during sales events.
 
 **Facts**
-- Holds are kept in the table \`inventory_hold\` with columns \`hold_id\`, \`cart_id\`, \`status\` and \`expires_at\`.
+- The shop calls \`POST /inventory/v1/holds\` with \`{ cartId, lines: [{ sku, quantity }] }\` and gets **201** with the \`holdId\`, or **409**. Checkout calls \`POST /inventory/v1/holds/{holdId}/commit\`. A hold that has expired is answered with **410**.
+- Holds are kept in the table \`inventory_hold\` with columns \`hold_id\`, \`cart_id\`, \`status\`, \`expires_at\` and \`wms_refs\` (the list of WMS reservation ids of the hold).
+- A release that still fails after retries is parked on the Anypoint MQ queue \`wms-release-retry\` for a separate worker.
 - A hold's \`status\` is \`PENDING\`, \`HELD\`, \`COMMITTED\`, \`RELEASED\` or \`EXPIRED\`.
 
 **Design the flow(s):** hold creation, retries, out-of-stock handling, compensation, expiry and commit.
@@ -303,23 +305,23 @@ An online shop reserves stock when a customer enters checkout, so items are not 
   solution: `
 **Hold lifecycle:** \`PENDING → HELD → COMMITTED\`, or \`→ RELEASED / EXPIRED\`. The row (with \`expires_at = now + 15 min\`) is inserted **first**.
 
-**create-hold** — \`POST /inventory/v1/holds\`
+**create-hold**: \`POST /inventory/v1/holds\`
 1. Insert hold row (PENDING).
-2. **For Each** line: **Until Successful** (3 × 2 s) around \`POST /reservations\`. Configure the HTTP Request so 409 is not an error (success codes 200..299,409) — Until Successful must not burn retries on a business rejection.
+2. **For Each** line: **Until Successful** (3 × 2 s) around \`POST /reservations\`. Configure the HTTP Request so 409 is not an error (success codes 200..299,409): Until Successful must not burn retries on a business rejection.
 3. **Choice**: 409 → **Raise Error** \`APP:OUT_OF_STOCK\`; else append \`reservationId\` to \`vars.reserved\`.
 4. Update the hold to HELD with the WMS references → 201.
 5. **On Error Propagate** (\`APP:OUT_OF_STOCK, MULE:RETRY_EXHAUSTED\`): flow-ref \`release-reservations\` → mark RELEASED → 409.
 
-**release-reservations** (sub-flow) — For Each reserved id → Try → Until Successful \`DELETE /reservations/{id}\`; **On Error Continue** publishes \`{ holdId, reservationId }\` to \`wms-release-retry\` (worker with DLQ) so a failed release is never forgotten.
+**release-reservations** (sub-flow): For Each reserved id → Try → Until Successful \`DELETE /reservations/{id}\`; **On Error Continue** publishes \`{ holdId, reservationId }\` to \`wms-release-retry\` (worker with DLQ) so a failed release is never forgotten.
 
-**expired-hold-sweeper** — Scheduler every minute (primary node) → select expired PENDING/HELD holds (\`FOR UPDATE SKIP LOCKED\` if several replicas run it) → release → EXPIRED.
+**expired-hold-sweeper**: Scheduler every minute (primary node) → select expired PENDING/HELD holds (\`FOR UPDATE SKIP LOCKED\` if several replicas run it) → release → EXPIRED.
 
-**commit-hold** — conditional \`UPDATE ... WHERE status = 'HELD' AND expires_at > now\`. 0 rows → **410 Gone** (the shop must re-reserve); 1 row → confirm with the WMS. Because both commit and sweeper use conditional updates, exactly one of them wins a race.
+**commit-hold**: conditional \`UPDATE ... WHERE status = 'HELD' AND expires_at > now\`. 0 rows → **410 Gone** (the shop must re-reserve); 1 row → confirm with the WMS. Because both commit and sweeper use conditional updates, exactly one of them wins a race.
 `,
   followUps: [
     {
       q: 'Why not rely on the WMS to expire reservations itself?',
-      a: 'If the WMS supports a TTL on reservations, use it — it is the safest. Many legacy WMSs do not, and even then you still need the local hold state to reject late commits and report status.',
+      a: 'If the WMS supports a TTL on reservations, use it. It is the safest. Many legacy WMSs do not, and even then you still need the local hold state to reject late commits and report status.',
     },
     {
       q: 'What exactly does Until Successful retry, and what error do you get at the end?',

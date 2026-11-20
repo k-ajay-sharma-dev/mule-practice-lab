@@ -93,6 +93,7 @@ The booking system runs on **z/OS with CICS** and is reached through IBM MQ; it 
 - Monday mornings bring 4,000 bookings in the first hour.
 - Forwarders retry on any failure, so duplicates are common.
 - In tests 1 booking in 50 is always rejected, and status messages rise from 10 to 100 a second for 10 minutes when a vessel is discharged.
+- In the diagram, draw the forwarder groups as partners with "AS2" and "JSON" in their names, and Partner Manager inbound and outbound as Experience API boxes with "Partner Manager" in their names. Name the APIs exp-booking-api, prc-booking-api and sys-ocean-booking-api (0.5 vCore, for the 100 status messages a second), and the queues canonical-bookings and status-out. A booking goes to the DLQ after 5 failed deliveries.
 
 **Your task.** Design intake, processing and status distribution, and describe the onboarding process.
 `,
@@ -118,7 +119,7 @@ The booking system runs on **z/OS with CICS** and is reached through IBM MQ; it 
   solution: `
 **Intake.** Partner Manager handles AS2 (certificates, MDNs) and polls the SFTP drop. It validates each EDIFACT or X12 interchange, returns CONTRL or 997, and maps the message to the canonical booking JSON, which goes to \`canonical-bookings\`. \`exp-booking-api\` validates JSON bookings against the RAML type and writes them to the same queue, returning \`202\` with a booking request ID.
 
-**Processing.** \`prc-booking-api\` consumes with concurrency sized to the mainframe's 15 per second. It translates partner codes to line codes using shared code lists (UN/LOCODE, ISO container types, party IDs) cached from a reference data table, checks duplicates by forwarder and booking reference, and sends to \`sys-ocean-booking-api\`, which talks to CICS through IBM MQ. Business rejections produce an APERAK or 301 through Partner Manager; technical failures retry and then go to the DLQ.
+**Processing.** \`prc-booking-api\` consumes with concurrency sized to the mainframe's 15 per second. It translates partner codes to line codes using shared code lists (UN/LOCODE, ISO container types, party IDs) cached from a reference data table, checks duplicates by forwarder and booking reference, and sends to \`sys-ocean-booking-api\`, which talks to CICS through IBM MQ. Business rejections produce an APERAK or 301 through Partner Manager; a booking that fails 5 deliveries goes to the DLQ.
 
 **Monday peak.** 4,000 bookings in an hour is about 1.1 per second, well under 15 per second; the queue protects the mainframe from short bursts.
 

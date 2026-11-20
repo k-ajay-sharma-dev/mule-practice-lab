@@ -14,10 +14,10 @@ Bad rows must **not** stop the batch. Valid rows go to the order API, and invali
 
 **Validation, in this order.** A row is rejected with the reason of the first failing check:
 1. \`orderDate\` must convert to a Date with the format \`yyyy-MM-dd\` → \`INVALID_DATE\`
-2. \`amount\` must be a decimal with a dot and at most 2 decimals (e.g. \`75\`, \`75.5\`, \`149.90\`) → \`INVALID_AMOUNT\`
-3. \`qty\` must be a whole number greater than 0 → \`INVALID_QTY\`
+2. \`amount\` must be digits only, optionally followed by a dot and 1 or 2 decimals (e.g. \`75\`, \`75.5\`, \`149.90\`); no sign, no thousands separator → \`INVALID_AMOUNT\`
+3. \`qty\` must be digits only, greater than 0, with no leading zero (\`40\` is valid, \`040\` and \`0\` are not) → \`INVALID_QTY\`
 
-**Accepted row** → \`orderId\`, \`customer\` (trimmed), \`orderDate\`, \`amount\` and \`qty\` as numbers, \`priority\` (\`true\` only for \`Y\`; \`N\` or empty is \`false\`).
+**Accepted row** → \`orderId\`, \`customer\` (trimmed), \`orderDate\` (as \`yyyy-MM-dd\`), \`amount\` and \`qty\` as numbers, \`priority\` (\`true\` only for \`Y\`; \`N\` or empty is \`false\`).
 
 **Rejected row** → \`line\` (the line number in the file; the header is line 1), \`orderId\`, \`reason\`.
 
@@ -96,7 +96,7 @@ var bad = checked filter ($.reason != null)
 
 **First failing reason.** The \`if / else if\` chain stops at the first failing check, which keeps the rejection report short and deterministic. Keeping the original row next to the reason means the accepted and rejected lists are built from one pass of validation.
 
-**Line numbers.** Reporting \`line\` (index + 2) lets the customer find the row in the file they sent — far more useful than an internal index.
+**Line numbers.** Reporting \`line\` (index + 2) lets the customer find the row in the file they sent, which is far more useful than an internal index.
 `,
   tests: [
     {

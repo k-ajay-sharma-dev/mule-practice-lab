@@ -60,6 +60,7 @@ Two problems in the last month:
 - About **2 files a second** for half an hour.
 - Reading a file from SFTP takes about 3 seconds. Uploading the largest takes about **25 seconds**.
 - On a busy night, about **1 write in 5** is refused for a short time.
+- The claims team needs at least **99 files in 100** to arrive, even on a busy night.
 
 **Questions:**
 - Draw the design.

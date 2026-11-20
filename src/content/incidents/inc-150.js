@@ -16,43 +16,44 @@ export default {
       { text: '21:07:02 INFO  [ops] Runtime Manager: Settings > Properties for warehouse-sapi shows 0 properties (9 yesterday)', relevant: true, why: 'Direct evidence that the values held in Runtime Manager have gone.' },
       { text: '21:07:30 INFO  [agent] Server prod-wh-02 heartbeat OK', relevant: false },
       { text: '22:41:18 WARN  [wms] Pick confirmations for shift B missing from the warehouse database', relevant: true, why: 'The business symptom, 96 minutes later. Writes went to the QA schema, not to Production.' },
+      { text: '23:05:12 INFO  [ops] Plugin release notes: W-24207441 "redeploying to on-premises servers with armDeployment cleared properties configured in Runtime Manager", fixed in 4.10.2 (Deprecated) and 4.10.3', relevant: true, why: 'A known plugin issue matches the symptom exactly, and names the versions that fix it.' },
     ],
     questions: [
       {
         type: 'single',
         prompt: 'The POM has no `properties` element. Why did the values in Runtime Manager disappear?',
         options: [
-          'A plugin issue: redeploying to on-premises servers with `armDeployment` cleared properties configured in Runtime Manager. The fix makes the plugin send properties only when they are defined in the plugin configuration',
-          'The CloudHub 2.0 rule applies: any `properties` element replaces all values',
-          'The Connected App lacks permission to read properties',
-          'A server group resets properties when an app is redeployed from the Console only',
+          'A plugin defect: a redeploy with `armDeployment` in 4.9.1 clears Runtime Manager properties',
+          'The CloudHub 2.0 rule applies: a deploy from the plugin replaces all values in Runtime Manager',
+          'The pipeline’s connected app cannot read properties, so it sent an empty set back on redeploy',
+          'A server group always resets an app’s properties when a new version of the app is deployed',
         ],
         answer: 0,
-        explain: 'This is issue W-24207441 in the release notes of plugin 4.10.2 and 4.10.3. The CloudHub 2.0 rule needs an element to be present, and here there is none.',
+        explain: 'This is issue W-24207441 in the release notes of plugin 4.10.2 and 4.10.3. The fix makes the plugin send properties only when they are defined in the plugin configuration. The CloudHub 2.0 rule needs a properties element to be present, and here there is none, and manual redeploys to this server group kept the values for years.',
       },
       {
         type: 'single',
         prompt: 'Which plugin version should the team move to?',
         options: [
-          '4.10.3 or later, because 4.10.2 has the same fix but is marked as deprecated in the release notes',
-          '4.10.2, because it is the first release with the fix',
-          '4.9.1, because it is the current version',
-          '3.8.3, because it is the last 3.x release',
+          '4.10.3 or later, because 4.10.2 is marked as deprecated',
+          '4.10.2, because it is the first release that has the fix',
+          '4.9.1 with a `properties` element listing all 9 values',
+          '3.8.3, because the 3.x line never had this defect',
         ],
         answer: 0,
-        explain: 'The fix is listed in both 4.10.2 and 4.10.3, and the 4.10.2 notes carry the title "(Deprecated)". 3.8.3 is on the list of deprecated plugin versions.',
+        explain: 'The fix is listed in both 4.10.2 and 4.10.3, and the 4.10.2 notes carry the title "(Deprecated)". Staying on 4.9.1 keeps the defect, and 3.8.3 is on the list of deprecated plugin versions.',
       },
       {
         type: 'single',
         prompt: 'Why did the job stay green and the app keep serving requests?',
         options: [
-          'Verification checks that the app is running. With `env` gone, the `global-property` default applied, so the app started normally with the QA file',
-          'Verification was skipped by `skipDeploymentVerification`',
-          'Runtime Manager restored the properties after the start',
-          'The agent cached the old properties for the application',
+          'With `env` gone, the default `qa` applied, so the app started cleanly',
+          'Verification was skipped, because `skipDeploymentVerification` is true',
+          'Runtime Manager put the properties back a few seconds after the start',
+          'The agent kept the old properties in a cache for the running application',
         ],
         answer: 0,
-        explain: 'Properties in Runtime Manager override application and global properties. Take them away, and the next value down the hierarchy is used, so a default that points to a real system becomes dangerous.',
+        explain: 'Verification checks only that the app is running, and the log shows it ran. Properties in Runtime Manager override application and global properties. Take them away, and the next value down the hierarchy is used, so a default that points to a real system becomes dangerous.',
       },
       {
         type: 'multi',
@@ -108,6 +109,9 @@ export default {
 21:05:02 INFO  [ci] Deployment verification: warehouse-sapi started
 21:05:40 INFO  [app] loading configuration-properties file qa.yaml
 22:41:18 WARN  [wms] Pick confirmations for shift B missing
+23:05:12 INFO  [ops] Plugin release notes: W-24207441 "redeploying to on-premises servers
+         with armDeployment cleared properties configured in Runtime Manager",
+         fixed in 4.10.2 (Deprecated) and 4.10.3
 \`\`\`
 
 ## Your tasks

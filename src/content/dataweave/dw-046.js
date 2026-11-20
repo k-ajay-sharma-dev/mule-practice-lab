@@ -20,10 +20,10 @@ A mainframe payroll system sends a **fixed-width** text file: no separators, eve
 | country | 49 | 50 | 2 | |
 
 **Rules**
-- Lines are separated by \`\\n\`, possibly \`\\r\\n\`. Ignore **blank** lines and lines starting with \`#\` (comments).
+- Lines are separated by \`\\n\`, possibly \`\\r\\n\`. Ignore **blank** lines (empty or only spaces) and lines starting with \`#\` (comments).
 - Output one object per data line, in file order: \`employeeId\`, \`lastName\`, \`firstName\`, \`startDate\` (re-formatted as \`yyyy-MM-dd\`), \`monthlySalary\` (a number in the currency unit), \`country\`.
 - Text fields are trimmed; a text field that is empty after trimming becomes \`null\`.
-- The sender strips trailing spaces, so a line with an empty country is only **49** characters long — \`country\` is then \`null\`.
+- The sender strips trailing spaces, so a line with an empty country is only **49** characters long; \`country\` is then \`null\`.
 `,
   inputs: [
     {
@@ -81,18 +81,18 @@ lines map (line) -> {
   country: text(line, 49, 50)
 }`,
   explanation: `
-Fixed-width parsing is just **string slicing at agreed offsets**. In DataWeave, \`line[a to b]\` is a substring where **both** indexes are inclusive, so a field of length \`n\` starting at \`a\` is \`line[a to a + n - 1]\`.
+Fixed-width parsing is **string slicing at agreed offsets**. In DataWeave, \`line[a to b]\` is a substring where **both** indexes are inclusive, so a field of length \`n\` starting at \`a\` is \`line[a to a + n - 1]\`.
 
 - Splitting on \`"\\n"\` and then removing a trailing \`\\r\` handles both Unix and Windows line endings.
 - The \`text\` helper trims padding and turns an all-blank field into \`null\`.
 - When the sender trims trailing spaces, \`line[49 to 50]\` is out of range; DataWeave returns \`null\` for that, and \`trim(null)\` is \`null\`, so \`country\` becomes \`null\` without a special case.
-- \`"00452500" as Number\` is \`452500\`; dividing by 100 gives the amount. Leading zeros are not a problem for numbers — but they would be for an id, which is why \`employeeId\` stays a string.
+- \`"00452500" as Number\` is \`452500\`; dividing by 100 gives the amount. Leading zeros are not a problem for numbers, but they would be for an id, which is why \`employeeId\` stays a string.
 
 Common traps:
 - Naming a function parameter \`to\` (\`fun text(line, from, to)\`): \`to\` is the range operator, so \`line[from to to]\` does not compile.
 - Using exclusive end offsets (Java's \`substring(8, 23)\` habit): every field shifts by one character.
 - Forgetting the \`\\r\` on Windows files: the last field of every line ends with an invisible carriage return, so \`country\` becomes \`"NL\\r"\`.
-- Stopping at \`as Date {format: "yyyyMMdd"}\`: the parsed Date keeps its format, so the JSON writer prints \`"20261101"\` again. Add \`as String {format: "yyyy-MM-dd"}\` to re-format.
+- Stopping at \`as Date {format: "yyyyMMdd"}\`: the parsed Date keeps the input pattern, so the JSON writer prints \`20261101\`. Add \`as String {format: "yyyy-MM-dd"}\` to fix the format explicitly.
 - Coercing a blank date or salary: if those fields can be blank in your feed, guard them like the text fields.
 `,
   tests: [
@@ -121,7 +121,7 @@ Common traps:
     },
     {
       q: 'How would you write a fixed-width file?',
-      a: 'Pad each field to its width and concatenate: `rightPad(name, 15)` for text and `leftPad(amount as String, 8, "0")` for numbers from `dw::core::Strings`, joined with `"\\n"` and written as `text/plain` — or use the flat file writer with the same schema.',
+      a: 'Pad each field to its width and concatenate: `rightPad(name, 15)` for text and `leftPad(amount as String, 8, "0")` for numbers from `dw::core::Strings`, joined with `"\\n"` and written as `text/plain`. Or use the flat file writer with the same schema.',
     },
     {
       q: 'The file has 2 million lines. What changes?',

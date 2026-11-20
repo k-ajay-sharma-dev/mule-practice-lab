@@ -117,15 +117,16 @@ At the last month end a bad code map failed **100,000** messages. The restart jo
 - The restart job can queue about **60 replays a second** for half an hour.
 - Oracle takes about **60 writes a second** before lock waits pile up. The DBA team asks for **50 or less** from Mule, to leave room for retries and other work.
 - A download takes about 400 ms; full catalogues at month end take about **25 seconds**, for up to half an hour.
-- Oracle maintenance takes up to **40 minutes**. A price job holds locks for up to 20 minutes a day; then **1 write in 10** times out and works when tried again.
-- Some replays name blobs that were purged after 30 days; they fail every time.
-- An availability zone can fail. In this model a queue consumer takes only what the boxes behind it have spare, nothing decides which of two consumers goes first, and a rate limit on a consumer caps what it takes. Calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
+- Oracle maintenance takes up to **40 minutes**. A price job holds locks for up to 20 minutes a day; then **1 write in 10** times out, each try on its own, and works when tried again. Fewer than **1 notice in 1,000** may go back to the queue for a lock timeout.
+- Some replays name blobs that were purged after 30 days; they fail every time. They should reach a dead-letter queue within about two hours, and the replay queue should then empty.
+- An availability zone can fail for 15 minutes, and live notices must keep loading while it is down.
+- In this model one vCore serves about 500 requests a second, and an app with one replica stops when its zone fails. A queue consumer takes only what the boxes behind it have spare, nothing decides which of two consumers goes first, and a rate limit on a consumer caps what it takes. Calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
 
 **Questions:**
 - Draw the design.
 - Why does a separate queue alone not protect the live notices? What setting does?
 - How long does the replay take with your settings, and is that acceptable?
-- Set the timeouts, retries, replicas, rate limit and redelivery limits, and say on which box each goes.
+- Set the timeouts, retries, replicas, rate limit, redelivery limits and the restart job's size, and say on which box each goes.
 `,
   answerTemplate: `## Design
 
@@ -139,7 +140,8 @@ At the last month end a bad code map failed **100,000** messages. The restart jo
     'Two queues stop replays from sitting in front of live notices, but both consumers still compete for Oracle. A rate limit on the replayer leaves Oracle room for the live lane.',
     'With the replayer held to 25 a second and live notices at 20, Oracle sees about 45 writes a second, under the 50 the DBA team asks for.',
     '100,000 replays at 25 a second take a little over an hour. That is fine at night; the restart job can be run with a higher limit when the shops are closed.',
-    'A 25 second download needs a 60 second timeout on both consumers. Lock timeouts are retried in the System API; 40 minutes of maintenance needs more than 40 deliveries.',
+    'A 25 second download needs a 60 second timeout on both consumers. Lock timeouts are retried in the System API: with 2 retries only 1 write in 1,000 fails all three tries. 40 minutes of maintenance needs more than 40 deliveries.',
+    'The restart job queues 60 replays a second; a tenth of a vCore serves about 50, so it needs more. Two replicas of the adapter and the System API keep live notices loading through a zone outage.',
     'A replay of a purged blob can never load. It belongs on the replay DLQ, and the restart job should skip messages older than the blob retention.',
   ],
   solution: `

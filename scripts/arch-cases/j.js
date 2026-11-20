@@ -138,8 +138,8 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
   // A fourth carrier.
   await passes('cs-110', (d) => {
-    box(d, 'sgls', 'system-api', 'sys-carrier-gls-api')
-    box(d, 'gls', 'external-api', 'GLS API')
+    box(d, 'sgls', 'system-api', 'sys-carrier-tidewell-api')
+    box(d, 'gls', 'external-api', 'Tidewell Parcels API')
     draw(d, 'pl -> sgls', 'sgls -> gls')
   })
   // Rules held in a cache instead of a database.

@@ -14,10 +14,10 @@ export default {
         'HTTP 500 with the default error message',
         'HTTP 200 with the JSON error payload',
         'HTTP 503, because the Inventory API returned 503',
-        'No response — the connection is closed',
+        'No response: the connection is closed',
       ],
       answer: 1,
-      explain: 'On Error Continue completes the flow as a **success**, so the Listener sends its normal response — 200 by default — with whatever payload the handler produced. That is why the HTTP flow should use On Error Propagate (or explicitly set the status).',
+      explain: 'On Error Continue completes the flow as a **success**, so the Listener sends its normal response, 200 by default, with whatever payload the handler produced. That is why the HTTP flow should use On Error Propagate (or explicitly set the status).',
     },
     {
       type: 'single',

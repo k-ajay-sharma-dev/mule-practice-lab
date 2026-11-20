@@ -12,7 +12,7 @@ export default {
   tags: ['failover', 'load-balancer', 'sms', 'third-party-api', 'cost', 'healthcare'],
   estMinutes: 30,
   diagram: {
-    task: 'draw the dispensing system calling a notifications Process API, which sends each text through a load balancer. Behind the load balancer draw one System API for the main SMS provider and one for the backup SMS provider, each calling its provider.',
+    task: 'draw the dispensing system calling a notifications Process API, which sends each text through a load balancer. Behind the load balancer draw one System API for the main SMS provider and one for the backup SMS provider, each calling its provider. Put main or backup in the name of each System API and each provider, draw the load balancer\'s line to the main System API first, and set the load balancer\'s mode.',
     checks: [
       { label: 'The dispensing system calls a notifications Process API', rule: { type: 'edge', from: 'internal-app', to: 'process-api' } },
       { label: 'The Process API sends texts through a load balancer', rule: { type: 'edge', from: 'process-api', to: 'load-balancer' } },
@@ -47,7 +47,7 @@ export default {
           name: 'The main provider is down for 20 minutes',
           about: 'The main provider has an outage, so the health check of its System API fails. Texts go through the backup provider while it lasts, so patients still hear that their prescription is ready.',
           traffic: [texts],
-          incidents: [{ down: { label: 'sys-sms-main' }, at: 5, forMin: 20 }],
+          incidents: [{ down: { type: 'system-api', label: 'main' }, at: 5, forMin: 20 }],
           durationMin: 30,
           expect: { answers: [{ minSuccess: 0.99 }], peakRps: [{ node: backup, min: 30 }] },
         },

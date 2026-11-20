@@ -17,10 +17,10 @@ For each blob, the age is the number of days from the date of \`Last-Modified\` 
 
 Output:
 
-- \`containers\`: sorted by name, each with \`container\`, \`blobCount\`, \`sizeGB\`, \`tiers\` (count per tier, keys sorted by name), \`toCool\` and \`toArchive\` (blob names in input order)
+- \`containers\`: sorted by name as text, each with \`container\`, \`blobCount\`, \`sizeGB\`, \`tiers\` (count per tier, keys sorted by name as text), \`toCool\` and \`toArchive\` (blob names in input order, empty arrays when none)
 - \`totals\`: \`blobCount\`, \`sizeGB\`, \`toCoolGB\` and \`toArchiveGB\`
 
-A GB here is 1,073,741,824 bytes. Round every GB value to 2 decimal places, after adding up the bytes.
+A GB here is 1,073,741,824 bytes. Round every GB value to the nearest 0.01, after adding up the bytes. A total with no blobs is 0. Use only the date part of \`Last-Modified\` (all values are UTC), so a blob modified on 2026-10-19 is 30 days old on 2026-11-18.
 `,
   inputs: [
     {

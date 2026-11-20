@@ -219,7 +219,7 @@ The list is declared as \`Device[]\`, and the example shows the point of the des
     },
     {
       q: 'Why should Device not set additionalProperties to false?',
-      a: 'Children add properties that Device does not list. A closed base type would reject targetC on a thermostat when the item is checked as a Device.',
+      a: 'Children add properties that Device does not list, so a closed Device would claim that no other fields exist. Any tool that checks an item against Device alone, without following the discriminator, would then reject targetC on a thermostat.',
     },
   ],
 }

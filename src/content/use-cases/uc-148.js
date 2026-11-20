@@ -76,6 +76,8 @@ Last year a recall was on the evening news. Owners flooded the website, the main
 - Dealers: about **10 lookups a second**, which must always work.
 - The mainframe answers in about 150 ms and takes about **40 calls a second**.
 - A vehicle's recall status changes rarely, a few times in its life. About 92% of owner lookups in an hour are for VINs already looked up in that hour.
+- An owner may see a recall status up to an hour old. Dealers must see the current status.
+- Every lookup must be answered within **400 ms** on an ordinary day.
 - Only signed-up dealers may see the dealer detail.
 
 **Questions:**

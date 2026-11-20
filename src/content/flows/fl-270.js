@@ -188,6 +188,14 @@ Past incidents: a 9 GB part (the platform repeated every store) took the worker 
 - Any bad part: delete the job's staging rows, job \`FAILED\` with the reasons, control file to \`/plan/error\`, and email the reasons.
 - Any error: job \`FAILED\`.
 
+**Facts**
+- Control files match \`STORE_ORDERS_*.ctl\` and parts \`STORE_ORDERS_*.csv\`, in the same folder.
+- \`dbo.usp_job_start\` returns \`{ job_id }\`.
+- Work out the MD5 with \`dw::Crypto::MD5(payload as Binary)\`.
+- Each reason names the part: \`is missing\`, \`is too large\` or \`failed its checksum\`.
+- The report subject says \`COMPLETED\`, and the failure email subject says \`FAILED\`.
+- On any error, mark the job in an On Error Propagate, so the run still ends with the original error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The control file, the job row and the listing

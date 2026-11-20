@@ -200,6 +200,11 @@ A freight marketplace pushes shipment updates to your **Shipment Callbacks API**
 - Keys must not appear in the project in clear text.
 - Hand valid events to the queue \`shipment.callbacks\` and answer **202** at once.
 
+**Facts**
+- The two keys are the secure properties \`partner.callback.key.current\` and \`partner.callback.key.previous\`.
+- \`t\` is in unix seconds. The key is used as UTF-8 text.
+- Publish the partner's JSON unchanged, for example \`{ eventId, shipmentId, status, occurredAt }\`.
+
 **Design the flow.** Say what you sign, why, and how a rotation runs from start to finish.
 `,
   answerTemplate: `## Reading the signature
@@ -252,7 +257,7 @@ Never leave \`key.previous\` blank: a known empty key would be a security hole.
   followUps: [
     {
       q: 'Why not use Mule Gateway policies for this?',
-      a: 'No included Mule Gateway policy checks a custom HMAC signature scheme. It could be written as a custom policy if several APIs need it. For one partner, a flow or a shared sub-flow is simpler.',
+      a: 'No included Mule Gateway policy checks a custom HMAC signature scheme. It could be written as a custom policy if several APIs need it. For one partner, a flow or a shared sub-flow is less work.',
     },
     {
       q: 'Is comparing the strings with == acceptable?',

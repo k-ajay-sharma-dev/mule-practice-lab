@@ -309,7 +309,7 @@ export default {
 An insurer must honour GDPR **erasure requests** ("right to be forgotten") within **30 days**. A customer's personal data lives in:
 
 - **Salesforce** (Contact, Cases, Emails)
-- **Policy DB** (Oracle) — but policies must be **retained 7 years** for legal reasons, so personal fields must be **anonymised**, not deleted.
+- **Policy DB** (Oracle). Policies must be **retained 7 years** for legal reasons, so personal fields must be **anonymised**, not deleted.
 - **Marketing platform** (REST API, async bulk delete with job IDs)
 - **Data lake** (S3 Parquet files, handled by a separate data team via their API)
 - **Mule logs and Anypoint MQ messages** that may contain PII
@@ -319,7 +319,11 @@ Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ reque
 **Facts**
 - Blockers are in the table \`customer_flags (customer_id, legal_hold, open_claims)\`: a legal hold is \`legal_hold = 'Y'\`, an open claim is \`open_claims > 0\`.
 - Policy holders are in \`policy_holder (customer_id, name, email, phone, pseudonym)\`. Requests are stored in \`erasure_request (request_id, customer_hash, status, reason, received_at)\`.
-- Salesforce Contacts carry the customer in \`Customer_Id__c\`. The marketing platform starts a bulk delete with \`POST /marketing/bulk-deletes\` and answers \`{ jobId }\`. The data team's erasure API is \`POST /datalake/erasures\`.
+- An accepted request answers **202** with \`{ requestId, status }\`. A blocked one answers with an error status.
+- Per-system tasks are tracked in \`erasure_task (task_id, request_id, system, status, action, job_id, done_at)\`, and the final evidence goes to \`erasure_audit (request_id, customer_hash, system, action, result, done_at)\`.
+- Anonymising a policy holder means: \`name\` overwritten, \`email\` and \`phone\` set to null, \`pseudonym\` filled. The anonymisation and its task status update must commit together.
+- Salesforce Contacts carry the customer in \`Customer_Id__c\`; a Contact is deleted with \`DELETE /services/data/v60.0/sobjects/Contact/{id}\`. The marketing platform starts a bulk delete with \`POST /marketing/bulk-deletes\` and answers \`{ jobId }\`. The data team's erasure API is \`POST /datalake/erasures\` and also answers \`{ jobId }\`. Both async systems report a job's status at \`GET /{system}/jobs/{jobId}\`.
+- One system failing must not stop the others.
 
 **Design the solution:** intake and checks, orchestration across systems, delete vs anonymise, async systems, retries/partial failures, audit evidence, and how the integration layer itself avoids keeping PII.
 `,
@@ -355,7 +359,7 @@ Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ reque
    - **Data lake:** call the data team's erasure API; they own Parquet rewrites; track their ticket/job id.
 4. **Async tracking:** a **Scheduler** flow polls \`IN_PROGRESS\` tasks (marketing job status, data lake job status) and updates them; or expose a callback endpoint.
 5. **Failures:** workers Nack transient errors; after max deliveries the DLQ alerts the privacy ops team. A daily job flags requests approaching the 30-day deadline. All operations are idempotent ("already deleted" = success).
-6. **Completion:** when all tasks are \`DONE\`, mark request \`COMPLETED\`, notify the portal (callback/email), and write a final **evidence record**: per system action, timestamp, result, operator/app — stored in a tamper-evident audit store. Keep only a hashed customer key to prove the request was honoured without retaining PII.
+6. **Completion:** when all tasks are \`DONE\`, mark request \`COMPLETED\`, notify the portal (callback/email), and write a final **evidence record**: per system action, timestamp, result, operator/app, stored in a tamper-evident audit store. Keep only a hashed customer key to prove the request was honoured without retaining PII.
 7. **Integration hygiene:** don't log payloads containing PII (mask with DataWeave before logging), short TTLs on queues and Object Stores used here, and backups addressed by policy (e.g. re-apply erasures on restore from a suppression list).
 `,
   followUps: [

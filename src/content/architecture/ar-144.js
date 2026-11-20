@@ -14,7 +14,7 @@ export default {
   tags: ['event-carried-state-transfer', 'kafka', 'log-compaction', 'read-models', 'decoupling', 'retail'],
   estMinutes: 60,
   diagram: {
-    task: 'draw the product data flow: one change publisher that reads the PIM and publishes every product change to a compacted Kafka topic, and three consumer Process APIs (web shop, store tills, marketplaces) that each keep their own read copy of the catalogue and answer their channel\'s Experience API from it.',
+    task: 'draw the product data flow: one change publisher that reads the PIM and publishes every product change to a compacted Kafka topic, and three consumer Process APIs (web shop, store tills, marketplaces) that each keep their own read copy of the catalogue (a database named after its channel, such as "Web catalogue read copy") and answer their channel\'s Experience API from it. Size each box for the loads in the text.',
     checks: [
       { label: 'Only the change publisher talks to the PIM', rule: { type: 'only-via', target: 'saas', from: ['batch-job', 'system-api'] } },
       { label: 'The publisher puts product changes on an event stream', rule: { type: 'edge', from: ['batch-job', 'system-api'], to: 'event-stream', kind: 'async' } },
@@ -163,7 +163,7 @@ Marketplaces ─► exp-marketplace-feed-api ─► prc-marketplace-catalogue
 
 **Sizing.** The publisher needs 1 vCore to publish a full price change of 300 products a second. Each consumer must apply those changes too, so none can stay at the smallest size, and the web consumer also answers 400 reads a second.
 
-**When not to use this.** For a handful of callers and a PIM that can carry the load, a cache with a short time to live is simpler. Here nine systems, an hour of stale safety data and a rate limit make the copies worth their cost.
+**When not to use this.** For a handful of callers and a PIM that can carry the load, a cache with a short time to live costs less to run. Here nine systems, an hour of stale safety data and a rate limit make the copies worth their cost.
 `,
   followUps: [
     {

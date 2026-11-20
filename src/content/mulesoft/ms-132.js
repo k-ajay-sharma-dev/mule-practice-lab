@@ -23,10 +23,10 @@ export default {
       detail: true,
       prompt: 'What value does `connectedAppGrantType` take in the Mule Maven plugin?',
       options: [
-        '`client_credentials`, the only supported type',
+        '`client_credentials`',
         '`authorization_code`',
         '`password`',
-        'Either `client_credentials` or `jwt_bearer`',
+        '`client_credentials` or `jwt_bearer`',
       ],
       answer: 0,
       explain: 'The reference table says it specifies the only supported connection type, `client_credentials`. That matches a pipeline, which acts on its own behalf with no user.',
@@ -61,10 +61,10 @@ export default {
       detail: true,
       prompt: 'A deployment block has `<server>my.anypoint.credentials</server>`, and the parent POM still sets `<username>` and `<password>` in the same block. Which credentials are used?',
       options: [
-        'The username and password, because the docs say they overwrite the defined server ID',
-        'The server entry, because `settings.xml` always wins over the POM',
-        'Neither: the plugin rejects the configuration',
-        'The server entry first, then the username and password if it fails',
+        'The username and password, which overwrite the server ID',
+        'The server entry, since `settings.xml` wins over the POM',
+        'Neither, since the plugin rejects the configuration',
+        'The server entry, then username and password as a fallback',
       ],
       answer: 0,
       explain: 'The docs warn you to make sure that the username and password are not set in the deployment configuration, or they overwrite the server ID.',
@@ -162,7 +162,7 @@ The deployment page says the credentials must have the \`Design Center Developer
 - Rotate the exposed password, because it has been in plain text and must be treated as compromised.
 `,
   followUps: [
-    { q: 'What is an authToken for, and why not use it in a pipeline?', a: 'It is an authorization token that replaces username and password, and the docs relate it to single sign-on setups. A pipeline would need to obtain a token before each run, so a Connected App is simpler for automation.' },
+    { q: 'What is an authToken for, and why not use it in a pipeline?', a: 'It is an authorization token that replaces username and password, and the docs relate it to single sign-on setups. A pipeline would need to obtain a token before each run, so a Connected App suits automation better.' },
     { q: 'How does the same pipeline authenticate the Anypoint CLI?', a: 'Set ANYPOINT_CLIENT_ID and ANYPOINT_CLIENT_SECRET as environment variables from the secret store. The Connected App needs View Organization and View Environment to authenticate.' },
     { q: 'What can happen when an allowlist is enabled for Connected Apps?', a: 'Allowlisting applies to apps that request access to organization user data. If new scopes are added later, they cannot be requested until the admin reapproves the app, while existing authorizations keep working.' },
     { q: 'How do you rotate a Connected App secret safely?', a: 'Update the CI secret store and run a pipeline against a non-production target. Applications are unaffected, because the secret is used only by the pipeline and not at run time.' },

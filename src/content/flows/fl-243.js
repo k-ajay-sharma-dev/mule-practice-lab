@@ -164,6 +164,12 @@ Incidents last year:
 - Otherwise load the lines and the \`mail_log\` row (status \`LOADED\`) together, then move the email to \`Processed\`.
 - If the load fails, move the email to \`Error\`, log an ERROR, and email the supplier's **registered** \`contact_email\` (not the From address) with a reference. A mail problem must not change the outcome.
 
+**Facts**
+- The listener gives \`attributes.id\` (for Email Move), \`attributes.fromAddresses\` (a list) and \`attributes.headers["Message-ID"]\`. The payload's \`attachments\` maps each name to its content; the invoice is the only one.
+- The domain is the part of the From address after the \`@\`, in lower case.
+- Turn an empty \`amount\` into null, so Oracle refuses the line. Store \`line_no\` and \`amount\` as numbers.
+- The subject of the supplier email is \`Your invoice email could not be loaded\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Who may send

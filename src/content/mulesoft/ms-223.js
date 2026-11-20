@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'A flow runs three validators in a row: is-not-null on the parcel id, matches-regex on the postcode, and is-email on the contact. The parcel id check fails. What happens?',
       options: [
-        'All three run, and the flow gets one error that lists all failures',
-        'The flow logs a warning and goes on',
-        'The first check raises an error, the other two do not run, and the error handler takes over',
-        'The payload is set to null and the flow goes on',
+        'All three run, and one error lists every failure',
+        'The flow logs a warning and goes on to the next check',
+        'The first check raises an error, and the other two do not run',
+        'The payload is set to null, and the other two checks run',
       ],
       answer: 2,
-      explain: 'Each validator raises an error as soon as its check fails. Like any error, it stops the flow at that point.',
+      explain: 'Each validator raises an error as soon as its check fails. Like any error, it stops the flow at that point, and the error handler takes over.',
     },
     {
       type: 'single',

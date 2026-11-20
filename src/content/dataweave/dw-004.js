@@ -9,9 +9,9 @@ export default {
 The checkout service sends an order with its lines. The ERP wants a summary:
 
 - \`orderId\` and \`currency\` copied as-is
-- \`lineCount\` — number of lines
-- \`lines\` — each line reduced to \`sku\` and \`lineTotal\` (\`qty × unitPrice\`)
-- \`orderTotal\` — sum of all line totals
+- \`lineCount\`: number of lines
+- \`lines\`: each line reduced to \`sku\` and \`lineTotal\` (\`qty × unitPrice\`)
+- \`orderTotal\`: sum of all line totals
 
 An order may have **no lines**; the total must then be \`0\`.
 `,
@@ -52,7 +52,7 @@ payload
   hints: [
     'Declare the transformed lines once in the header: `var lines = payload.lines map ...` so you can reuse them.',
     '`lines.lineTotal` selects every `lineTotal` from the array; `sum()` adds them.',
-    'Careful: on an **empty** array, `lines.lineTotal` is `null`, not `[]` — and `sum(null)` fails. Use `default []`.',
+    '`sum([])` is `0`, but `lines.lineTotal` on an empty array is `null`, not `[]`. Add `default []` before `sum`.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -69,9 +69,9 @@ var lines = payload.lines map (l) -> {
   orderTotal: sum(lines.lineTotal default [])
 }`,
   explanation: `
-DataWeave numbers are decimals, not floating point, so \`2 * 9.99\` is exactly \`19.98\` — no rounding surprises like in JavaScript.
+DataWeave numbers are decimals, not floating point, so \`2 * 9.99\` is exactly \`19.98\`. There are no rounding surprises like in JavaScript.
 
-The hidden test sends an order with no lines: a multi-value selector on an empty array returns \`null\`, so \`default []\` keeps \`sum\` working.
+The hidden test sends an order with no lines. \`map\` on an empty array gives \`[]\`, but selecting \`.lineTotal\` from that empty array gives \`null\`, and \`sum(null)\` fails. The \`default []\` turns the \`null\` into \`[]\`, and \`sum([])\` is \`0\`, so the total comes out as \`0\`.
 `,
   tests: [
     {

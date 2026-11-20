@@ -88,7 +88,7 @@ Requirements:
 - A line a node cannot fulfil is **cancelled and refunded** on its own.
 - Shipment messages can arrive twice or out of order (a 945 can arrive before the WMS confirms a sibling line).
 
-The OMS publishes an **order released** event with the sourcing decision per line, about **2 a second** at peak. DC South can be down for an hour, and on busy days its WMS takes about 15 seconds to accept an order.
+The OMS publishes an **order released** event with the sourcing decision per line, about **2 a second** at peak. DC South can be down for an hour, and on busy days its WMS takes about 15 seconds to accept an order. No line may be lost. The broker redelivers a failed message about once a minute, and every delivery counts toward any redelivery limit you set.
 
 **Questions:**
 1. Draw the routing and the way back.
@@ -127,7 +127,7 @@ DC North, DC South, sys-3pl-edi ~> [shipment-events] ~> prc-order-status -> line
 **Routing.** prc-fulfilment-router consumes order released, groups lines by node and publishes one message per node: order ID, node, its lines, delivery address. It never calls a WMS itself, so the router finishes in milliseconds whatever the nodes are doing.
 
 **Node adapters.**
-- sys-wms-north and sys-wms-south consume their queues and call their WMS APIs. Each WMS order reference is order ID plus node, so a redelivered message is rejected as a duplicate and treated as success.
+- sys-wms-north and sys-wms-south consume their queues and call their WMS APIs. Each WMS order reference is order ID plus node, so a redelivered message is rejected as a duplicate and treated as success. DC South can take 15 seconds to accept an order, longer than the HTTP Request default timeout of 10 seconds, so sys-wms-south uses a response timeout of about 30 seconds. While DC South is down, its messages stay on fulfil-south: either leave the queue without a redelivery limit or set one above 60 (about one delivery a minute) so an hour-long outage sends nothing to a DLQ.
 - sys-3pl-edi collects 3PL messages and writes one **940 file every 15 minutes**, under the 3PL pickup interval. It polls the SFTP outbound folder for **945** files, maps them to the canonical shipment event and publishes to shipment-events.
 
 **Shipment events.** Every node publishes the same canonical event: order ID, line IDs, node, status (shipped, cancelled), carrier, tracking, event time.

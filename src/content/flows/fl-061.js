@@ -182,7 +182,7 @@ PROCEDURE RESERVE_STOCK(
 The procedure locks the stock row (\`SELECT ... FOR UPDATE\`), inserts the reservation and commits.
 
 Expose \`POST /api/reservations\` (\`{ orderId, sku, locationId, qty, ttlMinutes }\`) for the checkout Process API:
-- **201** with reservation id, **409** with the quantity actually available, **404** for an unknown SKU, **400** for bad input, **503** when Oracle is unreachable.
+- **201** with \`{ reservationId, orderId, sku, locationId, qty, expiresAt }\`, **409** with the quantity actually available (\`available\`), **404** for an unknown SKU, **400** for bad input (blank \`sku\` or a \`qty\` that is not above 0), **503** when Oracle is unreachable.
 - Flash sales reach **150 requests/s** on a handful of SKUs; p95 must stay under **300 ms**.
 
 **Design the flow(s).**
@@ -216,7 +216,7 @@ Expose \`POST /api/reservations\` (\`{ orderId, sku, locationId, qty, ttlMinutes
 
 **Errors:** \`DB:CONNECTIVITY\` → 503 so checkout can retry; \`DB:QUERY_EXECUTION\` (procedure raised ORA-20001 etc.) → 500 with a log; validation errors → 400.
 
-**Flash sale:** the row lock serialises reservations of the same SKU/location, which is correct but is the bottleneck. Keep the procedure short, ensure \`(SKU, LOCATION_ID)\` is indexed, size the pool (e.g. 20–30 connections per replica), and make \`RESERVE_STOCK\` idempotent on \`orderId\` + \`sku\` so a retried request returns the existing reservation instead of reserving twice.
+**Flash sale:** the row lock serialises reservations of the same SKU/location, which is correct but is the bottleneck. Keep the procedure short, ensure \`(SKU, LOCATION_ID)\` is indexed, size the pool (e.g. 20 to 30 connections per replica), and make \`RESERVE_STOCK\` idempotent on \`orderId\` + \`sku\` so a retried request returns the existing reservation instead of reserving twice.
 `,
   followUps: [
     {
@@ -224,8 +224,8 @@ Expose \`POST /api/reservations\` (\`{ orderId, sku, locationId, qty, ttlMinutes
       a: 'Add an OUT SYS_REFCURSOR parameter; declare it in outputParameters with JDBC type REF_CURSOR, and the connector returns it as an iterable of rows you can map with DataWeave.',
     },
     {
-      q: 'Why not just run SELECT available, then UPDATE from Mule?',
-      a: 'Between the two statements another request can take the same stock (lost update). You would need SELECT ... FOR UPDATE inside a Mule transaction, which holds the lock across network hops — slower than doing it in PL/SQL.',
+      q: 'Why not run SELECT available, then UPDATE from Mule?',
+      a: 'Between the two statements another request can take the same stock (lost update). You would need SELECT ... FOR UPDATE inside a Mule transaction, which holds the lock across network hops: slower than doing it in PL/SQL.',
     },
     {
       q: 'The procedure commits internally. What does that mean for a Mule transaction around it?',

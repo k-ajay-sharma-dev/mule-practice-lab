@@ -77,6 +77,8 @@ The product owner's rule: a broker always gets an answer within about **seven se
 - The bureau answers in about 4 seconds, and has had slow spells of 15 seconds.
 - In this model each replica has 128 threads plus 256 per vCore, and a request holds a thread in every API it passes while it waits.
 - The bureau charges per check.
+- When the bureau answers in its usual 4 seconds, nearly every broker gets a real decision, not a referral.
+- The service must keep answering every broker if one availability zone of the cloud fails during the Monday peak.
 
 **Questions:**
 - Draw the design.

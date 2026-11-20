@@ -102,7 +102,7 @@ Facts:
 - amounts are numbers and the VAT rates are known.
 A file that fails is moved to /eod/error and listed in the email. It is never half posted.
 
-**Journal posting.** For each good file the job builds one journal: debit cash, card clearing, gift card liability and vouchers; credit sales by VAT rate and VAT payable. Debits must equal credits, or the file is rejected. The job sends the journal to **sys-erp-gl**, which loads the GL interface table and starts the journal import. The journal reference is store number plus business date.
+**Journal posting.** For each good file the job builds one journal: debit cash, card clearing, gift card liability and vouchers; credit sales by VAT rate and VAT payable. Debits must equal credits, or the file is rejected. The job sends the journal to **sys-erp-gl**, which loads the GL interface table and starts the journal import. The journal reference is store number plus business date. The import takes about 15 seconds, longer than the HTTP Request default timeout of 10 seconds, so the call to sys-erp-gl (and its call to EBS) gets a response timeout of about 30 seconds. A failed call is retried twice (Until Successful), which posts the 1 in 10 calls that fail for a moment; the journal reference keeps a retry from posting twice.
 
 **Duplicates and late files.** Before posting, the job looks up store plus business date in a **persistent Object Store**. If it is there, the file is archived as a duplicate and nothing is posted. After a successful post, the pair is stored. The same reference in Oracle gives a second line of defence. Files that arrive after 02:00 are picked up by the 05:00 run.
 

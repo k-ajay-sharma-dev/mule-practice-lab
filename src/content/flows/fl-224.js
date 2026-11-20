@@ -83,6 +83,10 @@ The first version took \`SELECT MAX(return_id) + 1\`. On busy evenings two tills
 - A \`qty\` that is not above 0 gets **400** and nothing is written.
 - Take the ID from \`RETURN_SEQ.NEXTVAL\`, insert the return with status \`OPEN\`, and answer **201** \`{ returnId, status: "OPEN" }\`.
 
+**Facts**
+- Put the status code in the variable \`httpStatus\`. The listener answers with it.
+- Read the next value with \`SELECT RETURN_SEQ.NEXTVAL AS return_id FROM dual\`. \`returnId\` is that number.
+
 **Design the flow.**
 `,
   answerTemplate: `## Checking the request

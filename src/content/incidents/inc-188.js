@@ -18,22 +18,22 @@ export default {
         type: 'single',
         prompt: 'Why does every row have no sku?',
         options: [
-          'The file now uses semicolons, and the reader still splits on commas, so each row is one column named after the whole header',
-          'The supplier deleted all SKUs',
-          'The file is too large for DataWeave',
-          'The archive step ran before the mapping',
+          'The file uses semicolons, and the reader splits on commas, so each row is one column',
+          'The new tool writes the header in a second line, so the first row is read as data',
+          'The new tool adds a byte order mark, so the first column is not named `sku`',
+          'The reader treats `sku` as a reserved word and drops that column from each row',
         ],
         answer: 0,
-        explain: 'With the wrong separator the reader sees one column per row. A field called sku does not exist, so the mapping finds nothing.',
+        explain: 'With the wrong separator the reader sees one column per row. A field called sku does not exist, so the mapping finds nothing. A byte order mark would break only the first column name, and here `qty` is missing too.',
       },
       {
         type: 'single',
         prompt: 'What turned a reading problem into a stock outage on the website?',
         options: [
-          'The mapping used default 0 for a missing quantity, so missing data became a real zero',
-          'The archive folder was full',
-          'The scheduler ran too early',
-          'The website cached the old stock',
+          'The mapping’s `qty default 0` turned a missing quantity into a real zero',
+          'The import ran before the supplier finished writing the file',
+          'The website treats any product with no price as out of stock',
+          'The file was archived before the stock update read its rows',
         ],
         answer: 0,
         explain: 'A default hides the fact that the field was never found. Missing data should stop the load, not write a zero.',
@@ -45,19 +45,19 @@ export default {
           'Stop the next scheduled load from writing more zeros',
           'Restore yesterday\'s stock levels or reload a corrected file',
           'Read the file with separator set to a semicolon and check a few rows',
-          'Ask the supplier never to change format again',
+          'Run the same file again with the current settings to confirm it fails',
         ],
         answer: [0, 1, 2],
-        explain: 'Stop the damage, put back good data, and confirm the right reader settings. Formats will change again, so the import must defend itself.',
+        explain: 'Stop the damage, put back good data, and confirm the right reader settings. Running the same file again with the old settings writes the same zeros.',
       },
       {
         type: 'single',
         prompt: 'The prices now look like 12,50. What else must change?',
         options: [
-          'Turn the decimal comma into a point before converting the price to a number',
-          'Nothing, numbers read the same',
-          'Store prices as text forever',
-          'Multiply every price by 100',
+          'Turn the decimal comma into a point before converting the price',
+          'Nothing, because `as Number` reads a decimal comma the same way',
+          'Set the reader `quoteValues` property, so each price keeps its comma',
+          'Remove the comma, so that `12,50` is read as the number 12.50',
         ],
         answer: 0,
         explain: 'A decimal comma does not convert to a number as it is. Replace the comma with a point first, and test values such as 1.234,50 if thousands separators can appear.',
@@ -82,7 +82,7 @@ export default {
 - The file arrived on time and was not empty.
 
 ## Change / Context
-- The supplier moved to a new export tool last week.
+- The supplier moved to a new export tool last week. A row from the new file looks like \`SKU-1102;Garden hose 20 m;14;12,50\`.
 - The import reads the file as \`application/csv\` with default settings and maps \`qty default 0\`.
 
 ## Logs

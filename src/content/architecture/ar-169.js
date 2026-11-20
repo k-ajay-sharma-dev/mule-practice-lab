@@ -93,6 +93,8 @@ Two things went wrong at the last election. The website went down at 23:00 when 
 - The results database takes about **100 calls a second** before it slows down. A failover takes up to 10 minutes.
 - About 98% of reads are for results that have not changed in the last 30 seconds.
 - Only counting centres may submit. Each centre's app has a client certificate.
+- The broker tries a failed message again about **once a minute**.
+- Every API must keep working if one **availability zone** of the region fails.
 
 **Questions:**
 - Draw the design.

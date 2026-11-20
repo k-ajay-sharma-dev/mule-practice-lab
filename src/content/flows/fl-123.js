@@ -219,6 +219,12 @@ The payment provider supports the same idea: a charge with a \`requestId\` it ha
 - A request with no Idempotency-Key is refused with **400**.
 - Keep the keys in a persistent Object Store named \`topUpIdempotency\`, under \`topup-<key>\`, for 24 hours. The Object Store's own time to live removes them.
 
+**Facts**
+- The header is \`Idempotency-Key\` (Mule reads it as \`attributes.headers['idempotency-key']\`).
+- The charge call is \`POST /psp/v1/charges\` with the body \`{ "cardId", "amount", "currency", "requestId" }\`. Send the Idempotency-Key as \`requestId\`. It answers \`{ "chargeId", "status": "CAPTURED", "amount", "currency" }\`.
+- Give the charge call a response timeout of **10 seconds**. A call that takes longer counts as a timeout.
+- Before the charge, store \`{ "state": "PROCESSING", "request": <the body> }\` under the key. After the charge, replace it with \`{ "state": "DONE", "request": <the body>, "status": 201, "response": <the answer> }\`.
+
 **How the status gets out:** assume the listener's response and error response both use \`#[vars.httpStatus default 200]\` for the status and \`#[payload]\` for the body.
 
 **Design the flow.**

@@ -137,7 +137,7 @@ export default {
 Your **Customer System API** runs on Runtime Fabric (Kubernetes) with 3 replicas. The platform team wants two probes:
 
 - **Liveness** \`GET /health/live\`: "is the Mule app process alive?" Kubernetes restarts the pod if it fails. It must **not** depend on external systems.
-- **Readiness** \`GET /health/ready\`: "can this replica serve traffic?" It must check the **database** and the downstream **Customer API**. If either is down, return **503** so the load balancer takes the replica out of rotation.
+- **Readiness** \`GET /health/ready\`: "can this replica serve traffic?" It must check the **database** and the downstream **Customer API**, which offers a cheap \`GET /ping\`. If either is down, return **503** so the load balancer takes the replica out of rotation.
 - Probes run every 10 s and must answer within **3 s**. The response body lists each dependency as \`UP\` / \`DOWN\`.
 
 **Design the flow(s):**
@@ -174,7 +174,7 @@ Your **Customer System API** runs on Runtime Fabric (Kubernetes) with 3 replicas
 2. **Transform** the Scatter-Gather result (\`valuesOf(payload) map $.payload\`) into \`{ status, checks: [...] }\`.
 3. **Choice**: any DOWN → \`vars.httpStatus = 503\`, otherwise 200. The listener uses \`#[vars.httpStatus default 200]\`.
 
-With only two probes, sequential Try blocks are also fine. Scatter-Gather just keeps the worst-case time at max(probe) instead of sum(probes).
+With only two probes, sequential Try blocks are also fine. Scatter-Gather keeps the worst-case time at max(probe) instead of sum(probes).
 `,
   followUps: [
     {

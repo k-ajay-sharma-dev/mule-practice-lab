@@ -10,25 +10,25 @@ export default {
       type: 'single',
       prompt: 'An order header and its lines must be inserted into Oracle all-or-nothing. Which design is correct?',
       options: [
-        'A Try scope with transactionalAction="ALWAYS_BEGIN" containing both inserts on the same db:config; an error propagated out of the Try rolls both back',
-        'Two separate flows, each with its own db:insert, called with flow-ref',
-        'A Parallel For Each that inserts header and lines at the same time',
+        'One transactional Try with both inserts on the same db:config',
+        'Two flows, each with its own db:insert, called with flow-ref',
+        'A Parallel For Each that inserts header and lines together',
         'An Until Successful scope around the line inserts only',
       ],
       answer: 0,
-      explain: 'Database operations inside a transactional Try join the local transaction (same connection). If the Try ends with an error that propagates, the transaction rolls back; if it completes, it commits.',
+      explain: 'Use a Try with transactionalAction="ALWAYS_BEGIN". Database operations inside a transactional Try join the local transaction (same connection). If the Try ends with an error that propagates, the transaction rolls back; if it completes, it commits.',
     },
     {
       type: 'single',
       prompt: 'Inside the transactional Try, the error handler uses **On Error Continue** for DB:QUERY_EXECUTION. What happens to the transaction?',
       options: [
-        'It is committed, because On Error Continue completes the Try successfully — the inserts that worked are kept',
-        'It is always rolled back, whatever the handler type',
-        'It stays open until the flow ends',
-        'Mule retries the failed statement automatically',
+        'It commits, since On Error Continue ends the Try successfully',
+        'It always rolls back, whatever the handler type',
+        'It stays open until the flow itself ends',
+        'Mule retries the failed statement before committing',
       ],
       answer: 0,
-      explain: 'On Error Propagate rolls the transaction back; On Error Continue treats the error as handled and commits. Using Continue here can leave a header without lines.',
+      explain: 'The inserts that worked are kept. On Error Propagate rolls the transaction back; On Error Continue treats the error as handled and commits. Using Continue here can leave a header without lines.',
     },
     {
       type: 'match',
@@ -37,7 +37,7 @@ export default {
       pairs: [
         ['The pool cannot obtain a connection: listener refused / host unreachable', 'DB:CONNECTIVITY'],
         ['ORA-00001 unique constraint violated on insert', 'DB:QUERY_EXECUTION'],
-        ['A typo in a table name in the SQL text', 'DB:BAD_SQL_SYNTAX'],
+        ['A misspelt keyword in the SQL text', 'DB:BAD_SQL_SYNTAX'],
         ['Reconnection attempts used up without success', 'DB:RETRY_EXHAUSTED'],
       ],
       explain: 'Vendor errors raised while a statement runs (constraints, deadlocks, timeouts) arrive as DB:QUERY_EXECUTION; inspect the vendor code in the error to decide what to do.',
@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'A payments queue delivers the same message twice. The second insert fails with SQL Server error 2627 on the payment_ref primary key. What is the right handling?',
       options: [
-        'Treat it as "already processed": catch DB:QUERY_EXECUTION, check the vendor code is 2627/2601, and acknowledge without error',
+        'Treat it as already processed and acknowledge the message',
         'Retry the insert with Until Successful until it succeeds',
         'Send the message to the DLQ as a technical failure',
-        'Drop the primary key so duplicates can be inserted',
+        'Switch to an UPDATE that overwrites the first payment row',
       ],
       answer: 0,
-      explain: 'A unique key on the business reference makes the consumer idempotent: a duplicate violation means the work was done already. Retrying a duplicate will never succeed; only check the specific code so real errors still fail.',
+      explain: 'Catch DB:QUERY_EXECUTION, check the vendor code is 2627/2601, and acknowledge without error. A unique key on the business reference makes the consumer idempotent: a duplicate violation means the work was done already. Retrying a duplicate will never succeed; only check the specific code so real errors still fail.',
     },
     {
       type: 'multi',
@@ -61,7 +61,7 @@ export default {
         'SQL Server error 1205, chosen as deadlock victim',
         '`DB:CONNECTIVITY` during a short database failover',
         'ORA-00001, unique constraint violated',
-        '`DB:BAD_SQL_SYNTAX` from a typo in a table name',
+        '`DB:BAD_SQL_SYNTAX` from a misspelt SQL keyword',
       ],
       answer: [0, 1],
       explain: 'Deadlock victims and brief connectivity loss are transient, so the same work usually succeeds on retry. Duplicate keys and syntax errors fail the same way every time.',
@@ -83,7 +83,7 @@ A payments platform writes to **Oracle** (orders) and **SQL Server** (settlement
 
 Recent defects:
 - An order header was saved without its lines after a line insert failed.
-- Redelivered payment messages fail with \`Violation of PRIMARY KEY constraint 'PK_payment'. Cannot insert duplicate key\` (error 2627) and end up in the DLQ, where support replays them — and they fail again.
+- Redelivered payment messages fail with \`Violation of PRIMARY KEY constraint 'PK_payment'. Cannot insert duplicate key\` (error 2627) and end up in the DLQ, where support replays them, and they fail again.
 - At month end, settlement updates fail with \`Transaction (Process ID 71) was deadlocked on lock resources with another process and has been chosen as the deadlock victim. Rerun the transaction.\`
 - A developer wrapped every DB operation in Until Successful with 10 retries "to be safe".
 
@@ -103,7 +103,7 @@ Recent defects:
 `,
   keyPoints: [
     'Try with transactionalAction="ALWAYS_BEGIN": DB operations on the same config inside it join one local transaction.',
-    'On Error Propagate rolls the transaction back; On Error Continue commits it — choose deliberately.',
+    'On Error Propagate rolls the transaction back; On Error Continue commits it. Choose deliberately.',
     'DB:CONNECTIVITY (cannot connect), DB:QUERY_EXECUTION (vendor error while running SQL: constraints, deadlocks), DB:BAD_SQL_SYNTAX, DB:RETRY_EXHAUSTED.',
     'Duplicate keys (ORA-00001, SQL Server 2627/2601) are permanent: with a unique business key they mean "already processed" for an idempotent consumer.',
     'Deadlock victim (1205) and short connectivity loss are transient: retry the whole transaction a few times with backoff.',
@@ -149,7 +149,7 @@ Because several cases share DB:QUERY_EXECUTION, inspect the vendor code (from th
     },
     {
       q: 'What does the reconnection strategy on the db:config cover?',
-      a: 'Re-establishing connections (at startup or when a connection fails). It does not retry failed statements or business logic — that is your error handling.',
+      a: 'Re-establishing connections (at startup or when a connection fails). It does not retry failed statements or business logic; that is your error handling.',
     },
   ],
 }

@@ -21,22 +21,22 @@ export default {
       needsScenario: true,
       prompt: 'How do CloudHub 2.0 apps reach the on-prem policy and claims systems?',
       options: [
-        'Deploy into a private space connected to the data centre via IPsec VPN or AWS Transit Gateway, with firewall rules for the space CIDR',
-        'Through the shared space public internet with IP allowlisting only',
-        'Through a Mule domain shared between CloudHub and on-prem',
-        'CloudHub 2.0 cannot reach on-prem systems',
+        'A private space with an IPsec VPN or Transit Gateway to the data centre',
+        'The shared space over the public internet, with IP allowlisting',
+        'A Mule domain shared between the CloudHub apps and on-prem runtimes',
+        'A Runtime Manager agent tunnel from the shared space to the data centre',
       ],
       answer: 0,
-      explain: 'Private spaces provide private networking (VPN / Transit Gateway) and private ingress. Domains do not exist on CloudHub 2.0.',
+      explain: 'Private spaces provide private networking (VPN / Transit Gateway) and private ingress, with firewall rules for the space CIDR. Domains do not exist on CloudHub 2.0, and the Runtime Manager agent is for hybrid runtimes, not a network tunnel.',
     },
     {
       type: 'single',
       prompt: 'What does the MuleSoft-hosted control plane receive from the runtimes?',
       options: [
-        'Deployment metadata, analytics/metrics and — if enabled — logs; payloads stay in the runtime plane',
-        'Every message payload, for API analytics',
-        'Nothing at all — it is fully disconnected',
-        'Only payloads tagged as non-sensitive',
+        'Deployment metadata, metrics and, if enabled, logs, but not payloads',
+        'Every message payload, so that API analytics can inspect it',
+        'Nothing at all, because the runtimes are fully disconnected',
+        'Only the payloads that the app has tagged as non-sensitive',
       ],
       answer: 0,
       explain: 'Payloads stay where the app runs. For strict residency use the EU control plane; if even metadata must stay on-prem, Private Cloud Edition is the option at high operational cost.',
@@ -95,12 +95,12 @@ You must present a deployment recommendation to the board.
 ## Risks and trade-offs
 `,
   keyPoints: [
-    'CloudHub 2.0: MuleSoft-managed containerised iPaaS (shared or private spaces, replicas, built-in ingress, rolling updates) — least operational effort.',
-    'Runtime Fabric: MuleSoft software running on the customer\'s Kubernetes — customer manages the cluster, ingress, capacity and upgrades; data stays in the customer\'s network.',
+    'CloudHub 2.0: MuleSoft-managed containerised iPaaS (shared or private spaces, replicas, built-in ingress, rolling updates): least operational effort.',
+    'Runtime Fabric: MuleSoft software running on the customer\'s Kubernetes: customer manages the cluster, ingress, capacity and upgrades; data stays in the customer\'s network.',
     'Hybrid standalone runtimes: customer installs and operates Mule on servers/VMs, managed via Runtime Manager agent; supports clusters, server groups and domains.',
     'The control plane (Anypoint Platform: Runtime Manager, API Manager, Exchange) is hosted by MuleSoft in a region (US or EU, plus others); message payloads stay in the runtime plane, but metadata/metrics/logs may flow to it depending on configuration. PCE puts the control plane on-prem.',
     'CloudHub 2.0 private spaces connect to on-prem via VPN or AWS Transit Gateway, with private networking and firewall rules.',
-    'A mixed model is common: CloudHub 2.0 for most APIs, RTF/on-prem for data that must stay inside the network — with consistent CI/CD and monitoring across targets.',
+    'A mixed model is common: CloudHub 2.0 for most APIs, RTF/on-prem for data that must stay inside the network, with consistent CI/CD and monitoring across targets.',
   ],
   solution: `
 **Comparison**
@@ -109,10 +109,10 @@ You must present a deployment recommendation to the board.
 | Infra owner | MuleSoft | Customer (K8s cluster), MuleSoft (RTF agent/runtime images) | Customer (OS, JVM, runtime) |
 | Networking | Shared space, or **private space** with VPN/Transit Gateway, private ingress, custom domains/TLS | Customer's ingress controller, network policies; data stays on customer network | Customer LB/firewall |
 | Scaling | Replicas & sizes per app, rolling updates; managed | K8s scheduling; capacity planned by customer | Manual: add servers/cluster nodes |
-| Ops effort | Lowest | Medium–high (K8s + RTF upgrades) | Highest for a team without Mule ops skills |
+| Ops effort | Lowest | Medium to high (K8s + RTF upgrades) | Highest for a team without Mule ops skills |
 | Extras | Managed OSv2, clustering option | Fits existing K8s tooling | Domains, clusters, full control |
 
-**Control plane:** Anypoint Platform (Runtime Manager, API Manager, Exchange, Monitoring) is a MuleSoft-hosted control plane, available in regions including the **EU control plane**. Apps' payloads stay in the runtime plane; the control plane receives deployment metadata, analytics/metrics and — if enabled — logs. For strict residency, use the **EU control plane** and EU regions for CloudHub 2.0. If even metadata must not leave the premises, **Anypoint Platform Private Cloud Edition** (control plane on-prem) is the option, at a high operational cost.
+**Control plane:** Anypoint Platform (Runtime Manager, API Manager, Exchange, Monitoring) is a MuleSoft-hosted control plane, available in regions including the **EU control plane**. Apps' payloads stay in the runtime plane; the control plane receives deployment metadata, analytics/metrics and, if enabled, logs. For strict residency, use the **EU control plane** and EU regions for CloudHub 2.0. If even metadata must not leave the premises, **Anypoint Platform Private Cloud Edition** (control plane on-prem) is the option, at a high operational cost.
 
 **Connectivity on CloudHub 2.0:** deploy into a **private space** in an EU region, and connect it to the data centre via **IPsec VPN** or **AWS Transit Gateway** (reusing the existing AWS connectivity). Configure internal DNS and firewall rules so only the private space CIDR can reach policy/claims. Use private ingress for internal-only APIs.
 
@@ -138,7 +138,7 @@ You must present a deployment recommendation to the board.
     },
     {
       q: 'What changes in the application code between CloudHub 2.0 and RTF?',
-      a: 'Ideally nothing — only deployment configuration (target, replicas, resources, properties). Avoid target-specific features like domains or local file-system state so apps stay portable.',
+      a: 'Ideally nothing: only deployment configuration (target, replicas, resources, properties). Avoid target-specific features like domains or local file-system state so apps stay portable.',
     },
   ],
 }

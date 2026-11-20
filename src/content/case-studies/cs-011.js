@@ -93,6 +93,8 @@ export default {
 - The OSS platform is slow (calls take up to 60 s) and has a maintenance window nightly.
 - Partners call via APIs; the website and call centre use internal apps.
 - The website places about 20 orders a second, a partner can send 150 a second after a promotion, and the credit bureau (500 ms a call) sometimes stops answering for 10 minutes.
+- The credit call must give up after 3 seconds and stop calling a dead bureau (a circuit breaker). When it fails, the orchestrator still takes the order and marks it for a credit check later.
+- Give the partner Experience API, the orchestrator and the credit System API enough vCores for 150 orders a second.
 
 **Your task.** Propose the architecture for order capture, orchestration, status and error handling.
 `,
@@ -110,7 +112,7 @@ export default {
     'A single Order Process API owns the orchestration; channel Experience APIs (web, call centre, partner) call it instead of each running their own sequence.',
     'Order state is persisted (state machine with clear statuses) because the process runs for days and must survive restarts.',
     'Long and asynchronous steps (OSS provisioning, shipping, appointments) are decoupled with queues/events and callbacks, not held open in one HTTP request.',
-    'Each step is idempotent and failed steps trigger compensating actions (e.g. release number, cancel shipment) — a saga, not a distributed transaction.',
+    'Each step is idempotent and failed steps trigger compensating actions (e.g. release number, cancel shipment). This is a saga, not a distributed transaction.',
     'Orders that cannot be auto-recovered go to an exception queue/work list for an operations team.',
     'Status changes are published as events so all channels show the same status.',
   ],
@@ -118,7 +120,7 @@ export default {
 **Layers.** \`web-orders-eapi\`, \`partner-orders-eapi\` (with partner-specific security and rate limits), call-centre app → \`order-orchestration-papi\` → System APIs: \`credit-sapi\`, \`address-sapi\`, \`numbering-sapi\`, \`oss-provisioning-sapi\`, \`logistics-sapi\`, \`field-service-sapi\`, \`billing-sapi\`.
 
 **Orchestration.**
-1. Synchronous at capture: validate, credit check, address/line check → create order with status \`ACCEPTED\`, return order ID.
+1. Synchronous at capture: validate, credit check, address/line check → create order with status \`ACCEPTED\`, return order ID. The credit call has a 3 second timeout and a circuit breaker; if it fails, the order is still accepted and marked for a credit check later.
 2. Asynchronous fulfilment: each step is driven by a message (Anypoint MQ) and its result. The orchestrator persists state after every step (database table or a dedicated order store; Object Store is fine for small markers, not as the order database).
 3. OSS calls are queued; consumers respect the maintenance window (pause consumption or reschedule) and use generous timeouts.
 4. Callbacks from 3PL and field service hit a callback API which correlates by order ID and advances the state.

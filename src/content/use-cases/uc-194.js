@@ -47,7 +47,7 @@ export default {
         },
         {
           name: 'Closed stores',
-          about: 'Five stores in 600 have closed and their mailboxes refuse mail. Those notices end on the dead-letter queue instead of circling.',
+          about: 'About 1 store in 100 has closed and their mailboxes refuse mail. Those notices end on the dead-letter queue instead of circling.',
           traffic: [{ ...notices, poison: 0.01 }],
           durationMin: 120,
           expect: { dlq: { min: 1 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },

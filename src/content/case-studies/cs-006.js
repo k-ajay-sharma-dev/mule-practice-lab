@@ -85,6 +85,7 @@ export default {
 - Fair usage: TPPs must not overload the core; premium partners get higher limits.
 - A developer portal and sandbox for TPPs.
 - TPPs read about 50 balances a second, one TPP can burst to 400 a second, and the mainframe takes 100 a second at most.
+- A balance cache answers about half the reads. Put a rate limit of about 150 requests a second on the gateway, so the mainframe stays under its limit.
 
 **Your task.** Propose the target architecture and delivery plan. Cover API design, security and consent, traffic management, the path to the mainframe, operations/reporting, and the main risks.
 `,
@@ -120,7 +121,7 @@ export default {
 **Security and consent.**
 - **TPP identity**: mTLS with regulator-issued certificates + OAuth 2.0 client registration (dynamic client registration if the standard requires it). Tokens are **certificate-bound** to the TPP.
 - **Customer auth**: OAuth 2.0 authorization code flow (FAPI-style profile, PKCE/signed requests as the standard requires) redirecting to the bank's IdP for **SCA**.
-- **Consent**: a consent store owned by \`consent-papi\` — consent ID, TPP, accounts, permissions, expiry, status. Customers revoke it in online banking. Every AIS/PIS call checks token **and** consent is valid for that account and permission.
+- **Consent**: a consent store owned by \`consent-papi\`: consent ID, TPP, accounts, permissions, expiry, status. Customers revoke it in online banking. Every AIS/PIS call checks token **and** consent is valid for that account and permission.
 - Payments: **idempotency key** per request, a payment status resource the TPP polls (or gets notified on), and fraud checks before submission.
 
 **Traffic management.**
@@ -136,10 +137,10 @@ export default {
 **Operations and reporting.** Anypoint Monitoring dashboards and alerts per endpoint (availability, p95/p99 latency, error rates), split by TPP; data exported for **regulatory KPI reports**. Correlation IDs end to end; audit log of consent and data access; mask account numbers and personal data in logs. Run active/active or multi-AZ for the availability target, with tested failover.
 
 **Delivery plan (9 months).**
-1. Months 0–2: pick the standard, design specs in Exchange, security architecture with the IdP team, consent model, System API for core banking.
-2. Months 2–5: AIS end to end in sandbox, then production with friendly TPPs; consent service; portal.
-3. Months 5–8: PIS with idempotency and fraud checks; performance and penetration testing; conformance testing against the standard.
-4. Month 8–9: go-live, hypercare. Premium product afterwards on the same layers.
+1. Months 0 to 2: pick the standard, design specs in Exchange, security architecture with the IdP team, consent model, System API for core banking.
+2. Months 2 to 5: AIS end to end in sandbox, then production with friendly TPPs; consent service; portal.
+3. Months 5 to 8: PIS with idempotency and fraud checks; performance and penetration testing; conformance testing against the standard.
+4. Months 8 to 9: go-live, hypercare. Premium product afterwards on the same layers.
 
 **Risks.**
 - Mainframe capacity (mitigate with caching/read store and strict rate limits).

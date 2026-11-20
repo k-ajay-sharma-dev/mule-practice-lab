@@ -4,10 +4,10 @@ const note = (messageId, extra = {}) => ({
   message: {
     kind: 'jms',
     destination: 'PDH.INBOUND.NOTIFY',
-    payload: { messageId, messageType: 'SupplierItem', senderId: 'RIDGEWAY-BRAKES', blobName: `inbound/RIDGEWAY-BRAKES/${messageId}.json`, sentAt: '2026-11-13T08:15:00Z', ...extra },
+    payload: { messageId, messageType: 'SupplierItem', senderId: 'RIDGEWAY-TOOLS', blobName: `inbound/RIDGEWAY-TOOLS/${messageId}.json`, sentAt: '2026-11-13T08:15:00Z', ...extra },
   },
 })
-const seen = { message_id: 'MSG-90001', message_type: 'Item', blob_name: 'inbound/HALDEN-FILTERS/MSG-90001.json', sender_id: 'HALDEN-FILTERS', status: 'RECEIVED' }
+const seen = { message_id: 'MSG-90001', message_type: 'Item', blob_name: 'inbound/HALDEN-PAINTS/MSG-90001.json', sender_id: 'HALDEN-PAINTS', status: 'RECEIVED' }
 
 export default {
   id: 'fl-154',
@@ -59,7 +59,7 @@ export default {
           db: { pdh_inbound_messages: { count: 2, has: [{ message_id: 'MSG-90412', status: 'RECEIVED' }] } },
           sent: [
             { destination: 'PDH.ACK', count: 1, has: { messageId: 'MSG-90412', status: 'RECEIVED' } },
-            { destination: 'PDH.INBOUND.WORK', count: 1, has: { messageId: 'MSG-90412', blobName: 'inbound/RIDGEWAY-BRAKES/MSG-90412.json' } },
+            { destination: 'PDH.INBOUND.WORK', count: 1, has: { messageId: 'MSG-90412', blobName: 'inbound/RIDGEWAY-TOOLS/MSG-90412.json' } },
           ],
         },
       },
@@ -118,11 +118,11 @@ export default {
     ),
   ),
   description: `
-Copperline Home Supply, a fictional parts retailer, runs a **product data hub**. Suppliers and internal systems exchange GS1 style messages with it: Item, SupplierItem, ReceivingAdvice, InventoryTransaction and others.
+Copperline Home Supply, a fictional home improvement retailer, runs a **product data hub**. Suppliers and internal systems exchange GS1 style messages with it: Item, SupplierItem, ReceivingAdvice, InventoryTransaction and others.
 
 The documents can be large, so a sender does not put them on the queue. It uploads the JSON document to Azure Blob Storage and sends a small **notification** to the JMS queue \`PDH.INBOUND.NOTIFY\`. This is the claim check pattern:
 
-\`{ "messageId": "MSG-90412", "messageType": "SupplierItem", "senderId": "RIDGEWAY-BRAKES", "blobName": "inbound/RIDGEWAY-BRAKES/MSG-90412.json", "sentAt": "..." }\`
+\`{ "messageId": "MSG-90412", "messageType": "SupplierItem", "senderId": "RIDGEWAY-TOOLS", "blobName": "inbound/RIDGEWAY-TOOLS/MSG-90412.json", "sentAt": "..." }\`
 
 You build the first flow of the hub: the intake. Downloading and processing the document happen in later flows that read \`PDH.INBOUND.WORK\`.
 
@@ -132,6 +132,12 @@ You build the first flow of the hub: the intake. Downloading and processing the 
 - Record a new notification with status \`RECEIVED\`, send the ACK \`{ messageId, senderId, status: "RECEIVED" }\` to \`PDH.ACK\`, and pass the notification on to \`PDH.INBOUND.WORK\`.
 - A repeat or an invalid notification raises an error. Answer it with \`{ messageId, senderId, status: "REJECTED", reason }\` on \`PDH.ACK\`, and do not redeliver it.
 - If Oracle is down, send nothing and let the broker deliver the notification again.
+
+**Facts**
+- In the duplicate check SQL, name the message ID parameter \`:messageId\`.
+- A notification that fails the schema check raises **JSON:SCHEMA_NOT_HONOURED**.
+- \`PDH.INBOUND.WORK\` gets the notification as it arrived.
+- Oracle being down raises **DB:CONNECTIVITY**.
 
 **Design the flow.**
 `,

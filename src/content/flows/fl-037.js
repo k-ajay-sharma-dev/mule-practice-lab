@@ -181,12 +181,19 @@ export default {
   description: `
 A retailer wants a **mobile app** screen showing an order's status and delivery ETA. The data lives in two places:
 
-- **ERP** (SAP-like, SOAP web service \`GetSalesOrder\`) — order header and status.
-- **Shipping carrier** REST API — consignments, tracking URL and ETA.
+- **ERP** (SAP-like, SOAP web service \`GetSalesOrder\`): order header and status.
+- **Shipping carrier** REST API: consignments, tracking URL and ETA.
 
 Next year a **web portal** and a **call-centre** tool will need the same data in slightly different shapes. The architecture board mandates **API-led connectivity**: each API is deployed and versioned on its own, and no consumer may call the ERP directly.
 
 Volumes: ~20 requests/s at peak; the mobile app expects a response within **3 s**.
+
+**Facts**
+- Experience API: \`GET /mobile/v1/orders/{orderId}\`. It answers \`{ id, status, eta, track }\`: **404** for an unknown order and **502** for any other failure.
+- Process API: \`GET /process/v1/orders/{orderId}/status\`. It answers \`{ orderId, status, shipment: { trackingUrl, estimatedDelivery } }\`.
+- ERP System API: \`GET /sys/erp/v1/orders/{orderId}\`, answering \`{ orderId, status }\`. The \`GetSalesOrder\` response is \`GetSalesOrderResponse/Order\` with \`Number\` and \`Status\`, in the namespace \`http://erp.example.com/orders\`. A SOAP fault means the order is unknown.
+- Shipping System API: \`GET /sys/shipping/v1/shipments?orderId={orderId}\`, answering a list of \`{ trackingUrl, estimatedDelivery }\`.
+- The carrier's REST API is \`GET /carrier/api/consignments\`. It answers \`{ consignments: [{ links: { tracking }, eta }] }\`.
 
 **Design the flow(s):** one flow per API (experience, process, system), how they call each other, where each data model lives, and how errors surface to the mobile app.
 `,
@@ -206,19 +213,19 @@ Volumes: ~20 requests/s at peak; the mobile app expects a response within **3 s*
     'System APIs (ERP orders, shipping) unlock one back end each and hide its protocol (SOAP, vendor REST) behind a stable REST contract.',
     'The Process API owns the business logic: it calls both System APIs (in parallel) and merges the results into a canonical order-status model.',
     'The Experience API is shaped for one channel (mobile) and only reshapes/trims the Process API response.',
-    'Layers are separate applications that talk over HTTP Request, not Flow Reference — that is what makes them reusable and independently deployable.',
+    'Layers are separate applications that talk over HTTP Request, not Flow Reference: that is what makes them reusable and independently deployable.',
     'Timeouts shrink down the stack (3 s experience → 2.5 s process → 2 s system) and errors are translated to meaningful HTTP status codes at each layer.',
   ],
   solution: `
 **System layer**
-- \`sys-erp-orders\` — HTTP Listener \`GET /sys/erp/v1/orders/{orderId}\` → **Web Service Consumer** \`GetSalesOrder\` → DataWeave maps SOAP XML to a clean JSON order. SOAP faults map to 404/502.
-- \`sys-shipping-shipments\` — HTTP Listener \`GET /sys/shipping/v1/shipments?orderId=\` → HTTP Request to the carrier → map to \`{ trackingUrl, estimatedDelivery }\`.
+- \`sys-erp-orders\`: HTTP Listener \`GET /sys/erp/v1/orders/{orderId}\` → **Web Service Consumer** \`GetSalesOrder\` → DataWeave maps SOAP XML to a clean JSON order. SOAP faults map to 404/502.
+- \`sys-shipping-shipments\`: HTTP Listener \`GET /sys/shipping/v1/shipments?orderId=\` → HTTP Request to the carrier → map to \`{ trackingUrl, estimatedDelivery }\`.
 
 **Process layer**
-- \`prc-order-status\` — HTTP Listener \`GET /process/v1/orders/{orderId}/status\` → **Scatter-Gather** (timeout 2.5 s) calling both System APIs through **HTTP Request** → DataWeave merges into the canonical \`OrderStatus\`. Reusable by the portal and call-centre later.
+- \`prc-order-status\`: HTTP Listener \`GET /process/v1/orders/{orderId}/status\` → **Scatter-Gather** (timeout 2.5 s) calling both System APIs through **HTTP Request** → DataWeave merges into the canonical \`OrderStatus\`. Reusable by the portal and call-centre later.
 
 **Experience layer**
-- \`exp-mobile-order-status\` — HTTP Listener \`GET /mobile/v1/orders/{orderId}\` → HTTP Request to the Process API → DataWeave trims to what the screen needs (\`id, status, eta, track\`).
+- \`exp-mobile-order-status\`: HTTP Listener \`GET /mobile/v1/orders/{orderId}\` → HTTP Request to the Process API → DataWeave trims to what the screen needs (\`id, status, eta, track\`).
 - On Error Propagate maps \`HTTP:NOT_FOUND\` → 404 and anything else → 502 with a friendly message.
 
 **Why HTTP between layers?** Each API is its own Mule application with its own RAML/OAS contract in Exchange, its own policies (client ID enforcement, rate limits) and its own scaling. Flow Reference would collapse them into one deployable and defeat reuse.
@@ -235,7 +242,7 @@ Volumes: ~20 requests/s at peak; the mobile app expects a response within **3 s*
       a: 'The portal only needs a new Experience API (or reuses the process API directly); the ERP and carrier integrations and the merging logic are already built and published in Exchange.',
     },
     {
-      q: 'What about the extra network hops — is three layers too slow?',
+      q: 'What about the extra network hops: is three layers too slow?',
       a: 'Each hop adds a few milliseconds inside the same region; it is usually small compared with back-end latency. Cache stable data at the process layer and call system APIs in parallel to keep within the SLA.',
     },
   ],

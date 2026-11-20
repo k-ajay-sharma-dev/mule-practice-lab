@@ -193,7 +193,7 @@ The 404 that drivers lost last month cannot go missing again. It is written once
     },
     {
       q: 'Which reserved parameters can a resource type use?',
-      a: 'A resource type can use <<resourcePath>> and <<resourcePathName>>. Inside a method of the resource type, <<methodName>> is also there.',
+      a: 'A resource type can use <<resourcePath>> and <<resourcePathName>>. The RAML 1.0 spec reserves <<methodName>> only in traits, so a resource type that needs the method name gets it from a trait it applies.',
     },
     {
       q: 'When is a parameter better than <<resourcePathName>>?',

@@ -79,6 +79,7 @@ Today:
 - The same parcel is looked up many times: retailers poll, and customers refresh the page.
 - In tests 4,000 lookups a second arrive at the peak, the cache answers 19 in 20, and a scraper sends 20 lookups a second with no client ID.
 - The team has two Mule developers and one quarter to go live.
+- Size it like this: the gateway enforces client ID; the Experience and Process APIs each run on 5 replicas of 2 vCores; the DB2 System API runs on 0.5 vCore for the 1 lookup in 20 the cache misses.
 
 **Your task.** Draw the API-led design for track and trace and explain how it protects DB2 and controls retailer access.
 `,
@@ -108,7 +109,7 @@ Today:
 
 **Access control.** The API is published in Exchange with a public portal. Each retailer requests access and gets a client ID and secret. API Manager applies Client ID Enforcement and an SLA-based rate limit: Standard 20 requests per second, Premium 100. The website and app have their own client applications, so their traffic shows separately in analytics.
 
-**Protecting DB2.** The Process API caches each tracking result in Object Store for 60 seconds. Most traffic is repeated lookups of the same parcel, so the cache hit rate is high at peak. DB2 sees at most one query per parcel per minute. A Spike Control policy in front of the System API is the last line of defence.
+**Protecting DB2.** The Process API caches each tracking result in Object Store for 60 seconds. Most traffic is repeated lookups of the same parcel, so the cache hit rate is high at peak. DB2 sees at most one query per parcel per minute. At 4,000 lookups a second the cache answers 19 in 20, so about 200 a second reach DB2, under its 300. The Experience and Process APIs need 5 replicas of 2 vCores each for the 4,000 a second; the DB2 System API needs 0.5 vCore. A Spike Control policy in front of the System API is the last line of defence.
 
 **Rollout.** Launch with the app and five pilot retailers, then move the website off JDBC, then open the portal to all retailers. Block screen-scraping once retailers have moved.
 `,

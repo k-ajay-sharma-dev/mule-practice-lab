@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is causing the slow memory leak?',
         options: [
-          'The cache key hashes the whole body, which now includes a unique requestId, so every request adds an entry to an unbounded in-memory store',
-          'A memory leak in the Mule runtime version',
-          'Traffic doubled three weeks ago',
-          'The GC settings are wrong for 1 vCore',
+          'Every body is now unique, so each request adds an entry to an unbounded cache',
+          'A known memory leak in the Mule runtime version that the app runs on',
+          'Traffic doubled three weeks ago when the web shop added tracing',
+          'The default GC settings are too small for a 1 vCore worker',
         ],
         answer: 0,
         explain: 'The hit ratio fell to 0% exactly when requestId and requestedAt were added. The store has no maxEntries or entryTtl, so nothing is evicted; about 400k entries a day matches the ~150 MB/day growth.',
@@ -33,12 +33,12 @@ export default {
         prompt: 'Which **hotfix** stops the leak fastest, even before the key is changed?',
         options: [
           'Add maxEntries, entryTtl and expirationInterval to quoteCache and redeploy',
-          'Increase the worker to 2 vCores',
-          'Make the object store persistent',
-          'Disable GC logging',
+          'Upgrade both workers from 1 to 2 vCores so the heap doubles in size',
+          'Make quoteCache a persistent object store so entries leave the heap',
+          'Restart both workers every night with a scheduled job',
         ],
         answer: 0,
-        explain: 'Bounding the store caps memory. A bigger worker only delays the crash; a persistent store moves the unbounded growth elsewhere.',
+        explain: 'Bounding the store caps memory. A bigger worker or nightly restarts only delay the crash; a persistent store moves the unbounded growth elsewhere.',
       },
       {
         type: 'multi',
@@ -70,7 +70,7 @@ export default {
   description: `
 ## Symptoms
 - \`pricing-papi\` (2 workers, 1 vCore) has been **restarted by the platform** with \`OutOfMemoryError: Java heap space\` roughly **every 5 days** for the last three weeks.
-- Anypoint Monitoring: heap *after GC* climbs steadily (~150 MB/day) — a staircase that never returns to baseline. GC pauses get longer in the last day before each crash; p95 latency goes from 80 ms to 2 s.
+- Anypoint Monitoring: heap *after GC* climbs steadily (~150 MB/day), a staircase that never returns to baseline. GC pauses get longer in the last day before each crash; p95 latency goes from 80 ms to 2 s.
 - Traffic is flat. No large files or batch jobs in this app.
 - The **cache hit ratio** of the price cache, logged hourly, dropped from ~85% to **0%** three weeks ago.
 
@@ -78,7 +78,7 @@ export default {
 - Three weeks ago the web shop team added a \`requestId\` (UUID) and \`requestedAt\` timestamp to the JSON body of every \`POST /prices/quote\` call "for tracing".
 - \`pricing-papi\` caches quotes with a **Cache scope** using a custom caching strategy:
   - key: \`#[dw::Crypto::SHA1(write(payload, "application/json") as Binary)]\` (hash of the whole request body)
-  - object store: \`<os:object-store name="quoteCache" persistent="false"/>\` — **no** \`maxEntries\`, **no** \`entryTtl\`.
+  - object store: \`<os:object-store name="quoteCache" persistent="false"/>\`, with **no** \`maxEntries\`, **no** \`entryTtl\`.
 
 ## Logs
 \`\`\`
@@ -106,7 +106,7 @@ export default {
 `,
   keyPoints: [
     'Identifies an unbounded in-memory object store as the leak: no maxEntries/entryTtl, so every cached quote stays on the heap forever.',
-    'Connects the start of the leak to the client change: requestId/requestedAt make every body unique, so the hash key is always new — 0% hits and one new entry per request.',
+    'Connects the start of the leak to the client change: requestId/requestedAt make every body unique, so the hash key is always new: 0% hits and one new entry per request.',
     'Explains the heap-after-GC staircase, longer GC pauses and rising latency as classic signs of a leak (live objects retained), not of a load spike.',
     'Proves it with a heap dump (e.g. Eclipse MAT dominator tree / histogram showing the object store map with millions of entries), or by comparing two heap dumps a day apart.',
     'Immediate: rolling restart before the predicted crash, and/or quick config change adding maxEntries and entryTtl.',
@@ -116,24 +116,24 @@ export default {
 **Diagnosis.** A classic slow leak: live heap grows every day and never returns to baseline, GC works harder and harder, latency rises, then OOM. The growth started exactly when the web shop added \`requestId\` and \`requestedAt\` to the body. The cache key is a **hash of the whole body**, so every request now produces a **unique key**: the hit ratio drops to 0% and **every request adds a new entry**. The store is in-memory with **no \`maxEntries\` and no \`entryTtl\`**, so nothing is ever evicted. ~400k quotes/day × a few hundred bytes each ≈ the observed ~150 MB/day.
 
 **Immediate mitigation.**
-- Schedule a **rolling restart** of the workers before the next predicted OOM (heap trend tells you when) — buys days, fixes nothing.
+- Schedule a **rolling restart** of the workers before the next predicted OOM (heap trend tells you when). It buys days but fixes nothing.
 - Hotfix config: add \`maxEntries\` (e.g. 50,000), \`entryTtl\` (e.g. 10 min) and an \`expirationInterval\` to \`quoteCache\` and redeploy. This stops the leak even before the key is fixed.
 - Capture a **heap dump** before restarting if possible (on CloudHub via MuleSoft support / diagnostics; on RTF or on-prem with \`jcmd <pid> GC.heap_dump\`), to prove the cause.
 
 **Root cause.** An unbounded cache, plus a cache key that depends on fields the response does not depend on. The client's harmless-looking change turned a working cache into a memory leak.
 
 **Permanent fix.**
-- **Key only on what determines the price**: e.g. \`sku\`, \`quantity\`, \`currency\`, \`customerTier\`, \`priceListDate\` — not tracing fields. Hit ratio returns to ~85%.
+- **Key only on what determines the price**: e.g. \`sku\`, \`quantity\`, \`currency\`, \`customerTier\`, \`priceListDate\`, never tracing fields. Hit ratio returns to ~85%.
 - **Always bound caches**: \`maxEntries\`, \`entryTtl\`, \`expirationInterval\`; size them from expected cardinality and memory budget.
 - Move tracing data to headers (\`X-Request-Id\`) as per API standards.
 
-**Prevention.** Alerts on **heap used after GC** trending up and on cache hit ratio; code review checklist: "every object store/cache has a bound"; contract tests that check the API rejects or ignores unknown fields consistently; soak tests (24–72 h) for apps that cache.
+**Prevention.** Alerts on **heap used after GC** trending up and on cache hit ratio; code review checklist: "every object store/cache has a bound"; contract tests that check the API rejects or ignores unknown fields consistently; soak tests (24 to 72 h) for apps that cache.
 
-**How to prove it.** Two heap dumps a day apart (or one before crash): Eclipse MAT's *Dominator Tree* / *Leak Suspects* shows the object-store map retaining most of the heap with millions of entries; the entry count grows between dumps. Then the hotfix makes heap-after-GC flat — confirmation.
+**How to prove it.** Two heap dumps a day apart (or one before crash): Eclipse MAT's *Dominator Tree* / *Leak Suspects* shows the object-store map retaining most of the heap with millions of entries; the entry count grows between dumps. Then the hotfix makes heap-after-GC flat, which confirms it.
 `,
   followUps: [
-    { q: 'How do you tell a memory leak from the app simply needing more memory?', a: 'Look at heap used after full GC over time. If it rises steadily with flat traffic and never drops, live objects are retained — a leak. If it is high but stable, the app needs a bigger heap or less in-flight data.' },
-    { q: 'Why not just move to a bigger worker?', a: 'With an unbounded leak a bigger heap only changes the crash interval from five days to ten. It also costs more and delays finding the real problem.' },
+    { q: 'How do you tell a memory leak from an app that needs more memory?', a: 'Look at heap used after full GC over time. If it rises steadily with flat traffic and never drops, live objects are retained: a leak. If it is high but stable, the app needs a bigger heap or less in-flight data.' },
+    { q: 'Why not move to a bigger worker?', a: 'With an unbounded leak a bigger heap only changes the crash interval from five days to ten. It also costs more and delays finding the real problem.' },
     { q: 'What other common sources of leaks are there in Mule apps?', a: 'Unbounded object stores or static maps in custom Java code, accumulating variables in long-running loops, unclosed streams/connections, and listeners or threads created per request and never stopped.' },
   ],
 }

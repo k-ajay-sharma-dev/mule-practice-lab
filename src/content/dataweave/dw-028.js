@@ -10,14 +10,15 @@ A nightly sync compares today's product export (\`payload\`) with yesterday's (\
 
 Return an object with three lists:
 
-- \`added\` — full records (as in \`payload\`) whose \`sku\` is not in \`previous\`
-- \`removed\` — the **sku strings** that are in \`previous\` but not in \`payload\`
-- \`changed\` — for every sku in both snapshots whose data differs: \`{ sku, changes }\`, where \`changes\` is a list of \`{ field, from, to }\` (\`from\` = previous value, \`to\` = current value)
+- \`added\`: full records (as in \`payload\`) whose \`sku\` is not in \`previous\`
+- \`removed\`: the **sku strings** that are in \`previous\` but not in \`payload\`
+- \`changed\`: for every sku in both snapshots whose data differs: \`{ sku, changes }\`, where \`changes\` is a list of \`{ field, from, to }\` (\`from\` = previous value, \`to\` = current value)
 
 **Rules**
 - Compare every field name that appears in **either** version of the record, except \`sku\`. A field missing on one side counts as \`null\`.
 - Products with no differences do not appear in \`changed\`.
-- \`added\`, \`removed\` and \`changed\` are sorted by \`sku\` ascending; \`changes\` is sorted by \`field\` name ascending.
+- \`added\`, \`removed\` and \`changed\` are sorted by \`sku\` ascending as text; \`changes\` is sorted by \`field\` name ascending as text.
+- Values are compared by value, so \`10\` and \`10.0\` are equal.
 - Each sku appears at most once per snapshot.
 `,
   inputs: [
@@ -104,7 +105,7 @@ fun changesOf(before: Object, after: Object) =
   explanation: `
 **Lookups, not nested loops.** \`groupBy $.sku\` turns each snapshot into an object keyed by sku, so "does this sku exist on the other side?" is a key access instead of a \`filter\` over the whole other list (n × m).
 
-**Field-level diff.** \`namesOf\` returns the keys as strings. Taking the union of both records' keys catches fields that were **added or removed**, not just changed — selecting a missing field returns \`null\`, which gives the "missing counts as null" rule for free. \`!=\` compares by value, so \`12\` and \`12.0\` are equal.
+**Field-level diff.** \`namesOf\` returns the keys as strings. Taking the union of both records' keys catches fields that were **added or removed**, not only changed. Selecting a missing field returns \`null\`, which gives the "missing counts as null" rule for free. \`!=\` compares by value, so \`12\` and \`12.0\` are equal.
 
 **The precedence trap.** \`xs map (c) -> { ... } filter (...)\` applies \`filter\` to the *object inside the lambda*, not to the mapped array. Parenthesise the whole \`map\` expression before chaining.
 
@@ -152,7 +153,7 @@ Sorting \`changed\` *after* building it (rather than sorting \`payload\` first) 
     },
     {
       q: 'Why sort the output at all?',
-      a: 'A deterministic order makes the delta easy to test, diff and replay. Without it, the order depends on the input order, which upstream systems rarely guarantee.',
+      a: 'A deterministic order makes the delta simple to test, diff and replay. Without it, the order depends on the input order, which upstream systems rarely guarantee.',
     },
   ],
 }

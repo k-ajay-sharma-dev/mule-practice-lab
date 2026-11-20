@@ -13,7 +13,7 @@ The flow passes an error event with \`app\`, \`env\`, \`runId\`, \`errorType\`, 
 Build:
 
 - \`subject\`: \`[ENV] APP run RUN_ID failed: CODE\`, with the environment in upper case
-- \`errorCode\`: the ORA code, such as \`ORA-00001\`, when the description starts with one, otherwise the \`errorType\`
+- \`errorCode\`: the ORA code (\`ORA-\` and five digits, such as \`ORA-00001\`) when the description starts with one, otherwise the \`errorType\`
 - \`errorType\`: as given
 - \`safeReason\`: the description with every email address replaced by \`[email]\` and every run of 12 to 19 digits replaced by \`[number]\`
 - \`recordCount\`

@@ -177,16 +177,20 @@ export default {
     ),
   ),
   description: `
-A wholesale partner still runs a **legacy FTP server** (plain FTP, no SFTP or HTTPS available). Twice a day it drops a price list \`PRICES_yyyyMMdd_HHmm.csv\` into \`/outbound/prices\` — about **40,000 rows** (\`ITEM_NO;UNIT_PRICE;CURR;VALID_FROM\`, dates as \`dd.MM.yyyy\`).
+A wholesale partner still runs a **legacy FTP server** (plain FTP, no SFTP or HTTPS available). Twice a day it drops a price list \`PRICES_yyyyMMdd_HHmm.csv\` into \`/outbound/prices\`: about **40,000 rows** (\`ITEM_NO;UNIT_PRICE;CURR;VALID_FROM\`, dates as \`dd.MM.yyyy\`).
 
 The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pricing engine.
 
 **Requirements**
-- A file is loaded **completely or not at all** — the pricing engine must never see half a price list.
+- A file is loaded **completely or not at all**. The pricing engine must never see half a price list.
 - Successfully processed files go to \`/archive\` on the FTP server; files that fail go to \`/error\` so the partner manager can look at them. A file that failed must never end up in \`/archive\`.
 - The same file must not be processed again on the next poll.
 - The partner's upload of a 3 MB file takes up to a minute over a slow line.
 - The integration runs on two clustered Mule runtimes.
+
+**Facts**
+- \`dbo.PARTNER_PRICE\` has \`SKU\` (the \`ITEM_NO\`), \`PRICE\`, \`CURRENCY\`, \`VALID_FROM\` and \`SOURCE_FILE\`.
+- The DBA team gives you a staging table \`dbo.PARTNER_PRICE_STAGING\` (\`SOURCE_FILE\`, \`SKU\`, \`PRICE\`, \`CURRENCY\`, \`VALID_FROM\`) and the procedure \`dbo.usp_ApplyPartnerPrices(fileName)\`, which merges one file's staging rows into \`dbo.PARTNER_PRICE\`. The procedure does not commit.
 
 **Design the flow.** Also explain what plain FTP means for security and networking.
 `,
@@ -205,14 +209,14 @@ The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pr
   keyPoints: [
     'Use FTP On New or Updated File with a filename pattern. Add a size-check delay (timeBetweenSizeCheck) so a file is only ready once its size stops changing. Add a post action (moveToDirectory /archive) so the file is not picked up again.',
     'applyPostActionWhenFailed defaults to true; set it to false and move failed files to /error in the error handler, otherwise broken files also land in /archive.',
-    'Keep attributes.path in a variable at the start — after a Database operation the attributes describe that operation, not the file.',
+    'Keep attributes.path in a variable at the start: after a Database operation the attributes describe that operation, not the file.',
     'DataWeave maps CSV rows to typed values (Number, Date); a Bulk Insert with parameterised SQL loads them in chunks of ~1,000 inside one transaction (Try ALWAYS_BEGIN).',
     'Load into a staging table and MERGE into the target in SQL Server, so a file replaces prices atomically.',
     'Plain FTP sends credentials and data unencrypted and needs passive mode through firewalls; push the partner towards SFTP and restrict by IP meanwhile. Run the listener on the primary node only in a cluster.',
   ],
   solution: `
 1. **FTP On New or Updated File** on \`/outbound/prices\`, matcher \`PRICES_*.csv\`, and \`timeBetweenSizeCheck\` on the listener (e.g. 30 s) so a file still being uploaded is not read. Output MIME type \`application/csv\` (separator \`;\`). Post action **moveToDirectory \`/archive\`**, \`applyPostActionWhenFailed="false"\`, \`primaryNodeOnly="true"\` (otherwise both cluster nodes pick up the same file). Watermark is not needed because the file leaves the folder.
-2. **Set Variable** \`originalPath = attributes.path\` and \`fileName\` — later operations replace \`attributes\`.
+2. **Set Variable** \`originalPath = attributes.path\` and \`fileName\`, because later operations replace \`attributes\`.
 3. **Transform**: CSV rows → \`{ sourceFile, sku, price as Number, currency, validFrom as Date {format: "dd.MM.yyyy"} }\`. A malformed number or date fails here, before anything is written. Validate the list is not empty.
 4. **Try (ALWAYS_BEGIN)** on the SQL Server config:
    - **Delete** earlier staging rows for the same file name (makes a re-delivery safe). Give it a **target variable**: a Database operation replaces the payload with its result, so without one the For Each would loop over the delete count instead of the price rows.

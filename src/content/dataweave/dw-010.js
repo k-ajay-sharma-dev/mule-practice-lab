@@ -11,8 +11,8 @@ A change-data-capture feed delivers price events out of order, with duplicates. 
 **Rules**
 - For each \`id\`, keep only the event with the latest \`updatedAt\`.
 - If that latest event is a \`DELETE\`, drop the product entirely.
-- Output \`id\`, \`price\`, \`updatedAt\`, sorted by \`id\`.
-- Timestamps may use **different time-zone offsets** — compare actual instants, not strings.
+- Output \`id\`, \`price\`, \`updatedAt\` (the original string), sorted by \`id\` as text.
+- Timestamps may use **different time-zone offsets**. Compare actual instants, not strings.
 `,
   inputs: [
     {

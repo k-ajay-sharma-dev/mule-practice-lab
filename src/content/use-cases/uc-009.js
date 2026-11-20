@@ -67,6 +67,7 @@ Requirements:
 - Data for "yesterday" (store local time, stores span 3 time zones) must be available in Snowflake by **06:00**.
 - The data team wants raw files kept in **Amazon S3** as well (for replay and other tools), partitioned by date.
 - If the job runs twice for the same day, the warehouse must **not double-count** sales.
+- If the menu API is down, the sales must still reach S3 and Snowflake on time. Use the last good copy of the store data and report the gap.
 
 **Describe your solution:**
 - How do you extract and move 1.5M rows efficiently in Mule?
@@ -95,9 +96,9 @@ Requirements:
 **Stage and load.**
 1. Write the files to **S3** with the Amazon S3 connector under a partition path such as \`pos/business_date=2026-11-02/part-0001.csv.gz\`. This is the raw, replayable copy the data team asked for.
 2. Load into Snowflake from that location with a bulk **COPY INTO** from an external stage pointing at the bucket. It is executed by the Snowflake connector (or the DB connector with the Snowflake JDBC driver). Snowflake bulk loading is far faster than row inserts from Mule.
-3. Master data (menus, stores) is small: fetch from the API and MERGE into dimension tables.
+3. Master data (menus, stores) is small: fetch from the API and MERGE into dimension tables. Keep the last good copy. If the API is down, the job does not fail: it uses that copy, still exports the sales and reports the gap.
 
-**Re-runs.** Make the load for a business date **replace** the previous one: load into a staging table, then in one transaction \`DELETE FROM sales WHERE business_date = :d\` and insert from staging — or \`MERGE\` on transaction ID. In S3, overwrite the same partition path. Running twice gives the same result.
+**Re-runs.** Make the load for a business date **replace** the previous one: load into a staging table, then in one transaction \`DELETE FROM sales WHERE business_date = :d\` and insert from staging, or \`MERGE\` on transaction ID. In S3, overwrite the same partition path. Running twice gives the same result.
 
 **Completeness checks.** Before loading, compute **control totals** at the source (row count, sum of net amount per store). After loading, run the same query in Snowflake and compare. Mismatch → fail the job and alert. Also alert if the job has not finished by 05:30, so someone can react before 06:00. Log run ID, business date, row counts and duration.
 `,

@@ -11,13 +11,13 @@ A target SaaS API accepts at most \`batchSize\` records per call. Before the Mul
 Input: \`{ "jobId", "batchSize", "records": [ { "id", "status", "amount" } ] }\`.
 
 **Rules**
-1. Records with \`status\` \`"DELETED"\` are not sent — remove them first.
+1. Records with \`status\` \`"DELETED"\` are not sent. Remove them first.
 2. Split the remaining records, **in input order**, into consecutive batches of \`batchSize\`; only the last batch may be smaller.
 3. Each batch is:
-   - \`batchId\` — \`jobId\`, a dash, and the 1-based batch number left-padded with zeros to 3 digits, e.g. \`"JOB7-001"\`
-   - \`size\` — number of records in the batch
-   - \`amountTotal\` — sum of the batch's \`amount\` values
-   - \`ids\` — the record ids, in order
+   - \`batchId\`: \`jobId\`, a hyphen, and the 1-based batch number left-padded with zeros to 3 digits, e.g. \`"JOB7-001"\`
+   - \`size\`: number of records in the batch
+   - \`amountTotal\`: sum of the batch's \`amount\` values
+   - \`ids\`: the record ids, in order
 
 Output: \`{ "jobId", "totalRecords" (after removing deleted ones), "batchCount", "batches": [...] }\`.
 `,
@@ -60,7 +60,7 @@ output application/json
 payload
 `,
   hints: [
-    '`import divideBy from dw::core::Arrays` — `arr divideBy n` returns an array of sub-arrays of at most `n` items.',
+    '`import divideBy from dw::core::Arrays`. Then `arr divideBy n` returns an array of sub-arrays of at most `n` items.',
     'The second lambda parameter of `map` is the 0-based index: `(batch, i) -> ...` and the batch number is `i + 1`.',
     '`leftPad((i + 1) as String, 3, "0")` from `dw::core::Strings` builds the `001` suffix.',
   ],
@@ -85,7 +85,7 @@ var batches = live divideBy payload.batchSize
   explanation: `
 Filtering **before** chunking is essential: chunking first and filtering inside each batch would produce uneven batches (the first one here would only hold 2 records).
 
-\`divideBy\` keeps the order and puts the remainder in the last chunk. Every chunk is non-empty, so \`batch.amount\` and \`batch.id\` are never \`null\` here — but on an empty input \`divideBy\` returns \`[]\` and there are simply no batches.
+\`divideBy\` keeps the order and puts the remainder in the last chunk. Every chunk is non-empty, so \`batch.amount\` and \`batch.id\` are never \`null\` here. On an empty input \`divideBy\` returns \`[]\` and there are no batches.
 
 In a real Mule app you could also let a \`For Each\` scope with \`batchSize\` do the chunking; doing it in DataWeave lets you attach metadata such as the batch id and totals.
 `,
@@ -120,7 +120,7 @@ In a real Mule app you could also let a \`For Each\` scope with \`batchSize\` do
     },
     {
       q: 'How would you write chunking without the Arrays module?',
-      a: 'Group by the integer quotient of the index: `(live map (r, i) -> { b: floor(i / n), r: r }) groupBy $.b` then `pluck` the groups — or use `live[i to i + n - 1]` slices in a map over the start indexes.',
+      a: 'Group by the integer quotient of the index: `(live map (r, i) -> { b: floor(i / n), r: r }) groupBy $.b` then `pluck` the groups. Or use `live[i to i + n - 1]` slices in a map over the start indexes.',
     },
   ],
 }

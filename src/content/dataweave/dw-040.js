@@ -6,7 +6,7 @@ export default {
   tags: ['selectors', 'descendants', 'filter-selector', 'minus-operator', 'xml'],
   estMinutes: 25,
   description: `
-A legacy identity system exports user accounts as XML. Before the record is published to the customer-360 Experience API, it must be reduced to a safe JSON summary — and the reviewer wants it done with **selectors**, not long chains of \`map\` and \`filter\`.
+A legacy identity system exports user accounts as XML. Before the record is published to the customer-360 Experience API, it must be reduced to a safe JSON summary, and the reviewer wants it done with **selectors**, not long chains of \`map\` and \`filter\`.
 
 Return:
 
@@ -71,7 +71,7 @@ payload
   hints: [
     'Selector cheat-sheet: `.@id` one attribute, `.@` all attributes, `.*role` every repeated `role`, `..*email` every `email` at any depth, `[?(cond)]` keep matching items.',
     'Remove one key with `obj - "key"` and several with `obj -- ["a", "b"]`. `type` is a reserved word, so select it as `.@"type"`.',
-    'A multi-value selector on a missing element returns `null`, not `[]` — add `default []`. Sorting is `orderBy $`.',
+    'A multi-value selector on a missing element returns `null`, not `[]`, so add `default []`. Sorting is `orderBy $`.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -93,9 +93,9 @@ var acc = payload.account
 |---|---|
 | \`.@id\` / \`.@\` | one attribute / all attributes as an object |
 | \`.*role\` | **all** \`role\` children (\`.role\` would return only the first) |
-| \`[?($.@active == "true")]\` | filter selector — keep items where the condition holds |
+| \`[?($.@active == "true")]\` | filter selector: keep items where the condition holds |
 | \`.*contact.@"type"\` | a selector applied to an array is applied to each item |
-| \`..*email\` | descendant selector — every \`email\` at any depth (\`..email\` takes only the first per parent) |
+| \`..*email\` | descendant selector: every \`email\` at any depth (\`..email\` takes only the first per parent) |
 
 **Removing keys.** \`-\` removes one key, \`--\` removes a list of keys; both work on attribute objects too (\`acc.@ - "internalRef"\`). This is cleaner and safer than rebuilding the object field by field, because new harmless fields keep flowing through.
 
@@ -103,7 +103,7 @@ var acc = payload.account
 - \`.role\` vs \`.*role\`: the single-value selector silently drops repeated elements.
 - No \`roles\` element → \`.*role\` is \`null\`, and so is everything chained after it. \`default []\` restores the documented empty list.
 - Attribute values are strings: compare with \`"true"\`, not \`true\`.
-- \`type\` is a keyword in DataWeave, so \`.@type\` does not parse — quote it.
+- \`type\` is a reserved word in DataWeave, so quote it in the selector (\`.@"type"\`). Without the quotes the script does not compile.
 `,
   tests: [
     {
@@ -142,7 +142,7 @@ var acc = payload.account
     },
     {
       q: 'How would you remove `passwordHash` wherever it appears, at any depth?',
-      a: 'Selectors cannot delete, so write a small recursive function that `mapObject`s objects, skips the key and recurses into values — or, for one known location, use the `update` operator. The descendant selector only reads.',
+      a: 'Selectors cannot delete, so write a small recursive function that `mapObject`s objects, skips the key and recurses into values. For one known location, use the `update` operator. The descendant selector only reads.',
     },
     {
       q: 'Why `..*email` instead of `..email`?',

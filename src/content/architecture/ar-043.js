@@ -21,10 +21,10 @@ export default {
       type: 'single',
       prompt: 'The print vendor receives full member records but needs only name and address. What is the fix?',
       options: [
-        'Encrypt the file with PGP',
-        'Change the mapping so the vendor feed contains only name and address (data minimisation)',
-        'Ask the vendor to delete unused fields',
-        'Tokenize the whole record',
+        'Encrypt the file with PGP before upload',
+        'Change the mapping so the feed holds only name and address',
+        'Ask the vendor to delete the fields it does not need',
+        'Tokenize every field in the record',
       ],
       answer: 1,
       explain: 'Encryption protects the transfer, but the vendor would still hold data it does not need. Minimisation removes the risk at the source.',
@@ -34,12 +34,12 @@ export default {
       prompt: 'Analytics must join member records across systems without ever seeing real national IDs. Which technique fits?',
       options: [
         'Masking the national ID to its last 4 digits',
-        'Deterministic tokenization — the same national ID always produces the same token',
-        'Base64-encoding the national ID',
-        'Removing the national ID entirely',
+        'Deterministic tokenization of the national ID',
+        'Field-level encryption with a random IV per record',
+        'Removing the national ID from the analytics feed',
       ],
       answer: 1,
-      explain: 'Deterministic tokens keep joins working while the real value stays in the vault. Masked values collide and Base64 is just encoding, not protection.',
+      explain: 'Deterministic tokens keep joins working while the real value stays in the vault. Masked values collide, encryption with a random IV gives a different value each time, and removing the ID makes joins impossible.',
     },
     {
       type: 'multi',
@@ -60,10 +60,10 @@ export default {
       type: 'single',
       prompt: 'How do you support a member erasure request across all the systems that received the data?',
       options: [
-        'Delete the member from the Policy database only',
-        'Keep a data inventory/lineage of which systems hold which fields and run an erasure workflow (event or orchestrated calls) with confirmation tracking',
-        'Wait for data to expire from each system',
-        'Ask each system owner by email',
+        'Delete the member from the Policy database, the system of record',
+        'Keep a data inventory and run an erasure workflow with tracked confirmations',
+        'Publish a MemberDeleted event and assume every consumer handles it',
+        'Let the data expire under each system’s retention rules',
       ],
       answer: 1,
       explain: 'You can only erase what you know about. Tokenization helps further: deleting the token mapping makes downstream tokens meaningless.',
@@ -72,13 +72,13 @@ export default {
       type: 'single',
       prompt: 'What should a MemberChanged event carry?',
       options: [
-        'The full member record including national ID and diagnosis codes',
-        'Ids/tokens and the changed field names; consumers needing details call an authorised API',
-        'Nothing but a timestamp',
+        'The full member record, so consumers need no extra calls',
+        'Ids or tokens and the names of the changed fields',
+        'The full record with the sensitive fields masked',
         'The full record, encrypted with one shared key for all consumers',
       ],
       answer: 1,
-      explain: 'Broadcasting full records spreads PII to every subscriber. Thin events plus authorised lookups keep minimisation enforceable.',
+      explain: 'Broadcasting full records spreads PII to every subscriber, and masked fields are useless to consumers that need the value. Thin events plus authorised lookups keep minimisation enforceable.',
     },
   ],
   description: `
@@ -103,13 +103,13 @@ Regulation requires data minimisation, protection in transit and at rest, and th
 
 **Questions:**
 - Classify the data and define handling rules per class.
-- Where do you apply encryption, tokenization and masking in this landscape — and what is the difference between them?
+- Where do you apply encryption, tokenization and masking in this landscape? What is the difference between them?
 - How do you fix logging and test-data practices?
 - How do you support erasure requests across systems that received the data?
 `,
   answerTemplate: `## Data classification and rules
 
-## Encryption, tokenization, masking — where and why
+## Encryption, tokenization, masking: where and why
 
 ## Logging and non-production data
 
@@ -137,12 +137,12 @@ Document the class of each field in RAML/OAS and event schemas (e.g. annotations
 
 **Encryption.**
 - **In transit:** TLS on every hop, including internal System APIs (fix plain HTTP); mTLS between apps where feasible; SFTP/PGP to the print vendor.
-- **At rest:** encrypted databases and buckets; broker messages encrypted at rest (managed services typically provide this — verify the configuration); secure properties for credentials.
+- **At rest:** encrypted databases and buckets; broker messages encrypted at rest (managed services typically provide this: verify the configuration); secure properties for credentials.
 - **Field-level:** encrypt national ID/diagnosis inside the payload (e.g. Mule **Crypto module** with JCE/PGP, keys from a KMS/vault) so intermediaries, queues and logs only see ciphertext.
 
 **Tokenization.**
 - Replace national ID and IBAN with tokens at the earliest point (System API or Process API). Analytics, CRM and events carry the token; joins still work because the same input produces the same token (deterministic tokenization) where needed.
-- Only a small number of authorised services call a detokenization endpoint. Options: an enterprise tokenization/vault service, or Anypoint Security tokenization where available (it runs on Runtime Fabric) — choose what fits your deployment model.
+- Only a small number of authorised services call a detokenization endpoint. Options: an enterprise tokenization/vault service, or Anypoint Security tokenization where available (it runs on Runtime Fabric): choose what fits your deployment model.
 
 **Masking.**
 - For UI and logs: \`NL**********1234\`. Irreversible.
@@ -155,10 +155,10 @@ Document the class of each field in RAML/OAS and event schemas (e.g. annotations
 
 **Non-production data.** Ban production copies; provide synthetic datasets and a masking pipeline for exceptional cases; access to prod data for debugging only via audited break-glass procedures.
 
-**Erasure.** Maintain a **data inventory/lineage** (which systems receive which fields — the API/event catalogue helps). Implement an erasure workflow: a MemberErasureRequested event or orchestrated API calls to each holding system, with confirmation tracking. Tokenization helps: deleting the token mapping makes downstream tokens meaningless (crypto-shredding with per-subject keys is a similar idea).
+**Erasure.** Maintain a **data inventory/lineage** (which systems receive which fields: the API/event catalogue helps). Implement an erasure workflow: a MemberErasureRequested event or orchestrated API calls to each holding system, with confirmation tracking. Tokenization helps: deleting the token mapping makes downstream tokens meaningless (crypto-shredding with per-subject keys is a similar idea).
 `,
   followUps: [
-    { q: 'Encryption vs tokenization — when do you choose which?', a: 'Encryption protects data that the receiver needs to read (with the key); tokenization removes the real value from systems that only need a reference or join key, which also reduces compliance scope for those systems.' },
+    { q: 'Encryption vs tokenization: when do you choose which?', a: 'Encryption protects data that the receiver needs to read (with the key); tokenization removes the real value from systems that only need a reference or join key, which also reduces compliance scope for those systems.' },
     { q: 'Is HTTPS enough inside a private VPC?', a: 'Network isolation helps but is not sufficient under a zero-trust view: an attacker inside the network or a misconfigured route could read traffic, so encrypt in transit everywhere and authenticate services.' },
   ],
 }

@@ -122,6 +122,13 @@ The first version split the list into two lists with DataWeave filters and ran t
 - One step writes every failed record to \`stg_reject\`, with its type.
 - When the job is done, publish \`{ messageId, status, loaded, failed }\` on \`pdh.masterdata.ack\`, with status \`COMPLETED\`, \`PARTIAL\` or \`FAILED\`.
 
+**Facts**
+- Download the blob named in the notice from \`pdh-inbound\`. It holds a JSON array of records.
+- \`message_id\` is the notice's \`messageId\`. A GTIN is valid when it is exactly 13 digits.
+- Let the job go on after failed records: set max failed records to -1.
+- Raise \`APP:UNKNOWN_RECORD_TYPE\` for a type this hub does not take.
+- \`loaded\` and \`failed\` are the job's successful and failed record counts.
+
 **Design the flow.**
 `,
   answerTemplate: `## One job, a step per type

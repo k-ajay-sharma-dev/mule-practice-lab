@@ -30,7 +30,7 @@ export default {
         cli: ['internal-app', 'Customer channel / caller'],
         prc: ['process-api', 'prc-customer-api', { replicas: 2, vCores: '0.2' }],
         db: ['database', 'PostgreSQL: customer + outbox (one local transaction)'],
-        relay: ['batch-job', 'Outbox relay (Scheduler, every 1–2 s)'],
+        relay: ['batch-job', 'Outbox relay (Scheduler, every 1 to 2 s)'],
         ex: ['topic', 'CustomerUpdated exchange (Anypoint MQ)'],
         q: ['queue', 'loyalty-customer-updated', { maxRedelivery: 5 }],
         dlq: ['dlq', 'loyalty-customer-updated-dlq'],
@@ -89,6 +89,7 @@ Observed issues in production:
 Numbers to design for:
 - Customer updates peak at **80 a second**. A database write takes about 15 ms. The broker has had outages of **five minutes**, and updates must keep working through one.
 - The relay publishes up to **20 events a second**. The loyalty platform answers in about 300 ms. It has been down for a few minutes at a time, and a bad release once made it reject every update for **ten minutes**. No event may be lost, even if the broker restarts.
+- A queued message that fails is redelivered about once a minute. Events that keep failing for longer than a short outage must be parked in a dead-letter queue for replay, not retried forever.
 
 **Questions:**
 - What is the "dual write" problem here?
@@ -127,15 +128,15 @@ outbox(id UUID, aggregate_type, aggregate_id, event_type, payload JSON,
 2. A **relay** reads unpublished rows in order, publishes to MQ, marks \`published_at\`.
 
 **Mule 4 implementation.**
-- API flow: a **Try scope** with \`transactionalAction="ALWAYS_BEGIN"\` containing both Database operations (update + insert) on the same DB config → commit or roll back together. Return 200 after commit — no broker dependency in the request path.
-- Relay flow: **Scheduler** (e.g. every 1–2 s) → \`SELECT ... WHERE published_at IS NULL ORDER BY sequence LIMIT 100\` (with row locking such as \`FOR UPDATE SKIP LOCKED\` if multiple replicas run the relay, or run it on one replica) → for each row publish to Anypoint MQ with \`eventId\` as message ID/property → update \`published_at\`.
-- Alternative relay: a **CDC** tool reads the outbox table from the DB log and streams rows to the broker — lower latency, no polling, more infrastructure.
+- API flow: a **Try scope** with \`transactionalAction="ALWAYS_BEGIN"\` containing both Database operations (update + insert) on the same DB config → commit or roll back together. Return 200 after commit: no broker dependency in the request path.
+- Relay flow: **Scheduler** (e.g. every 1 to 2 s) → \`SELECT ... WHERE published_at IS NULL ORDER BY sequence LIMIT 100\` (with row locking such as \`FOR UPDATE SKIP LOCKED\` if multiple replicas run the relay, or run it on one replica) → for each row publish to Anypoint MQ with \`eventId\` as message ID/property → update \`published_at\`.
+- Alternative relay: a **CDC** tool reads the outbox table from the DB log and streams rows to the broker: lower latency, no polling, more infrastructure.
 
 **Delivery guarantees.** **At-least-once.** If the relay publishes and crashes before updating \`published_at\`, the row is published again. Consumers must be **idempotent**: store processed \`eventId\`s (DB table or Object Store with TTL) or make the operation naturally idempotent (set loyalty tier rather than add points). The loyalty double-count was a consumer idempotency bug, not only a producer bug.
 
 **Ordering.** Publish rows in \`sequence\` order; for strict per-customer order use a **FIFO** queue or partition key = customerId, and have consumers ignore events with a version lower than what they have already applied.
 
-**Cleanup and monitoring.** Purge or archive published rows older than N days (scheduled job). Metrics: count of unpublished rows, age of the oldest unpublished row — alert if it exceeds e.g. 5 minutes (relay stuck or broker down).
+**Cleanup and monitoring.** Purge or archive published rows older than N days (scheduled job). Metrics: count of unpublished rows, age of the oldest unpublished row: alert if it exceeds e.g. 5 minutes (relay stuck or broker down).
 
 **Settings that matter.**
 - \`prc-customer-api\` runs **2 replicas of 0.2 vCore**: 80 updates a second use under half of it. Because the request only writes to its own database, a broker outage does not touch it. A Process API that also published to the broker would fail every update while the broker is down.

@@ -28,11 +28,11 @@ export const SET_10 = [
       'Account locked userId=M-20417 failedAttempts=5 lockedUntil=2026-11-18T10:45:00Z correlationId=7f3c2a',
       'Login failed for ann.lee@example.com with password Winter2026',
       'User locked out!!!',
-      'Lockout',
+      'Account locked userId=M-20417 failedAttempts=5 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'The member ID, the count and the end of the lock are what support needs. The second line writes the email and the password typed, which must never reach a log.',
+      'The member ID, the count and the end of the lock are what support needs. The last line has no lockedUntil, so support cannot tell the member when to try again. The second line writes the email and the password typed, which must never reach a log.',
   },
   {
     id: 'log-10003',
@@ -81,7 +81,7 @@ export const SET_10 = [
     available: ['vars.sourceIp', 'vars.failures', 'vars.accounts', 'vars.windowSeconds', 'payload.username', 'payload.password'],
     level: ['WARN', 'ERROR'],
     checks: [
-      says(/repeated|many|suspicious|possible|blocked/i, 'Repeated failed logins from one source'),
+      says(/repeated|many|suspicious|possible|blocked|failed logins|brute|attack/i, 'Repeated failed logins from one source'),
       labelled('sourceIp'),
       labelled('failures'),
       labelled('accounts'),
@@ -112,14 +112,14 @@ export const SET_10 = [
     kind: 'choice',
     situation: 'Which line best records a Fernhill price change?',
     options: [
-      'Price updated',
+      'Price changed sku=40012 storeId=S-118 newPrice=2.19 effectiveFrom=2026-11-19 correlationId=7f3c2a',
       'Price changed sku=40012 storeId=S-118 oldPrice=2.49 newPrice=2.19 effectiveFrom=2026-11-19 changeId=PC-7781 approvedBy=U-552 correlationId=7f3c2a',
       'New price file: <the whole file>',
       'Price changed by maria.santos@fernhill.example',
     ],
     answer: 1,
     explain:
-      'An audit line says what changed, from what to what, from when, and who approved it by user ID. The whole file is too big, and the email is personal data.',
+      'An audit line says what changed, from what to what, from when, and who approved it by user ID. The first line has no old price and no change ID, so nobody can prove what changed or who approved it. The whole file is too big, and the email is personal data.',
   },
   {
     id: 'log-10008',
@@ -202,17 +202,17 @@ export const SET_10 = [
     situation: 'Which line should Driftwood log when the flag changes?',
     options: [
       'Config: {"newFareEngine":true,"db.password":"…","fareApi.secret":"…"}',
-      'Flag changed',
+      'Feature flag changed flag=newFareEngine newValue=true',
       'Feature flag changed flag=newFareEngine oldValue=false newValue=true changedBy=U-204 source=config-service',
       'New engine on!!!',
     ],
     answer: 2,
-    explain: 'Which flag, from what, to what, and who. The first line dumps the whole configuration with its secrets.',
+    explain: 'Which flag, from what, to what, and who. The second line leaves out the old value and who changed it. The first line dumps the whole configuration with its secrets.',
   },
   {
     id: 'log-10013',
     kind: 'multi',
-    situation: 'A developer logs the whole configuration at start-up "to help support". What is wrong with that?',
+    situation: 'A developer logs the whole configuration at start-up "to help support". Which statements about this are true?',
     code: '<logger level="INFO" message="#[write(p(\'app.config\'), \'application/json\')]" />',
     options: [
       'The configuration often holds passwords and client secrets',
@@ -286,12 +286,12 @@ export const SET_10 = [
     situation: 'Which line best warns that the rates are getting old?',
     options: [
       'Exchange rates stale ageMinutes=185 limitMinutes=240 lastLoaded=2026-11-18T07:00:00Z provider=fx-feed next=retry in 10 min',
-      'Rates old',
+      'Exchange rates stale ageMinutes=185 lastLoaded=2026-11-18T07:00:00Z provider=fx-feed',
       'FX feed broken, please check',
       'Rates: {"EUR":1.0842,"GBP":0.8571, … 160 more}',
     ],
     answer: 0,
-    explain: 'How old, against what limit, since when, and what happens next. The team can see at a glance how much time is left.',
+    explain: 'How old, against what limit, since when, and what happens next. The team can see at a glance how much time is left. The second line has no limit and no next step, so the reader cannot tell how urgent it is.',
   },
   {
     id: 'log-10018',
@@ -368,13 +368,13 @@ export const SET_10 = [
     kind: 'choice',
     situation: 'Which line should the app log when it starts to stop?',
     options: [
-      'Bye',
+      'Shutdown started reason=redeploy version=2.14.0',
       'Shutdown started reason=redeploy inFlight=12 graceMs=30000 version=2.14.0',
       'Stopping… please wait',
       'Shutdown started, messages: <all 12 message bodies>',
     ],
     answer: 1,
-    explain: 'Why it is stopping, how much work is in progress, how long it will wait, and which version. The bodies add size and risk.',
+    explain: 'Why it is stopping, how much work is in progress, how long it will wait, and which version. The first line has no in-progress count, so nobody can later check that all 12 messages finished. The bodies add size and risk.',
   },
   {
     id: 'log-10023',

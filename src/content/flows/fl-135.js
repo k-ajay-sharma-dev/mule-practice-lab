@@ -177,6 +177,11 @@ The queue is a **standard queue**, not FIFO, and the consumer runs on two replic
 - Two replicas may handle the first two events of a new van at the same moment. The table must still end with the newer one, and no event may fail for it.
 - If the database cannot be reached, the message must go back to the queue, not be lost.
 
+**Facts**
+- Store \`seq\` in \`event_seq\` and \`odometerKm\` in \`odometer_km\`.
+- Use **manual** acknowledgement on the subscriber: Ack each message once its database work is done, and Nack it when the database cannot be reached (**DB:CONNECTIVITY**).
+- When PostgreSQL refuses a second row for the same \`vehicle_id\`, the Database Insert raises **DB:QUERY_EXECUTION** with a description that contains \`duplicate key value violates unique constraint\`.
+
 **Design the flow.** Explain why the check and the write must be one statement.
 `,
   answerTemplate: `## Reading the queue

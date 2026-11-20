@@ -231,6 +231,12 @@ An e-commerce site posts orders to \`POST /orders\` (peak **150 orders/s** on sa
 - Ops needs to **inspect, fix and replay** failed orders without redeploying, and replays must not create duplicate SAP orders.
 - Orders for the same customer should not overtake each other where possible, but throughput matters more.
 
+**Names to use**
+- The website gets **202** with \`{ trackingId }\` (the order's \`orderId\`). If the order cannot be queued, it gets **503**.
+- Main Anypoint MQ queue: \`orders.create\`. Parking queue for orders that can never succeed: \`orders.parked\`.
+- SAP System API: \`GET /sap/orders?externalRef={orderId}\` finds an existing order, \`POST /sap/orders\` creates one (body: the order). SAP answers **400** for an invalid material and **503** during maintenance.
+- WMS: \`POST /wms/confirmations\`.
+
 **Design the solution:**
 - The synchronous front door and what it returns.
 - Queue topology (main queue, DLQ) and settings that matter.
@@ -253,31 +259,31 @@ An e-commerce site posts orders to \`POST /orders\` (peak **150 orders/s** on sa
 ## Why not VM queues alone
 `,
   keyPoints: [
-    'Front door validates, publishes to Anypoint MQ and returns 202 Accepted with a tracking ID — no SAP call in the request path.',
+    'Front door validates, publishes to Anypoint MQ and returns 202 Accepted with a tracking ID. No SAP call in the request path.',
     'Main queue has a DLQ assigned with a max delivery attempts value; messages exceeding it move to the DLQ automatically.',
     'Subscriber uses MANUAL acknowledgement: Ack after SAP + WMS succeed, Nack (redeliver) on transient errors; permanent errors are routed to an error/parking queue and acked so they stop redelivering.',
-    'Consumer concurrency (and prefetch) sized to SAP capacity (~40 req/s), not to the 150/s peak — the queue absorbs the backlog, including the 20-minute maintenance window.',
+    'Consumer concurrency (and prefetch) sized to SAP capacity (~40 req/s), not to the 150/s peak. The queue absorbs the backlog, including the 20-minute maintenance window.',
     'Reprocessing flow reads the DLQ (on demand or scheduled), lets ops fix/replay, republishes to the main queue with a replay count, and acks the DLQ message.',
     'Idempotency key (order ID) used for SAP (check-then-create or external reference) and/or an Idempotent Message Validator so redeliveries and replays do not duplicate orders; VM queues alone lack a broker-side DLQ and ops replay tooling.',
   ],
   solution: `
 **Front door (Experience/Process API)**
-HTTP Listener → schema validation (APIkit) → enrich with \`orderId\` / \`correlationId\` → **Anypoint MQ Publish** to \`orders.create\` (message ID = orderId, correlation ID propagated, customer ID as a property) → **202 Accepted** \`{ trackingId }\`. If the publish fails, return 503 so the website can retry — an order is only "accepted" once it is on the queue.
+HTTP Listener → schema validation (APIkit) → enrich with \`orderId\` / \`correlationId\` → **Anypoint MQ Publish** to \`orders.create\` (message ID = orderId, correlation ID propagated, customer ID as a property) → **202 Accepted** \`{ trackingId }\`. If the publish fails, return 503 so the website can retry. An order is only "accepted" once it is on the queue.
 
 **Queue topology**
-- \`orders.create\` — standard queue (FIFO queues preserve order but have much lower throughput; the requirement favours throughput). Assign DLQ \`orders.create.dlq\` with a **max deliveries** value (e.g. 10).
-- \`orders.parked\` — explicit parking queue for permanent/business errors.
+- \`orders.create\`: standard queue (FIFO queues preserve order but have much lower throughput; the requirement favours throughput). Assign DLQ \`orders.create.dlq\` with a **max deliveries** value (e.g. 10).
+- \`orders.parked\`: explicit parking queue for permanent/business errors.
 - Set message TTL long enough to survive the maintenance window plus an outage buffer.
 
 **Consumer flow**
 - **Anypoint MQ Subscriber** on \`orders.create\`, \`acknowledgementMode="MANUAL"\`, an acknowledgement timeout longer than the worst-case processing time, and concurrency sized so total throughput ≈ SAP capacity (e.g. 2 replicas × ~10 concurrent × ~0.5 s ≈ 40/s).
 - Process: SAP create (with orderId as external reference) → WMS confirm → **Ack** (\`ackToken\` from attributes).
 - Keep the order in a variable first. Each HTTP Request replaces the payload with its answer, so after the SAP lookup the payload is the lookup result, not the order. Set the payload back from the variable before the create, and park the order from the variable too.
-- During the SAP maintenance window the backlog simply grows on the queue; optionally use the subscriber's circuit-breaker capability or a pause to avoid burning deliveries.
+- During the SAP maintenance window the backlog grows on the queue; optionally use the subscriber's circuit-breaker capability or a pause to avoid burning deliveries.
 
 **Transient vs permanent errors**
 - Transient (\`HTTP:TIMEOUT\`, \`HTTP:SERVICE_UNAVAILABLE\`, \`HTTP:CONNECTIVITY\`): **Nack** → redelivered (redelivery count increases). After the max, the broker moves it to the DLQ.
-- Permanent (\`HTTP:BAD_REQUEST\`, custom \`APP:INVALID_MATERIAL\`): publish to \`orders.parked\` with the error details, then **Ack** — no point retrying, and it must not block others.
+- Permanent (\`HTTP:BAD_REQUEST\`, custom \`APP:INVALID_MATERIAL\`): publish to \`orders.parked\` with the error details, then **Ack**. There is no point retrying, and it must not block others.
 
 **DLQ reprocessing**
 - A separate flow (HTTP-triggered "replay" endpoint for ops, plus an optional Scheduler) uses **Consume** on the DLQ (or parked queue). It optionally filters by orderId and lets ops supply a corrected body. Then it calls **Publish** back to \`orders.create\` with a \`replayCount\` property and acks the DLQ message.
@@ -287,7 +293,7 @@ HTTP Listener → schema validation (APIkit) → enrich with \`orderId\` / \`cor
 **Idempotency**
 Redelivery happens (Nack, ack timeout, replica crash after SAP succeeded but before Ack). So:
 - Pass \`orderId\` as SAP's external/customer reference and check-before-create, or rely on SAP rejecting duplicates on that reference.
-- Optionally an Idempotent Message Validator on \`orderId\` with a persistent Object Store — but remove the key on failure so retries still go through.
+- Optionally an Idempotent Message Validator on \`orderId\` with a persistent Object Store, but remove the key on failure so retries still go through.
 
 **Ordering:** a standard queue with concurrent consumers does not guarantee per-customer order. If needed, version/timestamp updates per customer in SAP and reject stale ones, rather than giving up throughput with FIFO.
 

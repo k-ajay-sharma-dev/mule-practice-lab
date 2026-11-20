@@ -182,14 +182,15 @@ export default {
     ]),
   ),
   description: `
-A **Quote API** receives an order with up to **300 lines**. It must return the quote with the price on every line.
+A **Quote API** (\`POST /quotes\`) receives an order with up to **300 lines**. The body has \`quoteId\` and \`lines\`, and each line has \`lineNo\`, \`sku\` and \`quantity\`. It must return the quote as JSON: \`lines\` (each line with its \`price\`) and \`total\` (the sum of price times quantity).
 
 **Facts**
-- For each line, the API calls the **Pricing API**: \`GET /prices/{sku}\`.
+- For each line, the API calls the **Pricing API**: \`GET /prices/{sku}\`. It returns \`{ sku, price, currency }\`.
 - Each call takes ~400 ms.
 - The Pricing API allows 20 concurrent requests.
 - The lines must stay **in the original line order**.
-- Target response time: **under 10 seconds**.
+- Target response time: **under 10 seconds**. One hung Pricing call must not hold the whole quote open.
+- If one Pricing call fails, still return the quote: that line gets \`price: null\` and the total covers the priced lines.
 
 **What is wrong now**
 
@@ -212,20 +213,20 @@ The current implementation uses a **For Each** and sets \`vars.total\` inside th
     'For Each is sequential: 300 × 400 ms ≈ 120 s, far over the 10 s target.',
     'Parallel For Each with maxConcurrency ≈ 20 (respecting the Pricing API limit): ~15 rounds × 400 ms ≈ 6 s.',
     'For Each restores the original payload after the loop; results must be collected in a variable. Parallel For Each outputs a collection of the route results in input order.',
-    'Variables set inside Parallel For Each are not visible after it — compute the total afterwards with DataWeave over the collected results.',
+    'Variables set inside Parallel For Each are not visible after it. Compute the total afterwards with DataWeave over the collected results.',
     'Parallel For Each aggregates errors into MULE:COMPOSITE_ROUTING after all routes finish; For Each stops at the first error unless the body has a Try/On Error Continue.',
   ],
   solution: `
 **Choice:** **Parallel For Each** with \`maxConcurrency="20"\` (the Pricing API's limit) and a \`timeout\`. The \`timeout\` applies to each route, not to the whole scope, so size it for one Pricing call.
 - For Each: 300 × 0.4 s ≈ **120 s**.
-- Parallel For Each: 300 / 20 = 15 waves × 0.4 s ≈ **6 s** (+ overhead) — within 10 s.
+- Parallel For Each: 300 / 20 = 15 waves × 0.4 s ≈ **6 s** (+ overhead), within 10 s.
 Parallel For Each holds all results in memory, which is fine for 300 small price objects.
 
 **Flow**
 1. HTTP Listener → \`collection="#[payload.lines]"\` on Parallel For Each.
 2. Inside: HTTP Request \`GET /prices/{sku}\` with \`uriParams\` from \`payload.sku\`, then a Transform that merges the line and price.
 3. After the scope, the payload is an **array of messages in input order**; map it: \`payload map $.payload\`.
-4. Total in DataWeave afterwards: \`sum(lines map ($.price * $.quantity))\` — not via \`vars.total\` inside the loop, because variable changes inside Parallel For Each routes are not propagated out.
+4. Total in DataWeave afterwards: \`sum(lines map ($.price * $.quantity))\`, not via \`vars.total\` inside the loop, because variable changes inside Parallel For Each routes are not propagated out.
 
 (For Each would need \`vars.priced\` appended on each iteration, since For Each always restores the original payload when it finishes; variables set inside it *are* visible afterwards.)
 

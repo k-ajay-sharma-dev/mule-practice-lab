@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: 'Why did the 12,500 order skip approval while the 900 order did not?',
         options: [
-          'CSV values are text, so the Choice compares "12500" with "5000" as text, and "1" sorts before "5"',
-          'The Choice router ignores amounts above 10,000',
-          'The ERP changed the amounts after the Choice',
-          'DataWeave rounds large numbers down to zero',
+          'The amounts are text, so "12500" is compared with "5000" letter by letter',
+          'The CSV reader drops the last digits of values longer than four characters',
+          'The Choice router sends a row to its default route when the amount overflows',
+          'The CSV reader reads the amount column as a Number but loses its scale',
         ],
         answer: 0,
         explain: 'The CSV reader gives every value as a String. Comparing Strings goes character by character, so "12500" is below "5000" and "900" is above it.',
@@ -30,13 +30,13 @@ export default {
         type: 'single',
         prompt: 'Which condition compares the amounts correctly?',
         options: [
-          'payload.amount as Number > 5000',
-          'payload.amount > "5000"',
-          'sizeOf(payload.amount) > 4',
-          'payload.amount ++ "" > 5000',
+          '`payload.amount as Number > 5000`',
+          '`payload.amount > "5000"`',
+          '`payload.amount as String > "5000"`',
+          '`(payload.amount as Number) as String > "5000"`',
         ],
         answer: 0,
-        explain: 'Coerce the value to a Number first, then compare numbers. Comparing to "5000" still compares text, and the length of a string is not its value.',
+        explain: 'Coerce the value to a Number first, then compare numbers. Every other option still compares two Strings, so the order is by character, not by value.',
       },
       {
         type: 'multi',
@@ -45,19 +45,19 @@ export default {
           'List the orders that went to auto approval since the release and check their amounts',
           'Hold or review the large ones that skipped approval',
           'Fix the condition and add tests with amounts of different lengths',
-          'Turn off approvals until the end of the month',
+          'Send every order to approval until the fix ships, and tell managers why',
         ],
         answer: [0, 1, 2],
-        explain: 'Find the orders that went through wrongly, review them, and fix the rule. Turning approvals off makes the problem worse.',
+        explain: 'Find the orders that went through wrongly, review them, and fix the rule. Sending every order to approval needs a code change of its own and floods managers, so fixing the condition is the better use of that release.',
       },
       {
         type: 'single',
         prompt: 'Which test data would have caught this?',
         options: [
-          'Amounts of 900 and 12500, with the rule checked for each',
-          'Only amounts of 500 and 5000',
-          'One amount of 5000',
-          'A file with no rows',
+          'Amounts of 900 and 12500, with the route checked for each',
+          'Amounts of 4999 and 5001, with the route checked for each',
+          'Amounts of 6000 and 9000, with the route checked for each',
+          'Amounts of 1000 and 4000, with the route checked for each',
         ],
         answer: 0,
         explain: 'The bug shows when the numbers have different lengths. Values with the same number of digits sort the same as text and as numbers.',
@@ -83,7 +83,7 @@ export default {
 
 ## Change / Context
 - Last week a developer replaced a Transform that built typed records with a direct read of the CSV.
-- The Choice router condition is \`#[payload.amount > "5000"]\`. The developer added the quotes after an error about comparing a String with a Number.
+- The Choice router condition is \`#[payload.amount > "5000"]\`. The developer added the quotes after a test file with a blank amount failed with \`Cannot coerce String to Number\`.
 - Tests used amounts of 500 and 5000 only.
 
 ## Logs
@@ -125,7 +125,7 @@ These lines are illustrative and were written for this scenario. Real log format
 - List orders routed to auto approval since the release, and hold or review those above 5,000.
 - Tell finance which orders need a late approval.
 
-**Root cause.** The removed Transform used to build typed records. Without it, the amount stayed text. The error about comparing a String with a Number was silenced by making both sides text, instead of fixing the type.
+**Root cause.** The removed Transform used to build typed records. Without it, the amount stayed text. The coercion error came from one blank amount. It was silenced by making both sides text, instead of fixing the type and rejecting bad rows.
 
 **Permanent fix.**
 - Coerce types once, right after reading the file: \`amount: $.amount as Number\`.
@@ -135,7 +135,7 @@ These lines are illustrative and were written for this scenario. Real log format
 **Prevention.** Add tests with amounts of different lengths, such as 900, 5000 and 12500. Review other flows that read numbers from CSV, JSON strings or query parameters.
 `,
   followUps: [
-    { q: 'Why did the original error appear?', a: 'DataWeave would not compare a String with a Number in that condition. The right fix was to coerce the String to a Number.' },
+    { q: 'Why did the original error appear?', a: 'With a String on one side and a Number on the other, DataWeave turns the String into a Number. A blank amount cannot be turned into one, so the condition failed. The right fix was to coerce the amounts early and reject rows that are not valid numbers.' },
     { q: 'What if an amount has a thousands separator?', a: 'Coerce with a format, or clean the value first. An amount such as "12,500" fails a plain as Number.' },
     { q: 'Where else do numbers arrive as text?', a: 'CSV files, query parameters, headers, XML text and some JSON from partners.' },
     { q: 'How would you make the type problem visible early?', a: 'Map the file into a typed record at the start and fail rows that do not convert, with a clear error per row.' },

@@ -65,7 +65,7 @@ export default {
     },
   },
   description: `
-A direct-to-consumer sportswear brand sells on a hosted store platform: **6,000 orders a day**, and up to **40 orders a second** in the first minutes of a product drop.
+A direct-to-consumer coffee equipment brand sells on a hosted store platform: **6,000 orders a day**, and up to **40 orders a second** in the first minutes of a product drop.
 
 Systems:
 - The platform sends an **orders/paid webhook** (HMAC signed) and expects a 200 within 5 seconds. It retries for 48 hours, and duplicates happen.
@@ -73,7 +73,9 @@ Systems:
 - The **WMS** in the brand's warehouse picks and ships. Orders that reach the WMS by **15:00** ship the same day.
 - When a parcel ships, the WMS publishes a **shipment confirmed** message with the carrier and tracking number.
 - The customer must see the tracking number in the store's order page, and the platform then emails the customer.
-- An ERP call takes about 500 ms, so 10 at a time is about **20 orders a second**. About 1 order in 100 has an item the ERP rejects every time.
+- An ERP call takes about 500 ms, so 10 at a time is about **20 orders a second**. No paid order may be lost.
+- About 1 order in 100 has an item the ERP rejects every time. Such an order must end in a dead-letter queue within about 30 minutes, so it can still be fixed before the 15:00 cut-off.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. Draw the integration from webhook to shipment.
@@ -119,7 +121,7 @@ WMS ~> [shipments] ~> prc-fulfilment-update -> sys-erp-orders (fulfilment, invoi
 3. The WMS order reference is the same ID; the WMS rejects a second order with that reference, and the API treats that reply as success.
 The ID is written to the store only after both calls succeed.
 
-**ERP and WMS.** The sales order comes first, because finance needs every shipped order in the ERP. Then the WMS order. If the WMS call fails, the message is not acknowledged and is redelivered. Step 2 then finds the existing sales order and moves on. After 5 deliveries the message goes to **orders-in-dlq** and an alert fires, since an order stuck before 15:00 misses same-day dispatch.
+**ERP and WMS.** The sales order comes first, because finance needs every shipped order in the ERP. Then the WMS order. If the WMS call fails, the message is not acknowledged and is redelivered. Step 2 then finds the existing sales order and moves on. Redelivery comes about once a minute, so a limit of 30 deliveries rides out short ERP or WMS hiccups, and an order the ERP always rejects reaches **orders-in-dlq** after about 30 minutes. An alert fires, since an order stuck before 15:00 misses same-day dispatch.
 
 **Shipments.** The WMS publishes to **shipments**. prc-fulfilment-update creates the item fulfilment and invoice in the ERP, and calls sys-store-platform to create the fulfilment with carrier and tracking number. The platform then emails the customer, so no separate email service is needed.
 

@@ -88,6 +88,7 @@ The **loyalty platform** is a SaaS product with a REST API (limit 200 calls per 
 - Each accrual carries a partner transaction ID, unique per partner.
 - Members must see API accruals within 15 minutes and file accruals within 48 hours of the file arriving.
 - In tests partners send 40 accruals a second while a card bank file is read at 500 rows a second, and the loyalty platform can be down for 30 minutes.
+- In the diagram, name the file job accrual-file-loader (2 vCores), the Process API prc-mileage-accrual-api (0.5 vCore), the System API sys-loyalty-platform-api (0.5 vCore) and the SAP job partner-billing-nightly. Draw the loyalty platform as SaaS with "loyalty" in its name.
 
 **Your task.** Design partner accrual intake and partner billing.
 `,
@@ -113,7 +114,7 @@ The **loyalty platform** is a SaaS product with a REST API (limit 200 calls per 
 - API: \`exp-partner-accrual-api\` behind Client ID Enforcement and an SLA tier per partner. It validates the request against the RAML type, writes the accrual to the \`accruals\` queue and returns \`202 Accepted\` with a receipt ID. Partner response time no longer depends on the loyalty platform.
 - Files: \`accrual-file-loader\` picks up files from SFTP, streams them with a batch job, and writes one message per row to the same queue. A 2 million row file becomes a steady flow instead of a bulk import that locks accounts.
 
-**Processing.** \`prc-mileage-accrual-api\` consumes the queue with a concurrency that keeps calls under 200 per second. For each accrual it checks the key \`partnerId|partnerTransactionId\` in Object Store (TTL 400 days). New ones are validated (member and surname) and posted through \`sys-loyalty-platform-api\`. Business rejections are written to a rejection report sent back to the partner. Technical failures are retried, then moved to the DLQ.
+**Processing.** \`prc-mileage-accrual-api\` consumes the queue with a concurrency that keeps calls under 200 per second. For each accrual it checks the key \`partnerId|partnerTransactionId\` in Object Store (TTL 400 days). New ones are validated (member and surname) and posted through \`sys-loyalty-platform-api\`. Business rejections are written to a rejection report sent back to the partner. While the platform is down, the queue keeps redelivering, with no delivery limit, so nothing is lost. An accrual that fails for another technical reason after retries is moved to the DLQ.
 
 **Billing.** \`partner-billing-nightly\` reads the day's awarded miles per partner from the loyalty platform and posts one summary document per partner to SAP through \`sys-sap-finance-api\`. Monthly invoices come from these summaries. SAP volume drops from 3 million to about 5,000 documents a month.
 

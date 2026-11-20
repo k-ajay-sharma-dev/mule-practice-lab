@@ -113,6 +113,13 @@ What happens in practice:
 - If the next number is missing, stop there and log a warning. Later files wait on the server.
 - A file whose number is already applied goes to \`replayed\` without being posted.
 
+**Facts**
+- List \`ALLOC_*.csv\`. In one Transform, take each file's \`seq\` from its name as a number, with its path, name and rows, and sort by \`seq\`.
+- In the loop, a **Choice** tests \`seq == lastSeq + 1\`. Keep \`lastSeq\` in a variable and move it on after each file applied.
+- \`allocations\` is the file's rows as read from the CSV.
+- The gap warning is a WARN log that names the waiting file, such as \`ALLOC_43.csv\`.
+- Files keep their names when moved. Do not catch a failed post: the run fails and \`last_seq\` stays.
+
 **Design the flow.**
 `,
   answerTemplate: `## Where the order comes from

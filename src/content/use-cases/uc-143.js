@@ -79,6 +79,8 @@ Residents sign in to the app with the council's identity service, which issues a
 - About **15 reports a second** on a bad morning after a frost, a few a second at night.
 - Photo storage answers in about 250 ms.
 - The works system answers in about 600 ms and takes up to **20 jobs a second**.
+- A resident must get an answer within **1 second**, day or night. No report may be lost.
+- A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No good report may reach the DLQ during the two-hour backup.
 
 **Questions:**
 - Draw the design.

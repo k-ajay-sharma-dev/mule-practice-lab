@@ -7,10 +7,10 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 06:00:01 INFO  [store-ftp] Connected host=ftp.store-net.example user=marrow-int", relevant: true, why: "Login works on the control channel." },
-      { text: "2026-11-18 06:00:31 ERROR [store-ftp] LIST timed out after 30000 ms", relevant: true, why: "The data channel never opens." },
-      { text: "2026-11-18 06:00:01 INFO  [store-ftp] passive=false", relevant: true, why: "Active mode makes the server connect back to Mule." },
       { text: "2026-11-17 22:00:00 INFO  [network] New firewall blocks inbound connections to integration subnet", relevant: true, why: "The firewall now blocks the server calling back." },
+      { text: "2026-11-18 06:00:01 INFO  [store-ftp] Connected host=ftp.store-net.example user=marrow-int", relevant: true, why: "Login works on the control channel." },
+      { text: "2026-11-18 06:00:01 INFO  [store-ftp] passive=false", relevant: true, why: "Active mode makes the server connect back to Mule." },
+      { text: "2026-11-18 06:00:31 ERROR [store-ftp] LIST timed out after 30000 ms", relevant: true, why: "The data channel never opens." },
       { text: "2026-11-18 23:59:00 INFO  [store-ftp] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does LIST hang?",
         options: [
-          "In active mode the server opens the data connection back to Mule, and the new firewall blocks it",
-          "The password is wrong",
-          "The folder is empty",
-          "The server is down",
+          "In active mode the server connects back to Mule and the firewall blocks it",
+          "The folder holds so many files that the listing takes over 30 seconds",
+          "The FTP user can log in but has no right to list the folder",
+          "The firewall now blocks Mule’s outbound connection to port 21",
         ],
         answer: 0,
         explain: "FTP uses a separate data channel for listings and files.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the usual fix?",
         options: [
-          "Switch to passive mode, so Mule opens the data connection",
-          "Open every port inbound",
-          "Use a longer timeout",
-          "Retry forever",
+          "Use passive mode, so Mule opens the data connection",
+          "Raise the LIST timeout from 30 to 120 seconds",
+          "Retry the LIST until the data channel opens",
+          "Move the job to port 22 on the same server",
         ],
         answer: 0,
         explain: "Passive mode suits clients behind firewalls.",
@@ -45,7 +45,7 @@ export default {
           "Outbound access to port 21 on the server",
           "Outbound access to the server’s passive port range",
           "Nothing inbound to Mule",
-          "Inbound port 20 to Mule",
+          "Inbound access to Mule from the server’s port 20",
         ],
         answer: [0,1,2],
         explain: "Passive uses the control port plus a range the server picks from.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why did login still work?",
         options: [
           "Login uses only the control channel on port 21",
-          "Login is cached",
-          "Login uses HTTP",
-          "Login uses the data channel",
+          "The firewall allows any traffic after a login",
+          "Login uses the data channel on port 20",
+          "The server caches the login from yesterday",
         ],
         answer: 0,
         explain: "Commands and transfers use different connections.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 06:00:01 INFO  [store-ftp] Connected host=ftp.store-net.example user=marrow-int
-2026-11-18 06:00:31 ERROR [store-ftp] LIST timed out after 30000 ms
-2026-11-18 06:00:01 INFO  [store-ftp] passive=false
 2026-11-17 22:00:00 INFO  [network] New firewall blocks inbound connections to integration subnet
+2026-11-18 06:00:01 INFO  [store-ftp] Connected host=ftp.store-net.example user=marrow-int
+2026-11-18 06:00:01 INFO  [store-ftp] passive=false
+2026-11-18 06:00:31 ERROR [store-ftp] LIST timed out after 30000 ms
 \`\`\`
 
 ## Your tasks

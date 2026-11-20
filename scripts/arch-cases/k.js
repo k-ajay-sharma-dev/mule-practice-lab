@@ -598,7 +598,7 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   // A short redelivery limit sends good charges to the DLQ while the provider is down.
   await failsOn('uc-087', 'Run: The provider is down during allocation', (d) => set(d, 'pq', { maxRedelivery: 3 }))
   // No redelivery limit: declined charges are retried for ever and never reach the DLQ.
-  await failsOn('uc-087', 'Run: Some stored cards are declined', (d) => set(d, 'pq', { maxRedelivery: undefined }))
+  await failsOn('uc-087', 'Run: Some stored cards always fail', (d) => set(d, 'pq', { maxRedelivery: undefined }))
 
   // UC-088
   // No client certificate policy on the gateway: any device on the network gets offers.

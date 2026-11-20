@@ -90,6 +90,8 @@ Item and price changes take between 5 minutes and 24 hours to reach channels, a 
 - ActiveMQ skills exist in-house; the company is open to ActiveMQ Artemis or Anypoint MQ but not to running Kafka themselves.
 - Oracle merchandising stays for at least five years.
 - The store colleague app makes about 200 price lookups a second. Merchandising publishes about 5 price changes a second, and the POS estate can be down for an hour.
+- The broker can restart while the POS estate is down, so publish item and price changes as persistent messages to an \`item-price-changed\` virtual topic. Each consumer has its own queue and DLQ.
+- Name the APIs exp-ecom-api, exp-store-api, prc-item-price-api, prc-order-fulfilment-api, sys-oracle-merch-api, sys-wms-api and sys-store-pos-api. Give exp-store-api, prc-item-price-api and sys-oracle-merch-api 0.5 vCore each.
 
 **Your task.** Propose the target architecture, migration strategy, governance and the main risks.
 `,
@@ -116,11 +118,11 @@ Item and price changes take between 5 minutes and 24 hours to reach channels, a 
   ],
   solution: `
 **Phases**
-1. **Discover (months 0–2).** Catalogue queues (producers, consumers, message counts from broker statistics), DB links and triggers; assign owners; group into capabilities: item and price, stock, orders and fulfilment, store sales. Kill unused queues.
-2. **Foundations (months 2–4).** \`sys-oracle-merch-api\` with read APIs for item and price, and change capture: a \`db:listener\` on an outbox table filled by the existing triggers (replacing their Java bridge) with a watermark column, publishing canonical \`ItemChanged\`/\`PriceChanged\` events to \`VirtualTopic.item-price-changed\`. Event schemas published in Exchange.
-3. **Item and price capability (months 4–8).** Consumers move one at a time to their own consumer queue: POS (via \`sys-store-pos-api\`), WMS, analytics. A legacy bridge flow subscribes and republishes to the old \`ITEM.TO.*\` queues in their old formats, so nothing changes for consumers not yet migrated. The e-commerce site stops reading the schema and calls \`exp-ecom-api\` → \`prc-item-price-api\`.
-4. **Stock and orders (months 8–14).** Same pattern for stock movements and fulfilment (\`prc-order-fulfilment-api\` over \`sys-wms-api\`).
-5. **Retire (months 14–18).** Remove the bridge per old queue once its last consumer moves; drop DB links; decommission the Java consumer VM.
+1. **Discover (months 0 to 2).** Catalogue queues (producers, consumers, message counts from broker statistics), DB links and triggers; assign owners; group into capabilities: item and price, stock, orders and fulfilment, store sales. Kill unused queues.
+2. **Foundations (months 2 to 4).** \`sys-oracle-merch-api\` with read APIs for item and price, and change capture: a \`db:listener\` on an outbox table filled by the existing triggers (replacing their Java bridge) with a watermark column, publishing canonical \`ItemChanged\`/\`PriceChanged\` events as persistent messages to \`VirtualTopic.item-price-changed\`, so a broker restart loses nothing. Event schemas published in Exchange.
+3. **Item and price capability (months 4 to 8).** Consumers move one at a time to their own consumer queue: POS (via \`sys-store-pos-api\`), WMS, analytics. A legacy bridge flow subscribes and republishes to the old \`ITEM.TO.*\` queues in their old formats, so nothing changes for consumers not yet migrated. The e-commerce site stops reading the schema and calls \`exp-ecom-api\` → \`prc-item-price-api\`.
+4. **Stock and orders (months 8 to 14).** Same pattern for stock movements and fulfilment (\`prc-order-fulfilment-api\` over \`sys-wms-api\`).
+5. **Retire (months 14 to 18).** Remove the bridge per old queue once its last consumer moves; drop DB links; decommission the Java consumer VM.
 
 **Messaging choice.** Keep ActiveMQ for now (skills, low risk) but move to Artemis or Anypoint MQ as part of the programme; the canonical events and per-consumer queues make the broker replaceable.
 

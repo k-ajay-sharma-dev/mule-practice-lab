@@ -138,13 +138,13 @@ const FIRST = [
     situation: 'The order was created in SAP. Which message is best?',
     options: [
       'Done',
-      'SAP OK!!!',
+      'SAP order created orderId=10045 sapDocNo=4500017 durationMs=812',
       'SAP order created orderId=10045 sapDocNo=4500017 durationMs=812 correlationId=7f3c2a',
       'Success in flow sap-create-order-flow at step 4',
     ],
     answer: 2,
     explain:
-      'It says what happened, then the facts as name=value pairs: which order, the SAP document, how long it took, and the correlation ID. The others make the reader open the code to understand them.',
+      'It says what happened, then the facts as name=value pairs: which order, the SAP document, how long it took, and the correlation ID. The second one is close, but without the correlation ID it cannot be joined to the other lines of the request. The others make the reader open the code to understand them.',
   },
   {
     id: 'log-021',
@@ -152,13 +152,13 @@ const FIRST = [
     situation: 'The request failed validation. Which message is best?',
     options: [
       'User sent garbage again',
-      'Validation error',
+      'Request rejected status=400 body={"orderId":10045,"shipTo":{"street":"12 High St"}}',
       'Request rejected: shipTo.country is missing orderId=10045 status=400 correlationId=7f3c2a',
       'ERROR!!! bad request in main flow',
     ],
     answer: 2,
     explain:
-      'It says the result (rejected), the reason (which field), the ID, the status sent back and the correlation ID. Never blame the caller in a log: other teams read these lines.',
+      'It says the result (rejected), the reason (which field), the ID, the status sent back and the correlation ID. The second one dumps the body, with an address in it, and still does not say which field was wrong. Never blame the caller in a log: other teams read these lines.',
   },
   {
     id: 'log-022',
@@ -168,11 +168,11 @@ const FIRST = [
       'Retry',
       'Retrying SAP order create attempt=2 of 3 after HTTP:TIMEOUT orderId=10045 correlationId=7f3c2a',
       'Trying again because SAP is slow',
-      'retry retry retry',
+      'Retrying SAP order create, request body: {"orderId":10045,"customer":{"email":"ann@example.com"}}',
     ],
     answer: 1,
     explain:
-      'It names the call, which attempt out of how many, why, and the IDs. Reading the lines of one request, you can see the retries and when they stopped.',
+      'It names the call, which attempt out of how many, why, and the IDs. Reading the lines of one request, you can see the retries and when they stopped. The last one writes the request body, with an email address, on every attempt.',
   },
   {
     id: 'log-023',
@@ -195,12 +195,12 @@ const FIRST = [
     options: [
       'Something went wrong',
       'Order not sent to SAP after 3 attempts errorType=HTTP:TIMEOUT orderId=10045 next=sent to DLQ correlationId=7f3c2a',
-      'Exception!!',
+      'Order not sent to SAP after 3 attempts orderId=10045 next=sent to DLQ',
       'SAP is down, please check',
     ],
     answer: 1,
     explain:
-      'A good error line says what failed, why (the error type), which record, and what happens next. "next=sent to DLQ" tells support where the order is now.',
+      'A good error line says what failed, why (the error type), which record, and what happens next. "next=sent to DLQ" tells support where the order is now. The third one leaves out the error type and the correlation ID, so nobody can tell a timeout from a rejection.',
   },
   {
     id: 'log-025',

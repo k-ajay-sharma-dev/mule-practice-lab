@@ -21,36 +21,36 @@ export default {
       prompt: 'You add a new **required** request field to an existing endpoint. Which version bump is correct?',
       options: [
         'Patch, because no endpoint was added or removed',
-        'Minor, because it is an addition',
-        'Major, because existing clients do not send the field and their requests would fail validation',
-        'No new version is needed if the field has a description',
+        'Minor, because it adds to the contract and removes nothing',
+        'Major, because existing clients would now fail validation',
+        'No new version, as long as the field has a description',
       ],
       answer: 2,
-      explain: 'Not every addition is backward compatible. Existing clients would be rejected, so it is a **breaking** change and needs a major version — or make the field optional and ship it as a minor.',
+      explain: 'Not every addition is backward compatible. Existing clients do not send the field and would be rejected, so it is a **breaking** change and needs a major version, or make the field optional and ship it as a minor.',
     },
     {
       type: 'single',
       prompt: 'A consumer team says "you changed the spec under us", yet nobody edited 1.2.3. What is the root cause and fix?',
       options: [
-        'Exchange silently overwrote 1.2.3; ask support to restore it',
-        'They depended on "latest" instead of an exact version; they should pin an exact asset version and upgrade deliberately',
-        'The API instance in API Manager was deleted',
-        'Their groupId was wrong, so Maven picked another organization\'s asset',
+        'Exchange overwrote 1.2.3 in place, so support must restore it',
+        'They used "latest" instead of pinning an exact asset version',
+        'The API instance in API Manager was deleted and recreated',
+        'Their groupId was wrong, so Maven found an asset from another org',
       ],
       answer: 1,
-      explain: 'A published version is not edited in place. Scaffolding against "latest" makes builds non-reproducible — pinning an exact version fixes it.',
+      explain: 'A published version is not edited in place. Scaffolding against "latest" makes builds non-reproducible: pinning an exact version and upgrading deliberately fixes it.',
     },
     {
       type: 'single',
       prompt: 'What is the relationship between the asset version (1.3.0) and the API version (`v1` in `/api/v1/customers`)?',
       options: [
-        'They are the same thing and must always be equal',
-        'The API version is what clients see and should change only on breaking changes, i.e. together with a new major asset version',
+        'They are the same thing, and must always be equal',
+        'The API version changes only with a new major asset version',
         'The API version changes on every minor asset release',
-        'The asset version is only used by API Manager; Exchange uses the API version',
+        'The asset version is only used by API Manager, not by Exchange',
       ],
       answer: 1,
-      explain: 'The asset version versions the **artifact**; the API version is the **contract** exposed to clients. Minor and patch asset updates keep `v1`.',
+      explain: 'The asset version versions the **artifact**; the API version is the **contract** exposed to clients and changes only on breaking changes. Minor and patch asset updates keep `v1`.',
     },
     {
       type: 'multi',
@@ -96,7 +96,7 @@ A consumer team complains: "You changed the spec under us and our build broke", 
 `,
   answerTemplate: `## Asset types and identity
 
-## Versions for A–D
+## Versions for A to D
 
 ## Asset version vs API version
 
@@ -110,21 +110,21 @@ A consumer team complains: "You changed the spec under us and our build broke", 
     'Consumers should depend on an exact version; old versions are deprecated before removal so consumers get time to migrate.',
   ],
   solution: `
-**Asset types:** REST API specs (RAML, OAS), API fragments (data types, traits, libraries), connectors/modules, templates, examples, custom policies, DataWeave libraries, and custom assets (docs, files). Every asset has **groupId** (the organization or business group ID), **assetId**, **version** — the same coordinates used in a POM dependency.
+**Asset types:** REST API specs (RAML, OAS), API fragments (data types, traits, libraries), connectors/modules, templates, examples, custom policies, DataWeave libraries, and custom assets (docs, files). Every asset has **groupId** (the organization or business group ID), **assetId**, **version**: the same coordinates used in a POM dependency.
 
 **Versions (from 1.2.3)**
 | Change | New version | Why |
 |---|---|---|
-| A — typo | 1.2.4 | patch: no contract change |
-| B — optional response field | 1.3.0 | minor: backward compatible addition |
-| C — rename field | **2.0.0** | major: breaks existing clients |
-| D — new endpoint | 1.3.0 (or 1.4.0) | minor: additive |
+| A: typo | 1.2.4 | patch: no contract change |
+| B: optional response field | 1.3.0 | minor: backward compatible addition |
+| C: rename field | **2.0.0** | major: breaks existing clients |
+| D: new endpoint | 1.3.0 (or 1.4.0) | minor: additive |
 
-**Asset version vs API version:** the asset version (1.3.0) versions the *artifact*. The API version (\`v1\` in \`/api/v1/customers\`, the RAML \`version:\` / OAS \`info.version\` field) is what clients see; it should change only on breaking changes — i.e. together with a new major asset version. Minor/patch updates can normally be applied to the same API instance; check this in API Manager for your setup.
+**Asset version vs API version:** the asset version (1.3.0) versions the *artifact*. The API version (\`v1\` in \`/api/v1/customers\`, the RAML \`version:\` / OAS \`info.version\` field) is what clients see; it should change only on breaking changes: i.e. together with a new major asset version. Minor/patch updates can normally be applied to the same API instance; check this in API Manager for your setup.
 
 **Pinning and retirement**
 - Consumers depend on an exact asset version and upgrade deliberately; scaffolding against "latest" makes builds non-reproducible.
-- A published version is not edited in place — publish a new version instead.
+- A published version is not edited in place: publish a new version instead.
 - Retire old versions by **deprecating** them in Exchange (this hides the version from view; it is not deleted), communicate a migration window, then remove when no consumer remains. For the running API, keep v1 and v2 deployed side by side during the transition.
 `,
   followUps: [
@@ -134,7 +134,7 @@ A consumer team complains: "You changed the spec under us and our build broke", 
     },
     {
       q: 'Is adding a new required request field a minor change?',
-      a: 'No. Existing clients do not send it, so their requests would fail validation — it is a breaking change and needs a major version (or make the field optional).',
+      a: 'No. Existing clients do not send it, so their requests would fail validation: it is a breaking change and needs a major version (or make the field optional).',
     },
   ],
 }

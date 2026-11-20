@@ -79,7 +79,7 @@ Head office wants:
 - shift rosters from the HR system
 - regulator reporting
 
-Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
+Satellite links to sites are slow (2 to 10 Mbps) and drop for hours at a time.
 
 **Goals**
 - Critical alarms (gas, man-down) visible centrally within 10 seconds when the link is up.
@@ -93,6 +93,8 @@ Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
 - ~2,000 sensors per site, readings every few seconds; most are routine.
 - Site IT staff are minimal; deployments must be remote and repeatable.
 - A site sends about 20 telemetry batches a second and 200 a second for 10 minutes after a link outage. It raises about 2 critical alarms a second, and the EHS platform can be down for 30 minutes.
+- Send alarms on a \`p1-alarms\` queue and routine batches on a \`p2-p3-telemetry-batches\` queue. A queue redelivers a failed message about once a minute; keep alarms on their queue until the EHS platform takes them, with no low redelivery limit.
+- Name the APIs exp-safety-ops-api, prc-safety-events-api, sys-hr-roster-api and sys-ehs-api. Give the site edge runtime and the telemetry loader 0.5 vCore each so they can carry the catch-up burst.
 
 **Your task.** Propose:
 - the edge/central architecture
@@ -124,7 +126,7 @@ Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
   solution: `
 **Principle.** Gas detection, ventilation control and evacuation alarms stay in the site control system, which is certified for that purpose. Central integration is for visibility, coordination and reporting. This boundary must be explicit in the design and in the risk register.
 
-**Edge.** A Mule runtime (or small Runtime Fabric cluster for redundancy) per site in the DMZ. It reads from the OT control system via an OT-approved interface (OPC UA gateway, MQTT broker or a historian API — whatever the control vendor supports and the OT team approves). Messages are written first to a durable local store (persistent queue/disk-backed store) — store-and-forward — then forwarded to the centre.
+**Edge.** A Mule runtime (or small Runtime Fabric cluster for redundancy) per site in the DMZ. It reads from the OT control system via an OT-approved interface (OPC UA gateway, MQTT broker or a historian API, whichever the control vendor supports and the OT team approves). Messages are written first to a durable local store (persistent queue or disk-backed store), then forwarded to the centre. This is store-and-forward.
 
 **Prioritisation.**
 - *Priority 1*: alarms and man-down events → sent immediately via a dedicated queue/flow, small payloads.
@@ -132,10 +134,10 @@ Satellite links to sites are slow (2–10 Mbps) and drop for hours at a time.
 - *Priority 3*: routine readings → aggregated (min/max/avg per minute) and compressed; raw data backfilled overnight or after link recovery with bandwidth caps so backlog never starves Priority 1.
 Each message has a site ID, sensor ID, event timestamp and sequence number for ordering and de-duplication.
 
-**Central.** Messages land in central queues (Anypoint MQ or a streaming platform), processed by \`safety-events-papi\`:
-- Enrich alarms with shift roster (\`hr-roster-sapi\`, cached per shift) and zone/location data.
-- Create/update incidents in the EHS platform (\`ehs-sapi\`) using the alarm ID as idempotency key.
-- Feed the safety operations dashboard and the data platform for reporting.
+**Central.** Messages land in central queues (Anypoint MQ or a streaming platform), \`p1-alarms\` is processed by \`prc-safety-events-api\`, and \`p2-p3-telemetry-batches\` by the telemetry loader:
+- Enrich alarms with shift roster (\`sys-hr-roster-api\`, cached per shift) and zone/location data.
+- Create/update incidents in the EHS platform (\`sys-ehs-api\`) using the alarm ID as idempotency key.
+- Feed the safety operations centre through \`exp-safety-ops-api\`, and load routine telemetry into the data platform for reporting.
 Monthly regulator reports are generated from the data platform with links back to raw events.
 
 **Security.** OT → DMZ via a one-way or tightly firewalled path the OT team controls; DMZ → central outbound only over TLS with mutual authentication per site. Certificates rotated centrally. No remote write-back to OT systems from central.

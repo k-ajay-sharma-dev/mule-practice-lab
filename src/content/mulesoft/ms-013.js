@@ -10,23 +10,23 @@ export default {
       type: 'single',
       prompt: 'How do you fix the SQL injection in `WHERE status = \'" ++ attributes.queryParams.status ++ "\'`?',
       options: [
-        'Use `:status` in the SQL and pass `{ status: attributes.queryParams.status }` as input parameters',
-        'Escape single quotes in the value with DataWeave `replace`',
-        'URL-decode the query parameter before concatenating',
-        'Wrap the select in a transaction',
+        'Use `:status` in the SQL and pass the value as an input parameter',
+        'Escape single quotes in the value with the DataWeave `replace`',
+        'URL-decode the query parameter before concatenating it',
+        'Run the select inside a read-only database transaction',
       ],
       answer: 0,
-      explain: 'Bound parameters are sent separately from the SQL text, so the database never interprets the value as code. Manual escaping is easy to get wrong.',
+      explain: 'Bound parameters are sent separately from the SQL text, so the database never interprets the value as code. Manual escaping is error-prone.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The client also sends `sortBy` for the ORDER BY. How do you handle it safely?',
       options: [
-        'Bind it as `:sortBy` like any other parameter',
-        'Map it through an allow-list of known column names and only interpolate the allow-listed value',
-        'Concatenate it, because ORDER BY cannot be exploited',
-        'Pass it as a header instead of a query parameter',
+        'Bind it as a `:sortBy` input parameter like any other value',
+        'Map it through an allow-list of known column names',
+        'Concatenate it, because an ORDER BY cannot be exploited',
+        'Escape it with `replace` before adding it to the SQL text',
       ],
       answer: 1,
       explain: 'Identifiers such as column names **cannot be bound** as parameters. An allow-list (`{ date: "updated_at", ... }[sortBy] default "updated_at"`) means raw input never reaches the SQL text.',
@@ -72,7 +72,7 @@ A **Shipment System API** on PostgreSQL has three operations that a security rev
 
 1. \`GET /shipments?status=...&sortBy=...\` builds the SQL with DataWeave string concatenation:
    \`"SELECT * FROM shipments WHERE status = '" ++ attributes.queryParams.status ++ "' ORDER BY " ++ attributes.queryParams.sortBy\`
-2. \`POST /shipments/import\` receives **50,000** rows as JSON and inserts them one by one inside a For Each — it takes 25 minutes.
+2. \`POST /shipments/import\` receives **50,000** rows as JSON and inserts them one by one inside a For Each: it takes 25 minutes.
 3. A nightly export reads **8 million** rows with one Select and writes them to a CSV; the replica runs out of memory.
 
 The team also needs a new feature: publish every shipment row **updated** since the last run to Anypoint MQ every 2 minutes.
@@ -93,7 +93,7 @@ The team also needs a new feature: publish every shipment row **updated** since 
 `,
   keyPoints: [
     'Concatenating input into SQL allows SQL injection; use :named parameters with inputParameters so the driver binds values.',
-    'Identifiers (column names in ORDER BY) cannot be bound as parameters — validate them against an allow-list.',
+    'Identifiers (column names in ORDER BY) cannot be bound as parameters: validate them against an allow-list.',
     'Use the Bulk Insert operation (one parameterized statement, array of records) instead of row-by-row inserts in For Each.',
     'Select returns a repeatable stream of rows; use fetchSize, and process it in a streaming way (DataWeave to CSV with deferred output / no full materialisation).',
     'Changed-rows feature: the DB On Table Row listener with watermarkColumn (and idColumn), or a Scheduler + Select with a watermark stored in a persistent Object Store.',
@@ -119,7 +119,7 @@ Column names can't be bound as parameters, so build \`vars.sortColumn\` from an 
 For 50,000 rows, split into chunks (e.g. a For Each with \`batchSize\` of 1,000, or a Batch Job) to bound memory and transaction size. Wrap a chunk in a transaction if it must be all-or-nothing.
 
 **3. Memory:** the Select result is streamed as rows are fetched. The problem is usually something that **materialises** all 8M rows (logging the payload, \`sizeOf(payload)\`, a DataWeave that needs random access, \`maxRows\` absent but \`payload\` converted to an array). Fix:
-- Set \`fetchSize\` (e.g. 1,000–5,000) so the driver fetches in pages instead of holding everything (some drivers, PostgreSQL included, only honour fetch size inside a transaction / with auto-commit off).
+- Set \`fetchSize\` (e.g. 1,000 to 5,000) so the driver fetches in pages instead of holding everything (some drivers, PostgreSQL included, only honour fetch size inside a transaction / with auto-commit off).
 - Use a DataWeave transform that streams (\`output application/csv deferred=true\`, sequential \`map\` only) and write directly with the File/SFTP write.
 - Keep the default repeatable file-store iterable so overflow goes to disk, not heap.
 
@@ -130,7 +130,7 @@ For 50,000 rows, split into chunks (e.g. a For Each with \`batchSize\` of 1,000,
   followUps: [
     {
       q: 'Why use a stored procedure call or parameterized query instead of escaping quotes yourself?',
-      a: 'Manual escaping is easy to get wrong across data types and encodings. Bound parameters are sent separately from the SQL text, so the database never interprets the value as code.',
+      a: 'Manual escaping is error-prone across data types and encodings. Bound parameters are sent separately from the SQL text, so the database never interprets the value as code.',
     },
     {
       q: 'How do you handle one bad row in a bulk insert?',
@@ -138,7 +138,7 @@ For 50,000 rows, split into chunks (e.g. a For Each with \`batchSize\` of 1,000,
     },
     {
       q: 'Is the On Table Row watermark safe with two replicas?',
-      a: 'Only if the source runs on one node — enable clustering and Primary Node Only on the listener so it runs on the primary. Otherwise each replica polls and emits the same rows.',
+      a: 'Only if the source runs on one node: enable clustering and Primary Node Only on the listener so it runs on the primary. Otherwise each replica polls and emits the same rows.',
     },
   ],
 }

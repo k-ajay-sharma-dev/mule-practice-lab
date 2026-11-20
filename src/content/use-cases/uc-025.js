@@ -71,7 +71,7 @@ export default {
   description: `
 An online travel agency sells **flight + hotel packages**. Content comes from several suppliers:
 
-- **Flights**: a GDS (Amadeus/Sabre-like, SOAP/XML, per-call fees) and two low-cost airline APIs (REST/JSON).
+- **Flights**: a GDS (global distribution system: SOAP/XML, per-call fees) and two low-cost airline APIs (REST/JSON).
 - **Hotels**: two bed banks (REST) and direct contracts in an internal hotel DB.
 - **Payments** via a PSP; tickets issued by the GDS; hotel bookings confirmed by the bed bank.
 
@@ -105,7 +105,7 @@ Facts and constraints:
 ## Non-functional concerns
 `,
   keyPoints: [
-    'Separate search (high volume, cached, partial results acceptable) from booking (low volume, strongly consistent) — different APIs, scaling and SLAs.',
+    'Separate search (high volume, cached, partial results acceptable) from booking (low volume, strongly consistent), with different APIs, scaling and SLAs.',
     'Fan-out to suppliers in parallel with per-supplier timeouts and a global deadline; return partial results and optionally stream/poll later results rather than waiting for the slowest supplier.',
     'Caching of search results/availability with short TTLs and request normalisation to cut GDS calls and respect look-to-book limits; per-supplier rate limits and circuit breakers.',
     'Hotel de-duplication via a content mapping table (supplier hotel ID → master property ID) built offline, not fuzzy matching at search time.',
@@ -121,7 +121,7 @@ Facts and constraints:
 Search and booking are deployed and scaled separately: search is huge volume and can tolerate staleness; booking is small volume and must be exact.
 
 **Search aggregation.**
-- Fan out to all relevant suppliers in parallel (**Scatter-Gather** or **Parallel For Each**) with **per-route timeouts** and a global budget (~2.5 s). Note Scatter-Gather fails the whole scope if a route errors — wrap each route in a Try with on-error-continue returning an empty result so one bad supplier does not break the search.
+- Fan out to all relevant suppliers in parallel (**Scatter-Gather** or **Parallel For Each**) with **per-route timeouts** and a global budget (~2.5 s). Note Scatter-Gather fails the whole scope if a route errors. Wrap each route in a Try with on-error-continue returning an empty result so one bad supplier does not break the search.
 - Return what is available by the deadline; slow suppliers continue in the background and their results are stored under the search ID for the client to poll (or push via websocket from a separate service).
 - Merge, de-duplicate, rank and paginate in DataWeave; keep payloads small (summary per offer, details on demand).
 
@@ -137,10 +137,10 @@ Search and booking are deployed and scaled separately: search is huge volume and
 
 **Package booking saga.** The Booking Orchestrator persists booking state per component:
 1. **Authorise** payment for the full amount (do not capture yet).
-2. **Book the hotel** first if its rate is refundable/cancellable — or whichever component is most likely to fail and cheapest to undo; the order is a business decision based on cancellation rules.
+2. **Book the hotel** first if its rate is refundable/cancellable, or whichever component is most likely to fail and cheapest to undo; the order is a business decision based on cancellation rules.
 3. **Book and ticket the flight** (create PNR, issue ticket).
 4. On success: **capture** payment, send confirmation.
-5. On failure: **compensate** — cancel the hotel booking (within free-cancellation terms), **void** tickets within the void window, release/cancel the payment authorisation; if compensation itself fails, raise an operations case (human handling) — the customer is informed honestly.
+5. On failure: **compensate**. Cancel the hotel booking (within free-cancellation terms), **void** tickets within the void window, release/cancel the payment authorisation; if compensation itself fails, raise an operations case (human handling) and inform the customer honestly.
 Each supplier call uses an **idempotency key**/booking reference; on timeouts, query the supplier for the booking by our reference before retrying (to avoid double bookings). Booking state transitions are recorded for audit and customer service.
 
 **Non-functional concerns.** Horizontal scaling of search workers; memory-conscious DataWeave (streaming large GDS XML responses); correlation ID per search/booking across all suppliers; dashboards per supplier (latency, error rate, look-to-book); PCI DSS scope minimised by tokenising cards at the PSP; supplier credentials in a vault.

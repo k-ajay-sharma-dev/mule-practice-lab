@@ -116,7 +116,7 @@ var chain = walk(start, [])
   explanation: `
 Two ideas make this clean:
 
-1. **Index, then walk.** \`{ (payload map (p) -> { (p.self): p }) }\` turns the array into an object keyed by URL (DataWeave 2.12 has no \`indexBy\`, and this spread-of-objects idiom is the standard replacement). Each hop is then a key lookup instead of a \`filter\` over all pages.
+1. **Index, then walk.** \`{ (payload map (p) -> { (p.self): p }) }\` turns the array into an object keyed by URL (DataWeave has no built-in \`indexBy\`, and this spread-of-objects idiom is the usual replacement). Each hop is then a key lookup instead of a \`filter\` over all pages.
 2. **Recursion with an accumulator.** \`walk\` carries the list of URLs visited so far. That list is the result (\`path\`) *and* the loop detector: if \`next\` is already in it, following it would never end.
 
 The loop check must happen **before** the recursive call: the target of a loop is a page that exists in \`bySelf\`, so the lookup alone would happily follow it again and again.

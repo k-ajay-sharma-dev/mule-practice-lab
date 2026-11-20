@@ -82,6 +82,12 @@ The first flow uploaded every file with the content type \`application/octet-str
 - Any other extension, or none, gets **415** and nothing is stored.
 - Answer **201** with \`{ stored, contentType }\` after the upload.
 
+**Facts**
+- Work the content type out once into a variable, and give the upload \`#[vars.<that variable>]\` as its content type.
+- \`stored\` is the file name from the URI.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the extension

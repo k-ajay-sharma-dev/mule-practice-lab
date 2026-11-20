@@ -102,13 +102,13 @@ export default {
       type: 'single',
       prompt: 'The mobile summary screen needs fields from policy, claims and payments over slow networks. What is the usual first answer?',
       options: [
-        'GraphQL is always required for mobile',
-        'A REST Experience API shaped for the screen; consider GraphQL only if many screens need flexible field selection',
-        'SOAP with WS-Security',
-        'Let the app call the three System APIs directly',
+        'Let the app call the policy, claims and payments System APIs directly',
+        'A REST Experience API shaped for the screen, with GraphQL only if many screens vary',
+        'A SOAP service with WS-Security, like the broker portal',
+        'The partner REST facade, so mobile and partners share one contract',
       ],
       answer: 1,
-      explain: 'A purpose-built Experience API already gives one round trip and a small payload. GraphQL pays off when many front ends need flexible queries over the same graph.',
+      explain: 'A purpose-built Experience API already gives one round trip and a small payload. Three direct calls cost three round trips on a slow network, and the partner contract is not shaped for the screen. GraphQL pays off when many front ends need flexible queries over the same graph.',
     },
     {
       type: 'single',
@@ -127,25 +127,25 @@ export default {
       needsScenario: true,
       prompt: 'Why is gRPC a poor choice for the partner aggregators?',
       options: [
-        'It is slower than REST',
-        'Browsers need a proxy and partners rarely want binary HTTP/2 contracts; REST is broader, cacheable and easier to onboard',
-        'It cannot be secured',
-        'It does not support typed contracts',
+        'gRPC is slower than REST for small payloads',
+        'Browsers need a proxy, and partners rarely want binary HTTP/2 contracts',
+        'gRPC calls cannot be secured with TLS',
+        'gRPC has no typed contracts for partners to code against',
       ],
       answer: 1,
-      explain: 'gRPC shines internally between services you control. External reach favours REST.',
+      explain: 'gRPC shines internally between services you control. External reach favours REST, which is broader, cacheable and quicker for partners to start with.',
     },
     {
       type: 'single',
       prompt: 'How do you contain the cost of supporting REST, SOAP, GraphQL and events?',
       options: [
-        'Build each style as a separate full stack with its own logic',
-        'One Process API owns the logic; REST, SOAP and GraphQL facades are thin Experience-layer translations, and the Process API publishes events after state changes',
-        'Pick one style and force every consumer onto it',
+        'Build each style as a separate stack with its own logic',
+        'One Process API owns the logic, with a thin facade per style and events after changes',
+        'Pick one style and make every consumer use it',
         'Let each consumer team build its own integration',
       ],
       answer: 1,
-      explain: 'Logic lives once; each extra style then costs only a thin facade plus its security, docs and monitoring.',
+      explain: 'Logic lives once in the Process API, which also publishes events after state changes. Each extra style then costs only a thin Experience-layer facade plus its security, docs and monitoring.',
     },
     {
       type: 'single',
@@ -172,7 +172,7 @@ An insurance company is opening its **Policy** capabilities to several consumers
 | Internal pricing microservices (Java/Go) | Very high call volume, low latency, strongly typed contracts |
 | Data/analytics team | Wants to know whenever a policy changes, no need for an immediate answer |
 
-Load: the mobile app reads about **50 policy summaries a second**, and brokers change about 10 policies a second through the portal. The aggregators ask for about **60 quotes a second**, with bursts of 400. The policy system answers in 200 ms and takes at most **200 requests a second**; claims answer in 100 ms and payments in 150 ms. The analytics platform can be down for maintenance for ten minutes. The budget for the APIs is **2.5 vCores**.
+Load: the mobile app reads about **50 policy summaries a second**, and brokers change about 10 policies a second through the portal. The aggregators ask for about **60 quotes a second**, with bursts of 400 that mobile users must not notice. The policy system answers in 200 ms and takes at most **200 requests a second**; claims answer in 100 ms and payments in 150 ms. The analytics platform can be down for maintenance for ten minutes. The budget for the APIs is **2.5 vCores**.
 
 **Questions:**
 - Which style would you choose for each consumer and why?
@@ -203,7 +203,7 @@ Load: the mobile app reads about **50 policy summaries a second**, and brokers c
 |---|---|---|
 | Mobile app | **REST Experience API** shaped for the screen (or **GraphQL** if many screens need flexible field selection) | Fewer round trips, small payloads. A dedicated Experience API often solves this without GraphQL. |
 | Broker portal | **SOAP** facade | Keeps the WSDL and WS-Security contract; Mule can expose it with APIkit for SOAP and call the same Process API underneath. |
-| Partner aggregators | **REST/JSON** with OAS/RAML in Exchange | Widely understood, cacheable GETs, gateway policies (client ID, rate limit), easy onboarding. |
+| Partner aggregators | **REST/JSON** with OAS/RAML in Exchange | Widely understood, cacheable GETs, gateway policies (client ID, rate limit), quick partner onboarding. |
 | Pricing microservices | **gRPC** (or REST if the platform team does not run gRPC tooling) | Binary protocol over HTTP/2, generated typed stubs, low overhead. Usually service-to-service directly, not through an integration layer. |
 | Analytics team | **Events** (PolicyChanged on a broker/topic) | Decouples producer from consumer; analytics can replay or consume at its own pace. |
 
@@ -217,10 +217,10 @@ Load: the mobile app reads about **50 policy summaries a second**, and brokers c
 
 **Sizing and policies.** A thin facade per style also means a policy per consumer. The partner REST facade has a **rate limit of 80 requests a second**: a burst of 400 quotes gets 429 at the facade, and the policy system (200 a second at most) still has room for the mobile app. The shared Process API and the policy System API carry everyone, about 140 requests a second, so they get 0.5 vCore each; the mobile and partner facades and the claims and payments System APIs get 0.2. That is 1.9 vCores, inside the 2.5 budget. PolicyChanged goes on a topic, so when analytics is down the brokers are still answered and the events wait for it.
 
-**Where MuleSoft fits.** Natural for REST/SOAP facades, orchestration and event publishing/consumption. Not the natural hop for low-latency gRPC calls between internal microservices — adding an integration layer there adds latency without adding value.
+**Where MuleSoft fits.** Natural for REST/SOAP facades, orchestration and event publishing/consumption. Not the natural hop for low-latency gRPC calls between internal microservices: adding an integration layer there adds latency without adding value.
 `,
   followUps: [
-    { q: 'The mobile team asks for GraphQL. How do you decide?', a: 'Ask how many screens with varying field needs exist and who owns the schema. If two or three fixed screens, a purpose-built REST Experience API is simpler; if many front ends need flexible queries over the same graph, GraphQL can pay off provided you add cost limits and field-level security.' },
+    { q: 'The mobile team asks for GraphQL. How do you decide?', a: 'Ask how many screens with varying field needs exist and who owns the schema. If two or three fixed screens, a purpose-built REST Experience API costs less to build and run; if many front ends need flexible queries over the same graph, GraphQL can pay off provided you add cost limits and field-level security.' },
     { q: 'Can the same API serve both REST and events?', a: 'The same capability can: the Process API handles commands synchronously and publishes an event after state changes, so request/reply and notification consumers are both served without duplicating logic.' },
   ],
 }

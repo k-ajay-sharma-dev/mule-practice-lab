@@ -140,7 +140,7 @@ export default {
     ),
   ),
   description: `
-Store associates use a mobile app to answer "do you have this in stock?" — for their own store or a nearby one. Each store runs a **store inventory server** that listens on the **ActiveMQ** queue \`STORE.STOCK.REQUEST\` (one queue per region, store chosen by a message property) and answers on the \`JMSReplyTo\` destination with live on-hand quantities.
+Store associates use a mobile app to answer "do you have this in stock?", for their own store or a nearby one. Each store runs a **store inventory server** that listens on the **ActiveMQ** queue \`STORE.STOCK.REQUEST\` (one queue per region, store chosen by a message property) and answers on the \`JMSReplyTo\` destination with live on-hand quantities.
 
 - Up to 50 SKUs per request; ~**40 requests/s** at peak across 600 stores.
 - The app needs an answer within **2.5 seconds**.
@@ -148,6 +148,11 @@ Store associates use a mobile app to answer "do you have this in stock?" — for
 - Every night, store on-hand is copied to an **Oracle** table \`STORE_STOCK_SNAPSHOT\` (STORE_ID, SKU, ON_HAND_QTY, SNAPSHOT_TS).
 
 When the store does not answer in time, the API should return the snapshot and make clear it is not live.
+
+**Facts**
+- The app calls \`GET /api/stores/{storeId}/stock?skus=A,B,C\`.
+- The request message to a store is JSON \`{ storeId, skus }\`. The store replies with \`{ storeId, items: [{ sku, qty }] }\`.
+- The API answers \`{ storeId, source, items: [{ sku, available, asOf }] }\`, with \`source\` \`LIVE\` or \`SNAPSHOT\`.
 
 **Design the flow(s).**
 `,
@@ -169,13 +174,13 @@ When the store does not answer in time, the API should return the snapshot and m
     'Late replies to a temporary queue are discarded when it is deleted; with a fixed reply queue they must be cleaned up (message TTL).',
   ],
   solution: `
-1. **HTTP Listener** \`GET /api/stores/{storeId}/stock?skus=A,B,C\`; validate 1–50 SKUs.
+1. **HTTP Listener** \`GET /api/stores/{storeId}/stock?skus=A,B,C\`; validate 1 to 50 SKUs.
 2. **Try**
    - Transform the request body.
    - **JMS Publish Consume** to \`STORE.STOCK.REQUEST\`, message property \`storeId\` (stores consume with a selector), reply-to = temporary queue, **maximumWait 2000 ms**, short **timeToLive** on the request (e.g. 3 s) so a store that comes back online does not process stale requests. The responder is not a Mule app, so set the consumer's **Content Type** to \`application/json\`: the config default for a message that does not state its type is \`*/*\`, and \`payload.items\` needs JSON.
    - \`vars.source = "LIVE"\`.
    - **On Error Continue** for \`JMS:TIMEOUT, JMS:CONNECTIVITY\` → log → **Database Select** from \`STORE_STOCK_SNAPSHOT\` → \`vars.source = "SNAPSHOT"\`.
-3. **Transform Message** — one mapping for both shapes: \`{ storeId, source, items[{ sku, available, asOf }] }\`.
+3. **Transform Message**: one mapping for both shapes: \`{ storeId, source, items[{ sku, available, asOf }] }\`.
 4. If Oracle is also down → 503.
 
 **Why not a Scatter-Gather (live + snapshot in parallel)?** It would query Oracle for every request even though 97% are answered live; the fallback only on timeout is cheaper. If p99 matters more than load, run both in parallel and prefer live.
@@ -193,7 +198,7 @@ When the store does not answer in time, the API should return the snapshot and m
     },
     {
       q: 'Would you cache the live answers?',
-      a: 'A very short cache (10–30 s per store and SKU) can absorb repeated lookups during a busy period, but stock changes quickly, so the response must still carry its as-of time.',
+      a: 'A very short cache (10 to 30 s per store and SKU) can absorb repeated lookups during a busy period, but stock changes quickly, so the response must still carry its as-of time.',
     },
   ],
 }

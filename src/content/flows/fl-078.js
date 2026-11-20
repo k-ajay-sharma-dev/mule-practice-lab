@@ -257,6 +257,12 @@ The architects decided on an **Amazon SQS FIFO queue** \`shipment-status.fifo\` 
 - A carrier outage must not lose events: a message stays in SQS until the carrier has accepted it. Events that keep failing end up somewhere visible.
 - Events the carrier rejects as invalid (400) must not block other orders.
 
+**Facts**
+- The queue URL is \`https://sqs.eu-west-1.amazonaws.com/123456789012/shipment-status.fifo\`. Its dead-letter queue is \`shipment-status-dlq.fifo\`.
+- \`dbo.SHIPMENT_OUTBOX\` has \`OUTBOX_ID\` (increasing), \`ORDER_ID\`, \`EVENT_TYPE\`, \`PAYLOAD\` (the event as JSON text), \`STATUS\` (\`PENDING\` or \`SENT\`) and \`SENT_AT\`.
+- The event JSON is \`{ orderId, eventType, occurredAt, warehouse }\`. The carrier API is \`POST /carrier/v2/shipment-events\` with \`{ shipmentRef, event, occurredAt, location }\`.
+- Rejected events are recorded in \`dbo.CARRIER_REJECTION\` (\`ORDER_ID\`, \`EVENT_TYPE\`, \`REASON\`, \`REJECTED_AT\`).
+
 **Design both flows** (outbox → SQS, SQS → carrier) and explain the FIFO-specific settings.
 `,
   answerTemplate: `## Outbox relay (SQL Server → SQS)
@@ -275,16 +281,16 @@ The architects decided on an **Amazon SQS FIFO queue** \`shipment-status.fifo\` 
     'MessageGroupId = order ID keeps per-order ordering while different orders are processed in parallel; MessageDeduplicationId = outbox ID makes a resend after a crash a no-op within the 5-minute deduplication window.',
     'The Receive Messages source deletes a message as soon as it is read unless Preserve Messages is on. Turn it on and call Delete Message after success; a failed message is then left in the queue, reappears after the visibility timeout and moves to the FIFO DLQ after maxReceiveCount.',
     'Permanent 400 rejections are handled with On Error Continue: record them in a table and delete the message so its group is not blocked.',
-    'A failing message blocks the rest of its message group until it succeeds or moves to the DLQ — this is the price of ordering; size the visibility timeout above the processing time and keep maxReceiveCount moderate.',
+    'A failing message blocks the rest of its message group until it succeeds or moves to the DLQ. This is the price of ordering; size the visibility timeout above the processing time and keep maxReceiveCount moderate.',
   ],
   solution: `
-**Flow 1 — \`shipment-outbox-relay\`** (Scheduler, 10 s; a single active instance)
+**Flow 1: \`shipment-outbox-relay\`** (Scheduler, 10 s; a single active instance)
 1. **Select** \`TOP (200)\` PENDING rows \`ORDER BY OUTBOX_ID\` from SQL Server.
 2. **For Each** (sequential) → **SQS Send Message** to \`shipment-status.fifo\` with body = payload, **message group ID = ORDER_ID**, **deduplication ID = OUTBOX_ID** → **Update** the row to SENT.
 3. No per-row Try: the first failure stops the loop; the remaining rows stay PENDING and are retried in order on the next run.
-4. Crash after send but before the update → the row is sent again next run; SQS drops it because the deduplication ID was seen within 5 minutes. (After a longer outage the carrier side must tolerate a rare duplicate — include the outbox ID as event ID.)
+4. Crash after send but before the update → the row is sent again next run; SQS drops it because the deduplication ID was seen within 5 minutes. (After a longer outage the carrier side must tolerate a rare duplicate, so include the outbox ID as event ID.)
 
-**Flow 2 — \`shipment-status-to-carrier\`** (SQS Receive Messages)
+**Flow 2: \`shipment-status-to-carrier\`** (SQS Receive Messages)
 1. **Preserve Messages = true** on the source. The default (false) deletes each message as soon as it is read, so a carrier failure would lose the event and the DLQ would never see it.
 2. Keep the receipt handle (the reference does not define the attributes of a received message, so confirm the field name in a test). Parse the body, map to the carrier format, and **HTTP POST** with a response timeout.
 3. Success → **SQS Delete Message** with the receipt handle.

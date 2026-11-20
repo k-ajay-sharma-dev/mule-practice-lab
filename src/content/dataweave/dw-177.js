@@ -8,14 +8,14 @@ export default {
   description: `
 Marrow & Pine Home gets a replenishment plan from the planning platform as JSON. Each distribution center collects its own file from an FTP server, so Mule must write one semicolon delimited file per center. The writer uploads each file under a temporary name and renames it when done.
 
-Build a list with one entry per distribution center that has at least one line to send, sorted by \`dc\`:
+Build a list with one entry per distribution center that has at least one line to send, sorted by \`dc\` as text:
 
 - \`dc\`
 - \`fileName\`: \`REPL_<dc>_<planDate as yyyyMMdd>.csv\`
 - \`tempName\`: the file name followed by \`.tmp\`
 - \`records\`: the number of detail lines
 - \`totalQty\`: the sum of \`qty\`
-- \`lines\`: the header \`SKU;NEED_DATE;QTY\`, then one line per plan row as \`sku;needDate as yyyyMMdd;qty\`, sorted by need date and then sku
+- \`lines\`: the header \`SKU;NEED_DATE;QTY\`, then one line per plan row as \`sku;needDate as yyyyMMdd;qty\`, sorted by need date and then by sku as text
 
 Rows with a \`qty\` of 0 or less are not sent.
 `,

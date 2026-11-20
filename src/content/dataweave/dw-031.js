@@ -10,17 +10,17 @@ The ERP exports product categories as a **flat** list where each row points to i
 
 Each node in the output has exactly these fields:
 
-- \`id\`, \`name\` — from the row
-- \`level\` — \`1\` for a root, \`2\` for its children, and so on
-- \`path\` — the names from the root down to this node, joined by \`" > "\` (a root's path is its own name)
-- \`children\` — the child nodes (\`[]\` for a leaf)
+- \`id\`, \`name\`: from the row
+- \`level\`: \`1\` for a root, \`2\` for its children, and so on
+- \`path\`: the names from the root down to this node, joined by \`" > "\` (a root's path is its own name)
+- \`children\`: the child nodes (\`[]\` for a leaf)
 
 **Rules**
 - A row is a **root** when its \`parentId\` is \`null\` **or** refers to an id that is not in the list (an orphan is promoted to a root rather than lost).
-- Roots, and the children of every node, are ordered by \`sort\` ascending. \`sort\` values are unique among siblings.
+- Roots, and the children of every node, are ordered by \`sort\` ascending (a number). \`sort\` values are unique among siblings.
 - Rows can appear in any order (a child may come before its parent).
 - The list has no cycles. An empty list returns \`[]\`.
-- It can contain thousands of rows — do not scan the whole list once per node.
+- It can contain thousands of rows. Do not scan the whole list once per node.
 `,
   inputs: [
     {
@@ -96,15 +96,15 @@ fun build(node: Object, level: Number, parentPath: String): Object = do {
 ((payload filter ((n) -> isRoot(n))) orderBy $.sort)
   map ((root) -> build(root, 1, ""))`,
   explanation: `
-**Index first, then recurse.** \`groupBy parentId\` builds a parent → children lookup in one pass. Each \`build\` call then finds its children with a key access, so the whole tree is built in roughly linear time. The naive version — \`payload filter ($.parentId == node.id)\` inside the recursion — scans every row for every node (n²), which hurts with thousands of categories.
+**Index first, then recurse.** \`groupBy parentId\` builds a parent → children lookup in one pass. Each \`build\` call then finds its children with a key access, so the whole tree is built in roughly linear time. The naive version, \`payload filter ($.parentId == node.id)\` inside the recursion, scans every row for every node (n²), which hurts with thousands of categories.
 
 **Carry state down the recursion.** \`level\` and \`path\` depend on the ancestors, so they are passed as parameters instead of being looked up later.
 
 **Orphans.** Checking only \`parentId == null\` silently drops rows whose parent is missing (a common data-quality issue in ERP exports). \`byId[n.parentId] == null\` promotes them.
 
 Traps:
-- \`groupBy\` needs a String key, so a \`null\` parentId must be defaulted.
-- \`byParent[node.id]\` is \`null\` for a leaf — \`default []\` keeps \`children\` an array.
+- A \`null\` parentId is not a usable group key, so default it to \`""\`.
+- \`byParent[node.id]\` is \`null\` for a leaf, and \`default []\` keeps \`children\` an array.
 - Without parentheses, \`xs orderBy $.sort map ...\` can bind differently than you expect; parenthesise each step.
 `,
   tests: [
@@ -149,7 +149,7 @@ Traps:
       a: 'Neither row is a root and the recursion never reaches them, so they disappear silently. Detect it by counting the nodes in the finished tree and comparing with `sizeOf(payload)`, then report the ids that are missing.',
     },
     {
-      q: 'How would you do the reverse — flatten the tree back into rows with parentId?',
+      q: 'How would you do the reverse and flatten the tree back into rows with parentId?',
       a: 'Recurse with `flatMap`: emit the current node without `children` plus `parentId`, then `flatMap` over the children passing the current id as their parent.',
     },
     {

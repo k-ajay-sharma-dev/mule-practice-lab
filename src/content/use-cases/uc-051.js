@@ -87,7 +87,8 @@ Facts:
 - Registration must be blocked if the student has a **finance hold** or misses **prerequisites** (unless an adviser has approved an override).
 - LMS enrolment must follow within **15 minutes**; the LMS being slow must **not** slow registration.
 - Fees for extra modules are calculated in the finance system after registration.
-- Canvas takes at most 30 enrolments a second and answers in about 2 seconds. About 1 registration in 100 is for a section Canvas does not know.
+- Canvas takes at most 30 enrolments a second and answers in about 2 seconds. About 1 registration in 100 is for a section Canvas does not know, so its enrolment fails every time.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Enrolments that always fail must reach the DLQ for the registry team, and no registration may be lost.
 
 **Questions:**
 1. Decompose the API network.
@@ -113,7 +114,7 @@ Facts:
     'prc-course-registration owns the synchronous decision: holds + prerequisites/overrides + seat availability → register in SIS.',
     'Downstream effects (LMS enrolment, fee calculation, group membership) are event-driven via Anypoint MQ from a "registration created" event, so a slow LMS never blocks registration.',
     'A separate read-optimised path (prc-module-catalogue with cache) absorbs the 400 req/s browse peak away from the SIS.',
-    'Adviser overrides are a separate resource stored in the SIS and checked by the same Process API — no duplicated rules in the adviser app.',
+    'Adviser overrides are a separate resource stored in the SIS and checked by the same Process API, so no rules are duplicated in the adviser app.',
   ],
   solution: `
 **API inventory**
@@ -125,7 +126,7 @@ Facts:
 | Experience | **exp-adviser-dashboard** | \`GET /advisees/{studentId}/registrations\`, \`POST /advisees/{studentId}/overrides\` | Adviser auth (role), only own advisees | Adviser app |
 | Process | **prc-module-catalogue** | \`GET /terms/{term}/modules\`, \`GET /sections/{id}/availability\` | Read model of modules + seats, heavily cached (seats with short TTL) | Experience APIs |
 | Process | **prc-course-registration** | \`POST /registrations\`, \`DELETE /registrations/{id}\`, \`POST /overrides\` | Hold check, prerequisite/override check, seat reservation, register in SIS, publish event | Experience APIs |
-| Process | **prc-registration-fulfilment** (event consumer, no public HTTP resources) | Anypoint MQ subscriber | LMS enrolment, Entra group membership, fee recalculation trigger | — |
+| Process | **prc-registration-fulfilment** (event consumer, no public HTTP resources) | Anypoint MQ subscriber | LMS enrolment, Entra group membership, fee recalculation trigger | Events only |
 | System | **sys-sis-academics** | \`GET /students/{id}/academic-record\`, \`GET /sections\`, \`POST /registrations\`, \`POST /prerequisite-overrides\` | Wrap Banner Ethos/DB | Process APIs |
 | System | **sys-finance-accounts** | \`GET /students/{id}/holds\`, \`POST /students/{id}/fee-assessments\` | Wrap finance REST | Process APIs |
 | System | **sys-lms-canvas** | \`POST /courses/{id}/enrolments\`, \`DELETE ...\` | Wrap Canvas, throttle | fulfilment |
@@ -150,16 +151,16 @@ Facts:
                                accounts      canvas     graph
 \`\`\`
 
-**Sequence — student registers for a module**
+**Sequence: student registers for a module**
 1. Portal → exp-student-portal \`POST /me/registrations { sectionId }\` (JWT from Entra ID validated by policy).
 2. → prc-course-registration \`POST /registrations { studentId, sectionId, channel }\`.
 3. **Synchronously, in parallel**: sys-finance-accounts holds; sys-sis-academics academic record (completed modules) + overrides.
 4. If a hold exists → 409 with reason \`FINANCE_HOLD\`; if prerequisites are missing and no override → 409 \`PREREQUISITE_MISSING\`.
-5. sys-sis-academics \`POST /registrations\` — the SIS decrements seats atomically (the SIS is the authority on seats; the Process API never trusts the cached count). Full section → 409 \`SECTION_FULL\` + waitlist option.
+5. sys-sis-academics \`POST /registrations\`. The SIS decrements seats atomically (the SIS is the authority on seats; the Process API never trusts the cached count). Full section → 409 \`SECTION_FULL\` + waitlist option.
 6. Publish \`RegistrationCreated\` to an Anypoint MQ **exchange**, return **201** to the student. Total target < 1.5 s.
-7. Asynchronously, prc-registration-fulfilment consumes the event: enrol in Canvas, add to Entra group, ask finance to assess fees. Each step retried with backoff; failures go to a **DLQ** with alerting; the 15-minute SLA is monitored.
+7. Asynchronously, prc-registration-fulfilment consumes the event: enrol in Canvas, add to Entra group, ask finance to assess fees. A failed step rolls the message back, and it is redelivered about once a minute. A redelivery limit of about 30 rides out a short Canvas problem, and a message that still fails (for example a section Canvas does not know) goes to a **DLQ** with alerting. The 15-minute SLA is monitored.
 
-**Why this split.** The student needs an immediate yes/no that depends on holds, prerequisites and seats — that must be synchronous. LMS, identity and fees are consequences; making them asynchronous isolates registration from a rate-limited LMS and lets them catch up after the 09:00 peak.
+**Why this split.** The student needs an immediate yes/no that depends on holds, prerequisites and seats, so that must be synchronous. LMS, identity and fees are consequences; making them asynchronous isolates registration from a rate-limited LMS and lets them catch up after the 09:00 peak.
 
 **Peak strategy.** prc-module-catalogue serves browse traffic from cache (module data TTL hours, seat counts TTL ~10 s, shown as "approximately"), keeping the SIS for actual registrations. Scale Process/Experience replicas before 09:00; Spike Control on sys-sis-academics to protect the DB; queue-based fulfilment levels load on Canvas.
 

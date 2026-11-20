@@ -23,8 +23,9 @@ Head office maintains prices as **effective-dated records**. Every night a Mule 
 - The SKU universe is every SKU that appears anywhere in \`payload\`.
 - Output one object per store, **in the order of \`vars.stores\`**:
   - \`store\`
-  - \`prices\` — sorted by \`sku\`: \`sku\`, \`price\`, \`priceType\`, \`source\` (\`STORE\` or \`CHAIN\`), \`effectiveFrom\`
-  - \`noPrice\` — the SKUs (sorted) without any applicable active record, \`[]\` if none
+  - \`prices\`: sorted by \`sku\` as text; each entry has \`sku\`, \`price\`, \`priceType\`, \`source\` (\`STORE\` or \`CHAIN\`), \`effectiveFrom\` (the input string), in that order
+  - \`noPrice\`: the SKUs without any applicable active record, sorted as text, \`[]\` if none
+- \`price\` is the input number unchanged.
 `,
   inputs: [
     {
@@ -77,10 +78,10 @@ payload
 `,
   hints: [
     'Convert the strings with `as Date` before comparing; check `effectiveTo == null` **before** converting it.',
-    'Write `better(a, b, store)` that returns the winner of two records by applying the four rules in order — each rule only decides when the two records differ on it.',
+    'Write `better(a, b, store)` that returns the winner of two records by applying the four rules in order. Each rule only decides when the two records differ on it.',
     '`candidates reduce (c, acc) -> better(c, acc, store)` without an initial value starts with the first candidate and returns `null` for an empty list.',
-    '`(list filter ...).sku` is `null` when nothing matches — add `default []` for `noPrice`.',
-    'Careful with `distinctBy $ orderBy $`: the second lambda swallows the rest. Parenthesise.',
+    '`(list filter ...).sku` is `null` when nothing matches. Add `default []` for `noPrice`.',
+    '`x distinctBy $ orderBy $` runs left to right: a `$` lambda ends at the next operator. Parentheses still make the order clear.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -118,15 +119,15 @@ vars.stores map (store) -> do {
   }
 }`,
   explanation: `
-**Effective dating.** "Active on a date" is an interval test with an open end. Two classic bugs: comparing the date **strings** in a format that does not sort (\`dd/MM/yyyy\`), and forgetting that \`effectiveTo\` is **inclusive** — S014's promo for 70012 ends on 2025-11-14 and is still the price on that day.
+**Effective dating.** "Active on a date" is an interval test with an open end. Two classic bugs: comparing the date **strings** in a format that does not sort (\`dd/MM/yyyy\`), and forgetting that \`effectiveTo\` is **inclusive**: S014's promo for 70012 ends on 2025-11-14 and is still the price on that day.
 
 **A comparator instead of sorting.** Multi-key priority rules are easiest to get right as a function that compares two candidates: each rule only decides when the candidates differ on it, otherwise it falls through to the next. \`reduce\` then keeps the winner of the whole list. Sorting with several \`orderBy\` passes is fragile (it relies on sort stability and on reversing the order of the keys).
 
-\`reduce\` without an initial accumulator uses the first element as the starting value — and on an empty list returns \`null\`, which is exactly the "no price" signal.
+\`reduce\` without an initial accumulator uses the first element as the starting value, and on an empty list returns \`null\`, which is exactly the "no price" signal.
 
 **Why the rule order matters.** For S022 and SKU 4011 there is a newer chain-wide price (1.35, from 11-10), but the older store-specific price (1.25) wins because rule 2 comes before rule 3. That is the usual retail convention: a store override stays until someone removes it. The chain-wide promo for 4011 starts tomorrow, so it is not active yet.
 
-**Output details.** \`vars.stores map ...\` keeps the requested store order. The empty-selector trap: \`(picks filter ...).sku\` on an empty array is \`null\`, so \`noPrice\` needs \`default []\`. Records of store S099 never match any requested store, but their SKU still belongs to the SKU universe — hence 88001 in \`noPrice\`.
+**Output details.** \`vars.stores map ...\` keeps the requested store order. The empty-selector trap: \`(picks filter ...).sku\` on an empty array is \`null\`, so \`noPrice\` needs \`default []\`. Records of store S099 never match any requested store, but their SKU still belongs to the SKU universe, hence 88001 in \`noPrice\`.
 `,
   tests: [
     {

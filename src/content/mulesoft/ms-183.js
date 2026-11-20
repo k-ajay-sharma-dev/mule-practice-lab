@@ -126,7 +126,7 @@ A new developer asks: "Who presses the start button?" Nobody does. Each flow beg
     },
     {
       q: 'What must follow a Scheduler in a flow?',
-      a: 'At least one processor. A Scheduler with nothing after it fails to deploy, and it would have no work to do anyway.',
+      a: 'At least one processor that does the work, such as a query or a file write. A Scheduler with nothing after it starts the flow on time but does nothing useful.',
     },
     {
       q: 'What is the difference between a source and an operation?',

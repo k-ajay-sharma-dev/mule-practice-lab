@@ -63,7 +63,8 @@ Facts:
 - A policy changes a few times a year. Business accepts data that is up to **15 minutes old**, except right after a change the customer made.
 - The mainframe already writes a message to an MQ queue \`policy-changed\` (policy number only) whenever a policy is updated.
 - Target: **p95 under 500 ms** for the summary API.
-- The mainframe takes about 15 calls a second. A 15 minute cache answers about 7 reads in 10, and the mainframe can stop answering for 10 minutes.
+- The mainframe takes at most about 15 calls a second. A 15 minute cache answers about 7 reads in 10.
+- The mainframe can hang for 10 minutes. Then calls to it must fail at once instead of holding threads, and cached reads must still be answered within 1.5 seconds.
 
 **Describe your solution:**
 - Where does the cache live and who reads and writes it?
@@ -100,11 +101,11 @@ Facts:
 3. Miss: call sys-policy-admin-api, map the answer to the summary, store it with a **15 minute TTL**, return it.
 In Mule 4 this is the **Cache scope** with an Object Store caching strategy, or explicit Object Store \`retrieve\` / \`store\` operations. Use **Object Store v2** (or a shared persistent store on Runtime Fabric) so all replicas share one cache. An in-memory store per worker would give each replica its own misses.
 
-**Cache key and TTL.** Key on the policy number and a schema version. Never key on the caller, because the same summary serves agents and customers; access rules are checked before the cache lookup. 15 minutes matches the business rule. With 70 % of reads on 5,000 policies the hit rate should be above 80 %, which cuts mainframe calls from 40/s to under 8/s.
+**Cache key and TTL.** Key on the policy number and a schema version. Never key on the caller, because the same summary serves agents and customers; access rules are checked before the cache lookup. 15 minutes matches the business rule. With 70 % of reads on 5,000 policies the hit rate is about 70 %, which cuts mainframe calls from 40/s to about 12/s, under the 15/s it can take.
 
 **Eviction on change.** A small flow in the Process API listens on \`policy-changed\` and removes \`policy:{number}:v1\`. The next read reloads it. Evict instead of reloading, so a burst of batch updates does not turn into a burst of mainframe calls.
 
-**Mainframe down.** Keep a second, longer-lived copy (24 hours) as a fallback. If the System API times out (set the timeout to 8 s, not the default), return the fallback copy with \`lastUpdated\` so the app can show "as of 09:10". On a miss with no fallback, return 503 with a retry hint.
+**Mainframe down.** Keep a second, longer-lived copy (24 hours) as a fallback. sys-policy-admin-api sets its timeout to 8 s and uses a circuit breaker: when most calls to a hung mainframe fail, it fails at once instead of holding a thread for each call. If the System API times out or the breaker is open, return the fallback copy with \`lastUpdated\` so the app can show "as of 09:10". On a miss with no fallback, return 503 with a retry hint.
 
 **Stampede.** When a popular entry expires, many requests miss at once. Lock per key (the Object Store caching strategy can synchronise loads of the same key) or refresh popular entries a little before expiry.
 

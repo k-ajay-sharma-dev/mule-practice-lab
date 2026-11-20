@@ -92,6 +92,11 @@ Two problems with the old job:
 - When nothing changed, write no file.
 - Move the watermark only when the file is in place under its final name.
 
+**Facts**
+- The platform ignores a file whose name ends in \`.tmp\`. A rename on the share is quick and all at once.
+- The watermark you store is the newest \`updated_at\` among the rows you sent, not the time of the run. On the first run there is no watermark yet, so use an old default.
+- A share that cannot be written raises **FILE:CONNECTIVITY**. Do not catch it: the run must end with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking the changed items

@@ -7,9 +7,9 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 03:00:10 ERROR [item-load] ORA-00001: unique constraint (HUB.PK_ITEM) violated item=ITM-4410", relevant: true, why: "The item already exists." },
-      { text: "2026-11-18 03:00:10 INFO  [item-load] Operation INSERT INTO item", relevant: true, why: "The load only inserts." },
       { text: "2026-11-18 03:00:00 INFO  [item-load] Message type=Item change=UPDATE count=1200", relevant: true, why: "The sender sends updates too." },
+      { text: "2026-11-18 03:00:10 INFO  [item-load] Operation INSERT INTO item", relevant: true, why: "The load only inserts." },
+      { text: "2026-11-18 03:00:10 ERROR [item-load] ORA-00001: unique constraint (HUB.PK_ITEM) violated item=ITM-4410", relevant: true, why: "The item already exists." },
       { text: "2026-11-18 03:00:11 WARN  [item-load] Batch rolled back rows=1200", relevant: true, why: "One clash stops everything." },
       { text: "2026-11-18 23:59:00 INFO  [item-load] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does the load fail?",
         options: [
-          "It inserts items that already exist, so the primary key is violated",
-          "The table is full",
-          "The database is down",
-          "The key is wrong",
+          "It inserts items that already exist, so the key is violated",
+          "Two Mule workers insert the same new item at the same time",
+          "The ITEM table’s sequence was reset and reuses old IDs",
+          "The sender put ITM-4410 twice in the same message",
         ],
         answer: 0,
         explain: "ORA-00001 means a duplicate key.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the fix?",
         options: [
-          "Use MERGE so existing items are updated and new ones inserted",
-          "Drop the primary key",
-          "Delete the table first",
-          "Ignore errors",
+          "Use MERGE to update existing items and insert new ones",
+          "Disable PK_ITEM during the load, then enable it",
+          "Delete all items from the table before each load",
+          "Skip rows that raise ORA-00001 and load the rest",
         ],
         answer: 0,
         explain: "MERGE handles both cases.",
@@ -45,7 +45,7 @@ export default {
           "Load into staging and MERGE into the target",
           "Report rows that fail with their key",
           "Keep the primary key",
-          "Remove constraints for speed",
+          "Remove the table constraints for speed",
         ],
         answer: [0,1,2],
         explain: "Constraints protect data. Handle them properly.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why did one clash roll back 1,200 rows?",
         options: [
           "The batch ran in one transaction",
-          "Oracle always does that",
-          "The network failed",
-          "The sender asked",
+          "ORA-00001 locks the whole table",
+          "Oracle undoes 1,200 rows per error",
+          "The sender sent a rollback message",
         ],
         answer: 0,
         explain: "All or nothing, which is fine if you retry with the right statement.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 03:00:10 ERROR [item-load] ORA-00001: unique constraint (HUB.PK_ITEM) violated item=ITM-4410
-2026-11-18 03:00:10 INFO  [item-load] Operation INSERT INTO item
 2026-11-18 03:00:00 INFO  [item-load] Message type=Item change=UPDATE count=1200
+2026-11-18 03:00:10 INFO  [item-load] Operation INSERT INTO item
+2026-11-18 03:00:10 ERROR [item-load] ORA-00001: unique constraint (HUB.PK_ITEM) violated item=ITM-4410
 2026-11-18 03:00:11 WARN  [item-load] Batch rolled back rows=1200
 \`\`\`
 

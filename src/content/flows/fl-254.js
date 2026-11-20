@@ -151,6 +151,12 @@ A first try wrote \`successfulRecords\` and \`failedRecords\` to the job row. It
 - Bulk insert each group. If it fails, roll it back and insert its lines one by one; a line that still fails goes to the reject table with the job ID and the database's error text.
 - When the job ends, write \`loaded\`, \`rejected\` and a status: \`COMPLETED\` with no rejects, else \`COMPLETED_WITH_REJECTS\`.
 
+**Facts**
+- \`dbo.usp_job_start\` returns \`{ job_id }\`.
+- A blank amount goes in as null, so the database refuses that line.
+- A failed bulk insert raises \`DB:QUERY_EXECUTION\`. \`error_text\` holds \`error.description\` of the single insert that failed.
+- \`loaded\` is the number of staging rows with this job's ID, and \`rejected\` the number of reject rows with it.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

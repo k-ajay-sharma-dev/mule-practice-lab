@@ -7,8 +7,8 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 01:00:00 INFO  [vendor-poll] List directory=/vendor-in entries=184220 durationMs=271000", relevant: true, why: "Listing takes over four minutes." },
-      { text: "2026-11-18 01:00:00 INFO  [vendor-poll] New files=6", relevant: true, why: "Only six are new." },
+      { text: "2026-11-18 01:04:31 INFO  [vendor-poll] List directory=/vendor-in entries=184220 durationMs=271000", relevant: true, why: "Listing takes over four minutes." },
+      { text: "2026-11-18 01:04:31 INFO  [vendor-poll] New files=6", relevant: true, why: "Only six are new." },
       { text: "2026-11-18 01:05:00 WARN  [vendor-poll] Previous run still active, skipping", relevant: true, why: "Runs overlap." },
       { text: "2026-11-18 01:10:00 INFO  [ops] /vendor-in contains processed files from 2024 onwards", relevant: true, why: "Processed files are never moved." },
       { text: "2026-11-18 23:59:00 INFO  [vendor-poll] GET /health 200", relevant: false },
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is the poll slow?",
         options: [
-          "It lists every file ever received, because processed files stay in the inbound folder",
-          "The network is slow",
-          "The files are big",
-          "The worker is small",
+          "It lists every file ever received, as processed files stay in /vendor-in",
+          "It downloads all 184,220 files to compare their content with the list",
+          "The share throttles the app because the poll runs every 5 minutes",
+          "The processed name list is too large for the worker’s heap",
         ],
         answer: 0,
         explain: "184,220 entries for 6 new files.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What fixes it?",
         options: [
-          "Move processed files to a dated archive folder so the inbound folder stays small",
-          "Poll less often",
-          "Use a bigger worker",
-          "List twice",
+          "Move processed files to a dated archive so /vendor-in stays small",
+          "Poll every 15 minutes so each run has time to finish the listing",
+          "Move the app to a larger worker so the listing runs faster",
+          "Keep the processed name list in a database instead of in memory",
         ],
         answer: 0,
         explain: "A small inbound folder makes listing fast.",
@@ -45,7 +45,7 @@ export default {
           "Archive by date folders such as archive/2026/11/18",
           "Move old archives to cheaper storage",
           "Alert when the inbound folder holds more than a set count",
-          "Keep everything in one folder",
+          "Run two pollers, each listing half the files",
         ],
         answer: [0,1,2],
         explain: "Structure and limits keep listings quick.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why skip when a run is still active?",
         options: [
           "Two overlapping runs could pick the same file",
-          "It saves logs",
-          "It is required by Azure",
-          "It makes it faster",
+          "The share allows only one list call at a time",
+          "A second run would reset the first run’s listing",
+          "It keeps the processed name list from growing",
         ],
         answer: 0,
         explain: "Overlap prevention is right. The real issue is the slow listing.",
@@ -81,13 +81,14 @@ export default {
 - The vendor poll now takes over four minutes and skips runs.
 
 ## Change / Context
+- The poll starts every 5 minutes and skips a start while the previous run is still active.
 - The flow reads new files by comparing names with a list of processed names. Files stay in /vendor-in.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 01:00:00 INFO  [vendor-poll] List directory=/vendor-in entries=184220 durationMs=271000
-2026-11-18 01:00:00 INFO  [vendor-poll] New files=6
+2026-11-18 01:04:31 INFO  [vendor-poll] List directory=/vendor-in entries=184220 durationMs=271000
+2026-11-18 01:04:31 INFO  [vendor-poll] New files=6
 2026-11-18 01:05:00 WARN  [vendor-poll] Previous run still active, skipping
 2026-11-18 01:10:00 INFO  [ops] /vendor-in contains processed files from 2024 onwards
 \`\`\`
@@ -117,7 +118,7 @@ These lines are illustrative and were written for this scenario. Real log format
     "Prevent overlapping runs.",
   ],
   solution: `
-**Diagnosis.** Processed files are never moved, so each poll lists hundreds of thousands of entries.
+**Diagnosis.** Processed files are never moved, so each poll lists about 184,000 entries.
 
 **Immediate mitigation.**
 - Move processed files to archive folders.

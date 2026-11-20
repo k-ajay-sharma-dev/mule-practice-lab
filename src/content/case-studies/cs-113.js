@@ -95,6 +95,7 @@ export default {
 - The provisioning gateway accepts at most 30 concurrent requests.
 - In tests orders arrive at 1 a second, a provisioning call takes 20 seconds, and the eSIM platform can be down for 20 minutes.
 - A failed order must leave no reserved number, active profile or billing account behind.
+- In the diagram, name the orchestrator prc-order-to-activate-api, the provisioning System API sys-network-provisioning-api and the queues order-submitted, provisioning-requests and provisioning-results. Put "HSS" in the name of the provisioning gateway and "eSIM" in the name of the SM-DP+ platform. A provisioning call can take 90 seconds, so give the provisioning System API a 120 second timeout.
 
 **Your task.** Design the order to activate integration, including how a failed step is undone.
 `,
@@ -128,13 +129,13 @@ export default {
 5. On the result message, create billing account and subscription.
 6. Release the eSIM QR code to the customer and set the order \`completed\`.
 
-**Provisioning.** \`sys-network-provisioning-api\` consumes with a maximum concurrency of 30, calls the gateway, and publishes the outcome to \`provisioning-results\`. A provisioning result carries the order ID, so the orchestrator picks the order up from its state table.
+**Provisioning.** \`sys-network-provisioning-api\` consumes with a maximum concurrency of 30, calls the gateway with a 120 second timeout (a call can take 90 seconds), and publishes the outcome to \`provisioning-results\`. A provisioning result carries the order ID, so the orchestrator picks the order up from its state table.
 
 **Compensation.** If a step fails after retries, the orchestrator runs the undo actions for completed steps in reverse: deprovision, delete eSIM profile, release MSISDN. Undo actions are retried until they succeed and are idempotent. Orders that still cannot be cleaned go to the DLQ and a repair queue for the back office.
 
 **Status.** At each milestone the orchestrator updates the order through \`sys-salesforce-order-api\` (TMF622 state and a step note).
 
-**Peak.** 15,000 orders in the first launch hour is about 4 per second. The fast steps cope; provisioning at 30 in parallel and about 20 seconds each handles 1.5 per second, so a backlog builds and drains within a few hours. The QR code target is met for most customers, and the launch plan raises the gateway limit with the network team.
+**Peak.** 15,000 orders in the first launch hour is about 4 per second. The fast steps cope; provisioning at 30 in parallel and about 20 seconds each handles 1.5 per second, so a backlog of about 10,000 builds in the first hour and drains within a few hours. Customers in that hour wait longer than 5 minutes for the QR code, so the launch plan raises the gateway limit with the network team.
 `,
   followUps: [
     { q: 'Why an orchestrator and not choreography between the systems?', a: 'The order has a strict sequence and needs one place that knows its state and can undo steps. With choreography, each system would need to understand the order lifecycle and the rollback rules.' },

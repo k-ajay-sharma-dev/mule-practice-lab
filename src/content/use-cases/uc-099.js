@@ -67,7 +67,7 @@ Facts:
 - An IC invoice is flagged by the customer: in SAP a trading partner on the customer, in NetSuite an intercompany customer record.
 - The buyer side must use the **same invoice number, amount, currency and date**. Only the accounts differ, from an IC mapping table.
 - Credit notes follow the same rules.
-- In the tests the poller sends 1 IC invoice a second at month end. SAP can take 15 seconds per posting or fail 1 posting in 10.
+- In the tests the poller sends 1 IC invoice a second at month end. SAP can take 15 seconds per posting or fail 1 posting in 10. A Mule HTTP call times out after 10 seconds by default. Almost every invoice (99 %) must still be posted in the same run.
 - Group accounting wants a **daily list of mismatches**: invoices on one side only, or with different amounts.
 
 **Questions:**
@@ -102,6 +102,8 @@ Facts:
 It then posts a vendor invoice through the buyer's System API: \`sys-sap-finance-api\` (supplier invoice API) or \`sys-netsuite-api\` (vendor bill). The System APIs only translate to their own ERP. They do not know the other ERP exists, so either side can be replaced later.
 
 **Duplicates.** Before posting, the Process API inserts a row in the **pair table** with a unique key on seller entity plus invoice number, status \`POSTING\`. If the row already exists with \`POSTED\`, the invoice is skipped. After posting, it stores the buyer document number and sets \`POSTED\`. If a run crashed during posting, the next run searches the buyer ERP by external reference before trying again.
+
+**Slow and failed postings.** At month end SAP can take 15 seconds to post, longer than the 10-second default, so the poller, prc-intercompany and sys-sap-finance-api use a response timeout of about 30 seconds. sys-sap-finance-api retries a failed posting twice; the pair table makes the retry safe, so a posting that fails 1 time in 10 almost always goes through.
 
 **Mismatch report.** At 07:00 a job reads the pair table and lists:
 - seller invoices with no buyer document after 24 hours;

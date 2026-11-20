@@ -78,7 +78,7 @@ export default {
       {
         name: 'A payment is accepted',
         about: 'The audit inserts take 300 ms, yet the caller gets the answer within 200 ms. Both audit tables get the record afterwards.',
-        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_visa_4242', merchantId: 'M-2207' } } },
+        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_test_4242', merchantId: 'M-2207' } } },
         expect: {
           status: 200,
           maxMs: 200,
@@ -89,14 +89,14 @@ export default {
       {
         name: 'The audit database is down',
         about: 'No audit insert can run. The payment answer is not affected, and the compliance record waits on the queue.',
-        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_visa_4242', merchantId: 'M-2207' } } },
+        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_test_4242', merchantId: 'M-2207' } } },
         overrides: { systems: { db: { fault: 'CONNECTIVITY' } } },
         expect: { status: 200, maxMs: 200, sent: [{ destination: 'auditQueue', count: 1 }] },
       },
       {
         name: 'The payment processor fails',
         about: 'The payment is not accepted, so no compliance audit record is handed over.',
-        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_visa_4242', merchantId: 'M-2207' } } },
+        trigger: { http: { method: 'POST', path: '/payments', body: { amount: 49.99, currency: 'EUR', cardToken: 'tok_test_4242', merchantId: 'M-2207' } } },
         overrides: { systems: { http: [{ method: 'POST', path: '/processor/payments', respond: { fault: 'CONNECTIVITY' } }] } },
         expect: { notSent: ['auditQueue'], db: { compliance_audit: { count: 0 } }, calls: [{ method: 'POST', path: '/processor/payments', count: 1 }] },
       },
@@ -157,11 +157,13 @@ export default {
     ]),
   ),
   description: `
-A **Payments API** (\`POST /payments\`, p95 must stay under **200 ms**) has to write an audit record for every request to a slow **Audit DB** (inserts take 150–400 ms).
+A **Payments API** (\`POST /payments\`, p95 must stay under **200 ms**) calls the payment processor (\`POST /processor/payments\`, which answers with the payment \`id\` and \`status\`). It then has to write an audit record to a slow **Audit DB** (inserts take 150 to 400 ms). The audit record holds \`paymentId\`, \`amount\`, \`status\` and \`correlationId\`.
 
-Two variants of the requirement exist:
-- **Variant A (marketing analytics):** losing a few audit records during a crash is acceptable.
-- **Variant B (compliance audit):** every accepted payment **must** eventually have an audit record, even if the app restarts mid-way.
+The app needs both of these audit trails, so build both in the same app:
+- **Variant A (marketing analytics, table \`analytics_audit\`):** losing a few audit records during a crash is acceptable.
+- **Variant B (compliance audit, table \`compliance_audit\`):** every accepted payment **must** eventually have an audit record, even if the app restarts mid-way. Record only payments that succeeded. If you hand records to a VM queue, name it \`auditQueue\`.
+
+Both tables have the columns \`payment_id\`, \`amount\`, \`status\` and \`correlation_id\`.
 
 **Design the flow(s):**
 - How do you take the audit insert out of the response path?
@@ -181,27 +183,27 @@ Two variants of the requirement exist:
   keyPoints: [
     'Async scope runs its processors on a separate thread and the main flow continues immediately without waiting for a result.',
     'Errors inside an Async scope do not propagate to the main flow; they must be handled inside the scope.',
-    'Async scope work is in memory only and is lost if the app crashes or redeploys — acceptable for Variant A only.',
+    'Async scope work is in memory only and is lost if the app crashes or redeploys, which is acceptable for Variant A only.',
     'Variant B publishes to a persistent VM queue (or an external broker) and a separate VM Listener flow performs the insert.',
     'The VM consumer flow can use a transaction/redelivery so a failed insert is retried instead of lost.',
   ],
   solution: `
-**Variant A – Async scope**
+**Variant A: Async scope**
 1. HTTP Listener \`POST /payments\` → validate → call payment processor → build response.
 2. Inside the flow, an **Async** scope containing a Transform Message (build audit record in DataWeave) + Database Insert.
 3. The main flow returns immediately; the Async scope uses its own thread. Optionally set \`maxConcurrency\` on the scope so a slow DB cannot exhaust threads.
-4. Put a **Try / On Error Continue** inside the Async scope to log failed inserts — errors there never reach the caller.
+4. Put a **Try / On Error Continue** inside the Async scope to log failed inserts. Errors there never reach the caller.
 
-**Variant B – VM queue**
+**Variant B: VM queue**
 1. Define a **VM config** with a queue \`auditQueue\`, \`queueType="PERSISTENT"\`.
 2. Main flow: after the payment succeeds, **VM Publish** the audit record to \`auditQueue\` (fast, local) → respond.
 3. Consumer flow: **VM Listener** on \`auditQueue\` → Database Insert. Use a transactional listener (\`transactionalAction="ALWAYS_BEGIN"\`) so that if the insert fails the message goes back to the queue; limit retries and route poison messages to an error table/log. A local transaction covers one connector, so the insert is not part of the VM transaction: make it idempotent, because a redelivery can repeat it.
-4. Persistent VM queues survive a restart of that app; on CloudHub 1.0 enable persistent queues for the app (CloudHub 2.0 and Runtime Fabric do not support persistent queues — use Anypoint MQ there). In a Mule runtime cluster VM queues are shared across nodes.
+4. Persistent VM queues survive a restart of that app; on CloudHub 1.0 enable persistent queues for the app (CloudHub 2.0 and Runtime Fabric do not support persistent queues, so use Anypoint MQ there). In a Mule runtime cluster VM queues are shared across nodes.
 5. If the audit must survive the *whole deployment* being lost, or be consumed by another app, use **Anypoint MQ/JMS** instead of VM.
 `,
   followUps: [
     { q: 'Does the Async scope copy the variables of the main flow?', a: 'It receives a copy of the event at the moment it starts; changes made inside the Async scope are not visible to the main flow afterwards.' },
     { q: 'What happens if the audit DB is down for an hour in Variant B?', a: 'Messages accumulate in the persistent VM queue and are redelivered when the DB returns; you should size queue storage, cap redeliveries and alert on backlog.' },
-    { q: 'Could you use VM Publish-Consume here?', a: 'No — Publish-Consume waits for a reply, which puts the slow insert back in the response path. Plain Publish is the fire-and-forget operation.' },
+    { q: 'Could you use VM Publish-Consume here?', a: 'No. Publish-Consume waits for a reply, which puts the slow insert back in the response path. Plain Publish is the fire-and-forget operation.' },
   ],
 }

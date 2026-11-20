@@ -10,22 +10,22 @@ export default {
       type: 'single',
       prompt: 'The app deploys, but the first `db:select` fails because the Oracle driver class cannot be found. What is the usual fix?',
       options: [
-        'Add the Oracle JDBC driver (e.g. ojdbc8/ojdbc11) as a Maven dependency and declare it as a shared library for the Mule Maven plugin',
-        'Copy ojdbc.jar into src/main/resources',
-        'Nothing — the Database connector bundles the Oracle driver',
-        'Switch to the generic connection, which does not need a driver',
+        'Add the driver as a pom dependency and shared library',
+        'Copy the ojdbc jar into src/main/resources',
+        'Nothing; the Database connector bundles the driver',
+        'Use the generic connection, which needs no driver',
       ],
       answer: 0,
-      explain: 'The Database connector does not ship vendor drivers. The driver must be on the connector classpath, which is done with a pom dependency plus a `sharedLibrary` entry (Studio does this when you click "Add driver"). A generic connection still needs the driver.',
+      explain: 'Add the Oracle JDBC driver (e.g. ojdbc8 or ojdbc11) as a Maven dependency and declare it as a shared library for the Mule Maven plugin. The Database connector does not ship vendor drivers. The driver must be on the connector classpath, which is done with a pom dependency plus a `sharedLibrary` entry (Studio does this when you click "Add driver"). A generic connection still needs the driver.',
     },
     {
       type: 'single',
       prompt: 'A developer wrote `#["SELECT qty FROM store_stock WHERE store_id = \'" ++ attributes.queryParams.store ++ "\'"]`. What is the main problem?',
       options: [
-        'The value is concatenated into the SQL text, so it allows SQL injection and Oracle sees a different statement for every store',
-        'DataWeave cannot build strings with ++',
-        'Oracle does not accept single quotes in WHERE clauses',
-        'It only works when the store ID is numeric',
+        'The value becomes part of the SQL, so it allows injection',
+        'DataWeave cannot build strings with the `++` operator',
+        'Oracle rejects single quotes inside a WHERE clause',
+        'It works only when the store ID is numeric',
       ],
       answer: 0,
       explain: 'Concatenation lets a crafted value (`\' OR \'1\'=\'1`) change the query, and a new statement text for every value defeats statement caching on both sides. Use `:storeId` in the SQL and pass the value in `input-parameters`.',
@@ -47,13 +47,13 @@ export default {
       type: 'single',
       prompt: 'Every request to the Store Inventory API opens a new Oracle session and takes 300 ms longer than expected. What should you check first?',
       options: [
-        'That the connection uses a pooling profile so connections are reused',
+        'That the config has a pooling profile',
         'That the SQL uses upper-case keywords',
-        'That the HTTP listener uses HTTPS',
-        'That the result is converted to JSON with DataWeave',
+        'That STORE_STOCK has an index on STORE_ID',
+        'That DataWeave converts the result to JSON',
       ],
       answer: 0,
-      explain: 'Opening an Oracle session is expensive (network, authentication, session setup). A pooling profile keeps connections open and lends them to requests.',
+      explain: 'A new session per request means connections are not reused. An index speeds the query but does not stop the logons. Opening an Oracle session is expensive (network, authentication, session setup). A pooling profile keeps connections open and lends them to requests.',
     },
     {
       type: 'order',
@@ -65,11 +65,11 @@ export default {
         'Write the db:select with named parameters and input-parameters',
         'Test with a store ID containing a quote to confirm it is handled as data',
       ],
-      explain: 'Driver first (otherwise "Test connection" fails), then the config with secured credentials and a pool, then parameterised SQL — and a quick negative test proves the value is bound.',
+      explain: 'Driver first (otherwise "Test connection" fails), then the config with secured credentials and a pool, then parameterised SQL. A quick negative test proves the value is bound.',
     },
   ],
   description: `
-A fashion retailer is building a **Store Inventory System API** so the mobile app can show "available in your store". Stock lives in an **Oracle 19c** table:
+A home goods retailer is building a **Store Inventory System API** so the mobile app can show "available in your store". Stock lives in an **Oracle 19c** table:
 
 \`\`\`sql
 STORE_STOCK (STORE_ID VARCHAR2(6), SKU VARCHAR2(20), ON_HAND NUMBER, RESERVED NUMBER, UPDATED_AT TIMESTAMP)
@@ -136,7 +136,7 @@ Concatenation means the value becomes part of the SQL text: a value like \`' OR 
   <db:pooling-profile maxPoolSize="10" minPoolSize="2" maxWait="5" maxWaitUnit="SECONDS" preparedStatementCacheSize="20"/>
 </db:oracle-connection>
 \`\`\`
-Connections are opened once and lent to requests; \`maxWait\` makes requests fail fast instead of hanging when the pool is busy. Size it with the DBA: total sessions = replicas × maxPoolSize. (If your environment uses a service name rather than a SID, a generic connection with \`jdbc:oracle:thin:@//host:1521/SERVICE\` works too.)
+Connections are opened once and lent to requests; \`maxWait\` makes requests fail fast instead of hanging when the pool is busy. Size it with the DBA: total sessions = replicas × maxPoolSize. (If your environment uses a service name rather than a SID, use the service name field of the Oracle connection where your connector version has one, or a generic connection with \`jdbc:oracle:thin:@//host:1521/SERVICE\`.)
 
 **4. Credentials.** Host, port, user and SID/service from per-environment property files; the password from **secure properties** (or a vault), never committed in plain text.
 `,
@@ -151,7 +151,7 @@ Connections are opened once and lent to requests; \`maxWait\` makes requests fai
     },
     {
       q: 'Why might the pool need fewer connections than the number of concurrent HTTP requests?',
-      a: 'A connection is only held while the query runs; if queries take a few milliseconds, a handful of connections serves many concurrent requests. Oversizing the pool just moves the queue into Oracle.',
+      a: 'A connection is only held while the query runs; if queries take a few milliseconds, a handful of connections serves many concurrent requests. Oversizing the pool only moves the queue into Oracle.',
     },
   ],
 }

@@ -24,11 +24,11 @@ export default {
       options: [
         '`[Chat] Answer Prompt`, which takes one plain text prompt and returns an answer',
         '`[Chat] Completions`, which needs a stored history before it can give an answer',
-        '`[Image] Generate`, which turns one plain text prompt into a text answer',
+        '`[Agent] Define Prompt Template`, which needs a template and instructions too',
         '`[Toxicity] Detection by Text`, which answers one plain text prompt with a score',
       ],
       answer: 0,
-      explain: '`[Chat] Answer Prompt` is a single turn request with plain text in and a plain text answer out. It has no field for conversation history.',
+      explain: '`[Chat] Answer Prompt` is a single turn request with plain text in and a plain text answer out. It has no field for conversation history. A prompt template suits fixed instructions around changing data, which this flow does not need.',
     },
     {
       type: 'single',

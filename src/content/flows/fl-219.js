@@ -101,6 +101,11 @@ The DBA has added an outbox table: \`dbo.outbox\` (\`outbox_id\` identity, \`eve
 - A separate flow, every 30 seconds, reads up to 100 \`NEW\` outbox rows in key order, publishes each \`payload_json\` to \`wms.allocations\`, and marks it \`SENT\`.
 - A broker outage must not lose an event.
 
+**Facts**
+- Name the relay flow \`outbox-relay\`.
+- An outbox row's \`aggregate_id\` is the \`alloc_id\`, and \`payload_json\` is the allocation as JSON. \`outbox_id\` is filled by the database.
+- Store \`qty\` as a number.
+
 **Design the two flows.**
 `,
   answerTemplate: `## Why the first version lost events

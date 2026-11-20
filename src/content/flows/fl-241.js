@@ -109,6 +109,11 @@ The team added \`email_outbox\` (\`id\`, \`order_id\`, \`to_addr\`, \`subject\`,
 - The order API never talks to the mail relay.
 - A relay flow runs every 30 seconds, sends up to 50 \`PENDING\` emails one by one, and marks each \`SENT\`. A failed send stays \`PENDING\` for the next run, with a WARN.
 
+**Facts**
+- Name the relay flow \`confirmation-relay\`.
+- Make the outbox \`id\` with \`uuid()\`. The subject carries the order ID, such as \`Your order CC-30881 is being picked\`.
+- Put the status code in the variable \`httpStatus\`. The listener answers with it. A failed insert must not be caught, so the shopper gets 500.
+
 **Design the flows.**
 `,
   answerTemplate: `## Writing the order and the email row

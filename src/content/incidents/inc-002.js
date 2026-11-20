@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'Our custom truststore only holds the old carrier certificate, so the new certificate from a different CA is not trusted',
-          'The carrier API is down since Sunday night',
-          'A firewall rule now blocks outbound traffic from shipping-sapi',
-          'Our own client certificate expired over the weekend',
+          'Our truststore holds only the old carrier certificate, so the new CA is not trusted',
+          'The carrier API has been down since its certificate change on Sunday night',
+          'A new firewall rule blocks outbound HTTPS from shipping-sapi to the internet',
+          'Our client certificate for mutual TLS with the carrier expired over the weekend',
         ],
         answer: 0,
         explain: '**PKIX path building failed** is a trust failure on the client side. The carrier switched CA and our truststore pins the old certificate. `curl` works because the laptop trusts public CAs, and our own APIs still work, so it is not the network or the carrier being down.',
@@ -34,8 +34,8 @@ export default {
         prompt: 'What do you do **right now** to restore service?',
         options: [
           'Set insecure="true" on the trust store of the TLS context until the carrier fixes it',
-          'Import the verified new carrier CA chain into the truststore, redeploy and re-send the failed shipments',
-          'Restart the application to clear the TLS session cache',
+          'Import the verified new carrier CA chain into the truststore and redeploy',
+          'Restart the application to clear its cached TLS sessions',
           'Ask the carrier to roll back to the old certificate',
         ],
         answer: 1,
@@ -122,7 +122,7 @@ export default {
 2. Import it into \`carrier-truststore.jks\` (\`keytool -importcert\`), redeploy (or update the secure property/file).
 3. Re-send the shipments that failed since 00:05 (from the error queue/logs) and confirm with the business.
 
-Do **not** set \`insecure="true"\` on the TLS context's trust store — that disables server verification and opens the door to man-in-the-middle attacks.
+Do **not** set \`insecure="true"\` on the TLS context's trust store. That disables server verification and opens the door to man-in-the-middle attacks.
 
 **Root cause.** The truststore pinned the carrier's **leaf certificate** instead of trusting the issuing CA, and the partner's change notice wasn't acted on.
 

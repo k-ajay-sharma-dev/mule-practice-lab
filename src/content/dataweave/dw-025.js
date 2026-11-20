@@ -12,7 +12,7 @@ Before an order is sent to the ERP, the Order Process API has to fix a few field
 - \`status\` becomes \`"SUBMITTED"\`.
 - \`customer.email\` is trimmed and lower-cased.
 - \`customer.address.country\` is upper-cased.
-- Every item in \`lines\` gets an extra field \`lineTotal\` = \`qty * unitPrice\`.
+- Every item in \`lines\` gets an extra field \`lineTotal\` = \`qty * unitPrice\`, added after the existing fields.
 - \`meta.source\` is set to \`"WEB"\` **only if it is missing**. An existing value is kept. If \`meta\` itself is missing, it is created.
 - Every other field stays unchanged.
 
@@ -61,9 +61,9 @@ output application/json
 payload
 `,
   hints: [
-    '`payload update { case e at .customer.email -> ... }` replaces just that value and copies the rest of the object for you.',
+    '`payload update { case e at .customer.email -> ... }` replaces only that value and copies the rest of the object for you.',
     'You can list several `case ... at ...` lines inside one `update` block. For `lines`, the matched value is the whole array, so `map` over it.',
-    'A trailing `!` on the path (`.meta.source!`) creates the field when it does not exist — then the matched value is `null`, so `default` keeps an existing value.',
+    'A trailing `!` on the path (`.meta.source!`) creates the field when it does not exist. Then the matched value is `null`, so `default` keeps an existing value.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -76,12 +76,12 @@ payload update {
   case s at .meta.source! -> s default "WEB"
 }`,
   explanation: `
-Without \`update\` you would rebuild every level by hand — \`payload - "customer" ++ { customer: payload.customer - "address" ++ { ... } }\` — which is long and easy to break (and changes key order).
+Without \`update\` you would rebuild every level by hand, as in \`payload - "customer" ++ { customer: payload.customer - "address" ++ { ... } }\`. That is long and breaks quickly (and changes key order).
 
 \`update\` walks to each path, replaces only the matched value and copies everything else.
 
-- \`case .status -> "SUBMITTED"\` — the \`name at\` part is optional when you do not need the old value.
-- \`case s at .meta.source!\` — the \`!\` means "create this path if it is missing" (including the parent \`meta\` object). Without \`!\`, a missing field is simply not matched and nothing is added.
+- \`case .status -> "SUBMITTED"\`: the \`name at\` part is optional when you do not need the old value.
+- \`case s at .meta.source!\`: the \`!\` means "create this path if it is missing" (including the parent \`meta\` object). Without \`!\`, a missing field is not matched and nothing is added.
 
 The trap: writing \`case s at .meta.source -> s default "WEB"\` (no \`!\`). It passes when \`meta.source\` exists but silently does nothing when it does not.
 `,
@@ -120,7 +120,7 @@ The trap: writing \`case s at .meta.source -> s default "WEB"\` (no \`!\`). It p
     },
     {
       q: 'How would you change only some lines, e.g. those with qty > 10?',
-      a: '`update` paths address fixed positions (e.g. `.lines[0]`), not "every element matching a condition", so keep the `map` over `lines` and use `if (l.qty > 10) ... else l` inside it.',
+      a: 'Keep the `map` over `lines` and use `if (l.qty > 10) ... else l` inside it. A `case` in `update` can take an `if` guard, but here the matched value is the whole `lines` array, so the guard cannot pick single lines.',
     },
     {
       q: 'Which DataWeave version introduced `update`?',

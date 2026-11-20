@@ -31,7 +31,7 @@ export default {
         lic: ['partner', 'Licensing partners (12)'],
         sftp: ['sftp-server', 'Partner SFTP (case line listings)'],
         poll: ['batch-job', 'mailbox and SFTP pollers'],
-        q: ['queue', 'ae-intake', { maxRedelivery: 5 }],
+        q: ['queue', 'ae-intake', { maxRedelivery: 40 }],
         dlq: ['dlq', 'ae-intake-dlq'],
         p: ['process-api', 'prc-ae-case-intake'],
         dup: ['database', 'Duplicate check index'],
@@ -54,13 +54,13 @@ export default {
           traffic: [{ name: 'reports', from: 'web-app', rps: 2, to: 'oracle-db', kind: 'write' }],
           incidents: [{ down: 'oracle-db', at: 5, forMin: 30 }],
           durationMin: 90,
-          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'intake' }, maxEnd: 0 }] },
+          expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], lost: { max: 0 }, dlq: { max: 0 }, backlog: [{ queue: { type: 'queue', label: 'intake' }, maxEnd: 0 }] },
         },
         {
           name: 'Some reports cannot be created',
-          about: 'Reports arrive at 2 a second, and 1 in 50 has data the safety database rejects every time. Those reports go to the DLQ after 5 tries, where someone can trace them, and the others keep flowing.',
+          about: 'Reports arrive at 2 a second, and 1 in 50 has data the safety database rejects every time. Those reports go to the DLQ after 40 tries, where someone can trace them, and the others keep flowing.',
           traffic: [{ name: 'reports', from: 'web-app', rps: 2, to: 'oracle-db', kind: 'write', poison: 0.02 }],
-          durationMin: 60,
+          durationMin: 90,
           expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 50 }, lost: { max: 0 } },
         },
       ],
@@ -92,6 +92,7 @@ Safety specialists re-key everything into the safety database, an on-premises Or
 | Validation | The safety database and its interfaces are GxP systems: validated, with audit trails |
 | Partners | Contracts set the CSV layout; partners send late or corrected files |
 | Tests | 2 reports a second during the 30 minute maintenance, and 1 report in 50 that the safety database always rejects |
+| Diagram | Name the intake queue ae-intake. The broker redelivers a failed report about once a minute, so give ae-intake a limit of 40 deliveries before the DLQ: enough to outlast the 30 minute maintenance. Put "duplicate" in the name of the duplicate check store |
 
 **Your task.** Design the intake from every channel to the safety database.
 `,
@@ -130,7 +131,7 @@ Safety specialists re-key everything into the safety database, an on-premises Or
 
 **Pacing.** Consumers are limited to about 4 creations a second. During the 01:00 maintenance window the System API returns a retryable error and the queue holds the reports.
 
-**Errors.** After three failed deliveries a report goes to \`ae-intake-dlq\`, and the safety operations team is alerted, since the regulatory clock is running.
+**Errors.** \`ae-intake\` redelivers a failed report about once a minute. After 40 failed deliveries, more than the 30 minute maintenance can cause, a report goes to \`ae-intake-dlq\`, and the safety operations team is alerted, since the regulatory clock is running.
 
 **Traceability.** A daily reconciliation lists every receipt id and its outcome (case, triage, duplicate, dead letter). Any report without an outcome after 1 hour raises an alert.
 

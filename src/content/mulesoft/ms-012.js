@@ -10,23 +10,23 @@ export default {
       type: 'single',
       prompt: 'Why does every SKU return the same price with the default caching strategy?',
       options: [
-        'The default key is a SHA-256 digest of the payload, which is empty for every GET',
-        'The default TTL is infinite, so prices never refresh',
-        'The default strategy caches only the first response per flow',
-        'The default key is the request path without URI params',
+        'The default key is a digest of the payload, which is empty for a GET',
+        'The default TTL is infinite, so the first price never refreshes',
+        'The default strategy caches only the first response of each flow',
+        'The default key is the request path without its URI parameters',
       ],
       answer: 0,
-      explain: 'The default key is derived from the **payload**. All `GET /products/{sku}` requests have the same (empty) payload, so they share one key.',
+      explain: 'The default key is a SHA-256 digest of the **payload**. All `GET /products/{sku}` requests have the same (empty) payload, so they share one key.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Which caching-strategy setting fixes the bug and meets the 10-minute freshness requirement?',
       options: [
-        '`keyGenerationExpression="#[vars.sku]"` with an object store `entryTtl="10" entryTtlUnit="MINUTES"`',
-        '`keyGenerationExpression="#[payload]"` with `maxEntries="10"`',
-        'Default key with `entryTtl="10" entryTtlUnit="MINUTES"`',
-        '`keyGenerationExpression="#[correlationId]"` with no TTL',
+        '`keyGenerationExpression="#[vars.sku]"` and `entryTtl` of 10 minutes',
+        '`keyGenerationExpression="#[payload]"` and `maxEntries="10"`',
+        'The default key generator and `entryTtl` of 10 minutes on the store',
+        '`keyGenerationExpression="#[correlationId]"` with no entry TTL',
       ],
       answer: 0,
       explain: 'The key must be what makes the response unique (the SKU, plus currency/locale if relevant), and the TTL gives freshness. A correlation ID is unique per request, so nothing would ever hit.',
@@ -35,13 +35,13 @@ export default {
       type: 'single',
       prompt: 'On 3 replicas without clustering, what is the trade-off of an **in-memory** cache store?',
       options: [
-        'Each replica has its own cache: more misses and short-lived inconsistency, but very fast hits',
-        'It is shared across replicas but slower than persistent',
-        'In-memory caches are not allowed on CloudHub 2.0',
-        'It survives redeploys, unlike persistent stores',
+        'Each replica keeps its own cache, so more misses but very fast hits',
+        'It is shared across replicas, but slower than a persistent store',
+        'In-memory caches are not allowed for apps on CloudHub 2.0',
+        'It survives redeploys, unlike the persistent store on OSv2',
       ],
       answer: 0,
-      explain: 'In-memory is per replica. Persistent (OSv2) is shared but every lookup is a network call — still a big win against an 800 ms backend.',
+      explain: 'In-memory is per replica, so prices can differ between replicas for a short time. Persistent (OSv2) is shared but every lookup is a network call: still a big win against an 800 ms backend.',
     },
     {
       type: 'single',
@@ -57,15 +57,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Finance publishes a price change for one SKU. How do you evict just that entry immediately?',
+      prompt: 'Finance publishes a price change for one SKU. How do you evict only that entry immediately?',
       options: [
         'Call `ee:invalidate-key` with the caching strategy and the SKU key',
-        'Redeploy the application',
-        'Call `ee:invalidate-cache`, which removes only expired entries',
-        'Set the TTL to 0 at runtime',
+        'Restart the app on each replica so every cache starts empty',
+        'Call `ee:invalidate-cache`, which removes only the expired entries',
+        'Lower `entryTtl` to 0 for that SKU through a runtime property',
       ],
       answer: 0,
-      explain: '`invalidate-key` evicts one entry; `invalidate-cache` clears **everything**. With per-replica in-memory caches every replica must receive the eviction.',
+      explain: '`invalidate-key` evicts one entry; `invalidate-cache` clears **everything**, and so does a restart. The TTL is set on the store, not per key. With per-replica in-memory caches every replica must receive the eviction.',
     },
   ],
   description: `
@@ -118,11 +118,11 @@ A developer wrapped the Pricing call in a **Cache** scope with the default cachi
       expirationInterval="1" expirationIntervalUnit="MINUTES"/>
 </ee:object-store-caching-strategy>
 \`\`\`
-- Set \`vars.sku = attributes.uriParams.sku\` before the scope (or use the expression directly) — the key must be what makes the response unique (add currency/locale if they matter).
+- Set \`vars.sku = attributes.uriParams.sku\` before the scope (or use the expression directly): the key must be what makes the response unique (add currency/locale if they matter).
 - **TTL 10 minutes** satisfies "visible within 10 minutes" with no extra work.
-- **In-memory vs persistent:** with in-memory, each of the 3 replicas has its own cache (3× cache misses, slightly inconsistent prices for up to 10 min) but hits are microseconds. Persistent (OSv2) shares one cache but every lookup is a network call — for an 800 ms backend that's still a big win. For a 10-minute TTL, in-memory per replica is usually fine; use \`maxEntries\` to protect the heap.
+- **In-memory vs persistent:** with in-memory, each of the 3 replicas has its own cache (3× cache misses, slightly inconsistent prices for up to 10 min) but hits are microseconds. Persistent (OSv2) shares one cache but every lookup is a network call: for an 800 ms backend that's still a big win. For a 10-minute TTL, in-memory per replica is usually fine; use \`maxEntries\` to protect the heap.
 
-**Evicting one SKU:** call the cache invalidation operations — \`ee:invalidate-key\` with the caching strategy and the key (e.g. from a Finance event or an admin endpoint), or \`ee:invalidate-cache\` to clear everything. With per-replica in-memory caches, every replica must receive the eviction (e.g. via a broadcast event), which is a point in favour of a shared persistent store.
+**Evicting one SKU:** call the cache invalidation operations: \`ee:invalidate-key\` with the caching strategy and the key (e.g. from a Finance event or an admin endpoint), or \`ee:invalidate-cache\` to clear everything. With per-replica in-memory caches, every replica must receive the eviction (e.g. via a broadcast event), which is a point in favour of a shared persistent store.
 
 **When it won't cache:** the payload or the result is a **non-repeatable stream**. The scope also has a filter expression to bypass caching for some requests. (A failure inside the scope produces no response to store, although the docs do not describe this case.) **Alternatives:** the **HTTP Caching** policy in API Manager (caches at the gateway before the flow runs), or caching in the System API layer so all consumers benefit.
 `,

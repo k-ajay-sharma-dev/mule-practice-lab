@@ -13,8 +13,10 @@ Sometimes a notification is lost, so a file is never loaded. A check runs every 
 1. Ignore blobs whose name does not start with \`inbound/\`, and blobs with status \`PROCESSED\`.
 2. \`failed\`: names of blobs with status \`FAILED\`, in input order.
 3. A blob with no status is \`stuck\` when its \`lastModified\` is at least \`graceMinutes\` before \`runAt\`. A newer one may still be loading, so it goes to \`inProgress\` (names, in input order).
-4. Each \`stuck\` entry has \`name\`, \`messageType\` (the part of the name between the first and second \`/\`) and \`ageMinutes\` (whole minutes since \`lastModified\`). Sort them oldest first.
-5. \`checkedAt\` is \`runAt\`.
+4. Each \`stuck\` entry has \`name\`, \`messageType\` (the part of the name between the first and second \`/\`) and \`ageMinutes\` (whole minutes from \`lastModified\` to \`runAt\`, rounded down, so 29 minutes 50 seconds is 29). Use this whole minute age for the grace check too. Sort them oldest first.
+5. \`checkedAt\` is \`runAt\`, as text.
+
+Output the keys in the order \`checkedAt\`, \`stuck\`, \`inProgress\`, \`failed\`. Each list is empty when nothing matches.
 
 A blob may have no \`metadata\` at all.
 `,

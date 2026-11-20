@@ -9,15 +9,15 @@ export default {
     {
       type: 'single',
       needsScenario: true,
-      prompt: 'What is the root cause of the 3–4 month wait and the teams buying other tools?',
+      prompt: 'What is the root cause of the 3 to 4 month wait and the teams buying other tools?',
       options: [
-        'Anypoint Platform is too slow a tool',
-        'The operating model: a central team delivers everything, so demand exceeds capacity and LoBs bypass it',
-        'Too few vCores',
-        'Exchange has too many assets',
+        'The platform is slow to build on compared with low-code tools',
+        'The operating model: one central team builds everything, so demand exceeds capacity',
+        'The central team is too small and needs more developers',
+        'Exchange has too many assets, so teams cannot find what exists',
       ],
       answer: 1,
-      explain: 'A center that builds everything becomes a queue. A C4E enables LoB teams to build within guardrails instead.',
+      explain: 'A center that builds everything becomes a queue, and LoBs bypass it. Hiring more central developers only makes the queue a bit shorter. A C4E enables LoB teams to build within guardrails instead.',
     },
     {
       type: 'match',
@@ -47,26 +47,26 @@ export default {
       needsScenario: true,
       prompt: 'Where does the "consumers per API" number come from?',
       options: [
-        'A survey of developers',
-        'API Manager contracts/analytics and Exchange',
-        'The vCore invoice',
-        'Git commit counts',
+        'A survey of the developers who build the APIs',
+        'API Manager contracts and analytics, plus Exchange',
+        'How often each asset was downloaded from Exchange',
+        'Git commit counts per API project',
       ],
       answer: 1,
-      explain: 'Client applications with contracts and the traffic they generate show who really consumes each API.',
+      explain: 'Client applications with contracts and the traffic they generate show who really consumes each API. A download shows interest, not use.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The CFO does not trust "cost avoided" figures. What is the honest response?',
       options: [
-        'Insist the numbers are exact',
-        'Say it is a model agreed upfront, and add hard numbers: lead-time reductions on real projects, vCore/licence savings from rationalisation, decommissioned interfaces and tools',
-        'Stop reporting cost entirely',
-        'Report the number of APIs instead',
+        'Insist the numbers are exact, since finance helped make them',
+        'Call it an agreed model, and add hard numbers such as lead time and licence savings',
+        'Stop reporting cost and report only reuse',
+        'Report the number of APIs in Exchange instead',
       ],
       answer: 1,
-      explain: 'Stating the limits of an estimate builds credibility; complementing it with measurable savings and outcomes makes the case.',
+      explain: 'Stating the limits of an estimate builds credibility. Hard numbers make the case: lead-time reductions on real projects, vCore and licence savings from rationalisation, and decommissioned interfaces and tools.',
     },
     {
       type: 'order',
@@ -84,7 +84,7 @@ export default {
   description: `
 A financial-services group bought Anypoint Platform 3 years ago for **€1.5M/year**. Situation:
 
-- A **central integration team** of 12 builds all APIs; the business units wait 3–4 months for any integration.
+- A **central integration team** of 12 builds all APIs; the business units wait 3 to 4 months for any integration.
 - Exchange has 220 assets but most APIs have **exactly one consumer**.
 - Two business units started buying their own iPaaS/low-code tools because "MuleSoft is too slow".
 - The CFO asks: "**What do we get for this money?** Show me numbers or we cut the licence at renewal in 9 months."
@@ -93,7 +93,7 @@ You are asked, as the new integration architect, to propose a **C4E (Center for 
 
 **Questions:**
 - What is wrong with the current model, and what does a C4E change (central vs federated delivery)?
-- Who does what — C4E vs line-of-business (LoB) teams? What does the C4E provide as "products"?
+- Who does what: C4E vs line-of-business (LoB) teams? What does the C4E provide as "products"?
 - Which metrics prove value (reuse, speed, cost), how are they measured, and what are their limits?
 - What is your 9-month plan to show results before renewal?
 `,
@@ -110,16 +110,16 @@ You are asked, as the new integration architect, to propose a **C4E (Center for 
   keyPoints: [
     'The current centralised delivery team is a bottleneck (a "center of excellence" that builds everything); a C4E enables LoB teams to build themselves using shared assets, standards and platform services.',
     'Clear split of responsibilities: the C4E owns platform, standards, reusable assets, templates, governance and coaching; LoB/federated teams build and run their own APIs within those guardrails.',
-    'Reuse is engineered, not hoped for: domain System APIs with clear owners, discoverable in Exchange, with templates/accelerators so reuse is easier than rebuilding.',
+    'Reuse is engineered, not hoped for: domain System APIs with clear owners, discoverable in Exchange, with templates/accelerators so reuse takes less effort than rebuilding.',
     'Metrics include reuse (consumers per API, % of new projects reusing existing assets), speed (lead time to deliver an integration), and cost (estimated effort saved per reuse vs platform cost). The data comes from Exchange, API Manager analytics and project tracking.',
     'Metrics are stated honestly with limits (e.g. "cost avoided" is an estimate) and tied to business outcomes such as faster product launches.',
-    'The plan shows quick wins within months: enable 1–2 LoB teams, publish key reusable APIs, and report a baseline and a trend before renewal.',
+    'The plan shows quick wins within months: enable 1 to 2 LoB teams, publish key reusable APIs, and report a baseline and a trend before renewal.',
   ],
   solution: `
-**Diagnosis.** A central team that *delivers everything* turns the platform into a queue: demand > capacity, so LoBs bypass it. APIs are built project-by-project (one consumer each), so there is little reuse — the platform's main economic benefit is missing. The problem is the **operating model**, not the tool.
+**Diagnosis.** A central team that *delivers everything* turns the platform into a queue: demand > capacity, so LoBs bypass it. APIs are built project-by-project (one consumer each), so there is little reuse: the platform's main economic benefit is missing. The problem is the **operating model**, not the tool.
 
-**Target model — federated delivery, central enablement.**
-- **C4E (small, ~5–6 people from the current team):** platform owner, enterprise/integration architects, a DevOps/platform engineer, an evangelist/coach.
+**Target model: federated delivery, central enablement.**
+- **C4E (small, ~5 to 6 people from the current team):** platform owner, enterprise/integration architects, a DevOps/platform engineer, an evangelist/coach.
 - **LoB delivery teams** (with the remaining central developers moved into domains + SI partners): build and run APIs for their domain.
 - **Domain ownership:** core System APIs (Customer, Account, Product) owned by the team that owns the domain, consumable by all.
 
@@ -138,18 +138,18 @@ You are asked, as the new integration architect, to propose a **C4E (Center for 
 | Adoption | Number of teams delivering on the platform; APIs published per quarter | Exchange, CI/CD |
 | Quality | Incidents per API, conformance to standards | Monitoring, governance reports |
 | Cost | Estimated effort avoided by reuse (reused API × typical build effort) vs platform + C4E cost | Estimate, agreed with finance |
-Be explicit that **"cost avoided" is a model**, agreed upfront with finance (e.g. a reused System API saves N person-days). Avoid vanity metrics like "number of APIs" — sprawl increases it.
+Be explicit that **"cost avoided" is a model**, agreed upfront with finance (e.g. a reused System API saves N person-days). Avoid vanity metrics like "number of APIs": sprawl increases it.
 
 **9-month plan.**
-- *Months 0–2:* baseline metrics (current lead time, reuse), form the C4E, pick **2 pilot LoBs**, including one that bought another tool. Publish templates and the top 3 domain System APIs as properly documented, reusable assets.
-- *Months 3–6:* pilots deliver with C4E coaching; measure lead time; first reuse stories ("Mobile loan project reused Customer + Account APIs: 6 weeks instead of 4 months").
-- *Months 6–9:* expand to more LoBs, monthly value report to CFO/CTO, rationalise licence usage (right-size vCores, decommission unused apps) to show cost discipline.
+- *Months 0 to 2:* baseline metrics (current lead time, reuse), form the C4E, pick **2 pilot LoBs**, including one that bought another tool. Publish templates and the top 3 domain System APIs as properly documented, reusable assets.
+- *Months 3 to 6:* pilots deliver with C4E coaching; measure lead time; first reuse stories ("Mobile loan project reused Customer + Account APIs: 6 weeks instead of 4 months").
+- *Months 6 to 9:* expand to more LoBs, monthly value report to CFO/CTO, rationalise licence usage (right-size vCores, decommission unused apps) to show cost discipline.
 
 **Trade-offs/risks.** Federating delivery risks inconsistency → mitigated by automated governance. Some LoB integrations genuinely fit other tools → define when that's allowed (tool-selection guide), rather than fighting every exception.
 `,
   followUps: [
     { q: 'The CFO doesn\'t trust "cost avoided" numbers. What else can you show?', a: 'Hard numbers: lead time reduction on real projects, licence/vCore costs reduced through rationalisation, decommissioned point-to-point interfaces and tools, and business outcomes enabled (e.g. product launched a quarter earlier).' },
-    { q: 'How do you motivate LoB teams to publish reusable APIs instead of project-specific ones?', a: 'Make reuse the easy path (templates, design support), include it in design review criteria, fund domain System APIs as products rather than per project, and celebrate reuse publicly with metrics per team.' },
+    { q: 'How do you motivate LoB teams to publish reusable APIs instead of project-specific ones?', a: 'Make reuse the path of least effort (templates, design support), include it in design review criteria, fund domain System APIs as products rather than per project, and celebrate reuse publicly with metrics per team.' },
     { q: 'What if the platform is cut at renewal anyway?', a: 'That is a business decision; the architect\'s job is to give a transparent picture including exit cost. Well-designed API contracts and specs in Exchange reduce the migration impact because consumers depend on contracts, not on the runtime.' },
   ],
 }

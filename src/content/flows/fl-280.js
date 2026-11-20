@@ -96,6 +96,12 @@ SQL Server has \`dbo.region\` (\`region_code\`, \`active\`) and \`dbo.store_tran
 - Write each region's file under a \`.tmp\` name and rename it. A quiet region gets the header line.
 - Write the control file after every region file is in place.
 
+**Facts**
+- An active region has \`active = 1\`. The date in the names is today's date. In the tests today is 2026-11-13.
+- Write each region file as \`<file name>.tmp\`, such as \`TRANSFERS_N_20261113.csv.tmp\`, then **FTP Rename** it to the real name.
+- Put each \`<region>|<rows>\` entry of the control file on its own line.
+- Do not catch an FTP error. The run fails and no control file is written.
+
 **Design the flow.**
 `,
   answerTemplate: `## The regions

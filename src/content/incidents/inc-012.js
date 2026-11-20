@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'With 2 replicas and no clustering, the Scheduler runs on both and each run sends the same READY invoices',
-          'The e-invoicing provider retries every submission',
-          'The cron expression fires twice per day',
-          'The database update to SENT failed',
+          'Each of the 2 unclustered replicas runs the Scheduler and sends the invoices',
+          'The e-invoicing provider retries each submission after its 202 response',
+          'The cron expression fires the job twice within the same minute',
+          'The update to SENT fails, so the next poll sends the invoices again',
         ],
         answer: 0,
         explain: 'The Scheduler fired at the same second on two different replica names. Without clustering each replica is independent, and select-then-update is not atomic.',
@@ -32,13 +32,13 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Scale back to 1 replica before the next run and work with finance to cancel or credit duplicates',
-          'Change the cron to run every hour',
-          'Delete all SENT invoices',
-          'Add a third replica for more capacity',
+          'Scale back to 1 replica before the next run, and cancel duplicates with finance',
+          'Set the cron to 06:05 on one replica so the two runs no longer overlap',
+          'Reset today’s SENT invoices to READY so they are sent again cleanly',
+          'Add a third replica so each run finishes faster and overlaps less',
         ],
         answer: 0,
-        explain: 'Stop the next double run first, then repair the business impact with finance and inform customers if needed.',
+        explain: 'Stop the next double run first, then repair the business impact with finance and inform customers if needed. Replicas share one configuration, so you cannot give one of them a different cron, and more replicas mean more runs.',
       },
       {
         type: 'multi',
@@ -122,7 +122,7 @@ export default {
 
 **Permanent fix.**
 - **Run the Scheduler once**: enable clustering on the deployment so schedulers run on the **primary node only** (the default for the Scheduler source in a cluster). Or move scheduled jobs into a separate app that always has exactly one replica.
-- **Make the job concurrency-safe anyway**: claim work atomically — \`UPDATE invoices SET status='PROCESSING', owner=:node WHERE status='READY' ...\` and only process what you claimed — so even an accidental second run finds nothing.
+- **Make the job concurrency-safe anyway**: claim work atomically with \`UPDATE invoices SET status='PROCESSING', owner=:node WHERE status='READY' ...\` and only process what you claimed. Then even an accidental second run finds nothing.
 - **Idempotency at the provider**: send a stable key (the invoice number) so a duplicate submission is rejected or ignored.
 
 **Prevention.** Add "does this app have schedulers or other singletons?" to the scaling checklist; test with 2 replicas in a lower environment; alert when the same invoice id is sent more than once.

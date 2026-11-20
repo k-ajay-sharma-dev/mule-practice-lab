@@ -8,8 +8,8 @@ export default {
   description: `
 SAP sends material master changes as **MATMAS05 IDocs** to a Mule app through the Document Listener. The IDoc XML below is simplified. dw-066 builds an IDoc from JSON; this problem goes the other way, reading one and turning its segments into a clean JSON event.
 
-**Rules**
-- \`idocNumber\`: \`DOCNUM\` from the control record \`EDI_DC40\`, without leading zeros.
+**Rules** (output keys in this order; repeated segments keep document order)
+- \`idocNumber\`: \`DOCNUM\` from the control record \`EDI_DC40\` as a string, without leading zeros.
 - \`material\`: \`MATNR\` from \`E1MARAM\`. When it contains only digits, remove the leading zeros. Alphanumeric numbers stay exactly as they are.
 - \`baseUnit\`: \`MEINS\`.
 - \`grossWeightKg\`: \`BRGEW\` as a number. When \`GEWEI\` is \`G\`, divide by 1000.

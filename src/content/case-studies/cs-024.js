@@ -11,7 +11,7 @@ export default {
       needsScenario: true,
       prompt: 'Match each phase to the work that belongs in it.',
       pairs: [
-        ['Before close', 'Inventory, target architecture and master-data mapping design — no production data exchange'],
+        ['Before close', 'Inventory, target architecture and master-data mapping design, with no production data exchange'],
         ['Day 1', 'GL/trial balance feed into group consolidation and identity federation'],
         ['First 6 months', 'B products on A’s B2B portal and orders routed to B’s ERP'],
         ['24-month end state', 'B’s ERP/CRM migrated to SAP/Salesforce and B’s iPaaS decommissioned'],
@@ -23,38 +23,38 @@ export default {
       needsScenario: true,
       prompt: 'Why wrap B’s ERP and inventory with System APIs (b-products-sapi, b-orders-sapi) instead of connecting A’s processes to them directly?',
       options: [
-        'They act as an anti-corruption layer: when B moves to SAP later, only the System API implementation changes and A’s Process APIs and portal are untouched',
-        'Because Dynamics cannot be called without MuleSoft',
-        'To copy all of B’s data into SAP on Day 1',
-        'System APIs are required by the acquisition contract',
+        'When B moves to SAP, only the System API changes, not A’s processes',
+        'System APIs make B’s ERP faster, so the portal can show live stock',
+        'System APIs let A copy all of B’s data into SAP on Day 1',
+        'System APIs let B’s iPaaS be switched off before the deal closes',
       ],
       answer: 0,
-      explain: 'Wrapping hides B’s internals from A-side consumers, so the 24-month ERP/CRM swap is invisible upstream. Direct coupling would force rework of every consumer when B’s systems are retired.',
+      explain: 'The System APIs act as an anti-corruption layer. They hide B’s internals from A-side consumers, so the 24-month ERP/CRM swap is invisible upstream. Direct coupling would force rework of every consumer when B’s systems are retired. A wrapper does not make the ERP faster, a Day 1 copy into SAP breaks the data restrictions, and nothing may change in production before close.',
     },
     {
       type: 'single',
       prompt: 'What may the integration team do before the deal closes?',
       options: [
-        'Inventory and design work within clean-team rules — no production data exchange',
-        'Start syncing B’s customer data into Salesforce to save time',
-        'Decommission B’s iPaaS',
-        'Nothing at all until close',
+        'Inventory and design work within the clean-team rules, with no live data',
+        'A trial sync of B’s customer data into Salesforce, to test the mappings',
+        'Building the VPN and the Day 1 finance feed, and running it on live data',
+        'Nothing at all, because any work before close breaks the clean-team rules',
       ],
       answer: 0,
-      explain: 'Planning, architecture and mapping design can be done within clean-team limits, which makes Day 1 possible. Exchanging production data before close breaks the restrictions; doing nothing wastes three months.',
+      explain: 'Planning, architecture and mapping design can be done within clean-team limits, which makes Day 1 possible. Syncing customer data or running a live feed exchanges production data before close and breaks the restrictions. Doing nothing wastes three months.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'What is the platform decision for B’s iPaaS?',
       options: [
-        'Consolidate on Anypoint, but run B’s iPaaS in coexistence and retire, migrate or replace its flows by value — no big bang',
-        'Migrate every B flow to Mule in the first month',
-        'Keep both platforms permanently',
-        'Move A’s 150 APIs onto B’s iPaaS',
+        'Move to Anypoint over time, retiring or migrating B’s flows by value',
+        'Migrate every B flow to Mule before Day 1, so there is one platform',
+        'Keep both platforms for good, each serving its own company',
+        'Move A’s 150 APIs onto B’s iPaaS, since B’s team knows it best',
       ],
       answer: 0,
-      explain: 'One platform is the end state, reached gradually by inventorying and retiring or migrating flows. A big-bang migration endangers Day 1 and cross-sell priorities; keeping two platforms doubles cost forever.',
+      explain: 'One platform is the end state, reached gradually: B’s iPaaS runs alongside while its flows are retired, migrated or replaced by value. A big-bang migration endangers Day 1 and cross-sell priorities. Keeping two platforms doubles cost forever, and moving 150 APIs onto the smaller platform is far more work.',
     },
     {
       type: 'multi',
@@ -75,13 +75,13 @@ export default {
       needsScenario: true,
       prompt: 'Some B customers’ contracts require their data to stay with B’s legal entity. How do cross-sell orders work?',
       options: [
-        'A’s orders Process API routes those orders to b-orders-sapi so B’s ERP fulfils them and B remains the legal seller, with legal sign-off per data flow',
-        'Copy those customers into SAP anyway and fix the contracts later',
-        'Exclude B’s products from the portal until month 24',
-        'Let A’s sales team email the orders to B',
+        'A’s orders Process API routes them to b-orders-sapi, so B’s ERP fulfils them',
+        'A’s orders Process API books them in SAP, with A as the legal seller',
+        'B’s products are left off the portal for those customers until month 24',
+        'A’s sales team forwards those orders to B’s order desk by email',
       ],
       answer: 0,
-      explain: 'Routing to B’s systems respects the contracts while still delivering cross-sell. Copying the data breaks the contracts; excluding products or emailing orders gives up the 6-month goal.',
+      explain: 'Routing to B’s systems keeps the data with B’s legal entity, so B remains the legal seller, while still delivering cross-sell. Legal sign-off is still needed per data flow. Booking in SAP moves the data to A and breaks the contracts. Leaving products off the portal or emailing orders gives up the 6-month goal.',
     },
   ],
   description: `
@@ -130,7 +130,7 @@ export default {
   solution: `
 **Principles.** Business outcomes drive sequence; wrap, don't rewrite, early; one platform eventually, coexistence in between; respect legal and contractual data boundaries; keep B's people.
 
-**Before close (3 months).** Application and integration inventory for B (with clean-team limits), target-state architecture, network/identity design, master-data mapping for chart of accounts, products and customers — no production data exchange.
+**Before close (3 months).** Application and integration inventory for B (with clean-team limits), target-state architecture, network/identity design, master-data mapping for chart of accounts, products and customers. No production data is exchanged.
 
 **Day 1.**
 - **Finance**: B's ERP exports trial balance/GL data mapped to A's group chart of accounts (batch file or API into A's consolidation tool). Simple, robust, reconciled.

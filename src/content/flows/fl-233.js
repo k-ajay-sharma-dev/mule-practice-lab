@@ -260,6 +260,12 @@ Fenwick Supply, a fictional builders' merchant, receives inventory transactions 
 - Email \`inventory-support@fenwick.example\` a summary. A mail problem must never fail or slow the load.
 - Any other failure: mark the job \`FAILED\` and put the notification on \`INV.FAILED\`, where the restart app picks it up. No final ACK.
 
+**Facts**
+- Make the \`job_id\` with \`uuid()\`.
+- \`location_id\` is the code map's \`int_code\`, such as \`310\`.
+- Put the notification on \`INV.FAILED\` as it arrived, with its \`messageId\`.
+- The email subject carries the message ID.
+
 **Design the flows.**
 `,
   answerTemplate: `## The intake flow

@@ -7,9 +7,9 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
+      { text: "2026-11-17 23:59:59 INFO  [erp] Item ITM-7731 committed modified_at=2026-11-17T23:59:58", relevant: true, why: "A change committed shortly before the run." },
       { text: "2026-11-18 00:00:00 INFO  [item-delta] Select where modified_at > lastRun=2026-11-17T00:00:00", relevant: true, why: "Watermark based extract." },
       { text: "2026-11-18 00:00:02 INFO  [item-delta] Rows=410, new lastRun=2026-11-18T00:00:02", relevant: true, why: "The watermark becomes the run time." },
-      { text: "2026-11-17 23:59:59 INFO  [erp] Item ITM-7731 committed modified_at=2026-11-17T23:59:58", relevant: true, why: "A change committed shortly before the run." },
       { text: "2026-11-18 00:00:03 INFO  [erp] Item ITM-7740 committed modified_at=2026-11-17T23:59:59", relevant: true, why: "A long transaction committed after the extract read." },
       { text: "2026-11-18 23:59:00 INFO  [item-delta] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is ITM-7740 missed?",
         options: [
-          "Its modified time is before the new watermark, but it committed after the extract read the table",
-          "It was deleted",
-          "The platform rejected it",
-          "The extract failed",
+          "It committed after the extract read, with a time before the new watermark",
+          "The ERP set its modified time in UTC, so it looks a day old",
+          "The platform rejected it because its change was too late",
+          "The extract reads only rows modified before midnight",
         ],
         answer: 0,
         explain: "Commit time and modified time differ.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is a safer watermark?",
         options: [
-          "Use the highest modified_at actually read, with a small overlap",
-          "Use the run start time",
-          "Use the run end time",
-          "Use the date only",
+          "The highest modified_at read, minus a small overlap",
+          "The run start time, taken before the select",
+          "The run end time, taken after the select",
+          "Midnight of the run date, with no time part",
         ],
         answer: 0,
         explain: "Overlap catches late commits. Upserts make repeats harmless.",
@@ -43,9 +43,9 @@ export default {
         prompt: "What else catches late changes?",
         options: [
           "Change tracking or rowversion columns",
-          "Overlap of a few minutes with idempotent upserts downstream",
+          "A few minutes of overlap with upserts downstream",
           "A weekly full snapshot",
-          "Ignoring them",
+          "Running the same extract every hour instead",
         ],
         answer: [0,1,2],
         explain: "Several options, all safer than run time.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why must the receiver tolerate repeats?",
         options: [
           "Overlap sends some rows twice",
-          "Because SQL Server says so",
-          "It is faster",
-          "It is not needed",
+          "The platform polls each file twice",
+          "SQL Server returns rows twice",
+          "The watermark resets each week",
         ],
         answer: 0,
         explain: "Overlap trades repeats for no gaps.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-17 23:59:59 INFO  [erp] Item ITM-7731 committed modified_at=2026-11-17T23:59:58
 2026-11-18 00:00:00 INFO  [item-delta] Select where modified_at > lastRun=2026-11-17T00:00:00
 2026-11-18 00:00:02 INFO  [item-delta] Rows=410, new lastRun=2026-11-18T00:00:02
-2026-11-17 23:59:59 INFO  [erp] Item ITM-7731 committed modified_at=2026-11-17T23:59:58
 2026-11-18 00:00:03 INFO  [erp] Item ITM-7740 committed modified_at=2026-11-17T23:59:59
 \`\`\`
 

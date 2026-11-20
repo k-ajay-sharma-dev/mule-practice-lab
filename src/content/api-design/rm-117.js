@@ -246,7 +246,7 @@ Two patterns need care. \`^\\+[1-9]\` escapes the plus sign, which otherwise mea
     },
     {
       q: 'Where would you keep the idempotency keys in Mule?',
-      a: 'In a persistent Object Store with a time to live of about 24 hours, keyed by client id and key. The Idempotent Message Validator or a lookup before the flow returns the stored response.',
+      a: 'In a persistent Object Store with a time to live of about 24 hours, keyed by client id and key. The Idempotent Message Validator only rejects a repeat with an error. To return the stored response, look the key up in the Object Store at the start of the flow.',
     },
     {
       q: 'What does the reseller see if the network rejects the SIM after 60 seconds?',

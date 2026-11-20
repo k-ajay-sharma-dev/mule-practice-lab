@@ -17,7 +17,7 @@ export default {
       { label: 'The slow card issuance is handed off asynchronously through a queue', rule: { type: 'edge', from: 'process-api', to: ['queue', 'topic', 'event-stream'], kind: 'async' } },
       { label: 'Card requests that keep failing end up in a dead-letter queue', rule: { type: 'edge', from: ['queue', 'topic', 'event-stream'], to: 'dlq' } },
       { label: 'The card processor is reached only through its System API', rule: { type: 'only-via', target: ['external-api', 'saas', 'payment'], from: 'system-api' } },
-      { label: 'System APIs never call each other — they stay unaware of the saga', rule: { type: 'no-edge', from: 'system-api', to: 'system-api' } },
+      { label: 'System APIs never call each other. They stay unaware of the saga', rule: { type: 'no-edge', from: 'system-api', to: 'system-api' } },
       { label: 'The mobile channel calls every Experience API', rule: { type: 'each', of: 'experience-api', edgeFrom: 'mobile-app' } },
       { label: 'The card step reaches the card processor through the queue', rule: { type: 'path', from: 'process-api', via: ['queue', 'topic', 'event-stream'], to: ['external-api', 'saas', 'payment'] } },
       { label: 'No chain of sync calls joins the mobile request to the slow card processor', rule: { type: 'no-path', from: 'experience-api', to: ['external-api', 'saas', 'payment'], kind: 'sync' } },
@@ -87,12 +87,13 @@ Each system has its own database; there is no shared transaction. Last month, st
 Numbers to design for:
 - At peak the mobile app opens 20 accounts a second, and the app must get its answer in under 2 seconds.
 - CRM answers in about 300 ms and core banking in 500 ms. The card processor takes about 6 s and fails 2% of calls.
-- The card processor sometimes fails every call for several minutes. Card requests that keep failing must be kept for support, never lost, even if the broker restarts meanwhile.
+- The card processor sometimes fails every call for several minutes. A queued message that fails is redelivered about once a minute. A card request that still fails after about five minutes of retries must be parked in a dead-letter queue for support, never lost, even if the broker restarts meanwhile.
+- The saga must survive an app restart, so its state cannot live only in memory.
 
 **Questions:**
 1. Why can't you wrap these four calls in one transaction (XA / Mule \`try\` with transactions)?
 2. Design a **saga**: in which **layer** does it live, what are the compensations, and what does each System API need to provide to make it work?
-3. How do you handle the **unknown outcome** case (card call times out — was the card issued or not)?
+3. How do you handle the **unknown outcome** case (card call times out: was the card issued or not)?
 4. Synchronous orchestration or asynchronous? What does the Experience API return to the mobile app?
 `,
   answerTemplate: `## Why not a distributed transaction
@@ -107,14 +108,14 @@ Numbers to design for:
     'Across HTTP APIs and SaaS/external systems there is no shared transaction manager; Mule XA transactions only cover transactional resources like JMS/JDBC/VM, not REST calls.',
     'The saga belongs in the Process API, which owns the business process; System APIs provide the primitives: idempotent create, compensating operations (cancel/close) and status lookups.',
     'Each step has a compensation (close account, deactivate customer) or a forward-recovery path (retry card issuance later) chosen by business rules.',
-    'Unknown outcomes are resolved with idempotency keys and status queries before retrying or compensating — never by blind retry.',
+    'Unknown outcomes are resolved with idempotency keys and status queries before retrying or compensating: never by blind retry.',
     'For slow/unreliable steps, accept the request (202 or 201 with status PENDING), persist saga state, and complete asynchronously via queues; the Experience API exposes status.',
     'The card queue is persistent and allows 5 deliveries before the DLQ, so a card request that keeps failing is parked for support instead of retried forever or dropped.',
   ],
   solution: `
-**Why not one transaction.** Two-phase commit needs every participant to support a transaction protocol coordinated by one manager. CRM (SaaS), core banking via API and an external card processor over HTTPS do not. In Mule 4, XA covers transactional connectors (JMS, JDBC, VM) — not HTTP calls to other APIs. Holding locks across slow external calls would also hurt availability. So you accept **eventual consistency** and manage it explicitly.
+**Why not one transaction.** Two-phase commit needs every participant to support a transaction protocol coordinated by one manager. CRM (SaaS), core banking via API and an external card processor over HTTPS do not. In Mule 4, XA covers transactional connectors (JMS, JDBC, VM): not HTTP calls to other APIs. Holding locks across slow external calls would also hurt availability. So you accept **eventual consistency** and manage it explicitly.
 
-**Saga design — Process layer.**
+**Saga design: Process layer.**
 \`\`\`
 prc-account-opening-api (owns saga state: sagaId, step, status)
   1 POST sys-crm  /customers           (Idempotency-Key: sagaId-1)   comp: PATCH status=CANCELLED
@@ -125,12 +126,12 @@ prc-account-opening-api (owns saga state: sagaId, step, status)
 - **Process layer**, because the saga *is* business logic: which steps, in what order, and what "undo" means. System APIs must stay unaware of each other.
 - System APIs must provide:
   - **Idempotent creates** (idempotency key or natural business key) so retries do not duplicate.
-  - **Compensating operations** that make business sense (close account, cancel customer) — usually not "delete".
+  - **Compensating operations** that make business sense (close account, cancel customer): usually not "delete".
   - **Status lookups** (\`GET /cards?requestRef=…\`) to resolve unknown outcomes.
   - Clear error semantics (4xx = will never succeed, 5xx/timeout = may succeed on retry).
-- Business decision per step: failure at step 3 does **not** necessarily mean compensating 1–2. Often better: keep the account, mark customer "card pending", **retry card issuance asynchronously**, alert after N attempts. That is forward recovery. Compensation is for failures that make the whole process invalid (e.g. step 2 rejected for compliance).
+- Business decision per step: failure at step 3 does **not** necessarily mean compensating 1 to 2. Often better: keep the account, mark customer "card pending", **retry card issuance asynchronously**, alert after N attempts. That is forward recovery. Compensation is for failures that make the whole process invalid (e.g. step 2 rejected for compliance).
 
-**Saga state.** Persist in a database (or persistent Object Store for simple cases): \`sagaId\`, completed steps with returned ids, current status, attempts. A recovery job resumes or compensates stuck sagas after restarts — the Process API remains stateless per request.
+**Saga state.** Persist in a database (or persistent Object Store for simple cases): \`sagaId\`, completed steps with returned ids, current status, attempts. A recovery job resumes or compensates stuck sagas after restarts: the Process API remains stateless per request.
 
 **Unknown outcomes (timeout on step 3).**
 1. Do not assume failure. Query \`sys-card-api\` by the idempotency/request reference.
@@ -138,7 +139,7 @@ prc-account-opening-api (owns saga state: sagaId, step, status)
 3. If still unknown after the retry budget → park in a "needs reconciliation" state, alert, and let a reconciliation process match against the processor's daily report.
 
 **Sync vs async.**
-- Steps 1–2 are fast and internal: synchronous.
+- Steps 1 to 2 are fast and internal: synchronous.
 - Step 3 is slow/unreliable: put a message on a queue (Anypoint MQ) and process asynchronously with retries and DLQ.
 - The Experience API returns **201 Created** with \`accountStatus: ACTIVE, cardStatus: PENDING\` (or **202 Accepted** with a status URL if even the account is created async). The app polls \`GET /me/onboarding/{id}\` or receives a push notification.
 - The Experience API stays thin: it never coordinates the saga, it only exposes the status the Process API owns.
@@ -148,7 +149,7 @@ prc-account-opening-api (owns saga state: sagaId, step, status)
 - \`card-issuance-q\` keeps persistent messages, so a broker restart loses nothing. It allows 5 deliveries, one a minute, and then moves the message to \`card-issuance-dlq\`. A card outage of six minutes parks the requests from its first minutes there; requests that arrive later go through once the processor is back. Without the limit they would be retried forever, and with a limit but no DLQ they would be dropped.
 `,
   followUps: [
-    { q: 'Orchestrated saga or choreographed saga?', a: 'Orchestrated (Process API as coordinator) is easier to reason about, monitor and change for a 3–5 step business process. Choreography via events suits loosely coupled domains but makes the overall flow harder to see.' },
+    { q: 'Orchestrated saga or choreographed saga?', a: 'Orchestrated (Process API as coordinator) is clearer to reason about, monitor and change for a 3 to 5 step business process. Choreography via events suits loosely coupled domains but makes the overall flow harder to see.' },
     { q: 'What if a compensation itself fails?', a: 'Compensations must be idempotent and retried from durable state; if they keep failing, the saga moves to a manual-intervention state with alerting. Never lose the record that compensation is still owed.' },
     { q: 'Could you use the transactional outbox here?', a: 'Yes: when the Process API writes saga state and the next-step message, an outbox in the same database guarantees the message is published if and only if the state change committed.' },
   ],

@@ -115,7 +115,8 @@ An insurer must retire its on-prem document management system (DMS, 38 TB, 60 mi
 Numbers for sizing:
 - Claims handlers upload about 20 documents a second. After a storm this reaches 100 a second for 10 minutes.
 - An upload must be stored and indexed within 1 second on average. Writing to Azure Blob takes about 300 ms, to the index 20 ms, to S3 about 500 ms.
-- An S3 outage of up to 30 minutes must not slow uploads, and no copy may be lost or parked in the DLQ because of it. A replication request that still fails after an hour goes to the DLQ.
+- An S3 outage of up to 30 minutes must not slow uploads, and no copy may be lost or parked in the DLQ because of it. The broker redelivers a failed request about once a minute, and a replication request that still fails after an hour goes to the DLQ.
+- The S3 copy is made from the document already stored in Azure Blob, so a replication request carries the blob path, not the content.
 - The budget for the archive apps is 3 vCores.
 
 **Questions:**
@@ -135,7 +136,7 @@ Numbers for sizing:
 ## Migration
 `,
   keyPoints: [
-    'Azure Blob is the primary store; S3 holds the secondary copy — each behind its own System API.',
+    'Azure Blob is the primary store; S3 holds the secondary copy, each behind its own System API.',
     'A document index (SQL Server) holds metadata (claim, policy, type, blob path, hash) for fast search; the blobs hold only content.',
     'Upload path: store in Azure, write the index, publish a replication request; the S3 copy is made asynchronously so users do not wait for two clouds.',
     'Replication failures retry and then go to a DLQ; a reconciliation job compares index, Azure and S3 by hash.',

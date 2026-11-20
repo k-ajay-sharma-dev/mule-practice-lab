@@ -102,7 +102,7 @@ payload map (row) -> {
 
 **Nesting is free.** The CSV is flat, but the object you return can have any shape. Writing \`address: { ... }\` inside the \`map\` is all it takes.
 
-**Dates.** \`as Date { format: "dd/MM/yyyy" }\` tells DataWeave how to read the text. It is not a full validation, though: a month of 13 fails, but \`31/02/2026\` is quietly adjusted to 28 February. The format stays attached to the value, so a Date parsed this way is written back to JSON as \`15/03/2019\`, which is an easy mistake to miss. The second step, \`as String { format: "yyyy-MM-dd" }\`, produces the form the API expects.
+**Dates.** \`as Date { format: "dd/MM/yyyy" }\` tells DataWeave how to read the text. It is not a full validation, though: a month of 13 fails, but \`31/02/2026\` is quietly adjusted to 28 February. The format stays attached to the value, so a Date parsed this way is written back to JSON as \`15/03/2019\`, a mistake that is hard to spot. The second step, \`as String { format: "yyyy-MM-dd" }\`, produces the form the API expects.
 
 **Empty fields.** A blank column is an empty string, not \`null\`, so \`row.employees default null\` leaves the \`""\` in place. \`row.employees as Number default null\` does give \`null\`, because \`default\` also catches the failed conversion, but it would turn a bad value such as \`n/a\` into \`null\` as well. Testing for \`""\` first handles the blank and still lets a real error stop the run.
 

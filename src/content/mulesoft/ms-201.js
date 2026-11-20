@@ -64,7 +64,7 @@ export default {
         'No, as a single egress gateway is what an Agent Network deployment always requires',
       ],
       answer: 1,
-      explain: 'Agent Network deployments require both an ingress and an egress Omni Gateway. Anypoint Code Builder and Anypoint CLI are the simplest ways to deploy them, and you can also create them by hand in Runtime Manager. Use names that show which is which.',
+      explain: 'Agent Network deployments require both an ingress and an egress Omni Gateway. Anypoint Code Builder and Anypoint CLI are the usual ways to deploy them, and you can also create them by hand in Runtime Manager. Use names that show which is which.',
     },
     {
       type: 'single',

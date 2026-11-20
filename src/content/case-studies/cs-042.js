@@ -80,10 +80,12 @@ export default {
 
 **Constraints**
 - The vehicle cloud processes ~50,000 messages/s of telemetry; it exposes commands, a vehicle-state API and an event stream.
-- Remote commands affect physical vehicles — strict authorisation and audit.
+- Remote commands affect physical vehicles, so they need strict authorisation and audit.
 - Dealer systems are diverse (several dealer management systems, varying API quality).
 - Data-protection rules treat location and driving behaviour as personal data.
 - Owners send about 20 remote commands a second. Vehicles report about 2 faults a second, and a dealer DMS can be down for an hour.
+- API Manager validates an OAuth 2.0 token on every call. Booking suggestions wait on a \`dealer-bookings\` queue, which redelivers a failed message about once a minute, so its redelivery limit must cover an hour-long DMS outage, or be left unlimited.
+- Name the APIs exp-owner-app-api, exp-partner-insurance-api, prc-vehicle-services-api, prc-service-booking-api, prc-consent-api, sys-vehicle-cloud-api and sys-dms-<type>-api.
 
 **Your task.** Propose the service architecture, consent model, event flows, and security for commands.
 `,
@@ -111,19 +113,19 @@ export default {
   solution: `
 **Responsibilities.** Vehicle cloud: device connectivity, 50k msg/s telemetry, raw storage, command delivery to vehicles. Integration layer (Mule + API Manager): business APIs, partner exposure, dealer integration, consent enforcement, orchestration. Mule does not sit on the raw telemetry firehose; it subscribes to curated event topics (faults, trips summarised, charging sessions).
 
-**Layers.** \`owner-app-eapi\`, \`partner-insurance-eapi\`, \`fleet-eapi\` → \`vehicle-services-papi\`, \`service-booking-papi\`, \`consent-papi\` → \`vehicle-cloud-sapi\`, \`dms-<type>-sapi\`, \`crm-sapi\`.
+**Layers.** \`exp-owner-app-api\`, \`exp-partner-insurance-api\`, later \`exp-fleet-api\` → \`prc-vehicle-services-api\`, \`prc-service-booking-api\`, \`prc-consent-api\` → \`sys-vehicle-cloud-api\`, \`sys-dms-<type>-api\`, \`sys-crm-api\`.
 
 **Remote commands.**
 - Owner authenticates in the app (OAuth 2.0/OIDC with MFA for sensitive actions); the token identifies the user.
-- \`vehicle-services-papi\` verifies the user is an authorised driver/owner of that VIN (ownership registry), applies per-vehicle rate limits, and submits the command to the vehicle cloud.
+- \`prc-vehicle-services-api\` verifies the user is an authorised driver/owner of that VIN (ownership registry), applies per-vehicle rate limits, and submits the command to the vehicle cloud.
 - Commands are asynchronous: return \`202\` with a command ID; status (delivered, executed, failed) comes back via events and is pushed to the app.
 - Every command is logged immutably (who, VIN, command, time, outcome).
 
-**Fault → service booking.** Vehicle cloud publishes \`DiagnosticTroubleCode\` events → filtered by severity rules → \`service-booking-papi\` enriches with owner preferences (CRM) and preferred dealer → creates a booking suggestion in the dealer's DMS via the relevant adapter (or a dealer portal task where the DMS has no API) → notifies the owner. Idempotency by VIN + fault code + time window to avoid repeated suggestions for the same fault.
+**Fault → service booking.** Vehicle cloud publishes \`DiagnosticTroubleCode\` events → filtered by severity rules → \`prc-service-booking-api\` enriches with owner preferences (CRM) and preferred dealer → puts a booking suggestion on the \`dealer-bookings\` queue → the relevant \`sys-dms-<type>-api\` adapter creates it in the dealer's DMS (or a dealer portal task where the DMS has no API) → notifies the owner. Idempotency by VIN + fault code + time window to avoid repeated suggestions for the same fault.
 
-**Partners and consent.** Owners grant consent in the app per partner and purpose (e.g. "share driving score with Insurer X"). \`consent-papi\` is checked on every partner call and on every outbound push; revocation stops flows immediately. Partners get derived data (monthly driving score, mileage) rather than raw GPS. API Manager enforces client credentials, scopes, and SLA tiers per partner.
+**Partners and consent.** Owners grant consent in the app per partner and purpose (e.g. "share driving score with Insurer X"). \`prc-consent-api\` is checked on every partner call and on every outbound push; revocation stops flows immediately. Partners get derived data (monthly driving score, mileage) rather than raw GPS. API Manager enforces client credentials, scopes, and SLA tiers per partner.
 
-**Scale and operations.** Curated event volume is far smaller than raw telemetry but bursts (e.g. a firmware issue triggering faults across a model) are possible — queue and throttle towards dealers. Monitoring of command success rates and end-to-end latency.
+**Scale and operations.** Curated event volume is far smaller than raw telemetry but bursts (e.g. a firmware issue triggering faults across a model) are possible, so the \`dealer-bookings\` queue throttles towards dealers. Monitoring of command success rates and end-to-end latency.
 
 **Risks.** Unauthorised remote commands (ownership checks, MFA, anomaly detection), consent errors (central service, tests), dealer integration variety (adapters plus fallback portal), fault storms flooding dealers (aggregation and throttling).
 `,

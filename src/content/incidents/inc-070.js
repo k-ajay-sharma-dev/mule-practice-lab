@@ -21,36 +21,36 @@ export default {
         type: 'single',
         prompt: 'What is the root cause of the duplicate purchase orders?',
         options: [
-          'Both replicas run the FTP listener (it is not primary-node-only) and the file is only deleted at the end of the flow, so both pick up and load the same file',
-          'The ERP sends every file twice',
-          'SQL Server replication duplicates the rows',
-          'The FTP server is in active mode',
+          'Both replicas poll the folder, and the file is deleted only at the end',
+          'The ERP now writes each PO file twice, once per FTP session it opens',
+          'The flow retries the insert after the ftp:delete error and loads again',
+          'The FTP server shows half-written files, so each file is read twice',
         ],
         answer: 0,
-        explain: 'Two "Picked up" lines for the same file at the same second on two replicas, two successful inserts, then a failed delete on the slower node.',
+        explain: 'Two "Picked up" lines for the same file at the same second on two replicas, two successful inserts, then a failed delete on the slower node. The delete error comes after both inserts, and each replica picked the file up only once.',
       },
       {
         type: 'single',
         prompt: 'What is the quickest safe mitigation while the fix is prepared?',
         options: [
-          'Scale back to one replica (or stop the listener on one node) and remove the duplicate batch 7732 and the other duplicate batches after confirming with purchasing',
-          'Increase the polling frequency to every second',
-          'Delete all purchase orders loaded since the deployment',
-          'Ignore it; the suppliers will notice duplicates',
+          'Scale back to one replica, then remove duplicate batches with purchasing',
+          'Poll every second so one replica deletes the file before the other sees it',
+          'Delete every purchase order loaded since the deployment and ask for resends',
+          'Keep two replicas and ask purchasing to cancel duplicates as they find them',
         ],
         answer: 0,
-        explain: 'One running listener stops new duplicates immediately; duplicate batches are identified by file name and removed in coordination with the business (some suppliers may already have received POs).',
+        explain: 'One running listener stops new duplicates immediately; duplicate batches are identified by file name and removed in coordination with the business (some suppliers may already have received POs). Faster polling makes both replicas see the file sooner, since the delete only happens after the 90-second load.',
       },
       {
         type: 'multi',
         prompt: 'Which changes belong in the permanent fix?',
         options: [
-        'Set primaryNodeOnly="true" on the FTP listener so only the cluster primary polls',
-        'Use a listener post-action (moveToDirectory to /archive) instead of a manual delete at the end, and a separate /error directory for failures',
-        'Make the load idempotent: unique constraint on the source file name (or PO number + line) so a repeat load is rejected',
-        'Give the two replicas different polling frequencies',
-        'Add lock="true" to the listener so the FTP server prevents concurrent reads',
-      ],
+          'primaryNodeOnly="true" on the FTP listener so only the primary polls',
+          'A moveToDirectory post-action to /archive, and /error for failures',
+          'A unique constraint on the source file name so a repeat load fails',
+          'Different polling frequencies for the two replicas',
+          'lock="true" on the listener so the FTP server blocks a second reader',
+        ],
         answer: [0, 1, 2],
         explain: 'Run one poller, mark files as processed with a post-action, and keep an idempotency guard in the database. Staggered polling only makes duplicates rarer. The FTP listener has no lock parameter: Lock exists on the Read and Write operations, and it depends on the host file system.',
       },
@@ -68,12 +68,12 @@ export default {
   },
   description: `
 ## Symptoms
-- Since Tuesday 14 October, purchasing reports **duplicate purchase orders** in the procurement system (SQL Server). About 40% of files were loaded twice; some suppliers received the same PO twice.
+- Since Wednesday 14 October, purchasing reports **duplicate purchase orders** in the procurement system (SQL Server). About 40% of files were loaded twice; some suppliers received the same PO twice.
 - The \`po-intake\` app also logs occasional errors from \`ftp:delete\`.
 
 ## Change / Context
 - The ERP drops purchase order files every 15 minutes into \`/outbound\` on an internal **FTP** server.
-- On Monday evening \`po-intake\` was scaled from **1 to 2 replicas** on CloudHub 2.0 with Runtime Cluster Mode enabled, "for high availability".
+- On Tuesday evening (13 October, 18:00) \`po-intake\` was scaled from **1 to 2 replicas** on CloudHub 2.0 with Runtime Cluster Mode enabled, "for high availability".
 - The listener has no post-action and no watermark.
 - The flow inserts the lines. Its last step deletes the file with \`ftp:delete\`.
 - The listener configuration was copied from a template and contains \`primaryNodeOnly="false"\`.
@@ -115,7 +115,7 @@ export default {
 
 **Immediate mitigation.**
 - Scale back to one replica (or deploy with the listener disabled on one node) to stop new duplicates.
-- Find duplicate batches: same source file name loaded twice since Monday 18:00; with purchasing, cancel the duplicate POs and inform affected suppliers.
+- Find duplicate batches: same source file name loaded twice since Tuesday 18:00; with purchasing, cancel the duplicate POs and inform affected suppliers.
 
 **Root cause.** A polling file listener was scaled horizontally without running it on the primary node only. This was combined with a "delete at the end" pattern that leaves the file visible for the whole processing time, and with no idempotency in the load.
 

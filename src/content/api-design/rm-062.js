@@ -8,7 +8,7 @@ export default {
   description: `
 A university publishes its 2,300 modules to a student app and to three partner colleges. Last term a partner loaded a module with the title \`""\` and 400 credits, because the contract only said "string" and "integer".
 
-A **facet** is a rule added to a type. Strings take \`pattern\`, \`minLength\` and \`maxLength\`. Numbers take \`minimum\` and \`maximum\`. Any type can take \`enum\`.
+A **facet** is a rule added to a type. Strings take \`pattern\`, \`minLength\` and \`maxLength\`. Numbers take \`minimum\` and \`maximum\`. Strings and numbers can both take \`enum\`.
 
 An \`example\` on a type is checked against the type and its facets. An example that breaks a facet is an error in the file, so a wrong example tells you the facets and the data disagree. The starter already has an example, and it does not fit the rules below. Fix the example, not the rules.
 

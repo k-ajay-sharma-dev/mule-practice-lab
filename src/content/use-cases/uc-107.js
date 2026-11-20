@@ -61,7 +61,7 @@ Facts:
 - 52,000 fans enter in about **75 minutes**, peaks of 40 scans per second.
 - Stadium wifi is unreliable. When a scanner gets no answer in 2 seconds it **sends the same scan again** with the same \`scanId\` (a UUID made on the scanner). Some scans arrive 2 or 3 times.
 - The ticketing platform (SaaS) must be told about each entry so that the ticket shows as used in the fan app and resale is blocked. Its API allows 10 calls per second and is sometimes slow (about 800 ms). The gates send 40 scans a second for 10 minutes at kick-off, and about 1 entry in 100 is refused by ticketing every time.
-- Anypoint MQ is already used at the club. Messages are delivered **at least once**.
+- Anypoint MQ is already used at the club. Messages are delivered **at least once**. An entry the ticketing platform keeps refusing must go to a DLQ after about 5 tries, and no entry may be lost.
 - A ticket must open the gate once. A second attempt with a **different** scan (a screenshot shared with a friend) must be rejected.
 
 **Describe your solution:**

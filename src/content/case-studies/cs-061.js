@@ -11,12 +11,12 @@ export default {
       prompt: 'On day one after completion, the acquired chain must keep trading while the group starts integrating. Which first integration step gives the most value with the least risk?',
       options: [
         'Migrate the acquired chain\'s stores onto the group SAP system in the first month so there is one system of record',
-        'Build an item and supplier cross-reference (acquired IDs ↔ group IDs) and a consolidated sales and stock feed into the group data platform, leaving operational systems untouched',
+        'Build an item and supplier cross-reference and a read-only sales and stock feed into the group data platform',
         'Connect the acquired chain\'s Oracle database to the group Oracle merchandising database with DB links so reports can join across both',
         'Replace the acquired chain\'s ActiveMQ broker with the group\'s Anypoint MQ before any business flows change',
       ],
       answer: 1,
-      explain: 'A cross-reference plus a read-only consolidated feed gives leadership one view of sales and stock and prepares every later step, without touching store operations. A one-month ERP migration is the classic high-risk move; DB links recreate the tight coupling the programme should remove.',
+      explain: 'A cross-reference (acquired IDs ↔ group IDs) plus a read-only consolidated feed gives leadership one view of sales and stock and prepares every later step, without touching store operations. A one-month ERP migration is the classic high-risk move; DB links recreate the tight coupling the programme should remove; and swapping the broker first changes infrastructure without delivering any business value.',
     },
     {
       type: 'order',
@@ -36,13 +36,13 @@ export default {
       needsScenario: true,
       prompt: 'Both chains buy from the same 300 national suppliers, each with its own EDI setup. What is the best approach for purchase orders during coexistence?',
       options: [
-        'Ask every supplier to accept POs from both ERPs indefinitely',
-        'Route POs from both ERPs through one purchase-order Process API that maps to the group supplier profile, so each supplier moves to the group trading relationship once, with a cut-over date per supplier',
+        'Ask every supplier to accept POs from both ERPs for as long as both exist',
+        'Send POs from both ERPs through one Process API and cut each supplier over once',
         'Stop ordering from common suppliers through the acquired ERP from day one',
-        'Let the acquired chain\'s buyers log into the group SAP system and re-key their orders',
+        'Have the acquired chain\'s buyers re-key their orders into the group SAP system',
       ],
       answer: 1,
-      explain: 'A single Process API in front of supplier connectivity lets each supplier be cut over once while either ERP can still raise orders. Re-keying or an immediate stop disrupts trading; running two relationships forever doubles cost.',
+      explain: 'A single purchase-order Process API in front of supplier connectivity maps each order to the group supplier profile. Each supplier is cut over once, on its own date, while either ERP can still raise orders. Re-keying or an immediate stop disrupts trading; running two relationships forever doubles cost.',
     },
     {
       type: 'multi',
@@ -74,13 +74,13 @@ export default {
       needsScenario: true,
       prompt: 'Halfway through, the board asks to accelerate by six months. Which response best reflects good architectural governance?',
       options: [
-        'Agree, and skip the shadow-mode replenishment runs in the remaining waves',
-        'Show the risk and cost of each acceleration option (larger waves, parallel waves, extra teams) against the wave metrics, and agree which risks the business accepts',
-        'Refuse, because the original plan was approved',
-        'Agree, and move the remaining stores in a single big-bang weekend',
+        'Agree, and skip the shadow replenishment runs in the remaining waves',
+        'Show the risk and cost of each faster option, and let the business choose',
+        'Refuse, because the original plan and budget were already approved',
+        'Agree, and move all the remaining stores in one big-bang weekend',
       ],
       answer: 1,
-      explain: 'Architects make trade-offs visible and let the business decide with evidence from earlier waves. Removing the controls that caught problems, or a flat refusal, are both poor governance.',
+      explain: 'Architects make trade-offs visible (larger waves, parallel waves, extra teams, each set against the wave metrics) and let the business decide with evidence from earlier waves. Removing the controls that caught problems, or a flat refusal, are both poor governance.',
     },
   ],
   description: `
@@ -133,12 +133,12 @@ Item codes, supplier IDs and store IDs are different in each company. About 60% 
   ],
   solution: `
 **Phases**
-1. **Day one (months 0–3).** Network and identity connectivity, access controls, and a consolidated sales and stock feed from the acquired Oracle ERP into the group data platform (System API over Oracle; nightly at first, then intraday).
-2. **Master data (months 2–8).** Item, supplier and site cross-reference service with fuzzy matching (GTIN first, then supplier item code, then manual review). New items are created only in the group MDM and pushed to both estates.
-3. **Buying (months 6–14).** \`prc-purchase-orders\` accepts POs from either ERP, maps to the group supplier profile and sends through the group B2B channel. Suppliers are cut over one by one.
-4. **Distribution (months 10–24).** Acquired stores move to group DCs region by region. Store orders from the acquired chain are translated via the cross-reference and routed to EWM; shadow replenishment runs for each region first.
-5. **Store systems (months 18–32).** POS and pricing migration in waves, reusing the group store integration.
-6. **Decommission (months 30–36).** Retire flows on the acquired broker as their consumers move; archive data required for retention; switch off the ERP and WMS.
+1. **Day one (months 0 to 3).** Network and identity connectivity, access controls, and a consolidated sales and stock feed from the acquired Oracle ERP into the group data platform (System API over Oracle; nightly at first, then intraday).
+2. **Master data (months 2 to 8).** Item, supplier and site cross-reference service with fuzzy matching (GTIN first, then supplier item code, then manual review). New items are created only in the group MDM and pushed to both estates.
+3. **Buying (months 6 to 14).** \`prc-purchase-orders\` accepts POs from either ERP, maps to the group supplier profile and sends through the group B2B channel. Suppliers are cut over one by one.
+4. **Distribution (months 10 to 24).** Acquired stores move to group DCs region by region. Store orders from the acquired chain are translated via the cross-reference and routed to EWM; shadow replenishment runs for each region first.
+5. **Store systems (months 18 to 32).** POS and pricing migration in waves, reusing the group store integration.
+6. **Decommission (months 30 to 36).** Retire flows on the acquired broker as their consumers move; archive data required for retention; switch off the ERP and WMS.
 
 **Architecture.** Group Process APIs and canonical events stay as the stable layer; acquired systems get System APIs (\`sys-acq-erp-api\`, \`sys-acq-wms-api\`) so group processes never depend on their schemas. A bridge republishes needed events from the acquired ActiveMQ into group topics.
 

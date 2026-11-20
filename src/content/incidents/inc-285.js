@@ -7,10 +7,11 @@ export default {
   estMinutes: 30,
   investigation: {
     logs: [
-      { text: "2026-11-18 03:00:00 INFO  [stage-merge] MERGE INTO item USING item_stage rows=60000 durationMs=7200000", relevant: true, why: "Very slow tonight." },
-      { text: "2026-11-17 03:00:00 INFO  [stage-merge] MERGE rows=60000 durationMs=120000", relevant: true, why: "Normal last night." },
-      { text: "2026-11-18 02:55:00 INFO  [stage-load] TRUNCATE item_stage then INSERT 60000 rows", relevant: true, why: "Staging is reloaded each night." },
-      { text: "2026-11-18 03:00:00 INFO  [dba] item_stage statistics show 0 rows, last gathered after truncate", relevant: true, why: "Statistics say the table is empty." },
+      { text: "2026-11-17 03:02:00 INFO  [stage-merge] MERGE rows=60000 durationMs=120000", relevant: true, why: "Normal last night." },
+      { text: "2026-11-18 02:55:00 INFO  [stage-load] TRUNCATE item_stage", relevant: true, why: "Staging is emptied each night." },
+      { text: "2026-11-18 02:56:00 INFO  [dba] Nightly stats job gathered item_stage num_rows=0", relevant: true, why: "Statistics were gathered while the table was empty." },
+      { text: "2026-11-18 02:58:00 INFO  [stage-load] INSERT item_stage rows=60000", relevant: true, why: "Staging is refilled after the stats ran." },
+      { text: "2026-11-18 05:00:00 INFO  [stage-merge] MERGE INTO item USING item_stage rows=60000 durationMs=7200000", relevant: true, why: "Very slow tonight." },
       { text: "2026-11-18 23:59:00 INFO  [stage-merge] GET /health 200", relevant: false },
     ],
     questions: [
@@ -19,9 +20,9 @@ export default {
         prompt: "Why is the MERGE slow?",
         options: [
           "Statistics say staging is empty, so the optimiser picks a poor plan",
-          "The data doubled",
-          "The network",
-          "Locks",
+          "Twice as many rows arrived in staging as last night",
+          "Another session held row locks on item for two hours",
+          "The network between Mule and Oracle slowed down tonight",
         ],
         answer: 0,
         explain: "The optimiser trusts statistics.",
@@ -30,10 +31,10 @@ export default {
         type: 'single',
         prompt: "What can fix it?",
         options: [
-          "Gather statistics after loading staging, or lock representative statistics",
-          "Restart Oracle",
-          "Remove the index",
-          "Use smaller batches",
+          "Gather stats after the staging load, or lock representative stats",
+          "Restart the Oracle instance to clear the cached plans",
+          "Drop the item index so the MERGE always does a full scan",
+          "Split the MERGE into 60 batches of 1,000 rows from Mule",
         ],
         answer: 0,
         explain: "Good statistics, good plans.",
@@ -45,7 +46,7 @@ export default {
           "Dynamic sampling for staging tables",
           "A plan baseline for the MERGE",
           "Watching duration per run",
-          "Truncating the target",
+          "Rebuilding the item indexes before each MERGE",
         ],
         answer: [0,1,2],
         explain: "Keep plans stable.",
@@ -54,10 +55,10 @@ export default {
         type: 'single',
         prompt: "Why did it start tonight?",
         options: [
-          "An automatic stats job ran while staging was empty",
-          "Data changed",
-          "A deploy",
-          "Luck",
+          "The moved stats job now runs while staging is empty",
+          "The staging data changed shape tonight",
+          "A code deploy changed the MERGE statement",
+          "The item table grew past an index size limit",
         ],
         answer: 0,
         explain: "Timing of stats gathering matters.",
@@ -78,18 +79,20 @@ export default {
   },
   description: `
 ## Symptoms
-- The item load finished two hours late.
+- The item load finished at 05:00 instead of about 03:02.
 
 ## Change / Context
-- Staging is truncated and reloaded each night.
+- Staging is truncated and reloaded each night. The MERGE starts at 03:00.
+- Yesterday the DBA team moved the nightly schema statistics job to start at 02:50.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 03:00:00 INFO  [stage-merge] MERGE INTO item USING item_stage rows=60000 durationMs=7200000
-2026-11-17 03:00:00 INFO  [stage-merge] MERGE rows=60000 durationMs=120000
-2026-11-18 02:55:00 INFO  [stage-load] TRUNCATE item_stage then INSERT 60000 rows
-2026-11-18 03:00:00 INFO  [dba] item_stage statistics show 0 rows, last gathered after truncate
+2026-11-17 03:02:00 INFO  [stage-merge] MERGE rows=60000 durationMs=120000
+2026-11-18 02:55:00 INFO  [stage-load] TRUNCATE item_stage
+2026-11-18 02:56:00 INFO  [dba] Nightly stats job gathered item_stage num_rows=0
+2026-11-18 02:58:00 INFO  [stage-load] INSERT item_stage rows=60000
+2026-11-18 05:00:00 INFO  [stage-merge] MERGE INTO item USING item_stage rows=60000 durationMs=7200000
 \`\`\`
 
 ## Your tasks

@@ -112,6 +112,11 @@ Larkfield's rules:
 
 The first version built one message per item: 400,000 blobs and notices a night. The partner asked for groups.
 
+**Facts**
+- \`job_log\` has \`job_id\`, \`job_name\`, \`status\`, \`sent\` and \`failed\`. Call \`JOB_START\` with a target variable: the OUT parameter comes back as \`{ job_id }\`.
+- Name each blob \`item-out/<jobId>/<first itemId>.json\`. Send the notices with **JMS Publish**.
+- Let the job go on after a failed group: set max failed records to -1. \`sent\` and \`failed\` are the job's successful and failed record counts.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row and the read

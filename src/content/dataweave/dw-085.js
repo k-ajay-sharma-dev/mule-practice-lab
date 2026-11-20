@@ -13,9 +13,9 @@ The order system exports the next day's home deliveries as one flat XML list, ab
 **Output**: root \`dispatchPlan\` with one \`route\` element per route.
 
 - Orders with \`status="CANCELLED"\` are left out completely. A route with only cancelled orders does not appear.
-- \`route\` elements are sorted by route code ascending.
+- \`route\` elements are sorted by route code ascending, compared as text (so \`R10\` comes before \`R7\`).
 - \`route\` attributes: \`code\`, \`stops\` (number of stops), \`totalKg\` (sum of the weights, exactly 2 decimals).
-- Inside a route, one \`stop\` per order, sorted by \`window\` ascending and then by order \`id\` ascending.
+- Inside a route, one \`stop\` per order, sorted by \`window\` ascending and then by order \`id\` ascending, both compared as text.
 - \`stop\` attributes: \`seq\` (1, 2, 3 within the route), \`orderId\`, \`window\`.
 - \`stop\` children, in this order: \`customer\`, \`city\`, and \`note\` **only** when the order has one.
 - With nothing to deliver, the result is an empty \`dispatchPlan\`.
@@ -132,7 +132,7 @@ fun routeElement(code: String) = do {
   }
 }`,
   explanation: `
-**Filter, group, sort, build.** Each step works on plain DataWeave values, and XML only returns at the very end. Thinking of it as "read into lists, reshape, write out" is simpler than thinking of it as moving elements around in a tree.
+**Filter, group, sort, build.** Each step works on plain DataWeave values, and XML only returns at the very end. Thinking of it as "read into lists, reshape, write out" is clearer than thinking of it as moving elements around in a tree.
 
 **Filter before grouping.** Because cancelled orders are removed first, route \`R3\` never comes into existence, and the counts and weights need no special cases. Filtering after the grouping would leave an empty \`R3\`.
 

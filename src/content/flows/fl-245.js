@@ -72,7 +72,7 @@ export default {
   referenceFlow: design(
     flow(
       'email-service',
-      source('jms-listener', { destination: 'EMAIL.REQUESTS', ackMode: 'AUTO', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'LOCAL', numberOfConsumers: 2 }),
+      source('jms-listener', { destination: 'EMAIL.REQUESTS', ackMode: 'IMMEDIATE', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'LOCAL', numberOfConsumers: 2 }),
       [
         step('set-variable', { variableName: 'req', value: '#[payload]' }),
         router(
@@ -141,6 +141,11 @@ Oracle tables:
 - Otherwise build the body from the template, send it as HTML, and log \`SENT\`.
 - When the relay fails, the request must come back later, with no log row written. Read the queue in a transaction for that.
 - A request delivered more than five times: log \`GAVE_UP\`, put it on \`EMAIL.REQUESTS.DLQ\`, and acknowledge it, with a WARN.
+
+**Facts**
+- The broker's delivery count is in \`attributes.properties.jmsxProperties.JMSXDeliveryCount\` (1 on the first delivery).
+- Check the address with the Validation module's Is Email. A bad one raises \`VALIDATION:INVALID_EMAIL\`.
+- \`email_suppression\` holds addresses in lower case. Put the request on the DLQ as it arrived.
 
 **Design the flow.**
 `,

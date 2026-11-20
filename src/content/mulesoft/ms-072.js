@@ -22,22 +22,22 @@ export default {
       type: 'single',
       prompt: 'Using Little\'s law, each order request holds a connection for about 40 ms, and the peak is 600 requests/s spread over 4 replicas. Roughly how many connections does **each** replica need in use at peak?',
       options: [
-        'About 6 (150 req/s × 0.04 s), plus headroom — e.g. a pool of 10',
-        'About 600, one per request per second',
-        'About 24 per replica',
-        'Exactly 1, because queries are fast',
+        'About 6 per replica (150 × 0.04), so a pool of about 10',
+        'About 600, one connection per request per second',
+        'About 24 per replica (600 × 0.04)',
+        'About 150 per replica, one per request each second',
       ],
       answer: 0,
-      explain: 'Connections in use ≈ arrival rate × hold time. Per replica 150 × 0.04 = 6. The total across replicas (4 × pool max) must fit within what the DBA allows for this user.',
+      explain: 'Connections in use ≈ arrival rate × hold time. Per replica 150 req/s × 0.04 s = 6, plus headroom. 600 × 0.04 = 24 is the total across all 4 replicas, not per replica. The total across replicas (4 × pool max) must fit within what the DBA allows for this user.',
     },
     {
       type: 'single',
       prompt: 'The hold time measured in the pool is 2 seconds, while the SQL itself takes 30 ms. Which flow design most likely explains it?',
       options: [
-        'A Try scope with a DB transaction that also contains an HTTP call to the payment provider',
-        'Using bind parameters instead of literals',
-        'A small preparedStatementCacheSize',
-        'Using db:insert instead of db:bulk-insert for one row',
+        'A DB transaction that also wraps the payment HTTP call',
+        'Bind parameters instead of literal values in the SQL',
+        'A small preparedStatementCacheSize on the pool',
+        'db:insert instead of db:bulk-insert for a single row',
       ],
       answer: 0,
       explain: 'Inside a transaction the connection is held from the first DB operation until commit, including any HTTP wait. Move remote calls out of the transaction.',
@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'The team proposes raising maxPoolSize from 10 to 100 on each of 8 replicas. What is the main risk?',
       options: [
-        'Up to 800 Oracle sessions, beyond the user/instance limits; the waiting moves into the database and can make everything slower',
-        'Mule does not allow a pool larger than 50',
-        'It disables statement caching',
-        'Nothing — more connections are always faster',
+        'Up to 800 sessions, past Oracle\'s limit; waits move into the DB',
+        'Mule rejects any pool larger than 50 connections',
+        'Larger pools turn off prepared statement caching',
+        'Each replica then needs more vCores to hold its pool',
       ],
       answer: 0,
-      explain: 'Oracle has finite sessions/processes and CPU. Oversized pools cause contention, session limit errors (e.g. ORA-00018 / ORA-12516-type refusals) and logon storms when replicas scale.',
+      explain: 'Up to 800 Oracle sessions exceeds the user and instance limits, and the waiting moves into the database, which can make everything slower. Oracle has finite sessions/processes and CPU. Oversized pools cause contention, session limit errors (e.g. ORA-00018 / ORA-12516-type refusals) and logon storms when replicas scale.',
     },
     {
       type: 'match',
@@ -63,7 +63,7 @@ export default {
         ['Flow maxConcurrency', 'Limits how many events run the flow at once, so excess load is held back before the pool'],
         ['queryTimeout on DB operations', 'Stops a runaway statement from holding a connection forever'],
       ],
-      explain: 'Bound the pool, fail fast when it is busy, limit concurrency upstream, and cap individual statements — together they keep a slow dependency from taking the whole app down.',
+      explain: 'Bound the pool, fail fast when it is busy, limit concurrency upstream, and cap individual statements. Together they keep a slow dependency from taking the whole app down.',
     },
     {
       type: 'multi',
@@ -122,7 +122,7 @@ The proposed fix is \`maxPoolSize="100"\` on every replica.
 `,
   keyPoints: [
     'Pool exhaustion: latency ≈ maxWait, threads waiting on the pool, idle DB sessions held by the app; a slow DB shows long active SQL and waits in Oracle.',
-    'A transaction holds its connection from the first DB operation until commit — an HTTP call inside it multiplies hold time.',
+    'A transaction holds its connection from the first DB operation until commit; an HTTP call inside it multiplies hold time.',
     'Lock contention on hot rows and missing queryTimeout also extend hold time; streaming results hold connections until consumed.',
     'Size with Little\'s law (rate × hold time) per replica plus headroom, and check total = max replicas × maxPoolSize against the DB session budget.',
     'Use a short maxWait to fail fast, flow maxConcurrency to hold back load upstream (back-pressure; an HTTP listener might return 503), queryTimeout on statements, and move remote calls out of transactions.',
@@ -132,12 +132,12 @@ The proposed fix is \`maxPoolSize="100"\` on every replica.
 **1. Signs.** Pool exhaustion: latency clustering at \`maxWait\` (30 s), errors about obtaining a connection, threads parked on the pool, and Oracle sessions **idle** because the app holds them without running SQL. A slow DB looks different: sessions **active** in Oracle, long SQL execution or lock waits, high DB CPU/IO. Here both appear: idle sessions (connections held during the HTTP call) plus a lock wait on a hot SKU.
 
 **2. Why connections are held.**
-- The Try scope begins a **DB transaction**; the connection is bound to it from the \`db:update\` until commit — including the **1–3 s payment call**. Hold time goes from ~30 ms to seconds.
-- The stock reservation row for the hot SKU is **locked** by the open transaction, so other requests for the same SKU wait on the lock — while holding their own connections.
+- The Try scope begins a **DB transaction**; the connection is bound to it from the \`db:update\` until commit, including the **1–3 s payment call**. Hold time goes from ~30 ms to seconds.
+- The stock reservation row for the hot SKU is **locked** by the open transaction, so other requests for the same SKU wait on the lock while holding their own connections.
 - No \`queryTimeout\`, so a blocked UPDATE waits indefinitely.
-- Little's law: 150 req/s per replica × 2 s ≈ 300 connections needed per replica — no pool size fixes that.
+- Little's law: 150 req/s per replica × 2 s ≈ 300 connections needed per replica. No pool size fixes that.
 
-**3. Sizing.** After the redesign, hold time ≈ 40 ms. Peak 600 req/s over 4 replicas → 150 req/s × 0.04 s ≈ **6** in use per replica; pool of **10–12** gives headroom. Check the budget for the **maximum** replica count: 8 × 12 = 96 sessions, within the 200 allowed (leaving room for other apps/tools). With \`maxPoolSize="100"\`: 8 × 100 = 800 sessions — beyond the user limit, causing connection refusals, logon storms when replicas scale out, and more contention on the same hot rows. A bigger pool only moves the queue into Oracle.
+**3. Sizing.** After the redesign, hold time ≈ 40 ms. Peak 600 req/s over 4 replicas → 150 req/s × 0.04 s ≈ **6** in use per replica; pool of **10–12** gives headroom. Check the budget for the **maximum** replica count: 8 × 12 = 96 sessions, within the 200 allowed (leaving room for other apps/tools). With \`maxPoolSize="100"\`: 8 × 100 = 800 sessions, beyond the user limit, causing connection refusals, logon storms when replicas scale out, and more contention on the same hot rows. A bigger pool only moves the queue into Oracle.
 
 **4. Changes.**
 \`\`\`xml

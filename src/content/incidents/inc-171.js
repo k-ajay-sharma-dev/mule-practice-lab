@@ -91,6 +91,7 @@ export default {
 - \`mp-store-assist\` was created two weeks ago, with the **Anthropic** endpoint format, because the first release used one Anthropic model and "native seemed cleanest".
 - Clients name the model in each request.
 - Nobody asked at creation time whether routing needs might change.
+- On the OpenAI format, semantic routing is set up with prompt topics, each with example utterances. A semantic service compares each request with them and picks the route.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
@@ -135,7 +136,7 @@ These lines are illustrative and were written for this scenario. Real log format
 - Tell finance the real position: the saving needs a new proxy, and is not a settings change.
 - If cost must fall sooner, look at what the current proxy can do. For example, add a cheaper Anthropic model, and have clients name it for simple requests. Model based routing supports this, and adding a model does not change the endpoint.
 
-**Root cause.** A one way choice was made for the first release, with no thought for later routing needs. The native format looked simpler, and its limit was not noticed.
+**Root cause.** A one way choice was made for the first release, with no thought for later routing needs. The native format looked cleaner, and its limit was not noticed.
 
 **Permanent fix.**
 - Create a new Model Proxy with the **OpenAI** format, which works with all supported LLM providers, so Anthropic models stay available.

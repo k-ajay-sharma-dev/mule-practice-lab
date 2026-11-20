@@ -8,16 +8,16 @@ export default {
   description: `
 A tenant's feature flags are stored as one flat JSON object. The admin UI needs them as table rows, and the gateway needs only the switched-on flags.
 
-Input: \`{ "tenant": "...", "flags": { ... } }\` — flag values can be booleans, numbers, strings or \`null\`.
+Input: \`{ "tenant": "...", "flags": { ... } }\`. Flag values can be booleans, numbers, strings or \`null\`.
 
 Output an object with:
 
-- \`tenant\` — copied as-is
-- \`rows\` — one entry per flag, **skipping flags whose value is \`null\`**, sorted by \`key\` ascending. Each row is:
-  - \`key\` — the flag name
-  - \`value\` — the value converted to a **string** (\`true\` → \`"true"\`, \`3\` → \`"3"\`)
-  - \`type\` — the DataWeave type name of the original value: \`"Boolean"\`, \`"Number"\` or \`"String"\`
-- \`enabled\` — an **object** containing only the flags whose value is exactly the boolean \`true\` (the string \`"true"\` does not count), with their original values
+- \`tenant\`: copied as-is
+- \`rows\`: one entry per flag, **skipping flags whose value is \`null\`**, sorted by \`key\` ascending as text. Each row is:
+  - \`key\`: the flag name
+  - \`value\`: the value converted to a **string** (\`true\` → \`"true"\`, \`3\` → \`"3"\`)
+  - \`type\`: the DataWeave type name of the original value: \`"Boolean"\`, \`"Number"\` or \`"String"\`
+- \`enabled\`: an **object** containing only the flags whose value is exactly the boolean \`true\` (the string \`"true"\` does not count), with their original values, in input order
 
 A tenant with no flags gives \`"rows": []\` and \`"enabled": {}\`.
 `,
@@ -58,7 +58,7 @@ output application/json
 payload
 `,
   hints: [
-    '`obj pluck (value, key) -> { ... }` turns an object into an array — one item per key/value pair.',
+    '`obj pluck (value, key) -> { ... }` turns an object into an array, one item per key/value pair.',
     'Keys are of type `Key`, not `String`: convert with `key as String`. `typeOf(v) as String` gives names like `"Boolean"`.',
     '`obj filterObject (value) -> value == true` keeps an object an object, dropping the pairs that fail the condition.',
   ],
@@ -81,7 +81,7 @@ var flags = payload.flags default {}
 
 The parentheses around the \`pluck\` expression matter: a lambda body extends as far right as possible, so without them \`orderBy\` would be applied inside the lambda to each single row object.
 
-\`==\` does not coerce types, so the string \`"true"\` is not equal to the boolean \`true\` — exactly what the rule asks for. (\`~=\` would coerce.)
+\`==\` does not coerce types, so the string \`"true"\` is not equal to the boolean \`true\`, which is exactly what the rule asks for. (\`~=\` would coerce.)
 `,
   tests: [
     {
@@ -101,7 +101,7 @@ The parentheses around the \`pluck\` expression matter: a lambda body extends as
   followUps: [
     {
       q: 'How do you turn the rows back into an object?',
-      a: 'Use dynamic keys with object destructuring: `{ (rows map (r) -> { (r.key): r.value }) }`, or `rows reduce ((r, acc = {}) -> acc ++ { (r.key): r.value })`.',
+      a: 'Use dynamic keys and wrap the array of objects in parentheses inside an object, so its pairs are merged: `{ (rows map (r) -> { (r.key): r.value }) }`, or `rows reduce ((r, acc = {}) -> acc ++ { (r.key): r.value })`.',
     },
     {
       q: 'What is the difference between `mapObject` and `pluck`?',

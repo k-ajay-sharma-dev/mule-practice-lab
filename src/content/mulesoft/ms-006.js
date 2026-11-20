@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'After promotion to Production the app starts fine but **every request returns 503**. What is the most likely cause?',
       options: [
-        'The gatekeeper blocks traffic because the API is not paired — e.g. `api.id` or client ID/secret still point at Sandbox',
-        'The Rate Limiting policy is set too low',
-        'CloudHub 2.0 needs a redeploy after every policy change',
-        'The HTTP Listener port is wrong',
+        'The app is not paired, because `api.id` still points at Sandbox',
+        'The Rate Limiting policy limit is set far too low for Production',
+        'CloudHub 2.0 needs a redeploy after every policy change is applied',
+        'Client ID Enforcement rejects callers that send no credentials',
       ],
       answer: 0,
-      explain: 'Until autodiscovery pairs the app with its API instance and downloads policies, the **gatekeeper** returns 503. Wrong `api.id` or wrong environment credentials are the classic causes. A rate limit would give 429, not 503 for every call.',
+      explain: 'Until autodiscovery pairs the app with its API instance and downloads policies, the **gatekeeper** returns 503. Wrong `api.id` or wrong environment credentials are the classic causes. A rate limit would give 429, and Client ID Enforcement gives 401, not 503 for every call.',
     },
     {
       type: 'single',
@@ -36,7 +36,7 @@ export default {
       pairs: [
         ['Internal tools only from the corporate egress range', 'IP Allowlist'],
         ['Smooth Black Friday bursts towards System APIs', 'Spike Control'],
-        ['Mobile 100/min and Partner 1,000/min', 'Rate Limiting – SLA Based with tiers'],
+        ['Mobile 100/min and Partner 1,000/min', 'SLA-based Rate Limiting with tiers'],
         ['Partner access approved by the API owner', 'Manual approval on the SLA tier'],
       ],
       explain: 'Plain Rate Limiting can keep a separate quota per identifier, but every identifier gets the same limits; SLA-based rate limiting checks the client ID against the contract and applies its tier. Manual approval is a tier setting.',
@@ -53,10 +53,10 @@ export default {
       type: 'single',
       prompt: 'Rate limiting is applied without the cluster/distributed option on 3 replicas. What can a client effectively get?',
       options: [
-        'Exactly the configured limit — counters are always shared',
+        'Exactly the configured limit, as counters are always shared',
         'Up to about 3× the limit, because each replica counts separately',
-        'One third of the limit',
-        'No limit at all',
+        'One third of the limit, as each replica takes an equal share',
+        'No limit, as policies are off without the cluster option',
       ],
       answer: 1,
       explain: 'Without shared counting each node enforces its own quota. The Distributed option shares the quota only when the runtime runs in HA cluster mode, at the cost of some coordination overhead.',
@@ -76,9 +76,9 @@ export default {
   description: `
 You own the **Customer Experience API** (\`customer-xapi\`), deployed to CloudHub 2.0 with 3 replicas in *Production*. Consumers:
 
-- **Mobile app** — must be limited to **100 requests/minute**.
-- **Partner portal** — paid tier, **1,000 requests/minute**.
-- **Internal batch tools** — must only be callable from the corporate egress IP range.
+- **Mobile app**: must be limited to **100 requests/minute**.
+- **Partner portal**: paid tier, **1,000 requests/minute**.
+- **Internal batch tools**: must only be callable from the corporate egress IP range.
 
 Further requirements:
 - Every consumer must identify itself; unknown callers get rejected before any Mule flow logic runs.
@@ -108,22 +108,22 @@ After deployment to Production, **every request returns 503** although the app l
   keyPoints: [
     'Autodiscovery element (api-gateway:autodiscovery) references the API instance ID (externalised as a property, e.g. api.id) and the main flow.',
     'The runtime must authenticate to the platform with environment client ID/secret (anypoint.platform.client_id / client_secret), per environment.',
-    'Gatekeeper blocks traffic (503) until the API is paired and policies are downloaded — a wrong api.id or missing/invalid credentials causes the 503.',
-    'Rate Limiting – SLA Based enforces per-tier limits by client ID; tiers defined in API Manager, partner tier set to manual approval.',
+    'Gatekeeper blocks traffic (503) until the API is paired and policies are downloaded: a wrong api.id or missing/invalid credentials causes the 503.',
+    'SLA-based Rate Limiting enforces per-tier limits by client ID; tiers defined in API Manager, partner tier set to manual approval.',
     'IP allowlist for internal tools, Spike Control for smoothing, Client ID Enforcement / SLA policy for identification; cheap rejections first.',
     'The Distributed (clusterizable) option shares the quota only when the runtime runs in HA cluster mode; otherwise each node counts separately.',
   ],
   solution: `
 **Autodiscovery**
-- In the app: \`<api-gateway:autodiscovery apiId="$\{api.id}" flowRef="customer-xapi-main" />\` — the API instance ID is a property so the same JAR works in every environment.
+- In the app: \`<api-gateway:autodiscovery apiId="$\{api.id}" flowRef="customer-xapi-main" />\`: the API instance ID is a property so the same JAR works in every environment.
 - At deployment: set \`api.id\` per environment (the Production API instance ID) and the **environment** credentials \`anypoint.platform.client_id\` / \`anypoint.platform.client_secret\` (on CloudHub these can be supplied by the platform or as protected properties). The runtime then registers with API Manager, pulls policies and reports analytics.
 
 **The 503:** the gateway's **gatekeeper** blocks all requests until the API is successfully paired with API Manager and its policies are applied. Typical causes: \`api.id\` still pointing at the Sandbox instance, Sandbox client ID/secret used in Production, or the API instance not existing in that environment. Check the app log for autodiscovery/pairing errors and the API instance status ("Active").
 
 **Policies (order from cheapest/broadest rejection to most specific):**
-1. **IP Allowlist** — on the internal resources only (resource-level policy) or via a separate API instance for internal tools; allow the corporate egress CIDR.
-2. **Spike Control** — e.g. a max number of requests per short window with a few queued attempts and delay, to smooth bursts towards System APIs.
-3. **Rate Limiting – SLA Based** — needs a client ID expression (the client secret expression is optional; e.g. headers \`client_id\` / \`client_secret\`), validates the caller's contract **and** applies the tier limit, so it covers "every consumer must identify itself". Invalid client credentials get 401; over-limit gets 429.
+1. **IP Allowlist**: on the internal resources only (resource-level policy) or via a separate API instance for internal tools; allow the corporate egress CIDR.
+2. **Spike Control**: e.g. a max number of requests per short window with a few queued attempts and delay, to smooth bursts towards System APIs.
+3. **SLA-based Rate Limiting**: needs a client ID expression (the client secret expression is optional; e.g. headers \`client_id\` / \`client_secret\`), validates the caller's contract **and** applies the tier limit, so it covers "every consumer must identify itself". Invalid client credentials get 401; over-limit gets 429.
    (Alternatively Client ID Enforcement + plain Rate Limiting, but plain Rate Limiting can't differentiate tiers.)
 4. Optionally JWT Validation / header injection policies as the security model requires.
 

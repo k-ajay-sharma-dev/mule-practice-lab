@@ -87,7 +87,7 @@ Facts:
 - ~50,000 availability/price checks/day; ~4,000 parts orders/day; ~600 warranty claims/day.
 - Pricing comes from SAP condition records (pricing simulation is ~1.5 s per call).
 - Dealers must only see their **own** prices and orders; dealer groups see all their member dealers.
-- On Monday mornings dealers send about 20 price checks a second. A 15 minute cache answers about 8 in 10, and only registered dealer-group systems may call the B2B API.
+- On Monday mornings dealers send about 20 price checks a second. A 15 minute cache answers about 8 in 10. SAP pricing must get at most 5 calls a second, and a price check should take under 600 ms on average. Only registered dealer-group systems may call the B2B API.
 
 **Questions:**
 1. Decompose into Experience, Process and System APIs.
@@ -111,7 +111,7 @@ Facts:
   keyPoints: [
     'System APIs: sys-sap-materials (stock), sys-sap-pricing (pricing simulation), sys-sap-sales-orders, sys-salesforce-dealers, sys-warranty-claims, sys-document-store.',
     'Process APIs: prc-parts-availability-pricing (stock + dealer price), prc-dealer-orders (validate dealer, create SAP order, status), prc-warranty-claims (validate serial/coverage, store photos, create claim).',
-    'Experience APIs: exp-dealer-portal, exp-salesops, and in phase 2 exp-dealer-b2b — the only new API needed for the DMS integration.',
+    'Experience APIs: exp-dealer-portal, exp-salesops, and in phase 2 exp-dealer-b2b, the only new API needed for the DMS integration.',
     'Dealer identity resolved from the token (portal user → dealer account) and enforced in Process APIs, with dealer-group hierarchy from Salesforce.',
     'Pricing simulation is slow and expensive: batch price requests per basket and cache dealer price lists for a short TTL.',
   ],
@@ -147,12 +147,12 @@ Facts:
  materials  pricing      orders          dealers          claims         store
 \`\`\`
 
-**Sequence — dealer checks prices and orders parts**
+**Sequence: dealer checks prices and orders parts**
 1. Portal → exp-dealer-portal \`POST /baskets/price { parts: [...] }\`; the portal user's token carries the Salesforce contact → dealer account.
 2. → prc-parts-availability-pricing \`POST /price-availability { dealerId, parts }\`.
 3. Process API → sys-salesforce-dealers (cached): SAP customer number, tier, active status.
 4. In parallel: sys-sap-materials stock per plant and sys-sap-pricing **one simulation for the whole basket** (not one per part).
-5. Response: per part — available qty, plant, lead time, dealer net price.
+5. Response: per part, the available qty, plant, lead time, dealer net price.
 6. Dealer submits → exp-dealer-portal \`POST /orders\` (Idempotency-Key) → prc-dealer-orders: re-validate dealer (credit block), create sales order through sys-sap-sales-orders, return SAP order number.
 
 **Dealer data isolation.** The dealer ID is never taken from the request body for portal and B2B calls: the Experience API derives it from the token (portal user or B2B client ID → dealer/dealer group mapping). Process APIs check that requested orders/claims belong to that dealer, or to a member of that dealer group (hierarchy from Salesforce).
@@ -160,7 +160,7 @@ Facts:
 **Phase 2 reuse.**
 | API | Phase 2 status |
 |---|---|
-| exp-dealer-b2b | **New** — B2B contract, versioned (\`/v1\`), published in an Exchange public portal |
+| exp-dealer-b2b | **New**: B2B contract, versioned (\`/v1\`), published in an Exchange public portal |
 | prc-parts-availability-pricing, prc-dealer-orders | **Reused** unchanged |
 | All System APIs | **Reused** unchanged |
 | prc-warranty-claims | Not exposed in phase 2 |
@@ -169,7 +169,7 @@ Facts:
 - SAP pricing slow: short cache of dealer price per material (e.g. 15 min; prices change at most daily) and per-call timeouts; if pricing fails, show availability with "price on request".
 - SAP order creation: idempotency via an external reference (dealer PO + Idempotency-Key) checked before creating.
 - Photos uploaded straight to S3 via pre-signed URLs, so large files don't pass through Mule.
-- SLA tiers (Rate Limiting – SLA based) per dealer group on exp-dealer-b2b; Spike Control on SAP System APIs.
+- SLA tiers (Rate Limiting - SLA Based policy) per dealer group on exp-dealer-b2b; Spike Control on SAP System APIs.
 `,
   followUps: [
     { q: 'Why not let the dealer portal (Salesforce Experience Cloud) call SAP directly through Salesforce Connect?', a: 'It would bypass dealer-scoping rules and couple the portal to SAP. Every new channel (the DMS integration) would have to re-implement the same pricing and order logic.' },

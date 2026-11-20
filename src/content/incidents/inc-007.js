@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'The new deployment has no env=prod runtime property, so env fell back to the global-property default qa',
-          'The production ERP is down and orders were failed over to QA',
-          'Someone edited config-prod.yaml to point at the QA ERP',
-          'DNS for erp.internal.example.com now resolves to the QA server',
+          'The new deployment has no env=prod property, so env fell back to qa',
+          'The production ERP was down overnight and orders failed over to QA',
+          'Someone edited config-prod.yaml so it points at the QA ERP host',
+          'DNS for the production ERP host now resolves to the QA server',
         ],
         answer: 0,
         explain: 'The startup log says **config-qa.yaml**. The old deployment set env=prod in Runtime Manager; the new pipeline template did not, and global.xml silently defaults to qa.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Leave it running and copy orders from QA to prod at the end of the day',
-          'Set env=prod on the deployment and restart, check the log shows config-prod.yaml, then replay the orders into the prod ERP',
-          'Delete the QA ERP',
-          'Roll back to the old CloudHub 1.0 deployment and do nothing else',
+          'Leave it running and copy the QA orders to prod at the end of the day',
+          'Set env=prod, restart, check the loaded config, then replay the orders',
+          'Point the QA ERP hostname at the production ERP until a fix ships',
+          'Roll back to the old CloudHub 1.0 deployment and close the incident',
         ],
         answer: 1,
         explain: 'Fix the configuration, verify it, and recover the missing orders while checking for duplicates. The personal data in QA must also be reported to security and removed.',
@@ -48,10 +48,10 @@ export default {
           'Set per-environment properties in the CI/CD pipeline, reviewed like code',
           'A post-deployment smoke test on an /info endpoint showing the environment and target hosts',
           'Network segmentation so production apps cannot reach QA systems',
-          'Keep the default but change it to prod',
+          'Keep the global-property default, but change its value to prod',
         ],
         answer: [0, 1, 2, 3],
-        explain: 'A missing property must stop the app, not silently pick an environment. Defaulting to prod would just move the risk: a local or QA run could then write to production.',
+        explain: 'A missing property must stop the app, not silently pick an environment. Defaulting to prod would only move the risk: a local or QA run could then write to production.',
       },
       {
         type: 'order',
@@ -72,7 +72,7 @@ export default {
 - \`order-sync-papi\` was **redeployed to production** last night (new CloudHub 2.0 deployment after a platform migration).
 - This morning the business reports that **no new orders** have arrived in the production ERP since the redeploy.
 - At the same time the QA team asks why the **QA ERP** suddenly contains ~3,000 orders with real customer names and addresses.
-- The app is healthy in Runtime Manager: no errors, every call returns **HTTP 200**.
+- The app is healthy in Runtime Manager: no errors, every ERP call succeeds with **HTTP 201**.
 
 ## Change / Context
 - Configuration is loaded with \`<configuration-properties file="config-$\{env}.yaml"/>\`.
@@ -106,14 +106,14 @@ export default {
 `,
   keyPoints: [
     'Identifies that the env property was not set on the new deployment, so the global-property default (qa) was used and config-qa.yaml was loaded.',
-    'Notes that the log line "Loaded properties from config-qa.yaml" and the erp-qa URL prove it; HTTP 200/201 means nothing was "broken" from the app\'s point of view.',
+    'Notes that the log line "Loaded properties from config-qa.yaml" and the erp-qa URL prove it; HTTP 201 means nothing was "broken" from the app\'s point of view.',
     'Immediate: set env=prod in Runtime Manager (or redeploy with the right property), confirm prod URLs in logs, then replay the orders since the redeploy into the prod ERP.',
     'Treats real customer data in QA as a data-protection incident: inform security/privacy, delete or mask the records in QA.',
     'Permanent fix: remove the environment default from the code and fail fast at startup if env is missing; keep env-specific values outside the jar or per-environment in the pipeline.',
     'Prevention: post-deploy smoke test that checks the target endpoints, pipeline templates per environment, and network rules that stop prod from reaching non-prod systems.',
   ],
   solution: `
-**Diagnosis.** The app is working "correctly" — it is just using the **QA configuration**. The new deployment did not get the runtime property \`env=prod\`, so \`$\{env}\` resolved to the **global-property default \`qa\`**, \`config-qa.yaml\` was loaded and every order was sent to \`erp-qa\`. The log line *Loaded properties from config-qa.yaml* and the \`erp-qa\` host in every request confirm it. No errors appear because the QA ERP accepted the orders.
+**Diagnosis.** The app is working "correctly". It is using the **QA configuration**. The new deployment did not get the runtime property \`env=prod\`, so \`$\{env}\` resolved to the **global-property default \`qa\`**, \`config-qa.yaml\` was loaded and every order was sent to \`erp-qa\`. The log line *Loaded properties from config-qa.yaml* and the \`erp-qa\` host in every request confirm it. No errors appear because the QA ERP accepted the orders.
 
 **Immediate mitigation.**
 1. Set \`env=prod\` as a runtime property on the deployment (Runtime Manager → Properties) and restart; check the startup log now says \`config-prod.yaml\` and requests go to the prod ERP.

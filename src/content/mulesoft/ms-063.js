@@ -10,22 +10,22 @@ export default {
       type: 'single',
       prompt: 'The West region consumer should only take messages with `region = WEST`. Where can a JMS message selector look?',
       options: [
-        'At JMS headers (e.g. JMSPriority, JMSType) and message properties set by the publisher',
-        'At any JSON field in the message body',
-        'Only at the JMSMessageID',
-        'At the HTTP headers of the original request',
+        'JMS headers and message properties set by the publisher',
+        'Any field in the message body, JSON or XML',
+        'Only the JMSMessageID and JMSCorrelationID headers',
+        'The HTTP headers of the request that started it',
       ],
       answer: 0,
-      explain: 'Selectors use a SQL-92-like syntax over headers and properties only. The body is never inspected, so the publisher must copy routing values such as region into properties.',
+      explain: 'Selectors use a SQL-92-like syntax over headers (e.g. JMSPriority, JMSType) and properties only. The body is never inspected, so the publisher must copy routing values such as region into properties.',
     },
     {
       type: 'single',
       prompt: 'Which publish produces a message the selector `region = \'WEST\' AND msgKind = \'RECALL\'` will match?',
       options: [
-        "A jms:publish whose jms:message has properties #[{ region: 'WEST', msgKind: 'RECALL' }]",
-        "A payload of { \"region\": \"WEST\", \"msgKind\": \"RECALL\" } with no properties",
-        'A destination name of REPLEN.WEST.RECALL',
-        'A correlationId of WEST-RECALL',
+        "Publish with properties #[{ region: 'WEST', msgKind: 'RECALL' }]",
+        "A body of { \"region\": \"WEST\", \"msgKind\": \"RECALL\" } and no properties",
+        'A publish to the destination REPLEN.WEST.RECALL',
+        "A publish with correlationId set to 'WEST-RECALL'",
       ],
       answer: 0,
       explain: 'User properties are what selectors evaluate. The body, destination name and correlation ID are not matched by property names.',
@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'A new region NORTH was added to the publisher, but no consumer has a selector for it. What happens to NORTH messages on the shared queue?',
       options: [
-        'They stay on the queue unconsumed, growing the backlog, until a consumer whose selector matches connects',
-        'They are discarded automatically',
-        'They go to the dead-letter queue immediately',
-        'Any consumer receives them because no selector matches',
+        'They stay on the queue until a matching consumer connects',
+        'The broker discards them once every selector rejects them',
+        'They go to the dead-letter queue right away',
+        'Any consumer receives them, as no selector matches',
       ],
       answer: 0,
-      explain: 'A selector only filters what a consumer receives; it does not remove anything. Unmatched messages stay on the queue — a common cause of a mysterious backlog.',
+      explain: 'A selector only filters what a consumer receives; it does not remove anything. Unmatched messages stay on the queue and the backlog grows. This is a common cause of a mysterious backlog.',
     },
     {
       type: 'single',
@@ -58,13 +58,13 @@ export default {
       type: 'single',
       prompt: 'Recalls must reach stores within minutes even when 200,000 replenishment messages are queued. What is the most reliable design?',
       options: [
-        'Publish recalls to a separate queue with its own consumer(s)',
-        'Rely on priority 9 on the shared queue',
-        'Use a selector on JMSMessageID',
+        'Publish recalls to a separate queue with own consumers',
+        'Keep priority 9 and set `prioritizedMessages` on the queue',
         'Lower the replenishment consumer concurrency to 1',
+        'Raise the WEST app concurrency so the backlog clears sooner',
       ],
       answer: 0,
-      explain: 'A separate destination gives recalls their own capacity and monitoring and does not depend on broker priority behaviour or prefetch settings.',
+      explain: 'Strict priority still depends on prefetch and broker settings, and changing concurrency only changes how fast the backlog drains. A separate destination gives recalls their own capacity and monitoring and does not depend on broker priority behaviour or prefetch settings.',
     },
   ],
   description: `
@@ -96,7 +96,7 @@ Problems:
 ## Redesign
 `,
   keyPoints: [
-    'Selectors (jms:listener and jms:consume selector attribute) use SQL-92-like expressions over JMS headers and user properties — never the body.',
+    'Selectors (jms:listener and jms:consume selector attribute) use SQL-92-like expressions over JMS headers and user properties, never the body.',
     'The publisher must set routing values as message properties (jms:message properties).',
     'Messages that no selector matches stay on the queue; selectors filter, they never delete or dead-letter.',
     'JMS priority is 0–9 (default 4) and only a hint; prefetch/consumer buffers and broker settings weaken it (Classic needs prioritizedMessages for strict ordering).',
@@ -122,7 +122,7 @@ Problems:
 
 **4. Redesign.**
 - **Recalls on their own queue** (\`STORE.RECALL\`), consumed by dedicated listeners, with alerting on age of the oldest message.
-- **Per-region destinations** (\`STORE.REPLEN.WEST\`…) or a topic with per-region consumers instead of one queue with many selectors — adding a region then creates a new destination that is visible in monitoring.
+- **Per-region destinations** (\`STORE.REPLEN.WEST\`…) or a topic with per-region consumers instead of one queue with many selectors. Adding a region then creates a new destination that is visible in monitoring.
 - If selectors are kept, monitor queue depth per property value and add a catch-all consumer or validation at publish time for unknown regions.
 `,
   followUps: [

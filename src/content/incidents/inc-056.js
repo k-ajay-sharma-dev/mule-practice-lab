@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'Why is the ASN queue blocked?',
         options: [
-          'A truncated ASN fails on every attempt, the error is propagated so the message is redelivered, and maxRedelivery=-1 means it never goes to the DLQ',
-          'The WMS stopped publishing ASNs',
-          'The DLQ is full so new messages cannot be accepted',
-          'On Error Continue is acknowledging every message',
+          'A truncated ASN is redelivered forever because maxRedelivery=-1',
+          'The WMS restart left its producer disconnected, so no new ASNs arrive',
+          'ActiveMQ.DLQ is full, so the broker refuses to accept new ASN messages',
+          'Oracle rejects the receipts, and each failure rolls back the whole batch',
         ],
         answer: 0,
         explain: 'JMSXDeliveryCount in the thousands, an empty DLQ and maxRedelivery=-1 together show an endless redelivery loop of one poison message.',
@@ -33,13 +33,13 @@ export default {
         type: 'single',
         prompt: 'What is the safest **immediate** step?',
         options: [
-          'Purge SUPPLIER.ASN.IN',
-          'Move the single poison message out of the queue (to a parking queue) via the broker console, after saving its body, and let the backlog drain',
-          'Switch the flow to On Error Continue for every error',
-          'Restart the Mule application',
+          'Purge SUPPLIER.ASN.IN and ask the WMS to resend today’s ASNs',
+          'Save the poison message’s body and move it to a parking queue',
+          'Deploy On Error Continue for every error so all messages are acked',
+          'Restart the Mule application so the listener opens a new session',
         ],
         answer: 1,
-        explain: 'Only one message is bad. Park it with its content preserved and the 2,140 good ASNs flow again. A restart just redelivers the same message.',
+        explain: 'Only one message is bad. Park it with its content preserved and the 2,140 good ASNs flow again. A restart only redelivers the same message. On Error Continue for every error would also unblock the queue, but it silently drops any ASN that fails for a transient reason such as an Oracle outage.',
       },
       {
         type: 'multi',
@@ -47,12 +47,12 @@ export default {
         options: [
           'Set a finite redelivery limit (e.g. maxRedelivery=5) so poison messages land in the DLQ',
           'Instead, set maxRedeliveryCount in a redelivery-policy on the JMS listener and leave maxRedelivery=-1',
-          'Treat validation errors (bad XML) as non-retryable: send them straight to an error queue and acknowledge the original',
+          'Treat bad XML as non-retryable: send it to an error queue and ack the original',
           'Alert on DLQ depth and on high JMSXDeliveryCount',
           'Keep maxRedelivery=-1 and add a bigger redeliveryDelay',
         ],
         answer: [0, 2, 3],
-        explain: 'Retry only what can succeed, cap retries, and make parked messages visible. A longer delay only slows the infinite loop. For the JMS connector the limit belongs in maxRedelivery on the ActiveMQ factory configuration — the docs say the listener redelivery-policy maxRedeliveryCount has no effect.',
+        explain: 'Retry only what can succeed, cap retries, and make parked messages visible. A longer delay only slows the infinite loop. For the JMS connector the limit belongs in maxRedelivery on the ActiveMQ factory configuration; the docs say the listener redelivery-policy maxRedeliveryCount has no effect.',
       },
       {
         type: 'match',
@@ -69,13 +69,13 @@ export default {
   description: `
 ## Symptoms
 - The WMS publishes supplier ASNs (ship notices) to the ActiveMQ Classic queue \`SUPPLIER.ASN.IN\`. Mule converts them and creates expected receipts in Oracle so the dock can receive goods.
-- Since 09:40 no new expected receipts have been created. Dock staff are receiving trucks "blind".
+- Since 12:58 no new expected receipts have been created. Dock staff are receiving trucks "blind".
 - The queue holds **2,140** messages; \`ActiveMQ.DLQ\` is **empty**. The app logs the same error about once a second.
 
 ## Change / Context
 - Last month, to "never lose a message", the team set \`maxRedelivery="-1"\` on the ActiveMQ factory configuration of the JMS connector.
 - The listener uses \`ackMode="AUTO"\` and the flow's error handler is **On Error Propagate**.
-- At 09:40 the WMS published one ASN that was cut off mid-document during a WMS restart.
+- At 12:58 the WMS published one ASN that was cut off mid-document during a WMS restart.
 
 ## Logs
 \`\`\`
@@ -125,7 +125,7 @@ export default {
 `,
   followUps: [
     { q: 'Why does one bad message block the whole queue?', a: 'After a session recover the unacknowledged message is redelivered before the ones behind it, so a single consumer keeps getting the same poison message. Several consumers would only partially hide it.' },
-    { q: 'Where does ActiveMQ Classic put messages that exceed the redelivery limit by default?', a: 'In the shared ActiveMQ.DLQ queue; you can configure an individual dead-letter strategy so each queue gets its own DLQ, which is easier to operate.' },
+    { q: 'Where does ActiveMQ Classic put messages that exceed the redelivery limit by default?', a: 'In the shared ActiveMQ.DLQ queue; you can configure an individual dead-letter strategy so each queue gets its own DLQ, which is clearer to operate.' },
     { q: 'How is this configured differently on ActiveMQ Artemis?', a: 'Artemis uses address settings on the broker: max-delivery-attempts and a dead-letter-address (DLA), plus redelivery-delay.' },
   ],
 }

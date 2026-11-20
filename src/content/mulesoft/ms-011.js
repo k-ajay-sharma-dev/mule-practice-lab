@@ -10,10 +10,10 @@ export default {
       type: 'single',
       prompt: 'A CRM 404 surfaces as 500 because the flow handler lists `ANY` first. Why?',
       options: [
-        'Handlers are evaluated top to bottom and the first match wins, so `ANY` catches everything',
-        'Mule always picks the most generic handler',
-        '`HTTP:NOT_FOUND` is not a subtype of `ANY`',
-        'The HTTP Listener converts every error to 500',
+        'Handlers are checked top to bottom, and `ANY` matches first',
+        'Mule always picks the most generic handler that matches',
+        '`HTTP:NOT_FOUND` is not a subtype of `ANY`, so it falls through',
+        'The HTTP Listener turns every propagated error into a 500',
       ],
       answer: 0,
       explain: 'The first `on-error` whose `type`/`when` matches runs. Put specific types first and `ANY` last.',
@@ -51,7 +51,7 @@ export default {
         'Last, after all the specific handlers',
         'First, so that no error is missed',
         'Anywhere, because Mule picks the most specific match',
-        'In a separate copy in each flow',
+        'In each flow, as a copy next to the global handler',
       ],
       answer: 0,
       explain: 'Handlers are checked top to bottom and the first match wins, so `ANY` goes last. Placed earlier, it would shadow everything below it. The specific types do not overlap, so their order among themselves does not matter.',
@@ -100,7 +100,7 @@ Today each flow has its own copy-pasted error handler, and some flows return the
 `,
   keyPoints: [
     'Error types are NAMESPACE:IDENTIFIER with a parent hierarchy rooted at ANY (e.g. HTTP:CONNECTIVITY is a MULE:CONNECTIVITY); handlers match a type or its parents.',
-    'on-error handlers are evaluated in order and the first match (type and/or when expression) wins — specific types must come before ANY.',
+    'on-error handlers are evaluated in order and the first match (type and/or when expression) wins: specific types must come before ANY.',
     'Raise Error creates custom types in your own namespace (e.g. APP:VALIDATION_ERROR) and can raise core runtime types such as MULE:CONNECTIVITY; you cannot raise in an existing connector or module namespace.',
     'Error mapping on a single operation (sourceType HTTP:NOT_FOUND → targetType CRM:CUSTOMER_NOT_FOUND) re-types an error only for that call.',
     'A global error handler is referenced from the configuration element (defaultErrorHandler-ref) and covers errors that flows do not handle themselves.',
@@ -128,14 +128,14 @@ Other calls that may return 404 keep their original type. Mapping \`HTTP:CONNECT
 3. \`CRM:UNAVAILABLE, HTTP:CONNECTIVITY, HTTP:TIMEOUT\` → 503
 4. \`ANY\` → 500
 
-Each is an **On Error Propagate** that sets \`vars.httpStatus\` and a JSON body (\`code\`, \`message: error.description\`, \`correlationId\`), used by the listener's error response. Never return \`error.errorMessage.payload\` (the CRM HTML) to the client — log it instead. Flows remove their local handlers (an error matched by a flow's own handler never reaches the default one).
+Each is an **On Error Propagate** that sets \`vars.httpStatus\` and a JSON body (\`code\`, \`message: error.description\`, \`correlationId\`), used by the listener's error response. Never return \`error.errorMessage.payload\` (the CRM HTML) to the client: log it instead. Flows remove their local handlers (an error matched by a flow's own handler never reaches the default one).
 
 **404 → 500:** the flow's handler listed \`ANY\` first, so it matched before the specific handler ever got a chance. Specific types first, \`ANY\` last.
 `,
   followUps: [
     {
       q: 'What is the difference between error.description, error.errorType and error.errorMessage?',
-      a: 'description is the human-readable message, errorType is the NAMESPACE:IDENTIFIER (with parent), and errorMessage is the Mule message attached to the error — e.g. the HTTP response body and attributes returned by the failing request.',
+      a: 'description is the human-readable message, errorType is the NAMESPACE:IDENTIFIER (with parent), and errorMessage is the Mule message attached to the error: e.g. the HTTP response body and attributes returned by the failing request.',
     },
     {
       q: 'Can a flow use both its own handler and the global one?',

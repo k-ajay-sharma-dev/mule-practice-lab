@@ -145,6 +145,9 @@ The till calls:
 
 The team wants these business rules to show up as **errors with their own types**, so they are logged and counted like other errors, and each type maps to one status in one place.
 
+**Facts**
+- Use the error types \`APP:INSUFFICIENT_FUNDS\` and \`APP:WALLET_NOT_FOUND\`.
+
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, also when an error handler built the answer.
 
 **Design the flow.**

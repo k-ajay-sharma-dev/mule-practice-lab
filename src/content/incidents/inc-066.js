@@ -11,7 +11,7 @@ export default {
       { text: '16:20:11.300 INFO  [asn] Sent 856 ISA=000041220 shipment=SH-77120 orders=1 cartons=8', relevant: false },
       { text: '16:21:40.004 INFO  [asn] Sent 856 ISA=000041221 shipment=SH-77121 orders=3 cartons=22', relevant: false },
       { text: '16:35:02.900 INFO  [997] ISA=000041220 AK5*A (accepted)', relevant: true, why: 'Single-order shipments are still accepted, so the problem depends on the number of orders.' },
-      { text: '16:35:03.120 WARN  [997] ISA=000041221 AK3*HL*12 ... AK5*R (rejected) - HL01 not unique / HL02 parent not found', relevant: true, why: 'The retailer rejects the transaction because of the HL segments: IDs repeat and parent links break.' },
+      { text: '16:35:03.120 WARN  [997] ISA=000041221 AK3*HL*12 ... AK5*R (rejected): HL01 not unique / HL02 parent not found', relevant: true, why: 'The retailer rejects the transaction because of the HL segments: IDs repeat and parent links break.' },
       { text: '16:40:00.000 INFO  [health] GET /health 200 (2 ms)', relevant: false },
       { text: '16:42:10.500 INFO  [debug] SH-77121 HL segments: HL*1**S HL*2*1*O HL*3*2*P HL*4*3*I HL*2*1*O HL*3*2*P', relevant: true, why: 'HL01 restarts at 2 for the second order: the counter is reset per order instead of running through the whole transaction.' },
       { text: '16:43:00.000 INFO  [carrier] Pickup confirmed for SH-77122', relevant: false },
@@ -21,38 +21,38 @@ export default {
         type: 'single',
         prompt: 'Why are only multi-order ASNs rejected?',
         options: [
-          'The refactored mapping restarts the HL01 counter for each order, so HL IDs repeat and HL02 parent references point to the wrong levels',
-          'The retailer changed its EDI version',
-          'The ISA control number is duplicated',
-          'Cartons are missing SSCC labels',
+          'The new mapping restarts the HL01 counter per order, so HL IDs repeat',
+          'The retailer moved to a newer X12 version that changed the HL rules',
+          'The ISA control number repeats when a shipment holds several orders',
+          'Multi-order shipments leave out the Tare level the retailer requires',
         ],
         answer: 0,
-        explain: 'With one order the per-order counter happens to produce a valid sequence; with several orders HL*2, HL*3 repeat, which violates the rule that HL01 is unique within the transaction.',
+        explain: 'With one order the per-order counter happens to produce a valid sequence; with several orders HL*2, HL*3 repeat, which violates the rule that HL01 is unique within the transaction. The 997 names HL01 and HL02, not the ISA envelope, and the guide makes Tare optional.',
       },
       {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Roll back to v2.6.x, then regenerate and resend the rejected ASNs before the trucks arrive at the retailer DCs',
-          'Ask the retailer to accept the ASNs manually forever',
-          'Send each order as its own shipment from now on',
-          'Ignore it; the retailer will receive the goods anyway',
+          'Roll back to v2.6.x, then regenerate and resend the rejected ASNs',
+          'Resend the rejected ASNs as they are, with new control numbers',
+          'Hotfix HL02 to point to HL*1 on every segment so all parents exist',
+          'Ask the retailer to key the rejected ASNs by hand until v2.7.1 ships',
         ],
         answer: 0,
-        explain: 'The retailer needs a valid ASN before the goods arrive, or receiving is slowed and chargebacks follow. Roll back and resend quickly.',
+        explain: 'The retailer needs a valid ASN before the goods arrive, or receiving is slowed and chargebacks follow. Roll back and resend quickly. The same content would be rejected again, a flat hierarchy still has repeated HL01 values, and the retailer will not key ASNs for us.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'Generate HL01 with one counter across the whole transaction and set HL02 from the actual parent\'s HL01',
-          'Add mapping tests with multi-order, multi-carton shipments compared to approved sample 856s',
-          'Validate outbound EDI against the retailer\'s implementation guide before sending',
+          'One HL01 counter for the whole transaction; HL02 from the real parent',
+          'Mapping tests with multi-order shipments against approved 856 samples',
+          'Validate outbound EDI against the retailer’s guide before sending',
           'Alert on 997/999 rejections per partner',
-          'Turn off 997 processing to reduce noise',
+          'Resend any rejected 856 automatically until the retailer accepts it',
         ],
         answer: [0, 1, 2, 3],
-        explain: 'Fix the hierarchy logic, test with realistic shapes, validate before sending and watch acknowledgements. The 997 is how you found out at all.',
+        explain: 'Fix the hierarchy logic, test with realistic shapes, validate before sending and watch acknowledgements. An automatic resend repeats the same invalid document.',
       },
       {
         type: 'order',
@@ -73,8 +73,8 @@ export default {
 
 ## Logs
 \`\`\`
-16:35:03.120 WARN  [997] ISA=000041221 AK3*HL*12 ... AK5*R (rejected)
-  - HL01 not unique / HL02 parent not found
+16:35:03.120 WARN  [997] ISA=000041221 AK3*HL*12 ... AK5*R (rejected):
+  HL01 not unique / HL02 parent not found
 16:42:10.500 INFO  [debug] SH-77121 HL segments:
   HL*1**S  HL*2*1*O  HL*3*2*P  HL*4*3*I  HL*2*1*O  HL*3*2*P ...
 \`\`\`
@@ -118,6 +118,6 @@ export default {
   followUps: [
     { q: 'What do the 997 AK5 and AK9 segments tell you?', a: 'AK5 gives the acceptance status of each transaction set (accepted, rejected, accepted with errors), and AK9 the status of the whole functional group, with counts of received and accepted sets.' },
     { q: 'Why must resent ASNs get new control numbers?', a: 'Partners use ISA/GS/ST control numbers to detect duplicates; reusing them can make the retailer discard the corrected ASN as a duplicate.' },
-    { q: 'What is the difference between a 997 and a 999?', a: 'Both are functional acknowledgements; the 999 (implementation acknowledgement) can also report errors against the implementation guide rules, not just the base X12 syntax.' },
+    { q: 'What is the difference between a 997 and a 999?', a: 'Both are functional acknowledgements; the 999 (implementation acknowledgement) can also report errors against the implementation guide rules, not only the base X12 syntax.' },
   ],
 }

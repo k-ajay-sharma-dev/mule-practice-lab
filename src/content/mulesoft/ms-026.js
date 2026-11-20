@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'Why did no alert fire between 02:10 and 05:40?',
       options: [
-        'Alerts were on infrastructure (CPU/memory/app state), which stayed normal during a dependency failure',
+        'The alerts watched CPU, memory and app state, which stayed normal',
         'Anypoint Monitoring does not record outbound HTTP failures',
-        'Alerts are disabled at night on CloudHub 2.0',
-        'The app had crashed, so it could not send metrics',
+        'CloudHub 2.0 holds back non-critical alerts outside office hours',
+        'The app had crashed, so it stopped sending any metrics at all',
       ],
       answer: 0,
-      explain: 'The signal existed — outbound failure rate to the provider on the built-in dashboard — but nobody alerted on it. Alert on **symptoms**, not only resources.',
+      explain: 'Infrastructure stays normal during a dependency failure. The signal existed (outbound failure rate to the provider on the built-in dashboard), but nobody alerted on it. Alert on **symptoms**, not only resources.',
     },
     {
       type: 'multi',
@@ -47,33 +47,33 @@ export default {
       type: 'single',
       prompt: 'What makes "which app and which dependency is failing" answerable in minutes?',
       options: [
-        'Correlation IDs in every log line, logged `error.errorType`, and per-dependency dashboards',
-        'Increasing log level to DEBUG on all 45 apps',
-        'Restarting apps one by one until errors stop',
-        'More replicas per app',
+        'Correlation IDs in every log line and per-dependency dashboards',
+        'Raising the log level to DEBUG on all 45 apps during incidents',
+        'Restarting the apps one by one until the errors stop',
+        'Running more replicas per app so failures are spread out',
       ],
       answer: 0,
-      explain: 'Consistent structured logs let a search like `errorType=HTTP:TIMEOUT app=payment-sapi` find the culprit immediately; tracing helps further where available.',
+      explain: 'Consistent structured logs that include `error.errorType` let a search like `errorType=HTTP:TIMEOUT app=payment-sapi` find the culprit immediately; tracing helps further where available.',
     },
     {
       type: 'single',
       prompt: 'What should a `/health` endpoint used by synthetic checks do?',
       options: [
-        'A cheap check that the app responds and critical dependencies are reachable, protected from public abuse',
-        'Place a real payment to prove the full path works',
-        'Return 200 always, so monitoring stays green',
-        'Dump the JVM heap statistics publicly',
+        'Run a cheap check of the app and its critical dependencies',
+        'Place a real payment, to prove that the full path works',
+        'Return 200 every time, so that monitoring always stays green',
+        'Return the JVM heap statistics to any caller that asks',
       ],
       answer: 0,
-      explain: 'Avoid heavy or state-changing calls; protect it with client ID enforcement or internal-only ingress.',
+      explain: 'Check that the app responds and critical dependencies are reachable. Avoid heavy or state-changing calls; protect it from public abuse with client ID enforcement or internal-only ingress.',
     },
   ],
   description: `
 You are the platform architect for an e-commerce company with **45 Mule apps** on CloudHub 2.0. A recent incident went like this:
 
-- 02:10 — the Payment System API started returning \`HTTP:TIMEOUT\` from the payment provider for 30% of calls.
-- 02:10–05:40 — no alert fired. The apps were "running" and CPU/memory were normal.
-- 05:40 — customer service noticed a spike in "payment failed" complaints. Engineers spent another hour finding which app and which dependency was failing.
+- At 02:10, the Payment System API started returning \`HTTP:TIMEOUT\` from the payment provider for 30% of calls.
+- From 02:10 to 05:40, no alert fired. The apps were "running" and CPU/memory were normal.
+- At 05:40, customer service noticed a spike in "payment failed" complaints. Engineers spent another hour finding which app and which dependency was failing.
 
 The CTO asks you for an **observability design** so this can't happen again, using Anypoint Platform capabilities first and external tools where sensible.
 
@@ -103,7 +103,7 @@ The CTO asks you for an **observability design** so this can't happen again, usi
     'Proactive synthetic checks with API Functional Monitoring (or an external synthetic tool) on critical endpoints, including health endpoints that check dependencies.',
   ],
   solution: `
-**Out of the box:** Anypoint Monitoring **built-in dashboards** per app: inbound requests (rate, response time, failures, by endpoint), **outbound requests per dependency** (HTTP calls with response time and failures), JVM (heap, GC, threads) and infrastructure (CPU, memory). The incident was a **dependency failure**: the app was healthy and CPU/memory normal, and errors were probably handled (e.g. returned as "payment failed"), so infra-based alerts had nothing to fire on. The signal existed — outbound failure rate to the provider — but nobody alerted on it.
+**Out of the box:** Anypoint Monitoring **built-in dashboards** per app: inbound requests (rate, response time, failures, by endpoint), **outbound requests per dependency** (HTTP calls with response time and failures), JVM (heap, GC, threads) and infrastructure (CPU, memory). The incident was a **dependency failure**: the app was healthy and CPU/memory normal, and errors were probably handled (e.g. returned as "payment failed"), so infra-based alerts had nothing to fire on. The signal existed (outbound failure rate to the provider), but nobody alerted on it.
 
 **Alerts** (symptom-based, per critical API):
 - **Error rate**: Payment System API failures > 5% for 5 minutes → page on-call (P1).
@@ -124,7 +124,7 @@ A "technical failures per provider" business alert would have fired at 02:15.
 - Consistent error codes (\`error.errorType\` logged), so a search like \`errorType=HTTP:TIMEOUT app=payment-sapi\` is immediate.
 - Distributed tracing (OpenTelemetry-based tracing support in recent Mule runtimes, exported to a tracing backend) where available.
 
-**Proactive checks:** **API Functional Monitoring** (Anypoint) runs scheduled test suites against public or private endpoints and alerts on failure — e.g. every 5 minutes call a \`/health\` endpoint of the Payment System API that performs a lightweight check against the provider (or a sandbox transaction). It detects outages even when real traffic is zero. External synthetic tools work too.
+**Proactive checks:** **API Functional Monitoring** (Anypoint) runs scheduled test suites against public or private endpoints and alerts on failure: e.g. every 5 minutes call a \`/health\` endpoint of the Payment System API that performs a lightweight check against the provider (or a sandbox transaction). It detects outages even when real traffic is zero. External synthetic tools work too.
 
 Close the loop with SLOs per API (availability, latency), an incident runbook, and post-incident reviews that add the missing alert.
 `,

@@ -10,10 +10,10 @@ export default {
       type: 'single',
       prompt: 'How do you make the same JAR run in dev, test and prod?',
       options: [
-        'Rebuild the app per environment with the right config.yaml',
-        'Keep a Git branch per environment',
-        'Use config-common.yaml plus config-$\{env}.yaml, with env supplied as a property at deployment',
-        'Let developers edit hostnames before each deployment',
+        'Rebuild the app per environment with that environment\'s config.yaml',
+        'Keep a Git branch per environment, each with its own config.yaml',
+        'Load config-$\{env}.yaml, with env passed as a property at deployment',
+        'Keep one config.yaml and edit the hostnames before each deployment',
       ],
       answer: 2,
       explain: 'One artifact is promoted unchanged; only the properties supplied at deploy time differ. Rebuilding or branching per environment means prod runs something that was never tested.',
@@ -22,10 +22,10 @@ export default {
       type: 'single',
       prompt: 'The Salesforce client secret was committed in plain text. You now encrypt it with Secure Properties. What else is required?',
       options: [
-        'Nothing — the encrypted value replaces it',
-        'Delete the old file from the repository',
-        'Rotate the secret, because Git history still contains the plain-text value',
-        'Rename the property',
+        'Nothing more, because the encrypted value replaces the plain one',
+        'Delete the old file from the repository and push the change',
+        'Rotate the secret, because Git history still holds the plain value',
+        'Limit read access on the repository to the integration team',
       ],
       answer: 2,
       explain: 'Deleting or encrypting a file does not remove it from Git history. Any secret that was ever committed in plain text must be treated as exposed and rotated.',
@@ -36,11 +36,11 @@ export default {
       options: [
         'In config.yaml next to the encrypted values',
         'In the team wiki so everyone can deploy',
-        'Supplied at deployment from the pipeline\'s secret store, and declared under secureProperties in mule-artifact.json so Runtime Manager masks it',
-        'Hard-coded in a Java class',
+        'In the pipeline secret store, passed at deployment as a hidden property',
+        'In a key.properties file in the app\'s resources folder',
       ],
       answer: 2,
-      explain: 'A key next to the ciphertext protects nothing. Passing it at deploy time from the pipeline and masking it in Runtime Manager keeps it out of the repo and out of view.',
+      explain: 'A key next to the ciphertext protects nothing, and a key file inside the app ships in every JAR. Pass it at deploy time from the pipeline, and list it under secureProperties in mule-artifact.json so Runtime Manager masks it. That keeps it out of the repo and out of view.',
     },
     {
       type: 'multi',
@@ -61,7 +61,7 @@ export default {
       options: [
         'Replacing application secure properties for all apps',
         'TLS material (certificates, keystores, truststores) used by gateways and Private Spaces',
-        'Storing MUnit test data',
+        'Holding the decryption key for application secure properties',
         'Encrypting payloads at runtime',
       ],
       answer: 1,
@@ -117,7 +117,7 @@ You join a team with 25 Mule 4 apps on CloudHub 2.0. During code review you find
 
 **Protecting secrets.**
 - Encrypt values with the **Secure Properties Config** module (e.g. AES, CBC mode) into \`secure-$\{env}.yaml\`; reference them as \`$\{secure::db.password}\`.
-- **Rotate** every secret that was in plain text — deleting the file does not remove it from Git history.
+- **Rotate** every secret that was in plain text: deleting the file does not remove it from Git history.
 - Add a pre-commit / CI secret scan so plain-text secrets cannot come back.
 
 **Key management.**
@@ -126,13 +126,13 @@ You join a team with 25 Mule 4 apps on CloudHub 2.0. During code review you find
 - Remove the wiki page; keys live in the pipeline's secret store.
 
 **Rollout.**
-- *Weeks 1–2:* rotate exposed credentials, split config per environment, encrypt secrets, move keys into the pipeline, add secret scanning. This closes the audit findings.
+- *Weeks 1 to 2:* rotate exposed credentials, split config per environment, encrypt secrets, move keys into the pipeline, add secret scanning. This closes the audit findings.
 - *Later:* consider an **external vault** with short-lived or regularly rotated credentials and access audit. Trade-off: better rotation and central audit, but a new runtime dependency (if the app reads the vault at startup, the vault must be highly available) and more setup work.
 
-**Note:** Anypoint *Secrets Manager* is mainly for TLS material (certificates, keystores, truststores) used by gateways/Private Spaces — it is not a general replacement for application secure properties.
+**Note:** Anypoint *Secrets Manager* is mainly for TLS material (certificates, keystores, truststores) used by gateways/Private Spaces: it is not a general replacement for application secure properties.
 `,
   followUps: [
-    { q: 'Why not just keep a separate Git branch per environment with its own config?', a: 'Branch-per-environment leads to drift and different code in each environment. Configuration should be data supplied at deploy time, while one tagged version of the code is promoted.' },
+    { q: 'Why not keep a separate Git branch per environment with its own config?', a: 'Branch-per-environment leads to drift and different code in each environment. Configuration should be data supplied at deploy time, while one tagged version of the code is promoted.' },
     { q: 'How do you rotate a database password without downtime?', a: 'Use a dual-credential window: create the new credential while the old one still works, redeploy (rolling update) with the new encrypted value, then revoke the old one. A vault with dynamic secrets automates the same idea.' },
     { q: 'Is encrypting properties enough if a developer can log the decrypted value?', a: 'No. Encryption protects data at rest in the repo; you also need code review/logging standards (never log credentials, mask sensitive fields) and restricted access to production logs.' },
   ],

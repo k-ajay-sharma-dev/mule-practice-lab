@@ -2,12 +2,12 @@ import { design, flow, source, step } from '../../flow/dsl.js'
 
 const doc = {
   messageId: 'MSG-90501',
-  senderId: 'RIDGEWAY-BRAKES',
+  senderId: 'RIDGEWAY-TOOLS',
   messageType: 'Item',
-  blobName: 'inbound/RIDGEWAY-BRAKES/MSG-90501.json',
+  blobName: 'inbound/RIDGEWAY-TOOLS/MSG-90501.json',
   lines: [
-    { gtin: '05012345678900', description: 'Brake pad set, front', brand: 'Ridgeway' },
-    { gtin: '05012345678917', description: 'Brake pad set, rear', brand: 'Ridgeway' },
+    { gtin: '05012345678900', description: 'Cordless drill, 18V', brand: 'Ridgeway' },
+    { gtin: '05012345678917', description: 'Drill bit set, 12 pieces', brand: 'Ridgeway' },
   ],
 }
 const msg = { message: { kind: 'jms', destination: 'PDH.ITEM.WORK', payload: doc } }
@@ -41,8 +41,8 @@ export default {
           ack: 'acked',
           db: { stg_item: { count: 2 }, pdh_inbound_messages: { has: [{ message_id: 'MSG-90501', status: 'PROCESSED' }] } },
           connector: [
-            { type: 'azure-upload-blob', settings: { container: 'pdh-processed', fileName: 'inbound/RIDGEWAY-BRAKES/MSG-90501.json' }, count: 1 },
-            { type: 'azure-delete-blob', settings: { container: 'pdh-inbound', fileName: 'inbound/RIDGEWAY-BRAKES/MSG-90501.json' }, count: 1 },
+            { type: 'azure-upload-blob', settings: { container: 'pdh-processed', fileName: 'inbound/RIDGEWAY-TOOLS/MSG-90501.json' }, count: 1 },
+            { type: 'azure-delete-blob', settings: { container: 'pdh-inbound', fileName: 'inbound/RIDGEWAY-TOOLS/MSG-90501.json' }, count: 1 },
           ],
         },
       },
@@ -79,9 +79,9 @@ export default {
     ]),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) receives each document as a JSON blob in the Azure Blob Storage container \`pdh-inbound\`. The router passes Item documents to the JMS queue \`PDH.ITEM.WORK\`:
+Copperline Home Supply’s product data hub (fictional) receives each document as a JSON blob in the Azure Blob Storage container \`pdh-inbound\`. The router passes Item documents to the JMS queue \`PDH.ITEM.WORK\`:
 
-\`{ "messageId", "senderId", "messageType": "Item", "blobName": "inbound/RIDGEWAY-BRAKES/MSG-90501.json", "lines": [ { "gtin", "description", "brand" } ] }\`
+\`{ "messageId", "senderId", "messageType": "Item", "blobName": "inbound/RIDGEWAY-TOOLS/MSG-90501.json", "lines": [ { "gtin", "description", "brand" } ] }\`
 
 You build the Item process flow. Support finds unprocessed documents by looking in \`pdh-inbound\`: anything there has not been loaded. So a document must leave \`pdh-inbound\` once it is safely loaded, and never before.
 
@@ -90,6 +90,11 @@ You build the Item process flow. Support finds unprocessed documents by looking 
 - Mark the blob processed: copy the document to the container \`pdh-processed\` under the same blob name, then delete it from \`pdh-inbound\`.
 - Then set \`status\` to \`PROCESSED\` in \`pdh_inbound_messages\`.
 - If any step fails, leave the blob in \`pdh-inbound\` (or in both containers) and let the broker deliver the message again.
+
+**Facts**
+- In this design you copy the blob by uploading the work message's document (as JSON) to \`pdh-processed\`. There is no copy operation.
+- \`stg_item.message_id\` is the message's \`messageId\`. Write \`'PROCESSED'\` as a literal in the update SQL.
+- Do not catch errors: a failed insert, upload or delete must fail the flow, so the broker delivers the message again.
 
 **Design the flow.**
 `,

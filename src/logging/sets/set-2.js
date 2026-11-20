@@ -21,14 +21,14 @@ export const SET_2 = [
     kind: 'choice',
     situation: 'Larkspur Grocers: which line is best after the OrderPlaced message is published to Anypoint MQ?',
     options: [
-      'Message sent',
+      'OrderPlaced published queue=larkspur-orders orderId=LG-88120 correlationId=c41d9e',
       'Published to MQ: {"orderId":"LG-88120","customer":{"name":"Tom Reyes","phone":"+1 555 0100"},"items":[...]}',
       'OrderPlaced published queue=larkspur-orders orderId=LG-88120 messageId=3f9a1c07 correlationId=c41d9e',
       'Publishing OrderPlaced now...',
     ],
     answer: 2,
     explain:
-      'It says what was published and where, with the order ID, the MQ message ID and the correlation ID. The last option is written before the publish, so it cannot tell you the publish worked.',
+      'It says what was published and where, with the order ID, the MQ message ID and the correlation ID. The first option has no message ID, so the message cannot be looked up in Anypoint MQ. The last option is written before the publish, so it cannot tell you the publish worked.',
   },
   {
     id: 'log-2003',
@@ -184,12 +184,12 @@ export const SET_2 = [
     options: [
       'Got JMS msg',
       'Received from TICKETS.IN: {"ticketId":"NR-7731","passenger":"Mia Cole","seat":"C14"}',
-      'JMS listener step 1',
+      'Ticket booking received queue=TICKETS.IN ticketId=NR-7731 correlationId=5d0c8a',
       'Ticket booking received queue=TICKETS.IN jmsMessageId=ID:nf-broker-1-1-7 ticketId=NR-7731 correlationId=5d0c8a',
     ],
     answer: 3,
     explain:
-      'The JMS message ID finds the message on the broker, the ticket ID finds the booking, and the correlation ID joins the lines of this booking. The second option logs the passenger name.',
+      'The JMS message ID finds the message on the broker, the ticket ID finds the booking, and the correlation ID joins the lines of this booking. The second option logs the passenger name. The third has no JMS message ID, which the broker team needs when a message is stuck or lost.',
   },
   {
     id: 'log-2013',
@@ -211,7 +211,7 @@ export const SET_2 = [
     id: 'log-2014',
     kind: 'write',
     situation:
-      'Northfield Rail: write the first logger after the JMS Listener on the queue TICKETS.IN. The message body has payload.ticketId.',
+      'Northfield Rail: write the first logger after the JMS Listener on the queue TICKETS.IN. Give the JMS message ID and the ticket ID. The message body has payload.ticketId.',
     available: ['attributes.headers.messageId', 'attributes.headers.redelivered', 'payload.ticketId', 'payload', 'payload.passenger.email', 'correlationId'],
     level: ['INFO'],
     checks: [
@@ -262,9 +262,9 @@ export const SET_2 = [
     kind: 'level',
     situation:
       'Kestrel Energy: a Kafka Message Listener reads about 2,000 meter readings a second from the topic meter-readings. Someone wants a line for every reading. What level should that line have?',
-    answer: ['DEBUG'],
+    answer: ['DEBUG', 'TRACE'],
     explain:
-      'At 2,000 a second, an INFO line per record is over 170 million lines a day. Keep the per-record line at DEBUG, to turn on while you troubleshoot.',
+      'At 2,000 a second, an INFO line per record is over 170 million lines a day. Keep the per-record line at DEBUG, or TRACE, to turn on while you troubleshoot.',
   },
   {
     id: 'log-2017',
@@ -288,11 +288,11 @@ export const SET_2 = [
       'Bad data from meter!!!',
       'Reading skipped: kWh is missing meterId=KE-40018 partition=3 offset=918301 correlationId=e7a2f4',
       'Reading skipped {"meterId":"KE-40018","kWh":null,"household":"P. Novak"}',
-      'Error occurred in reading flow',
+      'Reading skipped: kWh is missing meterId=KE-40018 correlationId=e7a2f4',
     ],
     answer: 1,
     explain:
-      'It says what was wrong and what the flow did, and the partition and offset let the meter team find the record. The first option blames and shouts, the third logs a household name.',
+      'It says what was wrong and what the flow did, and the partition and offset let the meter team find the record. The first option blames and shouts, the third logs a household name, and the last has no partition or offset to find the record.',
   },
   {
     id: 'log-2019',
@@ -316,7 +316,7 @@ export const SET_2 = [
     situation:
       'Kestrel Energy: write the per-record logger of the meter-readings listener. The record key, attributes.key, is the meter ID. It must be off in production by default.',
     available: ['attributes.topic', 'attributes.partition', 'attributes.offset', 'attributes.key', 'payload', 'payload.householdName', 'correlationId'],
-    level: ['DEBUG'],
+    level: ['DEBUG', 'TRACE'],
     checks: [
       says(/received|consumed|read|arrived|got/i, 'Meter reading received'),
       has(/attributes\.partition/, 'Add the partition: partition=$(attributes.partition).'),
@@ -333,7 +333,7 @@ export const SET_2 = [
         '#["Meter reading received topic=meter-readings partition=$(attributes.partition) offset=$(attributes.offset) meterId=$(attributes.key) correlationId=$(correlationId)"]',
     },
     explain:
-      'DEBUG keeps this line out of production until someone turns it on for one meter problem. Partition and offset find the record, and the meter ID is the business key.',
+      'DEBUG, or TRACE, keeps this line out of production until someone turns it on for one meter problem. Partition and offset find the record, and the meter ID is the business key.',
   },
 
   // ---------- lg-050 Bramblewood Insurance: manual ack and nack in Anypoint MQ ----------
@@ -352,13 +352,13 @@ export const SET_2 = [
     situation: 'Bramblewood Insurance: the claim is stored and the flow has called Ack. Which line is best?',
     options: [
       'Claim event acknowledged messageId=7c21e0aa claimId=BW-310442 deliveryCount=1 durationMs=640 correlationId=0f4b9d',
-      'Claim event acknowledged',
+      'Claim event acknowledged messageId=7c21e0aa claimId=BW-310442 correlationId=0f4b9d',
       'Message acknowledged, body={"claimId":"BW-310442","policyHolder":"R. Osei","injury":"broken wrist"}',
       'Ack in progress step 4',
     ],
     answer: 0,
     explain:
-      'Once a message is acked, Anypoint MQ forgets it. This line is the proof it was finished, with the time it took and how many deliveries it needed. The third option logs health data.',
+      'Once a message is acked, Anypoint MQ forgets it. This line is the proof it was finished, with the time it took and how many deliveries it needed. The second option leaves out both, so a slow or redelivered claim looks like any other. The third option logs health data.',
   },
   {
     id: 'log-2023',
@@ -577,7 +577,7 @@ export const SET_2 = [
     id: 'log-2035',
     kind: 'write',
     situation:
-      'Pellucid Telecom: the billing app reads PRICES.CHANGED with the durable subscription billing-prices and has saved the new price. vars.planId, vars.eventId and vars.newPrice are set. Write the logger.',
+      'Pellucid Telecom: the billing app reads PRICES.CHANGED with the durable subscription billing-prices and has saved the new price. Name the subscription in the line. vars.planId, vars.eventId and vars.newPrice are set. Write the logger.',
     available: ['vars.planId', 'vars.eventId', 'vars.newPrice', 'attributes.headers.redelivered', 'payload', 'correlationId'],
     level: ['INFO'],
     checks: [
@@ -664,7 +664,7 @@ export const SET_2 = [
     id: 'log-2040',
     kind: 'write',
     situation:
-      'Redfern Logistics: the Tracking app already has DELIVERED for a parcel when an older OUT_FOR_DELIVERY event arrives. It ignores the older event. The key, attributes.key, is the parcel ID. vars.status and vars.storedStatus are set. Write the logger.',
+      'Redfern Logistics: the Tracking app already has DELIVERED for a parcel when an older OUT_FOR_DELIVERY event arrives. It ignores the older event. The key, attributes.key, is the parcel ID. vars.status and vars.storedStatus are set. Write the logger, with the offset of the ignored record.',
     available: ['attributes.key', 'attributes.partition', 'attributes.offset', 'vars.status', 'vars.storedStatus', 'payload', 'correlationId'],
     level: ['WARN', 'INFO'],
     checks: [
@@ -685,19 +685,19 @@ export const SET_2 = [
       'Both statuses side by side show why the event was ignored. WARN fits if this should not happen, INFO if the team expects it now and then. ERROR does not fit: the app handled it.',
   },
 
-  // ---------- lg-054 Velora Fashion: fan-out through an Anypoint MQ exchange ----------
+  // ---------- lg-054 Velora Furniture: fan-out through an Anypoint MQ exchange ----------
   {
     id: 'log-2041',
     kind: 'level',
     situation:
-      'Velora Fashion: the Product API publishes a product update to the Anypoint MQ exchange product-updates. The exchange copies it to three bound queues: web-products, store-products and search-products. The publish worked.',
+      'Velora Furniture: the Product API publishes a product update to the Anypoint MQ exchange product-updates. The exchange copies it to three bound queues: web-products, store-products and search-products. The publish worked.',
     answer: ['INFO'],
     explain: 'One publish that worked is a normal event. One INFO line is enough: the exchange makes the copies, not your flow.',
   },
   {
     id: 'log-2042',
     kind: 'choice',
-    situation: 'Velora Fashion: which line is best after the Product API publishes to the exchange product-updates?',
+    situation: 'Velora Furniture: which line is best after the Product API publishes to the exchange product-updates?',
     options: [
       'Product update published to web-products, store-products and search-products productId=VF-2209',
       'Published 3 messages',
@@ -712,7 +712,7 @@ export const SET_2 = [
     id: 'log-2043',
     kind: 'multi',
     situation:
-      'Velora Fashion: the store team says product VF-2209 never reached the stores. Which log lines let you find where it stopped? Pick every one that applies.',
+      'Velora Furniture: the store team says product VF-2209 never reached the stores. Which log lines let you find where it stopped? Pick every one that applies.',
     options: [
       'The publisher line with the exchange, productId and messageId',
       'The first line of each consumer flow, with the same productId and its own queue name',
@@ -728,7 +728,7 @@ export const SET_2 = [
     id: 'log-2044',
     kind: 'write',
     situation:
-      'Velora Fashion: write the first logger of the search team flow, which subscribes to the queue search-products. vars.productId is set. The MQ message ID is in attributes.messageId.',
+      'Velora Furniture: write the first logger of the search team flow, which subscribes to the queue search-products. Name the queue, since three flows log the same update. vars.productId is set. The MQ message ID is in attributes.messageId.',
     available: ['vars.productId', 'attributes.messageId', 'attributes.deliveryCount', 'payload', 'correlationId'],
     level: ['INFO'],
     checks: [
@@ -751,7 +751,7 @@ export const SET_2 = [
     id: 'log-2045',
     kind: 'write',
     situation:
-      'Velora Fashion: the web-products consumer could not update the web shop, which answered 503. The On Error Propagate leaves the message on web-products for redelivery. The other two queues are not affected. vars.productId is set. Write the logger.',
+      'Velora Furniture: the web-products consumer could not update the web shop, which answered 503. The On Error Propagate leaves the message on web-products for redelivery. The other two queues are not affected. vars.productId is set. Write the logger.',
     available: ['vars.productId', 'attributes.messageId', 'error.errorType', 'error.description', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -1131,11 +1131,11 @@ export const SET_2 = [
       'Consumer is SLOW',
       'Late record: {"tripId":"MR-3310872","riderId":"u-55102","route":[...]}',
       'Consumer behind ageSeconds=540 targetSeconds=60 topic=scooter-trips partition=7 offset=4410288 correlationId=b8a0d6',
-      'Lag detected',
+      'Consumer behind ageSeconds=540 topic=scooter-trips partition=7 offset=4410288 correlationId=b8a0d6',
     ],
     answer: 2,
     explain:
-      'The age next to the target says how far behind it is, and the partition shows if one partition or all of them are late.',
+      'The age next to the target says how far behind it is, and the partition shows if one partition or all of them are late. The last option has no target, so the reader cannot tell if 540 seconds is bad.',
   },
   {
     id: 'log-2068',
@@ -1174,7 +1174,7 @@ export const SET_2 = [
     id: 'log-2070',
     kind: 'write',
     situation:
-      'Marlow Ride: write the logger for records older than 60 seconds. vars.ageSeconds holds the age of the record.',
+      'Marlow Ride: write the logger for records older than 60 seconds. vars.ageSeconds holds the age of the record. Give the age, the 60 second target and the partition.',
     available: ['vars.ageSeconds', 'attributes.topic', 'attributes.partition', 'attributes.offset', 'payload', 'payload.riderId', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -1214,11 +1214,11 @@ export const SET_2 = [
       'Poison record sent to dead-letter topic topic=loyalty-points partition=5 offset=330918 key=BM-88102 error="Unexpected character at 1:42" next=loyalty-points.dlt correlationId=f60b3d',
       'Bad record: 7b22637573746f6d6572223a7b226e616d65223a...',
       'Poison record!!!',
-      'Record sent to DLT',
+      'Poison record sent to dead-letter topic topic=loyalty-points key=BM-88102 next=loyalty-points.dlt correlationId=f60b3d',
     ],
     answer: 0,
     explain:
-      'Topic, partition and offset find the original record, and the error says what is wrong with it. The second option logs the raw bytes, which may hold personal data and help nobody.',
+      'Topic, partition and offset find the original record, and the error says what is wrong with it. The second option logs the raw bytes, which may hold personal data and help nobody. The last has no partition, offset or error, so the original record and the fault cannot be found.',
   },
   {
     id: 'log-2073',
@@ -1243,7 +1243,7 @@ export const SET_2 = [
     situation:
       'Brightmoor Stores: a record could not be read as JSON. The listener uses MANUAL ack mode, so the flow publishes the record to loyalty-points.dlt and then calls Commit. Write the logger in the On Error Continue. The attributes are still the Kafka record attributes.',
     available: ['attributes.key', 'attributes.partition', 'attributes.offset', 'error.errorType', 'error.description', 'payload', 'correlationId'],
-    level: ['ERROR'],
+    level: ['ERROR', 'WARN'],
     checks: [
       says(/poison|cannot be read|unreadable|not valid|dead-letter/i, 'Poison record sent to dead-letter topic'),
       errorFacts,
@@ -1260,7 +1260,7 @@ export const SET_2 = [
         '#["Poison record sent to dead-letter topic topic=loyalty-points partition=$(attributes.partition) offset=$(attributes.offset) key=$(attributes.key) errorType=$(error.errorType) error=$(error.description) next=loyalty-points.dlt correlationId=$(correlationId)"]',
     },
     explain:
-      'Partition and offset point at the original record, the key says which customer, the error type and description say what is wrong with the data, and next= says where the copy went. The payload stays out: it is the broken data, and it may hold personal details.',
+      'Partition and offset point at the original record, the key says which customer, the error type and description say what is wrong with the data, and next= says where the copy went. The payload stays out: it is the broken data, and it may hold personal details. ERROR fits when nobody watches the dead-letter topic, WARN when the team works it every day.',
   },
   {
     id: 'log-2075',

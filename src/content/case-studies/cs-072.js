@@ -83,7 +83,7 @@ export default {
 | Quality and recall system | On-premises, Java and Oracle; engineers define the campaign and the build criteria (model, plant, build dates, part numbers) |
 | Vehicle registry | Oracle database of every built VIN with its options, about 14 million rows |
 | Salesforce | Owners and their contact preferences; registration data from regional authorities |
-| Dealer DMS | Each dealer's management system (CDK, Keyloop and 4 others); they want to check a VIN when a car arrives |
+| Dealer DMS | Each dealer's management system (6 different products); they want to check a VIN when a car arrives |
 | OTA platform | Vendor service; accepts a list of VINs and a software package ID |
 | Notification provider | Email, SMS and printed letters |
 

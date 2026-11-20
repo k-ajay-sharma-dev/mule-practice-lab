@@ -9,7 +9,7 @@ export default {
   estMinutes: 25,
   quiz: fromLogging(["log-12001","log-12002","log-12003","log-12004","log-12005"]),
   description: `
-Harrow Parts publishes each new order to a queue for the warehouse. Log each publish so an order can be followed from the API to the warehouse.
+Harrow Garden Supply publishes each new order to a queue for the warehouse. Log each publish so an order can be followed from the API to the warehouse.
 
 Answer every question, then press **Check answers**. The rules for good log lines are at the top of the Logging Lab page.
 `,

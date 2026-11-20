@@ -7,36 +7,36 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 02:00:00 INFO  [blob-cleanup] Deleted blobs prefix=inbound/ olderThan=1d count=1840", relevant: true, why: "A cleanup ran on the inbound prefix." },
-      { text: "2026-11-18 02:00:00 INFO  [blob-cleanup] Rule changed yesterday from processed/ to inbound/", relevant: true, why: "The rule targets the wrong prefix." },
-      { text: "2026-11-18 03:00:00 WARN  [item-hub] Notification refers to missing blob count=212", relevant: true, why: "Messages point at deleted files." },
-      { text: "2026-11-18 03:05:00 INFO  [ops] Soft delete enabled retentionDays=7", relevant: true, why: "Deleted blobs can be restored." },
-      { text: "2026-11-18 23:59:00 INFO  [blob-cleanup] GET /health 200", relevant: false },
+      { text: "2026-11-17 16:00:00 INFO  [blob-cleanup] Rule prefix changed from processed/ to inbound/", relevant: true, why: "The rule now targets the wrong prefix." },
+      { text: "2026-11-18 02:00:00 INFO  [blob-cleanup] Deleted blobs prefix=inbound/ olderThan=1d count=212", relevant: true, why: "A cleanup ran on the inbound prefix." },
+      { text: "2026-11-18 03:00:00 WARN  [item-hub] Notification refers to missing blob count=212", relevant: true, why: "Messages point at the deleted files." },
+      { text: "2026-11-18 03:05:00 INFO  [ops] Blob soft delete is on, retentionDays=7", relevant: true, why: "Deleted blobs can be restored for seven days." },
+      { text: "2026-11-18 03:10:00 INFO  [blob-cleanup] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why are blobs missing?",
         options: [
-          "The cleanup now deletes from inbound instead of processed",
-          "The sender did not upload",
-          "Azure lost them",
-          "The hub deleted them",
+          "The cleanup now deletes from inbound/ instead of processed/",
+          "The senders stopped uploading files after Tuesday’s change",
+          "The item hub deleted each blob after reading its notification",
+          "Azure moved the blobs to the archive tier after one day",
         ],
         answer: 0,
         explain: "A config change pointed it at the wrong prefix.",
       },
       {
         type: 'single',
-        prompt: "How do you get them back?",
+        prompt: "What is the fastest way to get them back?",
         options: [
-          "Undelete them with soft delete, within the retention period",
-          "Ask the sender for everything",
-          "Nothing can be done",
-          "Restore last month’s backup",
+          "Undelete them with soft delete, within the 7 day retention period",
+          "Copy them from the processed/ prefix where finished files go",
+          "Restore the storage account from last month’s backup",
+          "Nothing, Azure cannot recover a blob after a delete",
         ],
         answer: 0,
-        explain: "Soft delete keeps deleted blobs for a while.",
+        explain: "Soft delete keeps deleted blobs for the retention period. They never reached processed/.",
       },
       {
         type: 'multi',
@@ -44,8 +44,8 @@ export default {
         options: [
           "Review cleanup rule changes",
           "Only delete blobs marked processed",
-          "Keep soft delete on",
-          "Delete inbound files daily",
+          "Keep blob soft delete on",
+          "Run the cleanup hourly instead",
         ],
         answer: [0,1,2],
         explain: "Delete only what you know is done.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "After undelete, what next?",
         options: [
-          "Replay the 212 notifications",
-          "Nothing",
-          "Delete again",
-          "Restart Azure",
+          "Replay the 212 notifications for the restored blobs",
+          "Nothing, the hub picks up restored blobs on its own",
+          "Restart the item hub so it lists inbound/ again",
+          "Run the cleanup again to confirm it deletes nothing",
         ],
         answer: 0,
         explain: "The messages still need processing.",
@@ -81,15 +81,16 @@ export default {
 - 212 item messages fail with blob not found.
 
 ## Change / Context
-- A cleanup job deletes old blobs. Its prefix changed yesterday.
+- A nightly cleanup job deletes old blobs. Its prefix changed yesterday afternoon.
+- The item hub was paused for an upgrade from Monday until 02:30 today, so inbound/ held files more than a day old.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 02:00:00 INFO  [blob-cleanup] Deleted blobs prefix=inbound/ olderThan=1d count=1840
-2026-11-18 02:00:00 INFO  [blob-cleanup] Rule changed yesterday from processed/ to inbound/
+2026-11-17 16:00:00 INFO  [blob-cleanup] Rule prefix changed from processed/ to inbound/
+2026-11-18 02:00:00 INFO  [blob-cleanup] Deleted blobs prefix=inbound/ olderThan=1d count=212
 2026-11-18 03:00:00 WARN  [item-hub] Notification refers to missing blob count=212
-2026-11-18 03:05:00 INFO  [ops] Soft delete enabled retentionDays=7
+2026-11-18 03:05:00 INFO  [ops] Blob soft delete is on, retentionDays=7
 \`\`\`
 
 ## Your tasks

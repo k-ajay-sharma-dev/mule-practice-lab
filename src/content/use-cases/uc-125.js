@@ -97,6 +97,7 @@ Facts:
 - The platform accepts at most **20 submissions a second** per company and takes about 1.5 seconds per invoice. More than that gets HTTP 429.
 - The platform has had outages of up to an hour, announced or not.
 - About **1 invoice in 200** has customer master data the platform refuses every time, such as a wrong tax ID.
+- The queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No good invoice may reach the DLQ during an hour-long outage, and refused invoices must reach the DLQ for finance.
 - Customers receive invoices by email or through an e-invoice network.
 - Finance wants to see, for each invoice: queued, submitted, cleared or refused, with the clearance ID.
 - The ERP cannot call out to APIs. It can be read through a System API, and it can take the clearance ID back the same way.
@@ -144,9 +145,9 @@ ERP ◄─ sys-erp-invoices ◄─ New invoice poller (every minute)
 
 **Nothing before clearance.** Only \`prc-invoice-clearance\` publishes to \`invoices-cleared\`, and only after the platform returned a clearance ID. \`prc-invoice-delivery\` subscribes to that topic and nothing else. There is no other route from the ERP or the poller to customers. The delivered invoice carries the clearance ID, as the rules require.
 
-**Month end and the platform limit.** The poller reads new invoices each minute and queues them, so the ERP is never held up. At month end, 40 a second arrive and 20 a second are cleared. The queue grows to about 72,000 invoices in the hour and clears about an hour after the run ends, long inside the 48 hours. \`sys-tax-clearance\` keeps a fixed number of calls in flight to stay under 20 a second. A 429 that still happens is treated like any other temporary failure: the message is not acknowledged and is tried again.
+**Month end and the platform limit.** The poller reads new invoices each minute and queues them, so the ERP is never held up. At month end, 40 a second arrive and 20 a second are cleared. The queue grows to about 72,000 invoices in the hour and clears about an hour after the run ends, well inside the 48 hours. \`sys-tax-clearance\` keeps a fixed number of calls in flight to stay under 20 a second. A 429 that still happens is treated like any other temporary failure: the message is not acknowledged and is tried again.
 
-**Outages.** Submissions fail, so messages go back to the queue. With a redelivery limit of 120 tries, an hour long outage does not push good invoices to the DLQ. The status store shows them as \`QUEUED\` with the last error, and an alert fires when the oldest message is more than an hour old.
+**Outages.** Submissions fail, so messages go back to the queue. The queue redelivers about once a minute, so with a redelivery limit of 120 tries an hour-long outage does not push good invoices to the DLQ. The status store shows them as \`QUEUED\` with the last error, and an alert fires when the oldest message is more than an hour old.
 
 **Refused invoices.** A wrong tax ID fails on every try. After its tries it moves to the DLQ and its status becomes \`REFUSED\` with the platform's reason. Finance corrects the customer in the ERP and replays the invoice from the DLQ. An invoice the platform rejects with a clear business reason can also be marked \`REFUSED\` at once, without using up its tries.
 

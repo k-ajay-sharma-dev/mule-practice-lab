@@ -90,7 +90,7 @@ The estate also has a **back office app**, used by staff for reports from the **
     'A path is only as available as its least available part. The booking path runs in two regions, and so does the booking database it depends on.',
     'Running the back office in two regions would not help: the warehouse it reads is in one region. It would only spend vCores.',
     'In active-active, each region must carry the whole peak alone during an outage. 120 bookings a second need more than 0.2 vCore per API in each region.',
-    'Three booking APIs at 0.5 vCore in two regions is 3 vCores. The back office at 0.2 vCore twice is 0.4. That fits 3.5; two regions for everything would not.',
+    'Three booking APIs at 0.5 vCore in two regions is 3 vCores. The two back office APIs at 0.2 vCore in one region are 0.4. That fits 3.5; two regions for everything would not.',
   ],
   solution: `
 **Design**

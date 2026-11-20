@@ -9,7 +9,7 @@ export default {
   estMinutes: 25,
   quiz: fromLogging(["log-17001","log-17002","log-17003","log-17004","log-17005"]),
   description: `
-Harrow Parts lost stock messages to a time to live during a long outage. Log expiries and consumer restarts so the gap is visible.
+Harrow Garden Supply lost stock messages to a time to live during a long outage. Log expiries and consumer restarts so the gap is visible.
 
 Answer every question, then press **Check answers**. The rules for good log lines are at the top of the Logging Lab page.
 `,

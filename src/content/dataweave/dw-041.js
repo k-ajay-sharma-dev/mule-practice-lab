@@ -61,8 +61,8 @@ payload
 `,
   hints: [
     'Convert the input into entries first: `payload pluck ((v, k) -> { path: (k as String) splitBy ".", value: v })`. Now write `build(entries)` that returns the value for a node.',
-    'Base case: a single entry whose `path` is empty is a leaf — return its `value`. Otherwise collect the distinct first segments (`path[0] as String`); for each one, take the entries starting with it, remove that segment (`drop(path, 1)`) and recurse.',
-    'Decide the node type from its distinct first segments: if every one `matches /\\d+/`, order them `as Number` and build an array; else build an object with `{ (keys map ((k) -> { (k): ... })) }`. Avoid `path[1 to -1]` — on a 1-element array it returns `null`.',
+    'Base case: a single entry whose `path` is empty is a leaf: return its `value`. Otherwise collect the distinct first segments (`path[0] as String`); for each one, take the entries starting with it, remove that segment (`drop(path, 1)`) and recurse.',
+    'Decide the node type from its distinct first segments: if every one `matches /\\d+/`, order them `as Number` and build an array; else build an object with `{ (keys map ((k) -> { (k): ... })) }`. Avoid `path[1 to -1]`: on a 1-element array it gives `null`, not `[]`.',
   ],
   solution: `%dw 2.0
 import * from dw::core::Arrays
@@ -88,7 +88,7 @@ var entries = payload pluck ((v, k) -> { path: (k as String) splitBy ".", value:
 ---
 if (isEmpty(entries)) {} else build(entries)`,
   explanation: `
-**Think in entries, not keys.** Each flat key becomes \`{ path: [...segments], value }\`. A node of the output tree is then just "all entries that share a prefix", and building it is the same problem one level down — a natural recursion:
+**Think in entries, not keys.** Each flat key becomes \`{ path: [...segments], value }\`. A node of the output tree is then "all entries that share a prefix", and building it is the same problem one level down. That is a natural recursion:
 
 1. **Leaf:** one entry with an empty path → its value.
 2. **Branch:** for each distinct first segment, take its entries, strip that segment and recurse.
@@ -97,7 +97,7 @@ if (isEmpty(entries)) {} else build(entries)`,
 **Traps**
 - **Sorting indexes as strings.** \`"10"\` sorts before \`"2"\`. Order by \`$ as Number\`.
 - **Typing the recursion.** With \`groupBy\`, \`groups[k]\` is typed as possibly \`null\` and the segment as \`Any\`, so the type checker rejects \`(k): ...\` and the recursive call. Casting the segment \`as String\` and selecting each group with a \`filter\` (or adding \`default []\`) keeps the types honest. \`distinctBy\` over the first segments also gives the "first appearance" key order directly.
-- **Range selectors on short arrays.** \`["a"][1 to -1]\` is \`null\`, not \`[]\`, which breaks the leaf test. \`drop(path, 1)\` from \`dw::core::Arrays\` returns \`[]\`.
+- **Range selectors on short arrays.** \`["a"][1 to -1]\` starts past the end and gives \`null\`, not \`[]\`, which breaks the leaf test. \`drop(path, 1)\` from \`dw::core::Arrays\` returns \`[]\`.
 - **The empty root.** With no entries, "every segment is digits" is vacuously true and you would return \`[]\`; the root rule says \`{}\`.
 
 This is the inverse of flattening to dotted keys; together they let you round-trip a document through any flat store.
@@ -125,7 +125,7 @@ This is the inverse of flattening to dotted keys; together they let you round-tr
   followUps: [
     {
       q: 'How would you make an array keep its gaps as `null`s instead of closing them?',
-      a: 'Build the array over `0 to max(indexes)` and look each index up in the groups: `(0 to max(idx)) map ((i) -> if (groups[i as String] == null) null else build(...))`.',
+      a: 'Build the array over `0 to max(indexes)` and look each index up among the entries: `(0 to max(idx)) map ((i) -> do { var sub = under(entries, i as String) --- if (isEmpty(sub)) null else build(sub) })`.',
     },
     {
       q: 'What happens if the input has both `a` and `a.b`?',
@@ -133,7 +133,7 @@ This is the inverse of flattening to dotted keys; together they let you round-tr
     },
     {
       q: 'Could you do this with `reduce` instead of recursion?',
-      a: 'Yes — fold over the entries and merge each one into an accumulator with a deep-merge (e.g. `mergeWith` applied recursively), but arrays and ordering make that harder to get right. Grouping by prefix keeps each level simple and is easier to explain.',
+      a: 'Yes. Fold over the entries and merge each one into an accumulator with a deep-merge (e.g. `mergeWith` applied recursively), but arrays and ordering make that harder to get right. Grouping by prefix keeps each level small and is clearer to explain.',
     },
   ],
 }

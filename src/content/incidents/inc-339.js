@@ -9,19 +9,19 @@ export default {
     logs: [
       { text: "2026-11-18 10:00:00 INFO  [reject-replay] Replaying rejects jobId=J-8001 rows=640", relevant: true, why: "Rejects are replayed." },
       { text: "2026-11-18 10:01:00 INFO  [reject-replay] Rejected again rows=640 reason=unknown uom", relevant: true, why: "The same reason again." },
-      { text: "2026-11-18 10:01:00 INFO  [reject-replay] Code map updated at 10:05", relevant: true, why: "The fix came after the replay." },
       { text: "2026-11-18 10:01:00 INFO  [reject-table] Rows now=1280", relevant: true, why: "Rejects doubled." },
-      { text: "2026-11-18 23:59:00 INFO  [reject-replay] GET /health 200", relevant: false },
+      { text: "2026-11-18 10:05:00 INFO  [ops] Code map updated uom=CS12", relevant: true, why: "The fix came after the replay." },
+      { text: "2026-11-18 10:10:00 INFO  [reject-replay] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why did the replay fail?",
         options: [
-          "It ran before the code map fix",
-          "The rows are bad forever",
-          "The batch is broken",
-          "Locks",
+          "It ran at 10:00, before the code map fix at 10:05",
+          "The replay read the rows from the wrong job ID",
+          "The rows have a second problem besides the unit",
+          "The code map cache still held the old entries",
         ],
         answer: 0,
         explain: "Fix first, then replay.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Why did rejects double?",
         options: [
-          "The replay wrote new reject rows instead of updating the originals",
-          "They were duplicates",
-          "Database error",
-          "Normal",
+          "The replay inserted new reject rows instead of updating",
+          "The supplier sent the 640 items twice in job J-8001",
+          "The reject table has a trigger that copies each row",
+          "The reject report counts each row once per step",
         ],
         answer: 0,
         explain: "Replay should track the original reject.",
@@ -42,10 +42,10 @@ export default {
         type: 'multi',
         prompt: "What makes replay clean?",
         options: [
-          "Link replays to the original reject row with a status",
+          "Link each replay to the original reject row",
           "Mark rejects RESOLVED when they load",
           "Replay only after the cause is fixed",
-          "Insert a new reject each time",
+          "Insert a fresh reject row on every attempt",
         ],
         answer: [0,1,2],
         explain: "One reject row per problem, with a status.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Who decides when to replay?",
         options: [
           "Support, once the cause is confirmed fixed",
-          "A timer every minute",
-          "Nobody",
-          "The sender",
+          "A timer that replays all rejects every minute",
+          "The sender, by resending the whole message",
+          "The batch job, straight after each reject",
         ],
         answer: 0,
         explain: "Replay is deliberate.",
@@ -88,8 +88,8 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 10:00:00 INFO  [reject-replay] Replaying rejects jobId=J-8001 rows=640
 2026-11-18 10:01:00 INFO  [reject-replay] Rejected again rows=640 reason=unknown uom
-2026-11-18 10:01:00 INFO  [reject-replay] Code map updated at 10:05
 2026-11-18 10:01:00 INFO  [reject-table] Rows now=1280
+2026-11-18 10:05:00 INFO  [ops] Code map updated uom=CS12
 \`\`\`
 
 ## Your tasks

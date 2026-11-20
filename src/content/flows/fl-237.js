@@ -86,6 +86,10 @@ Marrow & Pine Home, a fictional homewares retailer, rejects item lines that fail
 - Send an HTML email with a table of reasons and how many lines each has. The rows themselves go as a CSV attachment named \`rejects.csv\`.
 - A week with no rejects sends no email.
 
+**Facts**
+- The last seven days means \`rejected_on >= :since\`, where \`since\` is today minus 7 days as \`yyyy-MM-dd\` text. The tests start the flow by hand on 2026-11-13, a Friday, so \`since\` is 2026-11-06.
+- Each reason is one table row with no spaces between cells: \`<tr><td>UNKNOWN_SUPPLIER</td><td>2</td></tr>\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The schedule and the query

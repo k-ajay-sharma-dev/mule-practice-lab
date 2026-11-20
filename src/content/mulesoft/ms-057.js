@@ -11,22 +11,22 @@ export default {
       needsScenario: true,
       prompt: 'The Mobile EAPI dashboard looked "green" while every order failed. Why?',
       options: [
-        'Anypoint Monitoring was down',
-        'It returned well-formed 502 responses quickly — fast errors were not treated as errors in that layer\'s metrics',
-        'The dashboard only shows JVM metrics',
-        'The SAPI was not deployed',
+        'Anypoint Monitoring stopped collecting data that night',
+        'Its fast, well-formed 502s were not counted as errors',
+        'The dashboard showed only JVM and CPU metrics',
+        'Its alerts were muted for the weekend change window',
       ],
       answer: 1,
-      explain: 'Downstream failures surfaced as 502/504 upstream must count as errors; "fast, well-formed errors" are not green.',
+      explain: 'Fast errors were not treated as errors in that layer\'s metrics. Downstream failures surfaced as 502/504 upstream must count as errors; "fast, well-formed errors" are not green.',
     },
     {
       type: 'single',
       prompt: 'From where should a functional monitor test the internal Inventory SAPI?',
       options: [
-        'A public location, like the Mobile EAPI',
-        'A private location running inside your network / private space',
-        'The developer\'s laptop',
-        'It cannot be monitored functionally',
+        'A public location, like the one for the Mobile EAPI',
+        'A private location inside your network or private space',
+        'A CI runner that calls the API after each deploy',
+        'A public location, with the SAPI exposed for the test',
       ],
       answer: 1,
       explain: 'Public locations run on MuleSoft-hosted infrastructure and suit internet-facing APIs; internal Process and System APIs need private locations.',
@@ -36,13 +36,13 @@ export default {
       needsScenario: true,
       prompt: 'Which Inventory SAPI functional monitor would have caught the database refusing connections?',
       options: [
-        'A `/health` check that returns 200 without touching the backend',
-        'A lightweight read such as `GET /inventory/{sku}` for a known test SKU that actually hits the database',
-        'A POST creating a real inventory record every minute',
-        'A ping of the CloudHub replica',
+        'A `/health` check that returns 200 without the backend',
+        'A read of a known test SKU that hits the database',
+        'A POST that creates a real inventory record each minute',
+        'A ping of the CloudHub replica\'s public endpoint',
       ],
       answer: 1,
-      explain: 'A shallow health check would have stayed green. Avoid real writes in production — they pollute data and trigger business processes.',
+      explain: 'For example `GET /inventory/{sku}` for a known test SKU. A shallow health check or ping would have stayed green. Avoid real writes in production: they pollute data and trigger business processes.',
     },
     {
       type: 'single',
@@ -51,7 +51,7 @@ export default {
       options: [
         'An error-rate alert on the Inventory SAPI app',
         'A CPU alert on the Mobile EAPI',
-        'A weekly usage report',
+        'A weekly usage report per client application',
         'A memory alert on the Orders PAPI',
       ],
       answer: 0,
@@ -116,7 +116,7 @@ What happened:
 **API Functional Monitoring**
 - Part of Anypoint Monitoring. You define a **monitor**: target endpoints, a test suite (assertions on status code, response body, headers, latency), a schedule, a location and notification channels (e.g. email or chat integrations).
 - Tests can be defined in the UI or as code (BAT test suites) and kept in source control.
-- **Public locations** run from MuleSoft-hosted infrastructure — good for the internet-facing Mobile EAPI. **Private locations** run inside your network/private space — needed for internal Process and System APIs.
+- **Public locations** run from MuleSoft-hosted infrastructure, good for the internet-facing Mobile EAPI. **Private locations** run inside your network/private space, needed for internal Process and System APIs.
 - Suggested monitors: Mobile EAPI "get order status" (synthetic customer), Orders PAPI health and a read operation, each SAPI's lightweight read (e.g. \`GET /inventory/{sku}\` for a known test SKU) that actually touches the database. A pure \`/health\` that returns 200 without touching the backend would have missed this incident.
 
 **Dashboards per layer**
@@ -129,10 +129,10 @@ What happened:
 Use the built-in application dashboards for each app and build **custom dashboards** per business domain combining all layer apps on one page (e.g. "Orders: EAPI / PAPI / SAPIs"), so you can see where the red starts. API Manager analytics adds per-API-instance and per-client-application views.
 
 **Alerts**
-- Runtime Manager / Anypoint Monitoring alerts on **error rate** and **response time** per app — a SAPI error-rate alert would have fired first and named the culprit.
+- Runtime Manager / Anypoint Monitoring alerts on **error rate** and **response time** per app. A SAPI error-rate alert would have fired first and named the culprit.
 - API Manager **API alerts** on the instances (e.g. policy violations, response code alerts) for consumer-facing behaviour.
 - Functional monitor failure notifications for user-journey checks.
-- Treat downstream 5xx returned as 502/504 by an upstream layer as **errors** in that layer's metrics — "fast, well-formed errors" are not green.
+- Treat downstream 5xx returned as 502/504 by an upstream layer as **errors** in that layer's metrics; "fast, well-formed errors" are not green.
 
 **Tracing across layers**
 - Each layer reads an incoming \`x-correlation-id\` (or generates one at the EAPI) and forwards it on every outbound HTTP Request; Mule's correlation ID can be set from it so it appears in all log lines.
@@ -146,7 +146,7 @@ Use the built-in application dashboards for each app and build **custom dashboar
     },
     {
       q: 'Should functional monitors call production with real write operations?',
-      a: 'Generally no — use read operations or dedicated test records, otherwise monitors pollute production data and trigger business processes.',
+      a: 'Generally no. Use read operations or dedicated test records, otherwise monitors pollute production data and trigger business processes.',
     },
     {
       q: 'What credentials does a functional monitor use against a protected API?',

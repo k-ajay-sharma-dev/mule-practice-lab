@@ -221,6 +221,11 @@ Two systems need the data: the tracking portal wants **JSON** in \`out/json\` an
 - Billing has already invoiced from some outputs, so **an existing output file must never be replaced**. Carriers sometimes re-send a manifest with the same name. Such a manifest goes to \`/data/manifests/duplicates\` for review.
 - Processed manifests go to \`/data/manifests/archive\`.
 
+**Facts**
+- The output folders are \`/data/manifests/out/json\`, \`/data/manifests/out/csv\` and \`/data/manifests/out/rejects\`. \`M-20261103-118.xml\` becomes \`M-20261103-118.json\`, \`M-20261103-118.csv\` and, when needed, \`M-20261103-118.rejects.csv\`.
+- The JSON is \`{ manifestId, shipments: [{ trackingNo, weightKg, destination }] }\`. The CSV has the columns \`trackingNo,weightKg,destination\`.
+- The XSD is in the project as \`schemas/carrier-manifest-v3.xsd\`.
+
 **Design the flow.** Say what \`timeBetweenSizeCheck\` does, where it can be set, and how the flow reacts when an output already exists.
 `,
   answerTemplate: `## Waiting for the upload

@@ -46,7 +46,7 @@ payload
   hints: [
     '`groupBy $.customer` gives an object whose keys are customer codes and values are arrays of orders.',
     '`pluck (orders, customer) -> {...}` turns that object back into an array. Keys are of type Key, so use `customer as String`.',
-    '`orderBy -$.total` sorts descending — but wrap the `pluck` expression in parentheses first, or the lambda body swallows the `orderBy`.',
+    '`orderBy -$.total` sorts descending. Wrap the `pluck` expression in parentheses first, or the lambda body swallows the `orderBy`.',
   ],
   solution: `%dw 2.0
 output application/json

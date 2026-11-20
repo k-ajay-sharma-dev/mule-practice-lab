@@ -82,6 +82,8 @@ Prices are set in the **ERP**. Today a script calls Vendor A, then Vendor B, the
 - At 06:00 head office releases a promotion: about **100 changes a second for 10 minutes**.
 - Vendor A takes about 120 calls a second, the online store about 200.
 - About 1 change in 100 is for a product that has no label in some stores, and the vendors refuse it every time.
+- A vendor cloud can be down for up to 30 minutes. No price change may be lost.
+- A failed message is redelivered about once a minute, and every delivery counts toward the redelivery limit. No good change may reach the DLQ during a 30-minute outage, and refused changes must reach the DLQ for the pricing team.
 
 **Questions:**
 - Draw a design where each target gets every change at its own pace.

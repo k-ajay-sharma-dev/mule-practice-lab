@@ -126,12 +126,12 @@ export default async ({ failsOn, passes, cut, flip, swap, draw, box, unbox, rena
     draw(d, 'job -> pad', 'job -> ppay')
   })
   await failsOn('uc-094', 'Active Directory is reached only', (d) => draw(d, 'pad -> ad'))
-  await failsOn('uc-094', 'payroll provider is reached only', (d) => draw(d, 'ppay -> adp'))
+  await failsOn('uc-094', 'payroll provider is reached only', (d) => draw(d, 'ppay -> pn'))
   await failsOn('uc-094', 'written back to Workday', (d) => cut(d, 'pad -> swd'))
   await failsOn('uc-094', 'dead-letter', (d) => unbox(d, 'dlq'))
   await failsOn('uc-094', 'each receive the hire', (d) => swap(d, 'topic ~> ppay'))
-  // A short redelivery limit sends good payroll copies to the DLQ while ADP is down.
-  await failsOn('uc-094', 'Run: ADP is down for an hour', (d) => set(d, 'topic', { maxRedelivery: 5 }))
+  // A short redelivery limit sends good payroll copies to the DLQ while PayNorth is down.
+  await failsOn('uc-094', 'Run: Payroll API is down for an hour', (d) => set(d, 'topic', { maxRedelivery: 5 }))
   // No redelivery limit: bad hires are retried for ever and never reach the DLQ.
   await failsOn('uc-094', 'Run: Some hires cannot be provisioned', (d) => set(d, 'topic', { maxRedelivery: undefined }))
   // A third subscriber for ServiceNow laptop requests.

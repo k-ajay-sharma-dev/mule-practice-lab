@@ -202,6 +202,10 @@ Reports now miss tickets, and some runs fail with duplicate key errors.
 - The watermark must survive a restart and a redeploy. Keep it in the Object Store under the key \`helpdesk-tickets-watermark\`, as the API's ISO timestamp text.
 - Tickets go into the \`tickets\` table, keyed on \`id\`, with the columns \`subject\`, \`status\`, \`priority\` and \`updated_at\`.
 
+**Facts**
+- The Object Store is \`ticketSyncStore\`. With no watermark stored yet, start from \`2026-01-01T00:00:00Z\`.
+- The API answers \`{ "tickets": [{ "id", "subject", "status", "priority", "updated_at" }] }\`, with \`updated_at\` as ISO text such as \`2026-11-13T09:58:47Z\`.
+
 **Design the flow.** Explain each of the three bugs in the first version.
 `,
   answerTemplate: `## The three bugs
@@ -254,7 +258,7 @@ Reports now miss tickets, and some runs fail with duplicate key errors.
     },
     {
       q: 'Why keep the watermark in the Object Store and not in PostgreSQL?',
-      a: 'Both work. A table row such as SELECT max(updated_at) FROM tickets can even replace the Object Store, because it moves in the same transaction as the data. The Object Store is the simpler choice when the target is not a database.',
+      a: 'Both work. A table row such as SELECT max(updated_at) FROM tickets can even replace the Object Store, because it moves in the same transaction as the data. The Object Store is the natural choice when the target is not a database.',
     },
     {
       q: 'The app runs on two replicas. What can go wrong?',

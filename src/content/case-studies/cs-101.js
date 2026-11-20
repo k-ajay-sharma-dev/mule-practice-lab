@@ -100,8 +100,9 @@ export default {
 **Constraints**
 | Item | Detail |
 |---|---|
-| Volume | About 25,000 summary requests a day, 80 a second at the morning peak |
-| Tests | 20 summaries a second while one hospital takes 15 seconds, and the repository down for 30 minutes while 20 v2 messages a second arrive |
+| Volume | About 250,000 summary requests a day, 20 a second at the morning peak |
+| Tests | 20 summaries a second while Hospital B takes 15 seconds, and the repository down for 30 minutes while 20 v2 messages a second arrive |
+| Diagram | Draw two FHIR hospitals: "Hospital A EHR (FHIR R4)" as SaaS and "Hospital B EHR (FHIR R4)" as a legacy system. Draw the v2-only hospitals as one legacy box with "v2" in its name. Name the stores Master patient index, Consent registry, Clinical data repository and Access audit store. The query Process API calls its sources in parallel, times out after 3 seconds and gives a partial answer when a source fails |
 | Hospital APIs | Each FHIR hospital sets a limit (some as low as 5 requests a second) and has maintenance windows |
 | Law | Health data is special category data; sharing for direct care only; patients can opt out |
 | Governance | A data sharing agreement per organisation; a regional board approves new data types |

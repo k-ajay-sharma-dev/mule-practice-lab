@@ -95,6 +95,8 @@ export default {
 - Disruptions are rare but extreme bursts; normal days are quiet.
 - In a storm, operations control can send 100 affected passengers a second for 5 minutes, and the rebooking engine takes 30 a second. Passengers can accept 100 offers a second in the app.
 
+**For the diagram.** Use two work-item queues (high and normal priority). Put a rate limit of 50 requests a second on the PSS System API, so extra writes get a 429 and are retried. Give the disruption Process API and the rebooking Experience API 0.5 vCore each, so they keep up with 100 events a second.
+
 **Your task.** Propose:
 - the event flow
 - the integration architecture
@@ -130,18 +132,18 @@ export default {
 
 **Architecture.** Event-driven core on Anypoint MQ (FIFO not required for independent bookings; use per-flight grouping if order matters). System APIs for PSS, CRM, notifications, vouchers. Experience API for the app; agent desktop reuses the same Process APIs for complex cases.
 
-**Burst handling.** The bottleneck is the PSS (~50 writes/s). Consumers of the PSS-write queue are sized to stay under that limit (fixed concurrency + rate limiting on the System API). 30,000 passengers ≈ 10 minutes of PSS writes at full rate, so prioritisation matters. Everything else (enrichment, notifications) scales out. Read-heavy calls use caching where data does not change during the disruption.
+**Burst handling.** The bottlenecks are the rebooking engine (~30 options/s) and the PSS (~50 writes/s). Consumers of the work-item queues are sized to stay under those limits (fixed concurrency + rate limiting on the PSS System API). 30,000 passengers ≈ 17 minutes at the engine's rate, so prioritisation matters: the most vulnerable passengers get offers in the first minutes. Everything else (enrichment, notifications) scales out. Read-heavy calls use caching where data does not change during the disruption.
 
 **Prioritisation.** Score each work item: special needs, unaccompanied minors, last flight of the day, tight onward connections, loyalty tier. Use separate high/normal queues (MQ has no per-message priority) or sort per flight before publishing.
 
-**Idempotency and audit.** Booking reference + flight + offer ID as the idempotency key for accept. An audit trail per passenger: offer, notification sent/delivered, acceptance, vouchers — needed for regulatory and complaints handling.
+**Idempotency and audit.** Booking reference + flight + offer ID as the idempotency key for accept. An audit trail per passenger: offer, notification sent/delivered, acceptance, vouchers. It is needed for regulatory and complaints handling.
 
 **Monitoring.** Dashboards for queue backlog, time from cancellation to offer, PSS error rate. Alerts when backlog age exceeds the target. Storm-scenario load tests twice a year.
 
 **Risks.** PSS vendor limits (negotiate burst capacity), rebooking engine quality, notification overload/costs, and stale app data (push events, not polling).
 `,
   followUps: [
-    { q: 'Anypoint MQ has no message priority — how do you prioritise?', a: 'Use separate queues per priority and have consumers drain the high-priority queue first (or allocate more consumers to it), or sort work items per flight before publishing.' },
+    { q: 'Anypoint MQ has no message priority. How do you prioritise?', a: 'Use separate queues per priority and have consumers drain the high-priority queue first (or allocate more consumers to it), or sort work items per flight before publishing.' },
     { q: 'How do you test a 30,000-passenger storm?', a: 'A replay/simulation environment with a PSS stub that enforces the real rate limit, generating a mass cancellation event; measure time-to-offer for the last passenger and backlog drain time.' },
     { q: 'What is your biggest risk?', a: 'The PSS write limit: it caps how fast you can help passengers no matter how well Mule scales. Mitigate with prioritisation, holding seats early and negotiating burst capacity with the vendor.' },
   ],

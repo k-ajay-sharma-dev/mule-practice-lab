@@ -185,6 +185,10 @@ Finance's archive reads the PDFs from **Azure Blob Storage**, container \`suppli
 - If one upload fails, the email must not appear in \`Processed\`, and the AP team must be able to find it in the \`Failed\` folder.
 - An email with no PDF goes to a \`NeedsReview\` folder for a person to look at.
 
+**Facts**
+- A PDF is an attachment whose name ends in \`.pdf\`, in any letter case (suppliers also send \`.PDF\`).
+- Store each PDF as \`mailbox/<Message-ID>/<attachment name>\`, with unsafe characters in the Message-ID replaced.
+
 **Design the flow.** Say where the attachments come from in the Mule message and how the email ID survives the loop.
 `,
   answerTemplate: `## Listener and subject filter

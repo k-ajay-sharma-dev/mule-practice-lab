@@ -90,6 +90,7 @@ All claims end up in a **20-year-old claims system**. It offers only two ways in
 - The legacy claims system will stay for at least 3 more years.
 - Claims data contains personal data (GDPR).
 - About 2 claims arrive a second. The claims system can be offline for 40 minutes, and about 1 claim in 50 has data it rejects every time.
+- Retry each claim for up to an hour. The queue redelivers a failed message about once a minute, so set its redelivery limit to cover that hour. Claims that still fail go to a dead-letter queue for a person to fix.
 
 **Your task.** Propose an integration architecture for claims intake and explain how a claim flows end to end.
 `,
@@ -114,7 +115,7 @@ All claims end up in a **20-year-old claims system**. It offers only two ways in
   solution: `
 **Architecture.**
 - **Experience APIs**: \`claims-web-eapi\`, \`claims-mobile-eapi\`, \`claims-broker-eapi\` (incl. an email/PDF intake flow). They shape data for each channel and call one process API. The call centre uses the web one.
-- **Process API**: \`claims-intake-papi\` — validates the claim, checks the policy, triages, stores documents, publishes the claim for the legacy system.
+- **Process API**: \`claims-intake-papi\` validates the claim, checks the policy, triages, stores documents, publishes the claim for the legacy system.
 - **System APIs**: \`policy-sapi\` (is the policy active, what's covered), \`claims-legacy-sapi\` (wraps the SOAP service), \`documents-sapi\` (object storage / ECM).
 
 **One claim end to end.**

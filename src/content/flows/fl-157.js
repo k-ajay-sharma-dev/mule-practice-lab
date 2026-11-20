@@ -74,6 +74,10 @@ The reporting service stores departures and arrivals in the table \`fleet_moveme
 - Store only \`DEPARTED\` and \`ARRIVED\` events. Acknowledge the rest without storing them.
 - Each event must be stored once.
 
+**Facts**
+- \`event_at\` holds the event's \`at\`. The other columns take the fields of the same name.
+- Choose any subscription name, but keep it fixed. Set the number of consumers on the listener yourself.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why events go missing

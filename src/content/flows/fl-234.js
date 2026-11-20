@@ -119,6 +119,11 @@ What went wrong before:
 - An order already in \`wms_orders\` changes nothing, and its message is acknowledged.
 - A message delivered more than five times is published to \`ORDER.RELEASE.DLQ\` and acknowledged, with a WARN.
 
+**Facts**
+- The broker's delivery count is in \`attributes.properties.jmsxProperties.JMSXDeliveryCount\` (1 on the first delivery).
+- \`line_count\` is the number of lines. Publish the order to \`WMS.ORDERS\` and to the DLQ as it arrived.
+- Do not catch errors: the failure must reach the listener so the transaction rolls back.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why two resources need XA

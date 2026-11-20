@@ -15,10 +15,10 @@ Each failed message has \`messageId\`, \`sourceQueue\`, \`deadLetteredAt\` and \
 Output:
 
 - \`total\`: the number of messages
-- \`queues\`: one entry per source queue, sorted by queue name, with:
+- \`queues\`: one entry per source queue, sorted by queue name as text, with:
   - \`queue\` and \`count\`
   - \`oldest\`: the earliest \`deadLetteredAt\`, as it appears in the input
-  - \`errors\`: one entry per error type, sorted by type, with \`type\`, \`count\` and \`messageIds\` in input order
+  - \`errors\`: one entry per error type (\`UNKNOWN\` included), sorted by type as text, with \`type\`, \`count\` and \`messageIds\` in input order
 - \`replay\`: ids whose error type is \`HTTP:TIMEOUT\`, \`HTTP:SERVICE_UNAVAILABLE\` or \`DB:CONNECTIVITY\`, in input order. These failed for a passing reason, and the restart app can republish them.
 - \`review\`: every other id, in input order
 `,

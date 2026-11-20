@@ -121,6 +121,12 @@ Oracle holds the current price in \`item_price\` (key \`item_id\`, \`price\`, \`
 - Publish to \`store.price.changes\` only what was applied.
 - If Oracle is down, the event must be redelivered later.
 
+**Facts**
+- The listener uses ack mode \`AUTO\`.
+- A Database Update returns \`affectedRows\`.
+- An insert that breaks the key on \`item_id\` raises \`DB:QUERY_EXECUTION\`. A lost connection raises \`DB:CONNECTIVITY\`.
+- Publish the event as it arrived.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the order breaks

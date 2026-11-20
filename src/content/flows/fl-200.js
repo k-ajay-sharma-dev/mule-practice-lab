@@ -83,6 +83,11 @@ The rows go to the SQL Server table \`dbo.stock_count_staging\` (\`file_name\`, 
 - Load every line, with the file name, as numbers where they are numbers.
 - Move a loaded file to \`/stockcount/archive\`. Move a file that could not be loaded to \`/stockcount/error\`.
 
+**Facts**
+- Listen for \`COUNT_*.csv\` with a size check wait. \`file_name\` is the file's own name, such as \`COUNT_0412_20261113.csv\`.
+- \`counted_qty\` is a number. A count that is not a number fails the file, and nothing from it is loaded.
+- Any failure, a database outage too, sends the file to the error folder. Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

@@ -14,7 +14,7 @@ export default {
       { label: 'SAP is reached only through a System API', rule: { type: 'only-via', target: 'erp', from: 'system-api' } },
       { label: 'The cloud WMS is reached only through the Warehouse System API', rule: { type: 'only-via', target: 'saas', from: 'system-api' } },
       { label: 'The Warehouse System API writes fixed-width files for the legacy WMS', rule: { type: 'edge', from: 'system-api', to: 'file-store' } },
-      { label: 'Nothing calls the legacy WMS directly — it only exchanges files', rule: { type: 'no-edge', from: ['system-api', 'process-api', 'experience-api', 'batch-job'], to: 'legacy' } },
+      { label: 'Nothing calls the legacy WMS directly; it only exchanges files', rule: { type: 'no-edge', from: ['system-api', 'process-api', 'experience-api', 'batch-job'], to: 'legacy' } },
       { label: 'Warehouse confirmations reach the Process API asynchronously through a queue', rule: { type: 'edge', from: ['queue', 'topic', 'event-stream'], to: 'process-api', kind: 'async' } },
       { label: 'The Process API keeps per-STO integration state in a database', rule: { type: 'edge', from: 'process-api', to: 'database' } },
       { label: 'A reconciliation job compares SAP in-transit stock with WMS movements', rule: { type: 'edge', from: 'batch-job', to: 'system-api', min: 2 } },
@@ -75,6 +75,7 @@ Facts:
 - Cloud WMS: REST APIs + webhooks. Legacy WMS: drops files every 15 minutes, reads inbound files every 15 minutes.
 - Finance requires that at month end every unit shipped is either received or explained.
 - The cloud WMS sends about 1 confirmation a second. SAP can be down for 30 minutes, and about 2 confirmations in 100 carry data SAP rejects every time.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to an error queue. Good confirmations must survive the 30-minute outage, and rejected ones must reach the error queue for a person.
 
 **Describe your solution:**
 - What messages and APIs are needed through the STO lifecycle?
@@ -121,12 +122,12 @@ Facts:
 - damaged → received into a blocked stock type;
 - batch/best-before data carried from goods issue → ASN → receipt; mismatches flagged for quality.
 
-**Ordering and idempotency.** Events are keyed by STO + delivery + message ID. A receipt arriving before the goods issue posted (possible with file delays) is **parked** and retried when the issue is confirmed. Duplicate confirmations are ignored using stored message IDs. SAP posting errors (period closed, batch missing) go to an error queue with a business-readable message.
+**Ordering and idempotency.** Events are keyed by STO + delivery + message ID. A receipt arriving before the goods issue posted (possible with file delays) is **parked** and retried when the issue is confirmed. Duplicate confirmations are ignored using stored message IDs. A failed posting is redelivered about once a minute; a redelivery limit of about 40 outlasts a 30-minute SAP outage. SAP posting errors that never clear (period closed, batch missing) go to an error queue with a business-readable message.
 
 **Reconciliation and monitoring.** Daily **in-transit ageing** report: STOs shipped but not received after 48 hours alert logistics. Month end: compare SAP in-transit stock with open shipments in all WMSs; every difference needs a discrepancy case. Dashboards show STOs by state and errors per DC.
 `,
   followUps: [
-    { q: 'Why keep state in the Process API when SAP already has the STO status?', a: 'SAP knows financial status, not integration status (e.g. ASN sent, receipt parked). A small state table makes troubleshooting and reprocessing much easier; SAP remains the system of record for stock.' },
+    { q: 'Why keep state in the Process API when SAP already has the STO status?', a: 'SAP knows financial status, not integration status (e.g. ASN sent, receipt parked). A small state table makes troubleshooting and reprocessing much faster; SAP remains the system of record for stock.' },
     { q: 'How do you replace the legacy WMS later?', a: 'Only the legacy implementation of the Warehouse System API changes; the Process API and SAP side stay as they are.' },
   ],
 }

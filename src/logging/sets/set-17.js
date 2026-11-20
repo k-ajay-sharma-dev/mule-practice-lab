@@ -10,11 +10,11 @@ const next = (example) => ({
 const durationVar = { must: /vars\.durationMs/, say: 'Add how long it took: durationMs=$(vars.durationMs).' }
 
 export const SET_17 = [
-  // ---------- lg-201 Harrow Parts: expiring queue messages ----------
+  // ---------- lg-201 Harrow Garden Supply: expiring queue messages ----------
   {
     id: 'log-17001',
     kind: 'level',
-    situation: 'Harrow Parts found 380 stock messages moved to the expiry queue because their time to live ran out while the consumer was down.',
+    situation: 'Harrow Garden Supply found 380 stock messages moved to the expiry queue because their time to live ran out while the consumer was down.',
     answer: ['ERROR', 'WARN'],
     explain: 'Data was not applied in time. ERROR if stock is now wrong, WARN if a snapshot will follow.',
   },
@@ -26,10 +26,10 @@ export const SET_17 = [
       'Messages expired queue=stock-updates expiryQueue=stock-updates.expired count=380 ttlHours=24 next=send full snapshot',
       'Messages gone',
       'Expired: <380 stock messages>',
-      'Queue problem',
+      'Messages expired queue=stock-updates count=380 ttlHours=24 next=send full snapshot',
     ],
     answer: 0,
-    explain: 'Which queue, where they went, how many, the TTL and the recovery step.',
+    explain: 'Which queue, where they went, how many, the TTL and the recovery step. The last line does not name the expiry queue, so support does not know where the messages went.',
   },
   {
     id: 'log-17003',
@@ -43,7 +43,7 @@ export const SET_17 = [
     id: 'log-17004',
     kind: 'write',
     situation:
-      'Harrow messages expired. vars.queue, vars.expiryQueue, vars.count and vars.ttlHours hold the facts. A full snapshot will be sent. Write the line.',
+      'Harrow messages expired. vars.queue, vars.expiryQueue, vars.count and vars.ttlHours hold the facts. A full snapshot will be sent. Write the line, with what happens next.',
     available: ['vars.queue', 'vars.expiryQueue', 'vars.count', 'vars.ttlHours', 'payload'],
     level: ['ERROR', 'WARN'],
     checks: [
@@ -98,10 +98,10 @@ export const SET_17 = [
       'Blob cleanup finished container=inbound prefix=processed/ olderThanDays=30 deleted=1840 durationMs=9200',
       'Cleanup done',
       'Deleted: [a.json, b.json, … 1840 names]',
-      'Removed old stuff',
+      'Blob cleanup finished container=inbound deleted=1840 durationMs=9200',
     ],
     answer: 0,
-    explain: 'The prefix on the line would have shown the wrong target at once.',
+    explain: 'The prefix on the line would have shown the wrong target at once. The last line has no prefix or age rule, so the wrong target stays hidden.',
   },
   {
     id: 'log-17008',
@@ -139,7 +139,7 @@ export const SET_17 = [
     id: 'log-17010',
     kind: 'write',
     situation:
-      'Kestrel restored deleted blobs with soft delete. vars.container, vars.prefix and vars.restored hold the facts. The notifications will be replayed. Write the line.',
+      'Kestrel restored deleted blobs with soft delete. vars.container, vars.prefix and vars.restored hold the facts. The notifications will be replayed. Write the line, with what happens next.',
     available: ['vars.container', 'vars.prefix', 'vars.restored', 'payload'],
     level: ['WARN', 'INFO'],
     checks: [
@@ -174,10 +174,10 @@ export const SET_17 = [
       'Plan write refused, row count too low file=current_plan.csv rows=0 yesterdayRows=48210 minPct=80 next=keep previous plan',
       'Not written',
       'Plan: <empty file>',
-      'Something is wrong with the plan',
+      'Plan write refused file=current_plan.csv rows=0 next=keep previous plan',
     ],
     answer: 0,
-    explain: 'Both counts and the rule show why it was refused.',
+    explain: 'Both counts and the rule show why it was refused. The last line has no previous count or rule, so the reader cannot see why 0 rows was refused.',
   },
   {
     id: 'log-17013',
@@ -191,12 +191,12 @@ export const SET_17 = [
     id: 'log-17014',
     kind: 'write',
     situation:
-      'A Larkfield plan write was refused. vars.fileName, vars.rows, vars.yesterdayRows and vars.minPct hold the facts. Write the line.',
+      'A Larkfield plan write was refused and yesterday’s plan is kept. vars.fileName, vars.rows, vars.yesterdayRows and vars.minPct hold the facts. Write the line, with what happens next.',
     available: ['vars.fileName', 'vars.rows', 'vars.yesterdayRows', 'vars.minPct', 'payload'],
     level: ['ERROR'],
     checks: [
       says(/refused|not written|too low/i, 'Plan write refused, row count too low'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('rows'),
       labelled('yesterdayRows'),
       labelled('minPct'),
@@ -247,10 +247,10 @@ export const SET_17 = [
       'Reader access check failed path=/to-planning/locations.txt readerAccount=planning-reader mode=600 next=ask server owner to fix permissions',
       'Cannot read',
       'Permission problem for password …',
-      'Check failed',
+      'Reader access check failed path=/to-planning/locations.txt readerAccount=planning-reader next=ask server owner to fix permissions',
     ],
     answer: 0,
-    explain: 'The path, the reader, the file mode and the next step.',
+    explain: 'The path, the reader, the file mode and the next step. The last line has no file mode, so the admin must log in to find what is wrong.',
   },
   {
     id: 'log-17018',
@@ -264,7 +264,7 @@ export const SET_17 = [
     id: 'log-17019',
     kind: 'write',
     situation:
-      'A Brindle read check failed. vars.path, vars.readerAccount and vars.mode hold the facts. Write the line.',
+      'A Brindle read check failed. The server owner must fix the permissions. vars.path, vars.readerAccount and vars.mode hold the facts. Write the line, with what happens next.',
     available: ['vars.path', 'vars.readerAccount', 'vars.mode', 'vars.password', 'payload'],
     level: ['ERROR'],
     checks: [
@@ -287,7 +287,7 @@ export const SET_17 = [
     id: 'log-17020',
     kind: 'write',
     situation:
-      'A Brindle upload stopped because the server disk is full. The temp file was deleted. vars.path and vars.sizeBytes hold the facts. Write the line.',
+      'A Brindle upload stopped because the server disk is full. The temp file was deleted, and the file is sent again after cleanup. vars.path and vars.sizeBytes hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.path', 'vars.sizeBytes', 'error.errorType', 'error.description', 'payload'],
     level: ['ERROR'],
     checks: [
@@ -323,10 +323,10 @@ export const SET_17 = [
       'Files not matching pattern host=ftp.supplier-c.example dir=/out unmatched=3 pattern=^[A-Za-z0-9_]+\\.csv$ first=Promo week 47.csv',
       'Skipped some',
       'Unmatched: <file contents>',
-      'Bad names',
+      'Files not matching pattern host=ftp.supplier-c.example dir=/out unmatched=3',
     ],
     answer: 0,
-    explain: 'The count, the rule and one example are enough to act on.',
+    explain: 'The count, the rule and one example are enough to act on. The last line has no pattern or example, so the supplier cannot see what to change.',
   },
   {
     id: 'log-17023',
@@ -349,7 +349,7 @@ export const SET_17 = [
       labelled('dir'),
       labelled('unmatched'),
       labelled('pattern'),
-      labelled('first', 'first=$(vars.firstName)'),
+      labelled('(first|firstName|example)', 'first=$(vars.firstName)'),
       noPayload,
       noVague,
     ],
@@ -364,7 +364,7 @@ export const SET_17 = [
     id: 'log-17025',
     kind: 'write',
     situation:
-      'A Marrow & Pine passive data connection failed because the server advertised a private address. vars.host and vars.advertised hold the facts. Write the line.',
+      'A Marrow & Pine passive data connection failed because the server advertised a private address. vars.host and vars.advertised hold the facts. Write the line, with the error.',
     available: ['vars.host', 'vars.advertised', 'error.errorType', 'error.description', 'vars.password'],
     level: ['ERROR'],
     checks: [
@@ -399,10 +399,10 @@ export const SET_17 = [
       'Long open transaction db=sales sessionId=112 program=report-app openMinutes=480 versionStoreGB=120',
       'Long transaction',
       'Session 112 running SELECT * FROM … with params …',
-      'DB slow',
+      'Long open transaction db=sales sessionId=112 openMinutes=480 versionStoreGB=120',
     ],
     answer: 0,
-    explain: 'Who, how long and the effect on tempdb.',
+    explain: 'Who, how long and the effect on tempdb. The last line has no program name, so the DBA does not know whose app to call.',
   },
   {
     id: 'log-17028',
@@ -439,7 +439,7 @@ export const SET_17 = [
     id: 'log-17030',
     kind: 'write',
     situation:
-      'A Larkfield extract failed because tempdb was full. It will rerun in date ranges. vars.extract and vars.rangeDays hold the facts. Write the line.',
+      'A Larkfield extract failed because tempdb was full. It will rerun in date ranges. vars.extract and vars.rangeDays hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.extract', 'vars.rangeDays', 'error.errorType', 'error.description'],
     level: ['ERROR'],
     checks: [
@@ -474,10 +474,10 @@ export const SET_17 = [
       'DB pool configured db=hub maxPoolSize=10 minPoolSize=2 replicas=8 maxTotal=80',
       'jdbc:oracle:thin:hub_user/…@host:1521/HUB',
       'Pool ready',
-      'Connected',
+      'DB pool configured db=hub maxPoolSize=10 minPoolSize=2',
     ],
     answer: 0,
-    explain: 'maxTotal shows the share of database sessions the app can take. No URL with credentials.',
+    explain: 'maxTotal shows the share of database sessions the app can take. No URL with credentials. The last line has no replica count, so it hides that 8 replicas can open 80 sessions.',
   },
   {
     id: 'log-17033',
@@ -510,7 +510,7 @@ export const SET_17 = [
     id: 'log-17035',
     kind: 'write',
     situation:
-      'Fenwick rows were rejected because a code had no mapping. vars.field, vars.value and vars.count hold the facts. Write the line.',
+      'Fenwick rows were rejected because a code had no mapping. They wait in the reject table. vars.field, vars.value and vars.count hold the facts. Write the line, with what happens next.',
     available: ['vars.field', 'vars.value', 'vars.count', 'payload'],
     level: ['WARN'],
     checks: [
@@ -544,11 +544,11 @@ export const SET_17 = [
     options: [
       'Bounces processed template=store-report permanent=40 temporary=2 contactsMarked=40',
       'Bounces from anna@store041.example, raj@store052.example …',
-      'Mail problems',
+      'Bounces processed template=store-report permanent=40 temporary=2',
       'Bounce: <full bounce emails>',
     ],
     answer: 0,
-    explain: 'Counts, not addresses.',
+    explain: 'Counts, not addresses. The third line does not say how many contacts were marked, so you cannot check every permanent bounce was handled.',
   },
   {
     id: 'log-17038',
@@ -570,7 +570,7 @@ export const SET_17 = [
       labelled('template'),
       labelled('permanent'),
       labelled('temporary'),
-      labelled('contactsMarked', 'contactsMarked=$(vars.marked)'),
+      labelled('(contactsMarked|marked)', 'contactsMarked=$(vars.marked)'),
       { not: /addresses/, say: 'Do not log the addresses.' },
       noPersonal,
       noVague,
@@ -620,10 +620,10 @@ export const SET_17 = [
       'Reject replay finished jobId=J-8001 replayed=640 resolved=640 stillOpen=0 requestedBy=support-07',
       'Replay done',
       'Replayed: <640 rows>',
-      'Fixed',
+      'Reject replay finished jobId=J-8001 replayed=640 resolved=640 stillOpen=0',
     ],
     answer: 0,
-    explain: 'Replayed, resolved and still open add up, and the requester is recorded.',
+    explain: 'Replayed, resolved and still open add up, and the requester is recorded. The last line leaves out who asked for the replay.',
   },
   {
     id: 'log-17043',
@@ -661,7 +661,7 @@ export const SET_17 = [
     id: 'log-17045',
     kind: 'write',
     situation:
-      'A Quayle replay was refused because the reject reason has not been marked fixed. vars.jobId and vars.reason hold the facts. Write the line.',
+      'A Quayle replay was refused because the reject reason has not been marked fixed. vars.jobId and vars.reason hold the facts. Write the line, with what happens next.',
     available: ['vars.jobId', 'vars.reason', 'payload'],
     level: ['WARN', 'INFO'],
     checks: [
@@ -695,10 +695,10 @@ export const SET_17 = [
       'Row rejected, wrong field count file=history.csv line=2104411 fields=14 expected=12',
       'Bad row: 2026-11-18,S041,ITM-7731,"Large blue chair, oak legs, pack of 2",…',
       'CSV error',
-      'Parser broke',
+      'Row rejected, wrong field count file=history.csv fields=14 expected=12',
     ],
     answer: 0,
-    explain: 'File, line and counts let the sender find it. The row content stays out.',
+    explain: 'File, line and counts let the sender find it. The row content stays out. The last line has no line number, so nobody can find the row in a file of millions.',
   },
   {
     id: 'log-17048',
@@ -717,8 +717,8 @@ export const SET_17 = [
     level: ['WARN'],
     checks: [
       says(/rejected|wrong field count/i, 'Row rejected, wrong field count'),
-      labelled('file', 'file=$(vars.fileName)'),
-      labelled('line', 'line=$(vars.lineNo)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
+      labelled('(line|lineNo)', 'line=$(vars.lineNo)'),
       labelled('fields'),
       labelled('expected'),
       { not: /vars\.row\b/, say: 'Do not log the row content.' },
@@ -741,7 +741,7 @@ export const SET_17 = [
     level: ['INFO', 'WARN'],
     checks: [
       says(/load (finished|complete)|loaded/i, 'CSV load finished'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('read'),
       labelled('loaded'),
       labelled('rejected'),

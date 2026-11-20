@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause of the growing backlog?',
         options: [
-          'The new UPDATE filters on sku_code, which has no index, so every line does a full table scan and the consumers crawl',
-          'The ActiveMQ broker is out of memory and is not delivering messages',
-          'The JMS listener disconnected after the release',
-          'The stores are sending duplicate sales messages',
+          'The new UPDATE has no index on its columns, so each line scans the whole table',
+          'The ActiveMQ broker hit its memory limit and is throttling delivery to consumers',
+          'The JMS listener lost its connection after the release and reconnects in a loop',
+          'The new POS sends each sale several times, so the queue fills with duplicates',
         ],
         answer: 0,
         explain: 'Consumers are connected (consumers=4) and busy, CPU is low, and the slow statement shows TABLE ACCESS FULL. The bottleneck is the Oracle update, not the broker or the connection.',
@@ -33,13 +33,13 @@ export default {
         type: 'single',
         prompt: 'What is the best **immediate** action?',
         options: [
-          'Purge the STORE.SALES.IN queue so the stores can start fresh',
-          'Have the DBA create an index on STORE_STOCK (store_id, sku_code), then watch the dequeue rate',
-          'Raise numberOfConsumers and maxConcurrency to 64',
-          'Restart the broker',
+          'Purge STORE.SALES.IN and ask the stores to resend today’s sales',
+          'Have the DBA create an index on (store_id, sku_code), then watch the drain',
+          'Raise numberOfConsumers and maxConcurrency to 64 to drain the backlog',
+          'Restart the broker and the app to clear any stuck consumer sessions',
         ],
         answer: 1,
-        explain: 'An index fixes the slow statement directly (creating it ONLINE avoids blocking). Purging loses sales; 64 concurrent full scans would hammer the database even harder.',
+        explain: 'An index fixes the slow statement directly (creating it ONLINE avoids blocking). Purging loses sales; 64 concurrent full scans would hammer the database even harder. A restart brings back the same 4 slow consumers.',
       },
       {
         type: 'multi',
@@ -120,7 +120,7 @@ export default {
 **Prevention.** Include execution plans for new or changed SQL in code review and test against production-sized data; alert on queue depth **and** the age of the oldest message; log or export DB operation durations so a 100x slowdown is visible on day one.
 `,
   followUps: [
-    { q: 'Why not just add consumers to drain faster?', a: 'Each extra consumer runs another full table scan, so the database gets slower for everyone. Fix the per-message cost first, then tune concurrency.' },
+    { q: 'Why not add consumers to drain faster?', a: 'Each extra consumer runs another full table scan, so the database gets slower for everyone. Fix the per-message cost first, then tune concurrency.' },
     { q: 'Which ActiveMQ metrics show a slow consumer rather than a missing one?', a: 'Consumer count is normal while enqueue count grows much faster than dequeue count; with no consumers the dequeue count would stop completely.' },
     { q: 'Is it safe to create an index on a busy production table?', a: 'Oracle can build it ONLINE so DML continues, but it still uses I/O and CPU; do it with the DBA and monitor. It is far less risky than leaving the backlog growing.' },
   ],

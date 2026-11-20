@@ -96,6 +96,11 @@ The new contract, agreed with the platform:
 - Return \`next\` so the platform can ask for the following page.
 - Refuse a limit out of range.
 
+**Facts**
+- Each item in \`items\` is \`{ item_id, description, category }\`, as the table has them.
+- Refuse a bad limit with **Raise Error** \`APP:BAD_LIMIT\`, handled by an **On Error Propagate** for that type.
+- **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why OFFSET hurts

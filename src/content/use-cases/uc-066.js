@@ -85,9 +85,11 @@ Facts:
 - Lots are captured at goods receipt in the WMS; stores only know item level, so **customer matching** uses item + store + date window from the sales history (Oracle data warehouse fed nightly by POS).
 - ActiveMQ Artemis is the enterprise broker; stores connect over unreliable links; up to 5 % of stores are offline at any time.
 - A recall can be **extended** (more lots) or **withdrawn** while in progress.
-- The email/SMS provider takes at most 100 messages a second. A large recall can queue 200 notices a second for 15 minutes, and store links can be down for 30 minutes.
+- The email/SMS provider takes at most 100 messages a second. A large recall can queue 200 notices a second for 15 minutes, and all of them must be sent within 40 minutes of the start.
+- Store links can be down for 30 minutes. No recall block may be lost, and the stores keep getting it for up to 4 hours.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 - Every action must be **auditable** (who, what, when) for the regulator.
-- Customer contact must respect marketing consent rules — recall notices are a legal/safety exception, but only for customers whose contact details may be used for safety notices.
+- Customer contact must respect marketing consent rules. Recall notices are a legal/safety exception, but only for customers whose contact details may be used for safety notices.
 
 **Questions:**
 1. Describe the end-to-end architecture and the recall event model.
@@ -134,29 +136,29 @@ Facts:
 **Distribution.**
 - Topic → one queue per consumer (virtual topic pattern), so each target has its own backlog, redelivery and DLQ.
 - **sys-wms** places a lot-level hold in each DC WMS and returns quarantined quantities. **sys-tms** finds loads containing the lots (via WMS shipment data) and flags them for return or redirection.
-- **sys-store-pos** pushes the item block to the central POS item master, which syncs to tills; stores also get a task for the shelf team. Persistent messages, no TTL: an offline store gets the block when it reconnects; a store not acknowledging within 1 hour triggers a phone escalation to the area manager.
+- **sys-store-pos** pushes the item block to the central POS item master, which syncs to tills; stores also get a task for the shelf team. Persistent messages, no TTL: an offline store gets the block when it reconnects. The broker redelivers about once a minute, so a redelivery limit of about 240 keeps trying for the 4-hour window; a store not acknowledging within 1 hour triggers a phone escalation to the area manager.
 
 **Acknowledgements.** Two levels: *system ack* (block applied on store server) and *human ack* (team removed N units, photo optional). Both arrive on \`RECALL.STORE.ACK\` and update the tracker by (recallId, version, storeId) with a MERGE so duplicates are harmless. An escalation job runs every 15 minutes against the tracker.
 
 **Customer notification.**
 1. sys-sales-history queries the warehouse for loyalty purchases of the items in the affected stores and date window. The query is lot-level where stores scan lots via GS1 DataMatrix, otherwise item level = over-notify, which is accepted for safety.
 2. De-duplicate per customer, apply the "safety notice" contact permission, choose channel.
-3. Publish one message per customer to \`RECALL.CUSTOMER.NOTIFY\`; prc-recall-customer-notify consumes with limited concurrency matching the provider's rate limit (e.g. 200/s), retries 429/5xx with back-off, and records each send in the tracker. Poison messages → DLQ, replayable. 500,000 notices at 200/s ≈ 42 minutes, well inside 24 h.
+3. Publish one message per customer to \`RECALL.CUSTOMER.NOTIFY\`; prc-recall-customer-notify consumes with limited concurrency matching the provider's limit of 100 a second (0.5 vCore is enough), retries 429/5xx with back-off, and records each send in the tracker. Poison messages → DLQ, replayable. The queue absorbs the 200 a second burst: 180,000 notices at 100/s take 30 minutes, and 500,000 take about 83 minutes, well inside 24 h.
 
-**Extensions and withdrawals.** Always a new version. EXTEND adds lots — consumers apply the delta. WITHDRAW releases holds and blocks; customer notices already sent are followed by an "all clear" only if QA requests it. Consumers ignore versions lower than the one they have applied.
+**Extensions and withdrawals.** Always a new version. EXTEND adds lots, and consumers apply the delta. WITHDRAW releases holds and blocks; customer notices already sent are followed by an "all clear" only if QA requests it. Consumers ignore versions lower than the one they have applied.
 
 **Audit and reporting.** The tracker is append-only (version rows, ack rows, notification rows with timestamps and user IDs). The daily regulator report is generated from it: quantities received per lot (WMS), shipped to stores, quarantined, removed by stores, sold before block (from sales history), customers notified.
 
 **NFRs and failure modes.**
 - Recall path isolated from day-to-day traffic: dedicated queues and Mule workers so a busy Black Friday cannot delay a recall.
 - Broker HA (Artemis primary/backup pair, called live/backup in older versions); Oracle tracker on a highly available database.
-- Tested quarterly with a **mock recall** (a fake item) end to end — regulators often require this.
+- Tested quarterly with a **mock recall** (a fake item) end to end. Regulators often require this.
 - Security: only QA managers can approve (OAuth scope on the Experience API, four-eyes approval in the console).
 `,
   followUps: [
     { q: 'Why an outbox instead of publishing to ActiveMQ inside the flow?', a: 'Without XA, saving to Oracle and publishing to the broker are two separate commits; a crash between them loses or duplicates the event. The outbox makes the database the single source and the publisher retries until sent.' },
-    { q: 'Could you use XA transactions instead?', a: 'Mule 4 supports XA with the Bitronix transaction manager across JMS and Database, but it adds latency and operational complexity; for a low-volume, high-importance event the outbox is simpler and easier to reason about.' },
+    { q: 'Could you use XA transactions instead?', a: 'Mule 4 supports XA with the Bitronix transaction manager across JMS and Database, but it adds latency and operational complexity; for a low-volume, high-importance event the outbox has fewer moving parts and is clearer to reason about.' },
     { q: 'How do you prove to the regulator that the block reached every till?', a: 'The tracker holds a system acknowledgement per store with timestamp; stores missing it are listed with the escalation actions taken until they confirmed.' },
-    { q: 'What if the recall must also reach online orders not yet shipped?', a: 'Add the OMS as another subscriber: it cancels or holds open lines containing the items and triggers its own customer messages — no change to the publisher.' },
+    { q: 'What if the recall must also reach online orders not yet shipped?', a: 'Add the OMS as another subscriber: it cancels or holds open lines containing the items and triggers its own customer messages. The publisher does not change.' },
   ],
 }

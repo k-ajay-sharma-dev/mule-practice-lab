@@ -85,7 +85,7 @@ The source platforms belong to other teams, and the Agentforce agent must not be
 
 Some numbers for the design:
 - Staff send about 10 care questions and 10 fraud reviews a second. Agentforce answers in about 3 seconds, and Vertex AI in about 2.5 seconds.
-- Staff sign in, and the app sends a JWT with each request. A test tool once sent 30 requests a second with no token.
+- Staff sign in, and the app sends a JWT with each request. A test tool once sent 30 requests a second with no token. Requests with no token must be refused at the ingress gateway.
 - Agentforce has had hours where it stopped answering. Fraud reviews must still be answered in under 4 seconds when that happens.
 
 **Questions:**

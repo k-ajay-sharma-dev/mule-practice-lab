@@ -102,6 +102,10 @@ The reports team runs a rejects screen at \`https://reports.fenwick.example/reje
 - A job with no rejects sends no email.
 - Otherwise email the stewards: how many lines loaded and rejected, a count per reason, and the link to the screen for this job. No rows, no attachment.
 
+**Facts**
+- The subject carries the job ID. Each reason is its own line in the body: \`UNKNOWN_SUPPLIER: 3\`.
+- The WARN for an unknown job names the job ID.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the job

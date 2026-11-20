@@ -84,6 +84,10 @@ export default {
 
 The Run tab tests the two hardest rows: 2,000 autosaves a second, and 300 final submissions a second for 5 minutes against the LMS limit of 200 writes a second.
 
+**Sizing for the Run tab**
+- Name the APIs exp-exam-api, prc-exam-api, prc-lms-writer, sys-lms-api and sys-proctoring-api. Call the stores the autosave store and the proctoring session cache.
+- For exam season run exp-exam-api and prc-exam-api on 3 replicas of 2 vCores each. Give prc-lms-writer and sys-lms-api 0.5 vCore each.
+
 **Your task.** Propose changes to make exam season reliable and cost-effective.
 `,
   answerTemplate: `## Where the current design breaks
@@ -108,16 +112,16 @@ The Run tab tests the two hardest rows: 2,000 autosaves a second, and 300 final 
   solution: `
 **Why it broke.** Synchronous chains meant every student request waited on the LMS and proctoring vendor; when they slowed, Mule threads and client timeouts piled up, students re-submitted, and non-idempotent writes duplicated results.
 
-**Exam start.** A scheduled job creates proctoring sessions for all registered candidates in the hours before each exam, respecting the vendor's 100/s limit. At start time \`exam-papi\` only looks up a pre-created session (cached) and returns it — fast and independent of the vendor's burst capacity.
+**Exam start.** A scheduled job creates proctoring sessions for all registered candidates in the hours before each exam, respecting the vendor's 100/s limit. At start time \`prc-exam-api\` only looks up a pre-created session in the cache and returns it. This is fast and independent of the vendor's burst capacity.
 
 **Autosave.** Autosave writes go to a fast key-value store (e.g. a managed cache/database sized for 2,000 writes/s) keyed by attempt ID, not to the LMS. This is the main load reduction.
 
 **Submission.**
 1. Client sends final submission with an attempt ID (idempotency key).
-2. \`exam-eapi\` validates, writes it durably (database or persistent queue) and returns \`202 Accepted\` with a receipt.
-3. Consumers write to the LMS at a controlled rate (queue consumers with limited concurrency) — 300/s peaks drain in minutes at 200/s.
+2. \`exp-exam-api\` passes it to \`prc-exam-api\`, which validates it, puts it on the persistent \`exam-submissions\` queue and returns \`202 Accepted\` with a receipt.
+3. \`prc-lms-writer\` takes the queue with limited concurrency and writes to the LMS through \`sys-lms-api\` at no more than 200/s. Five minutes at 300/s leaves about 30,000 submissions waiting, which drain in under 3 minutes.
 4. Duplicate submissions with the same attempt ID return the original receipt.
-5. Failures go to a DLQ with alerting and a replay process; a reconciliation report compares receipts to LMS records before results are released.
+5. Failures go to \`exam-submissions-dlq\` with alerting and a replay process; a reconciliation report compares receipts to LMS records before results are released.
 
 **Capacity.** Use CloudHub 2.0 replicas (or the platform's equivalent) and scale up by schedule via the CI/CD pipeline or Platform APIs a few days before exams, then scale down. Size from load test results, not guesswork. Apply rate limiting/spike control at the API gateway to protect the platform from client retry storms, with clear \`Retry-After\` responses.
 
@@ -130,8 +134,8 @@ The Run tab tests the two hardest rows: 2,000 autosaves a second, and 300 final 
 **Risks.** Hidden limits in the identity provider (include it in load tests), client-side retries amplifying load (exponential backoff in the web app), and data loss (durable acceptance before acknowledgement).
 `,
   followUps: [
-    { q: 'Why not just scale Mule to 20 replicas?', a: 'Mule is not the bottleneck; the LMS and proctoring vendor are. More replicas would only push more concurrent load onto them and fail faster. Buffering and pre-provisioning address the real limits.' },
+    { q: 'Why not scale Mule to 20 replicas instead?', a: 'Mule is not the bottleneck; the LMS and proctoring vendor are. More replicas would only push more concurrent load onto them and fail faster. Buffering and pre-provisioning address the real limits.' },
     { q: 'How does the student know the submission was received if you return 202?', a: 'The response includes a receipt ID and timestamp shown to the student; a status endpoint confirms when it is recorded in the LMS.' },
-    { q: 'What do you monitor during the exam?', a: 'Queue depth and age, LMS write latency, 4xx/5xx rates, submissions received vs recorded, and replica CPU/memory — with alerts tied to a runbook.' },
+    { q: 'What do you monitor during the exam?', a: 'Queue depth and age, LMS write latency, 4xx/5xx rates, submissions received vs recorded, and replica CPU/memory, with alerts tied to a runbook.' },
   ],
 }

@@ -66,7 +66,7 @@ export default {
     },
   },
   description: `
-Copperline Home Supply' product data hub (fictional) feeds a **supply chain planning platform**, a SaaS product that plans store replenishment. They exchange **files** through **Azure Blob Storage**:
+Copperline Home Supply's product data hub (fictional) feeds a **supply chain planning platform**, a SaaS product that plans store replenishment. They exchange **files** through **Azure Blob Storage**:
 - Each night an export job reads the staged item, supplier item and stock data from the hub's **Oracle database** and writes export files to the container \`planning-exchange\`. The platform collects them.
 - The platform writes its results (planned orders and forecasts) back to the container. A results loader job reads them and loads them into Oracle staging tables. It uses a Batch Job: an aggregator bulk inserts each group, and a group that fails is inserted again row by row so only bad rows fail.
 

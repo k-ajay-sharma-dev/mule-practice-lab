@@ -202,7 +202,7 @@ export default {
     ),
   ),
   description: `
-An insurer is moving its claims platform from **AWS** to **Azure**. During the 6-month transition, the scanning service (still on AWS) writes scanned claim documents as PDFs (0.2–40 MB, ~8,000 per day) to the S3 bucket \`acme-claims-scans-export\` under \`outbound/\`. The new claims system on Azure reads them from the Blob Storage container \`claims-scans\`.
+An insurer is moving its claims platform from **AWS** to **Azure**. During the 6-month transition, the scanning service (still on AWS) writes scanned claim documents as PDFs (0.2 to 40 MB, ~8,000 per day) to the S3 bucket \`acme-claims-scans-export\` under \`outbound/\`. The new claims system on Azure reads them from the Blob Storage container \`claims-scans\`.
 
 You are asked to build the relay in Mule.
 
@@ -210,8 +210,13 @@ You are asked to build the relay in Mule.
 - A document must appear in Azure within ~10 minutes of landing in S3.
 - **No document may be lost**: an object is removed from S3 only once it is safely in Azure.
 - One corrupt or oversized document must not stop the others.
-- If Azure Storage is down for an hour, the relay must not spend the hour failing every document one by one; it should simply catch up afterwards.
+- If Azure Storage is down for an hour, the relay must not spend the hour failing every document one by one; it should catch up afterwards.
 - Keep the Mule worker's memory flat even for 40 MB files.
+
+**Facts**
+- S3 List Objects also returns the folder placeholder key \`outbound/\` with size 0. It is not a document.
+- The connector's Upload Blob returns \`true\` when the blob was written and \`false\` when it was not.
+- Store each document as \`from-aws/<file name>\` in \`claims-scans\`.
 
 **Design the flow.** How do you make the relay safe to rerun after a crash?
 `,
@@ -235,9 +240,9 @@ You are asked to build the relay in Mule.
   ],
   solution: `
 1. **Scheduler** every 5 minutes (primary node only in a cluster; one replica is enough for ~8,000 files/day).
-2. **S3 List Objects** bucket \`acme-claims-scans-export\`, prefix \`outbound/\`. **Transform**: drop keys ending in \`/\` and empty objects, take the first 200 — the rest waits for the next run.
+2. **S3 List Objects** bucket \`acme-claims-scans-export\`, prefix \`outbound/\`. **Transform**: drop keys ending in \`/\` and empty objects, take the first 200; the rest waits for the next run.
 3. **For Each** object:
-   - Blob name = key without \`outbound/\`, under \`from-aws/\` — deterministic.
+   - Blob name = key without \`outbound/\`, under \`from-aws/\`, so it is deterministic.
    - **Try**: **S3 Get Object** → **Upload Blob** (container \`claims-scans\`, content = the stream, content type \`application/pdf\`) → **Validation** that the upload returned true → **S3 Delete Object** → log.
    - **On Error Propagate** \`AZURE-STORAGE:CONNECTIVITY\` (the partner manual lists no error types, so confirm the name in Studio) → stops the loop and the run (nothing was deleted). Next run starts over.
    - **On Error Continue** (ANY) → log the key and reason, leave the object in S3, continue with the next one. A file that keeps failing is visible in the log on every run; after N failures move it to a \`quarantine/\` prefix (copy + delete) so it does not block the slice.
@@ -249,7 +254,7 @@ You are asked to build the relay in Mule.
   followUps: [
     {
       q: 'Would Parallel For Each make this faster? What changes?',
-      a: 'Yes, with maxConcurrency of 4–8 the network transfers overlap. But Parallel For Each collects all route errors and raises MULE:COMPOSITE_ROUTING at the end, so the "stop when Azure is down" behaviour no longer stops early; keep the per-file Try inside each route and check the platform before the loop.',
+      a: 'Yes, with maxConcurrency of 4 to 8 the network transfers overlap. But Parallel For Each collects all route errors and raises MULE:COMPOSITE_ROUTING at the end, so the "stop when Azure is down" behaviour no longer stops early; keep the per-file Try inside each route and check the platform before the loop.',
     },
     {
       q: 'Why not trigger the relay from S3 event notifications instead of polling?',

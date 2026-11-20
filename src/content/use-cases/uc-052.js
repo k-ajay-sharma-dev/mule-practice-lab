@@ -149,14 +149,14 @@ Facts and constraints:
     |             |                [EMPI]       [EHR]
 \`\`\`
 
-**Sequence — kiosk check-in**
+**Sequence: kiosk check-in**
 1. Kiosk → exp-kiosk \`POST /check-ins { appointmentCode, dateOfBirth }\` (kiosk device client credentials + mTLS).
 2. → prc-patient-checkin → sys-appointments: find appointment; verify DOB against the patient (via prc-patient-registration / sys-ehr-patients). Mismatch → generic "please see reception" (no data leakage).
 3. Returns a short-lived check-in session; kiosk shows **masked** address/phone for confirmation.
 4. Patient updates phone → \`PATCH /contact\` → prc-patient-registration \`PATCH /patients/{id}\` → sys-ehr-patients sends ADT **A08** (update) and EMPI updated.
 5. Insurance verification via sys-insurance-eligibility (cached per patient per day because each call costs money); then sys-appointments status = ARRIVED.
 
-**Sequence — partner pre-registration**
+**Sequence: partner pre-registration**
 1. Clinic system → exp-partner-fhir \`POST /fhir/Patient\` (OAuth client credentials per clinic + mTLS; scope \`patient.write\`).
 2. exp-partner-fhir validates the FHIR resource and maps FHIR Patient → canonical Patient; adds \`sourceClinicId\`.
 3. prc-patient-registration \`POST /patients/match\` → sys-empi search: score ≥ high threshold → link to existing; between thresholds → create a **manual review task** (front desk merge queue) and return \`202\` with a pending identifier; below → create new identity in EMPI and in EHR (ADT **A04**/A28).

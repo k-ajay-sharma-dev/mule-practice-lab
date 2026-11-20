@@ -156,7 +156,7 @@ export default {
     ]),
   ),
   description: `
-Copperline Home Supply' product data hub (fictional) also **sends** messages: Item, SupplierItem, Barcode and TransferOrder updates for suppliers and stores. Oracle builds them. The PL/SQL procedure \`PDH_OUTBOUND.GENERATE(job_id, message_type)\` reads the changes since the last run and writes the outbound messages, which can take several minutes.
+Copperline Home Supply’s product data hub (fictional) also **sends** messages: Item, SupplierItem, Barcode and TransferOrder updates for suppliers and stores. Oracle builds them. The PL/SQL procedure \`PDH_OUTBOUND.GENERATE(job_id, message_type)\` reads the changes since the last run and writes the outbound messages, which can take several minutes.
 
 You build the outbound app.
 
@@ -166,6 +166,14 @@ You build the outbound app.
 - Never run two jobs of the same type at once. If the table \`pdh_outbound_jobs\` (\`job_id\`, \`message_type\`, \`status\`) has a \`RUNNING\` job for the type, answer **409**.
 - Record each job as \`RUNNING\`, answer **202** \`{ jobId, messageType, status: "RUNNING" }\` at once, and call the procedure in the background.
 - When the procedure ends, mark the job \`COMPLETE\` and publish \`{ jobId, messageType }\` to the JMS queue \`PDH.OUTBOUND.READY\`, where the sending flows pick it up. If it fails, mark the job \`FAILED\`, log an ERROR and announce nothing.
+- Keep the job steps in one flow that both triggers call with Flow Reference.
+
+**Facts**
+- \`job_id\` is a new UUID made in the flow. Call the procedure as \`{ call PDH_OUTBOUND.GENERATE(:jobId, :messageType) }\`.
+- Write the statuses \`'RUNNING'\`, \`'COMPLETE'\` and \`'FAILED'\` as literals in the SQL.
+- A failed procedure raises **DB:QUERY_EXECUTION**.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flows.**
 `,

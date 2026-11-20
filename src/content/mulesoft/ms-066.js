@@ -10,22 +10,22 @@ export default {
       type: 'single',
       prompt: 'What does `watermarkColumn="SHIPPED_AT"` on a `db:listener` do?',
       options: [
-        'Mule remembers the highest SHIPPED_AT value it has processed and only picks up rows with a greater value on the next poll',
+        'Mule stores the highest value seen and selects only newer rows',
         'Oracle marks rows as processed by updating SHIPPED_AT',
-        'It sorts the result set by SHIPPED_AT',
-        'It deletes rows older than the watermark',
+        'It sorts each poll\'s result set by SHIPPED_AT',
+        'It deletes rows older than the watermark after each poll',
       ],
       answer: 0,
-      explain: 'The listener keeps the watermark in an object store and adds a condition on the column; nothing is written back to the table.',
+      explain: 'Mule remembers the highest SHIPPED_AT value it has processed and only picks up rows with a greater value on the next poll. The listener keeps the watermark in an object store and adds a condition on the column; nothing is written back to the table.',
     },
     {
       type: 'single',
       prompt: 'Some shipments are never sent to the TMS. The WMS inserts rows inside transactions that can take 30 seconds, and SHIPPED_AT is set at the start of the transaction. Why are rows missed?',
       options: [
-        'A row committed late can have a SHIPPED_AT lower than the watermark already stored, so it is never selected',
-        'db:listener ignores rows inserted inside transactions',
-        'The listener only reads the first 100 rows',
-        'Oracle hides rows with TIMESTAMP columns from JDBC',
+        'A late commit can carry a SHIPPED_AT below the stored watermark',
+        'db:listener skips rows inserted inside long transactions',
+        'The listener reads only the first 100 rows of each poll',
+        'Rows still locked by the WMS make the poll fail and skip them',
       ],
       answer: 0,
       explain: 'A watermark assumes values only grow in commit order. A long transaction commits a row "in the past" relative to rows other sessions committed meanwhile, so the poll already moved beyond it. Sequences have the same problem.',
@@ -35,10 +35,10 @@ export default {
       detail: true,
       prompt: 'What is the `idColumn` of the db:listener for?',
       options: [
-        'To avoid processing the same row twice while it is still being processed (e.g. when polls overlap)',
+        'To skip rows that are still being processed by an earlier poll',
         'To define the primary key of the table for inserts',
-        'To set the watermark',
-        'To partition rows across cluster nodes',
+        'To set which column the watermark is taken from',
+        'To split rows across cluster nodes by key',
       ],
       answer: 0,
       explain: 'The idColumn lets the listener track rows that are in flight, so a row picked up by one poll is not dispatched again while it is still being processed.',
@@ -47,22 +47,22 @@ export default {
       type: 'multi',
       prompt: 'You replace the listener with Scheduler + select + status column. Which elements make it robust?',
       options: [
-        'Select rows WHERE STATUS = \'NEW\' (not by timestamp), so late commits are still found',
-        'Mark each row SENT (or ERROR with a reason) after the TMS accepts it',
-        'Claim rows with SELECT ... FOR UPDATE SKIP LOCKED (inside a transaction) or an UPDATE ... SET STATUS = \'PROCESSING\' so parallel pollers do not take the same row',
-        'Use fixed frequency 1 ms to poll as often as possible',
+        'Select rows WHERE STATUS = \'NEW\', not by timestamp',
+        'Mark each row SENT (or ERROR with a reason) after the TMS call',
+        'Claim rows with FOR UPDATE SKIP LOCKED or a PROCESSING update',
+        'Poll every 1 ms so rows are picked up as soon as possible',
       ],
       answer: [0, 1, 2],
-      explain: 'A status column is independent of commit order, gives an audit trail and allows retries of ERROR rows. Polling extremely often only adds DB load.',
+      explain: 'Selecting by status finds late commits. Claiming rows (SELECT ... FOR UPDATE SKIP LOCKED inside a transaction, or UPDATE ... SET STATUS = \'PROCESSING\') stops parallel pollers from taking the same row. A status column is independent of commit order, gives an audit trail and allows retries of ERROR rows. Polling extremely often only adds DB load.',
     },
     {
       type: 'single',
       prompt: 'The app runs on 2 CloudHub 2.0 replicas with **clustering enabled**. What does setting `primaryNodeOnly="true"` on the db:listener achieve?',
       options: [
-        'It polls on the primary node only, so the same rows are not picked up by both replicas',
-        'Each replica polls independently, but rows are split evenly between them',
+        'Only the primary node polls, so rows are not taken twice',
+        'Each replica polls, but rows are split evenly between them',
         'The listener does not start at all in a cluster',
-        'It makes the watermark immune to late commits',
+        'It makes the watermark safe against late commits',
       ],
       answer: 0,
       explain: 'The connector docs say Primary Node Only must be enabled in a cluster to prevent duplicate record processing. Without clustering each replica is a separate app and polls on its own regardless, which is why the scheduler design also needs row claiming.',
@@ -86,7 +86,7 @@ The current implementation:
 
 Problems:
 - Each week a few shipments never reach the TMS; stores get trucks they did not expect. The DBA says the WMS sets \`SHIPPED_AT\` at the start of a load transaction that can take 30+ seconds.
-- When the TMS is down, failed rows are not retried — the watermark has already moved.
+- When the TMS is down, failed rows are not retried, because the watermark has already moved.
 - The team wants to scale to 2 replicas and is not sure if rows will be processed twice.
 
 **Questions**
@@ -144,7 +144,7 @@ Problems:
   followUps: [
     {
       q: 'Where is the watermark stored and how do you reset it?',
-      a: 'In an object store used by the listener, so it survives restarts when persistent. Resetting means clearing that object store entry (or the app object store), which causes rows to be read again — so processing must be idempotent.',
+      a: 'In an object store used by the listener, so it survives restarts when persistent. Resetting means clearing that object store entry (or the app object store), which causes rows to be read again, so processing must be idempotent.',
     },
     {
       q: 'Why limit the select to 200 rows, and why ROWNUM rather than FETCH FIRST?',

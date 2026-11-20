@@ -10,7 +10,7 @@ An insurer's API review board wants every new API to follow one standard. Errors
 
 A library can use another library. The names of that inner library stay private. An API that uses \`core\` can write \`core.collection\`, but it cannot reach through to \`core.errors.Error\`. Only \`core\` itself decides what it passes on.
 
-This problem has three files. Use the tabs above the editor to move between them.
+This problem has three files. Use the tabs above the editor to move between them. A path in \`uses\` is relative to the file that holds it.
 
 **Requirements for \`standards/errors.raml\`**
 - A library with a type \`Error\` that has a required string \`code\` and a required string \`message\`.
@@ -187,7 +187,7 @@ types:
   followUps: [
     {
       q: 'How do you stop a team skipping the standard?',
-      a: 'Shared files make the right way the easy path, but they do not force it. Add API governance rulesets in Anypoint, so a contract that breaks the rules is flagged before it is published.',
+      a: 'Shared files make the right way the shortest path, but they do not force it. Add API governance rulesets in Anypoint, so a contract that breaks the rules is flagged before it is published.',
     },
     {
       q: 'A team needs one extra response on /claims. Does it have to change the library?',

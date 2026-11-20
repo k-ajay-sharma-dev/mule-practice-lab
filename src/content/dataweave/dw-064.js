@@ -20,6 +20,7 @@ The PIM exports products as JSON. A marketplace accepts listings as a **tab-sepa
 - \`color\` and \`size\` are taken from the attributes, matching the name **case-insensitively**; a missing attribute is an empty field.
 - \`title\` = product title, followed by \`" - "\` and the present values of color and size joined with \`" / "\`; when neither exists, only the product title.
 - \`price\` with exactly two decimals; \`quantity\` = sum over all warehouses (\`0\` when \`stock\` is empty or missing).
+- Rows follow the input order of products, then of variants within a product.
 - Columns in this order: \`parent_sku, sku, title, color, size, price, quantity\`, separated by a **tab**, header included.
 `,
   inputs: [
@@ -80,7 +81,7 @@ payload.products
 `,
   hints: [
     '`flatMap` over the products: each product returns an array of rows (zero, one or many).',
-    'Write a small function `attr(attrs, name)` that filters `attrs default []` on `lower($.name) == name` and returns `[0].value` — on an empty result that is simply `null`.',
+    'Write a small function `attr(attrs, name)` that filters `attrs default []` on `lower($.name) == name` and returns `[0].value`. On an empty result that is `null`.',
     '`valuesOf(stock default {})` gives the warehouse quantities; `sum([])` is `0`.',
     'For the title, put color and size in an array, `filter ($ != null)`, and `joinBy " / "`.',
     'The tab separator is a writer property: `output application/csv separator="\\t"`.',
@@ -110,15 +111,15 @@ payload.products flatMap (p) ->
   else
     (p.variants filter ($.status != "DISCONTINUED")) map (v) -> row(p.sku, p, v)`,
   explanation: `
-**One-to-many with a fallback.** \`flatMap\` lets every product decide how many rows it contributes: one per active variant, exactly one for a simple product, or none when all variants are discontinued. Note the difference between "has no variants" (a simple product, sell it) and "has only discontinued variants" (nothing to sell) — the \`isEmpty\` test is done on the **unfiltered** variants for exactly that reason.
+**One-to-many with a fallback.** \`flatMap\` lets every product decide how many rows it contributes: one per active variant, exactly one for a simple product, or none when all variants are discontinued. Note the difference between "has no variants" (a simple product, sell it) and "has only discontinued variants" (nothing to sell). The \`isEmpty\` test is done on the **unfiltered** variants for exactly that reason.
 
 **One row builder.** Simple products and variants have the same shape (\`attributes\`, \`stock\`, \`price\`), so \`row(parentSku, product, item)\` serves both; the simple product is passed as its own item.
 
 **Case-insensitive lookup.** \`lower($.name) == "color"\` matches \`Color\`, \`color\` and \`COLOR\`. \`[][0]\` is \`null\` and \`null.value\` is \`null\`, so a missing attribute needs no special code.
 
-**Inheritance.** \`item.price default product.price\` — \`default\` replaces \`null\` (and missing), which is exactly the "use the parent value" rule. It would **not** replace \`0\`, which is good: a variant explicitly priced at 0 is a data problem to be caught, not silently overridden.
+**Inheritance.** In \`item.price default product.price\`, \`default\` replaces \`null\` (and missing), which is exactly the "use the parent value" rule. It would **not** replace \`0\`, which is good: a variant explicitly priced at 0 is a data problem to be caught, not silently overridden.
 
-**TSV.** \`separator="\\t"\` switches the CSV writer to tabs. All rows have the same keys in the same order, so the header (taken from the first row) is right for every row; \`null\` becomes an empty field. Tabs in a title would break the file — real feeds strip them from free text.
+**TSV.** \`separator="\\t"\` switches the CSV writer to tabs. All rows have the same keys in the same order, so the header (taken from the first row) is right for every row; \`null\` becomes an empty field. Tabs in a title would break the file, so real feeds strip them from free text.
 `,
   tests: [
     {

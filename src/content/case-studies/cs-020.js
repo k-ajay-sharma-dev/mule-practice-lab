@@ -95,6 +95,8 @@ export default {
 - Third-party vendors are pay-per-call. Avoid unnecessary or duplicate calls.
 - Bureaus occasionally take 20+ seconds or are unavailable.
 - About 10 applications arrive a second from the app and 5 from brokers. A vendor call normally takes 2 seconds, and a slow bureau can take 25.
+- Hide both bureaus behind one credit-bureau System API. Give the bureau call a 5 second timeout and a circuit breaker. When a check fails or times out, the applicant still gets an answer ("under review") within 6 seconds and the application continues from a queue.
+- Brokers must present an OAuth 2.0 token at the gateway. A caller without one is refused before any pay-per-call vendor is used.
 
 **Your task.** Propose:
 - the architecture

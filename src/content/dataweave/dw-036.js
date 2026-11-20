@@ -79,7 +79,7 @@ payload map (mail) -> {
   )
 }`,
   explanation: `
-**\`scan\` vs \`match\`.** \`match\` (the function) tests one regex against the whole string and returns the groups of that single match. \`scan\` finds **every** match and returns an array of group arrays — exactly what you need when a subject mentions several tickets.
+**\`scan\` vs \`match\`.** \`match\` (the function) tests one regex against the whole string and returns the groups of that single match. \`scan\` finds **every** match and returns an array of group arrays, which is exactly what you need when a subject mentions several tickets.
 
 **Capture groups in \`replace\`.** When \`with\` gets a lambda, it receives the same \`[full, g1, g2, ...]\` array per match, so normalising in place reuses the same function. A plain string replacement could not left-pad the number.
 
@@ -117,11 +117,11 @@ payload map (mail) -> {
   followUps: [
     {
       q: 'What does `"a1b22" scan /\\d+/` return, and how is that different from `match`?',
-      a: '`scan` returns `[["1"], ["22"]]` — every match, each as an array. `"a1b22" match /\\d+/` returns `[]`, because `match` must match the **whole** string; it is for a single, full-string match with capture groups.',
+      a: '`scan` returns `[["1"], ["22"]]`: every match, each as an array. `"a1b22" match /\\d+/` returns `[]`, because `match` must match the **whole** string; it is for a single, full-string match with capture groups.',
     },
     {
-      q: 'How would you just test whether a subject contains any reference?',
-      a: 'Use `contains` with a regex — `mail.subject contains refPattern` — or `!isEmpty(mail.subject scan refPattern)`. `matches` would be wrong because it requires the whole string to match.',
+      q: 'How would you only test whether a subject contains any reference?',
+      a: 'Use `contains` with a regex (`mail.subject contains refPattern`) or `!isEmpty(mail.subject scan refPattern)`. `matches` would be wrong because it requires the whole string to match.',
     },
     {
       q: 'Where would you keep a regex used by several transformations?',

@@ -163,12 +163,17 @@ export default {
 A trading back-office receives **trade confirmations** on an **ActiveMQ Artemis** queue \`TRADES.IN\` (~500 msgs/s at market close). For each message the integration must:
 
 1. Insert the trade into an **Oracle** \`TRADES\` table (and its legs into \`TRADE_LEGS\`).
-2. Publish an enriched message to a second JMS queue \`TRADES.RISK\` for the risk engine.
+2. Publish an enriched message (with the \`tradeId\`) to a second JMS queue \`TRADES.RISK\` for the risk engine.
+
+**Facts**
+- A message is \`{ tradeId, isin, quantity, price, legs: [{ account, amount }] }\`, with the numbers as text.
+- \`TRADES\` has \`TRADE_ID\` (unique key), \`ISIN\`, \`QUANTITY\` and \`PRICE\`. \`TRADE_LEGS\` has \`TRADE_ID\`, \`LEG_NO\` (1, 2, ...), \`ACCOUNT\` (not null) and \`AMOUNT\`.
+- Inserting a \`TRADE_ID\` that already exists fails with \`DB:QUERY_EXECUTION\` and Oracle's \`ORA-00001\` (unique constraint violated) in the description. Other Oracle errors raise the same Mule error type.
 
 **Requirements**
 - A trade must **never** be in the DB without the risk message, or vice versa.
 - A message must not be lost if Oracle is down; poison messages must not block the queue forever.
-- Duplicate trades in the DB are unacceptable (regulatory reporting).
+- Duplicate trades in the DB are unacceptable (regulatory reporting). A redelivered trade that is already saved is consumed as done, with no second risk message.
 
 **Design the flow(s):** transaction boundaries, XA vs local transactions, configuration, redelivery and poison handling, and the alternatives if XA is not allowed by the platform team.
 `,
@@ -199,14 +204,14 @@ A trading back-office receives **trade confirmations** on an **ActiveMQ Artemis*
 1. Configure the **Bitronix transaction manager** (\`bti:transaction-manager\`) and an XA-capable **JMS connection factory** (Artemis XA factory) and **Oracle XA data source** (\`bti:xa-data-source-pool\` referenced by the Database config).
 2. **JMS On New Message** listener on \`TRADES.IN\` with \`transactionalAction="ALWAYS_BEGIN"\` and \`transactionType="XA"\`.
 3. Transform Message (DataWeave) → trade row and legs list.
-4. **Database Insert** (trade) and **Bulk Insert** (legs) — both join the transaction by default (\`JOIN_IF_POSSIBLE\`). The Insert replaces the payload with its result and Bulk Insert reads its records from the payload, so set the payload to the legs list (or point the Bulk Insert's input at \`vars.trade.legs\`) before it.
+4. **Database Insert** (trade) and **Bulk Insert** (legs): both join the transaction by default (\`JOIN_IF_POSSIBLE\`). The Insert replaces the payload with its result and Bulk Insert reads its records from the payload, so set the payload to the legs list (or point the Bulk Insert's input at \`vars.trade.legs\`) before it.
 5. DataWeave enriches the message → **JMS Publish** to \`TRADES.RISK\` (joins the transaction).
 6. Flow completes → transaction manager runs two-phase commit across Artemis and Oracle.
-7. Avoid async boundaries inside the transaction (Async scope, Parallel For Each, VM to another flow) — the transaction is bound to the thread/flow.
+7. Avoid async boundaries inside the transaction (Async scope, Parallel For Each, VM to another flow): the transaction is bound to the thread/flow.
 
 **Redelivery & poison**
 - Any error → **On Error Propagate** → rollback → broker redelivers.
-- Set the broker-side \`max-delivery-attempts\` with a DLA/DLQ so a bad message ends up on \`TRADES.DLQ\` after N attempts (the JMS connector docs say Max Redelivery on the listener has no effect). Don't use On Error Continue for real failures — it commits.
+- Set the broker-side \`max-delivery-attempts\` with a DLA/DLQ so a bad message ends up on \`TRADES.DLQ\` after N attempts (the JMS connector docs say Max Redelivery on the listener has no effect). Don't use On Error Continue for real failures: it commits.
 
 **Duplicates:** unique constraint on \`TRADES.TRADE_ID\`; a redelivered, already-committed message (rare XA recovery cases or upstream duplicates) fails the insert → treat that specific constraint error as "already processed" and commit.
 
@@ -217,6 +222,6 @@ A trading back-office receives **trade confirmations** on an **ActiveMQ Artemis*
   followUps: [
     { q: 'What does XA cost you?', a: 'Two-phase commit adds round trips and log writes, reducing throughput, and in-doubt transactions need recovery. At 500 msgs/s you must load-test it and size concurrency carefully.' },
     { q: 'Can Anypoint MQ join an XA transaction?', a: 'No. Anypoint MQ uses acknowledgements, not transactions, so with it you rely on manual ack plus idempotency/outbox patterns.' },
-    { q: 'Why is On Error Continue dangerous inside a transactional flow?', a: 'It treats the error as handled, so the transaction commits — the input message is consumed even though the DB insert or publish failed.' },
+    { q: 'Why is On Error Continue dangerous inside a transactional flow?', a: 'It treats the error as handled, so the transaction commits. The input message is consumed even though the DB insert or publish failed.' },
   ],
 }

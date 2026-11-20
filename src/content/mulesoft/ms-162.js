@@ -24,8 +24,8 @@ export default {
       detail: true,
       prompt: 'The parent POM publish fails in the deploy stage with status code 412. What does the troubleshooting section say?',
       options: [
-        '`exchange-pre-deploy` was not executed, so make sure that goal is inside the executions of the plugin',
-        'The version already exists, so raise the version',
+        '`exchange-pre-deploy` did not run; add it to the executions',
+        'The version already exists in Exchange; raise the version',
         'The Connected App lacks the Exchange Contributor permission',
         'The `distributionManagement` URL must use `/api/v2/`',
       ],
@@ -37,9 +37,9 @@ export default {
       prompt: 'The parent already declares `exchange-mule-maven-plugin`. A child Mule application is published with the Mule Maven plugin. What must be done?',
       options: [
         'Prevent the inheritance with `<inherited>false</inherited>` on that plugin',
-        'Add `maven-deploy-plugin` to the child',
+        'Add `maven-deploy-plugin` to the child to do the publish',
         'Publish the child as a custom asset as well',
-        'Nothing, because the two plugins run in sequence',
+        'Nothing, because the two plugins run one after the other',
       ],
       answer: 0,
       explain: 'Without this, the child picks up the custom asset publishing behaviour of its parent. The Exchange page shows the plugin declared with `<inherited>false</inherited>`.',
@@ -49,10 +49,10 @@ export default {
       detail: true,
       prompt: 'The parent POM has a `distributionManagement` URL with `/api/v2/`, and a new child overrides it with `/api/v3/`. What does the Exchange FAQ say?',
       options: [
-        'Do not mix versions: a parent POM using v2 and a child using v3 fails to deploy',
-        'It works, and the child value wins',
+        'It fails to deploy; v2 and v3 cannot be mixed',
+        'It works, and the value in the child wins',
         'It works, because v2 and v3 are aliases',
-        'The parent must use v2, and only children use v3',
+        'It works only if the parent was published first',
       ],
       answer: 0,
       explain: 'In a Maven POM, use the Maven Facade URL with `/api/v3/`. The REST Exchange API stays on v2, and that is a different API.',
@@ -91,7 +91,7 @@ export default {
         'Both versions go into the JAR',
       ],
       answer: 0,
-      explain: 'The note on the Package a Mule Application page says the latest version is used. `mvn dependency:tree` shows what you are getting.',
+      explain: 'The note on the Package a Mule Application page says the latest version is used. Plain Maven mediation picks the nearest definition in the tree instead, so do not rely on either rule. Pin the version in `dependencyManagement` and check with `mvn dependency:tree`.',
     },
   ],
   description: `
@@ -155,7 +155,7 @@ The first publish fails with status code 412. After a quick fix, the first child
     'Use /api/v3/ in POMs. A parent on v2 and a child on v3 fails to deploy.',
     'pluginManagement defines configuration, and children opt in by referencing the plugin without a version.',
     'sharedLibraries are visible to all connectors. additionalPluginDependencies stay with one connector and need an explicit version.',
-    'If there is a version conflict in the POM, the latest version is used. Check with mvn dependency:tree.',
+    'The packaging page says a version conflict uses the latest version, while plain Maven picks the nearest definition. Pin versions and check with mvn dependency:tree.',
   ],
   solution: `
 **Publishing the parent.** The Exchange page says parent POMs are published as custom assets, with \`exchange-mule-maven-plugin\`, and it needs two goals. The draft has only \`exchange-deploy\`. The docs give the meaning of the error directly: a 412 (Precondition Failed) in the deploy stage means \`exchange-pre-deploy\` was not executed. Add the missing execution:

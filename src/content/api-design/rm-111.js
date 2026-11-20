@@ -281,7 +281,7 @@ resourceTypes:
     type: { member: { itemType: Claim } }
 `,
   keyPoints: [
-    'A resource type parameter is matched by name. item and itemType are different, and the parser leaves <<itemType>> unfilled without an error.',
+    'A resource type parameter is matched by name. item and itemType are different. The editor here leaves <<itemType>> unfilled without an error, and some tools only report it later.',
     'A method ending in ? in a resource type is only added when the resource declares that method itself.',
     'discriminatorValue must match the value callers send, letter for letter. home never matches HOME.',
     'A pattern and its example must agree. When the requirement says the example is right, fix the pattern.',
@@ -303,8 +303,8 @@ The seven fixes.
       a: 'With a union, the caller has to guess the subtype from which fields are present. A discriminator names one field whose value says the subtype, so the portal reads claimType and picks the screen at once.',
     },
     {
-      q: 'Why can a wrong parameter name pass the parser?',
-      a: 'Text inside << >> is a placeholder, and the parser cannot know which names the author meant. An unfilled placeholder stays as plain text, so a test on the expanded contract or a mock call finds it.',
+      q: 'Why can a wrong parameter name slip through?',
+      a: 'Text inside << >> is a placeholder, and a lenient parser cannot know which names the author meant, so the text stays unfilled. Stricter tools such as the Anypoint parser usually report a parameter with no value. Validate the expanded contract in the build, so this never reaches callers.',
     },
     {
       q: 'When is get? in a resource type useful?',

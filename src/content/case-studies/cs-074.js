@@ -104,6 +104,8 @@ export default {
 
 **Peak numbers.** On a busy Saturday the OMS can release 40 orders a second for Carrier B, and the carriers send about 150 status webhooks a second.
 
+**For the diagram.** Name the dispatch queue \`orders-ready-for-dispatch\`, the APIs prc-dispatch, exp-carrier-webhooks-api and prc-delivery-status, and the store the dispatch rules store. Run exp-carrier-webhooks-api on 0.5 vCore.
+
 **Your task.** Design the dispatch and delivery tracking integration.
 `,
   answerTemplate: `## Dispatch: choosing and booking a carrier

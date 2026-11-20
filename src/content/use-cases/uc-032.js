@@ -59,7 +59,7 @@ Facts:
 - The **laboratory information system (LIS)** sends results as **HL7 v2 ORU^R01** messages over **MLLP** (TCP) to the integration layer. It expects an **ACK** for every message.
 - The patient portal vendor exposes a **FHIR R4 API** (\`Observation\`, \`DiagnosticReport\`, \`Patient\`).
 - ~25,000 result messages/day; a message can contain a panel of up to 40 observations.
-- At peak the LIS sends about 1 message a second. The portal can take 12 seconds for a large bundle, or be down for 30 minutes.
+- At peak the LIS sends about 1 message a second. The portal can take 12 seconds for a large bundle (longer than the usual 10-second call timeout), or be down for 30 minutes. No result may be lost while the portal is down.
 - Results can be **preliminary**, **final** or **corrected**; a correction must replace the earlier value, not add a second one.
 - Clinical rule: some sensitive results (e.g. HIV, genetic tests, certain oncology) must be **held for 72 hours** or until a clinician releases them; the list of test codes is maintained by the medical board.
 - Patients are identified in the LIS by the hospital's medical record number (MRN); the portal uses its own patient ID.
@@ -92,7 +92,7 @@ Facts:
     'PHI protection: TLS/VPN, encryption at rest, no clinical values in logs, audit trail of every message.',
   ],
   solution: `
-**Receiving HL7 and ACK.** An **MLLP listener** (MLLP connector) receives ORU^R01. Parse the MSH segment, validate structure, and write the raw message to a **persistent queue** (Anypoint MQ or a JMS broker) — only then return **ACK AA**. Unparseable messages get **AE/AR** so the LIS keeps them for resend. Processing from the queue preserves order per patient (e.g. message groups keyed by MRN, or a FIFO queue) so a correction is never applied before the original.
+**Receiving HL7 and ACK.** An **MLLP listener** (MLLP connector) receives ORU^R01. Parse the MSH segment, validate structure, and write the raw message to a **persistent queue** (Anypoint MQ or a JMS broker). Only then return **ACK AA**. Unparseable messages get **AE/AR**, so the LIS knows the message was not taken and flags it for correction and resend. Processing from the queue preserves order per patient (e.g. message groups keyed by MRN, or a FIFO queue) so a correction is never applied before the original.
 
 **Mapping to FHIR (DataWeave).**
 - **PID** → patient reference: MRN as an identifier (system = hospital MRN namespace); resolve to the portal patient via \`Patient?identifier=...\`.

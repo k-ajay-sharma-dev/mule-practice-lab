@@ -108,7 +108,7 @@ During coexistence, orders for countries still on ECC arrive at about **60 a sec
   keyPoints: [
     'Ideally only System API implementations change: new S/4 connectivity (OData/REST APIs or BAPIs/RFC that still exist) and mappings, behind an unchanged contract.',
     'Process and Experience APIs and their consumers should not change, unless the System contract leaked ECC semantics or business processes themselves change in S/4.',
-    'During coexistence the System API routes by a business key (company code, order number range) to ECC or S/4 — a strangler facade — with a routing table in configuration.',
+    'During coexistence the System API routes by a business key (company code, order number range) to ECC or S/4, a strangler facade, with a routing table in configuration.',
     'Integrations that bypassed the System layer must be rebuilt or redirected; the migration is the business case to bring them into API-led.',
     'Risks: leaked SoR semantics (codes, number formats, statuses), process changes in S/4, data migration timing (an order moving systems), and performance/limits of the new interface.',
     'The System APIs in front of both SAP systems need a short timeout (2 s) and a circuit breaker, so a hanging S/4HANA does not use up the threads that ECC orders also need. The order System API runs 2 replicas of 0.5 vCore.',
@@ -124,19 +124,19 @@ System      [sys-sap-order-api]  [sys-sap-material-api]                 IMPLEMEN
                ECC (RFC)   S/4HANA (OData APIs / RFC)
 \`\`\`
 
-- **System layer:** new connectivity to S/4HANA (S/4 exposes OData/REST APIs; many BAPIs/RFCs are still available, but some change — verify per object). New DataWeave mappings from S/4 structures to the **same** contract. New error mappings. Performance testing.
+- **System layer:** new connectivity to S/4HANA (S/4 exposes OData/REST APIs; many BAPIs/RFCs are still available, but some change: verify per object). New DataWeave mappings from S/4 structures to the **same** contract. New error mappings. Performance testing.
 - **Process layer:** no change if the System contract is clean. Changes only if S/4 changes *business* behaviour (e.g. new pricing conditions the process must handle).
 - **Experience layer and consumers:** no change. This is the API-led payoff to demonstrate to the business.
-- Naming: \`sys-sap-order-api\` still fits (it is still SAP). If the name had been \`sys-ecc-order-api\`, you would keep the name for compatibility or introduce a new asset — another reason to name by system family, not version.
+- Naming: \`sys-sap-order-api\` still fits (it is still SAP). If the name had been \`sys-ecc-order-api\`, you would keep the name for compatibility or introduce a new asset: another reason to name by system family, not version.
 
 **Coexistence routing (strangler facade inside the System API).**
 - Routing key: **company code** (or sales org); for reads by order id, a lookup or number-range rule tells you which system holds the order (S/4 often uses new number ranges).
-- Routing table in configuration/Object Store, updated as each country cuts over — no redeploy per wave.
-- Queries spanning both (e.g. \`GET /orders?customerId=\` for a customer active in two countries): query both in parallel and merge, or restrict by company code — document behaviour.
+- Routing table in configuration/Object Store, updated as each country cuts over: no redeploy per wave.
+- Queries spanning both (e.g. \`GET /orders?customerId=\` for a customer active in two countries): query both in parallel and merge, or restrict by company code: document behaviour.
 - Writes go only to the system that owns that company code after cut-over; freeze windows around migration of open orders.
 - Same contract, two implementations behind one API: consumers never learn about the migration.
 
-**Integrations that bypass the System layer.** IDoc integrations straight into ECC must be rebuilt for S/4 anyway. Use the migration as the business case to re-platform them onto \`sys-sap-*\` APIs (or to have the System layer own IDoc/event handling for S/4), so next time they are protected too. Add them to the migration plan explicitly — they are typically where cut-over weekends go wrong.
+**Integrations that bypass the System layer.** IDoc integrations straight into ECC must be rebuilt for S/4 anyway. Use the migration as the business case to re-platform them onto \`sys-sap-*\` APIs (or to have the System layer own IDoc/event handling for S/4), so next time they are protected too. Add them to the migration plan explicitly: they are typically where cut-over weekends go wrong.
 
 **Settings that matter during coexistence.**
 - One System API now serves two backends, so a problem in one can reach orders for the other. When S/4HANA hangs, every call to it would hold a thread of \`sys-sap-order-api\` for the default 10 s timeout, and the app soon has no threads left for ECC orders either. A **2000 ms timeout** and a **circuit breaker** on \`sys-sap-order-api\` and \`sys-sap-material-api\` make those calls fail at once, so ECC countries keep being answered in well under a second.
@@ -144,10 +144,10 @@ System      [sys-sap-order-api]  [sys-sap-material-api]                 IMPLEMEN
 
 **Where the promise breaks down.**
 1. **Leaked semantics:** if v1 exposed ECC status codes, document types or 10-digit padded ids, consumers depend on them. Mitigate: map S/4 values back to the published enums; fix the contract in a later version.
-2. **Business process changes:** S/4 may change how pricing, credit or ATP works — Process APIs change, and possibly the meaning of data.
-3. **Identifiers:** new number ranges or customer/business-partner model changes (S/4 uses Business Partner for customers/vendors) — the Customer System API mapping changes significantly; ids exposed to consumers may need a cross-reference.
+2. **Business process changes:** S/4 may change how pricing, credit or ATP works: Process APIs change, and possibly the meaning of data.
+3. **Identifiers:** new number ranges or customer/business-partner model changes (S/4 uses Business Partner for customers/vendors): the Customer System API mapping changes significantly; ids exposed to consumers may need a cross-reference.
 4. **Non-functional:** different latency, throughput or API limits; re-test caching and timeouts.
-5. **Data migration:** an order migrated mid-lifecycle exists in both systems for a period — the router must know the authoritative copy.
+5. **Data migration:** an order migrated mid-lifecycle exists in both systems for a period: the router must know the authoritative copy.
 `,
   followUps: [
     { q: 'Would you create a new System API for S/4 instead of changing the existing one?', a: 'If the S/4 data model is so different that the contract must change, create v2 or a new asset and let Process APIs migrate; otherwise keep one System API with two backends so consumers are untouched. The second is the API-led ideal.' },

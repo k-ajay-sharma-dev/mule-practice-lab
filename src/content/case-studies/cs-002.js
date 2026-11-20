@@ -74,9 +74,10 @@ export default {
 Normal peak is ~200 requests/s. Marketing expects **10x** that on Black Friday, mostly catalogue browsing. Last year the ERP slowed down under load and order placement failed for 40 minutes.
 
 **Constraints**
-- The ERP and WMS **cannot** be scaled — the vendor says ~50 orders/s is the safe maximum.
+- The ERP and WMS **cannot** be scaled. The vendor says ~50 orders/s is the safe maximum.
 - Black Friday is in 8 weeks. No re-architecture of the ERP.
 - Expect 2,000 catalogue reads a second (the product DB takes 400 a second) and order bursts of 200 a second for 10 minutes against the ERP's 50.
+- Plan for a cache that answers about 9 in 10 catalogue reads. Give the catalogue Experience API enough replicas and vCores for the full 2,000 reads a second.
 
 **Your task.** Propose a readiness plan: what you change in the integration layer, how you prove it works, and what you do on the day.
 `,
@@ -111,7 +112,7 @@ Normal peak is ~200 requests/s. Marketing expects **10x** that on Black Friday, 
 - Better: make order placement **asynchronous**. \`orders-papi\` validates the order, puts it on a queue (Anypoint MQ), returns *202 Accepted* with an order reference, and a consumer drains the queue into the ERP at ~50 orders/s. A backlog then means delayed confirmations, not failed orders.
 - Timeouts and a friendly error/fallback when a backend is slow.
 
-**Testing.** Load test at 10x–12x with a realistic mix (90% reads, 10% orders) at least 3–4 weeks before, against a production-like environment. Fix what breaks, then re-test. Run a short "game day" (what if the ERP goes down?).
+**Testing.** Load test at 10x to 12x with a realistic mix (90% reads, 10% orders) at least 3 to 4 weeks before, against a production-like environment. Fix what breaks, then re-test. Run a short "game day" (what if the ERP goes down?).
 
 **On the day.** Change freeze, pre-scaled replicas, a dashboard (requests/s, p95 latency, 5xx, queue depth) with alerts, an on-call rota, and a runbook: how to switch off non-essential features (e.g. recommendations) and how to roll back.
 `,

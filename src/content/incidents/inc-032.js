@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: 'Why do browsers on the same server work?',
         options: [
-          'They use system proxy settings and the OS trust store, which already contains the corporate CA; the JVM uses its own settings and truststore',
-          'Browsers ignore certificate errors',
-          'Browsers bypass the proxy',
-          'Browsers use HTTP/2, which the proxy does not inspect',
+          'They use the OS proxy settings and trust store; the JVM uses its own',
+          'Browsers ignore certificate errors from the corporate proxy by default',
+          'Browsers go straight to the internet and bypass the proxy',
+          'Browsers use HTTP/2, which the new proxy does not inspect',
         ],
         answer: 0,
         explain: 'The JVM does not pick up the OS proxy and trust settings automatically, so Mule needs explicit proxy config and a truststore that trusts the corporate CA (or no inspection).',
@@ -43,9 +43,9 @@ export default {
         prompt: 'What is the best way to restore service?',
         options: [
           'Set `insecure="true"` on the trust store of the TLS context on all HTTP requests',
-          'Ask network to bypass TLS inspection for Salesforce and the payment gateway (or trust the corporate CA), and add proxy credentials from secure properties',
-          'Remove the proxy config so Mule connects directly',
-          'Roll back the proxy for the whole company',
+          'Skip TLS inspection for the API hosts or trust the corporate CA, and add secure proxy credentials',
+          'Remove the proxy config so Mule connects to the internet directly',
+          'Ask IT to roll the whole company back to the old proxy',
         ],
         answer: 1,
         explain: 'Bypassing inspection for API/payment hosts is usually right anyway; credentials go in secure properties. `insecure=true` disables certificate validation and is not acceptable in production.',
@@ -57,7 +57,7 @@ export default {
           'proxy-config with host, port, username and secure password from properties, plus a correct nonProxyHosts list',
           'An agreed truststore strategy: managed truststore with the corporate CA, or interception excluded for pinned/mTLS endpoints',
           'Integration team on the stakeholder list for proxy changes and a pre-cutover test from a non-prod runtime',
-          'Store the proxy password in plain text in the properties file for easy rotation',
+          'Store the proxy password in plain text in the properties file so ops can rotate it quickly',
         ],
         answer: [0, 1, 2],
         explain: 'Configurable, secure proxy settings, a deliberate TLS trust decision, and change management. Plain-text passwords are a security risk.',
@@ -104,15 +104,15 @@ export default {
     'Error 2: 407 means the new proxy requires credentials; Mule\'s proxy config needs username/password (or NTLM settings) from secure properties.',
     'Error 3: TLS inspection re-signs certificates with the corporate CA, which the Mule truststore/JVM cacerts does not trust → PKIX error.',
     'Fix: trust the corporate CA (or get the SaaS hosts excluded from TLS inspection), store proxy creds securely, keep non-proxy hosts list correct.',
-    'Browsers work because the OS trust store already contains the corporate CA and they use system proxy settings — the JVM does not automatically.',
+    'Browsers work because the OS trust store already contains the corporate CA and they use system proxy settings. The JVM does not pick these up automatically.',
     'Prevention: involve integration teams in proxy changes and test from a non-prod Mule runtime before cut-over.',
   ],
   solution: `
 ## Diagnosis
 Three layers failed in turn:
-1. **Connection refused** — the apps still used the old proxy host, which was switched off.
-2. **407 Proxy Authentication Required** — the new proxy requires credentials; Mule was sending none.
-3. **PKIX path building failed** — the new proxy does **TLS inspection**: it terminates TLS and presents a certificate signed by the **corporate root CA**. The JVM/app truststore doesn't trust that CA, so the handshake fails. Browsers work because the corporate CA is in the OS trust store and they use system proxy settings; the JVM uses its own.
+1. **Connection refused**: the apps still used the old proxy host, which was switched off.
+2. **407 Proxy Authentication Required**: the new proxy requires credentials; Mule was sending none.
+3. **PKIX path building failed**: the new proxy does **TLS inspection**: it terminates TLS and presents a certificate signed by the **corporate root CA**. The JVM/app truststore doesn't trust that CA, so the handshake fails. Browsers work because the corporate CA is in the OS trust store and they use system proxy settings; the JVM uses its own.
 
 ## Immediate mitigation
 Ask the network team to **bypass TLS inspection** for the integration hosts (Salesforce, payment gateway). This is usually the right answer for payment and API traffic anyway. Or add the corporate CA to the truststore used by the HTTP request configs. Store proxy credentials in **secure properties** and restart.

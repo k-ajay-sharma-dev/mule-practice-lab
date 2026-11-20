@@ -98,7 +98,7 @@ Where the data is:
 
 Numbers for sizing:
 - On a busy day the WMS records about **60 lot movements a second** and supplier ASNs add **10**.
-- A write to the traceability store takes about 30 ms; it accepts **200 writes a second**. It can be down for **an hour** for maintenance, and no movement may be lost.
+- A write to the traceability store takes about 30 ms; it accepts **200 writes a second**. It can be down for **an hour** for maintenance, and no movement may be lost. Once it is back, the waiting movements must be written within about **45 minutes**. A broker redelivers a failed message about **once a minute**.
 - During a recall the quality team runs about **2 recall steps a second**. The customer alert service (500 ms a call) can be down; blocking the stores must not wait for it.
 
 **Questions:**
@@ -116,7 +116,7 @@ Numbers for sizing:
 ## Store and customer level (no lot at POS)
 `,
   keyPoints: [
-    'Model traceability as an append-only event/lineage store of critical tracking events (receive, ship, transform) keyed by lot, location, SSCC and time — separate from operational systems.',
+    'Model traceability as an append-only event/lineage store of critical tracking events (receive, ship, transform) keyed by lot, location, SSCC and time, separate from operational systems.',
     'Populate it from events: ASN lot data from the B2B flow and receipt/pick/ship events from the WMS, through a dedicated ingest Process API and System API.',
     'The recall Process API queries lineage, then fans out blocking instructions to stores asynchronously and notifies affected customers.',
     'POS sales have no lot, so store-level exposure is inferred from shipments to the store and the time window, then matched to loyalty purchases of that item.',
@@ -149,13 +149,13 @@ Ingest is idempotent (event id), tolerant of order (store events, compute lineag
 
 **Sizing and failure handling.**
 - \`sys-wms\` runs on 0.2 vCore to publish 60 movements a second. \`prc-trace-ingest\` and \`sys-traceability\` run on 0.5 vCore each, so after an hour of store downtime (about 250,000 waiting movements) they catch up at about 130 a second over the new ones, in about half an hour.
-- The event stream keeps the movements while the store is down, so nothing is lost.
+- The event stream keeps the movements while the store is down, and has no redelivery limit (or one well above 60), so nothing is lost.
 - \`prc-recall\` gives a partial answer when the alert call fails (3 second timeout): the stores still get their notices, and customer alerts are sent again later.
 
-**Trade-offs:** another data store to own and secure (loyalty data is PII); it is only as good as supplier ASN quality; an append-only model grows quickly — partition by date and archive after 3 years.
+**Trade-offs:** another data store to own and secure (loyalty data is PII); it is only as good as supplier ASN quality; an append-only model grows quickly, so partition by date and archive after 3 years.
 `,
   followUps: [
-    { q: 'Why not just query the WMS and POS at recall time?', a: 'They are operational systems with short retention, different identifiers and no lineage; querying them under time pressure is slow and risky. A purpose-built lineage store answers in seconds and survives system changes.' },
+    { q: 'Why not query the WMS and POS directly at recall time?', a: 'They are operational systems with short retention, different identifiers and no lineage; querying them under time pressure is slow and risky. A purpose-built lineage store answers in seconds and survives system changes.' },
     { q: 'How do you prove you meet the 4-hour target?', a: 'Run regular mock recalls on a real lot, time each step, and track data-quality metrics such as the percentage of ASNs and receipts with lot numbers.' },
     { q: 'A supplier sends a corrected ASN with different lots after receipt. What happens?', a: 'Store it as a correction event that supersedes the earlier one (never overwrite), and flag the receipt for review so lineage reflects what was actually received.' },
   ],

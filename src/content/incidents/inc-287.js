@@ -7,9 +7,9 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-18 05:00:00 INFO  [reject-report] Attachment rejects_20261118.csv sizeBytes=38000000", relevant: true, why: "A 38 MB attachment." },
-      { text: "2026-11-18 05:00:02 ERROR [reject-report] 552 5.3.4 Message size exceeds fixed maximum message size", relevant: true, why: "The relay refuses it." },
       { text: "2026-11-18 05:00:00 INFO  [reject-report] Rejected rows=410000", relevant: true, why: "A very bad day for data." },
+      { text: "2026-11-18 05:00:01 INFO  [reject-report] Attachment rejects_20261118.csv sizeBytes=38000000", relevant: true, why: "A 38 MB attachment." },
+      { text: "2026-11-18 05:00:02 ERROR [reject-report] 552 5.3.4 Message size exceeds fixed maximum message size", relevant: true, why: "The relay refuses it." },
       { text: "2026-11-18 05:00:03 INFO  [reject-report] No fallback", relevant: false },
     ],
     questions: [
@@ -18,9 +18,9 @@ export default {
         prompt: "Why did it bounce?",
         options: [
           "The message is larger than the relay allows",
-          "The address is wrong",
-          "TLS failed",
-          "The CSV is corrupt",
+          "The data team address was removed from the relay",
+          "The relay needs STARTTLS and the job sends plain text",
+          "The CSV has a bad character that the relay refuses",
         ],
         answer: 0,
         explain: "552 means too large.",
@@ -30,9 +30,9 @@ export default {
         prompt: "What is a better design?",
         options: [
           "Store the report and email a summary with a secure link",
-          "Zip and hope",
-          "Split into 40 emails",
-          "Skip big days",
+          "Zip the CSV and attach it, hoping it fits under the limit",
+          "Split the CSV across 40 emails of about 1 MB each",
+          "Drop the attachment on days with over 100,000 rejects",
         ],
         answer: 0,
         explain: "Emails carry summaries, storage carries files.",
@@ -54,9 +54,9 @@ export default {
         prompt: "Why was 410,000 rejects itself a warning sign?",
         options: [
           "It points to a systemic problem, not a few bad rows",
-          "It is normal",
-          "It is good",
-          "It is impossible",
+          "It is more rows than one CSV file can hold",
+          "It means the reject job counted each row twice",
+          "It shows the relay size limit was set too low",
         ],
         answer: 0,
         explain: "Alert on reject rate too.",
@@ -85,9 +85,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 05:00:00 INFO  [reject-report] Attachment rejects_20261118.csv sizeBytes=38000000
-2026-11-18 05:00:02 ERROR [reject-report] 552 5.3.4 Message size exceeds fixed maximum message size
 2026-11-18 05:00:00 INFO  [reject-report] Rejected rows=410000
+2026-11-18 05:00:01 INFO  [reject-report] Attachment rejects_20261118.csv sizeBytes=38000000
+2026-11-18 05:00:02 ERROR [reject-report] 552 5.3.4 Message size exceeds fixed maximum message size
 \`\`\`
 
 ## Your tasks

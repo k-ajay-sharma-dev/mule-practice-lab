@@ -9,10 +9,10 @@ export default {
     logs: [
       { text: '09:12:03 INFO  [ci] Commit 8f21c4 "chore: remove duplicated plugin config from pom.xml" (1 file changed: pom.xml)', relevant: true, why: 'The only change is in the POM, so no flow or test changed in this build.' },
       { text: '09:13:40 INFO  [ci] Downloading from anypoint-exchange-v3: parent pom com.acme:mule-parent:1.14.0', relevant: false },
-      { text: '09:15:22 INFO  [ci] Tests: 46 - Failed: 0 - Errors: 0 - Skipped: 0', relevant: true, why: 'All tests pass. The build is failing on the coverage gate, not on a test.' },
-      { text: '09:15:23 INFO  [ci] MUnit Coverage Summary  * Resources: 9 - Flows: 41 - Processors: 318  * Application Coverage: 63.84%', relevant: true, why: 'Below the required 80% set in the parent POM.' },
-      { text: '09:15:23 ERROR [ci] Flow: claims-events.xml -> claim-reopened-flow coverage is below defined limit. Required: 60.0% - Current: 00.00%', relevant: true, why: 'Names a flow with no test at all, and the flow-level requirement it misses.' },
-      { text: '09:15:23 ERROR [ci] Flow: error-handling.xml -> global-error-handler coverage is below defined limit. Required: 60.0% - Current: 12.50%', relevant: true, why: 'Error handlers are part of the measurement, and these are barely tested.' },
+      { text: '09:15:22 INFO  [ci] Tests: 46, Failed: 0, Errors: 0, Skipped: 0', relevant: true, why: 'All tests pass. The build is failing on the coverage gate, not on a test.' },
+      { text: '09:15:23 INFO  [ci] MUnit Coverage Summary  * Resources: 9, Flows: 41, Processors: 318  * Application Coverage: 63.84%', relevant: true, why: 'Below the required 80% set in the parent POM.' },
+      { text: '09:15:23 ERROR [ci] Flow: claims-events.xml -> claim-reopened-flow coverage is below defined limit. Required: 60.0%, Current: 0.00%', relevant: true, why: 'Names a flow with no test at all, and the flow-level requirement it misses.' },
+      { text: '09:15:23 ERROR [ci] Flow: error-handling.xml -> global-error-handler coverage is below defined limit. Required: 60.0%, Current: 12.50%', relevant: true, why: 'Error handlers are part of the measurement, and these are barely tested.' },
       { text: '09:15:24 ERROR [ci] Failed to execute goal munit-maven-plugin coverage-report: coverage requirements not met', relevant: true, why: 'The gate fails the build, which means failBuild is now true for this project.' },
       { text: '09:15:30 INFO  [ci] Slack notification sent to #claims-integration', relevant: false },
     ],
@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'No flow changed and the previous build passed with the same 46 tests. Why does the gate fail now?',
         options: [
-          'The removed child `coverage` block had been overriding the parent, which suppressed its `failBuild` and required levels. Now the parent gate applies for the first time',
-          'MUnit lost its cached coverage data when the POM changed',
-          'The parent POM was upgraded and raised the thresholds overnight',
-          'The new POM makes MUnit run only half of the tests',
+          'The removed child block overrode the parent and dropped its gate, which now applies for the first time',
+          'MUnit kept coverage data in a cache tied to the POM, and the clean-up commit cleared that cache',
+          'The parent POM was upgraded overnight to a version with higher coverage thresholds than before',
+          'Without the child block, MUnit no longer finds some test suites, so fewer flows run in the tests',
         ],
         answer: 0,
         explain: 'The child block uses `combine.self="override"`, which suppresses the parent configuration, so anything it does not repeat falls back to defaults. A required level defaults to -1, meaning no requirement.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'A developer says the app was at 95% in the Studio run they did yesterday, so the pipeline must be wrong. What is the right reply?',
         options: [
-          'The `coverage` configuration applies only to Maven runs, so judge the gate from the Maven report in `target/site/munit/coverage/`',
-          'Studio is always right, so raise a defect against the Maven plugin',
-          'Coverage is random between runs',
-          'Studio counts only passed tests',
+          'The `coverage` settings apply to Maven runs, so judge the gate from the Maven coverage report',
+          'Studio uses the same engine as the plugin, so raise a defect against the Maven plugin',
+          'Studio measures coverage per resource file, so its number is always higher than Maven’s',
+          'Studio also counts flows that are mocked in tests, which Maven leaves out of its report',
         ],
         answer: 0,
         explain: 'The docs state these settings apply when you execute tests with the Maven plugin. The HTML and JSON reports list every flow and the lines not covered.',
@@ -48,8 +48,8 @@ export default {
           'Use the coverage report to write real tests for the uncovered flows and error handlers, worst first',
           'Add generated boilerplate flows to `ignoreFlows`, with a reason recorded in review',
           'Keep the parent gate active rather than restoring the child override',
-          'Add every flow below the limit to `ignoreFlows`',
-          'Run the pipeline with `-DskipTests`',
+          'Add every flow below the limit to `ignoreFlows`, so that the gate passes again today',
+          'Run the pipeline with `-DskipTests` until the missing tests are written',
         ],
         answer: [0, 1, 2],
         explain: 'An ignored flow leaves coverage data and cannot fail the build, so it must be an exception. Skipping tests removes the protection the gate exists for.',
@@ -107,10 +107,10 @@ export default {
 ## Logs
 \`\`\`
 09:12:03 INFO  [ci] Commit 8f21c4 "chore: remove duplicated plugin config from pom.xml"
-09:15:22 INFO  [ci] Tests: 46 - Failed: 0 - Errors: 0 - Skipped: 0
+09:15:22 INFO  [ci] Tests: 46, Failed: 0, Errors: 0, Skipped: 0
 09:15:23 INFO  [ci] Application Coverage: 63.84%
 09:15:23 ERROR [ci] Flow: claims-events.xml -> claim-reopened-flow coverage is below
-          defined limit. Required: 60.0% - Current: 00.00%
+          defined limit. Required: 60.0%, Current: 0.00%
 09:15:24 ERROR [ci] Failed to execute goal munit-maven-plugin coverage-report
 \`\`\`
 
@@ -133,7 +133,7 @@ export default {
   keyPoints: [
     'combine.self="override" suppresses the parent configuration, so you must declare everything again. The MUnit page says any child override does this, while standard Maven merges by element name, so check the effective POM.',
     'Without failBuild and required levels, defaults apply: a required level defaults to -1, so nothing fails the build.',
-    'The application was always at about this coverage; the clean-up simply made the gate real.',
+    'The application was always at about this coverage; the clean-up only made the gate real.',
     'Application coverage can look fine while one flow has none; flow and resource levels catch that.',
     'Coverage settings apply to Maven runs, and the reports in target/site/munit/coverage/ show what is missing.',
     'ignoreFlows and ignoreFiles remove items from the numbers, so reserve them for code that does not need testing.',

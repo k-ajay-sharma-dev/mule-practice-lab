@@ -29,7 +29,7 @@ export default {
         cache: ['cache', 'Latest ARI per hotel, room and date'],
         scm: ['system-api', 'sys-channel-manager-api'],
         cm: ['saas', 'Channel manager'],
-        ota: ['external-api', 'OTAs (Booking.com, Expedia and 38 more)'],
+        ota: ['external-api', 'OTAs (40 online travel agencies)'],
         hook: ['experience-api', 'exp-channel-reservation-api'],
         resq: ['queue', 'ota-reservations'],
         pres: ['process-api', 'prc-reservation-import-api'],
@@ -65,7 +65,7 @@ export default {
     },
   },
   description: `
-**Context.** A hotel group runs 320 hotels. Its **central reservation system (CRS)**, a SaaS product, is the master for availability and rates. A **revenue management system** sets prices and loads them into the CRS. Hotels sell through the group website (connected to the CRS already) and through about 40 online travel agencies (OTAs) such as Booking.com and Expedia, reached through a **channel manager** SaaS.
+**Context.** A hotel group runs 320 hotels. Its **central reservation system (CRS)**, a SaaS product, is the master for availability and rates. A **revenue management system** sets prices and loads them into the CRS. Hotels sell through the group website (connected to the CRS already) and through about 40 online travel agencies (OTAs), reached through a **channel manager** SaaS.
 
 **ARI** means availability, rates and inventory: for each hotel, room type, rate plan and date, how many rooms are free and at what price.
 
@@ -82,6 +82,7 @@ export default {
 - The CRS exposes a change feed (polled every 30 seconds) and a reservation API.
 - The channel manager pushes reservations to a webhook and retries for up to 24 hours if the webhook does not answer 200.
 - Reservations may arrive more than once, and a modification can arrive before its original booking.
+- In the diagram, draw the CRS and the channel manager as SaaS boxes with "CRS" and "channel manager" in their names. Name the System API sys-crs-api and run it on 0.5 vCore. Name the queues ari-changes and ota-reservations, and the Process APIs prc-ari-distribution-api and prc-reservation-import-api.
 
 **Your task.** Design the ARI distribution and reservation import, and explain how you survive the 06:00 burst without breaking the channel manager limit.
 `,
@@ -103,13 +104,13 @@ export default {
     'Reservations are idempotent on the OTA reservation ID and version, and a modification that arrives first is held and retried.',
   ],
   solution: `
-**ARI distribution.** \`sys-crs-api\` polls the CRS change feed every 30 seconds and publishes each change to the \`ari-changes\` queue. \`prc-ari-distribution-api\` consumes in batches, writes the newest value for each key \`hotel|roomType|ratePlan|date\` to Object Store, and every second sends what has changed since the last send, in calls of 100 items, through \`sys-channel-manager-api\`.
+**ARI distribution.** \`sys-crs-api\` (0.5 vCore) polls the CRS change feed every 30 seconds and publishes each change to the \`ari-changes\` queue. \`prc-ari-distribution-api\` consumes in batches, writes the newest value for each key \`hotel|roomType|ratePlan|date\` to Object Store, and every second sends what has changed since the last send, in calls of 100 items, through \`sys-channel-manager-api\`.
 
 **The 06:00 burst.** 800,000 changes at 100 items per call is 8,000 calls; at 50 calls per second that is under 3 minutes, before merging. The queue absorbs the burst, and merging means a price republished twice is sent once. Availability changes (a room sold) are sent ahead of rate changes because they cause overbookings, using two queues or a priority field.
 
 **Rate limit.** The System API holds the limit with a throttle in front of the outbound calls, and backs off on HTTP 429. No other app calls the channel manager.
 
-**Reservation import.** \`exp-channel-reservation-api\` checks the signature, writes the message to \`ota-reservations\` and returns 200. \`prc-reservation-import-api\` maps the OTA format to the CRS reservation, and writes it through \`sys-crs-api\`. A modification for an unknown booking is retried with a delay; after 5 attempts it goes to the DLQ and the reservations desk is alerted.
+**Reservation import.** \`exp-channel-reservation-api\` checks the signature, writes the message to \`ota-reservations\` and returns 200. \`prc-reservation-import-api\` maps the OTA format to the CRS reservation, and writes it through \`sys-crs-api\`. The queue has no delivery limit, so reservations wait out a CRS outage. A modification for an unknown booking is retried with a delay; after 5 attempts the Process API moves it to the DLQ and the reservations desk is alerted.
 
 **Monitoring.** Queue depth and age of the oldest ARI change are the key numbers; the target is every availability change at the channel manager within 60 seconds.
 `,

@@ -10,9 +10,9 @@ export default {
       type: 'single',
       prompt: 'CI pipelines deploy Mule apps with Connected Apps, which are machine identities for Anypoint Platform. Which setup limits the damage most if one pipeline secret leaks?',
       options: [
-        'One Connected App with Organization Administrator for all pipelines',
-        'One Connected App per team, with rights in every environment',
-        'A personal Anypoint account for each pipeline, with full rights',
+        'One Connected App with broad scopes, shared by all pipelines so rotation happens in one place',
+        'One Connected App per team, with deploy rights in every environment',
+        'A shared service user with a username and password, kept as a CI secret',
         'Separate Connected Apps per purpose, each with only the scopes it needs',
       ],
       answer: 3,
@@ -33,10 +33,10 @@ export default {
       type: 'single',
       prompt: 'The team uses the Secure Configuration Properties module. Where does the decryption key belong?',
       options: [
-        'It is passed to the runtime at deployment time, as a property such as `runtime.property`, and it is never in the repository',
-        'In `secure.yaml`, next to the encrypted values',
-        'In the `pom.xml`, under `properties`',
-        'In `mule-artifact.json`',
+        'Passed to the runtime at deployment, for example as `runtime.property`, never in Git',
+        'In `secure.yaml`, next to the encrypted values, so the app reads both together',
+        'In the `pom.xml` under `properties`, so each build carries the right key',
+        'In the module’s global element in the app XML, so it ships with the code',
       ],
       answer: 0,
       explain: 'Encrypted `![value]` entries can sit in Git only because the key is somewhere else. In the docs example, `key` is `$\{runtime.property}`, and the value is passed in at deployment time.',
@@ -58,10 +58,10 @@ export default {
       detail: true,
       prompt: 'For hybrid servers, the security team wants the runtime itself to refuse artifacts that the pipeline did not produce. What does the Runtime Manager agent offer?',
       options: [
-        'The JAR signature validator of the application validator service: each signed entry in the artifact must match one of the keystore aliases',
-        'The `armInsecure` setting',
-        'Gatekeeper',
-        'Exchange asset lifecycle states',
+        'The JAR signature validator, which checks signed entries against keystore aliases',
+        'The `armInsecure` setting, which controls trust between the agent and the platform',
+        'Gatekeeper, which holds an app until its API policies are applied',
+        'Exchange lifecycle states, which block a deployment of an asset that is not stable',
       ],
       answer: 0,
       explain: 'It prevents the deployment of non-authorized artifacts, and it is configured in `mule-agent.yml`. The docs note that artifacts signed with expired certificates are allowed, so rotation of the certificate needs its own process.',
@@ -70,10 +70,10 @@ export default {
       type: 'single',
       prompt: 'A CI pipeline definition can read Production secrets, and it sits in the same repository as the code. How do you stop a pull request from changing it to reach those secrets?',
       options: [
-        'Let any developer change it, as long as a test passes',
+        'Let pipeline changes merge once the build and its tests pass',
         'Rely on the CI tool to mask secrets in the build logs',
         'Require platform team review of pipeline definition changes',
-        'Review the application code, and skip the workflow files',
+        'Review the application code closely, and treat workflow files as config',
       ],
       answer: 2,
       explain: 'If a pull request can change the pipeline definition, and that definition can read secrets, then the review of the code protects nothing. So pipeline definitions and shared templates need a review from the platform team, and masking is a safety net, not a control. Other sound protections: jobs triggered from a fork get no secrets and do not deploy, third-party CI actions or extensions are pinned to a full commit or version, and Production deployment runs only from a protected branch or tag.',
@@ -170,7 +170,7 @@ Finding 8: raise the plugin to a supported version, and do not use the versions 
 
 **Trusted artifacts.**
 - Sign the JAR in the release job, with a key that only that job can use.
-- On hybrid servers, enable the JAR signature validator in \`$MULE_HOME/conf/mule-agent.yml\`, under the application validator service. Each signed entry in the artifact must match one of the keystore aliases, which prevents the deployment of non-authorized artifacts. Note that artifacts signed with expired certificates are allowed, so a compromised key needs active removal, not just expiry. Test this with your real JAR, with an unsigned JAR, because the page speaks only of signed entries, and with your deployment route.
+- On hybrid servers, enable the JAR signature validator in \`$MULE_HOME/conf/mule-agent.yml\`, under the application validator service. Each signed entry in the artifact must match one of the keystore aliases, which prevents the deployment of non-authorized artifacts. Note that artifacts signed with expired certificates are allowed, so a compromised key needs active removal. Waiting for it to expire is not enough. Test this with your real JAR, with an unsigned JAR, because the page speaks only of signed entries, and with your deployment route.
 - Remove console deploy rights in Production from people, and keep them for a break-glass account with an audit trail. A server managed by Runtime Manager must be deployed to through Runtime Manager, so also restrict file system access to \`apps\`.
 - For CloudHub 2.0, the artifact comes from Exchange. So control who can publish, and keep the checksum in the release record.
 

@@ -30,24 +30,24 @@ export default {
         prompt: 'What do you do **immediately**?',
         options: [
           'Turn off retries in exp-mobile-api and prc-inventory-api',
-          'Apply rate limiting / spike control on sys-sap-api and lower its concurrency to SAP',
-          'Serve stock from a short-lived cache, labelled as indicative, while SAP recovers',
-          'Increase maxRetries to 5 so requests eventually succeed',
+          'Spike control on sys-sap-api and lower concurrency to SAP',
+          'Serve stock from a short-lived cache, labelled as indicative',
+          'Raise each layer’s timeout to 30 s so fewer calls time out',
         ],
         answer: [0, 1, 2],
-        explain: 'Remove the multiplier and shield SAP. More retries feed the overload that took SAP down for everyone.',
+        explain: 'Remove the multiplier and shield SAP. Longer timeouts keep the 27 attempts per tap and hold more SAP work processes busy for longer.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in a **correct retry strategy** for the chain?',
         options: [
-          'Retry in one layer only (usually the System API), only for transient errors',
-          'Do not retry timeouts by default: they often mean overload and an unknown outcome',
-          'Max 1–2 retries with exponential backoff and jitter, within the caller timeout budget, plus a circuit breaker',
-          'Same retry count in every layer for consistency',
+          'Retry in one layer only (usually the System API), for transient errors',
+          'No retries on timeouts by default: they often mean overload',
+          '1 or 2 retries with backoff and jitter inside the budget, plus a breaker',
+          'One retry per layer with a fixed 500 ms delay, the same in each layer',
         ],
         answer: [0, 1, 2],
-        explain: 'One deliberate retry point, backoff with jitter, a breaker. Retries in every layer multiply.',
+        explain: 'One deliberate retry point, backoff with jitter, a breaker. Retries in every layer multiply: one retry in each of three layers is still 2 x 2 x 2 = 8 calls.',
       },
       {
         type: 'order',
@@ -66,7 +66,7 @@ export default {
   description: `
 ## Symptoms
 - Monday 08:05, SAP response times degrade from ~1 s to ~12 s. Within 10 minutes the SAP gateway hits its **dialog work process limit** and SAP becomes unavailable for **all** users, including the warehouse.
-- SAP basis reports roughly **25–30 identical \`BAPI_MATERIAL_AVAILABILITY\` calls per user request** arriving from the Mule system user.
+- SAP basis reports roughly **25 to 30 identical \`BAPI_MATERIAL_AVAILABILITY\` calls per user request** arriving from the Mule system user.
 - Incoming traffic at \`exp-mobile-api\` is normal (~40 req/s).
 
 ## Change / Context
@@ -108,8 +108,8 @@ export default {
 `,
   keyPoints: [
     'Calculates amplification: 3 attempts × 3 attempts × 3 attempts = 27 SAP calls per user request in the worst case; at 40 req/s that is up to ~1,000 SAP calls/s when SAP is already slow.',
-    'Explains the feedback loop: slowness causes timeouts, timeouts cause retries, retries add load, load causes more slowness — retries turn a degradation into an outage.',
-    'Also notes the inner retries continue after outer layers have already timed out and retried — wasted work nobody waits for.',
+    'Explains the feedback loop: slowness causes timeouts, timeouts cause retries, retries add load, load causes more slowness. Retries turn a degradation into an outage.',
+    'Also notes the inner retries continue after outer layers have already timed out and retried: wasted work nobody waits for.',
     'Immediate: remove/disable retries in the upper layers (config property or redeploy), shed load with a rate limit/spike control on sys-sap-api, and serve cached stock where acceptable.',
     'Permanent fix: retry in one layer only (usually closest to the failing resource), only for transient and idempotent errors, with capped exponential backoff and jitter, inside the timeout budget; add a circuit breaker and caching for read data.',
     'Prevention: a written retry policy in the C4E standards, retry counts as reviewed configuration, and load/chaos tests with a slow backend.',
@@ -134,15 +134,15 @@ At ~40 req/s the theoretical worst case is ~1,080 SAP calls/s. Worse, the timeou
 
 **Root cause.** Each team added retries locally with no system-wide view; retries were applied to **timeouts** (where the backend is overloaded, not flaky), with fixed short delays and no load protection. Retries + equal timeouts + no backpressure = amplification.
 
-**Permanent fix — a retry strategy for the chain.**
+**Permanent fix: a retry strategy for the chain.**
 - **Retry in one place.** Typically the System API, closest to the resource, and only for clearly transient errors (connection reset, 503 with Retry-After). Upper layers do **not** retry; they fail fast and report a clear error.
-- **Not on timeouts by default**: a timeout often means "overloaded" — retrying makes it worse, and for writes the outcome is unknown.
-- **Backoff with jitter**, max 1–2 retries, all within the caller's timeout budget (inner timeout × attempts + backoff < outer timeout).
+- **Not on timeouts by default**: a timeout often means "overloaded". Retrying makes it worse, and for writes the outcome is unknown.
+- **Backoff with jitter**, max 1 or 2 retries, all within the caller's timeout budget (inner timeout × attempts + backoff < outer timeout).
 - **Circuit breaker** in \`sys-sap-api\` (e.g. failure counter in an Object Store or a reusable module/custom policy): after N failures, stop calling SAP for 30 s and return 503 immediately.
 - **Caching** for read-mostly data like availability (Cache scope or Object Store with a short TTL) to reduce SAP calls in normal operation too.
 - Idempotency for any write operation that is retried.
 
-**Prevention.** C4E standard: "retries at one layer, documented in the API's Exchange page"; retry/timeout values externalised and reviewed; load tests that make SAP slow (not just down); dashboards comparing incoming request rate to backend call rate — a ratio far above 1 is an early warning.
+**Prevention.** C4E standard: "retries at one layer, documented in the API's Exchange page"; retry/timeout values externalised and reviewed; load tests that make SAP slow (not only down); dashboards comparing incoming request rate to backend call rate. A ratio far above 1 is an early warning.
 `,
   followUps: [
     { q: 'Does the Mule HTTP requester retry failed responses by default?', a: 'No. The reconnection strategy on a connector config relates to establishing connections, not to retrying a request that got an error response. Retries of operations come from constructs like until-successful or from the caller.' },

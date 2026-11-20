@@ -11,25 +11,25 @@ export default {
       needsScenario: true,
       prompt: 'Each supplier wants export readings in its own way. How do you organise the sending?',
       options: [
-        'Build one monthly claim per home in a common form, then one adapter per supplier for format and channel',
-        'Send every raw reading to every supplier',
-        'Ask homeowners to send their own readings',
-        'Write one flow per home',
+        'One common monthly claim per home, then an adapter per supplier',
+        'One full flow per supplier, each reading the inverter data itself',
+        'Send each supplier the raw 30 minute readings for its homes',
+        'One shared file format for all nine, sent by SFTP to each of them',
       ],
       answer: 0,
-      explain: 'The claim is the same business fact for all suppliers. Only the format and channel differ, so those live in adapters.',
+      explain: 'The claim is the same business fact for all suppliers. Only the format and channel differ, so those live in adapters. Flows per supplier copy the claim logic nine times, and the suppliers do not all take SFTP or raw readings.',
     },
     {
       type: 'single',
       prompt: 'Some inverters go offline for days, so readings have gaps. What should the claim do?',
       options: [
-        'Use the meter totals at the start and end of the month if available, and mark claims with gaps for review',
-        'Fill gaps with zeros',
-        'Fill gaps with the highest reading',
-        'Skip the month',
+        'Use the smart meter monthly total if there is one, and flag gaps',
+        'Fill each gap with zeros and send the claim as measured',
+        'Fill each gap with the highest half hour reading of that day',
+        'Leave the home out of this month’s claims until the inverter is back',
       ],
       answer: 0,
-      explain: 'Meter totals are usually the safest base. Guessing values would over or under pay, so gaps are flagged.',
+      explain: 'The meter total is usually the safest base. Zeros under pay, the highest reading over pays, and leaving the home out delays the homeowner’s payment. Gaps are flagged so the claim is marked estimated or reviewed.',
     },
     {
       type: 'multi',
@@ -38,23 +38,23 @@ export default {
         'The supply point number the supplier uses',
         'The period and the kWh exported',
         'Whether any part was estimated',
-        'The homeowner\'s bank password',
+        'The homeowner’s bank account number for the payment',
       ],
       answer: [0, 1, 2],
-      explain: 'The supplier needs which meter, which period, how much, and whether it is estimated.',
+      explain: 'The supplier needs which meter, which period, how much, and whether it is estimated. The supplier already pays its own customer, so the installer has no reason to send bank details.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'A supplier rejects 40 claims with "unknown supply point". What should happen?',
       options: [
-        'Hold those claims, send the list to the customer team to fix the numbers, and resend them',
-        'Drop them',
-        'Resend them every hour unchanged',
-        'Send them to another supplier',
+        'Hold them for the customer team to fix the numbers, then resend',
+        'Resend them every hour unchanged until the supplier accepts them',
+        'Log the rejections and include the claims again next month',
+        'Email the rejection list to the supplier and ask it to look them up',
       ],
       answer: 0,
-      explain: 'Bad reference data needs a person to fix it. Resending unchanged will fail every time.',
+      explain: 'Bad reference data needs a person to fix it. Resending unchanged will fail every time, waiting a month delays payment, and the supply point numbers are the installer’s data to correct.',
     },
     {
       type: 'match',
@@ -121,7 +121,7 @@ export default {
   solution: `
 **Decision.** A monthly run builds a common claim per home, then adapters send each claim the way each supplier needs.
 
-**Readings and gaps.** Meter totals are the base when present. Inverter readings fill in otherwise. Claims with gaps are marked estimated or held for review.
+**Readings and gaps.** Smart meter monthly totals are the base when present. Inverter readings fill in otherwise. Claims with gaps are marked estimated or held for review.
 
 **Common claim.** Supply point number, supplier, period, kWh exported, and an estimated flag.
 

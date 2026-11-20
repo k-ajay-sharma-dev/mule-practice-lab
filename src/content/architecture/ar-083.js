@@ -103,7 +103,7 @@ export default {
   },
   description: `
 A wholesaler is moving its **order database from Oracle 12c to SQL Server 2022** as part of a data-centre exit. The Oracle schema (180 tables, 2.4 billion order lines) is used by:
-- 14 Mule APIs (web portal, customer service, EDI, warehouse) — 6 of them query Oracle directly with their own SQL.
+- 14 Mule APIs (web portal, customer service, EDI, warehouse); 6 of them query Oracle directly with their own SQL.
 - Nightly PL/SQL jobs that calculate rebates.
 - Reporting tools.
 
@@ -116,7 +116,8 @@ Constraints:
 Numbers for sizing:
 - At peak the B2B portal writes 40 orders a second and customer service 10. The CDC tool publishes about 120 row changes a second.
 - Oracle answers in about 30 ms. SQL Server takes a write in about 20 ms and up to 300 a second.
-- SQL Server may be down for up to 15 minutes during the dual run, and a Kafka broker may restart at any time. No change may be lost.
+- SQL Server may be down for up to 15 minutes during the dual run, and a Kafka broker may restart at any time. No change may be lost, and SQL Server must catch up within about 30 minutes of coming back.
+- A change that cannot be applied must be set aside in a dead-letter queue.
 - The budget for the migration apps is 2.5 vCores.
 
 **Questions:**
@@ -136,7 +137,7 @@ Numbers for sizing:
 ## Cut-over and rollback
 `,
   keyPoints: [
-    'First put all access behind System APIs (sys-orders-oracle) so consumers stop issuing their own SQL — the precondition for switching databases.',
+    'First put all access behind System APIs (sys-orders-oracle) so consumers stop issuing their own SQL. That is the precondition for switching databases.',
     'Add sys-orders-sqlserver with the same contract; prc-orders routes reads/writes with a switch.',
     'CDC publishes Oracle changes to Kafka keyed by the order id; prc-orders-cdc-apply upserts into SQL Server through the System API (MERGE, idempotent by key and change sequence).',
     'Type mapping is explicit: NUMBER → DECIMAL, DATE → DATETIME2, empty VARCHAR2 = NULL, sequences → keep source ids during migration.',
@@ -155,7 +156,7 @@ Numbers for sizing:
  Hourly reconciliation job ─► sys-orders-oracle, sys-orders-sqlserver ─► drift dashboard
 \`\`\`
 
-**Step 0 — decouple.** Move the 6 APIs with direct SQL onto \`sys-orders-oracle\`. Until no consumer depends on Oracle-specific SQL, a database switch is impossible.
+**Step 0: decouple.** Move the 6 APIs with direct SQL onto \`sys-orders-oracle\`. Until no consumer depends on Oracle-specific SQL, a database switch is impossible.
 
 **Change flow.** Initial bulk load (DBA tooling) to a known position, then CDC from that position. The CDC tool publishes each row change to Kafka **keyed by order id**, so all changes of an order stay in one partition and in order. \`prc-orders-cdc-apply\` maps types and calls \`sys-orders-sqlserver\`, which upserts with a **MERGE** keyed on the business key. It only applies a change if its source sequence/SCN is newer than the stored one, so replays and duplicates are harmless. Failures after retries go to \`orders.cdc.dlq\` and alert; the consumer continues.
 

@@ -7,20 +7,20 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 02:30:00 INFO  [stock-batch] Job instance created records=800000", relevant: false },
+      { text: "2026-11-18 02:30:00 INFO  [stock-batch] Scheduler fired, job instance created records=800000", relevant: false },
       { text: "2026-11-18 03:10:00 INFO  [runtime] Worker restarted after out of memory", relevant: true, why: "A crash mid job." },
-      { text: "2026-11-18 03:15:00 INFO  [stock-batch] Scheduler fired, new job instance created records=800000", relevant: true, why: "The scheduler started a new job." },
-      { text: "2026-11-18 03:15:00 INFO  [stock-batch] Previous instance resumed records remaining=310000", relevant: true, why: "The old one resumed too." },
+      { text: "2026-11-18 03:15:00 INFO  [stock-batch] Previous instance resumed records remaining=310000", relevant: true, why: "The old one resumed." },
+      { text: "2026-11-18 03:15:01 INFO  [stock-batch] Startup check: job_log not COMPLETED, new job instance created records=800000", relevant: true, why: "The startup check started a new job too." },
     ],
     questions: [
       {
         type: 'single',
         prompt: "What is happening?",
         options: [
-          "The old instance resumed from its persistent queue and a new instance also started",
-          "Nothing",
-          "The data is new",
-          "Only one runs",
+          "The old instance resumed and the startup check started a new one",
+          "Only the new instance runs, and the old one was discarded",
+          "The resumed instance reads the file again from the start",
+          "The source file held 800,000 new rows on top of yesterday’s",
         ],
         answer: 0,
         explain: "Two instances now process the same data.",
@@ -29,10 +29,10 @@ export default {
         type: 'single',
         prompt: "What prevents the second instance?",
         options: [
-          "A guard that does not start a job when one for the same file or date is unfinished",
-          "More memory",
-          "A faster scheduler",
-          "Smaller blocks",
+          "A guard that skips the start while an unfinished run exists",
+          "More heap so the worker does not crash mid job",
+          "A ten minute delay before the startup check runs",
+          "Smaller blocks so the job ends before any crash",
         ],
         answer: 0,
         explain: "Check before starting.",
@@ -44,7 +44,7 @@ export default {
           "Upserts by business key",
           "A run ID with a unique constraint per date",
           "A lock row in the database",
-          "Inserting blindly",
+          "Plain inserts with no key check",
         ],
         answer: [0,1,2],
         explain: "Idempotency and a guard.",
@@ -53,10 +53,10 @@ export default {
         type: 'single',
         prompt: "Why did the old instance resume?",
         options: [
-          "Batch queues are persistent, so unfinished instances continue after restart",
-          "Luck",
-          "The scheduler",
-          "Manual action",
+          "Batch queues are persistent, so unfinished instances resume",
+          "The startup check restarted it from the job_log row",
+          "Support resumed it by hand from Runtime Manager",
+          "The worker replays every job from the last hour on restart",
         ],
         answer: 0,
         explain: "This is a feature, if you plan for it.",
@@ -80,14 +80,16 @@ export default {
 - Stock rows doubled after last night’s crash.
 
 ## Change / Context
-- The batch job is started by a scheduler every night.
+- A scheduler starts the batch job at 02:30 every night.
+- When the app starts, a startup check also starts the job if today’s job_log row is not COMPLETED.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 02:30:00 INFO  [stock-batch] Scheduler fired, job instance created records=800000
 2026-11-18 03:10:00 INFO  [runtime] Worker restarted after out of memory
-2026-11-18 03:15:00 INFO  [stock-batch] Scheduler fired, new job instance created records=800000
 2026-11-18 03:15:00 INFO  [stock-batch] Previous instance resumed records remaining=310000
+2026-11-18 03:15:01 INFO  [stock-batch] Startup check: job_log not COMPLETED, new job instance created records=800000
 \`\`\`
 
 ## Your tasks
@@ -108,7 +110,7 @@ These lines are illustrative and were written for this scenario. Real log format
 `,
   keyPoints: [
     "Batch instances can resume after restart.",
-    "Schedulers can start a second one.",
+    "A scheduler or startup check can start a second one.",
     "Guard against duplicate starts.",
     "Use upserts.",
     "Track runs by date.",

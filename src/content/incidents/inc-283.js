@@ -8,8 +8,8 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 03:00:00 INFO  [msg-archive] Insert message size=180MB into MSG_ARCHIVE.BODY (CLOB)", relevant: true, why: "Large messages are archived." },
+      { text: "2026-11-18 03:00:01 INFO  [msg-archive] payload converted to String before insert", relevant: true, why: "The flow builds a huge string." },
       { text: "2026-11-18 03:00:20 ERROR [msg-archive] java.lang.OutOfMemoryError: Java heap space", relevant: true, why: "Memory runs out." },
-      { text: "2026-11-18 03:00:00 INFO  [msg-archive] payload converted to String before insert", relevant: true, why: "The flow builds a huge string." },
       { text: "2026-11-18 03:01:00 INFO  [runtime] Worker restarted", relevant: false },
     ],
     questions: [
@@ -18,9 +18,9 @@ export default {
         prompt: "Why does memory run out?",
         options: [
           "The 180 MB message is turned into one Java string before insert",
-          "The CLOB is too small",
-          "Oracle is slow",
-          "The network",
+          "The CLOB column cannot hold a value larger than 128 MB",
+          "Oracle returns the insert slowly and the worker times out",
+          "The JDBC driver reads the whole archive table into memory",
         ],
         answer: 0,
         explain: "Strings hold everything in memory, often twice.",
@@ -29,10 +29,10 @@ export default {
         type: 'single',
         prompt: "What is better?",
         options: [
-          "Stream the content into the LOB, or store the file in blob storage and keep a reference",
-          "Use a bigger worker",
-          "Compress in memory",
-          "Skip archiving",
+          "Stream into the LOB, or keep the file in blob storage with a reference",
+          "Double the worker heap so a 180 MB string fits in memory",
+          "Compress the full string in memory before the insert runs",
+          "Stop archiving messages and rely on the source system logs",
         ],
         answer: 0,
         explain: "Stream or move it out.",
@@ -44,7 +44,7 @@ export default {
           "Smaller backups",
           "Cheaper storage",
           "Faster queries on the table",
-          "It is required by Oracle",
+          "Oracle refuses LOB values over 100 MB",
         ],
         answer: [0,1,2],
         explain: "A claim check pattern for archives.",
@@ -54,9 +54,9 @@ export default {
         prompt: "What does the table keep then?",
         options: [
           "The container, path, size and checksum",
-          "Nothing",
-          "The full file",
-          "A copy in a VARCHAR2",
+          "Only the file name, since the path never changes",
+          "A second copy of the full message for fast reads",
+          "The first 4,000 characters in a VARCHAR2 column",
         ],
         answer: 0,
         explain: "Enough to find and verify the file.",
@@ -86,8 +86,8 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 03:00:00 INFO  [msg-archive] Insert message size=180MB into MSG_ARCHIVE.BODY (CLOB)
+2026-11-18 03:00:01 INFO  [msg-archive] payload converted to String before insert
 2026-11-18 03:00:20 ERROR [msg-archive] java.lang.OutOfMemoryError: Java heap space
-2026-11-18 03:00:00 INFO  [msg-archive] payload converted to String before insert
 \`\`\`
 
 ## Your tasks

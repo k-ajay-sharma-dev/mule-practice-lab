@@ -15,7 +15,7 @@ Brindle Outdoor loads item messages into an Oracle staging table. Two things kee
 - Reasons to reject, in this order, all that apply: \`ITEM_ID_MISSING\`, \`DESCRIPTION_MISSING\`, \`DESCRIPTION_TOO_LONG\` (more UTF-8 bytes than \`maxDescBytes\`).
 - Count UTF-8 bytes per character: code below 128 is 1 byte, below 2048 is 2 bytes, otherwise 3 bytes.
 - \`UOM\` is the mapped code. When the code is missing or not in the map, use \`EACH\` and add a warning \`UOM_DEFAULTED\`.
-- Rows that pass go to \`rows\` with \`ITEM_ID\`, \`DESCRIPTION\`, \`UOM\` and \`BRAND\`. Rejected items go to \`rejects\` with \`itemId\` and \`reasons\`. Warnings are only for rows that pass.
+- Rows that pass go to \`rows\` with \`ITEM_ID\`, \`DESCRIPTION\`, \`UOM\` and \`BRAND\`. Rejected items go to \`rejects\` with \`itemId\` (the cleaned value, so it can be \`null\`) and the list of \`reasons\`. Warnings are only for rows that pass. Every list keeps input order.
 
 Output \`rows\`, \`rejects\` and \`warnings\` (\`itemId\`, \`warning\`).
 `,

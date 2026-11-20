@@ -68,6 +68,7 @@ Facts:
 - The **parent app** is a mobile app run by a vendor; it exposes \`POST /notifications\` (by guardian ID) and handles push delivery itself.
 - Morning registration closes at **09:15**; ~1,500 absences/day, with a peak of ~600 webhooks in 10 minutes.
 - The debounce run sends about 3 notifications a second. The parent app vendor can be down for 20 minutes, and about 1 notification in 100 names a guardian the vendor rejects.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good notifications must survive the 20-minute outage, and rejected ones must reach the DLQ for the school office.
 - Teachers often correct marks ("absent" → "present, arrived late") within minutes. Parents complained in a pilot that they got **two contradictory messages**.
 - A pupil can have up to **4 guardians**; some must not be contacted (court orders flagged in the SMS).
 
@@ -103,12 +104,12 @@ If a parent was already notified and the mark changes later (e.g. absent → lat
 
 **Guardian lookup.** Call the SMS API for the pupil's guardians (cache in Object Store for a few hours). **Filter out guardians with the do-not-contact flag** before building messages; if no contactable guardian remains, log it for the school office.
 
-**Delivery and errors.** DataWeave maps to the parent app payload (guardian ID, pupil first name, school, status, time). An **idempotency key** (pupil + date + status + guardian) stored in Object Store stops duplicates on retries. On 5xx or timeout, retry with exponential backoff; after the retries are exhausted the message goes to a DLQ and the support team is alerted. Because the work is queued, an outage at 09:20 only delays messages; nothing is lost.
+**Delivery and errors.** DataWeave maps to the parent app payload (guardian ID, pupil first name, school, status, time). An **idempotency key** (pupil + date + status + guardian) stored in Object Store stops duplicates on retries. On 5xx or timeout, the message is redelivered about once a minute. A limit of about 30 deliveries lets a notification outlast a 20-minute vendor outage; after that the message goes to a DLQ and the support team is alerted. Because the work is queued, an outage at 09:20 only delays messages; nothing is lost.
 
 **Privacy.** Logs contain pupil IDs, not names or reasons for absence.
 `,
   followUps: [
-    { q: 'Why not just send the notification directly from the webhook?', a: 'Direct sending is simpler but produces the contradictory messages from the pilot and couples the SMS to the parent app\'s availability. A queue plus a short delay solves both.' },
+    { q: 'Why not send the notification directly from the webhook?', a: 'Direct sending has fewer parts but produces the contradictory messages from the pilot and couples the SMS to the parent app\'s availability. A queue plus a short delay solves both.' },
     { q: 'What if the SMS does not support webhooks?', a: 'Poll the attendance API every few minutes with a watermark on the last-modified time; the rest of the design (debounce, lookup, idempotency) stays the same.' },
   ],
 }

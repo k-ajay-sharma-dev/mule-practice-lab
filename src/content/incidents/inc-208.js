@@ -9,19 +9,19 @@ export default {
     logs: [
       { text: "2026-11-18 08:10:00 INFO  [eu-consumer] Listening queue=shipments selector=region = 'EU'", relevant: true, why: "The selector asks for a property named region." },
       { text: "2026-11-18 08:10:05 INFO  [shipment-publisher] Sent shipmentId=SH-401 properties={Region=EU}", relevant: true, why: "The publisher sets Region with a capital R." },
-      { text: "2026-11-18 08:15:00 INFO  [broker] Queue shipments depth=2210", relevant: true, why: "Messages pile up because no consumer matches them." },
-      { text: "2026-11-18 08:15:00 INFO  [us-consumer] Listening selector=Region = 'US' received=880", relevant: true, why: "The US consumer uses the right name and works." },
-      { text: "2026-11-18 08:16:00 INFO  [broker] Memory 30%", relevant: false },
+      { text: "2026-11-18 11:15:00 INFO  [broker] Queue shipments depth=2210", relevant: true, why: "Messages pile up because no consumer matches them." },
+      { text: "2026-11-18 11:15:00 INFO  [us-consumer] Listening selector=Region = 'US' received=880", relevant: true, why: "The US consumer uses the right name and works." },
+      { text: "2026-11-18 11:16:00 INFO  [broker] Memory 30%", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why does the EU consumer get nothing?",
         options: [
-          "Selector property names are case sensitive, and region does not match Region",
-          "EU shipments stopped",
-          "The EU consumer is on the wrong broker",
-          "Selectors only work on topics",
+          "Selector names are case sensitive, so region does not match Region",
+          "The US consumer takes the EU messages first because it started earlier",
+          "The selector value 'EU' must be written without quotes",
+          "Selectors work on topics, so a queue consumer ignores them",
         ],
         answer: 0,
         explain: "The selector looks for a property that no message has, so it matches nothing.",
@@ -31,9 +31,9 @@ export default {
         prompt: "Where do the EU messages go?",
         options: [
           "They stay on the queue, because no consumer selects them",
-          "To the US consumer",
-          "To the DLQ",
-          "They expire at once",
+          "To the US consumer, which takes any message no one else selects",
+          "To the DLQ, after the EU consumer rejects them",
+          "They are dropped by the broker once no selector matches them",
         ],
         answer: 0,
         explain: "Messages wait until a consumer whose selector matches takes them, or until they expire.",
@@ -45,7 +45,7 @@ export default {
           "A shared constant or contract for property names",
           "A test that sends a message and checks the right consumer gets it",
           "An alert on queue depth",
-          "Using lower case everywhere by guess",
+          "Making the broker compare selector names without case",
         ],
         answer: [0,1,2],
         explain: "Agree the names in one place, test the routing, and watch for growth.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What risk do selectors add on a shared queue?",
         options: [
-          "Messages that match no selector wait forever and can hit the TTL",
-          "They speed up the broker",
-          "They encrypt messages",
-          "None",
+          "Messages that match no selector wait unseen and can expire",
+          "Each consumer gets a copy, so messages are processed twice",
+          "A message is lost if its consumer restarts while selecting",
+          "Selectors turn off persistence for the messages they match",
         ],
         answer: 0,
         explain: "Unmatched messages go unnoticed without a depth alert.",
@@ -90,8 +90,8 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 08:10:00 INFO  [eu-consumer] Listening queue=shipments selector=region = 'EU'
 2026-11-18 08:10:05 INFO  [shipment-publisher] Sent shipmentId=SH-401 properties={Region=EU}
-2026-11-18 08:15:00 INFO  [broker] Queue shipments depth=2210
-2026-11-18 08:15:00 INFO  [us-consumer] Listening selector=Region = 'US' received=880
+2026-11-18 11:15:00 INFO  [broker] Queue shipments depth=2210
+2026-11-18 11:15:00 INFO  [us-consumer] Listening selector=Region = 'US' received=880
 \`\`\`
 
 ## Your tasks

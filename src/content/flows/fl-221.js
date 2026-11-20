@@ -164,6 +164,12 @@ Support (\`replenishment-support@brindle.example\`) wants an email per plan with
 - Mark the job \`COMPLETED\` with \`good=<n> rejected=<n>\`, email support without holding up the flow, and archive the file to \`/plan/out/repl/archive\`.
 - On any failure, mark the job \`FAILED\` and move the file to \`/plan/out/repl/error\`.
 
+**Facts**
+- Name the procedure parameters \`jobName\` and \`jobId\`. The start procedure's result has \`job_id\`.
+- Keep \`line\` as text and store \`qty\` as a number.
+- The email subject carries the job ID, such as \`Replenishment plan job 513: good=2 rejected=1\`.
+- After marking the job \`FAILED\`, let the error propagate.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

@@ -19,8 +19,8 @@ export default {
       prompt: 'Match each import form to how you then call `maskCard`.',
       pairs: [
         ['`import dw::common::Utils`', '`Utils::maskCard(...)`'],
-        ['`import * from dw::common::Utils`', '`maskCard(...)` — every function is in scope'],
-        ['`import maskCard, mapStatus from dw::common::Utils`', '`maskCard(...)` — only the named functions are in scope'],
+        ['`import * from dw::common::Utils`', '`maskCard(...)`: every function is in scope'],
+        ['`import maskCard, mapStatus from dw::common::Utils`', '`maskCard(...)`: only the named functions are in scope'],
       ],
       explain: 'Importing the module keeps calls qualified; `import * from` or a named list brings functions into scope directly.',
     },
@@ -54,25 +54,25 @@ export default {
       needsScenario: true,
       prompt: 'Where should the 200-entry country lookup live and how is it loaded?',
       options: [
-        'Inline in both scripts, so each can change independently',
-        'In `src/main/resources/data/countries.json`, loaded once in the module with `readUrl("classpath://data/countries.json", "application/json")`',
-        'In a flow variable set at startup by a Scheduler',
-        'In `mule-artifact.json`',
+        'Inline in both scripts, so each one can change on its own',
+        'In a JSON file in resources, loaded once in the module with `readUrl`',
+        'In a flow variable that a Scheduler sets once at app startup',
+        'In `mule-artifact.json`, which every script can read directly',
       ],
       answer: 1,
-      explain: 'Keeping it in one file, loaded in the shared module, gives one definition — the exact problem that caused the missed status update.',
+      explain: 'Put it in `src/main/resources/data/countries.json` and load it with `readUrl("classpath://data/countries.json", "application/json")` in the shared module. One file gives one definition, which avoids the drift that caused the missed status update.',
     },
     {
       type: 'single',
       prompt: 'Five Mule applications need the same functions. What is the best way to share them?',
       options: [
-        'Copy the .dwl file into each project',
-        'Package them as a DataWeave library (or shared Maven artifact), publish it to Exchange, and add a versioned dependency in each app',
-        'Put them in a Mule domain on CloudHub',
-        'Call one app over HTTP for every transformation',
+        'Copy the .dwl file into each of the five projects',
+        'Publish a versioned DataWeave library to Exchange and depend on it',
+        'Put the functions in a Mule domain shared on CloudHub 2.0',
+        'Expose one app over HTTP and call it for every transformation',
       ],
       answer: 1,
-      explain: 'A versioned library dependency gives one source of truth and controlled upgrades; copying recreates the drift problem.',
+      explain: 'A versioned library dependency (or a shared Maven artifact) gives one source of truth and controlled upgrades; copying recreates the drift problem.',
     },
   ],
   description: `
@@ -104,12 +104,12 @@ Last week the status mapping was updated in 9 places and missed in 3. A lookup t
   keyPoints: [
     'A module is a .dwl file under src/main/resources; its path becomes the module name with :: separators (dw/common/Utils.dwl → dw::common::Utils).',
     'Import with import dw::common::Utils (then Utils::fn), import * from ..., or import fn from ...',
-    'A module contains only declarations (functions, variables, types, namespaces) — no output directive and no body after ---.',
+    'A module contains only declarations (functions, variables, types, namespaces): no output directive and no body after ---.',
     'Transform Message can reference an external script with resource="dw/orders/toErp.dwl", which keeps XML small and scripts testable.',
     'readUrl("classpath://...") loads static lookup data; for cross-app reuse publish a DataWeave library to Exchange or a shared Maven artifact.',
   ],
   solution: `
-**Create and import** — file \`src/main/resources/dw/common/Utils.dwl\`:
+**Create and import**: file \`src/main/resources/dw/common/Utils.dwl\`:
 \`\`\`dataweave
 %dw 2.0
 
@@ -136,7 +136,7 @@ output application/json
 \`\`\`
 Alternatives: \`import * from dw::common::Utils\` (call \`maskCard(...)\` directly) or \`import maskCard, mapStatus from dw::common::Utils\`.
 
-**What a module may contain:** \`fun\`, \`var\`, \`type\`, \`ns\` declarations and other imports. It must **not** have an \`output\` directive or a body after \`---\` — it is a library, not a script.
+**What a module may contain:** \`fun\`, \`var\`, \`type\`, \`ns\` declarations and other imports. It must **not** have an \`output\` directive or a body after \`---\`: it is a library, not a script.
 
 **External scripts**
 \`\`\`xml
@@ -148,7 +148,7 @@ Alternatives: \`import * from dw::common::Utils\` (call \`maskCard(...)\` direct
 \`\`\`
 Keeps the XML readable, gives clean diffs, and lets you unit-test the script.
 
-**Lookup file** — \`src/main/resources/data/countries.json\`:
+**Lookup file**: \`src/main/resources/data/countries.json\`:
 \`\`\`dataweave
 var countries = readUrl("classpath://data/countries.json", "application/json")
 \`\`\`

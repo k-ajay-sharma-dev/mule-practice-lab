@@ -67,7 +67,7 @@ Work out each result before you choose.
 
 The useful ones are \`divideBy\` for batches, \`countBy\` and \`sumBy\` for totals, \`substringBefore\` and \`substringAfterLast\` for parsing, and \`mergeWith\` for combining objects with the right side winning.
 
-Using these keeps a script shorter and easier to review than a hand-written \`reduce\`.
+Using these keeps a script shorter and quicker to review than a hand-written \`reduce\`.
 `,
   followUps: [
     { q: 'Where would you use divideBy in a Mule app?', a: 'To split records into chunks that respect a target API\'s batch limit before calling it.' },

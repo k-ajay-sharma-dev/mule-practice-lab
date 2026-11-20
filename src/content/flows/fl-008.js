@@ -151,11 +151,11 @@ export default {
     ]),
   ),
   description: `
-A team has three APIs (Orders, Invoices, Customers) in one Mule app. Every endpoint copies the same 15 processors:
+A team has three APIs in one Mule app: \`GET /api/orders\`, \`GET /api/invoices\` and \`GET /api/customers\`. Each returns the caller's rows from the \`orders\`, \`invoices\` or \`customers\` table, filtered on the \`tenant_id\` column. Every endpoint copies the same 15 processors:
 
 - Set a \`correlationId\` and log a structured "request received" entry.
-- Look up the caller's tenant config from a database (cached). The tenant ID arrives in the \`x-tenant-id\` request header.
-- Call a central **Audit API** — if the audit call fails it must be **logged and ignored**, never fail the business request.
+- Look up the caller's tenant config from the \`tenant_config\` table (cached per tenant). The tenant ID arrives in the \`x-tenant-id\` request header.
+- Call a central **Audit API** (\`POST /audit/events\`). If the audit call fails (no connection, timeout or a 5xx), log a warning and ignore it. It must never fail the business request.
 
 A code review asks you to refactor this into reusable pieces.
 
@@ -182,16 +182,16 @@ A code review asks you to refactor this into reusable pieces.
     'Cross-app reuse is done with a Mule plugin / shared library or a domain project for shared configs, not by copying flows.',
   ],
   solution: `
-1. **Logging/correlation → sub-flow** \`common-request-init\`: Set Variable \`correlationId\` (\`#[correlationId]\` or an incoming header), Set Variable \`tenantId\` from the \`x-tenant-id\` header, Logger with a JSON message. No error handling needed — if it fails, the caller should know. The tenant ID must be saved here: the Audit API call is an HTTP Request, which replaces the attributes, so the request headers are gone by the time the business query runs.
+1. **Logging/correlation → sub-flow** \`common-request-init\`: Set Variable \`correlationId\` (\`#[correlationId]\` or an incoming header), Set Variable \`tenantId\` from the \`x-tenant-id\` header, Logger with a JSON message. No error handling needed: if it fails, the caller should know. The tenant ID must be saved here: the Audit API call is an HTTP Request, which replaces the attributes, so the request headers are gone by the time the business query runs.
 2. **Tenant lookup → sub-flow** \`get-tenant-config\`: Cache scope wrapping a Database Select, with a key expression on the tenant ID (the default key is a SHA-256 of the payload); output stored with Flow Reference \`target="tenant"\` so the business payload is untouched.
-3. **Audit call → private flow** \`audit-call\`: HTTP Request to the Audit API inside a flow with its **own error handler** — On Error Continue for the HTTP error types that logs a warning. Because the error is handled inside that flow, the caller continues normally. Call it with Flow Reference \`target="auditResult"\` so the audit answer does not replace the business payload.
+3. **Audit call → private flow** \`audit-call\`: HTTP Request to the Audit API inside a flow with its **own error handler**: On Error Continue for the HTTP error types that logs a warning. Because the error is handled inside that flow, the caller continues normally. Call it with Flow Reference \`target="auditResult"\` so the audit answer does not replace the business payload.
    - Alternative: keep it a sub-flow but wrap the Flow Reference in a **Try scope** with On Error Continue. Either works; the private flow keeps the policy in one place.
 4. **Calling:** each API endpoint flow (e.g. \`get:\\orders:orders-api-config\`) starts with \`<flow-ref name="common-request-init"/>\`. Variables set inside the sub-flow/private flow are visible to the caller afterwards (same event).
 5. **Sharing across apps:** package common flows/configs as a **Mule plugin or shared library** in Exchange and import them via the POM. Or use a **domain project** for shared connector configs on on-prem runtimes. For truly cross-cutting concerns (logging headers, auth) consider **API Manager policies** instead of code.
 `,
   followUps: [
     { q: 'Can a sub-flow have an error handler?', a: 'No. A sub-flow has no source and no error handler; use a Try scope inside it, or make it a private flow if it needs its own handling.' },
-    { q: 'Why not use a VM queue to call the shared logic?', a: 'VM adds a thread hop, serialization and a separate transaction/event context; it is meant for decoupling or async hand-off. For synchronous in-app reuse, Flow Reference is simpler and cheaper.' },
+    { q: 'Why not use a VM queue to call the shared logic?', a: 'VM adds a thread hop, serialization and a separate transaction/event context; it is meant for decoupling or async hand-off. For synchronous in-app reuse, Flow Reference is lighter and cheaper.' },
     { q: 'Does a private flow get its own copy of variables?', a: 'No. With Flow Reference the same event flows through, so variables are shared. Only transports like VM or HTTP create a new event without the caller\'s variables.' },
   ],
 }

@@ -185,7 +185,7 @@ The paging rules live in \`paged\`, and the shape of a list lives in \`pagedColl
     },
     {
       q: 'Could the cursor go in the body instead of a header?',
-      a: 'Yes, with a wrapper such as data and nextCursor. A header keeps the body a plain array, while a wrapper is easier for some clients to read. Pick one style for all your APIs.',
+      a: 'Yes, with a wrapper such as data and nextCursor. A header keeps the body a plain array, while some clients find a wrapper clearer to read. Pick one style for all your APIs.',
     },
   ],
 }

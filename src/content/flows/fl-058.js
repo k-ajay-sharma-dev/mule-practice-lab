@@ -158,10 +158,11 @@ export default {
     ),
   ),
   description: `
-A fashion retailer's pricing tool calls an integration API whenever a buyer changes a price: \`POST /api/prices\` with \`{ sku, zone, price, currency, effectiveFrom, changedBy }\`. Around **5,000 changes a day**, in bursts of a few hundred when a markdown is approved.
+A clothing retailer's pricing tool calls an integration API whenever a buyer changes a price: \`POST /api/prices\` with \`{ sku, zone, price, currency, effectiveFrom, changedBy }\`. Around **5,000 changes a day**, in bursts of a few hundred when a markdown is approved.
 
-- The master price lives in an **Oracle** table \`ITEM_PRICE\` (one row per SKU and price zone).
-- After the update, an event must go to the **ActiveMQ topic** \`retail.price.changed\`; three consumers subscribe (e-commerce site, POS gateway, electronic shelf labels).
+- The master price lives in an **Oracle** table \`ITEM_PRICE\` (one row per SKU and price zone), with \`SKU\`, \`PRICE_ZONE\`, \`PRICE\`, \`EFFECTIVE_FROM\`, \`CHANGED_BY\` and \`CHANGED_AT\`. The \`zone\` of a request is its \`PRICE_ZONE\`.
+- A price must be greater than 0 and the \`sku\` must not be blank.
+- After the update, an event must go to the **ActiveMQ topic** \`retail.price.changed\`; three consumers subscribe (e-commerce site, POS gateway, electronic shelf labels). The event is JSON with \`eventType: "PRICE_CHANGED"\`, \`sku\`, \`zone\`, \`price\`, \`currency\` and \`effectiveFrom\`.
 - The pricing tool expects **400** for bad input, **404** when the SKU/zone row does not exist, **503** when it should retry.
 - Response time target: under 1 second.
 
@@ -184,7 +185,7 @@ A fashion retailer's pricing tool calls an integration API whenever a buyer chan
   ],
   solution: `
 1. **HTTP Listener** \`POST /api/prices\`; the listener response uses \`#[vars.httpStatus default 200]\` for the status code.
-2. **Validate** — \`sku\` not empty, \`price > 0\` (is-true). Failures raise \`VALIDATION:*\` errors → 400.
+2. **Validate**: \`sku\` not empty, \`price > 0\` (is-true). Failures raise \`VALIDATION:*\` errors → 400.
 3. **Database Update** \`UPDATE ITEM_PRICE SET PRICE = :price ... WHERE SKU = :sku AND PRICE_ZONE = :zone\` (autocommit, single statement).
 4. **Choice** on \`payload.affectedRows == 0\` → **Raise Error** \`APP:NOT_FOUND\` → 404.
 5. **Transform Message** builds the event (sku, zone, price, effectiveFrom).

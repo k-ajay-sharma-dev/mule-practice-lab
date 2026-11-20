@@ -8,8 +8,8 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 02:00:00 INFO  [inv-file] Processing file sizeBytes=4000000000", relevant: true, why: "A 4 GB file." },
+      { text: "2026-11-18 02:00:00 INFO  [inv-file] Streaming strategy=repeatable file store", relevant: true, why: "Buffers spill to disk." },
       { text: "2026-11-18 02:10:00 ERROR [inv-file] No space left on device", relevant: true, why: "The disk is full." },
-      { text: "2026-11-18 02:10:00 INFO  [inv-file] Streaming strategy=repeatable file store", relevant: true, why: "Buffers spill to disk." },
       { text: "2026-11-18 02:10:00 INFO  [ops] Temp disk free before run=3GB", relevant: true, why: "Not enough disk." },
       { text: "2026-11-18 23:59:00 INFO  [inv-file] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is the disk full?",
         options: [
-          "Repeatable file store streams buffer the file to temp disk, and the disk is smaller than the file",
-          "Logs",
-          "The database",
-          "A leak",
+          "Repeatable file store buffers the 4 GB file to a 3 GB temp disk",
+          "Debug logs from the job filled the temp disk",
+          "The database export wrote its dump to temp disk",
+          "Temp files from earlier failed runs were never cleaned",
         ],
         answer: 0,
         explain: "Spilling to disk needs space.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What can help?",
         options: [
           "Use a non repeatable stream if the payload is read once",
-          "Read the file twice",
-          "Log it",
-          "Use bigger blocks",
+          "Read the file twice so each pass buffers half",
+          "Log the payload so the buffer is flushed early",
+          "Raise the in-memory buffer so less spills to disk",
         ],
         answer: 0,
         explain: "No buffer needed if you read once.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "When do you need repeatable streams?",
         options: [
-          "When the payload is read more than once, for example logged then written",
-          "Never",
-          "Always",
-          "Only for JSON",
+          "When the payload is read more than once, such as log then write",
+          "Never, since every connector reads the payload once",
+          "Always, for any payload bigger than the buffer size",
+          "Only for JSON payloads, since XML and CSV stream",
         ],
         answer: 0,
         explain: "Repeat reads need a buffer.",
@@ -87,8 +87,8 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 02:00:00 INFO  [inv-file] Processing file sizeBytes=4000000000
+2026-11-18 02:00:00 INFO  [inv-file] Streaming strategy=repeatable file store
 2026-11-18 02:10:00 ERROR [inv-file] No space left on device
-2026-11-18 02:10:00 INFO  [inv-file] Streaming strategy=repeatable file store
 2026-11-18 02:10:00 INFO  [ops] Temp disk free before run=3GB
 \`\`\`
 

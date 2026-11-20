@@ -20,10 +20,10 @@ export default {
         type: 'multi',
         prompt: 'Why can the request not be traced end to end? (two problems)',
         options: [
-          'prc-customer-api uses a requester config with sendCorrelationId="NEVER", so no X-Correlation-ID reaches sys-crm-api',
-          'sys-crm-api logs uuid() instead of correlationId, so every log line has a new ID',
-          'CloudHub 2.0 strips custom headers between apps',
-          'The log aggregator drops System API logs',
+          'prc-customer-api’s requester config has sendCorrelationId="NEVER"',
+          'sys-crm-api logs uuid() instead of correlationId on every line',
+          'CloudHub 2.0 strips X- headers on calls between apps in one space',
+          'The log aggregator indexes System API logs under a different field',
         ],
         answer: [0, 1],
         explain: 'The ID is neither sent across the process-to-system hop nor logged consistently inside the System API.',
@@ -32,22 +32,22 @@ export default {
         type: 'single',
         prompt: 'What do you do **first** for the customer?',
         options: [
-          'Search sys-crm-api by customer ID and timestamp: the CRM rejected an invalid postcode, so tell the customer and support',
-          'Wait for the correlation fix to be deployed before investigating',
-          'Replay the address change',
-          'Restart sys-crm-api',
+          'Search sys-crm-api logs by customer ID and time, then explain the postcode error',
+          'Deploy the correlation ID fix first, then ask the customer to save again',
+          'Replay the address change from prc-customer-api with the same payload',
+          'Ask the CRM team to check their audit log for the customer’s saved address',
         ],
         answer: 0,
-        explain: 'Answer the customer with a workaround search, then hotfix the requester config and the logger expression.',
+        explain: 'Answer the customer with a workaround search, then hotfix the requester config and the logger expression. A replay sends the same invalid postcode and fails again.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'Separate internal (forwards ID) and partner (does not) requester configs in the common library',
-          'Shared logging module that always writes correlationId, app, layer and business keys',
-          'Return the correlation ID in every error response, and an MUnit test that asserts the header is forwarded',
-          'Generate a fresh uuid() in every layer so each has its own ID',
+          'Separate internal and partner requester configs in the common library',
+          'A shared logging module that always writes correlationId and business keys',
+          'Correlation ID in error responses, and an MUnit test that the header is sent',
+          'A fresh uuid() per layer, logged together with the timestamp and customer ID',
         ],
         answer: [0, 1, 2],
         explain: 'Clear config separation, a logging standard and tests. A new ID per layer is exactly what breaks tracing.',
@@ -57,9 +57,9 @@ export default {
         prompt: 'What is the default behaviour of `sendCorrelationId` on the HTTP requester?',
         options: [
           'AUTO: the current correlation ID is sent on outbound calls',
-          'NEVER: it must be enabled explicitly',
-          'ALWAYS, and it cannot be changed',
-          'It is only sent when a Logger references correlationId',
+          'NEVER: it must be turned on in each requester config',
+          'ALWAYS: it is sent on every call and cannot be turned off',
+          'AUTO: it is sent only when the listener received a header',
         ],
         answer: 0,
         explain: 'AUTO is the default; NEVER makes sense for external partners but breaks tracing inside your own application network.',
@@ -69,7 +69,7 @@ export default {
   description: `
 ## Symptoms
 - A customer complains their address change "didn't save". Support gives the on-call engineer the correlation ID shown in the app's error screen: \`3e9d-a1c0\`.
-- Searching the logs for \`3e9d-a1c0\` finds entries in \`exp-mobile-api\` and \`prc-customer-api\` — but **nothing** in \`sys-crm-api\`, even though \`prc-customer-api\` clearly called it.
+- Searching the logs for \`3e9d-a1c0\` finds entries in \`exp-mobile-api\` and \`prc-customer-api\`, but **nothing** in \`sys-crm-api\`, even though \`prc-customer-api\` clearly called it.
 - It takes two engineers 90 minutes to match the System API log entry by timestamp and customer ID. This has happened on several incidents this month.
 
 ## Change / Context
@@ -116,7 +116,7 @@ export default {
 **Diagnosis.** Two separate problems:
 
 1. **The ID is not sent.** In Mule 4, the HTTP listener takes \`X-Correlation-ID\` from the incoming request (or generates one). The HTTP requester forwards the current \`correlationId\` on outbound calls by default. The shared requester config used by \`prc-customer-api\` has \`sendCorrelationId="NEVER"\`, so \`sys-crm-api\` receives no header and starts a new correlation ID.
-2. **The ID is not logged.** \`sys-crm-api\` logs \`uuid()\`, which creates a new random value on **every log line** — even two lines from the same request (see 11:20:05.341 and .402) don't match. Even if the header arrived, the logs would be untraceable.
+2. **The ID is not logged.** \`sys-crm-api\` logs \`uuid()\`, which creates a new random value on **every log line**. Even two lines from the same request (see 11:20:05.341 and .402) don't match. Even if the header arrived, the logs would be untraceable.
 
 \`\`\`
 exp-mobile-api  --X-Correlation-ID: 3e9d-a1c0-->  prc-customer-api  --(no header)-->  sys-crm-api
@@ -138,7 +138,7 @@ exp-mobile-api  --X-Correlation-ID: 3e9d-a1c0-->  prc-customer-api  --(no header
 **Prevention.** C4E logging standard with a checklist item: "correlation ID forwarded and logged"; an MUnit test that verifies the outbound request carries the header; a periodic log query that picks sample IDs from Experience APIs and checks they appear in System API logs.
 `,
   followUps: [
-    { q: 'What are the options of sendCorrelationId on the HTTP requester?', a: 'AUTO (the default — send the correlation ID, respecting what the event/runtime decides), ALWAYS and NEVER. NEVER is useful for calls to external parties but breaks tracing inside your own application network.' },
+    { q: 'What are the options of sendCorrelationId on the HTTP requester?', a: 'AUTO (the default: send the correlation ID, respecting what the event/runtime decides), ALWAYS and NEVER. NEVER is useful for calls to external parties but breaks tracing inside your own application network.' },
     { q: 'Should the Experience API accept a correlation ID from the mobile app?', a: 'It can, if the app generates one per user action, which helps link app logs to API logs. Validate its format and length so callers cannot inject huge or malicious values into logs.' },
     { q: 'Is a correlation ID enough for asynchronous flows via a queue?', a: 'Only if it is carried in the message, for example as a message property or header, and restored by the consumer. Check that your publish/consume flows do this explicitly rather than assuming it.' },
   ],

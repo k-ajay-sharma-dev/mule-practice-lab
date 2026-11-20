@@ -93,7 +93,8 @@ Facts:
 - Results must not be visible to anyone before 09:00.
 - Each student also gets an email and a text when results go live. The provider takes **100 messages a second**.
 - The SIS has a maintenance window most Saturday mornings, and results day this year is a Saturday.
-- Before 09:00 a few students check every minute, about 20 requests a second from each channel.
+- Before 09:00 a few students check every minute, about 20 requests a second from each channel. From 09:00, plan for 400 requests a second from each channel for 10 minutes.
+- Every request carries the student's token (a JWT), and each must be answered within 300 ms. A Mule replica answers about 500 simple requests a second per vCore.
 
 **Questions:**
 - Draw a design where the 09:00 peak never reaches the SIS.
@@ -143,7 +144,7 @@ Release notifier (09:00) ─► Results read store (who to tell)
 
 **Notifications.** At 09:00 the notifier reads the list of students from the read store and queues one message each, about 250 a second for a minute. \`prc-student-notifications\` sends them at the provider's 100 a second, so all 15,000 go out in about two and a half minutes. Failures are retried, and a bad address ends in the DLQ.
 
-**Sizing for the peak.** 800 requests a second for 10 minutes. The Experience and Process APIs each run 2 replicas of 1 vCore, about 1,000 requests a second each in this model. The read store answers by primary key in milliseconds. The results are also small enough to cache in the Process API once released.
+**Sizing for the peak.** 800 requests a second for 10 minutes. The Experience and Process APIs each run 2 replicas of 1 vCore, about 1,000 requests a second for each API in this model. The notifier queues 250 messages a second, so it runs on 0.5 vCore. The read store answers by primary key in milliseconds. The results are also small enough to cache in the Process API once released.
 
 **The Saturday maintenance window.** The SIS can be down all morning. Nothing on the read path needs it.
 `,

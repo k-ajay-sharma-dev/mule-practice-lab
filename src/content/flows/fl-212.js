@@ -86,6 +86,11 @@ The last value sent is in \`dbo.sync_state\` (\`extract_name\` = \`STORES\`, \`l
 - Write no file when nothing changed.
 - Store the highest \`rv\` sent, and only after the file is written.
 
+**Facts**
+- Select the changes with \`rv > :lastRv\`, passing the stored value as the parameter \`lastRv\`.
+- Write the file from a **Choice** that runs only when there are rows.
+- Do not catch a failed write. The run fails and \`last_rv\` stays.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why a rowversion

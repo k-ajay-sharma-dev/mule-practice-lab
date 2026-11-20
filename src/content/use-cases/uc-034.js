@@ -75,6 +75,7 @@ Facts:
 - Form data is messy: free-text country, personal email addresses, phone numbers in any format.
 - Leads without marketing consent may be stored but must not be emailed.
 - During a campaign the website can send 2 leads a second. Salesforce can be down for 30 minutes, and about 2 leads in 100 have data Salesforce rejects every time.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good leads must survive the 30-minute outage, and rejected ones must reach the DLQ for marketing operations.
 
 **Describe your solution:**
 - How do you receive leads from all sources into one flow?
@@ -122,7 +123,7 @@ Optionally rely on Salesforce **duplicate rules** as a second line of defence; h
 
 **Routing.** Assignment by country and company size via Salesforce assignment rules (set the assignment rule header on create) or a routing table in the Process API. Demo requests flagged high priority so a task or alert goes to the rep.
 
-**Resilience.** Queue consumers retry with backoff on Salesforce 5xx or \`REQUEST_LIMIT_EXCEEDED\`; after retries, messages go to a DLQ with an alert. The website never waits for Salesforce. Normal path completes in seconds, meeting the 2-minute target.
+**Resilience.** Queue consumers retry with backoff on Salesforce 5xx or \`REQUEST_LIMIT_EXCEEDED\`; a failed delivery comes back about once a minute, so a redelivery limit of about 40 outlasts a 30-minute outage. After that, messages go to a DLQ with an alert. The website never waits for Salesforce. Normal path completes in seconds, meeting the 2-minute target.
 
 **Bulk CSV.** Trade-show files go through a **Batch Job**: validate/cleanse records, dedupe within the file, then look up existing records in bulk (query emails in chunks) and upsert with the Bulk API. A result file (created, updated, rejected with reasons) is emailed to the event marketer.
 `,

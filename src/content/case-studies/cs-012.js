@@ -85,6 +85,7 @@ Readings must reach the meter data management system (MDM) for validation and es
 - Meters occasionally send late or duplicate readings.
 - Some customers have opted out of fine-grained data use for analytics.
 - The portal gets about 300 usage reads a second in the evening and MDM takes 50 a second. A storm can send 150 alarms a second for 5 minutes, and the outage system takes 50 a second.
+- Assume a usage read store or cache answers 9 in 10 portal reads. Give the portal Experience API and the usage System API 1 vCore each for the evening peak.
 
 **Your task.** Propose how MuleSoft fits into this data flow, including what you would *not* put through Mule.
 `,

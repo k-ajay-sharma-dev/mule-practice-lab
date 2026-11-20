@@ -123,6 +123,12 @@ The loyalty API answers **503** for a few minutes most evenings, and sometimes *
 - Each event on the dead letter topic says why it is there and how many times it was tried. Log a WARN for it.
 - Keep the customer ID as the key on every topic.
 
+**Facts**
+- \`points\` is the order total rounded down, so 64.80 gives 64.
+- A message on the retry topic is \`{ "event": <the original event>, "attempts": n }\`. The first move to the retry topic has \`attempts\` 1, and each retry that fails again adds one.
+- A message on the dead letter topic is \`{ "event", "attempts", "reason" }\`. From the main flow \`attempts\` is 0.
+- So an event that keeps failing is called 4 times: once from the main topic and 3 times from the retry topic.
+
 **Design the flows.**
 `,
   answerTemplate: `## Why retrying in place hurts

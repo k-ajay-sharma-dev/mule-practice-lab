@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: 'Why did customers get 200 when the database insert failed?',
         options: [
-          'On Error Continue marks the flow as successful, so the HTTP Listener sends its normal response with the handler\'s payload',
-          'The database returned 200 to Mule',
-          'The HTTP Listener always answers 200',
-          'DB:CONNECTIVITY is a warning, not an error',
+          'On Error Continue ends the flow as a success, so the Listener sends its normal response',
+          'The Database connector retried the insert in the background and reported success',
+          'The HTTP Listener sends 200 whenever the payload is set, whatever the error state',
+          'DB:CONNECTIVITY is raised only as a warning, so the flow carries on to the end',
         ],
         answer: 0,
         explain: 'On Error Continue handles the error and lets the flow finish as if it succeeded. The Listener sends its success response, which defaults to status 200.',
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: 'Which change gives the caller an honest answer?',
         options: [
-          'Use On Error Propagate for this error and map it to 503, or set the error response status and body',
-          'Add a Logger in the On Error Continue',
-          'Retry the insert forever inside the handler',
-          'Return 200 with "Booking received" in larger text',
+          'Use On Error Propagate for this error, with an error response status of 503',
+          'Keep On Error Continue and add a Logger at ERROR level inside the handler',
+          'Keep On Error Continue and retry the insert with Until Successful in it',
+          'Keep On Error Continue and change the message to "Booking pending"',
         ],
         answer: 0,
         explain: 'On Error Propagate rethrows the error, and the Listener sends its error response. Setting the status to 503 tells the client to try again later.',
@@ -44,20 +44,20 @@ export default {
         options: [
           'Find the bookings that got 200 during the outage, from the logs',
           'Contact those customers or the restaurants, as the tables are not booked',
-          'Turn off logging to reduce load',
+          'Replay the failed requests from the logs without asking anyone',
           'Fix the response so failures return an error status',
         ],
         answer: [0, 1, 3],
-        explain: 'Customers believe they have a table. Find them, tell them or the restaurant, and stop the false answers.',
+        explain: 'Customers believe they have a table. Find them, tell them or the restaurant, and stop the false answers. Replaying blindly could book tables that are now taken, or that guests no longer want.',
       },
       {
         type: 'single',
         prompt: 'When is On Error Continue the right choice?',
         options: [
-          'When the error is truly handled, such as a fallback value that is good enough, and the caller should see success',
-          'Whenever you want to avoid error responses',
-          'For every database error',
-          'Only in sub-flows',
+          'When a fallback still gives a correct result, so success is the truth',
+          'When the caller’s app should never show an error page to customers',
+          'When the error is a connectivity error that may clear on its own',
+          'When the flow has no other handler and must not end in an error',
         ],
         answer: 0,
         explain: 'It fits when the flow can still give a correct result, for example a cached price when the price service is down. It hides failures if used as a catch-all.',
@@ -79,7 +79,7 @@ export default {
   description: `
 ## Symptoms
 - A restaurant booking app sends bookings to \`booking-api\`.
-- Last Friday evening, guests arrived with confirmations, but the restaurants had no record of their bookings.
+- Last Thursday evening, guests arrived with confirmations, but the restaurants had no record of their bookings.
 - The app showed "Booking received" every time.
 
 ## Change / Context

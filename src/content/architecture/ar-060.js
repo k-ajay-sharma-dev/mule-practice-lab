@@ -65,7 +65,7 @@ export default {
       prompt: 'Classify each change to `sys-sfdc-customer-api`.',
       pairs: [
         ['Add an optional `addresses[]` field', 'Non-breaking'],
-        ['Replace the `address` object with `addresses[]`', 'Breaking — removal and cardinality change'],
+        ['Replace the `address` object with `addresses[]`', 'Breaking: removal and cardinality change'],
         ['Add the enum value `PARTNER` to `customerType`', 'Potentially breaking for strict consumers'],
       ],
       explain: 'Consumers with strict enum validation or exhaustive switches break on a new value; good specs state that enums may grow and unknown values must be handled.',
@@ -75,26 +75,26 @@ export default {
       needsScenario: true,
       prompt: 'What should you try first?',
       options: [
-        'Publish v2 immediately and ask all four Process APIs to migrate',
-        'Evolve v1 additively (e.g. 1.3.0): add `addresses[]`, keep `address` as the primary address and mark it deprecated',
-        'Change `address` to an array in v1',
-        'Create a new asset sys-sfdc-customer-v2-api',
+        'Publish v2 now and ask all four Process APIs to migrate',
+        'Add `addresses[]` to v1 and keep `address` as the primary address',
+        'Change `address` to an array inside v1',
+        'Create a new asset named sys-sfdc-customer-v2-api',
       ],
       answer: 1,
-      explain: 'Many "v2s" are avoidable: consumers that need one address do nothing.',
+      explain: 'An additive minor version (e.g. 1.3.0) adds `addresses[]` and marks `address` deprecated. Many "v2s" are avoidable this way: consumers that need one address do nothing.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'A v2 is unavoidable. How do you run both versions?',
       options: [
-        'Replace v1 with v2 on a single release date',
-        'Publish 2.0.0 of the same Exchange asset with its own API instance; serve /api/v1 as a thin adapter over the v2 logic, and migrate Process APIs one by one',
-        'Ask Salesforce to keep the old data model',
-        'Let each Process API call Salesforce directly during the transition',
+        'Replace v1 with v2 on one agreed release date',
+        'Publish 2.0.0 beside v1, serve v1 as an adapter, migrate one by one',
+        'Keep only v1 and squeeze every new field into `address`',
+        'Let each Process API call Salesforce directly for now',
       ],
       answer: 1,
-      explain: 'Running both side by side (often in one app) lets each Process API migrate in its own release cycle until v1 traffic reaches zero.',
+      explain: 'Publish 2.0.0 of the same Exchange asset with its own API instance, and serve /api/v1 as a thin adapter over the v2 logic. Running both side by side (often in one app) lets each Process API migrate in its own release cycle until v1 traffic reaches zero.',
     },
     {
       type: 'single',
@@ -102,12 +102,12 @@ export default {
       prompt: 'How do you guarantee the 40 external consumers see no change?',
       options: [
         'Version the Experience APIs to v2 as well',
-        'The Process APIs absorb the change: they move to System v2 internally but keep their own contracts to the Experience layer unchanged',
-        'Freeze Salesforce changes',
+        'The Process APIs move to v2 but keep their own contracts unchanged',
+        'Freeze Salesforce changes until consumers are ready',
         'Ask external consumers to ignore the new fields',
       ],
       answer: 1,
-      explain: 'Each layer versions independently — a major version at one layer does not imply one above. This containment is the point of layering.',
+      explain: 'Each layer versions independently: a major version at one layer does not imply one above. This containment is the point of layering.',
     },
     {
       type: 'single',
@@ -125,13 +125,13 @@ export default {
       type: 'single',
       prompt: 'Why is URI major versioning (/v1, /v2) the most common choice in Anypoint?',
       options: [
-        'Header versioning is not allowed by HTTP',
-        'It maps cleanly to API instances, policies and APIkit routers, and is easy to route and observe',
-        'It avoids the need for semantic versioning',
+        'HTTP does not allow versions in headers',
+        'It maps cleanly to API instances, policies and APIkit routers',
+        'It removes the need for semantic versioning',
         'Exchange cannot store header-versioned APIs',
       ],
       answer: 1,
-      explain: 'Header or media-type versioning works but is harder to route, apply policies to and observe.',
+      explain: 'URI versions are also clear to route and observe. Header or media-type versioning works but is harder to route, apply policies to and observe.',
     },
   ],
   description: `
@@ -178,23 +178,23 @@ Numbers for the run-both period:
 |---|---|
 | Add \`addresses[]\` (new optional field) | No |
 | Replace \`address\` object with \`addresses[]\` | **Yes** (removal + cardinality change) |
-| New enum value \`PARTNER\` | **Potentially** — consumers with strict enum validation or exhaustive switches break. Good practice: state in specs that enums may grow and consumers must handle unknown values |
+| New enum value \`PARTNER\` | **Potentially**: consumers with strict enum validation or exhaustive switches break. Good practice: state in specs that enums may grow and consumers must handle unknown values |
 
-**Step 1 — avoid v2 if you can.** Additive evolution in **v1.x**: add \`addresses[]\`, keep \`address\` populated with the primary/billing address and mark it deprecated in the spec. Publish 1.3.0 to Exchange. Consumers that only need one address do nothing. Many "v2s" are avoidable this way.
+**Step 1: avoid v2 if you can.** Additive evolution in **v1.x**: add \`addresses[]\`, keep \`address\` populated with the primary/billing address and mark it deprecated in the spec. Publish 1.3.0 to Exchange. Consumers that only need one address do nothing. Many "v2s" are avoidable this way.
 
-**Step 2 — if v2 is needed** (e.g. you must remove \`address\` because "primary" is ambiguous):
+**Step 2: if v2 is needed** (e.g. you must remove \`address\` because "primary" is ambiguous):
 \`\`\`
 sys-sfdc-customer-api
   /api/v1/customers  -> adapter: calls v2 logic, maps addresses[] -> address (primary)
   /api/v2/customers  -> new contract
 \`\`\`
 - Publish **2.0.0** as a new major version of the same Exchange asset; create a separate API instance in API Manager for v2 (own policies, contracts).
-- Deploy both versions in the **same app** (two base paths, v1 as a thin mapping over v2) or as two apps — same app is cheaper and keeps one SoR-access implementation.
+- Deploy both versions in the **same app** (two base paths, v1 as a thin mapping over v2) or as two apps: same app is cheaper and keeps one SoR-access implementation.
 - Migrate Process APIs one by one, in their own release cycles; track remaining v1 traffic by client id.
 - Announce **deprecation** of v1 in Exchange and a **sunset date**; remove v1 when traffic is zero (or after the date with agreement).
 
 **Containing the change at the Process layer.**
-- \`prc-customer-360\` moves to v2 internally but keeps its own **v1 contract** to Experience APIs unchanged — it maps \`addresses[]\` to whatever its contract promises (or adds \`addresses[]\` additively).
+- \`prc-customer-360\` moves to v2 internally but keeps its own **v1 contract** to Experience APIs unchanged: it maps \`addresses[]\` to whatever its contract promises (or adds \`addresses[]\` additively).
 - The \`PARTNER\` value: the Process API decides the business meaning (e.g. maps to an existing category, or exposes it additively if Experience consumers tolerate it).
 - Experience APIs and 40 external consumers see **no change**. Each layer versions **independently**; a major version at one layer does not imply a major version above.
 

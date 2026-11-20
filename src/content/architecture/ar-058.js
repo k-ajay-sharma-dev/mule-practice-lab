@@ -65,9 +65,9 @@ export default {
     {
       type: 'single',
       prompt: 'The Process API calls PIM (250 ms), price (120 ms) and stock (400 ms) sequentially. Roughly how long do the backend calls take after switching to Scatter-Gather?',
-      options: ['770 ms', '~400 ms (the slowest route) plus merge overhead', '120 ms', '1.4 s'],
+      options: ['770 ms', '~400 ms plus merge overhead', '120 ms', '~260 ms, the average of the three'],
       answer: 1,
-      explain: 'Parallel independent calls cost about the slowest route rather than the sum — the single biggest win here.',
+      explain: 'Parallel independent calls cost about the slowest route (stock, 400 ms) rather than the sum. That is the single biggest win here.',
     },
     {
       type: 'single',
@@ -97,37 +97,37 @@ export default {
       type: 'single',
       prompt: 'What do you lose by co-deploying a thin Experience API and its Process API in one Mule app?',
       options: [
-        'The ability to use DataWeave',
-        'Independent scaling and deploys, blast-radius isolation and gateway policies on the internal call (in-process calls bypass the gateway)',
-        'The API specs',
-        'Nothing at all',
+        'The ability to use DataWeave between the two layers',
+        'Independent scaling and deploys, and policies on the internal call',
+        'The separate API specs of the two layers',
+        'Nothing, since flow-ref calls still pass the gateway policies',
       ],
       answer: 1,
-      explain: 'Co-location removes a hop and cost; keep separate specs and modules so you can split again later.',
+      explain: 'Co-location removes a hop and cost, but you lose independent scaling and deploys, blast-radius isolation, and gateway policies on the internal call: in-process calls bypass the gateway. Keep separate specs and modules so you can split again later.',
     },
     {
       type: 'single',
       prompt: 'A senior developer proposes that the mobile app call the databases directly. Best response?',
       options: [
-        'Agree — API-led is too slow for mobile',
-        'Direct access gives up security, decoupling and reuse to save time that parallelism, internal routing and caching can recover',
+        'Agree, since API-led is too slow for mobile',
+        'Decline: parallel calls, internal routing and caching fix the latency',
         'Agree, but only for read operations',
-        'Move all logic into the Experience API instead',
+        'Decline, and move all logic into the Experience API instead',
       ],
       answer: 1,
-      explain: 'The latency comes from sequential calls and routing, not from the existence of layers.',
+      explain: 'The latency comes from sequential calls and routing, not from the existence of layers. Direct access would give up security, decoupling and reuse to save time that can be recovered another way.',
     },
     {
       type: 'single',
       prompt: 'Is Scatter-Gather always faster?',
       options: [
-        'Yes, always',
-        'Only when the calls are independent and the backends can handle the concurrency; it also uses more threads and connections at once',
-        'No, it is always slower than sequential calls',
-        'Only on CloudHub 2.0',
+        'Yes, parallel calls are always faster',
+        'Only for independent calls whose backends can take the concurrency',
+        'No, the thread handoff makes it slower than sequential calls',
+        'Only on CloudHub 2.0, which runs each route on its own worker',
       ],
       answer: 1,
-      explain: 'Parallelism has a resource cost — size pools and replicas accordingly.',
+      explain: 'Parallelism has a resource cost: it uses more threads and connections at once, so size pools and replicas accordingly.',
     },
   ],
   description: `
@@ -144,10 +144,10 @@ Facts:
 - The Process API calls the three System APIs **sequentially**.
 - Every call goes through the public load balancer because developers used the public URLs.
 - Normal traffic is **40 searches a second**, and the evening peak is **80 a second**.
-- About **30%** of searches can be answered from a product and price cache. Stock must stay live.
+- About **30%** of searches can be answered from a product and price cache kept in the Process or System layer, so every channel benefits. Stock must stay live.
 - The budget for the whole chain is **2 vCores**.
 
-A senior developer says: *"API-led is too slow — let's have the mobile app call the databases directly."*
+A senior developer says: *"API-led is too slow: let's have the mobile app call the databases directly."*
 
 **Questions:**
 1. Build a **latency budget** for the chain. Where does the time go?
@@ -165,7 +165,7 @@ A senior developer says: *"API-led is too slow — let's have the mobile app cal
 `,
   keyPoints: [
     'Sequential calls sum backend latencies (~770 ms p95 before any overhead); making independent calls parallel reduces it to roughly the slowest dependency.',
-    'Each hop adds network, TLS, policy and serialization overhead; routing internal calls via public endpoints adds more — use internal/private endpoints within the same region/space.',
+    'Each hop adds network, TLS, policy and serialization overhead; routing internal calls via public endpoints adds more: use internal/private endpoints within the same region/space.',
     'Cache at the right layer for the data\'s volatility: product content (long TTL) near the System/Process layer, price (medium), stock (short or none); HTTP caching at the Experience layer for anonymous data.',
     'Undersized replicas (0.2 vCore) under load add queueing latency; right-size and scale out before redesigning.',
     'Settings that fix this chain: calls in parallel on the Process API, a cache in front of it, and 0.5 vCore on the Experience and Process APIs that carry every search. The System APIs stay at 0.2 vCore, 1.6 vCores in all.',
@@ -176,22 +176,22 @@ A senior developer says: *"API-led is too slow — let's have the mobile app cal
 
 | Segment | Time |
 |---|---|
-| Mobile ↔ Experience (internet, TLS) | 100–150 ms (outside your control) |
-| Experience overhead (policies, DataWeave) | 10–30 ms |
-| Exp → Process via **public** LB | 20–60 ms per hop vs a few ms internally |
+| Mobile ↔ Experience (internet, TLS) | 100 to 150 ms (outside your control) |
+| Experience overhead (policies, DataWeave) | 10 to 30 ms |
+| Exp → Process via **public** LB | 20 to 60 ms per hop vs a few ms internally |
 | Process → 3 System APIs **sequential** | 250 + 120 + 400 = **770 ms** + 3 hops overhead |
 | System → backends | included above |
 | Queueing on 0.2 vCore under load | variable, can be 100s of ms |
 
-The problem is mostly **sequential composition** and **routing**, not the existence of layers. Pure hop overhead inside one region on private networking is typically single-digit to low tens of ms per hop — measure it rather than assume.
+The problem is mostly **sequential composition** and **routing**, not the existence of layers. Pure hop overhead inside one region on private networking is typically single-digit to low tens of ms per hop: measure it rather than assume.
 
 **Fixes by impact.**
 1. **Parallelise** the three System calls in the Process API (Scatter-Gather): 770 ms → ~400 ms (slowest) + merge.
 2. **Call internal endpoints** (private ingress / internal service URLs in the Private Space) instead of the public LB; avoid hairpinning out and back in.
-3. **Cache** (see below) — removes most PIM and price calls entirely.
+3. **Cache** (see below): removes most PIM and price calls entirely.
 4. **Right-size**: 0.2 vCore apps doing heavy DataWeave and parallel calls may CPU-starve; increase size or replicas and check thread/connection pools; keep-alive connections on HTTP requesters.
 5. **Tune payloads**: request only needed fields from System APIs (field selection), stream large responses, avoid repeated JSON ↔ Java conversions.
-6. **Stock**: 400 ms from WMS — ask whether search results need live stock. Often "in stock / low / out" refreshed every minute is enough (cached or event-fed read model), with live stock checked only on the product detail or checkout.
+6. **Stock**: 400 ms from WMS: ask whether search results need live stock. Often "in stock / low / out" refreshed every minute is enough (cached or event-fed read model), with live stock checked only on the product detail or checkout.
 7. Set per-hop **timeouts** with a decreasing budget so a slow dependency returns partial results instead of breaking the SLA.
 
 **Caching per layer.**
@@ -201,7 +201,7 @@ The problem is mostly **sequential composition** and **routing**, not the existe
 | Product content (PIM) | Changes daily | Process or System API (Object Store / Cache scope), or HTTP caching policy | Hours; invalidate on PIM publish event if available |
 | Price | Changes several times a day | Process API | Minutes; or event-driven invalidation from pricing |
 | Stock | Changes constantly | Event-fed read model or short TTL (≤ 1 min) | Accept staleness only for listing, not checkout |
-| Whole search response (anonymous) | — | Experience API / CDN with HTTP cache headers | Short, keyed by query |
+| Whole search response (anonymous) | n/a | Experience API / CDN with HTTP cache headers | Short, keyed by query |
 
 Rule: cache **closest to the consumer that can accept the staleness**, and as low as possible when many consumers benefit (a System API cache helps every Process API).
 
@@ -209,7 +209,7 @@ Rule: cache **closest to the consumer that can accept the staleness**, and as lo
 - Separate apps (default): independent scaling, deployment, ownership, failure isolation, clear policies per API.
 - **Co-deployed**: e.g. a thin Experience API and its Process API in one Mule app, with the Experience flows calling Process logic via \`flow-ref\` (or the Process API's flows packaged as a shared module). The Process API can still also be exposed on its own HTTP listener with its own API Manager instance for other consumers.
 - When: tight latency budgets, very thin layers, small team, low reuse, cost pressure.
-- What you lose: independent scaling/deploys, blast-radius isolation, per-layer policy enforcement for internal calls (in-process calls bypass the gateway), and it is easy to leak logic across the boundary. Keep the code structured (separate modules/flows, separate specs) so you can split later.
+- What you lose: independent scaling/deploys, blast-radius isolation, per-layer policy enforcement for internal calls (in-process calls bypass the gateway), and logic tends to leak across the boundary. Keep the code structured (separate modules/flows, separate specs) so you can split later.
 
 **Settings that matter.**
 - \`prc-product-api\` calls in **parallel**: about 400 ms for the backends instead of 770 ms. With a cache that answers 30% of searches, the average search takes well under 500 ms.

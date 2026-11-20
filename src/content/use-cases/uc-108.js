@@ -110,7 +110,7 @@ Facts:
 
 **Consumer groups.** Kafka delivers each event once **per consumer group**. Each Mule app uses its own \`groupId\`, so all three apps get every event and none of them takes events from another. Inside a group, Kafka assigns each partition to one consumer. With 24 partitions a group can use up to 24 consumers in parallel; more replicas than that sit idle.
 
-**Ordering and scaling.** Key = \`orderId\`, so all events of one order land in one partition and are read in order by one consumer of each group. Scale by replicas and by the connector's consumer count, keeping the total at or below 24. If the ledger needs more throughput later, add partitions with care: the key to partition mapping changes for new events.
+**Ordering and scaling.** Key = \`orderId\`, so all events of one order land in one partition and are read in order by one consumer of each group. Scale by replicas and by the connector's consumer count, keeping the total at or below 24. One 0.5 vCore replica handles about 250 events a second, so the order APIs, the notifier and the analytics loader each run 2 replicas of 0.5 vCore to carry the 400 a second dinner peak. The ledger needs less, because the ERP takes only 30 calls a second. If the ledger needs more throughput later, add partitions with care: the key to partition mapping changes for new events.
 
 **Offsets.** Use manual commit (Message Listener with \`ackMode\` MANUAL, then the Commit operation) after the work succeeds. Committing first would lose events on a crash. Committing after means a crash replays a few events, so:
 - the ledger posts with an idempotency key \`orderId + eventType\`;

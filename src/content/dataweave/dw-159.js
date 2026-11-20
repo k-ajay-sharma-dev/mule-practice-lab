@@ -14,8 +14,10 @@ The input has \`lastProcessed\`, the last \`seq\` posted per account (an account
 
 1. **Duplicates:** a message whose \`seq\` is at or below the account's last processed value, or whose account and \`seq\` already appeared earlier in this input. List their \`messageId\`s in \`duplicates\`, in input order.
 2. **Per account**, for the other messages in \`seq\` order: release messages while each one is exactly the next \`seq\` expected. From the first gap on, hold everything.
-3. \`accounts\`: sorted by account id, each with \`accountId\`, \`release\` (message ids in \`seq\` order), \`hold\` (message ids in \`seq\` order) and \`nextExpected\`.
-4. \`lastProcessed\`: the input map with new values for the accounts in this run. Accounts not in the input map are added at the end, sorted by id.
+3. \`accounts\`: one entry per account that has at least one message left after step 1, sorted by account id as text, each with \`accountId\`, \`release\` (message ids in \`seq\` order), \`hold\` (message ids in \`seq\` order) and \`nextExpected\` (the \`seq\` the account needs next: its last processed value plus the number released, plus 1).
+4. \`lastProcessed\`: the input map, in its own key order, with \`nextExpected - 1\` as the new value for each account in \`accounts\`. Accounts not in the input map are added at the end, sorted by id as text.
+
+Output the keys in the order \`accounts\`, \`duplicates\`, \`lastProcessed\`.
 `,
   inputs: [
     {

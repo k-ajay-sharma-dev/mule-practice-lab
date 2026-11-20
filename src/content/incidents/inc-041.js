@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'Why do replicas restart?',
         options: [
-          'The liveness check calls slow downstream systems; at peak the probe times out and the platform restarts healthy replicas',
-          'The replicas run out of memory',
-          'Kubernetes restarts pods automatically every few minutes',
-          'The ERP sends a shutdown signal',
+          'The liveness probe calls slow downstream systems and times out at peak',
+          'The replicas run out of heap at peak and the kubelet kills them',
+          'The cluster restarts pods on a fixed schedule every few minutes',
+          'The ERP sends its clients a shutdown request when it is overloaded',
         ],
         answer: 0,
         explain: 'A dependency slowdown fails the liveness probe. Restarts reduce capacity and the surviving replica degrades too.',
@@ -33,13 +33,13 @@ export default {
         type: 'single',
         prompt: 'What do you do **immediately**?',
         options: [
-          'Point the health check to a trivial endpoint (200 if the app serves HTTP), redeploy and temporarily add replicas',
-          'Increase the ERP timeout in /health to 60 s',
-          'Disable health checks completely forever',
-          'Restart the ERP',
+          'Point the probe at a light endpoint with no external calls, redeploy, add replicas',
+          'Raise the ERP timeout inside /health to 60 s so the check always finishes',
+          'Remove the liveness probe from the pod spec for good',
+          'Ask the ERP team to restart the ERP before each morning peak',
         ],
         answer: 0,
-        explain: 'Decouple the probe from dependencies and add capacity for the peak; a longer timeout keeps threads busy and still risks restarts.',
+        explain: 'Decouple the probe from dependencies and add capacity for the peak. A longer timeout keeps threads busy and still risks restarts, and with no liveness probe a hung pod is never restarted.',
       },
       {
         type: 'match',
@@ -74,7 +74,7 @@ export default {
 
 ## Change / Context
 - Two weeks ago a developer added a custom \`GET /health\` endpoint and configured it as the pod's **livenessProbe** path. The endpoint checks the DB, calls two downstream SAPIs and the ERP (each with a 10 s timeout) and returns 200 only if all succeed.
-- At peak the ERP becomes slow (3–8 s per call). The health check probe timeout and failure threshold are short.
+- At peak the ERP becomes slow (3 to 8 s per call). The health check probe timeout and failure threshold are short.
 
 ## Logs
 \`\`\`
@@ -103,14 +103,14 @@ export default {
 `,
   keyPoints: [
     'The liveness check depends on slow downstream systems; when they slow down, the probe times out and the platform kills a healthy replica.',
-    'Restarts reduce capacity, increasing load on the other replica — a cascading failure that makes the outage worse.',
+    'Restarts reduce capacity, increasing load on the other replica: a cascading failure that makes the outage worse.',
     'Immediate: point the health check to a lightweight endpoint (or remove downstream calls from it) and redeploy; scale out temporarily.',
-    'Liveness = "is this process alive?" (no dependencies); readiness = "can I take traffic?" — deep dependency checks belong in monitoring, not liveness.',
+    'Liveness asks "is this process alive?" (no dependencies); readiness asks "can I take traffic?". Deep dependency checks belong in monitoring, not liveness.',
     'Health endpoints must be cheap and fast, run on their own path, and never consume the same constrained resources as business traffic.',
   ],
   solution: `
 ## Diagnosis
-The platform uses the health check to decide whether a replica is **alive**. The new \`/health\` does deep checks against the DB, two SAPIs and the ERP. At peak the ERP takes several seconds, so the probe exceeds its timeout; after a few failures the platform **restarts a replica that was actually fine**. With one replica down, the other gets double load, gets slower, and fails its probe too — a self-inflicted cascade. Off-peak the ERP is fast, so everything looks healthy.
+The platform uses the health check to decide whether a replica is **alive**. The new \`/health\` does deep checks against the DB, two SAPIs and the ERP. At peak the ERP takes several seconds, so the probe exceeds its timeout; after a few failures the platform **restarts a replica that was actually fine**. With one replica down, the other gets double load, gets slower, and fails its probe too: a self-inflicted cascade. Off-peak the ERP is fast, so everything looks healthy.
 
 ## Immediate mitigation
 Change the health check path to a trivial endpoint (returns 200 if the app can serve HTTP) and redeploy; temporarily add replicas to absorb the peak. Tell the ERP team about the slowness.

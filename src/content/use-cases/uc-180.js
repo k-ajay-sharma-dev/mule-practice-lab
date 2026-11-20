@@ -103,13 +103,13 @@ Quarry Hill Hardware, a fictional chain of hardware stores, is wiring in the pla
 - **Back**: replenishment plans. A collector job reads each plan file and puts each line on a queue. A plans Process API writes the line to SQL Server, through the same System API, and to the **WMS**, through a WMS System API.
 
 **Numbers**
-- About **2 outbound files a second** and **3 plan lines a second** at night.
+- About **2 outbound files a second** and **3 plan lines a second** at night. The platform loads the outbound files at a set time and will not wait for them.
 - Normal FTP calls take about 2 seconds. At month end the files are full and each FTP call takes about **25 seconds**.
 - The platform's server limits logins. At busy times about **1 FTP call in 10** is refused for up to 20 minutes.
 - The WMS is down for maintenance for up to **an hour** a month.
 - Last year an availability zone failed for 20 minutes during the night run.
 - About **1 plan line in 100** names a store that is not open yet.
-- In this model calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
+- In this model calls time out after 10 seconds unless set otherwise, a failed delivery is tried again about once a minute, and an app with one replica stops when its zone fails.
 
 **Questions:**
 - Draw the design.

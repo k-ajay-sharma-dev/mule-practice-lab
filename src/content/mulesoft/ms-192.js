@@ -58,13 +58,13 @@ export default {
       type: 'single',
       prompt: 'A developer finds an order lookup API in the Agent Registry and wants to reuse it for a new AI agent. What can the Agent Registry show that helps the developer decide?',
       options: [
-        'The personal phone number of each developer who has called the API',
+        'The full payload of each request it received this month',
         'Its conformance status and the health of its instances',
-        'The full text of every request that the API has ever received',
-        'A copy of the database that sits behind the API',
+        'The source code of the flows that implement the API',
+        'The tokens each AI agent spent when it called the API',
       ],
       answer: 1,
-      explain: 'The Agent Registry lets you check conformance and instance health before you use an asset, so you can tell if it meets your rules and is running well.',
+      explain: 'The Agent Registry lets you check conformance and instance health before you use an asset, so you can tell if it meets your rules and is running well. It is an inventory, so it does not keep request payloads or source code, and token spend is tracked by Budget Management.',
     },
     {
       type: 'single',
@@ -72,8 +72,8 @@ export default {
       options: [
         'Send the source code to each department so that each one can run a copy',
         'Publish it through the Agent Registry so that other teams can find it',
-        'Add the name of the agent to the HTTP headers of every internal API',
-        'Move the agent into the Mule app of each department that wants to use it',
+        'Apply an Omni Gateway policy that lists the agent for every other team',
+        'Copy the agent into the Mule app of each department that wants to use it',
       ],
       answer: 1,
       explain: 'The Agent Registry lets you manage the lifecycle of assets and publish them for other teams, so one agent can serve many departments.',

@@ -7,9 +7,9 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
+      { text: "2026-11-15 09:00:00 INFO  [bank-mail] New public key 0xE5F6A7B8 effective 2026-11-18", relevant: true, why: "The bank sent a new key." },
       { text: "2026-11-18 16:00:00 INFO  [pay-out] Encrypted file=pay_20261118.pgp recipientKeyId=0xA1B2C3D4", relevant: true, why: "Mule encrypts with the old key." },
       { text: "2026-11-18 16:05:00 ERROR [bank] Cannot decrypt pay_20261118.pgp no secret key for 0xA1B2C3D4", relevant: true, why: "The bank no longer has the matching private key." },
-      { text: "2026-11-15 09:00:00 INFO  [bank-mail] New public key 0xE5F6A7B8 effective 2026-11-18", relevant: true, why: "The bank sent a new key." },
       { text: "2026-11-18 16:10:00 WARN  [pay-out] Payments pending=1240", relevant: true, why: "Payments are waiting." },
       { text: "2026-11-18 23:59:00 INFO  [pay-out] GET /health 200", relevant: false },
     ],
@@ -19,9 +19,9 @@ export default {
         prompt: "Why does the bank reject the file?",
         options: [
           "Mule still encrypts with the old public key",
-          "The file is corrupt",
-          "SFTP failed",
-          "The bank is down",
+          "The file was damaged in the SFTP upload",
+          "Mule signed the file with the wrong key",
+          "The bank’s private key has expired",
         ],
         answer: 0,
         explain: "The bank only holds the new private key.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the fix?",
         options: [
-          "Import the new public key, check its fingerprint, re-encrypt and resend",
-          "Send the file unencrypted",
-          "Ask the bank to keep the old key forever",
-          "Use your own private key",
+          "Import the new public key, check its fingerprint, then re-encrypt",
+          "Rename the file to .gpg so the bank tries its other keys",
+          "Resend the same encrypted file under a new file name",
+          "Encrypt the file with our own private key instead",
         ],
         answer: 0,
         explain: "Encrypt with the key the bank can decrypt.",
@@ -45,7 +45,7 @@ export default {
           "An owner for each partner key and its expiry",
           "A test file exchange before the effective date",
           "Fingerprint checks by a trusted channel",
-          "Keys in source control",
+          "Partner keys kept in the app’s Git repo",
         ],
         answer: [0,1,2],
         explain: "Plan key changes as small projects.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why must payment files be sent once only?",
         options: [
           "A double send could pay suppliers twice",
-          "The bank charges per file",
-          "SFTP cannot overwrite",
-          "It is faster",
+          "The bank rejects a file name it has seen",
+          "SFTP cannot overwrite an existing file",
+          "PGP files can be decrypted only once",
         ],
         answer: 0,
         explain: "Resend with care and confirm with the bank.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-15 09:00:00 INFO  [bank-mail] New public key 0xE5F6A7B8 effective 2026-11-18
 2026-11-18 16:00:00 INFO  [pay-out] Encrypted file=pay_20261118.pgp recipientKeyId=0xA1B2C3D4
 2026-11-18 16:05:00 ERROR [bank] Cannot decrypt pay_20261118.pgp no secret key for 0xA1B2C3D4
-2026-11-15 09:00:00 INFO  [bank-mail] New public key 0xE5F6A7B8 effective 2026-11-18
 2026-11-18 16:10:00 WARN  [pay-out] Payments pending=1240
 \`\`\`
 

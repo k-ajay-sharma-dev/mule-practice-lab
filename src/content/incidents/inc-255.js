@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why are files skipped?",
         options: [
-          "The server reports times in UTC and Mule reads them as local time, so files look five hours in the future",
-          "The files are large",
-          "The poll is slow",
-          "The name is wrong",
+          "Mule reads the server’s UTC file times as local time",
+          "The vendor’s clock runs five hours fast",
+          "The upload takes five hours to finish",
+          "The age check uses minutes, not milliseconds",
         ],
         answer: 0,
         explain: "A future time never passes the age check.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What fixes it?",
         options: [
-          "Set the server time zone in the connector, or compare in UTC",
-          "Lower the minimum age",
-          "Turn off the age check",
-          "Change the server clock",
+          "Treat the server’s file times as UTC and compare in UTC",
+          "Lower the minimum age from one minute to ten seconds",
+          "Turn off the age check for this vendor’s files",
+          "Ask the server owner to move its clock back five hours",
         ],
         answer: 0,
         explain: "Compare like with like.",
@@ -45,7 +45,7 @@ export default {
           "Watermarks",
           "Archive folder dates",
           "Cut off checks",
-          "Passwords",
+          "File size checks",
         ],
         answer: [0,1,2],
         explain: "Any logic that uses file times.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why keep an age check?",
         options: [
           "It avoids reading files still being written",
-          "It speeds up polls",
-          "It is required by FTP",
-          "It saves memory",
+          "It stops two nodes reading one file",
+          "It keeps polls from timing out",
+          "It skips files that are empty",
         ],
         answer: 0,
         explain: "Keep it, but compare times correctly.",
@@ -122,10 +122,10 @@ These lines are illustrative and were written for this scenario. Real log format
 **Immediate mitigation.**
 - Process waiting files.
 
-**Root cause.** Time zone of the server was not configured.
+**Root cause.** The flow read the server’s UTC file times as local time.
 
 **Permanent fix.**
-- Configure the server time zone, compare in UTC.
+- Treat server file times as UTC and compare in UTC.
 
 **Prevention.** Test time based logic across zones.
 `,

@@ -75,6 +75,11 @@ Last month one board's new release resent the same applications in a loop, about
 
 About 1 application in 100 has a CV file the hiring system refuses every time.
 
+Requirements:
+- A board gets its answer within 300 ms, even on Monday morning. No application may be lost.
+- Every application of the Monday rush reaches the hiring system within two hours, and the hiring system never gets more than 20 calls a second.
+- A board stuck in a loop gets 429 for most of its calls, so that no more than about 100 calls a second reach the Mule apps.
+
 **Questions:**
 - Draw one intake for all five boards.
 - How does the Monday rush reach the hiring system without going over its limit?

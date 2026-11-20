@@ -80,7 +80,7 @@ Mobile App → Account Experience API → Account Process API
 
 Observations:
 - 70% of calls fetch the same ~300 products.
-- The PIM vendor charges per API call above a monthly allowance.
+- The PIM vendor charges per API call above a monthly allowance. Other channels (web, store kiosks) also read the catalogue through the Catalogue System API.
 - Balance must never be stale by more than a few seconds; a stale balance led to complaints before.
 - APIs are managed in API Manager; apps run with 3 replicas each on CloudHub 2.0, spread over availability zones. The budget for the APIs is **3 vCores**.
 - At peak the app asks for product details **150 times a second** and opens account screens 100 times a second. Product pages should load in well under half a second.
@@ -115,14 +115,14 @@ Observations:
 
 | Data | Where | TTL | Why |
 |---|---|---|---|
-| Product catalogue (PIM) | **Catalogue System API** (Cache scope / Object Store), optionally gateway HTTP caching on \`GET /products\` | 15–60 min + event eviction | Shared by all users, slow and costly backend |
+| Product catalogue (PIM) | **Catalogue System API** (Cache scope / Object Store), optionally gateway HTTP caching on \`GET /products\` | 15 to 60 min + event eviction | Shared by all users, slow and costly backend |
 | CRM profile | Process API, keyed by customerId | ~5 min | Rarely changes; per-user key |
-| Balance | **No cache**, or ≤ a few seconds | — | Business requires freshness |
+| Balance | **No cache**, or ≤ a few seconds | n/a | Business requires freshness |
 | Static reference data (countries, plans) | Client / CDN with \`Cache-Control\` | hours | Almost never changes |
 
-- Caching at the **System API** protects the PIM and its call allowance for **every** consumer, not just this mobile journey.
-- Gateway caching saves even the Mule processing, but caches whole HTTP responses — fine for \`GET /products/{id}\`, dangerous for personalised data.
-- Clients and CDNs can honour \`Cache-Control\`/\`ETag\` headers you return — the cheapest cache of all.
+- Caching at the **System API** protects the PIM and its call allowance for **every** consumer, not only this mobile journey.
+- Gateway caching saves even the Mule processing, but caches whole HTTP responses: fine for \`GET /products/{id}\`, dangerous for personalised data.
+- Clients and CDNs can honour \`Cache-Control\`/\`ETag\` headers you return: the cheapest cache of all.
 
 **Invalidation.**
 - Default: TTL matching business tolerance.
@@ -136,7 +136,7 @@ Observations:
 
 **Multiple replicas.**
 - In-memory caches are per replica: three replicas = three copies and three cache misses. Acceptable for small reference data.
-- For shared, consistent state, use a **persistent Object Store** (Object Store v2 on CloudHub) — slower than memory but shared across replicas and restarts. Or an external cache (e.g. Redis) if latency and volume justify it.
+- For shared, consistent state, use a **persistent Object Store** (Object Store v2 on CloudHub): slower than memory but shared across replicas and restarts. Or an external cache (e.g. Redis) if latency and volume justify it.
 - Document TTLs as part of the API contract so consumers know data may be up to N minutes old.
 
 **Sizing.**

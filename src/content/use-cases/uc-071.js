@@ -78,7 +78,7 @@ Operations: **balance inquiry, activation** (when sold), **redemption** (full or
 Facts and NFRs:
 - Peak in December: **400 transactions/second**, half of them balance inquiries.
 - Till and checkout need a response in **< 800 ms p95**; the processor's own SLA is 500 ms p95, but it occasionally takes 10+ seconds.
-- POS terminals retry automatically if they get no answer in 5 seconds — today this sometimes **redeems twice**.
+- POS terminals retry automatically if they get no answer in 5 seconds, and today this sometimes **redeems twice**.
 - If a redemption times out, the processor rules say the merchant must send a **timeout reversal** within 60 seconds and retry it until accepted.
 - Card number + PIN are sensitive: they must never appear in logs and must be protected against **brute-force balance checking** from the website.
 - The processor accepts at most 500 calls a second. At the December peak the tills send 300 transactions a second and digital 100, and a bot could try 1,000 card numbers a second.
@@ -127,19 +127,19 @@ Facts and NFRs:
 3. Otherwise store "in progress", call the processor with a 3-second timeout, store the result, return it.
 4. Publish the transaction event for the ledger.
 
-**Timeouts.** If the processor call times out (\`HTTP:TIMEOUT\`) the outcome is unknown. The API answers the till "declined — use another tender", and publishes a **reversal** message (persistent, with original transaction reference). The reversal consumer calls the processor until it is accepted, with back-off, and alerts if it is still failing after 60 seconds. A late POS retry with the same \`clientTxnId\` sees the stored "reversed" outcome — never a second redemption.
+**Timeouts.** If the processor call times out (\`HTTP:TIMEOUT\`) the outcome is unknown. The API answers the till "declined, use another tender", and publishes a **reversal** message (persistent, with original transaction reference). The reversal consumer calls the processor until it is accepted, with back-off, and alerts if it is still failing after 60 seconds. A late POS retry with the same \`clientTxnId\` sees the stored "reversed" outcome, never a second redemption.
 
 **Ledger.** sys-giftcard-ledger consumes transaction events and MERGEs them into the Oracle ledger on processor transaction ID (idempotent). Liability per brand is computed from the ledger.
 
 **Settlement reconciliation.** The nightly job reads the settlement file from SFTP and compares it line by line with the ledger: missing in ledger (insert and flag), missing in file (investigate), amount mismatch (finance case). Results feed the inter-company settlement between brands.
 
-**Security.** Card numbers are tokenised at the edge or masked (last 4) before logging; PINs are only passed through, never logged or stored. Rate limiting per client and per card token on balance inquiries; after 5 wrong PINs the token is blocked for 30 minutes. Bot protection on the website.
+**Security.** Card numbers are tokenised at the edge or masked (last 4) before logging; PINs are only passed through, never logged or stored. The digital Experience API has a rate limit of about 150 a second: with the tills' 300 a second the processor stays under its 500, and a bot gets 429s. Rate limiting per client and per card token on balance inquiries; after 5 wrong PINs the token is blocked for 30 minutes. Bot protection on the website.
 
 **NFRs.** 400 TPS: the Process API is stateless apart from the idempotency store (shared Object Store or Redis-style cache), horizontally scaled; processor connections pooled; circuit breaker behaviour when the processor is slow so tills fail fast.
 `,
   followUps: [
-    { q: 'Why not just retry the redemption on timeout?', a: 'A timeout does not mean it failed — the processor may have redeemed. Retrying risks a double charge; the safe pattern is reverse first, then the customer can retry as a new transaction.' },
-    { q: 'Where would you store the idempotency keys and for how long?', a: 'In a shared store all workers see (Object Store v2 or a cache), keyed by clientTxnId, with a TTL longer than the POS retry window — typically 24 hours.' },
+    { q: 'Why not retry the redemption on timeout?', a: 'A timeout does not mean it failed; the processor may have redeemed. Retrying risks a double charge; the safe pattern is reverse first, then the customer can retry as a new transaction.' },
+    { q: 'Where would you store the idempotency keys and for how long?', a: 'In a shared store all workers see (Object Store v2 or a cache), keyed by clientTxnId, with a TTL longer than the POS retry window, typically 24 hours.' },
     { q: 'How do you test the timeout-reversal logic?', a: 'With a processor stub that delays or drops responses, verifying that one reversal is sent, retried until accepted, and that retries of the original request return the reversed outcome.' },
   ],
 }

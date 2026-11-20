@@ -97,6 +97,11 @@ The platform moves each file away once it has loaded it, so the folder should be
 - When old files are waiting, email planning support (\`planning-support@brindle.example\`) with their names. A mail outage must not stop the file.
 - Never replace a file that is already in the folder: the platform may be reading it.
 
+**Facts**
+- List \`/inbound/sales\` for \`DAILY_SALES_*.csv\` before you write. The date in the name is today's date. In the tests today is 2026-11-13.
+- Write with the mode \`CREATE_NEW\`. When the file exists, the write raises \`SFTP:FILE_ALREADY_EXISTS\`. Do not catch it: the run fails and the old file stays as it was.
+- Send the alert from an **Async** scope, so a mail failure does not fail the run.
+
 **Design the flow.**
 `,
   answerTemplate: `## What is waiting

@@ -144,6 +144,12 @@ Today the flow reads \`seats_left\`, checks it in a Choice, then writes \`seats_
 - \`seats_left\` must never go below zero, whatever the timing of two requests.
 - If the reservation cannot be saved, the seats must not stay taken, and an ERROR is logged.
 
+**Facts**
+- Make \`reservation_id\` a new UUID in the flow.
+- A database that fails raises **DB:CONNECTIVITY**. Log it and let the error propagate, so the caller gets an error answer.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why read then write oversells

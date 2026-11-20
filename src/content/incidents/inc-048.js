@@ -22,10 +22,10 @@ export default {
         type: 'single',
         prompt: 'Why does the top layer fail while the lower layers succeed?',
         options: [
-          'Every layer uses 30 s; the outer clock starts first and must cover payment + SAP + overhead, so a slow SAP makes the outer layer give up while work continues',
-          'prc-order-api crashes after creating the order',
-          'The gateway has a bug that drops responses at random',
-          'sys-sap-api returns the wrong status code',
+          'All layers use 30 s, but the outer clock starts first and must also cover payment',
+          'prc-order-api crashes after creating the order, before it can send a response',
+          'The gateway closes idle connections after 30 s while SAP holds the response',
+          'sys-sap-api returns 202 for slow SAP calls, which exp-web-api treats as an error',
         ],
         answer: 0,
         explain: 'Timeouts **stack**: identical values at each hop mean the outermost layer always runs out of time first.',
@@ -34,13 +34,13 @@ export default {
         type: 'single',
         prompt: 'What stops the **double charges** most directly?',
         options: [
-          'Make checkout idempotent with an Idempotency-Key (cart ID) stored in Object Store, returning the existing order on retry',
-          'Lower the SAP timeout to 5 s',
-          'Add replicas to prc-order-api',
-          'Retry the SAP call three times',
+          'An Idempotency-Key (cart ID) on checkout that returns the existing order on retry',
+          'A 5 s SAP timeout in sys-sap-api so slow calls fail before the outer layer gives up',
+          'More replicas for prc-order-api so the SAP calls queue for less time at peak',
+          'Three retries of the SAP call in prc-order-api when the first attempt is slow',
         ],
         answer: 0,
-        explain: 'A retry after an unknown outcome must not create a second payment. Disabling the shop auto-retry is the fallback if idempotency cannot ship today.',
+        explain: 'A retry after an unknown outcome must not create a second payment. A 5 s SAP timeout still leaves the payment captured, and SAP may still create the order, so the customer retries and pays again. Disabling the shop auto-retry is the fallback if idempotency cannot ship today.',
       },
       {
         type: 'order',
@@ -57,13 +57,13 @@ export default {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'Async pattern for slow writes: 202 Accepted with a reference, order queued in Anypoint MQ, status polling or push',
+          'For slow writes, 202 Accepted with a reference and the order queued in Anypoint MQ',
           'Idempotency at every write layer (payment and SAP order create)',
-          'Timeouts as reviewed per-API properties, with p95/p99 latency per hop and load tests with a slow SAP',
-          'Set every layer to 120 s so nothing ever times out',
+          'Reviewed per-API timeouts, p95/p99 latency per hop, load tests with a slow SAP',
+          'The same 120 s timeout in every layer so slow SAP calls can finish',
         ],
         answer: [0, 1, 2],
-        explain: 'Equal large timeouts still stack and just make users wait longer; the fix is a budget, idempotency and async for long work. Also ask SAP to move the batch job.',
+        explain: 'Equal large timeouts still stack and only make users wait longer; the fix is a budget, idempotency and async for long work. Also ask SAP to move the batch job.',
       },
     ],
   },
@@ -71,12 +71,12 @@ export default {
 ## Symptoms
 - About 6% of \`POST /checkout\` calls from the web shop fail with **504** after exactly **30 s**.
 - Customers retry and some are **charged twice**; finance finds orders in SAP for checkouts that the shop showed as failed.
-- When the team traces a failed request, \`prc-order-api\` and \`sys-sap-api\` both log **success** — moments after the experience layer gave up.
+- When the team traces a failed request, \`prc-order-api\` and \`sys-sap-api\` both log **success**, moments after the experience layer gave up.
 
 ## Change / Context
 - Chain: \`exp-web-api\` → \`prc-order-api\` → \`sys-sap-api\` (SAP order create) and \`sys-payment-api\`.
 - Every HTTP request config in every layer uses the template default \`responseTimeout="30000"\`. The CloudHub load balancer / gateway in front of \`exp-web-api\` also uses 30 s.
-- \`prc-order-api\` calls \`sys-payment-api\` (~2 s) and then \`sys-sap-api\`. SAP order creation normally takes 3–5 s, but since a SAP batch job moved to business hours it often takes 25–35 s.
+- \`prc-order-api\` calls \`sys-payment-api\` (~2 s) and then \`sys-sap-api\`. SAP order creation normally takes 3 to 5 s, but since a SAP batch job moved to business hours it often takes 25 to 35 s.
 
 ## Logs
 \`\`\`
@@ -131,7 +131,7 @@ t=31s       SAP order created, prc-order-api succeeds -> nobody is listening
 The Experience API's clock started first and has the same length as the inner clocks, so any slow inner call means the outer layer times out while work continues below. The customer sees "failed", retries, and the payment and order are created again.
 
 **Immediate mitigation.**
-1. Stop the bleeding on duplicates: make checkout idempotent — the shop sends an \`Idempotency-Key\` (cart ID); \`prc-order-api\` stores key → result in an Object Store and returns the existing order on a retry instead of charging again. If that can't ship today, disable the shop's automatic retry and show "we are confirming your order" instead.
+1. Stop the bleeding on duplicates: make checkout idempotent. The shop sends an \`Idempotency-Key\` (cart ID); \`prc-order-api\` stores key → result in an Object Store and returns the existing order on a retry instead of charging again. If that can't ship today, disable the shop's automatic retry and show "we are confirming your order" instead.
 2. Temporarily set the outer timeouts larger than the inner ones (e.g. gateway 60 s, exp 55 s, prc 50 s) so successful orders are returned.
 3. Reconcile: find payments without a confirmed order response and refund duplicates.
 4. Ask the SAP team to move the batch job back out of business hours.
@@ -155,8 +155,8 @@ sys-sap-api       : SAP call timeout = 11s
 **Prevention.** Timeouts as explicit, documented per-API properties reviewed in design (no blind template defaults); p95/p99 latency dashboards per hop with correlation IDs; load tests that simulate a slow SAP; contract notes in Exchange stating each API's expected latency and timeout.
 `,
   followUps: [
-    { q: 'Why not just set every timeout to 120 seconds?', a: 'Users and gateways will not wait that long, and long timeouts keep resources and connections busy during an incident. The goal is ordered timeouts (inner smaller than outer) plus async handling for genuinely slow work.' },
-    { q: 'If the inner timeout fires, has the operation failed?', a: 'Not necessarily — the backend may still complete it. A timeout means "unknown outcome", which is why writes need idempotency keys and, ideally, a way to query status afterwards.' },
+    { q: 'Why not set every timeout to 120 seconds?', a: 'Users and gateways will not wait that long, and long timeouts keep resources and connections busy during an incident. The goal is ordered timeouts (inner smaller than outer) plus async handling for genuinely slow work.' },
+    { q: 'If the inner timeout fires, has the operation failed?', a: 'Not necessarily. The backend may still complete it. A timeout means "unknown outcome", which is why writes need idempotency keys and, ideally, a way to query status afterwards.' },
     { q: 'How do retries fit into a timeout budget?', a: 'Each retry consumes budget: two attempts of 8 s need at least 16 s plus backoff inside the caller\'s timeout. Retries are usually done in one layer only, and only for idempotent or idempotency-protected operations.' },
   ],
 }

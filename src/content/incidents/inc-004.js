@@ -21,7 +21,7 @@ export default {
         prompt: 'Why does the transform see an empty payload?',
         options: [
           'The non-repeatable stream is consumed by the DEBUG logger before the transform runs',
-          'The client sends an empty body since v3.1.0',
+          'The client started sending an empty request body after the v3.1.0 release',
           'The DataWeave script has a syntax error introduced in v3.1.0',
           'set-variable moved the payload into the variable and cleared it',
         ],
@@ -32,13 +32,13 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now** to restore service?',
         options: [
-          'Turn DEBUG logging off in production',
-          'Roll back to v3.0.x or remove <non-repeatable-stream /> so Mule uses its default repeatable strategy',
-          'Increase the worker size',
-          'Wrap the transform in a Try scope',
+          'Increase the worker size so the whole stream fits in memory',
+          'Roll back to v3.0.x, or remove the non-repeatable-stream setting',
+          'Wrap the transform in a Try scope that retries it once on error',
+          'Ask the client to resend each request with a Content-Length header',
         ],
         answer: 1,
-        explain: 'Restoring a repeatable stream fixes all readers. Turning DEBUG off only works by luck, and the variable would still be empty for error reports.',
+        explain: 'Restoring a repeatable stream fixes all readers. A bigger worker, a retry or a header change does not make a consumed stream readable again. Turning DEBUG off would also help, but only by luck.',
       },
       {
         type: 'multi',
@@ -112,15 +112,15 @@ export default {
   keyPoints: [
     'The payload is a non-repeatable stream, so it can be read only once; the DEBUG logger reads it, leaving nothing for the transform.',
     'Explains why tests passed: with DEBUG off the logger did not evaluate #[payload], so the transform was the first and only reader.',
-    'Recognises that set-variable with #[payload] does not copy the data — it references the same consumed stream, so originalRequest is empty too.',
-    'Immediate: roll back or remove the non-repeatable-stream setting (back to the default repeatable strategy) / turn DEBUG logging off.',
+    'Recognises that set-variable with #[payload] does not copy the data. It references the same consumed stream, so originalRequest is empty too.',
+    'Immediate: roll back or remove the non-repeatable-stream setting (back to the default repeatable strategy). Turning DEBUG off only helps by luck.',
     'Permanent fix: keep repeatable streaming (default file-store in EE, tuned buffer), or read the stream once into a materialised value (e.g. transform first, then log the result) if non-repeatable is truly needed.',
     'Prevention: test with production-like logging levels, review streaming changes, and avoid logging full payloads (log IDs instead).',
   ],
   solution: `
-**Diagnosis.** With \`<non-repeatable-stream />\` the payload is a plain input stream that can be **consumed only once**. In production the DEBUG logger evaluates \`#[payload]\` first — it reads the whole stream to print it. When the transform runs, the stream is already at its end, so DataWeave sees **empty input**: \`Unexpected end-of-input at payload@[1:1]\`. The variable \`originalRequest\` is also empty: \`set-variable\` stores a **reference to the same stream**, not a copy.
+**Diagnosis.** With \`<non-repeatable-stream />\` the payload is a plain input stream that can be **consumed only once**. In production the DEBUG logger evaluates \`#[payload]\` first. It reads the whole stream to print it. When the transform runs, the stream is already at its end, so DataWeave sees **empty input**: \`Unexpected end-of-input at payload@[1:1]\`. The variable \`originalRequest\` is also empty: \`set-variable\` stores a **reference to the same stream**, not a copy.
 
-In test, DEBUG was off, so the logger did not evaluate its expression and the transform was the only reader — tests passed.
+In test, DEBUG was off, so the logger did not evaluate its expression and the transform was the only reader. Tests passed.
 
 **Immediate mitigation.** Roll back to v3.0.x, or hot-fix by removing \`<non-repeatable-stream />\` (Mule then uses its default **repeatable** strategy: file-store in EE, in-memory in CE). Turning DEBUG off would also "fix" it, but only by luck.
 

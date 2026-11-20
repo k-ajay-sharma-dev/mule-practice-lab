@@ -88,7 +88,7 @@ Facts:
 - The **gift card processor** (external API) activates a card for an amount and returns number and PIN. It accepts an idempotency key.
 - The **payment provider** takes card payments and also accepts an idempotency key.
 - Card numbers and PINs are sensitive: they must not appear in logs or in the email body.
-- On Christmas morning the scheduler sends about **5 deliveries a second**, and the email service can be down for 30 minutes. In the busy week the processor fails about 1 activation in 10 for a while.
+- On Christmas morning the scheduler sends about **5 deliveries a second**, and the email service can be down for 30 minutes. No delivery may be lost. In the busy week the processor fails about 1 activation in 10 for a while.
 
 **Questions:**
 1. In which order do you take payment and activate the card, and what if the second step fails?
@@ -121,11 +121,11 @@ Facts:
 4. Store the card reference and set the status to READY with the delivery date.
 5. Send the buyer a receipt (no card number).
 
-Payment comes first because an active card without payment is money given away. If activation fails, the Process API retries it three times with backoff. If it still fails, it refunds the payment and marks the order FAILED.
+Payment comes first because an active card without payment is money given away. If activation fails, sys-giftcard-processor retries it twice with backoff, which is safe because of the idempotency key. If it still fails, it refunds the payment and marks the order FAILED.
 
 **Idempotency.** The order line ID is the idempotency key for both the payment and the activation. A double click or a retried request returns the stored result of the first one. The processor and the provider both honour the key, so a retry after a timeout never charges or activates twice.
 
-**Future-dated delivery.** The purchase flow does not email the recipient. A Scheduler runs every 15 minutes, selects READY orders whose delivery time has passed and publishes them to **egift-deliveries**. It marks them QUEUED in the same step. prc-egift-delivery sends the email through sys-notifications and marks the order SENT. In Christmas week, 25,000 deliveries spread over the day are no problem for the queue.
+**Future-dated delivery.** The purchase flow does not email the recipient. A Scheduler runs every 15 minutes, selects READY orders whose delivery time has passed and publishes them to **egift-deliveries**. It marks them QUEUED in the same step. prc-egift-delivery sends the email through sys-notifications and marks the order SENT. In Christmas week, 25,000 deliveries spread over the day are no problem for the queue. If the email service is down, the consumer does not acknowledge and the deliveries wait in the queue until it is back, so none is lost.
 
 **Protecting card data.** Number and PIN stay at the processor; the database keeps only a reference and the last four digits. The email contains a **signed link** that expires after 90 days. The page behind it fetches the card details from the processor when opened. Logging filters mask any field named pin or cardNumber.
 

@@ -142,6 +142,11 @@ PostgreSQL tables you can use:
 - \`delivered_parcels\` (\`order_id\`, \`parcel_id\`, \`scanned_at\`), primary key \`(order_id, parcel_id)\`
 - \`order_notices\` (\`order_id\`, \`completed_at\`), primary key \`order_id\`
 
+**Facts**
+- When PostgreSQL refuses a row because of a primary key, the Database Insert raises **DB:QUERY_EXECUTION**.
+- In the event, \`parcels\` is the scan's \`parcelCount\`, and \`deliveredAt\` and \`completed_at\` are the \`scannedAt\` of the scan that completes the order.
+- The subscriber uses the default acknowledgement mode: a message is acknowledged when the flow ends without an error, and goes back to the queue when it ends with one.
+
 **Design the flow.**
 `,
   answerTemplate: `## Keeping each parcel once

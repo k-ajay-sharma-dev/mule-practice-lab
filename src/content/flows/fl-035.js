@@ -247,10 +247,17 @@ The warehouse management system calls a webhook for every order status change: *
 
 - ~**50 updates/s** at peak. The warehouse times out after **500 ms** and then retries, so the same update can arrive twice.
 - Updates for one order can arrive **out of order** (e.g. PACKED after SHIPPED).
-- Each accepted change must: update \`orders.status\` in the Order DB, upsert the Order in **Salesforce**, and email the customer when the order is **SHIPPED**. Salesforce sometimes takes 3–4 s.
+- Each accepted change must: update \`orders.status\` in the Order DB, upsert the Order in **Salesforce**, and email the customer when the order is **SHIPPED**. Salesforce sometimes takes 3 to 4 s.
 - The app runs on **CloudHub 2.0 with 2 replicas**. No update may be lost if a replica restarts.
 - The team does not want an external broker for this internal hand-off.
-- An unknown status value is rejected with **400**.
+- An unknown status value is rejected with **400**. An accepted update is answered with **202**.
+
+**Facts**
+- The webhook is \`POST /api/orders/{orderId}/status\` with the body \`{ status, occurredAt, trackingNo }\`. \`trackingNo\` is only sent with SHIPPED.
+- The first stage hands each accepted update to the VM queue \`order-status-in\`.
+- The Order DB table \`orders\` has \`order_id\`, \`status\`, \`status_changed_at\`, \`tracking_no\` and \`customer_email\`. A new order has the status \`NEW\`.
+- In Salesforce the Order's external id field is \`Order_Number__c\`.
+- The shipped email goes to the order's \`customer_email\` and contains the tracking number.
 
 **Design the flow(s):**
 - How do you answer the warehouse within 500 ms when Salesforce alone can take 4 s?
@@ -297,7 +304,7 @@ Using separate queues means a Salesforce outage only delays notifications. It ne
   followUps: [
     {
       q: 'Why not use an Async scope instead of VM queues?',
-      a: 'Async keeps the work in memory on one replica. If that replica restarts, the work is lost, and there is no redelivery on failure. VM queues in a clustered app (or CloudHub 1.0 persistent queues) are shared between replicas/workers, survive a single node restarting and can be transactional. CloudHub 2.0 has no disk-backed persistent queues, so without clustering — or to survive a full stop — use Anypoint MQ.',
+      a: 'Async keeps the work in memory on one replica. If that replica restarts, the work is lost, and there is no redelivery on failure. VM queues in a clustered app (or CloudHub 1.0 persistent queues) are shared between replicas/workers, survive a single node restarting and can be transactional. CloudHub 2.0 has no disk-backed persistent queues, so without clustering (or to survive a full stop) use Anypoint MQ.',
     },
     {
       q: 'When would you switch from VM to Anypoint MQ?',

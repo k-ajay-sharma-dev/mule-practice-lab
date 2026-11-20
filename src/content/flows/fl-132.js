@@ -89,6 +89,9 @@ Stock comes from a stock service, one SKU at a time: \`GET /stock/{sku}\` answer
 - \`ready\` is true when no line is short.
 - Taking the last items is fine: a line that wants exactly what is left is not short.
 
+**Facts**
+- Collect the short lines in a variable named \`shortLines\`.
+
 A developer's first try put the HTTP Request in a For Each and a Set Payload after it. Every answer came back with the basket the web shop had sent, not the stock.
 
 **Design the flow**, and explain why the first try returned the basket.

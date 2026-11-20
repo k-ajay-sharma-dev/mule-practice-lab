@@ -93,19 +93,19 @@ export default {
   description: `
 A B2B distributor stores **customer** data in three systems:
 
-- **Salesforce** — sales reps create prospects and edit contacts, phone numbers, sales territory.
-- **SAP ERP** — customers become "real" when an account with credit limit and payment terms is created by finance; SAP is used for invoicing.
-- **E-commerce platform** — customers self-register, update delivery addresses and email.
+- **Salesforce**: sales reps create prospects and edit contacts, phone numbers, sales territory.
+- **SAP ERP**: customers become "real" when an account with credit limit and payment terms is created by finance; SAP is used for invoicing.
+- **E-commerce platform**: customers self-register, update delivery addresses and email.
 
 Today there are **bi-directional syncs** between every pair of systems (6 Mule flows). Incidents:
 - An address changed in the web shop was overwritten an hour later by an older value from SAP.
 - The same customer exists 3 times in Salesforce.
 - Nobody can answer "which phone number is correct?".
 
-Numbers for sizing: each system produces about 5 customer changes a second. SAP answers in about 300 ms and takes at most 100 calls a second. Sales ops sometimes bulk load contacts into Salesforce at 150 changes a second for ten minutes, and that backlog should be gone within the hour. SAP has maintenance windows of up to an hour.
+Numbers for sizing: each system produces about 5 customer changes a second. SAP answers in about 300 ms and takes at most 100 calls a second. Sales ops sometimes bulk load contacts into Salesforce at 150 changes a second for ten minutes, and that backlog should be gone within the hour. SAP has maintenance windows of up to an hour, and every change must still reach all three systems afterwards. A queued message that fails is tried again about once a minute.
 
 **Questions:**
-- How do you decide the system of record — per entity or per attribute? Produce an ownership table.
+- How do you decide the system of record: per entity or per attribute? Produce an ownership table.
 - How should data flow between systems once ownership is defined?
 - How do you handle the customer's identity across systems (IDs, duplicates)?
 - Who in the organisation must agree on this, and what is MuleSoft's role vs a dedicated MDM tool?
@@ -140,7 +140,7 @@ The key insight: there is rarely *one* owner of "the customer". Defining owners 
 **Data flows.**
 - Replace 6 pairwise syncs with a **hub**: each owner publishes changes (CDC/platform events from Salesforce, IDoc or change pointers from SAP, webhooks from e-commerce) → a **Customer Process API/event flow** → applies them to subscribing systems for **owned attributes only**.
 - Non-owners that need to *request* a change (sales rep wants to change a credit limit) do it through a **workflow/API on the owner system**, not by editing locally.
-- Updates carry a timestamp/version; consumers ignore stale events (fixes the "old SAP value overwrote web address" incident — which happened because SAP was not the owner of delivery addresses but was still syncing them).
+- Updates carry a timestamp/version; consumers ignore stale events (fixes the "old SAP value overwrote web address" incident, which happened because SAP was not the owner of delivery addresses but was still syncing them).
 
 **Sizing and failure handling.**
 - While SAP is down, the hub cannot apply a change to all three systems, so the delivery fails and the change waits on the topic. It is tried again each minute and reaches SAP once it is back. Applying changes must be idempotent, because the other two systems get the same change again on each try. Do not let the hub answer with a partial result here: SAP would miss those changes for good. And do not set a low delivery limit with no DLQ, or an hour of outage drops them.

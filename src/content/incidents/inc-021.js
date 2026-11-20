@@ -18,12 +18,12 @@ export default {
     questions: [
       {
         type: 'single',
-        prompt: 'Why were 14-15 day old invoices processed again today?',
+        prompt: 'Why were invoices from 14 to 15 days ago processed again today?',
         options: [
-          'The idempotency keys expire after 14 days, but the files stay on the SFTP server for 90 days',
-          'The supplier re-uploaded old files',
-          'The Object Store was wiped by a restart',
-          'The SFTP listener watermark was reset',
+          'The idempotency keys expire after 14 days, but files stay on SFTP for 90 days',
+          'The supplier re-uploaded two weeks of old files to the folder overnight',
+          'A restart wiped the processedFiles store, so every stored key was lost',
+          'The SFTP listener watermark was reset when the server clock changed',
         ],
         answer: 0,
         explain: 'No restart or deployment happened. Day 15 after go-live is the first day the oldest keys expired. It will happen every day for files up to 90 days old.',
@@ -33,12 +33,12 @@ export default {
         prompt: 'What is the **first** thing to do?',
         options: [
           'Stop the listener flow before the next poll creates more duplicates',
-          'Delete all files from the supplier folder',
-          'Clear the processedFiles store',
-          'Wait and see whether it happens again tomorrow',
+          'Delete the processed files from the supplier folder to stop repeats',
+          'Clear the processedFiles store so it starts from a clean state',
+          'Raise the TTL to 30 days and let tomorrow’s run go ahead',
         ],
         answer: 0,
-        explain: 'Tomorrow’s keys expire too, so every day creates new duplicates. Clearing the store would make every file look new. Deleting files breaks the 90-day agreement.',
+        explain: 'Tomorrow’s keys expire too, so every day creates new duplicates. Clearing the store would make every file look new, and a longer TTL does not bring back keys that already expired. Deleting files breaks the 90-day agreement.',
       },
       {
         type: 'multi',
@@ -69,7 +69,7 @@ export default {
   },
   description: `
 ## Symptoms
-- This morning the accounts-payable team found **~1,900 duplicate supplier invoices** in SAP, all originally received **14–15 days ago**.
+- This morning the accounts-payable team found **~1,900 duplicate supplier invoices** in SAP, all originally received **14 to 15 days ago**.
 - Each day since go-live (15 days ago) the app has processed only that day's new files; today it suddenly processed today's files **plus** all files from day 1.
 - No deployment or restart happened in the last week.
 
@@ -113,7 +113,7 @@ export default {
     'Prevention: test/plan for TTL expiry ("what happens on day TTL+1"), and alert on spikes in files processed per run.',
   ],
   solution: `
-**Diagnosis.** Files remain on the SFTP server for **90 days**, and the listener sees them on every poll. The only thing preventing re-processing is the **Idempotent Message Validator**, whose keys expire after **14 days**. Day 15 after go-live is the first day the oldest keys expired, so those files looked brand new and were posted to SAP again. Nothing changed in the app — this is a **time bomb** set in code review, and it will go off again every day for the next 75 days' worth of files.
+**Diagnosis.** Files remain on the SFTP server for **90 days**, and the listener sees them on every poll. The only thing preventing re-processing is the **Idempotent Message Validator**, whose keys expire after **14 days**. Day 15 after go-live is the first day the oldest keys expired, so those files looked brand new and were posted to SAP again. Nothing changed in the app. This is a **time bomb** set in code review, and it will go off again every day for the next 75 days' worth of files.
 
 **Immediate mitigation.**
 1. **Stop** the listener flow now (Runtime Manager → stop the flow / app) to prevent tomorrow's batch of duplicates.
@@ -124,12 +124,12 @@ export default {
 
 **Permanent fix.**
 - Choose a mechanism whose retention matches the source:
-  - **Listener watermark** (\`watermarkEnabled="true"\`) so only files with a newer timestamp are picked up — no per-file keys needed (watch for files uploaded with old timestamps).
+  - **Listener watermark** (\`watermarkEnabled="true"\`) so only files with a newer timestamp are picked up, with no per-file keys needed (watch for files uploaded with old timestamps).
   - Or a **durable processed-files table** in a DB (filename + checksum + processed date), purged only after the source deletes the file (> 90 days).
   - Or agree with the supplier to **move** processed files to a \`/processed\` folder.
 - **Business idempotency** downstream: check supplier id + invoice number before posting to SAP (or enable SAP's duplicate invoice check).
 
-**Prevention.** For every dedup/TTL: write down *"what happens on day TTL + 1?"* and test it with a shortened TTL; alert when a run processes far more files than usual (here: ~130x normal) — the run could have been stopped after the first few documents.
+**Prevention.** For every dedup/TTL: write down *"what happens on day TTL + 1?"* and test it with a shortened TTL; alert when a run processes far more files than usual (here: ~130x normal). The run could have been stopped after the first few documents.
 `,
   followUps: [
     { q: 'Is a persistent Object Store on CloudHub enough for long-term dedup?', a: 'Object Store v2 has a retention limit (the maximum TTL is 30 days) and it is not meant as a permanent record store. For long retention, use a database table you control.' },

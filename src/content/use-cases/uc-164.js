@@ -61,7 +61,7 @@ CloudHub workers cannot mount an SMB share. The team chose a hybrid layout: the 
 
 **Numbers**
 - About **40 drawing opens a second**, and **180 a second** for 20 minutes on Monday mornings.
-- A read from the share takes about 250 ms.
+- A read from the share takes about 250 ms. A drawing should open within **a second**.
 - During large copies on the storage account, about **1 read in 10** fails for a short time.
 - In this model one vCore serves about 500 requests a second, and the smallest size is 0.1 vCore.
 

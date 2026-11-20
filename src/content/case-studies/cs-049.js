@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'What makes this estate a **distributed monolith** rather than an API-led network?',
       options: [
-        'It has more than 150 Mule applications',
-        'Its applications are deployed separately but are so coupled — synchronous chains, shared leaky models, lockstep releases — that they must change and fail together',
-        'It uses the exp-/prc-/sys- naming convention',
-        'All applications run on the same Mule runtime version',
+        'It has grown to more than 150 Mule applications across the three layers',
+        'Its apps are deployed apart but so coupled that they must change and fail together',
+        'It uses the exp-/prc-/sys- naming convention for every application',
+        'All of its applications run on the same Mule runtime version and region',
       ],
       answer: 1,
-      explain: 'The number of apps and the naming are irrelevant. API-led *names* without API-led *properties* — independent change, contained failure — give you a monolith spread over the network.',
+      explain: 'Synchronous chains, shared leaky models and lockstep releases tie the apps together. The number of apps, the naming and the runtime version are irrelevant. API-led *names* without API-led *properties* (independent change, contained failure) give you a monolith spread over the network.',
     },
     {
       type: 'multi',
@@ -36,13 +36,13 @@ export default {
       type: 'single',
       prompt: 'How do you find the worst coupling with evidence rather than opinion?',
       options: [
-        'Count how many applications sit in each layer',
-        'Build a runtime dependency graph from correlation IDs/tracing and API Manager contracts, and measure change coupling from git history (which apps always change together)',
+        'Count how many applications sit in each layer and compare the totals',
+        'Build a call graph from tracing and contracts, and see which apps change together in git',
         'Survey each team about which APIs they find hardest to change',
-        'List the APIs with the most operations in their RAML',
+        'List the APIs with the most operations in their API specifications',
       ],
       answer: 1,
-      explain: 'Runtime calls show cycles, fan-in hot spots (`sys-crm-api`) and hop counts per journey; git history shows which apps must change together. Layer counts and opinions do not show coupling.',
+      explain: 'Runtime calls (from correlation IDs, tracing and API Manager contracts) show cycles, fan-in hot spots (`sys-crm-api`) and hop counts per journey; git history shows which apps must change together. Layer counts and opinions do not show coupling.',
     },
     {
       type: 'match',
@@ -73,13 +73,13 @@ export default {
       type: 'single',
       prompt: '`prc-customer-api` has 60 operations and is changed by 6 teams. What do you do?',
       options: [
-        'Publish a v2 with all 60 operations redesigned and ask every consumer to switch on one date',
-        'Assign it to one team and make the other five raise tickets',
-        'Split it into capability APIs (profile, contact preferences, consent, identity) behind a facade, so consumers keep calling the old endpoints while they migrate gradually',
-        'Leave it and add more replicas',
+        'Publish a v2 with all 60 operations redesigned and move every consumer on one date',
+        'Assign it to one team and make the other five teams raise tickets for changes',
+        'Split it into capability APIs behind a facade, so consumers can migrate gradually',
+        'Leave its design as it is and run it on more replicas with more vCores',
       ],
       answer: 2,
-      explain: 'A facade lets the implementation move to owned capability APIs without a big-bang consumer migration. A single team owning a 60-operation bucket just recreates the bottleneck.',
+      explain: 'A facade lets the implementation move to owned capability APIs (profile, contact preferences, consent, identity) while consumers keep calling the old endpoints. A big-bang v2 forces every team to change at once. A single team owning a 60-operation bucket recreates the bottleneck, and more replicas do nothing for coupling.',
     },
     {
       type: 'multi',
@@ -97,7 +97,7 @@ export default {
   ],
   description: `
 **Context.** A telecom operator has run Anypoint Platform for 5 years. It has **180 Mule applications** following API-led naming (exp-/prc-/sys-). Despite this:
-- A typical customer-facing feature requires changes in **5–7 applications** and coordinated releases; a "release train" ships every 6 weeks with all teams together.
+- A typical customer-facing feature requires changes in **5 to 7 applications** and coordinated releases; a "release train" ships every 6 weeks with all teams together.
 - \`GET /my-account\` on the mobile app makes **23 synchronous hops** across 11 APIs; p95 is 3.8 s.
 - Several Process APIs call **other Process APIs**, which call back to Process APIs in other domains; there are two known call cycles.
 - \`prc-customer-api\` has 60 operations and is changed by 6 teams.
@@ -129,12 +129,12 @@ export default {
   solution: `
 **Diagnosis.** The estate has API-led *names* but not API-led *properties*. Symptoms of a distributed monolith: lockstep releases, long synchronous chains, shared failure domains, and a god service changed by many teams. Causes:
 
-1. **Layers as a mandatory pipeline** — every call goes exp → prc → sys even when a layer adds nothing, adding hops and apps per feature.
-2. **Process APIs by entity, not capability** — \`prc-customer-api\` became a shared bucket for anything "customer", owned by nobody.
-3. **PAPI → PAPI → PAPI chains and cycles** — no rules on dependency direction within the process layer.
-4. **Leaky System APIs** — Amdocs field names flow up to Process and Experience APIs; any backend change ripples upward and the billing replacement would touch everything.
-5. **No compatibility discipline** — breaking changes need coordinated releases, hence the release train.
-6. **Synchronous everything** — reading data through 23 live hops instead of from appropriate read models.
+1. **Layers as a mandatory pipeline.** Every call goes exp → prc → sys even when a layer adds nothing, adding hops and apps per feature.
+2. **Process APIs by entity, not capability.** \`prc-customer-api\` became a shared bucket for anything "customer", owned by nobody.
+3. **PAPI → PAPI → PAPI chains and cycles.** There are no rules on dependency direction within the process layer.
+4. **Leaky System APIs.** Amdocs field names flow up to Process and Experience APIs; any backend change ripples upward and the billing replacement would touch everything.
+5. **No compatibility discipline.** Breaking changes need coordinated releases, hence the release train.
+6. **Synchronous everything.** Reading data through 23 live hops instead of from appropriate read models.
 
 **Analysis.**
 - Build a **runtime dependency graph** from logs/tracing (correlation IDs) and API Manager contracts; overlay call volume and latency. Find cycles and the highest fan-in nodes (\`sys-crm-api\`, \`prc-customer-api\`).
@@ -164,7 +164,7 @@ Phase 4               End release train: contract tests in each pipeline, teams 
 
 Use a **facade** so existing consumers keep calling the old endpoints while the implementation is gradually routed to new capability APIs; retire old operations after migration windows.
 
-**Keeping delivery going.** Allocate ~20–30% of each domain team's capacity to refactoring; attach refactoring to features where possible ("the new roaming add-on goes on the new ordering API"); prioritise by pain (journeys with most incidents/latency, APIs with most coordinated changes).
+**Keeping delivery going.** Allocate about 20 to 30% of each domain team's capacity to refactoring; attach refactoring to features where possible ("the new roaming add-on goes on the new ordering API"); prioritise by pain (journeys with most incidents/latency, APIs with most coordinated changes).
 
 **Measuring progress.** Average apps changed per feature; hops and p95 per key journey; number of cycles (target 0); deployments per team per month without the train; blast radius (which journeys fail when \`sys-crm-api\` is down); percentage of Process APIs depending only on canonical System API contracts.
 `,

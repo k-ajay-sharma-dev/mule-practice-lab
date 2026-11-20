@@ -115,6 +115,11 @@ Bad rows go to \`dbo.sales_rejects\` (\`sale_id\`, \`error_text\`).
 - A failed bulk insert must leave no rows behind, or the single inserts would clash with them.
 - When the job ends, log how many rows loaded and how many were rejected. Then move the file to \`/mnt/scm-share/sales/done\`.
 
+**Facts**
+- Turn a blank SKU into null, so the database refuses the row. Store \`units\` as a number.
+- A refused insert raises \`DB:QUERY_EXECUTION\`.
+- The rows are not counted as failed by the job, so count the reject table in On Complete. Log at INFO with \`loaded=<n> rejected=<n>\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The fast path

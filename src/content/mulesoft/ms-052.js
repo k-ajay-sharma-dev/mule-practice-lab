@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'The Process API gets **401** from the Inventory SAPI in Test, though the same code works in Dev. Most likely cause?',
       options: [
-        'Client ID Enforcement is broken in Test',
-        'The `orders-papi` application only has an approved contract with the **Dev** instance; the Test instance has its own contract list',
-        'The Test instance uses a different RAML',
-        'The mobile app\'s credentials expired',
+        'Client ID Enforcement is misconfigured in Test',
+        'The app\'s contract covers only the Dev instance',
+        'The Test instance uses a different version of the RAML',
+        'The mobile app\'s credentials have expired in Test',
       ],
       answer: 1,
-      explain: 'Contracts are per API instance. Request access to the Test instance and check the Test property file holds the Test credentials.',
+      explain: 'Contracts are per API instance. The `orders-papi` application has an approved contract only with the Dev instance; the Test instance has its own contract list. Request access to the Test instance and check the Test property file holds the Test credentials.',
     },
     {
       type: 'order',
@@ -26,7 +26,7 @@ export default {
         'Choose the API instance (the environment)',
         'Choose an existing client application or create a new one',
         'Pick an SLA tier, if tiers exist, and submit',
-        'Approval — automatic or by the API owner in API Manager',
+        'Approval, automatic or by the API owner in API Manager',
       ],
       explain: 'Once the contract is approved, the policy accepts that application\'s credentials.',
     },
@@ -37,7 +37,7 @@ export default {
         'The mobile app\'s, forwarded from the original request',
         'Its own (`orders-papi`) credentials',
         'The Experience API\'s credentials',
-        'None — internal calls skip Client ID Enforcement',
+        'None, since internal calls skip Client ID Enforcement',
       ],
       answer: 1,
       explain: 'Each layer is a consumer with its own application, so analytics and throttling show exactly which app calls the System API.',
@@ -57,24 +57,24 @@ export default {
       prompt: 'Where should the Process API store its client ID/secret?',
       options: [
         'Hard-coded in the HTTP Request config',
-        'In environment-specific properties, encrypted with Secure Properties or supplied as secure properties at deploy time',
-        'In the RAML spec',
+        'In secure properties per environment, encrypted',
+        'In the RAML spec, under the security scheme',
         'In a plain `config.yaml` committed to Git',
       ],
       answer: 1,
-      explain: 'Never hard-code or commit secrets in plain text.',
+      explain: 'Use environment-specific properties, encrypted with Secure Properties or supplied as secure properties at deploy time. Never hard-code or commit secrets in plain text.',
     },
     {
       type: 'single',
       prompt: 'The Inventory SAPI\'s Test instance is deleted and recreated. What happens to its contracts?',
       options: [
-        'They are restored automatically',
-        'They are lost — contracts belong to the instance, so consumers must request access again',
-        'They move to the Prod instance',
+        'They are restored automatically from the old instance',
+        'They are lost, so consumers must request access again',
+        'They move to the Prod instance of the same API',
         'Nothing; contracts belong to the Exchange asset',
       ],
       answer: 1,
-      explain: 'Updating the existing instance to a new asset version, rather than deleting it, keeps the instance and its contracts.',
+      explain: 'Contracts belong to the instance. Updating the existing instance to a new asset version, rather than deleting it, keeps the instance and its contracts.',
     },
   ],
   description: `
@@ -105,12 +105,12 @@ All three Mule APIs have **Client ID Enforcement** applied in API Manager, in **
     'An API instance is API Manager\'s runtime representation of an Exchange API version in one environment; it has its own instance ID, policies, SLA tiers and contracts.',
     'A client application (with client ID/secret) represents a consumer; a contract links that application to one API instance, optionally under an SLA tier and subject to approval.',
     'Each calling layer is a consumer: the Experience API has its own app with contracts to the Process API; the Process API has its own app with contracts to each System API.',
-    'Contracts are per API instance, so a contract in Dev does not grant access in Test — request access for each environment\'s instance.',
+    'Contracts are per API instance, so a contract in Dev does not grant access in Test. Request access for each environment\'s instance.',
     'Store client ID/secret in secure, environment-specific properties, not in code.',
   ],
   solution: `
 **API instances**
-An API instance is created in API Manager from an Exchange asset version, inside one **environment**. It holds the instance ID used by autodiscovery, the applied policies, SLA tiers, alerts and the list of contracts. Dev, Test and Prod each have their own instance (often created by promoting from the lower environment), so policies and consumers can differ between them — e.g. relaxed rate limits in Dev.
+An API instance is created in API Manager from an Exchange asset version, inside one **environment**. It holds the instance ID used by autodiscovery, the applied policies, SLA tiers, alerts and the list of contracts. Dev, Test and Prod each have their own instance (often created by promoting from the lower environment), so policies and consumers can differ between them, e.g. relaxed rate limits in Dev.
 
 **Client applications and contracts**
 - A **client application** represents a consumer and owns a **client ID and secret**. One application can hold contracts with many APIs.
@@ -124,7 +124,7 @@ An API instance is created in API Manager from an Exchange asset version, inside
 | Orders Experience API | \`orders-eapi\` | Orders Process API (per env) |
 | Orders Process API | \`orders-papi\` | Inventory SAPI and Customers SAPI (per env) |
 
-Each Mule app sends **its own** client ID/secret on outbound calls — it does not forward the mobile app's credentials. That keeps each contract meaningful: you can see in analytics and throttle exactly which consumer is calling the System API.
+Each Mule app sends **its own** client ID/secret on outbound calls. It does not forward the mobile app's credentials. That keeps each contract meaningful: you can see in analytics and throttle exactly which consumer is calling the System API.
 
 **The 401 in Test**
 The \`orders-papi\` application has an approved contract with the **Dev** instance of the Inventory SAPI only. The Test instance is a different API instance with its own contract list, so the credentials are rejected. Fix: request access to the Test instance (with the same or a Test-specific application) and get it approved. Also check the Test property file actually holds the Test credentials.

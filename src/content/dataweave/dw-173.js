@@ -21,14 +21,14 @@ The plan has three record types:
 - \`Trailer quantity X does not match Y\`, comparing with the sum of every \`qty\`
 
 **Output**
-- \`batchId\`, \`planDate\` (\`yyyy-MM-dd\`), \`valid\` and \`errors\`
-- \`stores\`: an empty list when the plan is not valid. Otherwise one entry per store, sorted by store, with:
+- \`batchId\` (as text, with its leading zeros), \`planDate\` (\`yyyy-MM-dd\`), \`valid\` (\`true\` when there are no errors) and \`errors\` (an empty list when there are none)
+- \`stores\`: an empty list when the plan is not valid. Otherwise one entry per store, sorted by store code as text, with:
   - \`store\`
   - \`fileName\`: \`REPL_<store>_<planDate as yyyyMMdd>.csv\`
   - \`lineCount\` and \`totalQty\` for that store
   - \`lines\`: \`sku\`, \`deliveryDate\` (\`yyyy-MM-dd\`), \`qty\` and \`uom\`, in file order
 
-Lines with a quantity of 0 count in the trailer checks but are left out of the store files. A store with only zero lines gets no file.
+Lines with a quantity of 0 count in the trailer checks but are left out of the store files. A store with only zero lines gets no file. Skip blank lines and spaces around a line.
 `,
   inputs: [
     {

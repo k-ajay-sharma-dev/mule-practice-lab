@@ -17,7 +17,7 @@ Rules per record:
 - Retryable, but \`attempts\` has reached \`maxAttempts\`: reject with reason \`RETRIES_EXHAUSTED\`
 - Otherwise retry, with \`attempt\` as the next try number and \`delaySec\` from \`delaysSec\` at position \`attempts - 1\`. Use the last delay when the list is too short.
 
-Output \`retry\` (\`key\`, \`attempt\`, \`delaySec\`), \`reject\` (\`key\`, \`errorCode\`, \`reason\`) and \`counts\`. Keep the input order.
+Output \`retry\` (\`key\`, \`attempt\`, \`delaySec\`), \`reject\` (\`key\`, \`errorCode\`, \`reason\`; \`errorCode\` is null when the record has none) and \`counts\` with \`retry\` and \`reject\`, the size of each list. Keep the input order.
 `,
   inputs: [
     {

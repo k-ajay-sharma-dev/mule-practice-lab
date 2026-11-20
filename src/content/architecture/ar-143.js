@@ -14,7 +14,7 @@ export default {
   tags: ['cell-based', 'blast-radius', 'multi-tenancy', 'resilience', 'deployment', 'saas'],
   estMinutes: 45,
   diagram: {
-    task: 'draw a cell-based payroll platform: employers and their staff app calling one tenant router, a tenant directory the router reads, and three cells, each with its own Experience API, Process API and payroll database. Nothing in one cell calls another cell.',
+    task: 'draw a cell-based payroll platform: employers and their staff app calling one tenant router, a tenant directory the router reads, and three cells, each with its own Experience API, Process API and payroll database. Nothing in one cell calls another cell. Draw the router as a Load balancer or API gateway box, and the directory as a Cache or Database box named tenant directory. Name the databases Payroll database (cell A), Payroll database (cell B) and Payroll database (cell C).',
     checks: [
       { label: 'Every channel goes through the tenant router', rule: { type: 'each', of: ['web-app', 'mobile-app'], min: 2, edgeTo: ['load-balancer', 'api-gateway'], max: 1 } },
       { label: 'The router reads the tenant directory to find each tenant\'s cell', rule: { type: 'edge', from: ['load-balancer', 'api-gateway'], to: { type: ['cache', 'database'], label: ['tenant', 'directory'] } } },

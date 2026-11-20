@@ -125,6 +125,11 @@ What went wrong before:
 - Load all of a file's rows, and its log row with status \`LOADED\`, or none of them.
 - Move a loaded file to \`processed\`. A file that fails goes to \`error\`, with a timestamp in front of its name.
 
+**Facts**
+- The listener reads a \`.csv\` file as CSV, so the payload is a list of rows without the header.
+- Each staging row carries the file's name in \`file_name\`. The log row's \`row_count\` is the number of data rows.
+- A file keeps its name when moved to \`processed\`. A timestamp in front of the name is fine in \`duplicates\` too.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

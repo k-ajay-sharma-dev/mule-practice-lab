@@ -81,6 +81,7 @@ A consumer-goods manufacturer sells to **120 retailers**. Retailers send **purch
 - The ERP is **SAP** (orders created via IDoc/BAPI).
 - Retailers impose **chargebacks** if ASNs are late or wrong. Onboarding a new retailer currently takes 6 weeks.
 - Volume: ~8,000 POs/day, peaks of 5× before holidays. Before the holidays retailers can send 10 POs a second for half an hour, and SAP posts at most 5 a second. SAP can be down for 20 minutes, and about 1 PO in 50 has a product code SAP rejects every time.
+- A queued message that fails is tried again about once a minute. A PO that SAP keeps rejecting must reach a person within about half an hour, but no good PO may be dead-lettered during an SAP outage.
 
 **Questions:**
 - What is the end-to-end architecture for inbound POs and outbound ASNs/invoices?
@@ -100,7 +101,7 @@ A consumer-goods manufacturer sells to **120 retailers**. Retailers send **purch
 `,
   keyPoints: [
     'Layered design: partner connectivity (AS2, SFTP, portal) → EDI parsing/validation (X12/EDIFACT) → canonical order model → Process API → SAP System API.',
-    'Partner-specific settings (identifiers, protocol endpoints, certificates, maps, validation rules) are configuration/profiles, not custom code per partner — e.g. managed in Anypoint Partner Manager.',
+    'Partner-specific settings (identifiers, protocol endpoints, certificates, maps, validation rules) are configuration/profiles, not custom code per partner: e.g. managed in Anypoint Partner Manager.',
     'Technical acknowledgements (AS2 MDN, X12 997/999 or EDIFACT CONTRL) are generated automatically and quickly; business acknowledgements (855/ORDRSP) come after SAP accepts the order.',
     'Every document is tracked end to end with partner, document type, control numbers and business keys (PO number) so support can answer "did we get PO 12345?".',
     'Inbound is decoupled with a queue/persistence after receipt, so a slow or down SAP does not cause rejected transmissions; outbound ASNs are monitored against partner SLAs to avoid chargebacks.',
@@ -119,17 +120,17 @@ Retailer → AS2 / SFTP / portal upload
 
 **Tooling.** Mule 4 provides **X12 and EDIFACT** connectors (parse/validate/write) and an **AS2** connector; **Anypoint Partner Manager** (part of MuleSoft's B2B offering) manages partner profiles, identifiers, certificates, endpoints, maps and message tracking without coding each partner. CSV portal partners land in the same canonical model via a simple mapping.
 
-**Partner vs canonical.** Everything partner-specific (ISA/UNB IDs, qualifiers, AS2 certificates, map variations, which segments they send) lives in **partner configuration**. The **canonical PurchaseOrder** is the contract between the B2B layer and the core process — the Order Process API never knows whether a PO came from X12, EDIFACT or CSV. New partner = new profile + map variant, not a new flow.
+**Partner vs canonical.** Everything partner-specific (ISA/UNB IDs, qualifiers, AS2 certificates, map variations, which segments they send) lives in **partner configuration**. The **canonical PurchaseOrder** is the contract between the B2B layer and the core process: the Order Process API never knows whether a PO came from X12, EDIFACT or CSV. New partner = new profile + map variant, not a new flow.
 
 **Acknowledgements and tracking.**
 - *Transport:* AS2 **MDN** (sync or async) confirms receipt.
-- *Syntax:* **997/999** (X12) or **CONTRL** (EDIFACT) after validation — sent within minutes even if SAP is down.
+- *Syntax:* **997/999** (X12) or **CONTRL** (EDIFACT) after validation: sent within minutes even if SAP is down.
 - *Business:* **855 / ORDRSP** only after SAP accepts (or rejects lines).
 - Track per document: partner, type, interchange/group/transaction control numbers, PO number, status timeline. Monitor for **missing inbound 997s** on outbound documents and alert.
 
 **Onboarding.** Partner templates per standard/version (e.g. "X12 4010 retail"), self-service test (partner sends test files, automated validation report), certificate exchange checklist. Target: days instead of 6 weeks. Prioritise migrating the VAN partners first (contract deadline), by volume.
 
-**Peaks and failures.** After receipt and technical ack, **persist/queue** the canonical PO, so SAP slowness causes delay, not rejected EDI. Scale the processing consumers for the 5× holiday peak; SAP throughput is usually the limit (batch IDocs). Outbound ASNs: alerts when a shipment has no ASN within the retailer's SLA window — chargebacks are a business KPI for this platform.
+**Peaks and failures.** After receipt and technical ack, **persist/queue** the canonical PO, so SAP slowness causes delay, not rejected EDI. Scale the processing consumers for the 5× holiday peak; SAP throughput is usually the limit (batch IDocs). Outbound ASNs: alerts when a shipment has no ASN within the retailer's SLA window, because chargebacks are a business KPI for this platform.
 `,
   followUps: [
     { q: 'Why not let SAP\'s own EDI/IDoc tooling talk directly to partners?', a: 'You could for a few partners, but you lose a protocol/partner management layer, central tracking and the reuse of canonical orders for other channels (portal, API customers). The B2B layer absorbs partner variety so SAP sees one format.' },

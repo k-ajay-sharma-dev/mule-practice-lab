@@ -90,6 +90,8 @@ export default {
 
 On a promotional weekend the tills send about 80 stock movements a second, the web shop asks for about 200 stock checks a second, and Oracle takes at most 40 queries a second.
 
+The ActiveMQ broker can restart during a peak. Send stock movements as persistent messages on a \`stock-movements\` queue, and publish changes to a \`stock-changed\` topic. Name the APIs exp-web-stock-api, prc-inventory-api, sys-oracle-stock-api and sys-commerce-api. The web stock API keeps a short cache that answers about 9 checks in 10; give it 0.5 vCore.
+
 **Your task.** Propose:
 - the target integration for stock movements
 - how the website reads stock
@@ -116,10 +118,10 @@ On a promotional weekend the tills send about 80 stock movements a second, the w
   ],
   solution: `
 **Phases**
-1. **Foundation (weeks 1–4).** \`sys-oracle-stock-api\` wraps the DBA-approved procedure (\`db:stored-procedure\` with IN parameters for SKU, location, quantity delta and movement ID). The JDBC driver is added as a dependency/shared library. Idempotency: the procedure (or a MERGE into a processed-movements table) ignores a movement ID it has already applied.
-2. **Movements (weeks 5–8).** POS publishes each sale to the \`stock-movements\` ActiveMQ queue. \`prc-inventory-api\` uses a \`jms:listener\` with MANUAL ack (or a local transaction) so a message is only acknowledged after Oracle commits. The DC WMS sends receipts and picks to the same queue. The 15 older stores drop a file every 15 minutes on SFTP; a small flow splits it into the same movement messages.
-3. **Fan-out (weeks 9–10).** After each successful update the Process API publishes \`stock-changed\` (SKU, location, new on-hand) to an ActiveMQ topic. \`sys-commerce-api\` subscribes (durable subscription or a virtual-topic consumer queue) and updates the commerce platform in small batches; analytics subscribes too.
-4. **Read path (week 11).** \`exp-web-stock-api\` serves the storefront from an Object Store cache (TTL 60 seconds) and falls back to the Process API on a miss.
+1. **Foundation (weeks 1 to 4).** \`sys-oracle-stock-api\` wraps the DBA-approved procedure (\`db:stored-procedure\` with IN parameters for SKU, location, quantity delta and movement ID). The JDBC driver is added as a dependency/shared library. Idempotency: the procedure (or a MERGE into a processed-movements table) ignores a movement ID it has already applied.
+2. **Movements (weeks 5 to 8).** POS publishes each sale to the \`stock-movements\` ActiveMQ queue as a persistent message, so a broker restart loses nothing. \`prc-inventory-api\` uses a \`jms:listener\` with MANUAL ack (or a local transaction) so a message is only acknowledged after Oracle commits. The DC WMS sends receipts and picks to the same queue. The 15 older stores drop a file every 15 minutes on SFTP; a small flow splits it into the same movement messages.
+3. **Fan-out (weeks 9 to 10).** After each successful update the Process API publishes \`stock-changed\` (SKU, location, new on-hand) to an ActiveMQ topic. \`sys-commerce-api\` subscribes (durable subscription or a virtual-topic consumer queue) and updates the commerce platform in small batches; analytics subscribes too.
+4. **Read path (week 11).** \`exp-web-stock-api\` serves the storefront from an Object Store cache (TTL 60 seconds) and falls back to the Process API on a miss. With about 9 hits in 10, 200 checks a second become about 20 Oracle queries, under its limit of 40.
 
 **Architecture.** Channels → Experience → Process → messaging → System → Oracle. Nothing outside \`sys-oracle-stock-api\` holds Oracle credentials.
 

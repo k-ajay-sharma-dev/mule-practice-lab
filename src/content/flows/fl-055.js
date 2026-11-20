@@ -382,7 +382,11 @@ The current implementation returns **500 "Internal Server Error"** for everythin
 
 **Facts**
 - The team's custom error types live in the \`APP\` namespace: \`APP:PAYMENT_DECLINED\` (declined card), \`APP:DUPLICATE_ORDER\` (order id already exists) and \`APP:ORDER_REJECTED\` (a business rejection passed up from the layer below).
-- Business codes in the 422 body are \`PAYMENT_DECLINED\` and \`DUPLICATE_ORDER\`.
+- Business codes in the 422 body are \`PAYMENT_DECLINED\` and \`DUPLICATE_ORDER\`. A 422 body is \`{ code, reason }\` between layers and \`{ code, message, correlationId }\` at the edge.
+- An order is \`{ orderId, customerId, total, items }\`. The project's schema \`schemas/web-order.json\` requires all four, a \`total\` above 0 and at least one item.
+- Paths: \`POST /exp-web/v1/orders\`, \`POST /prc-orders/v1/orders\`, \`POST /sys-payment/v1/authorisations\` and \`POST /sys-oms/v1/orders\`. The PSP itself is \`POST /v1/payment_intents\`, answering \`{ id, status }\`.
+- \`sys-payment\` answers a decline with **422** \`{ code: "DECLINED", reason }\`. \`sys-oms\` answers a duplicate order id with **409** and an unreachable database with **503**.
+- \`sys-oms\` inserts into the \`orders\` table (\`order_id\` unique, \`customer_id\`, \`total\`, \`payment_ref\`, \`status\`) and answers \`{ orderId }\`. The Process API answers \`{ orderId, status, authorisationId }\`.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-orders/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
@@ -454,7 +458,7 @@ All layers propagate (On Error Propagate) so the HTTP status reaches the caller;
       a: 'Require an Idempotency-Key header at the Experience API and pass it down; the Process API (or sys-oms with a unique key) returns the original result for a repeated key instead of creating a new order.',
     },
     {
-      q: 'Why not just pass the System API error body straight through to the browser?',
+      q: 'Why not pass the System API error body straight through to the browser?',
       a: 'It leaks internal system names and codes, couples the web to the PSP\'s vocabulary and can expose sensitive details. Each layer owns its contract, including its error contract.',
     },
   ],

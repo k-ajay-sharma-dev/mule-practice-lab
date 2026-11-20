@@ -10,38 +10,38 @@ export default {
       type: 'single',
       prompt: 'The current flow does `db:select` for the item, then `db:insert` if not found, else `db:update`. Two catalogue files for the same supplier sometimes run at the same time and fail with ORA-00001. Why?',
       options: [
-        'Both flows read "not found" before either inserts, so both insert the same key (check-then-act race)',
-        'Oracle does not allow inserts and updates in the same flow',
-        'db:select locks the table until the flow ends',
-        'The sequence returned the same value twice',
+        'Both read "not found" before either inserts, so both insert',
+        'Oracle rejects an insert and an update in the same flow',
+        'db:select locks the row, so the second insert collides',
+        'The sequence returned the same value to both loads',
       ],
       answer: 0,
-      explain: 'Read-then-write is not atomic. A unique constraint protects the data but surfaces as ORA-00001; the fix is a single atomic statement plus handling of the constraint error.',
+      explain: 'This is a check-then-act race. Read-then-write is not atomic. A unique constraint protects the data but surfaces as ORA-00001; the fix is a single atomic statement plus handling of the constraint error.',
     },
     {
       type: 'single',
       detail: true,
       prompt: 'Which Database connector operation runs an Oracle `MERGE INTO ... USING (SELECT :supplierId ... FROM dual)` with bind parameters for one row?',
       options: [
-        'db:update — it executes any DML statement with input parameters and returns affectedRows',
-        'db:execute-ddl',
-        'db:select',
-        'MERGE cannot be run from Mule',
+        '`db:update`, which runs any DML with input parameters',
+        '`db:execute-ddl`, as MERGE changes table contents',
+        '`db:select`, because MERGE starts with a USING query',
+        '`db:execute-script`, the only way to run a MERGE',
       ],
       answer: 0,
-      explain: 'MERGE is DML, so db:update (or db:bulk-update for many rows) runs it with bind parameters. execute-ddl is for CREATE/ALTER/DROP.',
+      explain: 'MERGE is DML, so db:update (which returns affectedRows) (or db:bulk-update for many rows) runs it with bind parameters. execute-ddl is for CREATE/ALTER/DROP, and execute-script takes no bind parameters.',
     },
     {
       type: 'single',
       prompt: 'Two parallel MERGEs for the **same new** item can still fail with ORA-00001. What is the sensible handling?',
       options: [
-        'Catch the unique-constraint error (DB:QUERY_EXECUTION) and retry the MERGE once — the second attempt finds the row and updates it',
-        'Replace MERGE with DELETE + INSERT',
-        'Remove the unique constraint',
-        'Ignore it, MERGE cannot fail',
+        'Catch the constraint error and retry the MERGE once',
+        'Replace MERGE with a DELETE followed by an INSERT',
+        'Drop the unique constraint so both inserts succeed',
+        'Add a COMMIT before the MERGE so both see the row',
       ],
       answer: 0,
-      explain: 'Both sessions can see "not matched" before either commits. A retry turns the second one into an update. Removing the constraint would create duplicate catalogue rows.',
+      explain: 'Catch DB:QUERY_EXECUTION caused by ORA-00001; the second attempt finds the row and updates it. Both sessions can see "not matched" before either commits. A retry turns the second one into an update. Removing the constraint would create duplicate catalogue rows.',
     },
     {
       type: 'multi',
@@ -61,9 +61,9 @@ export default {
       prompt: 'With `autoGenerateKeys="true"` but **no** column names, what does Oracle JDBC typically return as the generated key?',
       options: [
         'The ROWID of the inserted row',
-        'The next sequence value',
-        'The primary key, always',
-        'Nothing — Oracle does not support generated keys',
+        'The next value of the table\'s sequence',
+        'The primary key column value',
+        'Nothing, since Oracle has no generated keys',
       ],
       answer: 0,
       explain: 'Oracle returns the ROWID unless you name the columns to return. Always name the key column (e.g. SUPPLIER_ID).',
@@ -152,12 +152,12 @@ Feed it chunks (e.g. 500–1,000 rows) of maps such as \`{ supplierId, sku, cost
 \`\`\`
 Without the column names Oracle returns the **ROWID**. Never use \`MAX(supplier_id)\` (races) or \`CURRVAL\` from another call (it belongs to the session, and the pool may hand you a different connection). An identity column (12c+) works the same way as option B.
 
-**4. ORA-00001 with MERGE.** Two sessions can both evaluate "not matched" for the same new key before either commits, so one insert fails. Keep the constraint and handle it: catch \`DB:QUERY_EXECUTION\` whose cause is ORA-00001 and retry the MERGE (or the chunk) once — the second time the row exists and is updated. Even better, avoid concurrent loads of the same supplier (one file at a time per supplier, e.g. with a lock or by partitioning work by supplier).
+**4. ORA-00001 with MERGE.** Two sessions can both evaluate "not matched" for the same new key before either commits, so one insert fails. Keep the constraint and handle it: catch \`DB:QUERY_EXECUTION\` whose cause is ORA-00001 and retry the MERGE (or the chunk) once. The second time the row exists and is updated. Even better, avoid concurrent loads of the same supplier (one file at a time per supplier, e.g. with a lock or by partitioning work by supplier).
 `,
   followUps: [
     {
       q: 'Why do sequence values have gaps?',
-      a: 'Sequences are not transactional and are cached in memory; rolled-back inserts, instance restarts and cache loss all skip values. Never rely on sequences being gapless — use them only as unique keys.',
+      a: 'Sequences are not transactional and are cached in memory; rolled-back inserts, instance restarts and cache loss all skip values. Never rely on sequences being gapless; use them only as unique keys.',
     },
     {
       q: 'How would you make the file load idempotent if the same file is reprocessed?',

@@ -18,7 +18,7 @@ Points the contract must get right:
 **Requirements**
 - Keep the title \`Smart Home Events API\` and JSON as the default media type.
 - A type \`EventType\`, a string that is exactly one of \`device.offline\`, \`alarm.triggered\`, \`battery.low\`.
-- A type \`SubscriptionRequest\` with a required string \`callbackUrl\` with a pattern that only allows \`https://\` URLs, and a required \`events\` of \`EventType[]\` with at least 1 item and \`uniqueItems: true\`.
+- A type \`SubscriptionRequest\` with a required string \`callbackUrl\` with a pattern anchored at the start with \`^\` that only allows \`https://\` URLs, and a required \`events\` of \`EventType[]\` with at least 1 item and \`uniqueItems: true\`.
 - A type \`Subscription\` that has everything in \`SubscriptionRequest\`, plus a required string \`subscriptionId\` and a required \`status\` that is one of \`ACTIVE\`, \`FAILING\`. It has no \`signingSecret\`.
 - A type \`SubscriptionCreated\` that has everything in \`Subscription\`, plus a required string \`signingSecret\`.
 - A type \`Error\` with required strings \`code\` and \`message\`.
@@ -195,7 +195,7 @@ types:
     'A test endpoint lets a partner check its receiver without waiting for a real event.',
   ],
   solution: `
-The three types build on each other. \`SubscriptionRequest\` is what a partner sends. \`Subscription\` adds what the server owns, \`subscriptionId\` and \`status\`. \`SubscriptionCreated\` adds the secret, and only the 201 uses it. Because a subtype never counts as its parent here, every read is declared with \`Subscription\` and cannot leak the secret by accident.
+The three types build on each other. \`SubscriptionRequest\` is what a partner sends. \`Subscription\` adds what the server owns, \`subscriptionId\` and \`status\`. \`SubscriptionCreated\` adds the secret, and only the 201 uses it. Every read is declared with \`Subscription\`, so the contract never promises the secret on a read. The read flow must still leave the field out, because an open RAML type allows extra fields in a response.
 
 \`uniqueItems: true\` stops a partner from subscribing to \`alarm.triggered\` twice in one list and getting each alarm twice.
 

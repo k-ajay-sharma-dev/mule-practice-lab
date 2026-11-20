@@ -98,6 +98,12 @@ The first version used a plain bulk **INSERT**. It failed on the first row with 
 - Apply a file completely or not at all.
 - Archive a loaded file to \`/costs/archive\`; move a failed one to \`/costs/error\`.
 
+**Facts**
+- Listen for \`COSTS_*.csv\` with a size check wait.
+- Store \`unit_cost\` and \`lead_days\` as numbers. A blank cost becomes null, which the NOT NULL column refuses. \`updated_file\` is the file's name.
+- Run one MERGE statement for every row with a **Database Bulk Update**, inside a **Try** with the transactional action \`ALWAYS_BEGIN\`.
+- Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the insert failed

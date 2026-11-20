@@ -110,7 +110,7 @@ Facts:
   ],
   solution: `
 **Target integration architecture (strangler fig).**
-1. **Phase 0 — façade first:** build core-agnostic **Experience APIs** (mobile, branch, partners) and **Process APIs** (Accounts, Customers, Payments, Cards). Move channels to them while they still only call the **Mainframe System API** (MQ/CICS via the IBM MQ connector or JMS; batch files via SFTP). Channels are now decoupled from the core.
+1. **Phase 0, façade first:** build core-agnostic **Experience APIs** (mobile, branch, partners) and **Process APIs** (Accounts, Customers, Payments, Cards). Move channels to them while they still only call the **Mainframe System API** (MQ/CICS via the IBM MQ connector or JMS; batch files via SFTP). Channels are now decoupled from the core.
 2. Add the **New Core System API** (REST/events of the SaaS core).
 3. Process APIs call a **Routing service** to pick the right core per customer/account.
 
@@ -131,7 +131,7 @@ Downstream feeds (data warehouse, AML, regulatory) consume **canonical events** 
 3. Final delta migration and **closing balance reconciliation** (must match exactly).
 4. **Switch routing** for the wave's customers; mainframe accounts set to read-only/closed-migrated.
 5. Smoke tests with test customers in the wave; monitor intensively.
-6. **Rollback plan**: routing can switch back if verification fails before the window ends (new core postings during the window are reversed or replayed back — rehearsed in dress rehearsals).
+6. **Rollback plan**: routing can switch back if verification fails before the window ends (new core postings during the window are reversed or replayed back, as practised in dress rehearsals).
 
 **Payments integrity.** Every payment carries a unique **end-to-end ID**; the Payments Process API stores payment state and dedupes on that ID, so retries never post twice. No uncontrolled dual-writes: at any time exactly one core owns an account's ledger. Inbound payments from clearing arriving during cut-over are held in a queue and posted to the owning core after the switch. Continuous reconciliation between the payments hub and both cores (counts and sums by day) with alerts on breaks.
 
@@ -142,7 +142,7 @@ Downstream feeds (data warehouse, AML, regulatory) consume **canonical events** 
 - Governance: migration control board, dress rehearsals per wave, runbooks, and dashboards per wave (traffic split, errors, reconciliation status).
 `,
   followUps: [
-    { q: 'Why not migrate all customers in one big bang?', a: 'One weekend for 2.2 million accounts and 60 integrations is a huge risk with no easy rollback. Waves limit blast radius, allow learning, and satisfy the regulator\'s parallel-run expectation per product set.' },
+    { q: 'Why not migrate all customers in one big bang?', a: 'One weekend for 2.2 million accounts and 60 integrations is a huge risk with no practical rollback. Waves limit blast radius, allow learning, and satisfy the regulator\'s parallel-run expectation per product set.' },
     { q: 'Where would you be careful with Mule specifically?', a: 'Mainframe connectivity (MQ message formats, EBCDIC/copybooks), large reconciliation batches (streaming, worker sizing), and keeping routing logic in one place rather than duplicated in each Process API.' },
     { q: 'How do downstream batch consumers like the data warehouse cope?', a: 'Give them one canonical feed built from events of both cores, with a core-of-origin attribute, so they do not need two pipelines and see migrated accounts continuously.' },
   ],

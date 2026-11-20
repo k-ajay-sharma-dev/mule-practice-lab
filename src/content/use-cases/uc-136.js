@@ -59,6 +59,8 @@ Today each turnstile calls the platform directly. At 06:00 queues form at the do
 - At 06:00 the turnstiles ask about **80 times a second** across the chain.
 - The platform answers in about 250 ms and takes about 50 calls a second.
 - A membership changes rarely: when a member joins, pays late or cancels. Five minutes of delay is fine for the business.
+- A turnstile must get its answer within **200 ms**, or the queue at the door grows.
+- The platform has had outages of about 10 minutes. During one, at least 9 members in 10 should still get in.
 
 **Questions:**
 - Draw the design.

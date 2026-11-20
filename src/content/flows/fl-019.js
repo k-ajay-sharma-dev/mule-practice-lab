@@ -231,19 +231,20 @@ export default {
   ),
   description: `
 When an order is **confirmed**, four independent teams must react:
-- **Warehouse** (picking) — must get every event, within 30 s.
-- **Loyalty** (points) — tolerates hours of delay.
-- **Analytics** — only needs orders over €100.
-- **Email** (confirmation to customer).
+- **Warehouse** (picking): must get every event, within 30 s. Call \`POST /warehouse/pick-requests\`.
+- **Loyalty** (points): tolerates hours of delay. Call \`POST /loyalty/points\`.
+- **Analytics**: only needs orders over €100. Call \`POST /analytics/orders\`.
+- **Email**: send the confirmation to the customer's \`customerEmail\`.
 
 New subscribers (e.g. a fraud team) will be added next quarter **without changing the publisher**. Each consumer is a separately deployed Mule app with its own release cycle. Peak: 80 orders/s.
 
 **Facts**
 - Every order event has a unique \`eventId\`.
 - A broker may deliver the same event more than once. No consumer may lose an event if it crashes while processing it.
-- The order system confirms an order with \`POST /orders/{orderId}/confirm\` on the publisher app.
+- The order system confirms an order with \`POST /orders/{orderId}/confirm\` on the publisher app, with \`{ orderId, totalAmount, customerEmail }\`. The publisher sets the order's status to \`CONFIRMED\` in the \`orders\` table and publishes the event, with the order under \`data\`.
 - The exchange is \`order-events\`. Each team's queue is named after it: \`order-events.warehouse\`, \`order-events.loyalty\`, \`order-events.analytics\` and \`order-events.email\`.
 - The publisher sets the message property \`totalAmount\` on every event.
+- The team standard is MANUAL acknowledgement on every subscriber, with an explicit Ack or Nack in each outcome (processed, duplicate, failed).
 
 **Design the flow(s):** publisher, broker topology, subscribers, filtering, failure isolation, and event contract/versioning.
 `,
@@ -270,7 +271,7 @@ New subscribers (e.g. a fraud team) will be added next quarter **without changin
 1. **Publisher (Order Process API):** after the order is committed, DataWeave builds a canonical event \`{ eventId, eventType: "OrderConfirmed", version: "1.0", occurredAt, data: {...} }\` → **Anypoint MQ Publish** to exchange \`order-events\` with message properties \`eventType\`, \`totalAmount\`, \`country\` and the correlation ID. If publishing must be guaranteed with the DB commit, use an outbox table + a relay flow.
 2. **Topology:** exchange \`order-events\` bound to queues \`order-events.warehouse\`, \`.loyalty\`, \`.analytics\`, \`.email\`. Each queue has its own **DLQ** and max-delivery count. Adding the fraud team = new queue + binding, no publisher change.
 3. **Subscribers:** each app has an **Anypoint MQ Subscriber** on its own queue with **MANUAL** ack: process → Ack; transient error → Nack; permanent → park + Ack. Concurrency sized per consumer (warehouse higher, loyalty low).
-4. **Filtering:** where supported, routing rules on the exchange binding can filter on message properties (e.g. \`totalAmount > 100\`); otherwise the analytics subscriber checks the property in a Choice and simply Acks events it doesn't need.
+4. **Filtering:** where supported, routing rules on the exchange binding can filter on message properties (e.g. \`totalAmount > 100\`); otherwise the analytics subscriber checks the property in a Choice and Acks events it doesn't need.
 5. **Failure isolation:** the loyalty system being down for 4 hours only builds a backlog on its queue; set message TTL long enough. Monitor queue depth and DLQ counts per consumer.
 6. **Contract:** publish the event schema (JSON Schema / AsyncAPI) to Exchange. Additive changes stay at v1; breaking changes publish v2 alongside v1 (separate \`eventType\`/\`version\` property) until consumers migrate. Consumers dedupe on \`eventId\`.
 `,

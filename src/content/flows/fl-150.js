@@ -171,6 +171,13 @@ A pen test of an earlier design found that partners could send a \`callbackUrl\`
 - If the callback fails, try **3 times in all**. Then set \`callback_status\` to \`FAILED\`, log a WARN and leave the export \`READY\`, so support can tell the partner.
 - On success, set \`callback_status\` to \`SENT\`.
 
+**Facts**
+- A new export row has \`status\` \`PENDING\`. When the reporting system answers, set \`status\` to \`READY\` and \`download_url\` to its link.
+- \`callback_path\` is a path on the hooks gateway, such as \`/hooks/northgate/exports\`. Use it as the path of the callback request.
+- Make the export ID with \`uuid()\`.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Answering at once

@@ -118,7 +118,7 @@ The flow has no response step, because no caller is waiting for an answer. The l
     },
     {
       q: 'The application runs on a cluster of several Mule instances. How many heartbeats do you see every 5 minutes?',
-      a: 'One. In a cluster or a multi-worker CloudHub deployment, the Scheduler runs only on the primary node.',
+      a: 'One. In a cluster the Scheduler runs only on the primary node. On CloudHub 1.0 with several workers, each trigger runs on one worker, though not always the same one.',
     },
     {
       q: 'Who notices when the heartbeat stops?',

@@ -12,7 +12,7 @@ export default {
   tags: ['myproject', 'sftp', 'planning', 'queues', 'dlq', 'sizing', 'availability', 'retail'],
   estMinutes: 60,
   diagram: {
-    task: 'draw the store tills posting end of day sales to a store sales Experience API, which puts each store\'s sales on a queue with a dead-letter queue. A sales file writer job reads the queue and writes to the planning platform\'s SFTP server. A master data job reads the ERP through an ERP System API and writes to the same server. An allocations collector job reads allocation files from the server and puts each on a second queue with a dead-letter queue. An allocations Process API reads it and calls the WMS through a WMS System API.',
+    task: 'draw the store tills posting end of day sales to a store sales Experience API, which puts each store\'s sales on the store.sales queue with a dead-letter queue. A sales file writer job reads the queue and writes to the planning platform\'s SFTP server. A master data job reads the ERP through an ERP System API and writes to the same server. An allocations collector job reads allocation files from the server and puts each on the allocations.ready queue with a dead-letter queue. An allocations Process API reads it and calls the WMS through a WMS System API.',
     checks: [
       { label: 'Tills post sales to an Experience API', rule: { type: 'edge', from: 'pos', to: 'experience-api' } },
       { label: 'Tills never wait on the SFTP server', rule: { type: 'no-path', from: 'pos', to: 'sftp-server', kind: 'sync' } },
@@ -96,7 +96,7 @@ Marrow & Pine Home, a fictional homewares retailer with **400 stores**, runs eve
 The first design had tills call an API that wrote straight to the SFTP server. On the night of the platform's server maintenance, tills hung at closing and staff could not close their registers.
 
 **Numbers**
-- About **40 sales batches a second** most of the evening, **300 a second** for 20 minutes after closing.
+- About **40 sales batches a second** most of the evening, **300 a second** for 20 minutes after closing. A till must be answered within **a second**.
 - Master data: about 2 files a second for half an hour. Allocations: about 3 a second.
 - The platform's SFTP server has up to **an hour** of maintenance a month.
 - About **1 allocation in 100** is for a store the WMS does not know yet.

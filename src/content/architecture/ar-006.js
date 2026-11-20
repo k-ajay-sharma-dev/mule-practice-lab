@@ -110,10 +110,10 @@ export default {
       needsScenario: true,
       prompt: 'How does traffic for `api.distributor.eu` move to the DR region?',
       options: [
-        'Runtime Manager automatically moves the hostname to another region',
-        'A global traffic manager / DNS failover with health checks in front of both regions, with a low TTL and a defined trigger',
-        'Clients are emailed the new region URL',
-        'Anypoint MQ forwards the HTTP traffic',
+        'Runtime Manager moves the hostname to the other region when the apps there start',
+        'A global traffic manager or DNS failover with health checks sends it to the other ingress',
+        'The CloudHub 2.0 shared load balancer sends it to whichever region has running replicas',
+        'The EU-West Private Space ingress forwards it to EU-Central when its own apps are down',
       ],
       answer: 1,
       explain: 'A DNS/global traffic manager points to each region\'s ingress (custom domain and certificates present in both). Failover is either automatic on health checks or a runbook decision; failback is planned.',
@@ -134,10 +134,10 @@ export default {
       type: 'single',
       prompt: 'How do you come close to RPO ≈ 0 for accepted orders?',
       options: [
-        'Acknowledge the order with 201 first and persist it asynchronously',
-        'Acknowledge only after the order is committed to a store whose replication meets the RPO, plus client retries with idempotency keys',
-        'Keep accepted orders in an in-memory queue',
-        'Run a nightly export of the order DB',
+        'Acknowledge with 201 at once and write the order to the DB in the background',
+        'Acknowledge only after a commit to a replicated store, and let clients retry with idempotency keys',
+        'Acknowledge after the order is published to a non-persistent queue in the region',
+        'Acknowledge after the order is written to Object Store v2, which keeps a copy in the DR region',
       ],
       answer: 1,
       explain: 'RPO is about what is lost once the client was told "accepted". Persist before acknowledging; if cross-region replication is async, resubmission with idempotency keys covers the small gap.',
@@ -147,10 +147,10 @@ export default {
       needsScenario: true,
       prompt: 'SAP fails over to its own DR site, which takes ~30 minutes. What does that mean for Tier 2 order-to-ERP flows?',
       options: [
-        'Mule should fail all orders immediately',
-        'Flows must buffer (queue/outbox) during the SAP failover; the effective RTO is bounded by SAP, not by Mule',
-        'Mule must call the SAP DR site and the primary in parallel',
-        'Nothing changes because SAP failover is instant',
+        'Mule should reject new orders with 503 until SAP is back',
+        'Orders wait in a queue or outbox, and the end-to-end RTO is bounded by SAP',
+        'Mule should call the SAP DR site and the primary in parallel',
+        'Mule should fail over to EU-Central too, so it is closer to the SAP DR site',
       ],
       answer: 1,
       explain: 'An end-to-end RTO cannot be better than the slowest dependency. Buffering lets orders wait and be processed once SAP is back.',
@@ -186,7 +186,7 @@ Other facts:
 - Consumers reach APIs through a single hostname \`api.distributor.eu\`.
 - Budget is limited. The CFO will not pay for a fully active-active second region for everything. The apps in this design get at most **1.5 vCores**.
 - Order capture must also survive the loss of one **availability zone** inside the region, without a DR failover.
-- The order DB answers in about 30 ms and SAP in about 800 ms. While SAP fails over (30 min), every accepted order must still reach SAP afterwards.
+- The order DB answers in about 30 ms and SAP in about 800 ms. While SAP fails over (30 min), every accepted order must still reach SAP afterwards. A queued message that fails is tried again about once a minute.
 
 **Design the DR strategy:**
 - What is the deployment topology per tier (active-active, warm standby, pilot light, backup & redeploy)?
@@ -208,11 +208,11 @@ Other facts:
 ## Trade-offs / risks
 `,
   keyPoints: [
-    'Tiered approach: active-active or hot standby only for Tier 1, warm standby / pilot light for Tier 2, redeploy-from-pipeline for Tier 3 — cost matched to RTO/RPO.',
-    'HA inside a region first (multiple replicas across availability zones) — DR is for region loss, not a single replica failure.',
+    'Tiered approach: active-active or hot standby only for Tier 1, warm standby / pilot light for Tier 2, redeploy-from-pipeline for Tier 3: cost matched to RTO/RPO.',
+    'HA inside a region first (multiple replicas across availability zones): DR is for region loss, not a single replica failure.',
     'Global traffic manager / DNS failover (e.g. Route 53, Akamai, Cloudflare) with health checks in front of both regions\' ingress; short TTLs and a defined manual or automated trigger.',
     'Object Store v2 and Anypoint MQ are regional: state does not follow automatically; idempotency keys/watermarks need a replicated store (e.g. the DB) or a documented tolerance for re-processing.',
-    'RPO ≈ 0 for orders requires synchronous persistence to a replicated store before acknowledging the order; async DB replication alone implies some loss — the gap is stated explicitly.',
+    'RPO ≈ 0 for orders requires synchronous persistence to a replicated store before acknowledging the order; async DB replication alone implies some loss: the gap is stated explicitly.',
     'Infrastructure/config as code via CI/CD (Maven/Mule deploy, API Manager config, secrets per region) and regular DR drills that measure the actual RTO/RPO.',
     'Settings that matter: 2 replicas for the order capture APIs, the order to ERP flow and the SAP System API (a zone outage leaves one), and a persistent queue with no redelivery limit, so 30 minutes of SAP failover loses no order. 0.1 vCore each is enough for 200 orders a minute.',
   ],
@@ -223,10 +223,10 @@ Other facts:
 | Tier | Pattern | Second region (EU-Central) |
 |---|---|---|
 | 1 Order capture | Active-passive **hot standby** (or active-active if budget allows) | Apps deployed and running, scaled down; same API Manager config |
-| 2 Event flows | **Warm standby / pilot light** | Apps deployed with 0–1 replicas or deployable in minutes from the pipeline |
+| 2 Event flows | **Warm standby / pilot light** | Apps deployed with 0 to 1 replicas or deployable in minutes from the pipeline |
 | 3 Batch | **Backup & redeploy** | Nothing running; redeploy from CI/CD, rerun job (idempotent, watermark-based) |
 
-**Traffic failover.** Put a **global traffic manager / DNS failover** (Route 53, Akamai, Cloudflare, etc.) in front of \`api.distributor.eu\`. It points to each region's ingress (custom domain + TLS certs present in both Private Spaces). Health checks hit a deep health endpoint (app + DB reachability). Use a low DNS TTL (≈ 60 s) — clients that cache DNS longer will fail over more slowly. Decide explicitly: automatic failover for Tier 1 health-check failures, or a **manual, runbook-driven decision** by an incident commander to avoid flapping and split-brain. Failback is a planned, manual operation.
+**Traffic failover.** Put a **global traffic manager / DNS failover** (Route 53, Akamai, Cloudflare, etc.) in front of \`api.distributor.eu\`. It points to each region's ingress (custom domain + TLS certs present in both Private Spaces). Health checks hit a deep health endpoint (app + DB reachability). Use a low DNS TTL (≈ 60 s): clients that cache DNS longer will fail over more slowly. Decide explicitly: automatic failover for Tier 1 health-check failures, or a **manual, runbook-driven decision** by an incident commander to avoid flapping and split-brain. Failback is a planned, manual operation.
 
 **State and data.**
 - **Order DB:** for RPO ≈ 0, an order is only acknowledged (HTTP 201) after it is committed to a store whose replication meets the RPO. That means synchronous/multi-zone commit in the primary plus a cross-region replica. If cross-region replication is asynchronous, state honestly that region loss can lose the last seconds of orders; mitigate with client retries using idempotency keys (pharmacies resend, duplicates are rejected).
@@ -240,6 +240,6 @@ Other facts:
 
 **Testing.** Quarterly **DR drills**: fail Tier 1 over in a scheduled window, measure the actual RTO and data loss, run Tier 3 redeploy from scratch. Runbooks with owners, contact lists, and the decision criteria. Monitoring (Anypoint Monitoring + external synthetic checks) must itself be region-independent.
 
-**Trade-offs.** Active-active everywhere would meet all targets but doubles cost and forces conflict handling for writes; the tiered model concentrates spend on Tier 1. True RPO 0 across regions needs synchronous cross-region writes (latency cost) — usually the business accepts "near zero" plus client resubmission.
+**Trade-offs.** Active-active everywhere would meet all targets but doubles cost and forces conflict handling for writes; the tiered model concentrates spend on Tier 1. True RPO 0 across regions needs synchronous cross-region writes (latency cost); usually the business accepts "near zero" plus client resubmission.
 `,
 }

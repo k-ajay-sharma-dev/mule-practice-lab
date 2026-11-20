@@ -11,25 +11,25 @@ export default {
       detail: true,
       prompt: 'What does APIkit for SOAP scaffold from?',
       options: [
-        'A RAML spec with SOAP traits',
-        'A WSDL — producing a router flow plus one flow per WSDL operation',
+        'A RAML spec that declares SOAP traits',
+        'A WSDL, with one flow per operation',
         'The REST Process API\'s OAS spec',
-        'A list of XSDs only',
+        'A set of XSD files without a WSDL',
       ],
       answer: 1,
-      explain: 'Same idea as APIkit for REST — a contract-driven router plus scaffolded flows — but with a WSDL as the contract.',
+      explain: 'It produces a router flow plus one flow per WSDL operation. Same idea as APIkit for REST (a contract-driven router plus scaffolded flows), but with a WSDL as the contract.',
     },
     {
       type: 'single',
       prompt: 'The REST Orders Process API returns a 404 JSON error. What should the SOAP Experience API return to the legacy partner?',
       options: [
-        'The JSON error body unchanged',
-        'A SOAP Fault with a fault code and detail, mapped in the error handler',
+        'The JSON error body unchanged, with status 404',
+        'A SOAP Fault with a code and detail',
         'An empty SOAP response with HTTP 200',
-        'An HTML error page',
+        'A normal SOAP response with an `error` element',
       ],
       answer: 1,
-      explain: 'SOAP clients expect the SOAP error model; map the Process API\'s error responses into faults.',
+      explain: 'SOAP clients expect the SOAP error model, so a normal response with an error element would look like success to them. Map the Process API\'s error responses into faults in the error handler.',
     },
     {
       type: 'single',
@@ -59,13 +59,13 @@ export default {
       type: 'single',
       prompt: 'Why not share the error handler through a Mule **domain**?',
       options: [
-        'Domains are deprecated in Mule 4',
-        'Domains share connector configurations among apps on the same on-prem runtime only, are not available on CloudHub, and do not share error handlers or flows',
-        'Domains only work with SOAP',
-        'Domains cannot be versioned at all',
+        'Domains were removed from the Mule 4 runtime',
+        'Domains are on-prem only and cannot share handlers',
+        'Domains can share only SOAP Web Service configs',
+        'Domain projects cannot be versioned in Maven',
       ],
       answer: 1,
-      explain: 'A mule-plugin library works on every deployment target.',
+      explain: 'Domains share connector configurations among apps on the same on-prem runtime only. They are not available on CloudHub and do not share error handlers or flows. A mule-plugin library works on every deployment target.',
     },
     {
       type: 'match',
@@ -112,7 +112,7 @@ Your API-led estate has 25 Mule apps. Observations:
 - Input: a **WSDL** (from Exchange or local). Scaffolding generates an HTTP Listener + \`apikit-soap\` router flow, plus one flow per WSDL operation (named after the operation and the SOAP router config).
 - The router validates the SOAP envelope against the WSDL/XSD and dispatches to the operation flow.
 - Each operation flow transforms the SOAP body (XML) into the REST Process API's request with DataWeave and calls it with HTTP Request. It then maps the JSON response back to the SOAP response element.
-- Errors must be returned as **SOAP Faults** (with a fault code and detail), not JSON — map the Process API's error responses into faults in the error handler.
+- Errors must be returned as **SOAP Faults** (with a fault code and detail), not JSON. Map the Process API's error responses into faults in the error handler.
 - Compared with REST: same idea (contract-driven router + scaffolded flows), different contract language and error model. Policies in API Manager can still be applied (e.g. client ID via headers, IP allowlist).
 
 **Shared parent POM**
@@ -143,7 +143,7 @@ Each app declares \`<parent>\` and keeps: its \`artifactId\`/version, the depend
 <import file="common-error-handler.xml" doc:name="Import common error handler" />
 <configuration defaultErrorHandler-ref="common-error-handler" />
 \`\`\`
-- Apps can still add local handlers for app-specific error types and fall back to the shared one. Stack traces never leave the service — the shared module logs details and returns only a safe message plus correlation ID.
+- Apps can still add local handlers for app-specific error types and fall back to the shared one. Stack traces never leave the service. The shared module logs details and returns only a safe message plus correlation ID.
 - For the SOAP EAPI, keep a SOAP-fault variant of the handler in the same library.
 
 **Versioning and rollout**

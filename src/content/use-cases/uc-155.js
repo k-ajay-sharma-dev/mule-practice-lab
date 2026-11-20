@@ -70,7 +70,7 @@ export default {
     },
   },
   description: `
-Copperline Home Supply' product data hub (fictional) also **sends** documents: Item, Barcode and TransferOrder updates for its store groups. The documents are generated in the hub's **Oracle database** by a PL/SQL package.
+The product data hub of Copperline Home Supply (fictional) also **sends** documents: Item, Barcode and TransferOrder updates for its store groups. The documents are generated in the hub's **Oracle database** by a PL/SQL package.
 
 Each outbound run is for one message type. A **nightly scheduled job** starts the Item run, and the **hub support console** lets support start a run for any type. Each run is recorded as a job row, and Oracle generates the messages in the background.
 
@@ -81,7 +81,8 @@ The store groups take outbound documents the same way the hub takes inbound ones
 - Oracle answers in about 80 ms, blob storage in about 150 ms.
 - The store group systems answer in about 300 ms, take up to **60 a second**, and are sometimes down for **an hour**.
 - About 1 message in 500 is for a store group that has closed.
-- In this model a failed delivery is tried again about once a minute.
+- In this model a failed delivery is tried again about once a minute, and every delivery counts toward the redelivery limit.
+- No message may be lost, and no good notification may reach the failure queue during an hour-long store restart.
 
 **Questions:**
 - Draw the design.

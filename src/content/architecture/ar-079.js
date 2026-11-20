@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'During a broker failover, Mule apps publishing pick confirmations hung for 4 minutes and HTTP threads piled up. The connection URL is failover:(tcp://amq1:61616,tcp://amq2:61616). What is the most likely cause?',
       options: [
-        'The failover transport retries reconnection transparently and blocks sends while disconnected; with no failover timeout, publish calls wait instead of failing fast',
-        'The JMS connector does not support failover URLs',
+        'The failover transport blocks sends while it reconnects, and no timeout was set',
+        'The JMS connector cannot use failover URLs, so it kept retrying the first broker',
         'The slave broker rejected the messages because they were non-persistent',
-        'Mule reconnection strategy was set to reconnect-forever, which disables publishing',
+        'The reconnect-forever strategy stops publishing until the app is restarted',
       ],
       answer: 0,
-      explain: 'The Classic failover transport hides the outage from the client and, by default, blocks sends until it reconnects. Setting its timeout option makes sends fail after a bounded wait, so Mule can raise a JMS error (e.g. JMS:PUBLISHING or JMS:CONNECTIVITY) and the flow can respond.',
+      explain: 'The Classic failover transport hides the outage from the client and, by default, blocks sends until it reconnects, so publish calls wait instead of failing fast. Setting its timeout option makes sends fail after a bounded wait, so Mule can raise a JMS error (e.g. JMS:PUBLISHING or JMS:CONNECTIVITY) and the flow can respond.',
     },
     {
       type: 'multi',
@@ -59,10 +59,10 @@ export default {
       type: 'single',
       prompt: 'The infrastructure team proposes NFSv3 without reliable locking for the shared KahaDB. Why is that dangerous?',
       options: [
-        'If locks are not honoured, both brokers can believe they are master and write to the same store, corrupting it',
-        'NFS is too slow for any message broker',
-        'KahaDB cannot be stored on a network file system at all',
-        'The slave will never take over',
+        'Both brokers may think they hold the lock and write to the store, corrupting it',
+        'NFSv3 is too slow for KahaDB journal writes under warehouse load',
+        'KahaDB can only live on local disk, never on a network file system',
+        'The slave copies every message over NFS and doubles the network traffic',
       ],
       answer: 0,
       explain: 'Shared-store HA is only as safe as the lock. Use storage with reliable distributed locking (for example NFSv4 or a SAN with proper locking) or a JDBC lock, and test the failover.',
@@ -115,7 +115,7 @@ The team is also considering migrating to **ActiveMQ Artemis**.
   solution: `
 **Broker HA.**
 - **Classic shared file system master/slave:** two brokers on one KahaDB on shared storage; the lock holder is master. Needs storage with reliable locks.
-- **Classic JDBC master/slave:** message store in a database (could be Oracle); a database lock elects the master. Simpler storage, lower throughput.
+- **Classic JDBC master/slave:** message store in a database (could be Oracle); a database lock elects the master. Plainer storage, lower throughput.
 - **Artemis primary/backup** (older docs: live/backup): shared store (same idea as above) or **replication** (backup receives the journal over the network, no shared disk; requires quorum/split-brain protection). Artemis is the strategic product line and generally performs better.
 
 **Mule connection.**
@@ -126,7 +126,7 @@ The team is also considering migrating to **ActiveMQ Artemis**.
 - **Listeners:** a reconnection strategy on the JMS config (reconnect forever with a sensible frequency) so consumption resumes automatically.
 - **Publishers:** bounded send timeout (failover \`timeout\`) so a publish fails with a connectivity error instead of blocking; the calling flow then returns an error to the scanner gateway or buffers locally.
 
-**In-flight messages.** Persistent messages are in the store and visible to the new master. Messages delivered but not acknowledged are redelivered with \`JMSRedelivered\` set and an increasing \`JMSXDeliveryCount\`; flows dedupe on the business key (pick id). Use MANUAL ack or transactions — never ack before processing.
+**In-flight messages.** Persistent messages are in the store and visible to the new master. Messages delivered but not acknowledged are redelivered with \`JMSRedelivered\` set and an increasing \`JMSXDeliveryCount\`; flows dedupe on the business key (pick id). Use MANUAL ack or transactions, and never ack before processing.
 
 **Testing.** Failover drills in test under realistic load: kill the master process, pull the network, fill the disk. Measure time to recover, count lost/duplicated messages, check thread pools and alerts. Repeat after every broker or storage change.
 

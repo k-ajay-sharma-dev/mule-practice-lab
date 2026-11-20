@@ -71,7 +71,7 @@ Brightwater Payroll, a fictional payroll bureau, sends pension contribution file
 Providers have **Sunday maintenance windows of up to 90 minutes**, and some upload slowly. Today the payroll app waits while Mule uploads. On a Sunday in October, sends failed during a window, and the payroll team had to resend 300 files by hand on Monday.
 
 **Numbers**
-- About **2 sends a second** on pay days.
+- About **2 sends a second** on pay days. Payroll must get its answer within **a second**.
 - An upload normally takes about 2 seconds. Year end files take about **45 seconds**.
 - A provider's maintenance window lasts up to **90 minutes**.
 - About **2 sends in 100** go to a scheme folder the provider has closed. They can never succeed.

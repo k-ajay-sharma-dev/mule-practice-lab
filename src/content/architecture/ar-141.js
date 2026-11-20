@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'async-request-reply', 'long-running', 'anypoint-mq', 'callbacks', 'timeouts', 'partners'],
   estMinutes: 35,
   diagram: {
-    task: 'draw the contract document service: dealers calling through the API gateway, an Experience API that records each request in a status store and puts it on a queue, a worker Process API that takes requests from the queue and calls the document generator through a System API, the file store for the finished PDFs, a dead-letter queue, and the callback from the worker to the dealer.',
+    task: 'draw the contract document service: dealers calling through the API gateway, an Experience API that records each request in a database named status store and puts it on a queue, a worker Process API that takes requests from the queue and calls the document generator through a System API, the file store for the finished PDFs, a dead-letter queue, and the callback from the worker to the dealer.',
     checks: [
       { label: 'Dealers come in through the API gateway', rule: { type: 'path', from: 'partner', via: 'api-gateway', to: 'experience-api' } },
       { label: 'The Experience API hands each request to a queue as an async message', rule: { type: 'edge', from: 'experience-api', to: 'queue', kind: 'async' } },
@@ -85,6 +85,8 @@ Facts:
 - On the last days of the month dealers ask for up to **3 contracts a second** for long stretches.
 - The generator vendor has a maintenance window once a month of about 30 minutes, with no warning.
 - Dealer portals can receive a **callback**: an HTTPS call to a URL they register, with the result.
+- A Mule HTTP call gives up after 10 seconds by default, unless you set a longer timeout.
+- A message that fails is redelivered from the queue about once a minute. The redelivery limit must cover the maintenance window, so that good requests do not end up in the dead-letter queue.
 
 **Questions:**
 - Draw a design where a dealer never waits for the generator.

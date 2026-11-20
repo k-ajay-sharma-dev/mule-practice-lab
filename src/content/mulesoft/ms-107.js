@@ -46,7 +46,7 @@ export default {
       type: 'single',
       prompt: 'A Rate Limiting policy allows 100 requests per minute with no identifier. The first request after the policy was applied arrived at 10:00:20, and a client sent nothing else until 10:01:19. It then sends 100 requests at 10:01:19 and 100 more at 10:01:21. What is the result?',
       options: [
-        'Almost all of the 200 are accepted, because the fixed window closes at 10:01:20 and the quota resets for the new window',
+        'Almost all 200 are accepted, because the fixed window resets at 10:01:20',
         'Only 100 are accepted, because the policy counts the last 60 seconds',
         'Only 100 are accepted, because windows always start on the full minute',
         'All are queued and served at 100 per minute',
@@ -71,9 +71,9 @@ export default {
       detail: true,
       prompt: 'A Rate Limiting policy uses the identifier `#[attributes.headers[\'x-depot-id\']]`. Some requests do not send this optional header. What does the policy do with them?',
       options: [
-        'The identifier resolves to an empty value, and those requests share that empty value\'s own quota',
-        'It rejects them with 400',
-        'It skips rate limiting for them',
+        'They share one quota that belongs to the empty identifier',
+        'It rejects them with 400, because the identifier is missing',
+        'It skips rate limiting for requests without the header',
         'It adds them to the group that has the most quota left',
       ],
       answer: 0,
@@ -83,7 +83,7 @@ export default {
       type: 'single',
       prompt: 'The Gold tier has two limits: 100 requests per second and 10,000 requests per day. A partner has used all 10,000 for today but sends only 5 requests in the current second. What happens?',
       options: [
-        'The request is rejected, because each limit has its own algorithm and all of them need quota left',
+        'It is rejected, because every limit in the tier needs quota left',
         'The request passes, because the per-second limit has quota left',
         'The policy uses only the first limit in the tier',
         'The daily limit is only a warning shown in API Manager',
@@ -147,7 +147,7 @@ The colleague's single Rate Limiting policy with no identifier gives all callers
 | Rate Limiting SLA | Fixed | The algorithm is created on the first request of that client |
 | Spike Control | Sliding | First request after the policy is applied; a slot returns when an old request ages out |
 
-A fixed window resets all at once, so a client can use a full quota just before the reset and another just after it. Spike Control does not have this edge, because it looks back over the last period.
+A fixed window resets all at once, so a client can use a full quota right before the reset and another right after it. Spike Control does not have this edge, because it looks back over the last period.
 
 **3. What the caller must send.**
 - Rate Limiting: nothing special. A missing optional identifier resolves to an empty value with its own quota.

@@ -7,9 +7,9 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
+      { text: "2026-11-17 18:00:00 INFO  [partner-mail] Notice: SFTP server will be rebuilt tonight", relevant: true, why: "The partner warned about a rebuild but sent no new fingerprint." },
       { text: "2026-11-18 07:00:01 ERROR [po-sender] SFTP connect failed host=sftp.partner.example error=HostKey has been changed", relevant: true, why: "The server identity changed." },
       { text: "2026-11-18 07:00:01 INFO  [po-sender] knownHostsFile=known_hosts strict=true", relevant: true, why: "Strict host key checking is on, which is right." },
-      { text: "2026-11-17 18:00:00 INFO  [partner-mail] Notice: SFTP server rebuilt this weekend", relevant: true, why: "The partner warned about a rebuild." },
       { text: "2026-11-18 07:05:00 WARN  [po-sender] Pending purchase orders=86", relevant: true, why: "Orders are waiting." },
       { text: "2026-11-18 23:59:00 INFO  [po-sender] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does the connection fail?",
         options: [
-          "The server has a new host key that does not match known hosts",
-          "The password expired",
-          "The folder is missing",
-          "The network is down",
+          "The rebuilt server has a new host key not in known hosts",
+          "The rebuild reset the partner account, so the password fails",
+          "The rebuilt server has a new IP address the firewall blocks",
+          "The known_hosts file was lost when the app restarted",
         ],
         answer: 0,
         explain: "The client refuses an unknown server identity.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the safe fix?",
         options: [
-          "Get the new key fingerprint from the partner by a trusted channel, check it, and update known hosts",
-          "Turn off host key checking",
-          "Accept any key",
-          "Use FTP instead",
+          "Check the new fingerprint with the partner, then update known hosts",
+          "Set strict host key checking to false until the partner confirms",
+          "Connect once by hand and add whatever key the server offers",
+          "Switch to FTP for a few days, which needs no host key",
         ],
         answer: 0,
         explain: "Verify before you trust.",
@@ -45,7 +45,7 @@ export default {
           "It stops a man in the middle reading or changing files",
           "It proves you talk to the real server",
           "Credentials could go to an attacker",
-          "It makes uploads slower",
+          "It encrypts the files sent to the server",
         ],
         answer: [0,1,2],
         explain: "Host key checking is a security control.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What about the 86 orders?",
         options: [
-          "Send them once the connection works and confirm with the partner",
-          "Delete them",
-          "Email them as attachments",
-          "Wait a week",
+          "Send them once the connection works, and confirm with the partner",
+          "Email them as attachments today, then send them by SFTP as well",
+          "Cancel them in the ERP and ask buyers to raise them again",
+          "Leave them for tomorrow’s 07:00 run to pick up with the rest",
         ],
         answer: 0,
         explain: "They are queued. Send and confirm.",
@@ -81,14 +81,15 @@ export default {
 - From 07:00 no purchase orders reach the partner.
 
 ## Change / Context
-- The partner rebuilt their SFTP server at the weekend.
+- The partner rebuilt their SFTP server last night.
+- The first purchase order run of the day is at 07:00.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-17 18:00:00 INFO  [partner-mail] Notice: SFTP server will be rebuilt tonight
 2026-11-18 07:00:01 ERROR [po-sender] SFTP connect failed host=sftp.partner.example error=HostKey has been changed
 2026-11-18 07:00:01 INFO  [po-sender] knownHostsFile=known_hosts strict=true
-2026-11-17 18:00:00 INFO  [partner-mail] Notice: SFTP server rebuilt this weekend
 2026-11-18 07:05:00 WARN  [po-sender] Pending purchase orders=86
 \`\`\`
 

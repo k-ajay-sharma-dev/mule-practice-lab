@@ -95,13 +95,13 @@ export const SET_4 = [
       'The cache entry for a product had expired, so the flow read the price from the database and stored it again in the Object Store price-cache. Which DEBUG message is best?',
     options: [
       'Price cache miss, loaded from database sku=KH-2207 objectStore=price-cache ttlMinutes=30 correlationId=c41b7e',
-      'Cache stuff happened',
+      'Price cache miss, loaded from database objectStore=price-cache ttlMinutes=30 correlationId=c41b7e',
       'Stored in OS: {"sku":"KH-2207","price":19.99,"cost":11.20,"supplierId":"SUP-88"}',
       'MISS!!!',
     ],
     answer: 0,
     explain:
-      'It says it was a miss, where the value came from, which key and which store. The third option writes the whole cached value, including the cost price, which other teams should not see.',
+      'It says it was a miss, where the value came from, which key and which store. The second option has no SKU, so nobody can tell which product missed. The third option writes the whole cached value, including the cost price, which other teams should not see.',
   },
   {
     id: 'log-4008',
@@ -212,14 +212,14 @@ export const SET_4 = [
     situation:
       'ServiceNow refused to create an incident: the assignment group in the request does not exist. The alert is held until someone fixes the group mapping. Which message is best?',
     options: [
-      'ServiceNow said no',
+      'ServiceNow incident not created alertId=AL-7781 reason="assignment group not found" correlationId=0e6b2d',
       'Incident not created: {"short_description":"Scanner 14 offline","caller_id":"j.ortiz@harborline.example","assignment_group":"WH-NETWORK"}',
       'Something went wrong with ServiceNow',
       'ServiceNow incident not created alertId=AL-7781 reason="assignment group not found" group=WH-NETWORK next=held for mapping fix correlationId=0e6b2d',
     ],
     answer: 3,
     explain:
-      'It names the alert, the reason, the bad value and what happens next, so the team knows which mapping to fix. The second option dumps the request with a person in it.',
+      'It names the alert, the reason, the bad value and what happens next, so the team knows which mapping to fix. The first option leaves out the group and that the alert is held. The second option dumps the request with a person in it.',
   },
   {
     id: 'log-4015',
@@ -252,14 +252,14 @@ export const SET_4 = [
     kind: 'choice',
     situation: 'A Database Update lowered the stock of one SKU after a sale. Which message is best?',
     options: [
-      'Stock updated',
+      'Stock decreased sku=PG-5521 quantity=2 affectedRows=1 correlationId=91ad3f',
       'Stock decreased storeId=S-118 sku=PG-5521 quantity=2 affectedRows=1 durationMs=14 correlationId=91ad3f',
       'UPDATE stock SET qty = qty - 2 WHERE store_id = ? AND sku = ? executed',
       'Stock updated rows: 1',
     ],
     answer: 1,
     explain:
-      'It names the store, the SKU and the change, and affectedRows=1 shows that one row really changed. The SQL text says what was run, not for which item.',
+      'It names the store, the SKU and the change, and affectedRows=1 shows that one row really changed. The first option has no store, and the same SKU is stocked in every store. The SQL text says what was run, not for which item.',
   },
   {
     id: 'log-4018',
@@ -380,14 +380,14 @@ export const SET_4 = [
     situation:
       'The whole Salesforce Upsert call failed with SALESFORCE:CONNECTIVITY. The batch of leads goes back to the queue for another try. Which message is best?',
     options: [
-      'Salesforce down!!!',
+      'Salesforce lead upsert failed batchId=B-0412 leads=50 errorType=SALESFORCE:CONNECTIVITY correlationId=a7c3e1',
       'Upsert failed for leads: Maria Gomez, Tom Reyes, Lin Zhou and 47 more',
       'Error occurred in upsert',
       'Salesforce lead upsert failed batchId=B-0412 leads=50 errorType=SALESFORCE:CONNECTIVITY next=retry from queue correlationId=a7c3e1',
     ],
     answer: 3,
     explain:
-      'It gives the batch, the size, the error type and the next step, so the reader knows nothing is lost yet. Names of people do not help anyone fix a connection.',
+      'It gives the batch, the size, the error type and the next step, so the reader knows nothing is lost yet. The first option has no next step, so it reads as if 50 leads were lost. Names of people do not help anyone fix a connection.',
   },
 
   // ---------- lg-081 SAP sales orders by BAPI ----------
@@ -448,11 +448,11 @@ export const SET_4 = [
       'SAP warning',
       'SAP sales order created with warning sapOrderNo=0000123456 orderId=FT-88213 sapMessageType=W sapMessage="delivery date moved" correlationId=3b7d0c',
       'SAP RETURN: <RETURN><item><TYPE>W</TYPE><MESSAGE>...</MESSAGE></item><item>...</item></RETURN>',
-      'Sales order maybe ok?',
+      'SAP sales order created sapOrderNo=0000123456 orderId=FT-88213 correlationId=3b7d0c',
     ],
     answer: 1,
     explain:
-      'The order exists, so the line says created, and the warning text tells the sales team why the date changed. The raw RETURN table is long and hard to search.',
+      'The order exists, so the line says created, and the warning text tells the sales team why the date changed. The raw RETURN table is long and hard to search. The last option drops the warning, so the moved date is never explained.',
   },
   {
     id: 'log-4030',
@@ -484,14 +484,14 @@ export const SET_4 = [
     kind: 'choice',
     situation: 'The flow sent an ORDERS05 IDoc to SAP for one order. Which message is best?',
     options: [
-      'IDoc sent',
+      'ORDERS05 IDoc sent to SAP orderId=GP-55120 correlationId=d2e8f4',
       'IDoc: <ORDERS05><IDOC BEGIN="1"><EDI_DC40 SEGMENT="1">...</EDI_DC40>...',
       'ORDERS05 IDoc sent to SAP idocNumber=0000000004418273 orderId=GP-55120 correlationId=d2e8f4',
       'Sent the IDoc to SAP for the order, all good',
     ],
     answer: 2,
     explain:
-      'The IDoc number is what SAP support types into WE02 to find it. The order ID and the correlation ID tie it to your side. The XML is long and full of partner data.',
+      'The IDoc number is what SAP support types into WE02 to find it. The order ID and the correlation ID tie it to your side. The first option has no IDoc number, so SAP support cannot find it. The XML is long and full of partner data.',
   },
   {
     id: 'log-4033',
@@ -611,14 +611,14 @@ export const SET_4 = [
     situation:
       'The Workday Get_Workers call through the Web Service Consumer failed with WSC:SOAP_FAULT: the integration user has no permission for the Job Data domain. Which message is best?',
     options: [
-      'SOAP fault',
+      'Workday Get_Workers failed errorType=WSC:SOAP_FAULT correlationId=7a90bd',
       'Workday error: <soapenv:Envelope><soapenv:Header><wsse:Security>...</wsse:Security></soapenv:Header>...',
       'Workday Get_Workers failed errorType=WSC:SOAP_FAULT reason="no permission for Job Data domain" next=sync stopped, HR systems team to grant access correlationId=7a90bd',
       'Workday is broken again',
     ],
     answer: 2,
     explain:
-      'It names the operation, the error type, the reason and who must act. The second option dumps a SOAP envelope whose security header can hold credentials.',
+      'It names the operation, the error type, the reason and who must act. The first option has no reason and no next step, so nobody knows the fix is a permission. The second option dumps a SOAP envelope whose security header can hold credentials.',
   },
   {
     id: 'log-4040',
@@ -660,14 +660,14 @@ export const SET_4 = [
     kind: 'choice',
     situation: 'The NetSuite Add for an invoice worked and returned the internalId of the new record. Which message is best?',
     options: [
-      'Invoice added to NetSuite',
+      'NetSuite invoice created invoiceNo=OV-INV-30418 amount=1240.00 currency=USD correlationId=e5c1a8',
       'NetSuite invoice created invoiceNo=OV-INV-30418 netsuiteId=88231 amount=1240.00 currency=USD correlationId=e5c1a8',
       'NetSuite response: <addResponse><writeResponse><status isSuccess="true"/>...',
       'Invoice OK for Oakvale customer Dana Whitfield',
     ],
     answer: 1,
     explain:
-      'Your invoice number and the NetSuite internalId find the invoice in both systems. The amount helps finance check totals. A customer name is personal data and finds nothing.',
+      'Your invoice number and the NetSuite internalId find the invoice in both systems. The first line leaves out the internalId, so nobody can open the new record in NetSuite from the log. The amount helps finance check totals. A customer name is personal data and finds nothing.',
   },
   {
     id: 'log-4043',
@@ -747,14 +747,14 @@ export const SET_4 = [
     kind: 'choice',
     situation: 'Both inserts in the points transaction worked and the Try scope ended, so the transaction committed. Which message is best after the Try scope?',
     options: [
-      'Transaction ok',
+      'Points transfer committed transferId=TR-55012 fromMemberId=M-1182 toMemberId=M-2290 points=500',
       'Inserted debit row and credit row: [{"memberId":"M-1182","points":-500},{"memberId":"M-2290","points":500}]',
       'Points transfer committed transferId=TR-55012 fromMemberId=M-1182 toMemberId=M-2290 points=500 correlationId=6f2a9c',
       'Points moved for member jane.doe@example.com',
     ],
     answer: 2,
     explain:
-      'It says the transfer is committed, which is only true after the Try scope ends, and gives the IDs and the amount. The last option uses an email instead of a member ID.',
+      'It says the transfer is committed, which is only true after the Try scope ends, and gives the IDs and the amount. The first option has no correlation ID, so it cannot be joined to the request that asked for the transfer. The last option uses an email instead of a member ID.',
   },
   {
     id: 'log-4048',
@@ -849,7 +849,7 @@ export const SET_4 = [
     id: 'log-4053',
     kind: 'write',
     situation:
-      'The stored procedure usp_ApproveClaim has returned. Its output parameter approvalCode is in payload.approvalCode. vars.claimId holds the claim ID and vars.durationMs the call time. Write the logger.',
+      'The stored procedure usp_ApproveClaim has returned. Its output parameter approvalCode is in payload.approvalCode. vars.claimId holds the claim ID and vars.durationMs the call time. Write the logger with the procedure name, the claim, the approval code and how long the call took.',
     available: ['payload.approvalCode', 'vars.claimId', 'vars.durationMs', 'payload', 'correlationId'],
     level: ['INFO'],
     checks: [
@@ -889,7 +889,7 @@ export const SET_4 = [
     situation:
       'The call to usp_ApproveClaim failed with DB:QUERY_EXECUTION: the procedure raised its own error because the claim is already approved. The API answers 409. vars.claimId is set.',
     available: ['vars.claimId', 'error.errorType', 'error.description', 'payload', 'correlationId'],
-    level: ['WARN'],
+    level: ['WARN', 'INFO'],
     checks: [
       says(/not approved|already|rejected|refused|conflict/i, 'Claim not approved: already approved'),
       labelled('claimId'),
@@ -903,7 +903,7 @@ export const SET_4 = [
       message: '#["Claim not approved: already approved claimId=$(vars.claimId) errorType=$(error.errorType) reason=$(error.description) status=409 correlationId=$(correlationId)"]',
     },
     explain:
-      'The procedure did its job: it stopped a second approval. The caller gets a clear 409. That is handled, so WARN, not ERROR.',
+      'The procedure did its job: it stopped a second approval. The caller gets a clear 409. That is a handled business refusal, so WARN or INFO, not ERROR.',
   },
 
   // ---------- lg-087 Salesforce Bulk API jobs ----------
@@ -1095,14 +1095,14 @@ export const SET_4 = [
     situation:
       'A Salesforce composite request with allOrNone=true created an Opportunity and two Opportunity line items in one call. Which message is best?',
     options: [
-      'Composite done',
+      'Salesforce composite booking created opportunityId=006Kx00000Lp3Rz lineItems=2 durationMs=640 correlationId=b9a4c2',
       'Composite response: {"compositeResponse":[{"body":{...},"httpStatusCode":201,"referenceId":"newOpp"},...]}',
       'Created opportunity for traveller Tom Reyes, born 1984-03-12',
       'Salesforce composite booking created bookingId=DT-77105 opportunityId=006Kx00000Lp3Rz lineItems=2 durationMs=640 correlationId=b9a4c2',
     ],
     answer: 3,
     explain:
-      'It names your booking, the main record Salesforce created and how many items came with it. The third option logs a name and a date of birth.',
+      'It names your booking, the main record Salesforce created and how many items came with it. The first option leaves out your booking ID, so a booking complaint cannot be matched to it. The third option logs a name and a date of birth.',
   },
   {
     id: 'log-4068',
@@ -1184,13 +1184,13 @@ export const SET_4 = [
     situation: 'A Database Bulk Insert wrote one block of 5,000 tracking scans. Which message is best?',
     options: [
       'Bulk insert result: [1,1,1,1,1,1,1,1,1,1,1,1,...]',
-      'Inserted rows',
+      'Tracking scans inserted rows=5000 durationMs=930 correlationId=1a7e3d',
       'Tracking scans inserted table=tracking_scans blockNo=12 rows=5000 durationMs=930 correlationId=1a7e3d',
       'Scans inserted for driver Sam Okafor, mobile +44 7700 900456',
     ],
     answer: 2,
     explain:
-      'It names the table, the block, the row count and the time. The first option logs the raw result, one count per row, which tells a reader nothing at a glance.',
+      'It names the table, the block, the row count and the time. The second option has no block number, so a slow or failed block cannot be found. The first option logs the raw result, one count per row, which tells a reader nothing at a glance.',
   },
   {
     id: 'log-4073',

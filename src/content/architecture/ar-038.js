@@ -12,7 +12,7 @@ export default {
       prompt: 'Mobile (4 attempts) → Experience (4 attempts) → Process (4 attempts) → Inventory System API. Worst case, how many HTTP calls reach the System API for one tap?',
       options: ['12', '16', '64', '4'],
       answer: 2,
-      explain: 'Retries **multiply**, not add: 4 × 4 × 4 = 64 calls — and more at the DB with its own reconnects — exactly when the database is weakest.',
+      explain: 'Retries **multiply**, not add: 4 × 4 × 4 = 64 calls, and more at the DB with its own reconnects, exactly when the database is weakest.',
     },
     {
       type: 'single',
@@ -21,8 +21,8 @@ export default {
       options: [
         'At every layer, so each one is resilient on its own',
         'Only in the mobile app, which knows the user',
-        'At one layer — the System API closest to the database — while outer layers fail fast with 503 and Retry-After',
-        'Only at the API gateway',
+        'Only in the System API next to the database; outer layers fail fast',
+        'Only at the API gateway, so no app needs retry logic',
       ],
       answer: 2,
       explain: 'The layer next to the dependency knows which errors are transient (deadlock) and which are not (constraint violation). Outer layers retrying too is what creates the storm.',
@@ -44,9 +44,9 @@ export default {
       type: 'single',
       prompt: '`POST /bookings` times out. What makes a retry safe?',
       options: [
-        'Nothing — POST can never be retried',
-        'A longer timeout so the retry is not needed',
-        'An Idempotency-Key from the client; the Process API stores key → result and returns the stored result on a repeat',
+        'Nothing, because a POST can never be retried safely',
+        'A longer timeout, so the retry is no longer needed',
+        'A client Idempotency-Key that the API stores with the result',
         'Retrying only once instead of three times',
       ],
       answer: 2,
@@ -58,7 +58,7 @@ export default {
       prompt: 'You want exponential backoff with jitter on a synchronous call in Mule 4. What is true about `until-successful`?',
       options: [
         'It supports exponential backoff out of the box via `backoffMultiplier`',
-        'It waits a fixed `millisBetweenRetries`, so exponential/jittered backoff needs a small custom retry loop or a reusable module',
+        'It waits a fixed `millisBetweenRetries`, so growing delays need custom logic',
         'It cannot be used in synchronous flows',
         'It automatically skips non-retryable errors such as 400',
       ],
@@ -69,9 +69,9 @@ export default {
       type: 'single',
       prompt: 'Why add random jitter to retry delays?',
       options: [
-        'It makes each retry faster',
-        'Clients that failed together otherwise retry together, producing synchronised waves that keep knocking the DB over',
-        'It is required by the HTTP specification',
+        'It makes each retry finish faster',
+        'It stops clients that failed together from retrying in waves',
+        'It lets the server tell each client when to retry',
         'It reduces the total number of retries',
       ],
       answer: 1,
@@ -108,7 +108,7 @@ During the hiccup, the DB received far more queries than normal, kept collapsing
 ## Backoff policy and Mule implementation
 `,
   keyPoints: [
-    'Retries multiply across layers: 4 attempts at each of the 3 retrying layers (app, Experience, Process) gives up to 4^3 = 64 System API calls for one user action — and more at the DB.',
+    'Retries multiply across layers: 4 attempts at each of the 3 retrying layers (app, Experience, Process) gives up to 4^3 = 64 System API calls for one user action: and more at the DB.',
     'Retry at one layer only, ideally the one closest to the failing dependency, and let outer layers fail fast with a clear error.',
     'Retry only transient failures (connectivity errors, timeouts, 502/503/504, 429 with Retry-After); never retry 4xx validation or authorization errors.',
     'Non-idempotent operations need an idempotency key (and de-duplication on the server) before they can be retried safely after a timeout.',
@@ -116,12 +116,12 @@ During the hiccup, the DB received far more queries than normal, kept collapsing
     'Combine retries with circuit breaking so a dependency that is clearly down stops receiving traffic.',
   ],
   solution: `
-**Amplification.** Mobile 1 + 3 retries = 4 attempts; each Experience attempt → 4 Process attempts; each → 4 System attempts at HTTP level; each → DB reconnect attempts. Worst case **4 × 4 × 4 = 64** HTTP calls to the System API per tap, more at the DB — exactly when the DB is weakest. Fixed 1 s delays make all clients retry **in sync**, creating waves.
+**Amplification.** Mobile 1 + 3 retries = 4 attempts; each Experience attempt → 4 Process attempts; each → 4 System attempts at HTTP level; each → DB reconnect attempts. Worst case **4 × 4 × 4 = 64** HTTP calls to the System API per tap, more at the DB: exactly when the DB is weakest. Fixed 1 s delays make all clients retry **in sync**, creating waves.
 
 **Where to retry.**
 - **One layer:** the System API closest to the DB/backend, because it knows the error semantics (a deadlock is transient; a constraint violation is not).
 - Process and Experience layers: **no automatic retries** on synchronous calls (or a single retry for idempotent GETs on connection failure). They propagate a clear 503 with \`Retry-After\`.
-- Mobile app: a user-visible "try again" or one automatic retry with backoff — not three blind retries.
+- Mobile app: a user-visible "try again" or one automatic retry with backoff: not three blind retries.
 - Connector **reconnection strategies** are for establishing connections at startup or after drops; avoid "reconnect forever" in request paths where it hides failures and holds threads.
 
 **Retryable errors.**
@@ -134,7 +134,7 @@ During the hiccup, the DB received far more queries than normal, kept collapsing
 - **Retry budget:** retries may add at most ~10% extra load; beyond that, fail fast.
 
 **Mule 4 implementation.**
-- Synchronous: \`until-successful\` uses a **fixed** \`millisBetweenRetries\`; for exponential/jittered backoff, implement a small retry loop (e.g. a sub-flow with a counter and a computed wait) or a reusable custom module — and wrap only the specific call, with an \`on-error-continue\`/error-type filter so non-retryable errors are raised immediately.
+- Synchronous: \`until-successful\` uses a **fixed** \`millisBetweenRetries\`; for exponential/jittered backoff, implement a small retry loop (e.g. a sub-flow with a counter and a computed wait) or a reusable custom module; wrap only the specific call, with an \`on-error-continue\`/error-type filter so non-retryable errors are raised immediately.
 - Asynchronous (Anypoint MQ): **nack** and let the broker redeliver, use the queue's max delivery count and **DLQ**; for increasing delays, republish to a delay/retry queue with a delay per attempt. Batch/async processing tolerates longer backoff than user-facing calls.
 - Add a **circuit breaker** in front of the DB/System API so that after N consecutive failures callers fail fast for a cool-down period instead of retrying.
 `,

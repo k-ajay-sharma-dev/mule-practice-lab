@@ -13,7 +13,7 @@ The average for a day is the mean of that day and the two days before it. The fi
 Output one object per day from the third day on, in date order, with:
 
 - \`date\` and \`sales\`: copied from the input
-- \`avg3\`: the three-day average, rounded to two decimal places
+- \`avg3\`: the three-day average as a Number, rounded to two decimal places. A whole average stays whole, so 120 is written as \`120\`, not \`120.00\`.
 
 The input may arrive out of order. An array index can take a range, so \`days[2 to 4]\` gives the items at positions 2, 3 and 4.
 `,

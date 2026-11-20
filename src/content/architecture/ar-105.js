@@ -8,7 +8,7 @@ export default {
   tags: ['deployment', 'high-availability', 'disaster-recovery', 'hybrid', 'clustering', 'environments'],
   estMinutes: 55,
   diagram: {
-    task: 'draw a customer-hosted Mule estate in two data centres, with each client entering through a load balancer that reaches Experience APIs in both sites, each site running its own API-led stack, the core banking system reached only through System APIs, and shared state kept in a replicated external database and a message broker rather than in a cluster spanning the sites.',
+    task: 'draw a customer-hosted Mule estate in two data centres, with each client entering through a load balancer that reaches Experience APIs in both sites, each site running its own API-led stack, the core banking system reached only through System APIs, and shared state kept in a replicated external database and a message broker rather than in a cluster spanning the sites. Put "site A" or "site B" in the name of each API box.',
     checks: [
       { label: 'Every client enters through the load balancer', rule: { type: 'each', of: ['partner', 'internal-app', 'web-app', 'mobile-app'], min: 3, edgeTo: 'load-balancer' } },
       { label: 'Two sites: at least two Experience APIs', rule: { type: 'node', match: 'experience-api', min: 2 } },
@@ -86,7 +86,7 @@ Requirements and constraints:
 - **Availability:** the loss of a server must not cause any loss of service.
 - **Disaster recovery:** RTO of 15 minutes and RPO of near zero for a site failure.
 - **State:** two apps use idempotency, and one runs a nightly reconciliation job.
-- **Budget:** the CFO asks why the second site cannot simply stay switched off.
+- **Budget:** the CFO asks why the second site cannot stay switched off.
 - **Proposal from the infrastructure team:** one six-node cluster, three nodes per site.
 - **Load:** at peak partners send 150 payments a second, branches 100 and the mobile app 150. Core banking answers in about 200 ms. Each site must carry the full 400 a second on its own, even after one of its servers fails.
 - **Licence:** the bank has 16 vCores for both sites together.

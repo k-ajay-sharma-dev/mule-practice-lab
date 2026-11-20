@@ -17,31 +17,31 @@ export default {
         'Deploy with mule-maven-plugin, passing `api.id` and secure properties',
         'Run smoke tests, then promote the same artifact with an approval gate for Prod',
       ],
-      explain: 'Spec first, then build once, then configure API Manager and deploy that same artifact everywhere — the pipeline and audit logs answer "who deployed what, and was it tested".',
+      explain: 'Spec first, then build once, then configure API Manager and deploy that same artifact everywhere. The pipeline and audit logs answer "who deployed what, and was it tested".',
     },
     {
       type: 'single',
       prompt: 'How should the pipelines authenticate to Anypoint Platform?',
       options: [
         'With a senior developer\'s personal account',
-        'With Connected Apps (client credentials) granted only the scopes needed per business group and environment',
-        'With the org admin username and password stored in the repo',
-        'Anonymously — Exchange is public',
+        'With Connected Apps scoped per group and environment',
+        'With the org admin login, stored in the CI secret store',
+        'With one Connected App that has org admin rights',
       ],
       answer: 1,
-      explain: 'Separate non-prod and Prod connected apps with minimal scopes; secrets live in the CI secret store.',
+      explain: 'Use Connected Apps (client credentials) granted only the scopes needed per business group and environment. An admin login or an all-powerful app gives the pipeline far more rights than it needs. Separate non-prod and Prod connected apps with minimal scopes; secrets live in the CI secret store.',
     },
     {
       type: 'single',
       prompt: 'Why build once and promote, instead of rebuilding per environment?',
       options: [
-        'It is faster, nothing else',
-        'Rebuilding can produce a different artifact, so what you tested is not what you deploy; environment differences belong in properties',
-        'CloudHub 2.0 forbids rebuilding',
-        'Exchange stores only one version',
+        'It is faster, and that is the only reason',
+        'A rebuild may differ from the artifact you tested',
+        'CloudHub 2.0 rejects JARs rebuilt from the same tag',
+        'Exchange keeps only one version of each artifact',
       ],
       answer: 1,
-      explain: 'Immutable artifacts plus per-environment properties make deployments reproducible and auditable.',
+      explain: 'Rebuilding can produce a different artifact, so what you tested is not what you deploy; environment differences belong in properties. Immutable artifacts plus per-environment properties make deployments reproducible and auditable.',
     },
     {
       type: 'single',
@@ -59,13 +59,13 @@ export default {
       type: 'single',
       prompt: 'A Process API release needs a new field from the Inventory SAPI. What is the right release order?',
       options: [
-        'Release both at the same time and hope',
-        'Release the SAPI as a backward-compatible minor first; release the PAPI after, with a gate checking the SAPI version is deployed in the target environment',
-        'Release the PAPI first; it will wait for the field',
-        'Merge both into one app',
+        'Release both at the same time in one change window',
+        'Release a compatible SAPI minor first, then the PAPI',
+        'Release the PAPI first, as it ignores missing fields',
+        'Merge the two into one app so they always ship together',
       ],
       answer: 1,
-      explain: 'Contracts decouple layers. Breaking changes go out as a new major running alongside v1 until consumers migrate.',
+      explain: 'Release the SAPI as a backward-compatible minor first, then the PAPI, with a gate checking the SAPI version is deployed in the target environment. Contracts decouple layers. Breaking changes go out as a new major running alongside v1 until consumers migrate.',
     },
     {
       type: 'match',
@@ -105,9 +105,9 @@ You are the lead architect for a programme delivering **30 Mule apps** (6 Experi
 `,
   keyPoints: [
     'Business groups per domain (or per platform team) give delegated administration and separate environments/resources; Exchange assets can be shared across business groups for cross-domain reuse.',
-    'Environments Dev, Test (or SIT/UAT), Prod — sandbox type for non-prod and production type for Prod — with Prod deploys restricted to the pipeline identity.',
+    'Environments Dev, Test (or SIT/UAT), Prod (sandbox type for non-prod and production type for Prod), with Prod deploys restricted to the pipeline identity.',
     'Pipeline: lint/governance → publish spec to Exchange → build + MUnit with coverage gate → publish artifact to Exchange → ensure API instance + policies via Anypoint CLI or API Manager APIs → deploy with mule-maven-plugin passing api.id → smoke test → promote the same artifact.',
-    'Pipelines authenticate with Connected Apps (client credentials) granted only the scopes needed per business group/environment — never personal accounts.',
+    'Pipelines authenticate with Connected Apps (client credentials) granted only the scopes needed per business group/environment, never personal accounts.',
     'A shared pipeline template + parent POM + per-app config file (domain, layer, policies, replicas) scales to 30 apps; contract versioning makes layer releases independent.',
   ],
   solution: `
@@ -115,7 +115,7 @@ You are the lead architect for a programme delivering **30 Mule apps** (6 Experi
 | Element | Design |
 |---|---|
 | Root org | Platform/C4E administration, shared assets (parent POM, common library, rulesets) |
-| Business groups | \`Sales\`, \`SupplyChain\`, \`Finance\` — each with its own admins, environments and capacity allocation |
+| Business groups | \`Sales\`, \`SupplyChain\`, \`Finance\`, each with its own admins, environments and capacity allocation |
 | Environments (per BG) | \`Dev\`, \`Test\` (sandbox type), \`Prod\` (production type). A Design environment is used for spec mocking. |
 | Teams | Per domain: developers (deploy to Dev, view Test/Prod), operations (manage Prod apps), API owners (API Manager per env). Pipeline identity is the only one allowed to deploy to Test/Prod. |
 | Networking | CloudHub 2.0 private spaces sized per environment/region, with Process/System APIs reachable internally only |
@@ -124,7 +124,7 @@ Cross-domain reuse: a Sales Process API may call a Supply Chain System API. The 
 
 **2. Pipeline for one app** (e.g. \`inventory-sapi\`)
 1. **Spec stage** (spec repo or \`/spec\` folder): validate with API Governance rulesets; publish the API spec asset to Exchange with the semantic version from the spec project (Maven-based Exchange publishing or \`anypoint-cli-v4 exchange:asset:upload\`). Skip if the version already exists.
-2. **Build stage**: \`mvn clean verify\` with the parent POM — compiles, runs MUnit, enforces coverage thresholds.
+2. **Build stage**: \`mvn clean verify\` with the parent POM: compiles, runs MUnit, enforces coverage thresholds.
 3. **Publish artifact**: \`mvn deploy\` to the Exchange Maven repository (\`distributionManagement\` in the parent POM), giving an immutable versioned JAR. Build once, deploy that same artifact everywhere.
 4. **API Manager stage** for the target env: look up the API instance for asset + version; if missing, create it (\`anypoint-cli-v4 api-mgr:api:manage ...\`) or promote it from the previous environment (\`api-mgr:api:promote\`); apply the policy set declared in the app's config file (\`api-mgr:policy:apply ...\`), and capture the **instance ID**. The same can be done with the API Manager REST API (\`/apimanager/api/v1/organizations/{orgId}/environments/{envId}/apis\`).
 5. **Deploy**: \`mvn deploy -DmuleDeploy\` with the \`cloudhub2Deployment\` configuration in the mule-maven-plugin: target private space, replicas, vCores, runtime version, \`properties\` (including \`api.id\` from step 4 and \`env\`) and \`secureProperties\` (decryption key, client secrets from the CI secret store).
@@ -132,14 +132,14 @@ Cross-domain reuse: a Sales Process API may call a Supply Chain System API. The 
 7. **Promote**: Dev → Test automatically on main branch; Test → Prod with a manual approval gate, using the same artifact version. Pipeline logs + Anypoint audit logs answer "who deployed what, and was it tested".
 
 **3. Platform authentication**
-- Create **Connected Apps** (client-credentials, "app acts on its own behalf") per pipeline scope — e.g. one for non-prod, one for Prod — with only the scopes needed: Exchange contributor, Runtime Manager deploy, API Manager manage, on the specific business groups/environments.
+- Create **Connected Apps** (client-credentials, "app acts on its own behalf") per pipeline scope, e.g. one for non-prod, one for Prod. Give each only the scopes needed: Exchange contributor, Runtime Manager deploy, API Manager manage, on the specific business groups/environments.
 - Store client ID/secret in the CI secret store; mule-maven-plugin and Anypoint CLI both accept connected-app credentials.
 - Personal accounts are removed from deployment rights in Test/Prod.
 
 **4. Scaling to 30 apps**
 - One **pipeline template** (shared library in Jenkins/GitHub Actions/Azure DevOps/GitLab) invoked by each repo with ~10 lines.
 - A per-app **descriptor** (e.g. \`deploy.yaml\`): business group, layer, asset ID, replicas/vCores per env, policy set name (\`experience-partner\`, \`process-internal\`, \`system-internal\`), smoke-test path.
-- Standard **policy sets per layer** defined once (see the policy map), applied by the pipeline — no hand-configured instances.
+- Standard **policy sets per layer** defined once (see the policy map), applied by the pipeline, with no hand-configured instances.
 - Shared **parent POM** and **common error library**, upgraded via automated merge requests.
 
 **5. Cross-layer release ordering**

@@ -71,6 +71,11 @@ When the platform finds a mistake it sends the **same week again under the same 
 - Archive the file under a name that holds the load time, such as \`PROMO_W46.csv.20261113100000\`, so every version is kept.
 - If the load fails, leave the file where it is.
 
+**Facts**
+- \`file_name\` is the file's own name, such as \`PROMO_W46.csv\`. Store \`promo_price\` as a number.
+- The archive name is \`<file name>.<yyyyMMddHHmmss>\`. FTP Move keeps a file's name, so **FTP Rename** the file in place first, then move it.
+- Do not catch a database error. The run fails and the file stays in \`/outbound/promo\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Staging

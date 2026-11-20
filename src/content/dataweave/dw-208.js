@@ -17,7 +17,7 @@ Marrow & Pine Home sends daily sales and inventory files to the planning platfor
   - with an ack: \`REJECTED\` when the result is \`REJECTED\`, \`COUNT_MISMATCH\` when accepted plus rejected rows differ from \`rows\`, \`PARTIAL\` when some rows were rejected, otherwise \`ACCEPTED\`
   - without an ack: \`OVERDUE\` when more than \`overdueHours\` passed since \`sentAt\`, otherwise \`WAITING\`
 - \`ackFile\` is the ack used, or \`null\`.
-- \`orphanAcks\`: ack files with no sent file, sorted by name.
+- \`orphanAcks\`: names of ack files with no sent file, each name once, sorted by name as text.
 - \`alert\` is \`true\` when any file is \`REJECTED\`, \`COUNT_MISMATCH\` or \`OVERDUE\`, or there is an orphan ack.
 
 Output \`alert\`, \`files\` (\`fileName\`, \`status\`, \`ackFile\`) and \`orphanAcks\`.

@@ -74,6 +74,13 @@ Azure Files can take a **share snapshot**: a read only copy of the whole share a
 - Only if it worked, list \`/mnt/telemetry/archive\` and delete each file whose last modified time is more than 30 days ago.
 - If the snapshot fails, delete nothing and fail the run.
 
+**Facts**
+- The HTTP Request configuration points at the file endpoint. Send an empty body with the PUT. Azure answers 201 when the snapshot is made.
+- List \`*.csv\` in the archive folder, not its subfolders.
+- Each item File List returns has \`attributes.timestamp\`, the last modified time in UTC without a zone, and \`attributes.path\`.
+- Inside a For Each, test the age in a **Choice** and put the **File Delete** in that route. Compare with the current UTC time minus 30 days.
+- A refused snapshot raises an HTTP error such as \`HTTP:FORBIDDEN\`. Do not catch it.
+
 **Design the flow.** Say why the flow mixes REST and the mount.
 `,
   answerTemplate: `## Why a snapshot first

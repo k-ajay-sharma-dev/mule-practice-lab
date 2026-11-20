@@ -85,6 +85,7 @@ export default {
 - Partners have different EPCIS versions and quirks.
 - Errors in serialization data can block product from being sold.
 - Partners send about 3 EPCIS documents a second. The repository can be down for 30 minutes, and about 1 document in 100 has serials it rejects every time.
+- Acknowledge each document to the partner at once and process it from a queue. Try each document for up to an hour, then move it to an exception queue for the operations team. The queue redelivers a failed message about once a minute, so set its redelivery limit to match.
 
 **Your task.** Propose the B2B integration architecture, data handling and operating model.
 `,

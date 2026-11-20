@@ -90,6 +90,10 @@ A first version mapped the whole list in one Transform and ran out of memory. A 
 - Map each line in a batch step.
 - Write one CSV file with every line and one header, without holding the whole set in one list.
 
+**Facts**
+- Download the blob from container \`inbound\` with the name in \`blobName\`.
+- The file's columns are \`declaration\`, \`line\`, \`hs_code\`, \`amount\` and \`currency\`, in that order, as in the example.
+
 **Design the flow.**
 `,
   answerTemplate: `## Mapping each line

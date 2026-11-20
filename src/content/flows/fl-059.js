@@ -153,6 +153,8 @@ Expired holds must be given back to available stock **within 5 minutes** of expi
 - Stock released and reservations deleted must always match, never one without the other.
 - A reservation converted to an order at the same moment (status changes to \`CONFIRMED\`) must not be released.
 - The job runs on a 2-replica deployment and must not double-release.
+- A run that fails is logged as an error and changes nothing; the next run tries again.
+- \`STOCK_AVAILABILITY\` is keyed on \`SKU\` and \`LOCATION_ID\`.
 
 **Design the flow(s).**
 `,
@@ -174,17 +176,17 @@ Expired holds must be given back to available stock **within 5 minutes** of expi
     'Any failure rolls back both statements; the next run picks the same rows up again.',
   ],
   solution: `
-1. **Scheduler** — cron \`0 0/5 * * * ?\`.
-2. **Set Variable** \`cutoff = now()\` — both statements use the same moment.
+1. **Scheduler**: cron \`0 0/5 * * * ?\`.
+2. **Set Variable** \`cutoff = now()\`: both statements use the same moment.
 3. **Try** with transactional action **ALWAYS_BEGIN** (local Oracle transaction):
-   - **Database Update** — subtract the summed expired quantities from \`STOCK_AVAILABILITY.RESERVED_QTY\` for every affected SKU/location (correlated subquery, \`STATUS = 'HELD' AND EXPIRES_AT < :cutoff\`).
-   - **Database Delete** — \`DELETE FROM STOCK_RESERVATION WHERE STATUS = 'HELD' AND EXPIRES_AT < :cutoff\`.
+   - **Database Update**: subtract the summed expired quantities from \`STOCK_AVAILABILITY.RESERVED_QTY\` for every affected SKU/location (correlated subquery, \`STATUS = 'HELD' AND EXPIRES_AT < :cutoff\`).
+   - **Database Delete**: \`DELETE FROM STOCK_RESERVATION WHERE STATUS = 'HELD' AND EXPIRES_AT < :cutoff\`.
    Commit happens when the Try ends.
-4. **Logger** — number of deleted rows (\`payload.affectedRows\`).
+4. **Logger**: number of deleted rows (\`payload.affectedRows\`).
 
 **Race with checkout:** checkout updates the reservation to \`CONFIRMED\` in its own transaction. The Delete locks the rows it touches, so it skips anything confirmed by then, but the Update only reads \`STOCK_RESERVATION\`: a checkout that commits between the two statements would have its quantity released without its row being deleted. To close that window, lock the expired rows first with \`SELECT ... FOR UPDATE\` inside the same Try; whichever side gets the lock first then wins.
 
-**Errors:** On Error Continue logs the failure; the transaction is already rolled back, and the next tick retries. (Propagate would also be fine — a scheduler has no caller to answer.)
+**Errors:** On Error Continue logs the failure; the transaction is already rolled back, and the next tick retries. (Propagate would also be fine: a scheduler has no caller to answer.)
 
 **Volume:** a few thousand rows per run is fine for two statements. If backlogs ever reach hundreds of thousands, delete in chunks (\`AND ROWNUM <= 10000\`) in a loop to keep undo small.
 `,
@@ -195,7 +197,7 @@ Expired holds must be given back to available stock **within 5 minutes** of expi
     },
     {
       q: 'Could you do this in one stored procedure instead?',
-      a: 'Yes — a PL/SQL procedure called with Database Stored Procedure could do both steps (even with RETURNING BULK COLLECT) in one round trip. It moves logic into the database, which some teams prefer and others avoid.',
+      a: 'Yes. A PL/SQL procedure called with Database Stored Procedure could do both steps (even with RETURNING BULK COLLECT) in one round trip. It moves logic into the database, which some teams prefer and others avoid.',
     },
     {
       q: 'What if the flow takes longer than 5 minutes?',

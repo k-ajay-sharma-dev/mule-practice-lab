@@ -171,13 +171,13 @@ export default {
   description: `
 A bank's **Policy Admin system** exposes only a SOAP 1.1 service (\`PolicyService.wsdl\`) with operations \`GetPolicy\` and \`UpdateBeneficiary\`. It requires a **WS-Security UsernameToken** and returns business errors as **SOAP Faults** (e.g. \`POLICY_NOT_FOUND\`, \`POLICY_LOCKED\`).
 
-Mobile and web teams want a clean JSON REST API:
-- \`GET /policies/{policyNumber}\`
-- \`PATCH /policies/{policyNumber}/beneficiary\`
+Mobile and web teams want a clean JSON REST API, served under \`/api\`:
+- \`GET /api/policies/{policyNumber}\`: returns \`{ policyNumber, status, holder, startDate }\`. The SOAP answer also carries internal fields, such as \`internalRiskScore\`, that must not leak.
+- \`PATCH /api/policies/{policyNumber}/beneficiary\` with \`{ beneficiaryName, relationship }\`.
 
 SLA: p95 < 800 ms; the SOAP service averages 400 ms.
 
-A successful \`PATCH\` answers **204 No Content**. Every error answer is JSON with a \`code\` and the request's \`correlationId\`.
+A successful \`PATCH\` answers **204 No Content**. Every error answer is JSON with a \`code\` and the request's \`correlationId\`. The fault code appears at the start of the fault description (for example \`POLICY_NOT_FOUND: no policy POL-999999\`). If the SOAP service cannot be reached, answer with a 5xx.
 
 **Design the flow(s):** API spec, how SOAP is invoked, request/response mapping, SOAP Fault → HTTP status mapping, and security.
 `,
@@ -206,15 +206,15 @@ A successful \`PATCH\` answers **204 No Content**. Every error answer is JSON wi
 3. **GET flow:**
    - Transform Message builds the request: \`%dw 2.0 output application/xml ns pol http://bank.example/policy\` → \`{ pol#GetPolicyRequest: { pol#policyNumber: attributes.uriParams.policyNumber } }\`.
    - **Consume** operation \`GetPolicy\`. Response is in \`payload.body\`.
-   - Transform Message maps the XML (namespaced selectors) to the JSON contract — flatten, rename, format dates, drop internal fields.
+   - Transform Message maps the XML (namespaced selectors) to the JSON contract: flatten, rename, format dates, drop internal fields.
 4. **PATCH flow:** validate the JSON body (APIkit), map to \`UpdateBeneficiaryRequest\`, Consume, return 204 No Content.
 5. **Error handling:** On Error Propagate for \`WSC:SOAP_FAULT\` → DataWeave reads the fault code (the reference flow searches \`error.description\`; check how your connector version exposes the fault detail) and sets \`httpStatus\`: \`POLICY_NOT_FOUND\` → 404, \`POLICY_LOCKED\` → 409, unknown → 502. \`WSC:CONNECTIVITY\`/\`WSC:TIMEOUT\` → 503/504. APIkit errors (bad request, not found) keep their default mappings.
-6. **Performance:** connection pooling is handled by the WSC's HTTP transport; optionally a **Cache scope** for GET with a short TTL if the data tolerates staleness. Key the caching strategy on the policy number: the default key is a SHA-256 of the payload, which is the same for every GET. The reference sets the payload to the policy number just before the Cache scope, so each policy gets its own entry.
-7. **Security on the REST side:** apply API Manager policies (client ID enforcement or OAuth 2.0) — the mobile app never sees SOAP credentials.
+6. **Performance:** connection pooling is handled by the WSC's HTTP transport; optionally a **Cache scope** for GET with a short TTL if the data tolerates staleness. Key the caching strategy on the policy number: the default key is a SHA-256 of the payload, which is the same for every GET. The reference sets the payload to the policy number right before the Cache scope, so each policy gets its own entry.
+7. **Security on the REST side:** apply API Manager policies (client ID enforcement or OAuth 2.0). The mobile app never sees SOAP credentials.
 `,
   followUps: [
-    { q: 'Why not just convert XML to JSON with output application/json and return it?', a: 'You would leak the SOAP structure, namespaces and internal fields into the public contract. A facade should expose a designed, stable resource model independent of the backend.' },
+    { q: 'Why not convert XML to JSON with output application/json and return it?', a: 'You would leak the SOAP structure, namespaces and internal fields into the public contract. A facade should expose a designed, stable resource model independent of the backend.' },
     { q: 'How would you test this without the real SOAP service?', a: 'Use MUnit with mocks on the Consume operation (mock-when on the processor) returning sample responses and faults, and assert the HTTP status and JSON mapping.' },
-    { q: 'The WSDL changes in the backend — what breaks?', a: 'Only the System API mapping; consumers keep the same REST contract. That isolation is the main value of the facade layer.' },
+    { q: 'The WSDL changes in the backend. What breaks?', a: 'Only the System API mapping; consumers keep the same REST contract. That isolation is the main value of the facade layer.' },
   ],
 }

@@ -7,20 +7,20 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 09:00:00 INFO  [supplier-mail] Read message subject=\"ASN 7710\" uid=4410", relevant: false },
-      { text: "2026-11-18 09:05:00 INFO  [supplier-mail] Read message subject=\"ASN 7710\" uid=4410", relevant: true, why: "The same message again." },
       { text: "2026-11-18 09:00:00 INFO  [supplier-mail] deleteAfterRetrieve=false markAsRead=false", relevant: true, why: "Nothing marks the message." },
-      { text: "2026-11-18 09:05:01 WARN  [wms] Duplicate ASN 7710", relevant: true, why: "Duplicates downstream." },
+      { text: "2026-11-18 09:00:01 INFO  [supplier-mail] Read message subject=\"ASN 7710\" uid=4410", relevant: false },
+      { text: "2026-11-18 09:05:01 INFO  [supplier-mail] Read message subject=\"ASN 7710\" uid=4410", relevant: true, why: "The same message again." },
+      { text: "2026-11-18 09:05:02 WARN  [wms] Duplicate ASN 7710", relevant: true, why: "Duplicates downstream." },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why is the email read again?",
         options: [
-          "The poller neither marks nor moves the message, so it looks new every poll",
-          "The supplier resends",
-          "IMAP is broken",
-          "Time zones",
+          "The poller never marks or moves it, so each poll sees it as new",
+          "The supplier resends the ASN email every five minutes",
+          "The IMAP server resets the read flag on every login",
+          "The mailbox clock is behind, so old mail looks new again",
         ],
         answer: 0,
         explain: "Unread stays unread.",
@@ -30,9 +30,9 @@ export default {
         prompt: "What should the flow do after success?",
         options: [
           "Mark the message as read or move it to a processed folder",
-          "Delete the mailbox",
-          "Reply",
-          "Nothing",
+          "Reply to the supplier so the email thread is closed",
+          "Forward the message to the warehouse team mailbox",
+          "Leave it unread and let the warehouse drop duplicates",
         ],
         answer: 0,
         explain: "Change its state.",
@@ -44,7 +44,7 @@ export default {
           "Check the ASN number before posting",
           "Track message IDs already processed",
           "Move failed messages to an error folder",
-          "Process all mail every time",
+          "Read every message in the inbox on each poll",
         ],
         answer: [0,1,2],
         explain: "Idempotency and clear folders.",
@@ -54,9 +54,9 @@ export default {
         prompt: "Why move rather than delete?",
         options: [
           "You keep an audit trail and can reprocess",
-          "It is faster",
-          "It is required",
-          "No reason",
+          "Moving is faster than deleting on IMAP servers",
+          "IMAP does not let a client delete messages",
+          "Deleted mail comes back on the next poll",
         ],
         answer: 0,
         explain: "Keep evidence.",
@@ -85,9 +85,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 09:05:00 INFO  [supplier-mail] Read message subject="ASN 7710" uid=4410
 2026-11-18 09:00:00 INFO  [supplier-mail] deleteAfterRetrieve=false markAsRead=false
-2026-11-18 09:05:01 WARN  [wms] Duplicate ASN 7710
+2026-11-18 09:00:01 INFO  [supplier-mail] Read message subject="ASN 7710" uid=4410
+2026-11-18 09:05:01 INFO  [supplier-mail] Read message subject="ASN 7710" uid=4410
+2026-11-18 09:05:02 WARN  [wms] Duplicate ASN 7710
 \`\`\`
 
 ## Your tasks

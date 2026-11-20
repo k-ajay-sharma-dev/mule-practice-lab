@@ -100,7 +100,8 @@ Facts:
 - Evening peak: about **12 sessions a second** for two hours.
 - The payment provider allows **15 captures a second** on the company's contract and answers in about 600 ms.
 - The ERP takes at most **10 postings a second** and has a monthly maintenance hour, which sometimes falls in the evening.
-- The CPMS retries a webhook only three times in one minute.
+- The CPMS retries a webhook only three times in one minute, so each webhook must be answered within half a second.
+- The queues redeliver a failed message about once a minute, and every delivery counts toward the redelivery limit. A good session must survive the ERP maintenance hour without reaching a DLQ, and a declined session must reach a DLQ.
 - About **1 session in 100** has a card that is declined at capture, every time.
 - Today one flow does all three steps in the webhook call. When the ERP is down, payments are not captured either, and the CPMS gives up on many webhooks.
 

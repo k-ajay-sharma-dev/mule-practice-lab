@@ -89,6 +89,13 @@ The old job took "changes since the watermark", then set the watermark to the ne
 - Write the file only when there are changes.
 - Move the watermark to the end of the window, and only after the file is written.
 
+**Facts**
+- \`changed_at_utc\` and \`last_until_utc\` are text such as \`2026-11-13T10:00:00\`. Keep the window ends in the same format.
+- Name the query parameters \`:since\` and \`:until\`. A change belongs to the window when it is after \`since\` and at or before \`until\`.
+- Name the file \`INV_DELTA_<until>.csv\`, with the colons taken out of the time.
+- When the window has no changes, write no file but still move the watermark to \`until\`.
+- Do not catch a failed write. The run fails and the watermark stays.
+
 **Design the flow.** Explain how the old job lost changes.
 `,
   answerTemplate: `## The window

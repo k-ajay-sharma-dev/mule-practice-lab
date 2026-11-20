@@ -7,10 +7,10 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
+      { text: "2026-11-18 09:10:00 INFO  [ops] Desktop sync tool connected to share plans as user store-reports", relevant: true, why: "A desktop tool keeps files open." },
       { text: "2026-11-18 09:15:02 INFO  [plan-import] Loaded file=plan_store_0412.txt rows=880", relevant: true, why: "The load worked." },
       { text: "2026-11-18 09:15:02 ERROR [plan-import] Move failed file=plan_store_0412.txt status=409 code=SharingViolation", relevant: true, why: "Another handle holds the file." },
       { text: "2026-11-18 09:20:02 INFO  [plan-import] Loaded file=plan_store_0412.txt rows=880", relevant: true, why: "Because the move failed, the file is loaded again." },
-      { text: "2026-11-18 09:10:00 INFO  [ops] Desktop sync tool connected to share plans as user store-reports", relevant: true, why: "A desktop tool keeps files open." },
       { text: "2026-11-18 23:59:00 INFO  [plan-import] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does the move fail?",
         options: [
-          "A desktop sync tool has the file open over SMB, so the file is locked",
-          "The processed folder is missing",
-          "The quota is full",
-          "The file name is too long",
+          "The desktop sync tool has the file open, so it is locked",
+          "The importer still has the file open from its own load",
+          "The processed folder already holds a file with that name",
+          "The importer’s SAS token allows reads but not deletes",
         ],
         answer: 0,
         explain: "SharingViolation means another handle blocks the operation.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the worst effect?",
         options: [
-          "The file is loaded again every poll, creating duplicate plan rows",
-          "The log is noisy",
-          "The file turns read only",
-          "The sync tool slows down",
+          "Each poll loads the file again and adds duplicate plan rows",
+          "The processed folder fills with partial copies of the file",
+          "The desktop users see an old copy of the file in their sync",
+          "The importer stops polling until someone clears the error",
         ],
         answer: 0,
         explain: "A failed move leaves the file where the poller sees it.",
@@ -45,7 +45,7 @@ export default {
           "Record loaded file names and checksums, and skip ones already loaded",
           "Make the load an upsert on a natural key",
           "Keep desktop tools away from the inbound folder",
-          "Retry the move forever without a check",
+          "Retry the move three times before the next poll",
         ],
         answer: [0,1,2],
         explain: "Idempotent loads and a clean inbound folder both help.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Can you see who holds the handle?",
         options: [
-          "Yes, the share can list open handles, and an admin can close them",
-          "No, never",
-          "Only by restarting Azure",
-          "Only in the Mule logs",
+          "Yes, the share lists open handles, and an admin can close them",
+          "No, SMB handles are visible only on the client that opened them",
+          "Only from the storage account’s monthly usage report",
+          "Only by restarting the storage account, which drops all handles",
         ],
         answer: 0,
         explain: "Azure Files can list and force close handles.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 09:10:00 INFO  [ops] Desktop sync tool connected to share plans as user store-reports
 2026-11-18 09:15:02 INFO  [plan-import] Loaded file=plan_store_0412.txt rows=880
 2026-11-18 09:15:02 ERROR [plan-import] Move failed file=plan_store_0412.txt status=409 code=SharingViolation
 2026-11-18 09:20:02 INFO  [plan-import] Loaded file=plan_store_0412.txt rows=880
-2026-11-18 09:10:00 INFO  [ops] Desktop sync tool connected to share plans as user store-reports
 \`\`\`
 
 ## Your tasks

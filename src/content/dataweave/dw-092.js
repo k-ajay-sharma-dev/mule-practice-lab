@@ -10,7 +10,7 @@ A retailer exports customer records to an analytics warehouse. Masking is not en
 
 \`payload\` is an array of customers. \`vars.salt\` is a secret value, the same for the whole export.
 
-**Output one record per customer, with only these fields:**
+**Output** an object \`{ records, distinctEmails }\`. \`records\` holds one record per customer, in input order, with only these fields, in this order:
 - \`customerKey\`: the pseudonym of \`customerId\`.
 - \`emailKey\`: the pseudonym of \`email\`.
 - \`birthYear\`: the year of \`dateOfBirth\`, as a Number.
@@ -21,7 +21,7 @@ A retailer exports customer records to an analytics warehouse. Masking is not en
 
 **Pseudonym:** SHA-256 of \`<salt>:<value>\`, with the value trimmed and lower-cased first, encoded as UTF-8, as **lower-case hex**.
 
-**Also return** \`distinctEmails\`: the number of different \`emailKey\` values. The same address typed in a different case, or with spaces around it, must count as one person.
+\`distinctEmails\` is the number of different \`emailKey\` values. The same address typed in a different case, or with spaces around it, must count as one person.
 `,
   inputs: [
     {

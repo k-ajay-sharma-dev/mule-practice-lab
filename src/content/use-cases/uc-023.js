@@ -104,13 +104,13 @@ Flows required:
 - Every Salesforce record carries the SAP key as an **external ID** (\`SAP_Order_No__c\`, \`SAP_Equipment_No__c\`), so all writes are upserts.
 
 **SAP to Salesforce.**
-- SAP emits order and equipment changes — e.g. **IDocs** received by the Mule SAP connector (or SAP business events / an OData delta query on the S/4HANA side). A **SAP System API** converts IDoc/BAPI structures to canonical *MaintenanceOrder* and *Equipment* models.
+- SAP emits order and equipment changes, e.g. as **IDocs** received by the Mule SAP connector (or SAP business events / an OData delta query on the S/4HANA side). A **SAP System API** converts IDoc/BAPI structures to canonical *MaintenanceOrder* and *Equipment* models.
 - A **Field Service Process API** maps to WorkOrder, WorkOrderLineItem (operations), ProductRequired (planned parts) and Asset/Location, and upserts via the Salesforce connector (composite/bulk for volume).
 - Preventive orders (~3,000/day) flow continuously from a queue; dispatchers see them within minutes.
 
 **Breakdowns and emergencies.**
-- The call centre creates the work order in Salesforce. For **emergencies**, Salesforce schedules and dispatches immediately — **dispatch does not wait for SAP**.
-- A Platform Event/CDC on WorkOrder triggers Mule to create the **SAP maintenance order** (BAPI \`BAPI_ALM_ORDER_MAINTAIN\` or the S/4HANA maintenance order API) with the work order ID as reference; the SAP order number is written back. Priority queue for emergencies, retries with backoff, alert if not created within 5 minutes — but the technician is already on the way.
+- The call centre creates the work order in Salesforce. For **emergencies**, Salesforce schedules and dispatches immediately: **dispatch does not wait for SAP**.
+- A Platform Event/CDC on WorkOrder triggers Mule to create the **SAP maintenance order** (BAPI \`BAPI_ALM_ORDER_MAINTAIN\` or the S/4HANA maintenance order API) with the work order ID as reference; the SAP order number is written back. Priority queue for emergencies, retries with backoff, alert if not created within 5 minutes. The technician is already on the way.
 
 **Completions back to SAP.**
 - The Field Service mobile app handles **offline** work and syncs when connectivity returns; the integration only sees records once they reach Salesforce.

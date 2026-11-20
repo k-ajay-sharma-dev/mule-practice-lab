@@ -226,10 +226,16 @@ export default {
   description: `
 A retailer exposes **order history** to two very different consumers:
 
-- **Mobile app** — small screens, slow networks: last 10 orders, a handful of fields, JSON, friendly empty state. ~200 req/s at peak, 2 s budget.
-- **B2B partners** (marketplaces) — full detail with every order line, **XML**, strict contract versioning. ~5 req/s, 5 s budget.
+- **Mobile app**: small screens, slow networks: last 10 orders, a handful of fields, JSON, friendly empty state. ~200 req/s at peak, 2 s budget.
+- **B2B partners** (marketplaces): full detail with every order line, **XML**, strict contract versioning. ~5 req/s, 5 s budget.
 
 Order data lives in the **OMS** database. The business rules ("which orders a customer may see", sorting, currency handling) must be written **once**. An unknown customer should show the mobile app an empty list, while partners get a 404.
+
+**Facts**
+- Mobile: \`GET /exp-mobile/v1/me/orders\`. The gateway has checked the token and passes the customer id in the \`X-Customer-Id\` header.
+- Partners: \`GET /exp-partner/v1/orders?customerId=...\`.
+- The shared Process API is \`GET /prc-orders/v1/customers/{customerId}/orders\` (with an optional \`limit\`). It answers \`{ orders: [{ orderId, orderDate, status, total: { amount, currency }, lines }] }\`, newest first, or 404 for an unknown customer.
+- The OMS System API is \`GET /sys-oms/v1/orders?customerId=...\`. It reads the \`oms_order\` table (\`order_no\`, \`customer_id\`, \`created_ts\`, \`status\`, \`total_amt\`, \`currency_cd\`).
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-mobile/v1/me/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
@@ -247,7 +253,7 @@ Order data lives in the **OMS** database. The business rules ("which orders a cu
 `,
   keyPoints: [
     'One Experience API per channel (or channel family): mobile and partner have different shapes, formats, SLAs, security policies and release cycles.',
-    'Both Experience APIs call the same Process API — the business rules are written once and reused, which is the main payoff of API-led connectivity.',
+    'Both Experience APIs call the same Process API: the business rules are written once and reused, which is the main payoff of API-led connectivity.',
     'Experience APIs are thin: call the Process API, reshape (JSON trim vs full XML), translate errors. No business logic and no system calls.',
     'The Process API reaches the OMS through a System API, so a future OMS replacement does not touch either channel.',
     'Errors are translated per channel: mobile turns 404 into a friendly empty list, the partner gets a strict 404/502 contract.',
@@ -273,10 +279,10 @@ Order data lives in the **OMS** database. The business rules ("which orders a cu
         +---------------------------+
 \`\`\`
 
-- **exp-mobile-orders** — \`GET /exp-mobile/v1/me/orders\` → HTTP Request \`/prc-orders/v1/customers/{customerId}/orders?limit=10\` (2 s) → Transform to a small JSON card list. \`HTTP:NOT_FOUND\` becomes an empty list; anything else a friendly 503 message.
-- **exp-partner-orders** — \`GET /exp-partner/v1/orders\` → same Process API (5 s) → Transform to the partner's **XML** contract with all lines. Errors map strictly to 404/502.
-- **prc-orders-history** — \`GET /prc-orders/v1/customers/{customerId}/orders\` → HTTP Request to \`sys-oms\` → sort newest first, apply visibility rules, canonical \`Order\` model.
-- **sys-oms-orders** — \`GET /sys-oms/v1/orders\` → Database Select → map columns to the System API model.
+- **exp-mobile-orders**: \`GET /exp-mobile/v1/me/orders\` → HTTP Request \`/prc-orders/v1/customers/{customerId}/orders?limit=10\` (2 s) → Transform to a small JSON card list. \`HTTP:NOT_FOUND\` becomes an empty list; anything else a friendly 503 message.
+- **exp-partner-orders**: \`GET /exp-partner/v1/orders\` → same Process API (5 s) → Transform to the partner's **XML** contract with all lines. Errors map strictly to 404/502.
+- **prc-orders-history**: \`GET /prc-orders/v1/customers/{customerId}/orders\` → HTTP Request to \`sys-oms\` → sort newest first, apply visibility rules, canonical \`Order\` model.
+- **sys-oms-orders**: \`GET /sys-oms/v1/orders\` → Database Select → map columns to the System API model.
 
 The customer id for mobile comes from the validated access token (not from the URL), which is why mobile uses \`/me/orders\`.
 `,

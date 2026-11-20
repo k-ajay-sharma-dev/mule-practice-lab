@@ -22,7 +22,7 @@ export default {
     reference: diagram(
       {
         p1: ['partner', 'Platinum partners (ERP to ERP)'],
-        p2: ['partner', 'Bronze partners (garage apps)'],
+        p2: ['partner', 'Bronze partners (contractor apps)'],
         gw: ['api-gateway', 'API Manager: client ID + SLA tier rate limiting', { auth: 'oauth2', rateLimit: 50 }],
         idp: ['identity-provider', 'OAuth provider (client credentials)'],
         exp: ['experience-api', 'exp-partner-catalog-api v1', { vCores: '0.2' }],
@@ -52,19 +52,19 @@ export default {
         },
         {
           name: 'A caller without a token',
-          about: 'A garage app sends 20 requests a second with a valid token, and an unknown caller sends 10 a second with none. Every request without a token is refused at the gateway, and the garage gets every answer.',
+          about: 'A contractor app sends 20 requests a second with a valid token, and an unknown caller sends 10 a second with none. Every request without a token is refused at the gateway, and the contractor gets every answer.',
           traffic: [
-            { name: 'garage', from: { label: 'Bronze' }, rps: 20, to: ['erp', 'wms'], kind: 'read' },
+            { name: 'contractor', from: { label: 'Bronze' }, rps: 20, to: ['erp', 'wms'], kind: 'read' },
             { name: 'unknown caller', from: { label: 'Bronze' }, rps: 10, to: ['erp', 'wms'], kind: 'read', auth: 'none' },
           ],
           durationMin: 15,
-          expect: { answers: [{ flow: 'garage', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
+          expect: { answers: [{ flow: 'contractor', minSuccess: 0.99 }, { flow: 'unknown caller', minRefused: 0.99 }] },
         },
       ],
     },
   },
   description: `
-An auto parts distributor wants to open a **stock and price API** to about **300 partners**: large retail chains that connect their ERP, and small garages that use a partner app.
+A building supplies distributor wants to open a **stock and price API** to about **300 partners**: large retail chains that connect their ERP, and small contractors that use a partner app.
 
 Facts:
 - Endpoints: \`GET /parts/{sku}\` (price for that partner and stock per DC) and \`POST /parts/availability\` (up to 100 SKUs).
@@ -75,6 +75,8 @@ Facts:
   - **Bronze**: 1 request per second and 10,000 per day, approved automatically.
 - One partner hammered the old SOAP service with 300 requests per second during a stocktake and slowed SAP for everyone.
 - SAP should get at most 30 price calls a second. A 10 minute price cache answers about 6 lookups in 10.
+- Partners use OAuth 2.0 client credentials from the corporate identity provider. Every call must carry a valid token, and a call without one must be refused at the gateway.
+- In the tests the gateway applies the 50 requests a second Platinum limit to a flooding partner, and anything over it gets 429.
 - Partners must see their usage, and sales wants a monthly usage report per partner.
 
 **Describe your solution:**
@@ -112,7 +114,7 @@ Facts:
 **SLA tiers and policies.** In API Manager:
 - define the three **SLA tiers** with their limits (Bronze also gets the daily limit);
 - apply **Rate Limiting SLA-based**, which reads the client ID and applies the tier of that contract;
-- apply **Client ID Enforcement**, or **OAuth 2.0 token enforcement** if partners use client credentials with the corporate identity provider.
+- apply **OAuth 2.0 token enforcement**, because partners use client credentials with the corporate identity provider; a call without a valid token is refused before any Mule app runs.
 Requests over the limit get **429 Too Many Requests** with \`X-Ratelimit-Remaining\` and reset headers. The Mule app never sees them.
 
 **Protecting the back ends.** Tier limits are per partner. Fifty Platinum partners at full speed would still be 2,500 requests per second. So also:

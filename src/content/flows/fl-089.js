@@ -191,6 +191,10 @@ A retailer keeps its product data in a **PIM**. Every night at 01:00 the PIM dro
 - Each job that has ended is reported only once, not again on every poll.
 - A restart of the app during a running load must not lose track of the job.
 
+**Facts**
+- The export is a JSON array of \`{ id, name, sku, status }\`. \`id\` goes to \`PIM_Product_Id__c\`, \`name\` to \`Name\`, \`sku\` to \`ProductCode\`, and \`IsActive\` is true when \`status\` is \`ACTIVE\`.
+- The PIM support mailbox is \`pim-support@example.com\`.
+
 **Design the flows.** Name the flow that starts the load \`product-load-submit\` and the flow that watches the job \`product-load-monitor\`. Say which job states you handle and how you size and schedule the polling.
 `,
   answerTemplate: `## Submitting the job

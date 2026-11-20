@@ -10,25 +10,25 @@ export default {
       type: 'single',
       prompt: 'How does `db:bulk-insert` differ from `db:insert` inside a For Each over 400,000 POS lines?',
       options: [
-        'bulk-insert sends one parameterised statement with many parameter sets as a JDBC batch, so far fewer round trips',
-        'bulk-insert uses Oracle SQL*Loader under the hood',
-        'bulk-insert skips constraints and triggers',
-        'There is no difference; For Each is optimised into a batch automatically',
+        'It runs one statement as a JDBC batch, so far fewer round trips',
+        'It loads the rows through Oracle SQL*Loader under the hood',
+        'It skips constraints and triggers to insert rows faster',
+        'It opens several connections and inserts rows in parallel',
       ],
       answer: 0,
-      explain: 'A JDBC batch executes the same statement with many sets of bind values in one go. It still runs normal conventional inserts — constraints and triggers apply.',
+      explain: 'bulk-insert sends one parameterised statement with many parameter sets. A JDBC batch executes the same statement with many sets of bind values in one go, on one connection. It still runs normal conventional inserts, so constraints and triggers apply.',
     },
     {
       type: 'single',
       prompt: 'One line in a chunk of 1,000 has a NULL in a NOT NULL column. With no transaction around the bulk insert, what should you assume?',
       options: [
-        'The operation raises DB:QUERY_EXECUTION, and some rows of the chunk may already have been inserted — do not assume all-or-nothing',
-        'Oracle skips the bad row and inserts the other 999',
-        'Nothing at all is inserted, guaranteed',
+        'DB:QUERY_EXECUTION, and some rows may already be inserted',
+        'Oracle skips the bad row and inserts the other 999 rows',
+        'Nothing is inserted, because a bulk call is always atomic',
         'Mule retries the chunk without the bad row automatically',
       ],
       answer: 0,
-      explain: 'How much of a failing JDBC batch is applied depends on driver behaviour and commit mode. Make the outcome explicit: wrap the chunk in a transaction (all-or-nothing) and handle the failure yourself.',
+      explain: 'Do not assume all-or-nothing. How much of a failing JDBC batch is applied depends on driver behaviour and commit mode. Make the outcome explicit: wrap the chunk in a transaction (all-or-nothing) and handle the failure yourself.',
     },
     {
       type: 'single',
@@ -46,13 +46,13 @@ export default {
       type: 'single',
       prompt: 'What is a reasonable chunk size to start with for bulk inserts of narrow POS lines into Oracle?',
       options: [
-        'A few hundred to a few thousand rows per bulk call, then tune with measurements',
-        'All 400,000 rows in one call',
-        'Exactly 1 row — batches are risky',
-        'It must equal the pool size',
+        'A few hundred to a few thousand rows, then measure and tune',
+        'All 400,000 rows in one call, to keep round trips minimal',
+        'One row per call, so a bad row never fails other rows',
+        'The same number as the DB pool\'s maxPoolSize',
       ],
       answer: 0,
-      explain: 'Very large batches use a lot of memory and make failures expensive; very small ones lose the benefit. Start around 500–2,000 and measure.',
+      explain: 'Very large batches use a lot of memory and make failures expensive; very small ones lose the benefit. Chunk size and pool size are unrelated. Start around 500 to 2,000 and measure.',
     },
     {
       type: 'order',
@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'The same store file is accidentally processed twice. Which safeguard prevents duplicate sales in Oracle?',
       options: [
-        'A unique key on (STORE_ID, BUSINESS_DATE, TXN_ID, LINE_NO), with duplicates treated as already loaded',
-        'A larger chunk size',
-        'Running the flow with maxConcurrency 1',
-        'Deleting the file after reading',
+        'A unique key on (STORE_ID, BUSINESS_DATE, TXN_ID, LINE_NO)',
+        'A larger chunk size so each file loads in fewer calls',
+        'Running the flow with maxConcurrency set to 1',
+        'Deleting or moving each file right after reading it',
       ],
       answer: 0,
-      explain: 'Only a business key in the database makes the load idempotent. Concurrency limits and file deletion reduce the chance but do not prevent a reprocessed file.',
+      explain: 'Treat duplicates on that key as already loaded. Only a business key in the database makes the load idempotent. Concurrency limits and file deletion reduce the chance but do not prevent a reprocessed file.',
     },
   ],
   description: `
@@ -124,7 +124,7 @@ A developer switched to a single \`db:bulk-insert\` with all lines of a store, a
 \`\`\`
 400,000 single inserts mean 400,000 round trips (plus statement handling); batches of 1,000 mean 400.
 
-**2. State after a failure.** The operation raises \`DB:QUERY_EXECUTION\`. Which rows of the batch were applied depends on the driver and the commit mode — with auto-commit some earlier rows may already be in the table. That uncertainty is exactly what finance saw. Make it deterministic with a transaction per chunk.
+**2. State after a failure.** The operation raises \`DB:QUERY_EXECUTION\`. Which rows of the batch were applied depends on the driver and the commit mode. With auto-commit some earlier rows may already be in the table. That uncertainty is exactly what finance saw. Make it deterministic with a transaction per chunk.
 
 **3. Design.**
 \`\`\`xml
@@ -153,13 +153,13 @@ A developer switched to a single \`db:bulk-insert\` with all lines of a store, a
   </try>
 </foreach>
 \`\`\`
-- **Pre-validate** in DataWeave (required fields, numeric ranges, known store) — most rejects never reach Oracle.
+- **Pre-validate** in DataWeave (required fields, numeric ranges, known store), so most rejects never reach Oracle.
 - **Atomic chunks**: the inner Try with a LOCAL transaction rolls the whole chunk back on error.
 - **Fallback**: only the failing chunk is retried row by row, so bad rows are parked with the ORA message and good rows are loaded.
 - For millions of rows with complex error handling, a **Batch Job** with a Batch Aggregator (size 1,000) gives the same pattern with built-in record-level failure tracking.
 - An Oracle alternative is DML error logging (\`LOG ERRORS INTO err$_pos_sales_lines REJECT LIMIT UNLIMITED\`), agreed with the DBA.
 
-**4. Safe reruns.** Add a unique constraint on \`(STORE_ID, BUSINESS_DATE, TXN_ID, LINE_NO)\`. On rerun, duplicates fail — treat ORA-00001 as "already loaded" in the row-by-row fallback, or use a MERGE that only inserts when not matched. Keep a **load-control** row per store file (file name, checksum, line count, inserted, rejected) and skip files already loaded successfully.
+**4. Safe reruns.** Add a unique constraint on \`(STORE_ID, BUSINESS_DATE, TXN_ID, LINE_NO)\`. On rerun, duplicates fail. Treat ORA-00001 as "already loaded" in the row-by-row fallback, or use a MERGE that only inserts when not matched. Keep a **load-control** row per store file (file name, checksum, line count, inserted, rejected) and skip files already loaded successfully.
 `,
   followUps: [
     {

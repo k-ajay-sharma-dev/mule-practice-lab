@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why have no prices been updated since 02:00?',
         options: [
-          'The 02:00 instance hangs on the index-rebuild lock with no queryTimeout, and ORDERED_SEQUENTIAL queues every later instance behind it',
-          'The SFTP server stopped delivering files',
-          'The Batch Aggregator size of 500 is too small',
-          'The database ran out of disk',
+          'The 02:00 instance waits on the rebuild lock forever, and later ones queue behind it',
+          'The SFTP server stopped delivering new price files after 02:00',
+          'The Batch Aggregator size of 500 is too small for 48,000 records an hour',
+          'The pricing database ran out of disk space during the index rebuild',
         ],
         answer: 0,
         explain: 'CPU 0%, no errors and queued instances point to one blocked instance. The rebuild started 5 minutes before it and still holds the lock.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'Why did the 09:00 restart not help?',
         options: [
-          'Batch job instances are persisted on disk and resume after restart, hitting the same lock again',
-          'The restart was too fast',
-          'The Scheduler skipped the next run',
-          'Restarts reset the DB connection pool size',
+          'Batch instances are kept on disk and resume after a restart, hitting the lock again',
+          'The restart did not wait for in-flight records to drain before stopping',
+          'The Scheduler skipped the 09:00 run, so no new instance was created',
+          'The restart reset the DB connection pool to a single connection',
         ],
         answer: 0,
         explain: 'Batch queues survive restarts by design. The lock was still there, so the resumed instance blocked again.',
@@ -111,20 +111,20 @@ export default {
     'Identifies that the DB bulk upsert in instance 6a1f is blocked by the index-rebuild lock on the price table and, with no query timeout, waits indefinitely.',
     'Explains ORDERED_SEQUENTIAL: only one instance of the job executes at a time, so all later instances queue behind the stuck one.',
     'Explains why the restart did not help: batch instances and their records are persisted in batch queues on disk, so the stuck instance resumes and hits the same lock (and disk grows from the queued records).',
-    'Immediate: get the DBA to finish/kill the rebuild (release the lock) — then processing resumes; but since each hourly file supersedes older ones, the fastest path to fresh prices is to load the latest snapshot(s) rather than replaying all 19 instances in order.',
+    'Immediate: get the DBA to finish/kill the rebuild (release the lock), and processing resumes; but since each hourly file supersedes older ones, the fastest path to fresh prices is to load the latest snapshot(s) rather than replaying all 19 instances in order.',
     'Permanent fix: queryTimeout on DB operations, sensible error handling (maxFailedRecords, retries for lock timeouts), and alerting when an instance exceeds its expected duration or instances queue up.',
     'Prevention: maintenance windows coordinated with integration schedules (pause the job during DB maintenance), and freshness monitoring on the business outcome (last price update time).',
   ],
   solution: `
-**Diagnosis.** Instance \`6a1f\` started at 02:00:09, five minutes after the **index rebuild** began locking \`price\`. Its aggregator's bulk upsert is **waiting for the table lock**, and because there is **no \`queryTimeout\`**, it waits forever: CPU 0%, no errors, no progress. The job uses **ORDERED_SEQUENTIAL** scheduling, so **only one instance executes at a time**; every hourly instance since 03:00 finishes its *load* phase (records written to the batch queues) and then **queues** behind \`6a1f\` — hence 19 queued instances and growing disk usage.
+**Diagnosis.** Instance \`6a1f\` started at 02:00:09, five minutes after the **index rebuild** began locking \`price\`. Its aggregator's bulk upsert is **waiting for the table lock**, and because there is **no \`queryTimeout\`**, it waits forever: CPU 0%, no errors, no progress. The job uses **ORDERED_SEQUENTIAL** scheduling, so **only one instance executes at a time**; every hourly instance since 03:00 finishes its *load* phase (records written to the batch queues) and then **queues** behind \`6a1f\`. Hence the 19 queued instances and growing disk usage.
 
-**Why the restart didn't help:** batch job instances are **persistent** — their records live in the batch queues on the worker's disk and survive a restart. After restart, \`6a1f\` resumed, re-issued the same upsert, and blocked on the same lock.
+**Why the restart didn't help:** batch job instances are **persistent**. Their records live in the batch queues on the worker's disk and survive a restart. After restart, \`6a1f\` resumed, re-issued the same upsert, and blocked on the same lock.
 
 **Immediate mitigation.**
 1. **Release the lock**: with the DBA, stop or finish the overrunning index rebuild (or kill the blocking session). Confirm in the DB that the Mule session is no longer waiting.
-2. Think about the backlog before letting it run: instances then execute **one by one in order** — ~20 hours of hourly files, each 48k records. Because **each file is a full snapshot that supersedes earlier ones**, replaying all of them in order gives correct but very late prices.
+2. Think about the backlog before letting it run: instances then execute **one by one in order**: ~20 hours of hourly files, each 48k records. Because **each file is a full snapshot that supersedes earlier ones**, replaying all of them in order gives correct but very late prices.
    - Fastest correct option: let \`6a1f\` finish (or not), and **load the latest file(s) directly**. Then the queued instances are redundant; discarding them requires clearing the app's batch queues, e.g. redeploying in a way that starts with clean working storage. Verify how your deployment target handles batch queue data before relying on it, and keep the source files so nothing is lost.
-   - If files are *not* superseding (deltas), you must process them in order — then only throughput can be improved (bigger aggregator, more threads) once the lock is gone.
+   - If files are *not* superseding (deltas), you must process them in order. Then only throughput can be improved (bigger aggregator, more threads) once the lock is gone.
 3. Tell the business when prices will be current; consider freezing promotions until then.
 
 **Root cause.** A DB operation without timeout ran into a long maintenance lock; the sequential batch strategy turned one stuck instance into a total stop; there was no alert on job duration, queue build-up or data freshness, and the DB maintenance wasn't coordinated with the integration schedule.
@@ -133,13 +133,13 @@ export default {
 - \`queryTimeout\` on every DB operation (e.g. 60 s), so a lock produces an error instead of a hang.
 - Batch error handling: retry lock-timeout errors with backoff, then fail the records/instance clearly; set \`maxFailedRecords\` deliberately and report failures.
 - For snapshot feeds: before running, **skip files that are superseded** by a newer one already waiting (or make the job pick only the newest file), so a backlog collapses to one run.
-- Consider \`ROUND_ROBIN\` scheduling only if instances are independent — not for ordered data.
+- Consider \`ROUND_ROBIN\` scheduling only if instances are independent, never for ordered data.
 
 **Prevention.** Alerts: instance running > 2× normal duration, more than N queued instances, and **"last successful price update older than 2 hours"** (business freshness). Change management: DB maintenance on integration-owned tables requires pausing the job (stop the flow/scheduler) and a defined end time with rollback. Runbook: how to inspect, skip or discard batch instances on your platform.
 `,
   followUps: [
     { q: 'What is the difference between ORDERED_SEQUENTIAL and ROUND_ROBIN batch scheduling?', a: 'ORDERED_SEQUENTIAL runs one job instance at a time in creation order, which preserves order but lets one slow instance block the rest. ROUND_ROBIN lets instances share resources and progress concurrently, which is fine only when instances are independent.' },
     { q: 'How do you prove the batch is waiting on a DB lock?', a: 'A thread dump shows the batch thread inside the JDBC driver waiting on a socket read; on the database side the session from the Mule app is in a lock-wait state blocked by the index-rebuild session.' },
-    { q: 'How would you have detected this within an hour instead of a day?', a: 'An alert on batch instance duration or queued instances, and a business freshness check (time since last price update) — both would fire long before customers noticed stale prices.' },
+    { q: 'How would you have detected this within an hour instead of a day?', a: 'An alert on batch instance duration or queued instances, and a business freshness check (time since last price update). Both would fire long before customers noticed stale prices.' },
   ],
 }

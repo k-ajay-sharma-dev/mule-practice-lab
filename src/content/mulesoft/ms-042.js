@@ -11,25 +11,25 @@ export default {
       needsScenario: true,
       prompt: 'How do MUnit parameterizations collapse the 14 nearly identical tax tests?',
       options: [
-        'Each test gets a `for-each` over a list of inputs',
-        'Parameterizations on `munit:config` supply property values, and the whole suite runs once per parameterization',
-        'You copy the test 14 times with different names',
-        'A DataWeave script generates the XML at build time',
+        'Wrap the test body in a `for-each` over the 14 input rows',
+        'Define parameterizations on `munit:config`; the suite runs per row',
+        'Add a `parameters` attribute to `munit:test` with 14 rows',
+        'Generate the 14 test files from a DataWeave script at build time',
       ],
       answer: 1,
-      explain: 'One test body, 14 data rows. Reports show each case by its parameterization name.',
+      explain: 'Each parameterization on `munit:config` supplies property values, and the whole suite runs once per parameterization. `munit:test` has no parameters attribute, and a `for-each` would stop at the first failing row. One test body, 14 data rows. Reports show each case by its parameterization name.',
     },
     {
       type: 'single',
       prompt: 'How do you test the backend-timeout path without a real rate-table API?',
       options: [
-        'Point the config at a slow host and wait',
-        'Use Mock When on the HTTP request and return an error with `typeId="HTTP:TIMEOUT"`, then assert the handler output',
-        'Use a Spy to throw the error',
-        'It can only be tested in an integration environment',
+        'Point the config at a slow test host and wait for the timeout',
+        'Mock When on the HTTP request, returning an `HTTP:TIMEOUT` error',
+        'Spy on the HTTP request and throw the error in its before block',
+        'Mock the request to return status 504 as a normal response',
       ],
       answer: 1,
-      explain: 'Mock When can return an error so error handlers are exercised. Assert the result (e.g. 504 body) or use `expectedErrorType` when the error should propagate.',
+      explain: 'Mock When can return an error (`<munit-tools:error typeId="HTTP:TIMEOUT"/>`) so error handlers are exercised. A Spy only runs assertions around the real call. A mocked 504 response is a normal message, so no HTTP:TIMEOUT error is raised and the handler never runs. Assert the result (e.g. 504 body) or use `expectedErrorType` when the error should propagate.',
     },
     {
       type: 'match',
@@ -60,25 +60,25 @@ export default {
       type: 'single',
       prompt: 'A developer proposes a test that calls every flow with an empty payload "to hit the numbers". What is the best reply?',
       options: [
-        'Good — coverage is what management asked for',
-        'Coverage measures executed processors, not correctness; a test without meaningful assertions catches no regressions — cover real happy and error paths instead',
-        'Fine, but only for flows under 70%',
-        'Fine, as long as it is tagged',
+        'Accept it, since coverage is the number management asked for',
+        'Reject it: coverage counts run processors, not checked behaviour',
+        'Accept it, but only for flows that are still below 70 percent',
+        'Accept it if the test is tagged so CI can skip it later',
       ],
       answer: 1,
-      explain: 'Coverage-only tests are worthless. With parameterization, real per-rule tests are now cheap.',
+      explain: 'A test without meaningful assertions catches no regressions. Cover real happy and error paths instead. Coverage-only tests are worthless. With parameterization, real per-rule tests are now cheap.',
     },
     {
       type: 'single',
       prompt: 'What is the difference between a Spy and Verify Call?',
       options: [
-        'They are aliases',
-        'A Spy runs assertions before and/or after a real processor; Verify Call checks how many times a processor was called',
-        'A Spy replaces the processor; Verify Call mocks it',
-        'Verify Call only works on HTTP requests',
+        'They are two names for the same MUnit processor',
+        'Spy asserts around a real processor; Verify Call counts its calls',
+        'Spy replaces the processor; Verify Call checks its output',
+        'Spy records the calls; Verify Call asserts the payload after it',
       ],
       answer: 1,
-      explain: 'Neither replaces the processor — that is what Mock When does.',
+      explain: 'A Spy runs assertions before and/or after a real processor. Verify Call checks how many times a processor was called, optionally with given attributes. Neither replaces the processor; that is what Mock When does.',
     },
   ],
   description: `
@@ -116,7 +116,7 @@ A developer proposes to "add a test that calls every flow with an empty payload 
     'Mock When can return an error (e.g. HTTP:TIMEOUT) so error handlers are exercised without real backends; expectedErrorType asserts the outcome.',
     'The munit-maven-plugin coverage section sets runCoverage, failBuild and required application/resource/flow coverage, plus report formats.',
     'Tags and test name filters let you run a subset; skipping tests in a pipeline should be an explicit, visible exception.',
-    'Coverage measures executed processors, not correctness — tests must assert behaviour, so coverage-only tests are worthless.',
+    'Coverage measures executed processors, not correctness. Tests must assert behaviour, so coverage-only tests are worthless.',
   ],
   solution: `
 **Parameterized suite**
@@ -180,7 +180,7 @@ Coverage types: **application** (whole app), **resource** (per XML file), **flow
 
 **Subsets:** run one suite or test with the plugin's test-filter properties, or group tests with \`tags\` and select them via a tags property. \`-DskipMunitTests\` exists, but in CI it should be used only for documented exceptions (e.g. a hotfix with an approval), never by default.
 
-**About the empty-payload test:** it raises the number without verifying anything and will fail to catch regressions; reviewers and quality gates should reject tests without meaningful assertions. Cover real behaviour — happy paths per rule (now cheap thanks to parameterization) and each error path.
+**About the empty-payload test:** it raises the number without verifying anything and will fail to catch regressions; reviewers and quality gates should reject tests without meaningful assertions. Cover real behaviour: happy paths per rule (now cheap thanks to parameterization) and each error path.
 `,
   followUps: [
     {

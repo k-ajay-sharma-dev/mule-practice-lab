@@ -53,7 +53,7 @@ payload
   hints: [
     'Keep the field names in a list, `["name", "taxId", "contacts", "address"]`, and read each one with a dynamic selector: `s[f]`.',
     'Check `null` first, then `is String` + `isBlank`, then `isEmpty` for arrays/objects. Return `null` for "no issue" and filter those out.',
-    '`sizeOf(null)` fails — use `sizeOf(s.contacts default [])`.',
+    '`sizeOf(null)` fails, so use `sizeOf(s.contacts default [])`.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -82,11 +82,11 @@ payload map (s) -> do {
   explanation: `
 Three different "nothing" checks, each with its own job:
 
-- \`== null\` — the key is absent (selecting it returns \`null\`) **or** explicitly \`null\`.
-- \`isBlank(s)\` — \`true\` for \`null\`, \`""\` and whitespace-only strings. It accepts only a String or \`null\` (it is in \`dw::Core\`, so no import is needed).
-- \`isEmpty(x)\` — \`true\` for \`null\`, \`""\`, \`[]\` and \`{}\`. Note that \`"   "\` is **not** empty, which is why the string check uses \`isBlank\`.
+- \`== null\`: the key is absent (selecting it returns \`null\`) **or** explicitly \`null\`.
+- \`isBlank(s)\`: \`true\` for \`null\`, \`""\` and whitespace-only strings. It accepts only a String or \`null\` (it is in \`dw::Core\`, so no import is needed).
+- \`isEmpty(x)\`: \`true\` for \`null\`, \`""\`, \`[]\` and \`{}\`. Note that \`"   "\` is **not** empty, which is why the string check uses \`isBlank\`.
 
-\`sizeOf\` counts items in an array, keys in an object or characters in a string — but it does not accept \`null\`. That is the common trap: S-3 is fine, but a record without a \`contacts\` key makes \`sizeOf(s.contacts)\` fail. \`default []\` makes it \`0\`.
+\`sizeOf\` counts items in an array, keys in an object or characters in a string, but it does not accept \`null\`. That is the common trap: S-3 is fine, but a record without a \`contacts\` key makes \`sizeOf(s.contacts)\` fail. \`default []\` makes it \`0\`.
 
 Order matters: test \`null\` first, otherwise \`isEmpty(null)\` would report a missing field as \`empty\`.
 `,
@@ -116,7 +116,7 @@ Order matters: test \`null\` first, otherwise \`isEmpty(null)\` would report a m
     },
     {
       q: 'How would you return HTTP 400 with these issues from a Mule flow?',
-      a: 'Run this transform in a Validation step (or a Choice on `ready`). When it is false, raise an error with `raise error` or `fail` and map the issues into the APIkit 400 error response.',
+      a: 'Run this transform in a Validation step (or a Choice on `ready`). When it is false, raise an error (a Raise Error component, or `fail` inside DataWeave) and map the issues into the APIkit 400 error response.',
     },
     {
       q: 'How would you make the required-field list configurable?',

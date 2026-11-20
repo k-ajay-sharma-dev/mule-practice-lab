@@ -9,7 +9,7 @@ export default {
     logs: [
       { text: '07:30:14 WARN  [runtime-manager] Server mule-prd-03 status: Disconnected', relevant: true, why: 'Runtime Manager shows this when a server certificate has expired, among other reasons.' },
       { text: '07:30:15 WARN  [runtime-manager] App prc-stock-sync status: Unknown', relevant: true, why: 'The app status is unknown because the agent cannot report. It does not mean that the app is down.' },
-      { text: '07:31:02 INFO  [f5] pool mule-prd health 4/4 up, 212 req/s', relevant: true, why: 'Traffic is flowing, so the runtime is healthy. Only management is affected.' },
+      { text: '07:31:02 INFO  [lb] pool mule-prd health 4/4 up, 212 req/s', relevant: true, why: 'Traffic is flowing, so the runtime is healthy. Only management is affected.' },
       { text: '07:33:47 ERROR [mule_agent] com.mulesoft.agent.transport.WSConnection: Failed attempt to connect nro. 1 to the web socket client at runtime-manager.anypoint.mulesoft.com: Connection refused.', relevant: true, why: 'The docs show this message for an expired certificate.' },
       { text: '07:34:00 INFO  [firewall] no rule changes in the last 30 days, outbound 443 permitted', relevant: true, why: 'This argues against a network cause, which is the other documented thing to check.' },
       { text: '07:35:20 INFO  [servers] all four servers were registered on the same day, two years ago', relevant: true, why: 'The key pair is valid for two years, which explains why they all failed at once.' },
@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'The agent key pair, valid for two years, has expired, so the mutual TLS connection to Runtime Manager has ended',
-          'All Mule runtimes crashed at 07:30',
-          'The Mule enterprise licence has expired, which stops all apps',
-          'The apps were undeployed by Runtime Manager',
+          'The agent’s two-year certificate has expired, so it cannot connect to Runtime Manager',
+          'All four Mule runtimes crashed at 07:30, and the load balancer has not noticed yet',
+          'The Mule enterprise licence expired, so Runtime Manager no longer accepts the servers',
+          'The identity provider rotated its keys, so the agents can no longer sign in to the platform',
         ],
         answer: 0,
         explain: 'The combination of `Disconnected` servers, `Unknown` apps and healthy traffic fits the certificate page. The same-day registration explains why all four failed together.',
@@ -33,22 +33,22 @@ export default {
         type: 'single',
         prompt: 'What should the incident manager tell the business?',
         options: [
-          'APIs keep serving, because the control plane is not in the request path; but deployments through Runtime Manager are blocked, and new or updated policies are not pulled until the connection returns',
-          'All APIs are down until the certificate is renewed',
-          'Nothing is affected at all, including deployments',
-          'Apps will stop in 24 hours',
+          'APIs keep serving, but releases through Runtime Manager are blocked until it is fixed',
+          'All APIs are down until the certificate is renewed on each of the four servers',
+          'Nothing is affected at all, and the 10:00 release can go ahead as planned',
+          'APIs keep serving for now, but the apps stop by themselves after 24 hours',
         ],
         answer: 0,
-        explain: 'This is a management outage, not a traffic outage, which decides the priority and the way the fix is done.',
+        explain: 'The control plane is not in the request path, so traffic is fine. Deployments through Runtime Manager are blocked, and new or updated policies are not pulled until the connection returns. This is a management outage, not a traffic outage, which decides the priority and the way the fix is done.',
       },
       {
         type: 'single',
         prompt: 'Why can the team not use **Renew Certificate** in Runtime Manager now?',
         options: [
-          'That action needs the server status to be `Running`. For an expired certificate, use the command-line renewer',
-          'The option only exists for clusters',
-          'It can be used only by MuleSoft Support',
-          'It needs Mule to be stopped first',
+          'It needs the server to be `Running`, so an expired one needs the command-line renewer',
+          'It only exists for servers in a cluster, and these four are standalone servers',
+          'It is only available to MuleSoft Support, so the team must raise a support case',
+          'It needs Mule stopped on the server first, and that would interrupt live traffic',
         ],
         answer: 0,
         explain: 'The command-line method works even after expiry.',
@@ -74,7 +74,7 @@ export default {
           'Renew from Runtime Manager before expiry, then restart Mule manually',
           'Check that agents are version 1.10.0 or later, which the renewal feature needs',
           'Alert on Server disconnected events',
-          'Delete and re-register servers every year',
+          'Delete and re-register every server each year, so no certificate gets old',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Renewal is a routine task. Re-registering is unnecessary, and it would disturb the servers and their apps.',
@@ -85,7 +85,7 @@ export default {
 ## Symptoms
 - Thursday 07:30: Runtime Manager shows **all four production servers** as \`Disconnected\`, and all apps on them as \`Unknown\`.
 - The on-call engineer raises a P1, expecting a full outage.
-- The F5 load balancer shows all members healthy, and customers report no issues.
+- The data centre load balancer shows all members healthy, and customers report no issues.
 - A release planned for 10:00 cannot start, because Runtime Manager cannot reach the servers.
 
 ## Change / Context
@@ -97,7 +97,7 @@ export default {
 \`\`\`
 07:30:14 WARN  [runtime-manager] Server mule-prd-03 status: Disconnected
 07:30:15 WARN  [runtime-manager] App prc-stock-sync status: Unknown
-07:31:02 INFO  [f5] pool mule-prd health 4/4 up, 212 req/s
+07:31:02 INFO  [lb] pool mule-prd health 4/4 up, 212 req/s
 07:33:47 ERROR [mule_agent] com.mulesoft.agent.transport.WSConnection: Failed attempt
           to connect nro. 1 to the web socket client at
           runtime-manager.anypoint.mulesoft.com: Connection refused.
@@ -130,14 +130,14 @@ export default {
     'Servers registered together expire together, so stagger the work and track the dates.',
   ],
   solution: `
-**Diagnosis.** First separate traffic from management. The F5 shows healthy members and the apps are still processing, so this is not a P1 outage. Downgrade it, and keep the 10:00 release on hold.
+**Diagnosis.** First separate traffic from management. The load balancer shows healthy members and the apps are still processing, so this is not a P1 outage. Downgrade it, and keep the 10:00 release on hold.
 
 Then follow the agent troubleshooting page, which says to verify that the licence and certificate have not expired, and then check connectivity. The docs for an expired certificate describe this exact picture: \`Disconnected\` in the server status, \`Unknown\` for apps, and the \`WSConnection\` message in \`mule_agent.log\`. The expiry date on each server's dashboard confirms it. Nothing changed on the network, and all four servers share a registration date.
 
 **Immediate mitigation.**
 - Tell stakeholders that APIs are serving and that deployments are blocked. New or updated policies are not pulled until the connection returns, so hold any policy changes too.
 - Renew with the command-line method, because Runtime Manager can only renew while the server is \`Running\`.
-- Work server by server, taking each out of the F5 pool, since Mule must be stopped.
+- Work server by server, taking each out of the load balancer pool, since Mule must be stopped.
 
 For each server:
 1. Download the \`agent-certificate-renewer-{version}.jar\` for your Mule version, and move it to \`$MULE_HOME/bin\` with execute permission.

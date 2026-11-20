@@ -159,9 +159,9 @@ export default {
     ),
   ),
   description: `
-Point-of-sale systems publish every sale to the Anypoint MQ queue \`pos-sales\`: **~400 events/s** at peak, from **1,200 stores**.
+Point-of-sale systems publish every sale to the Anypoint MQ queue \`pos-sales\`: **~400 events/s** at peak, from **1,200 stores**. A sale is \`{ saleId, storeId, amount }\`.
 
-Downstream analytics needs each event enriched with the **store's name, region and currency**. That data lives in the **Store Master API** (REST, ~250 ms per call). It changes a few times per week, and the API owner allows at most **20 requests/s**.
+Downstream analytics needs each event enriched with the **store's name, region and currency**. That data lives in the **Store Master API** (REST, ~250 ms per call): \`GET /stores/{storeId}\` answers \`{ id, name, region, currency }\`, or **404** for an unknown store. It changes a few times per week, and the API owner allows at most **20 requests/s**.
 
 - Events must reach \`sales-enriched\` within 2 s of arriving.
 - An event for an unknown store must not block the stream; publish it marked as unenriched.
@@ -207,7 +207,7 @@ On a cold start, 1,200 cache misses are spread over a few seconds. To smooth thi
 `,
   followUps: [
     {
-      q: 'Why not just store all stores in a variable at startup?',
+      q: 'Why not store all stores in a variable at startup?',
       a: 'A variable is per event and per replica. You would need a custom refresh mechanism. The Cache scope + Object Store gives you TTL-based refresh and, on Object Store v2, sharing across replicas for free.',
     },
     {

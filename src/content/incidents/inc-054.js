@@ -22,25 +22,25 @@ export default {
         type: 'single',
         prompt: 'Why do login and store-locator fail even though they never use inventory?',
         options: [
-          'Slow inventory calls hold capacity upstream; the Experience APIs serve all features from one shared concurrency pool, so it fills and rejects everything',
-          'sys-crm-api and sys-store-api crashed at 09:07',
-          'The gateway blocks all traffic during the sale',
-          'Login depends on inventory through a hidden call',
+          'Waiting inventory calls fill the Experience APIs’ shared concurrency',
+          'sys-crm-api and sys-store-api were overloaded by the 6x sale traffic',
+          'The gateway’s rate limit is shared, and catalog traffic used it all up',
+          'prc-customer-api reads the cart, which calls inventory on every login',
         ],
         answer: 0,
-        explain: 'A **slow** dependency is worse than a dead one: every waiting request holds a concurrency slot, connections and memory. Other System APIs actually see *less* traffic because requests die upstream.',
+        explain: 'A **slow** dependency is worse than a dead one: every waiting request holds a concurrency slot, connections and memory. Other System APIs actually see *less* traffic because requests die upstream, so they were not overloaded. The diagram shows no inventory call from prc-customer-api, and the 503 comes from exp-web-api’s own maxConcurrency, not a gateway limit.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **next 15 minutes**?',
         options: [
-          'Disable the new reservation rule / revert the query (DB team can kill blocking sessions)',
-          'Turn off live stock on product tiles via a feature flag ("check availability at checkout")',
-          'Shorten the inventory timeout to ~2 s and remove the retry; rate-limit catalog traffic to protect checkout and login',
-          'Scale every app to 4x replicas and wait',
+          'Disable the new reservation rule or revert the query',
+          'Turn off live stock on product tiles with a feature flag',
+          'Inventory timeout to ~2 s, no retry, rate-limit catalog traffic',
+          'Scale every Experience and Process API to 4x replicas',
         ],
         answer: [0, 1, 2],
-        explain: 'Stop the trigger, degrade instead of dying, fail fast and protect critical journeys. Scaling alone does not help while inventory is slow.',
+        explain: 'Stop the trigger, degrade instead of dying, fail fast and protect critical journeys. Scaling alone does not help while inventory is slow: more replicas send more concurrent calls into the locked table.',
       },
       {
         type: 'match',
@@ -57,22 +57,22 @@ export default {
         type: 'single',
         prompt: 'What is the **architectural** root cause?',
         options: [
-          'No failure isolation: synchronous coupling everywhere, long equal timeouts, retries on timeouts, chatty calls, no caching or circuit breakers, and shared Experience API capacity',
-          'The load test did not use 6x traffic',
-          'Mule 4 blocks a thread per HTTP call',
-          'Too many System APIs',
+          'No failure isolation: sync calls everywhere, long timeouts, retries, no breakers',
+          'The load test used 6x traffic but not the sale’s real mix of browse and checkout',
+          'Mule 4 blocks one thread per outbound HTTP call, so the thread pools ran out',
+          'Too many layers: each extra API hop added latency until requests timed out',
         ],
         answer: 0,
-        explain: 'The 6x volume was tested; what was not tested was a slow dependency. The trigger was the table-locking query, but the architecture let it spread.',
+        explain: 'The 6x volume was tested; what was not tested was a slow dependency. The trigger was the table-locking query, but the architecture let it spread. The Mule 4 HTTP requester is non-blocking, and the extra hops cost milliseconds, not the 25 s seen here.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in **peak-readiness prevention**?',
         options: [
-          'Load tests at 6–10x plus fault injection (slow inventory, slow payment)',
-          'Runbook with tested kill switches (stock display off, promotions off, catalog rate limit)',
-          'Per-dependency SLOs, latency alerts and a change freeze for risky backend changes before peak',
-          'Volume-only load tests, as done this year',
+          'Load tests at 6 to 10x plus fault injection (slow inventory)',
+          'A runbook with tested kill switches (stock display off, promotions off)',
+          'Per-dependency SLOs, latency alerts and a change freeze before peak',
+          'Load tests at 10x volume instead of 6x, with all backends healthy',
         ],
         answer: [0, 1, 2],
         explain: 'Volume tests alone passed this year; prepare for slowness, not only load.',
@@ -135,13 +135,13 @@ exp-mobile-api -+--> prc-checkout-api --> sys-inventory-api, sys-payment-api, sy
   keyPoints: [
     'Explains the cascade mechanism: slow (not failed) responses hold in-flight requests, connections and memory for up to 30 s each; with high traffic, upstream capacity (maxConcurrency, requester connection pools, heap) fills, and unrelated features sharing the same Experience API capacity fail too.',
     'Identifies amplifiers: 24 inventory calls per page, retries on timeout, long equal timeouts, no caching, and replica restarts that drop capacity further.',
-    'Immediate (15 min): degrade gracefully — turn off live stock on product tiles (feature flag/config), fail fast on inventory with short timeout, rate-limit or shed catalog traffic, disable the new reservation rule, and protect checkout.',
+    'Immediate (15 min): degrade gracefully. Turn off live stock on product tiles (feature flag/config), fail fast on inventory with short timeout, rate-limit or shed catalog traffic, disable the new reservation rule, and protect checkout.',
     'Permanent: bulkheads (separate requester pools/concurrency per downstream and per feature, separate apps for critical journeys), circuit breakers with fallbacks, a timeout budget, stock caching or an event-fed availability store, async order acceptance.',
-    'Architectural root cause: synchronous coupling everywhere with no failure isolation — API-led layering without resilience patterns turns reuse into a shared failure domain.',
+    'Architectural root cause: synchronous coupling everywhere with no failure isolation. API-led layering without resilience patterns turns reuse into a shared failure domain.',
     'Prevention: peak readiness with load tests that include a slow dependency (not only volume), chaos tests, runbooks with kill switches, per-dependency SLOs and dashboards.',
   ],
   solution: `
-**Diagnosis — how slowness cascades.**
+**Diagnosis: how slowness cascades.**
 
 \`\`\`
 1. sys-inventory-api slows to ~25s (table lock in new reservation query)
@@ -158,7 +158,7 @@ A **failed** dependency that fails fast is cheap; a **slow** one is expensive be
 
 **Immediate mitigation (next 15 minutes).**
 1. **Stop the trigger**: disable the new promotion reservation rule / revert that query (DB team can also kill blocking sessions).
-2. **Degrade, don't die**: switch \`prc-catalog-api\` to "stock not shown / 'check availability at checkout'" via a property or feature flag — removes 24 calls per page.
+2. **Degrade, don't die**: switch \`prc-catalog-api\` to "stock not shown / 'check availability at checkout'" via a property or feature flag. This removes 24 calls per page.
 3. **Fail fast**: shorten inventory requester timeout to ~2 s and remove the retry (config change + rolling restart, or hotfix).
 4. **Protect checkout**: rate-limit catalog traffic at the gateway if needed so checkout and login get capacity; temporarily scale \`prc-checkout-api\` and the Experience APIs (scaling alone won't help while inventory is slow).
 5. Communicate status to the business; watch error rates recover per feature.
@@ -167,9 +167,9 @@ A **failed** dependency that fails fast is cheap; a **slow** one is expensive be
 - *Trigger*: an untested query with table locking under sale-day concurrency.
 - *Architectural*: the application network has **no failure isolation**. It has synchronous calls everywhere, long and equal timeouts, retries on timeouts, chatty per-tile calls, no caching, no circuit breakers, and Experience APIs where all features share one concurrency pool. API-led reuse made \`sys-inventory-api\` a shared dependency without making it safe to depend on.
 
-**Permanent fix — resilience architecture.**
+**Permanent fix: resilience architecture.**
 - **Timeout budget**: inner timeouts short and ordered (inventory 1.5 s, catalog → exp 4 s, gateway 8 s); retries only in one place and never on timeouts for overloaded resources.
-- **Circuit breakers** on calls to each System API (Object Store–based state, a reusable module or custom policy): open after N failures/slow calls, return a fallback immediately, probe periodically.
+- **Circuit breakers** on calls to each System API (Object Store based state, a reusable module or custom policy): open after N failures/slow calls, return a fallback immediately, probe periodically.
 - **Bulkheads**:
   - separate HTTP requester configs (own connection pools) per downstream API;
   - separate flows/\`maxConcurrency\` per feature so catalog can't consume checkout/login capacity;
@@ -186,16 +186,16 @@ exp-web-checkout-api --> prc-checkout-api --CB/2s--> sys-inventory-api (reservat
 \`\`\`
 
 **Prevention.**
-- Peak-readiness programme: load tests at 6–10x **plus** fault injection (slow inventory, slow payment) — volume tests alone passed this year.
+- Peak-readiness programme: load tests at 6 to 10x **plus** fault injection (slow inventory, slow payment). Volume tests alone passed this year.
 - Change freeze for risky backend changes before peak; performance review of DB changes.
 - Runbook with tested kill switches (stock display off, promotions off, catalog rate limit).
-- Per-dependency SLOs and dashboards (latency, open circuit breakers, pool saturation), alerts on latency — not only errors.
+- Per-dependency SLOs and dashboards (latency, open circuit breakers, pool saturation), alerts on latency, not only errors.
 - Architecture standard: every new synchronous dependency must declare timeout, fallback and circuit-breaker behaviour.
 `,
   followUps: [
     { q: 'Why is a slow dependency worse than a dead one?', a: 'A dead dependency fails in milliseconds and frees resources; a slow one holds connections, memory and concurrency slots for the full timeout, so capacity runs out upstream. Circuit breakers and short timeouts convert slow failures into fast ones.' },
-    { q: 'Mule 4 is non-blocking — so why did capacity run out?', a: 'Non-blocking I/O avoids parking a thread per call, but each in-flight request still uses memory, a connection from the requester pool and a slot under maxConcurrency; back-pressure then rejects new work. Thousands of 25-second calls exhaust those limits just as surely.' },
-    { q: 'Would autoscaling have saved the day?', a: 'Not much: more Experience/Process replicas just send more concurrent requests to the slow inventory database, making the lock contention worse. Isolation, fail-fast and load shedding address the cause.' },
+    { q: 'Mule 4 is non-blocking, so why did capacity run out?', a: 'Non-blocking I/O avoids parking a thread per call, but each in-flight request still uses memory, a connection from the requester pool and a slot under maxConcurrency; back-pressure then rejects new work. Thousands of 25-second calls exhaust those limits as surely.' },
+    { q: 'Would autoscaling have saved the day?', a: 'Not much: more Experience/Process replicas only send more concurrent requests to the slow inventory database, making the lock contention worse. Isolation, fail-fast and load shedding address the cause.' },
     { q: 'How do you decide which features to degrade first?', a: 'Agree a priority list with the business before peak: checkout and payment first, login next, then browsing enrichments like live stock and recommendations. Kill switches follow that order.' },
   ],
 }

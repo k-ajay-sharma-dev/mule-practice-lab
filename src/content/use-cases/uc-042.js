@@ -59,7 +59,7 @@ export default {
         },
         {
           name: 'Some reviews cannot be moderated',
-          about: 'Customers send 4 reviews a second, and 1 in 100 has a photo the image service rejects every time. Those reviews go to the DLQ, and the others keep flowing.',
+          about: 'Customers send 4 reviews a second, and 1 in 100 has a photo the image service cannot process, so it fails every time. Those reviews go to the DLQ, and the others keep flowing.',
           traffic: [{ name: 'reviews', from: 'web-app', rps: 4, to: 'external-api', kind: 'write', poison: 0.01 }],
           durationMin: 60,
           expect: { answers: [{ minSuccess: 0.99 }], dlq: { min: 40 }, lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 150 }] },
@@ -72,11 +72,12 @@ A marketplace receives customer **product reviews** (text + up to 5 photos) on i
 
 Facts:
 - ~40,000 reviews/day, peaks after holiday deliveries of 15,000/hour.
-- At the peak about 4 reviews arrive each second. The text moderation API can be down for 20 minutes, and about 1 review in 100 has a photo the image service rejects every time.
+- At the peak about 4 reviews arrive each second. The text moderation API can be down for 20 minutes, and about 1 review in 100 has a photo the image service cannot process (it returns an error every time).
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good reviews must survive the 20-minute outage, and the ones that always fail must reach the DLQ.
 - Today a team of 10 moderators approves everything manually; backlog is **4 days**. Target: **90% published or rejected automatically within 10 minutes**, the rest reviewed by humans within 24 hours.
 - Checks required:
   - profanity/abuse and personal data (phone numbers, emails) in text;
-  - **verified purchase** (customer bought the product — order system API);
+  - **verified purchase** (customer bought the product, checked in the order system API);
   - spam/fake patterns (same text across products, many reviews from one account in a short time);
   - images: no inappropriate content, no faces of other people, no competitor branding.
 - Available services: a third-party **text moderation API**, a cloud **image moderation API**, the **order history API**, and the review platform's API (publish / reject / flag).
@@ -114,8 +115,8 @@ Facts:
 
 **Pipeline design.** A Moderation Process API consumer runs checks **in parallel** (Scatter-Gather with per-route timeouts, or fan-out to separate queues if checks are slow):
 - **Text**: moderation API (toxicity, profanity) + local regex for phone numbers/emails/URLs (masking or reject).
-- **Images**: each photo to the image moderation API (adult/violent content, faces, logos) — images processed concurrently but with a concurrency limit to respect quotas.
-- **Verified purchase**: order API — did this customer buy this product (and has it been delivered)?
+- **Images**: each photo to the image moderation API (adult/violent content, faces, logos). Images are processed concurrently but with a concurrency limit to respect quotas.
+- **Verified purchase**: order API. Did this customer buy this product (and has it been delivered)?
 - **Spam heuristics**: text hash compared with recent reviews (Object Store/DB), number of reviews per account per hour, account age.
 
 Each check writes its result to a **moderation record** (database) so partial results survive restarts.
@@ -129,9 +130,9 @@ The decision and the **rule version** are stored; the review platform API is cal
 
 **Human-in-the-loop.** Review queue in a moderation tool (case management in Salesforce/Zendesk or the platform's moderation UI) prioritised by age and product popularity. Moderator decisions are sent back through the same publish/reject API and logged. **Seller disputes** create a case with the review and the automated results; outcome updates the review.
 
-**Failure handling.** Each external check: timeout + retry with backoff for 5xx/429. A check that still fails → mark "unavailable" → review goes to **human review**, never auto-published. If the text API is down for long, a circuit breaker routes everything to manual review and alerts ops (graceful degradation). Poison messages go to a DLQ.
+**Failure handling.** Each external check: timeout + retry with backoff for 5xx/429. A review is never auto-published while a check has failed. During a short outage the message is rolled back to the queue and redelivered about once a minute, so a redelivery limit of about 30 outlasts a 20-minute text API outage. A review that still fails at the limit (for example a photo the image service can never process) goes to the **DLQ**, and from there to **human review**. If the text API is down for hours, a circuit breaker routes everything to manual review and alerts ops (graceful degradation).
 
-**Audit and metrics.** Immutable audit log per review: input hash, check results, rule version, decision, actor (system or moderator), timestamps. Dashboards: automation rate (target 90%), p95 time to decision, false-positive rate measured from disputes and moderator overrides — used to tune thresholds.
+**Audit and metrics.** Immutable audit log per review: input hash, check results, rule version, decision, actor (system or moderator), timestamps. Dashboards: automation rate (target 90%), p95 time to decision, false-positive rate measured from disputes and moderator overrides, used to tune thresholds.
 `,
   followUps: [
     { q: 'How do you handle a rule change that would have rejected already-published reviews?', a: 'Rules apply to new reviews by default; if needed, run a back-scan job over published reviews with the new rule version and send matches to human review rather than auto-removing.' },

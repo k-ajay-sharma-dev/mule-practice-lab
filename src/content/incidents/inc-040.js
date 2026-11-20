@@ -20,10 +20,10 @@ export default {
         type: 'multi',
         prompt: 'Why are legitimate partners throttled? (choose all causes)',
         options: [
-          'The global rate limit runs before Client ID Enforcement, so anonymous scraper requests consume the shared quota',
-          'The corporate gateway applies its own per-client limit at half the Gold tier, so the stricter limit wins',
-          'SLA tiers in API Manager are configured too low',
-          'JWT validation is too slow and causes timeouts that appear as 429',
+          'The global rate limit runs before Client ID Enforcement, so anonymous calls use the quota',
+          'The corporate gateway applies its own per-client limit at half the Gold tier',
+          'The SLA tiers in API Manager are set lower than the partner contracts',
+          'JWT validation is slow, and its timeouts are reported to partners as 429',
         ],
         answer: [0, 1],
         explain: 'Two causes: **policy order** lets junk eat the quota, and **double rate limiting** caps Gold partners at the old gateway value even at night.',
@@ -43,10 +43,10 @@ export default {
         type: 'single',
         prompt: 'What do you change **immediately**?',
         options: [
-          'Raise the global rate limit to 100,000/min',
-          'Reorder so auth runs first, block the scraper at the edge, and keep partner quotas in only one layer',
-          'Remove Client ID Enforcement so the 401s stop',
-          'Ask partners to slow down',
+          'Raise the global rate limit to 100,000/min so partners have room again',
+          'Run auth first, block the scraper at the edge, keep partner quotas in one layer',
+          'Remove Client ID Enforcement so the scraper’s 401s stop costing CPU',
+          'Ask partners to slow down until the scraper gives up',
         ],
         answer: 1,
         explain: 'Raising the limit lets the scraper through to the backend; removing auth is a security hole.',
@@ -75,7 +75,7 @@ export default {
 - Last week an admin reorganised policies on the API instance in API Manager:
   1. **Rate Limiting** (non-SLA, 1,000 req/min for the whole API)
   2. **Client ID Enforcement**
-  3. **Rate Limiting – SLA based**
+  3. **Rate Limiting - SLA based**
   4. **JWT validation**
 - Additionally, a per-client rate limit configured years ago at the corporate API gateway in front of CloudHub still applies, with a single limit for all clients that is **half** the Gold tier.
 

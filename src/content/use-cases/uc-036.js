@@ -65,7 +65,7 @@ Facts:
 - The PIM has a REST API with a **bulk import endpoint** (max 1,000 products per call) and requires: GTIN (valid check digit), supplier SKU, title, category, net weight in kg, dimensions in cm, and image URLs.
 - Category managers want an **error report back to the supplier within 1 hour** listing exactly which rows and fields are wrong.
 - A new file from the same supplier usually contains **mostly unchanged products**.
-- One bulk import of 1,000 products takes the PIM about 15 seconds. A large file brings 5 images a second for half an hour, and each takes the DAM about 8 seconds.
+- One bulk import of 1,000 products takes the PIM about 15 seconds, longer than the usual 10-second call timeout. A large file brings 5 images a second for half an hour, and each takes the DAM about 8 seconds. The import must hand each image off in under a second and never wait for the DAM.
 
 **Describe your solution:**
 - How do you handle different column layouts and units per supplier?
@@ -96,7 +96,7 @@ Facts:
   solution: `
 **Intake.** S3 new-object event (or a Scheduler listing new keys) and an Email listener (IMAP) for attachments. The supplier is identified from the upload path (\`/suppliers/{supplierId}/\`) or the sender address. The raw file is archived with an upload ID.
 
-**Supplier mapping profiles.** Each supplier has a **profile** (JSON in a database or config repo): header row number, sheet name, column → canonical field, units per field (lbs, g, inches), decimal separator. Reading: \`application/csv\` or \`application/xlsx\` with streaming for large files. A generic DataWeave transformation applies the profile — renames columns, converts units (lbs × 0.4536 → kg, inches × 2.54 → cm), trims strings. New suppliers get a profile created in an onboarding step (could be a small UI for category managers).
+**Supplier mapping profiles.** Each supplier has a **profile** (JSON in a database or config repo): header row number, sheet name, column → canonical field, units per field (lbs, g, inches), decimal separator. Reading: \`application/csv\` or \`application/xlsx\` with streaming for large files. A generic DataWeave transformation applies the profile: it renames columns, converts units (lbs × 0.4536 → kg, inches × 2.54 → cm), trims strings. New suppliers get a profile created in an onboarding step (could be a small UI for category managers).
 
 **Validation (per row).**
 - required fields present;
@@ -109,7 +109,7 @@ Each failure is recorded as \`{ row, field, value, message }\`. Invalid rows are
 
 **Change detection and loading.** For each valid product compute a **hash** of the canonical fields; compare with the last hash stored per supplier SKU (database/Object Store). Only new or changed products are sent. A **Batch Job** with a Batch Aggregator of **1,000** calls the PIM bulk endpoint; per-item results from the PIM response are added to the report.
 
-**Error reporting.** After the batch \`On Complete\`, generate a report (Excel with an "errors" sheet, or CSV) and email it to the supplier contact / post it in the supplier portal, with counts: received, valid, unchanged, loaded, rejected. Target: within 1 hour of upload — even 50,000 rows streams through in minutes.
+**Error reporting.** After the batch \`On Complete\`, generate a report (Excel with an "errors" sheet, or CSV) and email it to the supplier contact / post it in the supplier portal, with counts: received, valid, unchanged, loaded, rejected. Target: within 1 hour of upload. Even 50,000 rows is 50 bulk calls of about 15 seconds each, so the job sets a call timeout above 15 seconds (30 seconds) and finishes in minutes.
 
 **Images.** Image URLs go to a separate queue: download, check type/size, push to the DAM/CDN, then update the product's image reference. Failures are reported but do not block the product data.
 `,

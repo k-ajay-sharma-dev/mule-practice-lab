@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'Why does Production run without the Production policy?',
         options: [
-          'The app still carries the Sandbox API Instance ID. Promotion creates a new instance ID in the target environment, and the app was never updated',
-          'Client ID Enforcement does not work on hybrid servers',
-          'The policy needs a restart of API Manager',
-          'Gatekeeper is set to `disabled`',
+          'The JAR still holds the Sandbox instance ID, and promotion gave Production a new ID',
+          'Client ID Enforcement is not supported on hybrid servers, only on CloudHub runtimes',
+          'The policy was added on 02 Oct, and it only applies after the servers are restarted',
+          'Gatekeeper is set to `disabled` on prod-07, so policies are downloaded but not applied',
         ],
         answer: 0,
         explain: 'The promotion page says the API Label stays the same but the API Instance ID changes, and that promotion affects only the API definition, not deployed applications. Existing apps must update the ID.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'A wrong ID is often expected to stop pairing altogether. Why did this app pair with an instance in another environment?',
         options: [
-          'The runtime uses organization credentials, which cover both environments. Environment credentials manage only APIs specific to that environment',
-          'API Manager falls back to the first instance with the same asset',
-          'Autodiscovery ignores the environment entirely in all setups',
-          'Promotion links the two instances for 30 days',
+          'The servers use organization credentials, which can reach both environments',
+          'API Manager falls back to the oldest instance of the same asset when an ID is wrong',
+          'Autodiscovery ignores the environment and looks the ID up across the whole org',
+          'Promotion keeps the two instances linked for 30 days, so either ID still works',
         ],
         answer: 0,
         explain: 'The docs recommend environment credentials, and they say that if your APIs are in different environments, you must instead use the credentials of the organization that contains both. That reach is what made the error silent here.',
@@ -49,7 +49,7 @@ export default {
           'Use the environment client ID and secret for each environment',
           'Add a pipeline check that the ID exists in the target environment, using `api-mgr:api:list` with `--output json`',
           'After promoting, update the Instance ID and the client ID and secret of apps that must subscribe',
-          'Re-promote the Sandbox instance until it gets the old ID',
+          'Promote the Sandbox instance again, so that Production gets the ID already in the JAR',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Each promotion creates an instance with its own ID, so you cannot keep the old one. The value belongs to the deployment, and deployment properties rank highest in the properties hierarchy.',
@@ -58,13 +58,13 @@ export default {
         type: 'single',
         prompt: 'The corrected deployment goes out. What should consumers expect in the first moments?',
         options: [
-          'The tracked resource returns `503` until the policies are applied, and it stays blocked until contracts are available if a policy needs them',
-          'No change, because Gatekeeper never acts on a redeploy',
-          'A `401` for all callers for 24 hours',
-          'Traffic passes unprotected until the next restart',
+          'Short `503` responses until the policies and contracts are in place',
+          'No change, because Gatekeeper only acts on a restart of the runtime',
+          'A `401` for every caller until each one requests a new contract',
+          'Unprotected traffic until the runtime is restarted a second time',
         ],
         answer: 0,
-        explain: 'Gatekeeper engages when you restart the runtime or redeploy a tracked resource linked to an API instance. It blocks with `503 - Service Unavailable` until all policies are applied without errors.',
+        explain: 'Gatekeeper engages when you restart the runtime or redeploy a tracked resource linked to an API instance. It blocks with `503 Service Unavailable` until all policies are applied without errors.',
       },
       {
         type: 'order',
@@ -147,7 +147,7 @@ export default {
 </armDeployment>
 \`\`\`
 
-Expect Gatekeeper to engage. On redeploy, the tracked resource returns \`503 - Service Unavailable\` until all API instance policies are applied, and the Gatekeeper page says APIs stay blocked until contracts are downloaded if a policy requires them. The default level is \`flexible\` from Mule 4.1.0.
+Expect Gatekeeper to engage. On redeploy, the tracked resource returns \`503 Service Unavailable\` until all API instance policies are applied, and the Gatekeeper page says APIs stay blocked until contracts are downloaded if a policy requires them. The default level is \`flexible\` from Mule 4.1.0.
 - Verify from outside: a call with no client ID must now fail, and the Production instance must show as tracked.
 
 **Root cause.** Three facts lined up.

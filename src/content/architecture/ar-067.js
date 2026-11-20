@@ -11,7 +11,7 @@ export default {
   tags: ['myproject', 'retail', 'supply-chain', 'activemq', 'jms', 'anypoint-mq', 'kafka', 'messaging'],
   estMinutes: 30,
   diagram: {
-    task: 'draw one store and HQ. Show sales going from the POS to Oracle Retail, and price changes going from HQ to the POS. Draw each broker destination as a Queue box: put "store broker" in the names of the ones in the store, and "hub" in the names of the ones at HQ.',
+    task: 'draw one store and HQ. Show sales going from the POS to Oracle Retail, and price changes going from HQ to the POS. Draw each broker destination as a Queue box: put "store broker" in the names of the ones in the store, and "hub" in the names of the ones at HQ. Put "sales" in the name of the HQ app that loads sales into Oracle Retail, and "price" in the name of the HQ app that sends price changes.',
     checks: [
       { label: 'The POS publishes each sale to the store broker as an async message', rule: { type: 'edge', from: 'pos', to: STORE, kind: 'async' } },
       { label: 'The store broker forwards to the HQ hub', rule: { type: 'edge', from: STORE, to: HUB, kind: 'async' } },
@@ -43,22 +43,22 @@ export default {
       tests: [
         {
           name: 'HQ cannot take sales for two hours',
-          about: 'The stores send 50 sales a second in all. For two hours HQ cannot take them. Every POS still gets its sale accepted, nothing is lost, and the backlog is cleared within the four hour run.',
+          about: 'The stores send 50 sales a second in all. For two hours HQ cannot take them. Every POS still gets its sale accepted, nothing is lost, and the backlog is cleared within two hours of HQ coming back.',
           traffic: [{ name: 'sales', from: 'pos', rps: 50, to: 'erp', kind: 'write' }],
-          incidents: [{ down: { type: 'process-api', label: 'store-sales' }, at: 10, forMin: 120 }],
+          incidents: [{ down: { type: 'process-api', label: 'sales' }, at: 10, forMin: 120 }],
           durationMin: 240,
-          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'store.sales' }, maxEnd: 100 }], lost: { max: 0 } },
+          expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: HUB, maxEnd: 100 }], lost: { max: 0 } },
         },
         {
           name: 'The hub broker restarts',
           about: 'HQ stops taking sales for 30 minutes, and halfway through the hub broker restarts. The sales waiting in the hub survive the restart and reach Oracle Retail afterwards.',
           traffic: [{ name: 'sales', from: 'pos', rps: 50, to: 'erp', kind: 'write' }],
           incidents: [
-            { down: { type: 'process-api', label: 'store-sales' }, at: 5, forMin: 30 },
-            { restart: { type: 'queue', label: 'store.sales' }, at: 20 },
+            { down: { type: 'process-api', label: 'sales' }, at: 5, forMin: 30 },
+            { restart: HUB, at: 20 },
           ],
           durationMin: 90,
-          expect: { backlog: [{ queue: { type: 'queue', label: 'store.sales' }, maxEnd: 100 }], lost: { max: 0 } },
+          expect: { backlog: [{ queue: HUB, maxEnd: 100 }], lost: { max: 0 } },
         },
         {
           name: 'A store is offline when prices change',
@@ -66,10 +66,10 @@ export default {
           traffic: [{ name: 'prices', from: { type: 'process-api', label: 'price' }, rps: 2, to: 'pos', kind: 'write' }],
           incidents: [
             { down: 'pos', at: 0, forMin: 60 },
-            { restart: { type: 'queue', label: 'store broker: prices' }, at: 30 },
+            { restart: STORE, at: 30 },
           ],
           durationMin: 120,
-          expect: { delivered: [{ to: 'pos', min: 0.99 }], backlog: [{ queue: { type: 'queue', label: 'store broker: prices' }, maxEnd: 10 }], lost: { max: 0 } },
+          expect: { delivered: [{ to: 'pos', min: 0.99 }], backlog: [{ queue: STORE, maxEnd: 10 }], lost: { max: 0 } },
         },
       ],
     },
@@ -79,10 +79,10 @@ export default {
       type: 'single',
       prompt: 'A store loses its WAN link for 4 hours on a Saturday. Which design keeps POS sales from being lost and delivers them to HQ when the link returns?',
       options: [
-        'A small ActiveMQ broker in the store with persistent messages, forwarding to the HQ broker (store-and-forward) when the link is up',
-        'The store Mule app calls the HQ Process API over HTTPS with until-successful (5 retries, 10 s apart)',
-        'The POS publishes directly to an Anypoint MQ queue in the cloud',
-        'A non-durable JMS topic at HQ that the stores publish to',
+        'A small ActiveMQ broker in each store with persistent messages, forwarding to HQ',
+        'The store Mule app calls HQ over HTTPS with until-successful, 5 retries 10 s apart',
+        'The POS publishes each sale directly to an Anypoint MQ queue in the cloud',
+        'The POS publishes to a JMS topic at HQ that the sales app subscribes to',
       ],
       answer: 0,
       explain: 'Only a **local persistent broker** absorbs hours of outage: messages are written to its store and forwarded when the network connector reconnects. Retries over HTTPS or a direct cloud publish both need the network at the moment of the sale.',
@@ -114,25 +114,25 @@ export default {
       needsScenario: true,
       prompt: 'An architect proposes a Kafka cluster in every store "for consistency with HQ". What is the strongest objection?',
       options: [
-        'A production Kafka cluster needs several brokers plus controller quorum to be highly available — far too heavy to operate in 400 back offices',
-        'Kafka cannot store messages on disk',
-        'Kafka does not support ordering at all',
-        'Mule 4 has no Kafka connector',
+        'A resilient Kafka cluster needs several nodes, too heavy to run in 400 back offices',
+        'Kafka keeps order only within a partition, so store sales would arrive out of order',
+        'Kafka cannot copy topics between clusters, so sales could never reach HQ',
+        'Mule 4 apps need a custom connector to publish to or consume from Kafka',
       ],
       answer: 0,
-      explain: 'Kafka is excellent at HQ for high-volume fan-out and replay, but a resilient cluster per store is an operational burden. A single lightweight broker per store with store-and-forward is the usual edge pattern.',
+      explain: 'A highly available Kafka cluster needs several brokers and a controller quorum. Kafka is excellent at HQ for high-volume fan-out and replay, but a cluster per store is an operational burden. Ordering per store is kept by keying on the store, MirrorMaker copies topics between clusters, and Mule 4 has a Kafka connector. A single lightweight broker per store with store-and-forward is the usual edge pattern.',
     },
     {
       type: 'single',
       prompt: 'HQ sends price changes to all 400 stores. Some stores are offline when the change is published. How should HQ publish so that every store still receives it?',
       options: [
-        'Durable delivery per store: a queue per store (or a virtual topic with one consumer queue per store) that is forwarded when the store reconnects',
-        'A plain non-durable JMS topic — offline stores catch up from the next price file',
-        'HTTP POST to each store with a 30 s timeout',
-        'Anypoint MQ FIFO queue shared by all stores so they compete for messages',
+        'A durable queue per store, or a virtual topic with one consumer queue per store',
+        'A non-durable JMS topic; offline stores catch up from the next price file',
+        'An HTTP POST from HQ to each store, retried 5 times with a 30 s timeout',
+        'One shared Anypoint MQ FIFO queue that all 400 stores read from',
       ],
       answer: 0,
-      explain: 'Non-durable topic subscribers miss messages sent while they are offline, and a single shared queue would deliver each price change to only ONE store. Each store needs its own durable destination.',
+      explain: 'Non-durable topic subscribers miss messages sent while they are offline, HTTP retries give up long before an hour, and a single shared queue would deliver each price change to only ONE store. Each store needs its own durable destination, forwarded when the store reconnects.',
     },
     {
       type: 'order',
@@ -157,9 +157,9 @@ The business wants:
 Facts:
 - Store WAN links are cheap broadband: **outages of minutes to hours** happen weekly.
 - A small central integration team (4 people) and one store-IT team.
-- All 400 stores together send about **50 sales a second**. HQ has been unable to take them for up to **two hours** at a time.
+- All 400 stores together send about **50 sales a second**. HQ has been unable to take them for up to **two hours** at a time. Once HQ is back, the backlog must be cleared within **two hours**.
 - Oracle Retail takes up to **150 sales a second** and answers in about 80 ms.
-- HQ sends about **2 price changes a second**. A store can be offline for an hour, and store brokers sometimes restart.
+- HQ sends about **2 price changes a second**. A store can be offline for an hour. Store brokers and the HQ broker sometimes restart.
 
 Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS), **Anypoint MQ**, and **Kafka** (the analytics team wants it).
 
@@ -179,7 +179,7 @@ Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS
   keyPoints: [
     'The deciding constraint is intermittent store connectivity: the store needs a local persistent buffer.',
     'ActiveMQ fits the edge: a lightweight broker per store with network connectors that store-and-forward to the HQ hub.',
-    'Anypoint MQ suits cloud-to-cloud decoupling between CloudHub apps but is a cloud service — it cannot replace a local buffer.',
+    'Anypoint MQ suits cloud-to-cloud decoupling between CloudHub apps but is a cloud service, so it cannot replace a local buffer.',
     'Kafka fits HQ for high-volume fan-out and replay to analytics, not as a cluster in every store.',
     'HQ-to-store messages need durable per-store delivery (queue per store or virtual topic), not a non-durable topic.',
     'Persistent messages on every broker, so a restart loses nothing, and an HQ consumer sized well above the normal rate, so a backlog from an outage drains in about an hour.',
@@ -195,9 +195,9 @@ Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS
                                                  └──► (optional) Kafka for analytics fan-out / replay
 \`\`\`
 
-**Store edge — ActiveMQ.** A single small broker per store (or the store's existing server) accepts persistent messages from the POS even when the WAN is down. It is cheap to run, speaks JMS (and other protocols such as STOMP/AMQP/MQTT for non-Java POS software) and supports **network connectors** that forward messages to the hub when connectivity is available.
+**Store edge: ActiveMQ.** A single small broker per store (or the store's existing server) accepts persistent messages from the POS even when the WAN is down. It is cheap to run, speaks JMS (and other protocols such as STOMP/AMQP/MQTT for non-Java POS software) and supports **network connectors** that forward messages to the hub when connectivity is available.
 
-**Store → HQ — network of brokers.** Messages move from the store broker to the HQ hub over a duplex network connector. Each hop only drops the message after the next broker has persisted it. The HQ Mule app consumes from the hub with a \`jms:listener\` and calls the Oracle System API.
+**Store → HQ: network of brokers.** Messages move from the store broker to the HQ hub over a duplex network connector. Each hop only drops the message after the next broker has persisted it. The HQ Mule app consumes from the hub with a \`jms:listener\` and calls the Oracle System API.
 
 **Inside HQ.**
 - Keep ActiveMQ as the hub, since stores already speak it.
@@ -215,6 +215,6 @@ Three options are on the table: **ActiveMQ** (one already runs at HQ for the WMS
   followUps: [
     { q: 'A store is offline for 3 days; when it reconnects it receives 40 price changes for the same SKU. What do you do?', a: 'Give price messages an effective date and version and let the store apply only the latest per SKU; optionally set a JMS expiration so superseded messages are discarded rather than replayed.' },
     { q: 'How do you monitor 400 store brokers with a small team?', a: 'Expose broker metrics (queue depth, forward backlog, store usage) via JMX/Jolokia or the broker metrics plugin into central monitoring, and alert on per-store backlog age rather than on every disconnect.' },
-    { q: 'Could the store just write to a local database table instead of a broker?', a: 'Yes — a local outbox table plus a forwarding job is a valid store-and-forward design; the broker gives you delivery, retries and acknowledgement out of the box, the table gives you simpler tooling. Either way the buffer must be local and persistent.' },
+    { q: 'Could the store write to a local database table instead of a broker?', a: 'Yes. A local outbox table plus a forwarding job is a valid store-and-forward design; the broker gives you delivery, retries and acknowledgement out of the box, the table gives you familiar tooling. Either way the buffer must be local and persistent.' },
   ],
 }

@@ -80,8 +80,8 @@ Facts:
 - Documents: outbound **850** (PO), inbound **855** (PO ack), **856** (ASN), **810** (invoice); every document is acknowledged with a **997**.
 - 40 large suppliers use **AS2**; 230 use **SFTP** (some push to us, some expect us to pull); 30 small suppliers will use a web portal (out of scope here).
 - Each supplier has its own ISA/GS IDs, X12 version (4010 or 5010), separators, and some send non-standard segments.
-- **Oracle EBS** owns POs and invoices; the **WMS** needs ASNs before trucks arrive.
-- Volume: 20,000 documents/day, peaks of 2,000/hour on Monday mornings. For the Run tab: suppliers can push 80 ASNs a second for 15 minutes when a batch of SFTP files lands, the WMS takes at most 25 a second, and Oracle EBS can be down for 30 minutes. In this lab 0.1 vCore carries about 50 requests a second.
+- **Oracle EBS** owns POs and invoices, and its System API can publish an event when a PO is released. The **WMS** needs ASNs before trucks arrive.
+- Volume: 20,000 documents/day, peaks of 2,000/hour on Monday mornings. For the Run tab: suppliers can push 80 ASNs a second for 15 minutes when a batch of SFTP files lands, the WMS takes at most 25 a second, and Oracle EBS can be down for 30 minutes with no document lost. In this lab 0.1 vCore carries about 50 requests a second, and a broker redelivers a failed message about once a minute.
 - Audit requires the raw files for 7 years. Buyers complain they never know when a supplier "did not get" a PO.
 
 **Questions:**
@@ -125,9 +125,9 @@ Facts:
 
 **Inbound.** Archive first (claim check), then parse with the X12 module, validate, generate a **997** (accepted / accepted with errors / rejected) and send it back. Valid documents are mapped to canonical JSON and queued. \`prc-supplier-documents\` routes by type: 855 updates PO lines in Oracle, 856 creates expected receipts in the WMS, 810 goes to AP for matching. Duplicates are detected by sender + control number.
 
-**Outbound.** When Oracle releases a PO, an event triggers \`prc-b2b-outbound\`, which builds the 850 with the partner's version and control numbers, sends it, and records "awaiting 997". A scheduled check flags POs without a 997 after N hours (per profile) and alerts the buyer — this answers "the supplier never got it".
+**Outbound.** When Oracle releases a PO, an event triggers \`prc-b2b-outbound\`, which builds the 850 with the partner's version and control numbers, sends it, and records "awaiting 997". A scheduled check flags POs without a 997 after N hours (per profile) and alerts the buyer. This answers "the supplier never got it".
 
-**Isolation and peaks.** Queues absorb Monday peaks; consumers scale horizontally. A partner sending malformed files gets 997 rejections and DLQ entries without blocking others; per-partner concurrency limits stop one big batch from starving everyone.
+**Isolation and peaks.** Queues absorb Monday peaks; consumers scale horizontally. \`prc-b2b-inbound\` runs on 0.5 vCore so it can take 80 ASNs a second and answer every 997 at once. The canonical queue has no redelivery limit (or one well above 30), so a 30 minute Oracle outage sends nothing to the DLQ. A partner sending malformed files gets 997 rejections and DLQ entries without blocking others; per-partner concurrency limits stop one big batch from starving everyone.
 
 **Trade-offs:** Mule-built B2B gives full control but you own AS2 certificate rotation and partner management UI; a managed B2B/VAN service or Partner Manager can take over that edge if onboarding volume grows.
 `,

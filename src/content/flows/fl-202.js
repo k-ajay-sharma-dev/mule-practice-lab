@@ -103,6 +103,12 @@ The FTP link drops now and then, and a cut off file once loaded half a night of 
 - Load it only when the trailer is there and its count equals the detail lines. Then archive it to \`/wms/receipts/archive\`.
 - Otherwise load nothing and move it to \`/wms/receipts/error\`.
 
+**Facts**
+- Listen for \`RCV_*.txt\` with a size check wait.
+- Parse the whole file in one Transform first. Keep the trailer count as \`trailerCount\`, or -1 when there is no trailer, and compare it with the number of detail lines in a **Choice**.
+- Each row has \`file_name\` (the file's name), \`dc\` from the header, \`sku\` as the 7 digit text, \`qty\` as a number (\`000480\` becomes 480) and \`po_number\`.
+- Log a count that does not match at WARN. Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading a fixed width file

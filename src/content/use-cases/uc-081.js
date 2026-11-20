@@ -73,7 +73,9 @@ Facts:
 - The loyalty engine (SaaS) has a REST API limited to **50 calls a second**. It also writes a **nightly export** to S3 at 00:30: one row per member with balance, points by expiry month and tier.
 - Peak days produce about **250,000 messages**. The SMS provider accepts **100 messages a second**; email 500 a second.
 - The CRM API allows 200 calls a second.
-- On a peak morning the job queues about **240,000 messages in 20 minutes**, and about 1 message in 100 has contact details the provider always rejects.
+- On a peak morning about **240,000 messages are queued in 20 minutes** when the send window opens at 09:00, and the business wants all of them sent within the hour. No message may be lost.
+- About 1 message in 100 has contact details the provider always rejects. Such a message must reach a dead-letter queue after about 10 tries.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. How do you find who needs a message without 3.2 million API calls?
@@ -104,15 +106,15 @@ Facts:
 - on the 1st, the tier differs from the previous month's tier (both are in the export).
 Calling the loyalty API for 3.2 million members at 50 a second would take 18 hours.
 
-**Sent log.** Before queueing, the job checks the **sent notifications log** (a database table) for member ID plus type plus expiry month. Rows already there are skipped. A rerun after a crash at 03:00 therefore only queues the rest. The job inserts the row when it queues the message, in the same batch step.
+**Sent log.** Before queueing, the job checks the **sent notifications log** (a database table) for member ID plus type plus expiry month. Rows already there are skipped. A rerun after a crash at 03:00 therefore only picks up the rest. The job inserts the row with status DUE in the same batch step. At 09:00 it publishes the DUE messages to the queue, about 240,000 in 20 minutes on a peak day.
 
 **Queue and throttled sender.** Due messages go to **member-notifications** with member ID, type, points and date. prc-member-notify consumes with a fixed number of threads:
-- SMS sends are spread so they stay under 100 a second; 250,000 messages fit within the day.
+- SMS sends are spread so they stay under 100 a second. The queue holds the 200 a second burst, and 240,000 messages at 100 a second take 40 minutes, inside the hour. The sender and the System APIs run on 0.5 vCore each to keep that pace.
 - Outside 09:00 to 20:00 the consumer is stopped (or messages are not acknowledged and redelivered later), so nothing goes out at night.
 
 **Consent and channel.** For each message the sender calls sys-crm-preferences for consent and preferred channel. No consent means drop the message and mark it as suppressed in the log. The channel decides the template. sys-notifications sends through the email, SMS or push provider.
 
-**Errors and reruns.** Provider errors are retried by redelivery with backoff. After 5 deliveries the message goes to **member-notifications-dlq**. A daily report shows queued, sent, suppressed and failed counts per type.
+**Errors and reruns.** Provider errors are retried by redelivery, about once a minute. After 10 deliveries the message goes to **member-notifications-dlq**. A daily report shows queued, sent, suppressed and failed counts per type.
 `,
   followUps: [
     { q: 'Why not let the loyalty engine send these messages itself?', a: 'Check that first, since many engines can. Here consent and channel live in the CRM, so the engine cannot honour them without an integration anyway.' },

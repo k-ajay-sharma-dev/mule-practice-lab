@@ -6,7 +6,7 @@ const bulk = { name: 'plan rows', from: 'batch-job', rps: 250, to: 'oracle-db', 
 export default {
   id: 'uc-190',
   category: 'use-cases',
-  title: 'A Nightly Plan Load Into the Same Oracle the Stores Order From: a Queue and a Sized Loader So 450,000 Rows Never Push the Store Orders Out',
+  title: 'A Nightly Plan Load Into the Same Oracle the Stores Order From: a Queue and a Sized Loader So 450,000 Row Groups Never Push the Store Orders Out',
   level: 'ADVANCED',
   tags: ['myproject', 'oracle', 'bulk-load', 'queues', 'sizing', 'capacity', 'planning'],
   estMinutes: 45,
@@ -59,7 +59,7 @@ export default {
     },
   },
   description: `
-Fenwick Supply, a fictional builders' merchant, loads the planning platform's replenishment plan into its merchandising **Oracle** database every evening: about **450,000 rows**, read from a file by a plan load job. The same Oracle takes **store orders** from the tills until 22:00.
+Fenwick Supply, a fictional builders' merchant, loads the planning platform's replenishment plan into its merchandising **Oracle** database every evening: about **450,000 row groups** of a few hundred rows each, read from a file by a plan load job. The same Oracle takes **store orders** from the tills until 22:00.
 
 Last month the job wrote straight to Oracle as fast as it could. Oracle reached its limit, and for half an hour store orders failed at the tills.
 
@@ -68,6 +68,7 @@ Last month the job wrote straight to Oracle as fast as it could. Oracle reached 
 - The tills write about **150 orders a second** in late trading.
 - Oracle takes about **400 writes a second** in total before it slows.
 - The plan must be loaded within **two hours**.
+- When Oracle restarts it is down for up to **15 minutes**. No plan row may be lost or sent to the dead-letter queue because of a restart.
 - In this model one vCore serves about 500 simple requests a second, the smallest API (0.1 vCore) about 50, and a failed delivery is tried again about once a minute. A queue consumer only takes what its own capacity and the boxes behind it have spare.
 
 **Questions:**
@@ -99,7 +100,7 @@ plan-load-job ~► plan.rows ~► prc-plan-loader ─► sys-plan-oracle ─► 
                           ~► plan.rows.dlq
 \`\`\`
 
-**Settings.** \`plan-load-job\`: 1 vCore. \`prc-plan-loader\` and \`sys-plan-oracle\`: 0.5 vCore each, so the loader can use what Oracle has spare. \`sys-store-orders\`: 0.5 vCore for 150 orders a second. \`plan.rows\`: 30 deliveries.
+**Settings.** \`plan-load-job\`: 1 vCore. \`prc-plan-loader\` and \`sys-plan-oracle\`: 0.5 vCore each, so the loader can use what Oracle has spare. \`sys-store-orders\`: 0.5 vCore for 150 orders a second. \`plan.rows\`: 30 deliveries, which at about one a minute covers a 15 minute restart with room to spare.
 
 **In the database.** Ask the DBA team for a resource plan too: Oracle Resource Manager can give the till sessions priority over the loader's sessions, which backs up the design inside Oracle.
 `,

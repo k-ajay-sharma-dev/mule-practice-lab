@@ -11,7 +11,7 @@ export default {
   tags: ['myproject', 'topic', 'publish-subscribe', 'fan-out', 'dlq', 'notifications', 'leisure'],
   estMinutes: 20,
   diagram: {
-    task: 'draw the weather service calling a weather alerts Experience API, which publishes each warning to a topic. Three subscribers read the topic, each calling its own System API: one for the lift control system, one for the resort website and one for the staff app notifications. The topic has a dead-letter queue.',
+    task: 'draw the weather service calling a weather alerts Experience API, which publishes each warning to a topic. Three System APIs subscribe to the topic directly, each with its own copy: one for the lift control system, one for the resort website and one for the staff app notifications. The topic has a dead-letter queue.',
     checks: [
       { label: 'The weather service calls an Experience API', rule: { type: 'edge', from: 'external-api', to: 'experience-api' } },
       { label: 'The Experience API publishes warnings to a topic', rule: { type: 'edge', from: 'experience-api', to: 'topic', kind: 'async' } },
@@ -76,6 +76,7 @@ Today the weather service calls one Mule flow that updates the three in turn. Wh
 - Usually a few warnings an hour, up to **2 a second** in a storm.
 - The lift control system restarts for up to 20 minutes after an update.
 - Now and then a warning comes in a format nobody can read.
+- No warning may be lost. A failed message is redelivered about once a minute, and every delivery counts toward the redelivery limit. No good warning may reach the DLQ during a 20-minute restart, and unreadable ones must reach the DLQ.
 
 **Questions:**
 - Draw the design.

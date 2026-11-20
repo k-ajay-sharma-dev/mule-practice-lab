@@ -9,7 +9,7 @@ export default {
     logs: [
       { text: "2026-11-18 07:00:00 INFO  [sales-hub] Received ftp=180 sftp=72 share=8 expected=260", relevant: true, why: "All stores reported." },
       { text: "2026-11-18 07:00:00 INFO  [sales-hub] Totals ftp=1.2M sftp=0.51M share=0.04M", relevant: true, why: "Totals by source." },
-      { text: "2026-11-18 07:30:00 WARN  [finance] Hub total differs from finance by 0.6 percent", relevant: true, why: "A gap with finance." },
+      { text: "2026-11-18 07:30:00 WARN  [finance] Hub total differs from finance by 0.02 percent", relevant: true, why: "A gap with finance." },
       { text: "2026-11-18 07:31:00 INFO  [sales-hub] FTP source rounding=2dp, SFTP rounding=none, share rounding=0dp", relevant: true, why: "Each source rounds differently." },
       { text: "2026-11-18 23:59:00 INFO  [sales-hub] GET /health 200", relevant: false },
     ],
@@ -19,9 +19,9 @@ export default {
         prompt: "Why do totals differ?",
         options: [
           "Each source rounds amounts differently",
-          "Files are missing",
-          "FTP lost data",
-          "Finance is wrong",
+          "Some store files are missing today",
+          "FTP transfers drop some sales rows",
+          "Finance books sales a day earlier",
         ],
         answer: 0,
         explain: "Every store reported. Rounding differs.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What fixes it?",
         options: [
-          "Agree one format with full precision, and convert in one canonical mapping",
-          "Round everything to zero places",
-          "Ignore it",
-          "Use FTP only",
+          "Take full precision from every source into one canonical mapping",
+          "Round every source to zero places so all three match",
+          "Book the gap to a suspense account each day",
+          "Move all stores to FTP so they share one rounding rule",
         ],
         answer: 0,
         explain: "One canonical model.",
@@ -45,7 +45,7 @@ export default {
           "Totals per store compared with finance",
           "Counts per source",
           "The rule used by each source documented",
-          "Only the grand total",
+          "Only the grand total for the day",
         ],
         answer: [0,1,2],
         explain: "Find where the gap starts.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Where should rounding happen?",
         options: [
           "Once, at the end, by an agreed rule",
-          "At every step",
-          "At each store",
-          "Never",
+          "At every step of the mapping",
+          "At each store before upload",
+          "In finance only, never in the hub",
         ],
         answer: 0,
         explain: "Rounding early loses precision.",
@@ -78,7 +78,7 @@ export default {
   },
   description: `
 ## Symptoms
-- The daily sales total differs from finance by 0.6 percent.
+- The daily sales total differs from finance by 0.02 percent.
 
 ## Change / Context
 - Stores report over FTP, SFTP or a file share, depending on their age.
@@ -88,7 +88,7 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 07:00:00 INFO  [sales-hub] Received ftp=180 sftp=72 share=8 expected=260
 2026-11-18 07:00:00 INFO  [sales-hub] Totals ftp=1.2M sftp=0.51M share=0.04M
-2026-11-18 07:30:00 WARN  [finance] Hub total differs from finance by 0.6 percent
+2026-11-18 07:30:00 WARN  [finance] Hub total differs from finance by 0.02 percent
 2026-11-18 07:31:00 INFO  [sales-hub] FTP source rounding=2dp, SFTP rounding=none, share rounding=0dp
 \`\`\`
 

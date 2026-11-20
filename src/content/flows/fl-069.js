@@ -313,7 +313,7 @@ export default {
 A food retailer must be able to execute a **product recall** within minutes. Quality assurance raises it in a QA portal, which calls \`POST /api/recalls\` with \`{ recallId, sku, lots[], reason, severity, raisedBy }\`.
 
 Data in **Oracle**:
-- \`STOCK_LOT\` — stock by lot at **3 DCs, 650 stores** and in transit.
+- \`STOCK_LOT\`: stock by lot at **3 DCs, 650 stores** and in transit.
 - Sales history linking lots to **loyalty customers** and **online orders** (via the package \`TRACE_PKG\`, which returns REF CURSORs).
 
 **Requirements**
@@ -325,6 +325,15 @@ Data in **Oracle**:
    - **customers** who bought the lots, via the marketing notification service (REST, slow, flaky).
 4. Regulators require an **audit trail**: which party was notified, when, and with what outcome.
 5. A recall submitted twice must not be executed twice.
+
+**Facts**
+- \`RECALL\` has \`RECALL_ID\` (primary key), \`SKU\`, \`LOT_LIST\`, \`REASON\`, \`SEVERITY\`, \`STATUS\`, \`RAISED_BY\`, \`RAISED_AT\` and \`NOTIFIED_AT\`.
+- \`TRACE_PKG.QUARANTINE_LOTS(recallId, sku, lotCsv, quarantinedQty OUT, locationCount OUT)\` blocks the lots (given as one comma-separated text) everywhere. It does not commit.
+- \`TRACE_PKG.AFFECTED_PARTIES(recallId, locations OUT, customers OUT)\` returns the locations (\`LOCATION_ID\`, \`LOCATION_TYPE\` STORE or DC, \`LOT_NO\`, \`QTY\`) and the customers (\`CUSTOMER_ID\`, \`PREFERRED_CHANNEL\`, \`ORDER_ID\`).
+- The notification service is \`POST /notifications/v1/campaigns\`. It can take tens of seconds and is sometimes down for minutes.
+- Audit rows go to \`RECALL_NOTIFICATION\` (\`RECALL_ID\`, \`TARGET\`, \`STATUS\`, \`ERROR_TEXT\`, \`NOTIFIED_AT\`).
+- QA gets **202** with the quantity and location count, and **409** for a recall id that already exists.
+- The hand-off to the fan-out uses an ActiveMQ queue whose name starts with \`RECALL\`, for example \`RECALL.ISSUED\`.
 
 **Design the flow(s).**
 `,
@@ -351,13 +360,13 @@ Data in **Oracle**:
     'Notification results go to a RECALL_NOTIFICATION table for the regulator audit trail; MULE:COMPOSITE_ROUTING tells you which route failed.',
   ],
   solution: `
-**Flow 1 — \`recall-api\`** (target < 5 s)
+**Flow 1: \`recall-api\`** (target < 5 s)
 1. **HTTP Listener** \`POST /api/recalls\`; validate lots.
-2. **Try (ALWAYS_BEGIN)** — **Database Insert** \`RECALL\` (PK \`RECALL_ID\`) + **Stored Procedure** \`TRACE_PKG.QUARANTINE_LOTS\` (OUT quantity and location count). The procedure must not COMMIT itself; the Try commits both. The lots go in as one comma-separated value kept in a variable, and the Insert puts its result in a target variable, so the procedure still reads the recall from the payload.
+2. **Try (ALWAYS_BEGIN)**: **Database Insert** \`RECALL\` (PK \`RECALL_ID\`) + **Stored Procedure** \`TRACE_PKG.QUARANTINE_LOTS\` (OUT quantity and location count). The procedure must not COMMIT itself; the Try commits both. The lots go in as one comma-separated value kept in a variable, and the Insert puts its result in a target variable, so the procedure still reads the recall from the payload.
 3. **JMS Publish** \`RECALL.ISSUED\` → **202** with the quarantine summary.
 4. ORA-00001 → **409** (recall already exists). If the publish fails after the commit, a 500 tells QA to retry; with the 409 path that would block the retry, so an outbox (event row in the same transaction + poller) is the robust choice.
 
-**Flow 2 — \`recall-fanout\`**
+**Flow 2: \`recall-fanout\`**
 1. **JMS On New Message** \`RECALL.ISSUED\`.
 2. **Stored Procedure** \`TRACE_PKG.AFFECTED_PARTIES\` with two **OUT SYS_REFCURSOR** parameters (locations, customers).
 3. DataWeave → \`vars.targets\` (stores grouped by store, DC lines, customers).
@@ -367,7 +376,7 @@ Data in **Oracle**:
    - Customers: **Until Successful** → **HTTP Request** to the notification service with an idempotency key (\`RECALL-<id>\`).
 5. Flatten the route results → **Database Bulk Insert** \`RECALL_NOTIFICATION\` → mark the recall NOTIFIED.
 
-**Failures:** if a route fails, Scatter-Gather raises **MULE:COMPOSITE_ROUTING** with the successful and failed results; record the partial failure and propagate so the event is redelivered (DLQ after N attempts, with an alert — a recall stuck in a DLQ is a P1). Because routes may run again, stores, WMS and the campaign service must de-duplicate on recallId.
+**Failures:** if a route fails, Scatter-Gather raises **MULE:COMPOSITE_ROUTING** with the successful and failed results; record the partial failure and propagate so the event is redelivered (DLQ after N attempts, with an alert, because a recall stuck in a DLQ is a P1). Because routes may run again, stores, WMS and the campaign service must de-duplicate on recallId.
 
 **Why not do it all in the API?** Customer notification can take minutes and the REST service is flaky; holding QA's HTTP call open would break the 5-second requirement and lose work on a timeout.
 `,

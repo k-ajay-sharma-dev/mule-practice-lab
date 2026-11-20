@@ -17,10 +17,10 @@ export default {
         type: 'single',
         prompt: "Why do runs overlap?",
         options: [
-          "The scheduler fires every hour regardless of whether the last run finished",
-          "The clock is wrong",
-          "Two apps",
-          "A bug in batch",
+          "The hourly scheduler fires whether or not the last run ended",
+          "The server clock jumped and fired the 02:00 run early",
+          "A second copy of the app runs on another worker",
+          "The batch engine restarts a job when it reaches 60 percent",
         ],
         answer: 0,
         explain: "Schedulers do not wait for jobs.",
@@ -30,9 +30,9 @@ export default {
         prompt: "What is a simple guard?",
         options: [
           "Skip a run if one is still active, using a lock or job row",
-          "Run more often",
-          "Remove the scheduler",
-          "Sleep",
+          "Run the scheduler every 30 minutes so runs stay short",
+          "Add a sleep at the start of each run to let others end",
+          "Disable the scheduler and start each run by hand",
         ],
         answer: 0,
         explain: "One run at a time.",
@@ -43,8 +43,8 @@ export default {
         options: [
           "Make the job faster, so it fits the window",
           "Alert when a run is skipped",
-          "Use a fixed delay rather than fixed frequency if available",
-          "Allow overlaps",
+          "Record each run’s start, end and status in a job row",
+          "Let runs overlap and keep the last write",
         ],
         answer: [0,1,2],
         explain: "Guard, speed up, watch.",
@@ -54,9 +54,9 @@ export default {
         prompt: "Why is overlap harmful here?",
         options: [
           "Older snapshots can overwrite newer ones",
-          "It is not harmful",
-          "It saves time",
-          "It uses less memory",
+          "It doubles the database CPU for that hour",
+          "It makes the second run skip rows the first updated",
+          "It makes both runs fail on duplicate keys",
         ],
         answer: 0,
         explain: "Order of writes matters.",
@@ -85,6 +85,7 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 01:00:00 INFO  [inv-batch] Scheduler fired, job started
 2026-11-18 02:00:00 INFO  [inv-batch] Scheduler fired, job started
 2026-11-18 02:00:00 INFO  [inv-batch] First run progress=62 percent
 2026-11-18 02:40:00 WARN  [inv-batch] Inventory rows updated twice with different snapshots

@@ -81,6 +81,8 @@ export default {
 - Carrier APIs vary from 2 to 40 seconds; some are unreliable. Brokers ask for about 5 quotes a second; carrier A takes about 6 seconds and carrier B about 9, or 40 on a bad day.
 - New carriers are added every quarter; some leave.
 - Carrier credentials are per broker firm and must be stored securely.
+- Name the APIs exp-broker-portal-api, prc-quote-api and one sys-carrier-<name>-api per carrier.
+- prc-quote-api asks the carriers in parallel, gives up on the whole fan-out after 15 seconds, and returns a partial answer when a carrier fails. The carrier B adapter times out after 12 seconds, and exp-broker-portal-api waits up to 20 seconds for the Process API.
 
 **Your task.** Propose the architecture for quote fan-out, carrier onboarding, and the asynchronous/manual carriers.
 `,
@@ -109,15 +111,15 @@ export default {
   solution: `
 **Canonical model.** \`Risk\` (business, location, turnover, cover requested) and \`Quote\` (carrier, premium, excess, terms, expiry, status). Carrier-specific questions are a superset with per-carrier "required fields" rules; the portal asks only for missing ones.
 
-**Layers.** \`broker-portal-eapi\` → \`quote-papi\` → carrier adapters \`carrier-<name>-sapi\` all implementing the same internal contract (\`POST /quotes\`, \`POST /binds\`, \`GET /documents\`). A \`carrier-registry\` (config) holds eligibility rules, adapter URL, timeout and status (active/suspended).
+**Layers.** \`exp-broker-portal-api\` → \`prc-quote-api\` → carrier adapters \`sys-carrier-<name>-api\` all implementing the same internal contract (\`POST /quotes\`, \`POST /binds\`, \`GET /documents\`). A \`carrier-registry\` (config) holds eligibility rules, adapter URL, timeout and status (active/suspended).
 
-**Fan-out.** \`quote-papi\` stores the request (status \`IN_PROGRESS\`), selects eligible carriers, and calls them in parallel (scatter-gather or parallel-for-each with per-route timeouts, or one async message per carrier). At ~15 s it returns what it has plus "pending" markers. Remaining responses update the stored request; the portal polls \`GET /quote-requests/{id}\` or receives a push notification. A circuit breaker per carrier (based on recent failure rate) skips carriers that are down instead of waiting for timeouts.
+**Fan-out.** \`prc-quote-api\` stores the request (status \`IN_PROGRESS\`), selects eligible carriers, and calls them in parallel (scatter-gather or parallel-for-each with per-route timeouts, or one async message per carrier). Each slow adapter gives up after its own timeout (12 s for carrier B), and at 15 s the Process API returns what it has plus "pending" markers. Remaining responses update the stored request; the portal polls \`GET /quote-requests/{id}\` or receives a push notification. A circuit breaker per carrier (based on recent failure rate) skips carriers that are down instead of waiting for timeouts.
 
 **Async carriers.** XML request generated and sent by SFTP/email; an inbound listener matches responses by reference and updates the record. **Manual carriers**: a task is created for a broker assistant with a pre-filled summary; they key the quote into the portal.
 
 **Bind.** Re-validate the quote is still valid and call the carrier bind endpoint with an idempotency reference. Store the policy number and retrieve documents (stored in a document management system with links in the portal).
 
-**Onboarding.** Adapter template in Exchange, mapping from the canonical model, contract tests against the carrier sandbox, then register in carrier registry. Target: 3–4 weeks per API carrier.
+**Onboarding.** Adapter template in Exchange, mapping from the canonical model, contract tests against the carrier sandbox, then register in carrier registry. Target: 3 to 4 weeks per API carrier.
 
 **Security.** Carrier credentials per broker firm in a secrets manager or encrypted secure properties per environment; client ID + OAuth on the Experience API; PII minimised in logs.
 

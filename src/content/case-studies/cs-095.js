@@ -99,6 +99,7 @@ export default {
 | Ordering | An A03 (discharge) must never overtake the A01 (admission) for the same patient |
 | Operations | The integration team has three people and wants one place to see stuck messages |
 | Tests | 10 ADT messages a second, 60 a second for 15 minutes at the bed moves, and meal ordering down for 2 hours |
+| Diagram | Label the EHR box "EHR (HL7 v2 ADT over MLLP)". Draw the pharmacy system as a legacy system and meal ordering and bed management as SaaS. Name the queues pharmacy.adt, dietary.adt and bed-management.adt. Run the listener on 0.5 vCore so it carries 60 messages a second |
 
 **Your task.** Design the ADT distribution. Start with pharmacy, meal ordering and bed management, in a way that lets the other eleven join later.
 `,
@@ -118,7 +119,7 @@ export default {
     'A thin MLLP listener System API ACKs the EHR as soon as the message is archived and published, so the EHR never waits on a department.',
     'One canonical ADT event on a topic, with a durable queue per department, isolates a slow or offline department.',
     'Each department has its own Process API that filters fields and maps to that system, reaching it through a System API.',
-    'Ordering per patient comes from FIFO queues or a single consumer per queue (or message groups keyed by patient), not from the topic alone.',
+    'Ordering per patient comes from a single consumer per queue (or JMS message groups keyed by patient), not from the topic alone.',
     'Raw HL7 is archived for replay and audit; failures go to a dead-letter queue that the team watches in one place.',
     'Adding a department means a new queue subscription and a Process API, with no change in the EHR.',
   ],
@@ -127,14 +128,14 @@ export default {
 
 **Fan-out.** \`adt-events\` is an Anypoint MQ exchange (or a JMS topic with durable subscriptions). Each department has its own queue bound to it. When meal ordering is down for six hours, its queue grows and the others are not affected.
 
-**Ordering.** Each department queue is FIFO, or has one consumer with prefetch 1, so messages for a patient stay in order. If a department needs more throughput, group by patient id.
+**Ordering.** Each department queue has one consumer with prefetch 1, so messages for a patient stay in order. (A standard Anypoint MQ exchange cannot feed FIFO queues; only a FIFO exchange can. With a standard exchange, the single consumer keeps the order.) If a department needs more throughput, use JMS message groups keyed by patient id.
 
 **Department Process APIs.**
 - \`prc-pharmacy-adt\` maps back to HL7 v2 for the pharmacy system through \`sys-pharmacy-api\`.
 - \`prc-dietary-adt\` keeps only name, ward, bed and diet codes and calls the meal ordering REST API through \`sys-dietary-api\`.
 - \`prc-bed-management-adt\` sends only location changes and discharges.
 
-**Errors.** Transient errors are retried with backoff. A message that fails three times goes to \`adt-dlq\` with the department name. The team gets one dashboard of queue depths and DLQ counts.
+**Errors.** While a department is down, its queue keeps the messages and redelivers them, with no delivery limit, until the system is back. A message that fails on its content (it cannot be mapped) is sent to \`adt-dlq\` with the department name. The team gets one dashboard of queue depths and DLQ counts.
 
 **Replay.** The archive keeps raw HL7 for 30 days. A replay tool republishes chosen messages to one department queue only.
 
@@ -142,7 +143,7 @@ export default {
 `,
   followUps: [
     { q: 'When should the listener send the HL7 ACK to the EHR?', a: 'After the message is archived and published to the topic. Sending it earlier risks losing a message, and waiting for departments would make the EHR wait on them.' },
-    { q: 'How do you keep messages for one patient in order?', a: 'Use a FIFO queue or a single consumer per department queue. If more throughput is needed, group messages by patient id so each patient is handled by one consumer.' },
+    { q: 'How do you keep messages for one patient in order?', a: 'Use a single consumer per department queue. If more throughput is needed, group messages by patient id so each patient is handled by one consumer.' },
     { q: 'Why does each department get its own queue instead of reading the topic directly?', a: 'A durable queue holds messages while that department is down. Each department then catches up at its own pace without affecting the others.' },
     { q: 'How do you stop the meal ordering vendor seeing diagnoses?', a: 'Its Process API builds a message with name, ward, bed and diet codes only. The canonical event never goes to the vendor as it is.' },
   ],

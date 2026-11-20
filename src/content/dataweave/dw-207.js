@@ -16,7 +16,7 @@ Fenwick Supply collects store sales files from an Azure File Share and sends the
 - The target name is the file name. When that path already exists, or an earlier move in this run already uses it, add \`_2\` before the extension, then \`_3\` and so on, until the path is free. The extension starts at the last dot. A name with no dot gets the suffix at the end.
 - \`renamed\` is \`true\` when a suffix was added.
 
-Output \`moves\` (\`from\`, \`to\`, \`renamed\`) in input order and \`skipped\`.
+Output \`moves\` (\`from\`, \`to\`, \`renamed\`) in input order and \`skipped\`, also in input order.
 `,
   inputs: [
     {

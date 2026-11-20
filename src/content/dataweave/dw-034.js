@@ -14,7 +14,7 @@ Return one entry per department: \`{ department, secondHighest, earners }\`.
 - Compare salaries **numerically** (\`"9500"\` is less than \`12000\`). \`secondHighest\` is output as a number.
 - \`secondHighest\` is the second-largest **distinct** salary in the department. Equal salaries count once (\`"100"\` and \`100\` are the same salary).
 - If a department has fewer than two distinct salaries, \`secondHighest\` is \`null\` and \`earners\` is \`[]\`.
-- \`earners\` — names of everyone in that department paid exactly \`secondHighest\`, sorted A→Z.
+- \`earners\`: names of everyone in that department paid exactly \`secondHighest\`, sorted A→Z.
 - Sort the result by \`department\` ascending.
 `,
   inputs: [
@@ -50,7 +50,7 @@ payload
 `,
   hints: [
     'Normalise first: `payload map (e) -> { name: e.name, dept: e.dept, salary: e.salary as Number }`. Everything after that is purely numeric.',
-    'Per department: `(staff map $.salary) distinctBy $ orderBy -$` gives distinct salaries highest first, so the answer is index `[1]` — which is `null` when it does not exist.',
+    'Per department: `(staff map $.salary) distinctBy $ orderBy -$` gives distinct salaries highest first, so the answer is index `[1]`, which is `null` when it does not exist.',
     'Wrap `groupBy ... pluck (...) -> ...` in parentheses before you `orderBy` the result, otherwise `orderBy` lands inside the lambda.',
   ],
   solution: `%dw 2.0
@@ -107,7 +107,7 @@ var emps = payload map (e) -> { name: e.name, dept: e.dept, salary: e.salary as 
     },
     {
       q: 'Why not use `maxBy` twice?',
-      a: 'You could take `max`, filter it out and take `max` again, but that is two passes and easy to get wrong with ties. Distinct-sort-index is one readable expression that also generalises to N.',
+      a: 'You could take `max`, filter it out and take `max` again, but that is two passes and error-prone with ties. Distinct-sort-index is one readable expression that also generalises to N.',
     },
   ],
 }

@@ -32,7 +32,7 @@ export default {
         pdc: ['process-api', 'prc-dc-replenishment'],
         psup: ['process-api', 'prc-supplier-orders'],
         swms: ['system-api', 'sys-wms-api'],
-        wms: ['wms', 'Blue Yonder WMS (4 DCs)'],
+        wms: ['wms', 'Vendor WMS (4 DCs)'],
         ssap: ['system-api', 'sys-sap-purchasing-api'],
         sap: ['erp', 'SAP S/4HANA'],
         sedi: ['system-api', 'sys-edi-outbound-api'],
@@ -69,7 +69,7 @@ export default {
 **Context.** A grocery chain runs 600 supermarkets and convenience stores, each with up to 25,000 products. Store managers still order most products by hand with a handheld scanner, so shelves are empty on Sunday evenings and fresh food waste is 4.1% of sales.
 
 **The change.** The business has signed with RELEX, a forecasting and replenishment SaaS. Each night RELEX needs the day's sales and stock, and it returns order proposals.
-- Most products come from the chain's 4 DCs, which run Blue Yonder WMS.
+- Most products come from the chain's 4 DCs, which run a packaged vendor WMS.
 - About 15% (bread, milk, eggs, magazines) are delivered straight to stores by 140 suppliers. These need purchase orders in SAP S/4HANA and an EDIFACT ORDERS message to the supplier.
 
 **Interfaces RELEX supports.** Bulk files over SFTP (CSV, up to 4 GB a night) and a REST API for small changes. RELEX recommends files for the nightly cycle.
@@ -87,7 +87,9 @@ export default {
 - The WMS import API accepts 500 lines per call and cannot take parallel calls per DC.
 - A bad line (unknown product, closed store) must not stop the other 2.5 million.
 - Operations must know by 04:45 if the run is late.
-- The import sends about 3 calls of 500 DC order lines a second. The WMS can be down for 20 minutes, and about 1 call in 100 has a line it rejects every time.
+- The import sends about 3 calls of 500 DC order lines a second. The WMS can be down for 20 minutes, and about 1 call in 100 has a line it rejects every time. Each WMS call takes about 2 seconds.
+- Call the 03:30 job the order proposal import. It puts lines on two queues, \`replenishment.dc-orders\` and \`replenishment.supplier-orders\`.
+- A queue redelivers a failed message about once a minute. Try each message for 30 minutes (a redelivery limit of 30), then send it to a replenishment dead-letter queue.
 
 **Your task.** Design the nightly replenishment integration.
 `,
@@ -117,7 +119,7 @@ export default {
 
 Unknown products or closed stores are written to an error file and the DLQ; the rest continue.
 
-**DC orders.** \`prc-dc-replenishment\` takes messages from the DC queue, builds batches of 500 lines per DC and calls \`sys-wms-api\`. A separate consumer per DC (one at a time per DC) respects the WMS limit while 4 DCs load in parallel. 2.1 million DC lines finish in about 70 minutes.
+**DC orders.** \`prc-dc-replenishment\` takes messages from the DC queue, builds batches of 500 lines per DC and calls \`sys-wms-api\`. A separate consumer per DC (one at a time per DC) respects the WMS limit while 4 DCs load in parallel. At about 2 seconds a call, the 4 DCs take about 1,000 lines a second, so 2.1 million DC lines finish in about 35 minutes. A call that fails stays on the queue and is redelivered about once a minute for 30 minutes, which rides out a 20 minute WMS outage; after that it goes to the DLQ.
 
 **Supplier orders.** \`prc-supplier-orders\` groups lines by supplier and store, creates purchase orders through \`sys-sap-purchasing-api\` and sends the EDIFACT ORDERS message through \`sys-edi-outbound-api\`. It records the SAP PO number on each line so a replay does not create a second PO.
 

@@ -286,13 +286,13 @@ export const SET_6 = [
     situation: 'The Wyecombe team wants one INFO line per loan application that shows which loan team got it. Which line is best?',
     options: [
       'Route taken',
-      'In the when branch 2',
+      'Loan application routed loanType=car route=car-loans correlationId=7f3c2a',
       'Loan application routed: {"loanType":"car","applicant":{"name":"Ravi Mehta","income":52000}}',
       'Loan application routed loanType=car route=car-loans applicationId=LA-55120 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It names the route and the application, with labelled fields. "when branch 2" means nothing to a reader, and the payload dump puts a name and an income in the log.',
+      'It names the route and the application, with labelled fields. The second option has no application ID, so nobody can tell which application went to the car loan team. "Route taken" says nothing, and the payload dump puts a name and an income in the log.',
   },
   {
     id: 'log-6019',
@@ -440,14 +440,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'After the Maplewood Parallel For Each, which line is best?',
     options: [
-      'Store 1 updated, Store 2 updated, Store 3 updated, and so on',
+      'Price update sent to stores storesTotal=40 durationMs=5120 correlationId=7f3c2a',
       'Parallel For Each finished',
       'Price update sent to stores storesTotal=40 succeeded=38 failed=2 durationMs=5120 correlationId=7f3c2a',
       'Price update sent to stores {"stores":[ ...40 store objects with all prices... ]}',
     ],
     answer: 2,
     explain:
-      'One line with the counts and the time sums up 40 calls. "Parallel For Each finished" names the scope, not the business result, and the dump is large and slow.',
+      'One line with the counts and the time sums up 40 calls. The first option gives the total but not how many stores failed, so 2 stores on old prices go unseen. "Parallel For Each finished" names the scope, not the business result, and the dump is large and slow.',
   },
   {
     id: 'log-6028',
@@ -528,14 +528,14 @@ export const SET_6 = [
     kind: 'choice',
     situation: 'Inside the Lumen Async scope, the Notify API has accepted the welcome message. Which line is best?',
     options: [
-      'Async done',
+      'Welcome message accepted by Notify API memberId=M-80412 durationMs=230',
       'Welcome message sent to ann.lee@example.com',
       'Welcome message accepted by Notify API memberId=M-80412 durationMs=230 correlationId=7f3c2a',
       'Notify API called',
     ],
     answer: 2,
     explain:
-      'It says what happened, for which member and how long it took. The second option puts an email address in the log, and "Notify API called" does not say whether it worked.',
+      'It says what happened, for which member and how long it took. The first option has no correlation ID, and Async lines can land after the flow has ended, so it cannot be joined to the sign-up. The second option puts an email address in the log, and "Notify API called" does not say whether it worked.',
   },
   {
     id: 'log-6033',
@@ -699,13 +699,13 @@ export const SET_6 = [
     situation: 'Which Oakridge audit line is best for a claim that was approved automatically?',
     options: [
       'Claim decision: {"claimId":"C-77310","patient":{"name":"Lena Ortiz","diagnosis":"J45"},"amount":420.00}',
-      'Claim approved :)',
+      'Claim approved claimId=C-77310 amount=420.00 correlationId=7f3c2a',
       'Claim C-77310 processed',
       'Claim approved claimId=C-77310 rule=fast-track amount=420.00 decidedBy=system correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'An audit line says what was decided, on which record, by whom and under which rule. "processed" does not say approved or denied, and the dump holds health data.',
+      'An audit line says what was decided, on which record, by whom and under which rule. The second option leaves out the rule and who decided, which is what an auditor asks first. "processed" does not say approved or denied, and the dump holds health data.',
   },
   {
     id: 'log-6043',
@@ -824,7 +824,7 @@ export const SET_6 = [
     ],
     answers: [1, 3, 4],
     explain:
-      'A dashboard adds up fields by name, so one name per fact, with the unit in the name. The app name already tells flows apart, and a dashboard cannot count readings inside a dumped payload. Cobalt builds these charts in Splunk, because a dashboard built on log fields in Anypoint Monitoring needs the Titanium log-search tier.',
+      'A dashboard adds up fields by name, so one name per fact, with the unit in the name. The app name already tells flows apart, and a dashboard cannot count readings inside a dumped payload. Cobalt builds these charts in Splunk, because custom dashboards and cross-application log search in Anypoint Monitoring need the Advanced or Titanium tier.',
   },
   {
     id: 'log-6050',

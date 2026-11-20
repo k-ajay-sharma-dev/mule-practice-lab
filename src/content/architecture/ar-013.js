@@ -102,7 +102,7 @@ A telecom company adopted API-led connectivity two years ago. An audit of Exchan
 
 - **180 APIs** for ~30 backend systems.
 - Examples: \`sfdc-account-sapi\`, \`sfdc-account-v2-sapi\`, \`sfdc-contact-sapi\`, \`sfdc-account-contact-sapi\`, \`get-customer-by-email-papi\`, \`get-customer-by-phone-papi\`, \`mobile-customer-eapi\`, \`mobile-customer-lite-eapi\`.
-- Many Process APIs simply **pass through** to one System API with no logic.
+- Many Process APIs only **pass through** to one System API with no logic.
 - Each API runs as its own app with 2 replicas → the vCore bill keeps growing; teams complain that finding the right API takes longer than building a new one.
 
 For the consolidated Customer domain, plan for these numbers:
@@ -130,7 +130,7 @@ For the consolidated Customer domain, plan for these numbers:
 `,
   keyPoints: [
     'APIs were cut by operation/query or by consumer instead of by business capability/resource, producing many tiny overlapping APIs.',
-    'A System API is per system (or system + business entity group), exposing resources like /accounts and /contacts with query parameters — not one API per query.',
+    'A System API is per system (or system + business entity group), exposing resources like /accounts and /contacts with query parameters, not one API per query.',
     'A Process API must add value (orchestration, rules, aggregation across systems); a pass-through Process API is removed or merged.',
     'Experience APIs exist only when a channel truly needs a different shape/security; otherwise channels share one, or use field selection/query parameters.',
     'Consolidation uses facade/redirect: new consolidated APIs, old ones deprecated with a sunset date, consumers migrated using analytics; deployment can also co-locate small APIs to save vCores.',
@@ -138,29 +138,29 @@ For the consolidated Customer domain, plan for these numbers:
     'The partner API enforces client ids, and the Customer 360 API uses a short timeout, a circuit breaker and a partial answer when the network system hangs.',
   ],
   solution: `
-**Diagnosis.** APIs were cut by **operation** (\`get-customer-by-email\`), by **version as a new asset** (\`-v2-sapi\`) and by **consumer variant** (\`-lite\`). The layers were applied mechanically ("every flow needs three APIs"), so Process APIs became pass-throughs. Result: sprawl, duplicate logic, and discovery cost higher than build cost — the opposite of reuse.
+**Diagnosis.** APIs were cut by **operation** (\`get-customer-by-email\`), by **version as a new asset** (\`-v2-sapi\`) and by **consumer variant** (\`-lite\`). The layers were applied mechanically ("every flow needs three APIs"), so Process APIs became pass-throughs. Result: sprawl, duplicate logic, and discovery cost higher than build cost. That is the opposite of reuse.
 
 **Principles.**
 - Size by **business capability and resource**, not by query. One API = a cohesive set of resources owned by one team.
-- **System API:** one per system and domain area — e.g. *Salesforce Customer SAPI* with \`/accounts\`, \`/accounts/{id}/contacts\`, \`/contacts?email=&phone=\`. Search variants are **query parameters**.
+- **System API:** one per system and domain area: e.g. *Salesforce Customer SAPI* with \`/accounts\`, \`/accounts/{id}/contacts\`, \`/contacts?email=&phone=\`. Search variants are **query parameters**.
 - **Process API:** only when there is **orchestration, aggregation or business rules** across systems (e.g. a 360° customer view combining CRM + billing + network).
 - **Experience API:** only when a channel needs a **different contract** (shape, auth model, aggregation for a slow mobile network). Use field selection or a \`view=summary\` parameter instead of a "lite" API.
 - Versions are **versions of the same asset**, not new assets.
 
 **Target for Customer domain** (example):
-- System: *CRM Customer SAPI* (Salesforce), *Billing Account SAPI*, *Network Subscription SAPI* — 3.
-- Process: *Customer 360 PAPI* (aggregate view + rules), *Customer Onboarding PAPI* (orchestrates creation across systems) — 2.
-- Experience: *Digital Channels EAPI* (web + mobile share it), *Partner EAPI* (different security/contract) — 2.
+- System: *CRM Customer SAPI* (Salesforce), *Billing Account SAPI*, *Network Subscription SAPI*: 3.
+- Process: *Customer 360 PAPI* (aggregate view + rules), *Customer Onboarding PAPI* (orchestrates creation across systems): 2.
+- Experience: *Digital Channels EAPI* (web + mobile share it), *Partner EAPI* (different security/contract): 2.
 
 ≈ 7 APIs instead of ~25 in this domain.
 
-**Skipping a layer.** Acceptable when a consumer needs exactly what a System API offers and there is no orchestration — e.g. an internal back-office app calling the CRM SAPI directly through the gateway. Document it; add the Process layer when logic appears. Do not create empty layers "for the future".
+**Skipping a layer.** Acceptable when a consumer needs exactly what a System API offers and there is no orchestration, for example an internal back-office app calling the CRM SAPI directly through the gateway. Document it; add the Process layer when logic appears. Do not create empty layers "for the future".
 
 **Consolidation plan.**
 1. Inventory with **API Manager analytics**: which APIs have traffic, which consumers.
 2. Build the consolidated APIs; old APIs become thin facades or are kept unchanged but **deprecated** in Exchange with a sunset date.
 3. Migrate consumers domain by domain, starting with the highest cost/lowest traffic.
-4. Short term cost relief: low-traffic APIs can run on smaller replicas, and a single app can host several related API instances — trade-off: shared deployment/blast radius.
+4. Short term cost relief: low-traffic APIs can run on smaller replicas, and a single app can host several related API instances. Trade-off: shared deployment and blast radius.
 5. Prevent recurrence: design review via the C4E/architecture board before a new API asset is created; naming standards; "search Exchange first".
 
 **Sizing and failure handling**

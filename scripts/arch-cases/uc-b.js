@@ -94,7 +94,7 @@ export default async ({ failsOn, cut, draw, set }) => {
     cut(d, 'srms ~> ariq')
     draw(d, 'srms -> ari')
   })
-  // The Booking.com adapter calls the delivery API directly: while OPERA is down the reservations fail.
+  // The Staybook adapter calls the delivery API directly: while OPERA is down the reservations fail.
   await failsOn('uc-026', 'Run: OPERA is down for 20 minutes', (d) => {
     cut(d, 'cbk ~> resq')
     draw(d, 'cbk -> resp')

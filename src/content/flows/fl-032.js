@@ -182,6 +182,13 @@ Support cannot trace customer complaints across systems. A checkout touches:
 2. the **Payment Process API** (HTTP, called synchronously),
 3. the queue \`order-confirmed\` (Anypoint MQ), consumed by a **notification flow** that calls the Notification API.
 
+**Facts**
+- The web shop posts \`{ cartId, amount }\`.
+- The Payment Process API is \`POST /process/payments\`. It answers \`{ orderId, paymentId, status }\`.
+- The confirmation on \`order-confirmed\` is \`{ orderId, paymentId, status: "CONFIRMED", correlationId }\`, and the checkout answers the caller with the same JSON.
+- The notification flow calls the Notification API at \`POST /notifications/order-confirmation\`.
+- An error body is \`{ code, message, correlationId }\`.
+
 All logs go to Splunk. Support wants to type **one ID** and see every log line from every app for that checkout, in the right order, with the duration and the error type when something failed. The customer-facing error response must show the same ID, so a customer can quote it.
 
 **Design the flow(s):**

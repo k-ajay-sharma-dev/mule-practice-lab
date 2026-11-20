@@ -236,16 +236,22 @@ export default {
     ]),
   ),
   description: `
-A lender's **Credit Check API** (\`POST /risk/v1/credit-checks\`) is called by the loan application journey ~30 times/s at peak. It calls an external **credit bureau** that normally answers in 300 ms but, a few times a month, degrades for 10–40 minutes: calls hang for 30 s or fail with 503.
+A lender's **Credit Check API** (\`POST /risk/v1/credit-checks\`) is called by the loan application journey ~30 times/s at peak. It calls an external **credit bureau** that normally answers in 300 ms but, a few times a month, degrades for 10 to 40 minutes: calls hang for 30 s or fail with 503.
 
 During the last incident every request waited for the bureau's timeout, Mule threads piled up, the loan journey's **2 s SLA** was missed everywhere, and the bureau's recovery was slowed by the retry storm.
 
 The business agreed on degraded behaviour:
 - If a **score for the customer from the last 30 days** is known, return it marked \`CACHED\`.
-- Otherwise return \`MANUAL_REVIEW\` (an underwriter follows up) — never an error page.
+- Otherwise return \`MANUAL_REVIEW\` (an underwriter follows up): never an error page.
 - Client errors (400 from the bureau for bad input) must **not** count as bureau outages.
 
 There is no circuit-breaker policy available on this deployment. Mule runs on **3 replicas**.
+
+**Facts**
+- The caller posts \`{ customerId, amount }\`. The bureau is \`POST /bureau/v2/scores\` with the same body, and answers \`{ customerId, score, scoredAt }\`.
+- A live answer is \`{ customerId, score, source: "BUREAU" }\`. A cached one is \`{ customerId, score, source: "CACHED", scoredAt }\`. Otherwise answer \`{ customerId, decision: "MANUAL_REVIEW" }\`, all with status 200.
+- The breaker opens after **5 consecutive** bureau outages (timeout, connection failure or 5xx). It stays open for **30 s**, then lets a trial call through: success closes it, failure opens it again.
+- A bureau 400 is answered to the caller with 400.
 
 **Design the flow(s):** a circuit breaker (closed / open / half-open), where its state lives, which errors trip it, the fallback, and how operations are alerted.
 `,
@@ -269,10 +275,10 @@ There is no circuit-breaker policy available on this deployment. Mule runs on **
     'A short response timeout (≈1.5 s) inside the 2 s SLA bounds the worst case even while the breaker is still closed.',
     'Only infrastructure errors (HTTP:TIMEOUT, CONNECTIVITY, 5xx) increment the failure counter and fall back via On Error Continue; 4xx client errors propagate as errors without tripping the breaker.',
     'Fallback returns the last good score (cached in Object Store with a 30-day TTL) or MANUAL_REVIEW; opening the circuit alerts ops.',
-    'Acknowledges limits: Object Store updates are not atomic, so counts are approximate under concurrency — acceptable for a breaker; an API Gateway / service mesh breaker is preferable if available.',
+    'Acknowledges limits: Object Store updates are not atomic, so counts are approximate under concurrency: acceptable for a breaker; an API Gateway / service mesh breaker is preferable if available.',
   ],
   solution: `
-**State** — key \`cb:credit-bureau\` in a persistent Object Store (shared across replicas on CloudHub): \`{ state, failures, openedAt }\`. Store \`openedAt\` as text (\`now() as String\`) and read it back with \`as DateTime\`: a plain string survives the Object Store's serialisation on every replica.
+**State**: key \`cb:credit-bureau\` in a persistent Object Store (shared across replicas on CloudHub): \`{ state, failures, openedAt }\`. Store \`openedAt\` as text (\`now() as String\`) and read it back with \`as DateTime\`: a plain string survives the Object Store's serialisation on every replica.
 
 **credit-check-api**
 1. Save the request; **Flow Reference** \`cb-get-state\` with **target** \`cb\` (reads the Object Store without overwriting the payload).
@@ -285,13 +291,13 @@ There is no circuit-breaker policy available on this deployment. Mule runs on **
      - **On Error Continue** for \`HTTP:TIMEOUT, HTTP:CONNECTIVITY, HTTP:SERVICE_UNAVAILABLE, HTTP:INTERNAL_SERVER_ERROR\` → \`cb-record-failure\` → fallback.
 3. \`HTTP:BAD_REQUEST\` is **not** caught there; it propagates to a flow handler → 400, and does not touch the breaker.
 
-**cb-record-failure** — increment failures; at 5 consecutive failures (or any failure during half-open) → \`OPEN\` with \`openedAt = now\`. On the CLOSED→OPEN transition, log WARN and publish an ops alert.
+**cb-record-failure**: increment failures; at 5 consecutive failures (or any failure during half-open) → \`OPEN\` with \`openedAt = now\`. On the CLOSED→OPEN transition, log WARN and publish an ops alert.
 
-**credit-fallback** — last good score (\`CACHED\`) or \`MANUAL_REVIEW\`.
+**credit-fallback**: last good score (\`CACHED\`) or \`MANUAL_REVIEW\`.
 
 **Limitations and refinements**
-- Read–modify–write on the Object Store is not atomic: several replicas may count the same burst, so the threshold is approximate. That is acceptable; a failure-rate window (failures in the last N seconds) is more robust than a consecutive counter.
-- In half-open, many requests may trial at once; allow just one trial by storing a \`trialUntil\` timestamp, or accept a short burst.
+- Read-modify-write on the Object Store is not atomic: several replicas may count the same burst, so the threshold is approximate. That is acceptable; a failure-rate window (failures in the last N seconds) is more robust than a consecutive counter.
+- In half-open, many requests may trial at once; allow only one trial by storing a \`trialUntil\` timestamp, or accept a short burst.
 - If Anypoint Flex Gateway / a service mesh is available, prefer its built-in circuit breaking and keep this as application-level fallback logic.
 `,
   followUps: [
@@ -305,7 +311,7 @@ There is no circuit-breaker policy available on this deployment. Mule runs on **
     },
     {
       q: 'Would you keep breaker state in memory per replica instead?',
-      a: 'An in-memory (non-persistent) Object Store per replica is faster and avoids shared-write contention; each replica then learns about the outage on its own after a few failures. That is often fine — choose shared state when you need consistent behaviour and alerting across replicas.',
+      a: 'An in-memory (non-persistent) Object Store per replica is faster and avoids shared-write contention; each replica then learns about the outage on its own after a few failures. That is often fine: choose shared state when you need consistent behaviour and alerting across replicas.',
     },
     {
       q: 'How do you test the breaker?',

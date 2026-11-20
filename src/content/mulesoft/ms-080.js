@@ -14,7 +14,7 @@ export default {
         ['Read a shared mailbox, keep messages on the server and sort them into folders', 'IMAP or IMAPS'],
         ['Collect mail from a legacy host that offers only a simple download mailbox', 'POP3 or POP3S'],
       ],
-      explain: 'SMTP sends mail; it cannot read a mailbox. IMAP works on messages that stay on the server, with folders and flags. POP3 is the simpler retrieval protocol, with far less metadata and no folder operations in the connector.',
+      explain: 'SMTP sends mail; it cannot read a mailbox. IMAP works on messages that stay on the server, with folders and flags. POP3 is the more basic retrieval protocol, with far less metadata and no folder operations in the connector.',
     },
     {
       type: 'match',
@@ -35,7 +35,7 @@ export default {
       options: [
         'An SMTPS connection on port 465 with a TLS configuration',
         'An SMTP connection with the port changed to 465',
-        'An IMAPS connection on port 465',
+        'An IMAPS connection on port 465 with TLS',
         'An SMTP connection on port 25 with a higher connection timeout',
       ],
       answer: 0,
@@ -134,7 +134,7 @@ The conventional port for plain IMAP is 143. The connector reference shows 993 a
 `,
   followUps: [
     {
-      q: 'Why not use POP3 for the claims mailbox too? It is simpler.',
+      q: 'Why not use POP3 for the claims mailbox too? It needs less setup.',
       a: 'The claims flow needs to keep messages on the server and file them in folders. Those operations belong to the IMAP configuration, and POP3 could only delete messages after retrieval.',
     },
     {

@@ -8,7 +8,7 @@ export default {
   tags: ['load-balancer', 'high-availability', 'scaling', 'cloudhub-2'],
   estMinutes: 20,
   diagram: {
-    task: 'draw two copies of one API behind a load balancer. Use five boxes: a Web app, a Load balancer, two Experience API boxes for the two copies, and a Process API. Draw a line from the Web app to the Load balancer, a line from the Load balancer to each Experience API, and a line from each Experience API to the Process API. Draw no line from the Web app to an Experience API.',
+    task: 'draw two copies of one API behind a load balancer. Use five boxes: a Web app, a Load balancer, two Experience API boxes for the two copies, named Checkout API copy 1 and Checkout API copy 2, and a Process API. Draw a line from the Web app to the Load balancer, a line from the Load balancer to each Experience API, and a line from each Experience API to the Process API. Draw no line from the Web app to an Experience API.',
     checks: [
       { label: 'The website calls the load balancer', rule: { type: 'each', of: 'web-app', edgeTo: 'load-balancer' } },
       { label: 'The load balancer reaches two copies of the API', rule: { type: 'each', of: 'experience-api', min: 2, edgeFrom: 'load-balancer' } },
@@ -50,7 +50,7 @@ A retailer runs one copy of its checkout API. During sales it gets overloaded, a
 
 The team runs two copies of the same API behind a **load balancer**. A load balancer receives every request and passes each one to a healthy copy, so the work is shared.
 
-During a sale the website sends 150 checkouts a second; on a normal day it sends 80. In this lab one copy at 0.2 vCore carries about 100 a second, so one copy alone can carry a normal day but not the sale.
+During a sale the website sends 150 checkouts a second; on a normal day it sends 80. In this lab one copy at 0.2 vCore carries about 100 a second, so one copy alone can carry a normal day but not the sale. The Process API behind them takes the checkouts from both copies, so size it for the whole sale.
 
 **Questions:**
 - Draw the design.

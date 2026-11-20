@@ -6,7 +6,7 @@ export default {
   tags: ['recursion', 'functions', 'tree', 'flatten', 'manufacturing', 'json'],
   estMinutes: 30,
   description: `
-Thistlecombe Bikes builds trail bikes from parts and sub-assemblies. Its product system sends the bill of materials (BOM) as a tree. A node with \`components\` is an assembly. A node with no components is a bought part with a \`unitCost\`.
+Thistlecombe Bikes builds trail bikes from parts and sub-assemblies. Its product system sends the bill of materials (BOM) as a tree. A node with \`components\` is an assembly. A node with no \`components\` field, or an empty list, is a bought part with a \`unitCost\`.
 
 The cost of one assembly is the sum, over its components, of \`qty\` times the cost of one of that component. Assemblies can hold assemblies, to any depth.
 

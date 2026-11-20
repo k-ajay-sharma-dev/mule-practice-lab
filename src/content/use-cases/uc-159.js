@@ -67,8 +67,11 @@ Today the app downloads each PDF through Mule, which reads it from storage and p
 
 The architects decided that Mule should only hand out **read links**: shared access signature (SAS) URLs for one blob, read only, valid for 15 minutes. The bank's **storage token service** signs them, so Mule never holds the storage key. The app then downloads straight from storage.
 
+The app sends the customer's JWT on every call to Mule, and an API gateway must refuse a call without one.
+
 **Numbers**
 - On statements day about **300 link requests a second** and **300 downloads a second**.
+- A link must come back within **half a second**.
 - The statements database answers in about 20 ms, the token service in 30 ms.
 - In this model one vCore serves about 500 requests a second, and the smallest size is 0.1 vCore.
 

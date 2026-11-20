@@ -81,7 +81,7 @@ Facts and constraints:
 
 **Design the end-to-end order-to-cash integration:**
 - Process steps and which system owns each state.
-- Orchestration vs choreography — how do you coordinate SFCC, SAP and Adyen, and how do you compensate when a step fails (e.g. SAP rejects an order, stock-out after authorisation)?
+- Orchestration vs choreography: how do you coordinate SFCC, SAP and Adyen, and how do you compensate when a step fails (e.g. SAP rejects an order, stock-out after authorisation)?
 - How do you handle captures for partial shipments and expiring authorisations for pre-orders?
 - How do you survive the Black Friday peak without losing orders?
 - How do you make "lost orders" impossible to miss and automate reconciliation?
@@ -103,16 +103,16 @@ Facts and constraints:
     'Order intake is decoupled: SFCC order event persisted to a queue/outbox immediately, then posted to SAP by a throttled consumer (≤ 15/s) with idempotent create (external order number).',
     'Saga-style coordination with explicit compensations: SAP rejection or stock-out → cancel/void the remaining authorisation or refund, update SFCC status, notify customer.',
     'Capture triggered by SAP goods-issue/delivery events, per delivery, for that delivery\'s amount (partial capture), using an idempotency key per delivery.',
-    'Pre-orders: no long-lived auth — re-authorise (e.g. stored card / tokenised payment with consent) or capture/authorise close to the ship date, since auths expire in ~7 days.',
+    'Pre-orders: no long-lived auth. Re-authorise (e.g. stored card / tokenised payment with consent) or capture/authorise close to the ship date, since auths expire in ~7 days.',
     'End-to-end monitoring: per-order state tracker with alerts for orders stuck beyond SLA; automated daily reconciliation of Adyen settlement report vs SAP billing with exceptions to finance.',
   ],
   solution: `
 **Process and ownership.**
-1. *Order placed* (SFCC) — card **authorised** in Adyen at checkout.
-2. *Order created* (SAP) — availability check, sales order number returned.
-3. *Delivery / goods issue* (SAP) — per shipment.
-4. *Capture* (Adyen) — per shipment.
-5. *Invoice* (SAP billing) and *settlement* (Adyen report) — reconciled.
+1. *Order placed* (SFCC): card **authorised** in Adyen at checkout.
+2. *Order created* (SAP): availability check, sales order number returned.
+3. *Delivery / goods issue* (SAP): per shipment.
+4. *Capture* (Adyen): per shipment.
+5. *Invoice* (SAP billing) and *settlement* (Adyen report): reconciled.
 System of record: SFCC for order capture, SAP for order/fulfilment/invoicing, Adyen for payment state. An **order tracking store** in the integration layer keeps the correlation \`sfccOrderNo ↔ sapOrderNo ↔ pspReference\` and the current step.
 
 **Coordination.** Use a **hybrid**: events between domains (choreography), with an **Order Process API / orchestrator** owning the order-to-cash saga state and its compensations.
@@ -122,7 +122,7 @@ System of record: SFCC for order capture, SAP for order/fulfilment/invoicing, Ad
 
 **Compensation scenarios.**
 - *SAP rejects the order* (invalid address, blocked customer): after retries for technical errors, mark the order failed, **cancel the Adyen authorisation**, set SFCC status *Cancelled*, notify the customer and customer service.
-- *Stock-out after authorisation (line cancelled in SAP)*: no capture for that line — capture only shipped amounts; when the order completes, **cancel the remaining authorisation**. If something was already captured, issue a **refund**. Never capture up front for unshipped goods (this is the root cause of today's complaints).
+- *Stock-out after authorisation (line cancelled in SAP)*: no capture for that line. Capture only shipped amounts; when the order completes, **cancel the remaining authorisation**. If something was already captured, issue a **refund**. Never capture up front for unshipped goods (this is the root cause of today's complaints).
 - All compensations are idempotent and logged in the tracking store.
 
 **Payments.**

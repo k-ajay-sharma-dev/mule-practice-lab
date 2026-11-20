@@ -69,7 +69,9 @@ A B2B SaaS company sells **field service scheduling**. Its customers subscribe t
 
 Facts:
 - **1,200 customer endpoints**, about **3 million deliveries per day**, peaks of 150 per second at 08:00.
-- Customer endpoints are often slow (some take 10 seconds), and some are down for a day during their own releases. An endpoint takes about 2 seconds on average, and the 08:00 peak lasts about 20 minutes.
+- Customer endpoints are often slow (some take 10 seconds), and some are down for a day during their own releases. An endpoint takes about 2 seconds on average, and the 08:00 peak lasts about 20 minutes. A Mule replica at 0.5 vCore handles about 250 messages a second, and a 0.1 vCore replica about 50.
+- During the peak the job service must still publish each event within 200 ms, and every delivery must be made by the end of the morning.
+- Endpoints sometimes fail 1 delivery in 5 for half an hour. Those deliveries must be retried and arrive, not be dead-lettered.
 - Today the job service calls each endpoint inline. One slow customer slowed job creation for **everyone** last month.
 - Requirements:
   - At-least-once delivery, retried for **24 hours** with growing delays.
@@ -122,6 +124,8 @@ Facts:
 - limit concurrent requests per endpoint (a counter in Object Store v2, or shard the delivery queue by endpoint hash);
 - when an endpoint fails 10 times in a row, open a breaker for that endpoint: its messages go straight to retry without a call;
 - large customers can get their own delivery queue.
+
+**Sizing.** At 150 events a second, a 0.1 vCore replica falls behind. The job service, the fan-out and the delivery worker run on 0.5 vCore, and the worker has 2 replicas, because each delivery holds a thread for about 2 seconds.
 
 **Portal and replay.** Every attempt is written to the delivery log (status, latency, response snippet without secrets). The portal reads it through exp-webhook-admin-api. Replay creates a new delivery message for the same event.
 `,

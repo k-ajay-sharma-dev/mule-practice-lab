@@ -93,6 +93,12 @@ In Mule, a multipart body is read as \`payload.parts\`, with one entry per part 
 - Answer **201** with \`{ claimId, blobName }\`.
 - A form without a \`photo\` part gets **400**.
 
+**Facts**
+- In Upload Blob, read the content straight from \`payload.parts.photo.content\` and the content type straight from \`payload.parts.photo.headers."Content-Type"\`.
+- Make the unique part of the name with \`uuid()\`. \`blob_name\` in the table is the full blob name.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the multipart body

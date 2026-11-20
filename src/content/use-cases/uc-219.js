@@ -94,7 +94,7 @@ Today the batch job calls all three for each item, one after another. The shop m
 - The shop takes **25 a second**. The WMS answers in 200 ms, but about **15 seconds** while its own night jobs run, for up to 20 minutes.
 - The data warehouse is down for upgrades for up to **an hour**.
 - The broker restarts now and then for patches.
-- About **1 change in 1,000** has a broken unit of measure that every system refuses.
+- About **1 change in 1,000** has a broken unit of measure that every system refuses. Such a change should reach the dead-letter queue within about two hours.
 - In this model one vCore serves about 500 requests a second, calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
 
 **Questions:**
@@ -134,7 +134,7 @@ item-changes-batch ~► item.changes ~► prc-item-to-wms ─► sys-wms ─► 
   followUps: [
     {
       q: 'The shop must have tonight\'s prices before 06:00. The batch ends at 02:00. Is there a risk?',
-      a: 'At 25 a second it is done by about 03:00. If the batch grows to 400,000 changes, that becomes 07:00. Watch the shop subscription\'s backlog, and agree a higher limit or a bulk interface with the shop team before it does.',
+      a: 'At 25 a second the shop needs about an hour, so it is done by about 03:00. If the batch grows to 400,000 changes, the shop needs about four and a half hours from the start of the batch and finishes near 05:30, too close to 06:00. Watch the shop subscription\'s backlog, and agree a higher limit or a bulk interface with the shop team before it does.',
     },
     {
       q: 'A parked change was refused by the WMS only. What should support do?',

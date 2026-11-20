@@ -101,6 +101,12 @@ The files are large and the platform uploads them slowly. \`archive\` and \`erro
 - Archive the file with a timestamp in front of its name.
 - If the load fails, keep the old rows, and move the file to \`error\` with a timestamp.
 
+**Facts**
+- Listen for \`FCST_*.csv\` with a size check wait. The run ID is the last part of the name, such as \`R1204\` in \`FCST_2026W47_R1204.csv\`.
+- Each file holds one week. Take \`forecast_week\` from the first row. Store \`units\` as a number.
+- Put the delete and the bulk insert in a **Try** with the transactional action \`ALWAYS_BEGIN\`.
+- The archived name is \`<timestamp>_<file name>\`, such as \`20261113091500_FCST_2026W47_R1204.csv\`, in \`/outbound/forecast/archive\` or \`/outbound/forecast/error\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Waiting for the upload

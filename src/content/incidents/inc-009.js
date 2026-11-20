@@ -19,10 +19,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'The ISO-8859-1 file is now decoded as UTF-8 because the new SFTP Read has no charset',
-          'Salesforce does not support accented characters',
-          'The legacy CRM started writing corrupted files',
-          'DataWeave strips non-ASCII characters by default',
+          'The Latin-1 file is decoded as UTF-8 because the new Read sets no charset',
+          'The Salesforce upsert now sends the names as ISO-8859-1 instead of UTF-8',
+          'The legacy CRM started writing its export files in UTF-16 this week',
+          'DataWeave drops non-ASCII characters when the CSV reader has no schema',
         ],
         answer: 0,
         explain: 'Byte 0xFC (ü in Latin-1) is invalid in UTF-8, so the decoder inserts U+FFFD. ASCII is identical in both encodings, so "Smith" is fine and nothing fails.',
@@ -32,12 +32,12 @@ export default {
         prompt: 'How do you repair the names already damaged in Salesforce?',
         options: [
           'Run a DataWeave script that replaces the replacement character with ü',
-          'Fix the charset, redeploy, and re-run the import from the original source files since the release',
-          'Nothing; new imports will fix them over time',
+          'Fix the charset, redeploy, and re-import the original files since the release',
+          'Wait for the next nightly imports to overwrite the names with good data',
           'Convert the Salesforce field encoding to ISO-8859-1',
         ],
         answer: 1,
-        explain: 'The conversion is **lossy**: the replacement character could have been ü, é, ø and more. Only the original files hold the correct bytes.',
+        explain: 'The conversion is **lossy**: the replacement character could have been ü, é, ø and more. Only the original files hold the correct bytes. Nightly files only carry changed customers, so waiting leaves most names broken.',
       },
       {
         type: 'multi',
@@ -73,7 +73,7 @@ export default {
 - Records created before the release look correct.
 
 ## Change / Context
-- \`customer-import\` reads a nightly CSV from the legacy CRM over SFTP. The legacy system writes files in **ISO-8859-1 (Latin-1)**.
+- \`customer-import\` reads a nightly CSV from the legacy CRM over SFTP. The legacy system writes files in **ISO-8859-1 (Latin-1)** and keeps the last 30 days of files on the server. Each nightly file holds only the customers changed that day.
 - Release notes: *"Replaced the old File-based download step with the SFTP connector's Read operation; cleaned up MIME type settings."*
 - The old step was configured with \`outputMimeType="application/csv; charset=ISO-8859-1"\`. The new Read operation has no MIME type or encoding set. The app's default encoding is **UTF-8**.
 
@@ -108,11 +108,11 @@ export default {
     'Prevention: declare the encoding explicitly in the interface contract and config, and add a test file with non-ASCII characters to the regression suite.',
   ],
   solution: `
-**Diagnosis.** The legacy file is **ISO-8859-1**, where "ü" is the single byte \`0xFC\`. The new SFTP Read has no charset, so Mule uses the app default **UTF-8** to read it. \`0xFC\` is not a valid UTF-8 sequence, so the decoder substitutes the **replacement character � (U+FFFD)**. ASCII characters are identical in both encodings, which is why "Smith" is fine and no error is raised — the CSV still parses.
+**Diagnosis.** The legacy file is **ISO-8859-1**, where "ü" is the single byte \`0xFC\`. The new SFTP Read has no charset, so Mule uses the app default **UTF-8** to read it. \`0xFC\` is not a valid UTF-8 sequence, so the decoder substitutes the **replacement character � (U+FFFD)**. ASCII characters are identical in both encodings, which is why "Smith" is fine and no error is raised. The CSV still parses.
 
 **Immediate mitigation.**
 1. Set the encoding on the Read operation, e.g. \`outputMimeType="application/csv; charset=ISO-8859-1"\` (or \`outputEncoding="ISO-8859-1"\`), and redeploy.
-2. The damage is **lossy** — "�" cannot be turned back into "ü". Re-run the import from the **original source files** for every night since the release (the upsert overwrites the bad names), or restore those fields from a backup.
+2. The damage is **lossy**: "�" cannot be turned back into "ü". Re-run the import from the **original source files** for every night since the release (the upsert overwrites the bad names), or restore those fields from a backup.
 3. Spot-check a few known names (Müller, José, Øster) in Salesforce.
 
 **Root cause.** The refactoring dropped the charset declaration that told Mule how to decode the file, and the default encoding (UTF-8) did not match the producer's encoding (ISO-8859-1). Nothing in testing used non-ASCII data.

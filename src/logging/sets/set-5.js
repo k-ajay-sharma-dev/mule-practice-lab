@@ -126,7 +126,7 @@ export const SET_5 = [
     id: 'log-5009',
     kind: 'multi',
     situation: 'This line was found in the Member Notifications app before a production release. What is wrong with it?',
-    code: `<logger level="DEBUG" category="com.harborcu.notify" message="#['Connecting to SMTP with ' ++ p('secure::smtp.password')]" />`,
+    code: `<logger level="DEBUG" category="com.thistlebank.notify" message="#['Connecting to SMTP with ' ++ p('secure::smtp.password')]" />`,
     options: [
       'The SMTP credential is written in clear text. A Logger does not mask secure properties',
       'DEBUG is often turned on in production to troubleshoot, so the credential can reach the production log',
@@ -180,11 +180,11 @@ export const SET_5 = [
       '#["Quote request rejected: driver.licenceNumber has wrong length errorType=$(error.errorType) quoteRef=$(vars.quoteRef) status=400 correlationId=$(correlationId)"]',
       '#["Bad licence number $(payload.driver.licenceNumber) for $(payload.driver.fullName)"]',
       '#["User sent garbage again!!!"]',
-      '#[error]',
+      '#["Quote request rejected: driver.licenceNumber has wrong length licenceNumber=$(payload.driver.licenceNumber) quoteRef=$(vars.quoteRef) status=400 correlationId=$(correlationId)"]',
     ],
     answer: 0,
     explain:
-      'Name the field and the check, not the value. A licence number and a name are personal data. No blame: the caller team reads these lines too.',
+      'Name the field and the check, not the value. The last option is well labelled but writes the licence number itself, and a licence number and a name are personal data. No blame: the caller team reads these lines too.',
   },
   {
     id: 'log-5013',
@@ -268,14 +268,14 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which line fits best in the handler for LOANS:LIMIT_REACHED?',
     options: [
-      '#["Loan refused"]',
+      '#["Loan refused: limit reached memberId=$(vars.memberId) status=409 correlationId=$(correlationId)"]',
       '#["Loan refused memberName=$(payload.member.name) memberAddress=$(payload.member.address)"]',
       '#["Loan refused: limit reached errorType=$(error.errorType) memberId=$(vars.memberId) loans=$(vars.loanCount) limit=10 status=409 correlationId=$(correlationId)"]',
       '#["MULE:UNKNOWN in loans flow"]',
     ],
     answer: 2,
     explain:
-      'Your own error type, LOANS:LIMIT_REACHED, already says what happened. Add the member ID, the count and the limit, so the line explains itself. Names and addresses stay out.',
+      'Your own error type, LOANS:LIMIT_REACHED, already says what happened. Add the member ID, the count and the limit, so the line explains itself. The first option has no count and no limit, so the reader cannot see why the rule fired. Names and addresses stay out.',
   },
   {
     id: 'log-5019',
@@ -422,14 +422,14 @@ export const SET_5 = [
     situation:
       'An error mapping turns HTTP:NOT_FOUND from the carrier call into TRACKING:UNKNOWN_SHIPMENT. Which line fits best in the On Error Propagate for TRACKING:UNKNOWN_SHIPMENT, which returns 404?',
     options: [
-      '#["HTTP:NOT_FOUND"]',
+      '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404"]',
       '#["Shipment not found at carrier errorType=$(error.errorType) shipmentId=$(vars.shipmentId) status=404 correlationId=$(correlationId)"]',
       '#["Shipment not found " ++ write(error.errorMessage.payload)]',
       '#["Tracking failed for $(attributes.headers.authorization)"]',
     ],
     answer: 1,
     explain:
-      'The mapped type says in your own words what went wrong. error.errorMessage holds the carrier response, which can be large and full of customer data, and an authorization header never goes in a log.',
+      'The mapped type says in your own words what went wrong. The first option has no correlation ID, so it cannot be joined to the carrier call before it. error.errorMessage holds the carrier response, which can be large and full of customer data, and an authorization header never goes in a log.',
   },
   {
     id: 'log-5028',
@@ -510,14 +510,14 @@ export const SET_5 = [
     situation:
       'The Until Successful has maxRetries="4". All attempts failed and Mule raised MULE:RETRY_EXHAUSTED. Which line fits best in its handler?',
     options: [
-      '#["Retry exhausted"]',
+      '#["Refill not sent to Dispensing API after 4 attempts errorType=$(error.errorType) cause=$(error.description) refillId=$(vars.refillId) next=pharmacist alerted correlationId=$(correlationId)"]',
       '#["Refill failed, will retry"]',
       '#["Refill not sent to Dispensing API after 5 attempts errorType=$(error.errorType) cause=$(error.description) refillId=$(vars.refillId) next=pharmacist alerted correlationId=$(correlationId)"]',
       '#["Refill failed for patient $(payload.patient.name) born $(payload.patient.dateOfBirth)"]',
     ],
     answer: 2,
     explain:
-      'maxRetries="4" means one call and 4 retries, so 5 attempts. No retry is left, so "will retry" misleads. Say what failed, how often it tried and what happens next, with an ID and no patient data.',
+      'maxRetries="4" means one call and 4 retries, so 5 attempts, and the first option gets that count wrong. No retry is left, so "will retry" misleads. Say what failed, how often it tried and what happens next, with an ID and no patient data.',
   },
   {
     id: 'log-5033',
@@ -604,12 +604,12 @@ export const SET_5 = [
     options: [
       '#["Staff lookup failed: LDAP not reachable after reconnection errorType=$(error.errorType) error=$(error.description) staffId=$(vars.staffId) status=503 correlationId=$(correlationId)"]',
       `#["LDAP bind failed for cn=svc-mule,ou=apps with $(p('secure::ldap.password'))"]`,
-      '#["Error occurred in LDAP, please check"]',
+      '#["Staff lookup failed: LDAP not reachable staffId=$(vars.staffId) status=503 correlationId=$(correlationId)"]',
       '#["Staff lookup failed " ++ write(error)]',
     ],
     answer: 0,
     explain:
-      'Say which work failed, the error type and description, and what the caller got. The bind credential never goes in a log, and a vague line sends support looking in the wrong place.',
+      'Say which work failed, the error type and description, and what the caller got. The third option leaves out the error type and description, so the reader cannot tell a refused bind from a network fault. The bind credential never goes in a log.',
   },
   {
     id: 'log-5038',
@@ -703,7 +703,7 @@ export const SET_5 = [
     kind: 'multi',
     situation:
       'Before the gateway call, payload holds card.number, card.expiry, card.cvv and amount. Which statements about this line are right?',
-    code: `<logger level="DEBUG" category="com.lumenpay.checkout" message="#['Gateway request: ' ++ write(payload)]" />`,
+    code: `<logger level="DEBUG" category="com.calderapay.checkout" message="#['Gateway request: ' ++ write(payload)]" />`,
     options: [
       'The full card number and CVV reach the log whenever DEBUG is on for this category',
       'PCI DSS forbids storing the CVV after authorisation, and a log line is stored data',
@@ -1022,14 +1022,14 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which line fits best when the fare search falls back to cached exchange rates?',
     options: [
-      '#["Using cache"]',
+      '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 errorType=$(error.errorType) correlationId=$(correlationId)"]',
       '#["Rates API timed out " ++ write(error)]',
       '#["Exchange rates taken from cache: Rates API timed out timeoutMs=2000 cacheAgeMinutes=$(vars.cacheAgeMinutes) errorType=$(error.errorType) correlationId=$(correlationId)"]',
       '#["ERROR rates broken!!!"]',
     ],
     answer: 2,
     explain:
-      'Say what the flow did instead, why, and how old the fallback data is. The age tells the reader how close the search is to failing for real.',
+      'Say what the flow did instead, why, and how old the fallback data is. The age tells the reader how close the search is to failing for real, and the first option leaves it out.',
   },
   {
     id: 'log-5063',
@@ -1205,14 +1205,14 @@ export const SET_5 = [
     kind: 'choice',
     situation: 'Which start-up line fits best for the meter readings app?',
     options: [
-      '#["Started"]',
+      `#["App started app=$(app.name) env=$(p('mule.env')) runtime=$(mule.version)"]`,
       `#["App started config=$(write(p('secure::db.password')))"]`,
       `#["App started app=$(app.name) version=$(p('app.version')) env=$(p('mule.env')) runtime=$(mule.version)"]`,
       '#["App started " ++ write(app)]',
     ],
     answer: 2,
     explain:
-      'Name, version, environment and runtime answer "what is running where" after a deployment. A start-up line has no triggering event, so it has no correlation ID to add. write(app) dumps far more than you need, and a secure property never belongs in a log.',
+      'Name, version, environment and runtime answer "what is running where" after a deployment. The first option leaves out the app version, so during a rollout you cannot tell the old replica from the new one. A start-up line has no triggering event, so it has no correlation ID to add. write(app) dumps far more than you need, and a secure property never belongs in a log.',
   },
   {
     id: 'log-5073',

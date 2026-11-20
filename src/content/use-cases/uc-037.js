@@ -79,7 +79,8 @@ Facts:
   - All mentions → the marketing data lake (daily partitioned JSON files) for reporting.
   - Same author posting 5 times about the same issue → one case, not five.
 - The brand's own posts must be ignored.
-- On launch day the poller can fall behind and want 3 pages a second, and about 2 complaint mentions a second can arrive while Zendesk is down for 30 minutes.
+- On launch day the poller can fall behind and want 3 pages a second, but the listening platform must never get more than 1 call a second.
+- About 2 complaint mentions a second can arrive while Zendesk is down for 30 minutes. No complaint may be lost.
 
 **Describe your solution:**
 - How do you get mentions reliably without webhooks?
@@ -121,7 +122,7 @@ Rules may send one mention to several routes, so routing publishes to separate q
 
 **Data lake.** The data-lake consumer aggregates mentions (e.g. by Batch Aggregator or a time-based buffer) and writes **hourly files** to \`mentions/date=YYYY-MM-DD/\`, so reporting does not depend on support or Slack.
 
-**Scaling and limits.** 20,000/day at 100 per page is ~200 calls/day — trivial. On launch days (200,000/day) polling every 2 minutes with 100-item pages is still far below 60 req/min. If backlog builds, increase page size, never concurrency of polls. Downstream consumers scale independently via queues; Zendesk 429s are retried with backoff.
+**Scaling and limits.** 20,000/day at 100 per page is ~200 calls/day, a tiny load. On launch days (200,000/day) polling every 2 minutes with 100-item pages is still far below 60 req/min. If a poller falls behind and asks for pages faster, a **rate limit of 1 call a second** on the listening System API keeps the platform under its 60 requests a minute; the poller backs off on 429 and continues. If backlog builds, increase page size, never concurrency of polls. Downstream consumers scale independently via queues; Zendesk 429s are retried with backoff.
 `,
   followUps: [
     { q: 'Would you upgrade to webhooks if offered?', a: 'Yes for latency, but keep the polling job as a slower reconciliation safety net, since webhooks can be missed.' },

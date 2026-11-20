@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Where is the request rejected and why?',
         options: [
-          'At the ingress/gateway: the body exceeds its configured size limit, so it is never forwarded to Mule',
-          'In claims-eapi: the HTTP Listener rejects large bodies',
-          'In claims-sapi: the document store returns 413',
-          'On the mobile device: the OS blocks large uploads',
+          'At the ingress, because the body is over its size limit, so Mule never sees it',
+          'In claims-eapi, where the HTTP Listener rejects bodies over its limit',
+          'In claims-sapi, where the document store returns 413 for large files',
+          'On the phone, where the OS blocks uploads larger than 30 MB',
         ],
         answer: 0,
         explain: 'The ingress log shows 413 with **upstream=-** and Mule logs nothing, so the proxy layer rejected the body before it reached Mule.',
@@ -33,12 +33,12 @@ export default {
         prompt: 'What is a sensible quick mitigation?',
         options: [
           'Remove the body size limit on the ingress for all routes',
-          'Raise the limit on /api/claims only, after checking every hop can handle it, or have the app resize/cap photos for now',
-          'Increase the vCores of claims-eapi',
-          'Tell users to submit fewer photos via a support article',
+          'Raise the limit on /api/claims only after checking each hop, or cap photos in the app',
+          'Give claims-eapi more vCores so it can accept the larger bodies',
+          'Publish a support article asking users to attach fewer photos',
         ],
         answer: 1,
-        explain: 'A targeted, verified limit change (or a client-side cap) restores service without opening every route to huge bodies.',
+        explain: 'A targeted, verified limit change (or a client-side cap) restores service without opening every route to huge bodies. More vCores do not help, because the request never reaches Mule.',
       },
       {
         type: 'multi',
@@ -70,12 +70,12 @@ export default {
 ## Symptoms
 - The insurance claims portal posts claims (JSON with base64-encoded photos) to \`claims-eapi\`.
 - Since the mobile app release that allows **up to 10 photos**, some users get **HTTP 413 Payload Too Large**.
-- The Mule app logs show **no trace** of the failing requests — no correlation IDs, nothing.
+- The Mule app logs show **no trace** of the failing requests: no correlation IDs, nothing.
 - Small claims work fine.
 
 ## Change / Context
 - Traffic path: mobile app → corporate API gateway / ingress (reverse proxy) → CloudHub 2.0 \`claims-eapi\` → \`claims-sapi\` → document store.
-- Typical new claims are **15–40 MB** after base64 encoding (base64 adds ~33%).
+- Typical new claims are **15 to 40 MB** after base64 encoding (base64 adds ~33%).
 - The ingress has a request body limit configured; nobody remembers the value.
 
 ## Logs
@@ -112,7 +112,7 @@ POST /api/claims 201 512 req_bytes=2100331 upstream=claims-eapi
   ],
   solution: `
 ## Diagnosis
-The ingress log shows \`413 ... client body too large\` with **no upstream** — the reverse proxy rejected the request before it reached \`claims-eapi\`, so Mule has nothing to log. The new mobile release allows bigger claims; with base64's ~33% overhead, 10 photos easily exceed the configured body limit.
+The ingress log shows \`413 ... client body too large\` with **no upstream**. The reverse proxy rejected the request before it reached \`claims-eapi\`, so Mule has nothing to log. The new mobile release allows bigger claims; with base64's ~33% overhead, 10 photos can exceed the configured body limit.
 
 ## Immediate mitigation
 - Raise the body size limit **for the \`/api/claims\` route only**, to a value you've verified every hop can handle (gateway, Mule app memory, \`claims-sapi\`, document store).
@@ -127,7 +127,7 @@ A client change increased payload sizes without checking platform limits, and th
 
 ## Prevention
 - Document max request size in the API spec and developer portal; return a clear 413 message.
-- Include boundary tests (just under/over the limit) in the release checklist for client apps.
+- Include boundary tests (slightly under and over the limit) in the release checklist for client apps.
 - Monitor ingress 4xx by route so a jump in 413s is visible.
 `,
   followUps: [

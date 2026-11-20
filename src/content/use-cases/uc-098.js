@@ -69,6 +69,7 @@ Facts:
 - About 15% of customers are not on Peppol yet; they must still get a PDF by email.
 - Finance must see the status on the invoice in NetSuite, and the exact XML sent must be kept for **10 years**.
 - In the tests the poller sends 2 invoices a second at month end, the access point can take 20 seconds per invoice, and NetSuite can be down for 20 minutes while status webhooks arrive.
+- A Mule HTTP call times out after 10 seconds by default. A slow invoice must still be sent, not fail, and no status may be lost while NetSuite is down.
 
 **Questions:**
 1. How are invoices picked up and converted?
@@ -103,7 +104,7 @@ Access point --webhook--> exp-e-invoice-status-webhook --> [e-invoice-status] --
 
 **Mapping and validation.** DataWeave builds the UBL Invoice: seller and buyer with their Peppol participant ids, VAT breakdown per rate, lines, payment means with the IBAN, and the PDF as an embedded attachment. The document is validated with the XML module against the UBL XSD, then against the Peppol Schematron rules. A failed invoice gets status \`Invalid\` with the rule message, and is not sent.
 
-**Sending.** **sys-peppol-access-point-api** sends the UBL with the NetSuite invoice id as the document reference. The access point returns a transmission id, which is stored on the invoice. The exact XML is written to the archive store with the invoice number and date in the name.
+**Sending.** **sys-peppol-access-point-api** sends the UBL with the NetSuite invoice id as the document reference. The access point returns a transmission id, which is stored on the invoice. The exact XML is written to the archive store with the invoice number and date in the name. At month end the access point can take 20 seconds to accept an invoice, longer than the 10-second default, so the poller, prc-e-invoice and the access point System API use a response timeout of about 30 seconds.
 
 **Status.** The access point calls **exp-e-invoice-status-webhook**. The API checks the signature header, puts the event on \`e-invoice-status\` and returns 200 at once. The Process API consumes the queue and sets the NetSuite status to Delivered or Rejected with the reason.
 

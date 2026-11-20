@@ -8,8 +8,8 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 02:00:00 INFO  [sales-extract] Extract sales cutoff=2026-11-18T00:00 rows=812004", relevant: true, why: "Sales cut at midnight." },
-      { text: "2026-11-18 02:45:00 INFO  [inv-extract] Extract inventory snapshotAt=2026-11-18T02:45 rows=260000", relevant: true, why: "Stock taken at 02:45." },
       { text: "2026-11-18 02:30:00 INFO  [ecom] Overnight orders committed count=4120", relevant: true, why: "Orders after midnight changed stock." },
+      { text: "2026-11-18 02:45:00 INFO  [inv-extract] Extract inventory snapshotAt=2026-11-18T02:45 rows=260000", relevant: true, why: "Stock taken at 02:45." },
       { text: "2026-11-18 06:00:00 WARN  [planning-platform] Stock does not reconcile with sales for 1,880 items", relevant: true, why: "The platform sees a mismatch." },
       { text: "2026-11-18 23:59:00 INFO  [sales-extract] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why do the feeds disagree?",
         options: [
-          "Sales stop at midnight but stock was read at 02:45, after more orders",
-          "The share lost rows",
-          "The platform is wrong",
-          "Both extracts failed",
+          "Sales stop at midnight, but stock was read at 02:45, after more orders",
+          "The sales extract ran first and locked rows the stock extract needed",
+          "The stock extract read 260,000 rows, but sales covered more items",
+          "The share held an older inventory file that the platform read first",
         ],
         answer: 0,
         explain: "The two feeds describe different moments.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What fixes it?",
         options: [
-          "Take both from the same cut off, for example stock as of midnight",
-          "Run sales later",
-          "Ignore the warning",
-          "Send stock twice",
+          "Take both at one cut off, for example stock as of midnight",
+          "Start both extract jobs at 02:00 so they run side by side",
+          "Run the sales extract at 02:45 with the same cutoff as now",
+          "Have the platform skip items with orders after midnight",
         ],
         answer: 0,
         explain: "Use one agreed point in time for both.",
@@ -45,7 +45,7 @@ export default {
           "Read a midnight snapshot table",
           "Use a database snapshot or flashback query",
           "Subtract movements after midnight from current stock",
-          "Read stock at any time",
+          "Run the stock extract as soon after midnight as possible",
         ],
         answer: [0,1,2],
         explain: "Any of these gives a consistent point in time.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What should the control file include?",
         options: [
-          "The cut off time each feed represents",
-          "Only the file names",
-          "The extract server name",
-          "Nothing",
+          "The cut off time that each feed represents",
+          "The time each extract job started running",
+          "The time each file was written to the share",
+          "The name of the job that made each file",
         ],
         answer: 0,
         explain: "The receiver can then reject mismatched feeds.",
@@ -81,14 +81,15 @@ export default {
 - The planning platform flags 1,880 items where stock and sales do not reconcile.
 
 ## Change / Context
-- Sales and stock are extracted from the store database by separate jobs and written to the share.
+- Sales and stock are extracted from the Oracle store database by separate jobs and written to the share.
+- Each feed goes with a control file that today lists only the file names.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 02:00:00 INFO  [sales-extract] Extract sales cutoff=2026-11-18T00:00 rows=812004
-2026-11-18 02:45:00 INFO  [inv-extract] Extract inventory snapshotAt=2026-11-18T02:45 rows=260000
 2026-11-18 02:30:00 INFO  [ecom] Overnight orders committed count=4120
+2026-11-18 02:45:00 INFO  [inv-extract] Extract inventory snapshotAt=2026-11-18T02:45 rows=260000
 2026-11-18 06:00:00 WARN  [planning-platform] Stock does not reconcile with sales for 1,880 items
 \`\`\`
 

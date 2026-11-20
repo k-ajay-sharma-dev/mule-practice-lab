@@ -119,6 +119,11 @@ The first version kept the time of the last run and loaded blobs changed since t
 - A blob overwritten with new content loads again, and its new rows **replace** its old ones.
 - A blob that fails must not stop the others, and must be tried again on the next run.
 
+**Facts**
+- Look a blob up with \`SELECT ... FROM dbo.processed_blob WHERE blob_name = ... AND etag = ...\`.
+- Write the \`processed_blob\` row only after the blob's rows are staged.
+- A blob that fails is logged at ERROR with its name.
+
 **Design the flow.**
 `,
   answerTemplate: `## Listing and the processed log

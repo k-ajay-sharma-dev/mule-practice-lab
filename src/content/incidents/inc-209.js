@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why did every order end up in the DLQ?",
         options: [
-          "The consumer kept taking messages while the ERP was down, and each used its tries in seconds",
-          "The DLQ was misconfigured",
-          "Orders were bad",
-          "The queue TTL was short",
+          "The consumer kept reading during the outage, and each order used its five tries in seconds",
+          "The queue TTL was shorter than the outage, so expired orders moved to the DLQ",
+          "The ERP rejected the orders as invalid, so the consumer routed them to the DLQ",
+          "The consumer acked each order before the call, so the broker moved them on",
         ],
         answer: 0,
         explain: "Retries that happen in seconds cannot outlast an outage of an hour.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What should the consumer do when the ERP is down for everyone?",
         options: [
-          "Stop taking messages for a while, then try again, so messages wait on the queue",
-          "Keep consuming faster",
-          "Delete messages",
-          "Send them to email",
+          "Stop taking messages for a while and try later, so they wait on the queue",
+          "Keep consuming and nack each message, so the broker keeps redelivering it",
+          "Ack each message and write it to a log so support can replay it later",
+          "Raise the subscriber concurrency so more orders get through between failures",
         ],
         answer: 0,
         explain: "This is a circuit breaker. When a dependency is down, stop consuming instead of failing every message.",
@@ -45,7 +45,7 @@ export default {
           "A circuit breaker on the subscriber for connectivity errors",
           "Delay between redeliveries",
           "A clear split between \"ERP down\" errors and \"bad order\" errors",
-          "A larger DLQ",
+          "A longer TTL on orders-dlq so failed orders are kept",
         ],
         answer: [0,1,2],
         explain: "Treat outages and bad data differently. Only bad data belongs in the DLQ.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What do you do with the 4,200 orders in the DLQ?",
         options: [
-          "Move them back to the main queue once the ERP is up, at a safe rate",
-          "Delete them",
-          "Process them by hand",
-          "Leave them",
+          "Move them back to the main queue at a rate the ERP can take",
+          "Move all 4,200 back at once so the backlog clears quickly",
+          "Leave them in the DLQ and ask customers to place them again",
+          "Have support key each order into the ERP by hand",
         ],
         answer: 0,
         explain: "They are good orders that met an outage. Replay them, paced.",
@@ -79,7 +79,7 @@ export default {
   description: `
 ## Symptoms
 - During a one hour ERP maintenance window, all 4,200 orders moved to the DLQ.
-- Operations replayed them by hand the next morning.
+- The ERP is back now, and the orders are still in the DLQ.
 
 ## Change / Context
 - The order consumer nacks on any error. The queue sends a message to the DLQ after five deliveries.

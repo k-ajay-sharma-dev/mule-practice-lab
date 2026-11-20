@@ -127,8 +127,8 @@ The working rule: ask who hosts the tool. If the Mule app hosts it, the app is t
       a: 'Yes. The roles are separate configurations in the connector, Server and Client. A flow can offer a tool in one place and call a remote tool in another.',
     },
     {
-      q: 'Why does the docs page suggest simpler tools over one large API?',
-      a: 'It says to expose APIs with complex endpoints as simpler, more atomic tools or resources, because those suit agents better. An agent is an AI powered service that carries out tasks.',
+      q: 'Why does the docs page suggest small tools over one large API?',
+      a: 'It says to expose APIs with complex endpoints as smaller, more atomic tools or resources, because those suit agents better. An agent is an AI powered service that carries out tasks.',
     },
     {
       q: 'Does a client need to know how many replicas are running?',

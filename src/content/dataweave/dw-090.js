@@ -25,7 +25,7 @@ Later steps send \`body\` as it is, so the receiver can recompute the same value
       content: `{
   "eventId": "evt-20931",
   "eventType": "shipment.delivered",
-  "data": { "shipmentId": "SH-4471", "carrier": "DHL", "pieces": 3 }
+  "data": { "shipmentId": "SH-4471", "carrier": "SwiftParcel", "pieces": 3 }
 }`,
     },
     {
@@ -39,9 +39,9 @@ Later steps send \`body\` as it is, so the receiver can recompute the same value
     content: `{
   "headers": {
     "X-Webhook-Timestamp": "1793786400",
-    "X-Webhook-Signature": "t=1793786400,v1=cd74ff59e565547c55a9cdd890cf29e2f1a678b5017013927ac7d6bf5305077e"
+    "X-Webhook-Signature": "t=1793786400,v1=a17da873bfb81056096ccb28dd1229c9dc3b44ae41127dabf77d508a62a4833f"
   },
-  "body": "{\\"eventId\\": \\"evt-20931\\",\\"eventType\\": \\"shipment.delivered\\",\\"data\\": {\\"shipmentId\\": \\"SH-4471\\",\\"carrier\\": \\"DHL\\",\\"pieces\\": 3}}"
+  "body": "{\\"eventId\\": \\"evt-20931\\",\\"eventType\\": \\"shipment.delivered\\",\\"data\\": {\\"shipmentId\\": \\"SH-4471\\",\\"carrier\\": \\"SwiftParcel\\",\\"pieces\\": 3}}"
 }`,
   },
   starterCode: `%dw 2.0

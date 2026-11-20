@@ -21,6 +21,8 @@ Slots fill up. Two shoppers can see the last drop in a slot, and the second one 
 - \`GET /postcodes/{postcode}/delivery-slots\` has a required query parameter \`date\` that is a calendar day with no time, and returns a list of \`DeliverySlot\` with an example on that response body.
 - \`DeliverySlot\` has a required \`slotId\` such as \`SL-118204\`, required \`start\` and \`end\` dates and times with a time zone, a required number \`price\` of at least 0, and a required integer \`dropsLeft\` of at least 0.
 - \`BookingRequest\` has a required \`slotId\` with the same pattern and a required string \`orderId\`.
+- \`Booking\` has a required string \`bookingId\`, the \`slotId\` and \`orderId\` that were booked, and the slot's \`start\` and \`end\`.
+- \`Error\` has the required strings \`code\` and \`message\`.
 - \`POST /delivery-bookings\` takes a \`BookingRequest\` and returns 201 with \`Location\` and a \`Booking\`, 400, and 409 with an \`Error\` when the slot is full.
 - \`GET /delivery-bookings/{bookingId}\` returns a \`Booking\`, or 404.
 - Bookings are not nested under the postcode.

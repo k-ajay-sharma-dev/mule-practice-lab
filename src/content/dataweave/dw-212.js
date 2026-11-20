@@ -13,8 +13,8 @@ Thornbury Freight runs a report app that mails integration alerts every 30 minut
 **Rules**
 - \`WARN\` alerts are not mailed. Count them in \`notMailed\`.
 - Every other alert goes to its app's mailbox. A \`CRITICAL\` alert also goes to the on call mailbox.
-- One mail per mailbox, sorted by address.
-- In a mail, one line per app and error type, sorted by app then error type. Times are \`HH:mm\` UTC.
+- One mail per mailbox, sorted by address as text.
+- In a mail, one line per app and error type, sorted as text by app then error type. Times are \`HH:mm\` UTC. First and last are the earliest and latest times.
   - one alert: \`<app> <errorType> at HH:mm\`
   - several: \`<app> <errorType> xN, first HH:mm, last HH:mm\`
 - The subject is \`[Integration] N alerts, C critical\`, counting the alerts in that mail.

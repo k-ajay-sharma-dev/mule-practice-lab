@@ -5,7 +5,7 @@ const docs = { name: 'supplier documents', from: 'partner', rps: 20, to: ['azure
 export default {
   id: 'uc-153',
   category: 'use-cases',
-  title: 'A Product Data Hub for a Parts Retailer: Documents in Blob Storage, Small Notifications on a Queue, and Oracle Allowed to Be Down for an Hour',
+  title: 'A Product Data Hub for a Home Improvement Retailer:Documents in Blob Storage, Small Notifications on a Queue, and Oracle Allowed to Be Down for an Hour',
   level: 'INTERMEDIATE',
   tags: ['myproject', 'queues', 'claim-check', 'azure-blob', 'oracle', 'gs1', 'client-id', 'dlq'],
   estMinutes: 40,
@@ -66,7 +66,7 @@ export default {
     },
   },
   description: `
-Copperline Home Supply, a fictional parts retailer, is building a **product data hub**. Suppliers and its own distribution centres (DCs) send GS1 style documents to it: Item, SupplierItem, ReceivingAdvice, InventoryTransaction and Barcode. The hub checks them and loads them into its **Oracle database**, where the ERP and the planning tools pick them up.
+Copperline Home Supply, a fictional home improvement retailer, is building a **product data hub**. Suppliers and its own distribution centres (DCs) send GS1 style documents to it: Item, SupplierItem, ReceivingAdvice, InventoryTransaction and Barcode. The hub checks them and loads them into its **Oracle database**, where the ERP and the planning tools pick them up.
 
 Documents range from a few kilobytes to 80 MB. The hub's Oracle database is patched once a month, for up to an hour, during trading hours.
 
@@ -75,7 +75,8 @@ The team has already decided on the claim check pattern: the document goes to **
 **Numbers**
 - About **20 documents a second** on a normal day.
 - Blob storage answers in about 120 ms. Oracle answers in about 60 ms and takes up to 100 loads a second.
-- Oracle patching: up to **60 minutes**. In this model a failed delivery is tried again about once a minute.
+- Oracle patching: up to **60 minutes**. In this model a failed delivery is tried again about once a minute, and every delivery counts toward the redelivery limit.
+- A supplier must get its answer within **1 second**. No document may be lost, and no good notification may reach the failure queue during patching.
 
 **Questions:**
 - Draw the design.

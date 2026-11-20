@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'The apps need a VPN to the data centre, custom certificates and custom domains. What CloudHub 2.0 target do you choose?',
       options: [
-        'A private space connected to the data centre by VPN, with ingress configured for the custom domains and TLS',
-        'The shared space, because it is the default for CloudHub 2.0',
-        'A Dedicated Load Balancer, exactly as on CloudHub 1.0',
-        'Runtime Fabric on the developers’ laptops',
+        'A private space with a VPN, and ingress set up for the domains and TLS',
+        'The shared space, with the VPN and certificates added to each app',
+        'The shared space behind a new Dedicated Load Balancer, as on CloudHub 1.0',
+        'A private space for the VPN, with each app keeping its own public URL',
       ],
       answer: 0,
-      explain: 'Private connectivity (VPN) and custom ingress need a private space. The shared space cannot connect to the data centre, and the CloudHub 1.0 DLB does not exist in CloudHub 2.0 — its job moves to private space ingress.',
+      explain: 'Private connectivity (VPN) and custom ingress need a private space. The shared space cannot connect to the data centre. The CloudHub 1.0 DLB does not exist in CloudHub 2.0; its job moves to private space ingress, which is also where the custom domains and certificates go.',
     },
     {
       type: 'match',
@@ -34,13 +34,13 @@ export default {
       type: 'single',
       prompt: 'Partners have whitelisted the current outbound IPs. When do you deal with this?',
       options: [
-        'First — get the private space static outbound IPs and share them with partners early so whitelists are updated before cutover',
-        'On cutover day, by phoning each partner',
-        'Never — CloudHub 2.0 keeps the CloudHub 1.0 IPs automatically',
-        'After all apps are migrated, if partners complain',
+        'First, by sharing the private space’s outbound IPs with partners',
+        'On cutover day, by sending partners the new IPs as each app moves',
+        'Not at all, because the static IPs move with the apps to CloudHub 2.0',
+        'In the last wave, once all the new IPs are known and stable',
       ],
       answer: 0,
-      explain: 'Partner whitelist changes are often the slowest dependency, so they start first. The IPs change with the new private space; assuming they carry over causes a partner outage at cutover.',
+      explain: 'Partner whitelist changes are often the slowest dependency, so they start first. The private space’s static outbound IPs are known once it is created, so share them early and let partners whitelist them before cutover. The IPs change with the new private space; assuming they carry over causes a partner outage at cutover. Waiting until cutover day or the last wave leaves partners no time.',
     },
     {
       type: 'order',
@@ -71,13 +71,13 @@ export default {
       needsScenario: true,
       prompt: 'How do you sequence the waves of ~10 apps?',
       options: [
-        'Pilot 2–3 low-risk internal apps first, then group waves by dependency, migrating System APIs before the APIs that call them',
-        'Start with the most critical partner-facing apps to get the hard part done',
-        'Move all 60 apps in one weekend to avoid running two platforms',
-        'Pick apps alphabetically so nothing is forgotten',
+        'A low-risk pilot first, then waves by dependency, System APIs first',
+        'The critical partner-facing apps first, to get the hard part done',
+        'Waves by business team, so each team moves all its apps at once',
+        'The largest apps first, so the riskiest work gets the most time',
       ],
       answer: 0,
-      explain: 'A low-risk pilot proves the private space, ingress and pipeline; dependency-based waves keep call chains working. Starting with the critical partner apps puts the biggest risk on the least-proven setup.',
+      explain: 'A pilot of 2 or 3 low-risk internal apps proves the private space, ingress and pipeline. Dependency-based waves, with System APIs before the APIs that call them, keep call chains working. Starting with the critical partner apps puts the biggest risk on the least-proven setup. Waves by team ignore call chains, and starting with the largest apps has the same problem as starting with the critical ones.',
     },
   ],
   description: `
@@ -123,24 +123,24 @@ export default {
 
 **Differences to handle.**
 - **Workers → replicas.** Size apps by replica size and count; enable clustering where needed.
-- **Persistent queues** (a CloudHub 1.0 feature) are not available — move to Anypoint MQ or redesign the flow; check VM queues usage.
+- **Persistent queues** (a CloudHub 1.0 feature) are not available. Move to Anypoint MQ or redesign the flow; check VM queues usage.
 - **Object Store v2** is available, but check keys/TTL behaviour and that data migrates or can be rebuilt.
-- **Static IPs** — private spaces provide outbound static IPs; share them with partners early.
-- **Ports and URLs** — apps must listen on the port the platform expects (use the \`http.port\` property, never a hard-coded port); DLB mapping rules become ingress/path rules; decide where TLS terminates (ingress only, or end to end).
-- **Logging** — confirm log forwarding/appenders and retention meet needs.
-- **Deployment** — update the mule-maven-plugin config to the CloudHub 2.0 deployment type (target, provider, replicas, vCores), use connected apps for credentials. Upgrade older runtimes first.
+- **Static IPs.** Private spaces provide outbound static IPs; share them with partners early.
+- **Ports and URLs.** Apps must listen on the port the platform expects (use the \`http.port\` property, never a hard-coded port); DLB mapping rules become ingress/path rules; decide where TLS terminates (ingress only, or end to end).
+- **Logging.** Confirm log forwarding/appenders and retention meet needs.
+- **Deployment.** Update the mule-maven-plugin config to the CloudHub 2.0 deployment type (target, provider, replicas, vCores), use connected apps for credentials. Upgrade older runtimes first.
 
 **Waves and cutover.**
-1. Build private space, VPN, ingress, DNS plan; migrate 2–3 low-risk internal apps as a pilot.
+1. Build private space, VPN, ingress, DNS plan; migrate 2 or 3 low-risk internal apps as a pilot.
 2. Migrate in waves of ~10, grouped by dependency (System APIs before the APIs that call them).
-3. Per app: deploy to CloudHub 2.0 alongside the CH1 app, test via the new URL, switch DNS/partner traffic, keep CH1 running for a rollback period, then stop it.
+3. Per app: deploy to CloudHub 2.0 alongside the CloudHub 1.0 app, test via the new URL, switch DNS/partner traffic, keep the CloudHub 1.0 app running for a rollback period, then stop it.
 4. API Manager: re-point API instances/autodiscovery to the new deployments.
 
 **Risks.** Partner IP whitelist delays (start the conversation first), network approvals, persistent-queue redesign effort, and cost changes from different sizing.
 `,
   followUps: [
-    { q: 'Shared space or private space — when would shared be enough?', a: 'Shared space suits public internet-facing apps with no private connectivity or custom ingress needs. Anything needing a VPN, static IPs or custom certificates/domains belongs in a private space.' },
+    { q: 'Shared space or private space: when would shared be enough?', a: 'Shared space suits public internet-facing apps with no private connectivity or custom ingress needs. Anything needing a VPN, static IPs or custom certificates/domains belongs in a private space.' },
     { q: 'How do you avoid a big-bang cutover for partners?', a: 'Give partners the new IPs and keep the same hostname; switch DNS per app behind that hostname so they see no change, and keep the old app ready for rollback.' },
-    { q: 'What is your biggest risk?', a: 'External dependencies — partner whitelists and network approvals — because they are outside the team’s control. Start them in week one and track them as critical-path items.' },
+    { q: 'What is your biggest risk?', a: 'External dependencies, such as partner whitelists and network approvals, because they are outside the team’s control. Start them in week one and track them as critical-path items.' },
   ],
 }

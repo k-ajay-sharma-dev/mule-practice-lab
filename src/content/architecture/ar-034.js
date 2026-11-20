@@ -20,22 +20,22 @@ export default {
       type: 'single',
       prompt: 'Can Anypoint MQ replay last week\'s telemetry for a new consumer team?',
       options: [
-        'Yes, it keeps all messages for 7 days by default',
-        'No: a consumed and acknowledged message is gone; replay needs a log-based platform or a separate event store',
-        'Yes, through the DLQ',
-        'Only with FIFO queues',
+        'Yes, acknowledged messages stay for the 7-day default TTL',
+        'No, an acknowledged message is deleted; replay needs a log or an event store',
+        'Yes, if the new team reads the dead-letter queue',
+        'Yes, if the queue is created as a FIFO queue',
       ],
       answer: 1,
-      explain: 'Queues delete messages on acknowledgement. Kafka retains the log and lets each consumer group track its own offset.',
+      explain: 'Queues delete messages on acknowledgement. The TTL only limits how long an unacknowledged message waits. Kafka retains the log and lets each consumer group track its own offset.',
     },
     {
       type: 'single',
       prompt: 'How do you keep ordering per vehicle in Kafka while scaling consumers?',
       options: [
-        'Use a single partition for all vehicles',
-        'Use vehicleId as the message key so all its events land in one partition; each partition is consumed by one consumer in the group at a time',
-        'Sort messages by timestamp in every consumer',
-        'Ordering is impossible in Kafka',
+        'Use one partition for all vehicles, so there is one global order',
+        'Use vehicleId as the message key, so each vehicle stays in one partition',
+        'Give each consumer its own consumer group, so each sees every event',
+        'Use a random key, so the load spreads evenly over all partitions',
       ],
       answer: 1,
       explain: 'Kafka orders within a partition. Keying by vehicleId gives per-vehicle order while partitions spread the load.',
@@ -47,33 +47,33 @@ export default {
         'Delivery model: queue or log',
         'Retention and replay needs',
         'Ordering guarantees and fan-out',
-        'The broker the last project happened to use',
-        'The same broker everywhere, whatever the workload',
+        'Which broker the team used on its last project',
+        'How many connectors Anypoint Exchange lists for each broker',
       ],
       answer: [0, 1, 2],
-      explain: 'The criteria are about the workload and the team that runs it, documented so the choice is repeatable. Throughput, operations effort (managed or self-run), skills and cost belong on the same list. Habit and one broker for everything say nothing about the workload.',
+      explain: 'The criteria are about the workload and the team that runs it, documented so the choice is repeatable. Throughput, operations effort (managed or self-run), skills and cost belong on the same list. Habit and the number of listed connectors say nothing about the workload.',
     },
     {
       type: 'single',
       prompt: 'The legacy warehouse design used XA between IBM MQ and Oracle. What is the recommended stance?',
       options: [
-        'Replace IBM MQ with Anypoint MQ and keep XA',
-        'Check whether XA is really needed; prefer local transactions plus idempotent processing, while knowing Mule 4 supports XA with compatible connectors if required',
-        'XA is mandatory for every Mule integration',
-        'Mule 4 cannot connect to IBM MQ',
+        'Move the queue to Anypoint MQ and keep XA with Oracle',
+        'Check whether XA is needed; prefer local transactions and idempotency',
+        'Keep XA everywhere, since it is the only safe way to join a queue and a DB',
+        'Drop XA, because Mule 4 does not support XA transactions',
       ],
       answer: 1,
-      explain: 'XA adds complexity and coupling. Idempotent processing often gives the same safety; XA stays available for genuinely transactional cases.',
+      explain: 'XA adds complexity and coupling. Idempotent processing often gives the same safety. Mule 4 still supports XA with compatible connectors (JMS, IBM MQ, Database) for genuinely transactional cases. Anypoint MQ does not take part in XA.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'How do you answer the CIO\'s "one messaging technology for everything"?',
       options: [
-        'Agree and run Kafka for all three use cases',
-        'Agree and force the warehouse vendor onto Anypoint MQ',
-        'Propose a governed short list with documented selection criteria (Anypoint MQ default, Kafka for streaming/replay, existing JMS for legacy), recorded in an ADR',
-        'Let every team choose freely',
+        'Agree and run managed Kafka for all three use cases',
+        'Agree and use Anypoint MQ for all three, since the team knows it',
+        'Propose a short governed list with written selection criteria in an ADR',
+        'Keep IBM MQ for all three, since it already runs and supports XA',
       ],
       answer: 2,
       explain: 'One tool for everything either adds operational overhead (Kafka for A), lacks features (MQ for B) or forces a vendor change (C). Mule connectors keep the integration skillset common.',
@@ -109,7 +109,7 @@ Constraints:
   keyPoints: [
     'Compare brokers on delivery model (queue vs log), throughput, retention and replay, ordering guarantees, consumer groups, operations effort, protocol/connectivity and cost.',
     'Anypoint MQ is a managed queue/exchange service with DLQs and redelivery, suited to moderate-volume app-to-app messaging with minimal operations.',
-    'Kafka is a distributed log: high throughput, retention-based replay, ordering per partition key and independent consumer groups — at the cost of more operational and design complexity.',
+    'Kafka is a distributed log: high throughput, retention-based replay, ordering per partition key and independent consumer groups: at the cost of more operational and design complexity.',
     'JMS brokers such as IBM MQ or ActiveMQ remain the right choice where existing systems already use them or transactional semantics with those systems are needed; Mule connects with the JMS/IBM MQ connectors.',
     'One technology for everything is less important than a small, governed set of options with clear selection criteria.',
   ],
@@ -117,13 +117,13 @@ Constraints:
 **Evaluation criteria.** Queue (message removed when consumed) vs log (retained, consumers track offsets); throughput; retention and replay; ordering (FIFO queues vs per-partition ordering); fan-out (exchanges/topics/consumer groups); delivery guarantees and transactions; operations (managed vs self-run); connectivity (who else must connect); cost and skills.
 
 **Choice per use case.**
-- **A — Anypoint MQ.** Managed, integrated with Anypoint Platform, supports queues, exchanges for fan-out, **dead-letter queues** with a max-delivery setting, and FIFO queues when ordering matters. 20 msg/s is comfortably in range and the small team avoids running brokers.
-- **B — Kafka (managed service).** 20k msg/s, multiple independent consumer teams, 7-day replay and ordering per vehicle (partition key = vehicleId) are exactly what a log-based platform is built for. Use the provider's managed Kafka to reduce operational risk; invest in skills.
-- **C — IBM MQ via JMS/IBM MQ connector.** The vendor already uses it; do not introduce a bridge for the sake of uniformity. If XA was used in the legacy design, check whether it is really needed — prefer local transactions plus idempotent processing; Mule 4 does support XA with compatible connectors if truly required.
+- **A: Anypoint MQ.** Managed, integrated with Anypoint Platform, supports queues, exchanges for fan-out, **dead-letter queues** with a max-delivery setting, and FIFO queues when ordering matters. 20 msg/s is comfortably in range and the small team avoids running brokers.
+- **B: Kafka (managed service).** 20k msg/s, multiple independent consumer teams, 7-day replay and ordering per vehicle (partition key = vehicleId) are exactly what a log-based platform is built for. Use the provider's managed Kafka to reduce operational risk; invest in skills.
+- **C: IBM MQ via JMS/IBM MQ connector.** The vendor already uses it; do not introduce a bridge for the sake of uniformity. If XA was used in the legacy design, check whether it is really needed: prefer local transactions plus idempotent processing; Mule 4 does support XA with compatible connectors if truly required.
 
 **Mule implementation.**
-- A: Anypoint MQ connector — subscriber with manual ack/nack, DLQ configured on the queue, idempotent consumer.
-- B: Apache Kafka connector — consumer group per consuming app, commit offsets after processing, key by vehicleId. Heavy analytics consumers might read Kafka directly rather than through Mule.
+- A: Anypoint MQ connector: subscriber with manual ack/nack, DLQ configured on the queue, idempotent consumer.
+- B: Apache Kafka connector: consumer group per consuming app, commit offsets after processing, key by vehicleId. Heavy analytics consumers might read Kafka directly rather than through Mule.
 - C: IBM MQ connector (or generic JMS connector with the IBM client), transacted consume where needed.
 
 **"One technology for everything."** Explain the trade-off: Kafka for use case A adds operational overhead; Anypoint MQ for B lacks the log/replay model; replacing IBM MQ for C forces a vendor change. Propose a **governed short list** (e.g. Anypoint MQ default for app integration, Kafka for high-volume streaming/replay, existing JMS only for legacy) with selection criteria documented in an ADR. Mule abstracts much of the difference behind connectors, so the integration skillset stays common.

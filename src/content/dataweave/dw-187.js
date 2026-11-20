@@ -13,7 +13,7 @@ Quayle Freight writes shipment events from many countries into an Oracle table. 
 
 Each event time is ISO text. Most have an offset, such as \`Z\` or \`-05:00\`. A time without an offset cannot be placed in UTC, so it goes to \`rejects\` with \`shipmentId\`, \`eventTime\` and the reason \`"No time zone offset"\`.
 
-Each row has \`SHIPMENT_ID\`, \`EVENT_CODE\` (the event type in upper case), \`EVENT_TS_UTC\` and \`BUSINESS_DATE\`. Sort the rows by \`EVENT_TS_UTC\`. Keep rejects in input order.
+Each row has \`SHIPMENT_ID\`, \`EVENT_CODE\` (the event type in upper case), \`EVENT_TS_UTC\` and \`BUSINESS_DATE\`. Sort the rows by \`EVENT_TS_UTC\`. Keep rejects in input order. Return an object with \`rows\` and \`rejects\`; both are empty lists when there is nothing for them.
 `,
   inputs: [
     {

@@ -245,6 +245,12 @@ The first version of the job looped over all rows and failed at row 10,001 with 
 - Do not call the API again until the window has reset. Use **X-RateLimit-Reset**, and use a safe default if the header is missing.
 - Progress must survive a restart.
 
+**Facts**
+- The outbox table is \`telemetry_outbox\` with the columns \`id\`, \`vehicle_id\` and \`reading\`.
+- Send each row as JSON with \`POST /fleet/v1/readings\`.
+- Keep both values in the persistent Object Store \`fleetSyncStore\`: the last sent \`id\` under \`fleet-sync-last-id\`, and the earliest time the next run may call the API under \`fleet-sync-not-before\`.
+- \`X-RateLimit-Reset\` is in milliseconds. When it is missing, wait **15 minutes**.
+
 **Design the flow.**
 `,
   answerTemplate: `## Trigger and wait check
@@ -284,7 +290,7 @@ The first version of the job looped over all rows and failed at row 10,001 with 
 
 The error ends the For Each, and the handler completes the run as a success. The next run that passes the Choice carries on after the last stored ID.
 
-**The 100 per second limit.** A sequential For Each is unlikely to reach it, but if it does, the same handler applies: the reset is short, and the job simply continues at its next run.
+**The 100 per second limit.** A sequential For Each is unlikely to reach it, but if it does, the same handler applies: the reset is short, and the job continues at its next run.
 
 **If several limits are in play,** the docs say the headers report spare capacity for only the most restrictive policy when several SLA-based policies apply. They do not say which limit of a single tier the headers describe. So test this against the real API, and keep the default wait.
 

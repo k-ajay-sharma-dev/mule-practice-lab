@@ -64,7 +64,7 @@ export default {
     },
   },
   description: `
-A furniture retailer has three teams that each send email and text messages: the **online shop** (order and delivery updates) and the **HR portal** (shift changes, payslip ready), with more apps to come. Each team wrote its own code against the same **email and SMS provider**, with its own login and its own retries.
+A furniture retailer has two teams that each send email and text messages: the **online shop** (order and delivery updates) and the **HR portal** (shift changes, payslip ready), with more apps to come. Each team wrote its own code against the same **email and SMS provider**, with its own login and its own retries.
 
 Last month the provider was down for 20 minutes. The shop's checkout waited on it and failed orders. The HR portal lost every message sent in those 20 minutes. Nobody could say how many messages went out that day.
 
@@ -73,7 +73,8 @@ The plan is one **shared notification service** that every app calls.
 **Numbers**
 - At the start of a sale the shop sends about **60 messages a second**. HR sends about **10**.
 - The provider takes about 300 ms per message and up to 120 a second.
-- About 1 message in 50 has an address the provider refuses every time.
+- About 1 message in 50 has an address the provider refuses every time. Support wants those set aside within about an hour.
+- The broker tries a failed message again about **once a minute**. Provider outages have lasted up to 20 minutes.
 
 **Questions:**
 - Draw the shared service. How does an app send a message without waiting on the provider?

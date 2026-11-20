@@ -27,10 +27,10 @@ export const SET_16 = [
       'Batch finished job=shipment-sync instanceId=b-71 total=800000 successful=799120 failed=880 status=PARTIAL durationMs=3120000',
       'Batch done',
       'Records: <800,000 records>',
-      'Shipment sync ok',
+      'Batch finished job=shipment-sync total=800000 successful=799120 failed=880 status=PARTIAL durationMs=3120000',
     ],
     answer: 0,
-    explain: 'The instance, the three counts, the status and the time.',
+    explain: 'The instance, the three counts, the status and the time. The last line has no instance ID, so it cannot be tied to that run’s failed records.',
   },
   {
     id: 'log-16003',
@@ -44,11 +44,11 @@ export const SET_16 = [
     id: 'log-16004',
     kind: 'write',
     situation:
-      'Write the Quayle On Complete line. payload holds totalRecords, successfulRecords, failedRecords and elapsedTimeInMillis. vars.status holds COMPLETED, PARTIAL or FAILED.',
+      'Write the Quayle On Complete line. payload holds batchJobInstanceId, totalRecords, successfulRecords, failedRecords and elapsedTimeInMillis. vars.status holds COMPLETED, PARTIAL or FAILED.',
     available: ['payload.batchJobInstanceId', 'payload.totalRecords', 'payload.successfulRecords', 'payload.failedRecords', 'payload.elapsedTimeInMillis', 'vars.status'],
     level: ['INFO', 'WARN'],
     checks: [
-      says(/batch (finished|complete)|finished/i, 'Batch finished'),
+      says(/batch (job )?(finished|complete)|finished|completed/i, 'Batch finished'),
       { must: /batchJobInstanceId/, say: 'Add the instance: instanceId=$(payload.batchJobInstanceId).' },
       { must: /totalRecords/, say: 'Add the total: payload.totalRecords.' },
       { must: /successfulRecords/, say: 'Add how many worked: payload.successfulRecords.' },
@@ -67,7 +67,7 @@ export const SET_16 = [
     id: 'log-16005',
     kind: 'write',
     situation:
-      'A Quayle batch job stopped because failed records passed maxFailedRecords. vars.instanceId, vars.failed and vars.maxFailed hold the facts. Write the line.',
+      'A Quayle batch job stopped because failed records passed maxFailedRecords. vars.instanceId, vars.failed and vars.maxFailed hold the facts. The data must be fixed and the job run again. Write the line, with what happens next.',
     available: ['vars.instanceId', 'vars.failed', 'vars.maxFailed', 'payload'],
     level: ['ERROR'],
     checks: [
@@ -92,8 +92,8 @@ export const SET_16 = [
     id: 'log-16006',
     kind: 'level',
     situation: 'In a Quayle batch, one shipment record failed validation in a step. It will be collected by an ONLY_FAILURES step.',
-    answer: ['WARN', 'DEBUG'],
-    explain: 'WARN if failures are rare. DEBUG if a failures step already logs each one.',
+    answer: ['WARN'],
+    explain: 'Bad data arrived and must be fixed at source, so WARN, as for any rejected record. Log it once, in one place.',
   },
   {
     id: 'log-16007',
@@ -103,10 +103,10 @@ export const SET_16 = [
       'Record failed step=validate shipmentId=SH-88120 reason=missing postcode next=reject table',
       'Record failed: {"shipmentId":"SH-88120","consignee":{"name":…,"address":…}}',
       'Bad record',
-      'Validation error',
+      'Record failed step=validate shipmentId=SH-88120 next=reject table',
     ],
     answer: 0,
-    explain: 'The step, the key and the reason. Not the record, which holds personal data.',
+    explain: 'The step, the key and the reason. Not the record, which holds personal data. The last line has no reason, so nobody knows what to fix.',
   },
   {
     id: 'log-16008',
@@ -120,7 +120,7 @@ export const SET_16 = [
     id: 'log-16009',
     kind: 'write',
     situation:
-      'A Quayle record failed in the validate step. vars.step, vars.shipmentId and vars.reason hold the facts. It goes to the reject table. Write the line.',
+      'A Quayle record failed in the validate step. vars.step, vars.shipmentId and vars.reason hold the facts. It goes to the reject table. Write the line, with what happens next.',
     available: ['vars.step', 'vars.shipmentId', 'vars.reason', 'vars.record', 'payload'],
     level: ['WARN'],
     checks: [
@@ -148,7 +148,7 @@ export const SET_16 = [
     available: ['vars.instanceId', 'vars.written', 'vars.topReason', 'payload'],
     level: ['INFO', 'WARN'],
     checks: [
-      says(/rejects? (written|stored)|failures? (written|stored)/i, 'Rejects written'),
+      says(/(rejects?|failures?|failed records?) (written|stored)|written to (the )?reject/i, 'Rejects written'),
       labelled('instanceId'),
       labelled('written'),
       labelled('topReason'),
@@ -221,7 +221,7 @@ export const SET_16 = [
     situation:
       'A Quayle aggregator group wrote with a bulk insert. vars.table, vars.group, vars.rows and vars.durationMs hold the facts. This runs thousands of times a night. Write the line.',
     available: ['vars.table', 'vars.group', 'vars.rows', 'vars.durationMs', 'payload'],
-    level: ['DEBUG'],
+    level: ['DEBUG', 'TRACE'],
     checks: [
       says(/group (written|inserted)|bulk insert/i, 'Group written'),
       labelled('table'),
@@ -254,10 +254,10 @@ export const SET_16 = [
       'Run skipped, previous still running job=inv-batch runningSince=2026-11-18T01:00:00 lockHolder=b-70',
       'Skipped',
       'Cannot run',
-      'Lock error',
+      'Run skipped, previous still running job=inv-batch lockHolder=b-70',
     ],
     answer: 0,
-    explain: 'Which job, how long the other has run and who holds the lock.',
+    explain: 'Which job, how long the other has run and who holds the lock. The last line has no start time, so you cannot tell a long run from a stuck one.',
   },
   {
     id: 'log-16018',
@@ -326,11 +326,11 @@ export const SET_16 = [
     options: [
       'Restart from checkpoint job=hist-load lastKey=2026-06-30 rangesDone=182 rangesLeft=138',
       'Restarting',
-      'Resumed from somewhere',
+      'Restart from checkpoint job=hist-load rangesDone=182 rangesLeft=138',
       'Checkpoint: <checkpoint table dump>',
     ],
     answer: 0,
-    explain: 'Where it restarts and how much is left.',
+    explain: 'Where it restarts and how much is left. The second line has no key, so nobody can check the restart follows the last checkpoint.',
   },
   {
     id: 'log-16023',
@@ -367,7 +367,7 @@ export const SET_16 = [
     id: 'log-16025',
     kind: 'write',
     situation:
-      'A Quayle load found no checkpoint and an unfinished earlier run. It stops instead of starting over. vars.job and vars.earlierRun hold the facts. Write the line.',
+      'A Quayle load found no checkpoint and an unfinished earlier run. It stops instead of starting over. vars.job and vars.earlierRun hold the facts. Write the line, with what happens next.',
     available: ['vars.job', 'vars.earlierRun', 'payload'],
     level: ['ERROR'],
     checks: [
@@ -425,7 +425,7 @@ export const SET_16 = [
     checks: [
       says(/received|arrived/i, 'Large file received'),
       labelled('path'),
-      labelled('sizeBytes', 'sizeBytes=$(attributes.size)'),
+      labelled('(sizeBytes|size)', 'sizeBytes=$(attributes.size)'),
       { not: /sizeOf/, say: 'Do not use sizeOf on a large stream. Use attributes.size.' },
       noPayload,
       noVague,
@@ -437,12 +437,12 @@ export const SET_16 = [
     id: 'log-16030',
     kind: 'write',
     situation:
-      'A Thornbury file is larger than the agreed maximum. It is moved aside and not processed. vars.fileName, vars.sizeBytes and vars.maxBytes hold the facts. Write the line.',
+      'A Thornbury file is larger than the agreed maximum. It is moved aside and not processed, and the sender is asked to split it. vars.fileName, vars.sizeBytes and vars.maxBytes hold the facts. Write the line, with what happens next.',
     available: ['vars.fileName', 'vars.sizeBytes', 'vars.maxBytes', 'payload'],
     level: ['ERROR', 'WARN'],
     checks: [
       says(/too large|over (the )?limit|exceeds/i, 'File too large, moved aside'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('sizeBytes'),
       labelled('maxBytes'),
       next('next=moved aside, ask sender to split'),
@@ -473,10 +473,10 @@ export const SET_16 = [
       'Export set written runId=R-1118 parts=6 totalRows=41200331 totalBytes=5368709120 control=sales_20261118.ctl',
       'Parts done',
       'Part list: <every row count per part and the content>',
-      'Files written',
+      'Export set written runId=R-1118 parts=6 totalRows=41200331 totalBytes=5368709120',
     ],
     answer: 0,
-    explain: 'Parts, totals and the control file name.',
+    explain: 'Parts, totals and the control file name. The last line does not name the control file, which tells the receiver the set is complete.',
   },
   {
     id: 'log-16033',
@@ -520,7 +520,7 @@ export const SET_16 = [
       labelled('runId'),
       labelled('parts'),
       labelled('totalRows'),
-      labelled('control', 'control=$(vars.controlFile)'),
+      labelled('(control|controlFile)', 'control=$(vars.controlFile)'),
       noPayload,
       noVague,
     ],
@@ -547,11 +547,11 @@ export const SET_16 = [
     options: [
       'Checksum mismatch file=history.csv expected=9f2c…e1 actual=41ab…07 sizeBytes=3221225472 next=copy again',
       'Hash wrong',
-      'Bad copy',
+      'Checksum mismatch file=history.csv sizeBytes=3221225472 next=copy again',
       'File content differs: <both files>',
     ],
     answer: 0,
-    explain: 'Both hashes, the size and the next step.',
+    explain: 'Both hashes, the size and the next step. The third line has no hashes, so nobody can compare them with the sender’s.',
   },
   {
     id: 'log-16038',
@@ -565,12 +565,12 @@ export const SET_16 = [
     id: 'log-16039',
     kind: 'write',
     situation:
-      'A Thornbury copy failed its checksum. vars.fileName, vars.expected, vars.actual and vars.sizeBytes hold the facts. It will be copied again. Write the line.',
+      'A Thornbury copy failed its checksum. vars.fileName, vars.expected, vars.actual and vars.sizeBytes hold the facts. It will be copied again. Write the line, with what happens next.',
     available: ['vars.fileName', 'vars.expected', 'vars.actual', 'vars.sizeBytes', 'payload'],
     level: ['ERROR', 'WARN'],
     checks: [
       says(/checksum mismatch|hash mismatch/i, 'Checksum mismatch'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('expected'),
       labelled('actual'),
       labelled('sizeBytes'),
@@ -594,7 +594,7 @@ export const SET_16 = [
     level: ['INFO'],
     checks: [
       says(/verified|checksum ok|copied/i, 'Copy verified'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('sizeBytes'),
       labelled('sha256'),
       durationVar,
@@ -624,10 +624,10 @@ export const SET_16 = [
       'Archive extracted file=images.zip entries=48000 uncompressedBytes=6000000000 written=48000 skipped=0 durationMs=980000',
       'Unzipped',
       'Entries: [a.jpg, b.jpg, … 48,000 names]',
-      'Zip ok',
+      'Archive extracted file=images.zip entries=48000 uncompressedBytes=6000000000 durationMs=980000',
     ],
     answer: 0,
-    explain: 'Counts and sizes. Not 48,000 names.',
+    explain: 'Counts and sizes. Not 48,000 names. The last line does not say how many entries were written or skipped.',
   },
   {
     id: 'log-16043',
@@ -646,7 +646,7 @@ export const SET_16 = [
     level: ['INFO'],
     checks: [
       says(/extracted|unzipped/i, 'Archive extracted'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('entries'),
       labelled('uncompressedBytes'),
       labelled('written'),
@@ -666,13 +666,13 @@ export const SET_16 = [
     id: 'log-16045',
     kind: 'write',
     situation:
-      'A Thornbury archive was rejected because an entry path leaves the target folder. vars.fileName and vars.entryName hold the facts. Write the line.',
+      'A Thornbury archive was rejected because an entry path leaves the target folder. vars.fileName and vars.entryName hold the facts. The file is quarantined and the sender told. Write the line, with what happens next.',
     available: ['vars.fileName', 'vars.entryName', 'payload'],
     level: ['ERROR'],
     checks: [
       says(/rejected|unsafe|path/i, 'Archive rejected, unsafe entry path'),
-      labelled('file', 'file=$(vars.fileName)'),
-      labelled('entry', 'entry=$(vars.entryName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
+      labelled('(entry|entryName)', 'entry=$(vars.entryName)'),
       next('next=quarantined, tell sender'),
       noPayload,
       noVague,
@@ -701,10 +701,10 @@ export const SET_16 = [
       'Step late chain=nightly-plans step=upload-sales expectedBy=02:00 finishedAt=02:40 lateMin=40 deadline=08:00',
       'Late',
       'Running behind!!!',
-      'Upload: <file>',
+      'Step late chain=nightly-plans step=upload-sales expectedBy=02:00 finishedAt=02:40 lateMin=40',
     ],
     answer: 0,
-    explain: 'The step, expected and actual times, and the deadline that matters.',
+    explain: 'The step, expected and actual times, and the deadline that matters. The last line has no deadline, so on call cannot judge how urgent it is.',
   },
   {
     id: 'log-16048',

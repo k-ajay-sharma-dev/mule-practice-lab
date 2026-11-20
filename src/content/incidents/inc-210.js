@@ -10,7 +10,7 @@ export default {
       { text: "2026-11-18 14:20:01 INFO  [order-api] Order saved orderId=SO-1201 db=committed", relevant: true, why: "The order is in the database." },
       { text: "2026-11-18 14:20:01 ERROR [order-api] Publish order-created failed errorType=ANYPOINT-MQ:CONNECTIVITY", relevant: true, why: "The event was not published." },
       { text: "2026-11-18 14:20:01 INFO  [order-api] Response 201 orderId=SO-1201", relevant: true, why: "The customer was told it worked." },
-      { text: "2026-11-18 14:25:00 INFO  [shipping] No order-created event for SO-1201", relevant: true, why: "Shipping never hears about it." },
+      { text: "2026-11-18 14:25:00 WARN  [order-recon] SO-1201 is in the order database but shipping has no order-created event for it", relevant: true, why: "Shipping never hears about it." },
       { text: "2026-11-18 14:26:00 INFO  [order-api] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is SO-1201 never shipped?",
         options: [
-          "The order was committed, then the publish failed, and nothing retried it",
-          "Shipping lost it",
-          "The database rolled back",
-          "The customer cancelled",
+          "The order committed, then the publish failed, and nothing retried it",
+          "The publish failed, so the database rolled the order back afterwards",
+          "Shipping received the event but dropped it as a duplicate order ID",
+          "The event sits in the order-created DLQ after five failed deliveries",
         ],
         answer: 0,
         explain: "Two separate systems were written one after the other with no link between them.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What does the outbox pattern do?",
         options: [
-          "Writes the event to an outbox table in the same database transaction, then a separate job publishes it",
-          "Publishes before saving",
-          "Uses two phase commit with every broker",
-          "Sends events by email",
+          "Saves the event in the order’s transaction, and a job publishes it later",
+          "Publishes the event first, then saves the order once the broker accepts",
+          "Joins the database and the broker in one XA two phase commit transaction",
+          "Retries the publish three times inside the API before it answers 201",
         ],
         answer: 0,
         explain: "The order and its event commit together. Publishing can then retry until it works.",
@@ -45,7 +45,7 @@ export default {
           "Retrying until the broker accepts",
           "Marking events as sent after a successful publish",
           "Sending an event twice if it crashes between publish and mark",
-          "Deleting orders",
+          "Rolling back the order when the publish fails",
         ],
         answer: [0,1,2],
         explain: "It is at least once delivery, so consumers must ignore duplicates.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Why not publish first, then save?",
         options: [
-          "Then a failed save leaves an event for an order that does not exist",
-          "It is slower",
-          "Brokers forbid it",
-          "It is the same",
+          "A failed save would leave an event for an order that does not exist",
+          "It is safe, since the broker holds the event until the save commits",
+          "Anypoint MQ rejects a publish that comes before the database commit",
+          "It is slower, because the customer waits for the broker as well",
         ],
         answer: 0,
         explain: "Changing the order only moves the gap.",
@@ -90,7 +90,7 @@ These lines are illustrative and were written for this scenario. Real log format
 2026-11-18 14:20:01 INFO  [order-api] Order saved orderId=SO-1201 db=committed
 2026-11-18 14:20:01 ERROR [order-api] Publish order-created failed errorType=ANYPOINT-MQ:CONNECTIVITY
 2026-11-18 14:20:01 INFO  [order-api] Response 201 orderId=SO-1201
-2026-11-18 14:25:00 INFO  [shipping] No order-created event for SO-1201
+2026-11-18 14:25:00 WARN  [order-recon] SO-1201 is in the order database but shipping has no order-created event for it
 \`\`\`
 
 ## Your tasks

@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the most likely root cause?',
         options: [
-          'The token is cached for 24 h while it expires after 3600 s, and nothing refreshes it on 401',
-          'The carrier revokes our client credentials every hour',
-          'The Object Store loses entries after an hour',
-          'The carrier rate-limits us after an hour of traffic',
+          'The token is cached for 24 h but expires after 3600 s, and a 401 never refreshes it',
+          'The carrier revokes our client credentials every hour for security reasons',
+          'The in-memory Object Store drops its entries after about an hour',
+          'The carrier rate-limits our client after an hour of steady traffic',
         ],
         answer: 0,
         explain: 'The cache TTL ignores expires_in. After 60 minutes the cache returns an expired token until the entry expires 24 h later, or a restart clears the in-memory store.',
@@ -32,13 +32,13 @@ export default {
         type: 'single',
         prompt: 'What is the best quick fix while the full fix is built?',
         options: [
-          'Keep restarting daily',
-          'Clear the cached token, set entryTtl to about 50 minutes, redeploy and replay the failed shipments',
-          'Fetch a new token on every call forever',
-          'Retry every 401 until it succeeds',
+          'Keep the daily restart and add a second restart every hour',
+          'Clear the cached token, set entryTtl to about 50 minutes, redeploy, replay',
+          'Make tokenStore persistent so the token survives restarts and redeploys',
+          'Retry each 401 with the same token until the carrier accepts it',
         ],
         answer: 1,
-        explain: 'A TTL below the token lifetime stops the problem coming back. Retrying with the same expired token never succeeds.',
+        explain: 'A TTL below the token lifetime stops the problem coming back. Retrying with the same expired token never succeeds, hourly restarts drop traffic, and a persistent store would keep the expired token even through a restart.',
       },
       {
         type: 'multi',
@@ -47,7 +47,7 @@ export default {
           'Use the HTTP Request OAuth client-credentials support, e.g. refreshTokenWhen on a 401 status',
           'If custom: TTL of expires_in minus a margin, and on 401 remove the token, fetch a new one and retry once',
           'Protect the token endpoint from many concurrent refreshes',
-          'Raise the cache TTL to 7 days',
+          'Raise the cache TTL to 7 days and restart the app once a week',
         ],
         answer: [0, 1, 2],
         explain: 'Let the platform manage tokens, or make custom caching follow the real expiry with a single refresh-and-retry. A longer TTL makes it worse.',
@@ -112,7 +112,7 @@ export default {
     'Mentions the alternative of using the HTTP requester\'s built-in OAuth client-credentials authentication (OAuth module), which manages and refreshes tokens, e.g. with a refreshTokenWhen condition on 401.',
   ],
   solution: `
-**Diagnosis.** The carrier issues tokens valid for **3600 s**, but \`tokenStore\` keeps them for **24 h**. After an hour the cached token is expired; the flow still finds it ("Token cache hit"), sends it, and gets **401 \`invalid_token\` / token expired**. Nothing ever removes the bad token, so every call fails until the entry expires 24 h later — or until a restart clears the (in-memory) store and a fresh token is fetched. That's why the daily restart "worked".
+**Diagnosis.** The carrier issues tokens valid for **3600 s**, but \`tokenStore\` keeps them for **24 h**. After an hour the cached token is expired; the flow still finds it ("Token cache hit"), sends it, and gets **401 \`invalid_token\` / token expired**. Nothing ever removes the bad token, so every call fails until the entry expires 24 h later, or until a restart clears the (in-memory) store and a fresh token is fetched. That's why the daily restart "worked".
 
 **Immediate mitigation.** Remove the cached entry (e.g. a small admin flow calling \`os:remove\`, or restart the app) to get a fresh token. As a quick fix, change \`entryTtl\` to e.g. **50 minutes** and redeploy so the problem can't recur while the full fix is built. Replay shipments that failed with 401.
 
@@ -126,8 +126,8 @@ export default {
 **Prevention.** Review rule: "every cached credential must expire before the real one"; a test that simulates an expired token (mock returns 401 → expect refresh + retry); alerts on 401 rate per outbound system, which would have fired an hour after the first deployment.
 `,
   followUps: [
-    { q: 'Why might the token expire earlier than expires_in says?', a: 'The provider can revoke tokens (key rotation, password change, logout) and clocks/latency shave off seconds. That is why you also need reactive refresh on 401, not just a TTL.' },
+    { q: 'Why might the token expire earlier than expires_in says?', a: 'The provider can revoke tokens (key rotation, password change, logout) and clocks/latency shave off seconds. That is why you also need reactive refresh on 401, not only a TTL.' },
     { q: 'What changes if the object store is persistent or shared across replicas?', a: 'A restart no longer clears it, so the "restart fix" stops working; on the plus side all replicas share one token and fetch fewer. Refresh logic must then handle several replicas detecting expiry at the same time.' },
-    { q: 'How would you have detected this earlier?', a: 'An integration test running longer than the token lifetime, or simply alerting on 401s from the carrier — the pattern "fails exactly 60 minutes after deploy" points straight at token lifetime.' },
+    { q: 'How would you have detected this earlier?', a: 'An integration test running longer than the token lifetime, or alerting on 401s from the carrier. The pattern "fails exactly 60 minutes after deploy" points straight at token lifetime.' },
   ],
 }

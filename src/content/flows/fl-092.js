@@ -179,6 +179,12 @@ A healthcare group with **22,000 workers** uses **Workday** as its HR system. Th
 - A rejected Workday request (a mapping or security problem) must alert the HRIS support mailbox, because a retry will not help.
 - The integration uses its own **integration system user**.
 
+**Facts**
+- The Object Store is \`workerSyncStore\`. On the first run, with no key stored, start from \`2026-01-01T00:00:00Z\`.
+- \`Get_Workers\` answers with \`Response_Results\` (\`Total_Pages\`, \`Page\`) and \`Response_Data\` with one \`Worker\` per worker. \`Worker_Data\` holds \`Worker_ID\`, \`User_ID\` and \`Employment_Data\`/\`Worker_Status_Data\`/\`Active\` (\`1\` or \`0\`).
+- Send each worker as \`PUT /identities/{Worker_ID}\` with body \`{ workerId, userName, active }\`.
+- The HRIS support mailbox is \`hris-support@example.com\`.
+
 **Design the flows.** Explain why you chose a Scheduler or the On Modified Objects source.
 `,
   answerTemplate: `## Trigger and sync window
@@ -236,7 +242,7 @@ Check the request element names and the \`version\` against the Workday API docu
     },
     {
       q: 'Which Workday setting would make all fields disappear without an error?',
-      a: 'Missing domain permissions on the security group: data the ISU may not see can simply be left out, so an empty field is not proof that the worker has no data. Check permissions when a field is unexpectedly missing.',
+      a: 'Missing domain permissions on the security group: data the ISU may not see can be left out, so an empty field is not proof that the worker has no data. Check permissions when a field is unexpectedly missing.',
     },
   ],
 }

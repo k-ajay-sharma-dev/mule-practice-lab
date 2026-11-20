@@ -93,12 +93,14 @@ export default {
 An insurer's claims platform must process **claim submissions** that include documents:
 
 - JSON claim data: ~20 KB.
-- Attachments (photos, PDFs): typically 2–10 MB, sometimes 200 MB (video).
-- Flow: Mobile/Web → Claims Experience API → Claims Process API → publishes ClaimSubmitted to a message broker → three consumers (fraud check, document indexing, core claims system).
+- Attachments (photos, PDFs): typically 2 to 10 MB, sometimes 200 MB (video).
+- Flow: Mobile/Web → Claims Experience API → Claims Process API → publishes ClaimSubmitted to a message broker → three consumers (fraud check, document indexing, core claims system). Each consumer needs every ClaimSubmitted event.
+- Document indexing and the core claims system need the file content. Fraud check needs only the metadata.
+- The mobile app and the web can upload files to object storage themselves, if Mule gives them a short-lived upload link.
 - Mule apps run on CloudHub 2.0 with small replicas (0.5 vCore).
 - The broker has a maximum message size far below 200 MB, and large messages hurt broker throughput anyway.
 - After a storm, claims peak at **60 a second** for about ten minutes; on a normal busy day they come in at 20 a second. The APIs that take claims must keep working when one availability zone fails. The budget for the Mule apps is **3 vCores**.
-- Reading or checking an object in storage takes about 80 ms. The core claims system takes up to **40 claims a second** at about 300 ms each, and has maintenance windows of **15 minutes**. Claims sent during a window must not be lost, even if the broker restarts.
+- Reading or checking an object in storage takes about 80 ms. The core claims system takes up to **40 claims a second** at about 300 ms each, and has maintenance windows of **15 minutes**. Claims sent during a window must not be lost, even if the broker restarts. A queued message that fails is redelivered about once a minute.
 
 The first prototype base64-encoded the attachments into the JSON and published them on the queue. It failed with out-of-memory errors and rejected messages.
 
@@ -132,7 +134,7 @@ The first prototype base64-encoded the attachments into the JSON and published t
 - Brokers have message size limits and are designed for many small messages; large messages slow everyone.
 
 **Claim-check design.**
-1. Client requests an upload: \`POST /claims/{id}/attachments\` → Experience API returns a **short-lived pre-signed upload URL** for object storage (e.g. S3/Azure Blob) — the file goes straight from the device to storage, not through Mule.
+1. Client requests an upload: \`POST /claims/{id}/attachments\` → Experience API returns a **short-lived pre-signed upload URL** for object storage (e.g. S3/Azure Blob): the file goes straight from the device to storage, not through Mule.
 2. Client submits claim JSON with the attachment references (or Mule receives an "upload completed" notification from storage).
 3. Process API validates that the objects exist (and optionally size/type, virus scan result), then publishes **ClaimSubmitted** with metadata only:
 \`\`\`json
@@ -147,7 +149,7 @@ The first prototype base64-encoded the attachments into the JSON and published t
 - Use multipart/chunked uploads for very large files.
 
 **Security, cleanup, consistency.**
-- Bucket is private; encryption at rest; access via IAM roles of the consuming apps or short-lived signed URLs — never a permanent public link in a message.
+- Bucket is private; encryption at rest; access via IAM roles of the consuming apps or short-lived signed URLs: never a permanent public link in a message.
 - Lifecycle policy: delete orphaned uploads (no claim after 24 h); retain claim documents per regulatory retention.
 - Ordering: **store first, publish second**. If publishing fails after storing, retry publish (the orphan cleanup handles the rare leftover). Include a checksum so consumers can verify integrity.
 

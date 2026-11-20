@@ -132,6 +132,13 @@ The planners do not have database access. They want a reject file in \`/plan/in/
 - Write a reject file only when there are rejects.
 - Archive the file to \`/plan/out/alloc/archive\`. If anything fails, move it to \`/plan/out/alloc/error\`.
 
+**Facts**
+- Listen for \`ALLOC_*.csv\` with a size check wait. Read the open stores (\`is_open = 1\`) once per file.
+- Test the store first: a line with both faults gets \`UNKNOWN_STORE\`.
+- Staging rows carry \`file_name\` (the file's name), \`alloc_line\` as in the file, and \`qty\` as a number.
+- Put both bulk inserts in a **Try** with the transactional action \`ALWAYS_BEGIN\`. Skip an empty list with a **Choice**.
+- The reject file has the columns \`alloc_line\` and \`reason\`, and is written from a **Choice** after the commit. Files keep their names when moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Checking each line

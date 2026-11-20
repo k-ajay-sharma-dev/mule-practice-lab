@@ -13,7 +13,8 @@ Build the variants:
 - The SKU is the \`baseSku\`, then the code of each option value in option order, joined with \`-\`. For example \`TEE-410-NVY-M\`.
 - \`attributes\` maps each option name to the label of the chosen value.
 - The first option changes slowest: all navy sizes come before all white sizes.
-- \`unavailable\` lists mixes the supplier does not make. Each entry names one or more options by name with a value code. Drop a variant when **every** option named in an entry matches it.
+- \`unavailable\` lists mixes the supplier does not make. Each entry names one or more options by name with a value code. Drop a variant when **every** option named in an entry matches it. When \`unavailable\` is missing, every mix is made.
+- Each variant is \`{ sku, attributes }\`, in that key order, and \`attributes\` keeps the option order.
 
 The number of options is not fixed. A product may have one option, three, or none. A product with no options has one variant, with the base SKU and empty attributes.
 `,

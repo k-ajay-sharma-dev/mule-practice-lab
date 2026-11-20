@@ -100,6 +100,11 @@ The planning platform takes the file from its SFTP server, folder \`/inbound/onh
 - If the counts match, send the CSV to \`/inbound/onhand\`, then move both files to \`/mnt/scm-share/onhand/archive\`.
 - If they do not, send nothing, log an error, and move both files to \`/mnt/scm-share/onhand/error\`.
 
+**Facts**
+- The control file holds only the number, such as \`3\`, as text.
+- The data file has the control file's name with \`.csv\` in place of \`.ctl\`. Read it with File Read and the output type \`application/csv\`, so the payload is a list of rows without the header.
+- Files keep their names when moved. Log the mismatch at ERROR.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why a control file

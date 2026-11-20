@@ -141,7 +141,7 @@ The 404 on the single address also covers an address that exists but belongs to 
     },
     {
       q: 'What should GET /customers/42/addresses return if customer 42 does not exist?',
-      a: 'A 404, since the parent is missing. A customer who exists but has no addresses gets a 200 with an empty list.',
+      a: 'A 404, since the parent is missing, so a full contract would list a 404 on that get too. A customer who exists but has no addresses gets a 200 with an empty list.',
     },
   ],
 }

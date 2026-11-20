@@ -11,7 +11,7 @@ export default {
       prompt: 'A bank API saves a payment, then sends an audit event inside an Async scope, then returns 201. The audit service takes 2 seconds. How long does the caller wait for the audit call?',
       options: [
         'The full 2 seconds, because the response waits for every step',
-        'About half, because the Async scope runs the call in two parts',
+        'Not at all on success, but the full 2 seconds if the call fails',
         'The full 2 seconds, plus the time to start a new thread',
         'Not at all, because the flow goes on while the Async scope runs',
       ],
@@ -23,7 +23,7 @@ export default {
       prompt: 'Inside the Async scope, the audit call fails with a timeout. What does the caller see?',
       options: [
         'A 500 error, because the flow error handler catches the timeout',
-        'The normal 201, because errors inside the Async scope never reach the main flow',
+        'The normal 201, because the Async error never reaches the main flow',
         'A 201 with a warning header that names the failed step',
         'A 504 error, because the timeout passes up to the HTTP Listener',
       ],
@@ -48,11 +48,11 @@ export default {
       options: [
         'Keep the Async scope and add an Until Successful inside it',
         'Keep the Async scope and set a larger max concurrency on it',
-        'Publish the audit event to a persistent queue, such as Anypoint MQ, and send it from a listener flow',
+        'Publish the audit event to a persistent queue read by a listener flow',
         'Call the audit service before the payment is saved, so it cannot be skipped',
       ],
       answer: 2,
-      explain: 'A persistent queue keeps the message until a consumer handles it, and the listener can retry and send failures to a dead letter queue. Retrying inside an Async scope still loses everything when the app stops.',
+      explain: 'A persistent queue such as Anypoint MQ keeps the message until a consumer handles it, and the listener can retry and send failures to a dead letter queue. Retrying inside an Async scope still loses everything when the app stops.',
     },
     {
       type: 'single',

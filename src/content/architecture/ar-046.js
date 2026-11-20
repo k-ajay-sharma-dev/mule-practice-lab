@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'Which statement correctly distinguishes SLI, SLO and SLA?',
       options: [
-        'SLI is the contract, SLO the measurement, SLA the target',
-        'SLI is a measured ratio of good to valid events; SLO is the target for it over a window; SLA is a contractual promise with consequences',
-        'They are synonyms used by different teams',
-        'SLO is always stricter than the SLA and the SLI',
+        'SLI is the contract, SLO the measurement, SLA the internal target',
+        'SLI is the measured ratio, SLO its target, SLA a contract with consequences',
+        'SLO is the partner contract, SLA the internal target, SLI the dashboard',
+        'SLI and SLO are the same target, and the SLA is how it is measured',
       ],
       answer: 1,
-      explain: 'Example: SLI = % of checkout requests without 5xx; SLO = 99.9% over 28 days; SLA = the contract with a partner, set looser than the SLO.',
+      explain: 'An SLI is a measured ratio of good to valid events, and an SLO is the target for it over a window. Example: SLI = % of checkout requests without 5xx; SLO = 99.9% over 28 days; SLA = the contract with a partner, set looser than the SLO.',
     },
     {
       type: 'match',
@@ -34,7 +34,7 @@ export default {
       prompt: 'Which alert would have caught the 3-hour silent stop of order-to-warehouse within minutes?',
       options: [
         'CPU above 80% on the consumer app',
-        'No OrderPlaced consumed for 10 minutes while orders are being placed (or oldest message age > 5 min)',
+        'No OrderPlaced consumed for 10 minutes while orders are placed',
         'Any ERROR line in the logs',
         'App status "down" in Runtime Manager',
       ],
@@ -58,25 +58,25 @@ export default {
       type: 'single',
       prompt: 'How does an error budget change the "freeze after every incident" debate?',
       options: [
-        'It bans releases permanently once one incident occurs',
-        'Budget remaining → ship normally; burning fast → slow risky changes; exhausted → prioritise reliability work until it recovers',
-        'It only applies to batch jobs',
-        'It replaces the need for SLOs',
+        'It freezes releases after every incident, as operations wants',
+        'Budget left: ship. Burning fast: slow down. Spent: reliability work first',
+        'It applies only to batch jobs, since APIs already have SLAs',
+        'It lets product teams ship whatever the reliability, as long as SLAs hold',
       ],
       answer: 1,
-      explain: 'A data-based rule agreed by product and operations replaces emotional freezes — and shows when the team is over-investing in reliability.',
+      explain: 'A data-based rule agreed by product and operations replaces emotional freezes: and shows when the team is over-investing in reliability.',
     },
     {
       type: 'single',
       prompt: 'Checkout depends on three services, each around 99.9% available. Is a 99.99% checkout SLO realistic?',
       options: [
         'Yes, availability is set by the Experience API alone',
-        'No — availability roughly multiplies along the chain (~99.7%) unless you add redundancy, caching, async buffering or graceful degradation',
-        'Yes, if every API has 2 replicas',
-        'No, because SLOs can never exceed 99%',
+        'No. Availability multiplies along the chain, to about 99.7%',
+        'Yes, if every API runs 2 replicas',
+        'Yes, if the three services each sign a 99.99% SLA with you',
       ],
       answer: 1,
-      explain: 'You cannot promise more than your critical dependencies allow without design changes; choose targets from measured performance and business need.',
+      explain: 'You cannot promise more than your critical dependencies allow without design changes such as redundancy, caching, async buffering or graceful degradation. Replicas of your own APIs do not lift the dependencies, and an SLA is a contract, not a measured availability. Choose targets from measured performance and business need.',
     },
   ],
   description: `
@@ -85,7 +85,7 @@ An e-commerce company runs ~60 Mule APIs and event flows. The integration team g
 - The business says "integrations are unreliable" but cannot say what reliable means.
 - Every API is promised "99.99% availability" in a slide deck; nobody measures it.
 - Alerts fire on CPU > 80% and every single error log line; on-call ignores most of them.
-- An **order-to-warehouse** event flow silently stopped for 3 hours last month — every app was "up", so no alert fired.
+- An **order-to-warehouse** event flow silently stopped for 3 hours last month: every app was "up", so no alert fired.
 - Product teams want to ship faster; operations wants a release freeze after each incident.
 
 Key journeys:
@@ -133,10 +133,10 @@ Key journeys:
 | Price feed (batch) | Feed completed by 06:00 | 99% of days |
 | | % records loaded without rejection | 99.9% |
 
-Notes: exclude client errors (4xx) caused by callers from the "bad" count; choose targets from **current measured performance and business need**, not "four nines" by default. 99.99% allows ~4 minutes of failure per month — likely unrealistic with the current dependencies.
+Notes: exclude client errors (4xx) caused by callers from the "bad" count; choose targets from **current measured performance and business need**, not "four nines" by default. 99.99% allows ~4 minutes of failure per month: likely unrealistic with the current dependencies.
 
 **Measurement.**
-- **Sync:** API gateway / Anypoint Monitoring metrics (response time, status codes) on the Experience API — closest to the user. Add synthetic checks for critical endpoints. Export metrics or structured logs to the observability platform to compute ratios over rolling windows.
+- **Sync:** API gateway / Anypoint Monitoring metrics (response time, status codes) on the Experience API: closest to the user. Add synthetic checks for critical endpoints. Export metrics or structured logs to the observability platform to compute ratios over rolling windows.
 - **Async:** emit events/metrics at publish and at final consumption with the same order ID and timestamps; compute end-to-end delay and missing orders (published but not confirmed after X min). Track queue depth, **oldest message age**, DLQ count.
 - **Batch:** job start/end events, record counts in/out/rejected.
 - Make SLI computation part of the shared logging/monitoring framework so 60 apps report consistently.
@@ -152,7 +152,7 @@ Notes: exclude client errors (4xx) caused by callers from the "bad" count; choos
 
 **SLAs and dependencies.**
 - SLAs (contracts with partners) should be **looser** than internal SLOs, leaving a safety margin.
-- A chain with dependencies at 99.9% each cannot simply be 99.99% — availability multiplies roughly. Options: negotiate dependency SLOs, add redundancy, caching, async buffering or graceful degradation, and define SLIs that exclude well-communicated planned maintenance only if the business agrees.
+- A chain with dependencies at 99.9% each cannot be 99.99%, because availability roughly multiplies. Options: negotiate dependency SLOs, add redundancy, caching, async buffering or graceful degradation, and define SLIs that exclude well-communicated planned maintenance only if the business agrees.
 - Publish SLOs with each API in Exchange so consumers can design for them.
 `,
   followUps: [

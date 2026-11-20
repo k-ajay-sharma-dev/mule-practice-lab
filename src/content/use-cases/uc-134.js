@@ -80,6 +80,9 @@ Today the app and the partners call one API that reads the wait times database f
 - The wait times database takes about **300 queries a second**.
 - A wait time that is up to **30 seconds old** is fine for everyone.
 - Partners each have a contract and a client ID.
+- A guest must get an answer within **200 ms**, even while a partner's app misbehaves.
+- A partner's app stuck in a loop must get 429 for at least 4 calls in 5.
+- No sensor event may be lost, even during a database failover.
 
 **Questions:**
 - Draw the design for the sensors, the guests and the partners.

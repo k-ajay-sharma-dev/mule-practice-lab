@@ -71,7 +71,7 @@ Target:
 - A **developer portal** where partners register, read docs, try APIs in a sandbox and request production access.
 - Sandbox access **instantly**; production access after a **commercial contract check** in Salesforce (account must have an active contract) and a short certification test.
 - **Tiers**: Free (Tracking only, 10 req/s), Business (all APIs, 50 req/s), Enterprise (200 req/s, custom).
-- The shipment platform takes about 150 requests a second. A partner with a bug could send 300 a second, and a revoked partner may keep calling.
+- The shipment platform takes about 150 requests a second. A partner on the Business tier with a bug could send 300 a second, and a revoked partner may keep calling. Calls over the tier limit get 429, and calls without valid credentials are refused at the gateway, also on the legacy API-key route.
 - Partners must only see and act on **their own** shipments.
 - ~300 new partners/year, 1,200 existing partners to migrate from old API keys within 6 months.
 - Security team requires OAuth 2.0, secret rotation and the ability to revoke a partner immediately.
@@ -103,20 +103,20 @@ Target:
     'Migration: old API keys mapped to new client apps, both accepted in parallel for a transition period, usage of the old keys monitored until zero.',
   ],
   solution: `
-**Portal and API catalog.** Design each API in RAML/OAS, publish to **Anypoint Exchange** with documentation pages, examples and a **mocking service** for early exploration. Expose a public partner portal — **Anypoint API Experience Hub** (Salesforce Experience Cloud based) or the **Exchange public portal** for a simpler setup. Partners self-register (portal identity), create a **client application** and request access to an API.
+**Portal and API catalog.** Design each API in RAML/OAS, publish to **Anypoint Exchange** with documentation pages, examples and a **mocking service** for early exploration. Expose a public partner portal: **Anypoint API Experience Hub** (Salesforce Experience Cloud based) or the **Exchange public portal** for a smaller setup. Partners self-register (portal identity), create a **client application** and request access to an API.
 
 Two environments: a **sandbox** environment with test data (realistic fake shipments) and **production**.
 
-**Access requests and tiers.** In **API Manager**, each production API instance defines **SLA tiers**: Free (auto-approve, Tracking only, 10 req/s), Business (manual approval, 50 req/s), Enterprise (manual, 200 req/s). Apply the **Rate limiting – SLA based** policy, which enforces the tier attached to the client's contract. Sandbox instances auto-approve everything with low limits. Authentication: **OAuth 2.0** — configure an external **identity provider for client management** (e.g. Okta, Azure AD, PingFederate) so client apps created from the portal are registered in the IdP; enforce JWT validation / OAuth token enforcement policies. Credentials can be rotated (client secret reset) and revoked (revoke contract or disable client) centrally.
+**Access requests and tiers.** In **API Manager**, each production API instance defines **SLA tiers**: Free (auto-approve, Tracking only, 10 req/s), Business (manual approval, 50 req/s), Enterprise (manual, 200 req/s). Apply the **SLA-based Rate Limiting** policy, which enforces the tier attached to the client's contract. Sandbox instances auto-approve everything with low limits. Authentication: **OAuth 2.0**. Configure an external **identity provider for client management** (e.g. Okta, Azure AD, PingFederate) so client apps created from the portal are registered in the IdP; enforce JWT validation / OAuth token enforcement policies. Credentials can be rotated (client secret reset) and revoked (revoke contract or disable client) centrally.
 
 **Automated approval.** When a partner requests Business/Enterprise access, a pending contract is created in API Manager. An **onboarding automation** (scheduled Mule app or event from the portal):
 1. Reads pending access requests via the **Anypoint Platform APIs** (API Manager contracts) using a Connected App with least-privilege scopes.
 2. Looks up the partner's organisation in **Salesforce**: active contract, tier purchased, credit status.
-3. Checks **certification**: partner's sandbox client made the required test calls successfully (e.g. created and cancelled shipments) — from analytics/logs or a certification API that records test results.
+3. Checks **certification**: partner's sandbox client made the required test calls successfully (e.g. created and cancelled shipments), taken from analytics/logs or a certification API that records test results.
 4. Approves (or rejects with reason) the contract and records the client ID ↔ Salesforce account mapping; notifies the partner.
 Manual override stays possible for Enterprise deals.
 
-**Runtime enforcement and data isolation.** Policies handle *who can call* and *how often*; the implementation handles *which data*. Each request carries the authenticated client ID (from the token); the Process API maps it to the **partner/customer number** (cached mapping store) and filters every query and action by it — \`GET /shipments/{id}\` returns 404 for a shipment owned by another partner. Never accept the partner ID from the request body as proof of identity. Add IP allowlisting for Enterprise partners if they wish.
+**Runtime enforcement and data isolation.** Policies handle *who can call* and *how often*; the implementation handles *which data*. Each request carries the authenticated client ID (from the token); the Process API maps it to the **partner/customer number** (cached mapping store) and filters every query and action by it: \`GET /shipments/{id}\` returns 404 for a shipment owned by another partner. Never accept the partner ID from the request body as proof of identity. Add IP allowlisting for Enterprise partners if they wish.
 
 **Migration of existing partners.** Bulk-create client applications for the 1,200 partners via platform APIs and map them to Salesforce accounts and their current limits (tier). For a transition period, a gateway route/legacy proxy accepts the **old API key** and maps it to the partner, while new credentials are distributed through the portal. Track old-key usage per partner in analytics; communicate deadlines; switch off old keys when usage drops to zero (or on the hard deadline).
 
@@ -125,6 +125,6 @@ Manual override stays possible for Enterprise deals.
   followUps: [
     { q: 'A partner is found abusing the API. How fast can you block them?', a: 'Revoke the contract or disable the client in API Manager/IdP; with short-lived tokens (e.g. 15–60 minutes) and contract checks at the gateway, access stops almost immediately. An IP block policy can act instantly as an emergency measure.' },
     { q: 'How do you version these APIs once 1,500 partners depend on them?', a: 'Semantic versioning in Exchange, additive changes within a major version, new major versions run in parallel with a published deprecation timeline, and analytics show who still uses the old version.' },
-    { q: 'Why not issue simple API keys?', a: 'Static keys are hard to rotate and leak easily; OAuth 2.0 client credentials give short-lived tokens, central revocation and standard tooling, which the security team requires.' },
+    { q: 'Why not issue simple API keys?', a: 'Static keys are hard to rotate and often leak; OAuth 2.0 client credentials give short-lived tokens, central revocation and standard tooling, which the security team requires.' },
   ],
 }

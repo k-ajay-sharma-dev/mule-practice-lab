@@ -52,7 +52,8 @@ An online store runs a big sale twice a year. During the last one, a flood of re
 Some numbers for the design:
 - The store sends about 60 requests a second. When a sale opens, that jumps to 400 a second for a few minutes.
 - The budget for the two APIs is 1.5 vCores. In this model one vCore serves about 500 simple requests a second, so the APIs can be sized for about 200 a second, not for the whole spike.
-- Scrapers have sent 100 requests a second without a client id.
+- Requests above that capacity should be turned away with a "try again later" answer, not fail with server errors.
+- Scrapers have sent 100 requests a second without a client id. They must be refused before they reach the APIs.
 
 An **API gateway** is the checkpoint in front of an API. It applies **policies**, which are rules for each request, such as "only known clients" or "at most this many requests a minute".
 

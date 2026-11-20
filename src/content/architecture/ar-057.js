@@ -21,13 +21,13 @@ export default {
       type: 'single',
       prompt: 'The Process API gets a 401 from the System API because its own client credentials expired. What should the mobile app receive?',
       options: [
-        '401 — pass it through',
-        '403 — the user is not allowed',
-        'A 5xx (500/502): it is an internal fault; the consumer\'s credentials were fine',
-        '200 with empty data',
+        '401, passed through from the System API',
+        '403, since the user is not allowed',
+        'A 5xx such as 500 or 502, since it is an internal fault',
+        '200 with empty data and a warning',
       ],
       answer: 2,
-      explain: 'Blindly passing through a downstream 401 would tell the app to re-authenticate the user, which will not help.',
+      explain: 'The consumer’s credentials were fine. Blindly passing through a downstream 401 would tell the app to re-authenticate the user, which will not help.',
     },
     {
       type: 'multi',
@@ -47,21 +47,21 @@ export default {
       prompt: 'Which Mule 4 construct lets the order response succeed when the optional carrier call fails?',
       options: [
         'An `on-error-propagate` in the global error handler',
-        'A Try scope around the carrier call with `on-error-continue` that sets shipment to null and adds a warning',
+        'A Try scope with `on-error-continue` around the carrier call',
         'An `until-successful` around the whole flow',
-        'Disabling status-code validation on all requesters',
+        'Turning off status-code validation on the carrier requester',
       ],
       answer: 1,
-      explain: '`on-error-continue` completes the scope successfully with the fallback, so the rest of the flow carries on; `on-error-propagate` fails the request with the mapped status.',
+      explain: '`on-error-continue` completes the scope successfully with the fallback (shipment null and a warning), so the rest of the flow carries on; `on-error-propagate` fails the request with the mapped status. Without status validation the 429 body would be mapped as if it were tracking data.',
     },
     {
       type: 'single',
       prompt: 'Inside the Process API, a loyalty lookup returns 404 for a customer. What should the Process API do?',
       options: [
-        'Return 404 Order not found',
-        'Interpret it in business terms — likely "no loyalty record", so continue with loyalty null',
-        'Return 500',
-        'Retry until it succeeds',
+        'Return 404 Order not found to the caller',
+        'Treat it as "no loyalty record" and continue with loyalty null',
+        'Return 502, since a downstream call failed',
+        'Retry the lookup until it succeeds',
       ],
       answer: 1,
       explain: 'A 404 on a secondary resource does not mean the requested order is missing; do not blindly pass through status codes.',
@@ -70,13 +70,13 @@ export default {
       type: 'single',
       prompt: 'How should the correlation id work across the layers?',
       options: [
-        'Each layer generates its own id',
-        'Generated or accepted at the Experience API, propagated on every outbound call (e.g. x-correlation-id) and logged in every layer',
-        'Only the System API logs it',
-        'It is only needed for errors returned to the user',
+        'Each layer generates its own id and logs it',
+        'Set once at the Experience API, sent on every call, logged in each layer',
+        'Only the System API logs it, next to the backend error',
+        'It is set only when an error is returned to the user',
       ],
       answer: 1,
-      explain: 'One id across all layers lets support find the full trace from a single value the user reports.',
+      explain: 'The id is generated or accepted at the Experience API, sent on every outbound call (e.g. `x-correlation-id`) and logged in every layer. One id across all layers lets support find the full trace from a single value the user reports.',
     },
   ],
   description: `
@@ -107,7 +107,7 @@ Production incidents:
 `,
   keyPoints: [
     'Each layer translates errors into its own contract: a SoR "not found" becomes 404 at System, the Process API maps it to a business meaning (404 order not found), and the Experience API returns a consumer-friendly 404.',
-    'Backend unavailability is 503 (or 504 on timeout) with fast failure via timeouts — not 500 after 60 s; Retry-After where meaningful.',
+    'Backend unavailability is 503 (or 504 on timeout) with fast failure via timeouts: not 500 after 60 s; Retry-After where meaningful.',
     'Client input errors are caught as early as possible (spec validation at the Experience API) and returned as 400, never forwarded to SAP to fail as 500.',
     'Optional dependencies (carrier tracking) degrade gracefully: return the order with a partial/warning flag instead of failing the whole response.',
     'A standard error body (code, message, correlationId, details) is shared via an Exchange fragment; internal details and stack traces are logged, not returned externally; the correlation id flows through all layers.',
@@ -118,13 +118,13 @@ Production incidents:
 | Incident | System | Process | Experience (mobile) |
 |---|---|---|---|
 | Order not in SAP | Map SAP RETURN "not found" → **404** \`ORDER_NOT_FOUND\` | Propagate as **404** (business: order does not exist) | **404** "We couldn't find that order" |
-| SAP down | Connection error/timeout → **503** \`BACKEND_UNAVAILABLE\` (fail fast, e.g. 5–10 s timeout; circuit breaker optional) | **503** (or serve cached data if allowed) | **503** with friendly message, retry later |
+| SAP down | Connection error/timeout → **503** \`BACKEND_UNAVAILABLE\` (fail fast, e.g. 5 to 10 s timeout; circuit breaker optional) | **503** (or serve cached data if allowed) | **503** with friendly message, retry later |
 | Carrier 429 | **429** or **503** from carrier System API | Treat tracking as **optional**: return order with \`shipment: null\`, \`warnings: ["TRACKING_UNAVAILABLE"]\` → **200** | **200**, app shows "tracking temporarily unavailable" |
 | Invalid date filter | Should never get here | Validate too (defence in depth) → **400** | APIkit validates query param against spec → **400** \`INVALID_PARAMETER\` before any downstream call |
 
 Key ideas:
 - **Do not blindly pass through** downstream status codes. A 404 from a lookup of a *secondary* resource (e.g. customer's loyalty record) inside a Process API might mean "no loyalty" (200 with null), not "order not found".
-- **401/403 from a downstream API** caused by the *calling API's* own credentials is an internal fault — surface as **500/502** to the consumer, not 401 (the consumer's credentials were fine).
+- **401/403 from a downstream API** caused by the *calling API's* own credentials is an internal fault: surface as **500/502** to the consumer, not 401 (the consumer's credentials were fine).
 - Downstream **5xx** → upstream **502** (bad gateway) or **503** depending on your standard; be consistent.
 
 **Shared error contract** (Exchange fragment used by all specs):
@@ -154,6 +154,6 @@ Statuses: 400 validation, 401/403 auth, 404 not found, 409 conflict/business rul
   followUps: [
     { q: 'Should the Process API retry a 503 from the System API?', a: 'A small bounded retry with backoff for idempotent reads can help with transient blips, but avoid retries at every layer, which multiply load (retry storms). Usually retry at one layer only, closest to the failure.' },
     { q: 'What status do you return when the Process API partially succeeded on a write?', a: 'Avoid partial writes being visible: use compensation or async completion. If the outcome is pending, return 202 Accepted with a status resource; otherwise return the failure and ensure compensation runs.' },
-    { q: 'Where do you log the error — every layer?', a: 'Each layer logs its own view with the same correlation id, but at the right level: the layer that originated or handled the error logs details at ERROR; pass-through layers log concisely to avoid duplicate noise.' },
+    { q: 'Where do you log the error: every layer?', a: 'Each layer logs its own view with the same correlation id, but at the right level: the layer that originated or handled the error logs details at ERROR; pass-through layers log concisely to avoid duplicate noise.' },
   ],
 }

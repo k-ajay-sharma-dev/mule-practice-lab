@@ -103,7 +103,8 @@ Business rules:
 - Tender order at checkout: points, then gift cards, then card.
 - Refunds go back in the reverse order: card first, then gift cards, then points.
 - The customer must get an answer within **8 seconds**.
-- Split tender checkouts peak at about **10 a second**. A script that replays checkouts can push them to 80 a second, and the gateway allows 20.
+- Split tender checkouts peak at about **10 a second**. A script that replays checkouts can push them to 80 a second, so the gateway must allow no more than 20 a second.
+- The website and the app each call with their own client ID. A caller without one must not touch any tender.
 
 **Questions:**
 1. Draw the design.

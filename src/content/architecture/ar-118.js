@@ -70,8 +70,8 @@ The plan:
 - A **Returns agent** handles return requests, and a **Delivery agent** handles late parcels. Both are A2A compliant.
 - An **Agent Broker** picks the right agent for each task.
 - Order data lives behind an existing **Order API**. It must appear as MCP tools, and only read operations should be offered.
-- Security wants policies applied to all traffic that enters from the website. The chat assistant sends a client id with each request. Scripts on the internet have sent up to 400 requests a second with none.
-- On a busy evening the chat assistant sends 30 return questions and 40 late parcel questions a second. The Order API answers in about 200 ms. The budget for the APIs is 1 vCore.
+- Security wants policies applied to all traffic that enters from the website. The chat assistant sends a client id with each request. Scripts on the internet have sent up to 400 requests a second with none, and the gateway must refuse those.
+- On a busy evening the chat assistant sends 30 return questions and 40 late parcel questions a second. Each must be answered within 300 ms. The Order API answers in about 200 ms. The budget for the APIs is 1 vCore.
 
 **Questions:**
 - Draw the agent network.

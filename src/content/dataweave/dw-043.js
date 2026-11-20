@@ -51,7 +51,7 @@ payload
 `,
   hints: [
     'Run `payload` alone first: the reader already URL-decodes values (`+` becomes a space, `%26` becomes `&`) and gives you an object whose keys can repeat.',
-    '`payload.item` returns only the **first** `item`. The multi-value selector `payload.*item` returns all of them — but it returns `null` (not `[]`) when there is no `item` key at all.',
+    '`payload.item` returns only the **first** `item`. The multi-value selector `payload.*item` returns all of them, but it returns `null` (not `[]`) when there is no `item` key at all.',
     'For the note, treat empty like missing: `if (isEmpty(payload.note)) null else payload.note`.',
   ],
   solution: `%dw 2.0
@@ -67,14 +67,14 @@ output application/json
   items: payload.*item default []
 }`,
   explanation: `
-The \`application/x-www-form-urlencoded\` reader turns \`a=1&b=2\` into an object and **decodes** each value, so you never call \`decodeURIComponent\` yourself. Because a form can repeat a field, the object can contain the same key several times — the same situation as repeated XML elements.
+The \`application/x-www-form-urlencoded\` reader turns \`a=1&b=2\` into an object and **decodes** each value, so you never call \`decodeURIComponent\` yourself. Because a form can repeat a field, the object can contain the same key several times, the same situation as repeated XML elements.
 
 - \`payload.item\` (single-value selector) gives the first match only → \`"A-1"\`.
 - \`payload.*item\` (multi-value selector) gives every match → \`["A-1", "B-2", "C-3"]\`, or \`null\` when there are none, hence \`default []\`.
 - Everything is a String: \`"false"\` is truthy-looking text, so coerce with \`as Boolean\`; \`"49.90"\` needs \`as Number\`.
 - \`isEmpty\` is \`true\` for both \`null\` and \`""\`, which covers \`note=\` as well as a missing note.
 
-Common trap: writing \`testMode: payload.test_mode\` — the JSON then contains the string \`"false"\`, and a consumer doing \`if (testMode)\` treats it as true.
+Common trap: writing \`testMode: payload.test_mode\`. The JSON then contains the string \`"false"\`, and a consumer doing \`if (testMode)\` treats it as true.
 `,
   tests: [
     {

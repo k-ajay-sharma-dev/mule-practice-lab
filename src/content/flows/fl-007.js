@@ -216,8 +216,9 @@ You are building a **Shipping Process API**. Four separate requirements arrived 
 
 - Each requirement is its own endpoint on the Shipping Process API: \`POST /shipments\`, \`GET /rates\`, \`POST /addresses/validate\` and \`POST /labels\`.
 - A shipment carries the destination as \`payload.shipTo.country\`, an ISO code such as \`US\`, \`DE\` or \`FR\`. The EU countries you ship to are \`DE\`, \`FR\`, \`NL\`, \`BE\`, \`IT\` and \`ES\`.
-- The carriers are System APIs reached over HTTP: FedEx, DHL, UPS and a generic freight API. The vendors and the three print servers are HTTP endpoints too.
-- **Rate quotes:** if one carrier is down or slow, the screen still shows the quotes it has. It returns **one list of quotes sorted by price**, and a carrier that failed appears in the list as unavailable.
+- The carriers are System APIs reached over HTTP. Shipments are created with \`POST /fedex/shipments\`, \`POST /dhl/shipments\` and \`POST /freight/shipments\`. Rates come from \`GET /fedex/rates\`, \`GET /dhl/rates\` and \`GET /ups/rates\`, each answering \`{ carrier, price, days }\`.
+- The address vendors are \`POST /primary-vendor/validate\` and \`POST /backup-vendor/validate\`. The print servers are \`POST /print-server-1/labels\`, \`POST /print-server-2/labels\` and \`POST /print-server-3/labels\`.
+- **Rate quotes:** if one carrier is down or slow, the screen still shows the quotes it has. It returns **one list of quotes sorted by price**, and a carrier that failed appears in the list as \`{ carrier, error: "unavailable" }\` with no price.
 - **Address validation:** when both vendors fail, return the address with the field \`validated: false\` so the order team can check it later.
 - The print servers are equal. None of them is a backup for another.
 

@@ -84,13 +84,13 @@ export default {
   description: `
 A regional retailer is starting its first MuleSoft programme. Two projects arrive at once:
 
-1. **Store associate app** — staff check stock in nearby DCs, place a transfer to the store and track the truck.
-2. **Supplier portal** — suppliers see their open POs, the stock of their products (vendor-managed inventory) and book delivery appointments at the DC.
+1. **Store associate app:** staff check stock in nearby DCs, place a transfer to the store and track the truck.
+2. **Supplier portal:** suppliers see their open POs, the stock of their products (vendor-managed inventory) and book delivery appointments at the DC.
 
 Backends:
-- **Oracle EBS** — inventory and purchase orders.
-- **WMS** — DC stock, transfers, receiving appointments.
-- **TMS** — loads and truck tracking.
+- **Oracle EBS:** inventory and purchase orders.
+- **WMS:** DC stock, transfers, receiving appointments.
+- **TMS:** loads and truck tracking.
 
 The CIO wants the second project to be faster because of the first.
 
@@ -120,7 +120,7 @@ Numbers for sizing:
     'System APIs (sys-oracle-inventory, sys-wms, sys-tms) hide each backend and its protocol behind a stable, canonical contract.',
     'Process APIs hold the business logic: prc-fulfilment orchestrates stock lookup, transfer creation and truck tracking.',
     'Experience APIs shape data for one consumer: exp-store-app for staff, exp-supplier-portal for suppliers (filtered to their own data).',
-    'Project 2 reuses sys-oracle-inventory and sys-wms, so only a new Process and Experience API are built — the speed-up the CIO wants.',
+    'Project 2 reuses sys-oracle-inventory and sys-wms, so only a new Process and Experience API are built. That is the speed-up the CIO wants.',
     'External suppliers go through API Manager policies (client ID enforcement / OAuth, rate limiting) and see only their own POs and products.',
     'A rate limit on the supplier Experience API protects the shared System APIs; a timeout, circuit breaker and partial answer in prc-fulfilment keep staff working when the TMS hangs.',
   ],
@@ -133,16 +133,16 @@ Numbers for sizing:
                                                                      └──────► sys-wms (appointments, reused)
 \`\`\`
 
-**System layer** — one per backend, reusable by anyone:
+**System layer:** one per backend, reusable by anyone.
 - \`sys-oracle-inventory\`: stock on hand per item/location, purchase orders.
 - \`sys-wms\`: DC stock, transfers, receiving appointments.
 - \`sys-tms\`: loads, shipment tracking.
 
-**Process layer** — business capabilities:
-- \`prc-fulfilment\`: "find stock near this store, create a transfer, follow the truck" — calls all three System APIs.
-- \`prc-supplier-collaboration\`: "my open POs, my stock, book an appointment" — filters by supplier.
+**Process layer:** business capabilities.
+- \`prc-fulfilment\`: "find stock near this store, create a transfer, follow the truck". Calls all three System APIs.
+- \`prc-supplier-collaboration\`: "my open POs, my stock, book an appointment". Filters by supplier.
 
-**Experience layer** — one per consumer:
+**Experience layer:** one per consumer.
 - \`exp-store-app\`: compact payloads for a handheld.
 - \`exp-supplier-portal\`: portal-friendly views, only the caller's data.
 

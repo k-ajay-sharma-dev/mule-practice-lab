@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: 'Why are the quantities sent as text?',
         options: [
-          'CSV values are read as strings, and the mapping copies them as they are into the JSON',
-          'The partner changed its API',
-          'JSON has no numbers',
-          'The web shop sends text too',
+          'CSV values are read as strings, and the mapping copies them as they are',
+          'The JSON writer quotes every value unless the output sets `quoteValues=false`',
+          'The partner changed its schema on Monday to require numbers in quotes',
+          'The CSV reader reads numbers as numbers, but the HTTP Request turns them to text',
         ],
         answer: 0,
         explain: 'A CSV file carries no types, so DataWeave reads every value as a string. Without "as Number" they stay strings in the output.',
@@ -29,9 +29,9 @@ export default {
       {
         type: 'single',
         prompt: 'Which mapping line fixes quantity?',
-        options: ['quantity: row.quantity as Number', 'quantity: row.quantity as String', 'quantity: "row.quantity"', 'quantity: row.quantity default 0'],
+        options: ['`quantity: row.quantity as Number`', '`quantity: row.quantity as String`', '`quantity: row.quantity default 0`', '`quantity: (row.quantity as Number) as String`'],
         answer: 0,
-        explain: 'Convert the string to a number. A default would not change its type, and it would hide a missing value.',
+        explain: 'Convert the string to a number. A default would not change its type, and it would hide a missing value. Converting back to a String undoes the fix.',
       },
       {
         type: 'multi',
@@ -39,20 +39,20 @@ export default {
         options: [
           'That the value converts, and send the row to an error list if it does not',
           'Price as a number too',
-          'Dates in the format the partner expects',
-          'That the file name is in capitals',
+          'That `orderId` is converted to a Number as well',
+          'That `sku` is converted to a Number as well',
         ],
-        answer: [0, 1, 2],
-        explain: 'Every value from a CSV is text. Convert each one to the type the partner needs and handle the rows that do not convert.',
+        answer: [0, 1],
+        explain: 'Every value from a CSV is text. Convert each one to the type the partner schema needs and handle the rows that do not convert. `orderId` and `sku` are text in the schema, and values such as `WB-7701` would not convert anyway.',
       },
       {
         type: 'single',
         prompt: 'Why did the web shop orders keep working?',
         options: [
-          'JSON input already carries numbers, so the same copy keeps them as numbers',
-          'The web shop uses another partner',
-          'The partner ignores web shop orders',
-          'The web shop sends XML',
+          'JSON input already carries numbers, so the same copy keeps them numbers',
+          'Web shop orders go to a different partner endpoint that accepts text',
+          'The web shop path converts every value with `as Number` before the mapping',
+          'The partner checks types only on orders that arrive in a file batch',
         ],
         answer: 0,
         explain: 'The types come from the source. The same mapping gives numbers for JSON and strings for CSV.',
@@ -78,7 +78,7 @@ export default {
 
 ## Change / Context
 - The team reused the existing JSON mapping for the CSV rows: \`quantity: row.quantity\`, \`price: row.price\`.
-- The partner API schema says quantity is an integer and price a number.
+- The partner API schema says quantity is an integer and price a number. \`orderId\` and \`sku\` are strings.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
@@ -118,7 +118,7 @@ These lines are illustrative and were written for this scenario. Real log format
 
 **Root cause.** A mapping written for typed JSON input was reused for untyped CSV input without converting the values.
 
-**Permanent fix.** In the CSV path, write \`quantity: row.quantity as Number\` and \`price: row.price as Number\`, and convert dates to the partner format. Rows that fail to convert go to an error list with the reason.
+**Permanent fix.** In the CSV path, write \`quantity: row.quantity as Number\` and \`price: row.price as Number\`. Rows that fail to convert go to an error list with the reason.
 
 **Prevention.** Mapping tests with a CSV sample. A schema check of the request before it is sent, so a wrong type fails in Mule with a clear message.
 `,

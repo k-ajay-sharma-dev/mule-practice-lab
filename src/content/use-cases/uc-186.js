@@ -13,7 +13,7 @@ export default {
   tags: ['myproject', 'sql-server', 'always-on', 'read-replica', 'planning', 'queues', 'dlq', 'deadlock', 'timeout', 'retry'],
   estMinutes: 60,
   diagram: {
-    task: 'draw the store tills writing to the primary SQL Server. An outbound job reads sales and stock through a retail read System API in front of the read replica, and writes files to the planning platform\'s FTP server. A plans collector job reads plan files from the FTP server and puts each line on a queue with a dead-letter queue. A plans Process API reads the queue and writes each line through a retail data System API to the primary. The jobs never call SQL Server themselves.',
+    task: 'draw the store tills writing to the primary SQL Server. An outbound job reads sales and stock through a retail read System API, sys-retail-read, in front of the read replica, and writes files to the planning platform\'s FTP server. A plans collector job reads plan files from the FTP server and puts each line on a queue with a dead-letter queue. A plans Process API reads the queue and writes each line through a retail data System API, sys-retail-data, to the primary. The jobs never call SQL Server themselves.',
     checks: [
       { label: 'The tills write to the primary', rule: { type: 'edge', from: 'pos', to: primary } },
       { label: 'SQL Server is reached by the integration only through System APIs', rule: { type: 'only-via', target: 'sql-server', from: ['system-api', 'pos'] } },

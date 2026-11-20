@@ -19,10 +19,10 @@ export default {
         type: 'single',
         prompt: 'Why do different customers get the same cached prices?',
         options: [
-          'The Cache scope has no key expression, so the key comes from the payload, which is empty for every GET',
-          'The Cache scope ignores query parameters only when they contain hyphens',
-          'The pricing system returns one price list to every caller for five minutes',
-          'The HTTP Listener reuses the response of the previous request by default',
+          'With no key expression, the key comes from the payload, which every GET leaves empty',
+          'The default key uses the request path only, and every request uses `/prices`',
+          'The pricing system returns the last price list it built to every caller for five minutes',
+          'The default key uses the client IP, and all customers reach the API through one proxy',
         ],
         answer: 0,
         explain: 'By default the Cache scope builds the key as a digest of the payload. Every GET here has an empty payload, so every customer maps to one key and receives whatever was stored first.',
@@ -31,10 +31,10 @@ export default {
         type: 'single',
         prompt: 'What key should this cache use?',
         options: [
-          'A key expression with the customer, such as the customer query parameter',
-          'The time of the request, rounded to the minute',
-          'A fixed text such as "prices", so all requests share one entry',
-          'No key at all, with a shorter time to live',
+          'A key expression built from the `customer` query parameter',
+          'A key expression built from the request time, rounded to the minute',
+          'A key expression built from the caller’s session id, from a header',
+          'The default key, with the time to live cut from five minutes to one',
         ],
         answer: 0,
         explain: 'The key must include everything the answer depends on. Here that is the customer, and any other input that changes the price list.',
@@ -45,8 +45,8 @@ export default {
         options: [
           'Turn the cache off or clear it, so no more wrong prices are served',
           'Treat it as a data leak and tell the security and privacy teams',
-          'Raise the time to live so fewer requests reach the cache',
-          'Tell customers to send a request body with their GET',
+          'Cut the time to live to one minute, so wrong prices clear sooner',
+          'Wait for the next expiry and check whether the problem returns',
         ],
         answer: [0, 1],
         explain: 'Stop serving wrong data first. Contract prices are confidential, so customers saw data that was not theirs, which is a reportable incident in many companies.',
@@ -93,6 +93,7 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-02 10:00:01 INFO  [price-api] GET /prices?customer=TRD-104 received, payload empty
 2026-11-02 10:00:01 INFO  [price-api] Cache miss, calling pricing-sys for TRD-104
+2026-11-02 10:00:04 INFO  [price-api] GET /prices?customer=TRD-388 received, payload empty
 2026-11-02 10:00:04 INFO  [price-api] Cache hit
 2026-11-02 10:00:04 INFO  [price-api] Response 200, priceList=TRD-104
 \`\`\`

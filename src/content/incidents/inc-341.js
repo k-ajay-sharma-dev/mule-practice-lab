@@ -8,35 +8,35 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 05:00:00 INFO  [plan-load] Parts=8 loading in parallel", relevant: true, why: "Parts load together." },
-      { text: "2026-11-18 05:02:00 INFO  [plan-load] Part 3 failed and retried, part 3 loaded twice", relevant: true, why: "One part loaded twice." },
-      { text: "2026-11-18 05:05:00 INFO  [plan-load] Total rows loaded=5200000 expected=4800000", relevant: true, why: "The total is too high." },
+      { text: "2026-11-18 05:02:00 INFO  [plan-load] Part 3 failed after rows=400000, retried from the start", relevant: true, why: "The retry loads all 600,000 rows on top of the 400,000 already there." },
+      { text: "2026-11-18 05:05:00 INFO  [plan-load] Total rows loaded=5200000 expected=4800000 from control file", relevant: true, why: "The total is 400,000 too high." },
       { text: "2026-11-18 05:05:00 INFO  [plan-load] Insert mode=INSERT", relevant: true, why: "Inserts, not MERGE." },
-      { text: "2026-11-18 23:59:00 INFO  [plan-load] GET /health 200", relevant: false },
+      { text: "2026-11-18 05:10:00 INFO  [plan-load] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why is the total too high?",
         options: [
-          "Part 3 loaded twice with plain inserts",
-          "The file is wrong",
-          "Counting error",
-          "The platform sent extra",
+          "Part 3 was retried on top of 400,000 rows it had loaded",
+          "The control file total is wrong by 400,000 rows",
+          "The platform sent part 3 twice in the same set",
+          "The row count also counts the staging table",
         ],
         answer: 0,
-        explain: "A retry repeated a partly loaded part.",
+        explain: "A retry repeated a partly loaded part. Eight parts of 600,000 make 4,800,000.",
       },
       {
         type: 'single',
         prompt: "What makes part retries safe?",
         options: [
-          "Load each part into staging tagged by part, clear that part on retry, then MERGE",
-          "Never retry",
-          "Load slower",
-          "Load in one thread",
+          "Tag staging rows by part, clear that part on retry, then MERGE",
+          "Turn off retries so a failed part is skipped for the night",
+          "Add a pause before each retry so the first try finishes",
+          "Load the parts one at a time instead of in parallel",
         ],
         answer: 0,
-        explain: "Retry the part, not the rows on top.",
+        explain: "Retry the part, not the rows on top. A serial load with plain inserts still duplicates on retry.",
       },
       {
         type: 'multi',
@@ -45,7 +45,7 @@ export default {
           "A part log with status per part",
           "A total check against the control file before switching",
           "Switching to the new plan only when all parts load",
-          "Updating live tables part by part",
+          "Writing each part straight into the live tables",
         ],
         answer: [0,1,2],
         explain: "All or nothing for the set.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why switch only at the end?",
         options: [
           "Stores never see a mix of old and new plans",
-          "Speed",
-          "Cost",
-          "No reason",
+          "It makes the parallel load finish sooner",
+          "It lowers the cost of the database writes",
+          "It lets each part retry without a lock",
         ],
         answer: 0,
         explain: "Consistency for users.",
@@ -78,17 +78,17 @@ export default {
   },
   description: `
 ## Symptoms
-- Store orders are 8 percent higher than the plan.
+- Store orders are about 8 percent higher than the plan.
 
 ## Change / Context
-- Eight plan parts load in parallel with plain inserts.
+- Eight plan parts of 600,000 rows each load in parallel with plain inserts.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 05:00:00 INFO  [plan-load] Parts=8 loading in parallel
-2026-11-18 05:02:00 INFO  [plan-load] Part 3 failed and retried, part 3 loaded twice
-2026-11-18 05:05:00 INFO  [plan-load] Total rows loaded=5200000 expected=4800000
+2026-11-18 05:02:00 INFO  [plan-load] Part 3 failed after rows=400000, retried from the start
+2026-11-18 05:05:00 INFO  [plan-load] Total rows loaded=5200000 expected=4800000 from control file
 2026-11-18 05:05:00 INFO  [plan-load] Insert mode=INSERT
 \`\`\`
 
@@ -117,7 +117,7 @@ These lines are illustrative and were written for this scenario. Real log format
     "Keep a part log.",
   ],
   solution: `
-**Diagnosis.** Part 3 was retried and loaded twice with inserts.
+**Diagnosis.** Part 3 failed after 400,000 rows and was retried from the start with plain inserts, so those rows were loaded twice.
 
 **Immediate mitigation.**
 - Remove duplicates.

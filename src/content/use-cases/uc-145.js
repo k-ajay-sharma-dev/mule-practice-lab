@@ -89,6 +89,8 @@ Today each tablet update calls Mule, which writes the **bed board database** and
 - The bed board database takes about **80 calls a second**.
 - The national service answers in about 900 ms and has had outages of two hours.
 - Clinicians accept a board up to **10 seconds** old.
+- A screen must be answered within **200 ms** and a tablet within **300 ms**. No bed change may be lost, for the board or for the national service.
+- The screens must keep working if one availability zone of the cloud fails.
 
 **Questions:**
 - Draw the design.

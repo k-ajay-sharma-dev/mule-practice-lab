@@ -64,7 +64,7 @@ output application/json
 }
 `,
   hints: [
-    'Clean in steps, each in brackets: `map` to trim and upper case, `filter` out empty strings, then `distinctBy`.',
+    'Clean in steps, each in brackets: `map` to trim and upper case (turn null into `""` first with `default ""`), `filter` out empty strings, then `distinctBy`.',
     '`import divideBy from dw::core::Arrays` gives `ids divideBy n`, a list of lists with at most n items each.',
     'Build the placeholders with `chunk map (id, i) -> ":p$(i + 1)"` and join them with `", "`.',
     'Build the params object from a list of one key objects: `{ (chunk map (id, i) -> { ("p$(i + 1)"): id }) }`.',

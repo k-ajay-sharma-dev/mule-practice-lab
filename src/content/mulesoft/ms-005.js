@@ -29,7 +29,7 @@ export default {
         'Use an ONLY_FAILURES step that throws after 2%',
       ],
       answer: 1,
-      explain: '`maxFailedRecords` takes an **absolute number**, not a percentage — compute it from the input size (2% of 1.2M ≈ 24,000). Checking in On Complete would be too late to stop the job.',
+      explain: '`maxFailedRecords` takes an **absolute number**, not a percentage: compute it from the input size (2% of 1.2M ≈ 24,000). Checking in On Complete would be too late to stop the job.',
     },
     {
       type: 'order',
@@ -41,7 +41,7 @@ export default {
       type: 'match',
       prompt: 'Match each batch step to the accept policy it needs.',
       pairs: [
-        ['Commerce Cloud step — skip records that failed SAP', 'NO_FAILURES'],
+        ['Commerce Cloud step: skip records that failed SAP', 'NO_FAILURES'],
         ['Collect failures for the S3 CSV', 'ONLY_FAILURES'],
         ['Audit step that must see every record, failed or not', 'ALL'],
       ],
@@ -52,13 +52,13 @@ export default {
       needsScenario: true,
       prompt: 'The calling flow logged "job finished" right after the Batch Job scope. Why was that wrong?',
       options: [
-        'The Batch Job runs asynchronously; the flow continues immediately with a `BatchJobInstance`',
+        'The Batch Job runs asynchronously, so the flow moves on at once',
         'The Logger runs before the Batch Job because of the processing strategy',
-        'Batch jobs block the flow, so the log was correct',
-        'The Logger was inside the Load and Dispatch phase',
+        'Batch jobs block the caller, so the log line was in fact correct',
+        'The Logger sat inside the Load and Dispatch phase of the job',
       ],
       answer: 0,
-      explain: 'Batch execution is asynchronous to the caller. The Slack summary and the S3 upload belong in **On Complete**, whose payload is the `BatchJobResult`.',
+      explain: 'Batch execution is asynchronous to the caller, which gets a `BatchJobInstance` back. The Slack summary and the S3 upload belong in **On Complete**, whose payload is the `BatchJobResult`.',
     },
     {
       type: 'multi',
@@ -81,7 +81,7 @@ Every night, **1.2 million** product price records are read from a Snowflake exp
 
 - Records with an invalid currency or negative price are **rejected** but must be reported, not sent anywhere.
 - A failure updating SAP for a record must **not** send that record to Commerce Cloud.
-- If **more than 2%** of records fail, the job must stop — something systemic is wrong.
+- If **more than 2%** of records fail, the job must stop: something systemic is wrong.
 - At the end, a summary (total / successful / failed) goes to a Slack webhook and a CSV of failures is written to S3.
 - The window is 2 hours.
 
@@ -116,7 +116,7 @@ Last week the job was configured with defaults and stopped after the **first** b
 **Phases**
 1. **Load and Dispatch** (implicit): the input collection is split into records and persisted to the batch queues; a batch job instance ID is created. Payload is the full input.
 2. **Process**: records move through batch steps in blocks (\`blockSize\`, default 100), processed concurrently. Payload = one record (or an array inside a Batch Aggregator). Record variables (\`vars\` set in a step) stay with the record.
-3. **On Complete**: payload is a \`BatchJobResult\` — \`totalRecords\`, \`successfulRecords\`, \`failedRecords\`, \`loadedRecords\`, per-step results, etc. Individual records are no longer available.
+3. **On Complete**: payload is a \`BatchJobResult\`: \`totalRecords\`, \`successfulRecords\`, \`failedRecords\`, \`loadedRecords\`, per-step results, etc. Individual records are no longer available.
 
 **Steps**
 - **Validate** (accept \`NO_FAILURES\`): check currency against an allow-list and price ≥ 0; raise an error (e.g. \`raise error\` \`APP:INVALID_PRICE\`) to mark the record failed.
@@ -126,14 +126,14 @@ Last week the job was configured with defaults and stopped after the **first** b
 
 **Failure threshold:** \`maxFailedRecords\` default is **0** → the job stops after the first failure (that's what happened). It takes an absolute count, not a percentage: 2% of 1.2M ≈ \`24000\` (compute from the input size if it varies, e.g. via a property set per run). \`-1\` = never stop. When exceeded, remaining records are not processed and On Complete still runs.
 
-**"Job finished" too early:** the Batch Job scope is **asynchronous** — the triggering flow gets a \`BatchJobInstance\` back immediately and continues. Put the Slack summary and S3 CSV upload in **On Complete**.
+**"Job finished" too early:** the Batch Job scope is **asynchronous**: the triggering flow gets a \`BatchJobInstance\` back immediately and continues. Put the Slack summary and S3 CSV upload in **On Complete**.
 
 **Throughput:**
 - \`blockSize\` (bigger blocks = fewer queue round-trips but more memory per block),
 - \`maxConcurrency\` on the job,
 - Aggregator \`size\` aligned to target limits (500 for SAP) or streaming aggregator for files,
 - Map records to only the fields you need before the batch to keep queue persistence cheap,
-- Make sure SAP and Commerce Cloud can absorb the parallel calls (rate limits) — more concurrency than the targets allow just creates failures.
+- Make sure SAP and Commerce Cloud can absorb the parallel calls (rate limits): more concurrency than the targets allow only creates failures.
 
 Quick math: 1.2M records / 500 per SAP call = 2,400 calls; at ~2 s each that's 80 minutes sequential, so some concurrency is needed to fit 2 hours with headroom.
 `,

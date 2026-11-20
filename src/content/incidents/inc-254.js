@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why are no files found?",
         options: [
-          "The client cannot parse the server listing format",
-          "The folder is empty",
-          "Login failed",
-          "Passive mode is off",
+          "The client cannot parse the listing format",
+          "The file was uploaded after the listing",
+          "The FTP user cannot read the folder",
+          "The working folder path is wrong",
         ],
         answer: 0,
         explain: "The raw line shows a file that was not parsed.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What can fix it?",
         options: [
-          "Use a server that supports machine readable listings, or configure the client for the server type",
-          "Rename files",
-          "Wait longer",
-          "Use ASCII mode",
+          "Have the server send machine readable MLSD listings",
+          "Ask the server owner to rename files to upper case",
+          "Poll at 05:30 so the file has time to settle",
+          "Switch the transfer to ASCII mode for the listing",
         ],
         answer: 0,
         explain: "MLSD listings follow a standard format that clients parse reliably.",
@@ -45,7 +45,7 @@ export default {
           "Listing and parsing names, sizes and times",
           "Upload, download, rename and delete",
           "Time zone of file times",
-          "Only login",
+          "Login only, since the rest is unchanged",
         ],
         answer: [0,1,2],
         explain: "Test every operation the flow uses.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Why log the raw line at DEBUG?",
         options: [
-          "It shows the format without flooding logs in normal running",
-          "It is required",
-          "For billing",
-          "It is never useful",
+          "It shows the format without flooding normal logs",
+          "DEBUG lines are kept longer than INFO lines",
+          "The FTP connector can log raw lines only at DEBUG",
+          "DEBUG lines are hidden from the support team",
         ],
         answer: 0,
         explain: "Turn it on when you need it.",
@@ -125,7 +125,7 @@ These lines are illustrative and were written for this scenario. Real log format
 **Root cause.** The migration was tested with login only.
 
 **Permanent fix.**
-- Enable MLSD or set the listing parser for the server.
+- Enable MLSD on the new server so the client gets machine readable listings.
 
 **Prevention.** A full operation test for server changes.
 `,

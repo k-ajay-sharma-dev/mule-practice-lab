@@ -10,18 +10,18 @@ export default {
       { text: "2026-11-18 02:30:00 ERROR [sales-extract] Could not allocate space in database tempdb", relevant: true, why: "Tempdb is full." },
       { text: "2026-11-18 02:30:00 INFO  [sales-extract] Query uses ORDER BY on 400M rows and a hash join", relevant: true, why: "Sorts and hashes spill to tempdb." },
       { text: "2026-11-18 02:30:00 INFO  [dba] Read committed snapshot on, version store 120GB", relevant: true, why: "Row versions also use tempdb." },
-      { text: "2026-11-18 02:30:00 INFO  [dba] Long open transaction from report app since 18:00", relevant: true, why: "An old transaction keeps versions alive." },
-      { text: "2026-11-18 23:59:00 INFO  [sales-extract] GET /health 200", relevant: false },
+      { text: "2026-11-18 02:30:00 INFO  [dba] Long open transaction from report app since 2026-11-17 18:00", relevant: true, why: "An old transaction keeps versions alive." },
+      { text: "2026-11-18 02:35:00 INFO  [sales-extract] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "What fills tempdb?",
         options: [
-          "Large sorts and hashes plus a version store kept alive by a long open transaction",
-          "Logs",
-          "Backups",
-          "Mule",
+          "Big sorts and hashes plus a version store held by a long transaction",
+          "The tempdb log, because the extract runs in one transaction",
+          "Nightly backups that write their temporary files into tempdb",
+          "The Mule database connector caching the result set in tempdb",
         ],
         answer: 0,
         explain: "Several users share tempdb.",
@@ -31,33 +31,33 @@ export default {
         prompt: "What should happen first?",
         options: [
           "Find and end the long open transaction, with its owner",
-          "Restart SQL Server",
-          "Drop tempdb",
-          "Disable snapshot",
+          "Shrink the tempdb files while the extract is running",
+          "Turn off read committed snapshot on the database",
+          "Add a second tempdb data file on the same full disk",
         ],
         answer: 0,
-        explain: "Free the version store.",
+        explain: "Free the version store. Versions stay while the old transaction is open.",
       },
       {
         type: 'multi',
         prompt: "How can the extract use less tempdb?",
         options: [
-          "Remove the ORDER BY if the receiver does not need it",
+          "Drop the ORDER BY if the receiver does not need it",
           "Extract by date range in pieces",
           "Index to avoid hash joins",
-          "Sort 400M rows in memory in Mule",
+          "Sort the 400M rows in Mule memory instead",
         ],
         answer: [0,1,2],
-        explain: "Less work, smaller pieces.",
+        explain: "Less work, smaller pieces. Sorting 400M rows in Mule moves the problem to the heap.",
       },
       {
         type: 'single',
         prompt: "Why does a long transaction matter?",
         options: [
           "Row versions must be kept until it ends",
-          "It locks tempdb",
-          "It is harmless",
-          "It speeds things up",
+          "It holds a lock on tempdb that blocks other users",
+          "It is harmless while it stays idle",
+          "It keeps the extract’s sort pages in memory",
         ],
         answer: 0,
         explain: "Snapshot isolation keeps versions for old transactions.",
@@ -89,7 +89,7 @@ These lines are illustrative and were written for this scenario. Real log format
 2026-11-18 02:30:00 ERROR [sales-extract] Could not allocate space in database tempdb
 2026-11-18 02:30:00 INFO  [sales-extract] Query uses ORDER BY on 400M rows and a hash join
 2026-11-18 02:30:00 INFO  [dba] Read committed snapshot on, version store 120GB
-2026-11-18 02:30:00 INFO  [dba] Long open transaction from report app since 18:00
+2026-11-18 02:30:00 INFO  [dba] Long open transaction from report app since 2026-11-17 18:00
 \`\`\`
 
 ## Your tasks

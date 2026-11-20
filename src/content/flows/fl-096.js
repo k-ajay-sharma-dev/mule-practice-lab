@@ -188,6 +188,10 @@ A platform team wants a **weekly traffic report** for four environments, emailed
 - A previous report showed zero traffic for a busy environment, because the API returned **200 OK with \`"data": []\`** when the connected app lacked scopes for it (see inc-100). This must never happen again: an environment with no data must appear in the report as a problem, and not as zero.
 - One bad environment must not stop the report for the others.
 
+**Facts**
+- The Metrics API answers \`{ data: [...] }\`. Its exact path and request body are on its Exchange page, so any path will do here.
+- The report goes by email to \`capacity@example.com\`. It has one row per environment with the environment ID and a status, \`OK\` or \`NO_DATA_CHECK_SCOPES\`.
+
 **Design the flow.** Say where each value is kept, given that every HTTP call replaces the payload.
 `,
   answerTemplate: `## Trigger and token
@@ -237,7 +241,7 @@ The exact method, path and request body of the Metrics API are on its page in Ex
     },
     {
       q: 'Why not one connected app per environment?',
-      a: 'One app with scopes for several environments is simpler, but adding the scopes must be part of the checklist for creating an environment. Separate apps give tighter isolation, and more secrets to rotate.',
+      a: 'One app with scopes for several environments means less to manage, but adding the scopes must be part of the checklist for creating an environment. Separate apps give tighter isolation, and more secrets to rotate.',
     },
   ],
 }

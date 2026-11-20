@@ -93,6 +93,8 @@ export default {
 
 In Q4 the AS2 partners can send 20 purchase orders a second for 10 minutes, the EBS order import takes at most 5 a second, and about 1 order in 50 has data EBS rejects every time.
 
+Queue every inbound order on a \`b2b-inbound\` queue. Try each order at most 5 times, then move it to a dead-letter queue for the B2B team. Publish booked and shipped orders to an \`order-status-events\` topic. Name the APIs exp-as2-inbound, exp-partner-orders-api, prc-purchase-orders, prc-outbound-documents and sys-ebs-orders-api.
+
 **Your task.** Propose:
 - the B2B architecture
 - a canonical order model
@@ -120,8 +122,8 @@ In Q4 the AS2 partners can send 20 purchase orders a second for 10 minutes, the 
   ],
   solution: `
 **Phases**
-1. **Build the core (months 1–2).** Canonical \`PurchaseOrder\` model; \`prc-purchase-orders\` validates, de-duplicates (partner ID + PO number) and calls \`sys-ebs-orders-api\`, which loads the EBS order import interface and starts the import. The VAN poller is moved into Mule first (\`batch-job\` downloading the mailbox), so the PL/SQL parser can be retired before any partner changes.
-2. **AS2 waves (months 3–6).** \`exp-as2-inbound\` receives AS2 messages, returns the MDN, parses X12 with the X12 module, sends 997s and places the canonical order on the \`b2b-inbound\` queue. Partners move in waves of 5–10, ordered by volume, each with certificate exchange and a test cycle.
+1. **Build the core (months 1 to 2).** Canonical \`PurchaseOrder\` model; \`prc-purchase-orders\` validates, de-duplicates (partner ID + PO number) and calls \`sys-ebs-orders-api\`, which loads the EBS order import interface and starts the import. The VAN poller is moved into Mule first (\`batch-job\` downloading the mailbox), so the PL/SQL parser can be retired before any partner changes.
+2. **AS2 waves (months 3 to 6).** \`exp-as2-inbound\` receives AS2 messages, returns the MDN, parses X12 with the X12 module, sends 997s and places the canonical order on the \`b2b-inbound\` queue. \`prc-purchase-orders\` takes the queue no faster than the EBS import allows (5 a second), so a Q4 burst waits in the queue; an order rejected 5 times moves to the DLQ. Partners move in waves of 5 to 10, ordered by volume, each with certificate exchange and a test cycle.
 3. **Partner API (month 4 onward).** \`exp-partner-orders-api\` behind API Manager (client ID enforcement, rate limiting) for resellers; same canonical model, same queue.
 
 **Outbound.** When orders are booked or shipped, EBS business events (or a \`db:listener\` on an agreed status table with a watermark column) are published by \`sys-ebs-orders-api\` to \`order-status-events\`. \`prc-outbound-documents\` reads the partner profile and builds an 855, 856 or 810 (or a JSON webhook for API partners) and sends it over the partner's channel.

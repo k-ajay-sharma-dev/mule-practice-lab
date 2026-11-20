@@ -11,7 +11,7 @@ export default {
       needsScenario: true,
       prompt: 'The ledger call fails with `HTTP:CONNECTIVITY` and an `on-error-continue` sets `{ status: "QUEUED" }`. How do you test it?',
       options: [
-        'Mock the request to raise the error and assert `payload.status` in validation, with no `expectedErrorType` on the test',
+        'Mock the error and assert `payload.status`, with no `expectedErrorType`',
         'Set `expectedErrorType="HTTP:CONNECTIVITY"` and leave validation empty',
         'Set `expectedErrorType` and also assert the payload',
         'Point the test at a closed port so the error happens naturally',
@@ -23,13 +23,13 @@ export default {
       type: 'single',
       prompt: 'The `HTTP:BAD_REQUEST` path uses `on-error-propagate`. You also need `verify-call` to prove the failure was logged. What is the problem, and the documented fix?',
       options: [
-        'The propagated error fails the flow, so the validation section is skipped. Wrap the `flow-ref` in a `try` with `on-error-continue` inside `munit:execution`',
-        'Validation always runs, so no change is needed',
-        'Logger cannot be verified, because Logger cannot be mocked',
-        'Move `verify-call` into `munit:behavior`',
+        'Validation is skipped; wrap the `flow-ref` in a `try` with `on-error-continue`',
+        'Validation always runs after a propagated error, so nothing changes',
+        'Logger calls cannot be verified, because Logger cannot be mocked',
+        'Move `verify-call` into `munit:behavior` so it runs first',
       ],
       answer: 0,
-      explain: 'The cookbook says verifications will not run for On Error Propagate because the validation section is skipped. Catching the error inside the execution scope lets the verifications run.',
+      explain: 'The propagated error fails the flow, so the validation section is skipped. Put the `try` inside `munit:execution`. The cookbook says verifications will not run for On Error Propagate because the validation section is skipped. Catching the error inside the execution scope lets the verifications run.',
     },
     {
       type: 'single',
@@ -50,7 +50,7 @@ export default {
       options: [
         'The test fails immediately',
         'The test passes, because no error is a good result',
-        'MUnit retries the test once',
+        'MUnit retries the test once before failing it',
         'The test is skipped and marked as not run',
       ],
       answer: 0,
@@ -63,7 +63,7 @@ export default {
       options: [
         'In `munit:set-event`, add `munit:error` with an `id` and an `exception`',
         'Mock the sub-flow with `then-return` and an error',
-        'Add `expectedErrorType` to the test',
+        'Add `expectedErrorType` to the test so the error is created',
         'Set a variable called `error` in `munit:variables`',
       ],
       answer: 0,

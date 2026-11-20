@@ -19,15 +19,15 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'Why is `GET /orders/deleteOrder?id=55` dangerous, not just ugly?',
+      prompt: 'Why is `GET /orders/deleteOrder?id=55` dangerous, and not only badly named?',
       options: [
-        'GET requests cannot carry query parameters',
-        'GET must be safe: crawlers, prefetchers and caches assume it has no side effects and may trigger deletes',
-        'It is slower than DELETE',
-        'APIkit cannot route it',
+        'GET requests cannot carry query parameters such as id',
+        'Crawlers, prefetchers and caches treat GET as safe and may trigger the delete',
+        'Browsers block GET requests that change data on the server',
+        'APIkit cannot route a GET to a flow that deletes data',
       ],
       answer: 1,
-      explain: 'The method semantics are a contract with every intermediary, not only with your clients.',
+      explain: 'GET must be safe, with no side effects. The method semantics are a contract with every intermediary, not only with your clients. Browsers and APIkit do not stop such a GET, which is why it is dangerous.',
     },
     {
       type: 'single',
@@ -69,13 +69,13 @@ export default {
       type: 'single',
       prompt: 'The team lead asks whether HATEOAS is mandatory. What is a pragmatic position?',
       options: [
-        'Yes, an API without full hypermedia is not REST and must not be published',
-        'Include self/next/prev links for pagination; do not mandate full HATEOAS — the spec in Exchange is the real contract',
-        'Never include any links',
-        'Use HATEOAS instead of writing a spec',
+        'Yes: without full hypermedia it is not REST and must not be published',
+        'Add self, next and prev links for paging, and keep the spec as the real contract',
+        'Add no links at all, because clients code against the spec',
+        'Use HATEOAS links in place of a published spec',
       ],
       answer: 1,
-      explain: 'Mobile and web teams code against the spec. Cheap pagination links add value; full hypermedia rarely does for known clients.',
+      explain: 'Mobile and web teams code against the spec in Exchange, so full HATEOAS need not be mandated. Cheap pagination links still add value; full hypermedia rarely does for known clients.',
     },
   ],
   description: `
@@ -120,7 +120,7 @@ Constraints:
   ],
   solution: `
 **Problems in the draft.**
-- Verbs in paths (\`getOrders\`, \`deleteOrder\`, \`update\`) — RPC style over HTTP. The method already says the action.
+- Verbs in paths (\`getOrders\`, \`deleteOrder\`, \`update\`): RPC style over HTTP. The method already says the action.
 - \`GET\` used to delete: unsafe. Crawlers, prefetchers and caches assume GET has no side effects.
 - \`POST\` used for reads: loses cacheability and makes the API harder to understand.
 - Unbounded collection of 2 million rows: memory, timeout and security problems (one client can read every customer's orders).
@@ -143,7 +143,7 @@ Business actions that are not simple CRUD can be modelled as sub-resources, e.g.
 - \`GET /customers/C1/orders?status=SHIPPED&fromDate=2026-01-01&sort=-createdAt&limit=50&offset=0\`
 - Default \`limit\` (e.g. 20) and a **maximum** (e.g. 100) enforced by the API.
 - Offset/limit is simple but slow and inconsistent on deep pages of changing data; for large exports or feeds use **cursor-based** paging (\`?cursor=opaqueToken\`) returning \`nextCursor\`.
-- Return paging metadata: \`{ "data": [...], "page": { "limit": 50, "offset": 0, "total": 312 } }\` — or omit \`total\` when counting is expensive.
+- Return paging metadata: \`{ "data": [...], "page": { "limit": 50, "offset": 0, "total": 312 } }\`, or omit \`total\` when counting is expensive.
 - Define these as reusable **traits/components** in the spec so every API in the organisation pages the same way.
 
 **Error model and status codes.**

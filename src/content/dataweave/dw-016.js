@@ -10,13 +10,13 @@ The order service exports a day of orders. The sales manager wants one KPI line 
 
 Each order has \`id\`, \`region\`, \`status\` (\`COMPLETED\`, \`CANCELLED\` or \`PENDING\`) and \`amount\`.
 
-Output an array with one object per region that appears in the input, **sorted by \`region\` ascending**:
+Output an array with one object per region that appears in the input, **sorted by \`region\` ascending as text**:
 
 - \`region\`
-- \`orderCount\` — all orders of the region, whatever their status
-- \`completedCount\` — orders with status \`COMPLETED\`
-- \`cancelledCount\` — orders with status \`CANCELLED\`
-- \`completedRevenue\` — sum of \`amount\` over the **completed** orders only (\`0\` if none)
+- \`orderCount\`: all orders of the region, whatever their status
+- \`completedCount\`: orders with status \`COMPLETED\`
+- \`cancelledCount\`: orders with status \`CANCELLED\`
+- \`completedRevenue\`: sum of \`amount\` over the **completed** orders only (\`0\` if none)
 
 No orders → \`[]\`.
 `,
@@ -66,7 +66,7 @@ output application/json
   explanation: `
 \`countBy\` and \`sumBy\` replace the classic \`sizeOf(arr filter ...)\` and \`sum(arr filter ... map ...)\` patterns with one readable call each.
 
-\`sumBy\` on an empty array returns \`0\` — so a region with no completed orders needs no special handling. By contrast, \`sum((orders filter ...).amount)\` would hit the empty-selector trap: \`[].amount\` is \`null\`, and \`sum(null)\` fails.
+\`sumBy\` on an empty array returns \`0\`, so a region with no completed orders needs no special handling.
 
 Grouping keys are \`Key\` values; \`region as String\` makes the output a plain string.
 `,
@@ -91,7 +91,7 @@ Grouping keys are \`Key\` values; \`region as String\` makes the output a plain 
   followUps: [
     {
       q: 'How would you add the share of cancelled orders as a percentage with two decimals?',
-      a: 'Compute `cancelledCount / orderCount * 100` and format it, e.g. `as String {format: "0.00"}`, or keep a number with `round(x * 100) / 100`. Division of two DataWeave numbers is exact decimal division, so format only at the end.',
+      a: 'Compute `cancelledCount / orderCount * 100` and format it, e.g. `as String {format: "0.00"}`, or keep a number with `round(x * 100) / 100`. Division of two DataWeave numbers gives a decimal result, not integer division, so format only at the end.',
     },
     {
       q: 'Can you do this without groupBy, in a single pass?',

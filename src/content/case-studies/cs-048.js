@@ -12,13 +12,13 @@ export default {
       prompt:
         'The CFO asks "What have we got for this money?". Say you have measured the programme for a few weeks; the figures below are examples of what you could find. Which kind of headline best answers the CFO?',
       options: [
-        '"We built 52 APIs in 18 months."',
-        '"Median lead time fell from 14 to 8 weeks, recent projects reuse about 55% of their APIs, and roughly 1.1M of build effort was avoided — assumptions in the appendix."',
-        '"Our Exchange assets have been viewed 9,000 times."',
-        '"We delivered 14 projects."',
+        '"We built 52 APIs and published every one of them in Exchange in 18 months."',
+        '"Lead time fell from 14 to 8 weeks, and reuse avoided about 1.1M of build effort."',
+        '"Our Exchange assets have been viewed 9,000 times by developers this year."',
+        '"We delivered 14 projects, and every one of them went live on schedule."',
       ],
       answer: 1,
-      explain: 'Leadership cares about speed, cost and outcomes. API counts, project counts and page views describe activity — 52 APIs could be 52 liabilities.',
+      explain: 'Leadership cares about speed, cost and outcomes, so the headline gives the lead time trend and the effort avoided, with the assumptions in an appendix. API counts, project counts and page views describe activity; 52 APIs could be 52 liabilities.',
     },
     {
       type: 'single',
@@ -63,25 +63,25 @@ export default {
       type: 'single',
       prompt: '12 APIs have only one consumer. What do you do?',
       options: [
-        'Delete all 12 to show discipline',
-        'Hide them from the report so the reuse figure looks better',
-        'Review each: keep the genuinely single-purpose or new ones, merge or retire over-layered ones, and update guidance (no Process API without a reuse or orchestration reason)',
-        'Mandate that other teams start consuming them',
+        'Delete all 12 to show leadership that the programme is disciplined',
+        'Leave them out of the report so the reuse figure looks better',
+        'Review each one: keep the valid ones, merge or retire the over-layered ones',
+        'Require other teams to start consuming them in their next projects',
       ],
       answer: 2,
-      explain: 'Some single-consumer APIs are fine; others show over-layering. A review plus clearer guidance fixes the cause. Hiding them damages credibility, and forced consumption creates bad dependencies.',
+      explain: 'Some single-consumer APIs are fine (new, or genuinely single-purpose); others show over-layering. A review plus clearer guidance (no Process API without a reuse or orchestration reason) fixes the cause. Hiding them damages credibility, and forced consumption creates bad dependencies.',
     },
     {
       type: 'single',
       prompt: 'Two business units still buy point-to-point integrations from an outsourcing vendor. Best response?',
       options: [
-        'Ignore it — they are outside the programme',
-        'Ban the vendor immediately',
-        'Route new integrations through an architecture intake, show those units the cost of their projects against comparable platform projects, and offer the vendor the platform standards',
-        'Rebuild their integrations on the platform without asking them',
+        'Leave them alone, because those units are outside the programme',
+        'Ban the outsourcing vendor from all integration work immediately',
+        'Add an architecture intake, show the cost gap, and give the vendor the standards',
+        'Rebuild their integrations on the platform without involving the units',
       ],
       answer: 2,
-      explain: 'An intake gives visibility, a cost comparison persuades with evidence, and bringing the vendor onto the standards turns a bypass into extra capacity.',
+      explain: 'An intake gives visibility, a cost comparison with similar platform projects persuades with evidence, and bringing the vendor onto the standards turns a bypass into extra capacity.',
     },
     {
       type: 'match',
@@ -117,7 +117,7 @@ export default {
 ## Actions based on the findings
 `,
   keyPoints: [
-    'Frames value in leadership terms — speed to market, cost avoided, risk reduced, business outcomes enabled — not API counts.',
+    'Frames value in leadership terms (speed to market, cost avoided, risk reduced, business outcomes enabled), not API counts.',
     'Defines reuse precisely: APIs with more than one consuming application (from contracts/analytics), and the share of each new project built from existing assets.',
     'Measures delivery speed as lead time and effort per project over time, comparing early projects with recent ones of similar size, and against point-to-point projects where possible.',
     'Converts reuse into money cautiously (effort avoided × rate) and is transparent about assumptions; includes run cost and incident trends.',
@@ -141,9 +141,9 @@ export default {
 | Adoption | Integrations built outside the platform | Architecture inventory |
 
 **Collecting the data.**
-- Export contracts per API instance and API analytics (calling client IDs) to find real consumers — not Exchange "views".
+- Export contracts per API instance and API analytics (calling client IDs) to find real consumers, not Exchange "views".
 - For each of the 14 projects, list APIs used and mark them *new* or *reused*.
-- Compare similar-sized projects: e.g. the first three projects averaged ~14 weeks; the last four averaged ~8 weeks with 50–60% reuse (example numbers — use actual data).
+- Compare similar-sized projects: e.g. the first five projects had a median lead time of 14 weeks; the last five had 8 weeks with 50 to 60% reuse (example numbers; use actual data).
 - For cost avoided: reused API count × typical build effort for that API type, discounted (reuse still costs some effort).
 
 **Example headline (illustrative).**
@@ -156,10 +156,10 @@ Quality: incidents per API down 40% since standard templates & monitoring
 Gaps:    12 APIs with a single consumer; 2 BUs still buying point-to-point
 \`\`\`
 
-**Presenting it.** One page: business outcomes first (what we launched, how fast), then speed and cost trend, then reuse, then risks/gaps, then the ask. Show the trend, not just a snapshot. Be explicit about the methodology and assumptions — a CFO will discount numbers that look too good. Present the gaps yourself, with a plan, before someone else finds them.
+**Presenting it.** One page: business outcomes first (what we launched, how fast), then speed and cost trend, then reuse, then risks/gaps, then the ask. Show the trend, not only a snapshot. Be explicit about the methodology and assumptions; a CFO will discount numbers that look too good. Present the gaps yourself, with a plan, before someone else finds them.
 
 **Actions based on findings.**
-- **Unused APIs**: review the 12 single-consumer APIs — some are fine (new, or genuinely single-purpose), others were over-layered; merge or retire, and adjust guidance ("don't build a Process API without a reuse or orchestration reason").
+- **Unused APIs**: review the 12 single-consumer APIs. Some are fine (new, or genuinely single-purpose), others were over-layered; merge or retire, and adjust guidance ("don't build a Process API without a reuse or orchestration reason").
 - **Bypass**: put new integrations through an architecture intake; show the two BUs their projects' cost vs. a comparable platform project; offer the outsourcing vendor the platform standards.
 - **Make it continuous**: a quarterly value dashboard (automated from API Manager and the pipeline) instead of a one-off exercise.
 - **Renewal decision**: the business case is the trend in speed and cost avoided plus outcomes enabled, compared with the run cost.
@@ -167,6 +167,6 @@ Gaps:    12 APIs with a single consumer; 2 BUs still buying point-to-point
   followUps: [
     { q: 'Why is "number of APIs built" a bad KPI?', a: 'It rewards building more APIs, including unnecessary layers and duplicates. Consumption and reuse, delivery speed and outcomes show value; API count only shows activity.' },
     { q: 'How do you avoid overstating cost avoided by reuse?', a: 'Use conservative effort estimates, subtract the effort of integrating with the reused API, show assumptions openly, and compare with real projects where possible rather than theoretical ones.' },
-    { q: 'What if the numbers show the programme is not delivering?', a: 'Present them anyway with a diagnosis — for example over-engineered layers, no reuse culture or poor discovery in Exchange — and a recovery plan. Credibility is worth more than one good-looking report.' },
+    { q: 'What if the numbers show the programme is not delivering?', a: 'Present them anyway with a diagnosis (for example over-engineered layers, no reuse culture or poor discovery in Exchange) and a recovery plan. Credibility is worth more than one good-looking report.' },
   ],
 }

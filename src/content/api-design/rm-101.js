@@ -25,7 +25,7 @@ There are two ways to make creation safe to repeat, and this API uses both:
 - A type \`Error\` with required strings \`code\` and \`message\`.
 - Mandates are created only with \`PUT /mandates/{reference}\`. There is no \`POST /mandates\`.
 - \`PUT /mandates/{reference}\` takes a \`Mandate\` and returns 201 with a \`Mandate\` when it is new, or 200 with a \`Mandate\` when it already existed.
-- \`POST /collections\` takes a \`CollectionRequest\` and a required header \`Idempotency-Key\`, a string with a UUID pattern such as \`3f2c9a1e-8b7d-4c21-9f0e-2a6b5d4c3e1f\` in lower case.
+- \`POST /collections\` takes a \`CollectionRequest\` and a required header \`Idempotency-Key\`, a string with a UUID pattern such as \`3f2c9a1e-8b7d-4c21-9f0e-2a6b5d4c3e1f\` in lower case. Anchor the pattern with \`^\` and \`$\`, so no extra text fits before or after.
 - It returns 201 with a \`Collection\` and a \`Location\` header, 400 when the key is missing, 409 with an \`Error\` while the first request is running, and 422 with an \`Error\` when the key was used with a different body.
 `,
   starter: `#%RAML 1.0

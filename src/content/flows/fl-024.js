@@ -359,18 +359,19 @@ export default {
   description: `
 A **Checkout Process API** must complete three steps in three independent systems, each with its own database and REST API:
 
-1. **Payment service:** authorise card (\`POST /authorisations\`, reversible via \`POST /authorisations/{id}/void\`).
-2. **Inventory service:** reserve stock (\`POST /reservations\`, reversible via \`DELETE /reservations/{id}\`).
-3. **Shipping service:** book a courier slot (\`POST /bookings\`, cancellable only within 30 min).
+- **Inventory service:** reserve stock (\`POST /reservations\`, reversible via \`DELETE /reservations/{id}\`).
+- **Payment service:** authorise card (\`POST /authorisations\`, reversible via \`POST /authorisations/{id}/void\`).
+- **Shipping service:** book a courier slot (\`POST /bookings\`, cancellable only within 30 min).
 
-No distributed transaction (XA) is possible across these HTTP APIs.
+Each service answers with the new resource's \`id\`. No distributed transaction (XA) is possible across these HTTP APIs.
 
 **Requirements**
-- No customer is charged without stock and a booking.
-- A failure in step 3 must undo steps 1–2.
-- Compensations themselves can fail.
+- The checkout starts with \`POST /checkout\` and answers \`{ sagaId, status }\`, with \`status: "COMPLETED"\` on success.
+- No customer is charged without stock and a booking. The payment team only wants a card authorised once the stock is held.
+- A failure in a later step must undo the earlier steps that succeeded, and nothing else.
+- Compensations themselves can fail. A failed one must be retried, not lost.
 - The process must survive a Mule replica crash mid-saga.
-- Ops must see stuck sagas. A saga row ends as \`COMPLETED\` or \`COMPENSATED\`, and one whose compensation failed is marked \`COMPENSATION_PENDING\`.
+- Ops must see stuck sagas. Keep the saga in the table \`saga\` (\`saga_id\`, \`status\`, \`reservation_id\`, \`authorisation_id\`, \`booking_id\`, \`created_at\`). A saga row ends as \`COMPLETED\` or \`COMPENSATED\`, and one whose compensation failed is marked \`COMPENSATION_PENDING\`.
 
 **Design the flow(s):**
 - Orchestration vs choreography
@@ -403,7 +404,7 @@ No distributed transaction (XA) is possible across these HTTP APIs.
     'A recovery job resumes or compensates sagas stuck in an intermediate state after a crash.',
   ],
   solution: `
-**Choice: orchestration.** One Process API owns the workflow — easier to reason about, monitor and change than choreography (each service reacting to events) for a 3-step checkout.
+**Choice: orchestration.** One Process API owns the workflow. That is clearer to reason about, monitor and change than choreography (each service reacting to events) for a 3-step checkout.
 
 **Step order:** do the cheapest-to-undo / most-likely-to-fail steps first: reserve inventory → authorise payment → book shipping. (Authorisation is reversible; a capture would not be, so capture happens later, after shipping.)
 
@@ -419,13 +420,13 @@ Each step is a private flow with a **Try scope**; errors raise \`SAGA:STEP_FAILE
 6. If a compensation fails: mark saga \`COMPENSATION_PENDING\` and publish \`{ sagaId, step }\` to an **Anypoint MQ** retry queue with DLQ; a worker keeps retrying with backoff by running \`compensate\` again. Because \`compensate\` starts by setting \`COMPENSATING\`, a retry that now works ends the saga \`COMPENSATED\`; without that reset the saga would stay \`COMPENSATION_PENDING\` for ever. After max retries, the DLQ + alert means manual intervention.
 7. Respond to the client 409/502 with \`{ sagaId, status: "FAILED" }\`.
 
-**Crash recovery:** a **Scheduler** flow every minute selects sagas not in a terminal state and older than N seconds. Policy: compensate them (simplest and safe because every call is idempotent), or resume forward if the step's outcome can be queried. Use a lock/primary-node scheduling so only one replica recovers.
+**Crash recovery:** a **Scheduler** flow every minute selects sagas not in a terminal state and older than N seconds. Policy: compensate them (the least work, and safe because every call is idempotent), or resume forward if the step's outcome can be queried. Use a lock/primary-node scheduling so only one replica recovers.
 
 **Observability:** saga table doubles as an audit log; dashboards for counts by status; correlation ID = sagaId in all logs and downstream headers.
 `,
   followUps: [
     { q: 'Why not use a Mule XA transaction?', a: 'XA only works with transactional resources like JMS, VM and JDBC that support it; HTTP APIs cannot enlist in a two-phase commit. Sagas give eventual consistency through compensations instead.' },
-    { q: 'What if the void authorisation call times out — did it happen or not?', a: 'Treat it as unknown and retry with the same idempotency key; the payment service returns the original result if it already processed it.' },
+    { q: 'What if the void authorisation call times out? Did it happen or not?', a: 'Treat it as unknown and retry with the same idempotency key; the payment service returns the original result if it already processed it.' },
     { q: 'When would you prefer choreography?', a: 'When many independently owned services react to business events and no single team should own the workflow; it reduces coupling but makes end-to-end tracking harder.' },
     { q: 'How do you handle the shipping booking that is only cancellable within 30 minutes?', a: 'Do it last so it rarely needs undoing, and if compensation happens after the window, raise a manual task or business-level compensation (e.g. absorb the cost) rather than a technical rollback.' },
   ],

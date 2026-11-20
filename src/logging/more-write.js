@@ -365,7 +365,7 @@ export const MORE_WRITE = [
     situation:
       'The flow upserted 50 accounts in Salesforce: 48 worked and 2 failed. vars.successCount and vars.failureCount hold the counts, built from the upsert result. vars.failedIds holds the IDs of the failed accounts as one string.',
     available: ['vars.successCount', 'vars.failureCount', 'vars.failedIds', 'payload', 'correlationId'],
-    level: ['WARN'],
+    level: ['WARN', 'ERROR'],
     checks: [
       says(/upsert|synced|sent|saved|partly|partial/i, 'Salesforce account upsert finished with failures'),
       { must: /vars\.successCount/, say: 'Add how many worked: vars.successCount.' },
@@ -382,7 +382,7 @@ export const MORE_WRITE = [
         '#["Salesforce account upsert finished with failures successful=$(vars.successCount) failed=$(vars.failureCount) failedIds=$(vars.failedIds) correlationId=$(correlationId)"]',
     },
     explain:
-      'Most of the work was done and the flow goes on, so WARN. The failed IDs let someone fix those accounts without reading the whole result.',
+      'Most of the work was done and the flow goes on, so WARN fits. ERROR fits too if each failed account needs a person to fix it. The failed IDs let someone fix those accounts without reading the whole result.',
   },
   {
     id: 'log-418',

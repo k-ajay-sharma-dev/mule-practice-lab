@@ -9,7 +9,7 @@ export default {
 Quality has issued a **recall** for some production lots of one SKU. Customer service needs to know, from the outbound shipment history (\`payload\`), which customers received the affected product so they can be contacted. The recall notice is the \`recall\` input.
 
 **Matching**
-- A shipment line is affected when its \`sku\` equals the recall \`sku\` **and** its \`lot\` is one of the recalled lots. The same lot number can exist for a different SKU — that is not affected.
+- A shipment line is affected when its \`sku\` equals the recall \`sku\` **and** its \`lot\` is one of the recalled lots. The same lot number can exist for a different SKU; that line is not affected.
 - Lot numbers in the recall notice are typed by hand: compare them **trimmed and upper-cased**. Shipment lots are already clean.
 - A shipment may have no \`lines\` field at all.
 
@@ -17,7 +17,8 @@ Quality has issued a **recall** for some production lots of one SKU. Customer se
 - \`sku\`
 - \`affectedCustomers\`, sorted by \`customerId\`: \`customerId\`, \`name\`, \`shipments\` (distinct shipment ids in shipment order), \`lots\` (distinct, sorted), \`qty\` (affected units)
 - \`totalQty\`: affected units over all customers
-- \`lotsNotShipped\`: recalled lots (normalised) that appear on no affected line, sorted — these are probably still in the warehouse
+- \`lotsNotShipped\`: recalled lots (normalised) that appear on no affected line, each lot once, sorted as text. These are probably still in the warehouse.
+- \`customerId\` and lots sort as text. With no affected lines, \`affectedCustomers\` is \`[]\` and \`totalQty\` is \`0\`.
 `,
   inputs: [
     {
@@ -102,14 +103,14 @@ var shippedLots = hits.lot default []
   lotsNotShipped: (recalledLots filter (not (shippedLots contains $))) distinctBy $ orderBy $
 }`,
   explanation: `
-Traceability questions become easy once the nested data is **flattened to one row per affected line**, with the context (shipment, customer) copied onto it. Everything after that is grouping and summing.
+Traceability questions become manageable once the nested data is **flattened to one row per affected line**, with the context (shipment, customer) copied onto it. Everything after that is grouping and summing.
 
 - \`flatMap\` = \`map\` + \`flatten\`: each shipment produces zero or more hit rows.
-- Filtering on **both** \`sku\` and \`lot\` excludes \`SKU-9 / L2401\` in SH-1 — lot numbers are only unique per item.
+- Filtering on **both** \`sku\` and \`lot\` excludes \`SKU-9 / L2401\` in SH-1, because lot numbers are only unique per item.
 - \`default []\` handles SH-5, which has no \`lines\` key.
 - \`rows.shipmentId\` is a multi-value selector over the group; \`distinctBy $\` keeps the first occurrence, so shipment order is preserved.
 - \`lotsNotShipped\` compares against the lots that were actually hit, not all shipped lots: L2405 was shipped but is not recalled, and L2403 never left.
-- \`hits.lot\` on an empty array returns \`null\` in this engine, so it is defaulted before \`contains\`; the same applies to \`hits.qty\`.
+- \`hits.lot\` and \`hits.qty\` on an empty array give \`null\`, not \`[]\`. The \`default []\` on them is needed: \`sum(null)\` fails, while \`sum([])\` is \`0\`.
 
 Common traps:
 - Comparing raw recall lots: \`" l2401"\` never equals \`"L2401"\`.

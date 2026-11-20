@@ -132,6 +132,12 @@ Archive and staging are independent and each takes a while for large messages, s
 
 If anything fails, the source blob must stay so the restart app can replay the message; no staged lines may be left for it; \`message_log\` says \`FAILED\` and the ACK says \`FAILED\` with the error type. The request itself is acknowledged.
 
+**Facts**
+- The source blob holds a JSON array of lines. \`message_log\` has \`message_id\` and \`status\`.
+- Stage \`uom\` as the mapped code, such as \`EACH\` for \`EA\`.
+- The failed ACK is \`{ "messageId", "status": "FAILED", "reason": "<error type>" }\`. Send both ACKs with **JMS Publish**.
+- The listener uses the ack mode \`AUTO\`. A flow handler **On Error Continue** does the cleanup, so the request is acknowledged.
+
 **Design the flow.**
 `,
   answerTemplate: `## The code map

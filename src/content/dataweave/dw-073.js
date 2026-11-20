@@ -18,15 +18,15 @@ VALUES
 Bulk insert takes an **array of objects**, one per row, whose keys are the \`:parameter\` names. Write the transformation that builds this array (here shown as JSON; in the flow it would be \`output application/java\`).
 
 **Rules**
-- **Every** object must contain **all nine** keys, also when the value is \`null\`.
-- \`customerId\` — the CRM id in uppercase.
-- \`firstName\`, \`lastName\` — trimmed.
-- \`email\` — trimmed and lowercase; missing or blank → \`null\`.
-- \`birthDate\` — the CRM sends \`dd-MM-yyyy\`; the column is \`DATE\`, send \`yyyy-MM-dd\`. Missing or blank → \`null\`.
-- \`createdUtc\` — \`createdAt\` has a UTC offset; the column is \`DATETIME2\` in **UTC**: send \`yyyy-MM-dd HH:mm:ss\` converted to UTC.
-- \`isActive\` — \`BIT\` column: \`1\` or \`0\` (missing → \`0\`).
-- \`loyaltyTier\` — trimmed; missing or blank → \`"STANDARD"\`.
-- \`batchId\` — from the batch envelope.
+- **Every** object must contain **all nine** keys, in the order of the parameters in the SQL, also when the value is \`null\`.
+- \`customerId\`: the CRM \`id\` in uppercase.
+- \`firstName\`, \`lastName\`: from \`name.first\` and \`name.last\`, trimmed.
+- \`email\`: trimmed and lowercase; missing or blank → \`null\`.
+- \`birthDate\`: the CRM sends \`dd-MM-yyyy\`; the column is \`DATE\`, send \`yyyy-MM-dd\`. Missing or blank → \`null\`.
+- \`createdUtc\`: \`createdAt\` has a UTC offset; the column is \`DATETIME2\` in **UTC**: send \`yyyy-MM-dd HH:mm:ss\` converted to UTC.
+- \`isActive\`: \`BIT\` column from \`active\`: \`1\` or \`0\` (missing → \`0\`).
+- \`loyaltyTier\`: trimmed, case kept; missing or blank → \`"STANDARD"\`.
+- \`batchId\`: from the batch envelope.
 `,
   inputs: [
     {
@@ -92,7 +92,7 @@ payload.customers map (c) -> {
 }
 `,
   hints: [
-    '`isBlank` is `true` for `null`, `""` and whitespace-only strings — one check covers missing, empty and blank.',
+    '`isBlank` is `true` for `null`, `""` and whitespace-only strings, so one check covers missing, empty and blank.',
     'Parse with an input format and write with an output format: `(s as Date { format: "dd-MM-yyyy" }) as String { format: "yyyy-MM-dd" }`.',
     'Shift a DateTime to another time zone with `>>`: `(c.createdAt as DateTime) >> "UTC"`.',
     'Do not use `skipNullOn` or conditional fields here: a missing key is not the same as a `null` parameter for a bulk insert.',
@@ -120,7 +120,7 @@ payload.customers map (c) -> {
 
 **Dates.** The CRM's \`dd-MM-yyyy\` is parsed with an explicit format and written as ISO \`yyyy-MM-dd\`, which SQL Server converts to \`DATE\` regardless of the session's language or date format settings.
 
-**Time zones.** \`DATETIME2\` has no offset, so the value must be normalised first. \`>> "UTC"\` shifts the instant to UTC: \`2026-07-01T00:30+02:00\` becomes \`2026-06-30 22:30:00\` — a different **day**, which matters for daily reports. (Alternatively use a \`DATETIMEOFFSET\` column and keep the offset.)
+**Time zones.** \`DATETIME2\` has no offset, so the value must be normalised first. \`>> "UTC"\` shifts the instant to UTC: \`2026-07-01T00:30+02:00\` becomes \`2026-06-30 22:30:00\`, a different **day**, which matters for daily reports. (Alternatively use a \`DATETIMEOFFSET\` column and keep the offset.)
 
 **BIT.** Sending \`1\`/\`0\` avoids depending on how the driver maps booleans.
 `,

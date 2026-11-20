@@ -18,22 +18,22 @@ export default {
         type: 'single',
         prompt: "Why does Mule get no rows?",
         options: [
-          "The ref cursor output parameter was not declared, so Mule did not read it",
-          "The table is empty",
-          "The procedure failed",
-          "Permissions",
+          "The ref cursor output was not declared, so Mule did not read it",
+          "No items changed since p_from, so the cursor had no rows",
+          "The procedure raised an error that the flow swallowed",
+          "The Mule user cannot run PKG_OUT, so the call did nothing",
         ],
         answer: 0,
-        explain: "Declare it as an output of type CURSOR.",
+        explain: "Declare it as an output of type REF_CURSOR.",
       },
       {
         type: 'single',
         prompt: "What is the fix?",
         options: [
-          "Declare o_cursor as an output parameter of type CURSOR and read it as a stream",
-          "Call a SELECT instead",
-          "Return a string",
-          "Use a bigger pool",
+          "Declare o_cursor as a REF_CURSOR output and stream it",
+          "Declare o_cursor as an input parameter of type REF_CURSOR",
+          "Read o_cursor from the payload after the call",
+          "Raise the fetch size so the cursor returns rows",
         ],
         answer: 0,
         explain: "Then Mule iterates the result.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why was zero rows dangerous?",
         options: [
           "The export looked successful but sent nothing",
-          "It was fast",
-          "It saved money",
-          "It is fine",
+          "An empty file fails the outbound upload",
+          "The cursor stays open and locks ITEM",
+          "Zero rows resets the p_from watermark",
         ],
         answer: 0,
         explain: "Alert on zero row extracts.",
@@ -125,7 +125,7 @@ These lines are illustrative and were written for this scenario. Real log format
 **Root cause.** Change to a procedure without updating the call.
 
 **Permanent fix.**
-- Declare the CURSOR output.
+- Declare the REF_CURSOR output.
 
 **Prevention.** Zero row alerts and tests.
 `,

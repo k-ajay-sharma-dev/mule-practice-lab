@@ -12,7 +12,7 @@ export default {
   tags: ['rate-limiting', 'experience-api', 'noisy-neighbour', 'shared-process-api', 'retail'],
   estMinutes: 30,
   diagram: {
-    task: 'draw the website and the in-store kiosks, each calling its own Experience API. Both Experience APIs call one stock Process API, which calls the warehouse system through a System API.',
+    task: 'draw the website and the in-store kiosks, each calling its own Experience API (put kiosk in the name of the kiosks\' one). Both Experience APIs call one stock Process API, which calls the warehouse system through a System API.',
     checks: [
       { label: 'The website calls its own Experience API', rule: { type: 'edge', from: 'web-app', to: 'experience-api' } },
       { label: 'The kiosks call their own Experience API', rule: { type: 'edge', from: 'device', to: kioskApi } },

@@ -17,7 +17,7 @@ The legacy Warehouse service only speaks SOAP 1.1. Convert the JSON reservation 
 **Structure**
 - \`soapenv:Header\` contains \`sec:Client\` → \`sec:ClientId\` (from \`clientId\`).
 - \`soapenv:Body\` contains \`inv:ReserveStock\` with a plain (un-prefixed) attribute \`requestId\`, then \`inv:Warehouse\` and \`inv:Lines\`.
-- \`inv:Lines\` has one \`inv:Line\` per item, with a plain attribute \`number\` = the item's **1-based position**, and children \`inv:Sku\`, \`inv:Quantity\` and — only when the item has a \`lot\` — \`inv:Lot\`.
+- \`inv:Lines\` has one \`inv:Line\` per item, with a plain attribute \`number\` = the item's **1-based position**, and children \`inv:Sku\`, \`inv:Quantity\` and, only when the item has a \`lot\`, \`inv:Lot\`.
 
 Declare the namespaces with \`ns\` directives and let the writer place them: each \`xmlns:...\` declaration appears on the first element that uses that prefix (see the expected output).
 `,
@@ -109,7 +109,7 @@ Common traps:
 - Writing \`"inv:Warehouse"\` as a plain string key. It *looks* right, but there is no namespace declaration, so the XML is not namespace-well-formed and a SOAP server rejects it.
 - Adding \`@(xmlns:inv: ...)\` by hand: the writer still manages declarations itself, so you end up with duplicates.
 - Forgetting that attributes are **not** in the element's namespace unless you prefix them (\`@(inv#requestId: ...)\`). Here the service expects plain attributes.
-- \`map\` passes the index as the second lambda parameter, **zero-based** — hence \`i + 1\`.
+- \`map\` passes the index as the second lambda parameter, **zero-based**, hence \`i + 1\`.
 `,
   tests: [
     {

@@ -75,11 +75,12 @@ Today buyers email PDFs; the business wants a full EDI X12 lifecycle:
 
 Constraints:
 - Suppliers connect over **AS2** (large ones) or a **VAN** mailbox (small ones). Every interchange needs a **997** functional acknowledgement.
-- An 855 can change quantity, price or date — buyers must approve price changes; quantity reductions are auto-accepted.
+- An 855 can change quantity, price or date. Buyers must approve price changes; quantity reductions are auto-accepted.
 - The DC needs the ASN **at least 2 hours before the truck arrives** to plan dock doors.
 - Receipts must post in EBS within **15 minutes** of unload so stock becomes sellable.
 - Duplicated or out-of-order documents are common (an 856 arriving before the 855).
 - Inbound documents arrive at about 3 a second. EBS can be down for 30 minutes, and about 1 document in 50 refers to a PO EBS rejects every time.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good documents must survive the 30-minute outage, and the rejected ones must reach the DLQ for the buyers.
 
 **Questions:**
 1. Which APIs and flows do you build for each step?
@@ -99,7 +100,7 @@ Constraints:
 `,
   keyPoints: [
     'Outbound: a scheduled poller (watermark on approval date) reads approved POs through sys-oracle-ebs-purchasing, maps to X12 850 and sends via the AS2/VAN System API; a 997 closes the loop.',
-    'Inbound: the AS2 endpoint only validates the envelope, stores the raw file, returns the MDN and publishes to an ActiveMQ queue — business processing is asynchronous.',
+    'Inbound: the AS2 endpoint only validates the envelope, stores the raw file, returns the MDN and publishes to an ActiveMQ queue, so business processing is asynchronous.',
     'ASNs and receipts are posted through EBS open interfaces (RCV_HEADERS_INTERFACE / RCV_TRANSACTIONS_INTERFACE) processed by the Receiving Transaction Processor, wrapped in the System API.',
     'An EDI tracking table keyed by PO number + document type + ISA/GS control numbers gives idempotency, out-of-order parking and a PO lifecycle view.',
     'JMS listener in a transaction: errors roll back and ActiveMQ redelivers; after the retry limit messages go to a DLQ with an alert and a replay procedure.',
@@ -118,15 +119,15 @@ Constraints:
 **Inbound 855/856.** The AS2 endpoint (Experience API) validates the envelope, writes the raw interchange to the tracking table and returns the MDN. It then publishes one message per transaction set to the \`EDI.INBOUND\` ActiveMQ queue with \`docType\` and \`poNumber\` as JMS properties. A 997 is generated after syntax validation.
 
 **Processing in the Process API** (JMS listener, transactional, ackMode handled by the transaction):
-- **855:** per line — accept, quantity change (auto-apply), price/date change (create a buyer approval task, do not touch the PO). Acceptance is recorded in EBS through a PL/SQL wrapper called with \`db:stored-procedure\`.
+- **855:** per line: accept, quantity change (auto-apply), price/date change (create a buyer approval task, do not touch the PO). Acceptance is recorded in EBS through a PL/SQL wrapper called with \`db:stored-procedure\`.
 - **856:** map HL loops (shipment → order → pack/SSCC → item) into RCV_HEADERS_INTERFACE / RCV_TRANSACTIONS_INTERFACE rows as an ASN; the Receiving Transaction Processor validates them. In parallel the expected receipt (SSCCs, quantities, ETA) is sent to the WMS via **sys-dc-wms**.
 - **Receipt confirmation** from the WMS: posted as a receipt against the ASN shipment lines through the same interface; differences are flagged.
 
-**Idempotency and ordering.** The tracking table has a unique key (sender ID + control number + doc type). A duplicate is acknowledged and ignored. An 856 that arrives before its 855 is processed anyway (EBS allows ASNs on approved POs). But an ASN for an unknown PO is **parked** with status WAITING and retried by the poller for 24 hours.
+**Idempotency and ordering.** The tracking table has a unique key (sender ID + control number + doc type). A duplicate is acknowledged and ignored. An 856 that arrives before its 855 is processed anyway (EBS allows ASNs on approved POs). A document for a PO that EBS does not know fails every time; it is redelivered until the limit and then lands in the DLQ, where a buyer checks it with the supplier.
 
 **Error handling.**
-- \`DB:CONNECTIVITY\` → the transaction rolls back; ActiveMQ redelivers (redelivery delay with back-off). After 5 attempts the broker moves the message to \`DLQ.EDI.INBOUND\`.
-- Business errors (unknown item, closed PO line) → no retry; status REJECTED in the tracking table and an email to the buyer.
+- \`DB:CONNECTIVITY\` → the transaction rolls back; ActiveMQ redelivers it about once a minute. A redelivery limit of about 60 deliveries outlasts a 30-minute EBS outage; after that the broker moves the message to \`DLQ.EDI.INBOUND\` with an alert.
+- Business errors that the flow can recognise (unknown item, closed PO line) → no retry; status REJECTED in the tracking table and an email to the buyer.
 - Interface errors from the Receiving Transaction Processor (PO_INTERFACE_ERRORS) are read back by a job and surfaced on the dashboard.
 
 **NFRs and monitoring.** A PO lifecycle view (850 sent → 997 → 855 → 856 → received) built from the tracking table; alerts for POs with no 855 after 24 h and ASNs without receipt 48 h after ETA. Oracle JDBC driver added as a dependency of each Mule app; connection pool sized for the listener concurrency.

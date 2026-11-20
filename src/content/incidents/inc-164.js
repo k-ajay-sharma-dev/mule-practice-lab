@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'Why did this not happen automatically on the company\'s CloudHub 2.0 apps?',
         options: [
-          'Apps on Mule 4.9 or earlier are not auto-upgraded to 4.10 or later because of this TLS change; on Hybrid Standalone the upgrade was the team\'s own action',
-          'CloudHub 2.0 still supports TLS 1.0 in all Mule versions',
-          'CloudHub 2.0 apps cannot call partners',
-          'Auto-upgrades are not available at all on CloudHub 2.0',
+          'The platform keeps 4.9 apps on the 4.9 line; the hybrid upgrade was the team’s own',
+          'CloudHub 2.0 ships its own Java build, which still enables TLS 1.0 and 1.1',
+          'CloudHub 2.0 apps reach partners through a shared proxy that accepts old TLS',
+          'CloudHub 2.0 applies upgrades only in the monthly window, which has not come yet',
         ],
         answer: 0,
         explain: 'Hybrid Standalone has no auto-upgrade, and so no platform safeguard either: an upgrade tool run crosses the line whenever you decide.',
@@ -44,10 +44,10 @@ export default {
         type: 'single',
         prompt: 'Settlement must run today and the partner cannot change for weeks. What is the safest documented way to restore service?',
         options: [
-          'Roll back to the previous Mule version with the `rollback` subcommand of the Mule Upgrade Tool, then verify the gateway call',
-          'Add TLSv1.1 to `enabledProtocols` in `tls:context`',
-          'Turn off certificate validation',
-          'Switch the runtime to FIPS mode',
+          'Roll back to Mule 4.9 with the upgrade tool’s `rollback` subcommand',
+          'Add `TLSv1.1` to `enabledProtocols` in the app’s `tls:context`',
+          'Set `insecure="true"` on the trust store for the gateway request',
+          'Relax the Java `java.security` settings again on the upgraded server',
         ],
         answer: 0,
         explain: 'Rollback to the previously used version is a documented action for Hybrid Standalone, and the subcommand works only after a successful upgrade with the tool. An app can only use protocols that the runtime allows, and support for this one was removed. Turning off validation would not help the protocol issue and would weaken security.',
@@ -59,7 +59,7 @@ export default {
           'Agree a date with the partner to support TLS 1.2 or later',
           'Inventory the TLS versions of every outbound and inbound endpoint before crossing a runtime line',
           'Test upgrades in non-production against real or equivalent legacy endpoints',
-          'Read the lifecycle and release notes for the target version, not just the patch list',
+          'Read the lifecycle and release notes for the target version, as well as the patch list',
           'Stay on Mule 4.9 forever',
         ],
         answer: [0, 1, 2, 3],
@@ -89,7 +89,7 @@ export default {
 - On Friday night the team upgraded a hybrid server from Mule 4.9 to the latest version, 4.13, "to stay current". The Java version stayed at 17, and its security settings were not changed: they had been relaxed long ago so that this partner could connect.
 - Apps were not changed. The test environment points to a mock of the clearing gateway, because the partner offers no test system.
 - The partner says its gateway hardware is scheduled for replacement next quarter.
-- The team's CloudHub 2.0 apps, also on 4.9, are unaffected.
+- The team's CloudHub 2.0 apps, also on 4.9, are unaffected. The release notes say CloudHub apps on 4.9 or earlier are not auto-upgraded past the 4.9 line.
 
 ## Logs
 \`\`\`

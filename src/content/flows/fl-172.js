@@ -112,6 +112,11 @@ Two things go wrong today:
 - Refused (400): write \`{ blobName, reason, claim }\` to the container \`claims-errors\` under the same blob name, using the \`message\` from the API's answer as the reason. Then delete the file from \`claims-inbound\`. The partner team reads \`claims-errors\` each morning.
 - API unavailable (503, connection refused, timeout): leave the file where it is, log a WARN and go on. The next run tries again.
 
+**Facts**
+- Send the downloaded file as it is as the body of the POST.
+- A 400 raises **HTTP:BAD_REQUEST**, and the API's answer is in \`error.errorMessage.payload\`. A 503 raises **HTTP:SERVICE_UNAVAILABLE**, a refused connection **HTTP:CONNECTIVITY** and a timeout **HTTP:TIMEOUT**.
+- The run itself must end without an error in both cases.
+
 **Design the flow.**
 `,
   answerTemplate: `## Listing and the loop

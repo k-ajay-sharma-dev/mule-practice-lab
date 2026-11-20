@@ -12,7 +12,7 @@ export default {
   tags: ['high-availability', 'load-balancer', 'failover', 'active-passive', 'licensing', 'e-commerce'],
   estMinutes: 30,
   diagram: {
-    task: 'draw the checkout calling an Experience API, a pricing Process API and a tax engine System API. The System API reaches the two tax engine servers, the primary and the standby, only through a load balancer.',
+    task: 'draw the checkout calling an Experience API, a pricing Process API and a tax engine System API. The System API reaches the two tax engine servers, the primary and the standby, only through a load balancer. Draw each server as a Legacy box with primary or standby in its name, draw the load balancer\'s line to the primary first, and set the load balancer\'s mode.',
     checks: [
       { label: 'The checkout reaches the tax engine through a System API', rule: { type: 'path', from: 'web-app', via: 'system-api', to: 'legacy' } },
       { label: 'The System API calls the load balancer', rule: { type: 'edge', from: 'system-api', to: 'load-balancer' } },

@@ -84,7 +84,7 @@ export default {
             step('db-insert', {
               database: 'SQL Server',
               sql: "INSERT INTO dbo.file_send_log (file_name, row_count, status, sent_at) VALUES (:fileName, :rowCount, 'SENT', :sentAt)",
-              inputParameters: '#[{ fileName: vars.fileName, rowCount: sizeOf(vars.rows), sentAt: now() as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"} }]',
+              inputParameters: '#[{ fileName: vars.fileName, rowCount: sizeOf(vars.rows), sentAt: (now() >> "UTC") as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"} }]',
               target: 'logged',
             }),
             step('set-payload', { value: '#[vars.rows map ((r) -> { sale_id: r.sale_id, sent_file: vars.fileName })]' }),
@@ -119,7 +119,7 @@ export default {
       step('ftp-move', { sourcePath: '#[vars.ackPath]', targetPath: '/outbound/ack/archive', overwrite: 'true' }),
     ]),
     flow('ack-overdue', source('scheduler', { strategy: 'fixed-frequency', frequency: 30, timeUnit: 'MINUTES' }), [
-      step('set-variable', { variableName: 'cutoff', value: '#[(now() - |PT2H|) as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"}]' }),
+      step('set-variable', { variableName: 'cutoff', value: '#[((now() >> "UTC") as LocalDateTime - |PT2H|) as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"}]' }),
       step('db-select', { database: 'SQL Server', sql: "SELECT file_name, sent_at FROM dbo.file_send_log WHERE status = 'SENT' AND sent_at < :cutoff", inputParameters: '#[{ cutoff: vars.cutoff }]' }),
       router('choice', {}, [
         route({ expression: '#[not isEmpty(payload)]' }, [
@@ -153,6 +153,13 @@ Twice last quarter the platform dropped rows during a load and still wrote \`LOA
 - Send unsent sales at 02:00 under a \`.tmp\` name and rename. Then, together, log the file as \`SENT\` with its row count and mark the sales with the file name.
 - For each ACK: if the file is known and the platform loaded every row, mark it \`ACKED\`. If it is known but the count differs or the status is not \`LOADED\`, mark it \`MISMATCH\` and email support. Archive every ACK to \`/outbound/ack/archive\`.
 - Every 30 minutes, email support about files still \`SENT\` two hours after sending.
+
+**Facts**
+- Name the flows \`sales-send\`, \`ack-in\` and \`ack-overdue\`.
+- Write \`/inbound/sales/SALES_<yyyyMMddHHmm>.csv.tmp\`, then rename it. No \`.tmp\` file may be left.
+- \`sent_at\` is UTC text such as \`2026-11-13T07:30:00\`. Put the log insert and the bulk update of \`sent_file\` in a **Try** with the transactional action \`ALWAYS_BEGIN\`.
+- In \`ack-in\`, read the send log row into \`vars.sent\`. A **Choice** compares \`rows_loaded\` with \`vars.sent[0].row_count\`. An ACK for an unknown file is logged at WARN and archived.
+- The MISMATCH email and the overdue email name the data file. In \`ack-overdue\`, pass now minus two hours, in UTC, as the parameter \`:cutoff\`.
 
 **Design the flows.**
 `,

@@ -18,7 +18,7 @@ Larkfield Grocers downloads forecast files from the planning platform each night
   - \`CHECKSUM_MISMATCH\` when the checksums differ, ignoring upper and lower case
   - otherwise \`OK\`
 - Each received file not in the manifest is \`UNEXPECTED\`. List these after the manifest files, sorted by name.
-- \`counts\`: one entry per status in the order \`OK\`, \`MISSING\`, \`SIZE_MISMATCH\`, \`CHECKSUM_MISMATCH\`, \`UNEXPECTED\`, including zeros.
+- \`counts\`: an object with one key per status, holding how many results have it, in the order \`OK\`, \`MISSING\`, \`SIZE_MISMATCH\`, \`CHECKSUM_MISMATCH\`, \`UNEXPECTED\`, including zeros.
 - \`ready\` is \`true\` only when every result is \`OK\`.
 
 Output \`ready\`, \`results\` (\`name\`, \`status\`) and \`counts\`.

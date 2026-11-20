@@ -108,10 +108,11 @@ The new design:
 **Numbers**
 - The splitter lands about **one part every two seconds** for 20 minutes. Each SQL read for a part takes about 8 seconds, and about **20 seconds** while the weekly index rebuild runs. Each landing takes about 2 seconds.
 - An upload takes about 5 seconds; when a backup shares the link, about **90 seconds**, for up to an hour.
-- The platform's firewall drops **1 session in 5** on a bad day, and a new session a moment later works.
+- The platform's firewall drops **1 session in 5** on a bad day, each session on its own, and a new session a moment later works. Fewer than **1 part in 100** may go back to the queue for a dropped session.
 - The platform's maintenance window takes up to **two hours** on a Sunday.
-- About **1 part in 20** on a bad day is garbled when landed and refused every time.
-- An availability zone can fail. In this model calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
+- About **1 part in 20** on a bad day is garbled when landed and refused every time. Such a part should reach the dead-letter queue within about two and a half hours, so support can fix it the same day.
+- An availability zone can fail for 15 minutes, and the transfer must carry on while it is down.
+- In this model an app with one replica stops when its zone fails. Calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
 
 **Questions:**
 - Draw the design.
@@ -131,7 +132,7 @@ The new design:
     'Each part is its own unit of work. A dropped session costs one part\'s upload, not a rerun of 600 parts.',
     'The notice carries the part name and checksum, not the 50 MB. The file store holds the data: a claim check.',
     'The splitter\'s calls are slow too: an 8 second read is close to the 10 second default, so its timeouts are raised with room to spare.',
-    'A 90 second upload needs the uploader\'s timeout well above it; 3 minutes. Dropped sessions are retried at once by the uploader, so they do not wait a minute on the queue.',
+    'A 90 second upload needs the uploader\'s timeout well above it; 3 minutes. Dropped sessions are retried at once by the uploader: with 2 retries, 1 part in 125 fails all three tries, under the 1 in 100 allowed.',
     'Two hours of maintenance with a retry about once a minute needs more than 120 deliveries; 150 rides it out. Two replicas of the splitter, the sales API and the uploader carry on through a zone outage.',
   ],
   solution: `

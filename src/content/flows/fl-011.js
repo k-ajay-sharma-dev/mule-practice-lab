@@ -172,8 +172,8 @@ export default {
 A legacy **Oracle ERP** table \`CUSTOMERS\` (2M rows) has a \`LAST_UPDATED\` timestamp column and a numeric primary key \`CUST_ID\`. The ERP has no events, no triggers you're allowed to add, and the DBA only allows read access.
 
 **Requirements**
-- Changed customers must reach the **CRM System API** within **5 minutes** (~2–10k changes/day, bursts of 20k after month-end jobs). Its \`POST /customers/bulk-upsert\` takes a list of customers, each \`{ "customerId": "1003", "name": "...", "email": "...", "updatedAt": "..." }\`, with \`customerId\` the \`CUST_ID\` as text.
-- After a restart or redeploy, the sync must continue from where it stopped — no full re-scan and no missed rows. If you keep the watermark in an Object Store, use the key \`customers.watermark\` with a value like \`{ "ts": "2026-11-12T08:00:00", "id": 1002 }\` (the last \`LAST_UPDATED\` and \`CUST_ID\` sent).
+- Changed customers must reach the **CRM System API** within **5 minutes** (2,000 to 10,000 changes a day, bursts of 20k after month-end jobs). Its \`POST /customers/bulk-upsert\` takes a list of customers, each \`{ "customerId": "1003", "name": "...", "email": "...", "updatedAt": "..." }\`, with \`customerId\` the \`CUST_ID\` as text.
+- After a restart or redeploy, the sync must continue from where it stopped, with no full re-scan and no missed rows. If you keep the watermark in an Object Store, use the store \`watermark-store\` and the key \`customers.watermark\` with a value like \`{ "ts": "2026-11-12T08:00:00", "id": 1002 }\` (the last \`LAST_UPDATED\` and \`CUST_ID\` sent).
 - Two rows can share the same \`LAST_UPDATED\` value (bulk updates in one transaction).
 - The app runs on **2 replicas** for HA.
 
@@ -199,16 +199,16 @@ A legacy **Oracle ERP** table \`CUSTOMERS\` (2M rows) has a \`LAST_UPDATED\` tim
     'Only one replica polls: scheduler runs on primary node in a cluster, or concurrency is guarded with a lock / disallowConcurrentExecution and single-poller design.',
   ],
   solution: `
-**Option 1 – Database \`On Table Row\` source**
-- Configure \`table="CUSTOMERS"\`, \`watermarkColumn="LAST_UPDATED"\`, \`idColumn="CUST_ID"\`, scheduling frequency 1–2 min. The connector stores the watermark in an Object Store and fires one event per row. Quick to build, less control over batching.
+**Option 1: Database \`On Table Row\` source**
+- Configure \`table="CUSTOMERS"\`, \`watermarkColumn="LAST_UPDATED"\`, \`idColumn="CUST_ID"\`, scheduling frequency 1 to 2 min. The connector stores the watermark in an Object Store and fires one event per row. Quick to build, less control over batching.
 
-**Option 2 – Scheduler + Select (more control, common in projects)**
+**Option 2: Scheduler + Select (more control, common in projects)**
 1. **Scheduler** every 2 min with \`disallowConcurrentExecution="true"\` so a long run doesn't overlap the next.
 2. **Object Store Retrieve** \`customers.watermark\` from a **persistent** Object Store (default value e.g. \`1970-01-01T00:00:00\` or an initial-load date).
-3. **Database Select** with parameterised input: \`WHERE (LAST_UPDATED > :ts) OR (LAST_UPDATED = :ts AND CUST_ID > :id) ORDER BY LAST_UPDATED, CUST_ID FETCH FIRST 5000 ROWS ONLY\` — composite watermark solves the equal-timestamp problem.
+3. **Database Select** with parameterised input: \`WHERE (LAST_UPDATED > :ts) OR (LAST_UPDATED = :ts AND CUST_ID > :id) ORDER BY LAST_UPDATED, CUST_ID FETCH FIRST 5000 ROWS ONLY\`. The composite watermark solves the equal-timestamp problem.
 4. **Transform (DataWeave)** ERP columns → CRM canonical customer.
 5. Deliver in chunks: For Each \`batchSize="200"\` → HTTP Request to CRM System API **bulk upsert** keyed by \`CUST_ID\` (idempotent, so replays are harmless).
-6. **Object Store Store** the new watermark = \`{ ts, id }\` of the *last row processed* — only after delivery succeeded. If more than 5000 rows came back, the next poll continues immediately from there.
+6. **Object Store Store** the new watermark = \`{ ts, id }\` of the *last row processed*, only after delivery succeeded. If 5000 rows came back, there may be more, and the next poll continues from there.
 7. **Error handling:** On Error Propagate leaves the watermark untouched (next poll retries the same window) and alerts after N consecutive failures.
 
 **Two replicas:** in a Mule runtime cluster, polling sources run on the primary node only. On CloudHub 2.0 / RTF replicas are independent unless clustering is enabled for the app. So either enable clustering or run the poller in a single-replica app. The other option is to acquire a distributed lock / Object Store key before polling so only one replica processes a window.

@@ -259,17 +259,20 @@ export default {
     ),
   ),
   description: `
-Suppliers email invoices to \`invoices@company.example\` (Microsoft 365 mailbox, IMAP enabled). ~1,500 emails/day; each email has 0–5 attachments (PDF, XML e-invoices, sometimes images, signatures and logos).
+Suppliers email invoices to \`invoices@company.example\`, a Microsoft 365 mailbox. About 1,500 emails a day; each email has 0 to 5 attachments (PDF, XML e-invoices, sometimes images, signatures and logos).
 
 **Requirements**
 - **XML e-invoices** are parsed and posted straight to the **AP System API**.
 - **PDF invoices** are uploaded to a document store (S3) and sent to an **OCR service** (async, callback-based).
 - Ignore inline images/signatures; reject unsupported types with an auto-reply to the sender.
-- Each email must be processed **once**; failures must be visible to the AP team.
+- Each email must be processed **once**; failures must be visible to the AP team (not only in the log).
 
 **Facts**
-- Every email carries a unique \`Message-ID\` header.
-- The OCR service posts its result to \`POST /ocr/callback\` on your application.
+- The mailbox is read through the Microsoft Graph API on a schedule: \`GET /users/invoices@company.example/mailFolders/inbox/messages\` returns \`{ value: [...] }\`. Each message has \`internetMessageId\` (the unique \`Message-ID\`), \`from.emailAddress.address\` and \`attachments\`. Each attachment has \`name\`, \`contentType\`, \`isInline\` and \`contentBytes\` (Base64).
+- A handled email is moved out of the inbox with \`POST /users/invoices@company.example/messages/{id}/move\`. The move can lag, so the next poll may see the same email again.
+- AP System API: \`POST /ap/invoices\`. Document store: \`PUT /invoice-bucket/{key}\`. OCR service: \`POST /ocr/jobs\`.
+- The OCR service posts its result to \`POST /ocr/callback\` on your application, with \`documentKey\` and \`fields\` (\`invoiceNumber\`, \`supplierName\`, \`total\`).
+- XML e-invoices have the content type \`application/xml\` or \`text/xml\`; PDFs have \`application/pdf\`.
 
 **Design the flow(s):** mailbox trigger, extracting attachments, routing by type, idempotency and error handling.
 `,
@@ -286,20 +289,20 @@ Suppliers email invoices to \`invoices@company.example\` (Microsoft 365 mailbox,
 ## Idempotency and failures
 `,
   keyPoints: [
-    'Email connector IMAP listener polls the inbox folder and marks/moves/deletes processed mails so they are not read again.',
+    'A scheduled Graph API poll (or an Email connector IMAP listener) reads the inbox and moves processed mails so they are not read again.',
     'Attachments are iterated with For Each over the attachment collection, filtering by MIME type / file extension and size.',
     'Choice router sends XML to DataWeave parsing + AP API, PDF to S3 upload + OCR request, other types to the reject/auto-reply path.',
     'Message-ID (plus attachment name/hash) is used as an idempotency key in a persistent Object Store.',
     'Failed emails are moved to an error folder or logged to a work queue so AP can see and retry them.',
   ],
   solution: `
-1. **Trigger:** Email connector **On New Email – IMAP** listener on folder \`INBOX\`, polling every 1 min, filtering unread messages. After success, mark as read and move to \`Processed\` (or enable delete-after-retrieve). Credentials in secure properties; for Microsoft 365, check whether OAuth for IMAP is required in your tenant.
-2. **Capture metadata:** \`attributes\` carry from, subject, Message-ID, received date. Store \`messageId\` and sender in variables.
-3. **Idempotency:** **Idempotent Message Validator** on \`attributes.headers['Message-ID']\` with a persistent Object Store (TTL e.g. 30 days).
-4. **Attachments:** **For Each** over the attachments; skip inline content (small images, \`image/*\` under N KB, content-disposition inline).
+1. **Trigger:** a **Scheduler** every 1 min calls the Graph API for unread inbox messages with their attachments, and a **For Each** handles one message at a time inside a Try. After success the message is moved out of the inbox. An Email connector **On New Email (IMAP)** listener is the alternative when IMAP is enabled; Microsoft 365 needs OAuth for IMAP. Credentials go in secure properties.
+2. **Capture metadata:** store \`internetMessageId\` and the sender address in variables.
+3. **Idempotency:** **Idempotent Message Validator** on the \`Message-ID\` (\`internetMessageId\`) with a persistent Object Store (TTL e.g. 30 days). A duplicate raises \`MULE:DUPLICATE_MESSAGE\`, which an On Error Continue skips quietly.
+4. **Attachments:** **For Each** over the attachments; skip inline content (\`isInline\`, logos and signatures). The content is Base64 in \`contentBytes\`, so decode it before parsing.
 5. **Choice by MIME type/extension:**
    - \`application/xml\`: DataWeave parses the e-invoice (UBL) into the AP canonical model → HTTP Request to AP System API.
-   - \`application/pdf\`: Amazon S3 **Put Object** (key \`invoices/{date}/{messageId}/{filename}\`) → HTTP Request to OCR service with the S3 key and a callback URL. A separate HTTP Listener flow receives OCR results and posts to AP.
+   - \`application/pdf\`: document store upload (Amazon S3 **Put Object**, or an HTTP \`PUT\`) (key \`invoices/{date}/{messageId}/{filename}\`) → HTTP Request to OCR service with the S3 key and a callback URL. A separate HTTP Listener flow receives OCR results and posts to AP.
    - otherwise: collect name/type for the auto-reply.
 6. **Auto-reply:** Email **Send** to the sender listing rejected files (rate-limit replies to avoid mail loops; never reply to no-reply/bounce addresses).
 7. **Errors:** a Try per attachment so one bad attachment doesn't block the rest; failures written to an AP error queue/table with messageId. If the whole email fails, move it to an \`Error\` folder instead of \`Processed\`.

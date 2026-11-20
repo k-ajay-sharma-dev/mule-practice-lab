@@ -128,14 +128,19 @@ export default {
   description: `
 Every night at **01:30** the finance system must send the bank a payment file over **SFTP**.
 
-- Source: \`payments\` table, rows with \`status = 'APPROVED'\` (typically 2,000–15,000 rows).
+- Source: \`payments\` table, rows with \`status = 'APPROVED'\` (typically 2,000 to 15,000 rows).
 - Format: pipe-delimited flat file named \`PAY_yyyyMMdd.txt\`:
   - **Header** \`H|ACME-CORP|20261103|\`
   - **Detail** \`D|paymentId|IBAN|amount\` per payment
-  - **Trailer** \`T|recordCount|totalAmount|\` — the bank rejects the file if counts or totals do not match.
-- The bank **polls \`/outbound/payments\` every minute** and picks up any file it sees — a half-written file would be processed and rejected.
+  - **Trailer** \`T|recordCount|totalAmount|\`: the bank rejects the file if counts or totals do not match.
+- The bank **polls \`/outbound/payments\` every minute** and picks up any file it sees: a half-written file would be processed and rejected.
 - A payment must never be sent twice, and must not be marked exported if the upload failed.
-- If anything fails, the payments team must be emailed before 06:00.
+- If anything fails, the payments team must be emailed before 06:00 at \`payments-ops@example.com\`.
+
+**Facts**
+- \`payments\` has the columns \`payment_id\`, \`beneficiary_iban\`, \`amount\`, \`currency\`, \`status\` and \`export_file\`. An exported payment gets \`status = 'EXPORTED'\` and the file name in \`export_file\`.
+- The date in the file name and in the header is the run date. \`totalAmount\` is the plain sum of the amounts, for example \`1560.75\`.
+- You may use \`/outbound/staging\` on the same SFTP server. The bank never reads it.
 
 **Design the flow(s):** trigger, query, file layout, how the upload is made safe, status update, and error handling.
 `,
@@ -154,24 +159,24 @@ Every night at **01:30** the finance system must send the bank a payment file ov
   keyPoints: [
     'Scheduler with a cron expression (and primary-node-only in a cluster) triggers the export.',
     'One DataWeave script outputs CSV with header=false and a custom separator, concatenating a header record, the detail records and a trailer computed with sizeOf/sum.',
-    'Write to a temporary name or staging folder, then rename/move into the pickup folder — the rename is atomic, so the bank never sees a partial file.',
+    'Write to a temporary name or staging folder, then rename/move into the pickup folder: the rename is atomic, so the bank never sees a partial file.',
     'Payments are marked EXPORTED only after the file is safely in place (and could be locked/marked IN_PROGRESS first to avoid double export).',
     'Flow-level On Error Propagate logs and emails the team; the payments stay APPROVED so the next run (or a manual rerun) picks them up.',
   ],
   solution: `
-1. **Scheduler** — cron \`0 30 1 * * ?\` (runs on the primary node only in a cluster, or on CloudHub 2.0 with clustering enabled).
+1. **Scheduler**: cron \`0 30 1 * * ?\` (runs on the primary node only in a cluster, or on CloudHub 2.0 with clustering enabled).
 2. **Database Select** approved payments, ordered for a stable file.
-3. **Transform Message** — \`output application/csv header=false, separator="|"\`, building one array: header row ++ detail rows ++ trailer row (\`sizeOf(payload)\`, \`sum(amounts)\`). Totals come from the same data that goes into the file, so they always match.
+3. **Transform Message**: \`output application/csv header=false, separator="|"\`, building one array: header row ++ detail rows ++ trailer row (\`sizeOf(payload)\`, \`sum(amounts)\`). Totals come from the same data that goes into the file, so they always match.
 4. **SFTP Write** to \`/outbound/staging/PAY_yyyyMMdd.txt\` with \`CREATE_NEW\` (fails if a file for today is already in staging).
 5. **SFTP Move** into \`/outbound/payments\`. Target Path is a directory and the file keeps its name unless you set Rename To, which is why staging already uses the final name. With Overwrite false (the default) the move fails if today's file is still in the pickup folder, a cheap guard against double runs. A rename on the same server is atomic, so the bank's poller sees either nothing or the complete file. (Alternative: write \`PAY_...txt.tmp\` in the pickup folder and use the SFTP *Rename* operation, if the bank ignores \`*.tmp\`.)
-6. **Database Bulk Update** — \`status = 'EXPORTED', export_file = ...\` for the exported IDs only, one parameter set per payment (a single bind parameter cannot hold a list for \`IN (:ids)\`). For extra safety, mark rows \`IN_PROGRESS\` before building the file and roll them back to \`APPROVED\` in the error handler.
-7. **On Error Propagate (ANY)** — log with the correlation ID and **Email Send** to payments-ops. Nothing is marked exported, so a rerun is safe.
+6. **Database Bulk Update**: \`status = 'EXPORTED', export_file = ...\` for the exported IDs only, one parameter set per payment (a single bind parameter cannot hold a list for \`IN (:ids)\`). For extra safety, mark rows \`IN_PROGRESS\` before building the file and roll them back to \`APPROVED\` in the error handler.
+7. **On Error Propagate (ANY)**: log with the correlation ID and **Email Send** to payments-ops. Nothing is marked exported, so a rerun is safe.
 
 For very large volumes, stream the query result into the DataWeave script (deferred output) instead of building the whole file in memory.
 `,
   followUps: [
     {
-      q: 'Why not just write the file directly with its final name?',
+      q: 'Why not write the file directly with its final name?',
       a: 'SFTP writes are not atomic: the bank can poll while the file is half-written and either reject it or, worse, process a truncated file. Writing under a temp name and renaming makes the file appear all at once.',
     },
     {

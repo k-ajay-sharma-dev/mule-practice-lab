@@ -84,11 +84,11 @@ Facts:
     'The encrypted file is archived, the ack file is checked, and treasury gets an alert if there is no ack by 17:45.',
   ],
   solution: `
-**Selecting cheques.** At 17:00 Eastern a Scheduler calls **sys-oracle-ebs-ap-api**. The API runs a parameterised query on a read-only view over \`AP_CHECKS_ALL\` for cheques with a status change since the last file. The id of the last file and its cut-off time are stored in a small control table, so each cheque goes in exactly one file. Voided cheques appear again with code \`V\`.
+**Selecting cheques.** At 17:00 Eastern a Scheduler calls **sys-oracle-ebs-ap-api**. The API runs a parameterised query on a read-only view over \`AP_CHECKS_ALL\` for cheques with a status change since the last file. The id of the last file and its cut-off time are stored in a small control table, so each cheque goes in exactly one file. Voided cheques appear again with code \`V\`. At 17:00 a read from EBS takes about 20 seconds, longer than the HTTP Request default timeout of 10 seconds, so the job's call to sys-oracle-ebs-ap-api and the API's query get a timeout of about 60 seconds.
 
 **Building the file.** DataWeave writes \`application/flatfile\` with a fixed-width schema: header, one detail line per cheque, trailer. The job computes the record count and total, and compares them with a sum query on the same selection. If they differ, the file is not sent.
 
-**Sending.** The PGP module of the Crypto connector encrypts the file with the bank's public key. **sys-bank-sftp-api** uploads it with SSH key authentication under a temporary name and then renames it, so the bank never picks up a half-written file. The encrypted copy goes to the archive store with the date in the name.
+**Sending.** The PGP module of the Crypto connector encrypts the file with the bank's public key. **sys-bank-sftp-api** uploads it with SSH key authentication under a temporary name and then renames it, so the bank never picks up a half-written file. The bank SFTP server can drop an upload, so sys-bank-sftp-api retries a failed upload twice; uploading the same file name again is safe. The encrypted copy goes to the archive store with the date in the name.
 
 **Acknowledgement.** At 17:30 and 17:45 the job checks \`/outbound/ack\` for the matching file name. A rejected or missing ack sends an alert to treasury, who can still phone the bank before 18:00.
 `,

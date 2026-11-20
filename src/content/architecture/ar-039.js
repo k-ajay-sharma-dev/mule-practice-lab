@@ -11,13 +11,13 @@ export default {
       needsScenario: true,
       prompt: 'What is the core problem with the current timeout values?',
       options: [
-        'They are all too short',
-        'They are inverted: inner calls (60–90 s) outlive the outer caller (30 s), so work continues for a user who has already given up',
-        'The browser timeout should be longer than 90 s',
-        'Timeouts should be identical at every hop',
+        'They are all too short for a slow payment provider',
+        'Inner calls (60 to 90 s) outlive the outer caller (30 s)',
+        'The default requester timeout between Experience and Process is too long',
+        'Every hop should use the same timeout value',
       ],
       answer: 1,
-      explain: 'Timeouts must **shrink** going deeper. Otherwise orphaned inner calls complete after the user retried — here, producing double payments.',
+      explain: 'Timeouts must **shrink** going deeper. Otherwise orphaned inner calls complete after the user retried: here, producing double payments.',
     },
     {
       type: 'order',
@@ -34,10 +34,10 @@ export default {
       type: 'single',
       prompt: 'The call to the payment provider times out. What should the Payment System API assume?',
       options: [
-        'The payment failed — retry immediately',
-        'The payment succeeded — confirm the order',
-        'The outcome is unknown: mark it PENDING, query the provider by idempotency key before any retry, and let reconciliation resolve leftovers',
-        'Return 500 and let the user click Pay again',
+        'The payment failed, so retry it at once',
+        'The payment succeeded, so confirm the order',
+        'The outcome is unknown: mark it PENDING and check status before any retry',
+        'The payment failed, so return 500 and let the user pay again',
       ],
       answer: 2,
       explain: 'A timeout on a non-idempotent call is **unknown outcome**, not failure. Blind retries or a second click caused the double charges.',
@@ -71,13 +71,13 @@ export default {
       needsScenario: true,
       prompt: 'How do you choose a value like 1.5 s for the Pricing call?',
       options: [
-        'Use the connector default',
-        'Take the measured p99 under normal load, add margin, and check it fits the parent budget — if not, change the design (cache, parallelism, async)',
+        'Use the HTTP requester default',
+        'Measured p99 plus a margin, checked against the parent budget',
         'Use the same value as the parent layer',
-        'Set it as high as possible to avoid errors',
+        'Use the measured p50, so most calls finish in time',
       ],
       answer: 1,
-      explain: 'Timeouts are derived from measured latency and the budget. If p99 does not fit, the design must change rather than the timeout grow.',
+      explain: 'Timeouts are derived from measured latency and the budget. If p99 does not fit, the design must change (cache, parallel calls, async) rather than the timeout grow.',
     },
   ],
   description: `
@@ -90,9 +90,9 @@ A retailer's **checkout** chain has these settings today:
 | Process → Pricing System API | 60 s | 300 ms |
 | Process → Payment System API | 60 s | 600 ms |
 | Payment System API → Payment provider | 90 s | 500 ms |
-| Load balancer in front of apps | its own idle/request timeout | — |
+| Load balancer in front of apps | its own idle/request timeout | not measured |
 
-Incident: the payment provider became slow (responses after 40–80 s).
+Incident: the payment provider became slow (responses after 40 to 80 s).
 - Users saw an error after 30 s and clicked "Pay" again.
 - Meanwhile the inner calls kept running, and **some payments completed after the user had already given up**, leading to double charges.
 - Threads and connections piled up in the Payment System API.
@@ -121,8 +121,8 @@ Incident: the payment provider became slow (responses after 40–80 s).
   ],
   solution: `
 **Problems.**
-- **Inverted timeouts:** outer layer 30 s, inner 60–90 s. When the front end gives up, inner calls continue → orphaned work and double payments when the user retries.
-- Defaults are implicit and not designed — nobody knows what the Experience → Process timeout really is.
+- **Inverted timeouts:** outer layer 30 s, inner 60 to 90 s. When the front end gives up, inner calls continue → orphaned work and double payments when the user retries.
+- Defaults are implicit and not designed: nobody knows what the Experience → Process timeout really is.
 - No distinction between "failed" and "unknown outcome" for payment.
 - Long timeouts hold connections; under slowness, pools and threads are exhausted (Little's law: concurrency = rate × latency).
 
@@ -134,7 +134,7 @@ Incident: the payment provider became slow (responses after 40–80 s).
 | Experience → Process | 8 s |
 | Process → Pricing | 1.5 s (p99 + margin; can run in parallel with other reads) |
 | Process → Payment System API | 6 s |
-| Payment System → provider | 5 s (connection timeout ~1–2 s) |
+| Payment System → provider | 5 s (connection timeout ~1 to 2 s) |
 
 Rule: each layer's timeout = caller's timeout − own processing − margin for building an error response. Better still: **propagate a deadline** (e.g. a header with the remaining time) so inner layers can skip work that cannot finish in time.
 

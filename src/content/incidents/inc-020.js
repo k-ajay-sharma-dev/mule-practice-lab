@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why does the dashboard show SUCCESS while contacts are missing?',
         options: [
-          'The flow treats JobComplete as success and ignores numberRecordsFailed',
-          'Salesforce deletes contacts after the sync',
-          'The Bulk job timed out',
-          'Mule logs are filtered at INFO level',
+          'The flow treats JobComplete as success and never reads numberRecordsFailed',
+          'A new Salesforce automation deletes some contacts after each nightly sync',
+          'The Bulk job times out, and the flow logs the timeout as a success',
+          'The log level hides the WARN and ERROR lines from the Bulk connector',
         ],
         answer: 0,
         explain: 'JobComplete only means Salesforce finished processing. The failed count is right there in the job info, but no one reads it.',
@@ -42,10 +42,10 @@ export default {
         type: 'single',
         prompt: 'What is the most urgent first step?',
         options: [
-          'Download the failed results for every run since the change, before they are no longer available',
-          'Disable the validation rule',
-          'Re-run the full sync of 250,000 contacts',
-          'Switch to Bulk API 1.0',
+          'Download the failed results of each run since the change, while they still exist',
+          'Ask the admins to turn off the new validation rule before tonight’s run',
+          'Re-run the full sync of all 250,000 contacts straight away',
+          'Switch the job to Bulk API 1.0 in serial mode for tonight’s run',
         ],
         answer: 0,
         explain: 'Failed results are kept only for a limited time; without them you cannot tell which records failed and why.',
@@ -75,6 +75,7 @@ export default {
 - The flow creates the Bulk 2.0 ingest job, uploads the CSV, closes it, then polls job info until the state is \`JobComplete\` and logs success.
 - Two weeks ago the Salesforce admins added a **validation rule** (Contacts must have a valid country code) and a **Process Builder / Flow** that updates the parent Account when a Contact changes.
 - Contacts are sent in ERP order (by contact id), so contacts of the same Account are spread across the file.
+- Salesforce keeps Bulk API 2.0 jobs, with their failed results, for only about 7 days.
 
 ## Logs
 \`\`\`
@@ -110,12 +111,12 @@ export default {
     'Prevention: alert/dashboard on failed record count, reconciliation counts between ERP and Salesforce, and change notification from Salesforce admins.',
   ],
   solution: `
-**Diagnosis.** The job reached **\`JobComplete\`** — which means Salesforce *finished* processing, **not** that every record succeeded. The job info clearly says \`numberRecordsFailed=6,412\`, but the flow only checks the state, so it reports success and the failed records are silently dropped every night. Pulling the job's **failed results** (CSV with \`sf__Error\` per row) will show two main groups:
-- **Validation errors** from the new country-code rule (e.g. \`FIELD_CUSTOM_VALIDATION_EXCEPTION\`) — bad data, won't succeed on retry.
-- **\`UNABLE_TO_LOCK_ROW\`** — Bulk API processes batches **in parallel**; contacts of the same Account land in different batches, and the new automation updates the **parent Account**, so parallel batches fight for the same Account lock. These are transient.
+**Diagnosis.** The job reached **\`JobComplete\`**, which means Salesforce *finished* processing, **not** that every record succeeded. The job info clearly says \`numberRecordsFailed=6,412\`, but the flow only checks the state, so it reports success and the failed records are silently dropped every night. Pulling the job's **failed results** (CSV with \`sf__Error\` per row) will show two main groups:
+- **Validation errors** from the new country-code rule (e.g. \`FIELD_CUSTOM_VALIDATION_EXCEPTION\`): bad data that won't succeed on retry.
+- **\`UNABLE_TO_LOCK_ROW\`**: Bulk API processes batches **in parallel**; contacts of the same Account land in different batches, and the new automation updates the **parent Account**, so parallel batches fight for the same Account lock. These are transient.
 
 **Immediate mitigation.**
-1. For each run since the change, download the failed results (they are only kept for a limited time — do it now).
+1. For each run since the change, download the failed results (they are only kept for about 7 days, so do it now).
 2. Re-submit the \`UNABLE_TO_LOCK_ROW\` rows as a new, smaller job (sorted by AccountId).
 3. Send the validation failures to the ERP data owners with the record ids and reason; fix and re-sync.
 4. Tell sales which contacts were affected and when they'll be fixed.

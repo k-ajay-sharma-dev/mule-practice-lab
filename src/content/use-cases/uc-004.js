@@ -67,7 +67,7 @@ A telecom company wants a **Customer 360** screen in the call-centre app. When a
 - Open tickets from **Zendesk** (REST API, rate-limited).
 
 Facts and constraints:
-- ~1,500 agents, peak **40 lookups/second**. Target response **< 2 s at p95**.
+- ~1,500 agents, peak **40 lookups/second**. Target response **< 2 s at p95**, and **under 800 ms on average**.
 - Salesforce answers in about 600 ms and Zendesk in about 500 ms. Half the lookups can be answered from a cache.
 - Customer IDs differ per system: Salesforce Account ID, billing account number, Zendesk organisation ID. Salesforce holds a billing account number field; Zendesk organisations have an external_id = Salesforce Account ID.
 - If Zendesk is down, agents still want to see profile and billing.
@@ -97,7 +97,7 @@ Facts and constraints:
   solution: `
 **APIs.**
 - *System:* Salesforce Customer System API, Billing System API (wraps Oracle queries), Zendesk Tickets System API.
-- *Process:* **Customer 360 Process API** — \`GET /customers/{accountId}/360\`.
+- *Process:* **Customer 360 Process API**: \`GET /customers/{accountId}/360\`.
 - *Experience:* Call-centre Experience API shaping the screen payload (could be merged with the Process API if there's only one consumer, but separate keeps other channels open).
 
 **ID correlation.** The Salesforce Account ID is the master key. Step 1 calls the Salesforce System API to get profile + **billing account number**. The Zendesk lookup uses \`external_id = accountId\`. Longer term, a cross-reference (xref) table or MDM avoids depending on one system's fields.
@@ -110,6 +110,6 @@ Facts and constraints:
 - Protect Zendesk with client-side throttling and a circuit-breaker style fallback; protect Oracle with connection pool sizing and Spike Control on the System API.
 - Note: Scatter-Gather waits for all routes, so per-route timeouts are what keep the total under 2 s.
 
-**Billing role.** The call-centre app sends the agent's OAuth/JWT token; the Experience API validates it (JWT Validation policy) and reads the role/scope claim. If the agent lacks \`billing\`, the Process API does not call (or strips) invoice amounts — enforced on the server, never only hidden in the UI. Log access to billing data for audit.
+**Billing role.** The call-centre app sends the agent's OAuth/JWT token; the Experience API validates it (JWT Validation policy) and reads the role/scope claim. If the agent lacks \`billing\`, the Process API does not call (or strips) invoice amounts. This is enforced on the server, never only hidden in the UI. Log access to billing data for audit.
 `,
 }

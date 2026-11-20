@@ -84,6 +84,11 @@ Mule posts each snapshot to the stock API, \`POST /warehouse/v1/stock-snapshots\
 - A marker whose data file is missing goes to \`/mnt/opsshare/exports/error\`.
 - If the post fails, leave both files so a later poll tries again.
 
+**Facts**
+- Post the data file's JSON as it is.
+- File Read on a path that does not exist raises **FILE:ILLEGAL_PATH**.
+- An API that cannot be reached raises **HTTP:CONNECTIVITY**. Do not catch it: the run must end with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why a marker file

@@ -85,9 +85,9 @@ export default {
       detail: true,
       prompt: 'An older project uses `sap:sync-rfc` and is moving to JCo 3.1.x. What should happen to that operation?',
       options: [
-        'Replace it with Synchronous Remote Function Call: the old operation is deprecated and works only with JCo 3.0.x, the new one only with JCo 3.1.x',
-        'Keep it, because it works with every JCo version',
-        'Replace it with Send IDoc',
+        'Replace it with Synchronous Remote Function Call, made for JCo 3.1.x',
+        'Keep it, because the deprecated operations work with every JCo version',
+        'Replace it with Send IDoc, which also calls the function module',
         'Replace it with Get Function, which also executes the function',
       ],
       answer: 0,

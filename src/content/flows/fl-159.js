@@ -67,7 +67,7 @@ export default {
   referenceFlow: design(
     flow(
       'enrich-registered-claims',
-      source('jms-listener', { destination: 'CLAIMS.REGISTERED', ackMode: 'AUTO', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'LOCAL' }),
+      source('jms-listener', { destination: 'CLAIMS.REGISTERED', ackMode: 'IMMEDIATE', transactionalAction: 'ALWAYS_BEGIN', transactionType: 'LOCAL' }),
       [
         step('set-variable', { variableName: 'claim', value: '#[payload]' }),
         step('http-request', { method: 'GET', path: '#["/policy/v1/policies/" ++ vars.claim.policyNo]' }),
@@ -101,6 +101,12 @@ The old version sometimes sent a claim on and then failed on the audit insert. T
 - The receive from \`CLAIMS.REGISTERED\` and the publish to \`CLAIMS.ENRICHED\` must succeed or fail together.
 - A passing failure (the policy service down, the audit insert failing) sends nothing on and returns the claim to \`CLAIMS.REGISTERED\`.
 - A claim whose policy does not exist (404) goes to \`CLAIMS.REVIEW\` and is removed from \`CLAIMS.REGISTERED\`.
+
+**Facts**
+- Only JMS has to be in the transaction, so a LOCAL transaction is enough. The listener starts it for every message.
+- A 404 from the policy service raises **HTTP:NOT_FOUND**. A 503 raises **HTTP:SERVICE_UNAVAILABLE** and must fail the flow, like a failed audit insert.
+- Write the audit row with \`stage\` \`ENRICHED\`.
+- The message on \`CLAIMS.REVIEW\` is the claim with a \`reviewReason\` added.
 
 **Design the flow.**
 `,

@@ -66,7 +66,7 @@ export default {
     },
   },
   description: `
-A manufacturer receives **~12,000 supplier invoices/month** and wants them posted to **SAP S/4HANA** automatically (three-way match: PO, goods receipt, invoice).
+A manufacturer receives **~150,000 supplier invoices/month** and wants them posted to **SAP S/4HANA** automatically (three-way match: PO, goods receipt, invoice).
 
 Channels:
 - **EDI X12 810** from 40 large suppliers via AS2 (≈ 70% of volume). Suppliers expect a **997 functional acknowledgement**.
@@ -74,10 +74,10 @@ Channels:
 
 Rules:
 - An invoice must reference a valid **open PO** for that supplier; amount tolerance ±2% or €50, whichever is lower.
-- **Duplicate invoices** (same supplier + invoice number) must never be posted twice — suppliers often resend.
+- **Duplicate invoices** (same supplier + invoice number) must never be posted twice. Suppliers often resend.
 - Invoices failing validation go to the **AP team** for manual handling, with a clear reason; AP wants to fix and resubmit without asking the supplier again.
 - Month-end peak: 40% of volume arrives in the last 3 days. SAP posting must stay below 10 invoices/second.
-- At month end EDI suppliers can send 12 invoices a second for 20 minutes, and the extraction service needs about 15 seconds for a scanned PDF.
+- At month end EDI suppliers can send 12 invoices a second for 20 minutes, the mailbox poller sends up to 2 PDFs a second, and the extraction service needs about 15 seconds for a scanned PDF.
 
 **Describe your solution:**
 - How do you ingest each channel and convert it to one internal format?
@@ -102,7 +102,7 @@ Rules:
     'EDI path: AS2 receipt, X12 810 parsed with the X12 connector (or Anypoint Partner Manager), 997 returned to the supplier; PDF path: email polled, attachment sent to a document-extraction service (e.g. MuleSoft IDP or OCR).',
     'Both channels mapped in DataWeave to a single canonical invoice model, so validation and posting are written once.',
     'Extraction results below a confidence threshold (or missing mandatory fields) routed to human review instead of auto-posting.',
-    'Validations: schema/mandatory fields, supplier exists, duplicate check (supplier + invoice number), PO open and belongs to supplier, amounts within tolerance — business rules against SAP data.',
+    'Validations: schema/mandatory fields, supplier exists, duplicate check (supplier + invoice number), PO open and belongs to supplier, amounts within tolerance. These are business rules against SAP data.',
     'Exceptions stored with reason code and original document in an exception queue/store visible to AP (e.g. a case in a ticketing tool), with a resubmit path back into validation.',
     'Ingestion decoupled from SAP posting with a queue; posting throttled below 10/s; duplicate check enforced by a persistent store/unique key and SAP\'s own duplicate check.',
   ],
@@ -125,7 +125,7 @@ Each failure produces a **reason code** (\`DUPLICATE\`, \`PO_NOT_FOUND\`, \`PRIC
 **Exceptions and resubmission.** Failed invoices are written to an **exception store** (DB table or a case in ServiceNow/Salesforce) with the canonical data, reason code and a link to the original document. AP corrects data (or overrides with approval) in that tool and clicks *Resubmit*, which calls a Mule API that puts the corrected invoice back into the validation queue. Keep an audit trail of who changed what. Rejections that need the supplier (e.g. wrong PO) trigger a templated email.
 
 **Duplicates, peaks and SAP.**
-- Ingestion publishes validated invoices to an **Anypoint MQ** queue; a posting consumer with limited concurrency posts to SAP (BAPI/OData) at **< 10/s**. Month-end peaks just grow the queue; monitor queue age against a posting SLA.
+- Ingestion publishes validated invoices to an **Anypoint MQ** queue; a posting consumer with limited concurrency posts to SAP (BAPI/OData) at **< 10/s**. Month-end peaks only grow the queue; monitor queue age against a posting SLA.
 - Idempotency: the duplicate check record is written atomically (unique key) before posting, and SAP's vendor-invoice duplicate check remains a second line of defence. Posting retries reuse the same reference so a timeout + retry cannot double post.
 - DLQ for technical failures (SAP down), separated from business exceptions that go to AP.
 `,

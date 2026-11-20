@@ -70,7 +70,7 @@ Sources: an **Oracle 19c** inventory & sales mart (refreshed by 01:30 from POS a
 
 | Supplier group | Count | Channel |
 |---|---|---|
-| Large | 35 | REST API — they pull their feed and push replenishment orders |
+| Large | 35 | REST API: they pull their feed and push replenishment orders |
 | Others | 85 | EDI X12 via a VAN: **852** product activity data + **846** inventory advice; they send replenishment orders as **850** |
 
 Facts:
@@ -78,6 +78,7 @@ Facts:
 - Suppliers must have the data by **05:00**; their orders must create POs in EBS by **09:00** so DCs can schedule receipts.
 - A supplier must **never** see another supplier's data.
 - Supplier orders must respect min/max levels agreed in the VMI contract; orders outside the limits need buyer approval.
+- The supplier API is reachable from the internet. Each API supplier gets OAuth 2.0 client credentials, and a caller without a valid token must get nothing.
 - The inventory mart takes about 30 queries a second at 400 ms. API suppliers pull about 10 feed pages a second, and a broken script could send 200.
 
 **Questions:**
@@ -119,11 +120,11 @@ Facts:
 
 **API delivery.** The feed for API suppliers is written as a compressed file and exposed by exp-supplier-vmi as \`GET /vmi/feed?date=\` (download) or a paged \`GET /vmi/positions\`. They poll after 03:00.
 
-**Isolation.** The gateway enforces OAuth 2.0 client credentials; the Experience API maps the client ID to the supplier ID and passes it downstream — a supplier cannot ask for another supplier ID. Every SQL query includes \`WHERE supplier_id = :supplierId\`.
+**Isolation.** The gateway enforces OAuth 2.0 client credentials; the Experience API maps the client ID to the supplier ID and passes it downstream, so a supplier cannot ask for another supplier ID. Every SQL query includes \`WHERE supplier_id = :supplierId\`.
 
 **Supplier orders.** \`POST /vmi/orders\` validates the schema, returns 202 with an order reference, and publishes to the ActiveMQ queue. prc-vmi-orders checks each line against VMI min/max (contract table): in range → insert into the purchasing open interface (PO_HEADERS_INTERFACE / PO_LINES_INTERFACE) and run the import; out of range → buyer approval task. Status is returned to the supplier via \`GET /vmi/orders/{ref}\` (and an 855 for EDI suppliers).
 
-**Errors and NFRs.** One supplier failing must not stop the others — errors are caught per supplier and summarised in a run report. Late mart refresh → the job waits up to 60 minutes, then alerts. DLQ on the orders queue with replay.
+**Errors and NFRs.** One supplier failing must not stop the others. Errors are caught per supplier and summarised in a run report. Late mart refresh → the job waits up to 60 minutes, then alerts. DLQ on the orders queue with replay. A rate limit of about 25 requests a second on the gateway keeps a broken supplier script from pushing the mart past its 30 queries a second.
 `,
   followUps: [
     { q: 'Why not let API suppliers query the Oracle mart live?', a: 'Unpredictable ad-hoc queries from 35 companies would load the mart during the night batch. A prepared daily snapshot is consistent, cheap to serve and matches the business process.' },

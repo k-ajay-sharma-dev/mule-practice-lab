@@ -8,7 +8,7 @@ export default {
   description: `
 Hearthstone Hardware sells DIY goods online. Its categories form a tree: **Tools** holds **Power tools**, which holds **Drills** and **Saws**. Some branches are two levels deep, others five.
 
-The old API had types \`Level1Category\`, \`Level2Category\` and \`Level3Category\`, and could not show a fourth level. The new contract uses one type that **refers to itself**: a \`Category\` can hold a list of \`Category\`. RAML allows this, as long as the list is optional, so a leaf can end the tree.
+The old API had types \`Level1Category\`, \`Level2Category\` and \`Level3Category\`, and could not show a fourth level. The new contract uses one type that **refers to itself**: a \`Category\` can hold a list of \`Category\`. RAML allows this. Make the list optional, so a leaf can leave it out and end the tree.
 
 The tree is large, so callers choose how deep it goes with a \`depth\` query parameter. Both read methods use it, so it lives in a trait.
 
@@ -177,7 +177,7 @@ traits:
 `,
   keyPoints: [
     'A RAML type can refer to itself, which models a tree of any depth with one type.',
-    'The self-reference must be optional, or no example could ever end.',
+    'An optional self-reference lets a leaf leave it out. A required single Category, not a list, could never end.',
     'A depth parameter with a maximum keeps the response size under control.',
     'A trait shares the depth parameter between the list and the single item.',
     'An example two levels deep shows readers how the nesting looks.',
@@ -185,7 +185,7 @@ traits:
   solution: `
 **One type for every level.** \`children?: Category[]\` lets a category hold categories, which hold categories, and so on. A fourth or fifth level needs no new type. The old \`Level1Category\` and \`Level2Category\` go away.
 
-**Why optional.** If \`children\` were required, every category would need children, and those would need children too. No real tree, and no example, could ever end. Making it optional lets Drills and Saws be leaves.
+**Why optional.** If \`children\` were required, every leaf would have to send an empty list, and a category cut off by \`depth\` would look like a leaf. Making it optional lets Drills and Saws leave it out. A required property of type \`Category\`, a single object rather than a list, would be worse: every category would need a child, and no example could ever end.
 
 **depth.** The full tree has thousands of categories. \`depth\` from 1 to 5, with 2 as the default, keeps a response small. \`maximum: 5\` stops a caller from asking for the whole tree in one call. The description says what happens to the levels below: they are left out.
 

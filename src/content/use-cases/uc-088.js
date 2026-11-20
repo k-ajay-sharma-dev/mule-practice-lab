@@ -80,7 +80,8 @@ Constraints:
 - Store WAN links fail about twice a month per store, for up to 2 hours.
 - **Single-use** offers must not be redeemed twice, for example in two stores on the same day.
 - Every redemption goes back to the offers engine (it learns from them) and to the data warehouse.
-- Offers change once a night, so a cached answer is good for **24 hours** and answers about 95 % of scans. A device without a store certificate must get nothing.
+- Offers change once a night, so a cached answer is good for at least **24 hours**, and a cache kept that long answers about 95 % of scans.
+- Each store has a client certificate. A device without a store certificate must get nothing.
 
 **Questions:**
 1. How do you answer in under 300 ms at 1,500 scans a second?
@@ -106,7 +107,7 @@ Constraints:
     'Redemptions are published to a topic; the engine and the data warehouse each consume it, never in the till path.',
   ],
   solution: `
-**Lookup path.** Till, then gateway, then exp-pos-offers, then prc-member-offers. The Process API reads the member's offers from the **cache** by member ID: one key read, a few milliseconds. On a miss (a member who joined today) it calls the offers engine through sys-offers-engine with a 200 ms timeout, and returns no offers if that fails. The till applies its own 300 ms timeout as a last guard. 1,500 scans a second are cache reads, not engine calls.
+**Lookup path.** Till, then gateway, then exp-pos-offers, then prc-member-offers. The Process API reads the member's offers from the **cache** by member ID: one key read, a few milliseconds. On a miss (a member who joined today) it returns no personalised offers at once, because the engine takes 400 to 900 ms, and asks sys-offers-engine in the background to fetch the member's offers into the cache for the next scan. The till applies its own 300 ms timeout as a last guard. 1,500 scans a second are cache reads, not engine calls: about 75 a second reach the engine, well under its 200. The Experience and Process APIs run 2 replicas of 2 vCores each for that load.
 
 **Cache loading.** The nightly job reads the engine's offers for every member after its 02:00 run and writes them to the cache with a 30 hour TTL (the engine also offers a bulk export, which is faster than 12 million API calls). The cache is a managed store sized for 12 million entries of about 2 KB.
 

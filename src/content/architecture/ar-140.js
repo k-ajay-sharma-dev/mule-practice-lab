@@ -55,6 +55,7 @@ What the team sees:
 - The shop asks for about **30 quotes a second** at busy times.
 - The carrier answers in about **250 ms**, but some days it fails about **1 call in 5** for a few seconds at a time. Shoppers then see "Delivery price not available" and many leave.
 - Once a month the carrier is slow, about **8 seconds** per call, for several minutes.
+- Quotes that are answered must come back in under **1.5 seconds** on average, even while the carrier is slow.
 
 A quote only reads prices. Asking twice changes nothing at the carrier.
 
@@ -88,7 +89,7 @@ A **retry** sends a failed call again. A **timeout** is the longest a caller wai
 
 **Where to retry.** In \`sys-carrier-api\`. It is the one API that knows the carrier, so it is the right place to know which failures are worth another try. The Process and Experience APIs do not retry, or one shopper's click could become many carrier calls.
 
-**How many retries.** Two, with a short pause between them. If 1 call in 5 fails at random, a call fails three times in a row only about 1 time in 125. That is more than 99% of quotes answered. In Mule the System API wraps the HTTP Request in an **Until Successful** scope, or uses the retry settings of its HTTP connector.
+**How many retries.** Two, with a short pause between them. If 1 call in 5 fails at random, a call fails three times in a row only about 1 time in 125. That is more than 99% of quotes answered. In Mule the System API wraps the HTTP Request in an **Until Successful** scope. The reconnection strategy of the HTTP connector does not do this, because it retries connections, not failed responses.
 
 **The timeout.** About 1.5 seconds. The carrier normally answers in 250 ms, so 1.5 seconds is generous. With two retries the worst wait is about 4.5 seconds. Without a timeout, an 8 second carrier keeps each request and its thread for 8 seconds or more, and the APIs run out of threads.
 

@@ -469,18 +469,18 @@ export default {
   description: `
 A manufacturer is rebuilding **order-to-cash** as an application network. Two channels place orders:
 
-- **Web shop** — B2C, card payments, JSON, ~30 orders/s on sale days, wants an answer in < 10 s.
-- **Partners** (distributors) — B2B purchase orders in **XML**, paid on invoice, ~2 orders/s, often resubmit the same PO after timeouts.
+- **Web shop**: B2C, card payments, JSON, ~30 orders/s on sale days, wants an answer in < 10 s.
+- **Partners** (distributors): B2B purchase orders in **XML**, paid on invoice, ~2 orders/s, often resubmit the same PO after timeouts.
 
 Systems of record:
-- **ERP** (SOAP) — sales orders, deliveries, invoices. Slow (p95 2 s) and nightly maintenance.
-- **CRM** (Salesforce) — accounts, **credit status**, order status for the service desk.
-- **Payment service provider** — card authorisation (at order time) and capture (at shipment).
+- **ERP** (SOAP): sales orders, deliveries, invoices. Slow (p95 2 s) and nightly maintenance.
+- **CRM** (Salesforce): accounts, **credit status**, order status for the service desk.
+- **Payment service provider**: card authorisation (at order time) and capture (at shipment).
 
 Business rules:
 1. Reject orders for accounts on **credit hold** (422).
-2. Card orders: authorise before creating the ERP sales order. If the ERP order cannot be created, the **authorisation must be voided** — no money reserved without an order.
-3. The caller gets an answer once the sales order exists. **Fulfilment** (ERP delivery, payment capture, CRM status update) happens **asynchronously** and must survive ERP downtime — failures are retried and end up in a DLQ, never lost.
+2. Card orders: authorise before creating the ERP sales order. If the ERP order cannot be created, the **authorisation must be voided**: no money reserved without an order.
+3. The caller gets an answer once the sales order exists. **Fulfilment** (ERP delivery, payment capture, CRM status update) happens **asynchronously** and must survive ERP downtime: failures are retried and end up in a DLQ, never lost.
 4. Duplicate submissions (same idempotency key) must not create two orders; answer them with 409.
 5. Neither channel may call a system (or a System API) directly.
 
@@ -489,10 +489,16 @@ Business rules:
 - The custom error type for a credit hold is \`APP:CREDIT_HOLD\`.
 - A 422 from a lower API has no error type of its own: the caller's handler tests the response status code in its **When** field and passes the 422 on.
 - The Idempotent Message Validator does not release an ID when the flow fails.
+- \`exp-web\` is \`POST /exp-web/v1/orders\`; its JSON must match the project's schema \`schemas/web-order.json\` (\`customerId\`, \`payment.method\` and at least one line), else **400**. \`exp-partner\` is \`POST /exp-partner/v1/purchase-orders\` (XML).
+- \`prc-order\` is \`POST /prc-order/v1/orders\` with an \`Idempotency-Key\` header and the canonical order \`{ customerId, channel, externalRef, payment: { method, token, amount }, lines }\`, where \`method\` is \`CARD\` or \`INVOICE\`. It answers \`{ orderId, status, promiseDate }\`.
+- \`sys-crm\`: \`GET /sys-crm/v1/accounts/{customerId}\` answers \`{ id, name, creditStatus }\`; \`PATCH /sys-crm/v1/orders/{orderId}/status\` updates the order status.
+- \`sys-payment\`: \`POST /sys-payment/v1/authorisations\` answers \`{ id, status }\`; \`POST /sys-payment/v1/authorisations/{id}/void\` and \`POST /sys-payment/v1/captures\`.
+- \`sys-erp\` (SOAP \`CreateSalesOrder\` behind it): \`POST /sys-erp/v1/sales-orders\` answers \`{ orderId, promiseDate }\`; \`POST /sys-erp/v1/deliveries\` creates the delivery.
+- \`prc-order\` publishes \`{ eventId, eventType: "OrderAccepted", occurredAt, correlationId, data: { orderId, customerId, authorisationId, lines } }\` to the Anypoint MQ exchange \`order-events-exchange\`. \`prc-fulfilment\` reads the bound queue \`fulfilment-queue\`. A fulfilment event that failed must still be processed when it is redelivered.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-web/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path. Asynchronous process flows use \`prc-\` too, with an MQ source.
 
-**Design the flow(s):** the whole network — \`exp-web\`, \`exp-partner\`, \`prc-order\`, \`prc-fulfilment\`, \`sys-erp\`, \`sys-crm\`, \`sys-payment\` — with the call graph, the sync/async boundary, compensation, idempotency and error handling.
+**Design the flow(s):** the whole network (\`exp-web\`, \`exp-partner\`, \`prc-order\`, \`prc-fulfilment\`, \`sys-erp\`, \`sys-crm\`, \`sys-payment\`) with the call graph, the sync/async boundary, compensation, idempotency and error handling.
 `,
   answerTemplate: `## Application network (APIs per layer)
 
@@ -509,8 +515,8 @@ Business rules:
 ## Governance (contracts, policies, ownership)
 `,
   keyPoints: [
-    'Two Experience APIs (web JSON, partner XML) map their channel formats to one canonical order and reuse the same prc-order — channels never see systems.',
-    'prc-order owns the synchronous business rules: credit check via sys-crm, card authorisation via sys-payment, sales order via sys-erp — then publishes OrderAccepted and answers.',
+    'Two Experience APIs (web JSON, partner XML) map their channel formats to one canonical order and reuse the same prc-order: channels never see systems.',
+    'prc-order owns the synchronous business rules: credit check via sys-crm, card authorisation via sys-payment, sales order via sys-erp: then publishes OrderAccepted and answers.',
     'Compensation instead of distributed transactions: the ERP call sits in a Try whose On Error Propagate voids the authorisation, then the error still propagates (422/503) to the caller.',
     'The sync/async boundary is the event: prc-fulfilment consumes from MQ with manual ack, is idempotent on eventId, and nacks on failure so MQ redelivers and finally dead-letters.',
     'Idempotency at the Process API (idempotency key) protects against partner resubmits regardless of channel.',

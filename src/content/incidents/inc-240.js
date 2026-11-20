@@ -7,9 +7,9 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
+      { text: "2026-11-18 07:45:00 INFO  [deploy] Secrets moved to vault, files removed from app", relevant: true, why: "A change moved secrets." },
       { text: "2026-11-18 08:00:02 ERROR [plan-upload] SFTP auth failed user=larkfield-int error=Auth fail", relevant: true, why: "Authentication fails." },
       { text: "2026-11-18 08:00:02 WARN  [plan-upload] identityFile=keys/sftp_id not found, falling back to password", relevant: true, why: "The key file path no longer exists." },
-      { text: "2026-11-18 07:45:00 INFO  [deploy] Secrets moved to vault, files removed from app", relevant: true, why: "A change moved secrets." },
       { text: "2026-11-18 08:05:00 INFO  [plan-upload] Queue depth=34", relevant: true, why: "Files are waiting." },
       { text: "2026-11-18 23:59:00 INFO  [plan-upload] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does auth fail?",
         options: [
-          "The private key file the app used was removed, so it falls back to a password that is not set",
-          "The partner locked the account",
-          "The host key changed",
-          "The folder is full",
+          "The key file was removed, so the app tries a password, which fails",
+          "The partner locked larkfield-int after too many failed logins",
+          "The partner’s host key changed, so the server refuses the login",
+          "The vault holds the key, but its passphrase is wrong in config",
         ],
         answer: 0,
         explain: "The log says the identity file is missing.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What is the fix?",
         options: [
           "Point the connector to the key from the vault and redeploy",
-          "Put the key in the code",
-          "Email the key to the partner",
-          "Use a blank password",
+          "Copy the key back into keys/sftp_id in the app and redeploy",
+          "Ask the partner to allow password login for larkfield-int",
+          "Make a new key pair and send the private key to the partner",
         ],
         answer: 0,
         explain: "Keep the key secret and reachable.",
@@ -45,7 +45,7 @@ export default {
           "Stored in a vault or secure properties",
           "Protected with a passphrase where possible",
           "Never logged or committed to source control",
-          "Shared by email with the team",
+          "Kept in the app’s keys folder in Git",
         ],
         answer: [0,1,2],
         explain: "Treat keys like passwords.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What does the partner hold?",
         options: [
           "Only your public key",
-          "Your private key",
-          "Your passphrase",
-          "Nothing",
+          "Your private key, kept on their server",
+          "Your public key and its passphrase",
+          "Both keys, so they can check each login",
         ],
         answer: 0,
         explain: "The private key never leaves you.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 07:45:00 INFO  [deploy] Secrets moved to vault, files removed from app
 2026-11-18 08:00:02 ERROR [plan-upload] SFTP auth failed user=larkfield-int error=Auth fail
 2026-11-18 08:00:02 WARN  [plan-upload] identityFile=keys/sftp_id not found, falling back to password
-2026-11-18 07:45:00 INFO  [deploy] Secrets moved to vault, files removed from app
 2026-11-18 08:05:00 INFO  [plan-upload] Queue depth=34
 \`\`\`
 

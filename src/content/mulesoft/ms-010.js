@@ -16,19 +16,19 @@ export default {
         'One environment shared by all, with naming conventions per division',
       ],
       answer: 0,
-      explain: 'Environments only separate deployments. **Business groups** also separate ownership — assets, admins, capacity allocation and Exchange visibility — while staying under one root org.',
+      explain: 'Environments only separate deployments. **Business groups** also separate ownership (assets, admins, capacity allocation and Exchange visibility) while staying under one root org.',
     },
     {
       type: 'single',
       prompt: 'Leavers must lose access automatically. What is the best way to grant permissions?',
       options: [
-        'Grant permissions to individual users after each joiner request',
-        'Configure SSO with Azure AD and map IdP groups to Teams that hold the permissions',
-        'Share one admin account per division',
-        'Use a Connected App per developer',
+        'Grant permissions to each user directly when they join',
+        'Map Azure AD groups to Anypoint teams through SSO',
+        'Give each division one shared admin account in Anypoint',
+        'Create a Connected App for each developer to sign in with',
       ],
       answer: 1,
-      explain: 'With SSO and group-to-team mapping, membership is managed in Azure AD — remove the user there and their access goes. Per-user grants do not scale and are hard to audit.',
+      explain: 'With SSO and group-to-team mapping, membership is managed in Azure AD: remove the user there and their access goes. Per-user grants do not scale and are hard to audit.',
     },
     {
       type: 'single',
@@ -68,7 +68,7 @@ export default {
     },
   ],
   description: `
-A retail company just bought Anypoint Platform. It has three divisions — **Stores**, **E-commerce** and **Finance** — plus a central **Integration CoE**. Requirements from the CIO:
+A retail company recently bought Anypoint Platform. It has three divisions (**Stores**, **E-commerce** and **Finance**) plus a central **Integration CoE**. Requirements from the CIO:
 
 - Each division deploys and manages **its own** applications and must not touch other divisions' production apps.
 - The CoE publishes reusable **RAML fragments and templates** that every division can use.
@@ -78,7 +78,7 @@ A retail company just bought Anypoint Platform. It has three divisions — **Sto
 
 **Questions**
 1. How would you structure the organization (business groups, environments)?
-2. How do you give developers the right permissions — roles vs teams vs individual permissions?
+2. How do you give developers the right permissions: roles vs teams vs individual permissions?
 3. How is capacity (vCores) distributed?
 4. How do the CI/CD pipelines authenticate?
 5. Where do the CoE's shared assets live, and how do divisions consume them?
@@ -109,14 +109,14 @@ A retail company just bought Anypoint Platform. It has three divisions — **Sto
 
 **Permissions**
 - Use **Teams** in Access Management: e.g. *Ecom-Developers* (deploy/manage apps in Ecom Development and QA, view Production), *Ecom-Ops* (manage Production).
-- Configure **SSO** with Azure AD (OpenID Connect or SAML) and **map IdP groups to teams**, so joiners/leavers are managed in AD — removing the user from AD removes access.
+- Configure **SSO** with Azure AD (OpenID Connect or SAML) and **map IdP groups to teams**, so joiners/leavers are managed in AD: removing the user from AD removes access.
 - Avoid granting permissions to individual users; it does not scale and is hard to audit.
 
 **Capacity:** vCores (and other entitlements such as static IPs/VPNs or private spaces depending on subscription) are bought at the root and **assigned to business groups**; each group can only deploy within its allocation.
 
 **CI/CD:** create a **Connected App** ("app acts on its own behalf", client credentials) in the relevant business group with only the needed scopes (e.g. Runtime Manager deploy for specific environments, Exchange contributor). The pipeline uses its client ID/secret. Rotate secrets and never use a personal login.
 
-**Shared assets:** the CoE publishes fragments, templates and examples to **Exchange** in its business group. Assets are visible to child groups according to Exchange permissions, so divisions add them as dependencies in Design Center/Anypoint Studio. Optionally publish a public/private Exchange portal for partners.
+**Shared assets:** the CoE publishes fragments, templates and examples to **Exchange** in its business group. Give the division teams the Exchange Viewer permission on the CoE business group, so divisions add them as dependencies in Design Center/Anypoint Studio. Optionally publish a public/private Exchange portal for partners.
 `,
   followUps: [
     {
@@ -124,8 +124,8 @@ A retail company just bought Anypoint Platform. It has three divisions — **Sto
       a: 'Mostly governance and entitlement: Production environments consume production capacity and are meant for live traffic, and teams often get tighter permissions there. Functionally the deployment model is the same.',
     },
     {
-      q: 'Why use business groups instead of just separate environments per division?',
-      a: 'Environments only separate deployments; business groups also separate ownership — assets, admins, capacity allocation and Exchange visibility — so each division can self-manage.',
+      q: 'Why use business groups instead of only separate environments per division?',
+      a: 'Environments only separate deployments; business groups also separate ownership (assets, admins, capacity allocation and Exchange visibility), so each division can self-manage.',
     },
     {
       q: 'What happens to an app\'s client ID/secret when you promote it from QA to Production?',

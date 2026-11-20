@@ -25,8 +25,10 @@ LEFT JOIN dbo.Item AS i ON i.ItemId = ct.ItemId
 - Otherwise \`mode\` is \`DELTA\` and \`nextVersion\` is \`currentVersion\`:
   - A row with a \`Version\` above \`currentVersion\` changed after the version was read. Leave it for the next run and count it as \`deferred\`.
   - \`upserts\`: rows with \`Op\` \`I\` or \`U\` whose item still exists, as \`itemId\`, \`description\`, \`status\` and \`packSize\`
-  - \`deletes\`: item ids of rows with \`Op\` \`D\`, or with \`I\` or \`U\` but no item any more
-  - Both lists sorted by item id, and \`counts\` with \`upserts\`, \`deletes\` and \`deferred\`
+  - \`deletes\`: item ids (from \`CtItemId\`, since \`ItemId\` is null for a deleted item) of rows with \`Op\` \`D\`, or with \`I\` or \`U\` but no item any more
+  - Both lists sorted by item id as a number, and \`counts\` with \`upserts\`, \`deletes\` and \`deferred\`
+
+Output the keys in the order \`mode\`, \`reason\` (full reload only), \`nextVersion\`, \`counts\`, \`upserts\`, \`deletes\`.
 `,
   inputs: [
     {

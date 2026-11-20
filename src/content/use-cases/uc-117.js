@@ -84,7 +84,7 @@ Facts:
 - Supplier prices change at most a few times a day; stock changes all the time.
 - Quantity breaks: price depends on the quantity (1+, 100+, 1,000+).
 - All prices must be shown in the buyer's currency.
-- A 5 minute quote cache answers about 85 lookups in 100. Supplier B takes about 2 seconds, and supplier D can be down for an hour.
+- A 5 minute quote cache answers about 85 lookups in 100. Supplier B takes about 2 seconds, and supplier D can be down for an hour. At peak a lookup should take under 450 ms on average, and a lookup must not fail because one supplier is down.
 
 **Describe your solution:**
 - How does one request fan out and come back together?
@@ -121,7 +121,7 @@ Facts:
 **Fan-out.** prc-price-comparison first looks in the cache for each supplier. Suppliers with no fresh quote go into a **Scatter-Gather** with one route each. Total time ≈ the slowest route, not 200 + 3,000 + ... ms. A **For Each** in sequence would blow the 2.5 second target on its own.
 
 **Timeouts and partial results.** Scatter-Gather has a \`timeout\`, but if any route fails it raises \`MULE:COMPOSITE_ROUTING\` for the whole scope. So:
-- give each HTTP request its own **response timeout** (2 s; B gets the most);
+- give each HTTP request its own **response timeout** (about 2 s, so the whole answer stays inside 2.5 s; a B quote slower than that is reported as unavailable);
 - wrap each route in a **Try** with On Error Continue that returns \`{ supplier: "B", status: "unavailable" }\`;
 - the scope then always returns all routes, and the response lists missing suppliers instead of failing.
 Supplier D is down for hours: a circuit breaker in sys-supplier-d-api stops calling it and answers "unavailable" at once.

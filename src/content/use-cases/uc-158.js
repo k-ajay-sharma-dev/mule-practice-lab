@@ -68,7 +68,7 @@ export default {
     },
   },
   description: `
-Copperline Home Supply' product data hub (fictional) takes documents by claim check: the document in **Azure Blob Storage**, a notification on the inbound queue, and a Process API that loads it into the hub's **Oracle database**.
+Copperline Home Supply's product data hub (fictional) takes documents by claim check: the document in **Azure Blob Storage**, a notification on the inbound queue, and a Process API that loads it into the hub's **Oracle database**.
 
 About 300 **small suppliers** cannot call an API. They can only put files on an SFTP server. The team wants them in the same pipeline, so that validation, duplicate checks, routing by message type, job logs and ACKs are written once.
 

@@ -11,10 +11,10 @@ export default {
       needsScenario: true,
       prompt: 'Why is `attributes.uriParams.id` null when the Database Select runs?',
       options: [
-        'The HTTP Request replaced the whole message — payload and attributes — with the System API response',
-        'URI params are only available inside the Listener component',
-        'The Database connector clears all variables',
-        'Mule drops attributes after 30 seconds',
+        'The HTTP Request replaced payload and attributes with its response',
+        'URI params are only readable inside the HTTP Listener component',
+        'The Database Select cleared attributes before it ran its query',
+        'Attributes are read-only, so Mule clears them after the first read',
       ],
       answer: 0,
       explain: 'Every operation that returns a result replaces payload **and** attributes. After the HTTP Request, attributes are `HttpResponseAttributes` (status code, headers); the request params are gone. Variables are untouched.',
@@ -27,10 +27,10 @@ export default {
         'Set variables (`customerId`, `includeOrders`) right after the Listener and use `vars.*` later',
         'Use `target` on the HTTP Request and DB Select so their results go into variables',
         'Read them from `message.inboundProperties` as in Mule 3',
-        'Move the Choice before the Listener',
+        'Call the System API through a Flow Reference, which restores attributes on return',
       ],
       answer: [0, 1],
-      explain: 'Copying into vars or using target variables both leave the original data reachable. Inbound properties do not exist in Mule 4.',
+      explain: 'Copying into vars or using target variables both leave the original data reachable. Inbound properties do not exist in Mule 4, and a Flow Reference shares the event, so the HTTP Request still replaces its attributes.',
     },
     {
       type: 'match',
@@ -46,10 +46,10 @@ export default {
       type: 'single',
       prompt: 'An HTTP Request uses `target="customer"` with the default `targetValue`. What ends up in `vars.customer`, and what happens to the current payload?',
       options: [
-        'The response body; the current payload and attributes are left untouched',
-        'The whole response message; the payload is replaced too',
-        'The status code only; the payload is cleared',
-        'Nothing — target only works on Database operations',
+        'The response body, and the current payload and attributes stay',
+        'The whole response message, and the payload is replaced too',
+        'Only the status code, and the current payload is cleared',
+        'Nothing, because `target` works only on Database operations',
       ],
       answer: 0,
       explain: 'The default `targetValue` is `#[payload]`, so only the body is stored and the status code is lost. Use `#[message]` if you also need the attributes.',
@@ -95,19 +95,19 @@ In testing, orders are **never** included, and the logs show \`attributes.uriPar
   keyPoints: [
     'A Mule 4 event = message (payload + attributes) + variables (vars), plus metadata such as correlationId and error.',
     'An operation that returns a result (HTTP Request, DB Select) replaces both payload and attributes; vars are untouched.',
-    'After the HTTP Request, attributes are HttpResponseAttributes (statusCode, headers) — the listener\'s queryParams/uriParams are gone.',
+    'After the HTTP Request, attributes are HttpResponseAttributes (statusCode, headers): the listener\'s queryParams/uriParams are gone.',
     'Fix 1: copy needed request data into vars right after the listener. Fix 2: use target / targetValue on the outbound operations so payload and attributes stay intact.',
     'Variables set before a Flow Reference are visible in the called flow and changes come back; an Async scope works on a copy, so its changes are not visible to the caller.',
   ],
   solution: `
-**Parts of the event:** the **message** (\`payload\` + \`attributes\`) and **variables** (\`vars\`). The event also carries metadata such as \`correlationId\` and, inside an error handler, \`error\`. Mule 3's inbound/outbound properties no longer exist — attributes replace inbound properties, and outbound headers are set explicitly on the connector.
+**Parts of the event:** the **message** (\`payload\` + \`attributes\`) and **variables** (\`vars\`). The event also carries metadata such as \`correlationId\` and, inside an error handler, \`error\`. Mule 3's inbound/outbound properties no longer exist: attributes replace inbound properties, and outbound headers are set explicitly on the connector.
 
 **Step by step**
 | After | payload | attributes |
 |---|---|---|
 | HTTP Listener | request body (empty for GET) | \`HttpRequestAttributes\`: method, headers, queryParams, uriParams, requestPath… |
 | HTTP Request | response body of the System API | \`HttpResponseAttributes\`: statusCode, reasonPhrase, headers |
-| Database Select | list/iterator of rows (maps) | whatever the operation returns — no HTTP data |
+| Database Select | list/iterator of rows (maps) | whatever the operation returns: no HTTP data |
 
 **Why the params are lost:** every operation that produces a result **replaces the message** (payload *and* attributes). By step 3 the listener attributes are long gone, so \`attributes.uriParams.id\` is null and the Choice never sees \`includeOrders\`.
 

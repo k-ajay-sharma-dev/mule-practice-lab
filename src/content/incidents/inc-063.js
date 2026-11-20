@@ -20,35 +20,35 @@ export default {
         type: 'single',
         prompt: 'Why are other apps getting ORA-12519?',
         options: [
-          'Scaling inventory-sapi to 12 replicas multiplied its connection pools, and their mostly idle sessions used up the database PROCESSES limit',
-          'The Oracle listener crashed',
-          'The new replicas use a wrong password',
-          'The database is out of CPU',
+          '12 replicas each hold their own pools, and idle sessions fill PROCESSES',
+          'The Oracle listener crashed under the peak load and refuses all clients',
+          'The new replicas hold row locks on stock tables that block other apps',
+          'The database runs out of CPU and stops accepting new sessions',
         ],
         answer: 0,
-        explain: 'Pools are per replica. 12 replicas x 2 pools x 20 = 480 sessions against a limit of 500, so every other app is refused new connections.',
+        explain: 'Pools are per replica. 12 replicas x 2 pools x 20 = 480 sessions against a limit of 500, so every other app is refused new connections. The listener still answers (it returns ORA-12519), CPU is ~30%, and row locks would cause waits, not refused connections.',
       },
       {
         type: 'single',
         prompt: 'What is the quickest safe **mitigation**?',
         options: [
-          'Scale inventory-sapi back to a lower replica count (or redeploy with smaller maxPoolSize) to release sessions, then confirm other apps recover',
-          'Restart the Oracle database during trading hours',
-          'Ask the DBA to kill random sessions every 10 minutes',
-          'Increase maxPoolSize so inventory-sapi gets connections faster',
+          'Scale inventory-sapi down (or shrink its pools) and confirm others recover',
+          'Ask the DBA to kill the idle inventory-sapi sessions and keep 12 replicas',
+          'Raise maxPoolSize on order-papi and returns-sapi so they get a share',
+          'Restart order-papi and returns-sapi so they open fresh connections',
         ],
         answer: 0,
-        explain: 'Reduce the total demand from the app that caused it. Killing sessions or restarting the DB is disruptive, and larger pools make the problem worse.',
+        explain: 'Reduce the total demand from the app that caused it. Killed sessions are reopened by the same 12 replicas at the next burst. The other apps cannot open any new session, so bigger pools or restarts do not help them.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'Budget connections: replicas x pools x maxPoolSize for every app must fit within the database limit with headroom',
-          'Size pools per replica from measured concurrency, and release idle connections (e.g. maxIdleTime)',
-          'Use a separate Oracle service per workload so limits and monitoring are clear per app',
-          'Add a check to the scaling runbook and alert on DB sessions approaching the limit',
-          'Remove connection pooling so connections are only opened when needed',
+          'A connection budget: replicas x pools x maxPoolSize fits the DB limit',
+          'Pools sized from measured concurrency, with idle connections released',
+          'A separate Oracle service per workload so usage is visible per app',
+          'A scaling runbook check and an alert on sessions near the limit',
+          'No connection pooling, so connections are only opened when needed',
         ],
         answer: [0, 1, 2, 3],
         explain: 'Treat database connections as a shared capacity. Without pooling each request would open a new session, which is slower and still hits the limit under load.',
@@ -119,7 +119,7 @@ export default {
 
 **Permanent fix.**
 - A **connection budget**: for each app, replicas x pools x maxPoolSize, summed across apps, must stay below the DB limit with headroom.
-- Size pools from measured concurrency (often 5–10 per replica is plenty), and let idle connections close (\`maxIdleTime\` in the pooling profile).
+- Size pools from measured concurrency (often 5 to 10 per replica is plenty), and let idle connections close (\`maxIdleTime\` in the pooling profile).
 - If one app needs few connections, consider merging its two configs into one pool.
 - Give each workload its own Oracle service so the DBA can see and limit usage per app.
 

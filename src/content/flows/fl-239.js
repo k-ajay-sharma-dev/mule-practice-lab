@@ -93,6 +93,11 @@ The lines go into the Oracle table \`supplier_asn_lines\` (\`asn_no\`, \`line_no
 - An email with no CSV, or a CSV Oracle refuses, goes to \`Error\` with an ERROR log.
 - If Oracle cannot be reached, leave the email in \`INBOX\` for the next poll, with a WARN.
 
+**Facts**
+- Each listed email has \`payload.attachments\` (attachment name to content) and \`attributes.id\`. \`mail_id\` is that ID.
+- The CSV attachment is the one whose name ends in \`.csv\`. Read it as \`application/csv\`, and store \`line_no\` and \`qty\` as numbers.
+- A database that cannot be reached raises \`DB:CONNECTIVITY\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Polling the mailbox

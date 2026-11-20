@@ -73,7 +73,7 @@ export default {
     },
   },
   description: `
-A fashion retailer runs **12 country sites** on a self-hosted **Magento 2**. It is moving to a **SaaS commerce platform** over four months, one country at a time: UK first, then Germany and France, then the other nine.
+A toy retailer runs **12 country sites** on a self-hosted **Magento 2**. It is moving to a **SaaS commerce platform** over four months, one country at a time: UK first, then Germany and France, then the other nine.
 
 Today about **35 point-to-point integrations** hang off Magento: a cron job that exports orders to SAP, scripts that push orders to the WMS, a CRM sync, an email platform feed, and more. Several read the Magento MySQL database directly.
 
@@ -88,7 +88,8 @@ Requirements:
 Facts:
 - The new platform sends signed webhooks for orders and offers an Admin API.
 - Magento has a message queue framework; a small extension can publish an event for each order placed.
-- 2,500 orders an hour is about 0.7 a second. At peak SAP takes about **15 seconds** to create an order, and it can be down for an hour.
+- 2,500 orders an hour is about 0.7 a second. At peak SAP takes about **15 seconds** to create an order, and it can be down for an hour. No order may be lost, and the WMS must keep getting orders while SAP is down.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward any redelivery limit you set.
 
 **Questions:**
 1. Draw the target design for the migration period.
@@ -133,6 +134,8 @@ WMS ~> [shipment-events] ~> prc-status-router -> origin map
 **Order intake.** A Magento extension publishes an event for each order placed to **orders-inbound**. The new platform calls exp-commerce-webhooks, which checks the signature and publishes to the same queue. Both messages carry the source platform.
 
 **Canonical order.** prc-order-normaliser maps each source format to **orders.v1**: order number, country, customer, lines, tenders, delivery. It writes order number and platform to the **origin map**, then publishes to the canonical topic. prc-order-to-erp and prc-order-to-wms each consume their own subscription and call their System APIs. SAP and the WMS only ever see orders.v1. Order numbers stay unique because each platform has its own prefix, and the normaliser rejects a clash to the DLQ.
+
+**SAP slow or down.** SAP takes about 15 seconds per order, longer than the HTTP Request default timeout of 10 seconds, so sys-sap-orders calls SAP with a response timeout of about 30 seconds and prc-order-to-erp waits up to 60 seconds. Each consumer has its own subscription, so while SAP is down for an hour the SAP copies wait and are redelivered (no limit, or one well above 60), and the WMS copies keep flowing.
 
 **Updates back.** The WMS publishes shipments and cancellations to shipment-events. prc-status-router looks up the order number in the origin map and calls sys-commerce-platform or sys-magento. A Magento order placed before the move still updates Magento, so the customer sees it.
 

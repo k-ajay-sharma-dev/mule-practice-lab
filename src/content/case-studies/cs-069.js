@@ -82,6 +82,8 @@ export default {
 - SAP rejects a confirmation if the production order is already technically complete or a material is blocked.
 - The SAP team wants all calls through one interface they can monitor.
 - The plants send about 3 confirmations a second. The link to SAP can be down for 2 hours, and about 1 confirmation in 100 is for an order SAP has already closed.
+- Name the adapters sys-opcenter-api, sys-factorytalk-api and the in-house MES poller, and the central Process API prc-production-confirmations.
+- In the diagram, the confirmations queue redelivers a failed message about once a minute. Try each confirmation for 3 hours (a redelivery limit of 180), then send it to a dead-letter queue.
 
 **Your task.** Design the MES to SAP confirmation integration.
 `,
@@ -112,14 +114,14 @@ export default {
 
 Each maps to the canonical message and publishes it. They never call SAP.
 
-**Store and forward.** Each plant has a persistent queue on its local broker. If the WAN is down, confirmations wait there (8 hours is about 30,000 messages) and drain when the link returns. Messages keep their order per production order through a message group key.
+**Store and forward.** Each plant has a persistent queue on its local broker. If the WAN is down, confirmations wait there (8 hours is at most about 85,000 messages across all 9 plants, far fewer at one plant) and drain when the link returns. Messages keep their order per production order through a message group key.
 
 **Posting.** \`prc-production-confirmations\` runs centrally. For each message it:
 1. checks the processed-ID store and skips IDs already posted
 2. calls \`sys-sap-production-api\`, which uses the production confirmation BAPI and returns the SAP document number
 3. stores the ID with the document number
 
-**Rejections.** Errors like "order technically complete" are not retried. They go to the DLQ with the SAP message. A dashboard per plant lets controllers fix the order in SAP and replay. Network errors are retried with backoff.
+**Rejections.** A failed confirmation is redelivered about once a minute for 3 hours (a redelivery limit of 180), which rides out a 2 hour SAP outage, then goes to the DLQ with the SAP message. In the real build, business errors like "order technically complete" can skip the redeliveries and go straight to the DLQ, while network errors keep being retried. A dashboard per plant lets controllers fix the order in SAP and replay.
 `,
   followUps: [
     { q: 'Why not let each plant adapter call SAP directly?', a: 'SAP would then have nine interfaces to monitor and a WAN outage would stop the plant flows. A central Process API behind a queue gives one interface and survives outages.' },

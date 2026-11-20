@@ -7,10 +7,10 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
+      { text: "2026-11-18 21:00:02 INFO  [store-sales] timeBetweenSizeCheck not set", relevant: true, why: "No size check is configured." },
       { text: "2026-11-18 21:00:02 INFO  [store-sales] New file /in/sales_S041.csv sizeBytes=65536", relevant: true, why: "The listener picked a file mid upload." },
       { text: "2026-11-18 21:00:03 ERROR [store-sales] CSV parse failed line=812 unexpected end of record", relevant: true, why: "The last line is cut." },
       { text: "2026-11-18 21:00:09 INFO  [sftp-server] Upload complete /in/sales_S041.csv sizeBytes=241800", relevant: true, why: "The upload finished six seconds later." },
-      { text: "2026-11-18 21:00:02 INFO  [store-sales] timeBetweenSizeCheck not set", relevant: true, why: "No size check is configured." },
       { text: "2026-11-18 23:59:00 INFO  [store-sales] GET /health 200", relevant: false },
     ],
     questions: [
@@ -19,9 +19,9 @@ export default {
         prompt: "Why does parsing fail?",
         options: [
           "The listener read the file before the upload finished",
-          "The CSV is malformed",
-          "The encoding is wrong",
-          "The server is slow",
+          "The store wrote a bad record at line 812 of its file",
+          "The file uses CRLF endings that the CSV reader rejects",
+          "The listener’s read timed out on the slow store link",
         ],
         answer: 0,
         explain: "The file grew after the read.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Which listener setting helps?",
         options: [
-          "A time between size checks, so the file must stop growing before it is read",
-          "A higher polling frequency",
-          "autoDelete",
-          "A bigger worker",
+          "timeBetweenSizeCheck, so a file must stop growing first",
+          "A shorter polling frequency, so files are seen sooner",
+          "autoDelete, so a file is removed once it has been read",
+          "A watermark, so only files newer than the last run are read",
         ],
         answer: 0,
         explain: "The connector checks the size twice and skips files still changing.",
@@ -45,7 +45,7 @@ export default {
           "The sender uploads with a temp name and renames",
           "A done file uploaded after the data file",
           "A trailer with a row count",
-          "A random delay",
+          "A file modified time in the past",
         ],
         answer: [0,1,2],
         explain: "Agree a signal with the sender.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What happens to the failed file?",
         options: [
-          "Process it again once complete, and make sure it is not lost",
-          "Delete it",
-          "Ignore it",
-          "Rename it to .bad forever",
+          "Process it again now it is complete, and check its rows",
+          "Ask store S041 to upload the file again tomorrow night",
+          "Move it to an error folder until the store fixes line 812",
+          "Nothing, as the listener reads it again when it changes",
         ],
         answer: 0,
         explain: "The data is valid once complete.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-18 21:00:02 INFO  [store-sales] timeBetweenSizeCheck not set
 2026-11-18 21:00:02 INFO  [store-sales] New file /in/sales_S041.csv sizeBytes=65536
 2026-11-18 21:00:03 ERROR [store-sales] CSV parse failed line=812 unexpected end of record
 2026-11-18 21:00:09 INFO  [sftp-server] Upload complete /in/sales_S041.csv sizeBytes=241800
-2026-11-18 21:00:02 INFO  [store-sales] timeBetweenSizeCheck not set
 \`\`\`
 
 ## Your tasks

@@ -89,6 +89,8 @@ export default {
 - Customer data quality varies widely; many customers use slightly different EDI implementation guides.
 - The customs-broker application stays the system of record for declarations.
 - Shippers send about 2 EDI shipments a second, and the broker application can be down for 30 minutes. The forwarder lodges about 2 declarations a second, and customs takes about 15 seconds to acknowledge each.
+- Acknowledge each EDI shipment at once and put it on an \`inbound-shipments\` queue. Send unclear goods to a \`specialist-review\` queue and publish status changes to a \`declaration-status\` topic.
+- Name the APIs exp-customer-portal-api, prc-shipments-api, prc-customs-api, prc-declaration-submission, prc-status-notifier, sys-b2b-edi-api, sys-broker-app-api and sys-customs-gateway-api. The submission flow and the customs gateway API each wait up to 30 seconds for customs.
 
 **Your task.** Propose the B2B integration design, the human-in-the-loop process and audit approach.
 `,
@@ -107,7 +109,7 @@ export default {
   keyPoints: [
     'B2B onboarding and EDI handling (X12/EDIFACT parsing, partner-specific guides, acknowledgements) use B2B tooling such as Anypoint Partner Manager or the X12/EDIFACT connectors, with per-partner configuration.',
     'All inbound formats are mapped to a canonical shipment model and validated before any declaration is built.',
-    'Automation creates draft declarations; low-confidence items (classification, valuation issues) are routed to a specialist work queue — human in the loop, not full autopilot.',
+    'Automation creates draft declarations; low-confidence items (classification, valuation issues) are routed to a specialist work queue. This is human in the loop, not full autopilot.',
     'Customs submissions and responses are asynchronous and correlated by declaration reference, with status events published to customers.',
     'Every raw inbound/outbound message is stored immutably with metadata for the retention period required.',
   ],
@@ -116,9 +118,9 @@ export default {
 
 **Canonical model.** \`Shipment\` (parties, goods lines with description, HS code if supplied, value, origin, weights, transport). DataWeave maps each partner format; partner-specific maps are versioned. Validation checks mandatory fields, code lists (country, currency, units) and totals.
 
-**Declaration assembly.** \`customs-papi\` applies rules: known products → reuse previous approved classification from a product-classification store; unknown or ambiguous goods → work queue for a licensed specialist. The result is a draft declaration created in the customs-broker application via its API.
+**Declaration assembly.** \`prc-shipments-api\` takes shipments from the \`inbound-shipments\` queue and from the portal, and passes them to \`prc-customs-api\`. It applies rules: known products → reuse previous approved classification from a product-classification store; unknown or ambiguous goods → the \`specialist-review\` queue for a licensed specialist. The result is a draft declaration created in the customs-broker application through \`sys-broker-app-api\`.
 
-**Outbound to customs.** Once approved in the broker app, a submission event triggers \`customs-gateway-sapi\` to build the schema-valid XML, sign/transport it as the customs interface requires, and record the reference. Responses arrive asynchronously (polling or inbound listener), are correlated by reference, update the broker app, and publish \`DeclarationStatusChanged\` events (to customer notifications and the tracking portal).
+**Outbound to customs.** Once approved in the broker app, \`prc-declaration-submission\` calls \`sys-customs-gateway-api\` to build the schema-valid XML, sign/transport it as the customs interface requires, and record the reference. Customs can take 15 seconds to acknowledge, so both wait up to 30 seconds. Responses arrive asynchronously (polling or inbound listener), are correlated by reference, update the broker app, and publish \`DeclarationStatusChanged\` events (to customer notifications and the tracking portal).
 
 **Audit.** Raw messages (inbound EDI, outbound XML, customs responses) stored in immutable storage with hashes, timestamps and correlation IDs; searchable by shipment and declaration. Retention and deletion follow the regulator's period (kept generic here).
 
@@ -127,7 +129,7 @@ export default {
 **Risks.** Customs certification delays (plan test cycles early), wrong classification (specialist review, confidence thresholds), partner EDI variations (partner-specific maps, onboarding test suite), and deadline breaches (alerts on declarations close to cut-off).
 `,
   followUps: [
-    { q: 'Why not let the automation submit everything directly to customs?', a: 'Classification and valuation errors have legal and financial consequences. Automating the easy, known cases and routing uncertain ones to specialists improves speed without moving liability to an algorithm.' },
+    { q: 'Why not let the automation submit everything directly to customs?', a: 'Classification and valuation errors have legal and financial consequences. Automating the known, low-risk cases and routing uncertain ones to specialists improves speed without moving liability to an algorithm.' },
     { q: 'How do you handle a customer whose EDI differs from the standard?', a: 'Treat it as partner-specific configuration: a dedicated map or validation profile for that partner, tested with their sample files before go-live, without changing the canonical model.' },
     { q: 'What do you do when a customs response never arrives?', a: 'Each submission has an expected response time; a scheduled check flags overdue declarations, re-queries status through the customs interface, and alerts operations.' },
   ],

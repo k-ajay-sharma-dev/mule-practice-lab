@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why did runtime explode when data only grew ~7x?',
         options: [
-          'Each product filters all prices, twice: the work is O(products x prices), so 7x more of each is ~50x more work',
-          'The SFTP server became slow',
-          'JSON output is slower than CSV',
-          'The worker was downsized',
+          'Each product scans all prices twice, so work grows with products x prices',
+          'The SFTP read of the larger prices file now takes most of the run',
+          'The 612 MB JSON output is written slowly because it is not streamed',
+          'GC pauses grow faster than the heap as data grows, so most time is GC',
         ],
         answer: 0,
         explain: '150k x 450k x 2 is about 1.35 x 10^11 comparisons. Quadratic joins look fine on small data and explode with growth.',
@@ -32,13 +32,13 @@ export default {
         type: 'single',
         prompt: 'What is the best option **tonight**?',
         options: [
-          'Upscale to 4 vCores',
-          'Deploy the groupBy-indexed transform after diffing its output against last night on a copy of the files',
-          'Split the job into two runs',
-          'Increase the heap only',
+          'Upscale the worker to 4 vCores and start the job two hours earlier',
+          'Deploy the groupBy-indexed transform after diffing its output on a copy',
+          'Split the products file in two and run the halves one after the other',
+          'Double the heap so GC stops taking 38 percent of the run time',
         ],
         answer: 1,
-        explain: 'The fix is small and low risk and removes the quadratic work. More vCores barely help a mostly single-threaded, algorithmic problem.',
+        explain: 'The fix is small and low risk and removes the quadratic work. More vCores barely help a mostly single-threaded, algorithmic problem. Each half of the products still scans all prices, so two runs do the same total work. Less GC trims time but leaves 10^11 comparisons.',
       },
       {
         type: 'multi',
@@ -46,8 +46,8 @@ export default {
         options: [
           'Index prices once with `payload groupBy ((pr) -> pr.sku)` and look up per product',
           'Compute the per-product list once (do block / variable) and derive bestPrice from it',
-          'Stream the output (deferred) or chunk the catalog; for larger volumes, a sorted merge join or a DB join',
-          'Replace `filter` with `firstWith` inside the map, which makes it linear',
+          'Stream the output (deferred) or chunk the catalog; later, a merge or DB join',
+          'Replace `filter` with `firstWith` inside the map to stop at the first match',
         ],
         answer: [0, 1, 2],
         explain: 'Index first, avoid duplicate scans, manage memory. `firstWith` inside map is still a scan per product (and returns only one price).',
@@ -56,10 +56,10 @@ export default {
         type: 'multi',
         prompt: 'Which belong in **prevention**?',
         options: [
-          'Performance tests with 2-3x projected volumes',
-          'Review rule: no filter/firstWith over a large collection inside map',
+          'Performance tests with 2 to 3x projected volumes',
+          'Review rule: no filter or firstWith over a large collection inside map',
           'Alert when job duration trends towards the 06:00 SLA',
-          'Only check functional correctness of the output',
+          'MUnit tests that compare the output with an expected sample catalog',
         ],
         answer: [0, 1, 2],
         explain: 'The output was correct all along; only volume tests, complexity review and duration trends catch this.',
@@ -70,7 +70,7 @@ export default {
 ## Symptoms
 - The nightly \`catalog-enrichment\` job joins a **products** JSON file with a **prices** JSON file and publishes the result for the web shop by 06:00.
 - A year ago it took 2 minutes. Last month 40 minutes. This week it takes **~3 hours**, missed the 06:00 deadline twice, and the worker is at **100% CPU** with high GC activity during the transform.
-- No functional errors — the output is correct.
+- No functional errors: the output is correct.
 
 ## Change / Context
 - Data growth: products went from 20,000 to **150,000**, prices from 60,000 to **450,000** (several price lists per product).
@@ -111,16 +111,16 @@ vars.products map (p) -> p ++ {
 ## Prevention
 `,
   keyPoints: [
-    'The transform is O(n x m): every product scans all prices — twice. 150k x 450k x 2 ≈ 135 billion comparisons, so runtime grows with the product of both sizes.',
-    'Fix the algorithm: index prices once with groupBy (sku → list), then look up per product — O(n + m).',
+    'The transform is O(n x m): every product scans all prices, twice. 150k x 450k x 2 ≈ 135 billion comparisons, so runtime grows with the product of both sizes.',
+    'Fix the algorithm: index prices once with groupBy (sku → list), then look up per product: O(n + m).',
     'Compute the filtered list once per product (variable / do block) instead of repeating the filter for bestPrice.',
     'Memory: reading both large files fully plus a 600 MB output needs heap; consider streaming the output, splitting work, or pre-sorted merge.',
-    'Immediate: deploy the groupBy fix (low risk, same output) — verify with a diff of output on yesterday\'s files; scaling vCores alone barely helps.',
+    'Immediate: deploy the groupBy fix (low risk, same output) and verify with a diff of output on yesterday\'s files; scaling vCores alone barely helps.',
     'Prevention: performance tests with projected volumes, complexity review of DataWeave (no filter inside map over large data), and runtime trend alerts.',
   ],
   solution: `
 ## Diagnosis
-For each of 150k products, the script filters **all** 450k prices — and does it **twice** (once for \`prices\`, once for \`bestPrice\`). That's about 150,000 × 450,000 × 2 ≈ **1.35 × 10^11** comparisons. Work grows with **products × prices**, so ~7x more products and ~7.5x more prices means ~50x more work — matching 2 min → hours. CPU is at 100% doing comparisons; GC is busy with intermediate arrays created by each filter.
+For each of 150k products, the script filters **all** 450k prices, and does it **twice** (once for \`prices\`, once for \`bestPrice\`). That's about 150,000 × 450,000 × 2 ≈ **1.35 × 10^11** comparisons. Work grows with **products × prices**, so ~7x more products and ~7.5x more prices means ~50x more work, which matches 2 min growing to hours. CPU is at 100% doing comparisons; GC is busy with intermediate arrays created by each filter.
 
 ## Immediate mitigation
 The algorithmic fix is small and low risk, so it is the best "tonight" option: deploy the indexed version below, after diffing its output against last night's output on a copy of the files. Upscaling the worker helps very little because the transform is CPU-bound on mostly one thread and the complexity is the issue. If the fix cannot ship, run the job earlier and publish yesterday's catalog as a fallback.
@@ -144,8 +144,8 @@ vars.products map (p) -> do {
 - For memory: write the output with streaming where possible (\`deferred=true\` output for JSON), avoid keeping several copies in variables, or split the catalog into chunks/pages. For even larger volumes, sort both inputs by SKU and do a merge join, or push the join into a database.
 
 ## Prevention
-- Performance test data jobs with 2–3x projected volumes.
-- Code review rule: no \`filter\`/\`firstWith\` over a large collection inside \`map\` — index first.
+- Performance test data jobs with 2 to 3x projected volumes.
+- Code review rule: no \`filter\`/\`firstWith\` over a large collection inside \`map\`. Index first.
 - Track job duration over time and alert when it trends towards the SLA.
 `,
   followUps: [

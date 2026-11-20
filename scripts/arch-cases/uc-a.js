@@ -82,8 +82,8 @@ export default async ({ failsOn, cut, draw, set }) => {
   await failsOn('uc-011', 'Run: The SFMC API drops some calls', (d) => set(d, 'ssfmc', { retries: undefined }))
 
   // UC-012
-  // No circuit breaker and the default 10 second timeout: hung DHL calls use up the threads.
-  await failsOn('uc-012', 'Run: DHL stops answering at the peak', (d) => set(d, 'p', { timeoutMs: undefined, circuitBreaker: undefined }))
+  // No circuit breaker and the default 10 second timeout: hung Rapido calls use up the threads.
+  await failsOn('uc-012', 'Run: Rapido stops answering at the peak', (d) => set(d, 'p', { timeoutMs: undefined, circuitBreaker: undefined }))
   // The tracking update is called inside the label request: an e-commerce outage stops packing.
   await failsOn('uc-012', 'Run: The e-commerce platform is down', (d) => {
     cut(d, 'p ~> q')

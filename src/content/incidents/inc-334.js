@@ -7,11 +7,11 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
+      { text: "2026-11-18 08:55:00 INFO  [deploy] item-api replicas 2 to 8, pool max 50", relevant: true, why: "Connections can now reach 8 x 50 = 400." },
       { text: "2026-11-18 09:00:00 ERROR [item-api] ORA-12516 TNS:listener could not find available handler", relevant: true, why: "The database has no room for sessions." },
-      { text: "2026-11-18 08:55:00 INFO  [deploy] item-api replicas 2 to 8, pool max 50", relevant: true, why: "Connections can now reach 400." },
       { text: "2026-11-18 09:00:00 INFO  [dba] processes limit 300, in use 300", relevant: true, why: "The limit is reached." },
-      { text: "2026-11-18 09:00:00 INFO  [item-api] Pool active=4 idle=46 per replica", relevant: true, why: "Most connections are idle." },
-      { text: "2026-11-18 23:59:00 INFO  [item-api] GET /health 200", relevant: false },
+      { text: "2026-11-18 09:00:00 INFO  [item-api] Pool open=36 active=4 idle=32 per replica, growing to 50", relevant: true, why: "Most open connections are idle, and the pools still try to grow." },
+      { text: "2026-11-18 09:05:00 INFO  [item-api] GET /health 200", relevant: false },
     ],
     questions: [
       {
@@ -19,24 +19,24 @@ export default {
         prompt: "Why are connections refused?",
         options: [
           "Eight replicas with pools of 50 exceed the database process limit",
-          "Wrong password",
-          "Network",
-          "A bug",
+          "The database password expired when the new replicas started",
+          "The listener crashed under load and must be restarted",
+          "A firewall rule blocks new connections from the new replicas",
         ],
         answer: 0,
-        explain: "Pools multiply by replicas.",
+        explain: "Pools multiply by replicas. 8 x 36 = 288 open already, and they try to reach 400.",
       },
       {
         type: 'single',
         prompt: "What is the fix?",
         options: [
-          "Shrink each pool to what is used, so the total fits with headroom",
-          "Raise pools further",
-          "Restart Oracle",
-          "Fewer queries",
+          "Shrink each pool to measured use so the total fits",
+          "Raise each pool max to 80 so requests stop waiting",
+          "Restart the database to clear the stuck sessions",
+          "Cut the number of queries the API makes per request",
         ],
         answer: 0,
-        explain: "Most connections were idle.",
+        explain: "Only 4 connections per replica were active. A restart clears sessions only until the pools refill.",
       },
       {
         type: 'multi',
@@ -45,7 +45,7 @@ export default {
           "Set a minimum and idle timeout so idle connections close",
           "Agree a connection budget with the DBA",
           "Alert on processes used",
-          "Open a new connection per query",
+          "Open a new connection for every query instead",
         ],
         answer: [0,1,2],
         explain: "Budget and tidy pools.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "How do you size a pool?",
         options: [
-          "From measured concurrent queries per replica, plus a little headroom",
-          "As big as possible",
-          "Equal to threads",
-          "Random",
+          "From measured concurrent queries per replica, plus headroom",
+          "As large as possible so no request ever waits",
+          "Equal to the number of HTTP threads per replica",
+          "The database limit divided by the number of apps",
         ],
         answer: 0,
         explain: "Measure, then size.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 09:00:00 ERROR [item-api] ORA-12516 TNS:listener could not find available handler
 2026-11-18 08:55:00 INFO  [deploy] item-api replicas 2 to 8, pool max 50
+2026-11-18 09:00:00 ERROR [item-api] ORA-12516 TNS:listener could not find available handler
 2026-11-18 09:00:00 INFO  [dba] processes limit 300, in use 300
-2026-11-18 09:00:00 INFO  [item-api] Pool active=4 idle=46 per replica
+2026-11-18 09:00:00 INFO  [item-api] Pool open=36 active=4 idle=32 per replica, growing to 50
 \`\`\`
 
 ## Your tasks

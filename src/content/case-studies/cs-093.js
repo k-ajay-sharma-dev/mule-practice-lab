@@ -74,6 +74,7 @@ export default {
 | Privacy | Student records are protected by law; only name, school email, grade and class membership go to the LMS |
 | Team | Two integration developers, new to MuleSoft |
 | Tests | A term start run tries 30 writes a second against the LMS limit of 10, and the LMS can fail 1 call in 10 |
+| For the diagram | Name the APIs prc-roster-sync, sys-sis-api and sys-lms-api. sys-lms-api has a rate limit of 10 calls a second (it answers 429 above that) and tries a failed LMS call 2 more times |
 
 **Your task.** Design the first version of the roster sync. Show the layers, how a run knows what changed, and how errors are reported.
 `,
@@ -102,7 +103,7 @@ export default {
 
 **Reading changes.** \`prc-roster-sync\` reads the watermark from Object Store and asks \`sys-sis-api\` for students, classes and enrolments with \`last_modified\` after it. The System API owns the SQL and returns a clean JSON model, so the Process API never knows table names.
 
-**Writing.** The Process API maps the records to the OneRoster model and calls \`sys-lms-api\`. The System API owns the API key and keeps to the rate limit (about 8 requests a second, with backoff on HTTP 429). Each write is an upsert keyed on the SIS \`sourcedId\`, so a rerun is safe. Enrolments removed in the SIS are marked inactive in the LMS.
+**Writing.** The Process API maps the records to the OneRoster model and calls \`sys-lms-api\`. The System API owns the API key and keeps to the LMS limit with a rate limit of 10 calls a second; the Process API backs off when it gets HTTP 429. A failed LMS call is tried 2 more times. Each write is an upsert keyed on the SIS \`sourcedId\`, so a rerun is safe. Enrolments removed in the SIS are marked inactive in the LMS.
 
 **Errors.** A record that fails validation (no school email, unknown class) is skipped and collected. At the end of the run the Process API emails the IT help desk a summary with record ids, never full student records. The watermark is saved only after the run finishes, so a crash means the next run reads the same changes again.
 

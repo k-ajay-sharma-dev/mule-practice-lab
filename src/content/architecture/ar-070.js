@@ -82,9 +82,10 @@ What is wrong now:
 - A bad query from the store app locked \`RESERVATIONS\` for 20 minutes last month.
 
 Numbers for sizing:
-- E-commerce reads stock **100 times a second** and writes **50 reservations a second** at peak. The store ops app normally sends **20 requests a second**, but a runaway report can send **400 a second** for minutes.
+- E-commerce reads stock **100 times a second** and writes **50 reservations a second** at peak. The store ops app normally sends **20 requests a second**, but a runaway report can send **400 a second** for minutes. E-commerce must keep working while that happens.
 - An Oracle call takes about 30 ms. Oracle can take about **300 requests a second**; the inventory team wants integrations at **250 or less**.
-- The finance warehouse can be down for **30 minutes** during its loads, and finance needs every change.
+- The finance warehouse can be down for **30 minutes** during its loads. Finance needs every change, and must have caught up within about **20 minutes** of the warehouse coming back.
+- A message broker redelivers a failed message about **once a minute**.
 - The budget for these APIs is **3 vCores**.
 
 **Questions:**
@@ -136,14 +137,14 @@ Numbers for sizing:
 **Sizing and protection.**
 - A rate limit of 40 a second on \`exp-store-ops-api\` answers 429 to a runaway report, so it can no longer hurt checkout. This is the API-led version of "one bad query locks everyone".
 - \`exp-ecommerce-api\`, \`prc-stock-api\` and \`sys-oracle-inventory\` run on 0.5 vCore each for the checkout load.
-- \`prc-finance-feed\` runs on 0.5 vCore, so after a warehouse outage it drains the topic faster than new changes arrive. The topic is persistent, so nothing is lost while the warehouse is down.
+- \`prc-finance-feed\` runs on 0.5 vCore, so after a warehouse outage it drains the topic faster than new changes arrive. The topic is persistent and has no redelivery limit (or one well above 30), so nothing is lost while the warehouse is down.
 - In total 2.2 vCores, inside the 3 vCore budget.
 
 **Trade-off:** an extra hop and an API to maintain, in exchange for the freedom to change the schema and protect Oracle.
 `,
   followUps: [
-    { q: 'Finance insists on SQL access for ad-hoc analysis. What do you offer?', a: 'A read replica or data warehouse fed by events/CDC, with its own schema that they own. Ad-hoc SQL is fine — just not on the operational tables that other systems write to.' },
+    { q: 'Finance insists on SQL access for ad-hoc analysis. What do you offer?', a: 'A read replica or data warehouse fed by events/CDC, with its own schema that they own. Ad-hoc SQL is fine, but not on the operational tables that other systems write to.' },
     { q: 'How do you discover the unknown readers before revoking access?', a: 'Enable Oracle auditing or review session/SQL history per database user over a few weeks, map users to applications, and give each a dedicated account first so usage becomes visible.' },
-    { q: 'Is a System API just the database with HTTP on top?', a: 'It should not be: it exposes business resources in a canonical model and hides tables, so the schema can change behind it without breaking consumers.' },
+    { q: 'Is a System API only the database with HTTP on top?', a: 'It should not be: it exposes business resources in a canonical model and hides tables, so the schema can change behind it without breaking consumers.' },
   ],
 }

@@ -17,7 +17,7 @@ Brindle Outdoor gets a weekly store forecast from the planning platform, by fisc
 
 **Output**
 - \`rows\`: \`StoreId\`, \`ItemId\`, \`SalesDate\` as \`yyyy-MM-dd\` and \`Qty\`, in forecast order and then day order. Leave out days with a quantity of 0.
-- \`rejects\`: forecast lines whose week is not in the calendar, with \`store\`, \`item\`, \`fiscalYear\`, \`fiscalWeek\` and \`reason\` \`No calendar week Y-W\`
+- \`rejects\`: forecast lines whose week is not in the calendar, with \`store\`, \`item\`, \`fiscalYear\`, \`fiscalWeek\` and \`reason\` \`No calendar week Y-W\`, with the year and week as given and no padding (for example \`No calendar week 2026-53\`), in forecast order
 - \`unitsIn\`: the sum of \`qty\` over the forecast lines that were not rejected
 - \`unitsOut\`: the sum of \`Qty\` over \`rows\`
 `,

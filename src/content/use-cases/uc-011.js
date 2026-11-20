@@ -58,7 +58,7 @@ export default {
     },
   },
   description: `
-A fashion retailer stores customers in **Salesforce Sales/Service Cloud** and sends campaigns from **Salesforce Marketing Cloud (SFMC)**. Consent can change in both places:
+A home furnishings retailer stores customers in **Salesforce Sales/Service Cloud** and sends campaigns from **Salesforce Marketing Cloud (SFMC)**. Consent can change in both places:
 
 - In Salesforce: store staff and the call centre update a customer's email/SMS opt-in fields.
 - In SFMC: customers click **unsubscribe** links or update preferences in the preference centre.
@@ -106,7 +106,7 @@ Facts:
 - The newer action wins; **but opt-out wins over opt-in** if they occur within a short window (e.g. 10 minutes), because sending to someone who opted out is the legal risk.
 - Keep the last applied timestamp per contact/channel to discard stale, out-of-order events.
 
-**Audit and compliance.** Every consent event — regardless of direction — is written to an **append-only consent log** (database table or object in Salesforce): contact ID, channel (email/SMS), old → new, source system, actor (user ID or "customer via link"), timestamps. Auditors query this log. Monitor end-to-end lag: alert if any unsubscribe is older than 15 minutes without being applied in SFMC.
+**Audit and compliance.** Every consent event, in either direction, is written to an **append-only consent log** (database table or object in Salesforce): contact ID, channel (email/SMS), old → new, source system, actor (user ID or "customer via link"), timestamps. Auditors query this log. Monitor end-to-end lag: alert if any unsubscribe is older than 15 minutes without being applied in SFMC.
 `,
   followUps: [
     { q: 'Mule was down for 2 hours. Did we lose consent changes?', a: 'No: CDC events can be replayed from the stored replay ID within the retention window (72 hours for standard CDC), and the SFMC side uses a watermark, so both catch up. The audit log shows the delay.' },

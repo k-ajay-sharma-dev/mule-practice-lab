@@ -110,7 +110,7 @@ A substitute answer is not acceptable here. If core banking is down, the app mus
 
 **Requirements**
 - Expose \`POST /transfers\` with an HTTP Listener.
-- Send the transfer to core banking.
+- Send the transfer to core banking unchanged, and wait at most **5 seconds** for its answer.
 - On success, return \`{ "transferId": "T-1001", "status": "COMPLETED" }\`.
 - If core banking cannot be reached or does not answer in time, log the error and return HTTP status **503** with a short JSON error body. 503 means "service unavailable, try later".
 

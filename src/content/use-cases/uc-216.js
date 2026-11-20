@@ -99,7 +99,7 @@ Last month a platform release started pulling with forty threads instead of four
     'A rate limit on the System API would cut the tills too. On the platform\'s Experience API it caps only the platform, at 100 a second.',
     'Over the limit the platform gets 429 Too Many Requests. It should wait and try again, ideally after the time the answer suggests; keyset paging lets it carry on where it stopped.',
     '150 till writes plus 100 platform reads stay under the 300 SQL Server takes. Without the limit, 400 platform reads alone would be over it.',
-    'Retry deadlock victims in the System API, close to the database. Two replicas of each API carry the evening through a zone outage.',
+    'Retry deadlock victims in the System API, close to the database. Two replicas of the tills’ API and of the System API carry the tills through a zone outage, and each replica must be big enough to carry the whole load alone while the other zone is down.',
   ],
   solution: `
 **Design**

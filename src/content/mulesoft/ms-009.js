@@ -27,10 +27,10 @@ export default {
         '`<cron expression="0 0 2 ? * MON-FRI" timeZone="America/New_York"/>`',
         '`<cron expression="0 2 * * MON-FRI"/>`',
         '`<fixed-frequency frequency="24" timeUnit="HOURS" startDelay="2"/>`',
-        '`<cron expression="0 0 2 ? * MON-FRI"/>` — the cron uses the business time zone by default',
+        '`<cron expression="0 0 2 ? * MON-FRI" timeZone="EST"/>`',
       ],
       answer: 0,
-      explain: 'Mule uses a Quartz-style cron with a **seconds** field first. Without `timeZone` the Scheduler uses the time zone of the machine running Mule, and the Scheduler page gives UTC for CloudHub. So the run would happen at the wrong local time and drift with daylight saving. CloudHub 2.0 bases schedules on the scheduler\'s defined time zone. Do not rely on this on CloudHub 1.0, where the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored.',
+      explain: 'Mule uses a Quartz-style cron with a **seconds** field first. Without `timeZone` the Scheduler uses the time zone of the machine running Mule, and the Scheduler page gives UTC for CloudHub. So the run would happen at the wrong local time and drift with daylight saving. `EST` is a fixed offset with no daylight saving, so it is wrong in summer. The five-field cron has no seconds field. CloudHub 2.0 bases schedules on the scheduler\'s defined time zone. Do not rely on this on CloudHub 1.0, where the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored.',
     },
     {
       type: 'match',
@@ -46,22 +46,22 @@ export default {
       type: 'single',
       prompt: 'The 5-minute inventory sync sometimes takes 7 minutes and overlaps itself. What is the fix?',
       options: [
-        'Limit the flow to one execution at a time (`maxConcurrency="1"` and/or disallow concurrent execution)',
-        'Switch to a cron expression — cron never overlaps',
-        'Enable clustering — it prevents overlapping runs on the same node',
-        'Increase the replica count to 3',
+        'Allow one run at a time with `maxConcurrency="1"` on the flow',
+        'Switch to a cron expression, because cron runs never overlap',
+        'Enable clustering, because it stops overlapping runs on one node',
+        'Raise the replica count to 3 so each run has its own replica',
       ],
       answer: 0,
-      explain: 'Clustering stops the **other replica** from firing but does not stop a slow run overlapping with the next trigger on the same node. Limiting concurrency makes the next trigger skip instead.',
+      explain: 'Clustering stops the **other replica** from firing but does not stop a slow run overlapping with the next trigger on the same node. Limiting concurrency (or `disallowConcurrentExecution` on the Scheduler) makes the next trigger skip instead.',
     },
     {
       type: 'single',
       prompt: 'The Scheduler has `disallowConcurrentExecution="true"` and the previous run is still active when the next trigger fires. What happens to that trigger?',
       options: [
-        'It runs immediately after the active run ends',
-        'It is skipped, and the Scheduler resumes at its next configured interval',
-        'It is queued in Object Store and runs at the next trigger',
-        'It runs twice at the next interval',
+        'It waits, then runs as soon as the active run has ended',
+        'It is skipped, and the Scheduler waits for its next interval',
+        'It is stored in the object store and replayed at the next trigger',
+        'It runs twice at the next interval to catch up the missed run',
       ],
       answer: 1,
       explain: 'Mule logs "Execution skipped" and waits for the next interval. If skipped runs matter, use a watermark so the next run picks up the gap.',
@@ -70,8 +70,8 @@ export default {
   description: `
 Two polling integrations are deployed to **CloudHub 2.0 with 2 replicas**:
 
-- **Inventory sync** — must run every **5 minutes**. A run sometimes takes 7 minutes when the warehouse API is slow.
-- **Finance export** — must run at **02:00 New York time** every weekday and produce exactly **one** file on the finance SFTP.
+- **Inventory sync**: must run every **5 minutes**. A run sometimes takes 7 minutes when the warehouse API is slow.
+- **Finance export**: must run at **02:00 New York time** every weekday and produce exactly **one** file on the finance SFTP.
 
 After go-live, finance receives **two** identical files every night, and the inventory sync occasionally overlaps itself, causing duplicate stock updates.
 
@@ -99,7 +99,7 @@ After go-live, finance receives **two** identical files every night, and the inv
   ],
   solution: `
 **Fixed frequency vs cron**
-- **Fixed frequency**: "every N units" since the app started — good for polling (\`frequency\`, \`timeUnit\`, \`startDelay\`).
+- **Fixed frequency**: "every N units" since the app started: good for polling (\`frequency\`, \`timeUnit\`, \`startDelay\`).
 - **Cron**: calendar-based ("at 02:00 on weekdays") using a Quartz-style expression (seconds minutes hours day-of-month month day-of-week).
 
 \`\`\`xml
@@ -120,7 +120,7 @@ After go-live, finance receives **two** identical files every night, and the inv
 
 **Two files:** every replica is an independent Mule runtime. Without clustering, **both replicas fire the Scheduler**, so the export runs twice. Fix: enable **clustering** for the app on CloudHub 2.0 (Schedulers then run on the primary node only), or move the trigger out of the app (single-replica scheduler app / external trigger). As a safety net, make the export idempotent (e.g. record "export done for date X" in a persistent Object Store).
 
-**Overlap:** a 5-minute fixed frequency triggers again while a 7-minute run is still active. Limit the flow to one execution at a time — \`maxConcurrency="1"\` on the flow and/or the Scheduler's option to disallow concurrent execution — so the next trigger is skipped instead of overlapping. Also consider a watermark so a skipped trigger loses no data.
+**Overlap:** a 5-minute fixed frequency triggers again while a 7-minute run is still active. Limit the flow to one execution at a time, with \`maxConcurrency="1"\` on the flow and/or the Scheduler's option to disallow concurrent execution, so the next trigger is skipped instead of overlapping. Also consider a watermark so a skipped trigger loses no data.
 
 **Time zone:** without \`timeZone\` the cron uses the time zone of the machine running Mule. The Scheduler page gives **UTC** for CloudHub, so 02:00 would really be 21:00/22:00 in New York depending on daylight saving. On this CloudHub 2.0 app, set \`timeZone\` explicitly for business schedules: CloudHub 2.0 bases schedules on the scheduler's defined time zone. **CloudHub 1.0 is different:** the Manage Schedules page says all schedules are based on UTC and the time zone configuration is ignored. So convert the time to UTC and review it when the clocks change.
 `,

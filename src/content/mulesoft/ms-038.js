@@ -14,7 +14,7 @@ export default {
         '`globalHandler`, then 500',
         '`main`\'s On Error Propagate `APP:INVALID` → 400',
         'The sub-flow\'s default handler, then 400',
-        'Nothing — sub-flow errors are ignored, 200',
+        'Nothing, as sub-flow errors are ignored, so 200',
       ],
       answer: 1,
       explain: 'A sub-flow has no handler; its processors behave as if inlined, so the error lands directly in `main`. The global default handler does not apply to sub-flows.',
@@ -29,20 +29,20 @@ export default {
         '`main` On Error Propagate `ANY` sets httpStatus 500',
         'The client receives 500',
       ],
-      explain: 'Propagate means "I handled it, but my caller must still see the error" — so two handlers run, the called flow\'s first.',
+      explain: 'Propagate means "I handled it, but my caller must still see the error", so two handlers run, the called flow\'s first.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The HTTP request in `enrich` returns **404**. What does the client receive?',
       options: [
-        '404',
-        '500 from `main`\'s ANY handler',
-        'A normal success response — `enrich` On Error Continue sets the default customer and `main` continues',
-        '400',
+        '404, passed through from the HTTP request in `enrich`',
+        '500, from the `ANY` handler of `main` after the error',
+        'A success response with the default customer from `enrich`',
+        '400, from the `APP:INVALID` handler of `main`',
       ],
       answer: 2,
-      explain: 'On Error Continue ends the error: the Flow Reference returns successfully with the handler\'s result.',
+      explain: 'On Error Continue in `enrich` sets the default customer and ends the error: the Flow Reference returns successfully with the handler\'s result, and `main` continues.',
     },
     {
       type: 'match',
@@ -53,20 +53,20 @@ export default {
         ['DB:QUERY_EXECUTION in `persist`', 'globalHandler propagates → no Try match → main ANY → 500'],
         ['HTTP:NOT_FOUND in `enrich`', 'enrich On Error Continue → main continues with the default customer'],
       ],
-      explain: 'Every flow has a handler — the default applies when none is declared, and it propagates. The Try then matches (or not) at the flow-ref position.',
+      explain: 'Every flow has a handler: the default applies when none is declared, and it propagates. The Try then matches (or not) at the flow-ref position.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The HTTP request in the async `notify` flow fails. What does the client receive?',
       options: [
-        '500, because `main`\'s ANY handler catches it',
-        'Nothing changes — Async runs on a copy of the event and its errors never reach `main`; only notify\'s default handler runs',
-        '202, because async errors downgrade the status',
-        'The request hangs until notify finishes',
+        '500, because the `ANY` handler of `main` catches the error',
+        'The normal response, as Async errors never reach `main`',
+        '202, because async errors downgrade the response status',
+        'The request hangs until the `notify` flow has finished',
       ],
       answer: 1,
-      explain: 'Async errors are invisible to the caller. If the notification matters, log/alert or use a reliable queue.',
+      explain: 'Async runs on a copy of the event, so its errors are invisible to the caller. Only the default handler of `notify` runs. If the notification matters, log/alert or use a reliable queue.',
     },
     {
       type: 'single',
@@ -157,15 +157,15 @@ For each failure, state **which handlers run, in what order**, and **what the cl
 | 3 | \`enrich\` On Error Continue \`HTTP:NOT_FOUND\` → \`main\` continues with default customer | normal success response |
 | 4 | \`persist\` has no handler → its **default handler** (\`globalHandler\`) runs and propagates → Try's On Error Continue \`DB:CONNECTIVITY\` → \`main\` continues after the Try | success (unless later steps fail) |
 | 5 | \`persist\` default handler propagates → Try has no match → propagates → \`main\` On Error Propagate \`ANY\` | **500** |
-| 6 | \`notify\` default handler (\`globalHandler\`) only | unaffected — response already decided by \`main\` |
+| 6 | \`notify\` default handler (\`globalHandler\`) only | unaffected: response already decided by \`main\` |
 
 **Why**
 - **Sub-flow (1):** processors behave as if inlined, so the error lands directly in \`main\`'s handler.
-- **Flow with handler (2, 3):** the called flow's handler runs first. *Propagate* means "I handled it (e.g. logged) but my caller must still see the error" — so two handlers run. *Continue* means "the error ends here" and the Flow Reference returns successfully.
-- **Flow without handler (4, 5):** every flow has an error handler — if none is declared, the default applies. It propagates, so the error reaches the Try at the flow-ref position. Try's handler matching works like a flow's.
+- **Flow with handler (2, 3):** the called flow's handler runs first. *Propagate* means "I handled it (e.g. logged) but my caller must still see the error", so two handlers run. *Continue* means "the error ends here" and the Flow Reference returns successfully.
+- **Flow without handler (4, 5):** every flow has an error handler: if none is declared, the default applies. It propagates, so the error reaches the Try at the flow-ref position. Try's handler matching works like a flow's.
 - **Async (6):** runs on another thread with a copy of the event after the main flow moves on; its errors never reach \`main\`. Log/alert them or use a reliable queue if the notification matters.
 
-**7 — globalHandler:** \`<configuration defaultErrorHandler-ref="globalHandler"/>\` replaces the built-in default for every flow that declares **no** handler of its own (\`persist\`, \`notify\`). It does not override handlers declared in a flow, and it does not apply to sub-flows (they never have a handler). If a flow declares a handler but none of its strategies matches the error, the error is not caught there and propagates to the caller. The same happens in case 5 for the Try. Keep the global handler simple (log + propagate) so you don't accidentally swallow errors from flows that are expected to fail upward.
+**7. globalHandler:** \`<configuration defaultErrorHandler-ref="globalHandler"/>\` replaces the built-in default for every flow that declares **no** handler of its own (\`persist\`, \`notify\`). It does not override handlers declared in a flow, and it does not apply to sub-flows (they never have a handler). If a flow declares a handler but none of its strategies matches the error, the error is not caught there and propagates to the caller. The same happens in case 5 for the Try. Keep the global handler simple (log + propagate) so you don't accidentally swallow errors from flows that are expected to fail upward.
 `,
   followUps: [
     {

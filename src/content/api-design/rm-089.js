@@ -248,7 +248,7 @@ post:
     'securedBy inside a resource type can take its scopes from parameters.',
     'A fragment can use the traits, types and schemes declared in the API that includes it.',
     'Parameters keep the shape shared and the permissions per resource.',
-    'A value written on the resource itself would win over the resource type, so leave securedBy out there.',
+    'A securedBy written on a method of the resource would win over the resource type, so leave it out there.',
   ],
   solution: `
 The resource type holds everything the collections share: paging, the two methods, the bodies and the security. The only differences are three words, and each resource passes them as parameters.
@@ -257,7 +257,7 @@ So \`/refunds\` gets \`refunds:approve\` on its POST, and \`/returns\` gets \`re
 
 The three planned collections each add five lines. Their security is right from the first commit, because nobody has to remember to write it.
 
-Keep \`securedBy\` off the resources. A value written there would replace what the resource type gives, and the shared rule would quietly stop applying.
+Keep \`securedBy\` off the resources and their methods. A \`securedBy\` written on a method of the resource would replace what the resource type gives, and the shared rule would quietly stop applying.
 `,
   followUps: [
     {
@@ -269,7 +269,7 @@ Keep \`securedBy\` off the resources. A value written there would replace what t
       a: 'An included fragment is read as part of the API that includes it. Names declared in that API, such as paged and oauth2, are visible inside it.',
     },
     {
-      q: 'When would you make a method optional in a resource type, as in post?',
+      q: 'When would you make post an optional method in the resource type?',
       a: 'When some collections are read only. With post? the method appears only on resources that also write post themselves.',
     },
     {

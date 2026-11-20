@@ -8,7 +8,7 @@ export default {
   investigation: {
     logs: [
       { text: '2026-10-26 00:00:00.010 INFO  [sales-export] Scheduler fired (cron 0 0 0 * * ?, JVM tz=UTC) = 01:00 Europe/Amsterdam', relevant: true, why: 'The cron has no timeZone, so it fires at 00:00 UTC: 02:00 local in summer but 01:00 local in winter.' },
-      { text: '2026-10-26 00:00:00.010 INFO  [sales-export] Export window 2026-10-24T23:00:00Z .. 2026-10-25T23:00:00Z', relevant: true, why: 'A fixed 24 h window. 25 Oct lasted 25 hours locally and started at 2026-10-24T22:00Z, so 00:00-01:00 local is missing.' },
+      { text: '2026-10-26 00:00:00.010 INFO  [sales-export] Export window 2026-10-24T23:00:00Z .. 2026-10-25T23:00:00Z', relevant: true, why: 'A fixed 24 h window. 25 Oct lasted 25 hours locally and started at 2026-10-24T22:00Z, so 00:00 to 01:00 local is missing.' },
       { text: '2026-10-26 00:00:02.300 INFO  [db] Connection pool initialised (size=5)', relevant: false },
       { text: '2026-10-26 00:00:41.233 INFO  [sales-export] Exported 21,904 rows for business date 2026-10-25', relevant: false },
       { text: '2026-10-26 00:00:42.001 INFO  [sftp] Uploaded sales_20261025.csv to finance', relevant: false },
@@ -19,10 +19,10 @@ export default {
         type: 'single',
         prompt: 'Why is an hour missing on 25 Oct and duplicated in March?',
         options: [
-          'The window is computed as 24 hours, but a local calendar day lasts 25 hours in October and 23 hours in March',
-          'The POS system clock was wrong on those days',
-          'The database stores timestamps in local time',
-          'The scheduler skipped a run on those days',
+          'The window is a fixed 24 hours, but those local days lasted 25 and 23 hours',
+          'The POS system clock was one hour off on the days the clocks changed',
+          'The database stores the sale timestamps in local time, not in UTC',
+          'The scheduler skipped a run, then fired twice, on the DST change days',
         ],
         answer: 0,
         explain: 'toTs is correct (start of today local), but fromTs = toTs - 24h. On DST change days a local day is not 24 h, so the window misses or overlaps one hour.',
@@ -31,10 +31,10 @@ export default {
         type: 'single',
         prompt: 'Why does the job now start at 01:00 local instead of 02:00?',
         options: [
-          'The cron has no timeZone and runs at 00:00 UTC, which is 01:00 in winter (CET)',
-          'CloudHub moved the worker to another region',
-          'The window calculation delays the start',
-          'The cron expression was edited',
+          'The cron has no timeZone, so it runs at 00:00 UTC, which is 01:00 in winter',
+          'CloudHub moved the worker to a region in a different time zone',
+          'The new export window calculation delays the start by one hour',
+          'Someone edited the cron expression during the October release',
         ],
         answer: 0,
         explain: 'Without a timeZone the cron follows the UTC JVM. It is the same hard-coded-offset thinking, though it is not what loses the data.',
@@ -44,18 +44,18 @@ export default {
         prompt: 'What do you do **right now**?',
         options: [
           'Re-run the whole export for 25 Oct with the same code',
-          'Export the missing hour 2026-10-24T22:00Z to 23:00Z as a correction and check the March duplicate with finance',
-          'Change the JVM time zone to Europe/Amsterdam',
-          'Ask finance to ignore DST days',
+          'Export the missing hour (24 Oct 22:00Z to 23:00Z) as a correction, check March',
+          'Set the JVM time zone to Europe/Amsterdam and re-run the 25 Oct export',
+          'Ask finance to accept the gap, since it only happens twice a year',
         ],
         answer: 1,
-        explain: 'Re-running with the same code reproduces the same window. A one-off correction for the exact missing hour fixes the data now.',
+        explain: 'Re-running with the same code reproduces the same window, and a new JVM zone does not change a window built by subtracting 24 hours. A one-off correction for the exact missing hour fixes the data now.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'Cron with timeZone="Europe/Amsterdam" at a local time outside the 02:00-03:00 DST hour',
+          'Cron with timeZone="Europe/Amsterdam" at a local time outside the 02:00 to 03:00 DST hour',
           'Build the window from start of the business date to start of the next date in Europe/Amsterdam, then convert to UTC',
           'MUnit tests for the last Sunday of March and October asserting 23 and 25 hour windows',
           'Use a fixed +01:00 offset for all calculations',
@@ -118,7 +118,7 @@ var fromTs = toTs - |PT24H|
 ## Prevention
 `,
   keyPoints: [
-    'Explains that the local business day of 25 Oct lasted 25 hours (clocks went back). So a fixed PT24H window starting 24 h before local midnight misses the first hour (22:00–23:00 UTC on 24 Oct = 00:00–01:00 local).',
+    'Explains that the local business day of 25 Oct lasted 25 hours (clocks went back). So a fixed PT24H window starting 24 h before local midnight misses the first hour (22:00 to 23:00 UTC on 24 Oct = 00:00 to 01:00 local).',
     'Explains the March case: that day had 23 hours, so the 24 h window overlapped the previous day by one hour, causing duplicates.',
     'Explains the start-time shift: the cron has no timeZone, so it runs at 00:00 UTC, which is 02:00 in summer but 01:00 in winter.',
     'Immediate: re-export the missing hour for 25 Oct (correct window 2026-10-24T22:00Z to 2026-10-25T23:00Z), and check the March export for duplicates.',
@@ -128,7 +128,7 @@ var fromTs = toTs - |PT24H|
   solution: `
 **Diagnosis.** Two separate time bugs.
 
-1. **Window bug.** The job computes \`toTs\` = start of *today* in Amsterdam (correct) and \`fromTs = toTs - 24h\`. But a local calendar day is not always 24 h. On 25 Oct clocks went back, so the day lasted **25 hours**: it started at 00:00 CEST = **2026-10-24T22:00Z** and ended at 00:00 CET = **2026-10-25T23:00Z**. The job used 23:00Z → 23:00Z, missing **00:00–01:00 local**. In March the day is **23 hours**, so the 24 h window reached back into the previous day and exported that hour twice.
+1. **Window bug.** The job computes \`toTs\` = start of *today* in Amsterdam (correct) and \`fromTs = toTs - 24h\`. But a local calendar day is not always 24 h. On 25 Oct clocks went back, so the day lasted **25 hours**: it started at 00:00 CEST = **2026-10-24T22:00Z** and ended at 00:00 CET = **2026-10-25T23:00Z**. The job used 23:00Z → 23:00Z, missing **00:00 to 01:00 local**. In March the day is **23 hours**, so the 24 h window reached back into the previous day and exported that hour twice.
 2. **Schedule bug.** The cron has no \`timeZone\`, so it fires at **00:00 UTC**: 02:00 local in summer, 01:00 local in winter. Not the cause of the missing data, but it shows the same "UTC offset hard-coded" thinking.
 
 **Immediate mitigation.** Run a one-off export for the missing hour (2026-10-24T22:00Z to 23:00Z) and send it to finance, labelled as a correction. Re-check the March export date and remove/credit the duplicate hour if it was double-counted. Tell finance which dates were affected historically (every DST change since go-live).
@@ -138,13 +138,13 @@ var fromTs = toTs - |PT24H|
 **Permanent fix.**
 - Scheduler: \`<cron expression="0 0 4 * * ?" timeZone="Europe/Amsterdam"/>\` so it always runs at 04:00 local. Not 02:00: that hour does not exist on the last Sunday of March and happens twice on the last Sunday of October.
 - Window: take the business date (yesterday in Europe/Amsterdam), build **start of that date** and **start of the next date** in Europe/Amsterdam, then convert both to UTC for the query. Use date arithmetic (\`|P1D|\` on a Date) rather than \`|PT24H|\` on a timestamp.
-- Log the business date and the exact UTC window on every run (already done — that's what made this diagnosable).
+- Log the business date and the exact UTC window on every run (already done, and that is what made this diagnosable).
 
 **Prevention.** MUnit tests that call the window calculation for the last Sunday of March and October (and a normal day) and assert 23/25/24-hour windows; a daily reconciliation comparing row counts per business date between POS and the export; a team rule to store in UTC and convert at the edges with a named zone, never a fixed offset.
 `,
   followUps: [
-    { q: 'Why not just schedule in UTC and avoid time zones entirely?', a: 'Storage and transport in UTC is good, but the business question is "sales for the Amsterdam calendar day", which is defined by local time. The boundaries must be computed in the business zone and then converted to UTC.' },
-    { q: 'What happens to a cron job scheduled at 02:30 local on the night clocks go forward?', a: '02:30 does not exist that night, so depending on the scheduler implementation the run may be skipped or shifted. Avoid scheduling business jobs in the 02:00–03:00 local window in DST zones.' },
+    { q: 'Why not schedule in UTC and avoid time zones entirely?', a: 'Storage and transport in UTC is good, but the business question is "sales for the Amsterdam calendar day", which is defined by local time. The boundaries must be computed in the business zone and then converted to UTC.' },
+    { q: 'What happens to a cron job scheduled at 02:30 local on the night clocks go forward?', a: '02:30 does not exist that night, so depending on the scheduler implementation the run may be skipped or shifted. Avoid scheduling business jobs in the 02:00 to 03:00 local window in DST zones.' },
     { q: 'How would you prove the root cause to finance?', a: 'Show the logged UTC window next to the true local-day boundaries for 25 Oct. Then query the database for rows between 22:00Z and 23:00Z on 24 Oct. That count matches the missing sales.' },
   ],
 }

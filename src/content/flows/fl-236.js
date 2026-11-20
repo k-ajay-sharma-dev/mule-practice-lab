@@ -93,6 +93,11 @@ When a load failed, the old flow emailed support the whole message. The privacy 
 - Email \`integration-support@brindle.example\` an alert with the order ID, the error type and the correlation ID. No customer data at all.
 - A mail problem must not change what happens to the order.
 
+**Facts**
+- Catch the error, so the order message is acknowledged once it is on the failure queue.
+- Write the error type as \`namespace:identifier\`, such as \`DB:QUERY_EXECUTION\`.
+- Write the alert body as labelled lines: \`orderId: ...\`, \`error: ...\`, \`correlationId: ...\`. The word "customer" must not appear in it.
+
 **Design the flow.**
 `,
   answerTemplate: `## Loading the order

@@ -224,12 +224,19 @@ export default {
 The B2B portal submits orders synchronously to \`POST /api/orders\` and waits for an answer. The **SLA is p95 < 2 s**; load is ~15 orders/s.
 
 For every order the API must:
-1. **Validate** it: JSON schema, plus 1–200 lines.
+1. **Validate** it: the JSON schema, plus 1 to 200 lines.
 2. **Enrich** it: look up the customer (Customer DB; unknown customers are rejected) and get prices from the **Pricing API** (~300 ms).
 3. **Route by ship-to country**: EU countries → **EU Fulfilment API**, US/CA → **NA Fulfilment API**. Any other country is rejected.
 4. **Respond** \`201\` with the fulfilment reference.
 
-Error responses: invalid order → **400**; unknown customer or unsupported country → **422**; a dependency down or timing out → **503**. Every error body has a code, a message and the correlation ID. Business rejections use custom error types in the \`APP\` namespace, for example \`APP:UNSUPPORTED_COUNTRY\`.
+Error responses: invalid order → **400**; unknown customer or unsupported country → **422**; a dependency down or timing out → **503**. Every error body is \`{ code, message, correlationId }\`. Even when a dependency hangs, the portal must get its answer inside 2 s. Business rejections use custom error types in the \`APP\` namespace, for example \`APP:UNSUPPORTED_COUNTRY\`.
+
+**Facts**
+- An order is \`{ orderId, customerId, shipTo: { country }, lines: [{ sku, qty }] }\`. The project's schema \`schemas/order.json\` describes it.
+- The Customer DB has a \`customers\` table with \`customer_id\`, \`tier\` and \`credit_blocked\`.
+- The Pricing API is \`POST /pricing/quote\`. It takes the lines and answers \`{ lines, total, currency }\` with a \`unitPrice\` on each line.
+- EU Fulfilment is \`POST /eu-fulfilment/orders\` and NA Fulfilment is \`POST /na-fulfilment/orders\`. Both answer with a \`reference\`.
+- Countries are ISO codes such as \`DE\`, \`FR\`, \`US\` and \`CA\`.
 
 The validation and enrichment logic will also be reused by a bulk-upload flow next quarter.
 
@@ -258,7 +265,7 @@ The validation and enrichment logic will also be reused by a bulk-upload flow ne
   ],
   solution: `
 **Flow \`post-order\`** (HTTP Listener \`POST /api/orders\`):
-1. **Flow Ref \`validate-order\`**: sub-flow with **Validate json-schema** (JSON module, \`schemas/order.json\`, raises \`JSON:SCHEMA_NOT_HONOURED\`) and **Validate is-true** (1–200 lines, raises \`VALIDATION:INVALID_BOOLEAN\`).
+1. **Flow Ref \`validate-order\`**: sub-flow with **Validate json-schema** (JSON module, \`schemas/order.json\`, raises \`JSON:SCHEMA_NOT_HONOURED\`) and **Validate is-true** (1 to 200 lines, raises \`VALIDATION:INVALID_BOOLEAN\`).
 2. **Flow Ref \`lookup-customer\`**, \`target="customer"\`: Database Select → Choice: empty → **Raise Error \`APP:CUSTOMER_NOT_FOUND\`**, else return \`{ id, tier }\`.
 3. **Flow Ref \`price-order\`**, \`target="pricing"\`: HTTP Request \`POST /pricing/quote\`, \`responseTimeout 800\`.
    Steps 2 and 3 are independent. If latency is tight, run them in a **Scatter-Gather** instead. Two things change then: the Scatter-Gather replaces the payload with its route results, so keep the order in a variable and put it back after the scope; and a failing route surfaces as \`MULE:COMPOSITE_ROUTING\`, so the handlers must look at \`error.errorMessage.payload.failures\` to tell an \`APP:\` rejection (422) from a dependency outage (503).

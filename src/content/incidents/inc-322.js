@@ -7,33 +7,34 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 08:00:00 INFO  [stock-consumer] Started after weekend maintenance", relevant: true, why: "The consumer was down for three days." },
-      { text: "2026-11-18 08:00:01 INFO  [stock-consumer] Queue stock-updates depth=0", relevant: true, why: "Nothing is waiting." },
-      { text: "2026-11-15 09:00:00 INFO  [stock-publisher] Published count=41200 queue=stock-updates", relevant: true, why: "Many messages were sent." },
-      { text: "2026-11-18 08:00:01 INFO  [broker] Queue stock-updates defaultTtl=24h", relevant: true, why: "Messages expire after one day." },
-      { text: "2026-11-18 23:59:00 INFO  [stock-consumer] GET /health 200", relevant: false },
+      { text: "2026-11-13 18:00:00 INFO  [stock-consumer] Stopped for weekend maintenance", relevant: true, why: "The consumer stops on Friday evening." },
+      { text: "2026-11-14 09:00:00 INFO  [stock-publisher] Published count=41200 queue=stock-updates", relevant: true, why: "Many messages were sent while nobody was reading." },
+      { text: "2026-11-16 08:00:00 INFO  [stock-consumer] Started after weekend maintenance", relevant: true, why: "The consumer was down for 62 hours." },
+      { text: "2026-11-16 08:00:01 INFO  [stock-consumer] Queue stock-updates depth=0", relevant: true, why: "Nothing is waiting." },
+      { text: "2026-11-16 08:00:01 INFO  [broker] Queue stock-updates defaultTtl=24h", relevant: true, why: "Messages expire one day after they are sent." },
+      { text: "2026-11-16 08:05:00 INFO  [stock-consumer] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Where did the messages go?",
         options: [
-          "They expired after 24 hours while the consumer was down",
-          "The consumer read them",
-          "They were never sent",
-          "The broker crashed",
+          "They expired 24 hours after they were sent, while no consumer was reading",
+          "Another consumer on the queue read and acknowledged them on Saturday",
+          "The publisher sent them to a different queue during the maintenance",
+          "The broker purged the queue when the consumer restarted on Monday",
         ],
         answer: 0,
-        explain: "A time to live removes messages nobody reads in time.",
+        explain: "A time to live removes messages nobody reads in time. Saturday’s messages expired on Sunday.",
       },
       {
         type: 'single',
         prompt: "What should the TTL be for stock updates?",
         options: [
-          "Longer than the longest planned outage, or none, with the DLQ catching problems",
-          "One hour",
-          "One minute",
-          "Random",
+          "Longer than the longest planned outage, or none, with alerts on depth",
+          "One hour, so stores never apply a stock level that is out of date",
+          "Keep 24 hours and restart the consumer faster after maintenance",
+          "Twelve hours, so the queue stays small during long outages",
         ],
         answer: 0,
         explain: "TTL should match how long data stays useful and how long outages last.",
@@ -45,19 +46,19 @@ export default {
           "An alert when the consumer is down",
           "An expiry queue so expired messages are kept",
           "A full stock snapshot after long outages",
-          "Shorter TTL",
+          "A shorter TTL so the queue stays small",
         ],
         answer: [0,1,2],
-        explain: "Detect, keep and recover.",
+        explain: "Detect, keep and recover. A shorter TTL loses even more messages.",
       },
       {
         type: 'single',
         prompt: "Is some expiry ever right?",
         options: [
           "Yes, for data that is worthless when old, such as live prices",
-          "Never",
-          "Always",
-          "Only for DLQs",
+          "No, every message must be delivered however old it is",
+          "Only on dead letter queues, never on main queues",
+          "Yes, every queue should expire messages after a day",
         ],
         answer: 0,
         explain: "Pick TTL per data type.",
@@ -78,18 +79,19 @@ export default {
   },
   description: `
 ## Symptoms
-- After a long weekend, stores show stock from Friday.
+- After the weekend, stores show stock from Friday.
 
 ## Change / Context
-- The consumer was stopped for planned maintenance from Friday to Monday.
+- The consumer was stopped for planned maintenance from Friday evening to Monday morning.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 08:00:00 INFO  [stock-consumer] Started after weekend maintenance
-2026-11-18 08:00:01 INFO  [stock-consumer] Queue stock-updates depth=0
-2026-11-15 09:00:00 INFO  [stock-publisher] Published count=41200 queue=stock-updates
-2026-11-18 08:00:01 INFO  [broker] Queue stock-updates defaultTtl=24h
+2026-11-13 18:00:00 INFO  [stock-consumer] Stopped for weekend maintenance
+2026-11-14 09:00:00 INFO  [stock-publisher] Published count=41200 queue=stock-updates
+2026-11-16 08:00:00 INFO  [stock-consumer] Started after weekend maintenance
+2026-11-16 08:00:01 INFO  [stock-consumer] Queue stock-updates depth=0
+2026-11-16 08:00:01 INFO  [broker] Queue stock-updates defaultTtl=24h
 \`\`\`
 
 ## Your tasks
@@ -117,7 +119,7 @@ These lines are illustrative and were written for this scenario. Real log format
     "Plan maintenance with queue settings in mind.",
   ],
   solution: `
-**Diagnosis.** The queue TTL of 24 hours removed messages while the consumer was down for three days.
+**Diagnosis.** The queue TTL of 24 hours removed messages while the consumer was down for 62 hours.
 
 **Immediate mitigation.**
 - Resend a full stock snapshot.

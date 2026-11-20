@@ -15,6 +15,8 @@ Output one object per order with:
 - \`hasShortage\`: \`true\` when **some** line has \`qtyPicked\` below \`qtyOrdered\`
 - \`needsBubbleWrap\`: \`true\` when **some** line is \`fragile\`
 
+An order with no lines is \`complete\`, with no shortage and no bubble wrap. That is what \`every\` and \`some\` answer for an empty list.
+
 The \`dw::core::Arrays\` module has \`every\` and \`some\`. Each takes a list and a condition, and answers \`true\` or \`false\`.
 `,
   inputs: [

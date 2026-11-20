@@ -82,6 +82,7 @@ export default {
 - Lunch and dinner peaks: ~300 orders per minute.
 - POS vendors occasionally go down for minutes at a time (up to 15 minutes), and about 1 order in 100 has data a POS rejects every time.
 - Order status updates (accepted, ready, picked up) must flow back to the app.
+- Try each order for up to 30 minutes, then send it to a dead-letter queue. The queue redelivers a failed message about once a minute, so a redelivery limit of 30 covers that.
 
 **Your task.** Propose an integration design using MuleSoft for order submission and status updates.
 `,
@@ -98,7 +99,7 @@ export default {
   keyPoints: [
     'The app calls an Orders API that validates, stores/acknowledges and returns quickly (e.g. 202 Accepted with an order ID); delivery to the POS happens asynchronously.',
     'A queue (e.g. Anypoint MQ) decouples order acceptance from POS delivery so a slow POS does not slow checkout.',
-    'One adapter (System API or flow) per POS vendor translates a canonical order format to the vendor format — adding a vendor means adding an adapter only.',
+    'One adapter (System API or flow) per POS vendor translates a canonical order format to the vendor format. Adding a vendor means adding an adapter only.',
     'An idempotency key (order ID) is sent to the POS and checked on retries so restaurants do not get duplicate orders.',
     'Status updates arrive via vendor webhooks/polling into a status API that normalises them and pushes to the app (push notification or event).',
     'Failed deliveries retry with backoff, then go to a dead-letter queue with an alert so operations can phone the restaurant.',
@@ -118,7 +119,7 @@ export default {
 `,
   followUps: [
     { q: 'Why return 202 instead of 201 to the app?', a: 'The order is accepted but not yet confirmed by the restaurant; 202 signals asynchronous processing and the app tracks status via updates instead of waiting.' },
-    { q: 'What happens if a POS is down for 20 minutes during dinner?', a: 'Messages stay in its queue and retry; other vendors are unaffected. After a threshold the operations desk is alerted to call the restaurant, and the app can show a delay message.' },
+    { q: 'What happens if a POS is down for 20 minutes during dinner?', a: 'Its orders stay in the queue and are retried for up to 30 minutes, so they survive the outage; orders for other vendors keep flowing. After a threshold the operations desk is alerted to call the restaurant, and the app can show a delay message.' },
     { q: 'How do you measure success?', a: 'Checkout p95 latency, orders delivered to POS within N seconds, duplicate-order complaints, and time to onboard a new POS vendor.' },
   ],
 }

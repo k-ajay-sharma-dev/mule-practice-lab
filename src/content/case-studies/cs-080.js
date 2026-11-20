@@ -86,6 +86,7 @@ export default {
 **Constraints**
 - The processor API allows 50 requests per second and does not send webhooks. Status changes must be polled.
 - In tests customers raise 1 dispute a second, the core ledger fails 1 call in 10, and the notification service can be down for an hour.
+- sys-core-ledger-api tries a failed ledger call 2 more times. Publish status changes on a \`dispute-status-changed\` topic, which redelivers a failed message about once a minute; keep each event until notifications are back, with no redelivery limit lower than 90.
 - Core banking posts ledger entries through a CICS transaction wrapped in a SOAP service.
 - Card numbers must not be stored outside the processor; the bank uses the processor's card reference.
 

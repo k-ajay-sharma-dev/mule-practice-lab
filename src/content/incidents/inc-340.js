@@ -9,18 +9,18 @@ export default {
     logs: [
       { text: "2026-11-18 01:00:00 INFO  [hist-load] Reading history.csv rows=6000000", relevant: false },
       { text: "2026-11-18 01:20:00 WARN  [hist-load] Row 2104411 has 14 fields, expected 12", relevant: true, why: "One row has extra fields." },
-      { text: "2026-11-18 01:20:00 INFO  [hist-load] Row content contains a comma inside a description without quotes", relevant: true, why: "A value has an unquoted comma." },
-      { text: "2026-11-18 01:21:00 INFO  [hist-load] Rows after 2104411 loaded with shifted columns", relevant: true, why: "The parser lost alignment." },
+      { text: "2026-11-18 01:20:00 INFO  [hist-load] Row 2104411 description has commas and no quotes", relevant: true, why: "A value has unquoted commas." },
+      { text: "2026-11-18 01:45:00 INFO  [hist-load] Load finished rows=6000000 rowsWithExtraFields=1840 loadedShifted=1840", relevant: true, why: "Every row with extra fields was loaded shifted." },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why did columns shift?",
         options: [
-          "A description contains commas but is not quoted, so the row splits wrongly",
-          "The file is too big",
-          "Encoding",
-          "Memory",
+          "Descriptions contain unquoted commas, so those rows split wrongly",
+          "The file switched encoding to UTF-16 at row 2.1 million",
+          "The file is over 2 GB, so the parser loses its place",
+          "The loader ran out of memory and skipped two columns",
         ],
         answer: 0,
         explain: "CSV needs quoting for commas in values.",
@@ -29,13 +29,13 @@ export default {
         type: 'single',
         prompt: "What should the loader do with such a row?",
         options: [
-          "Reject the row with its line number and continue, not load it shifted",
-          "Load it shifted",
-          "Stop forever",
-          "Guess the columns",
+          "Reject the row with its line number and load the rest",
+          "Merge the extra fields into the description automatically",
+          "Load it as it is and fix the columns in a later job",
+          "Stop the whole 6 million row load at the first bad row",
         ],
         answer: 0,
-        explain: "Bad rows go to rejects.",
+        explain: "Bad rows go to rejects. Guessing which comma belongs to the text can be wrong.",
       },
       {
         type: 'multi',
@@ -44,7 +44,7 @@ export default {
           "The sender quotes text fields",
           "Check the field count on every row",
           "Use a delimiter not found in data, if agreed",
-          "Ignore field counts",
+          "Skip the field count check to keep the load fast",
         ],
         answer: [0,1,2],
         explain: "Validate structure row by row.",
@@ -53,10 +53,10 @@ export default {
         type: 'single',
         prompt: "Why did only later rows break?",
         options: [
-          "The bad value appeared first at row 2.1 million",
-          "Memory ran out",
-          "The file changed",
-          "Random",
+          "Descriptions with commas first appear at row 2.1 million",
+          "Memory ran low after two million rows were read",
+          "The sender changed the file format half way through",
+          "The parser resets its column map every million rows",
         ],
         answer: 0,
         explain: "Large files hide rare data.",
@@ -65,7 +65,7 @@ export default {
         type: 'order',
         prompt: "Order the response.",
         items: [
-          "Remove rows loaded after the bad row",
+          "Remove the 1,840 shifted rows",
           "Add a field count check",
           "Reload, rejecting bad rows",
           "Report the bad row to the sender",
@@ -77,7 +77,7 @@ export default {
   },
   description: `
 ## Symptoms
-- History data after row 2.1 million has values in the wrong columns.
+- Some history rows after row 2.1 million have values in the wrong columns.
 
 ## Change / Context
 - The sender writes CSV without quoting text fields.
@@ -86,8 +86,8 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 01:20:00 WARN  [hist-load] Row 2104411 has 14 fields, expected 12
-2026-11-18 01:20:00 INFO  [hist-load] Row content contains a comma inside a description without quotes
-2026-11-18 01:21:00 INFO  [hist-load] Rows after 2104411 loaded with shifted columns
+2026-11-18 01:20:00 INFO  [hist-load] Row 2104411 description has commas and no quotes
+2026-11-18 01:45:00 INFO  [hist-load] Load finished rows=6000000 rowsWithExtraFields=1840 loadedShifted=1840
 \`\`\`
 
 ## Your tasks
@@ -115,7 +115,7 @@ These lines are illustrative and were written for this scenario. Real log format
     "Do not load shifted data.",
   ],
   solution: `
-**Diagnosis.** An unquoted comma split one row into 14 fields.
+**Diagnosis.** Unquoted commas split 1,840 rows into too many fields, the first at row 2,104,411.
 
 **Immediate mitigation.**
 - Clean and reload with a field count check.

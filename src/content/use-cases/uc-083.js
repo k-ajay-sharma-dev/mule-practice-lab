@@ -72,7 +72,8 @@ Facts:
 - The DC runs a WMS that publishes stock changes as messages.
 - The **OMS** creates customer orders and knows how to ship from a store or the DC.
 - Store stock should be accurate to **5 minutes** for this feature.
-- On a Saturday afternoon stores and the DC send about **120 movements a second**. The central database can be down for 10 minutes, and the broker can restart while messages wait.
+- On a Saturday afternoon stores and the DC send about **120 movements a second**. The queue should never hold more than about a minute of movements, so stock stays well inside the 5 minutes.
+- The central database can be down for 10 minutes, and the broker can restart while messages wait. No movement may be lost.
 
 **Questions:**
 1. Where does the tablet read stock from, and why not ask the stores live?
@@ -100,7 +101,7 @@ Facts:
   solution: `
 **Central inventory.** One table holds on-hand and reserved quantity per location (store or DC) and SKU. It is reached only through sys-inventory.
 
-**Keeping it current.** Each store system publishes a stock movement for every sale, return and delivery to **stock-movements** (persistent). The DC WMS does the same. prc-inventory-sync consumes the queue and applies each movement through sys-inventory. Every movement carries a **sequence number per store**; a message older than the last one applied for that store and SKU is ignored. 2 million movements a day is about 25 a second on average and a few hundred at peak, which one consumer group with batching handles. Once a night each store also sends a full snapshot that corrects drift.
+**Keeping it current.** Each store system publishes a stock movement for every sale, return and delivery to **stock-movements** (persistent). The DC WMS does the same. prc-inventory-sync consumes the queue and applies each movement through sys-inventory. Every movement carries a **sequence number per store**; a message older than the last one applied for that store and SKU is ignored. 2 million movements a day is about 25 a second on average and a few hundred at peak, which one consumer group with batching handles; at 120 a second prc-inventory-sync and sys-inventory need about 0.5 vCore each to keep the queue under a minute. Because the messages are persistent, a broker restart during a database outage loses nothing. Once a night each store also sends a full snapshot that corrects drift.
 
 **Lookup from the tablet.** The staff tablet calls exp-store-assist, which calls prc-endless-aisle. The Process API finds stores within 30 km of the current store and reads their stock and the DC stock in one query. Asking 220 stores live would be slow, and any store with a WAN outage would make the lookup fail.
 

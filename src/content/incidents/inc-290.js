@@ -8,7 +8,7 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 11:00:00 INFO  [order-alert] Sending alert body=#[payload]", relevant: true, why: "The alert includes the whole payload." },
-      { text: "2026-11-18 11:00:00 INFO  [order-alert] Recipients=integration-alerts@marrow.example (64 members)", relevant: true, why: "A large list receives it." },
+      { text: "2026-11-18 11:00:00 INFO  [order-alert] Recipients=integration-alerts@marrow.example.com (64 members)", relevant: true, why: "A large list receives it." },
       { text: "2026-11-18 11:30:00 WARN  [privacy] Personal data found in alert emails", relevant: true, why: "Privacy flagged it." },
       { text: "2026-11-18 11:31:00 INFO  [order-alert] Alerts sent today=212", relevant: true, why: "Many emails already went out." },
       { text: "2026-11-18 23:59:00 INFO  [order-alert] GET /health 200", relevant: false },
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "What is wrong?",
         options: [
-          "Alerts include the full order payload with personal data, sent to a big list",
-          "The list is wrong",
-          "Too many alerts",
-          "TLS failed",
+          "Alerts carry the full order payload to a 64 member list",
+          "The alert goes to the wrong distribution list by mistake",
+          "Too many alerts were sent, so privacy reviewed them",
+          "The mail relay sent the alerts in plain text without TLS",
         ],
         answer: 0,
         explain: "Payloads do not belong in alerts.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What should an alert include?",
         options: [
-          "The error, the order ID, the time and a link to the log or record",
-          "The full payload",
-          "Customer address",
-          "Nothing",
+          "The error, order ID, time and a link to the log or record",
+          "The full payload so support can see the whole order",
+          "The customer address so support can contact them",
+          "The order ID only, with no error text or link",
         ],
         answer: 0,
         explain: "Enough to act, no personal data.",
@@ -45,7 +45,7 @@ export default {
           "Report the exposure to the privacy team",
           "Reduce the alert list to people who act",
           "Review other alerts for payloads",
-          "Forward the emails to more people",
+          "Keep the template and mark the emails confidential",
         ],
         answer: [0,1,2],
         explain: "Contain and review.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Where can support see the details?",
         options: [
           "In secured logs or the system of record, behind access control",
-          "In email",
-          "On a shared drive",
-          "Nowhere",
+          "In the alert email, as long as it is marked confidential",
+          "On a shared team drive that the whole alert list can open",
+          "In a nightly export of payloads sent to the support team",
         ],
         answer: 0,
         explain: "Keep data where access is controlled.",
@@ -87,7 +87,7 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 11:00:00 INFO  [order-alert] Sending alert body=#[payload]
-2026-11-18 11:00:00 INFO  [order-alert] Recipients=integration-alerts@marrow.example (64 members)
+2026-11-18 11:00:00 INFO  [order-alert] Recipients=integration-alerts@marrow.example.com (64 members)
 2026-11-18 11:30:00 WARN  [privacy] Personal data found in alert emails
 2026-11-18 11:31:00 INFO  [order-alert] Alerts sent today=212
 \`\`\`

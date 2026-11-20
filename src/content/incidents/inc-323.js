@@ -7,21 +7,21 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
-      { text: "2026-11-18 10:00:00 INFO  [item-consumer-1] Applied item=ITM-5520 version=7 status=DISCONTINUED", relevant: true, why: "Version 7 applied first." },
-      { text: "2026-11-18 10:00:00 INFO  [item-consumer-2] Applied item=ITM-5520 version=6 status=ACTIVE", relevant: true, why: "Older version 6 applied after." },
       { text: "2026-11-18 09:00:00 INFO  [deploy] item-consumer replicas 1 to 2", relevant: true, why: "Scaling changed ordering." },
+      { text: "2026-11-18 10:00:00 INFO  [item-consumer-1] Applied item=ITM-5520 version=7 status=DISCONTINUED", relevant: true, why: "Version 7 applied first." },
+      { text: "2026-11-18 10:00:02 INFO  [item-consumer-2] Applied item=ITM-5520 version=6 status=ACTIVE", relevant: true, why: "Older version 6 applied after and overwrote it." },
       { text: "2026-11-18 10:05:00 WARN  [planning-export] Item ITM-5520 sent as ACTIVE", relevant: true, why: "Wrong status goes downstream." },
-      { text: "2026-11-18 23:59:00 INFO  [item-consumer-1] GET /health 200", relevant: false },
+      { text: "2026-11-18 10:05:30 INFO  [item-consumer-1] GET /health 200", relevant: false },
     ],
     questions: [
       {
         type: 'single',
         prompt: "Why is the item wrong?",
         options: [
-          "Two consumers processed versions of the same item in parallel, and the older one finished last",
-          "The sender was wrong",
-          "The database is wrong",
-          "The export is wrong",
+          "Two consumers applied versions of one item in parallel and the older finished last",
+          "The sender published version 6 after version 7, so the consumer order was right",
+          "The planning export read the item before consumer 1 had committed version 7",
+          "The second replica runs an older build that maps DISCONTINUED to ACTIVE",
         ],
         answer: 0,
         explain: "Parallel consumers break order per key.",
@@ -31,21 +31,21 @@ export default {
         prompt: "Which fix keeps two consumers?",
         options: [
           "Ignore an update when its version is older than the stored one",
-          "Go back to one consumer only",
-          "Add a delay",
-          "Sort by time in the export",
+          "Add a short delay in each consumer before applying an update",
+          "Sort the items by last update time in the planning export",
+          "Set prefetch to 1 on both consumers so they take turns",
         ],
         answer: 0,
-        explain: "A version check makes order irrelevant.",
+        explain: "A version check makes arrival order irrelevant. A delay or prefetch of 1 still lets two consumers race.",
       },
       {
         type: 'multi',
         prompt: "Which other designs keep order per item?",
         options: [
-          "Message groups or partitions keyed by item ID",
-          "FIFO queues with a group ID",
-          "A single consumer per partition",
-          "Random consumers",
+          "Message groups keyed by item ID",
+          "FIFO queues with a group ID per item",
+          "Partitions by item ID, one consumer each",
+          "More replicas sharing one plain queue",
         ],
         answer: [0,1,2],
         explain: "Order is needed per key, not globally.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What must the sender include?",
         options: [
-          "A version or sequence per item",
-          "A random ID only",
-          "The time it was read",
-          "Nothing",
+          "A version or sequence number per item",
+          "A unique message ID on every message",
+          "The time the consumer received it",
+          "The name of the queue it was sent to",
         ],
         answer: 0,
         explain: "Without a version the receiver cannot tell old from new.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 10:00:00 INFO  [item-consumer-1] Applied item=ITM-5520 version=7 status=DISCONTINUED
-2026-11-18 10:00:00 INFO  [item-consumer-2] Applied item=ITM-5520 version=6 status=ACTIVE
 2026-11-18 09:00:00 INFO  [deploy] item-consumer replicas 1 to 2
+2026-11-18 10:00:00 INFO  [item-consumer-1] Applied item=ITM-5520 version=7 status=DISCONTINUED
+2026-11-18 10:00:02 INFO  [item-consumer-2] Applied item=ITM-5520 version=6 status=ACTIVE
 2026-11-18 10:05:00 WARN  [planning-export] Item ITM-5520 sent as ACTIVE
 \`\`\`
 

@@ -10,7 +10,7 @@ export default {
       { text: "2026-11-18 01:00:01 INFO  [order-import] Listing container=incoming prefix=2026/11/17/", relevant: false },
       { text: "2026-11-18 01:00:03 INFO  [order-import] Listed blobs=5000 nextMarker=present", relevant: true, why: "There are more blobs than one page returns." },
       { text: "2026-11-18 01:20:00 INFO  [order-import] Processed files=5000", relevant: true, why: "Only the first page was processed." },
-      { text: "2026-11-18 09:00:00 WARN  [reconcile] Files in container=7342 processed=5000", relevant: true, why: "More than 2,000 files were skipped." },
+      { text: "2026-11-18 09:00:00 WARN  [reconcile] Files under prefix=2026/11/17/ count=7342 processed=5000", relevant: true, why: "More than 2,000 files were skipped." },
       { text: "2026-11-18 09:01:00 INFO  [order-import] GET /health 200", relevant: false },
     ],
     questions: [
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why are files skipped on busy days?",
         options: [
-          "A list call returns a page of results, and the flow did not follow the next marker for more",
-          "Azure hides files",
-          "The files are too large",
-          "The prefix is wrong",
+          "The list call returns one page, and the flow ignores the next marker",
+          "Files uploaded after 01:00 land under the prefix after the listing",
+          "The import times out after 20 minutes and stops at 5,000 files",
+          "Some files are still being written, so the list call hides them",
         ],
         answer: 0,
         explain: "Listing is paged. Without following the marker, you only see the first page.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Why did quiet days work?",
         options: [
-          "Fewer files than one page, so one call returned them all",
-          "They run faster",
-          "The marker is only used at weekends",
-          "Luck",
+          "They had fewer files than one page, so one call got them all",
+          "They finish before the 20 minute timeout, so all pages complete",
+          "Fewer files arrive late, so the listing sees all of them",
+          "The marker is only returned once a container passes 7,000 blobs",
         ],
         answer: 0,
         explain: "The bug only shows when volume passes the page size.",
@@ -45,7 +45,7 @@ export default {
           "Loop while a next marker is returned, passing it to the next call",
           "Use the connector’s paging or streaming support if it has one",
           "Process each page before asking for the next, to save memory",
-          "Ask for a bigger page every time",
+          "Ask for a larger page size so one call gets all",
         ],
         answer: [0,1,2],
         explain: "Follow the paging. A larger page only moves the limit.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "How do you avoid processing a file twice across runs?",
         options: [
-          "Move or tag processed blobs, or record them, so the next run ignores them",
-          "Process everything every night",
-          "Delete the container",
-          "Rely on the order of the list",
+          "Move, tag or record processed blobs so the next run skips them",
+          "List only the day’s prefix, since each day has new blob names",
+          "Store the last blob name processed and start the next list after it",
+          "Skip any blob whose last modified time is before the last run",
         ],
         answer: 0,
         explain: "Paging finds everything. A processed marker stops repeats.",
@@ -89,7 +89,7 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 01:00:03 INFO  [order-import] Listed blobs=5000 nextMarker=present
 2026-11-18 01:20:00 INFO  [order-import] Processed files=5000
-2026-11-18 09:00:00 WARN  [reconcile] Files in container=7342 processed=5000
+2026-11-18 09:00:00 WARN  [reconcile] Files under prefix=2026/11/17/ count=7342 processed=5000
 \`\`\`
 
 ## Your tasks

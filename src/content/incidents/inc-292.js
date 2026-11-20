@@ -8,8 +8,8 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 06:00:00 INFO  [price-report] Attachment prices.csv encoding=UTF-8 bom=false", relevant: true, why: "UTF-8 without a BOM." },
-      { text: "2026-11-18 06:30:00 WARN  [buyers] Names show as CafÃ© in the spreadsheet", relevant: true, why: "The app guessed the wrong encoding." },
       { text: "2026-11-18 06:00:00 INFO  [price-report] contentType=text/csv", relevant: true, why: "No charset on the content type." },
+      { text: "2026-11-18 06:30:00 WARN  [buyers] Names show as CafÃ© in the spreadsheet", relevant: true, why: "The app guessed the wrong encoding." },
       { text: "2026-11-18 06:31:00 INFO  [buyers] Opening via import wizard with UTF-8 works", relevant: true, why: "The data is right." },
       { text: "2026-11-18 23:59:00 INFO  [price-report] GET /health 200", relevant: false },
     ],
@@ -19,9 +19,9 @@ export default {
         prompt: "Why do names look broken?",
         options: [
           "The spreadsheet app guesses a legacy encoding for UTF-8 without a BOM",
-          "The data is wrong",
-          "Email changed it",
-          "The CSV is broken",
+          "The price data was stored with broken characters",
+          "The mail server re-encoded the attachment in transit",
+          "DataWeave wrote the CSV in a legacy single byte encoding",
         ],
         answer: 0,
         explain: "The bytes are fine.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What helps?",
         options: [
           "Add a UTF-8 BOM and charset in the content type",
-          "Remove accents",
-          "Use ASCII",
-          "Send PDF only",
+          "Strip accents from names before writing the CSV",
+          "Write the CSV in ASCII and drop other characters",
+          "Send the report as a PDF only from now on",
         ],
         answer: 0,
         explain: "Give the app a hint.",
@@ -54,13 +54,13 @@ export default {
         type: 'single',
         prompt: "How do you add a BOM in DataWeave?",
         options: [
-          "With the bom writer property for CSV output",
-          "It is impossible",
-          "With a header row",
-          "With quotes",
+          "Put the BOM character in front of the CSV text",
+          "It is not possible in DataWeave",
+          "With a header row that holds the BOM text",
+          "By quoting every field in the CSV output",
         ],
         answer: 0,
-        explain: "output application/csv bom=true, where supported.",
+        explain: "The CSV writer has no bom property. Write the CSV to text and add the BOM in front: \"\\uFEFF\" ++ write(rows, \"application/csv\").",
       },
       {
         type: 'order',
@@ -87,8 +87,8 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 06:00:00 INFO  [price-report] Attachment prices.csv encoding=UTF-8 bom=false
-2026-11-18 06:30:00 WARN  [buyers] Names show as CafÃ© in the spreadsheet
 2026-11-18 06:00:00 INFO  [price-report] contentType=text/csv
+2026-11-18 06:30:00 WARN  [buyers] Names show as CafÃ© in the spreadsheet
 2026-11-18 06:31:00 INFO  [buyers] Opening via import wizard with UTF-8 works
 \`\`\`
 

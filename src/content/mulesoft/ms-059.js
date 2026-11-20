@@ -22,25 +22,25 @@ export default {
       type: 'single',
       prompt: 'The e-commerce app subscribes to the topic with a **non-durable** subscription. It is redeployed for 10 minutes during a promotion launch. What happens to price changes published in those 10 minutes?',
       options: [
-        'They are lost for that app — a non-durable subscription only exists while the subscriber is connected',
-        'They wait on the topic and are delivered when the app reconnects',
-        'They are moved to ActiveMQ.DLQ',
-        'The publisher receives an error until the subscriber is back',
+        'They are lost, as no subscription existed to keep them',
+        'They wait on the topic until the app reconnects',
+        'They are moved to ActiveMQ.DLQ for later replay',
+        'The publisher gets errors until the subscriber is back',
       ],
       answer: 0,
-      explain: 'Only a **durable** subscription keeps messages for an offline subscriber. A non-durable subscriber simply misses what was published while it was away; the publisher is not affected.',
+      explain: 'A non-durable subscription only exists while the subscriber is connected. Only a **durable** subscription keeps messages for an offline subscriber. A non-durable subscriber misses what was published while it was away; the publisher is not affected.',
     },
     {
       type: 'single',
       prompt: 'The store-sync app runs on **2 replicas**, each with a durable topic subscription. Every price change is now pushed to the stores twice. What is the cleanest fix with a JMS 2.0 broker such as Artemis?',
       options: [
-        'A shared durable subscription — both replicas consume from the same subscription name, so each message goes to only one of them',
-        'Scale the app down to one replica',
+        'A shared durable subscription used by both replicas',
+        'Scale the app down to a single replica',
         'Give each replica a different client ID',
-        'Switch the replicas to non-durable subscriptions',
+        'Switch both replicas to non-durable subscriptions',
       ],
       answer: 0,
-      explain: 'Two separate durable subscriptions are two copies. A **shared** subscription (JMS 2.0) load-balances one subscription across several consumers. Different client IDs would still create two subscriptions, so the duplicates remain.',
+      explain: 'Both replicas consume from the same subscription name, so each message goes to only one of them. One replica removes the duplicates but also the high availability, and non-durable subscriptions lose messages during a redeploy. Two separate durable subscriptions are two copies. A **shared** subscription (JMS 2.0) load-balances one subscription across several consumers. Different client IDs would still create two subscriptions, so the duplicates remain.',
     },
     {
       type: 'match',
@@ -106,7 +106,7 @@ Two prototypes had problems:
 - **Durable**: the broker keeps messages for the named subscription while the subscriber is offline and delivers them on reconnect. In JMS 1.1 a durable subscription is identified by **client ID + subscription name**.
 
 **3. Duplicates.** Each \`store-price-sync\` replica created its own subscription, so the broker gave each replica its own copy. Options:
-- **Shared durable subscription (JMS 2.0)** — e.g. on Artemis with the JMS connector set to \`JMS_2_0\`; both replicas attach to the same subscription name and the broker gives each message to one of them:
+- **Shared durable subscription (JMS 2.0)**, e.g. on Artemis with the JMS connector set to \`JMS_2_0\`; both replicas attach to the same subscription name and the broker gives each message to one of them:
 \`\`\`xml
 <jms:listener config-ref="artemis" destination="PRICE.CHANGED">
   <jms:consumer-type>
@@ -114,7 +114,7 @@ Two prototypes had problems:
   </jms:consumer-type>
 </jms:listener>
 \`\`\`
-- **Virtual Topics (ActiveMQ Classic)** — publish to \`VirtualTopic.PriceChanged\`, consume from \`Consumer.STORESYNC.VirtualTopic.PriceChanged\`. The broker copies each message into each consumer queue; replicas of one app compete on their queue. (Artemis gets the same effect with a multicast address and one queue per app.)
+- **Virtual Topics (ActiveMQ Classic)**: publish to \`VirtualTopic.PriceChanged\`, consume from \`Consumer.STORESYNC.VirtualTopic.PriceChanged\`. The broker copies each message into each consumer queue; replicas of one app compete on their queue. (Artemis gets the same effect with a multicast address and one queue per app.)
 
 **4. Recommendation.** Topic fan-out with one durable (shared) subscription or one Virtual Topic consumer queue **per app**: store-price-sync and ecom-price-sync must not miss anything; pricing-analytics too. Add idempotency on the consumer side (latest effective time wins per SKU and store cluster), since redelivery can still duplicate a message and order across replicas is not guaranteed.
 `,
@@ -124,7 +124,7 @@ Two prototypes had problems:
       a: 'Within a single consumer, messages from one producer arrive in order, but once replicas share a subscription two changes for the same SKU can be processed in parallel. Compare effective timestamps (or use message groups) so an older price never overwrites a newer one.',
     },
     {
-      q: 'Why not just publish to three queues from the pricing engine?',
+      q: 'Why not publish to three queues from the pricing engine?',
       a: 'It couples the publisher to its consumers: every new consumer means a change in the pricing engine. Topic fan-out (or Virtual Topics) lets new subscribers join without touching the publisher.',
     },
     {

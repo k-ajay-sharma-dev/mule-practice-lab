@@ -44,7 +44,7 @@ export default {
         'With `resource="dwl/prescription-to-dispense.dwl"` on the script element',
         'With `${dwl/prescription-to-dispense.dwl}` inside the script',
         'With an `import` line in an empty inline script',
-        'It cannot, because Transform scripts must be inline',
+        'It cannot, because a Transform script must be written inline',
       ],
       answer: 0,
       explain: 'A script can be inline or in a file under the resources folder, named with the `resource` attribute. A file can be reviewed and reused on its own.',

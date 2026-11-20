@@ -40,7 +40,7 @@ export default {
         'FILE:FILE_ALREADY_EXISTS',
       ],
       answer: 0,
-      explain: 'FILE:FILE_LOCK is listed only for read. ACCESS_DENIED is about permissions, which is a different problem from a lock held by someone else.',
+      explain: 'FILE:FILE_LOCK is the error for a lock that cannot be taken. ACCESS_DENIED is about permissions, which is a different problem from a lock held by someone else.',
     },
     {
       type: 'single',
@@ -59,10 +59,10 @@ export default {
       detail: true,
       prompt: 'A team uses `file:rename` with `to="archive/invoice-1.csv"`. Why is this wrong?',
       options: [
-        'The new name must not contain a path separator; use file:move to change directory',
-        'Rename requires Overwrite to be true',
-        'Rename works only on directories',
-        'Rename needs a lock on the file',
+        'The new name must not contain a path; file:move changes directory',
+        'Rename requires Overwrite to be true when the name changes',
+        'Rename works only on directories, not on single files',
+        'Rename needs a lock on the file before it can run',
       ],
       answer: 0,
       explain: 'Rename changes the name within the same location. Moving between directories is the job of `file:move`.',
@@ -74,7 +74,7 @@ export default {
         'Recursive defaults to false on file:list but true on file:listener',
         'file:list cannot read subdirectories at all',
         'A file:list matcher always excludes directories',
-        'The listener moved them first',
+        'file:list returns only files changed since its last run',
       ],
       answer: 0,
       explain: 'The two defaults differ, so set Recursive explicitly when moving logic between a listener and a List operation.',
@@ -134,7 +134,7 @@ A hospital group exchanges files with its laboratory partner through a shared dr
 | Back up | \`file:copy\` | sourcePath, targetPath |
 | Archive | \`file:move\` | sourcePath, targetPath, Create Parent Directories |
 
-\`file:create-directory\` can make a folder in advance, but it raises \`FILE:FILE_ALREADY_EXISTS\` if the folder is there. For dated folders, Create Parent Directories on the copy or move is simpler. Set it explicitly so the behaviour is clear in the flow.
+\`file:create-directory\` can make a folder in advance, but it raises \`FILE:FILE_ALREADY_EXISTS\` if the folder is there. For dated folders, Create Parent Directories on the copy or move is the better choice. Set it explicitly so the behaviour is clear in the flow.
 
 **2. Write modes.** The summary uses **CREATE_NEW**, because a repeat run must fail rather than replace a report that was already sent. The audit log uses **APPEND**. The default, OVERWRITE, would break both.
 

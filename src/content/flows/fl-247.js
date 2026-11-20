@@ -85,6 +85,10 @@ Last Tuesday row 212 had no email. The database refused it, and the whole job st
 - When the job ends, log \`loaded=<n> failed=<n>\`.
 - Move the file to \`/loyalty/done\`.
 
+**Facts**
+- Files match \`LOYALTY_MEMBERS_*.csv\`.
+- In On Complete the payload is the job result. Its fields \`successfulRecords\` and \`failedRecords\` give the two counts.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

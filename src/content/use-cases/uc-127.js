@@ -104,6 +104,11 @@ Today one Mule app receives the webhook and makes all three calls in a row befor
 
 The hotel partner also has outages of an hour or two a few times a year.
 
+Requirements:
+- The webhook is answered within 300 ms, even during the storm.
+- No roster change may be lost.
+- A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No good change may reach a DLQ during a two-hour hotel outage, and changes that always fail must reach a DLQ.
+
 **Questions:**
 - Draw a design where each of the three can fall behind without holding up the others.
 - What happens during the storm?
@@ -137,7 +142,7 @@ Crew scheduling system ─► exp-roster-webhook ~► roster-changes exchange �
 
 **The storm.** \`exp-roster-webhook\` publishes 30 changes a second and answers each one in milliseconds. The crew app queue drains at once, so crews hear within seconds. The hotel queue grows to about 18,000 messages in 15 minutes, and \`prc-crew-hotels\` works through it at the partner's 10 a second, so it is empty again within the hour. Transport sits in between.
 
-**The hotel partner outage.** Hotel bookings wait on \`roster-hotels\`. Each one is redelivered from time to time; with a limit of 200 deliveries they ride out a two-hour outage. Crew notifications and transport do not notice. When the partner is back, the queue drains at 10 a second.
+**The hotel partner outage.** Hotel bookings wait on \`roster-hotels\`. Each one is redelivered about once a minute. With a limit of 200 deliveries, more than three hours, they ride out a two-hour outage. Crew notifications and transport do not notice. When the partner is back, the queue drains at 10 a second.
 
 **Changes that cannot be processed.** A change for a broken crew record fails on every delivery. After 200 tries it moves to that queue's DLQ, and the crew control team is alerted. A change that only fails for hotels goes to the hotel DLQ only; the crew member is still told.
 

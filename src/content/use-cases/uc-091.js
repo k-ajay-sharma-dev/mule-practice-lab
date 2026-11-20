@@ -88,11 +88,11 @@ Facts:
     'Rejected records are collected and mailed to the master data team; the sync is one way from SAP.',
   ],
   solution: `
-**Trigger.** A Scheduler at 01:00 starts the job. It reads the watermark (the \`LastChangeDateTime\` of the last successful run) from a persistent Object Store. It calls **sys-sap-vendor-api** with \`$filter=LastChangeDateTime gt <watermark>\` and pages through the results 500 at a time.
+**Trigger.** A Scheduler at 01:00 starts the job. It reads the watermark (the start time of the last successful run) from a persistent Object Store. It calls **sys-sap-vendor-api** with \`$filter=LastChangeDateTime gt <watermark>\` and pages through the results 500 at a time.
 
 **Mapping.** DataWeave maps each business partner to a Coupa supplier: number, name, addresses, tax ID, payment terms code and status. A purchasing block becomes \`status: inactive\`. Bank details are dropped in the mapping, so they never leave SAP.
 
-**Write to Coupa.** **sys-coupa-supplier-api** looks up the supplier by number. If it exists, the API updates it; if not, it creates it. Because the key is the SAP number, running the same batch twice gives the same result.
+**Write to Coupa.** **sys-coupa-supplier-api** looks up the supplier by number. If it exists, the API updates it; if not, it creates it. Because the key is the SAP number, running the same batch twice gives the same result. Coupa can slow to 15 seconds a call, longer than the HTTP Request default timeout of 10 seconds, so sys-coupa-supplier-api uses a response timeout of about 30 seconds. A failed call is retried twice (Until Successful); the upsert by supplier number makes the retry safe.
 
 **Errors.** A record that Coupa rejects (missing country, invalid tax ID) is added to an error list and the job continues. At the end the list goes to the master data team by email. Connection errors are retried with reconnection; if the job still fails, the watermark is **not** moved, so the next run picks up the same vendors again.
 

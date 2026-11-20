@@ -21,13 +21,13 @@ export default {
       needsScenario: true,
       prompt: 'Which approach fits 3,000 daily changes, a 15-minute price target and a 5-hour nightly run?',
       options: [
-        'Run the full sync every hour',
-        'Delta sync every few minutes plus a weekly full reconciliation, with CDC as the upgrade path',
-        'Keep the nightly full export',
-        'Manual exports when prices change',
+        'Run the full export every hour',
+        'Delta sync every few minutes plus a weekly full reconciliation',
+        'Keep the nightly full export and start it earlier',
+        'Delta sync every few minutes, with no full reconciliation',
       ],
       answer: 1,
-      explain: 'Delta moves only changes and is naturally resumable; the weekly reconciliation catches what the watermark misses.',
+      explain: 'Delta moves only changes and is naturally resumable; the weekly reconciliation catches deletes and rows whose LAST_MODIFIED was not updated. CDC is the upgrade path. A full export takes 5 hours, so it cannot run hourly or meet 15 minutes.',
     },
     {
       type: 'single',
@@ -36,7 +36,7 @@ export default {
         'Before the query runs',
         'Only after the batch of changes was processed successfully',
         'Every time the Scheduler fires, whatever the result',
-        'Never; always start from the beginning',
+        'Once a day, after all the runs of that day have finished',
       ],
       answer: 1,
       explain: 'Advancing first would skip rows if processing fails. Advance after success and keep the watermark in a persistent store.',
@@ -45,13 +45,13 @@ export default {
       type: 'single',
       prompt: 'Why query with `LAST_MODIFIED >= :lastWatermark` minus a small overlap instead of `>`?',
       options: [
-        'It is faster',
-        'To avoid missing rows committed with the same or a slightly earlier timestamp; idempotent upserts make the re-read rows harmless',
+        'It is faster, because >= uses the index better',
+        'To catch rows committed with the same or a slightly earlier timestamp',
         'Because > is not supported by the Database connector',
-        'To reload all 400,000 products',
+        'To pick up rows whose LAST_MODIFIED was never updated',
       ],
       answer: 1,
-      explain: 'Ties and late commits are the classic way delta loads lose data. A small overlap plus upsert by SKU trades a few duplicates for no gaps.',
+      explain: 'Ties and late commits are the classic way delta loads lose data. A small overlap plus idempotent upsert by SKU trades a few harmless re-reads for no gaps. Rows that never get a new timestamp are not caught by any overlap.',
     },
     {
       type: 'multi',
@@ -72,9 +72,9 @@ export default {
       prompt: 'The sync was down for 3 hours. What happens when it restarts?',
       options: [
         'All changes from those hours are lost',
-        'The watermark simply catches up from where it stopped',
-        'A full sync is mandatory',
-        'The commerce platform must be restored from backup',
+        'It reads from the stored watermark and catches up',
+        'A full sync must run before delta can start again',
+        'Only changes made after the restart are picked up',
       ],
       answer: 1,
       explain: 'Delta sync is naturally resumable. Monitor the lag (now − watermark) so you notice when it falls behind.',
@@ -138,12 +138,12 @@ Mule 4 implementation:
 - For programs not updating \`LAST_MODIFIED\`: fix at source if possible (trigger setting the column); otherwise the weekly reconciliation catches them.
 
 **Recovery and reconciliation.**
-- If the sync falls behind, the watermark simply catches up — delta is naturally resumable.
+- If the sync falls behind, it reads from the stored watermark and catches up, because delta is naturally resumable.
 - Weekly full compare (hash of key fields per SKU) to correct drift and detect missing deletes.
 - Monitor: rows per run, lag (now − watermark), failed records to a DLQ/error table.
 `,
   followUps: [
-    { q: 'Why not just run the full sync more often?', a: 'It loads 400k rows to change 3k, stresses both systems and the SaaS API limits, and still cannot meet a 15-minute target if one run takes hours.' },
+    { q: 'Why not run the full sync more often?', a: 'It loads 400k rows to change 3k, stresses both systems and the SaaS API limits, and still cannot meet a 15-minute target if one run takes hours.' },
     { q: 'What does CDC require that delta does not?', a: 'Access to the database transaction log (or a vendor CDC feature), DBA approval, a CDC tool and usually a broker to carry change events. It also requires handling of schema changes in the event stream.' },
   ],
 }

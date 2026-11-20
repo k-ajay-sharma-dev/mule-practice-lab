@@ -14,7 +14,7 @@ export default {
   tags: ['latency', 'scatter-gather', 'timeouts', 'circuit-breaker', 'partial-answer', 'process-api', 'retail'],
   estMinutes: 60,
   diagram: {
-    task: 'draw the product page path: the web shop and the app call one Experience API, which calls two Process APIs. A core Process API gets the catalogue and the price through two System APIs. An extras Process API gets stock and reviews through two other System APIs, and answers without whatever is late.',
+    task: 'draw the product page path: the web shop and the app call one Experience API, which calls two Process APIs. A core Process API gets the catalogue and the price through two System APIs. An extras Process API gets stock and reviews through two other System APIs, and answers without whatever is late. Draw the price system as an ERP box, stock as a Warehouse mgmt box and the reviews service as a SaaS application box. Name the two Process APIs with core and extras in their names, and set on each box whether it calls in parallel, its timeout and its circuit breaker.',
     checks: [
       { label: 'Both channels call the product page Experience API', rule: { type: 'each', of: ['web-app', 'mobile-app'], edgeTo: 'experience-api', count: 1 } },
       { label: 'The Experience API calls a core and an extras Process API', rule: { type: 'edge', from: 'experience-api', to: 'process-api', min: 2 } },

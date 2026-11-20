@@ -82,7 +82,8 @@ Today one Mule app takes each scan, sends it to the airlines and then writes it 
 - About **500 passenger requests a second** in the app at the same time.
 - The bag status database takes up to 400 queries a second.
 - The airline messaging takes about 400 ms per message, and has outages of up to half an hour.
-- A bag status that is up to 30 seconds old is fine in the app.
+- A bag status that is up to 30 seconds old is fine in the app, and the app must answer within **200 ms**.
+- No scan may be lost, for the database or for the airlines, even during an airline outage.
 
 **Questions:**
 - Draw the design.

@@ -268,9 +268,11 @@ A logistics company still receives delivery status updates from **12 regional co
 The mailbox has a small quota and must not fill up. A previous developer copied an IMAP design and asked for "move to Processed, otherwise leave it for retry", then found that none of those operations were available for POP3.
 
 **Facts**
-- PostgreSQL has a landing table \`mail_landing\` with a unique \`message_id\` and a \`status\` column.
+- PostgreSQL has a landing table \`mail_landing\` with a unique \`message_id\` and a \`status\` column. Its other columns are \`sender\`, \`subject\`, \`body\`, \`received_at\`, \`attempts\` (failed tracking calls so far, starting at 0), \`last_error\` and \`done_at\`.
+- The \`message_id\` is the email's \`Message-ID\` header.
+- The tracking system takes \`{ awb, status, location, sourceMessageId }\`, read from the \`AWB\`, \`STATUS\` and \`LOCATION\` lines.
 - A row waiting for the tracking system has the status \`PENDING\`. A row the tracking system accepted gets the status \`DONE\`.
-- The worker has a local disk folder, \`/data/mail-spool\`, that survives restarts and can hold emails as JSON files.
+- The worker has a local disk folder, \`/data/mail-spool\`, that survives restarts and can hold emails as JSON files (\`{ messageId, sender, subject, body }\`).
 
 **Requirements**
 - Every status email must reach the **tracking system** (\`POST /tracking/events\`).
@@ -331,7 +333,7 @@ The mailbox has a small quota and must not fill up. A previous developer copied 
     },
     {
       q: 'Why spool to disk rather than publish to a queue in the error handler?',
-      a: 'Either works if it has a different failure mode from the landing store. A queue is better when workers have no durable disk. The point is that the fallback does not depend on the system that just failed.',
+      a: 'Either works if it has a different failure mode from the landing store. A queue is better when workers have no durable disk. The point is that the fallback does not depend on the system that has failed.',
     },
     {
       q: 'When the mail server is finally replaced by one with IMAP, what simplifies?',

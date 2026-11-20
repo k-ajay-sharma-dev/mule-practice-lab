@@ -11,7 +11,7 @@ export default {
       detail: true,
       prompt: 'How does a Mule flow call the Workday operation `Get_Workers`?',
       options: [
-        'With the Human Resources operation of the connector, setting its Operation field to `Get_Workers` and sending the SOAP request XML as Content',
+        'With the Human Resources operation, Operation set to `Get_Workers` and SOAP XML as Content',
         'With a dedicated `workday:get-workers` element that takes a worker ID attribute',
         'With an HTTP Request to the Workday REST API, because the connector has no worker operations',
         'With the On Modified Objects source, which is the only way to read workers',
@@ -37,10 +37,10 @@ export default {
       detail: true,
       prompt: 'Which connection types does the Workday Connector configuration offer?',
       options: [
-        'Basic Authentication, OAuth Code Authentication and x.509 Authentication',
-        'Basic Authentication and API key only',
+        'Basic, OAuth Code and x.509 Authentication',
+        'Basic and API Key Authentication only',
         'OAuth Client Credentials and JWT only',
-        'Kerberos and SAML',
+        'Kerberos and SAML Bearer Authentication',
       ],
       answer: 0,
       explain: 'All three need a tenant name. x.509 also needs a user name, key store path and alias, and OAuth Code needs a consumer key and secret plus a listener configuration.',
@@ -50,13 +50,13 @@ export default {
       detail: true,
       prompt: 'With OAuth Code Authentication, the State field looks optional. What should you do?',
       options: [
-        'Set it: Workday requires the parameter, and omitting it causes an authorization error',
-        'Leave it empty, because the connector generates one',
-        'Leave it empty, because only x.509 uses it',
-        'Put the tenant name in the Scopes field instead',
+        'Set it, because Workday requires it even though the connector does not',
+        'Leave it empty, because the connector generates one for you',
+        'Leave it empty, because only x.509 connections use it',
+        'Leave it empty, because Workday rejects any State value',
       ],
       answer: 0,
-      explain: 'The reference notes that although the State parameter is optional in the connector, Workday requires it.',
+      explain: 'Omitting it causes an authorization error. The reference notes that although the State parameter is optional in the connector, Workday requires it.',
     },
     {
       type: 'single',
@@ -64,7 +64,7 @@ export default {
       needsScenario: true,
       prompt: 'The Host name field is left empty on a connection to a production tenant. Why is that a risk?',
       options: [
-        'It defaults to `impl-cc.workday.com`, so you must enter the Workday cloud server of your own tenant',
+        'It defaults to `impl-cc.workday.com`, which is not your own tenant host',
         'The connector finds the host from the tenant name automatically',
         'An empty host makes the connector use a local mock service',
         'Host name only applies to x.509 connections',
@@ -91,13 +91,13 @@ export default {
       needsScenario: true,
       prompt: 'What does Watermark Enabled do on the On Modified Objects source?',
       options: [
-        'If true, Mule processes an item just once, even if it receives the item multiple times; the default is false',
-        'It is on by default and cannot be turned off',
-        'It sets the Updated From date of the Workday request',
-        'It makes the source run only on the primary node',
+        'If true, Mule processes each item once even if it arrives again',
+        'It is on by default and cannot be turned off on this source',
+        'It sets the Updated From date sent in the Workday request',
+        'It makes the source run only on the primary node of a cluster',
       ],
       answer: 0,
-      explain: 'With the default of false, an item received more than once is processed more than once.',
+      explain: 'The default is false. With that default, an item received more than once is processed more than once.',
     },
   ],
   description: `
@@ -168,7 +168,7 @@ For server-to-server integrations with no user present, choose Basic or x.509 wi
     },
     {
       q: 'When would you use Workday Report-as-a-Service (RaaS) instead of the web services?',
-      a: 'When a custom report already joins the fields you need, an HTTP call to the report can be simpler than a large Get_Workers mapping. The report owner then becomes a dependency, so the report needs change control.',
+      a: 'When a custom report already joins the fields you need, an HTTP call to the report can be less work than a large Get_Workers mapping. The report owner then becomes a dependency, so the report needs change control.',
     },
     {
       q: 'What does the Workday Connector\'s Unauthorize operation do?',

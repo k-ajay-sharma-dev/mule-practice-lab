@@ -72,6 +72,11 @@ When a property system crashes during the audit, it sometimes leaves an **empty 
 - An empty file must not be loaded. Log a warning with its name and move it to \`/audit/empty\`.
 - Otherwise bulk insert the rows into \`night_audit\` and move the file to \`/audit/done\`.
 
+**Facts**
+- The SFTP listener gives the file's size in bytes in \`attributes.size\` and its name in \`attributes.fileName\`. Test the size in a **Choice**.
+- The warning is a WARN log whose message contains the file name, such as \`NA_HGF01_20261112.csv\`.
+- Keep the file names when moving. Move to \`/audit/done\` only after the insert.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

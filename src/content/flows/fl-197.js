@@ -119,6 +119,12 @@ The planners want to know what happened to each line. The platform reads a respo
 - Then write the response file and move the plan file to \`/outbound/po/archive\`.
 - If the database cannot be reached, send no response and leave the plan file for the next poll.
 
+**Facts**
+- Read the active suppliers (\`active = 1\`) once per file. Test the supplier first: a line with both faults gets \`UNKNOWN_SUPPLIER\`. An accepted line has an empty \`reason\`.
+- Stage the lines as they are in the file, with \`file_name\`. \`accepted\` and \`rejected\` are the line counts.
+- Put the staging and the \`po_files\` insert in a **Try** with the transactional action \`ALWAYS_BEGIN\`. When no line is good, skip the bulk insert with a **Choice**, but still record the file.
+- The plan file keeps its name in the archive. Do not catch a database error: the run fails.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the plan

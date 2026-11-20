@@ -120,6 +120,13 @@ SQL Server holds \`expected_stores\` (\`store_id\`, \`active\`) and \`sales_runs
 - Record the day in \`sales_runs\`, then move the store files to \`/mnt/pos-share/sales/archive\`.
 - If the day was already sent, send nothing and move the files to \`/mnt/pos-share/sales/late\`.
 
+**Facts**
+- List \`STORE_*.csv\`. Take the business date and the store numbers from the file names. The files waiting are always for one day.
+- The active stores are the rows of \`expected_stores\` with \`active = 1\`.
+- Write the combined file as \`/inbound/sales/STORE_SALES_<yyyyMMdd>.csv.tmp\`, then rename it to \`STORE_SALES_<yyyyMMdd>.csv\`. No \`.tmp\` file may be left.
+- Insert into \`sales_runs\` the date as \`yyyyMMdd\` text (such as \`20261112\`), \`store_count\` = the number of store files, and \`status\` \`SENT\`.
+- Log the missing stores at INFO, with their numbers in the message. Log an already sent day at WARN.
+
 **Design the flow.**
 `,
   answerTemplate: `## Is every store in

@@ -240,7 +240,13 @@ A bank's mobile app home screen shows a customer's **account overview** in one c
 Requirements:
 - The Process API answers within **2.5 s**; the Experience API within 3 s. ~150 req/s at 9 a.m.
 - If cards or loans are down or slow, still return the overview with what is available and say **which parts are missing**.
-- If core banking fails, the overview is useless — return a clear **503**.
+- If core banking fails or does not answer in time, the overview is useless: return a clear **503** inside the same 2.5 s.
+
+**Facts**
+- Experience API: \`GET /exp-mobile-banking/v1/me/overview\`. The gateway passes the customer id in the \`X-Customer-Id\` header. It passes a 503 from the Process API on to the app.
+- Process API: \`GET /prc-accounts/v1/customers/{customerId}/overview\`, answering \`{ accounts, cards, loans, unavailable, complete }\`, where \`unavailable\` lists the missing parts, such as \`["cards"]\`.
+- System APIs: \`GET /sys-core-banking/v1/accounts?customerId=...\`, \`GET /sys-cards/v1/cards?customerId=...\` and \`GET /sys-loans/v1/loans?customerId=...\`.
+- Behind \`sys-cards\`, the card processor's vendor API is \`GET /card-processor/api/v3/cardholders/cards\`. It answers \`{ cards: [{ token, pan_last4, state }] }\`.
 
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-accounts/v1/customers/{customerId}/overview\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
@@ -260,7 +266,7 @@ Requirements:
 `,
   keyPoints: [
     'Aggregation of independent sources is a Process-layer job; the calls are independent, so Scatter-Gather runs them in parallel (latency ≈ slowest call, not the sum).',
-    'Scatter-Gather fails with MULE:COMPOSITE_ROUTING if any route fails — so optional routes are wrapped in Try + On Error Continue that returns a marker payload.',
+    'Scatter-Gather fails with MULE:COMPOSITE_ROUTING if any route fails: so optional routes are wrapped in Try + On Error Continue that returns a marker payload.',
     'The mandatory route has no Try: its failure still raises COMPOSITE_ROUTING, which the Process API maps to 503.',
     'Per-request timeouts (2 s) sit below the Scatter-Gather timeout (2.5 s), which sits below the Experience timeout (3 s).',
     'The merged response says what is missing (unavailable: ["cards"]), so the Experience API can show a notice instead of an error.',
@@ -285,13 +291,13 @@ Requirements:
 
 **prc-account-overview**
 1. **Scatter-Gather**, timeout 2500 ms, three routes, each an HTTP Request (2 s timeout) to a System API.
-2. Routes 2 and 3 are wrapped in **Try** with **On Error Continue** that logs a WARN and sets \`{ source: "cards", unavailable: true }\` — the route "succeeds" with a marker.
+2. Routes 2 and 3 are wrapped in **Try** with **On Error Continue** that logs a WARN and sets \`{ source: "cards", unavailable: true }\`: the route "succeeds" with a marker.
 3. Transform: \`valuesOf(payload) map $.payload\` gives the three results in route order; build \`{ accounts, cards, loans, unavailable, complete }\`.
 4. Error handler: \`MULE:COMPOSITE_ROUTING\` (only reachable when core banking fails, since the others cannot throw) → 503 \`CORE_UNAVAILABLE\`.
 
-**exp-mobile-banking-overview** — calls the Process API, shapes the screen model and turns \`unavailable\` into user-facing notices.
+**exp-mobile-banking-overview**: calls the Process API, shapes the screen model and turns \`unavailable\` into user-facing notices.
 
-**sys-cards** — wraps the card processor's vendor API and maps it to a clean card model.
+**sys-cards**: wraps the card processor's vendor API and maps it to a clean card model.
 
 Note: a route that outlasts the Scatter-Gather timeout throws \`MULE:TIMEOUT\`, which is handled like any other route error. The docs do not say whether a Try inside the route catches it, so do not rely on that: the 2 s request timeouts sit below the 2.5 s scope timeout, so a slow vendor fails with \`HTTP:TIMEOUT\` first, which the Try does catch.
 `,
@@ -305,7 +311,7 @@ Note: a route that outlasts the Scatter-Gather timeout throws \`MULE:TIMEOUT\`, 
       a: 'Add a circuit breaker in front of the cards call (e.g. failure counter in Object Store, skip the call while open) or cache the last good card list with a short TTL, so the route returns the fallback immediately.',
     },
     {
-      q: 'What status should the response have when cards are missing — 200 or 206?',
+      q: 'What status should the response have when cards are missing: 200 or 206?',
       a: 'Usually 200 with an explicit "unavailable"/"complete: false" field in the body; 206 Partial Content is meant for byte ranges. Document the partial-response contract in the API spec.',
     },
   ],

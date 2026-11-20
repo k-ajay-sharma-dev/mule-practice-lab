@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'CPU is at 35–45 % while throughput plateaus at 60 req/s and p95 is 3.8 s. What does this point to?',
       options: [
-        'The replicas need more vCores',
-        'Threads are mostly waiting — on six sequential remote calls and per-request DB loads — not lack of compute',
-        'The Pricing API is the only problem',
-        'DataWeave is CPU-bound',
+        'The replicas need more vCores to keep up',
+        'Threads are mostly waiting on remote calls and DB loads',
+        'The heap is too small, so the JVM throttles the CPU',
+        'DataWeave is CPU-bound and blocks the HTTP listener',
       ],
       answer: 1,
-      explain: 'Low CPU with high latency means waiting. Six sequential calls alone are 6 × 180 ms ≈ 1.1 s, and as the backend slows under peak load those waits turn into HTTP:TIMEOUT.',
+      explain: 'Low CPU with high latency means waiting, not lack of compute: on six sequential remote calls and per-request DB loads. Six sequential calls alone are 6 × 180 ms ≈ 1.1 s, and as the backend slows under peak load those waits turn into HTTP:TIMEOUT.',
     },
     {
       type: 'order',
@@ -24,7 +24,7 @@ export default {
       items: [
         'Define the target and a repeatable, realistic load test',
         'Instrument: per-flow and outbound metrics, step timings, GC, thread dumps at peak',
-        'Fix the biggest contributor — one change at a time',
+        'Fix the biggest contributor, one change at a time',
         'Re-run the same load test and compare p50/p95/p99, throughput and errors',
       ],
       explain: 'Measure first and change one thing at a time; otherwise you cannot tell which fix helped.',
@@ -45,26 +45,26 @@ export default {
       needsScenario: true,
       prompt: 'Why can parallelising the pricing calls make things **worse** if done carelessly?',
       options: [
-        'Parallel calls are always slower in Mule',
-        'Without a concurrency limit it multiplies load on the backend and connection pools, causing throttling, pool exhaustion and higher tail latency',
-        'Scatter-Gather loses responses',
-        'It disables HTTP keep-alive',
+        'Parallel calls are always slower in Mule than sequential ones',
+        'Unbounded, it multiplies load on the backend and connection pool',
+        'Scatter-Gather drops responses that arrive after the first one',
+        'Parallel routes turn off HTTP keep-alive on the requester',
       ],
       answer: 1,
-      explain: 'Use `maxConcurrency`, size the connection pool for the concurrency, and agree rate limits with the Pricing team.',
+      explain: 'Without a concurrency limit you can cause backend throttling, pool exhaustion and higher tail latency. Use `maxConcurrency`, size the connection pool for the concurrency, and agree rate limits with the Pricing team.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Management suggests going from 2 to 6 replicas right now. What is the best answer?',
       options: [
-        'Yes — scaling always fixes latency',
-        'Not yet — scaling a design bottleneck mostly doubles cost and backend/DB load; make per-request work lean first, then scale when CPU is the limit',
-        'Yes, but only with bigger vCores',
-        'No — CloudHub 2.0 cannot scale beyond 2 replicas',
+        'Yes, because more replicas always cut latency',
+        'Not yet: fix the waits first, then scale when CPU is the limit',
+        'Yes, but only if each replica also gets more vCores',
+        'No, because the target needs larger vCores, not more replicas',
       ],
       answer: 1,
-      explain: 'Once the app is efficient and CPU becomes the limit, adding replicas (also better availability) or larger vCores is the right move.',
+      explain: 'Scaling a design bottleneck mostly multiplies cost and backend/DB load. Once the app is efficient and CPU becomes the limit, adding replicas (also better availability) or larger vCores is the right move.',
     },
     {
       type: 'single',
@@ -116,7 +116,7 @@ Findings from a quick code read:
 `,
   keyPoints: [
     'Measure first: reproduce with a realistic load test, break down latency per step (monitoring, logs with timings, thread dumps), change one thing at a time.',
-    'Low CPU with high latency points to waiting — connection pool limits, sequential remote calls, blocking — not to lack of compute.',
+    'Low CPU with high latency points to waiting (connection pool limits, sequential remote calls, blocking), not to lack of compute.',
     'Remove avoidable work: cache slow-changing reference data, parallelise independent calls with bounded concurrency, replace O(n×m) lookups with indexed maps.',
     'Logging full payloads, unnecessary serialisation and loading large data per request create GC pressure and latency.',
     'Scale horizontally only after the app is efficient; scaling a design bottleneck mostly moves the load to the backend.',
@@ -127,15 +127,15 @@ Findings from a quick code read:
 2. Instrument: Anypoint Monitoring / metrics for response time per flow and per outbound call, and log timings at step boundaries (with correlation IDs). Add heap/GC metrics, and **thread dumps** at peak to see where threads wait.
 3. Find the biggest contributor, fix one thing, re-test. Keep a results table.
 
-**Interpretation:** CPU at 40 % while throughput plateaus means threads are mostly **waiting**: on six sequential calls (6 × 180 ms ≈ 1.1 s minimum — and as the Pricing backend slows at peak, those waits become \`HTTP:TIMEOUT\`), and on the per-request DB load. (The Mule 4 HTTP Request connection's max connections is unlimited by default, so the defaults do not cap the pool. But they also do not protect the backend, and the response timeout may not suit the target.) GC pressure comes from loading 5,000 products and logging full payloads on every request.
+**Interpretation:** CPU at 40 % while throughput plateaus means threads are mostly **waiting**: on six sequential calls (6 × 180 ms ≈ 1.1 s minimum, and as the Pricing backend slows at peak, those waits become \`HTTP:TIMEOUT\`), and on the per-request DB load. (The Mule 4 HTTP Request connection's max connections is unlimited by default, so the defaults do not cap the pool. But they also do not protect the backend, and the response timeout may not suit the target.) GC pressure comes from loading 5,000 products and logging full payloads on every request.
 
 **Fixes in priority order**
 | # | Fix | Effect |
 |---|---|---|
 | 1 | **Cache product reference data** (Cache scope or Object Store with daily TTL / refresh job) | removes a DB query + large allocation per request |
 | 2 | **Index lookups**: \`var byId = products groupBy $.id\` then \`byId[item.productId][0]\` | O(n×m) → O(n); big CPU/GC saving |
-| 3 | **Parallelise the 6 pricing calls** (Scatter-Gather or Parallel For Each with \`maxConcurrency\`) — or ask for a batch pricing endpoint | ~1.1 s → ~200–300 ms |
-| 4 | **Tune the HTTP Request connection settings** (an explicit max connections sized for concurrency × calls and agreed with the backend — the default is unlimited), sensible response timeouts, keep-alive | predictable backend load, fewer timeouts |
+| 3 | **Parallelise the 6 pricing calls** (Scatter-Gather or Parallel For Each with \`maxConcurrency\`), or ask for a batch pricing endpoint | ~1.1 s → ~200–300 ms |
+| 4 | **Tune the HTTP Request connection settings** (an explicit max connections sized for concurrency × calls and agreed with the backend; the default is unlimited), sensible response timeouts, keep-alive | predictable backend load, fewer timeouts |
 | 5 | **Logging**: log IDs and sizes at INFO, full payloads only at DEBUG; async loggers | less I/O and GC |
 | 6 | Streaming strategy & memory: avoid materialising large payloads repeatedly; check repeatable stream buffer sizes | fewer GC pauses |
 | 7 | Review flow \`maxConcurrency\` and backend limits so you don't overload Pricing (agree on rate limits) | stable latency at peak |
@@ -155,7 +155,7 @@ Findings from a quick code read:
     },
     {
       q: 'Does a bigger vCore help a DataWeave-heavy app?',
-      a: 'Often yes, because more memory reduces GC pressure and more CPU speeds up transforms — but fix algorithmic issues first, since O(n×m) code will still dominate.',
+      a: 'Often yes, because more memory reduces GC pressure and more CPU speeds up transforms. But fix algorithmic issues first, since O(n×m) code will still dominate.',
     },
   ],
 }

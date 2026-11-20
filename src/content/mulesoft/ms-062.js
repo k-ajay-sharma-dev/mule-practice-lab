@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'ASNs were lost when the WMS was down. The listener used `ackMode="IMMEDIATE"`. Why?',
       options: [
-        'The broker considered the message consumed on receipt, so a failure in the flow could not trigger redelivery',
+        'The broker treated each ASN as consumed on receipt',
         'IMMEDIATE sends failed messages straight to the DLQ',
-        'IMMEDIATE disables persistence on the queue',
-        'The WMS acknowledged the message to the broker',
+        'IMMEDIATE turns off persistence on the queue',
+        'The WMS acknowledged each message to the broker',
       ],
       answer: 0,
-      explain: 'With IMMEDIATE the ack happens before any processing. If the flow then fails, the broker has already removed the message and there is nothing to redeliver.',
+      explain: 'So a failure in the flow could not trigger redelivery. With IMMEDIATE the ack happens before any processing. If the flow then fails, the broker has already removed the message and there is nothing to redeliver.',
     },
     {
       type: 'single',
@@ -36,7 +36,7 @@ export default {
       options: [
         'After both the WMS call and the Oracle insert succeed',
         'As the first processor in the flow',
-        'In the error handler',
+        'In the error handler, after logging the failure',
         'Inside an Async scope so it does not slow the flow down',
       ],
       answer: 0,
@@ -49,7 +49,7 @@ export default {
         'Asks the broker to redeliver the unacknowledged messages of that session',
         'Moves the message to the DLQ immediately',
         'Reconnects to the broker after a network failure',
-        'Commits a JMS transaction',
+        'Commits the JMS session as a transaction',
       ],
       answer: 0,
       explain: 'Recovering the session makes the unacknowledged messages available again, which counts as a redelivery. It is not a DLQ move or a reconnection.',
@@ -87,7 +87,7 @@ A retailer's **inbound logistics** team receives **Advance Shipping Notices (ASN
 3. Inserts a row into the Oracle table \`ASN_LOG\`.
 
 Problems in production:
-- During a 20-minute WMS outage, ~600 ASNs disappeared — trucks arrived at the DC with no ASN. The listener was configured with \`ackMode="IMMEDIATE"\`.
+- During a 20-minute WMS outage, ~600 ASNs disappeared, and trucks arrived at the DC with no ASN. The listener was configured with \`ackMode="IMMEDIATE"\`.
 - After switching to AUTO, one ASN with an unknown SKU was redelivered again and again, slowing the queue.
 - Operations wants to know how many times a message has been tried and where failed ones end up.
 
@@ -148,11 +148,11 @@ Store the ackId in a variable early, because the payload and attributes change d
 
 **3. Redelivery and DLQ.**
 - Each redelivery increments \`JMSXDeliveryCount\` (Mule exposes it in \`attributes.properties.jmsxProperties\`) and sets the redelivered header, so the flow can log "attempt 3 of 6".
-- **Classic**: the client redelivery policy decides when to give up. With the Mule JMS connector set it with \`maxRedelivery\` in the factory configuration — the connector default is **0** (no redelivery; \`-1\` means unlimited), unlike the plain Classic client default of 6 \`maximumRedeliveries\`; the broker then moves the message to \`ActiveMQ.DLQ\`, or to \`ActiveMQ.DLQ.Queue.ASN.INBOUND\` with an individual dead-letter strategy. A redelivery delay avoids hammering the WMS.
+- **Classic**: the client redelivery policy decides when to give up. With the Mule JMS connector set it with \`maxRedelivery\` in the factory configuration. The connector default is **0** (no redelivery; \`-1\` means unlimited), unlike the plain Classic client default of 6 \`maximumRedeliveries\`; the broker then moves the message to \`ActiveMQ.DLQ\`, or to \`ActiveMQ.DLQ.Queue.ASN.INBOUND\` with an individual dead-letter strategy. A redelivery delay avoids hammering the WMS.
 - **Artemis**: \`address-settings\` with \`max-delivery-attempts\` and \`dead-letter-address\` (and \`redelivery-delay\`).
 - Monitor the DLQ depth and alert on it; provide a replay flow.
 
-**4. Permanent vs transient.** The unknown SKU will fail on every attempt, so redelivering wastes time and blocks other ASNs. Detect it (validation error type), publish the original ASN plus the reason to \`ASN.ERRORS\` for the supplier-management team, and **ack** it. Only transient errors (WMS down, Oracle unavailable) should be redelivered. Because the WMS call and the Oracle insert are not atomic, a redelivered ASN may reach the WMS twice — use the ASN number as an idempotency key.
+**4. Permanent vs transient.** The unknown SKU will fail on every attempt, so redelivering wastes time and blocks other ASNs. Detect it (validation error type), publish the original ASN plus the reason to \`ASN.ERRORS\` for the supplier-management team, and **ack** it. Only transient errors (WMS down, Oracle unavailable) should be redelivered. Because the WMS call and the Oracle insert are not atomic, a redelivered ASN may reach the WMS twice. Use the ASN number as an idempotency key.
 `,
   followUps: [
     {

@@ -199,10 +199,16 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 
 - Source: \`legacy_customer\` joined with \`legacy_address\`, filtered by \`migration_wave\`.
 - Target: Salesforce \`Account\`, external ID \`Legacy_Customer_No__c\` (so a wave can be re-run safely).
-- Data quality is poor: ~2% of records have no customer number or a broken email. **Bad records must not stop the wave** — they are logged for the data-stewards to fix and re-run.
+- Data quality is poor: ~2% of records have no customer number or a broken email. **Bad records must not stop the wave**: they are logged for the data-stewards to fix and re-run.
 - Each wave must finish inside a **6-hour window**; Salesforce API limits favour bulk calls.
 - After each wave, the migration team gets an **email report**: total, succeeded, failed, duration.
-- The wave is started manually by an admin call.
+- The wave is started manually by an admin call, \`POST /admin/migrations/customers?wave=W1\`. It answers \`{ status: "STARTED", wave }\` at once. If the wave cannot even be read, the call fails and no report is sent.
+
+**Facts**
+- \`legacy_customer\` has \`id\`, \`customer_no\`, \`company_name\`, \`email\`, \`migration_wave\` and \`migrated\` (\`'N'\` until migrated). \`legacy_address\` has \`customer_id\`, \`street\`, \`city\`, \`postcode\` and \`country\`.
+- Each migrated customer is logged in \`migration_log\` (\`customer_no\`, \`wave_id\`, \`status\` = \`'MIGRATED'\`).
+- Each failed customer, bad data or rejected by Salesforce, is written to \`migration_errors\` (\`customer_no\`, \`wave_id\`, \`error_message\`, \`failed_at\`). These are the records the data-stewards fix.
+- The report goes to \`migration-team@example.com\`.
 
 **Design the flow(s):** batch job structure, steps and their accept policies, how Salesforce is loaded, how failures are captured, and the end-of-job report.
 `,
@@ -210,13 +216,13 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 
 ## Batch job configuration
 
-## Step 1 – validate and map
+## Step 1: validate and map
 
-## Step 2 – load Salesforce
+## Step 2: load Salesforce
 
-## Step 3 – mark migrated
+## Step 3: mark migrated
 
-## Step 4 – failures
+## Step 4: failures
 
 ## On Complete report
 `,
@@ -228,22 +234,22 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
     'On Complete uses the BatchJobResult (totalRecords, successfulRecords, failedRecords, elapsedTimeInMillis) to email the report.',
   ],
   solution: `
-**Trigger:** admin \`POST /admin/migrations/customers?wave=W1\` → Database Select (streaming) for the wave → **Batch Job** \`customer-migration\` (block size 200, **max failed records -1**). The HTTP call returns immediately with "STARTED" — the batch job runs asynchronously.
+**Trigger:** admin \`POST /admin/migrations/customers?wave=W1\` → Database Select (streaming) for the wave → **Batch Job** \`customer-migration\` (block size 200, **max failed records -1**). The HTTP call returns immediately with "STARTED": the batch job runs asynchronously.
 
 **Steps**
-1. \`validate-and-map\` (NO_FAILURES) — Validate customer number and email; DataWeave maps the row to the Account shape. A failure here marks just that record as failed.
-2. \`load-salesforce\` (NO_FAILURES) — **Batch Aggregator size 200** → Salesforce **Upsert** \`Account\` on \`Legacy_Customer_No__c\`. Check the per-item results: the connector reports record-level failures in its result instead of failing the whole group. So a rejected Account does not count as a failed batch record by itself and must be logged from here. (For 300k records, the Salesforce Bulk API v2 is an alternative.)
-3. \`mark-migrated\` (NO_FAILURES) — aggregator → Database Bulk Insert into \`migration_log\` (audit and cutover proof).
-4. \`record-failures\` (**ONLY_FAILURES**) — insert the record plus a reason into \`migration_errors\` for the data-stewards. A failed record arrives here as it was when it failed (the legacy row after a validation failure, the mapped Account after a failed upsert), and a later step cannot read that record's Mule error, so the reason is worked out again from what the record holds before the insert. Input parameters name each value: \`#[{ customer_no: payload.customer_no default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]\`.
+1. \`validate-and-map\` (NO_FAILURES): Validate customer number and email; DataWeave maps the row to the Account shape. A failure here marks only that record as failed.
+2. \`load-salesforce\` (NO_FAILURES): **Batch Aggregator size 200** → Salesforce **Upsert** \`Account\` on \`Legacy_Customer_No__c\`. Check the per-item results: the connector reports record-level failures in its result instead of failing the whole group. So a rejected Account does not count as a failed batch record by itself and must be logged from here. (For 300k records, the Salesforce Bulk API v2 is an alternative.)
+3. \`mark-migrated\` (NO_FAILURES): aggregator → Database Bulk Insert into \`migration_log\` (audit and cutover proof).
+4. \`record-failures\` (**ONLY_FAILURES**): insert the record plus a reason into \`migration_errors\` for the data-stewards. A failed record arrives here as it was when it failed (the legacy row after a validation failure, the mapped Account after a failed upsert), and a later step cannot read that record's Mule error, so the reason is worked out again from what the record holds before the insert. Input parameters name each value: \`#[{ customer_no: payload.customer_no default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]\`.
 
-**On Complete:** DataWeave builds the summary from the BatchJobResult — \`totalRecords\`, \`successfulRecords\`, \`failedRecords\`, \`elapsedTimeInMillis\` — and **Email Send** delivers it.
+**On Complete:** DataWeave builds the summary from the BatchJobResult (\`totalRecords\`, \`successfulRecords\`, \`failedRecords\`, \`elapsedTimeInMillis\`) and **Email Send** delivers it.
 
 **Re-runs:** fixed records are re-selected (\`migrated = 'N'\`) and upserted again; the external ID makes this idempotent.
 `,
   followUps: [
     {
       q: 'What does accept policy ALL give you, and when would you use it?',
-      a: 'The step receives both successful and failed records — useful for an audit/logging step that must see every record, e.g. writing each record outcome to a reconciliation table.',
+      a: 'The step receives both successful and failed records: useful for an audit/logging step that must see every record, e.g. writing each record outcome to a reconciliation table.',
     },
     {
       q: 'Where does the batch job keep its records, and what happens if the worker restarts mid-wave?',

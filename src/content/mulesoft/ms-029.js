@@ -10,10 +10,10 @@ export default {
       type: 'single',
       prompt: 'A sub-flow called with Flow Reference raises \`HTTP:CONNECTIVITY\`. Which error handler deals with it?',
       options: [
-        "The sub-flow's own error handler",
-        'The error handler of the flow (or Try scope) that called the sub-flow',
-        "The application's default error handler, always",
-        'None — sub-flow errors are swallowed',
+        "The sub-flow's own error handler, defined inside the sub-flow",
+        'The error handler of the flow or Try scope that called it',
+        "The application's default error handler, in every case",
+        'None, because errors inside a sub-flow are swallowed',
       ],
       answer: 1,
       explain: 'A sub-flow has **no error handler** of its own. It behaves as if its processors were inline in the caller, so the calling flow or the enclosing Try scope handles the error.',
@@ -22,8 +22,8 @@ export default {
       type: 'match',
       prompt: 'Match each piece of the Invoice API to the best construct.',
       pairs: [
-        ['validate-invoice — 6 reusable validation steps', 'Sub-flow'],
-        ['enrich-customer — needs its own fallback when the CRM is down', 'Private flow with an error handler'],
+        ['validate-invoice: 6 reusable validation steps', 'Sub-flow'],
+        ['enrich-customer: needs its own fallback when the CRM is down', 'Private flow with an error handler'],
         ['Entry point for POST /invoices', 'Flow with an HTTP Listener'],
       ],
       explain: 'Use a sub-flow for plain reusable steps, a private flow when the reused logic needs its **own** error handling, and a flow with a source for an entry point.',
@@ -42,7 +42,7 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A teammate says "make everything a sub-flow — they are faster". What is the best reply?',
+      prompt: 'A teammate says "make everything a sub-flow: they are faster". What is the best reply?',
       options: [
         'Agreed, sub-flows avoid thread switches so they are always the right choice',
         'The performance difference is negligible; choose by error handling and configuration needs',
@@ -56,23 +56,23 @@ export default {
       type: 'single',
       prompt: '\`enrich-customer\` is a private flow with **On Error Continue** that sets a default customer. The CRM is down. What does the calling flow see?',
       options: [
-        'An error, so its own error handler runs',
-        'A successful Flow Reference that returns the default customer, and processing continues',
-        'The flow stops silently with an empty payload',
-        'A MULE:UNKNOWN error',
+        'An error, so the error handler of the calling flow runs',
+        'A successful call with the default customer, and it carries on',
+        'The flow stops silently, with an empty payload and no error',
+        'A `MULE:UNKNOWN` error, because the original error was handled',
       ],
       answer: 1,
-      explain: 'On Error Continue completes the private flow successfully with whatever the handler produced, so the caller just carries on — its error handler never runs.',
+      explain: 'On Error Continue completes the private flow successfully with whatever the handler produced, so the caller carries on and its error handler never runs.',
     },
   ],
   description: `
 An **Invoice Process API** has grown to a single 400-line flow. You are asked to split it:
 
-- \`validate-invoice\` — 6 validation steps, reused by 3 APIs in the same app.
-- \`enrich-customer\` — calls the CRM and must have **its own** error handling (return a default customer if CRM is down).
-- \`post-to-erp\` — must be callable from an HTTP flow **and** from a Scheduler-driven retry flow.
+- \`validate-invoice\`: 6 validation steps, reused by 3 APIs in the same app.
+- \`enrich-customer\`: calls the CRM and must have **its own** error handling (return a default customer if CRM is down).
+- \`post-to-erp\`: must be callable from an HTTP flow **and** from a Scheduler-driven retry flow.
 
-A teammate proposes: "Make everything a sub-flow — they are faster."
+A teammate proposes: "Make everything a sub-flow: they are faster."
 
 **Questions**
 1. What are the structural differences between a flow, a private flow (flow without a source) and a sub-flow?
@@ -93,7 +93,7 @@ A teammate proposes: "Make everything a sub-flow — they are faster."
     'A sub-flow has no source and no error handler; errors inside it are handled by the caller (flow or Try scope).',
     'Flow Reference passes the whole event (payload, attributes, vars) synchronously and returns the resulting event to the caller.',
     'Use a sub-flow for simple reusable steps, a private flow when the reused logic needs its own error handling.',
-    'Flow Reference names can be expressions, but static references are easier to read, validate and test.',
+    'Flow Reference names can be expressions, but static references are clearer to read, validate and test.',
   ],
   solution: `
 **Structural differences**
@@ -104,7 +104,7 @@ A teammate proposes: "Make everything a sub-flow — they are faster."
 | maxConcurrency / flow-level settings | Yes | Yes | No |
 | Called via | Its source, or Flow Reference | Flow Reference | Flow Reference |
 
-A sub-flow behaves as if its processors were pasted inline into the caller — errors are handled by whatever scope called it.
+A sub-flow behaves as if its processors were pasted inline into the caller: errors are handled by whatever scope called it.
 
 **Choices**
 - \`validate-invoice\` → **sub-flow**. Pure reusable steps; any validation error should surface to the caller's error handler anyway.
@@ -113,7 +113,7 @@ A sub-flow behaves as if its processors were pasted inline into the caller — e
 
 "Sub-flows are faster" is not a meaningful design argument; the difference is negligible. Choose based on error handling and configuration needs.
 
-**Flow Reference:** passes the **same event** — payload, attributes and vars — and the target's resulting event comes back to the caller, so changes to payload and vars are visible afterwards. It is synchronous from the caller's perspective; the runtime may run the work on different threads depending on the processors, but you do not manage that.
+**Flow Reference:** passes the **same event** (payload, attributes and vars), and the target's resulting event comes back to the caller, so changes to payload and vars are visible afterwards. It is synchronous from the caller's perspective; the runtime may run the work on different threads depending on the processors, but you do not manage that.
 
 **Dynamic names**: \`<flow-ref name="#['process-' ++ vars.invoiceType]"/>\` works and replaces a long Choice. Downsides: Studio cannot validate the target, typos appear only at runtime, and coverage/navigation tooling is weaker. Prefer static references unless the variants are numerous and stable.
 `,

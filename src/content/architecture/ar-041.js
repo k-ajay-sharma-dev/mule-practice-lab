@@ -10,9 +10,9 @@ export default {
       type: 'match',
       prompt: 'Classify each proposed change to OrderPlaced.',
       pairs: [
-        ['Change `total` from a number to `{ amount, currency }`', 'Breaking — type change'],
-        ['Add `currency` next to `total`', 'Compatible — additive field'],
-        ['Same `customerId` field, new format from the new CRM', 'Semantically breaking — same name, different meaning'],
+        ['Change `total` from a number to `{ amount, currency }`', 'Breaking: type change'],
+        ['Add `currency` next to `total`', 'Compatible: additive field'],
+        ['Same `customerId` field, new format from the new CRM', 'Semantically breaking: same name, different meaning'],
       ],
       explain: 'Additive optional fields are safe for tolerant readers. Type changes break parsing; a silent format change is the most dangerous because nothing fails loudly.',
     },
@@ -21,10 +21,10 @@ export default {
       needsScenario: true,
       prompt: 'How should the new CRM customer id be introduced?',
       options: [
-        'Change the format of `customerId` and announce it in an email',
-        'Add `customerKey` alongside the legacy `customerId`, let consumers move, and remove the old field in v2',
-        'Create a separate CustomerIdChanged event',
-        'Encode both ids in `customerId` separated by a pipe',
+        'Change the format of `customerId` and announce it to every team',
+        'Add `customerKey` next to `customerId`; remove the old field in v2',
+        'Publish a separate CustomerIdChanged event for every customer',
+        'Change `customerId` and give consumers a lookup API for old ids',
       ],
       answer: 1,
       explain: 'Running old and new fields side by side lets 9 consumers migrate on their own schedules; removing the old one is a major-version change.',
@@ -33,10 +33,10 @@ export default {
       type: 'single',
       prompt: 'A Mule consumer validates events against a JSON Schema with `additionalProperties: false`. What happens when `giftWrap` is added?',
       options: [
-        'Nothing — new fields are always ignored',
-        'Validation rejects the event, turning a compatible additive change into an outage',
-        'Mule strips the unknown field automatically',
-        'The broker rejects the message',
+        'Nothing, because JSON Schema ignores fields it does not list',
+        'Validation rejects the event, so an additive change breaks it',
+        'Mule strips the unknown field before validation',
+        'The event passes, but `giftWrap` is set to null',
       ],
       answer: 1,
       explain: 'Consumers must be **tolerant readers**: validate what they need and ignore the rest.',
@@ -59,10 +59,10 @@ export default {
       type: 'single',
       prompt: 'How do you stop a producer from accidentally publishing a breaking change?',
       options: [
-        'Code review only',
-        'A CI check comparing the new schema with the previously published one (in Exchange or a schema registry), failing on breaking changes unless the major version is bumped',
-        'Asking consumers to test every release',
-        'Publishing schemas only in a wiki',
+        'A code review of every producer change',
+        'A CI check that compares the new schema with the published one',
+        'An email to consumer teams before every producer release',
+        'Consumer teams testing each producer release in SIT',
       ],
       answer: 1,
       explain: 'Automated compatibility checks make breaking changes visible before release; registries enforce modes such as BACKWARD or FULL, and with Exchange a schema-diff step does the same.',
@@ -71,10 +71,10 @@ export default {
       type: 'single',
       prompt: 'Analytics must replay 30-day-old events with a consumer built for the new schema. Which compatibility does that need?',
       options: [
-        'Forward compatibility — old consumers read new events',
-        'Backward compatibility — consumers on the new schema can read old events',
-        'Neither — replay always uses the original consumer',
-        'Only binary compatibility',
+        'Forward compatibility: old consumers can read new events',
+        'Backward compatibility: new consumers can read old events',
+        'None, since replay always uses the original consumer code',
+        'None, since the broker stores events as raw bytes',
       ],
       answer: 1,
       explain: 'Backward compatibility matters for replay; forward compatibility matters when producers upgrade before consumers. Additive optional fields with tolerant readers give both.',
@@ -127,12 +127,12 @@ Constraints:
 | Change \`total\` to \`{ amount, currency }\` | **Breaking** | Type change |
 | Add \`currency\` next to \`total\` | Compatible (additive) | Consumers ignoring it still work; semantics of total must stay the same |
 | Add \`unitPrice\`, optional \`giftWrap\` to items | Compatible | If consumers tolerate unknown fields |
-| New \`customerId\` format | **Semantically breaking** | Same field name, different meaning/format — the most dangerous kind |
+| New \`customerId\` format | **Semantically breaking** | Same field name, different meaning/format: the most dangerous kind |
 
 **Evolution strategy.**
 - **v1.1 (additive):** add \`currency\`, \`items[].unitPrice\`, \`items[].giftWrap\`. Keep \`total\` meaning "amount in currency".
 - **customerId:** do not silently change format. Add \`customerKey\` (new CRM id) alongside \`customerId\` (legacy) during migration; consumers move to the new field; later remove the old one in **v2**.
-- Fix Mule consumers that use JSON Schemas with \`additionalProperties: false\` — they turn every additive change into an outage. Tolerant-reader rule: validate what you need, ignore the rest.
+- Fix Mule consumers that use JSON Schemas with \`additionalProperties: false\`: they turn every additive change into an outage. Tolerant-reader rule: validate what you need, ignore the rest.
 
 **Versioning and coexistence.**
 - Envelope with metadata:
@@ -148,10 +148,10 @@ Constraints:
 - Schemas (JSON Schema/Avro) published in **Exchange** or a schema registry, each consumer listed.
 - CI check on the producer compares the new schema with the previous one and fails on breaking changes unless the major version is bumped (schema registries enforce compatibility modes like BACKWARD/FULL; with Exchange do it with a schema-diff step).
 - Contract tests: producer tests generate sample events and validate them against the published schema; consumer tests run against published examples.
-- Document semantics, not just types (currency, timezone, id formats).
+- Document semantics, not only types (currency, timezone, id formats).
 `,
   followUps: [
-    { q: 'Why not just version every change as a new topic?', a: 'Every new topic multiplies producers, consumers and monitoring; minor additive changes should not force migrations. Reserve parallel streams for genuinely breaking changes.' },
+    { q: 'Why not version every change as a new topic?', a: 'Every new topic multiplies producers, consumers and monitoring; minor additive changes should not force migrations. Reserve parallel streams for genuinely breaking changes.' },
     { q: 'What is the difference between backward and forward compatibility here?', a: 'Backward compatible: consumers on the new schema can read old events (important for replay). Forward compatible: consumers on the old schema can read new events (important when producers upgrade first). Additive optional fields with tolerant readers give both.' },
   ],
 }

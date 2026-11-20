@@ -62,9 +62,9 @@ output application/json
 payload
 `,
   hints: [
-    'Every CSV value is a String, and an empty cell is the empty string `""` — not null. So `row.qty default "1"` does **not** work; test with `isEmpty(row.qty)`.',
+    'Every CSV value is a String, and an empty cell is the empty string `""`, not null. So `row.qty default "1"` does **not** work; test with `isEmpty(row.qty)`.',
     '`payload groupBy $.orderId` returns an object keyed by order id, in first-appearance order. Turn it into an array with `pluck (rows, id) -> ...`.',
-    'Sort lines with `orderBy ($.lineNo as Number)` — sorting the strings puts `"10"` before `"2"`. Convert the rows to typed lines first, then sort and sum the typed values.',
+    'Sort lines with `orderBy ($.lineNo as Number)`; sorting the strings puts `"10"` before `"2"`. Convert the rows to typed lines first, then sort and sum the typed values.',
   ],
   solution: `%dw 2.0
 output application/json
@@ -93,7 +93,7 @@ This is the reverse of "explode children into rows": **group** the rows by the p
 
 - \`groupBy\` keeps groups in the order in which each key first appears, so \`SO-11\` comes first even though its rows are scattered.
 - \`pluck\` turns the grouped object into an array of parents.
-- The \`num\` helper centralizes "empty means default, otherwise coerce" — the CSV reader gives \`""\` for an empty cell, so \`r.qty default "1"\` never fires (\`""\` is not null).
+- The \`num\` helper centralizes "empty means default, otherwise coerce". The CSV reader gives \`""\` for an empty cell, so \`r.qty default "1"\` never fires (\`""\` is not null).
 - Converting first and sorting afterwards means \`orderBy $.lineNo\` compares **numbers**.
 
 Common traps:
@@ -133,8 +133,8 @@ SO-7,2026-12-01,C-1,2,B,,4`,
       a: '`groupBy` must see every row before it can emit a group, so the whole file is held in memory. If the export can be sorted by `orderId`, process it in a streaming fashion (e.g. a Batch Job or For Each over a streamed reader) and close an order when the id changes.',
     },
     {
-      q: 'Could you just write `r.qty as Number default 1`?',
-      a: 'It gives the same result here: when the coercion on the left of `default` fails, `default` returns the fallback. But it also hides junk — `"abc"` silently becomes 1 — so an explicit `isEmpty` check is safer when bad data should fail loudly.',
+      q: 'Could you write `r.qty as Number default 1` instead?',
+      a: 'It gives the same result here: when the coercion on the left of `default` fails, `default` returns the fallback. But it also hides junk (`"abc"` silently becomes 1), so an explicit `isEmpty` check is safer when bad data should fail loudly.',
     },
   ],
 }

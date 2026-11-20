@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause of the outage?',
         options: [
-          'invoice-sapi logs the full payload per line at DEBUG and the appender has no size cap or retention, so the disk filled',
-          'The Object Store is corrupted',
-          'The Runtime Manager agent crashed and took the server down',
-          'The export folder has wrong permissions',
+          'A DEBUG payload Logger in invoice-sapi filled the disk, and its logs have no size cap',
+          'The persistent Object Store of order-store grew until it filled the disk',
+          'The Runtime Manager agent lost its connection and stopped the apps on the server',
+          'The export folder under /data lost its write permissions after an OS patch',
         ],
         answer: 0,
         explain: '"No space left on device" in several apps is the symptom. The 41 GB invoice-sapi.log is the cause, created by a debugging change left in production.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'How do you free the space safely while invoice-sapi is running?',
         options: [
-          'rm invoice-sapi.log',
+          'Delete invoice-sapi.log with rm while the app keeps running',
           'Lower the log level to INFO, then truncate the file or compress and move it',
-          'Restart the whole server without changing anything',
-          'Delete the Object Store data folder',
+          'Restart the whole server so every app releases its open file handles',
+          'Delete the Object Store data folder to free space quickly',
         ],
         answer: 1,
         explain: 'Stop the growth first. Deleting a file that a process holds open does not release the space until the process restarts; truncating does.',
@@ -114,8 +114,8 @@ export default {
 
 **Immediate mitigation.**
 1. Lower \`com.example.invoice\` back to **INFO** (Runtime Manager → app → Logging, or edit \`log4j2.xml\`) and remove/disable the payload Logger.
-2. Free space safely: compress or move the big file to other storage. If you must **truncate** it, do so (e.g. \`: > invoice-sapi.log\`) instead of deleting it while the process holds it open — a deleted-but-open file keeps using disk space until the process restarts.
-3. Check that each app recovered: re-run failed file exports and check the Object Store–dependent app for lost writes.
+2. Free space safely: compress or move the big file to other storage. If you must **truncate** it, do so (e.g. \`: > invoice-sapi.log\`) instead of deleting it while the process holds it open. A deleted but open file keeps using disk space until the process restarts.
+3. Check that each app recovered: re-run failed file exports and check the app that uses the Object Store for lost writes.
 
 **Root cause.** A debugging change was left in production with no time limit, combined with a log configuration that has **no size limit and no retention**. There was also no disk monitoring to warn before 100%.
 

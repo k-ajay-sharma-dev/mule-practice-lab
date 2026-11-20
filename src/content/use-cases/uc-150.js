@@ -73,6 +73,8 @@ Slots are held in the **delivery slot system**, which takes about **150 calls a 
 - Bookings: about **10 a second**, up to **60 a second** in the rush.
 - The slot system answers in about 300 ms and takes about **150 calls a second**. On a bad day it has slowed to 12 seconds.
 - About 95% of views are for the same few days and stores, and a view up to **15 seconds** old is acceptable. A booking must always check the slot system itself.
+- A view must be answered within **500 ms** and a booking within **1 second**. When the slot system is slow, a view must still show slots within **2.5 seconds**.
+- If one availability zone fails during the rush, the other zone must take every view and booking.
 
 **Questions:**
 - Draw the design.

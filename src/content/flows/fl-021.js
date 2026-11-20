@@ -226,18 +226,19 @@ Your company pushes **product price updates** to a marketplace partner API.
 - **Max 20 requests/second** and **max 5 concurrent connections** per client ID.
 - Violations return **429 Too Many Requests** with a \`Retry-After\` header.
 - Repeated abuse suspends the account.
-- One price is sent with \`PUT /prices/{sku}\`.
+- One price is sent with \`PUT /prices/{sku}\` and the body \`{ price, effectiveAt }\`.
+- After a 429, no replica may call the partner again until the \`Retry-After\` time (in seconds) has passed.
 
 **Load**
-- Usually 2–5 updates/s.
+- Usually 2 to 5 updates/s.
 - The pricing engine sometimes publishes **150,000 updates in 10 minutes**.
 - The integration app runs on **3 replicas**.
 - No update may be lost, even if a replica crashes while sending it.
-- Each update is \`{ sku, price, effectiveAt }\`. Buffer them in an Anypoint MQ queue named \`price-updates\`.
+- Each update is \`{ sku, price, effectiveAt }\`. Buffer them in an Anypoint MQ queue named \`price-updates\`, consumed with MANUAL acknowledgement.
 
 **Ordering rule**
 
-Updates for the same SKU must not be applied out of order (an older price must not overwrite a newer one).
+Updates for the same SKU must not be applied out of order (an older price must not overwrite a newer one). An update older than the last one sent for its SKU is dropped from the queue without a call.
 
 **Design the flow(s):**
 - Buffering
@@ -267,15 +268,15 @@ Updates for the same SKU must not be applied out of order (an older price must n
   ],
   solution: `
 1. **Buffer:** pricing engine → **Anypoint MQ** queue \`price-updates\` (via a small ingest API or direct publish). 150k messages wait in the queue instead of hitting the partner.
-2. **Concurrency:** consumer app with **Anypoint MQ Subscriber**, concurrency/flow \`maxConcurrency\` and HTTP Request config \`maxConnections\` such that replicas × concurrency ≤ 5 (e.g. 1 + 2 + 2, or simply run the partner-caller as a single replica with concurrency 5).
-3. **Rate:** with 5 in-flight calls at ~200 ms each you get ~25/s — above the limit. Pace it: e.g. a **Scheduler** every 1 s that consumes up to N messages (\`Consume\` operation) per replica where N × replicas ≤ 18 (headroom), or add a fixed minimum time per call. For stronger guarantees use a shared token bucket (counter in a shared store/Redis) checked before each call.
-4. **Coalesce:** many updates for the same SKU in a burst can be collapsed — DataWeave \`groupBy\` SKU over a consumed batch, keeping the newest by \`effectiveAt\`; fewer calls and no stale overwrite. If the partner supports bulk price updates, send 100 SKUs per call.
+2. **Concurrency:** consumer app with **Anypoint MQ Subscriber**, concurrency/flow \`maxConcurrency\` and HTTP Request config \`maxConnections\` such that replicas × concurrency ≤ 5 (e.g. 1 + 2 + 2, or run the partner-caller as a single replica with concurrency 5).
+3. **Rate:** with 5 in-flight calls at ~200 ms each you get ~25/s, above the limit. Pace it: e.g. a **Scheduler** every 1 s that consumes up to N messages (\`Consume\` operation) per replica where N × replicas ≤ 18 (headroom), or add a fixed minimum time per call. For stronger guarantees use a shared token bucket (counter in a shared store/Redis) checked before each call.
+4. **Coalesce:** many updates for the same SKU in a burst can be collapsed: DataWeave \`groupBy\` SKU over a consumed batch, keeping the newest by \`effectiveAt\`; fewer calls and no stale overwrite. If the partner supports bulk price updates, send 100 SKUs per call.
 5. **429 handling:** HTTP Request \`responseValidator\` treats 429 as an error; On Error Continue for \`HTTP:TOO_MANY_REQUESTS\` reads \`Retry-After\` and Nacks the message (or republishes with a delay). It also sets a shared "pause until" timestamp so all workers back off instead of hammering the partner.
 6. **Per-SKU correctness:** include \`effectiveAt\`/version in each message; keep the last-sent version per SKU in an Object Store and skip older ones. FIFO queues are an alternative if throughput allows.
 7. **Monitoring:** alert on queue depth/age (SLA for price propagation), 429 count, DLQ size.
 `,
   followUps: [
-    { q: 'Can the API Manager Rate Limiting policy solve this?', a: 'No — API Manager policies protect your own APIs from inbound traffic. Outbound limits to a partner must be enforced by your integration design.' },
+    { q: 'Can the API Manager Rate Limiting policy solve this?', a: 'No. API Manager policies protect your own APIs from inbound traffic. Outbound limits to a partner must be enforced by your integration design.' },
     { q: 'What if you scale to 6 replicas?', a: 'Per-replica budgets must be recalculated or replaced by a shared rate limiter; otherwise each replica\'s local limit multiplies and you exceed the partner contract.' },
     { q: 'Why not retry 429 immediately with Until Successful?', a: 'Immediate retries ignore Retry-After, keep threads busy and look like abuse to the partner; backing off and slowing the whole consumer is the correct reaction.' },
   ],

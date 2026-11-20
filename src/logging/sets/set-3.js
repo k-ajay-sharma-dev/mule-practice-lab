@@ -22,14 +22,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Greenfield sales flow has moved the file of store 214 to the archive folder. Which message is best?',
     options: [
-      'File moved',
+      'Sales file archived fileName=store-214-2026-11-12.csv correlationId=5d21c9',
       'Sales file archived fileName=store-214-2026-11-12.csv archiveFolder=/data/archive/sales correlationId=5d21c9',
       'Archived: storeId,date,sku,qty,amount 214,2026-11-12,GG-1001,3,4.50 214,2026-11-12,GG-1002,1,2.10',
       'Moving file to archive now!!!',
     ],
     answer: 1,
     explain:
-      'It says what happened, which file and where it went. When a store asks about its file, support can find it in the archive. The third option dumps the file content.',
+      'It says what happened, which file and where it went. When a store asks about its file, support can find it in the archive. The first option does not say where the file went. The third option dumps the file content.',
   },
   {
     id: 'log-3003',
@@ -198,11 +198,11 @@ export const SET_3 = [
       'Enrolment record failed studentId=S-20417 reason=courseCode missing batchStep=validateEnrolment correlationId=c0a7e1',
       'Bad record from the college, they never fill it in!!!',
       'Enrolment record failed: {"studentId":"S-20417","name":"Mia Okafor","email":"mia.okafor@example.org","courseCode":null}',
-      'Validation error occurred',
+      'Enrolment record failed studentId=S-20417 batchStep=validateEnrolment correlationId=c0a7e1',
     ],
     answer: 0,
     explain:
-      'The student ID and the reason are enough for the registry office to fix the record. The third option puts a name and an email in the log, and the second blames people.',
+      'The student ID and the reason are enough for the registry office to fix the record. The third option puts a name and an email in the log, and the second blames people. The last has no reason, so the office does not know what to fix.',
   },
   {
     id: 'log-3013',
@@ -224,7 +224,7 @@ export const SET_3 = [
     id: 'log-3014',
     kind: 'write',
     situation:
-      'Write the logger right before the Northbridge enrolment Batch Job. The CSV has been read, so payload is an array of enrolments. vars.fileName holds the file name.',
+      'Write the logger right before the Northbridge enrolment Batch Job. The CSV has been read, so payload is an array of enrolments. vars.fileName holds the file name. Give the file name and the record count.',
     available: ['vars.fileName', 'sizeOf(payload)', 'payload', 'payload[0].studentEmail', 'correlationId'],
     level: ['INFO'],
     checks: [
@@ -288,14 +288,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Kestrel invoice flow has written an invoice file to the partner FTP folder /in/invoices. Which message is best?',
     options: [
-      'Invoice file sent to FTP',
+      'Invoice file sent invoiceId=INV-88213 fileName=INV-88213.csv folder=/in/invoices',
       'Invoice file sent invoiceId=INV-88213 fileName=INV-88213.csv folder=/in/invoices correlationId=93be0d',
       'Invoice file sent login=kestrel_out password=changeme host=ftp.lumen-books.example',
       'Sending...',
     ],
     answer: 1,
     explain:
-      'When the partner says an invoice never came, this line shows which file went where. The third option writes the FTP login and password to the log.',
+      'When the partner says an invoice never came, this line shows which file went where. The first option has no correlation ID, so it cannot be joined to the other lines of the run. The third option writes the FTP login and password to the log.',
   },
   {
     id: 'log-3018',
@@ -375,14 +375,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Bluewater renewal batch job starts for tonight\'s file of 50,000 policies. Which message is best?',
     options: [
-      'Batch job started',
+      'Renewal batch started jobName=policyRenewals fileName=renewals-20261112.csv correlationId=e2d904',
       'Renewal batch started jobName=policyRenewals fileName=renewals-20261112.csv records=50000 correlationId=e2d904',
       'Renewal batch started records=[{"policyId":"BW-55120","holder":"Ravi Menon"},{"policyId":"BW-55121","holder":"Ana Ruiz"}]',
       'Starting renewals, fingers crossed',
     ],
     answer: 1,
     explain:
-      'It names the job and the file and gives the record count, which On Complete can be checked against. The third option logs the records with the holders\' names.',
+      'It names the job and the file and gives the record count, which On Complete can be checked against. The first option has no record count. The third option logs the records with the holders\' names.',
   },
   {
     id: 'log-3023',
@@ -426,7 +426,7 @@ export const SET_3 = [
     situation:
       'In the Bluewater priceRenewal step, each record gets a new premium in vars.premium. You want a line per record that stays off in production, for when pricing looks wrong.',
     available: ['payload.policyId', 'vars.premium', 'payload', 'payload.holderName', 'correlationId'],
-    level: ['DEBUG'],
+    level: ['DEBUG', 'TRACE'],
     checks: [
       says(/priced|premium|calculated/i, 'Renewal priced'),
       labelled('policyId'),
@@ -437,7 +437,7 @@ export const SET_3 = [
     ],
     model: { level: 'DEBUG', message: '#["Renewal priced policyId=$(payload.policyId) premium=$(vars.premium) correlationId=$(correlationId)"]' },
     explain:
-      'One line per record is 50,000 lines a night, so DEBUG. When a premium looks wrong, turn on DEBUG for this category and the line shows the price each policy got.',
+      'One line per record is 50,000 lines a night, so DEBUG, or TRACE if your team keeps DEBUG for less detail. When a premium looks wrong, turn on DEBUG for this category and the line shows the price each policy got.',
   },
 
   // ---------- lg-066 Orchard Medical Supplies: Batch Aggregator ----------
@@ -456,13 +456,13 @@ export const SET_3 = [
     situation: 'The Orchard Batch Aggregator has written a chunk of 500 catalog records to SFTP. Which message is best?',
     options: [
       'Chunk: [{"sku":"OM-1102","name":"Nitrile gloves M","price":8.4},{"sku":"OM-1103","name":"Nitrile gloves L","price":8.4}]',
-      'Aggregator fired',
+      'Catalog chunk written records=500 durationMs=812 correlationId=17ab3e',
       'Wrote 500',
       'Catalog chunk written part=part-0042.csv records=500 durationMs=812 correlationId=17ab3e',
     ],
     answer: 3,
     explain:
-      'It names the part file, gives the count and the time. The first option dumps the records of the chunk, which for a large catalog means the whole catalog ends up in the log.',
+      'It names the part file, gives the count and the time. The first option dumps the records of the chunk, which for a large catalog means the whole catalog ends up in the log. The second option has no part name, so the warehouse cannot tell which file it was.',
   },
   {
     id: 'log-3028',
@@ -540,13 +540,13 @@ export const SET_3 = [
     situation: 'A Lakeside run has read its files and stored a new watermark in Object Store. Which message is best?',
     options: [
       'Readings watermark updated key=readings-watermark from=2026-11-12T14:00:00Z to=2026-11-12T14:15:00Z files=3 correlationId=0c55aa',
-      'Watermark saved',
+      'Readings watermark updated key=readings-watermark to=2026-11-12T14:15:00Z files=3 correlationId=0c55aa',
       'Object Store updated: {"key":"readings-watermark","value":"2026-11-12T14:15:00Z","entryTtl":null,"partition":"default"}',
       'Watermark updated!!! all good',
     ],
     answer: 0,
     explain:
-      'With the old and the new value in the log, you can tell later why a file was read twice or skipped. The key tells you which entry to look at.',
+      'With the old and the new value in the log, you can tell later why a file was read twice or skipped. The key tells you which entry to look at. The second option has only the new value, so the window the run covered is lost.',
   },
   {
     id: 'log-3033',
@@ -624,13 +624,13 @@ export const SET_3 = [
     situation: 'Row 412 of an Ashgrove delivery file has a date the flow cannot read. The row goes to a rejects file, and the other rows load. Which message is best?',
     options: [
       'Row rejected: "D-11820;Lena Fischer;12 Birch Road;12/31/2026"',
-      'Bad data',
+      'Delivery row rejected fileName=deliveries-1112.csv row=412 reason=not a valid date correlationId=8e3f10',
       'Delivery row rejected fileName=deliveries-1112.csv row=412 column=deliveryDate reason=not a valid date correlationId=8e3f10',
       'Row 412 rejected because the depot staff cannot type dates',
     ],
     answer: 2,
     explain:
-      'File, row, column and reason are all support needs to fix the row. The first option copies the row, with a name and a home street in it. The last one blames people.',
+      'File, row, column and reason are all support needs to fix the row. The first option copies the row, with a name and a home street in it. The second does not name the column. The last one blames people.',
   },
   {
     id: 'log-3038',
@@ -651,7 +651,7 @@ export const SET_3 = [
     id: 'log-3039',
     kind: 'write',
     situation:
-      'The Ashgrove flow has split a delivery file into good and bad rows. vars.goodRows are loaded and vars.badRows go to /error/deliveries. Write one summary line. vars.fileName is set.',
+      'The Ashgrove flow has split a delivery file into good and bad rows. vars.goodRows are loaded and vars.badRows go to /error/deliveries. Write one summary line with both counts. vars.fileName is set.',
     available: ['vars.fileName', 'sizeOf(vars.goodRows)', 'sizeOf(vars.badRows)', 'vars.badRows', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -710,14 +710,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The 02:00 Maple Transit run found the lock still held and skipped. Which message is best?',
     options: [
-      'Skipping',
+      'Fare load skipped: previous run still active lockKey=fare-load-lock correlationId=4b9d21',
       'LOCKED!!! again',
       'Fare load skipped, lock={"owner":"worker-2","acquired":"2026-11-12T02:00:04Z","ttl":86400000,"value":"..."}',
       'Fare load skipped: previous run still active lockKey=fare-load-lock lockedSince=2026-11-12T02:00:04Z correlationId=4b9d21',
     ],
     answer: 3,
     explain:
-      'It says the run was skipped and why, and how long the lock has been held. That points straight at the run that never ended.',
+      'It says the run was skipped and why, and how long the lock has been held. That points straight at the run that never ended. The first option does not say since when the lock is held.',
   },
   {
     id: 'log-3043',
@@ -738,7 +738,7 @@ export const SET_3 = [
     id: 'log-3044',
     kind: 'write',
     situation:
-      'Write the first logger of the Maple Transit fare load, after the lock is taken. vars.businessDate holds the date of the fares being loaded.',
+      'Write the first logger of the Maple Transit fare load, after the lock is taken. Name the job, fareLoad, and give the business date. vars.businessDate holds the date of the fares being loaded.',
     available: ['vars.businessDate', "p('fare.cron')", 'payload', 'correlationId'],
     level: ['INFO'],
     checks: [
@@ -873,14 +873,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Willowdene counts do not match and the load stops. Which message is best?',
     options: [
-      'Counts differ',
+      'Stock moves not loaded: count mismatch fileName=moves-20261112.dat next=load stopped correlationId=7a2c91',
       'MISMATCH!!! someone check the file',
       'Stock moves not loaded: count mismatch fileName=moves-20261112.dat expected=18240 found=18236 next=load stopped correlationId=7a2c91',
       'Stock moves not loaded, rows=[{"sku":"CP-4410","qty":-2,"store":"S-12"},{"sku":"CP-4411","qty":5,"store":"S-12"}]',
     ],
     answer: 2,
     explain:
-      'Both counts, the file and what happened next are all in one line. Whoever gets paged knows at once how many rows are missing and that nothing was loaded.',
+      'Both counts, the file and what happened next are all in one line. Whoever gets paged knows at once how many rows are missing and that nothing was loaded. The first option has no counts, so nobody can tell how big the gap is.',
   },
   {
     id: 'log-3054',
@@ -985,7 +985,7 @@ export const SET_3 = [
     id: 'log-3060',
     kind: 'write',
     situation:
-      'In On Complete of the Summit Payroll job, a Choice sends runs where payload.processedRecords is less than payload.totalRecords to this logger. maxFailedRecords is 50. Write it.',
+      'In On Complete of the Summit Payroll job, a Choice sends runs where payload.processedRecords is less than payload.totalRecords to this logger. maxFailedRecords is 50. Write it with the job instance ID and the total, processed and failed counts.',
     available: [
       'payload.batchJobInstanceId',
       'payload.totalRecords',
@@ -1013,12 +1013,12 @@ export const SET_3 = [
       'Processed below total is how On Complete shows that the job was stopped. The counts tell payroll how many employees still wait, and the job ID finds the failed records.',
   },
 
-  // ---------- lg-073 Marchmont Auto Parts: EDI orders over SFTP ----------
+  // ---------- lg-073 Marchmont Farm Equipment: EDI orders over SFTP ----------
   {
     id: 'log-3061',
     kind: 'level',
     situation:
-      'Marchmont Auto Parts polls the SFTP server of each dealer for X12 850 order files every 5 minutes. One poll fails with SFTP:CONNECTIVITY. The next poll tries again.',
+      'Marchmont Farm Equipment polls the SFTP server of each dealer for X12 850 order files every 5 minutes. One poll fails with SFTP:CONNECTIVITY. The next poll tries again.',
     answer: ['WARN'],
     explain:
       'One failed poll that the next poll retries is handled, so WARN. If the dealer stays unreachable for an hour, a separate ERROR should tell someone.',
@@ -1028,14 +1028,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'A Marchmont dealer\'s X12 850 file has been read and parsed. It holds 12 purchase orders. Which message is best?',
     options: [
-      'EDI file read',
+      'X12 850 received dealerId=DL-0442 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
       'X12 850 received dealerId=DL-0442 interchangeControl=000004127 orders=12 fileName=dl0442-850-1112.edi correlationId=31c8e5',
       'ISA*00*          *00*          *ZZ*DL0442         *ZZ*MARCHMONT      *261112*1410*U*00401*000004127*0*P*>~',
       'Orders from dealer, see SFTP',
     ],
     answer: 1,
     explain:
-      'The interchange control number is how both sides talk about one EDI file. With the dealer, the order count and the file name, a dealer question can be answered from one line.',
+      'The interchange control number is how both sides talk about one EDI file. With the dealer, the order count and the file name, a dealer question can be answered from one line. The first option has no interchange control number, which is what the dealer will quote.',
   },
   {
     id: 'log-3063',
@@ -1070,7 +1070,7 @@ export const SET_3 = [
     id: 'log-3065',
     kind: 'write',
     situation:
-      'Write the ERROR logger for the Marchmont EDI file that cannot be parsed. Its orders are not created until the dealer sends a good file. vars.fileName and vars.dealerId are set.',
+      'Write the ERROR logger for the Marchmont EDI file that cannot be parsed. Its orders are not created until the dealer sends a good file, and the flow moves it to /error/edi. vars.fileName and vars.dealerId are set.',
     available: ['vars.fileName', 'vars.dealerId', 'error.errorType', 'error.description', 'payload', 'correlationId'],
     level: ['ERROR'],
     checks: [
@@ -1106,14 +1106,14 @@ export const SET_3 = [
     kind: 'choice',
     situation: 'The Harbourview fixed-width statement file has been parsed. Which message is best?',
     options: [
-      'Parse OK',
+      'Statement file parsed fileName=stmt-20261112.txt records=61203 correlationId=d4a7b2',
       'Parsed: 00123456782026111200000012500CR J SMITH',
       'Statement file parsed fileName=stmt-20261112.txt records=61203 trailerCount=61203 correlationId=d4a7b2',
       'Statement file parsed accountNumbers=[00123456,00123457,00123458]',
     ],
     answer: 2,
     explain:
-      'The record count next to the trailer count shows the file is whole. The raw line and the list of account numbers put customer data in the log.',
+      'The record count next to the trailer count shows the file is whole. The first option has no trailer count to compare with. The raw line and the list of account numbers put customer data in the log.',
   },
   {
     id: 'log-3068',

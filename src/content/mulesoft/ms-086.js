@@ -49,8 +49,8 @@ export default {
       options: [
         'TOPIC',
         'QUEUE',
-        'QUEUE, with three listeners on the same queue',
-        'TOPIC with Priority 9',
+        'QUEUE, with three listeners',
+        'QUEUE, with Priority 9',
       ],
       answer: 0,
       explain: 'A topic gives each subscriber a copy. Several consumers on one queue compete, so each message reaches only one of them.',

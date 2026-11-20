@@ -9,7 +9,7 @@ export default {
   estMinutes: 15,
   quiz: fromLogging(["log-3061","log-3062","log-3063","log-3064","log-3065"]),
   description: `
-Marchmont Auto Parts gets X12 850 purchase orders from dealers over SFTP. Files arrive, fail validation or cannot be parsed. Log each one so a dealer question can be answered.
+Marchmont Farm Equipment gets X12 850 purchase orders from dealers over SFTP. Files arrive, fail validation or cannot be parsed. Log each one so a dealer question can be answered.
 
 Answer every question, then press **Check answers**. The rules for good log lines are at the top of the Logging Lab page.
 `,

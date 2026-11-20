@@ -65,7 +65,7 @@ Target:
 - Deletes must reach Snowflake (EBS purges some interface rows), and changes to one row must be applied in order.
 - Snowflake should be loaded in micro-batches through an external stage on **Amazon S3**; the data team uses Snowpipe.
 - Finance must be able to trust it: any gap between EBS and Snowflake must be found within an hour.
-- In the tests the payment run publishes about 111 changes a second for an hour, and 1 change in 1,000 has a value the mapping cannot handle.
+- In the tests the payment run publishes about 111 changes a second for an hour, and 1 change in 1,000 has a value the mapping cannot handle. During the peak the stream must never hold more than about 20,000 changes (3 minutes of work). A change that fails 5 tries must go to a dead-letter destination so it can be replayed, and no change may be lost.
 
 **Questions:**
 1. How does the change stream flow from EBS to Snowflake?
@@ -96,11 +96,11 @@ Oracle EBS DB --GoldenGate (redo)--> Kafka ebs.finance.cdc --> prc-finance-dw-lo
 
 **Capture.** GoldenGate reads the redo logs, so EBS sees no extra queries. It publishes one topic per table with the **primary key as the Kafka key**, and each message carries the operation (insert, update, delete), before and after images and the commit SCN.
 
-**Loading.** **prc-finance-dw-loader** is a Mule app with the Kafka connector, running a consumer group with one consumer per partition. It maps each change to the warehouse column names and types, and collects changes per table into a file every 5 minutes or 50,000 records. The file is written to S3 as Parquet. Only after the S3 write succeeds does the app commit the offsets, so a crash replays the last batch instead of losing it.
+**Loading.** **prc-finance-dw-loader** is a Mule app with the Kafka connector, running a consumer group with one consumer per partition. It maps each change to the warehouse column names and types, and collects changes per table into a file every 5 minutes or 50,000 records. The file is written to S3 as Parquet. Only after the S3 write succeeds does the app commit the offsets, so a crash replays the last batch instead of losing it. At the 111 changes a second of the payment run, a 0.1 vCore replica falls behind, so the loader runs on 0.5 vCore and the stream stays near empty.
 
 **Applying.** Snowpipe loads each file into a raw change table. A Snowflake task merges the raw changes into the target tables by primary key, keeping only the change with the highest SCN per key. Deletes remove the row. Because the merge compares SCNs, a change loaded twice or out of order does no harm.
 
-**Bad records.** A message that cannot be mapped (unexpected column type after an EBS patch) goes to the DLQ topic with the error, and the partition carries on.
+**Bad records.** A message that cannot be mapped (unexpected column type after an EBS patch) is tried 5 times, then goes to the DLQ topic with the error, and the partition carries on.
 
 **Replay.** Kafka keeps 7 days. After a mapping fix, the consumer group offsets are reset to the time of the bug, and the merge absorbs the repeated changes.
 

@@ -32,25 +32,25 @@ export default {
       detail: true,
       prompt: 'For CloudHub 2.0 publishing, what must the project `groupId` be?',
       options: [
-        'The organization / business group ID',
-        'The company reverse domain, e.g. `com.acme`',
-        'The environment name',
+        'The organization or business group ID of the Exchange asset',
+        'The company reverse domain, for example `com.acme`',
+        'The name of the target environment, such as `prod`',
         'Any value, as long as it is unique in Maven Central',
       ],
       answer: 0,
-      explain: 'CloudHub 2.0 deploys from Exchange, and Exchange assets are owned by an organization — the `groupId` must equal the business group (org) ID.',
+      explain: 'CloudHub 2.0 deploys from Exchange, and Exchange assets are owned by an organization: the `groupId` must equal the business group (org) ID.',
     },
     {
       type: 'single',
       prompt: 'How should the pipeline authenticate to Anypoint Platform?',
       options: [
-        'A Connected App with client credentials and only deploy/Exchange scopes, secrets from the CI secret store',
-        "A team lead's username and password in the pom.xml",
-        'The environment client ID/secret used by autodiscovery',
-        'An SSH key registered in Runtime Manager',
+        'A Connected App with client credentials and only the scopes it needs',
+        "A team lead's username and password stored in the pom.xml",
+        'The environment client ID and secret used by autodiscovery',
+        'An SSH key that is registered in Runtime Manager for the team',
       ],
       answer: 0,
-      explain: 'Connected Apps are not tied to a person (no leaver risk or MFA prompts), are scoped, and their secrets rotate independently.',
+      explain: 'Give it only deploy and Exchange scopes, with secrets from the CI secret store. Connected Apps are not tied to a person (no leaver risk or MFA prompts), are scoped, and their secrets rotate independently.',
     },
     {
       type: 'multi',
@@ -59,7 +59,7 @@ export default {
         'Replicas and vCores',
         'Application properties such as `env`',
         'The secure-properties key',
-        'The MUnit test cases',
+        'The MUnit test cases and their mocks',
         'The connector versions in the POM',
       ],
       answer: [0, 1, 2],
@@ -98,12 +98,12 @@ The first pipeline attempt fails with:
     'CloudHub 2.0 deploys from an artifact published to Exchange, so the groupId must be the business group (organization) ID and distributionManagement must point to the Exchange Maven repository.',
     'Authentication via a Connected App (client credentials) with deploy/Exchange scopes; credentials from the CI secret store, injected into settings.xml or as -D properties.',
     'Enterprise connectors resolve from the MuleSoft EE repository, which requires Nexus credentials in the CI settings.xml.',
-    'Treat a published release version as fixed — promote an existing version instead of re-publishing; bump the version for new builds.',
+    'Treat a published release version as fixed: promote an existing version instead of re-publishing; bump the version for new builds.',
     'Environment-specific values (target, replicas, vCores, properties, secure key) come from pipeline variables, not from rebuilding the JAR.',
   ],
   solution: `
 **Pipeline stages**
-1. **PR build:** \`mvn clean verify\` — compiles the app, runs MUnit, enforces coverage (munit-maven-plugin).
+1. **PR build:** \`mvn clean verify\`: compiles the app, runs MUnit, enforces coverage (munit-maven-plugin).
 2. **Publish (merge to main / release tag):** set a release version (no \`-SNAPSHOT\`), \`mvn clean deploy\` (tests skipped only if they already ran) → publishes the app JAR to **Exchange**.
 3. **Deploy dev → qa → prod:** the same version is deployed with \`mvn mule:deploy\` / \`mvn deploy -DmuleDeploy\` using per-environment parameters; manual approval gate before prod; smoke test after each deploy.
 
@@ -133,11 +133,11 @@ The first pipeline attempt fails with:
   </configuration>
 </plugin>
 \`\`\`
-(Element names vary slightly by plugin version — check the docs for the version you use.)
+(Element names vary slightly by plugin version: check the docs for the version you use.)
 
 **Errors**
 - **SAP connector not resolved:** it is an **Enterprise** connector hosted in the MuleSoft EE Maven repository, which needs credentials. Laptops have them in \`~/.m2/settings.xml\`; the CI runner doesn't. Add the repository credentials (from the secret store) to the CI \`settings.xml\`.
-- **401 publishing to Exchange:** the \`distributionManagement\` server ID needs credentials in \`settings.xml\` — e.g. the Connected App (\`~~~Client~~~\` username format) with Exchange contributor scope — and the \`groupId\` must equal the **organization/business group ID**.
+- **401 publishing to Exchange:** the \`distributionManagement\` server ID needs credentials in \`settings.xml\`, e.g. the Connected App (\`~~~Client~~~\` username format) with Exchange contributor scope, and the \`groupId\` must equal the **organization/business group ID**.
 - **Version already exists:** the stage tried to publish a release version that is already in Exchange. A prod re-run must **deploy** the existing version, not publish again. Separate "publish" from "deploy" and make deploy stages idempotent.
 
 **Build once, promote many:** publish \`order-papi:1.4.0\` once. Each environment stage deploys **that** version from Exchange with its own parameters (environment, replicas, properties, secure key). The JAR never changes between qa and prod, so what was tested is what runs. Tag the Git commit with the version for traceability.

@@ -9,6 +9,8 @@ const next = (example) => ({
 })
 const durationVar = { must: /vars\.durationMs/, say: 'Add how long it took: durationMs=$(vars.durationMs).' }
 const noSas = { not: /sasToken|sig=|vars\.shareUrl/i, say: 'Do not log the SAS token or a signed URL. Log the share and the path.' }
+// file=, fileName= or a name built from vars.fileName all pass, since the situations name the variable fileName
+const fileLabel = { must: /file(Name)?\s*"?\s*[=:]/i, say: 'Label the file name, such as file=$(vars.fileName), so it can be searched.' }
 const noKey = { not: /privateKey|passphrase|vars\.password/i, say: 'Do not log the private key, the passphrase or a password.' }
 
 export const SET_13 = [
@@ -28,10 +30,10 @@ export const SET_13 = [
       'Share polled share=store-files directory=/inbound/sales found=12 durationMs=840',
       'Polling…',
       'Files: [sales_S001.csv, sales_S002.csv, … ]',
-      'Share ok',
+      'Share polled share=store-files directory=/inbound/sales found=12',
     ],
     answer: 0,
-    explain: 'Where, how many and how long. A list of every name makes one huge line.',
+    explain: 'Where, how many and how long. The last line has no duration, so it cannot show the polls getting slower. A list of every name makes one huge line.',
   },
   {
     id: 'log-13003',
@@ -75,7 +77,7 @@ export const SET_13 = [
     level: ['DEBUG', 'INFO'],
     checks: [
       says(/skipped|still (growing|changing|writing)|not complete/i, 'File skipped, still being written'),
-      labelled('file', 'file=$(vars.fileName)'),
+      fileLabel,
       labelled('sizeBytes'),
       next('next=check again next poll'),
       noPayload,
@@ -102,12 +104,12 @@ export const SET_13 = [
     situation: 'Which line best records the loaded file?',
     options: [
       'File loaded file=sales_S041_20261118.csv rows=2412 trailerRows=2412 rejected=0 durationMs=1900',
-      'Loaded',
+      'File loaded file=sales_S041_20261118.csv rows=2412 rejected=0 durationMs=1900',
       'Rows: <2412 rows of sales>',
       'Store 41 done!!!',
     ],
     answer: 0,
-    explain: 'The file, the rows read, the trailer count and rejects let anyone check it was complete.',
+    explain: 'The file, the rows read, the trailer count and rejects let anyone check it was complete. The second line has no trailer count, so nothing shows that every row the store sent was read.',
   },
   {
     id: 'log-13008',
@@ -126,7 +128,7 @@ export const SET_13 = [
     level: ['INFO'],
     checks: [
       says(/loaded|processed/i, 'File loaded'),
-      labelled('file', 'file=$(vars.fileName)'),
+      fileLabel,
       labelled('rows'),
       labelled('trailerRows'),
       labelled('rejected'),
@@ -150,7 +152,7 @@ export const SET_13 = [
     level: ['ERROR', 'WARN'],
     checks: [
       says(/count mismatch|incomplete|does not match|rows? missing/i, 'File incomplete, row count mismatch'),
-      labelled('file', 'file=$(vars.fileName)'),
+      fileLabel,
       labelled('rows'),
       labelled('trailerRows'),
       next('next=moved to error folder'),
@@ -180,12 +182,12 @@ export const SET_13 = [
     situation: 'Which line best records the waiting set?',
     options: [
       'Plan set incomplete, waiting control=plans_20261118.ctl expected=12 present=7 next=check next poll',
-      'Waiting',
+      'Plan set incomplete, waiting control=plans_20261118.ctl present=7 next=check next poll',
       'Missing files',
       'Control: <full control file>',
     ],
     answer: 0,
-    explain: 'Expected and present show how far the set has got.',
+    explain: 'Expected and present show how far the set has got. The second line has no expected count, so nobody can tell how many files are still to come.',
   },
   {
     id: 'log-13013',
@@ -204,7 +206,7 @@ export const SET_13 = [
     level: ['INFO', 'WARN'],
     checks: [
       says(/incomplete|waiting/i, 'Plan set incomplete, waiting'),
-      labelled('control', 'control=$(vars.controlFile)'),
+      { must: /control(File)?\s*"?\s*[=:]/i, say: 'Label the control file, such as control=$(vars.controlFile).' },
       labelled('expected'),
       labelled('present'),
       next('next=check next poll'),
@@ -227,7 +229,7 @@ export const SET_13 = [
     level: ['ERROR'],
     checks: [
       says(/cut ?off|not complete|incomplete/i, 'Plan set incomplete at cut off'),
-      labelled('control', 'control=$(vars.controlFile)'),
+      { must: /control(File)?\s*"?\s*[=:]/i, say: 'Label the control file, such as control=$(vars.controlFile).' },
       labelled('expected'),
       labelled('present'),
       labelled('missing'),
@@ -257,12 +259,12 @@ export const SET_13 = [
     situation: 'Which line best records the failed move?',
     options: [
       'Move failed file=plan_S412.txt from=/inbound to=/processed status=409 code=SharingViolation',
-      'Move error',
+      'Move failed file=plan_S412.txt from=/inbound to=/processed status=409',
       'Could not move file, see stack trace below: <200 lines>',
       'File locked by somebody',
     ],
     answer: 0,
-    explain: 'The file, both folders, the status and the code tell support what to look for.',
+    explain: 'The file, both folders, the status and the code tell support what to look for. The second line has no error code, and a 409 alone does not say the file was locked.',
   },
   {
     id: 'log-13018',
@@ -281,10 +283,10 @@ export const SET_13 = [
     level: ['ERROR', 'WARN'],
     checks: [
       says(/move failed|not moved|could not move/i, 'Move failed'),
-      labelled('file', 'file=$(vars.fileName)'),
+      fileLabel,
       labelled('from'),
       labelled('to'),
-      labelled('status', 'status=$(vars.statusCode)'),
+      { must: /status(Code)?\s*"?\s*[=:]/i, say: 'Label the status, such as status=$(vars.statusCode).' },
       labelled('code', 'code=$(vars.errorCode)'),
       noPayload,
       noVague,
@@ -305,7 +307,7 @@ export const SET_13 = [
     level: ['WARN', 'ERROR'],
     checks: [
       says(/moved to error|rejected|failed validation/i, 'File moved to error folder'),
-      labelled('file', 'file=$(vars.fileName)'),
+      fileLabel,
       labelled('reason'),
       labelled('target'),
       noPayload,
@@ -334,10 +336,10 @@ export const SET_13 = [
       'Export written share=planning file=sales_history.csv sizeBytes=3221225472 rows=41200331 rangeRetries=1 durationMs=842000',
       'Export done',
       'Wrote file to https://…/sales_history.csv?sv=…&sig=…',
-      'Rows: <41 million rows>',
+      'Export written share=planning file=sales_history.csv sizeBytes=3221225472 rangeRetries=1 durationMs=842000',
     ],
     answer: 0,
-    explain: 'Size, rows, retries and time. Never the signed URL.',
+    explain: 'Size, rows, retries and time. Never the signed URL. The last line has no row count, so the receiver cannot compare rows with what it reads.',
   },
   {
     id: 'log-13023',
@@ -357,7 +359,7 @@ export const SET_13 = [
     checks: [
       says(/written|renamed|export (finished|complete)/i, 'Export written'),
       labelled('share'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('sizeBytes'),
       labelled('rows'),
       durationVar,
@@ -376,12 +378,12 @@ export const SET_13 = [
     id: 'log-13025',
     kind: 'write',
     situation:
-      'A Larkfield export gave up after range retries. The temp file was deleted. vars.fileName and vars.offset hold the facts. Write the line.',
+      'A Larkfield export gave up after range retries. The temp file was deleted and the export must be run again. vars.fileName and vars.offset hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.fileName', 'vars.offset', 'error.errorType', 'error.description', 'vars.sasToken', 'payload'],
     level: ['ERROR'],
     checks: [
       says(/export failed|gave up|not written/i, 'Export failed'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('offset'),
       errorFacts,
       next('next=temp file deleted, rerun needed'),
@@ -413,10 +415,10 @@ export const SET_13 = [
       'SFTP connect failed partner=northwind host=sftp.northwind.example port=22 user=brindle-int errorType=SFTP:CONNECTIVITY attempt=1 next=retry in 30s',
       'Connect failed with password=<the real password>',
       'SFTP down',
-      'Error',
+      'SFTP connect failed partner=northwind host=sftp.northwind.example port=22 user=brindle-int attempt=1 next=retry in 30s',
     ],
     answer: 0,
-    explain: 'Partner, host, port, user, error, attempt and next. Never the password.',
+    explain: 'Partner, host, port, user, error, attempt and next. Never the password. The last line has no error type, so you cannot tell a network fault from bad credentials or a changed host key.',
   },
   {
     id: 'log-13028',
@@ -430,7 +432,7 @@ export const SET_13 = [
     id: 'log-13029',
     kind: 'write',
     situation:
-      'A Brindle SFTP connection failed. vars.partner, vars.host, vars.user and vars.attempt hold the facts. A retry follows. Write the line.',
+      'A Brindle SFTP connection failed. vars.partner, vars.host, vars.user and vars.attempt hold the facts. A retry follows. Write the line, with the error and what happens next.',
     available: ['vars.partner', 'vars.host', 'vars.user', 'vars.attempt', 'vars.password', 'vars.privateKey', 'error.errorType', 'error.description'],
     level: ['WARN'],
     checks: [
@@ -456,7 +458,7 @@ export const SET_13 = [
     id: 'log-13030',
     kind: 'write',
     situation:
-      'A Brindle connection was refused because the server host key changed. Nothing is sent until the new key is verified. vars.partner, vars.host and vars.fingerprint hold the facts. Write the line.',
+      'A Brindle connection was refused because the server host key changed. Nothing is sent until the new key is verified. vars.partner, vars.host and vars.fingerprint hold the facts. Write the line, with what happens next.',
     available: ['vars.partner', 'vars.host', 'vars.fingerprint', 'vars.privateKey', 'error.errorType', 'error.description'],
     level: ['ERROR'],
     checks: [
@@ -492,10 +494,10 @@ export const SET_13 = [
       'File picked partner=store-041 path=/in/rcv_S041_20261118.csv sizeBytes=241800 node=primary',
       'Got file',
       'File content: store,item,qty…',
-      'Listener working',
+      'File picked partner=store-041 path=/in/rcv_S041_20261118.csv sizeBytes=241800',
     ],
     answer: 0,
-    explain: 'Partner, path, size and node. Node shows only the primary is polling.',
+    explain: 'Partner, path, size and node. Node shows only the primary is polling. The last line has no node, so it cannot show two nodes picking the same file.',
   },
   {
     id: 'log-13033',
@@ -516,7 +518,7 @@ export const SET_13 = [
       says(/picked|received|new file/i, 'File picked'),
       labelled('partner'),
       labelled('path'),
-      labelled('sizeBytes', 'sizeBytes=$(attributes.size)'),
+      labelled('(sizeBytes|size)', 'sizeBytes=$(attributes.size)'),
       labelled('node'),
       noPayload,
       noVague,
@@ -536,7 +538,7 @@ export const SET_13 = [
     level: ['WARN', 'INFO'],
     checks: [
       says(/duplicate|already (loaded|processed)/i, 'Duplicate file skipped'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('checksum'),
       labelled('firstLoadedAt'),
       noPayload,
@@ -566,10 +568,10 @@ export const SET_13 = [
       'File uploaded partner=planning-platform path=/to-planning/items_20261118_0412.txt sizeBytes=812000000 rows=58210 seq=412 durationMs=410000',
       'Uploaded',
       'Items: <58,210 items>',
-      'Sent to planning',
+      'File uploaded partner=planning-platform path=/to-planning/items_20261118_0412.txt sizeBytes=812000000 rows=58210 durationMs=410000',
     ],
     answer: 0,
-    explain: 'Path, size, rows, sequence and time. The receiver can check each one.',
+    explain: 'Path, size, rows, sequence and time. The receiver can check each one. The last line has no sequence number, so a missing or out of order delta does not show.',
   },
   {
     id: 'log-13038',
@@ -608,7 +610,7 @@ export const SET_13 = [
     id: 'log-13040',
     kind: 'write',
     situation:
-      'A Brindle upload failed and the temp file was removed. The file will be sent again in the next run. vars.partner, vars.path and vars.seq hold the facts. Write the line.',
+      'A Brindle upload failed and the temp file was removed. The file will be sent again in the next run. vars.partner, vars.path and vars.seq hold the facts. Write the line, with the error and what happens next.',
     available: ['vars.partner', 'vars.path', 'vars.seq', 'error.errorType', 'error.description', 'payload'],
     level: ['ERROR', 'WARN'],
     checks: [
@@ -645,10 +647,10 @@ export const SET_13 = [
       'Plan loaded file=orders_20261118.csv rows=48000 merged=47997 rejected=3 jobId=J-5521 durationMs=190000',
       'Plans ok',
       'Orders: <48,000 orders>',
-      'Done with errors',
+      'Plan loaded file=orders_20261118.csv rows=48000 merged=47997 rejected=3 durationMs=190000',
     ],
     answer: 0,
-    explain: 'Rows, merged and rejected add up, and the job ID links to the job log table.',
+    explain: 'Rows, merged and rejected add up, and the job ID links to the job log table. The last line has no job ID, so it cannot be joined to the job log row.',
   },
   {
     id: 'log-13043',
@@ -667,7 +669,7 @@ export const SET_13 = [
     level: ['INFO'],
     checks: [
       says(/plan loaded|loaded/i, 'Plan loaded'),
-      labelled('file', 'file=$(vars.fileName)'),
+      labelled('(file|fileName)', 'file=$(vars.fileName)'),
       labelled('rows'),
       labelled('merged'),
       labelled('rejected'),
@@ -687,12 +689,12 @@ export const SET_13 = [
     id: 'log-13045',
     kind: 'write',
     situation:
-      'A Brindle plan row was rejected. vars.lineNo, vars.store, vars.item and vars.reason hold the facts. It goes to the reject table. Write the line.',
+      'A Brindle plan row was rejected. vars.lineNo, vars.store, vars.item and vars.reason hold the facts. It goes to the reject table. Write the line, with what happens next.',
     available: ['vars.lineNo', 'vars.store', 'vars.item', 'vars.reason', 'payload'],
     level: ['WARN'],
     checks: [
       says(/rejected|row failed/i, 'Plan row rejected'),
-      labelled('line', 'line=$(vars.lineNo)'),
+      labelled('(line|lineNo)', 'line=$(vars.lineNo)'),
       labelled('store'),
       labelled('item'),
       labelled('reason'),
@@ -724,10 +726,10 @@ export const SET_13 = [
       'Encrypted file uploaded partner=bank path=/in/pay_20261118.pgp recipientKeyId=0xE5F6A7B8 payments=1240',
       'Uploaded with passphrase=…',
       'Payments: <1240 payment records with account numbers>',
-      'Bank ok',
+      'Encrypted file uploaded partner=bank path=/in/pay_20261118.pgp payments=1240',
     ],
     answer: 0,
-    explain: 'The key ID shows which key was used. Never the passphrase or account numbers.',
+    explain: 'The key ID shows which key was used. Never the passphrase or account numbers. The last line has no key ID, so if the bank cannot decrypt, nobody knows which key was used.',
   },
   {
     id: 'log-13048',
@@ -748,7 +750,7 @@ export const SET_13 = [
       says(/encrypted|uploaded/i, 'Encrypted file uploaded'),
       labelled('partner'),
       labelled('path'),
-      labelled('recipientKeyId', 'recipientKeyId=$(vars.keyId)'),
+      labelled('(recipientKeyId|keyId)', 'recipientKeyId=$(vars.keyId)'),
       labelled('payments'),
       noKey,
       noSecrets,
@@ -766,7 +768,7 @@ export const SET_13 = [
     id: 'log-13050',
     kind: 'write',
     situation:
-      'The bank’s public key expires in 10 days. A daily check found it. vars.partner, vars.keyId and vars.expiresOn hold the facts. Write the line.',
+      'The bank’s public key expires in 10 days. A daily check found it. vars.partner, vars.keyId and vars.expiresOn hold the facts. Write the line, with what happens next.',
     available: ['vars.partner', 'vars.keyId', 'vars.expiresOn', 'vars.privateKey'],
     level: ['WARN'],
     checks: [

@@ -54,7 +54,7 @@ Work out each result before you choose.
   keyPoints: [
     '++ joins strings or arrays, and + adds.',
     'DataWeave converts a value automatically when the operator needs another type and the value can be converted.',
-    'splitBy keeps empty values.',
+    'splitBy keeps empty values between separators, but drops empty values at the end.',
     'sizeOf counts characters, array items or object keys.',
   ],
   solution: `

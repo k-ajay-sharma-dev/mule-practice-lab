@@ -93,6 +93,7 @@ What the team knows:
 - The core can take about **100 requests a second**. It answers in about **300 ms**.
 - About 1 payment in 100 goes to an account that has been closed. The core refuses it every time.
 - The core has a postings interface that accepts one payment at a time, and refuses a payment it has already posted if it is sent again with the same reference.
+- The broker redelivers a message that failed about **once a minute**.
 - A **balance copy** database can hold each account's available balance. After the batch, a job can refresh it from the core.
 
 The board's rules:

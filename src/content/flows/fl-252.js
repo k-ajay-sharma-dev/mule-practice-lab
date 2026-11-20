@@ -116,6 +116,11 @@ The DBA has added \`dbo.load_checkpoint\` (\`file_name\`, \`last_line\`).
 - With each group, stage the rows and move the checkpoint to the group's highest line. The two must never disagree.
 - Move the file to \`/sales/hist/done\`.
 
+**Facts**
+- \`dbo.sales_hist_staging\` has \`file_name\` (the file's name), \`line\`, \`store\`, \`sku\` and \`units\`. \`line\` and \`units\` are numbers.
+- A file has no checkpoint row until its first group is written, so write the checkpoint with \`MERGE INTO dbo.load_checkpoint\`.
+- Stage the group and write the checkpoint inside one Try scope that begins a transaction.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the checkpoint
@@ -141,7 +146,7 @@ The DBA has added \`dbo.load_checkpoint\` (\`file_name\`, \`last_line\`).
    - **Batch Aggregator** (size 500): **Try** ALWAYS_BEGIN with **Bulk Insert** into staging and **Database Update** with a MERGE of the checkpoint to \`max(payload map $.line)\`.
 4. **File Move** to \`done\`.
 
-**Out of order groups.** Mule runs blocks on several threads, so in a real job a later group can commit before an earlier one. Take the checkpoint as a hint and keep the staging key: a line that was already loaded fails on the key in its own group, which the row by row fallback handles. Check how your Mule version orders blocks before you rely on strict order.
+**Out of order groups.** Mule runs blocks on several threads, so in a real job a later group can commit before an earlier one. Take the checkpoint as a hint and keep the staging key, so a line is never staged twice: a group that holds a line already loaded fails on the key as a whole. Check how your Mule version orders blocks before you rely on strict order.
 `,
   followUps: [
     {

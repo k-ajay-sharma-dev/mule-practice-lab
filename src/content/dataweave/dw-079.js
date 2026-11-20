@@ -19,7 +19,8 @@ Before each release of a Mule API, the deployment pipeline compares the configur
 - \`added\`: list of \`{ path, value }\`
 - \`removed\`: list of \`{ path, value }\` (the baseline value)
 - \`changed\`: list of \`{ path, from, to }\`, where \`from\` is the baseline value
-- Each list is sorted by \`path\` ascending. Lists with nothing to report are \`[]\`.
+- Keys in this order: \`added\`, \`removed\`, \`changed\`.
+- Each list is sorted by \`path\` ascending, compared as text. Lists with nothing to report are \`[]\`.
 `,
   inputs: [
     {
@@ -128,7 +129,7 @@ var all = diff(baseline, payload, "")
 
 **When to go deeper.** The recursion only happens when both sides are objects. Everywhere else the two values are compared whole, so \`proxy\` going from \`null\` to an object is one readable change, not a list of additions under \`proxy\`. The same applies to \`owners\`: arrays have no stable key to align on, so element-by-element reporting would mislead when an item is inserted at the front.
 
-**One list, split at the end.** \`diff\` returns a single flat list tagged with \`kind\`. Each level just concatenates, and the final object splits and sorts. Sorting once at the top is simpler than keeping three lists sorted through the recursion, and the output no longer depends on the key order in either document.
+**One list, split at the end.** \`diff\` returns a single flat list tagged with \`kind\`. Each level only concatenates, and the final object splits and sorts. Sorting once at the top is less work than keeping three lists sorted through the recursion, and the output no longer depends on the key order in either document.
 
 **How this differs from comparing records.** Comparing two record sets (such as product snapshots by SKU) lines up rows by an identifier first. Here there is one document and the identifier is the path.
 `,

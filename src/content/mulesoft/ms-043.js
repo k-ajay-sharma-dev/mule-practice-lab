@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'A developer renamed the scaffolded flow `get:\\products\\(sku):products-sapi-config` to `getProductBySku`, and the endpoint now returns **501**. Why?',
       options: [
-        'Flow names cannot contain upper-case letters',
-        'The router dispatches by naming convention; with no flow matching that name the operation is treated as not implemented (APIKIT:NOT_IMPLEMENTED)',
-        'The RAML was changed at the same time',
-        'API Manager blocks renamed flows',
+        'Flow names in a Mule app cannot contain upper-case letters',
+        'The router finds flows by name, so it no longer finds this one',
+        'Renaming a flow drops its listener, so the call hits a stub',
+        'API Manager blocks requests to flows it has not seen deployed',
       ],
       answer: 1,
-      explain: 'Keep the convention name and move the readable logic into a private flow or sub-flow (`getProductBySku`) referenced from it.',
+      explain: 'The router dispatches by naming convention. With no flow matching that name, the operation is treated as not implemented (APIKIT:NOT_IMPLEMENTED, 501). Keep the convention name and move the readable logic into a private flow or sub-flow (`getProductBySku`) referenced from it.',
     },
     {
       type: 'match',
@@ -36,13 +36,13 @@ export default {
       type: 'single',
       prompt: 'Clients sending `Content-Type: text/plain` to `POST /products` get a generic 500. What is the likely cause and fix?',
       options: [
-        'APIkit does not check Content-Type; add a Choice router',
-        'The APIkit-specific mapping was removed or a generic ANY handler catches first; restore the APIkit On Error Propagate entries before ANY so 415 is returned',
-        'The client must send `application/xml`',
-        'The listener is misconfigured; add `text/plain` to its allowed types',
+        'APIkit does not check Content-Type, so a later step fails',
+        'A generic ANY handler catches the APIkit error before its 415 entry',
+        'The listener rejects unknown types, and Mule turns that into 500',
+        'The RAML lacks a `text/plain` example, so validation crashes',
       ],
       answer: 1,
-      explain: 'The router raises APIKIT:UNSUPPORTED_MEDIA_TYPE; only the handler order turns it into a 500.',
+      explain: 'The router raises APIKIT:UNSUPPORTED_MEDIA_TYPE; only the handler order (or a removed mapping) turns it into a 500. Restore the APIkit On Error Propagate entries before the ANY handler so 415 is returned.',
     },
     {
       type: 'order',
@@ -73,13 +73,13 @@ export default {
       type: 'single',
       prompt: 'The API console is reachable in production. What should you do?',
       options: [
-        'Leave it — it only shows documentation',
-        'Remove the console flow or disable it via property-driven configuration outside dev; consumers use Exchange docs',
-        'Protect it with Basic Auth in the same flow',
-        'Move it to port 8082',
+        'Leave it, because it only shows documentation',
+        'Remove or disable the console flow outside development',
+        'Protect it with Basic Auth inside the console flow',
+        'Move the console listener to the HTTPS port 8082',
       ],
       answer: 1,
-      explain: 'The console exposes the spec and a "try it" UI. Documentation belongs in Exchange.',
+      explain: 'The console exposes the spec and a "try it" UI. Remove the flow, or disable it with property-driven configuration outside dev. Documentation belongs in Exchange.',
     },
   ],
   description: `
@@ -110,7 +110,7 @@ The **Products System API** was scaffolded from a RAML published in Exchange (\`
   keyPoints: [
     'Scaffolding creates a main flow (listener + apikit:router), a console flow, one flow per resource/method and an error handler mapping APIKIT errors to status codes.',
     'The router dispatches by naming convention (method:\\resource[:content-type]:config); renaming a flow breaks the link and yields 501 Not Implemented.',
-    'Update the spec dependency version and re-scaffold — APIkit adds the missing flows; commit first and review the diff, because the docs do not state how existing flows are treated.',
+    'Update the spec dependency version and re-scaffold. APIkit adds the missing flows; commit first and review the diff, because the docs do not state how existing flows are treated.',
     'APIKIT:BAD_REQUEST→400, NOT_FOUND→404, METHOD_NOT_ALLOWED→405, NOT_ACCEPTABLE→406, UNSUPPORTED_MEDIA_TYPE→415, NOT_IMPLEMENTED→501.',
     'The console should be removed or disabled outside development; the spec is documented in Exchange instead.',
   ],
@@ -124,7 +124,7 @@ The router validates the request against the spec and then dispatches to a flow 
 
 **The 501:** after the rename, no flow matches \`get:\\products\\(sku)\`, so the router treats the operation as not implemented → \`APIKIT:NOT_IMPLEMENTED\` → 501. Fix: keep the convention name and move the readable logic into a private flow or sub-flow (\`getProductBySku\`) referenced from it. (APIkit also supports explicit flow mappings in its config, but conventions are what most teams and tools expect.)
 
-**Updating the spec:** change the spec dependency version in \`pom.xml\` (and the \`api\` reference in the APIkit config) to 1.1.0, then **re-scaffold** (Studio: "Generate flows from local REST API"/"Scaffold"). APIkit generates the missing \`patch:\\products\\(sku)...\` flow. The docs do not state how existing flows are treated, so commit first and review the diff to confirm your implementation is intact. The new query param needs no new flow — read it via \`attributes.queryParams.currency\` in the existing GET flow.
+**Updating the spec:** change the spec dependency version in \`pom.xml\` (and the \`api\` reference in the APIkit config) to 1.1.0, then **re-scaffold** (Studio: "Generate flows from local REST API"/"Scaffold"). APIkit generates the missing \`patch:\\products\\(sku)...\` flow. The docs do not state how existing flows are treated, so commit first and review the diff to confirm your implementation is intact. The new query param needs no new flow. Read it via \`attributes.queryParams.currency\` in the existing GET flow.
 
 **Error mapping**
 | Error | Cause | Status |

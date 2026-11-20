@@ -64,7 +64,7 @@ export default {
       router('choice', {}, [
         route({ expression: '#[not isEmpty(payload)]' }, [
           step('set-variable', { variableName: 'stamp', value: '#[now() as String {format: "yyyyMMddHHmmss"}]' }),
-          step('set-variable', { variableName: 'sentAt', value: '#[now() as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"}]' }),
+          step('set-variable', { variableName: 'sentAt', value: '#[(now() >> "UTC") as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"}]' }),
           step('set-variable', { variableName: 'rows', value: '#[payload map ($ ++ { sent_file: "ORD_" ++ vars.stamp ++ ".csv", sent_at: vars.sentAt })]' }),
           step('transform', { script: '%dw 2.0\noutput application/csv\n---\npayload' }),
           step('sftp-write', { path: '#["/to3pl/orders/ORD_" ++ vars.stamp ++ ".csv.tmp"]', mode: 'CREATE_NEW' }),
@@ -110,6 +110,13 @@ Medicines have tight delivery promises. Last month an order file was never picke
 - Every 15 minutes, send all \`READY\` orders in one file, \`ORD_<yyyyMMddHHmmss>.csv\`. The 3PL must never take a half written file. Mark the orders \`SENT\` with the time and file name only when the file is in place.
 - When an ACK file arrives, mark each order it names \`ACKED\`, but only if it is \`SENT\`. Archive the ACK file.
 - Every 30 minutes, find orders still \`SENT\` after two hours, and email \`dc-ops@orchardpoint.example\` listing them. No email when there are none.
+
+**Facts**
+- Name the flows \`send-orders\`, \`receive-acks\` and \`overdue-check\`.
+- Write the order file as \`/to3pl/orders/ORD_<yyyyMMddHHmmss>.csv.tmp\`, then rename it to \`ORD_<yyyyMMddHHmmss>.csv\`. No \`.tmp\` file may be left.
+- \`sent_at\` is text in UTC, such as \`2026-11-13T07:10:00\`. \`sent_file\` is the final file name.
+- Each ACK update must include \`AND status = 'SENT'\`. Archive the ACK file under its own name in \`/from3pl/acks/archive\`.
+- In \`overdue-check\`, select the \`SENT\` orders whose \`sent_at\` is before now minus two hours, and send the email from a **Choice** only when there are rows.
 
 **Design the flows.**
 `,

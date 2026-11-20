@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'Coverage is enforced at 80%, but most MUnit tests only check that a flow "runs without error". What change adds the most value?',
       options: [
-        'Raise the coverage gate to 95%',
-        'Mock every connector with realistic payloads and assert the output, the status code and the calls made (verify-call), including error paths',
-        'Replace MUnit with the weekly end-to-end suite',
+        'Raise the coverage gate to 95% so more processors are touched',
+        'Mock connectors with realistic data and assert outputs, errors and calls',
+        'Replace most MUnit tests with the weekly end-to-end suite',
         'Call the real SAP sandbox from MUnit so tests are more realistic',
       ],
       answer: 1,
-      explain: 'Value comes from **assertions**: payload fields, mapped errors (timeout → 504, validation → 400) and `verify-call` on the backend. A higher coverage number without assertions just produces more tests that prove nothing.',
+      explain: 'Value comes from **assertions**: payload fields, mapped errors (timeout → 504, validation → 400) and `verify-call` on the backend. A higher coverage number without assertions only produces more tests that prove nothing.',
     },
     {
       type: 'match',
@@ -24,7 +24,7 @@ export default {
       pairs: [
         ['Unit / flow tests (MUnit, connectors mocked)', 'Each flow and DataWeave script, on every build'],
         ['Contract tests', 'Provider conforms to its published spec; consumers rely only on the spec'],
-        ['End-to-end tests', '5–10 critical business journeys across real systems, pre-release'],
+        ['End-to-end tests', '5 to 10 critical business journeys across real systems, pre-release'],
         ['Non-functional tests', 'Load, resilience and security before major releases'],
       ],
       explain: 'A test pyramid: many fast unit tests, contract checks on every build of provider and consumer, and only a handful of slow end-to-end journeys.',
@@ -34,9 +34,9 @@ export default {
       prompt: 'A System API renamed a response field and two Process APIs broke in production. What would have caught it before release?',
       options: [
         'A longer weekly end-to-end run in SIT',
-        "A CI step in the provider that diffs the spec against the published Exchange version and fails on breaking changes unless the major version is bumped",
-        'Higher MUnit coverage in the Process APIs',
-        'Asking consumers to read the release notes',
+        'A provider CI step that fails on breaking spec changes without a new major',
+        'Higher MUnit coverage in the two Process APIs',
+        'A response validation policy on the System API in production',
       ],
       answer: 1,
       explain: 'The spec in Exchange **is** the contract. Removing or renaming a field is a breaking change, so the provider CI must detect it and force a new major version. Consumer-driven contract tests add visibility of which consumers would break.',
@@ -46,7 +46,7 @@ export default {
       prompt: 'The end-to-end suite fails 30% of the time because SAP test data and partner sandboxes are unstable. Which actions stabilise it?',
       options: [
         'Dedicated, reset-able test data for the suite',
-        'Service virtualisation (stubs) for the unreliable SAP and payment sandboxes, with a small smoke set against the real sandboxes',
+        'Stubs for the unreliable SAP and payment sandboxes, plus a small smoke set',
         'Keep only a few journeys that make money (place order, refund)',
         'Treat a flaky test as a bug: fix it or remove it',
         'Automatically re-run failed tests until they pass',
@@ -59,10 +59,10 @@ export default {
       type: 'single',
       prompt: 'Should MUnit logic tests call the real Salesforce sandbox?',
       options: [
-        'Yes — mocks hide real behaviour',
-        'No — unit-layer tests use mocks; a separate integration stage may call a sandbox for connectivity smoke checks',
-        'Only when the coverage gate is not reached',
-        'Yes, but only for error paths',
+        'Yes, because mocks hide how the real system behaves',
+        'No. Logic tests use mocks; a separate stage runs sandbox smoke checks',
+        'Yes, so the coverage report reflects real connector calls',
+        'Yes, but only for the error paths that mocks cannot reproduce',
       ],
       answer: 1,
       explain: 'Calling sandboxes from unit tests makes builds slow and flaky. Keep logic tests mocked and put connectivity checks in their own stage.',
@@ -101,7 +101,7 @@ Constraints:
 `,
   keyPoints: [
     'Use a test pyramid: many fast MUnit unit/flow tests with mocked connectors, fewer API/contract tests per app, very few end-to-end journey tests.',
-    'MUnit tests should assert outputs, mapped fields, error mapping and calls made (mock-when, verify-call, spy), not just that the flow did not fail; coverage is a by-product.',
+    'MUnit tests should assert outputs, mapped fields, error mapping and calls made (mock-when, verify-call, spy), not only that the flow did not fail; coverage is a by-product.',
     'DataWeave mappings deserve focused tests with realistic and edge-case input files.',
     'Contract tests check that the implementation conforms to the published RAML/OAS spec and that consumers only rely on what the spec promises; breaking spec changes are caught in CI before deployment.',
     'End-to-end tests are a small set of critical business journeys, run against stable test data or service virtualisation for unreliable third-party sandboxes.',
@@ -114,7 +114,7 @@ Constraints:
 | Unit / flow | Each flow and DataWeave script, connectors mocked | MUnit | Every build |
 | Component / API | The deployed app against its spec, backends mocked or virtualised | MUnit + spec validation, API test tool (e.g. Postman/Newman, REST-assured) | Every build / after deploy to DEV |
 | Contract | Provider conforms to spec; consumers rely only on spec | Spec-based checks in CI; consumer-driven contract tests where teams agree | Every build of provider and consumer |
-| End-to-end | 5–10 critical journeys across real systems | Automated suite | Pre-release in SIT/UAT |
+| End-to-end | 5 to 10 critical journeys across real systems | Automated suite | Pre-release in SIT/UAT |
 | Non-functional | Load, resilience, security | JMeter/Gatling, OWASP scans | Before major releases |
 
 **Effective MUnit.**
@@ -125,7 +125,7 @@ Constraints:
 - Keep coverage as a guard, but review tests for assertions in code review.
 
 **Preventing the renamed-field incident.**
-- The System API's spec in Exchange **is** the contract. In the provider's CI: validate that responses conform to the spec (APIkit validates requests; add response validation in tests) and diff the spec against the published version — a removed/renamed field is a **breaking change** → requires a new major version.
+- The System API's spec in Exchange **is** the contract. In the provider's CI: validate that responses conform to the spec (APIkit validates requests; add response validation in tests) and diff the spec against the published version: a removed/renamed field is a **breaking change** → requires a new major version.
 - Consumers write tests based on the published spec examples, and optionally consumer-driven contract tests (consumer publishes what it uses, provider verifies) so the provider sees which consumers would break.
 - Governance rulesets and Exchange versioning make the breaking change visible before release.
 

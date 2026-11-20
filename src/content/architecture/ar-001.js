@@ -77,9 +77,9 @@ export default {
   description: `
 A retailer wants customers to see order status in a **mobile app** and a **web portal**.
 
-Order data lives in **SAP** (header and lines) and shipment tracking in a **carrier REST API**. SAP calls are slow (1–2 s) and the SAP team limits you to 20 requests/second.
+Order data lives in **SAP** (header and lines) and shipment tracking in a **carrier REST API**. SAP calls are slow (1 to 2 s) and the SAP team limits you to 20 requests/second.
 
-At peak the mobile app sends 30 order status requests a second and the web portal 20. Marketing pushes can bring short spikes of 200 a second. The carrier API has outages, and customers should still see their order status when it is down. The budget for the APIs is 2 vCores.
+At peak the mobile app sends 30 order status requests a second and the web portal 20. Customers check the same orders again and again, and a status a few minutes old is fine. Answers should take under 0.8 s on average. Marketing pushes can bring short spikes of 200 a second. The carrier API has outages, and customers should still see their order status when it is down. The budget for the APIs is 2 vCores.
 
 **Design the APIs** using API-led connectivity:
 - Which Experience, Process and System APIs do you create?
@@ -103,15 +103,15 @@ At peak the mobile app sends 30 order status requests a second and the web porta
   ],
   solution: `
 **System layer**
-- *SAP Order System API* — exposes \`GET /orders/{id}\` in a canonical model, hides BAPI/IDoc details.
-- *Carrier Tracking System API* — wraps the carrier API, normalises statuses.
+- *SAP Order System API*: exposes \`GET /orders/{id}\` in a canonical model, hides BAPI/IDoc details.
+- *Carrier Tracking System API*: wraps the carrier API, normalises statuses.
 
 **Process layer**
-- *Order Status Process API* — calls both in parallel (Scatter-Gather), merges order and shipment status, applies business rules (e.g. "Delivered" overrides "Shipped").
+- *Order Status Process API*: calls both in parallel (Scatter-Gather), merges order and shipment status, applies business rules (e.g. "Delivered" overrides "Shipped").
 
 **Experience layer**
-- *Mobile Experience API* — lean payload, pagination.
-- *Web Experience API* — richer detail. (One shared API is fine if both channels need the same shape.)
+- *Mobile Experience API*: lean payload, pagination.
+- *Web Experience API*: richer detail. (One shared API is fine if both channels need the same shape.)
 
 **Protecting SAP**
 - Apply a **Rate Limiting / Spike Control** policy on the SAP System API (≤ 20 rps), returning 429 upstream.

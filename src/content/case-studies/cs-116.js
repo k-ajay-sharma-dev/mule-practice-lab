@@ -88,6 +88,7 @@ The TIBCO licence renewal is due in **20 months** and the board has decided not 
 - Many services contain both billing logic and Salesforce calls in one process.
 - EMS peak is 1,500 messages per second on the order topic during the evening.
 - In tests 150 order events a second need a Salesforce update, and Salesforce can be down for 30 minutes with a broker restart.
+- In the diagram, draw the F5 facade as a load balancer, BusinessWorks as a legacy box with "BusinessWorks" in its name, the EMS queues as a queue with "EMS" in its name and the Anypoint MQ destination as a queue with "Anypoint" in its name. Name the bridge ems-to-anypoint-mq-bridge, the event consumer prc-order-events-api and the System API sys-salesforce-api, and run all three on 0.5 vCore for the 150 events a second.
 
 **Your task.** Design the coexistence architecture (strangler) and the migration approach.
 `,

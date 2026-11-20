@@ -74,6 +74,8 @@ export default {
 - A sanctions screening service with a REST API.
 - Oracle Fusion General Ledger for finance postings.
 - In tests ClaimCenter approves 1 payment a second, the bank takes 12 seconds to answer, and 1 payment in 100 is always rejected.
+- Name the queue \`claims.payment-approved\`. Give each payment 5 deliveries, then send it to a dead-letter queue.
+- sys-bank-payments-api waits up to 20 seconds for the bank, and prc-claim-payment waits up to 30 seconds for the whole payment.
 
 **Goals**
 - Customers are paid within 15 minutes of approval, 24 hours a day.
@@ -115,7 +117,7 @@ export default {
 
 **Ledger and status.** After the bank accepts, the Process API posts a journal through \`sys-finance-gl-api\` and updates ClaimCenter to \`PAID\` with the bank reference. If the ledger is down, the posting is retried from its own queue; the customer payment is not held back for it.
 
-**Failures.** Bank timeout: ask the bank for the status of that idempotency key before any resend. Bank rejects (closed account): status \`FAILED\` in ClaimCenter for the handler to fix. Unexpected errors: retry 3 times with backoff, then DLQ and alert. A daily reconciliation compares ClaimCenter approvals, bank statements and ledger postings.
+**Failures.** Bank timeout: ask the bank for the status of that idempotency key before any resend. Bank rejects (closed account): status \`FAILED\` in ClaimCenter for the handler to fix. Unexpected errors: the queue delivers the payment up to 5 times, then moves it to the DLQ with an alert. The bank call waits up to 20 seconds and the Process API up to 30, so a 12 second bank answer is not cut off. A daily reconciliation compares ClaimCenter approvals, bank statements and ledger postings.
 
 **Risks.** Idempotency store loss (persistent store, 90 day TTL, plus the bank header as a second guard), sanctions service outage (hold payments, do not skip screening), and large payments above the Faster Payments limit (route to CHAPS by a rule).
 `,

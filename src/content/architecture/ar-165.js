@@ -11,7 +11,7 @@ export default {
   tags: ['myproject', 'competing-consumers', 'queue', 'scaling', 'replicas', 'erp', 'finance'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the billing platform publishing each invoice to a queue. One invoice poster Process API reads the queue and posts each invoice to the general ledger through a System API.',
+    task: 'draw the billing platform publishing each invoice to a queue. One invoice poster Process API reads the queue and posts each invoice to the general ledger through a System API. Draw the billing platform as a SaaS application box and the general ledger as an ERP box, and set the poster\'s replicas and vCores.',
     checks: [
       { label: 'The billing platform publishes invoices to a queue', rule: { type: 'edge', from: 'saas', to: 'queue', kind: 'async' } },
       { label: 'Invoices reach the ledger through the queue', rule: { type: 'path', from: 'saas', via: 'queue', to: 'erp' } },
@@ -99,7 +99,7 @@ Billing platform ~► invoices-to-post (queue) ~► prc-invoice-poster (2 replic
 
 **Queue or topic.** The invoices go on a queue. Each invoice is delivered to one replica of \`prc-invoice-poster\`. If another team later needs the invoices too, such as a data warehouse, that is the case for a topic or an exchange: one queue per kind of consumer, bound to the exchange, with competing replicas on each queue.
 
-**Scaling the poster.** 150 invoices a second at the smallest size, about 50 a second in this model, would leave a backlog of hundreds of thousands. Two replicas of half a vCore take up to about 500 a second, the System API the same, and the ledger limit of 300 a second is the real ceiling. After a 20 minute stop, 180,000 invoices wait, and the spare room of about 100 a second clears them in about half an hour.
+**Scaling the poster.** 150 invoices a second at the smallest size, about 50 a second in this model, would leave a backlog of hundreds of thousands. Two replicas of half a vCore take up to about 500 a second, the System API the same, and the ledger limit of 300 a second is the real ceiling. After a 20 minute stop, 180,000 invoices wait, and the ledger's spare room of about 150 a second clears them in about 20 minutes.
 
 **Order.** Competing consumers do not keep order. Postings of different invoices do not depend on each other here, so that is fine. If two messages for one invoice must stay in order, such as an invoice and its credit note, key them so they go to one consumer, or let the ledger reject a credit note for an invoice it does not have yet and redeliver it.
 `,

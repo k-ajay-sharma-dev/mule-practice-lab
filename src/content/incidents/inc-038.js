@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the mechanism behind the failures?',
         options: [
-          'Pooled keep-alive connections stay idle longer than the LB idle timeout; the LB drops them and Mule reuses a dead socket',
-          'erp-sapi crashes at night and restarts',
-          'The ERP is overloaded by the nightly batch',
-          'DNS for erp-lb.corp expires at night',
+          'Pooled connections stay idle past the LB timeout, so Mule reuses a dropped socket',
+          'erp-sapi crashes at night and takes a few seconds to restart',
+          'The ERP is overloaded by the nightly batch and resets connections',
+          'DNS for erp-lb.corp expires at night and returns a stale address',
         ],
         answer: 0,
         explain: 'Only after quiet periods, failing in milliseconds, with an immediate retry succeeding: classic idle-timeout mismatch between client pool and LB.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'Which setting fixes it?',
         options: [
-          'Set the HTTP Request `connectionIdleTimeout` below the LB value (e.g. 300 s < 350 s)',
-          'Raise the response timeout to 120 s',
-          'Increase maxConnections in the pool',
-          'Raise the client idle timeout to 600 s',
+          'Set `connectionIdleTimeout` below the LB value, for example 300 s',
+          'Raise the response timeout on the request to 120 s',
+          'Increase maxConnections so more pooled connections are available',
+          'Raise the client idle timeout to 900 s so connections are kept longer',
         ],
         answer: 0,
         explain: 'The side that reuses connections must close idle ones first: **client idle < LB idle < server keep-alive**.',
@@ -45,7 +45,7 @@ export default {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
-          'A limited retry (2–3 attempts, short backoff) for idempotent GETs on HTTP:CONNECTIVITY',
+          'A limited retry (2 to 3 attempts, short backoff) for idempotent GETs on HTTP:CONNECTIVITY',
           'Document idle/keep-alive timeouts for every hop in the network change checklist',
           'Track error rate by hour of day to spot quiet-hour spikes',
           'Blindly retry every POST on connection reset',
@@ -55,15 +55,15 @@ export default {
       },
       {
         type: 'single',
-        prompt: 'Why not simply disable persistent connections?',
+        prompt: 'Why not disable persistent connections instead?',
         options: [
-          'It fixes the symptom but adds a TCP + TLS handshake to every call, increasing latency and CPU',
-          'Mule does not allow it',
-          'The LB requires keep-alive',
-          'It would break OAuth',
+          'It fixes the symptom but adds a TCP and TLS handshake to every call',
+          'Mule 4 does not allow persistent connections to be turned off',
+          'The cloud load balancer rejects clients that do not use keep-alive',
+          'It would break the OAuth token cache in the HTTP Request config',
         ],
         answer: 0,
-        explain: 'Tuning the idle timeout keeps the benefit of connection reuse without the dead-socket problem.',
+        explain: 'A handshake per call adds latency and CPU. Tuning the idle timeout keeps the benefit of connection reuse without the dead-socket problem.',
       },
     ],
   },
@@ -108,7 +108,7 @@ export default {
   keyPoints: [
     'Pooled keep-alive connections sit idle longer than the LB idle timeout; the LB silently drops them, and the client reuses a dead socket.',
     'Pattern: failures only after idle periods, fast failure (milliseconds), immediate retry succeeds on a new connection.',
-    'Fix: set the client connection idle timeout below the LB idle timeout (e.g. 300 s < 350 s) — the client should always close first.',
+    'Fix: set the client connection idle timeout below the LB idle timeout (e.g. 300 s < 350 s). The client should always close first.',
     'Add a limited retry (until-successful/reconnection) for idempotent GETs on connectivity errors.',
     'Prevention: document timeouts for every hop (client idle < LB idle < server keep-alive) as part of network changes.',
   ],
@@ -124,7 +124,7 @@ The LB replacement shortened the idle timeout below the client's keep-alive idle
 
 ## Permanent fix
 - Rule: **client idle timeout < LB idle timeout < server keep-alive timeout**, so the side that initiates reuse always closes first.
-- Retry policy (e.g. Until Successful with 2–3 attempts, short backoff) only for idempotent operations and HTTP:CONNECTIVITY errors.
+- Retry policy (e.g. Until Successful with 2 to 3 attempts, short backoff) only for idempotent operations and HTTP:CONNECTIVITY errors.
 - Consider TCP keep-alive on the connection if supported and allowed.
 
 ## Prevention
@@ -132,8 +132,8 @@ The LB replacement shortened the idle timeout below the client's keep-alive idle
 - Track error rate by hour of day; a spike in quiet hours is a classic idle-timeout smell.
 `,
   followUps: [
-    { q: 'Why not just disable persistent connections?', a: 'It would fix the symptom but add a TCP + TLS handshake to every call, increasing latency and CPU; tuning the idle timeout keeps the benefit of reuse.' },
-    { q: 'Is it safe to retry a POST on "connection reset"?', a: 'Only if it is idempotent (e.g. with an idempotency key) — the request may have reached the server before the reset, so a blind retry can create duplicates.' },
+    { q: 'Why not disable persistent connections?', a: 'It would fix the symptom but add a TCP + TLS handshake to every call, increasing latency and CPU; tuning the idle timeout keeps the benefit of reuse.' },
+    { q: 'Is it safe to retry a POST on "connection reset"?', a: 'Only if it is idempotent (e.g. with an idempotency key). The request may have reached the server before the reset, so a blind retry can create duplicates.' },
     { q: 'How would you prove this theory?', a: 'Correlate failures with idle gaps before the call, check LB logs/metrics for idle resets, and reproduce by idling a connection for longer than 350 s in a test environment.' },
   ],
 }

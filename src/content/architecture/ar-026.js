@@ -22,7 +22,7 @@ export default {
   tags: ['multi-tenancy', 'sla-tiers', 'data-isolation', 'noisy-neighbour'],
   estMinutes: 50,
   diagram: {
-    task: 'draw the "pool and cells" platform. Tenants enter through the gateway, which validates their tokens with the identity provider. Draw a shared pool Shipment API with its shared DB, an Enterprise cell Shipment API with its own dedicated DB, a tenant registry both read, and webhook queues that keep a big tenant\'s backlog away from the others.',
+    task: 'draw the "pool and cells" platform. Draw two tenant boxes, one named for the Basic and Pro tenants and one for the big marketplaces. Tenants enter through the gateway, which validates their tokens with the identity provider. Draw a shared pool Shipment API with its shared DB, an Enterprise cell Shipment API with its own dedicated DB, and a tenant registry both read. Webhook queues keep a big tenant\'s backlog away from the others: each queue is drained by its own webhook dispatcher, which calls the tenant webhook endpoints.',
     checks: [
       { label: 'Every tenant enters through the gateway', rule: { type: 'each', of: 'partner', min: 2, edgeTo: 'api-gateway' } },
       { label: 'The gateway validates tokens with the identity provider, so the tenant comes from the token', rule: { type: 'link', from: 'api-gateway', to: 'identity-provider' } },
@@ -104,12 +104,12 @@ export default {
       prompt: 'Where does the API take the tenant ID from?',
       options: [
         'An X-Tenant-ID header sent by the client',
-        'The tenantId claim of the validated OAuth token (or a client_id → tenant mapping), ignoring any tenant value in headers or body',
-        'A query parameter',
-        'The source IP address',
+        'The tenantId claim of the validated token, ignoring tenant values in the request',
+        'A tenant path segment such as /tenants/{id}/shipments',
+        'The source IP address of the caller',
       ],
       answer: 1,
-      explain: 'Anything the client can type, it can change. Only an identity proven by the gateway can decide whose data is returned.',
+      explain: 'Anything the client can type, it can change, and IP addresses are shared and change. Only an identity proven by the gateway (a tenantId claim, or a client_id mapped to a tenant) can decide whose data is returned.',
     },
     {
       type: 'match',
@@ -140,9 +140,9 @@ export default {
       prompt: 'Where does tenant-specific configuration (plan, features, webhook URLs, limits, cell) live?',
       options: [
         'In per-tenant properties files, redeployed for each new tenant',
-        'In a Tenant Registry (DB + Tenant Management API), cached by apps with a short TTL',
-        'Hard-coded in a DataWeave lookup table',
-        'In each tenant\'s own system',
+        'In a tenant registry with a management API, cached by apps with a short TTL',
+        'In a DataWeave lookup table packaged with each app',
+        'In the descriptions of the client applications in API Manager',
       ],
       answer: 1,
       explain: 'With 3,000 tenants, onboarding must be an automated API flow with no redeploy.',
@@ -164,7 +164,7 @@ export default {
       prompt: 'Tenant A requests a shipment ID that belongs to tenant B. What does the API return?',
       options: ['200 with the shipment', '403 Forbidden', '404 Not Found', '500 Internal Server Error'],
       answer: 2,
-      explain: '403 confirms the shipment exists, leaking information about another tenant. Within the caller\'s tenant scope, it simply does not exist.',
+      explain: '403 confirms the shipment exists, leaking information about another tenant. Within the caller\'s tenant scope, it does not exist.',
     },
   ],
   description: `
@@ -172,7 +172,7 @@ A logistics SaaS company is building a **shipment tracking & booking API** on An
 
 - ~300 tenants at launch, target 3,000 in two years. Tenant sizes vary hugely: most send < 1 request/s, five big marketplaces send **200+ requests/s** each.
 - Plans: **Basic, Pro, Enterprise** with different rate limits and features; Enterprise customers ask for **dedicated capacity** and **data residency in the EU**.
-- Each tenant's shipment data must be **strictly isolated** — a data leak between tenants would be fatal for the business.
+- Each tenant's shipment data must be **strictly isolated**: a data leak between tenants would be fatal for the business.
 - Tenants want to configure webhooks for status updates.
 - One big marketplace's **Black Friday** traffic last year slowed the old system down for everyone.
 
@@ -215,7 +215,7 @@ Numbers for sizing: all the small (Basic and Pro) tenants together send about **
 The same artifact is deployed in both models; only configuration differs (deployment "cells"). Price Enterprise to cover dedicated cost.
 
 **Plans, limits, noisy neighbours.**
-- Plans = **SLA tiers** in API Manager; tenants' client apps get a tier; the **Rate Limiting – SLA-based** policy enforces requests per window per client app. Different features per plan are flags in tenant config (or separate API resources for premium features).
+- Plans = **SLA tiers** in API Manager; tenants' client apps get a tier; the **Rate Limiting - SLA based** policy enforces requests per window per client app. Different features per plan are flags in tenant config (or separate API resources for premium features).
 - **Protect shared resources:** per-tenant quotas in front of the DB and async processing; for event/webhook processing, **separate queues or consumer pools** for big tenants so a Black Friday backlog from one marketplace doesn't delay others' webhooks.
 - Big marketplaces → move to Enterprise/dedicated cells, or at least their own replicas for heavy endpoints.
 - Capacity planning on aggregate load plus the largest tenant's peak; monitor **per-tenant** metrics (requests, latency, errors) via structured logs with tenantId.
@@ -226,7 +226,7 @@ The same artifact is deployed in both models; only configuration differs (deploy
 - A single rate limit for the whole gateway would be wrong: during the peak it would answer 429 to small tenants too. Limits belong to each client application (SLA tier), and in the model to each deployment.
 - The gateway uses **JWT validation**, which checks the signature with keys it already has. If it asked the IdP about every token (OAuth introspection), an IdP outage would stop every tenant.
 
-**Tenant config and onboarding.** A **Tenant Registry** (DB + Tenant Management API): plan, features, webhook URLs + secrets (encrypted), limits, region/cell. Onboarding is an API/portal flow: create tenant, register client app, assign SLA tier, configure webhooks — automated, no redeploy. Apps cache tenant config with a short TTL. Webhooks are delivered by a queue-based dispatcher with signing (HMAC), retries with backoff, per-tenant DLQ and auto-disable after repeated failures.
+**Tenant config and onboarding.** A **Tenant Registry** (DB + Tenant Management API): plan, features, webhook URLs + secrets (encrypted), limits, region/cell. Onboarding is an API/portal flow: create tenant, register client app, assign SLA tier, configure webhooks. It is automated, with no redeploy. Apps cache tenant config with a short TTL. Webhooks are delivered by a queue-based dispatcher with signing (HMAC), retries with backoff, per-tenant DLQ and auto-disable after repeated failures.
 
 **Guaranteeing data isolation.**
 - **Central enforcement:** a shared component/DataWeave module that injects \`tenant_id = :tenantId\` into every query; database **row-level security** (or separate schemas/DBs) as a second line of defence so a forgotten WHERE clause returns nothing.

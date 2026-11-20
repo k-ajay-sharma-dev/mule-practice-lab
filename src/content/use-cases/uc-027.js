@@ -41,7 +41,7 @@ export default {
       tests: [
         {
           name: 'The provider is late',
-          about: 'The job pushes 1 rate set a second to SAP, and the FX provider is down for the whole run. SAP still gets yesterday\'s rates, marked as a partial run, so invoicing can start.',
+          about: 'The job fetches and pushes 1 currency pair a second, and the FX provider is down for the whole run. SAP still gets yesterday\'s rates, marked as a partial run, so invoicing can start.',
           traffic: [{ name: 'rate sets', from: 'batch-job', rps: 1, to: ['external-api', 'erp'], kind: 'write' }],
           incidents: [{ down: 'external-api' }],
           durationMin: 5,
@@ -49,7 +49,7 @@ export default {
         },
         {
           name: 'The provider drops some calls',
-          about: 'The job pushes 1 rate set a second, and the FX provider fails 1 call in 4. Retries get today\'s rates for nearly every set, so fewer than 1 set in 100 falls back to yesterday\'s rate.',
+          about: 'The job fetches and pushes 1 currency pair a second, and the FX provider fails 1 call in 4. Retries get today\'s rate for nearly every pair, so fewer than 1 pair in 100 falls back to yesterday\'s rate.',
           traffic: [{ name: 'rate sets', from: 'batch-job', rps: 1, to: ['external-api', 'erp'], kind: 'write' }],
           incidents: [{ errors: 'external-api', rate: 0.25 }],
           durationMin: 5,
@@ -68,10 +68,10 @@ A retail group sells in 14 currencies. Treasury buys a **foreign-exchange rates 
 | **Data warehouse** | All ~170 pairs, full history | Files on S3 (CSV) |
 
 Facts:
-- The provider publishes end-of-day rates at **17:00 CET**; the API is sometimes late by up to an hour and has a limit of **100 calls/day**.
+- The provider publishes end-of-day rates at **17:00 CET**. Its API returns one currency pair per call, is sometimes late by up to an hour and has a limit of **2,000 calls/day**.
 - ERP must have the rates **before 18:30 CET**, when the nightly invoicing run starts.
-- The job pushes about 1 rate set a second. On a bad day the provider fails 1 call in 4, or is down for the whole run.
-- If today's rate is missing, finance prefers to **keep yesterday's rate** rather than fail invoicing — but they must know about it.
+- The job fetches and pushes about 1 currency pair a second. On a bad day the provider fails 1 call in 4, or is down for the whole run.
+- If today's rate is missing, finance prefers to **keep yesterday's rate** rather than fail invoicing, but they must know about it.
 
 **Describe your solution:**
 - How do you trigger the job and handle a late feed?
@@ -90,16 +90,16 @@ Facts:
 ## Error handling and alerting
 `,
   keyPoints: [
-    'Scheduler (cron, CET timezone) polls after 17:00 with a bounded retry window, well inside the 100 calls/day limit.',
+    'Scheduler (cron, CET timezone) polls after 17:00 with a bounded retry window, well inside the 2,000 calls/day limit.',
     'Rates fetched once and stored (Object Store / staging) so each target can be delivered or re-delivered independently.',
     'Separate mappings per target: ERP pairs, e-commerce with markup, full CSV for the warehouse.',
     'Sanity checks before distribution: non-zero, positive, and within a tolerance of yesterday (e.g. 10%), else hold and alert.',
     'Failure of one target does not block the others; failed deliveries are retried and treasury is alerted when yesterday\'s rate stays in force.',
   ],
   solution: `
-**Trigger and retries.** A Scheduler with a cron expression (timezone **Europe/Paris**) fires at 17:05 on business days. If the provider responds without today's date, the flow waits and retries every 10 minutes until 18:00 (about 6–7 calls, far below the 100/day limit). After 18:00 the job gives up, keeps yesterday's rates in all systems and sends an alert to treasury.
+**Trigger and retries.** A Scheduler with a cron expression (timezone **Europe/Paris**) fires at 17:05 on business days. If the provider responds without today's date, the flow waits and retries the missing pairs every 10 minutes until 18:00 (at most about 7 rounds of up to 170 calls, under the 2,000/day limit). After 18:00 the job gives up, keeps yesterday's rates in all systems and sends an alert to treasury.
 
-**Fetch once, fan out.** One System API call to the provider gets all ~170 pairs. The validated payload is stored in a **persistent Object Store** (key = rate date) and then distributed. A **Scatter-Gather** (or three independent flows triggered by a VM/Anypoint MQ message) delivers to the targets in parallel. Keeping the stored copy means a failed target can be re-sent later without calling the provider again.
+**Fetch once, fan out.** The provider System API fetches the ~170 pairs, one call per pair at about 1 a second, and retries a failed call. The validated payload is stored in a **persistent Object Store** (key = rate date) and then distributed. A **Scatter-Gather** (or three independent flows triggered by a VM/Anypoint MQ message) delivers to the targets in parallel. Keeping the stored copy means a failed target can be re-sent later without calling the provider again.
 
 **Mapping per target (DataWeave).**
 - **ERP**: filter to the ~30 configured pairs (list in properties), map to the exchange-rate structure the ERP expects (rate type, from/to currency, valid-from date, rate), sent via the SAP connector or OData API.

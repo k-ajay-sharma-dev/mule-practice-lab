@@ -104,6 +104,10 @@ A first draft built the call by joining the store ID into the SQL text. Security
 - A store with no open orders answers **200** with \`[]\`.
 - Otherwise answer **200** with the orders, in the API's field names.
 
+**Facts**
+- Name the parameters as the procedure does: \`p_store_id\` in, \`p_status\` and \`p_orders\` out. The result holds each output under its name, and the cursor is a list of rows with upper case column names.
+- Put the status code in the variable \`httpStatus\`. The listener answers with it, 200 when it is not set.
+
 **Design the flow.**
 `,
   answerTemplate: `## Calling the procedure

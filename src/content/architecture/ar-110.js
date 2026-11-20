@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'cloudhub-2', 'deployment', 'disaster-recovery', 'multi-region', 'anypoint-mq', 'object-store', 'healthcare'],
   estMinutes: 60,
   diagram: {
-    task: 'draw a hot standby design for the claims platform across two CloudHub 2.0 regions, with a bring-your-own global load balancer in front of both private spaces, a full API-led stack in each region, a queue in each region, and the reconciliation job keeping its watermark in an external Redis store.',
+    task: 'draw a hot standby design for the claims platform across two CloudHub 2.0 regions, with a bring-your-own global load balancer in front of both private spaces, a full API-led stack in each region, a queue in each region, and the reconciliation job keeping its watermark in an external Redis store. Health alerts and recovery points go to a monitoring system.',
     checks: [
       { label: 'A global load balancer plus an ingress load balancer for each region', rule: { type: 'node', match: 'load-balancer', min: 3 } },
       { label: 'Every consumer enters through a load balancer', rule: { type: 'each', of: ['web-app', 'partner'], min: 2, edgeTo: 'load-balancer' } },
@@ -104,7 +104,7 @@ Requirements:
 - The APIs use rate-limiting policies, agreed per partner.
 - The organization has the **Global Deployment** entitlement. Finance wants to pay for standby capacity only where it is justified.
 - At the month end peak claims arrive at 40 a second. Each region must keep accepting them when one of its availability zones fails.
-- The claims database answers in about 150 ms and has outages of up to ten minutes. No claim may be lost meanwhile, even if the broker restarts.
+- The claims database answers in about 150 ms and has outages of up to ten minutes. No claim may be lost meanwhile, even if the broker restarts. The broker redelivers a failed message about once a minute.
 
 **Questions:**
 - Draw the target architecture for claims submission.

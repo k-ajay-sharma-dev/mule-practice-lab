@@ -113,7 +113,7 @@ Larkfield Grocers, a fictional grocery chain, moves large files both ways around
 **Numbers**
 - About **1 store file a second** for half an hour; the export sends about **1 part every 2 seconds**.
 - An upload or download takes about 3 seconds; after a store refit about **25 seconds**, for up to half an hour.
-- A SQL Server call takes about 150 ms. The replenishment job causes **deadlocks** on about **1 call in 10** for up to 20 minutes.
+- A SQL Server call takes about 150 ms. The replenishment job causes **deadlocks** on about **1 call in 10** for up to 20 minutes. Each try is a victim or not on its own, and the export may lose fewer than 1 call in 100 to them.
 - SQL Server patching takes up to **40 minutes** once a month.
 - About **1 file in 100** is cut short on the way from the store. It fails its checks every time.
 - Last year an availability zone failed for 20 minutes.

@@ -7,9 +7,9 @@ export default {
   estMinutes: 20,
   investigation: {
     logs: [
-      { text: "2026-11-18 11:00:01 ERROR [label-sender] SFTP connect failed error=Too many connections from this IP", relevant: true, why: "The server limits sessions." },
       { text: "2026-11-18 11:00:00 INFO  [label-sender] Parallel for each maxConcurrency=32 files=900", relevant: true, why: "Mule opens many parallel uploads." },
       { text: "2026-11-18 11:00:00 INFO  [label-sender] Pooling profile not set", relevant: true, why: "Connections are not pooled." },
+      { text: "2026-11-18 11:00:01 ERROR [label-sender] SFTP connect failed error=Too many connections from this IP", relevant: true, why: "The server limits sessions." },
       { text: "2026-11-18 11:00:30 INFO  [partner-mail] Your IP is blocked for 1 hour", relevant: true, why: "The partner blocked the IP." },
       { text: "2026-11-18 23:59:00 INFO  [label-sender] GET /health 200", relevant: false },
     ],
@@ -19,9 +19,9 @@ export default {
         prompt: "Why is Mule blocked?",
         options: [
           "It opens up to 32 sessions at once, above the partner limit",
-          "The key is wrong",
-          "The files are too big",
-          "The host key changed",
+          "The private key for the SFTP user expired today",
+          "The 900 label files are above the server’s size limit",
+          "The partner changed its host key and Mule rejects it",
         ],
         answer: 0,
         explain: "The server has a session limit.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the fix?",
         options: [
-          "Limit concurrency to the partner limit and use a connection pool",
-          "Upload faster",
-          "Retry immediately in a loop",
-          "Use another IP",
+          "Cap concurrency at the partner limit and pool connections",
+          "Raise maxConcurrency so the 900 files finish sooner",
+          "Retry each failed connect at once in a loop",
+          "Send from a second IP address to split the load",
         ],
         answer: 0,
         explain: "Respect the server limits.",
@@ -45,7 +45,7 @@ export default {
           "The maximum sessions allowed",
           "Their maintenance windows",
           "Whether they rate limit by IP",
-          "Their internal passwords",
+          "The OS their SFTP server runs on",
         ],
         answer: [0,1,2],
         explain: "Know the limits before you send.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Why is retrying in a tight loop bad here?",
         options: [
           "It makes the block longer and adds load",
-          "It is too slow",
-          "It deletes files",
-          "It changes keys",
+          "It uses up the Mule worker’s heap",
+          "It uploads each file twice",
+          "It resets the SFTP user’s key",
         ],
         answer: 0,
         explain: "Back off when the server says no.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 11:00:01 ERROR [label-sender] SFTP connect failed error=Too many connections from this IP
 2026-11-18 11:00:00 INFO  [label-sender] Parallel for each maxConcurrency=32 files=900
 2026-11-18 11:00:00 INFO  [label-sender] Pooling profile not set
+2026-11-18 11:00:01 ERROR [label-sender] SFTP connect failed error=Too many connections from this IP
 2026-11-18 11:00:30 INFO  [partner-mail] Your IP is blocked for 1 hour
 \`\`\`
 

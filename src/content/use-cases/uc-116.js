@@ -82,6 +82,7 @@ Facts:
 - Anypoint MQ and PostgreSQL cannot join one XA transaction.
 - Subscribers must see the events of one order in order (ActivationRequested before ActivationCancelled).
 - At night about 2 activations a second arrive while the HSS can be down for 60 minutes. The HSS takes about 10 calls a second, and about 1 activation in 100 has a number it always rejects.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit. No activation may be lost or sent to the DLQ during the 60-minute HSS outage, and the rejected ones must reach the DLQ for the support team.
 
 **Describe your solution:**
 - Why does "save then publish" lose or invent events?
@@ -104,7 +105,7 @@ Facts:
     'The order row and an outbox row are inserted in the same PostgreSQL transaction, so the event exists if and only if the order does.',
     'A relay reads unpublished outbox rows in order, publishes them, and marks them published only after the broker confirms.',
     'A crash between publish and mark makes the relay publish again, so delivery is at least once and every subscriber is idempotent by eventId.',
-    'Ordering per order: the relay publishes in outbox sequence and subscribers use FIFO queues or check versions; published rows are deleted or archived after a few days.',
+    'Ordering per order: the relay publishes in outbox sequence and subscribers keep a version per order and ignore older events; published rows are deleted or archived after a few days.',
   ],
   solution: `
 \`\`\`
@@ -125,7 +126,7 @@ Facts:
 3. sets \`published_at\` after the publish succeeds.
 If the relay crashes after step 2, the row is published again. So the guarantee is **at least once**. A database CDC feed on the outbox table (Debezium) is an alternative to polling when latency must be lower.
 
-**Subscribers.** Each subscriber has its own queue bound to the exchange, so a slow HSS does not hold billing back. Each one stores processed \`eventId\`s (Idempotent Message Validator with a persistent Object Store, or a unique key in its own table) and ignores repeats. The provisioning queue sends messages to a DLQ after 5 failed deliveries, which covers the nightly HSS window with retries and a delay.
+**Subscribers.** Each subscriber has its own queue bound to the exchange, so a slow HSS does not hold billing back. Each one stores processed \`eventId\`s (Idempotent Message Validator with a persistent Object Store, or a unique key in its own table) and ignores repeats. The provisioning queue redelivers about once a minute and sends a message to the DLQ after about 90 deliveries, an hour and a half, which covers the 60-minute nightly HSS window.
 
 **Operations.** Alert when the oldest unpublished row is older than 1 minute (the relay is stuck). A daily job deletes rows published more than 7 days ago. The 40 lost and 10 phantom orders a month go to zero; reconciliation counts orders against \`ActivationRequested\` events daily to prove it.
 `,

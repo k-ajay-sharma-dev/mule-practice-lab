@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does the feed find no files?",
         options: [
-          "The path was a mapped drive on the old Windows server, and the CloudHub worker has no such mount",
-          "The share is empty",
-          "The files are locked",
-          "The poll runs too early",
+          "Z: was mapped on the old server, and the worker has no such mount",
+          "The worker’s account lacks read rights on the share’s stores folder",
+          "The files are still open by the stores, so the poll skips them",
+          "The poll runs before 06:00, when the stores upload their files",
         ],
         answer: 0,
         explain: "Z: was an SMB mount on the old host. A CloudHub worker cannot mount an SMB share.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Which way can a CloudHub app read the share?",
         options: [
-          "Call the Azure Files REST API over HTTPS with a SAS or an identity",
-          "Mount the share in the worker with net use",
-          "Ask Azure to copy files into the worker disk",
-          "Read Z: with more permissions",
+          "Call the Azure Files REST API over HTTPS with a SAS or identity",
+          "Mount the share in the worker at start-up with a net use command",
+          "Point the File connector at the UNC path \\\\brindlefiles\\inbound",
+          "Map Z: in the CloudHub runtime settings of the application",
         ],
         answer: 0,
         explain: "The REST API works over HTTPS and needs no mount.",
@@ -45,7 +45,7 @@ export default {
           "Keep a small hybrid worker on a host that can mount the share",
           "Have the producer also write the files to blob storage",
           "Use a file transfer service to push files to SFTP",
-          "Store the files inside the app jar",
+          "Copy the files to the worker’s /tmp folder each morning",
         ],
         answer: [0,1,2],
         explain: "Each removes the need to mount SMB inside CloudHub.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What should the migration checklist have caught?",
         options: [
           "Every file path and mount the app depends on",
-          "The app colour scheme",
-          "The number of flows",
-          "The log level",
+          "The worker size each flow needs on CloudHub",
+          "The schedule of each poller in the new time zone",
+          "The secure properties copied from the old server",
         ],
         answer: 0,
         explain: "Mapped drives and local paths are host dependencies.",
@@ -82,7 +82,7 @@ export default {
 - The planning export reports no store data for today.
 
 ## Change / Context
-- On the old Windows server the share was mapped as drive Z:.
+- Store files land on an Azure file share. On the old Windows server the share was mapped over SMB as drive Z:.
 - The app config still says Z:/inbound/stores.
 
 ## Logs

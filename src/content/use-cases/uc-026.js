@@ -30,10 +30,10 @@ export default {
         store: ['database', 'Central ARI store'],
         resq: ['queue', 'reservations-q'],
         resp: ['process-api', 'prc-reservation-delivery'],
-        cbk: ['system-api', 'sys-booking-com-adapter'],
-        cexp: ['system-api', 'sys-expedia-adapter'],
-        bk: ['external-api', 'Booking.com'],
-        ex: ['external-api', 'Expedia'],
+        cbk: ['system-api', 'sys-staybook-adapter'],
+        cexp: ['system-api', 'sys-tripnest-adapter'],
+        bk: ['external-api', 'Staybook'],
+        ex: ['external-api', 'TripNest'],
         be: ['web-app', 'Booking engine'],
         ebe: ['experience-api', 'exp-booking-engine-api'],
         recon: ['batch-job', 'Nightly full ARI sync & reconciliation'],
@@ -59,8 +59,8 @@ export default {
         },
         {
           name: 'OPERA is down for 20 minutes',
-          about: 'Booking.com sends 2 reservations a second while OPERA is down for 20 minutes. Each reservation is accepted at once, waits in the queue, and is confirmed in OPERA once it is back.',
-          traffic: [{ name: 'reservations', from: { type: 'external-api', label: 'booking.com' }, rps: 2, to: { type: 'saas', label: 'opera' }, kind: 'write' }],
+          about: 'Staybook sends 2 reservations a second while OPERA is down for 20 minutes. Each reservation is accepted at once, waits in the queue, and is confirmed in OPERA once it is back.',
+          traffic: [{ name: 'reservations', from: { type: 'external-api', label: 'staybook' }, rps: 2, to: { type: 'saas', label: 'opera' }, kind: 'write' }],
           incidents: [{ down: { type: 'saas', label: 'opera' }, at: 5, forMin: 20 }],
           durationMin: 60,
           expect: { answers: [{ minSuccess: 0.99 }], backlog: [{ queue: 'queue', maxEnd: 0 }], lost: { max: 0 } },
@@ -72,7 +72,7 @@ export default {
 A hotel group with **120 hotels** wants to replace its third-party channel manager with its own integration hub. Each hotel runs a **PMS** (Oracle OPERA Cloud in 90 hotels, a smaller cloud PMS in 30). Rates are set by a **revenue management system (RMS)**. Rooms are sold on:
 
 - The group's own **booking engine** (website/app).
-- OTAs: **Booking.com**, **Expedia**, and a GDS connection for corporate travel. Each has its own APIs. Several use **OpenTravel Alliance (OTA) XML** messages for availability/rate notifications and reservations.
+- OTAs (online travel agencies): **Staybook**, **TripNest**, and a GDS connection for corporate travel. Each has its own APIs. Several use **OpenTravel Alliance (OTA) XML** messages for availability/rate notifications and reservations.
 
 Facts and constraints:
 - ARI (availability, rates, inventory) changes: the RMS re-prices several times a day, up to **2 million rate/availability cells** (hotel × room type × rate plan × date for 365 days) per run. Bookings change availability constantly.
@@ -105,7 +105,7 @@ Facts and constraints:
 `,
   keyPoints: [
     'Inventory source of truth defined (PMS for physical inventory and reservations, RMS for rates) with a central ARI state in the hub to compute deltas.',
-    'ARI pushed as coalesced deltas: changes per hotel/room/rate/date range merged into ranges, latest value wins, batched per channel within its rate limits — not 2M individual calls.',
+    'ARI pushed as coalesced deltas: changes per hotel/room/rate/date range merged into ranges, latest value wins, batched per channel within its rate limits, not 2M individual calls.',
     'Ordering guaranteed per hotel+room type (partitioned queue/message groups or version numbers) so an older availability value never overwrites a newer one.',
     'Reservations from each channel normalised to a canonical model, persisted before acknowledgement, de-duplicated by channel reservation ID + version, and delivered to the PMS with confirmation numbers returned to the channel.',
     'Overbooking minimised by immediate availability decrement on each reservation, channel-specific allotments/buffers for the last rooms, and stop-sell on low inventory; residual conflicts routed to the hotel with an alert.',
@@ -114,8 +114,8 @@ Facts and constraints:
   solution: `
 **Architecture and source of truth.**
 - **PMS** = system of record for physical room inventory and reservations; **RMS** = system of record for prices/restrictions (min stay, closed-to-arrival).
-- The **hub** keeps a **central ARI store** (fast database keyed by hotel/room type/rate plan/date) with the last value sent to each channel. That is how deltas are computed and how you answer "what does Booking.com currently think?"
-- Layers: **PMS System APIs** (OPERA Cloud APIs/OXI-style interfaces and the other PMS's API), **channel adapters** (Booking.com, Expedia, GDS; OTA XML like \`OTA_HotelAvailNotifRQ\`, \`OTA_HotelRateAmountNotifRQ\`, \`OTA_HotelResNotifRQ\` or channel-specific JSON), **ARI Process** and **Reservation Process** services. Events flow through a durable broker (Kafka or Anypoint MQ with FIFO/message groups where ordering matters).
+- The **hub** keeps a **central ARI store** (fast database keyed by hotel/room type/rate plan/date) with the last value sent to each channel. That is how deltas are computed and how you answer "what does Staybook currently think?"
+- Layers: **PMS System APIs** (OPERA Cloud APIs/OXI-style interfaces and the other PMS's API), **channel adapters** (Staybook, TripNest, GDS; OTA XML like \`OTA_HotelAvailNotifRQ\`, \`OTA_HotelRateAmountNotifRQ\`, \`OTA_HotelResNotifRQ\` or channel-specific JSON), **ARI Process** and **Reservation Process** services. Events flow through a durable broker (Kafka or Anypoint MQ with FIFO/message groups where ordering matters).
 
 **ARI distribution.**
 - Inputs: RMS rate runs (bulk files/API), PMS availability changes (events on every booking, cancellation, room out of order).
@@ -136,14 +136,14 @@ Facts and constraints:
 **Overbooking.**
 - Speed: event-driven availability updates, fast lane, measured end-to-end latency (< 60 s target, alert at 30 s).
 - **Buffers and allotments**: when inventory drops below a threshold (e.g. last 2 rooms), close lower-priority channels (stop-sell) or keep the last rooms for the direct booking engine; configurable per hotel.
-- Some overbooking will still happen (two channels sell the last room within seconds). Detect it (PMS rejects or availability goes negative), **alert the hotel** with both reservations so front office can relocate a guest, and record the case for analysis. Do not auto-cancel a confirmed OTA reservation — penalties and guest impact are worse.
+- Some overbooking will still happen (two channels sell the last room within seconds). Detect it (PMS rejects or availability goes negative), **alert the hotel** with both reservations so front office can relocate a guest, and record the case for analysis. Do not auto-cancel a confirmed OTA reservation: penalties and guest impact are worse.
 
 **Reliability and reconciliation.**
 - Nightly (and on demand) **full ARI sync** per hotel/channel to correct drift; reservation reconciliation (channel extranet/report vs PMS) to find missing or mismatched bookings.
 - Monitoring per hotel and channel: queue lag, update latency, rejection rates, unconfirmed reservations older than N minutes.
 - Idempotent processing everywhere so replays from the broker are safe.
 
-**Onboarding hotels and channels.** Hotel onboarding is **configuration**: room type and rate plan **mapping tables** per channel (hotel's codes ↔ channel's codes), PMS connection details, buffers. A new channel means a new adapter implementing the canonical ARI and reservation contracts plus a certification process with the channel. A new PMS type means a new PMS System API — the core processes stay untouched.
+**Onboarding hotels and channels.** Hotel onboarding is **configuration**: room type and rate plan **mapping tables** per channel (hotel's codes ↔ channel's codes), PMS connection details, buffers. A new channel means a new adapter implementing the canonical ARI and reservation contracts plus a certification process with the channel. A new PMS type means a new PMS System API; the core processes stay untouched.
 `,
   followUps: [
     { q: 'The RMS sends a full re-price for all 120 hotels at 06:00. How long until channels are updated, and how do you avoid starving availability updates?', a: 'Coalesced deltas shrink the volume. Rate updates go to a bulk lane with its own consumers and rate-limit budget, and availability keeps a reserved fast lane. So a re-price may take tens of minutes without delaying availability.' },

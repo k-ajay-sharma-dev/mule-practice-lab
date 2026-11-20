@@ -23,11 +23,11 @@ export const MORE_CHOICE = [
       'Order event processed and acknowledged orderId=10045 queue=orders-in durationMs=145 correlationId=7f3c2a',
       'Processing message',
       'Message from MQ',
-      'ACK sent :)',
+      'Order event received orderId=10045 queue=orders-in correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'Past tense tells the reader the work is done. "Processing message" only says something started, so nobody can tell from it whether the message was finished or lost.',
+      'Past tense tells the reader the work is done. "Processing message" only says something started, so nobody can tell from it whether the message was finished or lost. "Order event received" is a good first line, but here the work is over, and it does not say so.',
   },
   {
     id: 'log-203',
@@ -66,11 +66,11 @@ export const MORE_CHOICE = [
       'Workday employee sync starting runId=r-1112 correlationId=7f3c2a',
       'Step 1 of workday-sync-main',
       'Scheduler triggered',
-      'Sync',
+      'Workday employee sync finished runId=r-1112 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It says what is starting, in present tense, and gives a runId that ties this line to the line at the end of the run. "Step 1 of workday-sync-main" makes the reader open the code to know what it means.',
+      'It says what is starting, in present tense, and gives a runId that ties this line to the line at the end of the run. The last option is well formed but says "finished" at the start of the run. "Step 1 of workday-sync-main" makes the reader open the code to know what it means.',
   },
   {
     id: 'log-206',
@@ -139,11 +139,11 @@ export const MORE_CHOICE = [
       'Calls to pricing service paused after 5 failures in a row pauseMs=60000 next=cached prices used correlationId=7f3c2a',
       'CB state OPEN cb-pricing-02 thr=5',
       'Pricing service is dead',
-      'Circuit breaker',
+      'Pricing service call failed errorType=HTTP:TIMEOUT failuresInRow=5 correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It says in plain words what changed and what customers get meanwhile. "CB state OPEN thr=5" only makes sense to the developer who wrote it; a support engineer at night cannot act on it.',
+      'It says in plain words what changed and what customers get meanwhile. The last option reads like one more failed call: it does not say that calls are now paused or that cached prices are used. "CB state OPEN thr=5" only makes sense to the developer who wrote it; a support engineer at night cannot act on it.',
   },
   {
     id: 'log-211',
@@ -151,14 +151,14 @@ export const MORE_CHOICE = [
     situation:
       'The redelivery policy on a JMS listener raised MULE:REDELIVERY_EXHAUSTED after 5 deliveries. Your error handler sends the message to a DLQ. Which message is best?',
     options: [
-      'Message poisoned',
+      'Shipment update failed errorType=MULE:REDELIVERY_EXHAUSTED message={"shipmentId":"SH-5521","address":"12 High St, Leeds"}',
       'Shipment update not processed after 5 deliveries errorType=MULE:REDELIVERY_EXHAUSTED shipmentId=SH-5521 next=sent to DLQ correlationId=7f3c2a',
       'Redelivery exhausted, see logs',
       'ERROR ERROR shipment flow broke',
     ],
     answer: 1,
     explain:
-      'What failed, why, which shipment, and where the message is now. "Redelivery exhausted, see logs" sends the reader to look for the very line it should have been.',
+      'What failed, why, which shipment, and where the message is now. The first option dumps the message, with an address in it, and does not say where the message went. "Redelivery exhausted, see logs" sends the reader to look for the very line it should have been.',
   },
   {
     id: 'log-212',
@@ -197,11 +197,11 @@ export const MORE_CHOICE = [
       'Invoice file archived fileName=invoices_20261112.csv toPath=/archive/2026/11 sizeBytes=48213 correlationId=7f3c2a',
       'Moving file',
       'Archived file, size 48213',
-      'File stuff done',
+      'Invoice file processed fileName=invoices_20261112.csv correlationId=7f3c2a',
     ],
     answer: 0,
     explain:
-      'It says the result, which file, where it went and its size with the unit in the name. "Archived file, size 48213" leaves out the file name and does not say bytes or KB.',
+      'It says the result, which file, where it went and its size with the unit in the name. "Archived file, size 48213" leaves out the file name and does not say bytes or KB. The last option does not say the file was moved or where to find it.',
   },
   {
     id: 'log-215',
@@ -224,14 +224,14 @@ export const MORE_CHOICE = [
     situation:
       'A Scatter-Gather called the stock, price and review services. The review route failed, and the API returned the product without reviews. Which message is best?',
     options: [
-      'Scatter-Gather error',
+      'Product request failed errorType=MULE:COMPOSITE_ROUTING productId=P-3301 correlationId=7f3c2a',
       'Product reviews not loaded errorType=MULE:COMPOSITE_ROUTING failedRoute=reviews productId=P-3301 next=product returned without reviews correlationId=7f3c2a',
       'Route 2 failed in sg-01',
       'One of the routes broke, not sure which',
     ],
     answer: 1,
     explain:
-      'It names the part that failed in words the business understands and says what the caller got. "Route 2 failed in sg-01" makes the reader count routes in the XML to find out which call it was.',
+      'It names the part that failed in words the business understands and says what the caller got. The first option says the whole request failed, which is wrong, and does not name the route. "Route 2 failed in sg-01" makes the reader count routes in the XML to find out which call it was.',
   },
   {
     id: 'log-217',
@@ -241,12 +241,12 @@ export const MORE_CHOICE = [
     options: [
       'Email sent to ann@example.com',
       'Sending email',
-      'Async done!!!',
+      'Sending order confirmation email orderId=10045 templateId=order-confirm correlationId=7f3c2a',
       'Order confirmation email sent orderId=10045 templateId=order-confirm durationMs=420 correlationId=7f3c2a',
     ],
     answer: 3,
     explain:
-      'It says what was sent, for which order, and how long it took. The first option logs the email address; the order ID is enough to look it up when someone needs it.',
+      'It says what was sent, for which order, and how long it took. The third option is a good line before the send, but after it the reader needs to know the email went out. The first option logs the email address; the order ID is enough to look it up when someone needs it.',
   },
   {
     id: 'log-218',
@@ -270,12 +270,12 @@ export const MORE_CHOICE = [
     options: [
       'Workday is throttling us again, annoying',
       'Workday rate limit hit status=429 workerId=W-4410 attempt=1 of 3 retryAfterMs=30000 next=retry correlationId=7f3c2a',
-      '429',
+      'Workday call failed status=429 workerId=W-4410 correlationId=7f3c2a',
       'Too many requests from workday-sync-sub-flow-3',
     ],
     answer: 1,
     explain:
-      'It gives the status, which record, which attempt out of how many, the wait with its unit, and what happens next. The first option is a complaint, not a fact anyone can use.',
+      'It gives the status, which record, which attempt out of how many, the wait with its unit, and what happens next. The third option says "failed" but not that a retry follows, so it looks like a lost record. The first option is a complaint, not a fact anyone can use.',
   },
   {
     id: 'log-220',
@@ -283,13 +283,13 @@ export const MORE_CHOICE = [
     situation: 'SAP sent an ORDERS05 IDoc to your app through the SAP connector listener. Which message is best?',
     options: [
       'IDoc: <the whole IDoc XML>',
-      'In IDoc listener',
+      'SAP IDoc received idocType=ORDERS05 soldTo=Ann Lee shipTo=12 High St, Leeds',
       'SAP IDoc received idocType=ORDERS05 idocNumber=0000000004512873 segments=42 correlationId=7f3c2a',
       'Received something from SAP',
     ],
     answer: 2,
     explain:
-      'The IDoc number lets the SAP team find the same IDoc on their side, and the count says how big it was. The whole IDoc is large and can hold customer names and addresses.',
+      'The IDoc number lets the SAP team find the same IDoc on their side, and the count says how big it was. The whole IDoc is large and can hold customer names and addresses, and the second option copies a name and an address out of it.',
   },
   {
     id: 'log-221',
@@ -325,14 +325,14 @@ export const MORE_CHOICE = [
     kind: 'choice',
     situation: 'An operator replayed an order from the DLQ, and this time SAP created it. Which message is best?',
     options: [
-      'Here',
+      'SAP order created orderId=10045 sapDocNo=4500021 correlationId=7f3c2a',
       'Replay OK!!!',
       'DLQ order reprocessed orderId=10045 sapDocNo=4500021 originalErrorType=HTTP:TIMEOUT correlationId=7f3c2a',
       'Reprocessing DLQ',
     ],
     answer: 2,
     explain:
-      'It says the replay worked, which order, the SAP document now created and why it failed the first time. "Reprocessing DLQ" says the replay began, not whether it worked.',
+      'It says the replay worked, which order, the SAP document now created and why it failed the first time. The first option looks like a normal order, so nobody can count the replays or see why the order needed one. "Reprocessing DLQ" says the replay began, not whether it worked.',
   },
   {
     id: 'log-224',
@@ -371,11 +371,11 @@ export const MORE_CHOICE = [
       'Workday worker load finished jobId=9e2b17 total=2310 successful=2310 failed=0 durationMs=184220',
       '🎉 Workday load crushed it 🎉',
       'Workday load finished, no failures, lucky us',
-      'Workday batch end',
+      'Workday worker load finished jobId=9e2b17 durationMs=184220',
     ],
     answer: 0,
     explain:
-      'The counts show it was a full success, and failed=0 can still be charted next to the bad nights. Emojis and jokes add nothing a reader can search for or count.',
+      'The counts show it was a full success, and failed=0 can still be charted next to the bad nights. The last option has no counts, so nobody can tell from it how many workers were loaded. Emojis and jokes add nothing a reader can search for or count.',
   },
   {
     id: 'log-227',

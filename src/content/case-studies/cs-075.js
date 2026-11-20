@@ -101,7 +101,8 @@ export default {
 - Plant MES teams will not allow any synchronous call into the MES from outside the plant.
 - 4 business units and 3 regional IT teams will run parts of this; the platform team is 12 people.
 - China data must be processed in China.
-- Tracking lookups reach 300 a second for 5 minutes after a push, and milestone events about 350 a second.
+- Tracking lookups reach 300 a second for 5 minutes after a push. Size the milestone path for 350 events a second, the rate when the plants catch up after a long link outage.
+- Name the APIs sys-plant-mes-api, prc-vehicle-journey, sys-journey-store-api, prc-order-tracking, exp-buyer-order-status-api and prc-buyer-notifications. Run sys-plant-mes-api, prc-vehicle-journey, prc-order-tracking and exp-buyer-order-status-api on 1 vCore each, and sys-journey-store-api on 2 replicas of 1 vCore.
 
 **Your task.** Design the platform architecture, the event model, the data residency approach and the operating model.
 `,

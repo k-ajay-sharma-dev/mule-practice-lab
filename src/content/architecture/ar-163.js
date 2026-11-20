@@ -12,7 +12,7 @@ export default {
   tags: ['graceful-degradation', 'partial-response', 'timeouts', 'circuit-breaker', 'process-api', 'retail'],
   estMinutes: 30,
   diagram: {
-    task: 'draw the shopping app calling an Experience API, which calls an order history Process API. The Process API gets the orders from the order management system through one System API and the tracking from the carrier through another.',
+    task: 'draw the shopping app calling an Experience API, which calls an order history Process API. The Process API gets the orders from the order management system through one System API and the tracking from the carrier through another. Draw the order management system as an ERP box and the carrier as a Third-party API box with carrier in its name. Set the Process API\'s timeout, circuit breaker and what it does when a call fails.',
     checks: [
       { label: 'The app calls an Experience API', rule: { type: 'edge', from: 'mobile-app', to: 'experience-api' } },
       { label: 'The Experience API calls the order history Process API', rule: { type: 'edge', from: 'experience-api', to: orders } },
@@ -65,7 +65,7 @@ export default {
     },
   },
   description: `
-A fashion retailer's **shopping app** has an order history screen. For each order it shows what was bought and, for orders on their way, the **tracking** from the carrier.
+An electronics retailer's **shopping app** has an order history screen. For each order it shows what was bought and, for orders on their way, the **tracking** from the carrier.
 
 The orders come from the **order management system**. The tracking comes from the **carrier tracking API**, run by the parcel carrier. Today the Process API behind the screen calls both and fails if either fails. When the carrier's API hangs, the screen spins for ten seconds, then shows an error, and customers phone to ask where their orders went.
 

@@ -64,6 +64,8 @@ The tracker vendor offers a live map API, but its contract allows a few calls a 
 - 150 buses, one position every 5 seconds: about **30 positions a second**.
 - Between 07:30 and 08:15 parents open the app about **400 times a second**.
 - Parents only ever need the **latest** position of one bus.
+- A parent must get an answer within **300 ms**, even at the peak.
+- No position may be lost, even while the app that saves them restarts for a release.
 
 **Questions:**
 - Draw the design. Where do positions go, and where do parents read from?

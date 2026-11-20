@@ -22,7 +22,7 @@ A line with any reason goes to \`rejects\` as \`line\` (its position in the file
 
 **One row per key.** Among good lines with the same store, item and week, keep the highest \`planVersion\`. On a tie, keep the later line in the file. Count the lines dropped this way as \`superseded\`.
 
-**Output** \`mergeRows\` with \`StoreId\`, \`ItemId\`, \`PlanWeek\`, \`Qty\` and \`PlanVersion\`, sorted by store, item and week, then \`rejects\` in file order and \`superseded\`.
+**Output** \`mergeRows\` with \`StoreId\`, \`ItemId\`, \`PlanWeek\`, \`Qty\` and \`PlanVersion\`, sorted as text by store, then item, then week, then \`rejects\` in file order and \`superseded\`. Lists with nothing in them are empty.
 `,
   inputs: [
     {

@@ -136,6 +136,12 @@ You are asked for a restart flow. Support calls \`POST /replay?type=Item\` after
 - A message whose republish fails is marked \`REPLAY_FAILED\`.
 - Answer \`202\` with the number of messages queued for replay. The caller must not wait for 60,000 publishes.
 
+**Facts**
+- The message type comes in the query parameter \`type\`.
+- Check the database with \`SELECT 1 AS ok\` and the blob store with Azure **List Blobs** on the container \`inbound\`.
+- \`body\` holds the message as JSON text. Publish it as JSON, not as a string.
+- Put the status code in the variable \`httpStatus\`. The listener answers with it, also on the error path.
+
 **Design the flow.**
 `,
   answerTemplate: `## Health checks

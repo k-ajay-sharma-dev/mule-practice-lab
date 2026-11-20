@@ -59,6 +59,7 @@ A manufacturer uses a cloud **procurement/spend tool** where employees raise pur
 Facts:
 - ~1,800 approved PRs/week, 1–40 lines each. The procurement tool sends an **"approved" webhook** and has a REST API.
 - At busy times the tool sends 1 approved PR a second. SAP can be down for 30 minutes for maintenance, and about 1 PR in 50 has a cost centre SAP rejects.
+- The broker redelivers a failed message about once a minute. Every delivery counts toward the redelivery limit, and after the limit the message goes to the DLQ. Good PRs must survive the 30-minute outage, and rejected ones must reach the DLQ for the buying team.
 - In SAP, an approved PR must become a **purchase order** (for catalog items with a contracted supplier) or a **SAP purchase requisition** for the buying team (for free-text items).
 - Master data (suppliers, material groups, cost centres, GL accounts) is owned by SAP and must be **valid in the procurement tool** before employees can select it.
 - Users want to see the **PO number and status** (ordered, partially received, invoiced) back in the procurement tool within **15 minutes**.
@@ -114,7 +115,7 @@ A PR can split into several POs (one per supplier). DataWeave groups lines by su
 
 **Status back-flow.** SAP emits PO change/output messages (IDoc ORDERS/ORDCHG output, or a scheduled query for POs changed in the last 10 minutes). The Process API maps SAP statuses to the tool's statuses and updates the PR with **PO number, ordered, received, invoiced** quantities. Run every 5–10 minutes to meet the 15-minute target.
 
-**Errors.** Business errors (blocked supplier, price missing) → update the PR in the procurement tool with an "integration error" status and message, plus notify the buyer; no automatic retry. Technical errors → retry with backoff, then DLQ and alert. A daily reconciliation compares approved PRs with SAP documents to catch anything missing.
+**Errors.** Business errors (blocked supplier, price missing) → update the PR in the procurement tool with an "integration error" status and message, plus notify the buyer. A PR that SAP still rejects when it reaches the redelivery limit goes to the DLQ for the buying team. Technical errors → redelivered about once a minute; a limit of about 45 deliveries outlasts a 30-minute SAP maintenance window, then DLQ and alert. A daily reconciliation compares approved PRs with SAP documents to catch anything missing.
 `,
   followUps: [
     { q: 'Why not let the procurement tool call SAP directly?', a: 'SAP is on-prem and its BAPIs are not designed for SaaS callers; the System API hides SAP specifics, adds security and lets other consumers reuse PO creation.' },

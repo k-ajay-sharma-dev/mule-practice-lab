@@ -1,5 +1,7 @@
 import { diagram } from '../../arch/dsl.js'
 
+const OMS = { type: ['saas', 'erp'], label: ['oms', 'order management'] }
+
 export default {
   id: 'ar-073',
   category: 'architecture',
@@ -8,7 +10,7 @@ export default {
   tags: ['retail', 'supply-chain', 'oms', 'orchestration', 'api-led', 'events', 'bopis', 'ship-from-store'],
   estMinutes: 60,
   diagram: {
-    task: 'draw the omnichannel order architecture in which the OMS owns the order lifecycle and Mule provides the channel APIs, order capture, event distribution and fulfilment connectivity to the WMS and stores.',
+    task: 'draw the omnichannel order architecture in which the OMS owns the order lifecycle and Mule provides the channel APIs, order capture, event distribution and fulfilment connectivity to the WMS and stores. Put "OMS" in the names of the OMS box and of its System API.',
     checks: [
       { label: 'Web, store and marketplace channels each call an Experience API', rule: { type: 'each', of: ['web-app', 'internal-app', 'partner'], min: 3, edgeTo: 'experience-api' } },
       { label: 'Order capture is a Process API that hands the order to the OMS System API', rule: { type: 'edge', from: 'process-api', to: { type: 'system-api', label: ['oms', 'order'] } } },
@@ -56,10 +58,10 @@ export default {
           name: 'Peak day orders and an unknown caller',
           about: 'Web sends 20 orders a second, stores 4 and marketplaces 6, and every order goes through in under 2 seconds on average. A caller with no client id also sends 5 orders a second to the marketplace API, and all of them are refused.',
           traffic: [
-            { name: 'web', from: 'web-app', rps: 20, to: { type: 'saas', label: 'oms' }, kind: 'write' },
-            { name: 'stores', from: 'internal-app', rps: 4, to: { type: 'saas', label: 'oms' }, kind: 'write' },
-            { name: 'marketplaces', from: 'partner', rps: 6, to: { type: 'saas', label: 'oms' }, kind: 'write' },
-            { name: 'unknown caller', from: 'partner', rps: 5, to: { type: 'saas', label: 'oms' }, kind: 'write', auth: 'none' },
+            { name: 'web', from: 'web-app', rps: 20, to: OMS, kind: 'write' },
+            { name: 'stores', from: 'internal-app', rps: 4, to: OMS, kind: 'write' },
+            { name: 'marketplaces', from: 'partner', rps: 6, to: OMS, kind: 'write' },
+            { name: 'unknown caller', from: 'partner', rps: 5, to: OMS, kind: 'write', auth: 'none' },
           ],
           expect: {
             answers: [
@@ -74,9 +76,9 @@ export default {
           name: 'A zone fails at peak',
           about: 'One availability zone fails while the channels send 30 orders a second. Every API on the order capture and fulfilment paths keeps a replica running, inside the 2.5 vCore budget.',
           traffic: [
-            { name: 'web', from: 'web-app', rps: 20, to: { type: 'saas', label: 'oms' }, kind: 'write' },
-            { name: 'stores', from: 'internal-app', rps: 4, to: { type: 'saas', label: 'oms' }, kind: 'write' },
-            { name: 'marketplaces', from: 'partner', rps: 6, to: { type: 'saas', label: 'oms' }, kind: 'write' },
+            { name: 'web', from: 'web-app', rps: 20, to: OMS, kind: 'write' },
+            { name: 'stores', from: 'internal-app', rps: 4, to: OMS, kind: 'write' },
+            { name: 'marketplaces', from: 'partner', rps: 6, to: OMS, kind: 'write' },
           ],
           incidents: [{ zone: true }],
           expect: { answers: [{ minSuccess: 0.99 }], vCores: { max: 2.5 } },
@@ -119,9 +121,9 @@ Constraints:
 
 Numbers for sizing:
 - In the busiest minutes of peak day, web sends **20 orders a second**, stores **4** and marketplaces **6**. Each order is captured into the OMS, and its fulfilment update goes back to the OMS too.
-- The OMS answers in about 600 ms and accepts **100 calls a second**.
+- The OMS answers in about 600 ms and accepts **100 calls a second**. Order capture must answer in under **2 seconds** on average.
 - Marketplaces call with a client id. Calls without one must be refused.
-- The OMS releases about **8 orders a second** to the DCs and **4** to stores. Store systems can be offline for **20 minutes**, and no release may be lost.
+- The OMS releases about **8 orders a second** to the DCs and **4** to stores. Store systems can be offline for **20 minutes**, and no release may be lost. A broker redelivers a failed message about **once a minute**.
 - Order capture must keep working when one availability zone fails.
 - The budget for the Mule apps is **2.5 vCores**.
 
@@ -140,11 +142,11 @@ Numbers for sizing:
 ## When to build the order logic in Mule
 `,
   keyPoints: [
-    'The order lifecycle (state machine, sourcing, splits, cancellations, returns) is core business logic with long-running state — it belongs in a system of record (the OMS), not in stateless integration flows.',
+    'The order lifecycle (state machine, sourcing, splits, cancellations, returns) is core business logic with long-running state. It belongs in a system of record (the OMS), not in stateless integration flows.',
     'Mule owns connectivity: channel Experience APIs, order capture/validation, System APIs to OMS, WMS, stores, payment and ERP, and event distribution.',
     'The OMS publishes lifecycle events; Mule fans them out to fulfilment, finance and customer notifications asynchronously.',
     'Short, stateless orchestration (capture: validate, price, authorise, submit) is a fine Process API; long-running sagas with business-tunable rules are not.',
-    'Building the OMS in Mule is justified only for simple, stable flows or when no product fits — and then it needs its own persistent state and team.',
+    'Building the OMS in Mule is justified only for simple, stable flows or when no product fits, and then it needs its own persistent state and team.',
     'Two replicas per API survive a zone outage; client id enforcement guards the marketplace API; size the OMS System API for capture plus fulfilment updates; a persistent topic holds releases for an offline store.',
   ],
   solution: `
@@ -169,7 +171,7 @@ Numbers for sizing:
 **What Mule must NOT orchestrate.**
 - The order state machine and its long-running transitions (days or weeks for returns).
 - Sourcing rules the business changes monthly.
-- Compensation logic across lines and shipments. These need durable state, auditability and business tooling — the OMS provides them.
+- Compensation logic across lines and shipments. These need durable state, auditability and business tooling, which the OMS provides.
 
 **Why not Camp A.** In 11 months, 8 people would have to build sourcing, split shipments, returns and a state store on top of Mule. That is effectively writing an OMS, with flows as the place for business rules. It also turns every rule change into a deployment.
 
@@ -179,13 +181,13 @@ Numbers for sizing:
 - Every API runs 2 replicas, so a zone outage leaves one of each running and capture keeps working.
 - \`exp-marketplace-api\` enforces client ids, so a caller without one is refused before it reaches order capture.
 - \`sys-oms\` carries both the captured orders and the fulfilment updates (about 60 calls a second at peak), so it runs 2 × 0.2 vCore. The other APIs fit on 0.1 vCore per replica. In total 1.8 vCores, inside the 2.5 vCore budget.
-- The order events topic is persistent and keeps retrying a release while a store is offline. Do not set a redelivery limit without a dead-letter queue, or releases for an offline store are dropped.
+- The order events topic is persistent and keeps retrying a release while a store is offline. With redelivery about once a minute, a limit below 20 would drop releases for an offline store, so set none (or one well above 20, with a dead-letter queue).
 
 **Trade-offs:** OMS licence cost and vendor lock-in; the OMS becomes a critical dependency (capture must queue orders if the OMS is down); data model mapping effort into and out of the OMS.
 `,
   followUps: [
     { q: 'The OMS is down for 30 minutes during peak. What does order capture do?', a: 'Accept the order after validation and payment authorisation, persist it to a durable queue and return "received". Then submit to the OMS when it recovers, with idempotent submission keyed by the client order id.' },
-    { q: 'Who owns inventory availability — OMS or the ATP service?', a: 'Many OMS products include availability; pick one owner. If the OMS owns sourcing, it should own availability or consume a single ATP feed — two availability engines will disagree.' },
+    { q: 'Who owns inventory availability: the OMS or the ATP service?', a: 'Many OMS products include availability; pick one owner. If the OMS owns sourcing, it should own availability or consume a single ATP feed, because two availability engines will disagree.' },
     { q: 'How do you keep finance consistent with order state changes?', a: 'Consume OMS lifecycle events with per-order ordering and idempotency, post to ERP via a System API, and reconcile daily between OMS and ERP totals.' },
   ],
 }

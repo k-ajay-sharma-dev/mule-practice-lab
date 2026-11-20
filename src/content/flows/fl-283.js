@@ -134,6 +134,13 @@ The first version called the procedure once and logged "done". Busy answers were
 - A real error must not be tried again.
 - Any failure, including busy for too long, marks the batch \`FAILED\` with the error type, and the request is acknowledged.
 
+**Facts**
+- Call the procedure with a target variable. The OUT parameters come back by name: \`{ p_status, p_message, p_applied }\`.
+- Retry with an **Until Successful**. It retries only on an error, so raise \`APP:BUSY\` inside it for status 2. When the retries run out, Mule raises \`MULE:RETRY_EXHAUSTED\`.
+- For a real error, raise \`APP:APPLY_FAILED\` outside the Until Successful.
+- \`reason\` holds the error type as text, such as \`APP:APPLY_FAILED\` or \`MULE:RETRY_EXHAUSTED\`.
+- The listener uses the ack mode \`AUTO\`. A flow handler **On Error Continue** closes the row, so the message is acknowledged.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the OUT parameters

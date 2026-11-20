@@ -121,7 +121,7 @@ An **Async scope** is a box of steps that runs alongside the main flow. The main
 **Requirements**
 - Expose \`POST /returns\` with an HTTP Listener.
 - Save the whole request in a variable called \`returnRequest\`, because the Insert replaces the payload.
-- Insert the return into the \`parcel_returns\` table.
+- Insert the return into the \`parcel_returns\` table, with the columns \`return_id\`, \`order_id\` and \`email\`.
 - Send the email to the customer inside an Async scope.
 - Reply with \`{ "returnId": "...", "status": "RECEIVED" }\` without waiting for the email.
 

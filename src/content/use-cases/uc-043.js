@@ -74,12 +74,12 @@ Facts:
 - The **claims system** (Guidewire-style core system, on-prem, SOAP/REST APIs) creates the claim and must store references to all documents, but cannot store large binaries itself; documents go to the **enterprise content management (ECM)** system.
 - A third-party **AI damage-assessment** service accepts photo URLs and returns damaged parts, severity and an estimated repair cost in **2–15 minutes** (async with callback).
 - ~3,000 claims/day; storms produce 10× peaks.
-- In a storm about 20 uploads finish each second, while the ECM stores at most 15 documents a second. Customers file 5 claims a second, and the claims path must survive one availability zone going down for 15 minutes.
+- In a storm about 20 uploads finish each second, while the ECM stores at most 15 documents a second. Every photo must be stored. Customers file 5 claims a second, and the claims path must survive one availability zone going down for 15 minutes.
 - Rules: estimates under **€2,500** with high confidence and no fraud flags can be **auto-approved** for repair at a partner garage; others go to an adjuster.
 - Photos contain **number plates and faces**; GDPR applies. Policy and claim data must not leave the EU.
 
 **Describe your solution:**
-- How should the app upload large files — through Mule or not?
+- How should the app upload large files: through Mule or not?
 - How do you create the claim and link documents?
 - How do you integrate the asynchronous assessment service?
 - How do you implement the auto-approval decision safely?
@@ -110,7 +110,7 @@ Facts:
 2. Mule validates (count, type, size) and returns **pre-signed upload URLs** for EU object storage (S3/Azure Blob), valid ~15 minutes, supporting **multipart/resumable** uploads.
 3. The app uploads directly; storage emits an **object-created event** (or the app calls \`/uploads/complete\`).
 
-Mule only handles metadata and orchestration — the **claim-check pattern**.
+Mule only handles metadata and orchestration. This is the **claim-check pattern**.
 
 **Claim creation.** \`POST /claims\` → Claims Process API: verify the policy is active and covers the vehicle/date (Policy System API), create a **first notice of loss (FNOL)** in the claims system via its System API, and return the claim ID. Idempotency key from the app (one claim per submission even if the request is retried on a bad network).
 
@@ -127,7 +127,7 @@ Mule only handles metadata and orchestration — the **claim-check pattern**.
 - Storm peaks: upload path scales with object storage; queues buffer processing; assessment calls throttled to vendor quota.
 `,
   followUps: [
-    { q: 'Why not just accept multipart/form-data in a Mule API?', a: 'It works for small files, but large videos over mobile mean long-lived connections, memory pressure and retries of the whole upload. Direct-to-storage with resumable uploads is more reliable and cheaper.' },
+    { q: 'Why not accept multipart/form-data in a Mule API?', a: 'It works for small files, but large videos over mobile mean long-lived connections, memory pressure and retries of the whole upload. Direct-to-storage with resumable uploads is more reliable and cheaper.' },
     { q: 'What if the customer uploads only 3 photos and leaves?', a: 'The claim stays in an incomplete state; reminders are sent via push, and after a timeout an adjuster contacts the customer. Assessment starts only once minimum photo requirements are met.' },
     { q: 'How would you test it?', a: 'MUnit for orchestration and rules with mocked vendor and claims APIs; integration tests with sample images; a load test simulating storm peaks on the claim and callback APIs.' },
   ],

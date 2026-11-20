@@ -71,6 +71,10 @@ Marrow & Pine's returns application reads files from a local folder, \`/data/ret
 - Copy every \`.csv\` file to the landing folder with the same name, then delete it from the server.
 - A file must never be deleted before its copy is safe.
 
+**Facts**
+- Each item FTP List returns has \`payload\` (the content) and \`attributes\` (\`path\`, \`fileName\`).
+- Do not catch a failed local write. The run fails, and the files not yet copied stay on the server.
+
 **Design the flow.** Say why you used a Scheduler and FTP List here instead of the FTP listener.
 `,
   answerTemplate: `## Why List on a schedule

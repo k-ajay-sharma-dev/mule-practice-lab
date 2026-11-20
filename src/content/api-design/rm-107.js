@@ -208,7 +208,7 @@ There are six fixes.
 - \`POST\` returns 201 with a \`Location\` header, since it creates something.
 - \`DELETE\` returns 204 with no body. The reservation is gone, so there is nothing to return.
 
-The example errors appear one at a time. The parser stops at the first problem in an example, so fixing the size reveals the pickup code.
+The example errors may appear one at a time. A parser can stop at the first problem in an example, so fixing the size may reveal the pickup code.
 `,
   followUps: [
     {

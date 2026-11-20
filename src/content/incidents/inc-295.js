@@ -7,9 +7,9 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
-      { text: "2026-11-18 10:00:00 INFO  [po-mail] Sent from=orders@marrow-home.example via relay=mail.cloudsend.example", relevant: true, why: "A new sending service." },
+      { text: "2026-11-18 10:00:00 INFO  [po-mail] Sent from=orders@marrow-home.example.com via relay=mail.cloudsend.example.com", relevant: true, why: "A new sending service." },
       { text: "2026-11-18 10:30:00 WARN  [supplier-c] Your POs are in our spam folder", relevant: true, why: "Partners do not see them." },
-      { text: "2026-11-18 10:31:00 INFO  [mail-team] SPF record does not include cloudsend.example, no DKIM signature", relevant: true, why: "Authentication records are missing." },
+      { text: "2026-11-18 10:31:00 INFO  [mail-team] SPF record does not include cloudsend.example.com, no DKIM signature", relevant: true, why: "Authentication records are missing." },
       { text: "2026-11-18 10:31:00 INFO  [mail-team] DMARC policy quarantine", relevant: true, why: "Failing mail is quarantined." },
       { text: "2026-11-18 23:59:00 INFO  [po-mail] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why are emails in spam?",
         options: [
-          "The new service is not allowed in SPF and does not sign with DKIM, so DMARC quarantines them",
-          "Content is spammy",
-          "Partners blocked us",
-          "TLS",
+          "SPF and DKIM fail for the new service, so DMARC quarantines",
+          "Partners flag the PO wording and attachments as spam",
+          "The partners added our domain to their block list",
+          "The new relay sends without TLS, so partners distrust it",
         ],
         answer: 0,
         explain: "Authentication fails.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Who fixes it?",
         options: [
-          "The mail or DNS team, adding the service to SPF and setting up DKIM",
-          "The partner",
-          "Mule developers alone",
-          "Nobody",
+          "The mail or DNS team, by adding SPF and DKIM for the service",
+          "Each partner, by adding our sender to their safe list",
+          "Mule developers alone, by changing the From header",
+          "The cloud service, by raising our sender reputation",
         ],
         answer: 0,
         explain: "DNS records for the domain.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Why should POs not depend on email?",
         options: [
-          "Email delivery is not guaranteed, so use EDI, API or SFTP where possible",
-          "Email is slow",
-          "Email costs more",
-          "No reason",
+          "Delivery is not guaranteed, so use EDI, API or SFTP instead",
+          "Email is too slow for orders that suppliers need quickly",
+          "Email costs more per message than an EDI document",
+          "Suppliers cannot read PDF attachments in email",
         ],
         answer: 0,
         explain: "Use a reliable channel for business documents.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 10:00:00 INFO  [po-mail] Sent from=orders@marrow-home.example via relay=mail.cloudsend.example
+2026-11-18 10:00:00 INFO  [po-mail] Sent from=orders@marrow-home.example.com via relay=mail.cloudsend.example.com
 2026-11-18 10:30:00 WARN  [supplier-c] Your POs are in our spam folder
-2026-11-18 10:31:00 INFO  [mail-team] SPF record does not include cloudsend.example, no DKIM signature
+2026-11-18 10:31:00 INFO  [mail-team] SPF record does not include cloudsend.example.com, no DKIM signature
 2026-11-18 10:31:00 INFO  [mail-team] DMARC policy quarantine
 \`\`\`
 

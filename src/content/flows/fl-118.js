@@ -194,6 +194,13 @@ Last month finance found that the backup bill had tripled. The cause: the flow u
 - Return \`lat\`, \`lon\` and which provider answered.
 - If both providers fail, return **503**.
 
+**Facts**
+- Both providers take the \`address\` query parameter.
+- The primary answers \`{ "lat": 53.4808, "lon": -2.2426, "confidence": 0.97 }\`. The backup answers \`{ "location": { "latitude": 53.4807, "longitude": -2.2428 }, "matchType": "street" }\`.
+- A found address returns \`{ lat, lon, provider }\`, where \`provider\` is \`primary\` or \`backup\`. An unknown address returns \`{ "error": "ADDRESS_NOT_FOUND" }\`.
+- Give the primary at most **2 seconds**, so the backup still fits in the budget.
+- The listener's response and error response both use \`#[vars.httpStatus default 200]\` (\`500\` for errors) as the status code.
+
 **Design the flow.**
 `,
   answerTemplate: `## Trigger

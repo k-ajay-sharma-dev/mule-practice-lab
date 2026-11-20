@@ -10,37 +10,37 @@ export default {
       type: 'single',
       prompt: 'Scanned claim documents must be stored as `claims/2026/11/CLM-88120/invoice.pdf`. How is that "folder" structure represented in Azure Blob Storage?',
       options: [
-        'One container (e.g. claims) and a blob whose name contains the path 2026/11/CLM-88120/invoice.pdf — folders are virtual prefixes',
-        'You must first create directories 2026, 11 and CLM-88120 with a create-directory operation',
-        'Each folder level is a separate container',
-        'Folders are separate storage accounts',
+        'One container and a blob name with the path; folders are prefixes',
+        'Create directories 2026, 11 and CLM-88120 first, then upload',
+        'Each folder level is a separate nested container',
+        'Each top-level folder is its own storage account',
       ],
       answer: 0,
-      explain: 'A storage account holds containers; containers hold blobs. The "/" in a blob name is just part of the name, and listing by prefix makes it look like folders.',
+      explain: 'For example container `claims` and blob `2026/11/CLM-88120/invoice.pdf`. A storage account holds containers; containers hold blobs. The "/" in a blob name is only part of the name, and listing by prefix makes it look like folders.',
     },
     {
       type: 'single',
       prompt: 'Which connection choice follows least privilege for an upload-only archive integration?',
       options: [
-        'SAS Token connection with a token limited to the archive container, write/create permissions and an expiry, rotated before it expires',
-        'Access Key connection with the storage account key, because it never expires',
-        'Share the account key with every app that uses the storage account',
-        'Make the container public so no credentials are needed',
+        'A SAS token scoped to the container, write-only, with an expiry',
+        'An Access Key connection, because the key never expires',
+        'One shared account key for every app on the storage account',
+        'An account-level SAS token with all permissions and no expiry',
       ],
       answer: 0,
-      explain: 'An account key gives full control of the whole storage account. A SAS token can be scoped to a container, permissions and a time window — but you must manage its renewal.',
+      explain: 'An account key gives full control of the whole storage account. A SAS token can be scoped to a container, permissions (write/create) and a time window, but you must rotate it before it expires.',
     },
     {
       type: 'single',
       prompt: 'Uploads suddenly fail with HTTP 403 `AuthenticationFailed` and a message that the signature is not valid in the specified time frame. Nothing was deployed. Most likely cause?',
       options: [
         'The SAS token has expired',
-        'The container is full',
-        'The blob name contains slashes',
-        'The file is larger than the Mule heap',
+        'The access key was rotated in the portal',
+        'The container has reached its size limit',
+        'The blob name contains slashes Azure rejects',
       ],
       answer: 0,
-      explain: 'A SAS token carries its own start and expiry time; after expiry Azure rejects the request with 403 AuthenticationFailed. Track expiry dates and rotate tokens ahead of time.',
+      explain: 'The message about the time frame points at the token\'s validity window; a rotated key gives a signature mismatch instead. A SAS token carries its own start and expiry time; after expiry Azure rejects the request with 403 AuthenticationFailed. Track expiry dates and rotate tokens ahead of time.',
     },
     {
       type: 'single',
@@ -71,13 +71,13 @@ export default {
       needsScenario: true,
       prompt: 'How should the integration react to the connector\'s error types?',
       options: [
-        'Retry AZURE-STORAGE:CONNECTIVITY a few times with backoff; treat authentication/permission failures as non-retryable and alert; handle RETRY_EXHAUSTED by parking the message for replay',
-        'Retry every error forever, because cloud storage is always eventually available',
-        'Ignore errors; Azure stores the file anyway',
-        'Convert all errors to HTTP 200 for the caller',
+        'Retry CONNECTIVITY with backoff; alert on auth errors',
+        'Retry every error with backoff until the upload succeeds',
+        'Retry auth errors first, since tokens refresh on their own',
+        'Return HTTP 200 to the caller and retry in the background',
       ],
       answer: 0,
-      explain: 'Network blips are transient; an expired or wrong credential will fail every time, so retrying only delays the alert. Exhausted retries need a durable place to replay from.',
+      explain: 'Retry AZURE-STORAGE:CONNECTIVITY a few times with backoff, treat authentication and permission failures as non-retryable, and handle RETRY_EXHAUSTED by parking the message for replay. Network blips are transient; an expired or wrong credential will fail every time, so retrying only delays the alert. Exhausted retries need a durable place to replay from.',
     },
   ],
   description: `
@@ -111,13 +111,13 @@ Large uploads crash the worker.
   keyPoints: [
     'Storage account → containers → blobs; folders are virtual prefixes in the blob name (claims/2026/11/CLM-88120/invoice.pdf).',
     'Use a few containers by purpose/retention (claims, videos), not one per claim.',
-    'Access Key = full control of the account; SAS token = scoped permissions and expiry — prefer SAS (or managed identities where supported) and rotate before expiry.',
-    'An expired SAS token gives HTTP 403 AuthenticationFailed — monitor token expiry dates.',
+    'Access Key = full control of the account; SAS token = scoped permissions and expiry. Prefer SAS (or managed identities where supported) and rotate before expiry.',
+    'An expired SAS token gives HTTP 403 AuthenticationFailed, so monitor token expiry dates.',
     'Stream large files end to end; avoid Base64, String conversion and payload logging.',
     'Errors: AZURE-STORAGE:CONNECTIVITY (retry with backoff), EXECUTION (inspect: auth/permission errors are not retryable), RETRY_EXHAUSTED (park for replay and alert).',
   ],
   solution: `
-**1. Organisation.** Containers by purpose and lifecycle: \`claims-documents\`, \`repair-videos\`. Blob names carry the hierarchy: \`2026/11/CLM-88120/invoice.pdf\`. "Folders" are prefixes — listing with a blob path of \`2026/11/CLM-88120/\` returns that claim's documents. One container per claim creates millions of containers and makes access policies and lifecycle rules unmanageable.
+**1. Organisation.** Containers by purpose and lifecycle: \`claims-documents\`, \`repair-videos\`. Blob names carry the hierarchy: \`2026/11/CLM-88120/invoice.pdf\`. "Folders" are prefixes: listing with a blob path of \`2026/11/CLM-88120/\` returns that claim's documents. One container per claim creates millions of containers and makes access policies and lifecycle rules unmanageable.
 
 **2. Credentials.** The account key gives full control over every container in the account, so a leaked properties file is a full breach. Use a **SAS Token** connection scoped to the container with only the required permissions (create/write for archiving, read/list for retrieval) and an expiry; store it as a secure property; rotate it before expiry with a calendar/alert. Where your platform supports managed identities or Azure AD-based access, they avoid long-lived secrets altogether.
 
@@ -125,7 +125,7 @@ Large uploads crash the worker.
 
 **4. Errors.**
 - \`AZURE-STORAGE:CONNECTIVITY\`: retry 3 times with backoff.
-- \`AZURE-STORAGE:EXECUTION\`: inspect the HTTP status — 403 AuthenticationFailed or permission errors are configuration problems: alert, do not retry; 404 on download means the document is missing.
+- \`AZURE-STORAGE:EXECUTION\`: inspect the HTTP status. 403 AuthenticationFailed or permission errors are configuration problems: alert, do not retry; 404 on download means the document is missing.
 - \`AZURE-STORAGE:RETRY_EXHAUSTED\`: move the job item to an error queue / error folder for replay and alert.
 - Use **Is Blob Exists** (or a deterministic blob name) to make re-runs idempotent.
 `,

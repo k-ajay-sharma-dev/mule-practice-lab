@@ -167,6 +167,11 @@ Today a nightly job inserts and updates the stores in the export. Closed stores 
 - Last year a portal fault sent an export with a handful of stores, and a script closed most of the network on the website. **If the export has fewer than 80% of the stores that are active now, change nothing**, fail the run and log an ERROR.
 - If the portal or the database fails, no store may be closed because of a half run.
 
+**Facts**
+- Set \`last_seen\` of every store in the export to the export's \`generatedAt\`, as it is sent.
+- A short export raises the error type \`APP:SHORT_EXPORT\`. Every failure must fail the run, so the error is not swallowed.
+- \`store_id\` is the primary key, so PostgreSQL can upsert with \`INSERT ... ON CONFLICT (store_id) DO UPDATE\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the export

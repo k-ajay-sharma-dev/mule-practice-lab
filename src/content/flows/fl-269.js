@@ -136,6 +136,13 @@ Hollin's own rules:
 - Mark the job \`COMPLETED\` with \`parts=<n> rows=<n>\`, then send the report without holding up or failing the run.
 - On any failure: mark the job \`FAILED\` and email support.
 
+**Facts**
+- \`dbo.usp_job_start\` returns \`{ job_id }\`.
+- \`<date>\` is the run date as \`yyyyMMdd\`. Parts are numbered from 1. A part has the columns \`week\`, \`store\`, \`sku\` and \`units\`.
+- Work out the MD5 with \`dw::Crypto::MD5(... as Binary)\`.
+- The report subject says \`COMPLETED\`, and the failure email subject says \`FAILED\`.
+- On failure, mark the job and email in an On Error Propagate, so the run still ends with the original error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

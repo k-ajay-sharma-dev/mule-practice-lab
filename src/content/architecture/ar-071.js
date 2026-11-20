@@ -89,9 +89,10 @@ The first implementation is a Mule \`db:listener\` polling \`INV_ONHAND\` every 
 The DBA offers **Oracle GoldenGate**; a platform engineer suggests **Debezium** (LogMiner-based) into Kafka.
 
 Numbers for sizing:
-- Oracle commits about **30 stock and order changes a second**. Vendor batch jobs add up to **300 a second** for a few minutes (about 72,000 rows).
+- Oracle commits about **30 stock and order changes a second**. Vendor batch jobs add up to **300 a second** for a few minutes (about 72,000 rows). Shopify and Salesforce must be caught up within about **30 minutes** of a burst.
 - Shopify answers in about 300 ms and accepts **100 calls a second**; Salesforce answers in about 400 ms and accepts **100 calls a second**.
-- Salesforce has maintenance windows of **30 minutes**; no change may be lost.
+- Salesforce has maintenance windows of **30 minutes**; no change may be lost. The broker redelivers a failed message about **once a minute**.
+- A change that cannot be mapped must be set aside in a dead-letter queue.
 - The budget for the Mule apps is **4 vCores**.
 
 **Questions:**
@@ -121,7 +122,7 @@ Numbers for sizing:
 
 | | db:listener (watermark) | Log-based CDC |
 |---|---|---|
-| Missed changes | Yes, if the watermark is not maintained | No — reads committed redo |
+| Missed changes | Yes, if the watermark is not maintained | No: reads committed redo |
 | Deletes | Invisible (unless soft delete) | Captured |
 | Load on Oracle | Repeated queries; needs an index on the watermark | Reads logs; needs supplemental logging |
 | Ordering | By watermark value; ties can be lost | Commit order |
@@ -141,16 +142,16 @@ Polling remains a good choice for **small tables you own**, with an indexed wate
 **Business events, not rows.** Raw CDC records carry before/after images of vendor tables (\`INV_ONHAND.QTY\`, internal codes). \`prc-inventory-events\` translates them into canonical events (\`sku\`, \`location\`, \`availableQty\`, \`sequence\`), filters noise (technical updates), and keys the stream by SKU so per-SKU order is kept. If the vendor changes the table, only this mapper changes.
 
 **Operational concerns.**
-- Supplemental logging and LogMiner/GoldenGate privileges — needs DBA buy-in and licensing (GoldenGate is a separate Oracle licence).
+- Supplemental logging and LogMiner/GoldenGate privileges: needs DBA buy-in and licensing (GoldenGate is a separate Oracle licence).
 - **Initial snapshot** before streaming, and re-snapshot after outages longer than log retention.
 - **Lag monitoring** (capture and consumer lag) and alerts.
-- Schema changes in the source tables can break the connector or mapping — version the canonical event instead.
+- Schema changes in the source tables can break the connector or mapping. Version the canonical event instead.
 - Delivery is at-least-once: consumers must be idempotent.
 
 **Sizing and failure handling.**
 - The canonical events go on a **topic**, so each sync flow gets its own copy. On a queue, Shopify and Salesforce would compete and each would see about half of the changes.
 - \`prc-inventory-events\` runs on 1 vCore to keep up with a batch burst. Each sync flow (\`prc-ecommerce-stock-sync\` with \`sys-shopify\`, \`prc-crm-order-sync\` with \`sys-salesforce\`) runs on 0.5 vCore per app, so it can send at the full 100 calls a second and catch up after a burst or an outage.
-- While Salesforce is down, its copy of the events waits on the topic; Shopify is not affected. No redelivery limit is set on the topic itself, because a long outage would push good events out after a few tries.
+- While Salesforce is down, its copy of the events waits on the topic; Shopify is not affected. No redelivery limit is set on the topic itself (or one well above 30), because with redelivery once a minute a 30 minute outage would push good events out after a few tries. Events the mapper cannot handle go to the DLQ from \`prc-inventory-events\`.
 - In total 3 vCores, inside the 4 vCore budget.
 `,
   followUps: [

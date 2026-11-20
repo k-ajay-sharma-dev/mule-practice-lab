@@ -394,8 +394,8 @@ A retailer's **3 distribution centres** receive ~**6,000 pallets/day** from supp
 For each pallet a **goods receipt** (movement type 101 against the PO) must be posted in **SAP S/4HANA** using the OData service \`API_MATERIAL_DOCUMENT_SRV\`.
 
 **Requirements**
-- **Exactly one** goods receipt per pallet in SAP. Today, scanners re-send and the broker redelivers after failures, and SAP has posted the same pallet twice — inventory and supplier payments were wrong.
-- SAP is unavailable during its nightly maintenance (45 min) and sometimes slow (10–30 s responses); dock scanning must **never stop** because of SAP.
+- **Exactly one** goods receipt per pallet in SAP. Today, scanners re-send and the broker redelivers after failures, and SAP has posted the same pallet twice, so inventory and supplier payments were wrong.
+- SAP is unavailable during its nightly maintenance (45 min) and sometimes slow (10 to 30 s responses); dock scanning must **never stop** because of SAP.
 - Pallets with no open ASN go to the receiving clerk's **blind-receipt** queue.
 - Quantity differences against the ASN must be recorded for supplier claims.
 - XA transactions are not allowed by the platform team.
@@ -403,6 +403,11 @@ For each pallet a **goods receipt** (movement type 101 against the PO) must be p
 **Facts**
 - \`GR_OUTBOX\` rows have a \`STATUS\`: PENDING, IN_PROGRESS (claimed by one poller run), POSTED, FAILED (SAP rejected it, a clerk must fix it) or RETRY (a transient error, counted in \`ATTEMPTS\`).
 - Several replicas may run the poller, so each run claims its rows before posting them.
+- \`ASN\` has \`ASN_NO\`, \`PO_NUMBER\`, \`SUPPLIER_ID\`, \`PLANT\`, \`STORAGE_LOC\` and \`STATUS\` (\`OPEN\`, \`PARTIAL\` or \`CLOSED\`). \`ASN_LINE\` has \`ASN_NO\`, \`LINE_NO\`, \`PO_LINE\`, \`SKU\`, \`EXPECTED_QTY\` and \`UOM\`. \`ASN_PALLET\` has \`SSCC\`, \`ASN_NO\` and \`LINE_NO\`.
+- \`GOODS_RECEIPT\` has \`SSCC\` (unique), \`ASN_NO\`, \`PO_NUMBER\`, \`PO_LINE\`, \`SKU\`, \`RECEIVED_QTY\`, \`QTY_VARIANCE\` (received minus expected), \`DOCK\` and \`SCANNED_AT\`.
+- \`GR_OUTBOX\` has \`OUTBOX_ID\` (from the sequence \`GR_OUTBOX_SEQ\`), \`SSCC\`, \`PAYLOAD\` (the SAP request body as JSON text), \`STATUS\`, \`ATTEMPTS\`, \`CLAIM_ID\`, \`CLAIMED_AT\`, \`SAP_MAT_DOC\`, \`POSTED_AT\`, \`LAST_ERROR\` and \`CREATED_AT\`.
+- The blind-receipt queue is \`DOCK.RECEIPTS.UNMATCHED\`.
+- Goods receipts are posted with \`POST /sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader\`, which returns \`d.MaterialDocument\`. Put the SSCC in \`MaterialDocumentHeaderText\`; a \`GET\` on the same entity set with \`$filter=MaterialDocumentHeaderText eq '<SSCC>'\` returns \`d.results\`. SAP answers **400** when it rejects a receipt.
 
 **Design the flow(s).**
 `,
@@ -427,15 +432,15 @@ For each pallet a **goods receipt** (movement type 101 against the PO) must be p
     'Distinguish business rejections (FAILED for a clerk) from transient errors (RETRY with an attempt counter and alert).',
   ],
   solution: `
-**Flow 1 — \`dock-receipt-intake\`**
+**Flow 1: \`dock-receipt-intake\`**
 1. **JMS On New Message** \`DOCK.RECEIPTS\`, AUTO ack, no transaction (XA not allowed), with **Inbound Content-Type** \`application/json\` if the scanning system does not state the message type (the config default is \`*/*\`).
 2. **Database Select** the open ASN line for the SSCC.
 3. **Choice**: no match → **JMS Publish** \`DOCK.RECEIPTS.UNMATCHED\` (blind receipt). Otherwise → DataWeave builds the receipt row (including qty variance) and the SAP request body.
-4. **Try (ALWAYS_BEGIN)** — **Insert** \`GOODS_RECEIPT\` (unique SSCC) + **Insert** \`GR_OUTBOX\` (PENDING). Both commit or neither. Each insert puts its result in a target variable, so the second one still reads the receipt row from the payload.
+4. **Try (ALWAYS_BEGIN)**: **Insert** \`GOODS_RECEIPT\` (unique SSCC) + **Insert** \`GR_OUTBOX\` (PENDING). Both commit or neither. Each insert puts its result in a target variable, so the second one still reads the receipt row from the payload.
 5. The Try's **On Error Continue** for ORA-00001 → "already received", message acknowledged.
 6. Anything else → On Error Propagate → redelivery (DLQ after N attempts).
 
-**Flow 2 — \`gr-outbox-to-sap\`** (Scheduler, 30 s; runs on the primary node only when the app is clustered — the claim step keeps it safe if several replicas fire)
+**Flow 2: \`gr-outbox-to-sap\`** (Scheduler, 30 s; runs on the primary node only when the app is clustered; the claim step keeps it safe if several replicas fire)
 1. **Claim** up to 200 PENDING/RETRY rows with an UPDATE that stamps a claim ID, then select them by claim ID.
 2. **For Each** row → **Try**:
    - **GET** material documents with \`MaterialDocumentHeaderText eq '<SSCC>'\`. Found → reuse the document number (a previous POST succeeded but its response was lost).

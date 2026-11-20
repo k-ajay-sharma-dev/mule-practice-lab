@@ -18,27 +18,27 @@ export default {
     },
     {
       type: 'single',
-      prompt: 'A JMS listener uses AUTO acknowledgement and the flow crashes halfway. Which guarantee is that closest to?',
+      prompt: 'A Mule 4 JMS listener uses IMMEDIATE acknowledgement and the flow crashes halfway. Which guarantee is that closest to?',
       options: [
-        'Exactly once',
-        'At most once, because the message may already be acknowledged when the flow fails',
-        'At least once',
-        'No guarantee at all',
+        'Exactly once, because the broker removes the message only once',
+        'At most once, because the message was acknowledged on receipt',
+        'At least once, because the broker redelivers the unfinished message',
+        'No guarantee at all, because the message can be lost or repeated',
       ],
       answer: 1,
-      explain: 'When the ack happens before the work is done, a crash loses the message. Check how your connector version handles AUTO.',
+      explain: 'IMMEDIATE acknowledges as soon as the message is received, so a crash loses it. AUTO acknowledges only when the flow ends without error, so a crash leads to redelivery.',
     },
     {
       type: 'single',
       prompt: 'How do you get at least once delivery from a Mule JMS listener?',
       options: [
-        'Use a bigger prefetch',
-        'Acknowledge only after the work is committed, for example with manual ack or a transacted listener',
-        'Use a topic instead of a queue',
-        'Turn off redelivery',
+        'Raise the prefetch so the listener holds more messages at once',
+        'Acknowledge only after the work is done, such as with AUTO, MANUAL or a transaction',
+        'Use a topic instead of a queue, so every message is kept',
+        'Set the redelivery limit to 0 so failures are not repeated',
       ],
       answer: 1,
-      explain: 'If the flow fails before the ack, the broker delivers the message again.',
+      explain: 'AUTO acknowledges when the flow ends without error. MANUAL leaves the ack to the flow. If the flow fails before the ack, the broker delivers the message again.',
     },
     {
       type: 'multi',
@@ -56,10 +56,10 @@ export default {
       type: 'single',
       prompt: 'Which guarantee is fine for a stream of store footfall counts sent every minute?',
       options: [
-        'Exactly once is always required',
+        'Exactly once, since every reading must be counted',
         'At most once can be acceptable, since the next reading replaces a lost one',
-        'None, counts are never sent by queue',
-        'At least once with no duplicate check',
+        'At least once is required, since a lost reading cannot be rebuilt',
+        'Exactly once through XA, since counts feed the store reports',
       ],
       answer: 1,
       explain: 'Pick the guarantee by what a loss or a duplicate costs the business.',
@@ -68,10 +68,10 @@ export default {
       type: 'single',
       prompt: 'Why is at least once the usual choice for an item master data hub?',
       options: [
-        'It is the fastest',
-        'Losing an item change is costly and hard to find, while a duplicate can be detected and skipped',
-        'Exactly once is not allowed in Mule',
-        'Duplicates never happen',
+        'It is the fastest of the three guarantees',
+        'A lost item change is costly and hard to find, while a duplicate can be skipped',
+        'Exactly once needs XA, which Oracle does not support',
+        'Duplicates cannot happen when the hub reads from a queue',
       ],
       answer: 1,
       explain: 'A lost price or barcode change can stay wrong in stores for weeks.',
@@ -105,7 +105,7 @@ In interviews for integration roles, a common opener is "What delivery guarantee
   solution: `
 **1. The three guarantees.** At most once: a message is delivered zero or one time, so it can be lost. At least once: it is delivered one or more times, so it can repeat. Exactly once: each message has its effect one time.
 
-**2. What decides it in Mule.** The point where the message is acknowledged. If the ack comes before the work, a crash loses the message. If it comes after the work is committed, a crash leads to redelivery. Manual ack or a transacted listener gives at least once.
+**2. What decides it in Mule.** The point where the message is acknowledged. If the ack comes before the work, a crash loses the message. If it comes after the work is committed, a crash leads to redelivery. In Mule 4, IMMEDIATE acknowledges on receipt, which is at most once. AUTO acknowledges when the flow ends without error, and MANUAL ack or a transacted listener also give at least once.
 
 **3. Exactly once effects.** Accept that the broker may deliver twice and make the consumer safe. Check the message ID or the sender document ID against a processed table, write with MERGE, and store the ID in the same transaction as the work.
 

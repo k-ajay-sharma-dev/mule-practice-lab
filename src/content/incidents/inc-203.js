@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Where do the missing payments go?",
         options: [
-          "To the test consumer, because both environments read one queue on one broker",
-          "To the DLQ",
-          "They expire",
-          "The producer drops them",
+          "To the test consumer, which now reads the production queue",
+          "To ActiveMQ.DLQ, after the prod consumer fails to process them",
+          "They expire on the queue before the prod consumer polls",
+          "The producer drops them when the broker memory is full",
         ],
         answer: 0,
         explain: "With two consumers on one queue, each message goes to only one of them.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Why did it start this week?",
         options: [
-          "A tester pointed the test app at the shared broker with the production queue name",
-          "The broker was upgraded",
-          "Payments doubled",
-          "The DLQ filled up",
+          "The tester’s change set the test app’s queue to the prod name",
+          "A broker upgrade turned payments.out from a queue into a topic",
+          "Payment volume doubled and the prod consumer fell behind",
+          "The prod consumer started using a selector that skips some messages",
         ],
         answer: 0,
         explain: "The broker shows a consumer from a test host on the production queue.",
@@ -45,7 +45,7 @@ export default {
           "A separate broker or virtual host per environment",
           "Queue names with an environment prefix",
           "Credentials per environment that can only read their own queues",
-          "Asking testers to be careful",
+          "A team rule that testers check queue names before a deploy",
         ],
         answer: [0,1,2],
         explain: "Use isolation that does not rely on memory. Permissions make the mistake impossible, not only unlikely.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What happened to the payments the test app took?",
         options: [
-          "They were processed in test, so they must be found and replayed into production",
-          "They are still on the queue",
-          "They were sent back automatically",
-          "They are lost forever with no trace",
+          "Test processed them, so find their IDs and resend them to production",
+          "They are still on payments.out, waiting for the prod consumer",
+          "The broker returned them to payments.out when test failed to post them",
+          "They went to ActiveMQ.DLQ and can be moved back from there",
         ],
         answer: 0,
         explain: "The test logs show which payment IDs it took. Those must be resent to production.",
@@ -78,13 +78,13 @@ export default {
   },
   description: `
 ## Symptoms
-- About half of today’s payments never reached the payment system.
+- Since Monday, about half of the payments never reached the payment system.
 - There are no errors in production.
 
 ## Change / Context
-- Production and test share one ActiveMQ broker to save cost.
-- Both use the queue name \`payments.out\`.
-- A tester changed a test app config on Monday.
+- Production and test share one ActiveMQ broker to save cost. Test apps normally use queues with a \`test.\` prefix.
+- Production uses the queue name \`payments.out\`.
+- On Monday a tester changed a test app config. Its queue property now reads \`payments.out\`.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

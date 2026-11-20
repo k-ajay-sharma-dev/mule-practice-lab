@@ -81,6 +81,11 @@ The platform reads \`ONHAND_<yyyyMMdd>.csv\` from its **FTP server**, folder \`/
 - Rename it to its final name after the last page.
 - If the table is empty, send nothing and log a warning.
 
+**Facts**
+- Run at 03:00 every night. Name the work file \`ONHAND_<yyyyMMdd>.csv.tmp\`.
+- Order the pages by \`store, sku\`. Each line is \`store,sku,on_hand\` with no spaces and ends with a newline, the header too.
+- A failed write must fail the run. Do not catch it.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the replica

@@ -74,6 +74,6 @@ A plain path changes only what exists and gives no error when the field is missi
 `,
   followUps: [
     { q: 'Why can a plain update path hide a mistake?', a: 'A mistyped path changes nothing and raises no error, so the old value passes through.' },
-    { q: 'When would you still rebuild the whole object?', a: 'When most fields change or the output has a different shape, because explicit mapping is then easier to read.' },
+    { q: 'When would you still rebuild the whole object?', a: 'When most fields change or the output has a different shape, because explicit mapping then reads more clearly.' },
   ],
 }

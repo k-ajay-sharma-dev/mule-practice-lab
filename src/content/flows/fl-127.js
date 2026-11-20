@@ -222,7 +222,7 @@ The old job sent all of tomorrow's reminders in one loop. Last Tuesday the third
     },
     {
       q: 'Could a Batch Job do this instead?',
-      a: 'Yes, and it would track failed records for you. For a few hundred rows a day a For Each with a Try is enough and easier to follow.',
+      a: 'Yes, and it would track failed records for you. For a few hundred rows a day a For Each with a Try is enough and clearer to follow.',
     },
     {
       q: 'What if the clinic group runs two Mule servers that are not clustered?',

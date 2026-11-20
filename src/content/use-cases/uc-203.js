@@ -75,7 +75,7 @@ After a bad release, **60,000** receipts ended on \`receipts.failed\`. The fix i
 **Numbers**
 - New receipts: about **3 a second**. The replay: about **10 a second**, for an hour and a half.
 - A write takes about 120 ms.
-- The nightly price job holds locks for 20 minutes: about **1 write in 10** times out and works when tried again.
+- The nightly price job holds locks for 20 minutes: about **1 write in 10** times out and works when tried again. Each try times out or not on its own. Lock timeouts should cost a message seconds, not a minute back on the queue.
 - The DBA has planned an Oracle restart of up to **40 minutes** in the same night.
 - About **1 replayed message in 100** still names an item that does not exist. It will never load.
 - In this model a failed delivery is tried again about once a minute.

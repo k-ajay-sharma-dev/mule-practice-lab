@@ -24,15 +24,15 @@ export default {
     ],
     reference: diagram(
       {
-        wms: ['wms', 'Manhattan WMS (pack stations)'],
+        wms: ['wms', 'WMS (pack stations)'],
         pl: ['process-api', 'prc-shipping-label-api'],
         rules: ['database', 'Carrier rules and rate cards'],
-        sdhl: ['system-api', 'sys-carrier-dhl-api'],
-        sups: ['system-api', 'sys-carrier-ups-api'],
-        sdpd: ['system-api', 'sys-carrier-dpd-api'],
-        dhl: ['external-api', 'DHL Parcel API'],
-        ups: ['external-api', 'UPS API'],
-        dpd: ['external-api', 'DPD API'],
+        sdhl: ['system-api', 'sys-carrier-norvia-api'],
+        sups: ['system-api', 'sys-carrier-kestrel-api'],
+        sdpd: ['system-api', 'sys-carrier-bluepost-api'],
+        dhl: ['external-api', 'Norvia Parcel API'],
+        ups: ['external-api', 'Kestrel Express API'],
+        dpd: ['external-api', 'Bluepost API'],
         ev: ['experience-api', 'exp-carrier-events-api', { vCores: '1' }],
         sftp: ['sftp-server', 'Carrier status files (SFTP)'],
         job: ['batch-job', 'carrier-file-poller'],
@@ -54,15 +54,15 @@ export default {
       tests: [
         {
           name: 'A carrier sends its backlog',
-          about: 'After an outage DHL sends 300 status webhooks a second for 10 minutes. The events API answers each one at once, the queue holds the extra, and the OMS never gets more than 100 updates a second.',
-          traffic: [{ name: 'status events', from: { type: 'external-api', label: 'DHL' }, rps: 300, forMin: 10, to: 'saas', kind: 'write' }],
+          about: 'After an outage Norvia sends 300 status webhooks a second for 10 minutes. The events API answers each one at once, the queue holds the extra, and the OMS never gets more than 100 updates a second.',
+          traffic: [{ name: 'status events', from: { type: 'external-api', label: 'Norvia' }, rps: 300, forMin: 10, to: 'saas', kind: 'write' }],
           durationMin: 60,
           expect: { answers: [{ minSuccess: 0.99, maxMs: 1000 }], peakRps: [{ node: 'saas', max: 100 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
         },
         {
           name: 'The OMS is down for 30 minutes',
           about: 'Carriers send 25 status events a second while the OMS is down for 30 minutes. The events wait on the queue, and every status reaches the OMS once it is back.',
-          traffic: [{ name: 'status events', from: { type: 'external-api', label: ['DHL', 'UPS'] }, rps: 25, to: 'saas', kind: 'write' }],
+          traffic: [{ name: 'status events', from: { type: 'external-api', label: ['Norvia', 'Kestrel'] }, rps: 25, to: 'saas', kind: 'write' }],
           incidents: [{ down: 'saas', at: 5, forMin: 30 }],
           durationMin: 90,
           expect: { answers: [{ minSuccess: 0.99 }], lost: { max: 0 }, backlog: [{ queue: 'queue', maxEnd: 0 }] },
@@ -71,10 +71,10 @@ export default {
     },
   },
   description: `
-**Context.** A fashion e-commerce retailer ships 180,000 parcels a day from three warehouses in Europe, rising to 450,000 on Black Friday. It uses 12 parcel carriers: DHL, UPS, DPD, GLS, PostNL, Colissimo and six regional ones.
+**Context.** An online home goods retailer ships 180,000 parcels a day from three warehouses in Europe, rising to 450,000 on Black Friday. It uses 12 parcel carriers: Norvia Parcel, Kestrel Express, Bluepost and nine smaller national and regional ones.
 
 **Today**
-- Each carrier is integrated inside the **Manhattan WMS** as a custom extension written by the WMS vendor. Adding a carrier takes four months and costs about 80,000 EUR.
+- Each carrier is integrated inside the **WMS** as a custom extension written by the WMS vendor. Adding a carrier takes four months and costs about 80,000 EUR.
 - The WMS always uses the carrier hard-coded per country, even when another carrier is cheaper or faster for that postcode.
 - Tracking: eight carriers send status webhooks, four drop CSV status files on an SFTP server every 15 minutes. A nightly job loads both into the **order management system (OMS)**, so customers see "shipped" for a day after delivery.
 
@@ -90,6 +90,7 @@ export default {
 - Carrier APIs differ: REST and SOAP, ZPL or PDF labels, different status codes.
 - Carrier status events are about 2 million a day, with bursts when a carrier sends a backlog after an outage.
 - In tests a carrier sends 300 webhooks a second for 10 minutes, the OMS takes 100 updates a second, and the OMS can be down for 30 minutes.
+- In the diagram, draw Norvia, Kestrel and Bluepost as external APIs with their names in the box names; Norvia and Kestrel send webhooks. Draw the OMS as SaaS with "OMS" in its name. Name the label API prc-shipping-label-api, and run the webhook Experience API on 1 vCore for the 300 a second burst.
 
 **Your task.** Design the shipping and tracking integration, and describe the canonical model that makes a new carrier a four-week job.
 `,
@@ -117,7 +118,7 @@ export default {
 
 **Canonical status.** A small status list (\`ACCEPTED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED_ATTEMPT, RETURNED\`) with a mapping table per carrier. Unknown codes are kept and flagged, not dropped.
 
-**Tracking.** \`exp-carrier-events-api\` receives webhooks, checks each carrier's signature, maps the status and writes to \`tracking-events\`. \`carrier-file-poller\` reads SFTP files every 5 minutes and writes one message per row to the same queue. \`prc-tracking-api\` updates the OMS through \`sys-oms-api\` and sends delivery notifications. Duplicate events are ignored by tracking number, status and timestamp.
+**Tracking.** \`exp-carrier-events-api\` (1 vCore) receives webhooks, checks each carrier's signature, maps the status and writes to \`tracking-events\`. \`carrier-file-poller\` reads SFTP files every 5 minutes and writes one message per row to the same queue. \`prc-tracking-api\` updates the OMS through \`sys-oms-api\` and sends delivery notifications. Duplicate events are ignored by tracking number, status and timestamp.
 
 **New carrier.** Copy the System API template, map the carrier calls, load its status mapping and rules. Target three to four weeks including carrier certification.
 `,

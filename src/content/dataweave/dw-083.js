@@ -8,7 +8,7 @@ export default {
   description: `
 An insurer is replacing a policy administration system in stages, and its nightly XML export now contains records written by both the old and the new modules. Older policies carry the premium as an **attribute**, newer ones as a **child element**, and many elements are optional or repeat. The customer portal API wants clean JSON: predictable arrays, real numbers and booleans, and no placeholder keys for data that does not exist.
 
-**Output: an array with one object per \`policy\`, in document order** (\`[]\` when there are none)
+**Output: an array with one object per \`policy\`, in document order** (\`[]\` when there are none). Keys come in the order listed below, and repeated elements keep document order. Values not stated as numbers or booleans stay strings.
 
 - \`policyNumber\` and \`status\` from the attributes of \`policy\`.
 - \`premium\`: a number, from the \`premium\` attribute of \`policy\` or otherwise from the \`premium\` child element. **Leave the key out** when neither exists.

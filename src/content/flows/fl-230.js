@@ -128,6 +128,11 @@ Every run has a row in \`job_log\` (\`job_id\`, \`job_name\`, \`status\`, \`tota
 - If a group fails, leave none of its rows half loaded, then insert its rows one at a time. A row that still fails goes to \`stg_item_rejects\` with the database's message.
 - When the job ends, set the job row to \`COMPLETED\` with the total and the number of rejects.
 
+**Facts**
+- Make the \`job_id\` with \`uuid()\` and put it on every staged and rejected row.
+- Turn an empty \`case_qty\` into null, so Oracle refuses the row, and store the rest as numbers. A refused insert raises \`DB:QUERY_EXECUTION\`.
+- On Complete's payload has \`totalRecords\`. The rejected rows still count as successful, so count \`stg_item_rejects\` for the job.
+
 **Design the flow.**
 `,
   answerTemplate: `## Before the batch job

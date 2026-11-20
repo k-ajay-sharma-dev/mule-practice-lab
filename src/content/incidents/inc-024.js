@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why does the status go backwards?',
         options: [
-          'Events for the same order are processed in parallel and the SAPI overwrites blindly, so an older event can be applied last',
-          'The warehouse publishes events in the wrong order',
-          'Anypoint MQ corrupts messages under load',
-          'The web store caches old statuses',
+          'Events for one order run in parallel, and the SAPI overwrites with no version check',
+          'The warehouse publishes the status events in the wrong order at peak times',
+          'Anypoint MQ corrupts the status field of some messages under heavy load',
+          'The web store caches old statuses and shows them after a page refresh',
         ],
         answer: 0,
         explain: 'The log shows PACKED (occurred earlier) applied after SHIPPED. Scaling to 24 consumers made it frequent; a standard queue never guaranteed strict order anyway.',
@@ -32,13 +32,13 @@ export default {
         type: 'single',
         prompt: 'Which option keeps throughput **and** fixes correctness quickly?',
         options: [
-          'A stale-update guard in the SAPI: only apply an update newer than the stored version or timestamp',
-          'Scale back to 1 replica with concurrency 1',
-          'Add a 2-second delay before each PUT',
-          'Retry every failed PUT three times',
+          'A guard in the SAPI that applies an update only if it is newer than the stored one',
+          'Scale back to 1 replica with concurrency 1 and let the backlog build up again',
+          'Add a 2-second delay in the consumer before each PUT to the SAPI',
+          'Raise the prefetch so each replica reads several messages in one batch',
         ],
         answer: 0,
-        explain: 'Scaling back is correct but slow and brings the backlog back. A delay only makes the race rarer.',
+        explain: 'Scaling back is correct but slow and brings the backlog back. A delay only makes the race rarer, and a bigger prefetch adds more parallel work, not order.',
       },
       {
         type: 'multi',
@@ -74,10 +74,10 @@ export default {
 - No errors in the logs; every message is acknowledged successfully.
 
 ## Change / Context
-- The warehouse publishes \`OrderStatusChanged\` events (\`PICKED → PACKED → SHIPPED → DELIVERED\`) to an **Anypoint MQ standard queue** \`order-status\`. Events for one order are often published **within 1–2 seconds** of each other.
-- \`order-status-consumer\` subscribes and calls \`PUT /orders/{id}/status\` on \`web-orders-sapi\`, which simply overwrites the status.
+- The warehouse publishes \`OrderStatusChanged\` events (\`PICKED → PACKED → SHIPPED → DELIVERED\`) to an **Anypoint MQ standard queue** \`order-status\`. Events for one order are often published **within 1 to 2 seconds** of each other.
+- \`order-status-consumer\` subscribes and calls \`PUT /orders/{id}/status\` on \`web-orders-sapi\`, which overwrites the status with no checks.
 - On Thursday, to clear a growing backlog, the team scaled the consumer from **1 replica to 3**, and raised the subscriber's concurrency from 1 to 8 per replica.
-- Event payload: \`{ "orderId": "...", "status": "...", "occurredAt": "2026-11-02T10:15:02.118Z" }\` — no sequence number.
+- Event payload: \`{ "orderId": "...", "status": "...", "occurredAt": "2026-11-02T10:15:02.118Z" }\`, with no sequence number.
 
 ## Logs (two replicas, same order)
 \`\`\`
@@ -105,26 +105,26 @@ export default {
     'Explains that 3 replicas × 8 concurrent consumers process events for the same order in parallel. So a later event (SHIPPED) can be applied before an earlier one (PACKED), and the blind overwrite makes the older status win.',
     'Notes that a standard queue does not guarantee strict ordering anyway; single-consumer processing only hid the problem.',
     'Immediate: repair affected orders by re-syncing status from the warehouse (source of truth), and either temporarily reduce to one sequential consumer or deploy a stale-update check quickly.',
-    'Permanent fix option A: make updates order-tolerant — the SAPI ignores an event older than the stored one (compare occurredAt or, better, a per-order sequence/version number; or reject backwards state transitions).',
+    'Permanent fix option A: make updates order-tolerant. The SAPI ignores an event older than the stored one (compare occurredAt or, better, a per-order sequence/version number; or reject backwards state transitions).',
     'Permanent fix option B: partition by orderId so all events of one order are handled by one sequential consumer (e.g. hash orderId to N queues, or a broker with key-based partitions), or a FIFO queue if throughput allows; discusses trade-offs (throughput, hot keys, complexity).',
     'Prevention: design rule that every event consumer states its ordering assumption; tests with concurrent out-of-order events; reconciliation monitoring against the source of truth.',
   ],
   solution: `
-**Diagnosis.** With **24 concurrent consumers** (3 replicas × 8), two events for the same order published 1–2 s apart are frequently processed **in parallel** on different threads/replicas. The logs show it: \`SHIPPED\` (occurred 10:15:02.118) was applied at 10:15:03.402, then \`PACKED\` (occurred **earlier**, 10:15:00.904) was applied 115 ms later. The SAPI **blindly overwrites**, so the last *write* wins rather than the latest *event*. No errors, because every step "succeeds". It also explains orders stuck on an old status: no newer event arrives to correct them.
+**Diagnosis.** With **24 concurrent consumers** (3 replicas × 8), two events for the same order published 1 to 2 s apart are frequently processed **in parallel** on different threads/replicas. The logs show it: \`SHIPPED\` (occurred 10:15:02.118) was applied at 10:15:03.402, then \`PACKED\` (occurred **earlier**, 10:15:00.904) was applied 115 ms later. The SAPI **blindly overwrites**, so the last *write* wins rather than the latest *event*. No errors, because every step "succeeds". It also explains orders stuck on an old status: no newer event arrives to correct them.
 
-Even before scaling, a **standard queue gives no strict ordering guarantee** (redeliveries, retries); the single sequential consumer just made violations rare.
+Even before scaling, a **standard queue gives no strict ordering guarantee** (redeliveries, retries); the single sequential consumer only made violations rare.
 
 **Immediate mitigation.**
 1. **Repair data**: for orders updated since Thursday, re-read status from the warehouse system (source of truth) and correct the web store.
-2. Choose a short-term trade-off: either scale back to **1 replica with concurrency 1** (correct but slow; the backlog returns), or — better if it can be shipped quickly — deploy a **stale-update guard** in the SAPI (below), which keeps the throughput.
+2. Choose a short-term trade-off: either scale back to **1 replica with concurrency 1** (correct but slow; the backlog returns), or, better if it can be shipped quickly, deploy a **stale-update guard** in the SAPI (below), which keeps the throughput.
 
 **Root cause.** The consumer implicitly relied on **in-order, one-at-a-time processing**, which was never guaranteed by the transport and was broken completely by scaling. The update operation was not **order-tolerant**.
 
-**Permanent fix — two main options (often combined):**
+**Permanent fix: two main options (often combined).**
 - **A. Make the consumer/target order-tolerant (recommended baseline).**
   - The SAPI stores the \`occurredAt\` (or better a **per-order sequence/version** set by the warehouse) and only applies an update if it is **newer** than what it has: \`UPDATE ... SET status=:s, version=:v WHERE id=:id AND version < :v\`.
   - Or enforce a **state machine**: reject transitions backwards (\`SHIPPED → PACKED\`).
-  - Pros: works with any concurrency, retries, replays and DLQ re-drives. Cons: needs a reliable ordering field from the producer (timestamps across producers can be skewed — a sequence number is safer).
+  - Pros: works with any concurrency, retries, replays and DLQ re-drives. Cons: needs a reliable ordering field from the producer (timestamps across producers can be skewed, so a sequence number is safer).
 - **B. Preserve order per key (partitioning).**
   - Route all events of one order to the same **sequential** consumer: hash \`orderId\` to N queues each with one consumer, or use a broker with key-based partitions (e.g. Kafka partition key = orderId), or an ordered/**FIFO** queue if its throughput is enough.
   - Pros: no need to change the target logic. Cons: throughput limited per partition, hot keys, rebalancing complexity, and retries/DLQs can still break order.
@@ -136,7 +136,7 @@ Most robust: **B for efficiency + A as the safety net**, because you can never f
   followUps: [
     { q: 'Why are timestamps weaker than sequence numbers for ordering?', a: 'Timestamps from different producers or hosts can have clock skew, and two events can share the same millisecond. A per-entity sequence number set by the single owner of that entity gives an unambiguous order.' },
     { q: 'If you used a FIFO queue, would the problem be fully solved?', a: 'Only if processing stays sequential for related messages; FIFO queues typically limit throughput and in-flight messages, and failure handling (retries, DLQ re-drive) can still reorder. You still want idempotent, version-aware updates.' },
-    { q: 'How would you have detected this earlier?', a: 'A reconciliation between the source of truth and the web store, or logging/alerting when an incoming event is older than the stored state — that metric would have spiked right after scaling.' },
+    { q: 'How would you have detected this earlier?', a: 'A reconciliation between the source of truth and the web store, or logging/alerting when an incoming event is older than the stored state. That metric would have spiked right after scaling.' },
     { q: 'What would you put in the post-mortem?', a: 'The hidden ordering assumption, why scaling exposed it, customer impact, data repair done, detection gap (no errors), and actions: version guard, partitioning decision, reconciliation, scaling checklist.' },
   ],
 }

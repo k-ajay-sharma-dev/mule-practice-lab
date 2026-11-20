@@ -260,14 +260,15 @@ A **Reporting API** generates a customer statement PDF by querying a data wareho
 
 **Requirements**
 - \`POST /statements\` with \`{ accountId, from, to }\` starts a job.
-- Clients can check progress and download the file when ready.
+- Clients check progress with \`GET /statements/jobs/{jobId}\` and download the file when ready. An unknown job ID answers **404**.
 - Duplicate submissions of the same request within 10 minutes should return the existing job.
 - Max 5 jobs run concurrently (warehouse cost), others wait.
 - Finished files are kept 24 h.
-- The worker uploads each finished PDF to the statements bucket with \`PUT /statements-bucket/{jobId}.pdf\`.
+- The worker reads the lines from the warehouse table \`statement_lines\` (\`account_id\`, \`txn_date\`, \`description\`, \`amount\`), renders the PDF with \`POST /pdf/render\` and uploads it to the statements bucket with \`PUT /statements-bucket/{jobId}.pdf\`.
 
 **Facts**
 - A job status is one of \`PENDING\`, \`COMPLETED\` or \`FAILED\`.
+- The app runs on more than one replica, so any replica must be able to answer a status call.
 
 **Design the API and flow(s):** endpoints, status codes, job state storage, worker flow, concurrency limit and cleanup.
 `,
@@ -296,13 +297,13 @@ A **Reporting API** generates a customer statement PDF by querying a data wareho
    - \`GET /statements/jobs/{jobId}\` → 200 \`{ status, progress, resultUrl? }\`, 404 if unknown.
    - \`GET /statements/jobs/{jobId}/file\` → 200 PDF, 409 if not ready.
 2. **Submit flow:** validate → DataWeave computes \`dedupeKey\` = hash of \`accountId|from|to\` (e.g. \`dw::Crypto::SHA1\`) → Object Store Retrieve; if a job exists and is younger than 10 min return it. Otherwise generate \`jobId\` (\`uuid()\`), **Object Store Store** \`{ status: PENDING, createdAt }\` and **Publish** \`{ jobId, accountId, fromDate, toDate }\` to a queue → respond 202 (status code set via a variable on the listener response).
-3. **Job store:** persistent Object Store (Object Store v2 on CloudHub) or a DB table — must be shared so any replica can answer status calls. Entry TTL 24 h.
+3. **Job store:** persistent Object Store (Object Store v2 on CloudHub) or a DB table. It must be shared so any replica can answer status calls. Entry TTL 24 h.
 4. **Worker flow:** VM Listener (persistent queue) or **Anypoint MQ Subscriber**; flow \`maxConcurrency="5"\` (or subscriber concurrency 5 per app, divided by replicas) → update status RUNNING → Snowflake query (Snowflake/Database connector) → render PDF (e.g. via a PDF service) → upload to S3 → status COMPLETED with \`resultUrl\` (pre-signed URL).
 5. **Failure:** On Error Continue in the worker sets status FAILED with an error code; the client sees it on the next poll. Optionally a webhook/callback URL supplied at submit time is called on completion so clients don't need to poll.
 6. **Cleanup:** Object Store TTL expires metadata; S3 lifecycle rule deletes files after 24 h. A scheduled flow marks jobs stuck in RUNNING beyond 15 min as FAILED.
 `,
   followUps: [
-    { q: 'Why not just raise the HTTP timeout to 10 minutes?', a: 'Gateways, load balancers and clients will still cut long connections, threads are held for minutes, and a retry by the client starts a duplicate job. Async with polling is the standard pattern.' },
+    { q: 'Why not raise the HTTP timeout to 10 minutes?', a: 'Gateways, load balancers and clients will still cut long connections, threads are held for minutes, and a retry by the client starts a duplicate job. Async with polling is the standard pattern.' },
     { q: 'How often should clients poll?', a: 'Return a Retry-After header (e.g. 10 s) on status responses and document a backoff; or offer a callback/webhook to remove polling.' },
     { q: 'What happens if the worker replica crashes mid-job?', a: 'With a broker and manual ack, the message is redelivered and the job restarts; the stuck-job sweeper covers the case where status was left at RUNNING.' },
   ],

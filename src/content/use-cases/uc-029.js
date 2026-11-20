@@ -66,7 +66,7 @@ Facts:
   - For customer contracts, create a **renewal Opportunity** in Salesforce at the 90-day point, assigned to the account owner.
   - A weekly digest to the legal team listing everything due in the next 30 days.
 - Owners leave the company; ~3% of contracts have an owner that no longer exists.
-- The morning run handles about 2 contracts a second. Salesforce can fail 1 call in 5, and the HR directory can be down during the run.
+- The morning run handles about 2 contracts a second. Salesforce can fail 1 call in 5, and the HR directory can be down during the run. If it is, every reminder must still go to the owner on file, without the leaver check.
 
 **Describe your solution:**
 - How do you find which contracts need a reminder today?
@@ -94,20 +94,20 @@ Facts:
 - \`noticeDeadline\` = end date minus notice days, e.g. \`endDate - (("P" ++ noticeDays ++ "D") as Period)\`;
 - \`daysLeft\` = days between today and the deadline.
 
-**Reminder logic.** For each milestone (90, 60, 30), a reminder is due when \`daysLeft <= milestone\` **and** that milestone has not been sent. Using "less than or equal" plus a sent-flag (not "exactly equal to 90") means a failed or skipped run sends the reminder the next day instead of missing it. Sent milestones are stored per contract — ideally written back to a **custom field in the CLM** (visible to users), otherwise a persistent Object Store keyed by contract ID.
+**Reminder logic.** For each milestone (90, 60, 30), a reminder is due when \`daysLeft <= milestone\` **and** that milestone has not been sent. Using "less than or equal" plus a sent-flag (not "exactly equal to 90") means a failed or skipped run sends the reminder the next day instead of missing it. Sent milestones are stored per contract, ideally written back to a **custom field in the CLM** (visible to users), otherwise a persistent Object Store keyed by contract ID.
 
 Emails go out via the Email connector (SMTP) or the company's notification API, using a template with contract name, counterparty, deadline and a deep link to the CLM.
 
 **Salesforce opportunity.** At the 90-day milestone, for customer contracts with a Salesforce Account ID, **upsert** an Opportunity using an external ID field such as \`CLM_Contract_Term__c\` (contract ID + current term end). Owner = the Account owner, close date = notice deadline, type = Renewal. Upsert by external ID makes reruns safe.
 
 **Edge cases and errors.**
-- Owner email inactive (check against the HR/identity directory or bounce) → send to the legal team instead and flag the contract.
+- Owner email inactive (check against the HR/identity directory or bounce) → send to the legal team instead and flag the contract. If the directory is down, do not fail the contract: send to the owner on file and note that the check was skipped.
 - Contracts without auto-renew still get reminders (to renegotiate) but with a different template.
 - A failure for one contract is logged and does not stop the run; failed items are retried the next day automatically because their milestone is still not marked as sent.
 - The **weekly digest** (Monday Scheduler) uses the same selection with a 30-day window and sends one table email to legal.
 `,
   followUps: [
-    { q: 'Could the CLM or Salesforce do this on their own?', a: 'Possibly — many CLMs have built-in alerts. Integration adds value when the Opportunity must be created in Salesforce and rules span both systems; check native features first.' },
+    { q: 'Could the CLM or Salesforce do this on their own?', a: 'Possibly. Many CLMs have built-in alerts. Integration adds value when the Opportunity must be created in Salesforce and rules span both systems; check native features first.' },
     { q: 'What if a contract is renewed early?', a: 'Its end date changes in the CLM, so the deadline is recomputed and sent milestones should be reset for the new term (key the flags by contract ID + term end date).' },
   ],
 }

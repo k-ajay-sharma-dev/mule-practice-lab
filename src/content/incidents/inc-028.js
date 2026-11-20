@@ -21,7 +21,7 @@ export default {
         type: 'single',
         prompt: 'What is going wrong?',
         options: [
-          'The app POM still uses the old deployment config and a runtime version that the new plugin and CloudHub 2.0 target no longer accept',
+          'The app POM keeps the old deploy block and a runtime the new target does not offer',
           'The bug fix broke the application, which is why the deploy is rejected',
           'The Anypoint credentials used by CI have expired',
           'MUnit coverage dropped below the threshold, so the deploy goal is skipped',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'How do you get the urgent bug fix out **now**?',
         options: [
-          'Migrate the app to CloudHub 2.0 and a new runtime in the hotfix branch and deploy straight to PROD',
-          'Pin the previous plugin version/parent in a hotfix branch (or upload the tested JAR via Runtime Manager under change control) and deploy to the existing environment',
-          'Comment out the deploy stage and ask a developer to deploy from Studio',
-          'Wait for the platform team to roll back the parent POM for everyone',
+          'Migrate to CloudHub 2.0 and a new runtime in the hotfix branch, then deploy to PROD',
+          'Pin the previous parent POM in a hotfix branch, or upload the tested JAR under change control',
+          'Skip the deploy stage and have a developer deploy the fix from Studio',
+          'Wait for the platform team to roll back the parent POM for every app',
         ],
         answer: 1,
         explain: 'Use the last known-good deployment path for the hotfix. Doing a platform migration during an urgent fix adds risk; deploying from a laptop bypasses change control.',

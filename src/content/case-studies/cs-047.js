@@ -68,7 +68,7 @@ export default {
     },
   },
   description: `
-**Context.** A building-materials distributor (1,500 staff, 40 branches) has just bought Anypoint Platform. Today it has ~30 point-to-point integrations: nightly CSV exports, database links and a few scripts. Core systems: **Microsoft Dynamics 365 Finance** (ERP), **Salesforce** (sales), a legacy **warehouse management system** (WMS, SQL Server database), and a B2B web shop on a SaaS platform.
+**Context.** A building-materials distributor (1,500 staff, 40 branches) has recently bought Anypoint Platform. Today it has ~30 point-to-point integrations: nightly CSV exports, database links and a few scripts. Core systems: **Microsoft Dynamics 365 Finance** (ERP), **Salesforce** (sales), a legacy **warehouse management system** (WMS, SQL Server database), and a B2B web shop on a SaaS platform.
 
 **Candidate first projects (the business wants one live in ~4 months)**
 1. Show real-time stock and customer-specific prices in the B2B web shop (today: nightly file, often wrong).
@@ -81,6 +81,8 @@ export default {
 - The CFO funded the platform on the promise of "faster delivery through reuse" and wants proof within a year.
 - Leadership has never heard of System, Process or Experience APIs.
 - The web shop makes about 100 stock and price lookups a second at peak, and the WMS database takes at most 30 queries a second.
+- The availability Process API keeps a short stock cache, which answers about 8 lookups in 10. Every API checks a client ID at the gateway.
+- Name the APIs exp-b2b-shop-api, exp-sales-account-api, prc-product-availability-api, prc-customer-account-api, sys-erp-pricing-api, sys-erp-customer-api, sys-erp-order-api and sys-wms-stock-api. Give exp-b2b-shop-api and prc-product-availability-api 0.5 vCore each.
 
 **Your task.** Choose the pilot and justify it, define the first System APIs, sketch the layers for the pilot, and show how projects 2 and 3 will demonstrate reuse.
 `,
@@ -102,17 +104,17 @@ export default {
     'Defines a small set of well-designed System APIs (customers, products, prices, stock, orders) modelled on business entities, not database tables, and only the operations needed now.',
     'Sketches a thin Process API and an Experience API for the web shop, with the layers kept lean for a small team.',
     'Plans for projects 2 and 3 to reuse the same System APIs (Salesforce order history, an order-status or branch app), and tracks reuse from day one.',
-    'Includes the foundations: Exchange publishing, naming/versioning standards, CI/CD, security policies, monitoring — light but in place from the pilot.',
+    'Includes the foundations: Exchange publishing, naming/versioning standards, CI/CD, security policies, monitoring. Keep them light but in place from the pilot.',
   ],
   solution: `
 **Choosing the pilot.** Score candidates on value, visibility, feasibility in 4 months, and **reuse potential**:
 
 | Candidate | Value | Visible | Feasible | Reuse of its System APIs |
 |---|---|---|---|---|
-| 1. B2B stock and prices | High (lost sales, wrong prices) | Customers and sales | Yes, read-heavy | ERP customers/products/prices, WMS stock — needed everywhere |
+| 1. B2B stock and prices | High (lost sales, wrong prices) | Customers and sales | Yes, read-heavy | ERP customers/products/prices, WMS stock: needed everywhere |
 | 2. Order history in Salesforce | Medium | Sales | Yes | Reuses ERP APIs |
 | 3. Payroll file | Low | No | Yes | Little (one-off file) |
-| 4. DWH load | Medium | No | Big | Bulk ETL — not an API showcase |
+| 4. DWH load | Medium | No | Big | Bulk ETL, not an API showcase |
 
 Pick **1**. It is read-mostly (lower risk for a new team), visible to customers, fixes a real problem, and builds the System APIs that projects 2 and 3 need. Payroll can stay as a managed file transfer for now; the DWH load is better served by a batch or ETL tool.
 
@@ -138,14 +140,14 @@ sys-erp-pricing  sys-erp-customer  sys-wms-stock
  Dynamics 365                    WMS (SQL Server)
 \`\`\`
 
-For a small team, keep the Process API thin and justified: it holds the real logic (customer price group + branch stock rules) that other channels will also need.
+For a small team, keep the Process API thin and justified: it holds the real logic (customer price group + branch stock rules) that other channels will also need. It caches stock for a short time, so about 8 lookups in 10 never reach the WMS database: 100 lookups a second become about 20 queries, under its limit of 30.
 
-**Foundations set up during the pilot.** API specs designed first and published in **Exchange**; naming and versioning conventions; a project template (logging with correlation IDs, error handling); CI/CD pipeline to sandbox and prod; Client ID Enforcement on every API; dashboards and alerts. Keep it lightweight — the partner helps set it up and coaches the two developers.
+**Foundations set up during the pilot.** API specs designed first and published in **Exchange**; naming and versioning conventions; a project template (logging with correlation IDs, error handling); CI/CD pipeline to sandbox and prod; Client ID Enforcement on every API; dashboards and alerts. Keep it lightweight; the partner helps set it up and coaches the two developers.
 
 **Projects 2 and 3: proving reuse.**
-- **Project 2 — order history and invoices in Salesforce**: new \`sys-erp-order-api\` and \`sys-erp-invoice-api\`, a \`prc-customer-account-api\`, reusing \`sys-erp-customer-api\`. Reuse: 1 of 4 APIs.
-- **Project 3 — branch counter app / customer order-status page**: reuses \`prc-product-availability-api\`, \`sys-erp-order-api\`, \`sys-erp-customer-api\`; only a new Experience API is built. Reuse: 3 of 4, delivered noticeably faster.
-- Record from day one: APIs per project, new vs reused, effort, and lead time — this is the evidence the CFO asked for.
+- **Project 2, order history and invoices in Salesforce**: new \`sys-erp-order-api\` and \`sys-erp-invoice-api\`, a \`prc-customer-account-api\`, reusing \`sys-erp-customer-api\`. Reuse: 1 of 4 APIs.
+- **Project 3, branch counter app / customer order-status page**: reuses \`prc-product-availability-api\`, \`sys-erp-order-api\`, \`sys-erp-customer-api\`; only a new Experience API is built. Reuse: 3 of 4, delivered noticeably faster.
+- Record from day one: APIs per project, new vs reused, effort, and lead time. This is the evidence the CFO asked for.
 
 **Risks and explaining API-led.** Explain it in business terms: "we build a reusable connection to each core system once; new apps plug into those instead of building new point-to-point links". Risks: over-engineering for a small team (keep layers thin, merge when no value), the WMS database's performance (cache stock briefly), and skills (partner pairing, code reviews).
 `,

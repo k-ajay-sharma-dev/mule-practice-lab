@@ -123,6 +123,11 @@ Build a **restart** flow:
 - On failure add one to \`attempts\`. When that makes 3, mark it \`ABANDONED\` and email \`replenishment-support@brindle.example\`.
 - One job failing must not stop the others.
 
+**Facts**
+- Name the merge procedure's parameter \`jobId\`.
+- A failed health check must fail the run with its database error. Do not catch it.
+- The email names the job ID.
+
 **Design the flow.**
 `,
   answerTemplate: `## Health check

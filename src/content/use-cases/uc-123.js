@@ -86,7 +86,8 @@ The first version asked the vendor's REST API for the counts on every request. T
 
 Facts:
 - A count up to **30 seconds old** is fine for drivers.
-- Partners sign up with a client ID. Last month one partner's app had a bug and sent about 1,000 requests a second.
+- Partners sign up with a client ID, and a call without a valid client ID must be refused. Together the partners may make up to **150 requests a second**; anything over that gets 429. Last month one partner's app had a bug and sent about 1,000 requests a second.
+- Every app and partner read must be answered within 300 ms. A Mule replica answers about 50 simple requests a second per 0.1 vCore, so 1 vCore takes about 500.
 - The vendor's platform had two outages last year, of about half an hour each.
 
 **Questions:**
@@ -125,7 +126,7 @@ Navigation partners ─► API gateway ─► exp-partner-parking-api ─┴─�
 
 **Keeping the counts.** Each bay event carries the bay, the car park and the new state. \`prc-occupancy\` applies it to the bay's row and to the free count for the car park. It ignores an event older than the one it already has for that bay, because events can arrive out of order. A nightly job compares the counts with the vendor's REST API once, inside its limit, and corrects any drift.
 
-**Answering reads.** \`prc-parking-availability\` answers "free spaces per car park" from a 30 second cache in front of the occupancy database. With 300 reads a second and 40 car parks, almost every read is a cache hit.
+**Answering reads.** \`prc-parking-availability\` answers "free spaces per car park" from a 30 second cache in front of the occupancy database. With 300 reads a second and 40 car parks, about 9 reads in 10 are cache hits. Sized for the peak, \`prc-parking-availability\` runs on 1 vCore for 300 reads a second, the two read Experience APIs on 0.5 vCore, and the sensor path on 0.2 vCore for 60 events a second.
 
 **Partner limits.** The gateway in front of \`exp-partner-parking-api\` enforces client IDs and a rate limit of 150 requests a second across partners, with lower limits per partner in their contracts. The city app uses its own Experience API, so a partner flood gets 429 at the gateway and the app does not notice.
 

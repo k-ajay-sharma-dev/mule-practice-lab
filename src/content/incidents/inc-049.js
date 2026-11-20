@@ -31,22 +31,22 @@ export default {
         type: 'single',
         prompt: 'What is the fastest safe mitigation?',
         options: [
-          'Roll back sys-customer-api to 1.3.2: one action fixes all three consumers',
-          'Ask the three Process API teams to hotfix their mappings',
-          'Make region optional in prc-billing-api',
-          'Add retries in the Process APIs',
+          'Roll back sys-customer-api to 1.3.2, which fixes all three consumers',
+          'Ask the three Process API teams to hotfix their mappings to fullName',
+          'Add region=EU to the billing call and fix both mappings in loyalty',
+          'Add a response policy in API Manager that copies fullName to customerName',
         ],
         answer: 0,
-        explain: 'The break is in the System API, so one rollback restores all consumers. Then resend the confirmations with empty names and check failed billing requests.',
+        explain: 'The break is in the System API, so one rollback restores all consumers. Hotfixes in three teams take longer and still miss part of the break. No standard policy rewrites response fields, and it would not add region. Then resend the confirmations with empty names and check failed billing requests.',
       },
       {
         type: 'multi',
         prompt: 'How should the System API have evolved?',
         options: [
-          'Additive change in v1: return both customerName (deprecated) and fullName; make region optional with a default',
-          'If it cannot be compatible: publish /api/v2 (asset 2.0.0), run v1 and v2 side by side with a migration window',
-          'Use API Manager contracts and Exchange to identify and notify consumers, with a deprecation date',
-          'Bump the asset to 1.4.0 and keep /api/v1, since the spec in Exchange was updated',
+          'Additive change in v1: return customerName and fullName; make region optional',
+          'If it cannot be compatible: publish /api/v2 and run v1 and v2 side by side',
+          'Use API Manager contracts to find and notify consumers, with a deprecation date',
+          'Bump the asset to 1.4.0, keep /api/v1 and publish the updated spec in Exchange',
         ],
         answer: [0, 1, 2],
         explain: 'A minor version must be backward-compatible. Renaming a field and adding a required input are major changes.',
@@ -57,8 +57,8 @@ export default {
         options: [
           'Consumer-driven contract tests run in the System API pipeline',
           'Spec diff check in CI flagging removed fields and new required parameters',
-          'Consumers avoid `default ""` on mandatory business fields and alert instead',
-          'Only MUnit tests inside the System API',
+          'Consumers avoid `default ""` on mandatory fields and alert instead',
+          'Higher MUnit coverage targets inside the System API project',
         ],
         answer: [0, 1, 2],
         explain: 'The SAPI team already had MUnit tests; what was missing was any test of how consumers use the API.',
@@ -106,7 +106,7 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Identifies two breaking changes in a release presented as minor: a renamed response field and a new required request parameter — both break existing consumers.',
+    'Identifies two breaking changes in a release presented as minor: a renamed response field and a new required request parameter. Both break existing consumers.',
     'Explains the three symptoms: silent data loss where a default hides the null, a DataWeave expression error on null, and an outright 400 from the new mandatory parameter.',
     'Immediate: roll back sys-customer-api to 1.3.2 (one rollback fixes three consumers) rather than asking three teams to hotfix.',
     'Permanent fix: evolve backward-compatibly (add fullName alongside customerName, make region optional with a sensible default) or publish a new major version (/v2) and run both while consumers migrate.',
@@ -122,7 +122,7 @@ export default {
 | \`customerName\` → \`fullName\` | prc-loyalty-api | \`payload.customerName ++ " - Gold member"\` on null → MULE:EXPRESSION → 500 |
 | new required \`region\` param | prc-billing-api | The System API rejects the request → 400 → HTTP:BAD_REQUEST |
 
-The asset version (1.3.2 → 1.4.0) signalled a minor, compatible change while the change was actually major — and the base path stayed \`/v1\`.
+The asset version (1.3.2 → 1.4.0) signalled a minor, compatible change while the change was actually major, and the base path stayed \`/v1\`.
 
 **Immediate mitigation.** **Roll back** \`sys-customer-api\` to 1.3.2 (redeploy the previous artifact). One action fixes all three consumers. Then: re-send order confirmations that went out with empty names, and check billing for requests that failed during the window.
 
@@ -130,7 +130,7 @@ The asset version (1.3.2 → 1.4.0) signalled a minor, compatible change while t
 - *Technical*: rename and new mandatory input are non-backward-compatible changes.
 - *Process*: the System API team had no view of how consumers use the API, no consumer tests, no change notification, and versioning was treated as a label rather than a contract.
 
-**Permanent fix — evolve without breaking.**
+**Permanent fix: evolve without breaking.**
 - **Additive change in v1**: return both \`customerName\` (deprecated) and \`fullName\`; make \`region\` **optional**, deriving it from the customer record or defaulting to the current behaviour.
 - If the change truly can't be compatible, publish **v2** (\`/api/v2\`, Exchange asset 2.0.0) as a new API instance, run v1 and v2 side by side, and give consumers a migration window.
 - Use API Manager **contracts** (client applications on the instance) and Exchange to list consumers and contact them; announce deprecation with a date.
@@ -145,10 +145,10 @@ sys-customer-api v2 (fullName, region) ------------------> prc-billing-api (migr
 - **Consumer-driven contract tests**: each consumer contributes example requests/expected fields; the System API pipeline runs them and fails the build on a breaking change.
 - Spec diff check in CI (compare the new RAML/OAS with the published one; flag removed fields or new required params).
 - Semantic versioning rules agreed in the C4E: major = breaking, published as a new API version.
-- Consumers code defensively but visibly: avoid \`default ""\` on mandatory business fields — fail or alert instead of silently sending bad data.
+- Consumers code defensively but visibly: avoid \`default ""\` on mandatory business fields. Fail or alert instead of silently sending bad data.
 `,
   followUps: [
-    { q: 'Is adding a new optional response field a breaking change?', a: 'Normally no — consumers should ignore unknown fields. It becomes breaking only if a consumer validates strictly against a schema that forbids extra properties, which is another reason to agree tolerant-reader rules.' },
+    { q: 'Is adding a new optional response field a breaking change?', a: 'Normally no. Consumers should ignore unknown fields. It becomes breaking only if a consumer validates strictly against a schema that forbids extra properties, which is another reason to agree tolerant-reader rules.' },
     { q: 'Why is the empty-name failure the most dangerous of the three?', a: 'Because nothing failed: no error, no alert, and wrong data reached customers. Loud failures are found in minutes; silent data quality problems can run for weeks.' },
     { q: 'How do you know who consumes a System API?', a: 'API Manager contracts show which client applications have access to each instance; Exchange shows dependencies, and correlation-ID tracing or API analytics show actual callers. Enforcing client ID on the instance makes this list reliable.' },
   ],

@@ -25,7 +25,7 @@ export default {
         exp: ['experience-api', 'exp-checkout-api'],
         prc: ['process-api', 'prc-delivery-estimate', { replicas: 3, onFailure: 'partial answer' }],
         fb: ['database', 'Fallback lead times per region'],
-        sys: ['system-api', 'sys-carrier-estimate-soap', { replicas: 3, timeoutMs: 2000, circuitBreaker: 'on' }],
+        sys: ['system-api', 'sys-carrier-estimate-soap', { replicas: 3, timeoutMs: 1500, circuitBreaker: 'on' }],
         cb: ['cache', 'Circuit state (Object Store v2, shared)'],
         soap: ['external-api', 'Carrier estimate SOAP service'],
         mon: ['monitoring', 'Alert: circuit open'],
@@ -37,7 +37,7 @@ export default {
       tests: [
         {
           name: 'The carrier service hangs',
-          about: 'Checkout asks for 15 estimates a second while the SOAP service hangs for 20 minutes. Calls stop waiting after 2 seconds and the circuit opens, so checkout shows the fallback lead time and answers within 250 ms on average.',
+          about: 'Checkout asks for 15 estimates a second while the SOAP service hangs for 20 minutes. Calls stop waiting after 1.5 seconds and the circuit opens, so checkout shows the fallback lead time and answers within 250 ms on average.',
           traffic: [{ name: 'estimates', from: 'web-app', rps: 15, to: 'external-api', kind: 'read' }],
           incidents: [{ hang: 'external-api', at: 5, forMin: 20 }],
           durationMin: 25,
@@ -64,7 +64,7 @@ Facts:
 - The checkout API target is **p95 under 800 ms**.
 - A table of typical lead times per region (for example "3 to 5 working days") is acceptable when the carrier is down.
 - Mule runs on CloudHub 2.0 with **3 replicas** of each API.
-- A hang lasts about 20 minutes and a run of SOAP faults about 15 minutes, both at 15 estimates a second.
+- A hang lasts about 20 minutes and a run of SOAP faults about 15 minutes, both at 15 estimates a second. During either, checkout must still answer every request, within 250 ms on average.
 
 **Describe your solution:**
 - Where does the breaker live, and where does the fallback live?

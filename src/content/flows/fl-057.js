@@ -158,12 +158,17 @@ A grocery chain runs **cycle counts** in its **320 stores** every night.
 **Incoming files**
 - Each store's handheld system uploads one CSV per count to an SFTP folder: \`/counts/inbound/STORE_<storeId>_<yyyyMMdd>.csv\`.
 - Columns: \`SKU, LOCATION, QTY\`.
-- A file typically has **2,000–5,000 lines**.
+- A file typically has **2,000 to 5,000 lines**.
 - Files arrive between 21:00 and 23:30.
 
 The counts must be loaded into **Oracle** staging tables before the 01:00 stock-adjustment job runs:
 - \`STORE_COUNT_BATCH\`: one row per file (store, count date, file name, line count); unique on store + count date.
 - \`STORE_COUNT_STG\`: one row per counted line.
+
+**Facts**
+- \`STORE_COUNT_BATCH\` has \`STORE_ID\`, \`COUNT_DATE\`, \`FILE_NAME\`, \`LINE_COUNT\` and \`LOADED_AT\`.
+- \`STORE_COUNT_STG\` has \`STORE_ID\`, \`COUNT_DATE\`, \`SKU\`, \`LOCATION_CODE\` and \`COUNTED_QTY\`, and is unique on store, date, SKU and location.
+- \`STORE_ID\` is the text from the file name, leading zeros included (\`0042\`).
 
 **Requirements**
 - A file is loaded completely or not at all. The adjustment job must never see half a count.
@@ -192,12 +197,12 @@ The counts must be loaded into **Oracle** staging tables before the 01:00 stock-
   ],
   solution: `
 1. **SFTP On New or Updated File** on \`/counts/inbound\`, pattern \`STORE_*.csv\`, output MIME type \`application/csv\`. Keep the polling frequency modest (e.g. 1 minute) and set a **time-between-size-check** so a file still being uploaded is not read half-written.
-2. **Set Variable** — \`fileName\`, \`filePath\` (\`attributes.path\`, because later operations replace the attributes and a bare name resolves against the working directory), \`storeId\` and \`countDate\` parsed from the file name. After the Transform, \`lines\` keeps the mapped list and \`lineCount\` its size for the header row.
+2. **Set Variable**: \`fileName\`, \`filePath\` (\`attributes.path\`, because later operations replace the attributes and a bare name resolves against the working directory), \`storeId\` and \`countDate\` parsed from the file name. After the Transform, \`lines\` keeps the mapped list and \`lineCount\` its size for the header row.
 3. **Validate** the file is not empty.
-4. **Transform Message** — CSV rows → \`application/java\` list of maps (\`storeId, countDate, sku, location, countedQty\`). Keys match the \`:named\` parameters of the SQL.
+4. **Transform Message**: CSV rows → \`application/java\` list of maps (\`storeId, countDate, sku, location, countedQty\`). Keys match the \`:named\` parameters of the SQL.
 5. **Try** (transactional action **ALWAYS_BEGIN**) containing:
    - **Database Insert** into \`STORE_COUNT_BATCH\` (header).
-   - **Database Bulk Insert** into \`STORE_COUNT_STG\` — the whole list goes as one JDBC batch. It reads \`#[payload]\` by default and the header Insert has replaced the payload, so keep the list in a variable and pass it back.
+   - **Database Bulk Insert** into \`STORE_COUNT_STG\`: the whole list goes as one JDBC batch. It reads \`#[payload]\` by default and the header Insert has replaced the payload, so keep the list in a variable and pass it back.
    Both use the same Oracle connection and commit together at the end of the Try.
 6. **SFTP Move** the file to \`/counts/archive\`.
 

@@ -14,7 +14,7 @@ For each file in the input, output:
 
 - \`container\`: always \`nightly-exports\`
 - \`blobName\`: the system in lower case, the date of \`createdAt\` as \`yyyy/MM/dd\`, then the file name in lower case with each space replaced by a dash
-- \`contentType\`: \`text/csv\` for a \`.csv\` file, \`application/json\` for a \`.json\` file, otherwise \`application/octet-stream\`
+- \`contentType\`: \`text/csv\` for a \`.csv\` file, \`application/json\` for a \`.json\` file, otherwise \`application/octet-stream\` (check the extension of the lower case name)
 
 All \`createdAt\` values are in UTC.
 `,

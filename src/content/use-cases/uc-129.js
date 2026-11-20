@@ -78,6 +78,8 @@ The new plan:
 - A **leak detector** reads every reading, keeps **leak candidates** in its own database, and only confirms a leak when the noise persists over three nights at neighbouring sensors. Confirmed leaks are few: a few dozen on a bad night.
 - One leak gives **one work order**, however many sensors hear it.
 - The analysts want every reading kept in an **archive** bucket for their models.
+- A sensor's call must be answered within 300 ms, and no reading or confirmed leak may be lost.
+- A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No confirmed leak may reach the DLQ during a three-hour outage.
 
 **Questions:**
 - Draw the pipeline.

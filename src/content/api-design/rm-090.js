@@ -12,6 +12,8 @@ The quote type moves into a **DataType fragment**. Its examples move into a **Na
 
 A NamedExample file goes under \`examples\`, not \`example\`. The parser still checks every example in it against the type.
 
+An \`!include\` path is relative to the file that holds it. From \`types/quote.raml\`, the examples file is \`../examples/quotes.raml\`. From \`api.raml\`, it is \`examples/quote-requests.raml\`.
+
 This problem has four files. Use the tabs above the editor to move between them.
 
 **Requirements**

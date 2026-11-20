@@ -89,6 +89,8 @@ export default {
 - The frontend team wants to call SaaS APIs directly from the browser for speed.
 - Integration team: 6 Mule developers.
 - The storefront makes about 400 stock checks a second at peak and 10 orders a second, and the OMS can be down for 30 minutes.
+- Name the APIs exp-web-bff-api, exp-app-bff-api, prc-catalog-publication, prc-availability, prc-order, sys-pim, sys-search, sys-commerce, sys-oms and sys-sap-stock. Orders wait for the OMS on an \`orders-to-oms\` queue, whose redelivery limit must cover a 30 minute outage (or be left unlimited).
+- prc-availability answers from an availability read model kept up to date by SAP stock events. Give exp-web-bff-api and prc-availability 1 vCore each for the stock check peak.
 
 **Your task.** Design the application network: what goes through Anypoint (and in which layer), what can integrate directly, how the storefront talks to backends, and how data flows for products, stock, orders and customers.
 `,
@@ -105,7 +107,7 @@ export default {
 ## Delivery plan and risks
 `,
   keyPoints: [
-    'Distinguishes what the storefront should call directly (vendor SDKs for search, CMS content, sometimes cart) from what needs orchestration or protection through Mule — avoids forcing every call through three layers.',
+    'Distinguishes what the storefront should call directly (vendor SDKs for search, CMS content, sometimes cart) from what needs orchestration or protection through Mule, and does not force every call through three layers.',
     'Uses System APIs as an anti-corruption layer over each SaaS and SAP so a component swap changes one System API, not every consumer.',
     'Defines Process APIs for business capabilities: product publication, availability (stock across stores/warehouses), order submission/orchestration hand-off to OMS, customer and loyalty.',
     'Uses a Backend-for-Frontend style Experience API per channel (web, app, possibly POS) handling aggregation, security and shaping.',
@@ -114,7 +116,7 @@ export default {
   ],
   solution: `
 **Principles.**
-- *Composable* means each component is replaceable — so consumers must depend on **our** contracts, not vendor APIs, for anything business-critical.
+- *Composable* means each component is replaceable, so consumers must depend on **our** contracts, not vendor APIs, for anything business-critical.
 - But not everything needs Mule. Read-only, frontend-specific vendor features (search queries, CMS content delivery) can be called directly through the vendor's CDN/SDK. Adding hops there adds latency for no benefit, and replacing those vendors means frontend work anyway.
 - Anything involving several systems, business rules, customer data, or SAP goes through the application network.
 
@@ -135,11 +137,11 @@ export default {
 
 **Process APIs.**
 - \`prc-catalog-publication\`: PIM change events → enrich (prices from SAP/commerce) → push to search and commerce. Asynchronous; the vendor "direct PIM→search connector" is avoided because it bypasses enrichment and couples the two vendors.
-- \`prc-availability\`: combines warehouse stock (SAP) and **store stock** (POS feeds via \`sys-pos-stock\`) into one availability view per SKU/location; serves click-and-collect checks. Uses a cached read model refreshed by stock events — no live SAP call for every page view.
-- \`prc-order\`: takes a completed checkout, validates, hands off to OMS **asynchronously** (queue), publishes status events; OMS → SAP for finance via System APIs.
+- \`prc-availability\`: combines warehouse stock (SAP) and **store stock** (POS feeds via \`sys-pos-stock\`) into one availability view per SKU/location; serves click-and-collect checks. Uses a cached read model refreshed by stock events, with no live SAP call for every page view.
+- \`prc-order\`: takes a completed checkout, validates, hands off to OMS **asynchronously** through the \`orders-to-oms\` queue, publishes status events; OMS → SAP for finance via System APIs.
 - \`prc-customer-loyalty\`: customer profile and loyalty balance across commerce and loyalty platforms.
 
-**System APIs.** One per external system, with our canonical models: \`sys-commerce\`, \`sys-pim\`, \`sys-search\` (indexing side only), \`sys-oms\`, \`sys-sap-stock\`, \`sys-sap-finance\`, \`sys-payment\`, \`sys-loyalty\`, \`sys-pos-stock\`. Replacing, say, the search vendor means rewriting \`sys-search\` and adjusting the direct frontend search calls — nothing else.
+**System APIs.** One per external system, with our canonical models: \`sys-commerce\`, \`sys-pim\`, \`sys-search\` (indexing side only), \`sys-oms\`, \`sys-sap-stock\`, \`sys-sap-finance\`, \`sys-payment\`, \`sys-loyalty\`, \`sys-pos-stock\`. Replacing, say, the search vendor means rewriting \`sys-search\` and adjusting the direct frontend search calls, and nothing else.
 
 **Data flows (summary).**
 | Flow | Pattern |
@@ -149,7 +151,7 @@ export default {
 | Order | Storefront → BFF → commerce checkout → prc-order → queue → OMS → SAP; status events back to customer channels |
 | Customer | Identity provider for login; profile/loyalty via prc-customer-loyalty |
 
-**Delivery plan and risks.** Months 1–2: contracts, System APIs for commerce, PIM, SAP stock; months 3–6: catalog publication, availability, order flow; months 7–9: hardening, peak load tests, cutover; mobile reuses all Process APIs plus a new BFF. Risks: vendor lock-in through direct vendor-to-vendor integrations (governance rule), store stock accuracy (POS feed frequency), peak load (caching, rate limits, async orders), and a small team (prioritise MVP flows, use connectors and templates).
+**Delivery plan and risks.** Months 1 to 2: contracts, System APIs for commerce, PIM, SAP stock; months 3 to 6: catalog publication, availability, order flow; months 7 to 9: hardening, peak load tests, cutover; mobile reuses all Process APIs plus a new BFF. Risks: vendor lock-in through direct vendor-to-vendor integrations (governance rule), store stock accuracy (POS feed frequency), peak load (caching, rate limits, async orders), and a small team (prioritise MVP flows, use connectors and templates).
 `,
   followUps: [
     { q: 'Why not let the frontend call every SaaS API directly?', a: 'It would spread business logic and vendor-specific models into the frontend, expose more credentials and make swapping a vendor a frontend rewrite. Direct calls are fine for read-only vendor features like search queries and CMS content; business transactions go through governed APIs.' },

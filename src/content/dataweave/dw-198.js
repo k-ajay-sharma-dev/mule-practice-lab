@@ -17,7 +17,7 @@ Marrow & Pine Home runs a restart app next to its inbound adapter. It reads mess
 
 **Rules**
 1. Keep only the latest entry per message ID, by \`failedAt\`. Report how many entries were removed as \`duplicatesRemoved\`.
-2. If any health check is not \`UP\`, replay nothing. Status is \`SKIPPED_UNHEALTHY\` and every message ID goes to \`hold\`.
+2. If any health check is not \`UP\`, replay nothing. Status is \`SKIPPED_UNHEALTHY\`, every message ID goes to \`hold\`, and \`replay\`, \`park\` and \`drop\` are empty lists.
 3. Otherwise sort by \`failedAt\`, oldest first, and sort each message into one list:
    - \`drop\`: already loaded
    - \`park\`: error type not replayable (\`NOT_REPLAYABLE\`) or \`attempt\` at or above \`maxAttempts\` (\`MAX_ATTEMPTS\`), with \`messageId\` and \`reason\`
@@ -25,7 +25,7 @@ Marrow & Pine Home runs a restart app next to its inbound adapter. It reads mess
    - \`hold\`: the rest, for the next run
 4. Status is \`REPLAYING\` when something is replayed, otherwise \`NOTHING_TO_REPLAY\`.
 
-All lists keep the oldest first order.
+\`drop\` and \`hold\` hold message IDs only. All lists keep the oldest first order. Return \`status\`, \`duplicatesRemoved\`, \`replay\`, \`park\`, \`drop\` and \`hold\`.
 `,
   inputs: [
     {

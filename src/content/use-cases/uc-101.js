@@ -78,7 +78,7 @@ Facts:
 - Keys: the Salesforce order number is on the SAP invoice as an external reference; the SAP invoice number is in the Stripe charge metadata.
 - The report must be in finance's inbox at **07:00**. Controllers also want trends over months in the finance dashboard.
 - The reconciliation must never change data in the sources. Fixing breaks stays a human decision.
-- In the tests the run reads 1 page a second from each source. An SAP page can take 20 seconds when the bill run overruns, and Stripe can fail 1 call in 10.
+- In the tests the run reads 1 page a second from each source. An SAP page can take 20 seconds when the bill run overruns, and Stripe can fail 1 call in 10. A Mule HTTP call times out after 10 seconds by default. Almost every page (99 %) must still get in.
 
 **Questions:**
 1. How do you extract from three systems without hurting them?
@@ -110,6 +110,8 @@ Reconciliation run --> sys-salesforce-api (Bulk API 2.0 query) --> Salesforce
 \`\`\`
 
 **Extraction.** At 05:00, after the bill run, the job extracts the last day plus a **3 day look-back**, because late payments and invoices arrive after the order. Salesforce is read with one **Bulk API 2.0** query job, which costs a handful of API calls for 20,000 rows. SAP is read through a paged OData service. Stripe balance transactions and payouts are read with cursor paging. Each extract is streamed straight into its staging table with a bulk insert, tagged with the run id.
+
+When the bill run overruns, an SAP page can take 20 seconds, longer than the 10-second default, so the job and sys-sap-billing-api use a response timeout of about 60 seconds. Reading a page again is safe, so sys-stripe-api retries a failed Stripe call twice.
 
 **Matching.** Matching runs as SQL in the staging database, which joins 70,000 rows in seconds:
 1. orders ↔ invoices on order number, comparing amount and currency;

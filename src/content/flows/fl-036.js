@@ -305,6 +305,14 @@ You operate a **payment-event relay**. The payment provider POSTs webhooks (paym
 - Each webhook carries an HMAC signature. Reject a webhook with a bad signature with **401**.
 - Operations need an admin endpoint to reset a merchant's circuit by hand.
 
+**Facts**
+- The \`X-Signature\` header holds the hex HMAC-SHA256 of the raw request body, keyed with the property \`provider.secret\`. A good webhook is answered with **202**.
+- Accepted events go to the Anypoint MQ queue \`webhook-relay\` as \`{ merchantId, eventId, attempt, body }\`, where \`eventId\` is the webhook's \`id\` and \`attempt\` starts at 1. A retry re-publishes the event there with \`attempt\` one higher. Dead events go to \`webhook-relay-dlq\`.
+- In this exercise every merchant endpoint is \`POST /merchant-webhook\`. It receives the original webhook body.
+- The circuit of a merchant is kept in the Object Store \`merchant-circuit-breaker\` under the key \`cb-<merchantId>\`, as \`{ state, failures, openUntil }\` with \`state\` \`CLOSED\` or \`OPEN\` and \`openUntil\` an ISO date-time.
+- The reset endpoint is \`DELETE /admin/circuits/{merchantId}\`.
+- An event is dead-lettered after 12 attempts.
+
 **Design the flow(s):**
 - How do you acknowledge the provider within 1 s while keeping at-least-once delivery?
 - Where is the circuit-breaker state kept, what does it contain, and when is it read and written?
@@ -341,7 +349,7 @@ You operate a **payment-event relay**. The payment provider POSTs webhooks (paym
    - **OPEN and \`openUntil > now()\`** → do **not** call. Re-publish the event with a delivery delay of about \`openUntil - now()\` (Anypoint MQ allows up to 15 min) and **ack**.
    - **Otherwise** (CLOSED, or OPEN past \`openUntil\` = **half-open trial**) → **HTTP Request** to the merchant with \`responseTimeout 5000\` → on success **Object Store Store** \`{ CLOSED, 0 }\` → **ack**.
 3. **Error handlers**
-   - \`HTTP:BAD_REQUEST / UNAUTHORIZED / FORBIDDEN / NOT_FOUND\` → non-retryable → **MQ Publish \`webhook-relay-dlq\`** with the reason → ack. These do not count against the circuit (the merchant is up, just misconfigured).
+   - \`HTTP:BAD_REQUEST / UNAUTHORIZED / FORBIDDEN / NOT_FOUND\` → non-retryable → **MQ Publish \`webhook-relay-dlq\`** with the reason → ack. These do not count against the circuit (the merchant is up but misconfigured).
    - \`HTTP:CONNECTIVITY / TIMEOUT / 5xx\` → Transform \`failures + 1\`. At 5, set \`OPEN, openUntil = now() + 5 min\` (kept as an ISO date-time string, so the stored entry is plain data any replica can read back) → **Object Store Store**. Then, if \`attempt >= 12\` → DLQ, else re-publish with \`attempt + 1\` and a growing delivery delay (30 s, 1 min, 2 min, 5 min ... about 1 h in total) → ack.
    - \`ANY\` → **nack** (the broker redelivers; the queue's max-deliveries + DLQ catch bugs).
 

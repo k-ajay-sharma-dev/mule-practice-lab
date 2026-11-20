@@ -68,12 +68,14 @@ export default {
 An outdoor-equipment retailer sells **60,000 SKUs** on its own website and on **two marketplaces** (one Amazon-style, one eBay-style). Stock is shared: the same units can sell on any channel. Orders are fulfilled from the retailer's DCs and booked in **Oracle EBS Order Management**. Available-to-promise (ATP) quantities live in **Oracle** tables updated by EBS and the WMS.
 
 Marketplace rules:
-- **Stock** must be updated quickly — overselling leads to cancellations, which marketplaces penalise. Target: change visible within **15 minutes**.
-- Marketplace APIs are **throttled** (e.g. a bucket of requests per second, bulk "feed" endpoints for many SKUs) — one call per stock change is not possible on busy days (~200,000 stock changes/day).
+- **Stock** must be updated quickly, because overselling leads to cancellations, which marketplaces penalise. Target: change visible within **15 minutes**.
+- Marketplace APIs are **throttled** (e.g. a bucket of requests per second, bulk "feed" endpoints for many SKUs). One call per stock change is not possible on busy days (~200,000 stock changes/day).
 - **Orders** must be pulled (polling every few minutes) and **acknowledged within 1 hour**, otherwise the marketplace may cancel them.
 - **Shipment confirmation** with carrier and tracking within **24 hours** of dispatch.
 - Each marketplace has its own SKU IDs, order format and status model.
 - Marketplace A accepts at most 20 calls a second. A bulk stock adjustment can push 100 changes a second for 5 minutes.
+- A marketplace API can be down for an hour. No stock change may be lost, and changes should be retried for up to 2 hours before anyone has to step in.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. Draw the architecture.
@@ -121,10 +123,10 @@ Marketplace rules:
 
 **Shipment confirmation.** EBS ship-confirm publishes an event; the Process API maps carrier codes to the marketplace's list and sends tracking. Failures are retried; anything not confirmed within 20 hours is alerted.
 
-**Failures.** Marketplace down or throttling (429-style responses) → the System API retries with back-off (Until Successful with limited attempts) and the queued orders/deltas wait. Because stock is "latest wins", a delayed flush sends correct data when the marketplace returns. Orders whose ack deadline is near are highlighted on the dashboard.
+**Failures.** Marketplace down or throttling (429-style responses) → the System API retries with back-off (Until Successful with limited attempts) and the queued orders/deltas wait. The broker redelivers about once a minute, so a redelivery limit of about 120 on \`INVENTORY.CHANGED\` keeps stock changes through a one-hour outage. Because stock is "latest wins", a delayed flush sends correct data when the marketplace returns. Orders whose ack deadline is near are highlighted on the dashboard.
 `,
   followUps: [
-    { q: 'Why not send each stock change immediately?', a: 'The volume would exceed marketplace throttles on busy days, and most intermediate values are useless — only the latest quantity matters. Coalescing reduces calls dramatically while staying within the 15-minute SLA.' },
+    { q: 'Why not send each stock change immediately?', a: 'The volume would exceed marketplace throttles on busy days, and most intermediate values are useless; only the latest quantity matters. Coalescing reduces calls dramatically while staying within the 15-minute SLA.' },
     { q: 'How do you add a third marketplace?', a: 'Build sys-marketplace-c with its mapping and throttling and register it in the channel configuration; the Process APIs stay the same.' },
     { q: 'Why poll orders rather than wait for notifications?', a: 'Many marketplaces offer notifications but recommend polling as the reliable source; you can use notifications to trigger an earlier poll, but the poller with a watermark guarantees nothing is missed.' },
   ],

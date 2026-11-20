@@ -58,7 +58,7 @@ payload.lines
 `,
   hints: [
     'The CSV writer takes its header from the keys of the **first** object, so build every row (including the total row) with the same keys in the same order.',
-    'Format money with `n as String {format: "0.00"}` — `18.5` becomes `"18.50"`.',
+    'Format money with `n as String {format: "0.00"}`: `18.5` becomes `"18.50"`.',
     'Writer properties go on the output directive: `output application/csv quoteValues=true` quotes every value but leaves the header alone.',
   ],
   solution: `%dw 2.0
@@ -86,16 +86,16 @@ var totalRow = {
 ---
 rows ++ [totalRow]`,
   explanation: `
-CSV is just an **array of flat objects** to the writer; the header comes from the first object's keys. Because the total row is appended with the same keys, it lines up under the right columns.
+To the writer, CSV is an **array of flat objects**; the header comes from the first object's keys. Because the total row is appended with the same keys, it lines up under the right columns.
 
-- \`quoteValues=true\` wraps every value in double quotes, so \`Pallet wrap, 500mm\` stays one field. Without it the DW 2.x writer escapes the comma instead of quoting it, and many supplier import tools do not understand that. The header is controlled separately (\`quoteHeader\`, default \`false\`).
-- \`format: "0.00"\` forces two decimals — plain number output would write \`18.5\` and \`70\`.
+- \`quoteValues=true\` wraps every value in double quotes, so \`Pallet wrap, 500mm\` stays one field. Without it, the writer escapes the comma with a backslash (\`Pallet wrap\\, 500mm\`) instead of quoting the value, and many supplier import tools do not understand that. The header is controlled separately (\`quoteHeader\`, default \`false\`).
+- \`format: "0.00"\` forces two decimals; plain number output would write \`18.5\` and \`70\`.
 - DataWeave numbers are decimals, so \`200 * 0.35\` is exactly \`70\` (no binary floating point noise like \`70.00000000000001\`).
 - \`sum([])\` is \`0\`, so a PO whose lines are all cancelled still gets a valid total row.
 
 Common traps:
 - Computing the total over **all** lines instead of the sent ones (would give 601.90).
-- Building the total row with its keys in a different order or with missing keys — the writer does not realign rows by key name.
+- Building the total row with its keys in a different order or with missing keys: the writer does not realign rows by key name.
 `,
   tests: [
     {

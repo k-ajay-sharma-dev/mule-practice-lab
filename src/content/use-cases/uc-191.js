@@ -67,12 +67,13 @@ The shop also runs in two availability zones, and last quarter one zone failed f
 **Numbers**
 - About **40 checkouts a second** in the evening.
 - Oracle answers in about 60 ms.
-- In this model the smallest API (0.1 vCore) serves about 50 requests a second, one zone going down takes away the replicas in it, and a failed delivery is tried again about once a minute.
+- Checkouts must answer in under half a second, and after a switchover every waiting order must be in Oracle within **half an hour**.
+- In this model one vCore serves about 500 simple requests a second, the smallest API (0.1 vCore) serves about 50 requests a second, one zone going down takes away the replicas in it, and a failed delivery is tried again about once a minute.
 
 **Questions:**
 - Draw the design.
 - What does the shopper see during a switchover, and what has to be true for "order accepted" to be an honest answer?
-- Set the redelivery limit and the replicas, and say why.
+- Set the redelivery limit, the replicas and the writer's size, and say why.
 - What does the order writer have to do so that a redelivery never writes an order twice?
 `,
   answerTemplate: `## Design
@@ -98,7 +99,7 @@ Web shop ─► exp-checkout ~► orders.accepted ~► prc-order-writer ─► s
                                          ~► orders.accepted.dlq
 \`\`\`
 
-**Settings.** \`exp-checkout\` and \`prc-order-writer\`: 2 replicas. \`orders.accepted\`: 40 deliveries before the DLQ.
+**Settings.** \`exp-checkout\`, \`prc-order-writer\` and \`sys-orders-oracle\`: 2 replicas. \`prc-order-writer\` and \`sys-orders-oracle\`: 0.5 vCore each, so the writer can clear 60,000 waiting orders plus the new ones in half an hour (about 75 a second). \`orders.accepted\`: 40 deliveries before the DLQ.
 
 **Order status page.** It reads Oracle, so during the switchover it cannot show a new order. Show "order received, details shortly" from what the checkout returned, not an error.
 `,

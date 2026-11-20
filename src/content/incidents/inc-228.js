@@ -7,7 +7,7 @@ export default {
   estMinutes: 15,
   investigation: {
     logs: [
-      { text: "2026-11-30 22:10:00 ERROR [invoice-drop] Write failed file=inv_20261130_0412.xml status=413 code=ShareSizeLimitReached", relevant: true, why: "The share hit its size quota." },
+      { text: "2026-11-30 22:10:00 ERROR [invoice-drop] Write failed file=inv_20261130_0412.xml code=ShareSizeLimitReached", relevant: true, why: "The share hit its size quota." },
       { text: "2026-11-30 22:10:00 INFO  [ops] Share invoices quotaGiB=100 usedGiB=100", relevant: true, why: "It is full." },
       { text: "2026-11-30 22:10:01 INFO  [ops] archive folder size GiB=81 oldest=2025-01-02", relevant: true, why: "Most of the space is old archive files." },
       { text: "2026-11-30 22:12:00 WARN  [invoice-drop] Retry queue depth=380", relevant: true, why: "Invoices are waiting." },
@@ -19,9 +19,9 @@ export default {
         prompt: "Why do writes fail?",
         options: [
           "The share reached its quota, mostly with old archive files",
-          "The key expired",
-          "The file names are wrong",
-          "Azure is down",
+          "The storage account ran out of space for all its shares",
+          "Month end invoices are larger than the share’s file size limit",
+          "The archive folder holds too many files for one directory",
         ],
         answer: 0,
         explain: "ShareSizeLimitReached means the share quota is used up.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What is the fastest safe fix tonight?",
         options: [
           "Raise the share quota, then replay the retry queue",
-          "Delete the newest files",
-          "Write invoices to a laptop",
-          "Turn off retries",
+          "Delete the archive folder tonight to free 81 GiB at once",
+          "Pause the invoice flow until the archive is cleaned next week",
+          "Point the flow at a new empty share and leave the old one",
         ],
         answer: 0,
         explain: "Raising the quota restores writes at once. Clean up afterwards.",
@@ -45,7 +45,7 @@ export default {
           "Move or delete archive files by an agreed retention rule",
           "Alert when usage passes a threshold such as 80 percent",
           "Keep archives in cheaper blob storage",
-          "Never archive",
+          "Raise the quota by 100 GiB each month end",
         ],
         answer: [0,1,2],
         explain: "Retention plus an early alert keeps space free.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "Why did it happen at month end?",
         options: [
-          "Month end has the most invoices, so the last free space went then",
-          "Azure resets quotas monthly",
-          "Keys rotate monthly",
-          "It is random",
+          "Month end has the most invoices, so the last space went then",
+          "Azure lowers share quotas at the end of each billing month",
+          "The archive job runs only at month end and fills the share",
+          "Month end snapshots of the share count against its quota",
         ],
         answer: 0,
         explain: "Peaks expose capacity limits.",
@@ -86,7 +86,7 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-30 22:10:00 ERROR [invoice-drop] Write failed file=inv_20261130_0412.xml status=413 code=ShareSizeLimitReached
+2026-11-30 22:10:00 ERROR [invoice-drop] Write failed file=inv_20261130_0412.xml code=ShareSizeLimitReached
 2026-11-30 22:10:00 INFO  [ops] Share invoices quotaGiB=100 usedGiB=100
 2026-11-30 22:10:01 INFO  [ops] archive folder size GiB=81 oldest=2025-01-02
 2026-11-30 22:12:00 WARN  [invoice-drop] Retry queue depth=380

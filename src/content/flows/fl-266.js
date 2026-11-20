@@ -139,6 +139,13 @@ Two incidents:
 - All parts good: move them, then the control file, to \`/plan/ready\`, and insert the set as \`RELEASED\`.
 - Any part bad: release nothing, move the control file to \`/plan/error\`, and email \`planning-support@larkfield.example\` a line per bad part.
 
+**Facts**
+- Control files match \`ALLOC_*.ctl\`. The parts are in the same folder.
+- \`set_name\` is the control file's name, such as \`ALLOC_20261113.ctl\`, and \`parts\` is the number of parts. The duplicate WARN names it.
+- Work out the MD5 with \`dw::Crypto::MD5(payload as Binary)\`. It returns lowercase hex, as in the control file.
+- The row count leaves out the header line and blank lines.
+- Each email line names the part.
+
 **Design the flow.**
 `,
   answerTemplate: `## A set seen before

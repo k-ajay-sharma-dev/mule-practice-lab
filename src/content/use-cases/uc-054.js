@@ -78,7 +78,7 @@ A property insurer wants to sell **home insurance** through two new channels, us
 |---|---|---|---|
 | **Broker portal** (web) | 3,000 independent brokers' staff | Quote, adjust cover, **bind** (issue policy), download documents | ~4,000 quotes/day, 25% bind |
 | **Aggregator partners** (3 price-comparison sites) | Partner systems | Very high-volume quote (prices shown in a comparison grid), then hand-off of the customer to buy | **~400,000 quotes/day**, peaks 120 quotes/s, conversion < 1% |
-| (existing) **Direct website** | Consumers | Quote and buy — currently calls Guidewire directly through a point-to-point integration | ~20,000 quotes/day |
+| (existing) **Direct website** | Consumers | Quote and buy; currently calls Guidewire directly through a point-to-point integration | ~20,000 quotes/day |
 
 | System | Role | Interface | Notes |
 |---|---|---|---|
@@ -94,7 +94,7 @@ Constraints:
 - Each aggregator has a **commission and pricing agreement**: the price may differ per channel (channel loading).
 - A quote is guaranteed for **30 days**; bind must use exactly the quoted price unless risk details changed.
 - Broker portal: brokers bind on behalf of customers; commission recorded per broker.
-- The rating engine takes about 50 calls a second at 250 ms. Aggregators peak at 120 quotes a second, and a faulty aggregator could send 400 a second while brokers send 5.
+- The rating engine takes about 50 calls a second at 250 ms. Aggregators peak at 120 quotes a second, and a faulty aggregator could send 400 a second while brokers send 5. The aggregator contract allows at most 150 quotes a second in all, the rating engine must never get more than 50 calls a second, and broker quotes must keep getting through.
 
 **Questions:**
 1. Decompose into APIs per layer (names, resources, consumers). Where does the existing direct website fit?
@@ -136,7 +136,7 @@ Constraints:
 | Experience | **exp-direct-web** (migration) | \`POST /quotes\`, \`POST /quotes/{id}/purchase\` | Replaces point-to-point integration | Direct website |
 | Process | **prc-home-quote** | \`POST /quotes\`, \`GET /quotes/{id}\`, \`PATCH /quotes/{id}\` | Enrich address (property data), rate, apply channel loading/commission, store quote with 30-day guarantee | all Experience APIs |
 | Process | **prc-home-policy** | \`POST /policies\` (from quoteId), \`GET /policies/{no}\` | Bind saga, re-validation, fraud/credit, PolicyCenter, payment, documents | broker, direct-web |
-| Process | **prc-policy-documents** (event-driven) | consumes \`PolicyBound\` | Generate and deliver documents | — |
+| Process | **prc-policy-documents** (event-driven) | consumes \`PolicyBound\` | Generate and deliver documents | Events only |
 | System | **sys-policycenter** | \`POST /submissions\`, \`POST /submissions/{id}/quote\`, \`POST /submissions/{id}/bind\`, \`GET /policies/{no}\` | Wrap Guidewire; concurrency limit | prc-home-policy |
 | System | **sys-rating-engine** | \`POST /ratings\` | Wrap rating engine | prc-home-quote |
 | System | **sys-property-data** | \`GET /properties/{uprn}\`, \`GET /addresses?postcode=\` | Wrap provider, cache (TTL weeks) | prc-home-quote |
@@ -185,7 +185,7 @@ Constraints:
 - Rating engine down → aggregator gets a fast \`503\` (better than a timeout); brokers see "pricing unavailable".
 - PolicyCenter slow/unavailable at bind → accept the bind request as \`202 PENDING\` and complete from a queue, notifying the broker (business must agree).
 - Personal data minimised in logs; partner contracts use OAuth + mTLS; quote store encrypted at rest.
-- Monitor per-aggregator latency and error rates — the aggregator SLA is commercially critical.
+- Monitor per-aggregator latency and error rates, because the aggregator SLA is commercially critical.
 `,
   followUps: [
     { q: 'Why not create a PolicyCenter submission for every aggregator quote, like the direct website does today?', a: 'At 400,000 quotes/day with <1% conversion, PolicyCenter would be overloaded (2.5 s, ~40 concurrent) and fill with junk submissions. Rating directly and creating the submission only on bind is the standard pattern.' },

@@ -19,8 +19,8 @@ Every night the inventory positions per SKU and distribution centre are pulled f
 Policies are per **SKU** (they apply to every location).
 
 **Output**
-- \`suggestions\`: \`sku\`, \`location\`, \`projected\`, \`orderQty\` — sorted by \`sku\`, then \`location\`.
-- \`noPolicy\`: SKUs that have inventory rows but no policy — each SKU **once**, sorted.
+- \`suggestions\`: \`sku\`, \`location\`, \`projected\`, \`orderQty\`, sorted by \`sku\`, then \`location\` (both as text).
+- \`noPolicy\`: SKUs that have inventory rows but no policy, each SKU **once**, sorted as text.
 `,
   inputs: [
     {
@@ -94,7 +94,8 @@ fun orderQty(e) = do {
 {
   suggestions: evaluated
     filter ($.policy != null and $.projected <= $.policy.reorderPoint)
-    orderBy ($.sku ++ "|" ++ $.location)
+    orderBy $.location
+    orderBy $.sku
     map (e) -> {
       sku: e.sku,
       location: e.location,
@@ -116,13 +117,14 @@ Worked numbers for the sample:
 | SKU-40 / DC1 | 6 | 6 > 5 ✘ | | | |
 
 - The **lookup** (\`groupBy\` once, key access per row) keeps this linear even with tens of thousands of positions.
-- \`onOrder\` counts toward the position — otherwise every night re-orders stock that is already on its way.
+- \`onOrder\` counts toward the position; otherwise every night re-orders stock that is already on its way.
 - \`ceil\` rounds up. \`round\` happens to give 8 cases for 95/12 = 7.9, but would turn 7.2 cases into 7 and leave the location below its max level.
 - The comparison is \`<=\`, so SKU-20 sitting exactly at its reorder point is replenished.
-- A negative \`projected\` (more allocated than on hand) is valid — it means backorders — and simply increases the need.
+- A negative \`projected\` (more allocated than on hand) is valid (it means backorders) and increases the need.
 
 Common traps:
-- Sorting by \`sku\` only — DC order then depends on input order.
+- Sorting by \`sku\` only: DC order then depends on input order.
+- Sorting on a joined key such as \`sku ++ "|" ++ location\`: \`"SKU-1|..."\` then sorts after \`"SKU-10|..."\` because \`|\` comes after the digits. Sort by \`location\` first and then by \`sku\` (\`orderBy\` keeps the earlier order for equal keys).
 - Listing SKU-30 once per location in \`noPolicy\`.
 `,
   tests: [
@@ -156,7 +158,7 @@ Common traps:
     },
     {
       q: 'Inventory comes from the WMS every 15 minutes, but policies change weekly. How would you cache the policies?',
-      a: 'Load them into an object store or a cache scope keyed by a version or date, and refresh on a schedule or on a change event. The DataWeave stays the same because `policies` is just another input.',
+      a: 'Load them into an object store or a cache scope keyed by a version or date, and refresh on a schedule or on a change event. The DataWeave stays the same because `policies` is one more input.',
     },
     {
       q: 'How would you avoid ordering the same quantity again tomorrow if the PO is not yet in onOrder?',

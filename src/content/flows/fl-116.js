@@ -177,6 +177,8 @@ Facts:
 - Each store call takes about **2 seconds**. A few stores are slow or offline at any time.
 - The partner gateway allows **at most 8 open connections** from the chain. Above that it returns 503 to every caller.
 - The business wants each run to finish in **90 seconds**.
+- A store that has not answered within **5 seconds** counts as failed.
+- The body of the PUT is the row's \`slots_json\`. Mark a sent row with \`status = 'SENT'\` and \`sent_at\`.
 
 The first version used For Each. It took over 8 minutes, so runs overlapped. A developer then tried Parallel For Each with no limit, and the gateway started returning 503 to everyone.
 

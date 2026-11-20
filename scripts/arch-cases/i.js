@@ -497,4 +497,6 @@ export default async ({ failsOn, passes, line, cut, flip, swap, draw, box, unbox
   })
   // No redelivery limit: rejected reports are retried for ever and never reach the DLQ.
   await failsOn('cs-102', 'Run: Some reports cannot be created', (d) => set(d, 'q', { maxRedelivery: undefined }))
+  // A limit of 5 deliveries: the 30 minute maintenance sends good reports to the DLQ.
+  await failsOn('cs-102', 'Run: Nightly maintenance', (d) => set(d, 'q', { maxRedelivery: 5 }))
 }

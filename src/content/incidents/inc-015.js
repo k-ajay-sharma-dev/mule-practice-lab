@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why are allowlisted partners rejected?',
         options: [
-          'Behind the DLB, remoteAddress is the load balancer IP, so no partner IP ever matches',
-          'The partners changed their public IPs',
-          'The CIDR 198.51.100.0/28 was typed wrong',
-          'The app crashed at 16:30',
+          'Behind the DLB, remoteAddress is the load balancer IP, so no partner matches',
+          'The partners moved to new public IPs on the same afternoon',
+          'The CIDR 198.51.100.0/28 was entered with the wrong network mask',
+          'The policy also needs a client ID, which the partners do not send',
         ],
         answer: 0,
         explain: 'The policy sees 10.40.x.x addresses (the DLB). Sandbox works because partners call the worker directly, so remoteAddress is the real client there.',
@@ -32,20 +32,20 @@ export default {
         type: 'single',
         prompt: 'What do you do **right now**?',
         options: [
-          'Redeploy the application',
-          'Remove or disable the IP Allowlist policy on the prod instance and confirm 200s return',
-          'Add 10.0.0.0/8 to the allowlist',
-          'Ask partners to call the worker URL directly',
+          'Redeploy the application so it picks up the new policy cleanly',
+          'Remove or disable the IP Allowlist policy on prod, then confirm 200s return',
+          'Add 10.0.0.0/8 to the allowlist so the load balancer is accepted',
+          'Ask the partners to call the worker URL directly instead of the DLB',
         ],
         answer: 1,
-        explain: 'Policy changes apply without redeploy. Allowlisting 10.0.0.0/8 would let every request through the DLB, making the policy useless.',
+        explain: 'Policy changes apply without redeploy. Allowlisting 10.0.0.0/8 would let every request through the DLB, making the policy useless. Moving partners to the worker URL bypasses the DLB and takes days to roll out.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the **permanent fix and prevention**?',
         options: [
           'Read the client IP from X-Forwarded-For, using the entry added by the trusted load balancer',
-          'Or enforce the IP allowlist at the DLB itself',
+          'Enforce the IP allowlist at the DLB itself instead',
           'A non-prod environment with the same DLB path for testing policies',
           'A smoke test and 403-spike alert after any prod policy change',
           'Always trust the first value of X-Forwarded-For',
@@ -69,7 +69,7 @@ export default {
   },
   description: `
 ## Symptoms
-- At **16:30** all clients of \`partner-orders-xapi\` (prod) started getting **HTTP 403** — including the partners whose IPs are on the allowlist.
+- At **16:30** all clients of \`partner-orders-xapi\` (prod) started getting **HTTP 403**, including the partners whose IPs are on the allowlist.
 - The app itself was not redeployed; Runtime Manager shows it healthy and its own logs show **no incoming requests** after 16:30.
 - \`/api/*\` on the **sandbox** instance of the same API works fine.
 
@@ -102,14 +102,14 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'Identifies that the policy evaluates remoteAddress, which behind the DLB is the load balancer\'s internal 10.x address, not the partner\'s IP — so nobody matches the allowlist.',
+    'Identifies that the policy evaluates remoteAddress, which behind the DLB is the load balancer\'s internal 10.x address, not the partner\'s IP. So nobody matches the allowlist.',
     'Explains why sandbox works (no DLB in the path) and why the app logs show nothing (policies reject the request before the flow runs).',
     'Immediate: remove or disable the policy in API Manager (takes effect without redeploying), confirm traffic resumes.',
     'Permanent fix: configure the IP expression to read the client IP from X-Forwarded-For as set by the trusted DLB. Be careful to use the address added by the load balancer rather than a client-supplied value.',
     'Prevention: apply and test policy changes in a non-prod environment with the same network path as prod, and use change control for policy changes on prod.',
   ],
   solution: `
-**Diagnosis.** The IP Allowlist policy compares the partner list with \`attributes.remoteAddress\` — the address of the **TCP peer**. In prod that peer is the **Dedicated Load Balancer**, whose internal \`10.40.x.x\` addresses are what the policy sees. No partner IP ever matches, so every request is rejected with **403** at the policy layer, before the flow runs (hence no app logs). Sandbox works because partners call the worker directly, so \`remoteAddress\` really is the client.
+**Diagnosis.** The IP Allowlist policy compares the partner list with \`attributes.remoteAddress\`, the address of the **TCP peer**. In prod that peer is the **Dedicated Load Balancer**, whose internal \`10.40.x.x\` addresses are what the policy sees. No partner IP ever matches, so every request is rejected with **403** at the policy layer, before the flow runs (hence no app logs). Sandbox works because partners call the worker directly, so \`remoteAddress\` really is the client.
 
 **Immediate mitigation.** In API Manager, **remove or disable** the IP Allowlist policy on the prod instance. Policy changes are applied by the gateway without a redeploy, usually within a minute or so. Confirm 200s return and tell the partners.
 

@@ -80,9 +80,9 @@ export default {
       prompt: 'Making `effectiveDate` a required query parameter on search is…',
       options: [
         'Non-breaking, because it only adds a parameter',
-        'Breaking, because existing requests without it now get 400 — unless v1 keeps it optional with a default',
-        'A patch change',
-        'Only breaking for the mobile app',
+        'Breaking, because old requests without it now get 400',
+        'Non-breaking, if the spec marks the new parameter as required',
+        'Breaking only for clients that send no other query parameters',
       ],
       answer: 1,
       explain: 'Old clients send requests without the parameter; making it required turns valid requests into errors. Keeping it optional with a default is the additive alternative.',
@@ -95,7 +95,7 @@ export default {
         'Full semver in the URL, e.g. /policies/v1.5.0',
         'Major version in the URL path; full semver as the Exchange asset version',
         'Only in a custom header, never in the URL',
-        'Nowhere — consumers always get the latest version',
+        'Only in the Exchange asset version; the URL never carries one',
       ],
       answer: 1,
       explain: 'Only breaking changes should force consumers to change URLs. Minor and patch versions are tracked on the Exchange asset (contract) and never change the URL.',
@@ -105,13 +105,13 @@ export default {
       needsScenario: true,
       prompt: 'How do you run v1 and v2 side by side at low cost?',
       options: [
-        'Fork the whole stack: separate Process and System APIs for v2',
-        'Separate API instances in API Manager for v1 and v2, both calling the same Process/System APIs; v1 is just an older mapping in the Experience layer',
+        'Fork the whole stack, with separate Process and System APIs for v2',
+        'Separate API Manager instances for v1 and v2, both calling the same Process and System APIs',
         'One API instance with a Choice router on a version query parameter',
-        'Retire v1 on the day v2 is published',
+        'A second Mule app for v2 that calls the policy system directly, skipping the shared layers',
       ],
       answer: 1,
-      explain: 'Separate instances give each version its own policies and client contracts. Sharing the lower layers keeps the cost of the old version small.',
+      explain: 'Separate instances give each version its own policies and client contracts. Sharing the lower layers keeps the cost of the old version small: v1 is only an older mapping in the Experience layer.',
     },
     {
       type: 'order',
@@ -139,7 +139,7 @@ export default {
     },
   ],
   description: `
-An insurance company exposes a **Policy Experience API** (\`/policies\`) used by its own mobile app, a broker portal and **14 external broker partners**. The API is published in Exchange as version \`1.4.2\` and the URL is \`https://api.insure.com/policies/v1\`.
+An insurance company exposes a **Policy Experience API** (\`/policies\`) used by its own mobile app, a broker portal and **14 external broker partners**. The API is published in Exchange as version \`1.4.2\` and the URL is \`https://api.harborline-insurance.example/policies/v1\`.
 
 The product team now wants to:
 1. Add an optional \`riskScore\` field to the policy response.
@@ -167,7 +167,7 @@ Traffic once v2 is live: the mobile app sends **120 requests a second** and the 
     'Adding an optional response field is non-breaking (minor version, e.g. 1.5.0); renaming a field and adding a required parameter are breaking (new major, v2).',
     'Only the major version appears in the URL (/v1, /v2); minor/patch versions are tracked as the Exchange asset version (semantic versioning).',
     'v1 and v2 run as separate API instances in API Manager, ideally backed by the same Process/System APIs so only the Experience mapping differs.',
-    'Deprecation is communicated with a dated sunset policy (e.g. 6–12 months), Exchange/API Manager deprecation status, and Deprecation/Sunset response headers.',
+    'Deprecation is communicated with a dated sunset policy (e.g. 6 to 12 months), Exchange/API Manager deprecation status, and Deprecation/Sunset response headers.',
     'Retirement is driven by data: API analytics show which client apps still call v1, and those owners are contacted before shutdown.',
     'Size each version for its own traffic: v2 carries 150 requests a second and needs 0.5 vCore, while v1 with 15 a second stays on 0.1 vCore. Client ID enforcement on both instances refuses unknown callers.',
   ],
@@ -175,18 +175,18 @@ Traffic once v2 is live: the mobile app sends **120 requests a second** and the 
 **Breaking vs non-breaking.**
 | Change | Breaking? | Result |
 |---|---|---|
-| Add optional \`riskScore\` | No — tolerant readers ignore unknown fields | Minor: \`1.5.0\`, still \`/v1\` |
-| Rename \`holderName\` → \`holder\` object | Yes — existing clients lose a field | Major: \`v2\` |
-| Make \`effectiveDate\` required | Yes — old requests now get 400 | Major: \`v2\` (or keep optional with a default in v1) |
+| Add optional \`riskScore\` | No: tolerant readers ignore unknown fields | Minor: \`1.5.0\`, still \`/v1\` |
+| Rename \`holderName\` → \`holder\` object | Yes: existing clients lose a field | Major: \`v2\` |
+| Make \`effectiveDate\` required | Yes: old requests now get 400 | Major: \`v2\` (or keep optional with a default in v1) |
 
-A useful trick: avoid breaking changes where you can. For the rename you could *add* \`holder\` in v1 and keep \`holderName\` (deprecated) — a minor change. Only bundle into v2 what truly cannot be done additively.
+A useful trick: avoid breaking changes where you can. For the rename you could *add* \`holder\` in v1 and keep \`holderName\` (deprecated): a minor change. Only bundle into v2 what truly cannot be done additively.
 
 **Where the version lives.**
-- **Major version in the URL path** (\`/policies/v2\`). It is visible, easy to route at the gateway, easy to see in logs and analytics, and simple for partners. Header- or media-type-based versioning is cleaner in theory but harder for partners and caches.
+- **Major version in the URL path** (\`/policies/v2\`). It is visible, routes cleanly at the gateway, shows up in logs and analytics, and is clear for partners. Header- or media-type-based versioning is cleaner in theory but harder for partners and caches.
 - **Exchange asset version** uses semver (\`2.0.0\`, \`2.1.0\`) for the contract (RAML/OAS). Minor/patch never change the URL.
 - Document a compatibility rule: "within a major version we only add optional fields and endpoints; clients must ignore unknown fields."
 
-**Side by side.** Create a **separate API instance** in API Manager for v2 (own policies, own client contracts). Implementation options: one Mule app serving both base paths, or a second app. Preferably both versions call the **same Process/System APIs** — v1 is just an old mapping in the Experience layer, so the cost of keeping it alive is small.
+**Side by side.** Create a **separate API instance** in API Manager for v2 (own policies, own client contracts). Implementation options: one Mule app serving both base paths, or a second app. Preferably both versions call the **same Process/System APIs**: v1 is only an old mapping in the Experience layer, so the cost of keeping it alive is small.
 
 **Sizing and policies.** Each version is sized for the traffic it carries. v2 takes the mobile app and the broker portal, 150 requests a second, so it gets 0.5 vCore. v1 only serves the 15 partner requests a second, so 0.1 vCore is enough, and the shared Process and System APIs need no copy. That stays well inside the 1.5 vCore budget. Client ID enforcement on the gateway (or on each instance through Autodiscovery) refuses any caller without a registered client ID, and the per-client contracts are what the analytics later use to find who still calls v1.
 
@@ -200,7 +200,7 @@ A useful trick: avoid breaking changes where you can. For the rename you could *
 **Trade-off.** More versions = more freedom for consumers but more operational cost. A policy of "at most two live majors" keeps the platform manageable.
 `,
   followUps: [
-    { q: 'Why not just version every change with a new URL?', a: 'Every URL version is a separate contract to secure, monitor and support. Additive changes do not break tolerant clients, so they belong in minor versions; only breaking changes justify a new major.' },
+    { q: 'Why not version every change with a new URL?', a: 'Every URL version is a separate contract to secure, monitor and support. Additive changes do not break tolerant clients, so they belong in minor versions; only breaking changes justify a new major.' },
     { q: 'A large partner refuses to migrate before the sunset date. What do you do?', a: 'Treat it as a business decision: either extend the date for that client only (keep the instance but block new contracts) with a cost/charge attached, or provide a thin compatibility mapping. Make the exception explicit and time-boxed rather than silently keeping v1 forever.' },
     { q: 'How do you detect accidental breaking changes before release?', a: 'Contract tests in CI: compare the new spec with the published one (diff tooling, governance rulesets) and run consumer-driven or MUnit tests against v1 examples. A breaking diff without a major version bump fails the build.' },
   ],

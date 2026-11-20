@@ -200,6 +200,12 @@ A retailer sends a nightly **4 GB CSV** (~25 million rows of store-level stock p
 - Rows with a bad quantity must be skipped and counted, not fail the load.
 - If the load fails half-way, reporting must not see a partially loaded table.
 - Throughput target: finish in under 2 hours (≈ 3,500 rows/s).
+- If the load fails, email the ops team.
+
+**Facts**
+- The file is \`stock-positions.csv\` in the \`stock-exports\` bucket (S3 Get Object, or \`GET /stock-exports/stock-positions.csv\` over HTTP). Its columns are \`store_id\`, \`sku\` and \`quantity\`.
+- A good quantity is a whole number of 0 or more. An empty or non-numeric quantity is bad.
+- The reporting table is \`stock_positions\` (\`store_id\`, \`sku\`, \`quantity\`, keyed on store and SKU). You may use a staging table \`stock_staging\` with the same columns.
 
 **Design the flow(s):** reading, parsing, chunking, writing, transactional consistency, and the things that would accidentally break streaming.
 `,
@@ -218,21 +224,21 @@ A retailer sends a nightly **4 GB CSV** (~25 million rows of store-level stock p
   keyPoints: [
     'The file is read as a stream (S3 Get Object / File Read with a repeatable file-store or non-repeatable stream), never fully loaded into memory.',
     'DataWeave reads CSV with streaming=true and the script accesses records sequentially (no sizeOf, groupBy, sort, or multiple passes over the payload).',
-    'Rows are written in chunks (For Each batchSize ~1000–5000 or Batch Job) using Database Bulk Insert.',
+    'Rows are written in chunks (For Each batchSize of about 1000 to 5000, or Batch Job) using Database Bulk Insert.',
     'Data is loaded into a staging table, then swapped/merged into the reporting table in one DB transaction after the full load succeeds.',
     'Invalid rows are filtered and counted (or written to a reject stream) without stopping the load.',
   ],
   solution: `
 1. **Trigger:** Scheduler at 01:15 (or an S3 event notification via SQS) → **Amazon S3 Get Object** returns a stream. For local/SFTP sources, use the connector's read with streaming enabled.
 2. **Parse:** Transform Message with \`input payload application/csv streaming=true\` and \`output application/java deferred=true\` that maps each row (\`payload map ...\`) to a DB-ready object and filters invalid rows. The aim is a lazy result that For Each pulls from. The docs show \`deferred=true\` on outputs such as \`application/json\`, but the Java format page does not list it, so test this on your runtime with a large file and watch the heap.
-3. **Chunk:** **For Each** with \`batchSize="2000"\` — each iteration receives a list of 2000 records → **Database Bulk Insert** into \`stock_staging\` with parameterised SQL. Alternatively a **Batch Job** (block size tuned, Batch Aggregator size 2000) which adds per-record failure tracking and parallel blocks at the cost of disk I/O for its persistent queues.
-4. **Bad rows:** filter them out in DataWeave and increment a counter. CSV values are Strings, so \`is Number\` is always false here. Check the text instead, as in \`(row.quantity default "") matches /\\d+/\`: \`matches\` must cover the whole value, so \`abc\`, \`-3\` and an empty value are all skipped, and the \`as Number\` in the map only ever sees digits. Alternatively route them to a reject file written as a separate stream. Don't throw an error per row — exceptions are expensive at 25M rows.
+3. **Chunk:** **For Each** with \`batchSize="2000"\`: each iteration receives a list of 2000 records → **Database Bulk Insert** into \`stock_staging\` with parameterised SQL. Alternatively a **Batch Job** (block size tuned, Batch Aggregator size 2000) which adds per-record failure tracking and parallel blocks at the cost of disk I/O for its persistent queues.
+4. **Bad rows:** filter them out in DataWeave and increment a counter. CSV values are Strings, so \`is Number\` is always false here. Check the text instead, as in \`(row.quantity default "") matches /\\d+/\`: \`matches\` must cover the whole value, so \`abc\`, \`-3\` and an empty value are all skipped, and the \`as Number\` in the map only ever sees digits. Alternatively route them to a reject file written as a separate stream. Don't throw an error per row: exceptions are expensive at 25M rows.
 5. **Consistency:** before the load, \`TRUNCATE stock_staging\`. After the loop, in a single **Try scope with a transaction** (Database), run the swap: \`DELETE\`/\`INSERT ... SELECT\` or a table rename (\`ALTER TABLE ... RENAME\`). Reporting sees either the old or the new full data set.
 6. **Throughput tuning:** larger bulk sizes, DB connection pool, and disabling indexes on staging during load. Run multiple For Each chunks concurrently only if row order doesn't matter (Batch Job or Parallel For Each over chunk lists with bounded concurrency).
 7. **Pitfalls that break streaming:** logging \`#[payload]\`, \`sizeOf(payload)\`, \`groupBy\`/\`orderBy\` on the whole file, reading the payload twice with a non-repeatable stream, or a DataWeave script that references \`payload\` in two places.
 `,
   followUps: [
-    { q: 'For Each with batchSize or Batch Job — which would you pick?', a: 'For Each + Bulk Insert is lighter and fastest for simple loads; Batch Job gives per-record error tracking, on-complete stats and parallel step execution, at the cost of persisting records to its queues.' },
+    { q: 'For Each with batchSize or Batch Job: which would you pick?', a: 'For Each + Bulk Insert is lighter and fastest for simple loads; Batch Job gives per-record error tracking, on-complete stats and parallel step execution, at the cost of persisting records to its queues.' },
     { q: 'How would you restart from row 15 million after a crash?', a: 'Load in committed chunks while recording the last committed line number in a control table, then skip that many rows on restart; staging plus swap keeps reporting unaffected meanwhile.' },
     { q: 'What is the difference between repeatable and non-repeatable streams?', a: 'Repeatable streams buffer content (in memory up to a limit, then a temp file) so it can be read several times; non-repeatable streams can only be consumed once but use the least memory.' },
   ],

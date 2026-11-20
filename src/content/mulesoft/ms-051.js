@@ -11,13 +11,13 @@ export default {
       detail: true,
       prompt: 'Where does the Anypoint mocking service get its response data?',
       options: [
-        'From a sample of production traffic',
-        'From the examples declared in the spec for the matching method/response',
-        'It generates random data from the types',
-        'From the Process API team\'s database',
+        'From a recorded sample of production traffic',
+        'From the examples declared in the spec',
+        'From random values generated from the types',
+        'From a test database the provider team loads',
       ],
       answer: 1,
-      explain: 'It returns the status codes and example payloads defined in the spec. Random values from the types appear only if the caller sends the `MS2-Randomize` header and no example exists — one more reason good specs include examples.',
+      explain: 'It returns the status codes and example payloads defined in the spec for the matching method and response. Random values from the types appear only if the caller sends the `MS2-Randomize` header and no example exists. That is one more reason good specs include examples.',
     },
     {
       type: 'single',
@@ -25,12 +25,12 @@ export default {
       prompt: 'Which spec should the **mobile** team review in the consumer-driven workflow?',
       options: [
         'The Inventory System API spec',
-        'The Orders Process API spec — the one they actually call',
-        'Both, equally',
-        'Neither; they review the implementation later',
+        'The Orders Process API spec',
+        'Both specs, with equal weight',
+        'Neither, until the implementation is ready',
       ],
       answer: 1,
-      explain: 'The Experience API never calls the System API directly. The Process API team reviews the System API contract.',
+      explain: 'They review the spec they actually call. The Experience API never calls the System API directly. The Process API team reviews the System API contract.',
     },
     {
       type: 'single',
@@ -48,13 +48,13 @@ export default {
       type: 'single',
       prompt: 'How do you switch the Experience API from the mock to the real Process API with minimal change?',
       options: [
-        'Search-and-replace the mock URL in all flows',
-        'Keep the host/base path in environment properties and point them at the real endpoint when it is deployed',
-        'Redeploy the mock with real data',
-        'Ask the Process API team to host on the mock URL',
+        'Search and replace the mock URL in every flow',
+        'Change the host and base path properties per environment',
+        'Load real data into the mock and keep calling it',
+        'Ask the Process API team to deploy on the mock URL',
       ],
       answer: 1,
-      explain: 'Then it is a configuration change; add client credentials once a contract exists and rerun the same integration tests.',
+      explain: 'Keep the host and base path in environment properties and point them at the real endpoint when it is deployed. Then it is a configuration change; add client credentials once a contract exists and rerun the same integration tests.',
     },
     {
       type: 'order',
@@ -72,12 +72,12 @@ export default {
       prompt: 'The mobile team wants to load-test against the mock. Good idea?',
       options: [
         'Yes, the mock reflects the implementation\'s performance',
-        'No — it is a design-time aid; load testing must target a deployed implementation',
-        'Yes, if the public URL is enabled',
-        'Only for GET requests',
+        'No, a load test must target a deployed implementation',
+        'Yes, once the public mock URL is enabled',
+        'Only for GET requests, which the mock serves from cache',
       ],
       answer: 1,
-      explain: 'The mock has no relation to the real implementation\'s performance.',
+      explain: 'The mock is a design-time aid. It has no relation to the real implementation\'s performance.',
     },
   ],
   description: `
@@ -87,7 +87,7 @@ The architect proposes: "Design both specs now, get the mobile team to review th
 
 **Questions**
 1. What is the Anypoint mocking service, where do you access it, and where does its response data come from?
-2. How does consumer-driven design work here — who reviews what, and when?
+2. How does consumer-driven design work here: who reviews what, and when?
 3. What are the limits of a mock (what will it *not* tell you)?
 4. How do you switch the mobile team from the mock to the real API later with minimal change?
 `,
@@ -115,13 +115,13 @@ The architect proposes: "Design both specs now, get the mobile team to review th
 
 **Consumer-driven design workflow**
 1. Process API team drafts the Orders Process API spec; Inventory team drafts the System API spec.
-2. The mobile team reviews the Process API contract (not the System API — they never call it directly) in Exchange: does it provide the fields the screens need, in the shape and page size they need? Comments go back to the spec owners.
+2. The mobile team reviews the Process API contract (not the System API, which they never call directly) in Exchange: does it provide the fields the screens need, in the shape and page size they need? Comments go back to the spec owners.
 3. Specs iterate (0.x / pre-release or development lifecycle state) until agreed, then are published as 1.0.0.
 4. The mobile team builds the Experience API against the Process API **mock**; the Process API team builds against the System API mock.
 5. Examples agreed in the spec double as acceptance criteria for implementation and MUnit tests.
 
 **Limits of mocks**
-- Static example data — no real lookups, no state (a POST then a GET won't return what you created).
+- Static example data: no real lookups, no state (a POST then a GET won't return what you created).
 - No realistic latency, throughput or timeout behaviour.
 - No API Manager policies, so client ID / OAuth flows aren't exercised.
 - No backend business rules or real error conditions beyond what the examples show.

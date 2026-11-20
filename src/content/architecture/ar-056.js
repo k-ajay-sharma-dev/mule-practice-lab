@@ -92,7 +92,7 @@ export default {
     },
   },
   description: `
-A bank's API-led estate runs on CloudHub 2.0 in a **Private Space** with a VPN to on-prem. Consumers: a mobile app (customers log in), partner fintechs (machine-to-machine), and internal apps.
+A bank's API-led estate runs on CloudHub 2.0 in a **Private Space** with a VPN to on-prem. Consumers: a mobile app (customers log in with the bank identity provider), partner fintechs (machine-to-machine), and internal apps. Traffic from the internet enters through a public ingress, where API Manager policies apply.
 
 Customers send about 40 requests a second. Each partner has an SLA tier of **30 a second**, and one partner has sent bursts of 200. Core banking answers in about 300 ms and takes at most **100 calls a second**; the CRM answers in about 150 ms. The bank identity provider has had outages, and callers that already hold a token must keep working during one. (In the Run tab, traffic starts at the mobile and partner Experience APIs, where the public gateway hands it over.)
 
@@ -119,7 +119,7 @@ An auditor asks: *"Show me how each layer is secured, how the layers trust each 
     'Process and System APIs are internal: at minimum client-id enforcement so each calling app is identified and has a contract; mTLS or JWT between layers in stricter (zero-trust) setups.',
     'End-user identity is propagated as validated claims (e.g. a forwarded/derived JWT or customer id header set by the trusted Experience API), and authorisation on data ownership happens where the data is resolved.',
     'Only Experience APIs are exposed via public ingress; Process and System apps use private/internal endpoints reachable only inside the Private Space/VPC or via VPN.',
-    'Backend credentials exist only in System API apps, stored as secure (encrypted) properties or in a secrets manager — never in upper layers.',
+    'Backend credentials exist only in System API apps, stored as secure (encrypted) properties or in a secrets manager: never in upper layers.',
     'In settings: JWT validation on both Experience APIs (no call to the IdP per request), a 30 a second rate limit on the partner Experience API, and client ID enforcement on the Process and System APIs.',
   ],
   solution: `
@@ -158,11 +158,11 @@ Internet ──TLS──> [public ingress] ──> exp-mobile-api   (OAuth2/OIDC
 - \`prc-accounts-api\` and the System APIs: **client ID enforcement**. They are only called by the layer above, so the policy identifies those apps; outside callers never reach them.
 - Sizing: the mobile Experience API, the Process API and both System APIs get 0.2 vCore each; the partner API stays at 0.1 because its limit caps what it carries.
 
-**Backend credentials.** Only System API apps hold SAP/DB credentials, stored as **secure properties** (encrypted in config, key supplied at deploy time as a protected property) or fetched from a vault/secrets manager. Process and Experience apps never hold backend credentials — that is one of the security benefits of the System layer.
+**Backend credentials.** Only System API apps hold SAP/DB credentials, stored as **secure properties** (encrypted in config, key supplied at deploy time as a protected property) or fetched from a vault/secrets manager. Process and Experience apps never hold backend credentials: that is one of the security benefits of the System layer.
 `,
   followUps: [
     { q: 'Is client-id enforcement enough security for internal APIs?', a: 'It identifies the caller but a client id/secret is a shared secret sent with each request. Combined with private networking it is a common baseline; for sensitive data add mTLS or token-based (JWT/OAuth) auth for zero trust.' },
     { q: 'Should the Process API re-validate the end-user\'s OAuth token?', a: 'It can if the token is a JWT it can validate cheaply, which is the most robust option. Many estates instead trust claims from authenticated Experience APIs; that is acceptable only with strong app-to-app auth and private networking.' },
-    { q: 'Where do you apply policies — API gateway or inside the Mule app?', a: 'Policies applied through API Manager (autodiscovery on the Mule app, or Flex Gateway in front) so they are centrally managed and changed without redeploying; app code handles only fine-grained business authorisation.' },
+    { q: 'Where do you apply policies: API gateway or inside the Mule app?', a: 'Policies applied through API Manager (autodiscovery on the Mule app, or Flex Gateway in front) so they are centrally managed and changed without redeploying; app code handles only fine-grained business authorisation.' },
   ],
 }

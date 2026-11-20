@@ -18,7 +18,7 @@ A reefer trailer carrying vaccines uploads its data-logger readings when it reac
 - \`peakC\`: the highest temperature of a \`HIGH\` run, the lowest of a \`LOW\` run.
 - Output timestamps exactly as received (the original strings).
 
-**Output**: \`shipmentId\`, \`excursions\` (\`type\`, \`start\`, \`end\`, \`durationMinutes\`, \`peakC\`, \`open\`) in time order, \`totalExcursionMinutes\`, and \`compliant\` — \`true\` when **no** excursion lasts 30 minutes or more.
+**Output**: \`shipmentId\`, \`excursions\` (\`type\`, \`start\`, \`end\`, \`durationMinutes\`, \`peakC\`, \`open\`) in time order, \`totalExcursionMinutes\` (sum of all durations, \`0\` when there are none), and \`compliant\`: \`true\` when **no** excursion lasts 30 minutes or more.
 `,
   inputs: [
     {
@@ -62,7 +62,7 @@ output application/json
 payload.readings orderBy $.ts
 `,
   hints: [
-    'Sort on `$.ts as DateTime`, not on the string — strings with different offsets do not sort chronologically. Keep the original string next to the parsed value.',
+    'Sort on `$.ts as DateTime`, not on the string: strings with different offsets do not sort chronologically. Keep the original string next to the parsed value.',
     'Classify each reading (`HIGH`/`LOW`/`OK`), then use `reduce` to build **runs**: if the reading has the same class as the last run, append it to that run, otherwise start a new run. `take` from `dw::core::Arrays` gives "all but the last" safely.',
     'With the runs as an array, `map (run, i)` can look at `runs[i + 1]` to find the end of an excursion. `DateTime as Number` is epoch seconds.',
   ],
@@ -125,10 +125,10 @@ Runs: \`OK, HIGH, OK, LOW, OK, HIGH\`. Including the \`OK\` runs in the array is
 
 Details that matter:
 - **Sorting by instant**: \`as DateTime\` respects the offset; sorting the raw strings would put \`01:10+01:00\` after \`00:20Z\`.
-- **Updating the last run**: \`acc take (sizeOf(acc) - 1)\` is safe for a one-element array; slicing with \`acc[0 to -2]\` is not (on a one-element array it returns \`null\` instead of \`[]\`, and \`null ++ [...]\` fails).
+- **Updating the last run**: \`acc take (sizeOf(acc) - 1)\` is safe for a one-element array; slicing with \`acc[0 to -2]\` is not (on a one-element array it gives \`null\`, not \`[]\`).
 - **Duration**: \`DateTime as Number\` gives epoch seconds; the difference divided by 60 is minutes. Subtracting two \`DateTime\`s directly gives a \`Period\`, which is awkward to turn into a number.
 - \`"type"\` is quoted as a key and selector because \`type\` is a DataWeave keyword.
-- \`excursions.durationMinutes\` is \`null\` when there are no excursions, hence \`default []\`.
+- With no excursions, \`excursions.durationMinutes\` is \`null\`, not \`[]\`. The \`default []\` turns it into \`[]\`, and \`sum([])\` is \`0\`.
 
 Common traps:
 - Ending an excursion at its own last out-of-range reading: the 08:30 run would last 15 minutes and the shipment would look compliant.

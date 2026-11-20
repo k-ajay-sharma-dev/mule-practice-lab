@@ -89,6 +89,8 @@ export default {
 - Local legal rules differ (kept generic); some countries require data to be processed in-country or by specific providers.
 - HR changes are often entered late or retroactively.
 - Before a cut-off about 5 pay changes a second go out. The global aggregator can take 15 seconds to accept a change, or be down for an hour.
+- Queue changes per provider (for example \`pay-changes-aggregator\` and \`pay-changes-local-de\`). A queue redelivers a failed message about once a minute, so its redelivery limit must cover an hour-long outage, or be left unlimited.
+- Name the APIs prc-pay-input-api, prc-payroll-results-api, sys-hr-api, sys-payroll-aggregator-api, sys-payroll-<country>-api and sys-erp-journals-api. The aggregator API waits up to 30 seconds for an answer.
 
 **Your task.** Propose:
 - the integration architecture
@@ -119,13 +121,13 @@ export default {
     'Country-by-country rollout with parallel runs before cut-over.',
   ],
   solution: `
-**Architecture.** \`hr-sapi\` (HR system APIs/integration events) → \`pay-input-papi\` (builds canonical \`PayInput\`: employee, effective date, change type, compensation elements, bank, absence) → provider adapters \`payroll-aggregator-sapi\` (API) and \`payroll-<country>-sapi\` (mostly SFTP files with PGP encryption). A country configuration store holds provider, format, cut-off calendar, required fields and data-minimisation rules.
+**Architecture.** \`sys-hr-api\` (HR system APIs/integration events) → \`prc-pay-input-api\` (builds canonical \`PayInput\`: employee, effective date, change type, compensation elements, bank, absence) → one queue per provider → provider adapters \`sys-payroll-aggregator-api\` (API, 30 second timeout because the aggregator can take 15 seconds) and \`sys-payroll-<country>-api\` (mostly SFTP files with PGP encryption). A country configuration store holds provider, format, cut-off calendar, required fields and data-minimisation rules.
 
-**Change detection.** Prefer HR change events/effective-dated transactions; where unavailable, nightly snapshot comparison. Each change carries effective date and entered date; retroactive changes are flagged so providers can calculate arrears. Changes are queued per country and delivered on the provider's preferred rhythm (real time for the aggregator, daily or per-cycle files for local providers).
+**Change detection.** Prefer HR change events/effective-dated transactions; where unavailable, nightly snapshot comparison. Each change carries effective date and entered date; retroactive changes are flagged so providers can calculate arrears. Changes are queued per provider and delivered on the provider's preferred rhythm (real time for the aggregator, daily or per-cycle files for local providers).
 
 **Cut-offs and validation.** A payroll calendar triggers: (1) T-5 days validation report to HR (missing bank details, tax IDs, invalid codes), (2) cut-off final file/batch, (3) late-change alerts routed to payroll managers for manual handling. Files and API batches have control totals (headcount, changed records).
 
-**Results back.** Providers return gross-to-net results and payment files. \`payroll-results-papi\` maps them to a canonical result and posts summarised journals to the ERP (by cost centre, using deterministic references so reruns do not double post). It also lands detailed results in the analytics platform (access-restricted). Reconciliation: HR headcount vs paid headcount, gross totals vs previous month (variance thresholds), bank payments vs net pay.
+**Results back.** Providers return gross-to-net results and payment files. \`prc-payroll-results-api\` maps them to a canonical result and posts summarised journals to the ERP through \`sys-erp-journals-api\` (by cost centre, using deterministic references so reruns do not double post). It also lands detailed results in the analytics platform (access-restricted). Reconciliation: HR headcount vs paid headcount, gross totals vs previous month (variance thresholds), bank payments vs net pay.
 
 **Security.** Each provider receives only the fields it needs; payloads encrypted (TLS, PGP for files); secrets in a vault; Mule logs hold IDs and outcomes, never salaries or bank data; payload archives in encrypted storage with role-based access and retention per policy. In-country processing requirements met by choosing providers/runtime locations accordingly.
 

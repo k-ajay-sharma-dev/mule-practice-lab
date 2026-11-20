@@ -97,7 +97,7 @@ The new design splits it:
 **Numbers**
 - About **2 sales files a second** for half an hour; about **1 ACK a second**.
 - An FTP read or write takes about 2 seconds; at month end, about **30 seconds**, for up to half an hour.
-- The ERP is down for maintenance for up to **an hour**. An ERP batch holds locks and **1 write in 10** times out for up to 20 minutes, and works when tried again.
+- The ERP is down for maintenance for up to **an hour**. An ERP batch holds locks and **1 write in 10** times out for up to 20 minutes, and works when tried again. Each try times out or not on its own. Lock timeouts should cost an ACK seconds, not a minute back on the queue.
 - About **1 ACK in 100** names a file from a test run that the ERP never sent; it is refused every time.
 - In this model calls time out after 10 seconds unless set otherwise, and a failed delivery is tried again about once a minute.
 

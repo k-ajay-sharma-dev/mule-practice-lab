@@ -24,20 +24,20 @@ export const SET_7 = [
     kind: 'choice',
     situation: 'Which line should Copperfield Freight log for each failed attempt inside Until Successful?',
     options: [
-      'Retrying...',
+      'Carrier booking failed, will retry shipmentId=SH-9001 errorType=HTTP:TIMEOUT correlationId=7f3c2a',
       'Carrier booking failed, will retry shipmentId=SH-9001 attempt=2 maxAttempts=5 errorType=HTTP:TIMEOUT correlationId=7f3c2a',
       'ERROR!!! carrier down',
       'Attempt 2 {"shipment":{"id":"SH-9001","pallets":[...],"consignee":{...}}}',
     ],
     answer: 1,
     explain:
-      'It names the shipment, which attempt this is out of how many, and why it failed. The others say nothing searchable, shout ERROR for a handled case, or dump the whole shipment.',
+      'It names the shipment, which attempt this is out of how many, and why it failed. The first option has no attempt number, so nobody can tell how close the booking is to giving up. The others say nothing searchable, shout ERROR for a handled case, or dump the whole shipment.',
   },
   {
     id: 'log-7003',
     kind: 'multi',
     situation:
-      'Until Successful does not log its attempts. Copperfield Freight counts them in vars.attempt. Which facts belong on the line for each failed attempt?',
+      'The retry lines Until Successful writes carry none of your IDs, so Copperfield Freight counts the attempts in vars.attempt and writes its own line for each failed attempt. Which facts belong on that line?',
     options: [
       'The attempt number and the maximum number of attempts',
       'The shipment ID',
@@ -77,13 +77,13 @@ export const SET_7 = [
     id: 'log-7005',
     kind: 'write',
     situation:
-      'All 5 attempts failed and Until Successful raised MULE:RETRY_EXHAUSTED. The error handler puts the shipment on the manual booking queue. Write the line in that handler.',
+      'All 5 attempts failed and Until Successful raised MULE:RETRY_EXHAUSTED. The error handler puts the shipment on the manual booking queue. vars.shipmentId holds the load. Write the line in that handler, with the number of attempts and where the shipment went.',
     available: ['vars.shipmentId', 'vars.attempt', 'error.errorType', 'error.description', 'payload', 'correlationId'],
     level: ['ERROR'],
     checks: [
       says(/fail|could not|not booked|exhausted/i, 'Carrier booking failed after all retries'),
       labelled('shipmentId'),
-      labelled('attempts', 'attempts=5'),
+      labelled('attempts?', 'attempts=5'),
       errorFacts,
       next('next=sent to manual booking queue'),
       corr,
@@ -115,13 +115,13 @@ export const SET_7 = [
     situation: 'Which line should Larkspur Pharmacy log when it drops a duplicate prescription message?',
     options: [
       'MULE:DUPLICATE_MESSAGE',
-      'Skipped',
+      'Duplicate prescription message skipped messageId=msg-7781 deliveryCount=2 correlationId=7f3c2a',
       'Duplicate prescription message skipped prescriptionId=RX-55120 messageId=msg-7781 deliveryCount=2 correlationId=7f3c2a',
       'Duplicate message received: {"patient":{"name":"...","dateOfBirth":"..."},"drug":"..."}',
     ],
     answer: 2,
     explain:
-      'It says what happened and which prescription and message it was, with the delivery count. The last one puts patient data in the logs, which a pharmacy must never do.',
+      'It says what happened and which prescription and message it was, with the delivery count. The second option has no prescription ID, so a pharmacist who asks about one prescription cannot find it. The last one puts patient data in the logs, which a pharmacy must never do.',
   },
   {
     id: 'log-7008',
@@ -167,7 +167,7 @@ export const SET_7 = [
     id: 'log-7010',
     kind: 'write',
     situation:
-      'The Pharmacy System API answered 500 on the fifth delivery of a Larkspur prescription message. The message has used all its deliveries and goes to the dead letter queue. Write the line.',
+      'The Pharmacy System API answered 500 on the fifth delivery of a Larkspur prescription message. The message has used all its deliveries and goes to the dead letter queue. vars.prescriptionId and vars.deliveryCount are set. Write the line, with the delivery count and where the message went.',
     available: ['vars.prescriptionId', 'vars.deliveryCount', 'error.errorType', 'error.description', 'payload', 'payload.patient.name', 'correlationId'],
     level: ['ERROR'],
     checks: [
@@ -234,7 +234,7 @@ export const SET_7 = [
     id: 'log-7014',
     kind: 'write',
     situation:
-      'The Hotel API answered 429. The flow waits the number of seconds in vars.retryAfter before it tries again. vars.hotelId holds the hotel. Write the line.',
+      'The Hotel API answered 429. The flow waits the number of seconds in vars.retryAfter before it tries again. vars.hotelId holds the hotel and attributes.statusCode the status. Write the line with the hotel, the status and the wait.',
     available: ['vars.hotelId', 'vars.retryAfter', 'attributes.statusCode', 'attributes.headers', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -295,13 +295,13 @@ export const SET_7 = [
     situation: 'Which line should the Kestrel claims app log when it fetches a new access token?',
     options: [
       'Token refreshed: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJjbGFpbXMifQ.k3Lm...',
-      'Got token',
+      'Access token refreshed for Claims Core API clientId=claims-intake',
       'Authorization: Bearer eyJhbGciOiJSUzI1NiJ9...',
       'Access token refreshed for Claims Core API clientId=claims-intake expiresIn=3600',
     ],
     answer: 3,
     explain:
-      'It says what happened, which client and when the token expires, without the token. Anyone who reads a logged token can call the API as the app until it expires.',
+      'It says what happened, which client and when the token expires, without the token. The second option leaves out expiresIn, so when calls fail with 401 you cannot tell if the token had run out. Anyone who reads a logged token can call the API as the app until it expires.',
   },
   {
     id: 'log-7018',
@@ -384,11 +384,11 @@ export const SET_7 = [
       'Meter reconciliation finished runDate=2026-11-16 compared=480000 matched=479988 missing=12 resent=12 durationMs=812000',
       'Reconciliation done',
       'Reconciliation finished. Missing: [{"meter":"M-1","customer":{...}}, ... 480000 readings]',
-      'reconciliation ok 479988/480000',
+      'Meter reconciliation finished compared=480000 matched=479988 missing=12 resent=12 durationMs=812000',
     ],
     answer: 0,
     explain:
-      'Labelled counts can be charted night after night, and the run date ties the line to one run. Unlabelled numbers cannot be searched, and the readings themselves belong in a report, not a log.',
+      'Labelled counts can be charted night after night, and the run date ties the line to one run. The last line has the same counts but no run date, so a rerun of last night cannot be told apart from tonight. The readings themselves belong in a report, not a log.',
   },
   {
     id: 'log-7023',

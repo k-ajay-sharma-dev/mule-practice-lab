@@ -100,7 +100,7 @@ A national social-security agency is building a digital platform for **benefit c
 
 Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 80/s), 6,000 applications/day, 40,000 documents/day.
 
-- Expect bots on the public edge: one can send 30 calls a second with no token while citizens send 10.
+- Expect bots on the public edge: one can send 30 calls a second with no token while citizens send 10. Calls without a valid token must be refused at the edge, so they never reach the internal zone.
 
 **Questions:**
 1. Design the API-led network and **place every API in a zone**. What runtime/deployment model do you use (CloudHub 2.0, Runtime Fabric, Flex Gateway, hybrid)?
@@ -126,7 +126,7 @@ Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 80/s), 6,000 a
 ## Reuse for the next benefit
 `,
   keyPoints: [
-    'Experience APIs in the public zone (citizen, intermediary, agency) behind an internet-facing gateway; Process APIs in the internal zone; System APIs in the restricted zone on Runtime Fabric or hybrid runtimes — the API-led layers map naturally onto the security zones.',
+    'Experience APIs in the public zone (citizen, intermediary, agency) behind an internet-facing gateway; Process APIs in the internal zone; System APIs in the restricted zone on Runtime Fabric or hybrid runtimes. The API-led layers map naturally onto the security zones.',
     'Zone crossings only through gateways with mTLS and allow-listing: public → internal via a private ingress (Flex Gateway / RTF ingress), internal → restricted via named service identities; restricted never accepts calls from the public zone.',
     'Citizen identity: national eID (OIDC) token validated at the edge, then exchanged for an internal token carrying a pseudonymous subject + claims (token exchange / internal STS). This way raw eID tokens and national IDs are not propagated outward-in more than necessary.',
     'Intermediaries authenticate as organisations and must present a valid delegation (citizen consent with scope and expiry) checked in a Process API (prc-delegation) on every call.',
@@ -138,18 +138,18 @@ Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 80/s), 6,000 a
 
 | Layer | API | Zone / runtime | Key resources | Responsibility | Consumers |
 |---|---|---|---|---|---|
-| Experience | **exp-citizen-benefits** | Public — CloudHub 2.0 private space (in-country region) or RTF in a cloud VPC, behind WAF | \`GET /me/eligibility\`, \`POST /me/claims\`, \`POST /me/claims/{id}/documents\`, \`GET /me/claims\` | Citizen journeys, eID token validation | Portal, app |
+| Experience | **exp-citizen-benefits** | Public: CloudHub 2.0 private space (in-country region) or RTF in a cloud VPC, behind WAF | \`GET /me/eligibility\`, \`POST /me/claims\`, \`POST /me/claims/{id}/documents\`, \`GET /me/claims\` | Citizen journeys, eID token validation | Portal, app |
 | Experience | **exp-intermediary-benefits** | Public | \`POST /citizens/{ref}/claims\`, \`GET /citizens/{ref}/claims\` | Org auth + delegation reference | Charities, municipalities' case tools |
 | Experience | **exp-agency-gateway** | Public (mTLS, gov PKI) | \`POST /income-change-notifications\`, \`GET /claims/{ref}/status\` (municipalities) | B2G contracts | Tax authority, municipalities |
-| Experience | **exp-caseworker** | Internal — RTF | \`GET /worklist\`, \`POST /claims/{id}/decisions\` | Internal UI shaping (staff SSO) | Caseworker workbench |
-| Process | **prc-eligibility** | Internal — RTF | \`POST /eligibility-assessments\` | Rules (income, household, rent) using register + tax data | exp-citizen, exp-intermediary |
-| Process | **prc-benefit-claims** | Internal — RTF | \`POST /claims\`, \`GET /claims/{id}\`, \`POST /claims/{id}/evidence\` | Claim lifecycle, create case in mainframe, task for caseworkers, notifications | Experience APIs |
-| Process | **prc-delegation** | Internal — RTF | \`GET /delegations/{id}\`, \`POST /delegations\` (citizen grants in portal) | Delegation registry: who may act for whom, scope, expiry | exp-intermediary, prc-benefit-claims |
-| Process | **prc-income-changes** (event-driven) | Internal — RTF | consumes tax notifications | Match to claims, trigger reassessment | — |
-| System | **sys-benefits-mainframe** | Restricted — RTF on-prem (or hybrid Mule runtime) | \`POST /cases\`, \`GET /cases/{id}\`, \`PUT /cases/{id}/decision\` | Wrap CICS via CTG/MQ, copybook mapping | Process APIs |
-| System | **sys-citizen-register** | Restricted — RTF on-prem | \`GET /persons/{pseudoId}\`, \`GET /households/{id}\` | Wrap Db2 replica | prc-eligibility, prc-benefit-claims |
-| System | **sys-payments** | Restricted — RTF on-prem | \`POST /payment-instructions\` (batched to treasury file) | Wrap MFT file interface | prc-benefit-claims |
-| System | **sys-documents** | Internal — RTF | \`POST /documents\` (scan → ECM) | Wrap malware scan + ECM | prc-benefit-claims |
+| Experience | **exp-caseworker** | Internal: RTF | \`GET /worklist\`, \`POST /claims/{id}/decisions\` | Internal UI shaping (staff SSO) | Caseworker workbench |
+| Process | **prc-eligibility** | Internal: RTF | \`POST /eligibility-assessments\` | Rules (income, household, rent) using register + tax data | exp-citizen, exp-intermediary |
+| Process | **prc-benefit-claims** | Internal: RTF | \`POST /claims\`, \`GET /claims/{id}\`, \`POST /claims/{id}/evidence\` | Claim lifecycle, create case in mainframe, task for caseworkers, notifications | Experience APIs |
+| Process | **prc-delegation** | Internal: RTF | \`GET /delegations/{id}\`, \`POST /delegations\` (citizen grants in portal) | Delegation registry: who may act for whom, scope, expiry | exp-intermediary, prc-benefit-claims |
+| Process | **prc-income-changes** (event-driven) | Internal: RTF | consumes tax notifications | Match to claims, trigger reassessment | Events only |
+| System | **sys-benefits-mainframe** | Restricted: RTF on-prem (or hybrid Mule runtime) | \`POST /cases\`, \`GET /cases/{id}\`, \`PUT /cases/{id}/decision\` | Wrap CICS via CTG/MQ, copybook mapping | Process APIs |
+| System | **sys-citizen-register** | Restricted: RTF on-prem | \`GET /persons/{pseudoId}\`, \`GET /households/{id}\` | Wrap Db2 replica | prc-eligibility, prc-benefit-claims |
+| System | **sys-payments** | Restricted: RTF on-prem | \`POST /payment-instructions\` (batched to treasury file) | Wrap MFT file interface | prc-benefit-claims |
+| System | **sys-documents** | Internal: RTF | \`POST /documents\` (scan → ECM) | Wrap malware scan + ECM | prc-benefit-claims |
 | System | **sys-tax-income** | Internal (egress via forward proxy) | \`GET /persons/{id}/income\` | Wrap tax authority API with gov PKI client cert | prc-eligibility |
 
 \`\`\`
@@ -170,12 +170,12 @@ Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 80/s), 6,000 a
 \`\`\`
 
 **Deployment model.**
-- **Control plane**: an in-region control plane meeting residency rules (e.g. EU control plane; MuleSoft Government Cloud where applicable) — or **Anypoint Platform Private Cloud Edition** if policy forbids any external control plane. Only metadata (not payloads) flows to a hosted control plane; runtimes stay in-country.
+- **Control plane**: an in-region control plane meeting residency rules (e.g. EU control plane; MuleSoft Government Cloud where applicable), or **Anypoint Platform Private Cloud Edition** if policy forbids any external control plane. Only metadata (not payloads) flows to a hosted control plane; runtimes stay in-country.
 - **Public zone**: CloudHub 2.0 private space or RTF in a cloud VPC, fronted by WAF + **Flex Gateway** for policy enforcement (JWT validation, rate limiting, threat protection, IP allowlists for agencies).
-- **Internal and restricted zones**: **Runtime Fabric** clusters on the agency's own infrastructure (separate clusters per zone — never one cluster spanning zones), with mainframe connectivity via IBM CTG/MQ connectors from the restricted cluster.
+- **Internal and restricted zones**: **Runtime Fabric** clusters on the agency's own infrastructure (separate clusters per zone, never one cluster spanning zones), with mainframe connectivity via IBM CTG/MQ connectors from the restricted cluster.
 - Zone crossings: mTLS with certificates per calling app; restricted ingress only allows identities of the internal Process APIs.
 
-**Sequence — citizen applies for housing benefit**
+**Sequence: citizen applies for housing benefit**
 1. Citizen logs in with national eID (OIDC authorisation code + PKCE); portal calls exp-citizen-benefits \`POST /me/claims\` with the access token.
 2. Edge gateway: JWT validation against eID provider keys, rate limiting, payload threat protection.
 3. exp-citizen-benefits performs **token exchange** with the agency STS: receives an internal token (subject = **pseudonymous citizen ID**, claims: assurance level, channel, scopes \`claims:create\`), short lifetime. The national ID number isn't sent in the clear through the public zone.
@@ -183,7 +183,7 @@ Volumes: 25,000 eligibility checks/day (peaks after TV campaigns: 80/s), 6,000 a
 5. prc-benefit-claims → sys-benefits-mainframe \`POST /cases\` (restricted zone, service identity) → case ID; creates caseworker task; publishes \`ClaimSubmitted\` on an internal queue (notifications, analytics).
 6. Response \`201 { claimRef }\` flows back; nothing persisted in the public zone. Every step writes an **audit event** (who, on whose behalf, what, when, correlation ID) to an append-only audit store in the internal zone.
 
-**Intermediaries.** Organisations authenticate with OAuth client credentials + mTLS (org certificate); their staff are identified (user claim) for audit. The citizen creates a **delegation** in the portal (prc-delegation: intermediary org, scope e.g. \`apply, track\`, expiry). exp-intermediary-benefits passes the delegation ID; prc-benefit-claims checks with prc-delegation on **every** call that the delegation is active and covers the operation — enforcement lives in the internal zone, not only at the edge. Citizens can see and revoke delegations.
+**Intermediaries.** Organisations authenticate with OAuth client credentials + mTLS (org certificate); their staff are identified (user claim) for audit. The citizen creates a **delegation** in the portal (prc-delegation: intermediary org, scope e.g. \`apply, track\`, expiry). exp-intermediary-benefits passes the delegation ID; prc-benefit-claims checks with prc-delegation on **every** call that the delegation is active and covers the operation. Enforcement lives in the internal zone, not only at the edge. Citizens can see and revoke delegations.
 
 **Documents.** The Experience API **streams** the upload (non-repeatable stream, size limit) straight to sys-documents in the internal zone, which scans for malware and stores in ECM; the public-zone runtime never writes the file to disk or Object Store. Alternatively a short-lived, single-use upload URL to an internal quarantine bucket exposed through the gateway. Either way: content-type/size checks at the edge, malware scan before any caseworker access.
 

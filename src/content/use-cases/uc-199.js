@@ -68,7 +68,8 @@ Two problems in the first month:
 **Numbers**
 - About **2 groups a second** for half an hour; about 1 a second on Sundays.
 - A normal insert takes about 150 ms.
-- While the stock job runs, about **1 insert in 10** is a deadlock victim, for up to 20 minutes.
+- While the stock job runs, about **1 insert in 10** is a deadlock victim, for up to 20 minutes. Each try is a victim or not on its own.
+- Fewer than **1 group in 100** may fail, even during deadlocks.
 - In this model calls time out after 10 seconds unless set otherwise.
 
 **Questions:**
@@ -96,7 +97,7 @@ store-sales-load ─► Store sales SFTP
 store-sales-load ─► sys-sales-data ─► Sales SQL Server
 \`\`\`
 
-**Settings.** \`sys-sales-data\`: timeout 60 seconds, 2 retries. \`store-sales-load\`: timeout 60 seconds.
+**Settings.** \`sys-sales-data\`: timeout 60 seconds, 2 retries (one retry still fails 1 group in 100; two fail about 1 in 1,000). \`store-sales-load\`: timeout 60 seconds.
 
 **Which errors to retry.** In the System API, retry when the SQL error number is 1205 (deadlock victim) or 1222 (lock timeout). Every other error goes back to the job at once.
 `,

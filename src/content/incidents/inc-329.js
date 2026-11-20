@@ -7,11 +7,11 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
-      { text: "2026-11-30 21:00:00 ERROR [sales-out] Write failed: No space left on device", relevant: true, why: "The server disk is full." },
-      { text: "2026-11-30 21:00:00 INFO  [sftp-server] /archive size=480GB of 500GB", relevant: true, why: "Archives fill the disk." },
-      { text: "2026-11-30 21:00:00 INFO  [sales-out] Month end file sizeBytes=9000000000", relevant: true, why: "A very large month end file." },
-      { text: "2026-11-30 21:05:00 INFO  [sales-out] Temp file left /to-planning/sales.tmp sizeBytes=6000000000", relevant: true, why: "A partial temp file remains." },
-      { text: "2026-11-30 23:59:00 INFO  [sales-out] GET /health 200", relevant: false },
+      { text: "2026-11-30 21:00:00 INFO  [sales-out] Upload started /to-planning/sales.tmp sizeBytes=9000000000", relevant: true, why: "A very large month end file, about 9 GB." },
+      { text: "2026-11-30 21:00:00 INFO  [sftp-server] Disk used=494GB of 500GB, /archive=470GB", relevant: true, why: "Archives fill the disk. Only 6 GB is free." },
+      { text: "2026-11-30 21:05:00 ERROR [sales-out] Write failed after 6000000000 bytes: No space left on device", relevant: true, why: "The disk filled part way through the file." },
+      { text: "2026-11-30 21:05:01 WARN  [sales-out] Temp file left /to-planning/sales.tmp sizeBytes=6000000000", relevant: true, why: "A partial temp file remains and holds the space." },
+      { text: "2026-11-30 21:10:00 INFO  [sales-out] GET /health 200", relevant: false },
     ],
     questions: [
       {
@@ -19,24 +19,24 @@ export default {
         prompt: "Why do uploads stop?",
         options: [
           "Archives fill the server disk and the month end file does not fit",
-          "The key expired",
-          "The network",
-          "The platform",
+          "The SSH key for the upload account expired at month end",
+          "The planning platform locked the folder for its month end run",
+          "The connection timed out because the file is so large",
         ],
         answer: 0,
-        explain: "No space left.",
+        explain: "No space left. 9 GB does not fit in the 6 GB that is free.",
       },
       {
         type: 'single',
         prompt: "What should happen to the partial temp file?",
         options: [
           "Delete it so it does not hold space or confuse anyone",
-          "Rename it to final",
-          "Keep it forever",
-          "Upload again next to it",
+          "Rename it to the final name so the platform gets most of the data",
+          "Leave it, the platform ignores .tmp files anyway",
+          "Move it to /archive with the other old files",
         ],
         answer: 0,
-        explain: "Clean up failed uploads.",
+        explain: "Clean up failed uploads. A partial file must never look complete.",
       },
       {
         type: 'multi',
@@ -44,8 +44,8 @@ export default {
         options: [
           "A retention rule for archives",
           "A disk usage alert",
-          "A size check against free space before large uploads",
-          "More archives",
+          "A free space check before large uploads",
+          "Retry the upload every five minutes until it fits",
         ],
         answer: [0,1,2],
         explain: "Capacity needs owners.",
@@ -55,9 +55,9 @@ export default {
         prompt: "Who owns archive retention?",
         options: [
           "The server owner with the data owners",
-          "Mule",
-          "Nobody",
-          "The network team",
+          "The Mule team, since Mule writes the files",
+          "Nobody, archives are kept forever by policy",
+          "The network team that runs the firewall",
         ],
         answer: 0,
         explain: "Agree retention.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-30 21:00:00 ERROR [sales-out] Write failed: No space left on device
-2026-11-30 21:00:00 INFO  [sftp-server] /archive size=480GB of 500GB
-2026-11-30 21:00:00 INFO  [sales-out] Month end file sizeBytes=9000000000
-2026-11-30 21:05:00 INFO  [sales-out] Temp file left /to-planning/sales.tmp sizeBytes=6000000000
+2026-11-30 21:00:00 INFO  [sales-out] Upload started /to-planning/sales.tmp sizeBytes=9000000000
+2026-11-30 21:00:00 INFO  [sftp-server] Disk used=494GB of 500GB, /archive=470GB
+2026-11-30 21:05:00 ERROR [sales-out] Write failed after 6000000000 bytes: No space left on device
+2026-11-30 21:05:01 WARN  [sales-out] Temp file left /to-planning/sales.tmp sizeBytes=6000000000
 \`\`\`
 
 ## Your tasks
@@ -117,7 +117,7 @@ These lines are illustrative and were written for this scenario. Real log format
     "Resend after recovery.",
   ],
   solution: `
-**Diagnosis.** Archives filled the disk, so the month end file failed half way.
+**Diagnosis.** Archives filled the disk, so the 9 GB month end file failed after 6 GB.
 
 **Immediate mitigation.**
 - Free space, delete the temp file, resend.

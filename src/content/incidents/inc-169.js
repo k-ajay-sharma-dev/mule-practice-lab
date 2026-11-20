@@ -93,6 +93,7 @@ export default {
 - Detection was set up by the security team with \`claims.act.sub\`. Agent Kill Switch was added two weeks later by a platform engineer, who used \`claims.sub\` from an older JWT policy note.
 - JWT Validation is on the proxy, and each agent has its own non human identity provider account.
 - Quarantine has never been used in production before today.
+- Agent Kill Switch also has an optional **Killed Agent IDs** field. The docs say each entry is compared exactly with the value the selector resolves, and that the field should stay empty in normal operation.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

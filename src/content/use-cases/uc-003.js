@@ -8,7 +8,7 @@ export default {
   tags: ['inventory', 'pub-sub', 'rate-limits', 'event-driven'],
   estMinutes: 35,
   diagram: {
-    task: 'draw how WMS stock changes fan out to Shopify and Amazon through one queue per channel, where the latest stock is stored, and how the kiosk reads stock without touching the WMS.',
+    task: 'draw how WMS stock changes fan out to Shopify and Amazon through one queue per channel and one System API per channel, where the latest stock is stored, and how the kiosk reads stock without touching the WMS.',
     checks: [
       { label: 'Inventory changes are published asynchronously to a topic/exchange', rule: { type: 'edge', to: ['topic', 'event-stream'], kind: 'async' } },
       { label: 'Each channel gets its own queue bound to the exchange', rule: { type: 'edge', from: ['topic', 'event-stream'], to: 'queue', kind: 'async', min: 2 } },
@@ -20,7 +20,7 @@ export default {
     ],
     reference: diagram(
       {
-        wms: ['legacy', 'Manhattan WMS'],
+        wms: ['legacy', 'Warehouse WMS'],
         wq: ['topic', 'WMS inventory topic'],
         cap: ['system-api', 'sys-wms-inventory-api'],
         ex: ['topic', 'inventory-changed exchange'],
@@ -66,11 +66,11 @@ export default {
     },
   },
   description: `
-A sporting goods retailer runs a **Manhattan-style WMS** in two warehouses. Stock must be visible on three sales channels:
+A sporting goods retailer runs a **WMS** in two warehouses. Stock must be visible on three sales channels:
 
-- **Shopify** storefront — REST/GraphQL Admin API with strict **API rate limits** (leaky-bucket; bursts get 429).
-- **Amazon marketplace** — accepts inventory feeds; updates take minutes to apply and bulk feeds are preferred.
-- **In-store kiosk app** — calls an internal API on demand.
+- **Shopify** storefront: REST/GraphQL Admin API with strict **API rate limits** (leaky-bucket; bursts get 429).
+- **Amazon marketplace**: accepts inventory feeds; updates take minutes to apply and bulk feeds are preferred.
+- **In-store kiosk app**: calls an internal Experience API on demand.
 
 Facts:
 - The WMS emits an inventory change message (SKU, warehouse, on-hand qty, timestamp) to a JMS/MQ topic on every pick, receipt or adjustment: **~300k messages/day**, peaks of 50/s during morning picking.
@@ -103,7 +103,7 @@ Facts:
     'Available-to-sell calculated per channel (on-hand minus channel safety stock), and the kiosk reads from a Process/Experience API backed by a cache or inventory store rather than hitting the WMS per request.',
   ],
   solution: `
-**Capture.** A Mule app subscribes to the WMS topic and maps the message to a canonical \`InventoryChanged\` event (\`sku\`, \`warehouse\`, \`onHand\`, \`eventTime\`). It then publishes the event to an **Anypoint MQ exchange** (or keeps using the existing broker). It also upserts the latest value into an **inventory store** (DB table keyed on SKU + warehouse) — only if \`eventTime\` is newer than the stored one.
+**Capture.** A Mule app subscribes to the WMS topic and maps the message to a canonical \`InventoryChanged\` event (\`sku\`, \`warehouse\`, \`onHand\`, \`eventTime\`). It then publishes the event to an **Anypoint MQ exchange** (or keeps using the existing broker). It also upserts the latest value into an **inventory store** (DB table keyed on SKU + warehouse), but only if \`eventTime\` is newer than the stored one.
 
 **Fan-out.** One queue per channel bound to the exchange: \`shopify-inv-q\`, \`amazon-inv-q\`. Each channel consumer scales and fails independently; an Amazon outage does not slow Shopify.
 
@@ -113,7 +113,7 @@ Facts:
 - *Amazon:* build an inventory **feed** every 1–2 minutes from the coalesced set and submit it; poll the feed result and re-queue failed SKUs.
 - Compute **available-to-sell** per channel in DataWeave: available = max of 0 and (total on-hand across warehouses − the channel's safety stock).
 
-**Out-of-order updates.** Keep "last applied eventTime" per SKU+warehouse (Object Store or DB). A consumer drops an event older than what was already applied. Because quantities are absolute, a duplicate just re-sends the same number.
+**Out-of-order updates.** Keep "last applied eventTime" per SKU+warehouse (Object Store or DB). A consumer drops an event older than what was already applied. Because quantities are absolute, a duplicate re-sends the same number.
 
 **Kiosk.** An Inventory Process/Experience API reads from the inventory store (fast, no WMS load), optionally with a short cache TTL. If exact real-time stock is required for a specific SKU, it can fall back to a WMS query, protected by rate limiting.
 

@@ -8,7 +8,7 @@ export default {
   investigation: {
     logs: [
       { text: '08:00:01.233 INFO  [hr-sapi] Syncing employee changes corrId=e011', relevant: false },
-      { text: '08:00:01.540 INFO  [hr-sapi] GET https://api.workday-sandbox.com/v1/workers 200 (310 ms) corrId=e011', relevant: true, why: 'Public names still resolve and connect, so general DNS and outbound networking work.' },
+      { text: '08:00:01.540 INFO  [hr-sapi] GET https://api.peoplecloud.example.com/v1/workers 200 (310 ms) corrId=e011', relevant: true, why: 'Public names still resolve and connect, so general DNS and outbound networking work.' },
       { text: '08:00:06.240 ERROR [hr-sapi] HTTP:CONNECTIVITY HTTP GET on resource \'https://hr-core.corp.internal:8443/api/employees\' failed: java.net.UnknownHostException: hr-core.corp.internal corrId=e011', relevant: true, why: 'UnknownHostException: the name could not be resolved, so no TCP connection was even attempted. It is DNS, not firewall or the HR server.' },
       { text: '08:00:06.241 ERROR [hr-sapi] Retry 1/3 ...', relevant: false },
       { text: '08:00:30.000 INFO  [health] GET /health 200 (3 ms)', relevant: false },
@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause?',
         options: [
-          'The Private Space custom DNS still forwards corp.internal to the decommissioned DNS servers, so the name cannot be resolved',
+          'The Private Space still forwards corp.internal to DNS servers that are switched off',
           'A firewall rule blocks port 8443 from the Private Space to the HR server',
-          'The HR server is down',
-          'The TLS certificate of hr-core expired',
+          'The HR server is down after the weekend network maintenance',
+          'The TLS certificate of hr-core expired during the maintenance window',
         ],
         answer: 0,
         explain: '**UnknownHostException** happens before any connection: name resolution failed. Only the forwarded corp.internal zone fails, and its forwarders point to switched-off servers. A firewall issue would show a connect timeout or refused.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'How do you restore the integration quickly and correctly?',
         options: [
-          'Put 10.40.12.15 in the app properties instead of the hostname',
-          'Update the Private Space DNS forwarding to the new DNS server IPs, check port 53 is allowed over the VPN, restart if needed and replay the missed sync',
-          'Add more replicas to hr-sapi',
-          'Raise the HTTP connection timeout',
+          'Put 10.40.12.15 in the app properties instead of the hr-core hostname',
+          'Point the Private Space DNS forwarding at the new DNS servers, then replay the sync',
+          'Add more replicas to hr-sapi so the retries have more capacity',
+          'Raise the HTTP connection timeout so slow name lookups can finish',
         ],
         answer: 1,
         explain: 'Fix the resolver configuration. Hard-coding the IP breaks TLS hostname verification and fails again when the IP changes.',
@@ -104,7 +104,7 @@ export default {
 ## Prevention
 `,
   keyPoints: [
-    'UnknownHostException means name resolution failed — no TCP connection was attempted, so it is DNS, not firewall or the target server.',
+    'UnknownHostException means name resolution failed. No TCP connection was attempted, so it is DNS, not firewall or the target server.',
     'Public names work because they use the default resolver; only the corp.internal zone is forwarded to the decommissioned DNS servers.',
     'Immediate: update the Private Space DNS forwarding to the new DNS server IPs (and confirm they are reachable over the VPN/firewall on port 53).',
     'Avoid hard-coding IPs in the app as a "fix"; if used as an emergency workaround it must be reverted (TLS hostname verification also breaks with raw IPs).',
@@ -112,7 +112,7 @@ export default {
   ],
   solution: `
 ## Diagnosis
-\`java.net.UnknownHostException\` means the JVM could not **resolve the name** to an IP — the request never reached the network path to the HR server. Public hosts still resolve, so general DNS works; only the \`corp.internal\` zone fails. That zone is forwarded by the Private Space's custom DNS configuration to the **old DNS servers**, which were switched off on Sunday. The office laptops work because they already use the new DNS servers.
+\`java.net.UnknownHostException\` means the JVM could not **resolve the name** to an IP. The request never reached the network path to the HR server. Public hosts still resolve, so general DNS works; only the \`corp.internal\` zone fails. That zone is forwarded by the Private Space's custom DNS configuration to the **old DNS servers**, which were switched off on Sunday. The office laptops work because they already use the new DNS servers.
 
 ## Immediate mitigation
 Update the Private Space DNS settings in Runtime Manager to forward \`corp.internal\` to the **new** DNS server IPs; make sure the firewall/VPN allows UDP/TCP 53 from the Private Space to them. Restart the app if needed (JVM caches failed lookups only briefly, but connection pools may hold state), then replay the missed sync window.

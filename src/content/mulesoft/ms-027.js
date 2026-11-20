@@ -22,13 +22,13 @@ export default {
       type: 'single',
       prompt: 'CI fails with "Cannot load driver class: oracle.jdbc.OracleDriver" while the laptop works. What is the proper fix?',
       options: [
-        'Add the driver as a Maven dependency and declare it as a shared library in the mule-maven-plugin',
-        "Copy the jar into Studio's build path on the CI machine",
-        'Put the jar in `src/main/resources`',
-        'Add the jar only to `src/main/java`',
+        'Add the driver as a Maven dependency and as a shared library',
+        "Copy the jar into Studio's build path on the CI machine as well",
+        'Put the driver jar in `src/main/resources` so it is on the classpath',
+        'Add the driver jar to `src/main/java` next to the custom classes',
       ],
       answer: 0,
-      explain: "CI only knows the POM. The shared-library declaration lets the Database connector's class loader see the driver.",
+      explain: "CI only knows the POM. The shared-library declaration in the mule-maven-plugin lets the Database connector's class loader see the driver.",
     },
     {
       type: 'single',
@@ -57,9 +57,9 @@ export default {
       prompt: '`db.password` shows in clear text in Runtime Manager Properties for an app on CloudHub 1.0. What masks it there?',
       options: [
         'Listing `db.password` under `secureProperties` in `mule-artifact.json`',
-        'Renaming it to `db.secret`',
-        'Moving it to `config-dev.yaml`',
-        'Setting `log4j2` to WARN',
+        'Renaming the property to `db.secret` so the platform hides it',
+        'Marking it `protected: true` in the YAML configuration file',
+        'Setting `log4j2` to WARN so the value is not printed',
       ],
       answer: 0,
       explain: 'On CloudHub 1.0 listed properties are masked in Runtime Manager. On CloudHub 2.0 this setting has no effect: use Protect on the Properties tab. The value itself should still be encrypted with Secure Properties or supplied as a protected property.',
@@ -117,7 +117,7 @@ There are two problems:
 | \`src/test/munit\` | MUnit test suites | No |
 | \`src/test/resources\` | Test data, test-only properties | No |
 
-\`mvn package\` produces \`target/orders-sapi-1.0.0-mule-application.jar\` — the deployable artifact.
+\`mvn package\` produces \`target/orders-sapi-1.0.0-mule-application.jar\`: the deployable artifact.
 
 **pom.xml**
 - \`<packaging>mule-application</packaging>\`
@@ -125,9 +125,9 @@ There are two problems:
 - Dependencies: connectors/modules with \`<classifier>mule-plugin</classifier>\`, API spec assets from Exchange, plain jars such as JDBC drivers
 - Repositories: Anypoint Exchange and MuleSoft releases, usually with credentials from \`settings.xml\`
 
-**mule-artifact.json** — descriptor read by the runtime/tooling. Typical fields: \`minMuleVersion\`, \`javaSpecificationVersions\`, \`secureProperties\`, \`classLoaderModelLoaderDescriptor\` (how dependencies are resolved), and optionally \`configs\` (which XML files to load). Studio maintains most of it.
+**mule-artifact.json**: descriptor read by the runtime/tooling. Typical fields: \`minMuleVersion\`, \`javaSpecificationVersions\`, \`secureProperties\`, \`classLoaderModelLoaderDescriptor\` (how dependencies are resolved), and optionally \`configs\` (which XML files to load). Studio maintains most of it.
 
-**JDBC driver fix:** never rely on Studio's build path — CI only knows the POM. Add the driver as a Maven dependency **and** declare it as a shared library so the Database connector's class loader can see it:
+**JDBC driver fix:** never rely on Studio's build path: CI only knows the POM. Add the driver as a Maven dependency **and** declare it as a shared library so the Database connector's class loader can see it:
 \`\`\`xml
 <plugin>
   <groupId>org.mule.tools.maven</groupId>
@@ -148,7 +148,7 @@ Studio's "Add driver" in the DB config does the same thing when you let it edit 
 \`\`\`json
 { "minMuleVersion": "4.6.0", "secureProperties": ["db.password", "anypoint.platform.client_secret"] }
 \`\`\`
-On CloudHub 1.0, properties listed in \`secureProperties\` are masked in Runtime Manager. On CloudHub 2.0 this setting does not mask anything; use **Protect** on the *Properties* tab. Separately, the value itself should be encrypted in a secure properties file (Secure Configuration Properties module) or supplied as a protected property at deployment — never committed in clear text.
+On CloudHub 1.0, properties listed in \`secureProperties\` are masked in Runtime Manager. On CloudHub 2.0 this setting does not mask anything; use **Protect** on the *Properties* tab. Separately, the value itself should be encrypted in a secure properties file (Secure Configuration Properties module) or supplied as a protected property at deployment: never committed in clear text.
 `,
   followUps: [
     {

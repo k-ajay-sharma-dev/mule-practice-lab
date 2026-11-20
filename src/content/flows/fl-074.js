@@ -146,6 +146,11 @@ The bank collects a semicolon-separated file \`SETTLEMENT_yyyyMMdd.csv\` from it
 - Mark the batch as exported in Oracle.
 - The payments operations team must be emailed when the export fails, so they can rerun it before 04:00.
 
+**Facts**
+- \`SETTLEMENT_EXPORT\` has \`BATCH_ID\`, \`MERCHANT_ID\`, \`TERMINAL_ID\`, \`TXN_COUNT\`, \`GROSS_AMOUNT\`, \`FEE_AMOUNT\`, \`NET_AMOUNT\` and \`CURRENCY\`. The file has one line per row of the batch.
+- \`SETTLEMENT_BATCH\` has \`BATCH_ID\`, \`BUSINESS_DATE\`, \`STATUS\` (\`PREPARED\`, then \`EXPORTED\`), \`EXPORTED_AT\` and \`FILE_NAME\`.
+- The operations team's address is \`payments-ops@example.com\`.
+
 **Design the flow.** What do you need in the project to connect to Oracle?
 `,
   answerTemplate: `## Trigger

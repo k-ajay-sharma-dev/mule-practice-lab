@@ -15,13 +15,13 @@ Smart meters send energy readings as long-format rows. The finance team wants a 
 
 **Output**: an object with:
 
-- \`months\`: every distinct month present in the input, sorted ascending
+- \`months\`: every distinct month present in the input, sorted ascending (as text, which is also date order for \`yyyy-MM\`)
 - \`rows\`: one object per site:
   - \`site\`
   - one key **per month in \`months\`, in that order**, whose value is the site's total kWh for that month (sum of its readings), or \`0\` when the site has no reading that month
   - \`total\`: the site's total kWh over all months
 
-  Rows are sorted by \`total\` **descending**. Sites with equal totals are sorted by \`site\` ascending.
+  Rows are sorted by \`total\` **descending**. Sites with equal totals are sorted by \`site\` ascending as text.
 - \`monthTotals\`: an object with one key per month (same order as \`months\`) holding the total kWh of all sites for that month
 
 No readings → \`{ "months": [], "rows": [], "monthTotals": {} }\`.
@@ -62,7 +62,7 @@ payload
 `,
   hints: [
     'Compute the column list first: `(payload.month default []) distinctBy $ orderBy $`. Every row is then built by mapping over that list, which guarantees the same keys in the same order.',
-    'Dynamic keys: `{ (months map (m) -> { (m): ... }) }` builds one key per month. For the cell value, group the site\'s readings by month and `sum(group[m].kWh default [])` — a missing month gives `null`, hence the `default`.',
+    'Dynamic keys: `{ (months map (m) -> { (m): ... }) }` builds one key per month. For the cell value, group the site\'s readings by month and `sum(group[m].kWh default [])`. A missing month gives `null`, hence the `default`.',
     'For "total desc, then site asc", sort by `site` first and then by `-total`: `orderBy` is stable, so ties keep the site order.',
   ],
   solution: `%dw 2.0
@@ -84,16 +84,16 @@ var rows = (payload groupBy $.site) pluck (readings, site) ->
   monthTotals: monthCells(payload)
 }`,
   explanation: `
-A pivot is two steps: decide the **columns** once (the sorted distinct months), then build every row by iterating over those columns — never over the keys a particular site happens to have. That is what guarantees zero-filled gaps and identical key order in every row.
+A pivot is two steps: decide the **columns** once (the sorted distinct months), then build every row by iterating over those columns, never over the keys a particular site happens to have. That is what guarantees zero-filled gaps and identical key order in every row.
 
 \`monthCells\` is reused for the grand totals: applied to all readings instead of one site's, it yields \`monthTotals\` for free.
 
-\`orderBy\` is stable, so sorting by the secondary key (\`site\`) first and the primary key (\`-total\`) second gives "total descending, then site ascending" — Accra stays before Lima at 200 kWh.
+\`orderBy\` is stable, so sorting by the secondary key (\`site\`) first and the primary key (\`-total\`) second gives "total descending, then site ascending". Accra stays before Lima at 200 kWh.
 
 **Common traps**
 - Using \`site.month\` keys from the data directly: sites missing a month lose that column and columns appear in data order.
 - Forgetting that a site can report a month twice: taking \`[0]\` instead of summing.
-- \`orderBy\` has no descending flag — negate numbers (\`-$.total\`) or \`reverse\` the result (which would also reverse the tie order).
+- \`orderBy\` has no descending flag. Negate numbers (\`-$.total\`) or \`reverse\` the result (which would also reverse the tie order).
 `,
   tests: [
     {

@@ -87,6 +87,7 @@ Requirements:
 - About **45,000 payments a day**, **2.3 billion EUR** a month. Each bank has a daily **cut-off time**.
 - A payment must **never be sent twice**, even if an ERP drops the same file again or the factory crashes mid-send.
 - In the tests the factory releases 2 payments a second, a bank host can be down for 30 minutes, and 1 payment in 200 has a format the bank always refuses.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit. Each bank file must be tried for about an hour before it goes to the DLQ, so no good payment is lost or parked during a 30-minute bank outage, and refused payments reach the DLQ for treasury.
 
 **Questions:**
 1. Draw the flow from ERP to bank and back.
@@ -124,7 +125,7 @@ Bank status poller --> sys-bank-connectivity-api;  poller ~~> [bank-status] ~~> 
 
 **Screening and approval.** Each beneficiary is screened through **sys-sanctions-screening-api**. Clean payments under the threshold continue at once. Hits and large or recently changed beneficiaries are held in AWAITING_APPROVAL. Treasury sees them in the **approval app** through **exp-treasury-approvals**, which enforces two different approvers; the decision goes to the Process API, never to the bank side.
 
-**Sending.** Released payments are grouped per bank, debtor account and value date into one pain.001 file. The file is signed and encrypted for that bank and put on the **bank-outbound** queue. **sys-bank-connectivity-api** consumes it and sends by host-to-host SFTP or through the SWIFT service bureau, and the ledger moves the payments to SENT. A bank that is down leaves the message on the queue; after the retry limit it goes to the DLQ for treasury to decide. A file is never resent before checking with the bank, because the first one may have arrived.
+**Sending.** Released payments are grouped per bank, debtor account and value date into one pain.001 file. The file is signed and encrypted for that bank and put on the **bank-outbound** queue. **sys-bank-connectivity-api** consumes it and sends by host-to-host SFTP or through the SWIFT service bureau, and the ledger moves the payments to SENT. A bank that is down leaves the message on the queue, which redelivers it about once a minute. The queue allows about 60 deliveries, an hour of tries, so a file outlasts a 30-minute bank outage; after that it goes to the DLQ for treasury to decide. A file is never resent before checking with the bank, because the first one may have arrived.
 
 **Cut-offs.** A calendar of cut-off times per bank is checked before queueing. Payments that miss today's cut-off move to the next value date, and treasury is alerted.
 

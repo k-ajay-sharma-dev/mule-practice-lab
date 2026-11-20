@@ -10,8 +10,8 @@ Store managers type SKUs by hand into a spreadsheet, so the codes arrive in ever
 
 Input: \`{ "codes": [ ...raw strings... ] }\`. Output an array with one object per code, **in the input order**:
 
-- \`raw\` — the original string, unchanged
-- \`sku\` — the canonical code, built like this:
+- \`raw\`: the original string, unchanged
+- \`sku\`: the canonical code, built like this:
   1. Remove **every** character that is not a letter or a digit (spaces, \`-\`, \`_\`, dots, …).
   2. Upper-case the result.
   3. What remains is always letters followed by digits. Output \`LETTERS-DIGITS\`, with the digit part **left-padded with zeros to 5 characters**. Digit parts longer than 5 characters are kept as they are (never truncated).
@@ -64,7 +64,7 @@ Cleaning first and parsing second keeps each step simple: once every separator i
 
 \`match\` (the function, with a regex) returns the full match plus every capture group, so \`parts[1]\` and \`parts[2]\` are the letter and digit parts.
 
-**Common trap:** using \`trim\` instead of a regex. \`trim\` only removes whitespace at the ends — it leaves the \`-\`, \`_\` and inner spaces in place.
+**Common trap:** using \`trim\` instead of a regex. \`trim\` only removes whitespace at the ends. It leaves the \`-\`, \`_\` and inner spaces in place.
 `,
   tests: [
     {

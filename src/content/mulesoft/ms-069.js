@@ -10,47 +10,47 @@ export default {
       type: 'single',
       prompt: 'The export reads 12 million rows with `db:select` and writes CSV to SFTP. It takes 3 hours, and Oracle shows millions of tiny fetch round trips. Which setting addresses that first?',
       options: [
-        'fetchSize on db:select (e.g. 1000–5000), because Oracle JDBC fetches only 10 rows per round trip by default',
-        'maxRows on db:select',
-        'A larger HTTP listener thread pool',
-        'Setting the output to application/json',
+        'fetchSize on db:select, as Oracle fetches 10 rows per trip',
+        'maxRows on db:select, to cap the rows per round trip',
+        'A larger pool, so several fetches run at once',
+        'Repeatable in-memory streaming instead of file-store',
       ],
       answer: 0,
-      explain: 'fetchSize is a hint for how many rows the driver fetches per round trip; the Oracle driver default of 10 is far too small for bulk exports. maxRows limits the total rows returned, which is not the goal.',
+      explain: 'Set fetchSize to e.g. 1000 to 5000. fetchSize is a hint for how many rows the driver fetches per round trip; the Oracle driver default of 10 is far too small for bulk exports. maxRows limits the total rows returned, which is not the goal.',
     },
     {
       type: 'single',
       prompt: 'Which statement about `db:select` results in Mule 4 is correct?',
       options: [
-        'Rows are streamed from the result set as they are consumed, and the default repeatable streaming buffers what was read (in memory, then on disk) so it can be read again',
-        'All rows are always loaded into a Java list before the next processor runs',
-        'Streaming must be enabled with a special streaming="true" attribute or results are truncated',
-        'db:select cannot return more than 10,000 rows',
+        'Rows stream as they are read, buffered so they can be re-read',
+        'All rows load into a Java list before the next processor runs',
+        'Streaming needs a `streaming="true"` attribute, or rows are cut',
+        'db:select returns at most 10,000 rows unless maxRows is set',
       ],
       answer: 0,
-      explain: 'The connector returns an iterator over the open result set. With repeatable file-store streaming the consumed part is buffered so the payload can be read more than once; use non-repeatable streaming when you read it exactly once.',
+      explain: 'The default repeatable streaming buffers what was read (in memory, then on disk). The connector returns an iterator over the open result set. With repeatable file-store streaming the consumed part is buffered so the payload can be read more than once; use non-repeatable streaming when you read it exactly once.',
     },
     {
       type: 'multi',
       prompt: 'Which choices keep memory flat for the 12-million-row export?',
       options: [
-        'A DataWeave transform with output application/csv and deferred=true, written directly to sftp:write',
+        'A deferred CSV transform written straight to sftp:write',
         'Non-repeatable streaming on db:select when the result is read only once',
         'Logging the full payload at INFO for traceability',
         'Using sizeOf(payload) to log the row count before writing',
       ],
       answer: [0, 1],
-      explain: 'Deferred output and a single read pass let rows flow from Oracle to SFTP. Logging the payload or sizeOf() consumes the whole stream (and with repeatable streaming buffers all of it) before the write.',
+      explain: 'Deferred output (`output application/csv deferred=true`) and a single read pass let rows flow from Oracle to SFTP. Logging the payload or sizeOf() consumes the whole stream (and with repeatable streaming buffers all of it) before the write.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'While the export runs, other flows that use the same DB config wait for connections. Why?',
       options: [
-        'A streamed result set keeps its connection busy until the stream is fully consumed or closed',
-        'db:select locks the table for writers',
+        'A streamed result holds its connection until fully read',
+        'db:select locks the table, so other queries wait',
         'fetchSize reserves one connection per fetched batch',
-        'Repeatable streaming copies the pool',
+        'Repeatable streaming opens a second connection to buffer',
       ],
       answer: 0,
       explain: 'The connection returns to the pool only when the cursor is closed. Long exports should use their own DB config/pool so they do not starve online traffic.',
@@ -60,13 +60,13 @@ export default {
       needsScenario: true,
       prompt: 'The table also has `LABEL_PDF BLOB` (pallet labels) and `NOTES CLOB`. How should the export treat them?',
       options: [
-        'Select them only when needed; LOB values are read through the open connection, add per-row cost and can be large, so exclude them from the bulk CSV and fetch them on demand',
-        'Always include them — LOBs are free once the row is fetched',
-        'Convert BLOBs to text in SQL with TO_CHAR',
-        'LOB columns cannot be read by the Database connector',
+        'Leave them out of the CSV and fetch them on demand',
+        'Include them, as LOBs cost nothing once the row is fetched',
+        'Convert the BLOB to text in SQL with TO_CHAR',
+        'Encode them as Base64 in the CSV so the partner has them',
       ],
       answer: 0,
-      explain: 'LOBs are fetched separately from the row data and can be megabytes each. Only select the columns the consumer needs (`SELECT *` is a common cause of slow exports).',
+      explain: 'LOB values are read through the open connection, add per-row cost and can be large. LOBs are fetched separately from the row data and can be megabytes each. Only select the columns the consumer needs (`SELECT *` is a common cause of slow exports).',
     },
     {
       type: 'order',
@@ -126,7 +126,7 @@ Problems:
     'Write to a temporary name and rename when complete so the partner never reads a partial file.',
   ],
   solution: `
-**1. Streaming and fetchSize.** \`db:select\` returns an iterator over the JDBC result set; rows are fetched as the next processor consumes them. With the default **repeatable file-store** strategy, what was read is buffered (memory up to a limit, then temp files) so it can be re-read. \`fetchSize\` tells the driver how many rows to fetch per round trip — Oracle's default is **10**, i.e. 1.2 million round trips for 12 million rows.
+**1. Streaming and fetchSize.** \`db:select\` returns an iterator over the JDBC result set; rows are fetched as the next processor consumes them. With the default **repeatable file-store** strategy, what was read is buffered (memory up to a limit, then temp files) so it can be re-read. \`fetchSize\` tells the driver how many rows to fetch per round trip. Oracle's default is **10**, i.e. 1.2 million round trips for 12 million rows.
 
 **2. What breaks it.**
 - \`sizeOf(payload)\` in the logger iterates the whole result set before the transform, and repeatable streaming buffers all 12 million rows to memory/disk.

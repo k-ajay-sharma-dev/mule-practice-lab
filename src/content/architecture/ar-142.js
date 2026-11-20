@@ -8,7 +8,7 @@ export default {
   tags: ['myproject', 'anypoint-mq', 'priority', 'bulkhead', 'load-levelling', 'dlq', 'healthcare'],
   estMinutes: 40,
   diagram: {
-    task: 'draw the order intake for a pharmacy wholesaler: the pharmacy app and its Experience API, the nightly bulk loader for hospital files, one queue for urgent orders and one for bulk orders, each with its own consumer Process API and dead-letter queue, and the System API in front of the WMS that both consumers call.',
+    task: 'draw the order intake for a pharmacy wholesaler: the pharmacy app and its Experience API, the nightly bulk loader for hospital files, one queue for urgent orders and one for bulk orders (put urgent and bulk in their names), each with its own consumer Process API and dead-letter queue, and the System API in front of the WMS that both consumers call.',
     checks: [
       { label: 'There is a queue for urgent orders and a separate queue for bulk orders', rule: { type: 'node', match: 'queue', min: 2 } },
       { label: 'The Experience API publishes urgent orders to the urgent queue', rule: { type: 'edge', from: 'experience-api', to: { type: 'queue', label: ['urgent', 'express', 'priority'] }, kind: 'async' } },
@@ -85,6 +85,8 @@ Every morning between 06:00 and 06:30, urgent orders wait behind the hospital li
 
 About 1 hospital line in 100 has an old product code that the WMS rejects every time.
 
+The loader is a Mule app. In this lab 0.1 vCore handles about 50 messages a second, so size it for its burst.
+
 **Questions:**
 - Draw a design where a bulk drop can never delay urgent orders.
 - Why does more consumer capacity not fix this?
@@ -133,7 +135,7 @@ Bulk loader (06:00)                 ~► orders-bulk   ~► prc-bulk-fulfilment 
   followUps: [
     {
       q: 'Could you keep one queue and give urgent orders a message priority?',
-      a: 'Only if the broker supports priorities and the consumer reads in priority order, and even then bulk lines already being processed hold the WMS. Two queues with their own consumers are simpler to reason about and to monitor.',
+      a: 'Only if the broker supports priorities and the consumer reads in priority order, and even then bulk lines already being processed hold the WMS. Two queues with their own consumers are clearer to reason about and to monitor.',
     },
     {
       q: 'Why not let the bulk loader call the System API directly in the middle of the night?',

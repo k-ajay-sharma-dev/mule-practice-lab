@@ -8,8 +8,8 @@ export default {
   investigation: {
     logs: [
       { text: "2026-11-18 01:00:00 INFO  [sales-load] For each row INSERT INTO sales_stage", relevant: true, why: "One insert per row." },
-      { text: "2026-11-18 07:00:00 INFO  [sales-load] Inserted rows=2000000 durationMs=21600000", relevant: true, why: "Six hours." },
       { text: "2026-11-18 01:00:00 INFO  [sales-load] Autocommit=true", relevant: true, why: "Each row is its own transaction." },
+      { text: "2026-11-18 07:00:00 INFO  [sales-load] Inserted rows=2000000 durationMs=21600000", relevant: true, why: "Six hours." },
       { text: "2026-11-18 07:30:00 WARN  [planning-export] Sales stage not ready by 06:00", relevant: true, why: "Downstream waits." },
       { text: "2026-11-18 23:59:00 INFO  [sales-load] GET /health 200", relevant: false },
     ],
@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why is the load slow?",
         options: [
-          "One insert and one commit per row means two million round trips",
-          "The table is too big",
-          "The server is old",
-          "Indexes are missing",
+          "One insert and commit per row means two million round trips",
+          "The sales_stage table has too many indexes to update",
+          "The database log disk is too slow for two million rows",
+          "Lock waits with the planning export slow each insert",
         ],
         answer: 0,
         explain: "Round trips dominate.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is the main fix?",
         options: [
-          "Use bulk insert in blocks, for example in a batch aggregator",
-          "More workers each doing single inserts",
-          "Bigger server",
-          "Fewer columns",
+          "Use bulk insert in blocks, such as in a batch aggregator",
+          "Run eight parallel workers, each doing single inserts",
+          "Move the database to a larger server tier",
+          "Start the load at 00:30 instead of 01:00",
         ],
         answer: 0,
         explain: "Bulk statements send many rows per call.",
@@ -44,8 +44,8 @@ export default {
         options: [
           "Commit per block, not per row",
           "Load a heap staging table, then index or merge",
-          "Use table valued parameters or bulk copy for very large loads",
-          "Add triggers",
+          "Use bulk copy for very large loads",
+          "Add an audit trigger on the sales_stage table",
         ],
         answer: [0,1,2],
         explain: "Fewer trips and less work per row.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What if one row in a block fails?",
         options: [
-          "Fall back to row by row for that block and send bad rows to a reject table",
-          "Lose the block",
-          "Stop the job",
-          "Ignore",
+          "Retry that block row by row and reject the bad rows",
+          "Skip the whole block and log its first row number",
+          "Stop the job and rerun all two million rows",
+          "Retry the same block until the insert succeeds",
         ],
         answer: 0,
         explain: "Keep good rows, isolate bad ones.",
@@ -87,8 +87,8 @@ export default {
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
 2026-11-18 01:00:00 INFO  [sales-load] For each row INSERT INTO sales_stage
-2026-11-18 07:00:00 INFO  [sales-load] Inserted rows=2000000 durationMs=21600000
 2026-11-18 01:00:00 INFO  [sales-load] Autocommit=true
+2026-11-18 07:00:00 INFO  [sales-load] Inserted rows=2000000 durationMs=21600000
 2026-11-18 07:30:00 WARN  [planning-export] Sales stage not ready by 06:00
 \`\`\`
 

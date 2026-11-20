@@ -2,7 +2,7 @@ import { diagram } from '../../arch/dsl.js'
 
 const raw = { type: 's3-bucket', label: 'raw' }
 const extractJob = { type: 'batch-job', label: 'extract' }
-const curateJob = { type: 'batch-job', label: 'curate' }
+const curateJob = { type: 'batch-job', label: ['curate', 'curation'] }
 const extract = { name: 'extract', from: extractJob, rps: 200, to: ['erp', raw], kind: 'write' }
 const curate = { name: 'curate', from: curateJob, rps: 150, to: [raw, 'data-warehouse'], kind: 'write' }
 const analysts = { name: 'analysts', from: 'internal-app', rps: 30, to: 'data-warehouse' }

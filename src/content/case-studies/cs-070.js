@@ -94,6 +94,8 @@ export default {
 - SIM cannot take more than 50 requests per second and is down for 30 minutes every night.
 - Stock movements can arrive late or twice when a store's network drops.
 - Plan for 3,000 availability lookups a second while SIM is down, and 600 stock movements a second for 30 minutes.
+- Name the APIs exp-store-availability-api, prc-availability, prc-reservations and prc-availability-updater, the Kafka stream store-stock-movements, and the job that releases holds the reservation expiry job.
+- Run exp-store-availability-api, prc-availability and prc-reservations on 4 replicas of 2 vCores each, and prc-availability-updater on 2 vCores. Cache availability answers for 30 seconds.
 
 **Your task.** Design the availability and reservation integration.
 `,

@@ -10,10 +10,10 @@ export default {
       type: 'single',
       prompt: 'A shipping company has a booking AI agent (software that uses an AI model to carry out tasks) that must hand a customs task to another agent. Which protocol is built for this, and why?',
       options: [
-        'MCP, because agents can only reach each other by listing tools',
-        'HTTP Listener, because it is the protocol that all agents share',
+        'MCP, because it lets one agent list the tools of another agent',
+        'MCP Bridge, because it turns the customs agent into a tool',
         'A2A (Agent2Agent), because agents use it to delegate tasks',
-        'SFTP, because a task is best delivered to an agent as a file',
+        'REST, because each agent offers a REST API for every task',
       ],
       answer: 2,
       explain: 'A2A (Agent2Agent) is how agents discover each other and delegate tasks. MCP is the other idea: how an AI client lists and calls tools.',

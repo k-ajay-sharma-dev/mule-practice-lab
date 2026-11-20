@@ -9,7 +9,7 @@ export default {
   estMinutes: 15,
   quiz: fromLogging(["log-2041","log-2042","log-2043","log-2044","log-2045"]),
   description: `
-Velora Fashion publishes product updates to an Anypoint MQ exchange that copies each one to three queues. Log the publisher and the consumers so you can see where an update stopped.
+Velora Furniture publishes product updates to an Anypoint MQ exchange that copies each one to three queues. Log the publisher and the consumers so you can see where an update stopped.
 
 Answer every question, then press **Check answers**. The rules for good log lines are at the top of the Logging Lab page.
 `,

@@ -8,7 +8,7 @@ export default {
   description: `
 Before new hires are loaded into the payroll system, the HR integration validates every record and returns **all** problems at once (not only the first one), so HR can fix the file in one go.
 
-**Rules** — check each record against all four rules, in this order:
+**Rules**: check each record against all four rules, in this order:
 
 | # | Field | Message when the rule fails |
 |---|---|---|
@@ -22,7 +22,7 @@ Only one of 2a / 2b can apply.
 
 **Output**
 - \`validCount\` and \`invalidCount\`
-- \`errors\` — one entry per invalid record, in input order: \`index\` (0-based position in the input), \`id\` (as received, \`null\` if missing) and \`messages\` (in rule order)
+- \`errors\`: one entry per invalid record, in input order: \`index\` (0-based position in the input), \`id\` (as received, \`null\` if missing) and \`messages\` (in rule order)
 `,
   inputs: [
     {
@@ -72,10 +72,10 @@ output application/json
 payload
 `,
   hints: [
-    'Write a function `validate(e)` that returns an **array of messages** — an empty array means the record is valid.',
+    'Write a function `validate(e)` that returns an **array of messages**. An empty array means the record is valid.',
     'Conditional array elements keep it readable: `[ ("msg 1") if (cond1), ("msg 2") if (cond2) ]` only contains the messages whose condition is true.',
     'For the date, `try` from `dw::Runtime` turns a failing coercion into a result: `try(() -> s as Date {format: "yyyy-MM-dd"}).success`. Guard with `s is String` first.',
-    'Try `"2026-02-30" as Date {format: "yyyy-MM-dd"}` on its own — the parser is lenient. Formatting the parsed date back to a string and comparing it with the input catches impossible days.',
+    'Try `"2026-02-30" as Date {format: "yyyy-MM-dd"}` on its own. The parser is lenient. Formatting the parsed date back to a string and comparing it with the input catches impossible days.',
   ],
   solution: `%dw 2.0
 import try from dw::Runtime
@@ -114,7 +114,7 @@ The key design choice is that a validator **returns data** (a list of messages) 
 
 Details that trip people up:
 - \`matches\` must match the **whole** string, so no \`^\`/\`$\` are needed. \`contains\` with a regex would accept \`xxE1234yy\`.
-- Type checks first: \`"4800" > 0\` is **true** because DataWeave coerces the string for the comparison, so \`e.salary > 0\` alone would accept a string salary. \`e.salary is Number and ...\` enforces the type.
+- Type checks first: \`e.salary > 0\` alone says nothing about the type, and DataWeave may coerce a string such as \`"4800"\` for the comparison. \`e.salary is Number and ...\` enforces the type.
 - A regex alone accepts \`2026-13-01\`. Parsing with \`as Date\` inside \`try\` rejects impossible dates without failing the whole script.
 - Parsing is lenient about the day of month: \`"2026-02-30" as Date {format: "yyyy-MM-dd"}\` returns \`2026-02-28\` instead of failing. Formatting the result back and comparing with the input catches that.
 - \`map (e, i)\` gives the zero-based index needed for \`index\`.
@@ -150,11 +150,11 @@ Details that trip people up:
   followUps: [
     {
       q: 'How would you route valid and invalid records to different targets in the same flow?',
-      a: 'Return both lists from DataWeave (e.g. `valid` and `invalid`), then use a Choice router or by sending each list to its own target; with `dw::core::Arrays::partition` you can split the records in one pass.',
+      a: 'Return both lists from DataWeave (e.g. `valid` and `invalid`), then send each list to its own target, for example with a Scatter-Gather or two Flow Reference calls; with `dw::core::Arrays::partition` you can split the records in one pass.',
     },
     {
       q: 'How would you make the rules configurable instead of hard-coded?',
-      a: 'Represent each rule as data — `{ field, message, check: (v) -> Boolean }` — in an array, then `rules filter (!$.check(e[$.field])) map $.message`. New rules become new entries, not new code.',
+      a: 'Represent each rule as data, such as `{ field, message, check: (v) -> Boolean }`, in an array, then `rules filter (!$.check(e[$.field])) map $.message`. New rules become new entries, not new code.',
     },
     {
       q: 'What does `try` return when the coercion fails?',

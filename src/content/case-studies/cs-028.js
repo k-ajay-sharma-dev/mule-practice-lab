@@ -70,10 +70,10 @@ export default {
 
 **Constraints**
 - Operator systems are fragile: each can only take ~20 requests/second.
-- Predictions change every 15–30 seconds; data older than ~60 seconds is useless.
+- Predictions change every 15 to 30 seconds; data older than ~60 seconds is useless.
 - Peak public demand is ~3,000 requests/second during rush hour.
 - 4,000 stops; stop reference data changes a few times a year.
-- The 3,000 requests a second must still be answered within 200 ms when an availability zone goes down.
+- The 3,000 requests a second must still be answered within 200 ms when an availability zone goes down. Run the public Experience API and the arrivals Process API on 3 replicas of 4 vCores each, so the 2 replicas left after a zone loss carry the peak.
 
 **Your task.** Propose the API design, how you protect the operator systems, and how you manage developer access.
 `,
@@ -90,20 +90,20 @@ export default {
   keyPoints: [
     'Public traffic never reaches operator systems directly: arrivals are fetched/pushed on the authority side and served from a cache with a short TTL.',
     'A Process API merges and normalises predictions from the three operators into one stop-based model.',
-    'Short TTL caching (seconds) is acceptable because data is refreshed every 15–30 seconds; responses include a timestamp so consumers see freshness.',
+    'Short TTL caching (seconds) is acceptable because data is refreshed every 15 to 30 seconds; responses include a timestamp so consumers see freshness.',
     'Developers register in a public developer portal (Exchange-backed), receive client credentials, and are rate limited per client by SLA tier.',
     'Internal consumers (signs, official app) get a separate, higher tier or separate API instance so third-party abuse cannot starve them.',
   ],
   solution: `
-**Layers.** \`operator-a-sapi\`, \`operator-b-sapi\`, \`operator-c-sapi\` (each wraps one tracking system) → \`arrivals-papi\` (normalises vehicle, route and stop codes, merges and sorts) → \`public-arrivals-eapi\` exposed through API Manager. A \`stops-sapi\` serves reference data with long caching.
+**Layers.** \`sys-operator-a-api\`, \`sys-operator-b-api\`, \`sys-operator-c-api\` (each wraps one tracking system) → \`prc-arrivals-api\` (reads merged arrivals per stop and adds stop details) → \`exp-public-arrivals-api\` exposed through API Manager. A \`sys-stops-api\` serves reference data with long caching.
 
-**Protecting operator systems.** Instead of calling an operator per public request, a scheduler in \`arrivals-papi\` pulls each operator's full prediction feed every ~15 seconds (one call, not 4,000). It stores the merged result per stop in Object Store or a fast cache, with a TTL of ~60 seconds. If an operator supports push, consume that instead. Public requests read only from this store, so 3,000 req/s become a few calls per minute to each operator.
+**Protecting operator systems.** Instead of calling an operator per public request, a scheduled poller pulls each operator's full prediction feed every ~15 seconds (one call, not 4,000), normalises vehicle, route and stop codes, and merges and sorts them. It stores the merged result per stop in Object Store or a fast cache, with a TTL of ~60 seconds. If an operator supports push, consume that instead. Public requests read only from this store, so 3,000 req/s become a few calls per minute to each operator.
 
 **Freshness.** Each response includes \`generatedAt\` and per-operator status; if an operator feed is stale, return the other operators' data plus a flag rather than failing the whole response. The HTTP response can also carry \`Cache-Control: max-age=15\` so CDNs and clients cache briefly.
 
 **Developer access.** Publish the API spec in Exchange and a public developer portal. Apply client ID enforcement and SLA-based rate limiting: e.g. Free tier 5 req/s, Partner tier 50 req/s (approved manually), Internal tier much higher. Signs and the official app use their own client apps on the Internal tier.
 
-**Scaling.** The Experience API is stateless and read-only — scale horizontally with replicas; add a CDN in front if traffic grows.
+**Scaling.** The Experience API is stateless and read-only, so scale it horizontally with replicas spread across zones; add a CDN in front if traffic grows.
 
 **Monitoring.** Alerts on feed staleness per operator, 429 rates per client, and latency. Publish a status page so third parties know when data is degraded.
 

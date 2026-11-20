@@ -12,7 +12,7 @@ A Mule experience API calls a legacy CRM web service (SOAP 1.1) and must return 
 
 **Success response** → \`{ traceId, customer }\`
 - \`traceId\` is the \`TraceId\` element in the SOAP **Header** (\`null\` when there is no header).
-- \`customer\`: \`id\` and \`status\` (attributes of \`Customer\`), \`name\`, \`segment\`, \`creditLimit\` (number) and \`currency\` (attribute of \`CreditLimit\`), and \`addresses\` — always an array of \`{ type, street, city }\`.
+- \`customer\`, keys in this order: \`id\` and \`status\` (attributes of \`Customer\`), \`name\`, \`segment\`, \`creditLimit\` (number) and \`currency\` (attribute of \`CreditLimit\`), and \`addresses\`: always an array of \`{ type, street, city }\` in document order (\`type\` is the attribute of \`Address\`). All values except \`creditLimit\` are strings.
 
 **SOAP Fault** → \`{ traceId, fault: { code, message } }\` from \`faultcode\` and \`faultstring\` (these two child elements of \`Fault\` are **not** namespace-qualified in SOAP 1.1).
 `,
@@ -114,7 +114,7 @@ else do {
 
 **Faults are data too.** In SOAP 1.1 a fault comes back in the Body (normally with HTTP 500). When the Web Service Consumer raises it as an error, the fault details are still in the error payload; checking for \`soap#Fault\` first gives the mobile app a clean, predictable error object. Note that \`faultcode\` and \`faultstring\` are unqualified, so they are selected without a prefix.
 
-**Navigation through optional parts.** If there is no Header, \`env.soap#Header\` is \`null\` and selecting \`cus#TraceId\` on it also gives \`null\` — no error, so \`traceId\` is simply \`null\`.
+**Navigation through optional parts.** If there is no Header, \`env.soap#Header\` is \`null\` and selecting \`cus#TraceId\` on it also gives \`null\`. There is no error, so \`traceId\` is \`null\`.
 
 **Repeating elements.** \`.*cus#Address\` with \`default []\` guarantees an array for zero, one or many addresses.
 `,

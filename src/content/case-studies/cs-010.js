@@ -11,26 +11,26 @@ export default {
       needsScenario: true,
       prompt: 'The first app has hard-coded passwords. What is the right fix?',
       options: [
-        'Move them to secure (encrypted) properties or a secrets manager, with per-environment config files',
-        'Move them to a plain config.yaml committed to Git',
-        'Keep them in the code but restrict who can read the repository',
-        'Pass them as query parameters from the calling system',
+        'Encrypt them as secure properties, with one properties file per environment',
+        'Move them to a plain config.yaml per environment, committed to Git',
+        'Keep them in the code but make the Git repository private',
+        'Set them as plain application properties in Runtime Manager',
       ],
       answer: 0,
-      explain: 'Secure properties (or a secrets manager) keep credentials encrypted and let each environment have its own values. A plain YAML file in Git is still a leaked secret, just in a different file.',
+      explain: 'Secure properties (or a secrets manager) keep credentials encrypted and let each environment have its own values. A plain YAML file in Git is still a leaked secret in a different file. A private repository still hands the password to everyone with access. Plain properties in Runtime Manager are shown to anyone who can open the app; secrets there must at least be safely hidden properties.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Would you build a System API for every SaaS application the start-up integrates?',
       options: [
-        'No — only for systems several integrations will touch (Salesforce, billing); one-off SaaS-to-SaaS syncs can be a single app, with a System API extracted when a second consumer appears',
-        'Yes — API-led always means three layers for every integration',
-        'No — System APIs are only for on-premises systems',
-        'Yes, but only Experience APIs; System APIs add no value for SaaS',
+        'No. Only for systems several integrations touch, such as Salesforce and billing',
+        'Yes. API-led means three layers for every integration, however small',
+        'No. System APIs are needed only for on-premises systems, not SaaS',
+        'Yes, so each SaaS application is wrapped before the first sync is built',
       ],
       answer: 0,
-      explain: 'API-led should be applied pragmatically. Three layers for every small sync wastes vCores and time on a small budget, while core shared systems clearly benefit from a reusable System API.',
+      explain: 'API-led should be applied pragmatically. Three layers for every small sync wastes vCores and time on a small budget, while core shared systems clearly benefit from a reusable System API. A one-off SaaS-to-SaaS sync can be a single app, with a System API extracted when a second consumer appears. SaaS systems benefit from System APIs too when they are shared.',
     },
     {
       type: 'order',
@@ -51,11 +51,11 @@ export default {
         'Common dependencies and plugin versions',
         'A global error handler with a standard error body',
         'JSON logging with correlation IDs',
-        'Production passwords for every system',
-        'A full copy of the flows from every other app',
+        'Default credentials for the main SaaS systems',
+        'The DataWeave mappings of the first app, as a starting point',
       ],
       answer: [0, 1, 2],
-      explain: 'A template standardises structure, error handling and logging so apps look alike. Secrets never belong in a template, and copying flows between apps is duplication, not reuse.',
+      explain: 'A template standardises structure, error handling and logging so apps look alike. Secrets never belong in a template, and copying one app’s business mappings into every app is duplication, not reuse.',
     },
     {
       type: 'match',
@@ -73,13 +73,13 @@ export default {
       needsScenario: true,
       prompt: 'vCores are limited and there is no platform team. Which choice helps most?',
       options: [
-        'Group small, related flows into one app where it makes sense, and track vCore consumption as apps grow',
-        'Give every integration its own app on the largest worker size',
-        'Skip monitoring to save capacity',
-        'Run everything in Anypoint Studio on a developer laptop',
+        'Group small, related flows into one app and track vCore use',
+        'Give every integration its own app on a 1 vCore worker',
+        'Put all 50 integrations into one large app on one worker',
+        'Run all apps on one worker and turn off monitoring to save capacity',
       ],
       answer: 0,
-      explain: 'Grouping related small flows saves capacity while keeping apps understandable. One large worker per tiny integration burns the budget, and dropping monitoring breaks the goal of spotting incidents first.',
+      explain: 'Grouping related small flows saves capacity while keeping apps understandable. One 1 vCore worker per tiny integration burns the budget. One app for everything couples unrelated integrations, so one bad deploy or memory leak stops them all. Dropping monitoring breaks the goal of spotting incidents first.',
     },
   ],
   description: `
@@ -98,7 +98,7 @@ export default {
 
 **Your task.** Describe the foundations you put in place now and how you scale the practice.
 `,
-  answerTemplate: `## Foundations (first 1–2 months)
+  answerTemplate: `## Foundations (first 1 to 2 months)
 
 ## Standards and reuse
 
@@ -117,18 +117,18 @@ export default {
     'Monitoring and alerts on error rates and app health exist from the first production app; vCore usage is tracked as apps grow.',
   ],
   solution: `
-**Foundations (month 1–2).**
+**Foundations (months 1 to 2).**
 - Fix the first app: secure properties for credentials, \`config-dev.yaml\` / \`config-prod.yaml\`, MUnit tests for the main flows.
 - Create a **project template** (or Maven archetype) and a **parent POM** with common dependencies, a global error handler returning a standard error body, JSON logging with correlation IDs.
 - Set up **environments** (sandbox, prod) and Git branching.
 
-**Standards and reuse.** Spec-first for anything other teams consume, published in Exchange. Naming: \`<system>-sapi\`, \`<domain>-papi\`, \`<channel>-eapi\`. Build System APIs for systems that 3+ integrations will touch (Salesforce, billing, ERP) — avoid over-layering tiny SaaS-to-SaaS syncs. Use Anypoint MQ for near-real-time or fan-out cases.
+**Standards and reuse.** Spec-first for anything other teams consume, published in Exchange. Naming: \`<system>-sapi\`, \`<domain>-papi\`, \`<channel>-eapi\`. Build System APIs for systems that 3+ integrations will touch (Salesforce, billing, ERP). Avoid over-layering tiny SaaS-to-SaaS syncs. Use Anypoint MQ for near-real-time or fan-out cases.
 
 **Pipeline.** Git → CI (e.g. GitHub Actions / Jenkins / Azure DevOps) → \`mvn clean test\` with MUnit coverage threshold → deploy with the mule-maven-plugin using a connected app's credentials. Production deploys need approval.
 
-**Operations.** Alerts on app down, error rate and CPU/memory; a shared log search; a simple runbook per app. Watch vCore consumption — group small, related flows into one app where it makes sense to save capacity.
+**Operations.** Alerts on app down, error rate and CPU/memory; a shared log search; a simple runbook per app. Watch vCore consumption: group small, related flows into one app where it makes sense to save capacity.
 
-**Growing the practice.** Code reviews against a short checklist, a quarterly look at reuse and pain points, and a light C4E role (even one person) once the team is 3–4 developers.
+**Growing the practice.** Code reviews against a short checklist, a quarterly look at reuse and pain points, and a light C4E role (even one person) once the team is 3 or 4 developers.
 
 **Risks.** Spending too long on foundations (time-box to weeks), over-engineering with three layers for everything, and vCore/licence costs creeping up.
 `,

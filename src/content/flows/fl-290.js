@@ -90,6 +90,13 @@ A big store has 400,000 lines, a small one 3,000. The first try read the whole t
 - Write each store's file under a \`.tmp\` name and rename it when all its lines are in.
 - Write the control file last.
 
+**Facts**
+- The date in the names is today's date. In the tests today is 2026-11-13.
+- Read with a fetch size, and take the rows in a **For Each** with a batch size of at least 10,000.
+- Write each store file as \`<file name>.tmp\`, such as \`SALES_0102_20261113.csv.tmp\`. A store's first write uses \`OVERWRITE\` with the header; later writes use \`APPEND\`. End every write with a line break, so appended lines start on a new line.
+- Put each \`<store>|<rows>\` entry of the control file on its own line.
+- Do not catch an SFTP error. The run fails and no control file is written.
+
 **Design the flow.**
 `,
   answerTemplate: `## Streaming in store order

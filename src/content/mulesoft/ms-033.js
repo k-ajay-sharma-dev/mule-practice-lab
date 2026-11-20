@@ -32,26 +32,26 @@ export default {
       type: 'single',
       prompt: 'A claim passes JSON Schema validation but has `incidentDate` in the future. Why did the schema not catch it?',
       options: [
-        'JSON Schema validation is disabled by default in Mule',
-        'Schemas check structure and types; "not in the future" is a business rule that needs code (Validation module or DataWeave)',
-        'Dates are never validated in Mule 4',
-        'The Kafka connector strips date fields',
+        'JSON Schema validation is turned off by default in Mule apps',
+        'Schemas check structure and types, not rules relative to now',
+        'Date formats cannot be described in a JSON Schema at all',
+        'The Kafka connector strips date fields before validation',
       ],
       answer: 1,
-      explain: 'Structural validation and business-rule validation are separate layers. Rules relative to "now" belong in the Validation module or a DataWeave function.',
+      explain: 'A JSON Schema can describe a date format, but "not in the future" is a business rule that needs code. Structural validation and business-rule validation are separate layers. Rules relative to "now" belong in the Validation module or a DataWeave function.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'Why wrap the business-rule checks in the Validation module **All** scope?',
       options: [
-        'It runs every validation and raises one VALIDATION:MULTIPLE error with all failures, instead of stopping at the first',
-        'It runs the validations in parallel for speed',
-        'It turns failures into warnings so the claim still goes through',
-        'It is required for `is-true` to work',
+        'It runs every validator and reports all failures in one error',
+        'It runs the validations in parallel to make the check faster',
+        'It turns failures into warnings, so the claim still goes through',
+        'It is required for `is-true` validators to work inside a flow',
       ],
       answer: 0,
-      explain: 'The requirement is to return **all** violations at once. Without All, the first failing validator raises and the rest never run.',
+      explain: 'The requirement is to return **all** violations at once. Without All, the first failing validator raises and the rest never run. With All, every validation runs and one `VALIDATION:MULTIPLE` error lists all failures.',
     },
     {
       type: 'single',
@@ -70,10 +70,10 @@ export default {
       detail: true,
       prompt: 'What do the APIkit docs say the router validates at runtime?',
       options: [
-        'Outgoing responses only',
-        'Inbound requests against the API spec, so check response conformance with tests (MUnit, contract tests)',
-        'Only 2xx responses',
-        'Nothing unless strict validation is enabled',
+        'Outgoing responses only, against the response types',
+        'Inbound requests only, against the API spec',
+        'Requests and responses, but only for 2xx status codes',
+        'Nothing, unless strict validation is turned on in the config',
       ],
       answer: 1,
       explain: 'The docs describe APIkit validating inbound traffic and say nothing about response validation, so do not rely on it. Verify responses with MUnit or contract tests.',
@@ -143,11 +143,11 @@ For REST, the 400 body should list the problems (\`error.description\` contains 
   <validation:is-not-blank-string value="#[payload.policyNumber]" message="policyNumber is required"/>
 </validation:all>
 \`\`\`
-The All scope executes every validation and raises a single \`VALIDATION:MULTIPLE\` error containing all failures, instead of stopping at the first one. For complex rule sets, a DataWeave function returning a list of violations is often easier to maintain and test.
+The All scope executes every validation and raises a single \`VALIDATION:MULTIPLE\` error containing all failures, instead of stopping at the first one. For complex rule sets, a DataWeave function returning a list of violations is often more maintainable and testable.
 
 **Files and performance**
 - Store schemas in \`src/main/resources/schemas\`; for shared contracts, publish them as an Exchange asset and add as a dependency so producer and consumer use the same version.
-- Validate **once**, at the entry point — not again in every downstream flow.
+- Validate **once**, at the entry point: not again in every downstream flow.
 - Schema validation reads the whole document; for very large XML files consider validating a smaller subset or validating during the streaming transform.
 `,
   followUps: [

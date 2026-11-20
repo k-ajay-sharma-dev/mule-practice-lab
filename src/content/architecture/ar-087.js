@@ -8,7 +8,7 @@ export default {
   tags: ['security', 'tls', 'mtls', 'dedicated-load-balancer', 'cloudhub', 'certificates', 'api-led'],
   estMinutes: 50,
   diagram: {
-    task: 'draw the path of a partner request through a load balancer doing mutual TLS, then Experience, Process and System APIs, out to a legacy system that uses a private CA and to a third-party API that needs a client certificate.',
+    task: 'draw the path of a partner request through a load balancer doing mutual TLS, then Experience, Process and System APIs, out to a legacy system that uses a private CA and to a third-party API that needs a client certificate. Put "mutual TLS" in the name of the load balancer.',
     checks: [
       { label: 'Partners connect to the load balancer, which is where mutual TLS ends', rule: { type: 'edge', from: 'partner', to: { type: 'load-balancer', label: ['mtls', 'mutual', 'client cert'] } } },
       { label: 'Partners cannot reach the Experience API directly', rule: { type: 'no-edge', from: 'partner', to: 'experience-api' } },

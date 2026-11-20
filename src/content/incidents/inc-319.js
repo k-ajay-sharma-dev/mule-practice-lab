@@ -9,8 +9,9 @@ export default {
     logs: [
       { text: "2026-11-18 02:00:00 INFO  [img-in] Received images.zip sizeBytes=2000000000 entries=48000", relevant: true, why: "A big zip." },
       { text: "2026-11-18 02:00:00 INFO  [img-in] Using compression extract to list of entries", relevant: true, why: "All entries extracted to a list." },
-      { text: "2026-11-18 02:04:00 ERROR [img-in] OutOfMemoryError: Java heap space", relevant: false },
-      { text: "2026-11-18 02:04:00 INFO  [img-in] Uncompressed size about 6000000000", relevant: true, why: "Six times larger uncompressed." },
+      { text: "2026-11-18 02:00:01 INFO  [img-in] Uncompressed size about 6000000000", relevant: true, why: "Three times larger uncompressed." },
+      { text: "2026-11-18 02:04:00 ERROR [img-in] OutOfMemoryError: Java heap space", relevant: true, why: "Memory runs out." },
+      { text: "2026-11-18 02:04:01 INFO  [runtime] Worker restarted", relevant: false },
     ],
     questions: [
       {
@@ -18,9 +19,9 @@ export default {
         prompt: "Why does memory fill?",
         options: [
           "All entries are extracted into memory at once",
-          "The zip is corrupt",
-          "The disk",
-          "Logs",
+          "The zip file is corrupt and the reader loops",
+          "The worker disk filled up during the extract",
+          "Debug logs of each entry fill the heap",
         ],
         answer: 0,
         explain: "A list of 48,000 entries in memory.",
@@ -29,10 +30,10 @@ export default {
         type: 'single',
         prompt: "What is better?",
         options: [
-          "Process entries one at a time as a stream, writing each to storage",
-          "Bigger worker",
-          "Unzip twice",
-          "Skip images",
+          "Stream entries one at a time, writing each to storage",
+          "Move to a worker with three times the heap",
+          "Unzip twice, once per half of the entries",
+          "Ask the supplier to send the same zip less often",
         ],
         answer: 0,
         explain: "One entry at a time.",
@@ -44,7 +45,7 @@ export default {
           "A limit on uncompressed size to stop zip bombs",
           "A limit on entry count",
           "Checking entry names for path traversal",
-          "Trusting every archive",
+          "Trusting archives from known suppliers",
         ],
         answer: [0,1,2],
         explain: "Archives can be hostile.",
@@ -54,9 +55,9 @@ export default {
         prompt: "What is a zip bomb?",
         options: [
           "A small archive that expands to a huge size",
-          "A virus",
-          "A slow zip",
-          "A broken file",
+          "A virus hidden inside a zip entry",
+          "A zip that takes hours to compress",
+          "A zip with a broken central directory",
         ],
         answer: 0,
         explain: "Guard against expansion.",
@@ -87,7 +88,8 @@ These lines are illustrative and were written for this scenario. Real log format
 \`\`\`
 2026-11-18 02:00:00 INFO  [img-in] Received images.zip sizeBytes=2000000000 entries=48000
 2026-11-18 02:00:00 INFO  [img-in] Using compression extract to list of entries
-2026-11-18 02:04:00 INFO  [img-in] Uncompressed size about 6000000000
+2026-11-18 02:00:01 INFO  [img-in] Uncompressed size about 6000000000
+2026-11-18 02:04:00 ERROR [img-in] OutOfMemoryError: Java heap space
 \`\`\`
 
 ## Your tasks

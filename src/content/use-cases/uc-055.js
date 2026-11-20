@@ -93,7 +93,8 @@ Constraints:
 - Status visible to customers within **2 minutes** of a scan.
 - B2B shippers must only access their own shipments; webhooks must be reliable (at-least-once, retries for 24 h).
 - TMS cannot handle query load beyond ~50 queries/s.
-- Public lookups peak at 900 a second. Milestone webhooks go out at about 30 a second, and a shipper endpoint can be down for 30 minutes.
+- Public lookups peak at 900 a second. Milestone webhooks go out at about 30 a second, and a shipper endpoint can be down for 30 minutes. No milestone may be lost.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit. After the limit a webhook goes to the DLQ.
 
 **Questions:**
 1. Design the application network. Which APIs are request/response, which are event-driven?
@@ -119,11 +120,11 @@ Constraints:
 `,
   keyPoints: [
     'System APIs (and event adapters) per source: sys-tms-shipments, sys-scan-events (Kafka consumer), sys-telematics, sys-carrier-edi (AS2 + EDIFACT/X12 via B2B/Partner Manager), sys-customs.',
-    'A Process-layer event normaliser (prc-tracking-events) maps every source event to the canonical milestone model and updates a tracking read model (CQRS) — the query path never touches the TMS.',
+    'A Process-layer event normaliser (prc-tracking-events) maps every source event to the canonical milestone model and updates a tracking read model (CQRS), so the query path never touches the TMS.',
     'prc-shipment-tracking serves queries from the read model; prc-tracking-notifications fans milestones out to shipper webhooks with retries, DLQ and per-subscriber delivery state.',
     'Experience APIs: exp-public-tracking (anonymous, minimal data, cached), exp-b2b-tracking (OAuth per shipper, pull + subscription management), exp-ops-control-tower (full history, exceptions).',
     'Shipper isolation is enforced by mapping client ID → shipper account and filtering in the Process layer; PoD photos require an extra verification.',
-    'Returns reuses the scan/EDI ingestion, canonical model, read model and webhook machinery — new milestones and one Process API only.',
+    'Returns reuses the scan/EDI ingestion, canonical model, read model and webhook machinery; only new milestones and one Process API are added.',
   ],
   solution: `
 **API inventory**
@@ -134,7 +135,7 @@ Constraints:
 | Experience | **exp-b2b-tracking** | REST | \`GET /v1/shipments/{id}\`, \`GET /v1/shipments?updatedSince=\`, \`POST/GET/DELETE /v1/webhook-subscriptions\` | Partner contract, shipper scoping | Shipper systems |
 | Experience | **exp-ops-control-tower** | REST + SSE/WebSocket feed | \`GET /exceptions\`, \`GET /shipments/{id}/events\`, \`GET /vehicles/{id}/position\` | Ops views | Control tower UI |
 | Process | **prc-shipment-tracking** | REST | \`GET /shipments/{id}\`, \`GET /shipments?shipperId=&updatedSince=\`, \`GET /shipments/{id}/events\` | Query canonical status from read model; ETA calculation | all Experience APIs |
-| Process | **prc-tracking-events** | Event-driven | consumes scan, carrier, customs, TMS events → publishes \`ShipmentMilestoneReached\` | Normalise to 12 milestones, dedupe, ordering, update read model, detect exceptions | — |
+| Process | **prc-tracking-events** | Event-driven | consumes scan, carrier, customs, TMS events → publishes \`ShipmentMilestoneReached\` | Normalise to 12 milestones, dedupe, ordering, update read model, detect exceptions | Events only |
 | Process | **prc-tracking-notifications** | Event-driven + REST | consumes \`ShipmentMilestoneReached\`; \`/subscriptions\` | Match subscriptions, sign and deliver webhooks, retry 24 h, DLQ | exp-b2b-tracking |
 | System | **sys-tms-shipments** | REST + CDC | \`GET /shipments/{id}\`, change events | Wrap TMS DB (low rate) | prc-tracking-events |
 | System | **sys-scan-events** | Kafka consumer | \`scans\` topic | Decode scanner events | prc-tracking-events |
@@ -161,11 +162,11 @@ Constraints:
 
 **Serving 900 lookups/s.** The query path is **CQRS**: prc-tracking-events writes a denormalised read model in sys-tracking-store; prc-shipment-tracking reads only from it. The TMS sees only change capture and occasional enrichment calls. exp-public-tracking adds HTTP caching (short TTL, e.g. 30–60 s) or a CDN in front for repeat lookups of the same tracking number.
 
-**Sequence — "delivered" scan to shipper webhook**
+**Sequence: "delivered" scan to shipper webhook**
 1. Courier scans → event on Kafka \`scans\` → sys-scan-events consumer.
 2. prc-tracking-events: dedupe (scan ID), map to milestone **DELIVERED**, check ordering (ignore an older "out for delivery" arriving later), store PoD reference, update read model.
 3. Publish \`ShipmentMilestoneReached { shipmentId, shipperId, milestone, timestamp }\`.
-4. prc-tracking-notifications: find shipper subscriptions for DELIVERED, POST signed payload (HMAC header) to each URL, with timeouts. 2xx → delivered; otherwise exponential retries for 24 h via a retry queue, then DLQ + shipper-visible delivery log.
+4. prc-tracking-notifications: find shipper subscriptions for DELIVERED, POST signed payload (HMAC header) to each URL, with timeouts. 2xx → delivered; otherwise the message is redelivered about once a minute, so a redelivery limit of 1,440 keeps trying for 24 h; then DLQ + shipper-visible delivery log.
 5. Elapsed < 2 minutes at normal load; queue depth and end-to-end lag are monitored.
 
 **Partner isolation.** Each shipper has an API Manager client application; exp-b2b-tracking maps client ID → shipperId and passes it down; prc-shipment-tracking filters every query by shipperId. Webhook subscriptions are owned by the shipper and can only target HTTPS URLs they registered. Public tracking returns only status/ETA; proof-of-delivery image requires tracking number **and** delivery postcode.

@@ -14,11 +14,11 @@ Each transaction has \`txnId\`, \`card\` (16-digit card number as a string), \`t
 - Only transactions with status \`APPROVED\` count. Declined attempts are ignored completely.
 - \`ACTIVATE\`, \`RELOAD\` and \`REFUND\` (money returned to the card) **add** the amount; \`REDEEM\` **subtracts** it.
 - One object per card that has at least one approved transaction, **sorted by card number ascending**:
-  - \`card\` — masked: every digit except the last four replaced by \`*\`
+  - \`card\`: masked, every digit except the last four replaced by \`*\`
   - \`balance\`
-  - \`txnCount\` — number of approved transactions
-  - \`lastActivity\` — the latest approved transaction date
-  - \`status\` — \`DEPLETED\` when the balance is \`0\`, otherwise \`ACTIVE\`
+  - \`txnCount\`: number of approved transactions
+  - \`lastActivity\`: the latest approved transaction date
+  - \`status\`: \`DEPLETED\` when the balance is \`0\`, otherwise \`ACTIVE\`
 
 No approved transactions → \`[]\`.
 `,
@@ -53,7 +53,7 @@ payload
     'Filter on `status` first, then `groupBy $.card` and `pluck` the groups back into an array.',
     'Turn each transaction into a signed amount (`if ($.type == "REDEEM") -$.amount else $.amount`) and `sum` them.',
     '`repeat("*", n)` from `dw::core::Strings` builds the mask; `card[-4 to -1]` takes the last four characters.',
-    'Sort by the **real** card number before you mask it — or the `orderBy` has nothing meaningful left to sort on.',
+    'Sort by the **real** card number before you mask it, or the `orderBy` has nothing meaningful left to sort on.',
   ],
   solution: `%dw 2.0
 import repeat from dw::core::Strings
@@ -118,11 +118,11 @@ fun signed(t) = if (t."type" == "REDEEM") -t.amount else t.amount
     },
     {
       q: 'A REDEEM is approved but would make the balance negative. Should the integration fix it?',
-      a: 'No — the integration should report it, not hide it. Output the negative balance and flag the card (e.g. status `NEGATIVE`) so finance can investigate; silently clamping to zero would make the ledger disagree with the processor.',
+      a: 'No. The integration should report it, not hide it. Output the negative balance and flag the card (e.g. status `NEGATIVE`) so finance can investigate; silently clamping to zero would make the ledger disagree with the processor.',
     },
     {
       q: 'Why not mask the card with a regex instead of repeat?',
-      a: 'Both work: `card replace /.(?=.{4})/ with "*"` masks every character that has at least four characters after it. `repeat` plus a slice is easier to read; the regex version is handy when the mask must be applied inside a longer text.',
+      a: 'Both work: `card replace /.(?=.{4})/ with "*"` masks every character that has at least four characters after it. `repeat` plus a slice is clearer to read; the regex version is handy when the mask must be applied inside a longer text.',
     },
   ],
 }

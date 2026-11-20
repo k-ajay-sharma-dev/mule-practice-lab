@@ -68,7 +68,7 @@ export default {
 A grocery and general-merchandise retailer wants its new regional DC to **cross-dock** fast-moving goods: inbound pallets go from the receiving door straight to outbound store trailers without being put away. Target dwell time: **< 4 hours**.
 
 Systems:
-- **Suppliers** send **EDI 856 ASNs** with SSCC pallet IDs, items and quantities, ~1,500 ASNs/day, 6–48 hours before arrival.
+- **Suppliers** send **EDI 856 ASNs** with SSCC pallet IDs, items and quantities, ~1,500 ASNs/day, 6 to 48 hours before arrival.
 - **Merchandising system** (Oracle-based) holds **store allocations**: how many units of each item each of the 220 stores should receive from each PO.
 - **DC WMS** runs dock doors, receiving and sortation; it publishes receipt events on **ActiveMQ**.
 - **TMS** plans store routes and trailers (departure times per store, trailer capacity in pallets/cube).
@@ -80,6 +80,8 @@ Facts and constraints:
 - Store trailers depart on fixed times; goods that miss a trailer go to stock (put-away) instead.
 - WMS and TMS must work from the **same version** of the plan.
 - ASNs arrive at up to 1 a second and about 1 in 50 has an SSCC the planner rejects. Plan changes go out at about 2 a second, and the WMS can be down for 30 minutes.
+- No plan change may be lost while the WMS is down. A rejected ASN must reach a DLQ after about 10 tries, so the supplier can be asked to resend it in time.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. Draw the architecture and describe the planning flow.
@@ -118,7 +120,7 @@ Facts and constraints:
 **Planning flow.**
 1. ASN arrives → validated, stored, queued. prc-crossdock-planning fetches the allocations for the POs on the ASN from **sys-merch-allocations** and the store departure schedule from **sys-tms** (cached per day).
 2. It writes ASN lines and allocations into staging tables with \`db:bulk-insert\` (one batch per ASN).
-3. It calls the planner: \`db:stored-procedure\` → \`XDOCK_PLANNER.BUILD_PLAN(:asnId, :runId, :planCursor)\` with \`planCursor\` declared as an OUT parameter of type CURSOR. The REF CURSOR rows (SSCC, store, trailer, door, quantity) are streamed into DataWeave.
+3. It calls the planner: \`db:stored-procedure\` → \`XDOCK_PLANNER.BUILD_PLAN(:asnId, :runId, :planCursor)\` with \`planCursor\` declared as an OUT parameter of type REF_CURSOR. The REF CURSOR rows (SSCC, store, trailer, door, quantity) are streamed into DataWeave.
 4. The plan is saved with **plan ID + version** and a PlanChanged event (plan ID, version, changed stores, full assignments or a pointer) is published to the ActiveMQ topic.
 
 **Distribution.** sys-wms and sys-tms each consume the topic via their own queue (ActiveMQ virtual topic \`Consumer.WMS.VirtualTopic.XDOCK.PLAN\` style, or durable subscriptions). Each applies the plan only if its version is newer than what it last applied, so out-of-order or duplicate events are harmless. Both report back "applied version N" so a dashboard shows when WMS and TMS disagree.
@@ -128,7 +130,8 @@ Facts and constraints:
 **Concurrency.** Two receipt events for the same ASN must not plan at the same time: use a per-ASN lock (a \`SELECT ... FOR UPDATE\` on the ASN row inside the procedure, or JMS message groups with JMSXGroupID = ASN ID so one consumer handles one ASN at a time).
 
 **Failures.**
-- WMS/TMS down → plan events wait in their queues; when they come back they apply the latest version.
+- WMS/TMS down → plan events wait in their queues; when they come back they apply the latest version. The broker redelivers about once a minute, so a redelivery limit of about 60 on the plan events covers a 30-minute outage.
+- An ASN the planner always rejects → DLQ after 10 deliveries (about 10 minutes) and an alert to the supplier team.
 - Oracle down → \`DB:CONNECTIVITY\`, transaction rollback, redelivery; DLQ after the limit plus alert because a missing plan means put-away (slower, not lost).
 - Planner raises an application error (e.g. no allocation for a PO) → plan everything else, flag the PO for the replenishment team.
 

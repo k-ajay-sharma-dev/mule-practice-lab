@@ -121,6 +121,11 @@ Twice the platform's upload was cut off: part 9 arrived with half its rows, and 
 - All good: move every part, then the control file, to \`/plan/ready\`.
 - Anything wrong: move nothing to ready, move the control file to \`/plan/error\`, and email \`planning-support@brindle.example\` a line per problem.
 
+**Facts**
+- Control files match \`FCST_*.ctl\`. The parts are in the same folder.
+- Reading a part that is not there raises \`FTP:ILLEGAL_PATH\`. Catch it so the other parts are still checked.
+- Each email line names the part. A part that is not there gets the word \`missing\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the control file

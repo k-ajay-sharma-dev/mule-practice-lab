@@ -17,7 +17,7 @@ The Product Information Management (PIM) system exposes attribute codes written 
 **Rules**
 - A new word starts after an underscore or at a lower-case → upper-case boundary (\`unitPrice\` → \`unit\`, \`Price\`). Digits stay with the word before them (\`ean13Code\` → \`ean13\`, \`Code\`).
 - If \`required\` is \`true\`, append \`" *"\` to the label. A missing \`required\` counts as not required.
-- Output one object per attribute with \`code\`, \`apiField\`, \`cssClass\`, \`label\` — in the input order.
+- Output one object per attribute with \`code\`, \`apiField\`, \`cssClass\`, \`label\`, in the input order.
 
 Use the functions in \`dw::core::Strings\` rather than writing your own string splitting.
 `,
@@ -66,9 +66,9 @@ payload map (a) -> {
 - \`dasherize\` splits on underscores, spaces **and** case changes, lower-cases everything and joins with \`-\`.
 - \`capitalize\` splits the same way and capitalizes each word, joining with spaces.
 
-A common trap is checking \`if (a.required)\` when the field can be missing: \`if (null)\` fails because the condition must be a Boolean. Comparing with \`a.required == true\` is safe for missing values. Wrapping the \`if\` in parentheses is not required here, but it makes the concatenation easier to read.
+A common trap is checking \`if (a.required)\` when the field can be missing: \`if (null)\` fails because the condition must be a Boolean. Comparing with \`a.required == true\` is safe for missing values. Wrapping the \`if\` in parentheses is not required here, but it makes the concatenation clearer.
 
-Also note that \`camelize\` only understands underscores — it leaves \`max-order-qty\` untouched — which is why the rules limit the input to snake_case and camelCase.
+Also note that \`camelize\` only understands underscores. It leaves \`max-order-qty\` untouched, which is why the rules limit the input to snake_case and camelCase.
 `,
   tests: [
     {
@@ -91,7 +91,7 @@ Also note that \`camelize\` only understands underscores — it leaves \`max-ord
     },
     {
       q: 'What would `camelize("HTTPStatus")` return, and why does it matter?',
-      a: 'It returns `"hTTPStatus"` — it only lower-cases the first character. Acronyms break naive case conversion, so agree on naming rules with the source system or post-process known acronyms.',
+      a: 'Try it in the editor: `camelize` only deals with underscores, so the acronym is not split into words and the result is not a clean `httpStatus`. Acronyms break naive case conversion, so agree on naming rules with the source system or post-process known acronyms.',
     },
     {
       q: 'Why import functions by name instead of `import *`?',

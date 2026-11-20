@@ -19,6 +19,7 @@ The payroll System API already exists. Its \`Payslip\` record has 60 fields, inc
 
 **Requirements**
 - Title \`Payroll Mobile Experience API\`, HTTPS only, and JSON as the default media type.
+- \`Money\` has a required number \`amount\` and a required string \`currency\`. \`PayslipLine\` has a required string \`label\` and a required number \`amount\`.
 - \`PayslipSummary\` has a required string \`payslipId\`, a required \`payDate\` with no time, and a required \`netPay\` of type \`Money\`. It has no \`taxCode\`, \`nationalInsuranceNumber\` or \`bankAccountNumber\`.
 - \`PayslipDetail\` inherits from \`PayslipSummary\` and adds a required \`grossPay\` of type \`Money\` and a required \`deductions\` of type \`PayslipLine[]\`.
 - \`GET /me/payslips\` returns \`PayslipSummary[]\` with status 200 and has an optional integer \`year\` of at least 2015.

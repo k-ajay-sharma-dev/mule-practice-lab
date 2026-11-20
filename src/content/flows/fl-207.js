@@ -111,6 +111,12 @@ The Mule app runs on a **two node cluster**. Transfers go to the SQL Server tabl
 - A corrected file with the same name is new and loads.
 - Archive a loaded file to \`/transfers/archive\`.
 
+**Facts**
+- Listen for \`TRF_*.csv\` with a size check wait.
+- The file key is \`<file name>|<size>|<timestamp>\`, from the listener's \`attributes.fileName\`, \`attributes.size\` and \`attributes.timestamp\` as text, such as \`TRF_0103_20261113.csv|<size>|2026-11-13T09:58:00Z\`. Look it up with a parameter named \`:fileKey\`.
+- \`dbo.transfer_staging\` has \`file_name\`, \`transfer_id\`, \`from_store\`, \`to_store\`, \`sku\` and \`qty\`, with \`qty\` as a number.
+- Insert the key and the rows in a **Try** with the transactional action \`ALWAYS_BEGIN\`. Files keep their names when moved.
+
 **Design the flow.** Also say what you set so the two nodes do not both take the same file.
 `,
   answerTemplate: `## What counts as the same file

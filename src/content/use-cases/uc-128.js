@@ -92,7 +92,10 @@ Today the handheld calls the OMS and the push provider before it lets the picker
 Facts:
 - At peak, pickers offer about **30 substitutions a second**, and customers answer about **25 a second**.
 - The OMS answers in about **250 ms** and takes up to **80 requests a second**. Once a week it reindexes for 10 minutes and takes about 6 seconds per call.
-- The push provider has short outages a few times a month.
+- The push provider has short outages a few times a month, up to about 15 minutes.
+- A picker's call must be answered within 300 ms, even while the OMS reindexes.
+- If the OMS has not answered a customer decision within 2 seconds, the app may ask the customer to try again.
+- No offer may be lost. A queue redelivers a failed message about once a minute, and every delivery counts toward its redelivery limit. No offer may reach the DLQ during a 15-minute push outage, and the offers held back must all be sent within 20 minutes of the provider coming back.
 
 **Questions:**
 - Draw a design where the picker never waits for the customer, the push provider or the OMS.

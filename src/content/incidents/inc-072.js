@@ -7,52 +7,52 @@ export default {
   estMinutes: 40,
   investigation: {
     logs: [
-      { text: '2026-10-20 18:30:00 INFO  [deploy] customer-sync v4.1.0: "address enrichment" — For Each over customers, db:select of the primary address per customer, uses payload[0]', relevant: true, why: 'The new release added one select per customer whose result is only partly read.' },
-      { text: '2026-10-21 01:00:02 INFO  [customer-sync] Nightly sync started: 18,450 changed customers, Try transactionalAction=ALWAYS_BEGIN', relevant: true, why: 'The whole loop runs in one transaction, so every select uses the same Oracle session.' },
-      { text: '2026-10-21 01:00:41 ERROR [customer-sync] DB:QUERY_EXECUTION - ORA-01000: maximum open cursors exceeded (iteration 301)', relevant: true, why: 'Each partly read result keeps its cursor open on that one session until the event completes; at about 300 (the OPEN_CURSORS limit) Oracle refuses more.' },
-      { text: '2026-10-21 01:00:41 INFO  [customer-sync] Transaction rolled back, 0 customers synchronised', relevant: false },
-      { text: '2026-10-21 09:14:20 INFO  [health] GET /api/health 200 (3 ms)', relevant: false },
-      { text: '2026-10-21 09:15:03 WARN  [customer-api] GET /customers/batch?ids=… took 30,012 ms', relevant: false },
-      { text: '2026-10-21 09:15:03 ERROR [customer-api] DB:CONNECTIVITY - could not obtain a connection from the pool within maxWait (maxPoolSize=20, active=20)', relevant: true, why: 'The online batch endpoint uses the same per-id lookup without a transaction: each partly read result holds its own pooled connection until the request ends, so one request with 25 ids drains the pool.' },
-      { text: '2026-10-21 09:16:00 INFO  [oracle-dba] Session CUSTOMER_API: 20 sessions, mostly idle, each with many open cursors', relevant: true, why: 'Database-side confirmation: connections are held but idle, with cursors left open — a client-side resource leak, not a slow database.' },
+      { text: '2026-10-19 18:30:00 INFO  [deploy] customer-sync v4.1.0: "address enrichment": For Each over customers, db:select of the primary address per customer, uses payload[0]', relevant: true, why: 'The new release added one select per customer whose result is only partly read.' },
+      { text: '2026-10-2001:00:02 INFO  [customer-sync] Nightly sync started: 18,450 changed customers, Try transactionalAction=ALWAYS_BEGIN', relevant: true, why: 'The whole loop runs in one transaction, so every select uses the same Oracle session.' },
+      { text: '2026-10-2001:00:41 ERROR [customer-sync] DB:QUERY_EXECUTION - ORA-01000: maximum open cursors exceeded (iteration 301)', relevant: true, why: 'Each partly read result keeps its cursor open on that one session until the event completes; at about 300 (the OPEN_CURSORS limit) Oracle refuses more.' },
+      { text: '2026-10-2001:00:41 INFO  [customer-sync] Transaction rolled back, 0 customers synchronised', relevant: false },
+      { text: '2026-10-2009:14:20 INFO  [health] GET /api/health 200 (3 ms)', relevant: false },
+      { text: '2026-10-2009:15:03 WARN  [customer-api] GET /customers/batch?ids=… took 30,012 ms', relevant: false },
+      { text: '2026-10-2009:15:03 ERROR [customer-api] DB:CONNECTIVITY - could not obtain a connection from the pool within maxWait (maxPoolSize=20, active=20)', relevant: true, why: 'The online batch endpoint uses the same per-id lookup without a transaction: each partly read result holds its own pooled connection until the request ends, so one request with 25 ids drains the pool.' },
+      { text: '2026-10-2009:16:00 INFO  [oracle-dba] Session CUSTOMER_API: 20 sessions, mostly idle, each with many open cursors', relevant: true, why: 'Database-side confirmation: connections are held but idle, with cursors left open: a client-side resource leak, not a slow database.' },
     ],
     questions: [
       {
         type: 'single',
         prompt: 'What links the nightly ORA-01000 and the daytime pool exhaustion?',
         options: [
-          'Both run a streamed db:select per item and read only the first row; Mule keeps each result (cursor and, outside a transaction, the connection) open until it is fully consumed or the event ends',
-          'Oracle is undersized and needs more CPU',
-          'The pooling profile minPoolSize is too low',
-          'ORA-01000 is caused by the network between CloudHub and Oracle',
+          'A streamed select per item is only partly read, so its resources stay open',
+          'Oracle is undersized, so cursors and sessions stay busy for longer at peak',
+          'The pool’s minPoolSize is too low, so new connections are opened too slowly',
+          'The For Each runs in parallel threads, and each thread holds a session',
         ],
         answer: 0,
-        explain: 'Inside one transaction the cursors pile up on one session (ORA-01000 at the OPEN_CURSORS limit). Without a transaction each lookup holds a pooled connection, so the pool runs dry. Same pattern, two symptoms.',
+        explain: 'Inside one transaction the cursors pile up on one session (ORA-01000 at the OPEN_CURSORS limit). Without a transaction each lookup holds a pooled connection, so the pool runs dry. Same pattern, two symptoms. The DBA sees idle sessions, so the database is not busy, and For Each runs its items one after another.',
       },
       {
         type: 'single',
         prompt: 'What is the best immediate mitigation?',
         options: [
-          'Roll back customer-sync to v4.0 (before the enrichment) so the API and the nightly job are stable, and run the missed sync',
-          'Ask the DBA to raise OPEN_CURSORS to 50,000',
-          'Raise maxPoolSize to 500',
-          'Restart the app every hour',
+          'Roll back customer-sync to v4.0, then run the missed nightly sync',
+          'Ask the DBA to raise OPEN_CURSORS to 50,000 and rerun the sync',
+          'Raise maxPoolSize to 500 so the batch endpoint gets enough connections',
+          'Remove the Try transaction from the nightly job and rerun it',
         ],
         answer: 0,
-        explain: 'Raising limits only delays the failure and moves the load into Oracle. Rolling back removes the leak while the code is fixed.',
+        explain: 'Raising limits only delays the failure and moves the load into Oracle. Without the transaction the nightly loop behaves like the batch endpoint and drains the pool instead. Rolling back removes the leak while the code is fixed.',
       },
       {
         type: 'multi',
         prompt: 'Which belong in the permanent fix?',
         options: [
-          'Replace the per-customer lookup with one set-based query (join or IN list per chunk) — no N+1 selects',
-          'Where a single-row lookup remains, limit it (maxRows="1") and fully consume the result immediately in a Transform, instead of leaving a stream half read',
-          'Keep the nightly transaction per chunk of customers, not around the whole 18,450-item loop',
-          'Add a load test with realistic volumes and a dashboard of pool usage and Oracle open cursors per session',
-          'Disable streaming in Oracle by setting OPEN_CURSORS to unlimited',
+          'One set-based query per chunk instead of one select per customer',
+          'For a single-row lookup, maxRows="1" and read the result fully at once',
+          'A transaction per chunk of customers, not around the whole loop',
+          'Load tests at real volumes and a dashboard of pool use and open cursors',
+          'OPEN_CURSORS set high enough for the largest nightly run',
         ],
         answer: [0, 1, 2, 3],
-        explain: 'Remove the N+1 pattern, release resources promptly, keep transactions small and measure. Unlimited cursors just let one session consume database memory.',
+        explain: 'Remove the N+1 pattern, release resources promptly, keep transactions small and measure. A higher limit only lets one session use more database memory, and the next volume increase hits it again.',
       },
       {
         type: 'match',
@@ -104,7 +104,7 @@ export default {
 `,
   keyPoints: [
     'db:select results are streamed: rows are read from an open cursor as the flow consumes them.',
-    'A result that is only partly read (payload[0]) keeps its statement and cursor — and, outside a transaction, its connection — until it is fully consumed or the event completes.',
+    'A result that is only partly read (payload[0]) keeps its statement and cursor (and, outside a transaction, its connection) until it is fully consumed or the event completes.',
     'In one long transaction all selects share one session, so cursors accumulate until ORA-01000 (OPEN_CURSORS).',
     'Without a transaction, each lookup holds its own pooled connection, so a loop drains the pool (DB:CONNECTIVITY waiting for a connection).',
     'Fix: set-based queries instead of N+1, fully consume or limit single-row lookups immediately, transactions per chunk, monitoring of pool and cursors.',
@@ -115,7 +115,7 @@ export default {
 
 **Diagnosis.** v4.1.0 runs a \`db:select\` per customer and reads only the first row. A streamed result that is not fully consumed stays open until the event finishes.
 - **Nightly job:** the loop runs inside one transaction, so all 18,450 selects use the **same Oracle session**. Open cursors pile up and at iteration 301 Oracle raises **ORA-01000** (limit 300). The transaction rolls back.
-- **Batch endpoint:** no transaction, so each lookup takes **its own pooled connection** and keeps it until the request ends. A request with 25 ids needs 25 connections; the pool has 20 — the request waits \`maxWait\` (30 s) and fails, and every other Oracle endpoint is starved meanwhile.
+- **Batch endpoint:** no transaction, so each lookup takes **its own pooled connection** and keeps it until the request ends. A request with 25 ids needs 25 connections; the pool has 20, so the request waits \`maxWait\` (30 s) and fails, and every other Oracle endpoint is starved meanwhile.
 The DBA view (idle sessions, many open cursors) confirms a client-side leak.
 
 **Immediate mitigation.** Roll back to v4.0; run the missed nightly sync; tell the API consumers the batch endpoint is stable again. Do not raise OPEN_CURSORS or the pool size as the "fix".

@@ -111,6 +111,11 @@ The first version ran three statements one after another. When the credit failed
 - Debit, credit and the transfer row happen together or not at all.
 - Answer **201** \`{ transferId, status: "DONE" }\` when it works. Any other failure answers 500 and changes nothing.
 
+**Facts**
+- Check the stock in the debit itself: \`... SET qty = qty - :qty WHERE ... AND qty >= :qty\`. Its result's \`affectedRows\` is 0 when the stock is short; then raise an error inside the transaction.
+- Make the \`transferId\` with \`uuid()\`.
+- Put the status code in the variable \`httpStatus\`. The listener answers with it. An error you do not catch answers 500.
+
 **Design the flow.**
 `,
   answerTemplate: `## One transaction

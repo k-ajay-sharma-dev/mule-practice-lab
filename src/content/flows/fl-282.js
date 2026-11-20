@@ -147,6 +147,13 @@ The support console calls \`POST /api/outbound/{messageType}\`. Today the API wa
 - Run the procedure **after** answering. Mark the job \`COMPLETED\` with the message count, or \`FAILED\` with the reason in \`detail\`.
 - \`GET /api/outbound/jobs/{jobId}\` returns the job (\`jobId\`, \`status\`, \`messages\`, ...), or **404**.
 
+**Facts**
+- Each procedure returns one row as an object: \`usp_job_claim\` gives \`{ job_id, running_job_id }\`, \`usp_generate_outbound\` gives \`{ message_count }\`. Keep the claim in a target variable.
+- When a run is going, **Raise Error** \`APP:ALREADY_RUNNING\` and answer from an **On Error Propagate** for that type.
+- Run the generation in an **Async** scope. Inside it, a **Try** with **On Error Continue** marks the job \`FAILED\` with \`error.description\` in \`detail\`.
+- An unknown job answers 404 with \`{ "error": "NOT_FOUND" }\`.
+- **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
+
 **Design the flows.**
 `,
   answerTemplate: `## Claiming the job

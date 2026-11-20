@@ -20,10 +20,10 @@ export default {
         type: 'single',
         prompt: 'Why does every request get 503?',
         options: [
-          'Autodiscovery uses the QA API instance ID, pairing never completes in PROD, and the gateway blocks requests until policies are applied',
-          'The rate limiting policy is set too low',
-          'The app crashed after startup',
-          'The PROD backend systems are down',
+          'Autodiscovery points at the QA API ID, so the PROD gateway never gets its policies',
+          'The rate limiting policy in PROD is set too low for go-live traffic',
+          'The app crashed right after startup and Runtime Manager has not noticed',
+          'The PROD backend systems behind loans-eapi are down',
         ],
         answer: 0,
         explain: 'The app is RUNNING but no flow logs appear: the gateway is blocking (fail-closed) because the configured apiId is not the PROD instance.',
@@ -32,10 +32,10 @@ export default {
         type: 'single',
         prompt: 'What is the right immediate fix?',
         options: [
-          'Remove the autodiscovery element and redeploy',
-          'Set `api.id` to the PROD instance ID as a Runtime Manager property, restart, and confirm the instance is Active',
-          'Disable gateway blocking in PROD',
-          'Delete the QA API instance',
+          'Remove the autodiscovery element from the app and redeploy it to PROD',
+          'Set `api.id` to the PROD instance ID in Runtime Manager, restart, check it is Active',
+          'Turn off gateway blocking in PROD so requests reach the flows',
+          'Delete the QA API instance so its ID is free for PROD to use',
         ],
         answer: 1,
         explain: 'Pair with the correct instance. Removing autodiscovery or disabling blocking would expose the API without client ID enforcement and rate limiting.',
@@ -69,12 +69,12 @@ export default {
   description: `
 ## Symptoms
 - \`loans-eapi\` was deployed to PROD for go-live. The app status is **Running** in Runtime Manager.
-- Every request returns **503** with a short body like "API is not available / not yet configured". Nothing reaches the flows — no logs from the main flow.
+- Every request returns **503** with a short body like "API is not available / not yet configured". Nothing reaches the flows: there are no logs from the main flow.
 - The same artifact works in QA.
 
 ## Change / Context
 - The app uses \`<api-gateway:autodiscovery apiId="$\{api.id}" flowRef="loans-eapi-main"/>\`.
-- \`api.id\` comes from \`prod.yaml\` — a copy of \`qa.yaml\` where somebody updated URLs but not the API ID. The value is the **QA** API instance ID.
+- \`api.id\` comes from \`prod.yaml\`, a copy of \`qa.yaml\` where somebody updated URLs but not the API ID. The value is the **QA** API instance ID.
 - PROD API Manager has an API instance for \`loans-eapi\` with policies (client ID enforcement, rate limiting) and a different ID.
 - The org's PROD environment client ID/secret are configured as \`anypoint.platform.client_id/secret\`.
 
@@ -105,12 +105,12 @@ export default {
     'With autodiscovery, the gateway blocks an API (503) until it successfully pairs with its API Manager instance and downloads policies.',
     'The apiId points to the QA API instance, which the PROD environment credentials cannot access, so pairing never completes.',
     'Immediate: set api.id to the PROD API instance ID (property in Runtime Manager) and restart; verify the API status becomes Active.',
-    'Do not "fix" by removing autodiscovery or disabling gateway blocking — that exposes the API without its security policies.',
+    'Do not "fix" by removing autodiscovery or disabling gateway blocking. That exposes the API without its security policies.',
     'Prevention: environment-specific values (api.id, platform credentials) injected by the pipeline per environment, plus a post-deploy smoke test.',
   ],
   solution: `
 ## Diagnosis
-API autodiscovery ties the running app to an **API instance in API Manager**. On startup the gateway tries to fetch that instance's policies; until it succeeds, it **blocks requests with 503** (fail-closed — better than serving an unprotected API). The configured \`apiId\` is the **QA** instance, which doesn't exist in/isn't accessible from the PROD environment with PROD credentials, so pairing never completes and the API stays blocked. That's why no flow logs appear.
+API autodiscovery ties the running app to an **API instance in API Manager**. On startup the gateway tries to fetch that instance's policies; until it succeeds, it **blocks requests with 503** (fail-closed, which is better than serving an unprotected API). The configured \`apiId\` is the **QA** instance, which doesn't exist in/isn't accessible from the PROD environment with PROD credentials, so pairing never completes and the API stays blocked. That's why no flow logs appear.
 
 ## Immediate mitigation
 Set \`api.id\` to the PROD instance ID as a property in Runtime Manager (overrides the file value) and restart. In API Manager, confirm the instance shows as **Active** with policies applied, then run a smoke test with a valid client ID.

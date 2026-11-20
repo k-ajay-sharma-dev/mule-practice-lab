@@ -135,7 +135,7 @@ Campaign tool ~► notify.bulk ~► prc-bulk-mailer (≤ 10/s) ─► Mail relay
              ~► notify.bulk.dlq       └─► sys-preferences
 \`\`\`
 
-**Settings.** Gateway: client ID enforcement. \`exp-notifications\`, \`prc-urgent-mailer\`, \`sys-preferences\`: 2 replicas. \`prc-bulk-mailer\`: 15 a second. Both queues: 60 deliveries before the DLQ.
+**Settings.** Gateway: client ID enforcement. \`exp-notifications\`, \`prc-urgent-mailer\`, \`sys-preferences\`: 2 replicas. \`prc-bulk-mailer\`: rate limit 10 a second, which leaves 10 of the relay's 20 for the 8 urgent sends a second. Both queues: 60 deliveries before the DLQ.
 
 **The send log.** Each mailer writes a row per request (sent, suppressed, rejected, gave up) in Oracle, keyed by the request ID. That row answers "did the customer get it?" and stops a repeated request from sending twice.
 `,

@@ -85,7 +85,9 @@ A retailer has a working \`prc-order-api\`. Three consumers now want order data:
 | **Web portal** | Full order history with filters, invoices, return eligibility; end users log in |
 | **Marketplace partner** | Orders they sold, in their own field naming; strict SLA; machine-to-machine; 50 rps contracted |
 
-At peak the mobile app asks for order lists **80 times a second** and the web portal 30. The partner has sent bursts of **200 a second**, far over its contract. The order system answers in about 200 ms and takes at most **200 calls a second**. A short TTL of one minute on the mobile order list answers about half of the mobile reads.
+Mobile and web customers log in through the company's identity provider. The partner identifies itself with a client ID, and calls without one must be refused.
+
+At peak the mobile app asks for order lists **80 times a second** and the web portal 30. The partner has sent bursts of **200 a second**, far over its contract. The order system answers in about 200 ms and takes at most **200 calls a second**. A cache with a short TTL of one minute on the mobile order list, kept at the Experience layer, answers about half of the mobile reads.
 
 **Questions:**
 1. One Experience API or several? Defend your choice using the **Backend-for-Frontend (BFF)** idea.
@@ -110,11 +112,11 @@ At peak the mobile app asks for order lists **80 times a second** and the web po
     'In settings: client ID enforcement and a 50 a second rate limit on the partner API, an OAuth 2.0 policy on the mobile and web APIs, a one minute cache on the mobile order list, and 0.5 vCore for the shared Process and System APIs.',
   ],
   solution: `
-**How many?** Two or three, decided by differences — not by count of consumers:
-- \`exp-partner-order-api\` — clearly separate: external machine client, different naming, SLA tier, independent and conservative versioning.
+**How many?** Two or three, decided by differences, not by the count of consumers:
+- \`exp-partner-order-api\`: clearly separate: external machine client, different naming, SLA tier, independent and conservative versioning.
 - Mobile and web: both authenticated end users, but different shapes and paging. Options: one \`exp-digital-api\` with \`view=summary|full\` and field selection, or two BFFs (\`exp-mobile-api\`, \`exp-web-api\`) if the teams and release cycles are separate. If the mobile team releases weekly and needs screen-shaped endpoints, separate BFFs reduce coordination.
 
-**BFF principle:** "one backend per user experience" — the API is designed for (and ideally co-owned with) the front-end team; it aggregates and trims so the client makes one call per screen.
+**BFF principle:** "one backend per user experience": the API is designed for (and ideally co-owned with) the front-end team; it aggregates and trims so the client makes one call per screen.
 
 **Differences.**
 
@@ -127,7 +129,7 @@ At peak the mobile app asks for order lists **80 times a second** and the web po
 | SLA / limits | Spike control | Spike control | SLA-based rate limiting (contracted 50 rps tier) |
 | Versioning | Can move faster (app version gating) | Moderate | Slow, long deprecation windows |
 
-**What stays out:** return-eligibility rules, pricing, status derivation, cross-system orchestration — all in \`prc-order-api\`. If the mobile Experience API computes "can return" and the web one computes it differently, customers get different answers. Experience APIs also never call System APIs to "fill gaps" without a deliberate decision.
+**What stays out:** return-eligibility rules, pricing, status derivation, cross-system orchestration: all in \`prc-order-api\`. If the mobile Experience API computes "can return" and the web one computes it differently, customers get different answers. Experience APIs also never call System APIs to "fill gaps" without a deliberate decision.
 
 **Settings that matter.**
 - \`exp-partner-order-api\`: **client ID enforcement** and a **rate limit of 50 a second**, the contracted tier. A burst of 200 gets 429 for the extra 150, so the shared \`prc-order-api\` and the order system never see it. Without the limit the burst would push the order system past its 200 a second and mobile and web customers would get errors.

@@ -7,9 +7,9 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
-      { text: "2026-11-18 07:00:00 INFO  [daily-report] Query jobs where status=FAILED today count=0", relevant: true, why: "No failed rows." },
-      { text: "2026-11-18 07:00:00 INFO  [daily-report] Email sent subject=\"All integrations OK\"", relevant: true, why: "The report says OK." },
       { text: "2026-11-18 02:00:00 ERROR [plan-in] Database unavailable, job row not written", relevant: true, why: "Jobs that never started left no rows." },
+      { text: "2026-11-18 07:00:00 INFO  [daily-report] Query jobs where status=FAILED today count=0", relevant: true, why: "No failed rows." },
+      { text: "2026-11-18 07:00:01 INFO  [daily-report] Email sent subject=\"All integrations OK\"", relevant: true, why: "The report says OK." },
       { text: "2026-11-18 07:30:00 WARN  [stores] No new plans today", relevant: true, why: "Stores see the problem." },
       { text: "2026-11-18 23:59:00 INFO  [daily-report] GET /health 200", relevant: false },
     ],
@@ -19,9 +19,9 @@ export default {
         prompt: "Why did the report say OK?",
         options: [
           "It only counts failed rows, and jobs that could not start wrote no rows",
-          "The report is cached",
-          "Email changed it",
-          "Jobs succeeded",
+          "The report read a cached result from yesterday’s run instead",
+          "The plan-in job succeeded but the stores read old plans",
+          "The email system replaced the subject with a default one",
         ],
         answer: 0,
         explain: "Missing data is not success.",
@@ -31,9 +31,9 @@ export default {
         prompt: "What should the report check?",
         options: [
           "Expected jobs against jobs that completed, so missing runs show",
-          "Only failures",
-          "Only email count",
-          "Nothing",
+          "Failed rows only, with a longer look back of seven days",
+          "The number of report emails sent the day before",
+          "Error lines in the worker logs from the last hour",
         ],
         answer: 0,
         explain: "Compare against a schedule.",
@@ -45,7 +45,7 @@ export default {
           "A heartbeat row at the start of each run",
           "An alert when an expected job has no row by a time",
           "Counts per job compared with yesterday",
-          "A green subject line always",
+          "A subject line based on the failed count only",
         ],
         answer: [0,1,2],
         explain: "Detect absence.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What is the lesson?",
         options: [
           "Absence of errors is not proof of success",
-          "Emails are unreliable",
-          "Databases fail",
-          "Reports are useless",
+          "Email is too unreliable to carry job reports",
+          "The job log should live outside the database",
+          "Daily reports should be replaced by live dashboards",
         ],
         answer: 0,
         explain: "Check for presence of success.",
@@ -86,9 +86,9 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
-2026-11-18 07:00:00 INFO  [daily-report] Query jobs where status=FAILED today count=0
-2026-11-18 07:00:00 INFO  [daily-report] Email sent subject="All integrations OK"
 2026-11-18 02:00:00 ERROR [plan-in] Database unavailable, job row not written
+2026-11-18 07:00:00 INFO  [daily-report] Query jobs where status=FAILED today count=0
+2026-11-18 07:00:01 INFO  [daily-report] Email sent subject="All integrations OK"
 2026-11-18 07:30:00 WARN  [stores] No new plans today
 \`\`\`
 

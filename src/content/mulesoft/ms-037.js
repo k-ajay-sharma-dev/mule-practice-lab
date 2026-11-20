@@ -10,13 +10,13 @@ export default {
       type: 'single',
       prompt: 'The developer copied `acme-crypto-2.4.jar` into `src/main/resources/lib` and gets `ClassNotFoundException`. What is the correct fix?',
       options: [
-        'Move it to `src/main/resources/classes`',
-        'Install/publish the jar to a Maven repository (Nexus, Artifactory or Exchange) and add it as a dependency in `pom.xml`',
-        'Reference it with `readUrl("classpath://lib/acme-crypto-2.4.jar")`',
-        'Add the path to `mule-artifact.json` as a resource',
+        'Move the jar to `src/main/resources/classes` instead of `lib`',
+        'Publish the jar to a Maven repository and add it as a dependency',
+        'Load it with `readUrl("classpath://lib/acme-crypto-2.4.jar")`',
+        'List the jar path in `mule-artifact.json` as an exported resource',
       ],
       answer: 1,
-      explain: 'Jars in `src/main/resources` are only resources, not class-path libraries. A Maven dependency puts it on the class path and keeps the CI build reproducible.',
+      explain: 'Jars in `src/main/resources` are only resources, not class-path libraries. A Maven dependency in `pom.xml`, from Nexus, Artifactory or Exchange, puts it on the class path and keeps the CI build reproducible.',
     },
     {
       type: 'single',
@@ -36,10 +36,10 @@ export default {
       needsScenario: true,
       prompt: 'Can DataWeave create a `Signer` and call its instance method `sign`?',
       options: [
-        'Yes, with `new Signer(alias).sign(payload)`',
-        'No — DataWeave calls static methods (and reads fields); use the Java module New and Invoke operations for instances',
-        'Yes, if the class is a Spring bean',
-        'Only in DataWeave 1.0',
+        'Yes, with `new Signer(alias).sign(payload)` in the script',
+        'No, DataWeave cannot call instance methods, so use the Java module',
+        'Yes, as long as the class is registered as a Spring bean',
+        'Only in DataWeave 1.0, which allowed Java instance calls',
       ],
       answer: 1,
       explain: 'DataWeave can instantiate a class (`Signer::new(...)`) and read its fields, but it cannot call instance methods such as `sign`. `java:new` creates the instance and `java:invoke` calls the method on it.',
@@ -61,25 +61,25 @@ export default {
       detail: true,
       prompt: 'In `java:invoke-static ... args="#[{ accountNumber: vars.account }]"`, how are argument keys determined?',
       options: [
-        'By position only — keys are ignored',
-        'They are the parameter names; if the class was compiled without parameter-name metadata, they are `arg0`, `arg1`, ...',
-        'They must match the JSON field names of the payload',
-        'They are always `param1`, `param2`, ...',
+        'By position only, so the keys in the map are ignored',
+        'They are the parameter names, or `arg0`, `arg1` without metadata',
+        'They must match the JSON field names of the current payload',
+        'They are always `param1`, `param2` and so on, by position',
       ],
       answer: 1,
-      explain: 'Arguments are a map keyed by parameter name. The method signature (e.g. `luhnCheckDigit(String)`) resolves overloads.',
+      explain: 'Arguments are a map keyed by parameter name. If the class was compiled without parameter-name metadata, the keys are `arg0`, `arg1`, and so on. The method signature (e.g. `luhnCheckDigit(String)`) resolves overloads.',
     },
     {
       type: 'single',
       prompt: 'A teammate wants to call Java to build a JSON response from the order fields. What is the best reply?',
       options: [
-        'Good idea — Java is always faster than DataWeave',
-        'That is a smell — plain mapping belongs in DataWeave; use Java for genuinely Java-shaped logic like crypto or existing SDKs',
-        'Use a Groovy script instead, it is the recommended approach',
-        'Fine, as long as it is a static method',
+        'Good idea, because Java is always faster than DataWeave',
+        'Keep plain mapping in DataWeave, and use Java for crypto or SDKs',
+        'Use a Groovy script instead, as that is the recommended way',
+        'Fine, as long as the Java code is a static method',
       ],
       answer: 1,
-      explain: 'Java for mapping hides logic from the flow and complicates testing. Groovy works but adds a dynamic language and is usually slower.',
+      explain: 'Using Java for plain mapping is a smell. It hides logic from the flow and complicates testing. Groovy works but adds a dynamic language and is usually slower.',
     },
   ],
   description: `
@@ -127,13 +127,13 @@ So far:
     'Java code must be on the application class path: a Maven dependency in pom.xml (installed/published to a repository) or source in src/main/java.',
     'DataWeave can call static methods with import java!com::acme::crypto::Checksum then Checksum::luhnCheckDigit(x).',
     'The Java module provides New, Invoke (instance), Invoke static and Validate type operations; arguments are passed as a map keyed by parameter name.',
-    'Expensive objects should be created once — e.g. a Spring bean or an instance stored at startup — not per message.',
+    'Expensive objects should be created once: e.g. a Spring bean or an instance stored at startup: not per message.',
     'Java is for logic that is genuinely Java-shaped (crypto, existing libraries); plain mapping belongs in DataWeave.',
   ],
   solution: `
 **Adding the jar:** jars in \`src/main/resources\` are only resources, not classpath libraries. Install/publish the jar to a Maven repository (corporate Nexus/Artifactory, or Exchange) and add it as a dependency in \`pom.xml\`. For your own classes, put the source in \`src/main/java\`. This also makes the CI build reproducible.
 
-**Static method — DataWeave**
+**Static method: DataWeave**
 \`\`\`dataweave
 %dw 2.0
 import java!com::acme::crypto::Checksum
@@ -146,7 +146,7 @@ payload.accounts map {
 \`\`\`
 DataWeave Java interop calls **static** methods; it can also instantiate a class with \`::new\` and read its fields, but it cannot call instance methods.
 
-**Static method — Java module**
+**Static method: Java module**
 \`\`\`xml
 <java:invoke-static class="com.acme.crypto.Checksum"
     method="luhnCheckDigit(String)"
@@ -165,7 +165,7 @@ Constructing an expensive object per request wastes CPU. Create it once, for exa
 
 **Errors:** wrong signature or class → configuration/runtime errors from the Java module (its own \`JAVA:\` error types); exceptions thrown by the method surface as errors whose \`error.cause\` is the Java exception. Handle them like any other error type.
 
-**When to use Java:** wrapping existing, tested libraries (crypto, proprietary SDKs, complex algorithms). It is a smell when used for mapping, string building or HTTP calls that DataWeave or connectors already handle — it hides logic from the flow and complicates testing. Groovy via the Scripting module works but adds a dynamic language and is usually slower; prefer DataWeave or compiled Java.
+**When to use Java:** wrapping existing, tested libraries (crypto, proprietary SDKs, complex algorithms). It is a smell when used for mapping, string building or HTTP calls that DataWeave or connectors already handle: it hides logic from the flow and complicates testing. Groovy via the Scripting module works but adds a dynamic language and is usually slower; prefer DataWeave or compiled Java.
 `,
   followUps: [
     {

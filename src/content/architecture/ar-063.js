@@ -14,7 +14,7 @@ export default {
         ['Process APIs', 'CPU and memory for parallel calls, merging and DataWeave'],
         ['Experience APIs', 'Often thin but take consumer spikes; scale horizontally and cache'],
       ],
-      explain: 'Bigger replicas do not make Salesforce faster — size System APIs against the backend limits, and Process APIs against CPU/heap.',
+      explain: 'Bigger replicas do not make Salesforce faster. Size System APIs against the backend limits, and Process APIs against CPU and heap.',
     },
     {
       type: 'single',
@@ -28,7 +28,7 @@ export default {
       prompt: 'prc-customer-360-api handles 125 TPS at 250 ms p95. Roughly how many requests are in flight (Little\'s law)?',
       options: ['~5', '~31', '~125', '~500'],
       answer: 1,
-      explain: 'Concurrency ≈ rate × latency = 125 × 0.25 ≈ 31 — easily handled; the real question is CPU per request.',
+      explain: 'Concurrency ≈ rate × latency = 125 × 0.25 ≈ 31. That is a small number of threads, so the real question is CPU per request.',
     },
     {
       type: 'multi',
@@ -36,10 +36,10 @@ export default {
       prompt: 'Which APIs should keep at least 2 replicas regardless of load?',
       options: [
         'exp-mobile-api',
-        'exp-partner-api (99.9% SLA)',
+        'exp-partner-api',
         'prc-customer-360-api',
-        'sys-billing-account-api (on the critical path of prc-customer-360-api)',
-        'exp-callcenter-api (internal, 3 TPS)',
+        'sys-billing-account-api',
+        'exp-callcenter-api',
       ],
       answer: [0, 1, 2, 3],
       explain: 'Customer-facing and SLA-bound APIs, and everything on their critical path, need high availability. A chain is only as available as its weakest single-replica member. The internal call-centre API may run on one replica if the business agrees.',
@@ -51,34 +51,36 @@ export default {
       options: [
         'Vertical: one large replica',
         'Horizontal: more replicas during campaigns, scaled back afterwards',
-        'Neither — rate limit the campaign',
-        'Move it into the Process API',
+        'Neither: rate limit the campaign traffic at the gateway',
+        'Vertical first, then add replicas only if CPU stays high',
       ],
       answer: 1,
-      explain: 'More replicas add capacity and resilience; one large replica is still a single point of failure with diminishing returns.',
+      explain: 'More replicas add capacity and resilience and can be removed after the campaign. One large replica is still a single point of failure, and a bigger size gives less extra capacity for the money.',
     },
     {
       type: 'single',
       prompt: 'Which APIs are good candidates to share one Mule application?',
       options: [
-        'exp-mobile-api and sys-kyc-vendor-api',
-        'Two small, low-traffic System APIs over reference data, owned by the same team with the same release cadence',
-        'prc-customer-360-api and prc-customer-onboarding-api, regardless of load',
-        'Any APIs, as long as they are in the same business group',
+        'exp-mobile-api and sys-kyc-vendor-api, to save one app baseline',
+        'Two low-traffic System APIs with the same owner and release cadence',
+        'prc-customer-360-api and prc-customer-onboarding-api, as both are Process APIs',
+        'Any two APIs in the same business group and environment',
       ],
       answer: 1,
-      explain: 'Co-location saves the per-app baseline but couples deployment, scaling and failure; group only APIs with the same owner, cadence, criticality and low traffic.',
+      explain: 'Co-location saves the per-app baseline but couples deployment, scaling and failure. Group only APIs with the same owner, cadence and criticality, and low traffic.',
     },
   ],
   description: `
-A customer domain has 9 APIs on CloudHub 2.0. Licensing/capacity is tight and finance wants to cut vCore spend by ~40%.
+A customer domain has 9 APIs on CloudHub 2.0. Capacity is tight and finance wants to cut vCore spend by about 40%.
+
+prc-customer-360-api aggregates sys-sfdc-customer-api, sys-billing-account-api and sys-loyalty-api. prc-customer-onboarding-api calls sys-kyc-vendor-api.
 
 | API | Layer | Peak TPS | p95 | Replicas × size | Notes |
 |---|---|---|---|---|---|
 | exp-mobile-api | Exp | 120 | 300 ms | 2 × 1.0 | Customer-facing, spiky (campaigns) |
 | exp-partner-api | Exp | 5 | 400 ms | 2 × 1.0 | Contractual SLA 99.9% |
 | exp-callcenter-api | Exp | 3 | 500 ms | 2 × 0.5 | Internal |
-| prc-customer-360-api | Proc | 125 | 250 ms | 2 × 1.0 | Aggregates 3 System APIs |
+| prc-customer-360-api | Proc | 125 | 250 ms | 2 × 1.0 | Aggregates 3 System APIs, CPU heavy |
 | prc-customer-onboarding-api | Proc | 1 | 2 s | 2 × 1.0 | Business hours only |
 | sys-sfdc-customer-api | Sys | 130 | 150 ms | 2 × 1.0 | Salesforce API quota |
 | sys-billing-account-api | Sys | 125 | 120 ms | 2 × 1.0 | |
@@ -101,42 +103,43 @@ A customer domain has 9 APIs on CloudHub 2.0. Licensing/capacity is tight and fi
 `,
   keyPoints: [
     'Size from measured load (TPS × latency, CPU and memory under test), not by layer; typically System APIs are I/O-bound, Process APIs doing aggregation and DataWeave are more CPU/memory heavy, and Experience APIs scale with consumer spikes.',
-    'Low-traffic APIs (1–5 TPS) rarely need 1 vCore; fractional sizes and fewer replicas, or co-location in one app, cut cost.',
+    'Low-traffic APIs (1 to 5 TPS) rarely need 1 vCore; fractional sizes and fewer replicas, or co-location in one app, cut cost.',
     'High-availability needs (SLA, customer-facing, critical path) dictate ≥ 2 replicas; internal low-criticality APIs may accept 1 replica with fast restart.',
     'Co-locating APIs in one app saves capacity but couples deployment, scaling, failure and memory; group only APIs with the same owner, layer/domain, release cadence and criticality.',
     'Horizontal scaling (replicas, autoscaling where available) handles spikes better than oversized single replicas; verify with load tests and monitoring before and after.',
   ],
   solution: `
-**Sizing characteristics (general tendencies — confirm with load tests).**
-- **System:** mostly I/O wait on backends; modest CPU; capacity often limited by backend concurrency (connection pools, SaaS quotas) rather than Mule. Bigger replicas do not make Salesforce faster.
-- **Process:** parallel calls, merging and DataWeave transformations → CPU and memory; threads waiting on several downstreams.
-- **Experience:** often thin, but takes consumer spikes; benefits from horizontal scaling and caching.
-- Little's law sanity check: concurrent in-flight requests ≈ TPS × latency. 125 TPS × 0.25 s ≈ 31 concurrent — easily handled; the question is CPU per request.
+**Sizing characteristics (general tendencies, to confirm with load tests).**
+- **System:** mostly I/O wait on backends, modest CPU. Capacity is often limited by backend concurrency (connection pools, SaaS quotas) rather than Mule. Bigger replicas do not make Salesforce faster.
+- **Process:** parallel calls, merging and DataWeave transformations need CPU and memory, with threads waiting on several downstreams.
+- **Experience:** often thin, but takes consumer spikes. Benefits from horizontal scaling and caching.
+- Little's law sanity check: concurrent in-flight requests ≈ TPS × latency. 125 TPS × 0.25 s ≈ 31 concurrent, a small number of threads. The question is CPU per request.
 
 **Current spend:** 7 × 2 × 1.0 + 2 × 2 × 0.5 = **16 vCores**.
 
-**Proposed layout (example; sizes per the platform's available replica sizes).**
+**Proposed layout (an example, using the platform's available replica sizes).**
 
-| App | Hosts | Replicas × size | Reason |
-|---|---|---|---|
-| exp-mobile-api | — | 2 × 0.5 (+ scale out during campaigns) | Spiky; horizontal scaling; HTTP caching |
-| exp-partner-api | — | 2 × 0.2 | 5 TPS, but SLA requires 2 replicas |
-| exp-callcenter-api | — | 1–2 × 0.2 | Internal, low TPS |
-| prc-customer-360-api | — | 2 × 1.0 | Hot path, CPU-heavy merging — keep |
-| prc-customer-onboarding-api | — | 2 × 0.2 | 1 TPS; long latency is waiting, not CPU |
-| sys-sfdc-customer-api | — | 2 × 0.5 | I/O bound; quota is the real limit |
-| sys-billing-account-api | — | 2 × 0.5 | I/O bound |
-| sys-loyalty + sys-kyc-vendor | co-located? (see below) | 2 × 0.2 each or one app 2 × 0.5 | Low traffic |
+| App | Replicas × size | Reason |
+|---|---|---|
+| exp-mobile-api | 2 × 0.5 (scale out during campaigns) | Spiky; horizontal scaling; HTTP caching |
+| exp-partner-api | 2 × 0.2 | 5 TPS, but the SLA needs 2 replicas |
+| exp-callcenter-api | 1 or 2 × 0.2 | Internal, low TPS |
+| prc-customer-360-api | 2 × 1.0 | Hot path, CPU heavy merging: keep |
+| prc-customer-onboarding-api | 2 × 0.2 | 1 TPS; long latency is waiting, not CPU |
+| sys-sfdc-customer-api | 2 × 0.5 | I/O bound; quota is the real limit |
+| sys-billing-account-api | 2 × 0.5 | I/O bound |
+| sys-loyalty-api | 2 × 0.5 | 60 TPS on the customer 360 path: keep |
+| sys-kyc-vendor-api | 2 × 0.2 | 1 TPS; waits on the vendor |
 
-≈ 7–8 vCores — roughly a 50% reduction, **subject to load testing** (watch CPU, heap, GC and p95 under peak + headroom).
+About 7 to 8 vCores, roughly a 50% cut, **subject to load testing** (watch CPU, heap, GC and p95 under peak plus headroom).
 
-**Minimum replicas.** Keep ≥ 2 (ideally across availability zones) for: \`exp-mobile-api\`, \`exp-partner-api\` (SLA 99.9%), and everything on their critical path (\`prc-customer-360\`, \`sys-sfdc\`, \`sys-billing\`). A chain is only as available as its weakest single-replica member. \`exp-callcenter-api\` could run 1 replica if the business accepts minutes of downtime during restarts.
+**Minimum replicas.** Keep at least 2 (ideally across availability zones) for \`exp-mobile-api\`, \`exp-partner-api\` (SLA 99.9%), and everything on their critical path (\`prc-customer-360-api\`, \`sys-sfdc-customer-api\`, \`sys-billing-account-api\`, \`sys-loyalty-api\`). A chain is only as available as its weakest single-replica member. \`exp-callcenter-api\` could run 1 replica if the business accepts minutes of downtime during restarts.
 
 **Shared vs separate apps.**
 - Merging several APIs into one Mule app (multiple APIkit routers / listeners, each with its own API Manager instance via autodiscovery) saves the per-app overhead. Each Mule runtime has a fixed memory/CPU baseline.
-- **Good candidates:** same layer and domain, same owning team, same release cadence, similar criticality, low traffic — e.g. two small System APIs over reference data.
+- **Good candidates:** same layer and domain, same owning team, same release cadence, similar criticality, low traffic. For example, two small System APIs over reference data.
 - **Dangerous:** mixing a critical hot-path API with a slow/heavy one (one memory leak or thread exhaustion takes both down); different owners (deploy conflicts); different scaling needs; mixing layers across ownership boundaries.
-- \`sys-kyc-vendor-api\` (3 s external calls) and \`sys-loyalty-api\` share an app only if thread/connection pools are isolated and both are low-criticality — otherwise keep them apart.
+- Do not put \`sys-kyc-vendor-api\` (3 s external calls) in the same app as \`sys-loyalty-api\`: loyalty is on the customer 360 hot path, and slow vendor calls could take its threads.
 - Remember: co-location is a **physical** choice; each API keeps its own spec, contract and policies (logical API-led stays intact).
 `,
   followUps: [

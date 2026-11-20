@@ -95,7 +95,7 @@ The decimal regex escapes the dot (\`\\.\`); an unescaped \`.\` matches any char
 
 \`{ (array of objects) }\` merges the single-key objects into one object while keeping the order.
 
-**Common trap:** using \`v as Number default v\` everywhere — it coerces \`"true"\` and booleans in surprising ways and hides real data problems.
+**Common trap:** using \`v as Number default v\` everywhere. It coerces \`"true"\` and booleans in surprising ways and hides real data problems.
 `,
   tests: [
     {
@@ -118,7 +118,7 @@ The decimal regex escapes the dot (\`\\.\`); an unescaped \`.\` matches any char
   ],
   followUps: [
     {
-      q: 'Why not just use `t as Number default t`?',
+      q: 'Why not use `t as Number default t`?',
       a: 'It relies on a failed coercion silently falling back, and the number parser accepts forms you may not want (exponents like "1e3"). Explicit regex rules document exactly which shapes are accepted.',
     },
     {

@@ -21,7 +21,7 @@ Thornbury Freight loads large files into a staging table in blocks. Each block r
   - \`COUNT_MISMATCH\`: committed with the wrong row count, so delete first
 - \`deleteFirst\` is \`true\` for \`STARTED\` and \`COUNT_MISMATCH\`.
 
-Output \`runId\`, \`expectedBlocks\`, \`doneBlocks\`, \`doneRows\`, \`rerun\` (\`block\`, \`fromLine\`, \`toLine\`, \`reason\`, \`deleteFirst\`), \`resumeFrom\` (the first block to rerun, or \`null\`) and \`complete\`.
+Output \`runId\`, \`expectedBlocks\`, \`doneBlocks\` (how many are done), \`doneRows\` (the sum of \`ROWS\` over done blocks), \`rerun\` (\`block\`, \`fromLine\`, \`toLine\`, \`reason\`, \`deleteFirst\`, in block order), \`resumeFrom\` (the first block to rerun, or \`null\`) and \`complete\` (\`true\` when nothing needs a rerun). A file with 0 rows has 0 blocks and is complete.
 `,
   inputs: [
     {

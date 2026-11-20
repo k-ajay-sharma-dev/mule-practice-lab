@@ -127,6 +127,11 @@ line 3|MISSING_VALUE
 - If SQL Server **cannot be reached**, write nothing and leave the plan where it is, so it is picked up again.
 - If SQL Server **refuses** the plan, write a \`FAILED\` result with the reason and move the plan to \`outbound/alloc/error\`. The platform resends a fixed plan.
 
+**Facts**
+- Plan files match \`ALLOC_*.csv\`. \`file_name\` is the plan file's name and \`qty\` is a number.
+- An unreachable SQL Server raises \`DB:CONNECTIVITY\`; let that error end the run. A refused insert raises \`DB:QUERY_EXECUTION\`.
+- A \`FAILED\` result has the lines \`file=...\`, \`status=FAILED\` and \`reason=...\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Good and bad lines

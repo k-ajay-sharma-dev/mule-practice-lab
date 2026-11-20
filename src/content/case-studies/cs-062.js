@@ -12,12 +12,12 @@ export default {
       prompt: 'Which requirement in this scenario most clearly points to a log-based event stream (Kafka) rather than a queue broker?',
       options: [
         'DC flows must keep running when the WAN link to the cloud is down',
-        'The forecasting and analytics teams need to re-read the last 7 days of stock movements whenever they deploy a new model',
-        'Some DC flows read Oracle and publish a message as one unit of work',
-        'Cloud-hosted Mule apps need a simple managed queue between them',
+        'Forecasting teams must re-read the last 7 days of stock movements',
+        'Some DC flows read Oracle and publish a message in one unit of work',
+        'Cloud-hosted Mule apps need a managed queue with a dead-letter queue',
       ],
       answer: 1,
-      explain: 'Replaying retained history for new or rebuilt consumers is what a log-based stream is designed for. Queue brokers remove messages once consumed, so replay would need a separate store. WAN independence and transactional DC flows point to a local broker instead.',
+      explain: 'Replaying retained history for new or rebuilt consumers (for example each time forecasting deploys a new model) is what a log-based stream is designed for. Queue brokers remove messages once consumed, so replay would need a separate store. WAN independence and transactional DC flows point to a local broker instead, and a managed cloud queue points to Anypoint MQ.',
     },
     {
       type: 'single',
@@ -25,12 +25,12 @@ export default {
       prompt: 'A DC flow updates Oracle stock tables and must publish a stock-movement message only if the update commits. What is the best design recommendation?',
       options: [
         'Use Anypoint MQ inside an XA transaction with the Oracle Database connector',
-        'Write the movement to an outbox table in the same Oracle transaction, then publish from the outbox with an idempotent consumer downstream',
-        'Publish first, then update Oracle, and ignore failures because the nightly reconciliation will fix them',
+        'Write the movement to an outbox table in the same Oracle transaction',
+        'Publish first, then update Oracle, and let the nightly reconciliation fix gaps',
         'Use a Kafka producer inside a Mule XA transaction with the Database connector',
       ],
       answer: 1,
-      explain: 'The outbox keeps the business change and the event in one local database transaction and avoids distributed transactions. XA with a JMS broker such as ActiveMQ/Artemis is possible in Mule (Bitronix) but adds cost and operational complexity; Anypoint MQ and the Kafka connector do not take part in XA transactions.',
+      explain: 'The outbox keeps the business change and the event in one local database transaction and avoids distributed transactions. A separate flow then publishes from the outbox, and the consumer downstream is idempotent. XA with a JMS broker such as ActiveMQ/Artemis is possible in Mule (Bitronix) but adds cost and operational complexity; Anypoint MQ and the Kafka connector do not take part in XA transactions.',
     },
     {
       type: 'multi',
@@ -74,13 +74,13 @@ export default {
       type: 'single',
       prompt: 'Stock events must be processed in order per SKU and location while handling about 20,000 events per second at peak. Which design fits?',
       options: [
-        'A Kafka topic with a single partition so every event is in one global order',
-        'A Kafka topic partitioned by a key of SKU + location, so order is kept per key and consumers scale across partitions',
-        'One Anypoint MQ FIFO queue for all stock events',
+        'A Kafka topic with a single partition, so every event has one global order',
+        'A Kafka topic keyed by SKU + location, so order is kept per key at scale',
+        'One Anypoint MQ FIFO queue that carries all stock events for every store',
         'A JMS topic with one non-durable subscriber per consumer application',
       ],
       answer: 1,
-      explain: 'Kafka guarantees order within a partition, and keying by SKU + location keeps related events together while spreading load. A single partition or a single FIFO queue serialises all traffic, and non-durable subscribers lose messages while disconnected.',
+      explain: 'Kafka guarantees order within a partition, and keying by SKU + location keeps related events together while consumers scale across partitions. A single partition or a single FIFO queue serialises all traffic, and non-durable subscribers lose messages while disconnected.',
     },
   ],
   description: `
@@ -145,9 +145,9 @@ export default {
 | DC and site messaging | ActiveMQ Artemis per site (HA pair) | Works without the WAN, JMS features, low latency |
 | Bridges between site and cloud | Mule flows (or broker bridges) publishing canonical events | One place to transform and monitor |
 
-**Transactions and ordering.** Outbox tables in Oracle for "publish only if committed"; idempotent consumers keyed on business IDs. Order per SKU + location (Kafka key), per line or order (JMS message groups) — never global.
+**Transactions and ordering.** Outbox tables in Oracle for "publish only if committed"; idempotent consumers keyed on business IDs. Order per SKU + location (Kafka key), per line or order (JMS message groups), never global.
 
-**Migration.** Inventory Classic destinations and consumers; pilot with a low-risk flow; per-domain migration with bridges; DC sites upgraded to Artemis during planned windows; Classic switched off when empty. Expect 12–18 months.
+**Migration.** Inventory Classic destinations and consumers; pilot with a low-risk flow; per-domain migration with bridges; DC sites upgraded to Artemis during planned windows; Classic switched off when empty. Expect 12 to 18 months.
 
 **Governance.** Decision record published and reviewed yearly; exceptions require design-authority approval; naming, DLQ and schema conventions; event schemas in a catalogue; cost and usage reported per business domain.
 
@@ -158,7 +158,7 @@ export default {
 - Data residency for customer events (regional clusters or exchanges where needed).
 `,
   followUps: [
-    { q: 'Why not standardise on just one product?', a: 'No single option covers replayable high-volume streams, managed cloud queues and WAN-independent sites well. A short list with clear criteria limits sprawl without forcing a poor fit.' },
+    { q: 'Why not standardise on one product only?', a: 'No single option covers replayable high-volume streams, managed cloud queues and WAN-independent sites well. A short list with clear criteria limits sprawl without forcing a poor fit.' },
     { q: 'When would you accept XA in this estate?', a: 'Rarely: for a site flow where a local Artemis broker and Oracle must change atomically and an outbox is not possible, accepting the extra operational complexity of a transaction manager.' },
     { q: 'How do you stop the self-managed Kafka cluster from becoming a second standard?', a: 'Record the decision to move to a managed service, migrate its topics as part of the programme, and route new stream requests only to the approved platform.' },
   ],

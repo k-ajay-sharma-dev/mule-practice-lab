@@ -74,7 +74,7 @@ export default {
 **Context.** A hospital group (4 hospitals) runs one **EHR**. Lab tests are done by two systems: an in-house **LIS** (lab information system) and an external reference lab.
 - The EHR and LIS speak **HL7 v2** over **MLLP**: orders (\`ORM^O01\`) out, results (\`ORU^R01\`) back, patient updates (\`ADT\`) to keep demographics in sync.
 - The external lab only offers a **FHIR R4** REST API (\`ServiceRequest\`, \`DiagnosticReport\`, \`Observation\`).
-- A new patient app needs to show lab results — the vendor wants **FHIR** too.
+- A new patient app needs to show lab results, and its vendor wants **FHIR** too.
 
 **Problems today**
 - An old interface engine is end-of-life; when it stops, results stop and nobody notices for hours.
@@ -85,6 +85,7 @@ export default {
 - The EHR and LIS are on-premises. Result delivery to clinicians should be under 1 minute.
 - Message order matters per patient.
 - The LIS sends about 10 results a second and the EHR can be down for 30 minutes. The patient app reads about 20 results a second, and callers without a token must be refused.
+- Try each inbound result for up to an hour before it goes to a dead-letter queue. The queue redelivers a failed message about once a minute, so set the redelivery limit to match.
 
 **Your task.** Propose the integration architecture to replace the interface engine and add FHIR, covering message handling, mapping, reliability, security and monitoring.
 `,
@@ -112,7 +113,7 @@ export default {
 **Architecture.** Mule 4 runtimes on **on-prem / Runtime Fabric** inside the hospital network (MLLP never crosses the internet), managed from Anypoint.
 - **System APIs**: \`ehr-hl7-sapi\` (MLLP in/out with the EHR), \`lis-hl7-sapi\` (MLLP with the LIS), \`reflab-fhir-sapi\` (FHIR R4 client for the external lab).
 - **Process API**: \`lab-orders-papi\` routes orders to the right lab and results back to the EHR, using a **canonical model close to FHIR**.
-- **Experience API**: \`patient-fhir-eapi\` — a read-only FHIR facade (\`DiagnosticReport\`, \`Observation\`) for the patient app, exposed through a gateway.
+- **Experience API**: \`patient-fhir-eapi\`, a read-only FHIR facade (\`DiagnosticReport\`, \`Observation\`) for the patient app, exposed through a gateway.
 
 **HL7 v2 handling.**
 - Receive with an MLLP listener; parse with the HL7 connector/DataWeave.

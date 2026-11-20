@@ -73,7 +73,10 @@ export default {
 
 **Volumes.** The largest daily camt.053 file is 450 MB with 600,000 entries.
 
+**For the diagram**
 - In tests a ledger page takes 15 seconds to read, BlackLine takes 20 calls a second, and it can be down for an hour while 10 unmatched lines a second arrive.
+- Name the job prc-statement-recon, the APIs sys-ledger-api and sys-recon-workbench-api, and the queue \`recon.exceptions\`. The job and sys-ledger-api each wait up to 30 seconds for a ledger page.
+- The exceptions queue redelivers a failed message about once a minute. Keep each exception until BlackLine is back: set no redelivery limit lower than 90.
 
 **Your task.** Design the reconciliation integration.
 `,
@@ -107,7 +110,7 @@ export default {
 
 **Matching.** Pass 1 on end-to-end ID (about 85% match). Pass 2 on amount, value date and reference within 2 days. Pass 3 groups many ledger entries against one bank line for batched payouts. Matches are written back through the System API.
 
-**Exceptions.** Every unmatched line, and every ledger entry older than 2 days with no bank line, goes to \`recon.exceptions\`. A consumer creates the item in BlackLine through \`sys-recon-workbench-api\`. Failed creations retry, then go to a DLQ.
+**Exceptions.** Every unmatched line, and every ledger entry older than 2 days with no bank line, goes to \`recon.exceptions\`. A consumer creates the item in BlackLine through \`sys-recon-workbench-api\`. A failed creation stays on the queue and is redelivered about once a minute, so an hour-long BlackLine outage loses nothing.
 
 **Reporting.** Totals per account (opening balance, credits, debits, closing balance against the bank's closing balance) go to the warehouse. If the totals do not tie, the run is marked failed and finance is alerted at once.
 

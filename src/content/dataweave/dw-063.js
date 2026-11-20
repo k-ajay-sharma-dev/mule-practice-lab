@@ -19,7 +19,8 @@ A store does a cycle count with handheld scanners. Produce the variance report t
   - Scanned but unknown to the system: \`SystemQty\` \`0\`, empty \`Description\`, empty \`VarianceValue\`, status \`UNKNOWN_SKU\`.
   - Otherwise \`MATCH\` (variance 0), \`OVER\` (counted more) or \`SHORT\` (counted less). A SKU scanned with \`0\` **was** counted, so it is \`SHORT\`, not \`NOT_COUNTED\`.
 - \`Variance\` = \`CountedQty - SystemQty\`; \`VarianceValue\` = \`Variance * unitCost\` formatted with exactly two decimals.
-- \`MATCH\` rows are **not** written. The remaining rows are sorted by \`SKU\` ascending.
+- \`MATCH\` rows are **not** written. The remaining rows are sorted by \`SKU\` ascending, compared as text.
+- \`SystemQty\`, \`CountedQty\` and \`Variance\` are plain whole numbers.
 - Header: \`SKU,Description,SystemQty,CountedQty,Variance,VarianceValue,Status\`.
 `,
   inputs: [
@@ -61,7 +62,7 @@ payload
   hints: [
     'Build two lookups keyed by SKU: the summed counts (`groupBy $.sku` then `mapObject`) and the system items (`systemStock groupBy $.sku`).',
     'The list of SKUs to report is the union of both sides: `(systemStock.sku ++ payload.sku) distinctBy $`. Remember that `.sku` on an empty array is `null`, not `[]`.',
-    'CSV values arrive as strings: `"12" + "6"` fails — use `as Number`.',
+    'CSV values arrive as strings: `"12" + "6"` fails, so use `as Number`.',
     'Decide "not counted" by whether the SKU has a scanner row at all (`counted[sku] == null`), not by whether the sum is `0`.',
     '`(v * cost) as String {format: "0.00"}` gives `-32.00`; a `null` value is written as an empty CSV field.',
   ],
@@ -99,13 +100,13 @@ This is a **full outer join** on SKU with an aggregation on one side.
 
 **Union of keys.** \`distinctBy $\` on the concatenated SKU lists gives every SKU exactly once, from either side. The \`default []\` guards matter: \`payload.sku\` on an empty CSV is \`null\`, and \`[...] ++ null\` fails.
 
-**Null means "absent".** \`counted[sku]\` is \`null\` only when the SKU has no scanner row. A row with \`0\` sums to \`0\`, which is a real count — in a store, "I looked and there are none" (SHORT, an inventory loss) is very different from "nobody counted this location" (NOT_COUNTED, a recount task).
+**Null means "absent".** \`counted[sku]\` is \`null\` only when the SKU has no scanner row. A row with \`0\` sums to \`0\`, which is a real count. In a store, "I looked and there are none" (SHORT, an inventory loss) is very different from "nobody counted this location" (NOT_COUNTED, a recount task).
 
-**CSV output.** The writer takes the header from the keys of the first row, so every row must have the same keys in the same order — that is why \`Description\` and \`VarianceValue\` are present as \`null\` rather than omitted. \`null\` is written as an empty field.
+**CSV output.** The writer takes the header from the keys of the first row, so every row must have the same keys in the same order. That is why \`Description\` and \`VarianceValue\` are present as \`null\` rather than omitted. \`null\` is written as an empty field.
 
-**Formatting.** \`as String {format: "0.00"}\` always prints two decimals (\`-32.00\`, \`2.50\`). A plain number keeps whatever scale the arithmetic happened to produce (\`-2 * 4.5\` is written as \`-9\`), so two decimals are not guaranteed without it.
+**Formatting.** \`as String {format: "0.00"}\` always prints two decimals (\`-32.00\`, \`2.50\`). A plain number keeps whatever scale the arithmetic happened to produce, so two decimals are not guaranteed without it.
 
-**Precedence.** \`(skus orderBy $) map ...\` needs the parentheses — written without them, \`orderBy $ map ...\` would put the \`map\` inside the \`orderBy\` lambda.
+**Precedence.** A \`$\` shorthand lambda ends at the next operator, so \`skus orderBy $ map ...\` already sorts first and maps after. The parentheses in \`(skus orderBy $) map ...\` only make that clear. The outer parentheses before \`filter\` are needed: the \`(sku) -> do {...}\` lambda has a named parameter, and its body extends as far right as it can.
 `,
   tests: [
     {

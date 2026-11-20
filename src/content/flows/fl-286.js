@@ -99,6 +99,10 @@ The mailbox also gets out of office replies and the odd message from a person.
 - File every bounce, permanent or temporary, in the \`Processed\` folder after it is handled.
 - Anything that is not a bounce goes to the \`Review\` folder untouched.
 
+**Facts**
+- The payload is the mail's body as text. A mail with no \`Final-Recipient\` line is not a bounce.
+- Match the contact on \`email\`. Move a mail with **Email Move** and its \`attributes.id\`. The folders already exist.
+
 **Design the flow.**
 `,
   answerTemplate: `## Finding the failed address

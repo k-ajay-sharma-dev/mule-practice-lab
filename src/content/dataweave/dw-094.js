@@ -66,6 +66,6 @@ Passing \`null\` to \`map\` returns \`null\`, so a missing list passes through w
 `,
   followUps: [
     { q: 'How do you remove items and change the rest?', a: 'Run filter first, then map, so the lambda in map only sees the items you keep.' },
-    { q: 'When would you use named parameters rather than $ and $$?', a: 'When lambdas are nested or longer than a line, because inner $ hides the outer one and names are easier to read.' },
+    { q: 'When would you use named parameters rather than $ and $$?', a: 'When lambdas are nested or longer than a line, because inner $ hides the outer one and names are clearer to read.' },
   ],
 }

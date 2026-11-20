@@ -82,6 +82,7 @@ Rules:
 - The customer must never be charged a deposit for a booking that is not confirmed for more than 15 minutes.
 - No two bookings may get the same vehicle.
 - A holiday sale lasts about 20 minutes at 25 bookings a second, with the insurer taking about 12 seconds a call. The insurer can also be down for 15 minutes.
+- Each booking must be accepted within 1 second, and no booking may be lost. A Mule HTTP or SOAP call times out after 10 seconds by default, so plan for insurer calls of up to 25 seconds. During the sale about 300 insurer calls wait at the same time, more than a 0.1 vCore replica can hold.
 - The insurer bills for every policy not cancelled within 24 hours.
 - Today the website calls all three in one HTTP request and does nothing when step 3 fails. Finance finds **~200 orphan deposit holds and ~60 orphan policies per month**.
 
@@ -137,6 +138,8 @@ Rules:
 | 3 | Buy cover | Cancel policy (free within 24 h) |
 | 4 | Confirm vehicle reservation, mark CONFIRMED, publish BookingConfirmed | none |
 The vehicle hold is cheap and expires by itself, so it goes first. The insurer is last because it is the slowest and the costliest to undo. On a failure at step N the orchestrator sets \`COMPENSATING\` and runs the compensations of steps N-1 down to 1.
+
+**Timeouts and sizing.** The insurer takes about 12 seconds and up to 20, longer than the 10-second default. sys-insurer-api waits up to 25 seconds, and the orchestrator up to 30 seconds so it outlasts the System API. At 25 bookings a second many calls wait at once, so the orchestrator runs 2 replicas of 0.5 vCore and sys-insurer-api runs on 1 vCore.
 
 **Unknown outcomes and idempotency.** Each call sends \`Idempotency-Key: {bookingId}-{step}\` (payments) or the booking ID as the insurer's external reference. When the insurer call times out, the orchestrator does **not** assume failure: it asks \`getPolicyByReference\`. Found → continue. Not found after 2 checks → compensate. Compensations are idempotent too: voiding an already voided hold returns success.
 

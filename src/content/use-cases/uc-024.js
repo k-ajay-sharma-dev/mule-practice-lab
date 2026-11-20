@@ -21,7 +21,7 @@ export default {
     ],
     reference: diagram(
       {
-        portal: ['saas', 'Privacy portal (OneTrust-like)'],
+        portal: ['saas', 'Privacy portal'],
         p: ['process-api', 'prc-dsr-api', { timeoutMs: 30000 }],
         state: ['database', 'DSR state per request/system'],
         pol: ['database', 'Retention policy table'],
@@ -69,7 +69,7 @@ export default {
 A European online travel and insurance group must handle **data subject requests (DSRs)**, especially the **right to erasure** (GDPR Art. 17). Customer data is spread over ~15 systems:
 
 - **Salesforce** (CRM), **SFMC** (marketing), **Zendesk** (support), **Shopify-like web shop**, **SAP S/4HANA** (invoices), a policy administration system (insurance policies, on-prem Oracle DB), a **data warehouse** (Snowflake), **S3 data lake**, call recordings in a telephony SaaS, and several smaller apps.
-- Requests come from a **privacy portal** (OneTrust-like) — ~1,500 erasure requests/month.
+- Requests come from a **privacy portal**: ~1,500 erasure requests/month.
 - After a campaign the portal can send 2 requests a second. Salesforce can fail 1 call in 5, and a delete in Snowflake can take 20 seconds while a large load runs.
 - Legal must respond within **one month** (extendable in some cases), and must prove what was erased and where.
 - Some data must be **retained**: invoices (10 years for tax law), active insurance policies and claims, records under fraud investigation or litigation hold.
@@ -81,7 +81,7 @@ A European online travel and insurance group must handle **data subject requests
 - How do you orchestrate erasure over many systems with different capabilities and partial failures?
 - How do you apply retention exceptions correctly?
 - How do you deal with the warehouse, data lake, backups and Mule's own data?
-- How do you prove completion to auditors without keeping the personal data you just erased?
+- How do you prove completion to auditors without keeping the personal data you erased?
 `,
   answerTemplate: `## Architecture and request intake
 
@@ -110,9 +110,9 @@ A European online travel and insurance group must handle **data subject requests
 - \`POST /subject-search\` → records found (IDs, record types, created dates)
 - \`POST /erasure\` (action per record: delete, anonymise, restrict) → job ID
 - \`GET /erasure/{jobId}\` → status, counts
-Some adapters wrap APIs (Salesforce, Zendesk, SFMC), some run SQL against databases (policy system via DB connector), some create **manual tasks** (telephony SaaS without delete API) in a ticketing tool. New systems join by implementing the contract — that is the main architectural win.
+Some adapters wrap APIs (Salesforce, Zendesk, SFMC), some run SQL against databases (policy system via DB connector), some create **manual tasks** (telephony SaaS without delete API) in a ticketing tool. New systems join by implementing the contract. That is the main architectural win.
 
-**Identity resolution.** Start from verified identifiers (email, customer number, phone). Use the **MDM/customer cross-reference** to collect system-specific IDs (Salesforce Contact ID, SAP business partner, policy number, Zendesk user ID). Run \`subject-search\` in parallel across systems. Fuzzy matches (same name, different email) are **never auto-erased** — they go to a privacy analyst for confirmation. Store the resolved identity graph only for the life of the request.
+**Identity resolution.** Start from verified identifiers (email, customer number, phone). Use the **MDM/customer cross-reference** to collect system-specific IDs (Salesforce Contact ID, SAP business partner, policy number, Zendesk user ID). Run \`subject-search\` in parallel across systems. Fuzzy matches (same name, different email) are **never auto-erased**. They go to a privacy analyst for confirmation. Store the resolved identity graph only for the life of the request.
 
 **Retention rules and decisions.** A policy table maintained by legal/DPO (not hard-coded) defines per record type: retention basis and duration (e.g. invoices 10 years), conditions (active policy, open claim, legal hold flag, fraud case). The Process API evaluates every found record and produces a **decision list**: *delete*, *anonymise* (keep the invoice, remove contact details not needed for tax), *restrict* (keep but block marketing/processing), or *retain with reason*. The response to the data subject explains retained categories. Rule versions are recorded with each decision.
 
@@ -126,7 +126,7 @@ Some adapters wrap APIs (Salesforce, Zendesk, SFMC), some run SQL against databa
 
 **Analytics, backups and platform data.**
 - **Warehouse/data lake**: prefer designs where analytics use **pseudonymous keys** and a separate identity table. Erasure deletes the mapping/identity rows, and scheduled jobs purge or rewrite affected partitions (immutable files in a lake need rewrite/compaction jobs).
-- **Backups**: usually not edited; documented approach accepted by the DPO — backups expire by retention, and a **re-erasure list** (hashed IDs) is applied after any restore.
+- **Backups**: usually not edited; documented approach accepted by the DPO: backups expire by retention, and a **re-erasure list** (hashed IDs) is applied after any restore.
 - **Mule itself**: no personal data in logs (log masking, IDs only) and short TTLs on Object Stores and queue messages. DLQ contents are purged within a defined period, and the identity graph of a request is deleted after completion.
 
 **Evidence and audit.** Keep an **audit record without personal data**: request ID, a salted hash of the identifier (to detect repeat requests), list of systems, actions taken, rule version, timestamps, results and exceptions. The portal holds the closure letter. This proves compliance without re-creating the dataset that was erased.

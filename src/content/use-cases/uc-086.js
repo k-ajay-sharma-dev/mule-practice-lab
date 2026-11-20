@@ -86,6 +86,8 @@ Policy:
 - Over **£500**, or no delivery proof: create a **case** for an analyst, who approves or edits the evidence in Salesforce.
 - Evidence for every dispute must be **ready within 1 hour** of the webhook.
 - In a fraud wave the provider sends 1 dispute event every 5 seconds. A proof of delivery takes the carrier API about **15 seconds**, and about 1 event in 20 names an order the OMS does not know.
+- Every webhook must be answered within 1 second, and no dispute event may be lost. An event naming an unknown order must reach a dead-letter queue for an analyst after about 10 tries.
+- The broker redelivers a failed message about once a minute, and every delivery counts toward the redelivery limit.
 
 **Questions:**
 1. Draw the design.
@@ -117,7 +119,7 @@ Policy:
 - sys-oms: order, items, addresses, checkout IP and device;
 - sys-carrier-tracking: proof of delivery;
 - sys-salesforce-cases: contact history for the customer.
-A route that fails does not stop the others; the pack is marked incomplete and the dispute goes to an analyst. DataWeave builds the evidence text, and a PDF pack is stored in the file store with the dispute ID as name.
+Proof of delivery takes about 15 seconds, longer than the HTTP Request default timeout of 10 seconds, so sys-carrier-tracking calls the carrier with a response timeout of about 30 seconds, and prc-disputes waits up to 60 seconds for the whole gather. A route that fails does not stop the others; the pack is marked incomplete and the dispute goes to an analyst. DataWeave builds the evidence text, and a PDF pack is stored in the file store with the dispute ID as name.
 
 **Decision rules.**
 - Under £15: accept through sys-payments-disputes.
@@ -128,7 +130,9 @@ A route that fails does not stop the others; the pack is marked incomplete and t
 
 **Deadlines.** The watchdog runs hourly. It asks Salesforce for open dispute cases due within 48 hours and alerts the analyst team; within 12 hours it alerts the team lead. Auto submitted disputes are submitted on day one, far from the deadline.
 
-**Monitoring.** Alert on any DLQ message: a dispute stuck there can be lost. A weekly report shows win rate by reason code.
+**Errors.** dispute-events has a redelivery limit of 10. Redelivery comes about once a minute, so an event naming an order the OMS does not know reaches **dispute-events-dlq** after about 10 minutes, and an analyst picks it up from there.
+
+**Monitoring.** Alert on any DLQ message: a dispute stuck there can miss its deadline. A weekly report shows win rate by reason code.
 `,
   followUps: [
     { q: 'Why gather evidence at dispute.created and not when the analyst opens the case?', a: 'Carrier proof of delivery can expire after 30 to 90 days, and analysts need it ready. Gathering at once also lets small disputes go out without an analyst.' },

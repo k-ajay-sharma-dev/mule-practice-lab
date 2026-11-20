@@ -99,6 +99,12 @@ The first version published the ACK right after the Batch Job step. Every ACK sa
 - Load the lines through a Batch Job, bulk inserting groups into staging with the message ID.
 - Publish the ACK with the real counts once the job is done.
 
+**Facts**
+- Each staging row holds the notice's \`messageId\` as \`message_id\` and the line's \`line\` as \`line_no\`. \`po\`, \`item\` and \`qty\` keep their names.
+- Download the blob from container \`inbound\` with the name in \`blobName\`.
+- In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
+- Publish the ACK as JSON.
+
 **Design the flow.**
 `,
   answerTemplate: `## The notice and the blob

@@ -81,6 +81,11 @@ Every job at Fenwick writes a row in \`job_log\` (\`job_id\`, \`job_name\`, \`st
 - When the delete works, set the row to \`COMPLETED\` with \`row_count\` = rows deleted.
 - When it fails, log an ERROR and set the row to \`FAILED\`.
 
+**Facts**
+- Make the \`job_id\` with \`uuid()\` at the start of the run.
+- Work out the cut off once as \`yyyy-MM-dd\` text (today minus 30 days) and pass it as a parameter.
+- The Database Delete result has \`affectedRows\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The schedule

@@ -11,7 +11,7 @@ export default {
       needsScenario: true,
       prompt: 'Put the first six months of the programme in the right order.',
       items: [
-        'Catalogue every integration (source, target, frequency, owner, pain) and pick 2–3 painful pilots',
+        'Catalogue every integration (source, target, frequency, owner, pain) and pick 2 or 3 painful pilots',
         'Build System APIs for ERP and CRM and set standards (spec-first in Exchange, error model, CI/CD) with a small C4E',
         'Re-implement the pilots on Process APIs that use the new System APIs',
         'Run old and new in parallel and compare outputs',
@@ -36,13 +36,13 @@ export default {
       type: 'single',
       prompt: 'Stores must keep trading. How do you move from point-to-point to APIs?',
       options: [
-        'Strangler pattern: route one integration at a time to the new APIs, run in parallel, then retire the old link',
-        'Big-bang cutover on a quiet weekend with all integrations switched at once',
-        'Leave the old integrations running forever and only use APIs for new projects',
-        'Freeze all changes for six months while the new platform is built',
+        'Move one integration at a time, run old and new in parallel, then retire the old link',
+        'Switch all integrations at once on a quiet weekend, with a full rollback plan ready',
+        'Keep the old integrations running and use APIs only for new projects from now on',
+        'Rebuild every integration on Mule first, then cut over store by store',
       ],
       answer: 0,
-      explain: 'The strangler pattern replaces integrations incrementally with a parallel run and rollback option per integration. Leaving the old links forever never removes the fragility that caused the problem.',
+      explain: 'This is the strangler pattern: it replaces integrations one by one, with a parallel run and a rollback option for each. A weekend switch of everything is the big bang the CIO ruled out. Leaving the old links forever never removes the fragility that caused the problem. Rebuilding everything before any cutover delays all value and is still a big rewrite.',
     },
     {
       type: 'single',
@@ -72,13 +72,13 @@ export default {
       needsScenario: true,
       prompt: 'How do you show the CIO that the loyalty app goal (reuse what the web shop uses) has been met?',
       options: [
-        'The loyalty app is built on the same Customer and Order APIs, and the reuse count in Exchange/API Manager shows it',
-        'The loyalty app gets its own copies of the ERP and CRM integrations so it is independent',
-        'Count the number of Mule applications deployed',
-        'Measure CPU usage of the Mule workers',
+        'Show the API Manager client list for the Customer and Order APIs, with the loyalty app next to the web shop',
+        'Show that the loyalty app has its own ERP and CRM integrations, built from the web shop’s code',
+        'Show that the number of Mule applications deployed has grown since the loyalty app went live',
+        'Show that the web shop’s APIs kept their response times after the loyalty app went live',
       ],
       answer: 0,
-      explain: 'Reuse means a second consumer on the same APIs, visible as a reuse metric. Building separate copies for the loyalty app recreates point-to-point, and app counts or CPU say nothing about reuse.',
+      explain: 'Reuse means a second consumer on the same APIs, and the client list in API Manager (or the reuse count in Exchange) shows it. Copying the code for the loyalty app recreates point-to-point. An app count says nothing about reuse, and stable response times show capacity, not reuse.',
     },
   ],
   description: `
@@ -86,12 +86,12 @@ export default {
 
 **Goals from the CIO**
 - Cut time to deliver a new integration from ~3 months to ~3 weeks.
-- No big-bang cutover — stores must keep trading.
+- No big-bang cutover. Stores must keep trading.
 - Reuse: the new loyalty app should reuse what the web shop uses.
 
 **Your task.** Propose an approach for the first 6 months: what you build first, how you migrate, and how you govern it.
 `,
-  answerTemplate: `## First 6 months — what to build first
+  answerTemplate: `## First 6 months: what to build first
 
 ## Migration approach
 
@@ -101,18 +101,18 @@ export default {
 `,
   keyPoints: [
     'Start with an inventory/map of existing integrations and pick high-value, high-pain candidates.',
-    'Build System APIs for core systems (ERP, POS, CRM) first — they unlock reuse.',
+    'Build System APIs for core systems (ERP, POS, CRM) first. They unlock reuse.',
     'Strangler pattern: route one integration at a time to the new APIs; run in parallel, then retire.',
-    'Publish APIs in Exchange with standards (RAML/OAS, naming, error model) — a C4E or similar team.',
+    'Publish APIs in Exchange with standards (RAML/OAS, naming, error model), owned by a C4E or similar team.',
     'Measure reuse and delivery time to prove the goals.',
     'Risks: data consistency during parallel run, skills gap, scope creep.',
   ],
   solution: `
-**Month 0–1: discover.** Catalogue every integration (source, target, frequency, owner, pain). Choose 2–3 pilots that hurt most *and* touch core systems.
+**Months 0 to 1: discover.** Catalogue every integration (source, target, frequency, owner, pain). Choose 2 or 3 pilots that hurt most *and* touch core systems.
 
-**Month 1–3: foundations.** Build **System APIs** for ERP (products, orders, stock) and CRM (customers). Define standards: API spec first in Exchange, canonical error model, logging/correlation IDs, CI/CD pipeline. Stand up a small **C4E** to own templates and reviews.
+**Months 1 to 3: foundations.** Build **System APIs** for ERP (products, orders, stock) and CRM (customers). Define standards: API spec first in Exchange, canonical error model, logging/correlation IDs, CI/CD pipeline. Stand up a small **C4E** to own templates and reviews.
 
-**Month 3–6: strangle.** Re-implement the pilots on Process APIs that use the new System APIs. Run old and new **in parallel**, compare outputs, then switch traffic and retire the old link — one at a time, never big-bang. The loyalty app is built on the same Customer/Order APIs → visible reuse.
+**Months 3 to 6: strangle.** Re-implement the pilots on Process APIs that use the new System APIs. Run old and new **in parallel**, compare outputs, then switch traffic and retire the old link. Do it one at a time, never big-bang. The loyalty app is built on the same Customer/Order APIs → visible reuse.
 
 **Governance.** Every new integration starts by searching Exchange; API policies (client ID, rate limits) applied centrally; track *reuse count* and *lead time* as KPIs.
 

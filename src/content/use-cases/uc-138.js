@@ -76,8 +76,9 @@ Today the **HR system** calls one Mule flow that updates the three systems one a
 
 **Numbers**
 - Usually a few leavers a day. On a restructuring day HR sends up to **2 leavers a second** for half an hour.
-- The badge system takes about 800 ms per change, up to 5 a second, and can be down for an afternoon.
+- The badge system takes about 800 ms per change, up to 5 a second, and can be down for an afternoon of up to **3 hours**.
 - About 1 leaver record in 100 sent by HR is broken.
+- No leaver may be lost. A failed message is redelivered about once a minute, and every delivery counts toward the redelivery limit. No good leaver may reach the DLQ during a 3-hour badge outage, and broken records must reach the DLQ for the HR team.
 
 **Questions:**
 - Draw the design.

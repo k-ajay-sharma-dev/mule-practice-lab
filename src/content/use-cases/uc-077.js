@@ -55,7 +55,7 @@ export default {
     },
   },
   description: `
-A fashion retailer plans a **weekly promotion** in SAP S/4HANA: sale prices with a valid-from and valid-to date. Promotions run **Friday 00:00 to Thursday 23:59**.
+A garden centre chain plans a **weekly promotion** in SAP S/4HANA: sale prices with a valid-from and valid-to date. Promotions run **Friday 00:00 to Thursday 23:59**.
 
 The online store runs on a hosted platform. Today a merchandiser exports a spreadsheet from SAP and uploads it to the store on Thursday night, which fails often and is never on time.
 
@@ -93,11 +93,11 @@ Facts:
   solution: `
 **Schedule.** A Scheduler with a cron expression starts the job at **Friday 00:00** (store time zone set explicitly). A second run at **Thursday 23:59** handles the end of the promotion. Both runs use the same logic: "send the price that is valid at this moment".
 
-**Reading SAP.** The job calls sys-sap-pricing with the date, and gets the effective price per SKU: the promotion price where one is valid, otherwise the regular price. It also gets the regular price, which becomes the compare-at price.
+**Reading SAP.** The job calls sys-sap-pricing with the date, and gets the effective price per SKU: the promotion price where one is valid, otherwise the regular price. It also gets the regular price, which becomes the compare-at price. The OData pages of 1,000 conditions take about 20 seconds each, longer than the HTTP Request default timeout of 10 seconds, so the calls get a response timeout of about 30 seconds.
 
 **Delta.** The job keeps the **last sent price per SKU** in a persistent Object Store. It compares each SKU with that value and keeps only the ones that changed. A normal promotion week sends about 15,000 changes instead of 60,000.
 
-**Updating the store.** DataWeave builds one file of changes in the bulk format of the platform (SKU, price, compare-at price). sys-store-catalog uploads it as a **bulk operation** and polls its status until it finishes. 15,000 single calls at 4 a second would take more than an hour and run past midnight. The bulk operation takes a few minutes. When the result file comes back, the job stores the new prices for the SKUs that succeeded only. Failed SKUs keep their old value, so the next run tries them again.
+**Updating the store.** DataWeave builds one file of changes in the bulk format of the platform (SKU, price, compare-at price). sys-store-catalog uploads it as a **bulk operation** and polls its status until it finishes. 15,000 single calls at 4 a second would take more than an hour and run past midnight. The bulk operation takes a few minutes. sys-store-catalog also has a rate limit of 4 calls a second, so a later change to the job that calls once per SKU gets 429 answers instead of pushing the store past its limit. When the result file comes back, the job stores the new prices for the SKUs that succeeded only. Failed SKUs keep their old value, so the next run tries them again.
 
 **End of promotion and report.** At Thursday 23:59 the effective price is the regular price again. The delta finds the promoted SKUs and sends them back, with an empty compare-at price. After each run the job emails merchandising: number of SKUs changed, number failed, and the list of failures with the reason from the platform.
 `,

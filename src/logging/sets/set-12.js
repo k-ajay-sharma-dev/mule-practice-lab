@@ -8,14 +8,15 @@ const next = (example) => ({
   say: `Say what happens next, such as ${example}.`,
 })
 const durationVar = { must: /vars\.durationMs/, say: 'Add how long it took: durationMs=$(vars.durationMs).' }
+const blobLabel = { must: /blob(Name)?\s*"?\s*[=:]/i, say: 'Label the blob name, such as blob=$(vars.blobName), so it can be searched.' }
 const noSas = { not: /sasToken|sig=|attributes\.headers|vars\.blobUrl/i, say: 'Do not log the SAS token or a signed URL. Log the container and blob name.' }
 
 export const SET_12 = [
-  // ---------- lg-151 Harrow Parts: publishing to a queue ----------
+  // ---------- lg-151 Harrow Garden Supply: publishing to a queue ----------
   {
     id: 'log-12001',
     kind: 'level',
-    situation: 'Harrow Parts publishes each new order to a queue for the warehouse. The broker accepted the message.',
+    situation: 'Harrow Garden Supply publishes each new order to a queue for the warehouse. The broker accepted the message.',
     answer: ['INFO', 'DEBUG'],
     explain: 'A successful publish is normal. INFO when you want one line per order in production, DEBUG when another line already records the order.',
   },
@@ -25,12 +26,12 @@ export const SET_12 = [
     situation: 'Which line best records the publish?',
     options: [
       'Message published queue=warehouse-orders messageId=m-55120 orderId=SO-7001 correlationId=7f3c2a',
-      'Sent',
+      'Message published queue=warehouse-orders orderId=SO-7001 correlationId=7f3c2a',
       'Published: {"orderId":"SO-7001","customer":{…},"lines":[…]}',
       'Queue ok!!!',
     ],
     answer: 0,
-    explain: 'The queue, the broker message ID and the order ID let you follow the order from API to warehouse. The body does not belong in the line.',
+    explain: 'The queue, the broker message ID and the order ID let you follow the order from API to warehouse. The second line has no messageId, so you cannot look the message up on the broker. The body does not belong in the line.',
   },
   {
     id: 'log-12003',
@@ -66,7 +67,7 @@ export const SET_12 = [
     id: 'log-12005',
     kind: 'write',
     situation:
-      'Publishing a Harrow order failed because the broker could not be reached. The order is saved in an outbox table and a job will publish it again. Write the line.',
+      'Publishing a Harrow order failed because the broker could not be reached. The order is saved in an outbox table and a job will publish it again. vars.queue and vars.orderId hold the facts. Write the line.',
     available: ['vars.queue', 'vars.orderId', 'error.errorType', 'error.description', 'payload', 'correlationId'],
     level: ['WARN'],
     checks: [
@@ -87,7 +88,7 @@ export const SET_12 = [
     explain: 'The order is safe in the outbox, so WARN, not ERROR. The next field stops someone republishing by hand.',
   },
 
-  // ---------- lg-152 Harrow Parts: ack and nack ----------
+  // ---------- lg-152 Harrow Garden Supply: ack and nack ----------
   {
     id: 'log-12006',
     kind: 'level',
@@ -102,12 +103,12 @@ export const SET_12 = [
     situation: 'Which line best records the nack?',
     options: [
       'Message nacked messageId=m-55120 orderId=SO-7001 deliveryCount=2 maxDeliveries=5 errorType=HTTP:CONNECTIVITY next=redelivery',
-      'Nack',
+      'Message nacked messageId=m-55120 orderId=SO-7001 errorType=HTTP:CONNECTIVITY next=redelivery',
       'ERP problem',
       'Error occurred in consumer',
     ],
     answer: 0,
-    explain: 'Which message, which try out of how many, why, and what happens next.',
+    explain: 'Which message, which try out of how many, why, and what happens next. The second line has no delivery count, so nobody can tell how close the message is to the DLQ.',
   },
   {
     id: 'log-12008',
@@ -182,12 +183,12 @@ export const SET_12 = [
     situation: 'Which line best records the received notification?',
     options: [
       'Notification received messageId=N-9001 messageType=Item container=inbound-items blob=2026/11/18/batch-41.json sizeBytes=812440 correlationId=7f3c2a',
-      'Got a message',
+      'Notification received messageId=N-9001 messageType=Item sizeBytes=812440 correlationId=7f3c2a',
       'Notification: <the whole JSON file>',
       'Blob url=https://…/batch-41.json?sv=…&sig=…',
     ],
     answer: 0,
-    explain: 'The IDs, type, location and size are enough. The last line leaks a signed URL that grants access.',
+    explain: 'The IDs, type, location and size are enough. The second line has no container or blob name, so nobody can find the file it points to. The last line leaks a signed URL that grants access.',
   },
   {
     id: 'log-12013',
@@ -209,7 +210,7 @@ export const SET_12 = [
       labelled('messageId'),
       labelled('messageType'),
       labelled('container'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       noSas,
       corr,
       noPayload,
@@ -233,7 +234,7 @@ export const SET_12 = [
       says(/not found|missing|rejected/i, 'Notification rejected, blob not found'),
       labelled('messageId'),
       labelled('container'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       next('next=REJECTED ack sent'),
       noSas,
       corr,
@@ -263,12 +264,12 @@ export const SET_12 = [
     situation: 'Which line best records a restart run that republished messages?',
     options: [
       'Restart run finished runId=R-1118 republished=312 skipped=4 failureQueueLeft=0 durationMs=8120',
-      'Restart done',
+      'Restart run finished runId=R-1118 republished=312 durationMs=8120',
       'Republished: <312 message bodies>',
       'OK',
     ],
     answer: 0,
-    explain: 'Counts tell operations whether the backlog cleared. Bodies do not belong in a summary.',
+    explain: 'Counts tell operations whether the backlog cleared. The second line has no skipped or left counts, so it cannot show the failure queue is empty. Bodies do not belong in a summary.',
   },
   {
     id: 'log-12018',
@@ -311,7 +312,7 @@ export const SET_12 = [
     id: 'log-12020',
     kind: 'write',
     situation:
-      'The Fenwick restart app skipped its run because the health check failed. vars.check holds which check failed. Write the line.',
+      'The Fenwick restart app skipped its run because the health check failed. The next scheduled run will try again. vars.check holds which check failed. Write the line.',
     available: ['vars.check', 'error.errorType', 'error.description', 'payload'],
     level: ['WARN'],
     checks: [
@@ -345,12 +346,12 @@ export const SET_12 = [
     situation: 'Which line best records the switch to one-by-one inserts?',
     options: [
       'Bulk insert failed, inserting one by one table=STG_ITEM batch=12 rows=500 errorType=DB:QUERY_EXECUTION',
-      'Bulk failed',
+      'Bulk insert failed, inserting one by one table=STG_ITEM rows=500',
       'Rows: <all 500 rows>',
       'Database exploded',
     ],
     answer: 0,
-    explain: 'The table, batch, size and error type tell support what happened and how big the fallback is.',
+    explain: 'The table, batch, size and error type tell support what happened and how big the fallback is. The second line has no batch and no error type, so nobody can tell which batch or what kind of failure.',
   },
   {
     id: 'log-12023',
@@ -400,7 +401,7 @@ export const SET_12 = [
       labelled('table'),
       { must: /successfulRecords/, say: 'Add how many worked: payload.successfulRecords.' },
       { must: /failedRecords/, say: 'Add how many failed: payload.failedRecords.' },
-      labelled('loaded', 'loaded=$(payload.loadedRecords)'),
+      { must: /loaded(Records)?\s*"?\s*[=:]/i, say: 'Label how many were read, such as loaded=$(payload.loadedRecords).' },
       noVague,
     ],
     model: {
@@ -425,12 +426,12 @@ export const SET_12 = [
     situation: 'Which line best records the upload?',
     options: [
       'Blob uploaded container=pod blob=2026/11/18/DP-04-D-7710.jpg sizeBytes=284120 deliveryId=D-7710 durationMs=310',
-      'Uploaded',
+      'Blob uploaded container=pod blob=2026/11/18/DP-04-D-7710.jpg sizeBytes=284120 durationMs=310',
       'Upload to https://kestrel.blob.core.windows.net/pod/…?sv=…&sig=…',
       'Photo bytes: /9j/4AAQSkZJRgABAQ…',
     ],
     answer: 0,
-    explain: 'Container, name, size and the business ID. Never the signed URL or the file content.',
+    explain: 'Container, name, size and the business ID. The second line has no deliveryId, so support cannot find the photo for a delivery. Never the signed URL or the file content.',
   },
   {
     id: 'log-12028',
@@ -450,7 +451,7 @@ export const SET_12 = [
     checks: [
       says(/uploaded|stored|written/i, 'Blob uploaded'),
       labelled('container'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       labelled('sizeBytes'),
       labelled('deliveryId'),
       durationVar,
@@ -475,7 +476,7 @@ export const SET_12 = [
     checks: [
       says(/upload failed|not uploaded/i, 'Blob upload failed'),
       labelled('container'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       labelled('deliveryId'),
       errorFacts,
       next('next=device will resend'),
@@ -505,12 +506,12 @@ export const SET_12 = [
     situation: 'Which line best records the schema failure?',
     options: [
       'Message failed schema validation messageId=N-7710 blob=2026/11/18/batch-12.json errors=3 firstError=$.items[4].gtin is required',
-      'Invalid JSON',
+      'Message failed schema validation messageId=N-7710 blob=2026/11/18/batch-12.json errors=3',
       'Validation error: <the whole message>',
       'Bad sender!!!',
     ],
     answer: 0,
-    explain: 'The ID, the blob, the error count and the first error tell the sender exactly what to fix.',
+    explain: 'The ID, the blob, the error count and the first error tell the sender exactly what to fix. The second line has no first error, so the sender still does not know which field is wrong.',
   },
   {
     id: 'log-12033',
@@ -530,8 +531,8 @@ export const SET_12 = [
     checks: [
       says(/schema|validation/i, 'Message failed schema validation'),
       labelled('messageId'),
-      labelled('blob', 'blob=$(vars.blobName)'),
-      labelled('errors', 'errors=$(vars.errorCount)'),
+      blobLabel,
+      { must: /error(s|Count)\s*"?\s*[=:]/i, say: 'Label the error count, such as errors=$(vars.errorCount).' },
       labelled('firstError'),
       corr,
       noPayload,
@@ -554,7 +555,7 @@ export const SET_12 = [
     checks: [
       says(/downloaded|validated|read/i, 'Blob downloaded and validated'),
       labelled('messageId'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       labelled('sizeBytes'),
       labelled('records'),
       durationVar,
@@ -583,20 +584,20 @@ export const SET_12 = [
     situation: 'Which line best records a run that found blobs?',
     options: [
       'Blobs listed container=incoming prefix=2026/11/18/ found=742 pages=1 durationMs=410',
-      'Found files',
+      'Blobs listed container=incoming prefix=2026/11/18/ found=742 durationMs=410',
       'Blobs: [a.csv, b.csv, … 742 names]',
       'Listing',
     ],
     answer: 0,
-    explain: 'Where, how many and how many pages. Logging every name makes one huge line.',
+    explain: 'Where, how many and how many pages. The second line has no page count, so nobody can tell whether the listing went past the first page. Logging every name makes one huge line.',
   },
   {
     id: 'log-12038',
     kind: 'multi',
     situation: 'Files were skipped on a busy day. Which facts on the listing line would show it?',
-    options: ['The number found', 'The number of pages read', 'Whether a next marker was left unread', 'The colour of the portal'],
+    options: ['The number found', 'The number of pages read', 'Whether a next marker was left unread', 'The name of every blob found'],
     answers: [0, 1, 2],
-    explain: 'A count stuck at one page size with a marker left over shows paging was not followed.',
+    explain: 'A count stuck at one page size with a marker left over shows paging was not followed. A list of every name makes one huge line and shows nothing the count does not.',
   },
   {
     id: 'log-12039',
@@ -631,7 +632,7 @@ export const SET_12 = [
     level: ['INFO', 'DEBUG'],
     checks: [
       says(/moved|marked processed|archived/i, 'Blob marked processed'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       labelled('target'),
       noPayload,
       noVague,
@@ -655,12 +656,12 @@ export const SET_12 = [
     situation: 'Which line best summarises the job?',
     options: [
       'Job finished jobId=J-20117 messageId=N-9001 messageType=Item records=4800 loaded=4790 rejected=10 ack=COMPLETED durationMs=91200',
-      'Job done',
+      'Job finished jobId=J-20117 messageId=N-9001 messageType=Item records=4800 loaded=4790 rejected=10 durationMs=91200',
       'Finished with some errors',
       'Records: <4,800 records>',
     ],
     answer: 0,
-    explain: 'One line ties the job, the message, the counts, the ack sent and the time.',
+    explain: 'One line ties the job, the message, the counts, the ack sent and the time. The second line leaves out the ack, so nobody can tell whether the sender was told the job finished.',
   },
   {
     id: 'log-12043',
@@ -736,11 +737,11 @@ export const SET_12 = [
     options: [
       'Storage access denied account=kestrelpod container=pod status=403 code=AuthorizationFailure operation=upload',
       'Access denied with key=Eby8vdM02xNOcqF…',
-      'Azure broken',
+      'Storage access denied account=kestrelpod container=pod status=403 operation=upload',
       'Request: https://…?sv=…&sig=… returned 403',
     ],
     answer: 0,
-    explain: 'The account, container, status, code and operation tell support where to look. Keys and signed URLs never go in logs.',
+    explain: 'The account, container, status, code and operation tell support where to look. The third line has no error code, so it cannot tell a key problem from a network rule problem. Keys and signed URLs never go in logs.',
   },
   {
     id: 'log-12048',
@@ -766,7 +767,7 @@ export const SET_12 = [
       says(/denied|forbidden|not allowed|access/i, 'Storage access denied'),
       labelled('account'),
       labelled('container'),
-      labelled('status', 'status=$(vars.statusCode)'),
+      { must: /status(Code)?\s*"?\s*[=:]/i, say: 'Label the status, such as status=$(vars.statusCode).' },
       labelled('code', 'code=$(vars.errorCode)'),
       labelled('operation'),
       noSas,
@@ -790,7 +791,7 @@ export const SET_12 = [
     checks: [
       says(/not found|missing/i, 'Blob not found'),
       labelled('container'),
-      labelled('blob', 'blob=$(vars.blobName)'),
+      blobLabel,
       labelled('messageId'),
       noSas,
       corr,

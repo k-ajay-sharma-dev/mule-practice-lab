@@ -11,9 +11,9 @@ export default {
 For every string in \`payload\`, return \`{ text, reversed, isPalindrome }\`.
 
 **Rules**
-- \`text\` — the original string, unchanged.
-- \`reversed\` — the exact characters of \`text\` in reverse order (case, spaces and punctuation kept). The reverse of \`""\` is \`""\` (**not** \`null\`).
-- \`isPalindrome\` — compare the string with its reverse after **normalising** it: lowercase it and remove every character that is not \`a-z\` or \`0-9\`. If nothing is left after normalising, the result is \`true\`.
+- \`text\`: the original string, unchanged.
+- \`reversed\`: the exact characters of \`text\` in reverse order (case, spaces and punctuation kept). The reverse of \`""\` is \`""\` (**not** \`null\`).
+- \`isPalindrome\`: compare the string with its reverse after **normalising** it: lowercase it and remove every character that is not \`a-z\` or \`0-9\`. If nothing is left after normalising, the result is \`true\`.
 - Keep the input order.
 `,
   inputs: [
@@ -67,7 +67,7 @@ payload map (t) -> do {
   }
 }`,
   explanation: `
-**Reversing.** \`s[-1 to 0]\` selects characters from the last index down to the first — a negative index counts from the end and a range whose start is greater than its end walks backwards. \`dw::core::Strings::reverse(s)\` does the same thing and is worth naming in an interview.
+**Reversing.** \`s[-1 to 0]\` selects characters from the last index down to the first: a negative index counts from the end and a range whose start is greater than its end walks backwards. \`dw::core::Strings::reverse(s)\` does the same thing and is worth naming in an interview.
 
 **Normalising.** Palindrome questions almost always mean "ignoring case, spaces and punctuation". \`lower\` first, then remove everything outside \`[a-z0-9]\` with a regex \`replace\`. Doing it in the other order would strip upper-case letters.
 
@@ -90,11 +90,11 @@ payload map (t) -> do {
   followUps: [
     {
       q: 'How would you count how many times each character occurs in a string?',
-      a: 'Split it into characters with `s splitBy ""`, then `groupBy $` and `mapObject (v, k) -> { (k): sizeOf(v) }` — or `countBy` from `dw::core::Arrays` after the split.',
+      a: 'Split it into characters with `s splitBy ""`, then `groupBy $` and `mapObject (v, k) -> { (k): sizeOf(v) }`. (`countBy` from `dw::core::Arrays` is not the tool here: it returns one number, the count of items that match a condition.)',
     },
     {
       q: 'How do you reverse the order of words instead of characters?',
-      a: 'Split on whitespace, reverse the array and join: `(s splitBy /\\s+/)[-1 to 0] joinBy " "`. The same empty-input guard applies, because a range on an empty array also returns null.',
+      a: 'Split on whitespace, reverse the array and join: `(s splitBy /\\s+/)[-1 to 0] joinBy " "`. Guard empty input the same way, because a range selector on an empty array gives `null`, not `[]`.',
     },
     {
       q: 'Is there a built-in reverse?',

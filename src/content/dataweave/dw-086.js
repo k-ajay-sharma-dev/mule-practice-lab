@@ -82,7 +82,7 @@ var records = (payload.apis default []) flatMap ((a) ->
 ---
 (records map ((r) -> write(r, "application/json", { indent: false }))) joinBy "\\n"`,
   explanation: `
-**YAML is just another reader.** Once the reader has parsed the file, the script sees objects, arrays, strings, numbers and booleans, the same as for JSON. Block lists (\`- dev\`) and inline lists (\`[prod]\`) give the same array, and \`timeoutMs: 15000\` is already a number.
+**YAML is one more reader.** Once the reader has parsed the file, the script sees objects, arrays, strings, numbers and booleans, the same as for JSON. Block lists (\`- dev\`) and inline lists (\`[prod]\`) give the same array, and \`timeoutMs: 15000\` is already a number.
 
 **NDJSON is not a JSON document.** The whole file is not valid JSON, because it has several top-level values and no enclosing array. Each *line* is valid JSON. That is the point of the format: a consumer can process one line at a time without holding the file in memory, and a broken line damages only that line.
 

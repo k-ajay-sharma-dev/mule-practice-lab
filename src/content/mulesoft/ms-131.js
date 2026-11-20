@@ -11,13 +11,13 @@ export default {
       detail: true,
       prompt: 'What value does `provider` take in both `cloudhub2Deployment` and `runtimeFabricDeployment`?',
       options: [
-        '`MC`, the MuleSoft Control Plane, meaning the deployment is managed through Runtime Manager',
+        '`MC`, for the MuleSoft Control Plane, in both blocks',
         '`CH2` for CloudHub 2.0 and `RTF` for Runtime Fabric',
         '`AWS` or `K8S`, depending on where the target runs',
-        'It is optional and comes from `target`',
+        'None; the plugin works it out from `target`',
       ],
       answer: 0,
-      explain: 'Both reference tables mark `provider` as required, with the value `MC`. The `target` element is what names the shared space, private space or Runtime Fabric.',
+      explain: 'Both reference tables mark `provider` as required, with the value `MC`, the MuleSoft Control Plane. It means the deployment is managed through Runtime Manager. The `target` element is what names the shared space, private space or Runtime Fabric.',
     },
     {
       type: 'match',

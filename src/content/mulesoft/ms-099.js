@@ -31,13 +31,13 @@ export default {
       type: 'single',
       prompt: 'Values were encrypted with `--use-random-iv`. The config says `<secure-properties:encrypt algorithm="AES" mode="CBC"/>`. What must change?',
       options: [
-        'Add `useRandomIVs="true"`, because key, algorithm, mode and useRandomIVs must all match the values used to encrypt',
-        'Nothing: Mule detects the IV automatically',
-        'Change the mode to ECB',
-        'Encrypt the file again with `file-level`',
+        'Add `useRandomIVs="true"` so it matches the encryption run',
+        'Nothing, because Mule detects the IV automatically',
+        'Change the mode to ECB, which needs no IV',
+        'Encrypt the file again in `file-level` mode',
       ],
       answer: 0,
-      explain: 'With random IVs on, decryption assumes the IV is prepended to the ciphertext. All four settings must match the encryption run.',
+      explain: 'Key, algorithm, mode and useRandomIVs must all match the values used to encrypt. With random IVs on, decryption assumes the IV is prepended to the ciphertext. All four settings must match the encryption run.',
     },
     {
       type: 'match',
@@ -80,7 +80,7 @@ export default {
       needsScenario: true,
       prompt: 'Where should the decryption key live?',
       options: [
-        'Outside the application: the config uses `key="${runtime.property}"` and the value is supplied when the app is deployed',
+        'Outside the app, as `key="${runtime.property}"` set at deployment',
         'In the `.properties` file next to the encrypted values',
         'In the `pom.xml`, so that the Maven build can read it',
         'As a literal in the `key` attribute, since the XML is compiled',
@@ -158,7 +158,7 @@ Each file has its own \`<secure-properties:config>\`, so two files can use diffe
       a: 'The docs say a default is required for metadata resolution in Anypoint Studio. Without one, Studio reports an error when it builds the application model for processors that depend on the property.',
     },
     {
-      q: 'Is ECB a sensible choice just because it is listed?',
+      q: 'Is ECB a sensible choice because it is listed?',
       a: 'No. ECB is listed as supported, but it encrypts identical blocks to identical output and takes no IV, which is why CBC is the usual choice. Being supported does not make a mode a good choice.',
     },
   ],

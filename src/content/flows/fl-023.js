@@ -228,7 +228,14 @@ Real-time sync between **SAP** (master for prices and stock) and **Shopify** (st
 - ~300k SKUs in SAP (exposed via an SAP System API with paging), ~280k products in Shopify (GraphQL/REST with pagination and rate limits).
 - Report: SKUs **missing in Shopify**, **missing in SAP**, and **price or stock mismatches** above a tolerance (price ≠, stock difference > 2 units).
 - Auto-fix price mismatches (SAP wins) up to **500 per night**; above that, only report and alert (likely a systemic problem).
-- Report emailed as CSV and stored for 90 days. Must finish by 05:00.
+- Report emailed as CSV to finance (\`finance@example.com\`) on every run and stored for 90 days. Must finish by 05:00.
+- If either extraction fails, send no report and change no price: only alert the integration team by email.
+
+**Facts**
+- SAP System API: \`GET /sap/products/count\` returns \`{ total }\`, and \`GET /sap/products?page={page}&size=1000\` returns \`{ items: [{ sku, price, stock }] }\`. Values come as text.
+- Shopify: \`GET /shopify/products?first=250&after={cursor}\` returns \`{ products: [{ sku, price, inventoryQuantity }], pageInfo: { hasNextPage, endCursor } }\`. A price is fixed with \`PUT /shopify/products/{sku}/price\`.
+- SKUs are not always clean: SAP sometimes has spaces or lower case (\`" sku-c "\`). Trim and upper-case them on both sides before comparing.
+- You may stage both extracts in the tables \`recon_sap\` and \`recon_shopify\` (\`sku\`, \`price\`, \`stock\`). Reports can be stored with \`PUT /recon-reports/{runDate}.csv\`.
 
 **Design the flow(s):** extraction, comparison, report, auto-fix with a safety cap, and scaling.
 `,
@@ -247,7 +254,7 @@ Real-time sync between **SAP** (master for prices and stock) and **Shopify** (st
   keyPoints: [
     'Scheduler (cron, timezone set) triggers a job that extracts both sides with paging, respecting each system\'s rate limits.',
     'Both datasets are normalised into the same key/shape (SKU, price, stock) with DataWeave before comparing.',
-    'Comparison is a keyed join (e.g. dw::core::Arrays outerJoin or indexed lookup via groupBy) — not nested loops — producing missing-left, missing-right and mismatch sets.',
+    'Comparison is a keyed join (e.g. dw::core::Arrays outerJoin or indexed lookup via groupBy), not nested loops, producing missing-left, missing-right and mismatch sets.',
     'Mismatch report is written as CSV to storage and emailed; summary counts logged/alerted.',
     'Auto-fix only runs if mismatch count ≤ 500 (circuit breaker), otherwise alert only; fixes use the normal System API path.',
   ],
@@ -259,12 +266,12 @@ Real-time sync between **SAP** (master for prices and stock) and **Shopify** (st
 5. **Compare:**
    - If staged in a DB: SQL \`FULL OUTER JOIN\` on SKU does the heavy lifting.
    - If in memory (300k small records fits a few hundred MB): DataWeave builds an index (\`groupBy\` on sku, giving an object keyed by SKU) for O(1) lookups, or uses \`outerJoin\` from \`dw::core::Arrays\`. Classify into \`missingInShopify\`, \`missingInSap\`, \`priceMismatch\`, \`stockMismatch\` (abs difference > 2).
-6. **Report:** DataWeave \`output application/csv\` → Amazon S3 Put Object (lifecycle rule 90 days) → **Email Send** to finance with summary counts in the body and the CSV attached (or a link if large). The upload's answer replaces the payload, so send the email first or put the upload's answer in a target variable; otherwise finance receives the storage receipt instead of the report.
+6. **Report:** DataWeave \`output application/csv\` → report storage (here \`PUT /recon-reports/{runDate}.csv\`; with Amazon S3 Put Object, a lifecycle rule of 90 days) → **Email Send** to finance with summary counts in the body and the CSV attached (or a link if large). The upload's answer replaces the payload, so send the email first or put the upload's answer in a target variable; otherwise finance receives the storage receipt instead of the report.
 7. **Auto-fix:** Choice: \`sizeOf(priceMismatch) <= 500\` → For Each (or batched calls) to the Shopify System API to set SAP price, record results. Else → skip fixes and send a high-priority alert.
-8. **Errors:** if either extraction fails, do **not** produce a report (a partial extract would show thousands of false "missing" items) — alert instead.
+8. **Errors:** if either extraction fails, do **not** produce a report (a partial extract would show thousands of false "missing" items). Alert instead.
 `,
   followUps: [
-    { q: 'Why not compare with a nested map/filter in DataWeave?', a: 'That is O(n×m) — 300k × 280k comparisons would never finish. Index one side by key first, or let the database do the join.' },
+    { q: 'Why not compare with a nested map/filter in DataWeave?', a: 'That is O(n×m): 300k × 280k comparisons would never finish. Index one side by key first, or let the database do the join.' },
     { q: 'Why cap the auto-fix at 500?', a: 'A large mismatch count usually means a broken extract or mapping; blindly "fixing" hundreds of thousands of prices could damage the storefront. The cap acts as a circuit breaker.' },
     { q: 'How would you reduce the nightly volume?', a: 'Reconcile only records changed in the last N days plus a rotating sample, or compare per-SKU hashes; do a full reconciliation weekly.' },
   ],

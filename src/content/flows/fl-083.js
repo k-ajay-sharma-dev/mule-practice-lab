@@ -229,6 +229,10 @@ Today the team fixes this by resetting the group's offsets with command line too
 - Replaying a record that already reached the table must change nothing.
 - The response reports how many records were replayed and the last offset reached, so an operator can continue from there. The last offset is in the field \`lastOffset\`.
 
+**Facts**
+- A record is JSON: \`{ postingId, account, amount, postedAt }\`.
+- \`ledger_posting\` has the columns \`posting_id\`, \`account\`, \`amount\` and \`posted_at\`.
+
 **Design the flow.** Say which consumer configuration the operations use and how acknowledgement works here.
 `,
   answerTemplate: `## Keeping the live consumer out of it
@@ -255,7 +259,7 @@ Today the team fixes this by resetting the group's offsets with command line too
     'The response returns lastOffset, so a partial replay can be continued instead of guessed at.',
   ],
   solution: `
-**Separate the replay from the live consumer.** Create a second Kafka consumer configuration just for this endpoint, with its own Group ID (\`ledger-replay\`), Consumer Amount 1 and the topic's partitions in **Assignments**, which are not rebalanced automatically. Kafka stores committed offsets per group, so whatever this group does has no effect on \`ledger-loader\`. The live Message Listener never stops.
+**Separate the replay from the live consumer.** Create a second Kafka consumer configuration only for this endpoint, with its own Group ID (\`ledger-replay\`), Consumer Amount 1 and the topic's partitions in **Assignments**, which are not rebalanced automatically. Kafka stores committed offsets per group, so whatever this group does has no effect on \`ledger-loader\`. The live Message Listener never stops.
 
 **Flow:**
 1. **HTTP Listener** \`POST /admin/replay\`, protected like any other admin API (client credentials and an allow list, since it writes to a ledger).

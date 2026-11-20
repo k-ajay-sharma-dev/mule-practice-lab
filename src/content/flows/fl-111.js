@@ -146,6 +146,11 @@ A **Try scope** is a box around one or more steps with its own error handlers. A
 - Call the loyalty service inside a Try, with an On Error Continue that logs a warning.
 - Always finish with the reply \`{ "orderId": "...", "status": "CONFIRMED" }\`.
 
+**Facts**
+- The body is \`{ "orderId": "ORD-7001", "customerId": "C-4417", "total": 89.5 }\`.
+- The \`orders\` table has the columns \`order_id\`, \`customer_id\` and \`total\`.
+- The loyalty call is \`POST /loyalty/points\`. Wait at most 2 seconds for it.
+
 **Design the flow.**
 `,
   answerTemplate: `## Saving the order

@@ -18,10 +18,10 @@ export default {
         type: 'single',
         prompt: "Why does the upload API fail?",
         options: [
-          "The VM queue is full because the OCR worker is slow, so publish waits and times out",
-          "The VM queue was deleted",
-          "Uploads are too large",
-          "The API has no listener",
+          "The slow OCR worker leaves the VM queue full, so publish times out",
+          "The HTTP listener runs out of threads because CPU is too low",
+          "The OCR service rejects large month end documents after 30 seconds",
+          "The VM queue is transient, so it drops messages under load",
         ],
         answer: 0,
         explain: "A bounded queue pushes back on the publisher when the consumer is slower than the producer.",
@@ -30,10 +30,10 @@ export default {
         type: 'single',
         prompt: "Why is the worker so slow?",
         options: [
-          "It runs one document at a time and each takes about four seconds",
-          "It is in a loop",
-          "It reads from the wrong queue",
-          "It has no memory",
+          "It runs one document at a time, and each takes about four seconds",
+          "It reads each document twice because the VM queue redelivers it",
+          "It waits for the publish timeout before it takes the next document",
+          "It is short of heap, so garbage collection slows each document",
         ],
         answer: 0,
         explain: "One at a time at four seconds each is fifteen a minute, far below the upload rate.",
@@ -45,7 +45,7 @@ export default {
           "Raise the worker concurrency, if the OCR service can take it",
           "Answer callers with 202 and an ID, and process in the background",
           "Use a persistent broker queue if uploads must survive a restart",
-          "Raise the publish timeout to one hour",
+          "Raise the publish timeout to ten minutes so uploads stop failing",
         ],
         answer: [0,1,2],
         explain: "Match the worker speed to the input, stop holding callers, and choose a durable queue if needed. A long timeout only holds callers longer.",
@@ -54,10 +54,10 @@ export default {
         type: 'single',
         prompt: "What does the queue timeout protect?",
         options: [
-          "The app, by not holding unlimited messages in memory",
-          "The caller’s data",
-          "The OCR service licence",
-          "Nothing",
+          "The app, by not letting the queue grow in memory without limit",
+          "The caller’s upload, which is kept until a retry succeeds",
+          "The OCR service, by limiting the calls it receives a minute",
+          "The worker, by stopping it from reading too many documents",
         ],
         answer: 0,
         explain: "A full queue is a signal that the system is over capacity.",
@@ -83,7 +83,8 @@ export default {
 
 ## Change / Context
 - The upload API publishes each document to a VM queue. An OCR worker flow reads it with max concurrency 1.
-- Uploads rise from 5 to 60 a minute at month end.
+- Uploads rise from 5 to about 360 a minute at month end.
+- The VM publish timeout is 30 seconds.
 
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.

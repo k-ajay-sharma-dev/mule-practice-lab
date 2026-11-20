@@ -119,7 +119,7 @@ Trading partners ─► B2B SFTP server ◄─ b2b-file-collector ~► b2b.order
   followUps: [
     {
       q: 'Why not one queue with a type header and two consumers that filter?',
-      a: 'Anypoint MQ and JMS queues hand each message to one consumer. Filtering would make the wrong consumer take and return messages. Separate queues are clearer and fail separately.',
+      a: 'Anypoint MQ cannot filter, so the wrong consumer would take a message and have to return it. JMS selectors can filter, but one queue still mixes the backlogs of both types. Separate queues are clearer, show each backlog, and fail separately.',
     },
     {
       q: 'Where do acknowledgement files for partners come from?',

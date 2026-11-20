@@ -21,10 +21,10 @@ export default {
         type: 'single',
         prompt: 'What is the root cause of the empty dashboards?',
         options: [
-          'The reinstall moved the agent to a 3.x installer, which sends data to `us1.ingest.mulesoft.com:8443`, and the outbound firewall does not allow that port',
-          'The Runtime Manager agent certificate expired',
-          'The apps stopped handling traffic',
-          'The subscription tier changed and the agent must be reinstalled',
+          'The 3.x agent exports on outbound port 8443, which the firewall does not allow',
+          'The Runtime Manager agent certificate expired, so its data is rejected',
+          'The Mule patch reset the agent’s local telemetry port, so no data is collected',
+          'The 3.x agent needs a newer Mule version than the patch installed on node1',
         ],
         answer: 0,
         explain: 'The 2.x installers used the `dias-ingestor-router` endpoint on 443. A 3.x agent needs 8443 outbound. Traffic is healthy, and the export errors match the Troubleshooting section.',
@@ -33,10 +33,10 @@ export default {
         type: 'single',
         prompt: 'What is the right fix?',
         options: [
-          'Allow outbound traffic to the ingest endpoint on 8443, with SSL passthrough on any proxy or firewall that inspects it, and keep 443 for the other endpoints',
-          'Open inbound 8443 from the internet to the servers',
-          'Restart the Runtime Manager agent',
-          'Change the agent port with `-t 443`',
+          'Allow outbound 8443 to the ingest host, with SSL passthrough on any inspecting device',
+          'Allow inbound 8443 from the ingest host to each node, so that it can pull the data',
+          'Reinstall the agent with `-t 443`, so that it exports on a port the firewall allows',
+          'Restart the Runtime Manager agent, so that it re-registers the monitoring agent',
         ],
         answer: 0,
         explain: 'All connections are outbound. The `-t` option sets the local telemetry listening port (default 8888), not the export destination.',
@@ -48,10 +48,10 @@ export default {
           '`us1.ingest.mulesoft.com:8443`',
           '`data-authenticator.anypoint.mulesoft.com:443`',
           '`s3.amazonaws.com:443`',
-          'Inbound 5701 from the internet',
+          'Inbound 8443 from the ingest host to each node',
         ],
         answer: [0, 1, 2],
-        explain: 'These are the listed 3.x outbound endpoints. Port 5701 is for cluster communication between nodes and has nothing to do with monitoring.',
+        explain: 'These are the listed 3.x outbound endpoints. All monitoring connections are outbound, so no inbound rule is needed.',
       },
       {
         type: 'order',
@@ -91,6 +91,8 @@ export default {
 - Before the change the servers ran an agent from a **2.x installer**. The engineer downloaded the latest \`am.zip\` from Anypoint Monitoring.
 - The data centre firewall only allows outbound traffic to named hosts on **443**. Those rules were written three years ago.
 - There is no proxy between these servers and the internet.
+- The 3.x installer notes list these outbound destinations for the US control plane: \`us1.ingest.mulesoft.com:8443\`, \`data-authenticator.anypoint.mulesoft.com:443\` and \`s3.amazonaws.com:443\`. All connections start from the server.
+- On proxies, the notes say: 2.x supports SOCKS5 only, 3.x supports HTTP and HTTPS only. A 3.x proxy is passed with \`-p\`, and special characters in its user or password must be percent-encoded.
 
 ## Logs
 \`\`\`

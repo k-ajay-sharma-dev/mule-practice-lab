@@ -89,25 +89,25 @@ export default {
       prompt: 'How does one correlation ID follow the loan request across the HTTP hops?',
       options: [
         'Each app generates its own UUID and logs it',
-        'The Experience API accepts or generates X-Correlation-ID; the Mule 4 HTTP listener uses it as the event correlationId and the HTTP requester sends it downstream by default',
-        'The ID is put in the payload body of every request',
-        'Anypoint Monitoring adds it automatically to Splunk',
+        'The Experience API accepts or creates X-Correlation-ID, and Mule passes it on each HTTP call',
+        'Each app copies the ID into a field in the payload of every request',
+        'Anypoint Monitoring adds the same ID to every log line it collects',
       ],
       answer: 1,
-      explain: 'Mule 4 propagates the correlation ID over HTTP by default — you only have to make sure the setting is not disabled and that the entry point accepts or generates the ID.',
+      explain: 'The Mule 4 HTTP listener uses the header as the event correlationId, and the HTTP requester sends it downstream by default. Make sure that setting is not disabled and that the entry point accepts or generates the ID.',
     },
     {
       type: 'single',
       needsScenario: true,
       prompt: 'The LoanSubmitted message crosses Anypoint MQ. How do you keep the same correlation ID in the document consumer?',
       options: [
-        'It is propagated automatically over MQ with no work',
-        'Add it as a message property when publishing and set it back in the consumer (e.g. With CorrelationID scope from the tracing module)',
-        'Use the MQ message ID as the correlation ID',
-        'It cannot be done for asynchronous hops',
+        'Use the MQ message ID as the correlation ID in the consumer',
+        'Send it with the message as a property and set it back as the correlation ID in the consumer',
+        'Read it from the HTTP headers of the original request in the consumer',
+        'Let the consumer create a new ID, since an async hop starts a new trace',
       ],
       answer: 1,
-      explain: 'The async hop breaks the HTTP header chain, so the ID must travel as a message property and be restored as the event correlation ID on the consumer side.',
+      explain: 'The async hop breaks the HTTP header chain, so the ID travels with the message and is restored as the event correlation ID on the consumer side, for example with the With CorrelationID scope from the tracing module. The MQ message ID is a different value, and the original HTTP headers are gone by then.',
     },
     {
       type: 'single',
@@ -125,13 +125,13 @@ export default {
       type: 'single',
       prompt: 'How do Mule logs get into Splunk without risking the apps when Splunk is down?',
       options: [
-        'Each flow calls the Splunk HTTP API with a Logger-like HTTP Request',
-        'A Log4j2 appender (HTTP Event Collector) or platform log forwarding, with an async/local appender so a Splunk outage does not block the app',
-        'Developers export logs manually once a day',
-        'Splunk reads the Mule apps\' memory directly',
+        'Each flow calls the Splunk HTTP Event Collector with an HTTP Request',
+        'A Log4j2 appender or platform log forwarding, with an async appender in front',
+        'A Splunk forwarder agent installed on each CloudHub 2.0 replica',
+        'A nightly job that exports the logs from Runtime Manager to Splunk',
       ],
       answer: 1,
-      explain: 'Logging is configured once in Log4j2, not in each flow. Async appenders decouple the app from the log backend.',
+      explain: 'Logging is configured once in Log4j2 (for example an HTTP Event Collector appender), not in each flow. An async or local appender decouples the app from the log backend, so a Splunk outage does not block it. CloudHub 2.0 does not let you install agents on replicas, and a nightly export is too late for alerting.',
     },
     {
       type: 'multi',
@@ -188,7 +188,7 @@ Load and timings: customers submit up to **10 loans a second** and the channel m
 
 ## Logging standard
 
-## Logs, metrics and traces — where they go
+## Logs, metrics and traces: where they go
 
 ## Alerting and dashboards
 `,
@@ -203,14 +203,14 @@ Load and timings: customers submit up to **10 loans a second** and the channel m
   ],
   solution: `
 **Correlation across hops.**
-- The Experience API accepts an incoming \`X-Correlation-ID\` (from the web channel) or generates one. In Mule 4 the HTTP listener uses that header as the event's \`correlationId\`, and the HTTP requester sends it downstream by default — verify this setting is not disabled.
+- The Experience API accepts an incoming \`X-Correlation-ID\` (from the web channel) or generates one. In Mule 4 the HTTP listener uses that header as the event's \`correlationId\`, and the HTTP requester sends it downstream by default: verify this setting is not disabled.
 - For **Anypoint MQ**, add the correlation ID as a **message property** when publishing, and in the consumer set it back (e.g. using the \`tracing\` module's *With CorrelationID* scope) so the async part shares the same ID.
 - Return the ID in the response header so support can ask the customer or front-end for it.
 - Include a **business key** (loan application ID) in logs once known, so support can search by either.
 
 **Logging standard.**
 - **Structured JSON**: \`timestamp, level, app, env, correlationId, businessKey, flow, event (START/END/ERROR/EXT_CALL), target, durationMs, httpStatus, errorType\`.
-- Log at **entry, exit, before/after each external call** (with duration) and on error — not every processor.
+- Log at **entry, exit, before/after each external call** (with duration) and on error, not every processor.
 - **Never log**: national ID, credentials, tokens, full payloads in production. Mask in a shared logging component (DataWeave masking function) so every app behaves the same.
 - Ship this as a **shared library** (e.g. a Mule plugin or the JSON Logger asset) so 7 teams do not invent 7 formats.
 
@@ -226,11 +226,11 @@ Load and timings: customers submit up to **10 loans a second** and the channel m
 
 **Fixing the slow hop.** Tracing tells you the credit bureau was the slow hop; the design should also stop it from taking the whole chain down. While the bureau hangs, every submission holds a thread in the Experience, Process and Credit Bureau APIs for as long as the timeout. With the default 10 s timeout the threads run out and the status checks, which never touch the bureau, fail with 503 too. The Credit Bureau System API gets a **5 s timeout and a circuit breaker**: once most bureau calls fail, it fails them at once, the threads are free, and status checks stay around 400 ms. The Experience and Process APIs run on 0.2 vCore each, about 0.8 vCores in total, inside the 2 vCore budget. LoanSubmitted goes through Anypoint MQ, so when the document consumer is down the submissions are still answered and the messages wait in the queue.
 
-**Result:** the "40 seconds at 14:02" question becomes one search on the correlation ID showing a span/log per hop with durations — minutes instead of two days.
+**Result:** the "40 seconds at 14:02" question becomes one search on the correlation ID showing a span/log per hop with durations: minutes instead of two days.
 `,
   followUps: [
     { q: 'Logging every hop adds latency and Splunk licence cost. How do you control it?', a: 'Use async appenders, log only entry/exit/external-call/error events, keep payloads out of production logs, and agree retention per log level. Splunk cost is driven by volume, so a lean structured standard is cheaper than ad-hoc verbose logs.' },
-    { q: 'A partner calls you without a correlation ID header. What happens?', a: 'The Experience API generates one, logs it, and returns it in the response header. Never reject the request just because the header is missing.' },
+    { q: 'A partner calls you without a correlation ID header. What happens?', a: 'The Experience API generates one, logs it, and returns it in the response header. Never reject the request only because the header is missing.' },
     { q: 'How do you trace across a third-party system that does not propagate your ID?', a: 'Log the outgoing call with your correlation ID plus the partner\'s own request/transaction ID from the response, so the two can be joined when raising a ticket with the partner.' },
   ],
 }

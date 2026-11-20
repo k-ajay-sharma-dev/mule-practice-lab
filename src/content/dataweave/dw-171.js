@@ -16,7 +16,7 @@ Each line has fixed positions. Numbers are padded on the left with zeros. Text i
 | Detail | \`DTL\`, store (5, number), SKU (15, text), sales date (8, \`yyyyMMdd\`), units (7, number), net amount in cents (10, number) |
 | Trailer | \`TRL\`, detail count (7, number), total units (9, number), total amount in cents (12, number) |
 
-The net amount comes as a decimal such as 389.97, which is 38997 cents. The trailer totals add up the detail values. Join the lines with \`\\n\`.
+The net amount comes as a decimal such as 389.97, which is 38997 cents. The trailer totals add up the detail values. Write the header, the detail lines in input order, then the trailer, joined with \`\\n\` and with no newline after the trailer. A day with no rows still has the header and a trailer of zeros.
 `,
   inputs: [
     {

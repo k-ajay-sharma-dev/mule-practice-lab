@@ -10,8 +10,8 @@ A legacy warehouse system imports stock levels from a CSV file with a **semicolo
 
 **Rules**
 - Only include items that are \`active\` **and** have \`qty\` greater than 0.
-- Columns, in this order: \`SKU;DESCRIPTION;LOCATION;QTY\`.
-- Sort by \`LOCATION\`, then by \`SKU\`.
+- Columns, in this order: \`SKU;DESCRIPTION;LOCATION;QTY\`. \`DESCRIPTION\` is the item \`name\` and \`LOCATION\` is the \`warehouse\` code.
+- Sort by \`LOCATION\`, then by \`SKU\`, both as text (A to Z). Warehouse codes are always three letters.
 - First row is the header.
 `,
   inputs: [

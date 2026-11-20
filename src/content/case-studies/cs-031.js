@@ -53,7 +53,7 @@ export default {
       tests: [
         {
           name: 'The loyalty platform is down for 30 minutes',
-          about: 'Guests check out 5 times a second at the morning peak while the loyalty platform is down for 30 minutes. The StayCompleted events wait in the queue, each is tried for up to an hour, and no points are lost.',
+          about: 'Guests check out 5 times a second at the morning peak while the loyalty platform is down for 30 minutes. The StayCompleted events wait in the queue and are retried until the loyalty platform is back, and no points are lost.',
           traffic: [{ name: 'checkouts', from: { type: 'system-api', label: 'pms' }, rps: 5, to: { type: 'saas', label: 'loyalty' }, kind: 'write' }],
           incidents: [{ down: { type: 'saas', label: 'loyalty' }, at: 5, forMin: 30 }],
           durationMin: 90,
@@ -78,7 +78,7 @@ export default {
 **Goals**
 - One booking API for web, mobile and call centre across all brands.
 - Points posted within minutes of checkout; members see one profile and history.
-- Availability searches must be fast (< 1 s) even though some CRS calls take 2–3 s.
+- Availability searches must be fast (< 1 s) even though some CRS calls take 2 to 3 s.
 
 **Constraints**
 - PMS/CRS replacements are planned over three years. The design must survive them.
@@ -86,6 +86,7 @@ export default {
 - Member data includes personal data and payment tokens; card data must not pass through the integration layer.
 - Peak: holiday sales campaigns generate 20x normal search traffic.
 - At the morning peak guests check out about 5 times a second, and the loyalty platform can be down for 30 minutes. During a sale members open their profile about 300 times a second.
+- Checkout events go through a queue, so points wait while the loyalty platform is down. Give the mobile Experience API, the member Process API and the loyalty System API 1 vCore each for the sale peak.
 
 **Your task.** Propose:
 - the API architecture
@@ -114,17 +115,17 @@ export default {
     'A unified member profile is assembled from loyalty (system of record) plus booking history, not by copying all data into a new store.',
   ],
   solution: `
-**Layers.** \`mobile-eapi\`, \`web-eapi\`, \`callcentre-eapi\` → \`availability-papi\`, \`booking-papi\`, \`member-papi\` → \`crs-a-sapi\`, \`crs-b-sapi\`, \`pms-x-sapi\`, \`pms-y-sapi\`, \`pms-z-sapi\`, \`loyalty-sapi\`.
+**Layers.** \`exp-mobile-api\`, \`exp-web-api\`, \`exp-callcentre-api\` → \`prc-availability-api\`, \`prc-booking-api\`, \`prc-member-api\` → \`sys-crs-a-api\`, \`sys-crs-b-api\`, \`sys-pms-x-api\`, \`sys-pms-y-api\`, \`sys-pms-z-api\`, \`sys-loyalty-api\`.
 
 **Routing.** A property reference store (property ID → brand, CRS, PMS, timezone) is cached in the Process APIs. When a property moves to a new CRS, only that row changes.
 
-**Search.** \`availability-papi\` fans out in parallel (scatter-gather) only to CRSs relevant to the requested properties, with timeouts; results are cached for ~1–5 minutes per (property, dates, occupancy). Rate limits per Experience API protect against campaign surges; the cache absorbs repeat searches and lowers per-call charges. Price shown in search is labelled indicative.
+**Search.** \`prc-availability-api\` fans out in parallel (scatter-gather) only to CRSs relevant to the requested properties, with timeouts; results are cached for ~1 to 5 minutes per (property, dates, occupancy). Rate limits per Experience API protect against campaign surges; the cache absorbs repeat searches and lowers per-call charges. Price shown in search is labelled indicative.
 
-**Booking.** \`booking-papi\` re-checks availability and price live, creates the reservation in the right CRS with an idempotency key from the client, and returns a confirmation. Card details go straight from the app to the payment provider; only a token travels through Mule. Cancellations follow the same routing.
+**Booking.** \`prc-booking-api\` re-checks availability and price live, creates the reservation in the right CRS with an idempotency key from the client, and returns a confirmation. Card details go straight from the app to the payment provider; only a token travels through Mule. Cancellations follow the same routing.
 
-**Loyalty.** Each PMS sends checkout events (or is polled every few minutes where no events exist). \`pms-*-sapi\` maps them to a canonical \`StayCompleted\` event published to Anypoint MQ; \`member-papi\` consumers post points to the loyalty platform using the folio ID as an idempotency key. Nightly files remain as a reconciliation check for the first months.
+**Loyalty.** Each PMS sends checkout events (or is polled every few minutes where no events exist). \`sys-pms-*-api\` maps them to a canonical \`StayCompleted\` event published to Anypoint MQ; \`prc-member-api\` consumers post points to the loyalty platform using the folio ID as an idempotency key. Nightly files remain as a reconciliation check for the first months.
 
-**Member profile.** \`member-papi\` composes loyalty profile + upcoming bookings (from CRSs) + recent stays, with short caching. Loyalty stays the system of record for the member.
+**Member profile.** \`prc-member-api\` composes loyalty profile + upcoming bookings (from CRSs) + recent stays, with short caching. Loyalty stays the system of record for the member.
 
 **Rollout.** Mobile app on one brand first, then call centre, then web. Retire nightly files when reconciliation shows no gaps for two months.
 
@@ -133,6 +134,6 @@ export default {
   followUps: [
     { q: 'Why not cache prices for longer to save even more money?', a: 'Stale prices cause failed bookings and complaints. A short TTL plus a live re-check at booking balances cost, speed and accuracy; the TTL can be tuned per brand.' },
     { q: 'A PMS has no events. How do you get checkouts quickly?', a: 'Poll its API or a database view every few minutes using a last-modified watermark, and emit the same canonical event so downstream logic does not care about the source.' },
-    { q: 'How does this design help when CRS A is retired?', a: 'Consumers call the Process APIs, not CRS A. Properties are moved to the new CRS by changing their routing rows, a wave at a time, and \`crs-a-sapi\` is retired when no property points at it.' },
+    { q: 'How does this design help when CRS A is retired?', a: 'Consumers call the Process APIs, not CRS A. Properties are moved to the new CRS by changing their routing rows, a wave at a time, and \`sys-crs-a-api\` is retired when no property points at it.' },
   ],
 }

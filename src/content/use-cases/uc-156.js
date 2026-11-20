@@ -103,7 +103,9 @@ Today the scanners call each system in turn. A slow warehouse makes the scanners
 - Tracking answers in about 100 ms (up to 1,500 a second), billing in 150 ms (up to 1,000), the warehouse in 200 ms (up to 1,000).
 - The warehouse is sometimes down for **45 minutes** for upgrades.
 - About 1 scan in 2,000 has an unreadable barcode.
-- In this model one vCore serves about 500 requests a second, and a failed delivery is tried again about once a minute.
+- In this model one vCore serves about 500 requests a second, and a failed delivery is tried again about once a minute. Every delivery counts toward the redelivery limit.
+- A scanner must get its answer within **500 ms**, even if one availability zone fails at the peak.
+- No scan may be lost, even if the broker restarts. No good scan may reach the DLQ during a 45-minute warehouse upgrade.
 
 **Questions:**
 - Draw the design.
@@ -124,7 +126,7 @@ Today the scanners call each system in turn. A slow warehouse makes the scanners
 `,
   keyPoints: [
     'Publish each scan once to a topic. Each subscriber gets its own copy and works at its own pace, so a slow warehouse holds up only analytics.',
-    'A shared queue would give each scan to only one of the three consumers. Three publishes from the Experience API would tie the scanners to three brokers\' worth of failures.',
+    'A shared queue would give each scan to only one of the three consumers. Three publishes from the Experience API would make the scanners wait on three sends, and a fourth system would mean changing the Experience API.',
     'One zone must take the peak: 900 a second needs about 1.8 vCores, so two replicas of 4 vCores leave plenty even with one zone gone.',
     'Each subscriber chain must keep up with the peak: two replicas of 1 vCore serve about 1,000 a second.',
     'Persistent messages survive a broker restart. With durable subscriptions (or a queue per subscriber bound to an exchange), copies wait for a subscriber that is down.',

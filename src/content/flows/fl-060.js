@@ -267,11 +267,15 @@ Your integration must load every basket into **Oracle** staging tables (\`POS_SA
 - Volume: ~4 million baskets/day, **peaks of 300/s** on Saturday afternoons; average 6 lines, maximum ~400.
 - Natural key: store + register + transaction number + business date.
 - **No basket may be lost** (sales audit and tax), and **none may be loaded twice**.
-- Oracle has a 10-minute maintenance window each night; the queue must simply back up during it.
+- Oracle has a 10-minute maintenance window each night; the queue must back up during it.
 
 **Facts**
 - Loyalty reads \`Consumer.LOYALTY.VirtualTopic.POS.SALES\` and fraud reads \`Consumer.FRAUD.VirtualTopic.POS.SALES\`.
 - Your integration's consumer name is \`STAGING\`.
+- A basket is \`{ storeId, registerId, transactionNumber, businessDate, endDateTime, cashier: { id }, total, tenders: [{ type, amount }], loyalty: { cardNumber }, lines: [{ sku, quantity, unitPrice, discount }] }\`.
+- \`POS_SALE_HDR\` has \`STORE_ID\`, \`REGISTER_ID\`, \`TXN_NO\`, \`BUSINESS_DATE\`, \`ENDED_AT\`, \`CASHIER_ID\`, \`TOTAL_AMOUNT\`, \`TENDER_TYPE\` and \`LOYALTY_ID\`, with the natural key as primary key.
+- \`POS_SALE_LINE\` has the same four key columns plus \`LINE_NO\`, \`SKU\` (not null), \`QTY\`, \`UNIT_PRICE\` and \`DISCOUNT\`.
+- Inserting a key that already exists fails with \`DB:QUERY_EXECUTION\` and \`ORA-00001\` in the description. Other Oracle errors raise the same Mule error type.
 
 **Design the flow(s):** which destination you read, acknowledgement mode, how header and lines are written, duplicates, and failure behaviour.
 `,
@@ -297,16 +301,16 @@ Your integration must load every basket into **Oracle** staging tables (\`POS_SA
 **Destination.** Do not subscribe to the topic directly (a non-durable subscriber loses messages while the app is down). Read the virtual-topic queue \`Consumer.STAGING.VirtualTopic.POS.SALES\`: every message published to the topic is copied there, and several Mule replicas can consume it competitively.
 
 **Flow**
-1. **JMS On New Message** on that queue, **ackMode MANUAL**, no transaction. The POS gateway is not a Mule app, so set **Inbound Content-Type** \`application/json\`: the config default for a message that does not state its type is \`*/*\`, and DataWeave selectors need JSON. Concurrency (number of consumers) sized for 300/s, e.g. 8–16, bounded by the Oracle pool size.
+1. **JMS On New Message** on that queue, **ackMode MANUAL**, no transaction. The POS gateway is not a Mule app, so set **Inbound Content-Type** \`application/json\`: the config default for a message that does not state its type is \`*/*\`, and DataWeave selectors need JSON. Concurrency (number of consumers) sized for 300/s, e.g. 8 to 16, bounded by the Oracle pool size.
 2. **Set Variable** \`ackId = attributes.ackId\`.
 3. **Transform Message** → \`vars.basket\` = \`{ header, lines[] }\`, each carrying the natural key.
-4. **Try (ALWAYS_BEGIN)** — **Database Insert** header (its parameters come from \`vars.basket.header\`, set as the payload first), **Database Bulk Insert** lines (\`vars.basket.lines\`). Commit at the end of the Try.
+4. **Try (ALWAYS_BEGIN)**: **Database Insert** header (its parameters come from \`vars.basket.header\`, set as the payload first), **Database Bulk Insert** lines (\`vars.basket.lines\`). Commit at the end of the Try.
 5. **JMS Ack** with \`#[vars.ackId]\`.
 
 **Errors**
-- \`DB:QUERY_EXECUTION\` with ORA-00001 → **On Error Continue**, log, **ack** — the basket is already there.
+- \`DB:QUERY_EXECUTION\` with ORA-00001 → **On Error Continue**, log, **ack**: the basket is already there.
 - Anything else (\`DB:CONNECTIVITY\` during the maintenance window, mapping bugs) → **On Error Propagate** after **JMS Recover Session**: unacknowledged messages are redelivered. Configure the redelivery policy (e.g. 6 attempts, exponential back-off; in Mule, \`maxRedelivery\` on the ActiveMQ factory, default 0 = no redelivery) so a poison basket ends in the DLQ (\`ActiveMQ.DLQ\` by default, or a per-queue DLQ via individualDeadLetterStrategy) instead of looping.
-- During the Oracle window, a reconnection strategy on the DB config plus back-off avoids burning the redelivery count; messages just wait on the queue.
+- During the Oracle window, a reconnection strategy on the DB config plus back-off avoids burning the redelivery count; messages wait on the queue.
 
 **Why not AUTO?** AUTO also acks after a successful flow, but MANUAL lets you ack exactly after the commit and also on the duplicate path, and makes the guarantee visible to reviewers.
 `,

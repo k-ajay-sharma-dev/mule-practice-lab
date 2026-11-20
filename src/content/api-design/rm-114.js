@@ -24,7 +24,7 @@ A draft from another team is in the editor. Its \`Seat\` type shows the name of 
 - \`Seat\` has a required \`seatNumber\` with the pattern above, a required \`cabin\` of type \`Cabin\`, a required \`status\` that is one of \`AVAILABLE\`, \`OCCUPIED\`, \`BLOCKED\`, and an optional \`features\` of type \`SeatFeature[]\`. It has no \`occupantName\`.
 - \`SeatMap\` has a required string \`flightId\` and a required \`seats\` of type \`Seat[]\`. It has an example.
 - \`GET /flights/{flightId}/seat-map\` returns a \`SeatMap\` with status 200 and a \`Cache-Control\` header, or an \`Error\` with status 404. It has an optional \`cabin\` query parameter of type \`Cabin\`. \`flightId\` has a pattern for the format above.
-- \`PUT /bookings/{bookingRef}/passengers/{passengerId}/seat\` takes a \`SeatSelection\` and returns a \`SeatAssignment\` with status 200. \`bookingRef\` has a pattern. There is no \`POST\` on that resource, since a passenger has one seat.
+- \`PUT /bookings/{bookingRef}/passengers/{passengerId}/seat\` takes a \`SeatSelection\` and returns a \`SeatAssignment\` with status 200. \`bookingRef\` has a pattern. There is no \`POST\` on that resource, since a passenger has one seat. \`SeatSelection\` has a required \`seatNumber\`. \`SeatAssignment\` has a required string \`passengerId\` and a required \`seatNumber\`. \`Error\` has required strings \`code\` and \`message\`.
 - The PUT returns an \`Error\` with 409 when someone else took the seat first, and with 422 when the seat is not allowed for this passenger, such as an exit row for someone travelling with an infant.
 `,
   starter: `#%RAML 1.0

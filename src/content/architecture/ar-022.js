@@ -8,7 +8,7 @@ export default {
   tags: ['cqrs', 'read-model', 'caching', 'performance'],
   estMinutes: 45,
   diagram: {
-    task: 'draw the CQRS design: the home-screen query side served from a read model, how the read model is kept current from core banking, cards and CRM, and the payment command side.',
+    task: 'draw the CQRS design: the home-screen query side served from a read model, how the read model is kept current from core banking, cards and CRM, the payment command side, and a nightly job that checks the read store against core banking.',
     checks: [
       { label: 'The mobile app calls an Experience API', rule: { type: 'each', of: 'mobile-app', edgeTo: 'experience-api' } },
       { label: 'Home-screen reads are served from a read store', rule: { type: 'path', from: 'mobile-app', to: 'database' } },
@@ -116,7 +116,7 @@ Numbers for sizing: on salary day the home screen needs 2,500 reads a second and
 - Would a simple cache (Object Store with TTL) solve this? Why or why not?
 - Design a read model (CQRS-style): what is stored, where, how is it kept up to date, and how fresh is it?
 - What does the API return when the read model is behind or unavailable?
-- How do you handle "I just paid a bill, why is my balance not updated?"
+- How do you handle "I paid a bill a minute ago, why is my balance not updated?"
 `,
   answerTemplate: `## Cache vs read model
 
@@ -141,7 +141,7 @@ Numbers for sizing: on salary day the home screen needs 2,500 reads a second and
 
 **Read model design.**
 - A **Customer Home Read Store**: one document per customer (\`customerId → { accounts[], balances, last10Tx[], cards[], segment, asOf }\`) in a database built for high read throughput (document DB / key-value store, replicated for HA).
-- The Home Experience/Process API reads **one document by key** — single-digit-ms lookups, no fan-out. Scale is now limited by the store, which scales horizontally, not by core banking licences.
+- The Home Experience/Process API reads **one document by key**: single-digit-ms lookups, no fan-out. Scale is now limited by the store, which scales horizontally, not by core banking licences.
 - The System APIs are still used for **commands** (payments, card block) and detailed history queries beyond the last 10.
 
 **Keeping it up to date.**
@@ -160,10 +160,10 @@ Numbers for sizing: on salary day the home screen needs 2,500 reads a second and
 - The projector takes the change events at up to 500 a second on 1 vCore. During ten minutes of end of day posting the stream builds a backlog, and the projector clears it in about ten more minutes. At 0.1 vCore it would still be behind the next morning.
 - Payments go through the Experience API, the payment Process API and the core banking System API at 0.2 vCore each. In all 7.7 vCores, inside the budget of 10.
 
-**Trade-offs.** CQRS adds a datastore, event pipelines, reconciliation and the complexity of eventual consistency. It is justified here by a 50:1 read/write ratio, a hard licence limit and salary-day peaks; for a low-traffic API, a cache or direct calls are simpler.
+**Trade-offs.** CQRS adds a datastore, event pipelines, reconciliation and the complexity of eventual consistency. It is justified here by a 50:1 read/write ratio, a hard licence limit and salary-day peaks; for a low-traffic API, a cache or direct calls are enough.
 `,
   followUps: [
-    { q: 'Why not just buy more core banking licence capacity?', a: 'That may be possible but is usually expensive and scales the most costly component for read traffic that does not need it. Compare the licence increase with the cost of the read store and pipelines; the read model also reduces latency.' },
+    { q: 'Why not buy more core banking licence capacity?', a: 'That may be possible but is usually expensive and scales the most costly component for read traffic that does not need it. Compare the licence increase with the cost of the read store and pipelines; the read model also reduces latency.' },
     { q: 'Traffic grows 10x. What changes?', a: 'Reads scale with read-store replicas/partitions and stateless API replicas; the source systems are unaffected. Event throughput grows only with business transactions, not with app opens.' },
     { q: 'How do you make sure the read model never shows wrong balances permanently?', a: 'Idempotent, order-aware event handling plus nightly reconciliation against the system of record, with alerts on differences; the read model can be rebuilt from scratch from a bulk load if needed.' },
   ],

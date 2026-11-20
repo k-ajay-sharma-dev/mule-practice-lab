@@ -60,11 +60,11 @@ export default {
       options: [
         'The key is stored with a null value',
         'The key is removed from the store',
-        'It raises `OS:NULL_VALUE`, because `failOnNullValue` is true by default',
+        'The operation raises an `OS:NULL_VALUE` error',
         'Nothing is stored and no error is raised',
       ],
       answer: 2,
-      explain: 'By default, storing a null value is an error. Set `failOnNullValue="false"` only if a null is a value you mean to keep.',
+      explain: 'By default, storing a null value is an error, because `failOnNullValue` is true. Set `failOnNullValue="false"` only if a null is a value you mean to keep.',
     },
     {
       type: 'match',

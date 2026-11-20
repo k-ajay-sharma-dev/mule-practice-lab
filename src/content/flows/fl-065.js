@@ -320,6 +320,14 @@ For each confirmation the integration must:
 - The WMS sometimes **re-sends** the same shipment.
 - Ops wants to **replay** dead-lettered confirmations after a fix, without a broker console.
 
+**Facts**
+- A confirmation is \`{ shipmentId, orderId, shippedAt, carrier: { scac, trackingNumber }, cartons: [{ sscc, items: [{ orderLine, qty }] }] }\`. \`shippedAt\` is an ISO date-time.
+- \`SHIPMENT\` has \`SHIPMENT_ID\` (unique), \`ORDER_ID\`, \`CARRIER_SCAC\`, \`TRACKING_NO\` and \`SHIPPED_AT\`.
+- \`ORDER_LINE\` has \`ORDER_ID\`, \`LINE_NO\`, \`ORDERED_QTY\`, \`SHIPPED_QTY\` and \`LAST_CARTON\`. Add each carton item's \`qty\` to \`SHIPPED_QTY\`.
+- The event is JSON with \`eventType: "ORDER_SHIPPED"\`, \`orderId\`, \`shipmentId\`, \`carrier\`, \`trackingNo\` and \`shippedAt\`.
+- Messages that can never succeed go to the parking queue \`WMS.SHIP.CONFIRM.PARKED\`. The queue's own DLQ is \`DLQ.WMS.SHIP.CONFIRM\`.
+- Ops replays with \`POST /admin/ship-confirm/dlq/replay?max=N\` and gets \`{ replayed }\`.
+
 **Design the flow(s).**
 `,
   answerTemplate: `## Main flow and transaction
@@ -335,10 +343,10 @@ For each confirmation the integration must:
   keyPoints: [
     'JMS listener with a LOCAL transaction: the consumed message and the outgoing event commit together; a propagated error rolls back and the broker redelivers.',
     'ActiveMQ redelivery policy (maximumRedeliveries, back-off) bounds retries; an individualDeadLetterStrategy gives this queue its own DLQ instead of the shared ActiveMQ.DLQ.',
-    'Non-retryable errors (validation, mapping) are published to a parking queue inside On Error Continue — retrying them only wastes time and delays the DLQ signal.',
+    'Non-retryable errors (validation, mapping) are published to a parking queue inside On Error Continue. Retrying them only wastes time and delays the DLQ signal.',
     'A unique key on SHIPMENT_ID turns WMS re-sends into a duplicate-key error handled as "already processed".',
     'A replay flow consumes from the DLQ and republishes to the original queue in a local transaction, bounded by a maximum count, with JMS:TIMEOUT treated as an empty DLQ.',
-    'JMSXDeliveryCount in the message properties shows how many times a message has been delivered — useful for logging and alerting.',
+    'JMSXDeliveryCount in the message properties shows how many times a message has been delivered. It is useful for logging and alerting.',
   ],
   solution: `
 **Main flow \`ship-confirm-intake\`**
@@ -346,24 +354,24 @@ For each confirmation the integration must:
 2. **Validate** required fields; **Transform** to \`vars.ship\` (shipment + flattened carton lines).
 3. **Database Insert** \`SHIPMENT\` (unique \`SHIPMENT_ID\`; its parameters come from \`vars.ship\`, not the raw WMS JSON, where the carrier is a nested object) and **Database Bulk Update** \`ORDER_LINE\` shipped quantities, then **JMS Publish** \`ORDER_SHIPPED\` (joins the JMS transaction). The DB statements are not in the JMS transaction. The unique key stops a double insert. But it also means a redelivery after a partial failure (shipment row committed, lines or event not done) lands on the duplicate path with the work unfinished. So record completion (e.g. an \`EVENT_SENT\` flag checked on that path) or use an outbox.
 
-**Error handling — classify errors**
+**Error handling: classify errors**
 | Error | Handler | Effect |
 |---|---|---|
 | \`DB:QUERY_EXECUTION\` with ORA-00001 | On Error Continue | duplicate → commit, message gone |
 | \`VALIDATION:*\`, \`MULE:EXPRESSION\` | On Error Continue + JMS Publish to \`WMS.SHIP.CONFIRM.PARKED\` | parked immediately with the reason as a property |
 | anything else (\`DB:CONNECTIVITY\`, lock timeout) | On Error Propagate | rollback → redelivery with back-off |
 
-**Broker configuration** — redelivery policy on the connection factory / broker: \`maximumRedeliveries=5\`, \`initialRedeliveryDelay=10000\`, \`useExponentialBackOff=true\`; dead-letter strategy \`individualDeadLetterStrategy\` with prefix \`DLQ.\` so this queue's poison messages land in \`DLQ.WMS.SHIP.CONFIRM\`. (With the Mule JMS connector, set the limit as \`maxRedelivery\` on the ActiveMQ factory configuration — the connector default is 0, no redelivery. A \`redelivery-policy\` \`maxRedeliveryCount\` on the JMS listener is documented as having no effect.)
+**Broker configuration**: redelivery policy on the connection factory / broker: \`maximumRedeliveries=5\`, \`initialRedeliveryDelay=10000\`, \`useExponentialBackOff=true\`; dead-letter strategy \`individualDeadLetterStrategy\` with prefix \`DLQ.\` so this queue's poison messages land in \`DLQ.WMS.SHIP.CONFIRM\`. (With the Mule JMS connector, set the limit as \`maxRedelivery\` on the ActiveMQ factory configuration. The connector default is 0, no redelivery. A \`redelivery-policy\` \`maxRedeliveryCount\` on the JMS listener is documented as having no effect.)
 
-**Replay flow \`ship-confirm-dlq-replay\`** — \`POST /admin/ship-confirm/dlq/replay?max=100\` → For Each \`1 to max\` → Try (ALWAYS_BEGIN): **JMS Consume** from \`DLQ.WMS.SHIP.CONFIRM\` (maximumWait 1 s) → **JMS Publish** to \`WMS.SHIP.CONFIRM\` → commit. \`JMS:TIMEOUT\` means the DLQ is empty. Secure the endpoint and log every replayed message ID.
+**Replay flow \`ship-confirm-dlq-replay\`**: \`POST /admin/ship-confirm/dlq/replay?max=100\` → For Each \`1 to max\` → Try (ALWAYS_BEGIN): **JMS Consume** from \`DLQ.WMS.SHIP.CONFIRM\` (maximumWait 1 s) → **JMS Publish** to \`WMS.SHIP.CONFIRM\` → commit. \`JMS:TIMEOUT\` means the DLQ is empty. Secure the endpoint and log every replayed message ID.
 `,
   followUps: [
     {
-      q: 'Why not just set maximumRedeliveries to 0 for malformed messages?',
+      q: 'Why not set maximumRedeliveries to 0 for malformed messages?',
       a: 'The broker cannot tell a malformed message from one that failed because Oracle was down. Classifying errors in the flow lets transient errors retry and permanent ones park immediately.',
     },
     {
-      q: 'A replayed message fails again — what happens?',
+      q: 'A replayed message fails again. What happens?',
       a: 'It goes through the normal redelivery cycle and ends back in the DLQ after the maximum attempts. Keep a replay counter property on the message so ops can see repeat offenders and stop replaying them.',
     },
     {

@@ -78,6 +78,7 @@ export default {
 - Sellers' data must be isolated from each other.
 - Finance needs accurate data for commission and payouts.
 - Sellers call the order API about 20 times a second, and one seller can burst to 300. The order system takes 60 calls a second, and the catalogue system 20 items a second, while an upload can bring 50 items a second.
+- Put a rate limit of about 50 calls a second on the gateway, and give the seller API, catalogue and order Process APIs 0.5 vCore each.
 
 **Your task.** Propose the seller-facing APIs, the integration flows behind them, and how you protect the platform.
 `,
@@ -105,7 +106,7 @@ export default {
 - Portal and CSV uploads call the same Process APIs: \`seller-catalog-papi\`, \`seller-orders-papi\`, \`payouts-papi\`.
 - System APIs: \`catalog-sapi\` (bulk), \`orders-sapi\`, \`finance-sapi\`, \`notifications-sapi\`.
 
-**Catalogue ingestion.** Validate schema and business rules per item (category, price, images), report errors per line, queue valid items and load them to the catalogue in **bulk batches**. Stock updates are small and frequent — accept them quickly, coalesce per SKU and push in batches.
+**Catalogue ingestion.** Validate schema and business rules per item (category, price, images), report errors per line, queue valid items and load them to the catalogue in **bulk batches**. Stock updates are small and frequent: accept them quickly, coalesce per SKU and push in batches.
 
 **Orders and shipments.** When a customer order contains seller items, \`seller-orders-papi\` splits it per seller and publishes per-seller events. Delivery: webhook to the seller (signed, retried with backoff) and a pull API as a fallback. Seller acknowledgements and shipment confirmations update the order and trigger customer notifications.
 

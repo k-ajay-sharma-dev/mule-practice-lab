@@ -21,7 +21,7 @@ WHERE o.ORDER_DATE >= :fromDate
 - An order without lines appears once with all line columns \`null\` (left join).
 - The rows come back in no particular order.
 
-**Output**: an array of orders, sorted by \`orderId\` (numerically):
+**Output**: an array of orders, sorted by \`orderId\` (numerically), keys in this order:
 - \`orderId\`, \`orderDate\` (the date part only, \`yyyy-MM-dd\`), \`customerNo\`, \`status\`
 - \`lineCount\` and \`total\` (sum of the line amounts, \`0\` without lines)
 - \`lines\` sorted by \`lineNo\`, each \`{ lineNo, sku, qty, unitPrice, amount }\` where \`amount = qty * unitPrice\`; an order without lines has \`lines: []\`.
@@ -72,7 +72,7 @@ payload groupBy $.ORDER_ID
 `,
   hints: [
     '`groupBy $.ORDER_ID` returns an **object** whose keys are the order ids (as strings) and whose values are the rows of that order.',
-    '`pluck (rows, id) -> ...` turns that object back into an array — one element per order. Take the order columns from `rows[0]`.',
+    '`pluck (rows, id) -> ...` turns that object back into an array, one element per order. Take the order columns from `rows[0]`.',
     'Drop the left-join placeholder row with `filter ($.LINE_NO != null)` before mapping the lines; `sum([])` is `0`.',
     'Sort the orders by the numeric `ORDER_ID` from the row, not by the group key: keys are strings, and `"9998"` sorts after `"10001"`. Wrap the whole `pluck` expression in parentheses before `orderBy`, otherwise `orderBy` becomes part of the lambda body.',
     'Date part: `row.ORDER_DATE as LocalDateTime as String { format: "yyyy-MM-dd" }`.',
@@ -82,7 +82,7 @@ output application/json
 ---
 ((payload groupBy $.ORDER_ID) pluck (rows, id) -> do {
   var h = rows[0]
-  var lines = (rows filter ($.LINE_NO != null)) orderBy $.LINE_NO map (r) -> {
+  var lines = ((rows filter ($.LINE_NO != null)) orderBy $.LINE_NO) map (r) -> {
     lineNo: r.LINE_NO,
     sku: r.SKU,
     qty: r.QTY,
@@ -103,7 +103,7 @@ output application/json
   explanation: `
 **Why a join returns flat rows.** SQL result sets are tables: the one-to-many relation between ORDERS and ORDER_LINES comes back as one row per line with the header columns repeated. Turning it into a document is a classic DataWeave job: \`groupBy\` collects the rows per order, \`pluck\` turns the groups into an array, and the header fields are taken from the first row of each group.
 
-**Left join placeholders.** An order without lines still produces one row, with \`null\` in all line columns. Filtering on \`LINE_NO != null\` turns that into an empty \`lines\` array instead of a line full of nulls — and \`sum([])\` gives \`0\`.
+**Left join placeholders.** An order without lines still produces one row, with \`null\` in all line columns. Filtering on \`LINE_NO != null\` turns that into an empty \`lines\` array instead of a line full of nulls, and \`sum([])\` gives \`0\`.
 
 **Ordering.** A database returns rows in an undefined order unless the query has \`ORDER BY\`, and \`groupBy\` produces an object, so the script sorts explicitly: lines by \`LINE_NO\`, orders by the **numeric** \`orderId\`. Sorting by the group key would sort strings.
 
@@ -138,7 +138,7 @@ output application/json
     },
     {
       q: 'How do you pass `fromDate` to the query safely?',
-      a: 'As a named parameter: `:fromDate` in the SQL and `{ fromDate: ... }` in `db:input-parameters`. Never concatenate values into the SQL text — that opens the door to SQL injection and prevents statement reuse.',
+      a: 'As a named parameter: `:fromDate` in the SQL and `{ fromDate: ... }` in `db:input-parameters`. Never concatenate values into the SQL text: that opens the door to SQL injection and prevents statement reuse.',
     },
   ],
 }

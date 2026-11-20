@@ -7,11 +7,11 @@ export default {
   estMinutes: 25,
   investigation: {
     logs: [
+      { text: "2026-11-15 09:00:00 INFO  [hr] Store manager mailboxes replaced by shared mailboxes", relevant: true, why: "Addresses changed." },
+      { text: "2026-11-18 07:00:00 INFO  [store-reports] Recipients from table store_contacts updated 2025-03-01", relevant: true, why: "The contact table is old." },
       { text: "2026-11-18 07:00:00 INFO  [store-reports] Sent=600 failed=0", relevant: true, why: "The relay accepted all." },
       { text: "2026-11-18 07:05:00 INFO  [mailbox] Bounces received=40 code=550 5.1.1 user unknown", relevant: true, why: "Bounces arrive later." },
-      { text: "2026-11-18 07:05:00 INFO  [store-reports] Recipients from table store_contacts updated 2025-03-01", relevant: true, why: "The contact table is old." },
-      { text: "2026-11-15 09:00:00 INFO  [hr] Store manager mailboxes replaced by shared mailboxes", relevant: true, why: "Addresses changed." },
-      { text: "2026-11-18 23:59:00 INFO  [store-reports] GET /health 200", relevant: false },
+      { text: "2026-11-18 07:10:00 INFO  [store-reports] GET /health 200", relevant: false },
     ],
     questions: [
       {
@@ -19,9 +19,9 @@ export default {
         prompt: "Why did Mule log no failures?",
         options: [
           "The relay accepted the mail. Bounces arrive later as separate emails",
-          "They did not bounce",
-          "Mule hides errors",
-          "Logs failed",
+          "The relay rejected them, but Mule logs relay rejects at DEBUG",
+          "The email connector retried each failure until it succeeded",
+          "The 40 stores’ spam filters dropped the mail without a bounce",
         ],
         answer: 0,
         explain: "Accepted is not delivered.",
@@ -31,12 +31,12 @@ export default {
         prompt: "What is the fix?",
         options: [
           "Update store contacts to the shared mailboxes",
-          "Retry the same addresses",
-          "Ignore bounces",
-          "Use BCC",
+          "Retry the 40 failed sends to the same addresses",
+          "Send the 40 reports by BCC to the old addresses",
+          "Ask the relay team to accept unknown users",
         ],
         answer: 0,
-        explain: "Fix the source of addresses.",
+        explain: "Fix the source of addresses. A 5.1.1 bounce is permanent, so retries fail again.",
       },
       {
         type: 'multi',
@@ -45,7 +45,7 @@ export default {
           "Read the bounce mailbox and mark bad addresses",
           "Own the contact table with the business",
           "Use role addresses that survive staff changes",
-          "Send twice",
+          "Send each report twice in case one is lost",
         ],
         answer: [0,1,2],
         explain: "Feedback and good addresses.",
@@ -55,9 +55,9 @@ export default {
         prompt: "What is a 5.1.1 bounce?",
         options: [
           "The mailbox does not exist",
-          "A full mailbox",
-          "Spam",
-          "A delay",
+          "The mailbox is full for now",
+          "The mail was marked as spam",
+          "Delivery is delayed and will retry",
         ],
         answer: 0,
         explain: "Permanent, do not retry.",
@@ -86,10 +86,10 @@ export default {
 ## Logs
 These lines are illustrative and were written for this scenario. Real log formats differ.
 \`\`\`
+2026-11-15 09:00:00 INFO  [hr] Store manager mailboxes replaced by shared mailboxes
+2026-11-18 07:00:00 INFO  [store-reports] Recipients from table store_contacts updated 2025-03-01
 2026-11-18 07:00:00 INFO  [store-reports] Sent=600 failed=0
 2026-11-18 07:05:00 INFO  [mailbox] Bounces received=40 code=550 5.1.1 user unknown
-2026-11-18 07:05:00 INFO  [store-reports] Recipients from table store_contacts updated 2025-03-01
-2026-11-15 09:00:00 INFO  [hr] Store manager mailboxes replaced by shared mailboxes
 \`\`\`
 
 ## Your tasks

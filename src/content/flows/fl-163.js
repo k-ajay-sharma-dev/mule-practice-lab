@@ -85,6 +85,13 @@ Receipts are kept as PDFs in the Azure Blob Storage container \`expense-receipts
 - Answer **201** with \`{ "blobName": "..." }\` once the receipt is stored.
 - If blob storage cannot be reached, answer **503** with \`{ "message": "Receipt not stored, please try again" }\`.
 
+**Facts**
+- Make the unique part with DataWeave's \`uuid()\`.
+- Upload the \`content\` field, not the whole request.
+- Blob storage that cannot be reached raises **AZURE-STORAGE:CONNECTIVITY**.
+
+**How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Naming the blob

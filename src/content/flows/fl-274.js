@@ -192,6 +192,13 @@ ACKs go to \`pdh.supplieritem.ack\`: \`DUPLICATE\`, \`REJECTED\` with a reason, 
 - When the blob is there: log \`RECEIVED\` and ACK it, download, stage the lines with the message ID, mark the message \`LOADED\` and ACK with the count.
 - A failure while loading: mark it \`FAILED\`, ACK \`FAILED\`, and do not leave the notice on the queue; the restart app replays it later.
 
+**Facts**
+- The listener uses ack mode \`AUTO\`.
+- A notice with no \`attempt\` is the first try. The copy sent to the wait queue is the notice plus \`attempt\` = the tries made so far, so \`1\` after the first. A notice that arrives with \`attempt: 4\` is the fifth try.
+- Check the blob with Azure **List Blobs** on \`pdh-inbound\`, with the blob name as the path. An empty list means it is not there.
+- Every ACK is JSON with \`messageId\` and \`status\`. \`REJECTED\` adds \`reason\`, and \`LOADED\` adds \`lines\`, the number of lines staged.
+- \`RECEIVED\` and \`REJECTED\` are inserts into \`message_log\`. \`LOADED\` and \`FAILED\` update that row.
+
 **Design the flow.**
 `,
   answerTemplate: `## The duplicate check
