@@ -246,6 +246,7 @@ class Parser {
   varDecl() {
     this.expectWord('var')
     const name = this.name()
+    if (name === 'input') throw new DwError('input is a reserved word and cannot be a variable name')
     if (this.eatOp(':')) this.type()
     this.expectOp('=')
     return { kind: 'var', name, expr: this.expr() }
@@ -551,6 +552,8 @@ class Parser {
     if (this.eatOp('*')) return { kind: 'multi', ...this.selName() }
     if (this.eatOp('@')) {
       const t = this.peek()
+      // A reserved word after @ does not parse in the engine: write .@"type", not .@type.
+      if (t.type === 'ident' && KEYWORDS.has(t.value)) throw new DwError(`Invalid input "${t.value}" after .@: quote it as .@"${t.value}"`)
       if (t.type === 'ident' || t.type === 'string') return { kind: 'attr', ...this.selName() }
       return { kind: 'attrs' }
     }

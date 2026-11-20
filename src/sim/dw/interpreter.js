@@ -241,6 +241,8 @@ export class Runtime {
       }
     }
     for (const [name, overloads] of funs) scope.define(name, this.makeFun(name, overloads, scope))
+    // The engine evaluates every var, used or not, so a var that fails stops the script.
+    for (const d of decls) if (d.kind === 'var') scope.vars.get(d.name)?.get?.()
   }
 
   importDecl(d, scope) {
@@ -317,7 +319,8 @@ export class Runtime {
           .map((p) => {
             if (p.text !== undefined) return p.text
             const v = unwrap(this.eval(p.node, scope))
-            return v === null ? 'null' : coerceString(v)
+            if (v === null) throw new DwError('Cannot coerce Null (null) to String in a $( ) interpolation')
+            return coerceString(v)
           })
           .join('')
       case 'id':
@@ -329,7 +332,8 @@ export class Runtime {
       case 'date': {
         const text = node.text
         if (/^-?P/.test(text)) return DwPeriod.parse(text)
-        if (/^(Z|UTC|GMT|[+-]\d{2}:?\d{2}|[A-Za-z]+\/[A-Za-z_/]+)$/.test(text)) return new DwTimeZone(text)
+        // A region name such as |America/Chicago| is not a valid literal in the engine; it takes "America/Chicago" as text.
+        if (/^(Z|UTC|GMT|[+-]\d{2}:?\d{2})$/.test(text)) return new DwTimeZone(text)
         const t = parseIso(text)
         if (!t) throw new DwError(`Invalid date literal |${text}|`)
         return t
@@ -376,7 +380,18 @@ export class Runtime {
         throw new DwError(`Cannot negate ${describe(v)}`)
       }
       case 'default': {
-        const l = this.eval(node.l, scope)
+        // A failed `as` coercion on the left falls back to the default, as in the engine; other errors still fail.
+        let inner = node.l
+        while (inner.t === 'paren') inner = inner.e
+        let l
+        if (inner.t === 'as') {
+          try {
+            l = this.eval(node.l, scope)
+          } catch (e) {
+            if (e instanceof DwError && /^Cannot coerce/.test(e.message)) return this.eval(node.r, scope)
+            throw e
+          }
+        } else l = this.eval(node.l, scope)
         return unwrap(l) === null ? this.eval(node.r, scope) : l
       }
       case 'as': {
@@ -551,7 +566,11 @@ export class Runtime {
       case '--':
         return removeAll(ua, ub)
       case '>>':
-        if (ua instanceof DwTemporal && (typeof ub === 'string' || ub instanceof DwTimeZone)) return ua.inZone(String(ub))
+        if (ua instanceof DwTemporal && (typeof ub === 'string' || ub instanceof DwTimeZone)) {
+          // The engine keeps only the offset: it prints 2026-01-01T04:00:00-06:00 and .timezone gives "-06:00".
+          const r = ua.inZone(String(ub))
+          return r.with(r.kind, { zone: null })
+        }
         if (Array.isArray(ub)) return [stored(ua), ...ub]
         throw opError('>>', ua, ub)
       case '<<':
@@ -676,12 +695,13 @@ export function selectKey(v, name) {
         if (e) out.push(withAttrs(e))
       } else if (Array.isArray(o)) {
         const inner = selectKey(o, name)
-        if (inner.length) out.push(inner)
+        if (Array.isArray(inner) && inner.length) out.push(inner)
       }
     }
-    return out
+    // As in the engine: when no element has the key (or the array is empty) the result is null, not [].
+    return out.length ? out : null
   }
-  if (u instanceof DwTemporal) return u.field(name)
+  if (u instanceof DwTemporal || u instanceof DwPeriod) return u.field(name)
   throw invalidSelector(u, name)
 }
 
@@ -698,7 +718,7 @@ function selectMulti(v, name) {
       const r = selectMulti(x, name)
       if (Array.isArray(r)) out.push(...r)
     }
-    return out
+    return out.length ? out : null
   }
   throw invalidSelector(u, name)
 }
@@ -748,8 +768,9 @@ function selectRange(v, a, b) {
   const n = seq.length
   const from = a < 0 ? n + a : a
   const to = b < 0 ? n + b : b
-  if (from < 0 || to < 0 || from >= n) return null
-  const out = from <= to ? seq.slice(from, Math.min(to, n - 1) + 1) : seq.slice(to, from + 1).reverse()
+  // The engine gives null when either end is outside the value; it does not clip the range.
+  if (from < 0 || to < 0 || from >= n || to >= n) return null
+  const out = from <= to ? seq.slice(from, to + 1) : seq.slice(to, from + 1).reverse()
   return isStr ? out.join('') : out
 }
 

@@ -73,7 +73,8 @@ function splitmix(seed) {
 
 function groupKey(v) {
   v = unwrap(v)
-  if (v === null) return 'null'
+  // The engine cannot use null as a group key and fails, so give a missing key a default first.
+  if (v === null) throw new DwError('groupBy: the key for an item is null. Use `default` to give it a key')
   return coerceString(v)
 }
 
@@ -310,8 +311,8 @@ export const CORE = {
       parts = d === '' ? [...text] : text.split(d)
     }
     // Java's String.split drops trailing empty strings.
+    // An empty text still gives one empty part: "" splitBy ";" is [""] in the engine.
     while (parts.length > 1 && parts[parts.length - 1] === '') parts.pop()
-    if (parts.length === 1 && parts[0] === '' && text === '') return []
     return parts
   },
   joinBy(rt, a, sep) {

@@ -281,6 +281,28 @@ export class DwPeriod {
     return new DwPeriod(-this.y, -this.m, -this.d, -this.secs)
   }
 
+  // p.days, p.hours and so on. A time-based period answers as Java's Duration: days in total, then the hour,
+  // minute and second parts, so (|2026-01-15| - |2026-01-01|).days is 14 and .hours is 0.
+  field(name) {
+    const s = Math.trunc(this.secs)
+    switch (name) {
+      case 'years':
+        return this.y
+      case 'months':
+        return this.m
+      case 'days':
+        return this.d + Math.trunc(s / 86400)
+      case 'hours':
+        return Math.trunc((s % 86400) / 3600)
+      case 'minutes':
+        return Math.trunc((s % 3600) / 60)
+      case 'seconds':
+        return s % 60
+      default:
+        throw new DwError(`Invalid selector '${name}' on Period`)
+    }
+  }
+
   toString() {
     let out = 'P'
     if (this.y) out += this.y + 'Y'
@@ -347,7 +369,8 @@ export function addPeriod(t, p, sign = 1) {
 }
 
 export function diffTemporal(a, b) {
-  if (a.kind === 'Date' && b.kind === 'Date') return new DwPeriod(0, 0, Math.round((a.localMillis() - b.localMillis()) / 86400000), 0)
+  // Date minus Date is a Duration in the engine: it prints as PT336H, not P14D, and .days still gives 14.
+  if (a.kind === 'Date' && b.kind === 'Date') return new DwPeriod(0, 0, 0, Math.round((a.localMillis() - b.localMillis()) / 86400000) * 86400)
   const ns = (a.epochMillis() - b.epochMillis()) * 1e6 + ((a.ns % 1e6) - (b.ns % 1e6))
   return new DwPeriod(0, 0, 0, ns / 1e9)
 }
@@ -579,11 +602,15 @@ export function parseTemporal(text, pattern, kind) {
   })
   if (pm !== null) f.h = (f.h % 12) + (pm ? 12 : 0)
   if (f.mo !== undefined && (f.mo < 1 || f.mo > 12)) throw new DwError(`Invalid month in "${text}"`)
-  if (f.d !== undefined && f.y !== undefined && f.mo !== undefined && f.d > daysInMonth(f.y, f.mo))
-    throw new DwError(`Invalid date "${text}"`)
+  if (f.d !== undefined && (f.d < 1 || f.d > 31)) throw new DwError(`Invalid date "${text}"`)
+  // Like Java's smart resolver: a day that exists in some month but not this one moves to the month's last day.
+  if (f.d !== undefined && f.y !== undefined && f.mo !== undefined) f.d = Math.min(f.d, daysInMonth(f.y, f.mo))
   if (zone && f.off === undefined) {
     f.off = zoneOffset(zone, Date.UTC(f.y ?? 1970, (f.mo ?? 1) - 1, f.d ?? 1, f.h ?? 0, f.mi ?? 0, f.s ?? 0))
     f.zone = zone
   }
-  return new DwTemporal(kind, f)
+  const t = new DwTemporal(kind, f)
+  // The JSON writer prints a value parsed with a format in that format again. Arithmetic (with()) drops it.
+  t.fmt = pattern
+  return t
 }

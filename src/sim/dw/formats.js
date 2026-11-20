@@ -1,7 +1,7 @@
 // Readers and writers for the formats the simulator supports: JSON, CSV, XML, text, URL-encoded forms, and DataWeave
 // notation for display. Readers build the evaluator's value model (order and repeated keys kept).
 import { DwError, SimUnsupported } from '../errors.js'
-import { DwTemporal, DwPeriod } from './dates.js'
+import { DwTemporal, DwPeriod, formatTemporal } from './dates.js'
 import {
   DwKey, DwBinary, DwFn, makeObject, entriesOf, entry, isPlainObject, unwrap, numberToString, bytesToBase64, typeOf,
   AS_STRING,
@@ -483,6 +483,8 @@ export function writeJson(value, options = {}) {
       if (!es.length) return '{}'
       return '{' + nl + es.map((e) => pad + JSON.stringify(e.key) + colon + w(e.value, depth + 1)).join(',' + nl) + nl + end + '}'
     }
+    // A date parsed with a format is written in that format again, as the engine does in JSON.
+    if (v instanceof DwTemporal && v.fmt) return JSON.stringify(formatTemporal(v, v.fmt))
     const t = scalarText(v)
     if (t === undefined) throw new DwError(`Cannot write ${typeOf(v)} as JSON`)
     return JSON.stringify(t)
@@ -508,14 +510,17 @@ export function writeCsv(value, options = {}) {
   const header = options.header !== false && options.header !== 'false'
   const quoteAll = options.quoteValues === true || options.quoteValues === 'true'
   const lineSep = options.lineSeparator ?? '\n'
+  if (options.bom !== undefined) throw new DwError('bom is not a valid option for the CSV writer')
   const cell = (v, force) => {
     const t = scalarText(v)
     if (t === undefined) throw new DwError(`The CSV writer cannot write ${typeOf(v)} in a cell`)
     const s = t ?? ''
-    if (force || s.includes(sep) || s.includes(quote) || s.includes('\n') || s.includes('\r')) {
-      return quote + s.split(quote).join(escape + quote) + quote
-    }
-    return s
+    if (force) return quote + s.split(quote).join(escape + quote) + quote
+    // Without quoteValues the engine does not wrap a cell in quotes: it puts the escape character before
+    // each separator, quote and line break (Acme\, Inc).
+    let out = ''
+    for (const c of s) out += c === sep || c === quote || c === '\n' || c === '\r' ? escape + c : c
+    return out
   }
   if (!rows.length) return ''
   const keys = entriesOf(rows[0]).map((e) => e.key)
