@@ -130,6 +130,12 @@ const PATHS = {
       <path d="M12 14.5V9M9.5 5.5C10 4 11 3 12 3s2 1 2.5 2.5" />
     </>
   ),
+  stories: (
+    <>
+      <path d="M5 5h11a3 3 0 0 1 3 3v8l-3-2H8a3 3 0 0 1-3-3z" />
+      <path d="M9 9h6M9 12h4" />
+    </>
+  ),
   collapse: <path d="M15 6l-6 6 6 6" />,
   expand: <path d="M9 6l6 6-6 6" />,
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,

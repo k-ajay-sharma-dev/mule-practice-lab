@@ -25,6 +25,7 @@ const CheatSheetsPage = lazy(() => import('./pages/CheatSheetsPage.jsx'))
 const PlatformLabPage = lazy(() => import('./pages/PlatformLabPage.jsx'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage.jsx'))
 const CalmPage = lazy(() => import('./pages/CalmPage.jsx'))
+const StoriesPage = lazy(() => import('./pages/StoriesPage.jsx'))
 
 // A crash on one page shouldn't follow you to the next, so the boundary resets on navigation.
 function PageBoundary({ children }) {
@@ -62,6 +63,8 @@ export default function App() {
               <Route path="/platform-lab" element={<PlatformLabPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:projectId" element={<ProjectsPage />} />
+              <Route path="/stories" element={<StoriesPage />} />
+              <Route path="/stories/:storyId" element={<StoriesPage />} />
               <Route path="/calm" element={<CalmPage />} />
               <Route path="/:category" element={<CategoryPage />} />
               <Route path="/:category/:problemId" element={<ProblemPage />} />

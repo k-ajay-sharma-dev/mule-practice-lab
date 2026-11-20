@@ -246,7 +246,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
       return false
     }
   })
-  const MORE = ['/tracks', '/flashcards', '/interview', '/readiness', '/projects', '/platform-lab', '/calm', '/search', '/settings']
+  const MORE = ['/tracks', '/flashcards', '/interview', '/readiness', '/projects', '/stories', '/platform-lab', '/calm', '/search', '/settings']
   const showMore = moreOpen || MORE.some((p) => pathname === p || pathname.startsWith(`${p}/`))
   function toggleMore() {
     const next = !showMore
@@ -325,6 +325,7 @@ function Sidebar({ collapsed, onToggle, onClose }) {
               {item('/interview', 'interview', 'Interview Practice')}
               {item('/readiness', 'readiness', 'Readiness')}
               {item('/projects', 'projects', 'My Projects')}
+              {item('/stories', 'stories', 'My Stories')}
               {item('/platform-lab', 'lab', 'Platform Lab')}
               {item('/calm', 'calm', 'Calm Corner')}
               {item('/search', 'search', 'Search')}
