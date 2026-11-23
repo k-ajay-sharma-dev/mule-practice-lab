@@ -196,6 +196,33 @@ Volumes: ~20 requests/s at peak; the mobile app expects a response within **3 s*
 - The carrier's REST API is \`GET /carrier/api/consignments\`. It answers \`{ consignments: [{ links: { tracking }, eta }] }\`.
 
 **Design the flow(s):** one flow per API (experience, process, system), how they call each other, where each data model lives, and how errors surface to the mobile app.
+
+**What each system sends back**
+
+The carrier answers \`GET /carrier/api/consignments\` with:
+\`\`\`json
+{ "consignments": [ { "links": { "tracking": "https://track.example.com/1Z84" }, "eta": "2026-11-15" } ] }
+\`\`\`
+
+\`GetSalesOrder\` answers with this SOAP body:
+\`\`\`xml
+<GetSalesOrderResponse xmlns="http://erp.example.com/orders">
+  <Order><Number>SO-4471</Number><Status>SHIPPED</Status></Order>
+</GetSalesOrderResponse>
+\`\`\`
+The Web Service Consumer puts the SOAP body under \`payload.body\`, not in \`payload\` itself. Declare the namespace in DataWeave (\`ns ns0 http://erp.example.com/orders\`) and read \`payload.body.ns0#GetSalesOrderResponse.ns0#Order.ns0#Status\`.
+
+**What failures look like**
+- An unknown order: the ERP answers with a SOAP fault, which the Web Service Consumer raises as \`WSC:SOAP_FAULT\`. The ERP System API answers **404**, so the Process API answers 404 too, and the Experience API sees \`HTTP:NOT_FOUND\`.
+- A layer that is down: the HTTP Request raises \`HTTP:CONNECTIVITY\`. The Experience API answers **502** for this and for any other error.
+- Each layer sets its status in an **On Error Propagate** that sets the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
+**Rules the checks use**
+- Each API is its own flow with its own **HTTP Listener**. A layer calls the one below with **HTTP Request**, never Flow Reference.
+- Only the ERP System API uses the **Web Service Consumer**.
+- The Process API calls the two System APIs **in parallel** with a **Scatter-Gather**, so the 3 s budget is not spent waiting twice.
+- Every HTTP Request sets a **Response timeout** of 3000 ms or less: 3 s for the Experience API, 2 s for each call below it.
+- Each API maps to its own shape with a **Transform Message**.
 `,
   answerTemplate: `## Layers and responsibilities
 

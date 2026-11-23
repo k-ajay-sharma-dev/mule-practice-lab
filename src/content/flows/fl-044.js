@@ -193,6 +193,8 @@ Constraints:
 - The queue is the Anypoint MQ queue \`claims-intake\`. Its message must carry the \`policyNo\` and where the claim is stored.
 - The checksum is the hex SHA-256 of the claim written as JSON: \`write(payload, "application/json")\`. Compute it the same way on both sides.
 - A claim the consumer cannot submit, including one whose checksum does not match, goes back to the queue. The queue's own dead-letter queue catches it after its maximum deliveries.
+- The claims system's \`SubmitClaim\` (namespace \`http://legacy.acme.com/claims\`) takes \`<SubmitClaim>\` with \`ClaimId\`, \`PolicyNo\` and \`<Documents>\` holding one \`<Document>\` (\`Name\`, \`Content\` in base64) per document. It answers \`<SubmitClaimResponse><ClaimRef>LC-2026-118204</ClaimRef><Status>ACCEPTED</Status></SubmitClaimResponse>\` after 5 to 60 s.
+- During maintenance \`SubmitClaim\` cannot be reached and the Web Service Consumer raises \`WSC:CONNECTIVITY\`.
 
 **Design the flow(s):** intake, where the large body goes, what the queue message contains, the consumer, integrity checking and failure handling.
 `,

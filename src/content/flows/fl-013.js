@@ -179,6 +179,29 @@ SLA: p95 < 800 ms; the SOAP service averages 400 ms.
 
 A successful \`PATCH\` answers **204 No Content**. Every error answer is JSON with a \`code\` and the request's \`correlationId\`. The fault code appears at the start of the fault description (for example \`POLICY_NOT_FOUND: no policy POL-999999\`). If the SOAP service cannot be reached, answer with a 5xx.
 
+**What the SOAP service expects and sends back**
+
+Every element is in the namespace \`http://bank.example/policy\`. In DataWeave declare it, for example \`ns pol http://bank.example/policy\`.
+
+\`GetPolicy\` takes \`<GetPolicyRequest><policyNumber>POL-100234</policyNumber></GetPolicyRequest>\` and answers:
+\`\`\`xml
+<GetPolicyResponse xmlns="http://bank.example/policy">
+  <policy>
+    <number>POL-100234</number><status>ACTIVE</status><holderName>Grace Okafor</holderName>
+    <startDate>2024-03-01</startDate><internalRiskScore>17</internalRiskScore>
+  </policy>
+</GetPolicyResponse>
+\`\`\`
+
+\`UpdateBeneficiary\` takes \`<UpdateBeneficiaryRequest>\` with \`policyNumber\` and \`<beneficiary>\` (\`name\`, \`relationship\`), and answers \`<UpdateBeneficiaryResponse><result>OK</result></UpdateBeneficiaryResponse>\`.
+
+The Web Service Consumer puts the SOAP body under \`payload.body\`, so the policy is \`payload.body.pol#GetPolicyResponse.pol#policy\`.
+
+**What failures look like**
+- A SOAP fault is raised as \`WSC:SOAP_FAULT\`, and \`error.description\` starts with the fault code. \`POLICY_NOT_FOUND\` answers **404**, \`POLICY_LOCKED\` answers **409**, and any other fault answers **502**.
+- When the service cannot be reached, the error is \`WSC:CONNECTIVITY\`, or \`WSC:TIMEOUT\` when it is too slow. Answer **503**.
+- Set the status in an On Error Propagate with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 **Design the flow(s):** API spec, how SOAP is invoked, request/response mapping, SOAP Fault → HTTP status mapping, and security.
 `,
   answerTemplate: `## API spec and routing

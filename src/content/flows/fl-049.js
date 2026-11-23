@@ -283,6 +283,18 @@ A new **Claims Process API** needs policy details for ~3 claims/second. The arch
 
 **Facts**
 - The PAS operations are \`Login\`, answering \`LoginResponse/SessionId\`, and \`GetPolicyDetails\`, answering \`GetPolicyDetailsResponse\` with \`ResultCode\` and a \`Policy\` (\`PolicyNo\`, \`HolderNm\`, \`StartDt\`, \`EndDt\`, \`Premium\`, \`StatusFlg\`). Namespace: \`http://legacy.example.com/policy\`.
+- A \`GetPolicyDetails\` answer looks like this:
+\`\`\`xml
+<GetPolicyDetailsResponse xmlns="http://legacy.example.com/policy">
+  <ResultCode>0000</ResultCode>
+  <Policy>
+    <PolicyNo>PL-55012    </PolicyNo><HolderNm>Maria Lopez         </HolderNm>
+    <StartDt>01/03/2026</StartDt><EndDt>28/02/2027</EndDt><Premium>1.234,56</Premium><StatusFlg>Y</StatusFlg>
+  </Policy>
+</GetPolicyDetailsResponse>
+\`\`\`
+  The Web Service Consumer puts the SOAP body under \`payload.body\`, so with \`ns p http://legacy.example.com/policy\` the code is \`payload.body.p#GetPolicyDetailsResponse.p#ResultCode\`. \`Login\` answers \`<LoginResponse><SessionId>PAS-SESS-7F21C9</SessionId></LoginResponse>\`.
+- An unknown policy and an internal error both come back as a normal answer (HTTP 200), with \`ResultCode\` \`E404\` or \`E999\` and no error raised. A real SOAP fault is raised as \`WSC:SOAP_FAULT\`. When the PAS cannot be reached, the error is \`WSC:CONNECTIVITY\` (or \`WSC:TIMEOUT\`).
 - \`E999\` is also what the PAS answers when it no longer accepts a session. After an \`E999\` the next call must log in again.
 - The System API \`GET /sys-policy/v1/policies/{policyNumber}\` answers \`{ policyNumber, holderName, startDate, endDate, premium, active }\`: **404** for an unknown policy, **502** for \`E999\` or a SOAP fault, **503** when the PAS cannot be reached.
 - The Claims Process API is \`POST /prc-claims/v1/claims\` with \`{ policyNumber, incidentDate, amount }\`.
