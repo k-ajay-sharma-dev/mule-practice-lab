@@ -118,6 +118,11 @@ Medicines have tight delivery promises. Last month an order file was never picke
 - Each ACK update must include \`AND status = 'SENT'\`. Archive the ACK file under its own name in \`/from3pl/acks/archive\`.
 - In \`overdue-check\`, select the \`SENT\` orders whose \`sent_at\` is before now minus two hours, and send the email from a **Choice** only when there are rows.
 
+**What each system sends back**
+- The Select of \`READY\` orders gives rows such as \`{ "order_id": "OPP-5001", "customer": "PHARM-ROWAN-12", "sku": "OPP-AMOX-500", "qty": 40 }\`, and \`[]\` when none are ready.
+- The SFTP listener reads an ACK file as CSV, so the payload is a list of rows: \`[ { "order_id": "OPP-4995", "result": "RECEIVED" }, { "order_id": "OPP-4970", "result": "RECEIVED" } ]\`. The path is in \`attributes.path\`.
+- The overdue Select gives rows such as \`{ "order_id": "OPP-4990", "sent_file": "ORD_20261113071000.csv", "sent_at": "2026-11-13T07:10:00" }\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Sending orders

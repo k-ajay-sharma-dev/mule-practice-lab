@@ -122,6 +122,10 @@ Every partner takes the order as it is, with a POST to its own path on the partn
 - An order for a region with no active route goes to the queue **\`orders-unrouted\`** with a WARN log, so the team can deal with it.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "partner": "Fellside Logistics", "endpoint_path": "/fellside/v1/orders" } ]\`. For a region with no active route the list is empty. Store it in a target variable, so the payload still holds the order to send.
+- A partner answers **201** with \`{ "reference": "FS-1001" }\`.
 `,
   answerTemplate: `## The routing table
 

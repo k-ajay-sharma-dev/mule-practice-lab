@@ -233,6 +233,15 @@ The **customer-insights** team needs:
 - A redelivered event with the same version must still be published if the earlier attempt failed before publishing.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- The Kafka Listener gives the record value as \`payload\`, as JSON text; read it with \`read(payload, "application/json")\` when it comes without a JSON mime type. The record key is in \`attributes.key\`.
+- A Database Insert with \`ON CONFLICT ... DO UPDATE ... WHERE\` returns \`{ affectedRows: n }\`: 1 when the row was written, 0 when an older version was ignored.
+- A Database Select returns a list of rows with the lower case PostgreSQL column names, for example \`[{ "segment": "GOLD", "region": "DE-SOUTH", "lifetime_value": 4820.55 }]\`.
+
+**What failures look like**
+- An event without \`customerId\`: a Validation on it fails (\`VALIDATION:INVALID_BOOLEAN\` for an is-true check). Publish it to \`orders.v1.dlt\` and finish without error, so the stream moves on.
+- PostgreSQL is in maintenance: the insert raises \`DB:CONNECTIVITY\`. Let the flow fail so the offset is not committed; do not park the event on the dead-letter topic.
 `,
   answerTemplate: `## Consuming (group, partitions, commits)
 

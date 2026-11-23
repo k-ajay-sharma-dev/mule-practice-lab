@@ -77,6 +77,10 @@ The PostgreSQL table \`permits\` has \`permit_id\`, \`plate\`, \`zone\`, \`valid
 - A permit is still valid when \`valid_to\` is today or later. The CSV has the table's five columns.
 - An expired SAS token answers 403, which raises **HTTP:FORBIDDEN**. Do not catch it.
 
+**What each system sends back**
+- Database Select gives a list of rows, with the table's lower case column names: \`[ { "permit_id": "PK-55102", "plate": "FH21 KDP", "zone": "B", "valid_from": "2026-11-13", "valid_to": "2027-11-12" } ]\`.
+- Both PUT calls answer **201** with an empty body. Nothing in that answer is needed.
+
 **Design the flow.** Say which headers each call needs and where they would be set.
 `,
   answerTemplate: `## Why REST, not a mount

@@ -303,6 +303,17 @@ New target design:
 - Events that cannot be published go to the \`event_outbox\` table (\`event_id\`, \`event_type\`, \`body\` as JSON text, \`published\` true or false, \`created_at\`).
 - Marketing's queue is \`welcome-journey-queue\`. Its subscriber calls \`POST /sys-marketing/v1/contacts\`.
 
+**What each system sends back**
+- \`sys-crm\` answers **201** with \`{ "id": "CUS-880412", "email": "aroha@example.com", "country": "NZ", "marketingOptIn": true }\`.
+- \`sys-marketing\` answers **201** with \`{ "contactId": "MC-5521" }\`.
+- The relay's outbox select returns rows keyed by the column names as written above: \`[ { "event_id": "EV-1001", "body": "{\\"eventId\\":\\"EV-1001\\",...}" } ]\`. \`body\` is JSON text, so \`read\` it before you publish it again.
+
+**What failures look like**
+- Anypoint MQ is unreachable: the publish raises an \`ANYPOINT-MQ:\` error such as \`ANYPOINT-MQ:CONNECTIVITY\` (or \`ANYPOINT-MQ:PUBLISHING\`). Catch it, park the event in \`event_outbox\` with \`published = false\`, and still answer **201**.
+- Marketing fails: it answers **503** (\`HTTP:SERVICE_UNAVAILABLE\`). Let the error propagate so the message goes back to the queue, and remove the event id from the dedupe store so the redelivery is processed.
+- The same event again: an Idempotent Message Validator raises \`MULE:DUPLICATE_MESSAGE\`. Drop it with On Error Continue.
+- A body that breaks the schema raises \`JSON:SCHEMA_NOT_HONOURED\`.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-customers/v1/customers\`), and let layers call each other with HTTP Request pointing at the lower API's path. Event consumers are flows too (use the \`prc-\` prefix for process-level subscribers).
 
 **Design the flow(s):** the synchronous path, the event (shape and destination), what happens if publishing fails, and at least one subscriber.

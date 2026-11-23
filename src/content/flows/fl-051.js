@@ -248,6 +248,16 @@ Requirements:
 - System APIs: \`GET /sys-core-banking/v1/accounts?customerId=...\`, \`GET /sys-cards/v1/cards?customerId=...\` and \`GET /sys-loans/v1/loans?customerId=...\`.
 - Behind \`sys-cards\`, the card processor's vendor API is \`GET /card-processor/api/v3/cardholders/cards\`. It answers \`{ cards: [{ token, pan_last4, state }] }\`.
 
+**What each system sends back**
+- Core banking: **200** \`{ "totalBalance": 18420.55, "accounts": [ { "iban": "DE89370400440532013000", "type": "CURRENT", "balance": 2420.55 } ] }\`.
+- Cards: **200** \`[ { "cardId": "tok_4f9a", "last4": "4417", "status": "ACTIVE" } ]\`. Loans: **200** \`[ { "loanId": "MTG-20931", "type": "MORTGAGE", "outstanding": 212000 } ]\`.
+- A Scatter-Gather gives an object with one entry per route, in route order; each entry has its own \`payload\`, so \`valuesOf(payload) map $.payload\` lists the three results.
+
+**What failures look like**
+- Cards answers **503** (\`HTTP:SERVICE_UNAVAILABLE\`) or is down (\`HTTP:CONNECTIVITY\`); loans answers **500** (\`HTTP:INTERNAL_SERVER_ERROR\`); a slow call passes its response timeout (\`HTTP:TIMEOUT\`). For cards and loans, catch the error inside the route and return a marker, so the overview still answers **200** and lists the part in \`unavailable\`.
+- Core banking is down or hangs: its route fails, and the Scatter-Gather raises \`MULE:COMPOSITE_ROUTING\`. Answer **503** \`{ "code": "CORE_UNAVAILABLE" }\` inside 2.5 s.
+- The Experience API's HTTP Request sees that 503 as \`HTTP:SERVICE_UNAVAILABLE\` and answers the app **503**.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-accounts/v1/customers/{customerId}/overview\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
 **Design the flow(s):** the Process API aggregation (parallelism, timeouts, partial failures, merging), the Experience API on top, and at least one System API.

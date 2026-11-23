@@ -102,6 +102,13 @@ SQL Server has \`dbo.region\` (\`region_code\`, \`active\`) and \`dbo.store_tran
 - Put each \`<region>|<rows>\` entry of the control file on its own line.
 - Do not catch an FTP error. The run fails and no control file is written.
 
+**What each system sends back**
+- The region select gives a list of rows: \`[ { "region_code": "N" }, { "region_code": "S" }, { "region_code": "W" } ]\`.
+- The transfer select gives rows with the columns as named, and \`[]\` for a quiet region: \`[ { "from_store": "0204", "to_store": "0207", "sku": "MILK-2L-SEMI", "qty": 24 } ]\`. \`qty\` is a number.
+
+**What failures look like**
+- The FTP server is down: the FTP Write raises \`FTP:CONNECTIVITY\`. The run ends with that error and no \`.ctl\` is written.
+
 **Design the flow.**
 `,
   answerTemplate: `## The regions

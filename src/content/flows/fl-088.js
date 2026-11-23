@@ -226,6 +226,14 @@ Two systems need the data: the tracking portal wants **JSON** in \`out/json\` an
 - The JSON is \`{ manifestId, shipments: [{ trackingNo, weightKg, destination }] }\`. The CSV has the columns \`trackingNo,weightKg,destination\`.
 - The XSD is in the project as \`schemas/carrier-manifest-v3.xsd\`.
 
+**What each system sends back**
+- The File Listener gives the manifest XML as the payload. \`attributes.fileName\` holds \`M-20261103-118.xml\` and \`attributes.path\` the full path, which File Move needs later.
+- XML Validate Schema passes the payload on unchanged when the file is valid.
+
+**What failures look like**
+- A file that breaks the XSD: XML Validate Schema raises \`XML-MODULE:SCHEMA_NOT_HONOURED\`, with a description such as \`cvc-complex-type.2.4.a: Invalid content was found starting with element 'Weight'.\` Move the file to \`rejects\`.
+- An output that already exists: File Write with mode \`CREATE_NEW\` raises \`FILE:FILE_ALREADY_EXISTS\`. Leave the existing outputs as they are and move the manifest to \`duplicates\`.
+
 **Design the flow.** Say what \`timeBetweenSizeCheck\` does, where it can be set, and how the flow reacts when an output already exists.
 `,
   answerTemplate: `## Waiting for the upload

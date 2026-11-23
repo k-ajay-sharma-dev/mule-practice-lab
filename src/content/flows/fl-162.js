@@ -171,7 +171,11 @@ You build the outbound app.
 **Facts**
 - \`job_id\` is a new UUID made in the flow. Call the procedure as \`{ call PDH_OUTBOUND.GENERATE(:jobId, :messageType) }\`.
 - Write the statuses \`'RUNNING'\`, \`'COMPLETE'\` and \`'FAILED'\` as literals in the SQL.
-- A failed procedure raises **DB:QUERY_EXECUTION**.
+- A failed procedure raises **DB:QUERY_EXECUTION** (for example \`ORA-20001: generation failed\`). Inside an Async scope the caller never sees it, so catch it there, mark the job \`FAILED\` and log an ERROR.
+
+**What each system sends back**
+- The busy check (Database Select) answers a list of rows with the column names as written: \`[ { "job_id": "JOB-77001" } ]\` when a run is going, or \`[]\`.
+- The Stored Procedure answers its output parameters, here \`{ "generated": 1240 }\`. The flow does not need them; it only needs the call to succeed.
 
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 

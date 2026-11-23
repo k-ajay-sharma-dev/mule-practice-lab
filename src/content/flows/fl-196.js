@@ -104,6 +104,9 @@ The bureau reads an ACK file from \`/bureau/ack\`, named after the file plus \`.
 - A file that matches: load every instruction, write \`ACCEPTED|<count>\`, move the file to \`done\`.
 - A file that does not: load nothing, write \`REJECTED\` with the trailer count and the lines found, move the file to \`error\`.
 
+**What each system sends back**
+- The SFTP listener gives the whole file as text in the payload. Split it into lines and parse the record types in DataWeave. The name is in \`attributes.fileName\` and the full path in \`attributes.path\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the layout

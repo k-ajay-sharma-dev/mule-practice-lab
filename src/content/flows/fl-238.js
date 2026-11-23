@@ -106,6 +106,13 @@ The reports team runs a rejects screen at \`https://reports.fenwick.example/reje
 - The subject carries the job ID. Each reason is its own line in the body: \`UNKNOWN_SUPPLIER: 3\`.
 - The WARN for an unknown job names the job ID.
 
+**What each system sends back**
+- **Database Select** on \`job_log\`: a list with one row, or an empty list for an unknown job. Read the row as \`[0]\`:
+\`\`\`json
+[ { "job_id": "J-40417", "message_type": "SupplierItem", "good_count": 41870, "bad_count": 4 } ]
+\`\`\`
+- The count by reason (\`COUNT(*) AS line_count ... GROUP BY reason\`): \`[ { "reason": "BAD_GTIN", "line_count": 1 }, { "reason": "UNKNOWN_SUPPLIER", "line_count": 3 } ]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the job

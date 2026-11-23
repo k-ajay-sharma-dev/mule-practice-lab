@@ -137,7 +137,11 @@ You build the first flow of the hub: the intake. Downloading and processing the 
 - In the duplicate check SQL, name the message ID parameter \`:messageId\`.
 - A notification that fails the schema check raises **JSON:SCHEMA_NOT_HONOURED**.
 - \`PDH.INBOUND.WORK\` gets the notification as it arrived.
-- Oracle being down raises **DB:CONNECTIVITY**.
+- Oracle being down raises **DB:CONNECTIVITY**. Leave it unhandled: with AUTO acknowledgement, a flow that ends in error does not ack the message, so the broker delivers it again.
+
+**What each system sends back**
+- The JMS listener gives the notification JSON above as the payload.
+- The duplicate check (Database Select) answers a list of rows with the column names as written: \`[ { "message_id": "MSG-90001" } ]\` for a repeat, or \`[]\` for a new ID.
 
 **Design the flow.**
 `,

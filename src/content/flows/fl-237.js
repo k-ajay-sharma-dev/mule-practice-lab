@@ -90,6 +90,10 @@ Marrow & Pine Home, a fictional homewares retailer, rejects item lines that fail
 - The last seven days means \`rejected_on >= :since\`, where \`since\` is today minus 7 days as \`yyyy-MM-dd\` text. The tests start the flow by hand on 2026-11-13, a Friday, so \`since\` is 2026-11-06.
 - Each reason is one table row with no spaces between cells: \`<tr><td>UNKNOWN_SUPPLIER</td><td>2</td></tr>\`.
 
+**What each system sends back**
+- The count query (\`SELECT reason, COUNT(*) AS line_count ... GROUP BY reason\`) returns one row per reason, named by the column alias: \`[ { "reason": "MISSING_BARCODE", "line_count": 1 }, { "reason": "UNKNOWN_SUPPLIER", "line_count": 2 } ]\`. A clean week returns an empty list.
+- The detail query returns the rows with the columns you select, such as \`{ "sku": "LAMP-OAK-09", "supplier_id": "SUP-OAKLEY", "reason": "UNKNOWN_SUPPLIER", "rejected_on": "2026-11-09" }\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The schedule and the query

@@ -202,6 +202,11 @@ Last month finance found that the backup bill had tripled. The cause: the flow u
 - The listener's response and error response both use \`#[vars.httpStatus default 200]\` (\`500\` for errors) as the status code.
 
 **Design the flow.**
+
+**What failures look like**
+- An unknown address: the provider answers **404** \`{ "message": "No match" }\`, which the HTTP Request raises as \`HTTP:NOT_FOUND\`. Catch it inside the route, so First Successful does not move on to the backup.
+- The primary is down: the HTTP Request raises \`HTTP:CONNECTIVITY\`. The primary is slow: it raises \`HTTP:TIMEOUT\` once the response timeout passes. Both send First Successful to the backup.
+- The backup fails with **500**: the HTTP Request raises \`HTTP:INTERNAL_SERVER_ERROR\`. With both routes failed, First Successful raises an error, and the flow answers **503**.
 `,
   answerTemplate: `## Trigger
 

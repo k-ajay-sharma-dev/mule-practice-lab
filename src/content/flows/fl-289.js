@@ -108,6 +108,13 @@ The runtime runs **on premises** with a local disk for landing files, \`/data/la
 - Do not catch a failure in the loader. The file stays and \`upload_log\` keeps \`RECEIVED\`.
 - **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
 
+**What each system sends back**
+- The VM listener gives the hand-off \`{ "uploadId": "..." }\` as the payload.
+- File Read as \`application/csv\` gives a list of rows: \`[ { "consignment": "QF-118204", "delivered_at": "2026-11-12T09:14:00Z", "signed_by": "R. Patel" } ]\`.
+
+**What failures look like**
+- SQL Server is down while loading: the Bulk Insert in the loader raises \`DB:CONNECTIVITY\`. The carrier already has 202, \`upload_log\` stays \`RECEIVED\`, and the file stays in \`/data/landing\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Landing the body

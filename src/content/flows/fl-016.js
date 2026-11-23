@@ -274,6 +274,34 @@ Suppliers email invoices to \`invoices@company.example\`, a Microsoft 365 mailbo
 - The OCR service posts its result to \`POST /ocr/callback\` on your application, with \`documentKey\` and \`fields\` (\`invoiceNumber\`, \`supplierName\`, \`total\`).
 - XML e-invoices have the content type \`application/xml\` or \`text/xml\`; PDFs have \`application/pdf\`.
 
+**What each system sends back**
+- The inbox call answers 200 with \`{ "value": [ ... ] }\`. One message looks like:
+\`\`\`json
+{
+  "id": "AAMk-001",
+  "internetMessageId": "<AAMk-001@mail.acme-supplies.example>",
+  "from": { "emailAddress": { "address": "billing@acme-supplies.example" } },
+  "subject": "Invoices for November",
+  "attachments": [
+    { "name": "INV-5521.xml", "contentType": "application/xml", "isInline": false, "contentBytes": "PEludm9pY2U+..." },
+    { "name": "logo.png", "contentType": "image/png", "isInline": true, "contentBytes": "iVBORw0KGgo=" }
+  ]
+}
+\`\`\`
+- Decoded from Base64, an XML e-invoice reads (no namespace):
+\`\`\`xml
+<Invoice>
+  <ID>INV-5521</ID>
+  <AccountingSupplierParty><Party><PartyName><Name>Acme Supplies</Name></PartyName></Party></AccountingSupplierParty>
+  <LegalMonetaryTotal><PayableAmount>1250.00</PayableAmount></LegalMonetaryTotal>
+</Invoice>
+\`\`\`
+- The AP System API answers 201 with \`{ "apInvoiceId": "AP-77001" }\`. The document store answers 200 with \`{ "eTag": "e-1" }\`. The OCR service answers 202 with \`{ "jobId": "OCR-9001" }\`. The move answers 201.
+
+**What failures look like**
+- The AP System API cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Report that attachment to the AP team and go on; the PDF in the same email must still reach OCR.
+- An email that was already handled makes the Idempotent Message Validator raise \`MULE:DUPLICATE_MESSAGE\`. Skip it quietly.
+
 **Design the flow(s):** mailbox trigger, extracting attachments, routing by type, idempotency and error handling.
 `,
   answerTemplate: `## Mailbox trigger

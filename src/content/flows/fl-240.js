@@ -101,6 +101,16 @@ The company's mail relay answers **421 try again later** (a 4xx reply) when it i
 - Count the fifth try too: a \`FAILED\` email ends with \`attempts\` 5.
 - The ERROR log names the email as \`email <id>\`.
 
+**What each system sends back**
+- **Database Select** on \`email_outbox\`: a list of due rows. In the tests emails 1 and 2 are due:
+\`\`\`json
+[ { "id": 1, "to_addr": "store1@larkfield.example", "subject": "Delivery slot changed", "body": "Your Thursday delivery moves to 06:00.", "attempts": 0 },
+  { "id": 2, "to_addr": "store2@larkfield.example", "subject": "Delivery slot changed", "body": "...", "attempts": 4 } ]
+\`\`\`
+
+**What failures look like**
+- The relay refuses mail: each Email Send raises an \`EMAIL\` error (such as \`EMAIL:SEND\`) inside its own Try. Email 1 goes from 0 to 1 attempt with a later try time. Email 2 was on attempt 4, so this fifth failure marks it \`FAILED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Choosing what to send

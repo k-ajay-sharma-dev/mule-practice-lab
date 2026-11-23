@@ -135,6 +135,10 @@ A first version ran \`UPDATE members SET email = :email, phone = :phone, marketi
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Update** answers \`{ "affectedRows": 1 }\` when the member exists, and \`{ "affectedRows": 0 }\` for an unknown member. No error is raised, so the flow must check it. Store it in a target variable, so the payload still holds the request.
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "member_id": "M-3301", "email": "leo.martin@example.com", "phone": "07700 900999", "marketing_opt_in": true } ]\`.
 `,
   answerTemplate: `## PATCH and PUT
 

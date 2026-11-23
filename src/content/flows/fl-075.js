@@ -158,6 +158,15 @@ The legacy **ERP order gateway** only accepts its own XML format. The ERP team a
 - The ERP order gateway is \`POST /erp/order-gateway/import\`.
 - A valid order is answered with **202** and \`<OrderAck>\` holding \`OrderNumber\`, \`Status\` and \`CorrelationId\`.
 
+**What each system sends back**
+- XPath Extract returns a list of the matching values, for example \`["PO-55012"]\`, so take the first one. Send it to a target variable so the order stays in the payload.
+- The ERP gateway answers **200** with \`{ "importId": "IMP-20261113-0412", "result": "QUEUED" }\`.
+
+**What failures look like**
+- The order breaks the XSD: Validate Schema raises \`XML-MODULE:SCHEMA_NOT_HONOURED\`, with the reason in \`error.description\`. Answer **400**.
+- The XML is not well formed: \`XML-MODULE:INVALID_INPUT_XML\`. Answer **400** too.
+- In both cases the ERP gateway is never called.
+
 **Design the flow.** Would you keep the XSLT or rewrite it in DataWeave?
 `,
   answerTemplate: `## Receiving the order

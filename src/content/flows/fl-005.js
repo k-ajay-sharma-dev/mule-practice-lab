@@ -150,6 +150,17 @@ A **Customer 360 Process API** (\`GET /customers/{id}/360\`) serves the call-cen
 
 **SLA:** respond within **2 seconds** with JSON that includes \`customerId\` (the Salesforce \`Id\`). If an optional system is slow or down, return what you have and flag the missing section. If Salesforce fails, return **502**.
 
+**What each system sends back**
+- Salesforce: \`{ "Id": "0015g00000XyZAB", "Name": "Northwind Traders", "Segment__c": "Gold" }\`
+- SAP: \`{ "invoices": [ { "number": "9000123", "amount": 1840.5, "dueDate": "2026-11-30" } ], "creditLimit": 25000 }\`
+- Zendesk: \`{ "tickets": [ { "id": 48211, "subject": "Late delivery", "status": "open" } ] }\`
+
+**What failures look like**
+- SAP hangs for 30 s: the HTTP Request raises \`HTTP:TIMEOUT\` once its response timeout passes.
+- Zendesk answers 500: the HTTP Request raises \`HTTP:INTERNAL_SERVER_ERROR\`.
+- Salesforce cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`.
+- An error that a route does not catch makes the Scatter-Gather raise \`MULE:COMPOSITE_ROUTING\` after all routes finish. Set the status in an On Error Propagate with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 The first version used a Scatter-Gather with no timeouts; when SAP hangs, agents wait 30+ seconds, and when Zendesk returns 500, the whole call fails.
 
 **Design the flow:**

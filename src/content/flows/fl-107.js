@@ -114,6 +114,10 @@ A substitute answer is not acceptable here. If core banking is down, the app mus
 - On success, return \`{ "transferId": "T-1001", "status": "COMPLETED" }\`.
 - If core banking cannot be reached or does not answer in time, log the error and return HTTP status **503** with a short JSON error body. 503 means "service unavailable, try later".
 
+**What failures look like**
+- Core banking refuses the connection: the HTTP Request raises \`HTTP:CONNECTIVITY\`.
+- Core banking takes longer than the response timeout (one test waits 15 seconds): the HTTP Request raises \`HTTP:TIMEOUT\`.
+
 **On Error Propagate** is the handler that runs its steps and then lets the error carry on, so the flow ends as failed.
 
 **How the status gets out:** the listener has an Error Response setting that is not shown on the canvas. Assume its status code is \`#[vars.httpStatus default 500]\` and its body is \`#[payload]\`. Your handler only needs to set the variable \`httpStatus\` and the payload.

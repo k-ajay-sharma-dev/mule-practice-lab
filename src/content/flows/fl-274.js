@@ -199,6 +199,18 @@ ACKs go to \`pdh.supplieritem.ack\`: \`DUPLICATE\`, \`REJECTED\` with a reason, 
 - Every ACK is JSON with \`messageId\` and \`status\`. \`REJECTED\` adds \`reason\`, and \`LOADED\` adds \`lines\`, the number of lines staged.
 - \`RECEIVED\` and \`REJECTED\` are inserts into \`message_log\`. \`LOADED\` and \`FAILED\` update that row.
 
+**What each system sends back**
+- The \`message_log\` select gives a list of rows, such as \`[ { "status": "LOADED" } ]\`, or an empty list for a new message.
+- List Blobs gives \`[ { "name": "supplier-item/SI-30417.json" } ]\` when the blob is there and \`[]\` when it is not.
+- Download Blob replaces the payload with the blob's JSON list of lines:
+\`\`\`json
+[ { "supplierId": "SUP-ORCHARD", "itemId": "APPLE-GALA-1KG", "cost": 1.12 } ]
+\`\`\`
+- Bulk Insert gives a list with one update count per line, so its size is the line count.
+
+**What failures look like**
+- Oracle refuses the staging lines: the Bulk Insert raises \`DB:QUERY_EXECUTION\`. Mark the message \`FAILED\` with that error type as the reason, ACK \`FAILED\`, and let the notice be acknowledged.
+
 **Design the flow.**
 `,
   answerTemplate: `## The duplicate check

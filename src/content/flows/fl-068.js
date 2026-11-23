@@ -262,6 +262,15 @@ A pharma and fresh-food distributor runs **1,200 refrigerated trailers**. Each t
 - QA is told on the queue \`COLDCHAIN.ALERTS.ESCALATION\` and by email to \`qa-coldchain@example.com\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- The range lookup (Database Select joining the two tables) returns a list of rows with upper case column names, for example \`[{ "LOAD_ID": "LD-30417", "TMS_LOAD_REF": "TMS-889201", "MIN_TEMP_C": 2, "MAX_TEMP_C": 8, "MAX_EXCURSION_MIN": 30 }]\`. An unknown load gives an empty list.
+- \`RECORD_EXCURSION\` returns its output parameters in \`payload\`: \`{ "excursionId": 9002, "alertNeeded": "Y" }\`.
+- The TMS answers **201** with \`{ "alertId": "TMS-AL-55021", "status": "OPEN" }\`.
+
+**What failures look like**
+- The TMS answers **503**: the HTTP Request raises \`HTTP:SERVICE_UNAVAILABLE\`. Retry; a later try that gets 201 marks the alert \`SENT\`.
+- The TMS does not answer within 5 seconds: \`HTTP:TIMEOUT\`. When every retry fails, Until Successful raises \`MULE:RETRY_EXHAUSTED\`. Tell QA on the queue and by email, leave the alert not \`SENT\`, and finish without error so the reading is not redelivered. All retries together must end well inside 2 minutes.
 `,
   answerTemplate: `## Consuming telemetry
 

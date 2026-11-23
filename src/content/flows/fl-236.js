@@ -98,6 +98,9 @@ When a load failed, the old flow emailed support the whole message. The privacy 
 - Write the error type as \`namespace:identifier\`, such as \`DB:QUERY_EXECUTION\`.
 - Write the alert body as labelled lines: \`orderId: ...\`, \`error: ...\`, \`correlationId: ...\`. The word "customer" must not appear in it.
 
+**What failures look like**
+- Oracle refuses the order: the Database Insert raises \`DB:QUERY_EXECUTION\` with the description \`ORA-12899: value too large for column CUSTOMER_EMAIL\`. The alert names the type, not the description.
+
 **Design the flow.**
 `,
   answerTemplate: `## Loading the order

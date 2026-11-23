@@ -164,6 +164,13 @@ Every night the ERP drops one XML file \`sales_YYYYMMDD.xml\` into \`/data/sales
 - Each region file keeps the input file's name, for example \`/data/sales/out/EMEA/sales_20261112.xml\`.
 - The original file is moved to \`/data/sales/archive\` after a successful split. On failure it goes to \`/data/sales/error\` and nothing half-written may be published.
 
+**What the listener gives you**
+- The file content is the payload, as a stream. The file name is in \`attributes.fileName\` (for example \`sales_20261112.xml\`).
+- A sale looks like \`<sale region="EMEA" id="S-1"><amount>120.00</amount></sale>\`, so the region is \`s.@region\`.
+
+**What failures look like**
+- A file the ERP stopped writing half-way ends in the middle of a tag. DataWeave fails to parse it while the For Each reads the records, and the error reaches the flow's error handler. Catch it with \`ANY\`, move the input to \`/data/sales/error\`, and publish no region file.
+
 **Design the flow(s):**
 - How do you read the file without loading 1.2 GB into memory?
 - How do you split unsorted records by region when you cannot \`groupBy\` the whole file?

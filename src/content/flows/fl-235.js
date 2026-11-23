@@ -79,6 +79,13 @@ Last month the mail relay was down for maintenance one night. The export had wor
 - Then email the planning team a report with the count. A mail problem must not fail or slow the job.
 - If the export fails, send no report and log an ERROR.
 
+**What each system sends back**
+- The stored procedure returns its output parameter by name: \`{ "p_rows": 412 }\`. With Target \`built\`, read it as \`vars.built.p_rows\`.
+
+**What failures look like**
+- The export fails: the Stored Procedure raises \`DB:QUERY_EXECUTION\` (\`ORA-01555: snapshot too old\`). Nothing is recorded and no report is sent.
+- The mail server is down: Email Send raises an \`EMAIL\` error, but inside Async it never reaches the flow, so nothing is logged as ERROR.
+
 **Design the flow.**
 `,
   answerTemplate: `## The export and the record

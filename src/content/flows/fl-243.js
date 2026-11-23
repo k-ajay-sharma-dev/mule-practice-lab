@@ -170,6 +170,13 @@ Incidents last year:
 - Turn an empty \`amount\` into null, so Oracle refuses the line. Store \`line_no\` and \`amount\` as numbers.
 - The subject of the supplier email is \`Your invoice email could not be loaded\`.
 
+**What each system sends back**
+- **Database Select** on \`suppliers\`: \`[ { "supplier_id": "SUP-HALE", "contact_email": "ar-team@hale-timber.example" } ]\` for \`hale-timber.example\`, or an empty list for an unknown domain. Read the row as \`[0]\`.
+- **Database Select** on \`mail_log\`: \`[ { "message_id": "<inv-55021@hale-timber.example>" } ]\` when the email was loaded before, or an empty list.
+
+**What failures look like**
+- A line with no amount: Oracle refuses the null in the NOT NULL column, and the Bulk Insert raises \`DB:QUERY_EXECUTION\`. The transaction rolls back, so no line and no \`mail_log\` row stay.
+
 **Design the flow.**
 `,
   answerTemplate: `## Who may send

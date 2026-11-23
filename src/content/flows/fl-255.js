@@ -142,6 +142,19 @@ You are asked for a restart flow. Support calls \`POST /replay?type=Item\` after
 - \`body\` holds the message as JSON text. Publish it as JSON, not as a string.
 - Put the status code in the variable \`httpStatus\`. The listener answers with it, also on the error path.
 
+**What each system sends back**
+- \`SELECT 1 AS ok\` returns \`[ { "ok": 1 } ]\`. List Blobs returns a list of blob entries. Neither result is used; only success matters.
+- **Database Select** on \`dbo.message_failures\` returns a list of rows, with \`body\` as text:
+\`\`\`json
+[ { "message_id": "ITM-30211", "message_type": "Item", "body": "{\\"item\\":\\"SEED-TOM-CHERRY\\",\\"status\\":\\"ACTIVE\\"}" },
+  { "message_id": "ITM-30212", "message_type": "Item", "body": "{\\"item\\":\\"POT-30CM-TERRA\\",\\"status\\":\\"ACTIVE\\"}" } ]
+\`\`\`
+
+**What failures look like**
+- The database is down: the health select raises \`DB:CONNECTIVITY\`. Answer **503**.
+- The blob store is down: List Blobs raises \`AZURE-STORAGE:CONNECTIVITY\` (\`The storage account does not answer.\`). Answer **503**.
+- The broker refuses a publish: JMS Publish raises a \`JMS\` error inside the batch step. The record fails, and the ONLY_FAILURES step marks it \`REPLAY_FAILED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Health checks

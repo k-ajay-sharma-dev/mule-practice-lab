@@ -173,6 +173,15 @@ Today a nightly job inserts and updates the stores in the export. Closed stores 
 - \`store_id\` is the primary key, so PostgreSQL can upsert with \`INSERT ... ON CONFLICT (store_id) DO UPDATE\`.
 
 **Design the flow.**
+
+**What each system sends back**
+- The portal answers status 200 with \`{ "generatedAt": "2026-11-18T02:30:05Z", "stores": [ { "storeId": "FR-107", "name": "Canal Wharf", "city": "Skipton", "phone": "01756 555 0107" } ] }\`.
+- A Database **Select** answers a list of rows named as the SQL names them. \`SELECT COUNT(*) AS active_count ...\` answers \`[ { "active_count": 6 } ]\`.
+- A Database **Update** answers \`{ "affectedRows": 1 }\`, the number of rows it changed.
+
+**What failures look like**
+- The portal answers **503**: the HTTP Request raises \`HTTP:SERVICE_UNAVAILABLE\`. The run fails with it before any write.
+- The database fails: the statement raises \`DB:CONNECTIVITY\`. The run fails with it, and no store is closed.
 `,
   answerTemplate: `## Reading the export
 

@@ -227,6 +227,18 @@ The readings must be loaded into the **PostgreSQL** table \`meter_reading\` (\`m
 - During a database outage the batch must **not** be committed.
 - Readings can arrive twice, because head-end systems re-send after timeouts. A repeat must not fail the batch or change the stored reading.
 
+**What each system sends back**
+- The Kafka Batch Listener gives a list of records as \`payload\`. Each record holds the message value as JSON text in its own \`payload\`:
+\`\`\`json
+[ { "payload": "{ \\"meterId\\": \\"MTR-0041177\\", \\"readAt\\": \\"2026-11-13T09:00:00Z\\", \\"kwh\\": 1.37 }" } ]
+\`\`\`
+- Read each one with \`read(r.payload, "application/json")\`. The key you pass to Kafka Commit comes from the batch's consumer context in \`attributes\`; check the exact expression in your connector version.
+- Bulk Insert with \`ON CONFLICT (meter_id, read_at) DO NOTHING\` skips a repeated reading without an error.
+
+**What failures look like**
+- A \`kwh\` such as \`"ERR-17"\`: \`as Number\` raises \`MULE:EXPRESSION\` for the whole batch (or the insert raises \`DB:QUERY_EXECUTION\` if a bad value reaches PostgreSQL). Retry the records one by one, send the bad one to \`meter.readings.dlt\`, then commit.
+- PostgreSQL is down: \`DB:CONNECTIVITY\`. Let the flow fail without a commit and send nothing to the dead-letter topic.
+
 **Design the flow.** Trace the commit on every path through it.
 `,
   answerTemplate: `## Batch listener and acknowledgement mode

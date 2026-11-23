@@ -104,7 +104,7 @@ The FTP link drops now and then, and a cut off file once loaded half a night of 
 - Otherwise load nothing and move it to \`/wms/receipts/error\`.
 
 **Facts**
-- Listen for \`RCV_*.txt\` with a size check wait.
+- Listen for \`RCV_*.txt\` with a size check wait. The listener gives the whole file as text in the payload, its name in \`attributes.fileName\` and its full path in \`attributes.path\`.
 - Parse the whole file in one Transform first. Keep the trailer count as \`trailerCount\`, or -1 when there is no trailer, and compare it with the number of detail lines in a **Choice**.
 - Each row has \`file_name\` (the file's name), \`dc\` from the header, \`sku\` as the 7 digit text, \`qty\` as a number (\`000480\` becomes 480) and \`po_number\`.
 - Log a count that does not match at WARN. Files keep their names when moved.

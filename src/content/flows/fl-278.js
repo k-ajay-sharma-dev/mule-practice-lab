@@ -122,6 +122,15 @@ The first line is \`<file>|<status>|<loaded>|<rejected>\`, with status \`ACCEPTE
 - The reject lines of the ACK come from \`asn_reject\`, read back by \`file_name\`. Put each ACK line on its own line.
 - Files keep their names when moved.
 
+**What each system sends back**
+- The SFTP listener gives the CSV with \`attributes.fileName\` and \`attributes.path\`. The Batch Job gets one record per line with string values: \`{ "asn": "ASN-7781", "sku": "ELBOW-22MM", "qty": "0" }\`.
+- In On Complete the payload is the job result, with the counts in \`payload.successfulRecords\` and \`payload.failedRecords\`.
+- The reject select gives rows such as \`[ { "asn": "ASN-7781", "sku": "ELBOW-22MM" } ]\`.
+
+**What failures look like**
+- A quantity of 0 fails the line's check, and the line goes to the ONLY_FAILURES step.
+- Oracle refuses a group: the Bulk Insert raises \`DB:QUERY_EXECUTION\` and every line of that group fails, so all of them reach the ONLY_FAILURES step. With 3 lines and none loaded the ACK says \`REJECTED|0|3\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The Batch Job

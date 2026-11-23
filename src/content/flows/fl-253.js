@@ -105,6 +105,12 @@ The first version published the ACK right after the Batch Job step. Every ACK sa
 - In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
 - Publish the ACK as JSON.
 
+**What each system sends back**
+- **Download Blob** puts the blob content in the payload: the JSON list of lines shown above. The Batch Job splits that list into one record per line.
+
+**What failures look like**
+- Oracle refuses the group: the Bulk Insert raises \`DB:QUERY_EXECUTION\`. Every record in that group counts as failed, so On Complete sees \`failedRecords\` 3 and \`successfulRecords\` 0.
+
 **Design the flow.**
 `,
   answerTemplate: `## The notice and the blob

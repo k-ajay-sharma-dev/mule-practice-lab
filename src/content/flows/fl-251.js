@@ -95,6 +95,9 @@ Today a Batch Job bulk inserts groups of 500. Two problems:
 - A known store and SKU is updated, a new one is inserted, and rows not in the file are left alone.
 - Loading the same file twice must give the same table as loading it once.
 
+**What each system sends back**
+- The FTP listener gives the CSV content as the payload, so the Batch Job splits it into one record per row: \`{ "snapshot_date": "2026-11-13", "store": "0412", "sku": "4410021", "on_hand": "3" }\`, every value as text. Inside the Batch Aggregator the payload is a list of those records, which the Bulk Update runs once each.
+
 **Design the flow.**
 `,
   answerTemplate: `## The aggregator

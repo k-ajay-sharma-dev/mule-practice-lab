@@ -165,6 +165,18 @@ The app needs both of these audit trails, so build both in the same app:
 
 Both tables have the columns \`payment_id\`, \`amount\`, \`status\` and \`correlation_id\`.
 
+**What each system sends back**
+- The payment processor answers 201 with:
+\`\`\`json
+{ "id": "PAY-88120", "amount": 49.99, "currency": "EUR", "status": "AUTHORISED" }
+\`\`\`
+- A Database Insert answers with the number of affected rows, which replaces the payload.
+- A VM Listener receives as its payload exactly what was published to the queue.
+
+**What failures look like**
+- The processor cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. The payment fails, and no audit record may be handed over.
+- The Audit DB cannot be reached: the Database Insert raises \`DB:CONNECTIVITY\`. A failing SQL statement raises \`DB:QUERY_EXECUTION\`. Neither may change the payment answer.
+
 **Design the flow(s):**
 - How do you take the audit insert out of the response path?
 - Which approach fits Variant A and which fits Variant B, and why?

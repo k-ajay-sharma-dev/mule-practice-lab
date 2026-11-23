@@ -140,6 +140,20 @@ A retailer's **order management system** runs on **Oracle**. Store associates an
 - A change that still fails after retries is parked in the Oracle table \`INTEGRATION_ERROR\` (\`ERROR_ID\`, \`INTERFACE\`, \`BUSINESS_KEY\`, \`PAYLOAD\`, \`ERROR_TEXT\`, \`STATUS\`, \`CREATED_AT\`). \`ERROR_ID\` comes from the sequence \`INTEGRATION_ERROR_SEQ\`, \`BUSINESS_KEY\` is the order id and a new row has \`STATUS\` \`NEW\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- The Database Listener starts one flow run per changed row. The row is the payload, with upper case column names:
+\`\`\`json
+{ "ORDER_ID": 7002211, "STATUS_CODE": "SH", "CARRIER_CODE": "UPS", "TRACKING_NO": "1Z999AA10123456784", "LAST_UPDATED_TS": "2026-11-13T09:59:40Z" }
+\`\`\`
+- Salesforce Upsert takes a list of records and answers with one result per record:
+\`\`\`json
+{ "successful": true, "items": [ { "id": "a0B8d000004QxYzEAK", "successful": true } ] }
+\`\`\`
+
+**What failures look like**
+- A Salesforce blip: the upsert raises \`SALESFORCE:CONNECTIVITY\` once and the next try works. Nothing is parked.
+- Salesforce stays down: every try raises \`SALESFORCE:CONNECTIVITY\`. After the retries the change goes into \`INTEGRATION_ERROR\` with \`STATUS\` \`NEW\`, and the flow does not fail, because the watermark has already moved on.
 `,
   answerTemplate: `## Change detection
 

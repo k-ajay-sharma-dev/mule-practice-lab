@@ -388,6 +388,17 @@ The current implementation returns **500 "Internal Server Error"** for everythin
 - \`sys-payment\` answers a decline with **422** \`{ code: "DECLINED", reason }\`. \`sys-oms\` answers a duplicate order id with **409** and an unreachable database with **503**.
 - \`sys-oms\` inserts into the \`orders\` table (\`order_id\` unique, \`customer_id\`, \`total\`, \`payment_ref\`, \`status\`) and answers \`{ orderId }\`. The Process API answers \`{ orderId, status, authorisationId }\`.
 
+**What each system sends back**
+- The PSP answers **200** \`{ "id": "pi_3QkT81", "amount": 129.9, "status": "succeeded" }\`, or **200** \`{ "id": "pi_3QkT90", "status": "declined", "decline_code": "insufficient_funds" }\` for a declined card.
+- \`sys-payment\` answers **200** \`{ "id": "AUTH-77120", "amount": 129.9, "status": "AUTHORISED" }\`. Its answer replaces the payload, so keep the order for the \`sys-oms\` call.
+- \`sys-oms\` answers **201** \`{ "orderId": "WEB-10045" }\`. It answers **400** if the body has no \`orderId\` or \`customerId\`.
+
+**What failures look like**
+- A 422 or 409 from the layer below raises no named HTTP error type. List it in the HTTP Request's success status codes and branch on \`attributes.statusCode\`; the body (\`{ code, reason }\`) is then in \`payload\`.
+- A 503 from the layer below raises \`HTTP:SERVICE_UNAVAILABLE\`; a call that passes its response timeout raises \`HTTP:TIMEOUT\`; a PSP that cannot be reached raises \`HTTP:CONNECTIVITY\`; a PSP 401 raises \`HTTP:UNAUTHORIZED\`.
+- In \`sys-oms\`, an insert that breaks the unique key raises \`DB:QUERY_EXECUTION\` (answer **409**). An unreachable database raises \`DB:CONNECTIVITY\` (answer **503**).
+- A body that breaks the schema at the edge raises \`JSON:SCHEMA_NOT_HONOURED\` (answer **400**).
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-orders/v1/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
 **Design the flow(s):** all four APIs, and for each layer which errors it raises, which it receives from below, and how it translates them for its caller.

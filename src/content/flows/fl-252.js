@@ -121,6 +121,13 @@ The DBA has added \`dbo.load_checkpoint\` (\`file_name\`, \`last_line\`).
 - A file has no checkpoint row until its first group is written, so write the checkpoint with \`MERGE INTO dbo.load_checkpoint\`.
 - Stage the group and write the checkpoint inside one Try scope that begins a transaction.
 
+**What each system sends back**
+- The File listener gives the CSV content as the payload. The name is in \`attributes.fileName\` (\`SALES_HIST_2026W46.csv\`) and the full path in \`attributes.path\`. Each batch record is a row such as \`{ "line": "3", "store": "0101", "sku": "RUG-160-OAT", "units": "2" }\`, every value as text.
+- **Database Select** on the checkpoint: \`[ { "last_line": 2 } ]\` after a crash, or an empty list for a new file.
+
+**What failures look like**
+- The checkpoint MERGE fails: \`DB:QUERY_EXECUTION\`. The transaction rolls back the group's staging rows too, so nothing of that group stays.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the checkpoint

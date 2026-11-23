@@ -205,6 +205,14 @@ The DBA has created this table, with one row per job:
 - After the file is written, set \`last_completed_date\` to the business date and give the lease back (\`owner\` null). On a failure, give the lease back and let the error propagate, so the run shows as failed.
 
 **Design the flow.** Explain why a SELECT followed by an UPDATE is not enough.
+
+**What each system sends back**
+- A Database **Update** answers \`{ "affectedRows": 1 }\` when its WHERE matched the job row, and \`{ "affectedRows": 0 }\` when it did not. Store it in a target variable to keep the payload.
+- A Database **Select** on \`daily_interest\` answers a list of rows with the column names as written, for example \`[ { "account_id": "ACC-1001", "accrued_interest": 1.37, "currency": "GBP" } ]\`.
+- SFTP **Write** sends the payload as the file and leaves nothing useful in the payload.
+
+**What failures look like**
+- The ledger SFTP server is down: the write raises \`SFTP:CONNECTIVITY\`. Give the lease back, and let that error end the run.
 `,
   answerTemplate: `## Why every server ran the job
 

@@ -96,6 +96,13 @@ The old job took "changes since the watermark", then set the watermark to the ne
 - When the window has no changes, write no file but still move the watermark to \`until\`.
 - Do not catch a failed write. The run fails and the watermark stays.
 
+**What each system sends back**
+- The watermark select answers a list with one row: \`[ { "last_until_utc": "2026-11-13T06:00:00" } ]\`. Read it with \`[0].last_until_utc\`.
+- The changes select answers a list of rows with the lower case column names, for example \`{ "change_id": 7002, "store": "0412", "sku": "4410187", "on_hand": 12, "changed_at_utc": "2026-11-13T08:10:00" }\`. An empty window gives an empty list.
+
+**What failures look like**
+- The FTP server is down: the FTP Write raises \`FTP:CONNECTIVITY\`. The run ends with that error and the watermark update never runs.
+
 **Design the flow.** Explain how the old job lost changes.
 `,
   answerTemplate: `## The window

@@ -116,6 +116,11 @@ Last Black Friday the carrier slowed to 20 seconds an answer. The checkout page 
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, also when an error handler built the answer.
 
 **Design the flow.** Explain the difference between 502 and 504.
+
+**What failures look like**
+- No answer within the response timeout: the HTTP Request raises \`HTTP:TIMEOUT\`.
+- The connection is refused: \`HTTP:CONNECTIVITY\`. The carrier answers **500**: \`HTTP:INTERNAL_SERVER_ERROR\` (a 503 would be \`HTTP:SERVICE_UNAVAILABLE\`).
+- The carrier answers **404** \`{ "error": "unknown postcode" }\`: \`HTTP:NOT_FOUND\`.
 `,
   answerTemplate: `## The endpoint and the carrier call
 

@@ -125,6 +125,13 @@ An **Async scope** is a box of steps that runs alongside the main flow. The main
 - Send the email to the customer inside an Async scope.
 - Reply with \`{ "returnId": "...", "status": "RECEIVED" }\` without waiting for the email.
 
+**What each system sends back**
+- Database Insert replaces the payload with the insert result (the number of rows changed), so the request is gone after it.
+
+**What failures look like**
+- The mail server is down: Email Send fails with an \`EMAIL\` error such as \`EMAIL:CONNECTIVITY\`. Inside the Async scope this does not reach the caller, who still gets \`RECEIVED\`.
+- The database is down: the insert raises \`DB:CONNECTIVITY\`. The caller gets an error, not \`RECEIVED\`, and no email goes out.
+
 **Design the flow.**
 `,
   answerTemplate: `## Saving the return

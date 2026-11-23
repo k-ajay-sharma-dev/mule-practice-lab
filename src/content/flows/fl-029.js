@@ -173,6 +173,19 @@ Compliance says **audit events older than 400 days** must be removed from the \`
 - A row must **never be deleted unless its archive write succeeded**.
 - The DBA team wants a summary (processed / failed) every morning.
 
+**What each system sends back**
+- \`audit_events\` has the columns \`id\`, \`account_id\`, \`event_type\`, \`payload\` and \`created_at\`. A Database Select answers with a list of rows keyed by those names:
+\`\`\`json
+[ { "id": 1, "account_id": "AC-100", "event_type": "LOGIN", "payload": "{}", "created_at": "2025-01-04T08:00:00Z" } ]
+\`\`\`
+- Inside a Batch Aggregator the payload is a list of these records.
+- S3 Put Object answers with the stored object's details, such as its ETag. The flow does not need them, and they replace the payload.
+- In On Complete the payload is the batch job result, with \`payload.totalRecords\`, \`payload.successfulRecords\` and \`payload.failedRecords\`.
+
+**What failures look like**
+- The archive bucket cannot be reached: S3 Put Object raises \`S3:CONNECTIVITY\`. No row of that chunk may be deleted.
+- PostgreSQL cannot be reached: the Database Select raises \`DB:CONNECTIVITY\`. The job never starts and no report goes out.
+
 **Design the flow(s):**
 - How do you trigger the job and select only expired rows without loading 60 million rows into memory?
 - How do you guarantee "archive first, then delete" for each row?

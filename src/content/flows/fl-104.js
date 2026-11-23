@@ -91,6 +91,9 @@ The app calls \`GET /exchange-rates/eur\`.
 { "currency": "EUR", "usdRate": 1.08, "asOf": "2026-11-06" }
 \`\`\`
 
+**What failures look like**
+- The provider has no rate: it answers **404** \`{ "message": "No rate for EUR" }\`. The HTTP Request raises \`HTTP:NOT_FOUND\`, and the steps after it do not run. No handler is needed for this problem.
+
 **Design the flow.** What is in the payload after the HTTP Request?
 `,
   answerTemplate: `## Trigger

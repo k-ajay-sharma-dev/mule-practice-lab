@@ -97,6 +97,14 @@ Two problems with the old job:
 - The watermark you store is the newest \`updated_at\` among the rows you sent, not the time of the run. On the first run there is no watermark yet, so use an old default.
 - A share that cannot be written raises **FILE:CONNECTIVITY**. Do not catch it: the run must end with that error.
 
+**What each system sends back**
+- Object Store Retrieve puts the stored value in the payload, a text such as \`"2026-11-10T00:00:00"\`. With no value stored it returns the default you set.
+- Database Select gives a list of rows with the column names in lower case, as written in the table:
+\`\`\`json
+[ { "item_id": "BOOT-HIKE-W38", "description": "Walking boot, women, size 38", "dept": "FOOTWEAR", "unit_cost": 41.0, "updated_at": "2026-11-12T16:40:00" } ]
+\`\`\`
+No changes gives an empty list.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking the changed items

@@ -117,6 +117,17 @@ The first version built one message per item: 400,000 blobs and notices a night.
 - Name each blob \`item-out/<jobId>/<first itemId>.json\`. Send the notices with **JMS Publish**.
 - Let the job go on after a failed group: set max failed records to -1. \`sent\` and \`failed\` are the job's successful and failed record counts.
 
+**What each system sends back**
+- \`JOB_START\` gives \`{ "job_id": 611 }\`.
+- The Database Select streams rows with the columns as named: \`{ "item_id": "ITM-00001", "description": "Item 1", "dept": "CHILLED" }\`.
+- Inside a Batch Aggregator of 1,000 the payload is a list of up to 1,000 records.
+- Upload Blob answers with the blob's details, such as \`{ "eTag": "0x8DD2C11" }\`. Nothing after it needs them.
+- In On Complete the payload is the job result, with \`payload.successfulRecords\` and \`payload.failedRecords\`.
+
+**What failures look like**
+- The storage account drops one upload: Upload Blob fails with a connectivity error (\`AZURE-STORAGE:CONNECTIVITY\` here). That group's 1,000 records fail, so no notice goes out and its items stay \`NEW\`. With 1,500 sent and 1,000 failed the job is \`PARTIAL\`.
+- The broker refuses the notices: every JMS Publish fails, so every group fails before the bulk update. No item is marked \`SENT\` and the job is \`FAILED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row and the read

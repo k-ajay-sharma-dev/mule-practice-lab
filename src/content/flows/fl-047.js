@@ -179,6 +179,17 @@ Constraints:
 - During DB maintenance windows the database is unreachable: callers need **503** so they can fall back or retry.
 - p95 latency budget: **300 ms**.
 
+**What the database sends back**
+- A Database Select returns a list of rows keyed by the column names as written above:
+\`\`\`json
+[ { "customer_id": "C-100233", "first_nm": "Grace", "last_nm": "Mensah", "email_addr": "grace.mensah@example.com", "status_cd": "I" } ]
+\`\`\`
+- No matching row gives an empty list \`[]\`, not an error.
+
+**What failures look like**
+- The database is unreachable: the select raises \`DB:CONNECTIVITY\`. Answer **503**.
+- Anything else unexpected: answer a generic **500**.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/sys-customers/v1/customers\`), and let layers call each other with HTTP Request pointing at the lower API's path. Here you only draw the system layer (one flow per resource is fine).
 
 **Design the flow(s):** listener paths, how paging is done, how rows become the API model, and how each error becomes a status.

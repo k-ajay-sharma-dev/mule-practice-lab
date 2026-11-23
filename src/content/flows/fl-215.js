@@ -117,6 +117,10 @@ Last month a line failed halfway through an order. The header and the first line
 - A line with no \`qty\` fails on the NOT NULL column. The reject \`reason\` is the error description.
 - A failed order must not fail the run: catch it with On Error Continue and write the reject row.
 
+**What each step gives back**
+- The SFTP listener gives the JSON above as the payload, with \`qty\` missing or null on a bad line. The path is in \`attributes.path\`.
+- The bulk insert of PO-77311 fails on its second line with \`DB:QUERY_EXECUTION\`. \`error.description\` holds the database's NOT NULL message, which becomes the reject \`reason\`.
+
 **Design the flow.** Explain where the transaction starts and ends, and why the error handler is where it is.
 `,
   answerTemplate: `## One order at a time

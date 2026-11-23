@@ -103,6 +103,14 @@ A **VM queue** is a queue inside the Mule app. One flow puts a message on it wit
 - A second flow reads that queue and sends the email.
 - Answer the form with the email and the status \`REGISTERED\`.
 
+**What each system sends back**
+- Database Insert replaces the payload with its result, \`{ affectedRows, generatedKeys }\`, unless you set its **Target variable**. Then the result goes to that variable and the signup body stays in the payload.
+- The VM Listener gives the published message as the payload, so the email flow reads \`payload.email\` and \`payload.firstName\`.
+
+**What failures look like**
+- The mail server is down: Email Send fails with an \`EMAIL\` error such as \`EMAIL:CONNECTIVITY\` in the email flow. The API flow has already answered \`REGISTERED\`.
+- The database is down: the insert raises \`DB:CONNECTIVITY\`. The form gets an error, nothing is published and no email goes out.
+
 **Design the two flows.** Why does the form now answer in well under a second?
 `,
   answerTemplate: `## The API flow

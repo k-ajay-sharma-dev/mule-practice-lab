@@ -85,6 +85,9 @@ On a normal day it works. In December the worker ran out of memory before the Ba
 **Facts**
 - \`dbo.till_txn_staging\` has the file's six columns. \`qty\` and \`amount\` are numbers.
 
+**What each system sends back**
+- The SFTP listener gives the CSV content as a stream in the payload. \`attributes.path\` holds the full path, \`attributes.fileName\` the name and \`attributes.size\` the size in bytes. Each batch record is a row with every value as text: \`{ "txn_id": "T-90003", "store": "0412", "till": "05", "sku": "4410300", "qty": "4", "amount": "12.80" }\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the old flow ran out of memory

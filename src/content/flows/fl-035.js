@@ -259,6 +259,14 @@ The warehouse management system calls a webhook for every order status change: *
 - In Salesforce the Order's external id field is \`Order_Number__c\`.
 - The shipped email goes to the order's \`customer_email\` and contains the tracking number.
 
+**What each system sends back**
+- A Database select returns a list of rows with upper case column names, for example \`[ { "STATUS": "PICKED", "STATUS_CHANGED_AT": "2026-11-13T07:40:00Z" } ]\` and \`[ { "CUSTOMER_EMAIL": "ben@example.com" } ]\`. Use a target variable so the payload stays the update.
+- The Salesforce upsert answers \`{ "successful": true, "items": [ { "id": "801RS00000Q7x2YAC", "successful": true } ] }\`.
+
+**What failures look like**
+- An unknown status: an Is true validation raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **400** and queue nothing.
+- Salesforce is down: the upsert raises \`SALESFORCE:CONNECTIVITY\`. This happens in a later stage, so the warehouse has already had its 202 and the status update stays applied. Let the error propagate so the VM message is redelivered.
+
 **Design the flow(s):**
 - How do you answer the warehouse within 500 ms when Salesforce alone can take 4 s?
 - How do you split the work into stages, and how are they connected?

@@ -194,6 +194,23 @@ A manufacturer keeps its material master in **SAP S/4HANA**. Each change must re
 - The same IDoc can be sent again by the SAP team for reprocessing. Without a real change it must not produce a second event.
 - Each failure must be traceable to an **IDoc number**. The IDoc number is the \`DOCNUM\` field of the IDoc control record.
 
+**What each system sends back**
+
+The Document Listener gives the IDoc as XML. It may arrive as Binary, so parse it with \`read(payload, "application/xml")\` when it is not parsed yet:
+\`\`\`xml
+<MATMAS05><IDOC>
+  <EDI_DC40><DOCNUM>0000000004512345</DOCNUM><IDOCTYP>MATMAS05</IDOCTYP><MESTYP>MATMAS</MESTYP></EDI_DC40>
+  <E1MARAM><MATNR>MAT-100200</MATNR><MEINS>EA</MEINS><LVORM></LVORM>
+    <E1MAKTM><SPRAS_ISO>EN</SPRAS_ISO><MAKTX>Hex bolt M8x40</MAKTX></E1MAKTM>
+  </E1MARAM>
+</IDOC></MATMAS05>
+\`\`\`
+\`MATNR\` is the material, \`MEINS\` the base unit, \`LVORM\` is \`X\` when the material is deleted, and \`E1MAKTM\` repeats once per language.
+
+**What failures look like**
+- A repeated IDoc number: the Idempotent Message Validator raises \`MULE:DUPLICATE_MESSAGE\`. Log it and carry on with no event.
+- Anypoint MQ is down: the publish raises \`ANYPOINT-MQ:CONNECTIVITY\`. Log the IDoc number and let the error propagate.
+
 **Design the flow.** Also list what you must agree with the SAP team.
 `,
   answerTemplate: `## Receiving the IDoc

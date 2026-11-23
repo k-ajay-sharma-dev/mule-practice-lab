@@ -215,6 +215,19 @@ You are building the **Orders System API** from a RAML spec published in Exchang
 
 Orders live in the \`orders\` table with columns \`id\`, \`customer_id\`, \`total\` and \`status\`.
 
+**What the database sends back**
+- A Database Select always answers with a list of rows, even for one ID. Each row uses the column names as written in the table:
+\`\`\`json
+[ { "id": "7f3c2a10-4b6e-4d8a-9c1f-2e5b8a7d6c01", "customer_id": "CUST-310", "total": 129.5, "status": "OPEN" } ]
+\`\`\`
+- An unknown ID gives an empty list \`[]\`, not an error. The flow must turn it into a 404 itself.
+- A Database Insert answers with the number of affected rows, which replaces the payload unless you store it in a target variable.
+
+**What failures look like**
+- When PostgreSQL cannot be reached, the Database connector raises \`DB:CONNECTIVITY\`. Answer **503**.
+- The APIkit Router raises \`APIKIT:BAD_REQUEST\`, \`APIKIT:METHOD_NOT_ALLOWED\` (for example the \`DELETE\`), \`APIKIT:NOT_ACCEPTABLE\` or \`APIKIT:UNSUPPORTED_MEDIA_TYPE\` before any implementation flow runs.
+- Set the status in an On Error Propagate with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 Consumers complain that today:
 - a wrong \`Content-Type\` returns **500** with a Java stack trace,
 - an unknown order ID returns **200 with an empty body**,

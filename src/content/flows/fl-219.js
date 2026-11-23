@@ -106,6 +106,14 @@ The DBA has added an outbox table: \`dbo.outbox\` (\`outbox_id\` identity, \`eve
 - An outbox row's \`aggregate_id\` is the \`alloc_id\`, and \`payload_json\` is the allocation as JSON. \`outbox_id\` is filled by the database.
 - Store \`qty\` as a number.
 
+**What each system sends back**
+- The FTP listener gives the CSV as rows, every value as text: \`{ "alloc_id": "A-5120-1", "store": "0101", "sku": "LAMP-OAK-S", "qty": "4" }\`. The name is in \`attributes.fileName\`, the path in \`attributes.path\`.
+- The relay's select answers a list of rows: \`{ "outbox_id": 1, "aggregate_id": "A-5120-1", "payload_json": "{\\"alloc_id\\":\\"A-5120-1\\",...}" }\`, or \`[]\` when nothing is waiting.
+
+**What failures look like**
+- The broker is down: JMS Publish raises \`JMS:CONNECTIVITY\`. The relay run ends before the row is marked \`SENT\`, so it stays \`NEW\` for the next run.
+- The outbox insert fails: it raises \`DB:QUERY_EXECUTION\`, and the Try rolls back the allocations with it.
+
 **Design the two flows.**
 `,
   answerTemplate: `## Why the first version lost events

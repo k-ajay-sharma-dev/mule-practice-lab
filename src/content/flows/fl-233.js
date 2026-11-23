@@ -266,6 +266,15 @@ Fenwick Supply, a fictional builders' merchant, receives inventory transactions 
 - Put the notification on \`INV.FAILED\` as it arrived, with its \`messageId\`.
 - The email subject carries the message ID.
 
+**What each system sends back**
+- **Download Blob**: the payload is the JSON document above, for example three lines at \`FX-DC1\`, \`FX-DC9\` and \`FX-DC2\`, the last with \`qty: -5\`.
+- **Database Select** on \`inbound_messages\`: a list of rows such as \`[ { "message_id": "MSG-80101" } ]\`, or an empty list when nothing matches.
+- **Database Select** on the code map: rows \`[ { "ext_code": "FX-DC1", "int_code": "310" }, { "ext_code": "FX-DC2", "int_code": "320" } ]\`. Column names are lower case.
+
+**What failures look like**
+- The MERGE is refused: the Bulk Update raises \`DB:QUERY_EXECUTION\` (\`ORA-01400: cannot insert NULL\`). The transaction rolls back the rejects, and the ANY handler takes over.
+- The mail server is down: Email Send raises an \`EMAIL\` error, but inside Async it never reaches the flow.
+
 **Design the flows.**
 `,
   answerTemplate: `## The intake flow

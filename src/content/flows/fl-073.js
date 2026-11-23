@@ -161,6 +161,13 @@ Around **400 suppliers** submit invoices as JSON to a new **Invoice Intake API**
 - Log the blob name so support can find an invoice from the API log.
 - If the storage account cannot be reached, the supplier should get a response that tells it to **retry later**.
 
+**What each system sends back**
+- Upload Blob returns \`true\` as \`payload\` when the blob was written. It replaces the invoice in the payload.
+
+**What failures look like**
+- The invoice breaks the schema: JSON Validate Schema raises \`JSON:SCHEMA_NOT_HONOURED\`, with the reason in \`error.description\`. Answer **400** and store nothing.
+- The storage account cannot be reached: Upload Blob raises \`AZURE-STORAGE:CONNECTIVITY\`. Answer **503** so the supplier retries later. This is a partner connector, so confirm the error type name in Studio.
+
 **Design the flow.** Also say how the connector authenticates to the storage account.
 `,
   answerTemplate: `## Receiving and validating

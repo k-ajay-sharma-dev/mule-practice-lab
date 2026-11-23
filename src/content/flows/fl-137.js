@@ -155,6 +155,10 @@ Lists are a few hundred lines, sent once a month.
 - Keep the three counts in variables named \`inserted\`, \`updated\` and \`unchanged\`.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "price": 0.42 } ]\`. For a SKU the supplier has no row for, the list is empty.
+- Database **Insert** and **Update** answer \`{ "affectedRows": 1 }\`. Store the answers in a target variable, so the payload still holds the price list item.
 `,
   answerTemplate: `## The endpoint
 

@@ -148,6 +148,13 @@ The job runs with max failed records -1. A few bad rows a night are normal. But 
 - A blank price goes in as null, so the database refuses that row.
 - In On Complete the payload is the job result, with \`successfulRecords\`, \`failedRecords\` and \`totalRecords\`.
 
+**What each system sends back**
+- \`dbo.usp_job_start\` returns \`{ "job_id": 71 }\` in the tests. With Target \`job\`, read it as \`vars.job.job_id\`.
+- The SFTP listener gives the CSV content as the payload, with the full path in \`attributes.path\` and the name in \`attributes.fileName\`. Each batch record is a row with every value as text: \`{ "sku": "JKT-RAIN-M", "store_group": "ALL", "new_price": "", "effective": "2026-11-15" }\`.
+
+**What failures look like**
+- A row with no price: the database refuses the null, and the Database Insert raises \`DB:QUERY_EXECUTION\` for that record only. It counts in \`failedRecords\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Max failed records

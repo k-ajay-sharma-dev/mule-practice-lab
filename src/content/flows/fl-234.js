@@ -124,6 +124,14 @@ What went wrong before:
 - \`line_count\` is the number of lines. Publish the order to \`WMS.ORDERS\` and to the DLQ as it arrived.
 - Do not catch errors: the failure must reach the listener so the transaction rolls back.
 
+**What each system sends back**
+- **Database Select** on \`wms_orders\`: a list of rows such as \`[ { "order_id": "SO-91001" } ]\` for a known order, or an empty list.
+
+**What failures look like**
+- Oracle refuses the insert: \`DB:QUERY_EXECUTION\` (\`ORA-12899: value too large for column\`).
+- The broker refuses the publish to \`WMS.ORDERS\`: the JMS Publish raises a \`JMS\` error such as \`JMS:PUBLISHING\`.
+- In both cases the error reaches the listener, the XA transaction rolls back, and the message goes back to \`ORDER.RELEASE\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why two resources need XA

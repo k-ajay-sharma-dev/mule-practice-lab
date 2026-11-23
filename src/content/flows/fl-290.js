@@ -97,6 +97,13 @@ A big store has 400,000 lines, a small one 3,000. The first try read the whole t
 - Put each \`<store>|<rows>\` entry of the control file on its own line.
 - Do not catch an SFTP error. The run fails and no control file is written.
 
+**What each system sends back**
+- The Database Select streams rows with the columns as named: \`{ "store": "0102", "sku": "SKU-0102-00001", "units": 1 }\`. \`units\` is a number.
+- Inside a For Each with a batch size, \`payload\` is a list of up to that many rows.
+
+**What failures look like**
+- The SFTP server is down: the SFTP Write raises \`SFTP:CONNECTIVITY\`. The run ends with that error and no \`.ctl\` is written.
+
 **Design the flow.**
 `,
   answerTemplate: `## Streaming in store order

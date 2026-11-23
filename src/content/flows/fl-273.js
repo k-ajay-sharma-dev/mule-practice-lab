@@ -124,6 +124,17 @@ The first version kept the time of the last run and loaded blobs changed since t
 - Write the \`processed_blob\` row only after the blob's rows are staged.
 - A blob that fails is logged at ERROR with its name.
 
+**What each system sends back**
+- List Blobs gives a list, one entry per blob:
+\`\`\`json
+[ { "name": "inbound/hartwell-2026-11-13.json", "eTag": "0x8DD1A40" } ]
+\`\`\`
+- The lookup select gives a list of rows, empty when this name and eTag were never loaded.
+- Download Blob replaces the payload with the blob's JSON list of rows.
+
+**What failures look like**
+- A blob that cannot be read: Download Blob raises a connectivity error (\`AZURE-STORAGE:CONNECTIVITY\` here, "The storage account did not answer"). Log it at ERROR, write no \`processed_blob\` row, and go on with the next blob.
+
 **Design the flow.**
 `,
   answerTemplate: `## Listing and the processed log

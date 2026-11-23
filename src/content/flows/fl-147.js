@@ -133,6 +133,13 @@ You may use a table \`received_files\` (\`checksum\` primary key, \`file_name\`,
 - \`received_files.file_name\` is the name the file arrived with.
 - A load that fails must fail the flow (the error is not swallowed), so the file can be tried again.
 
+**What each system sends back**
+- The SFTP On New or Updated File source gives the file content as the payload (CSV, read as a list of rows with \`date\`, \`reference\`, \`amount\` as strings). The file name is in \`attributes.fileName\`. Use \`payload.^raw\` for the raw bytes when you compute a checksum.
+- A Database Select on \`received_files\` answers a list of rows with the column names as written, for example \`[ { "file_name": "statement-20261117.csv", "received_at": "..." } ]\`, or \`[]\` when the checksum is new.
+
+**What failures look like**
+- The database drops the connection during \`INSERT INTO statement_lines\`: the Database connector raises **DB:CONNECTIVITY**. The flow must end in error, with the \`received_files\` row rolled back too.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the file name is not enough

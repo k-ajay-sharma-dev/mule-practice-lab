@@ -189,6 +189,14 @@ Support cannot trace customer complaints across systems. A checkout touches:
 - The notification flow calls the Notification API at \`POST /notifications/order-confirmation\`.
 - An error body is \`{ code, message, correlationId }\`.
 
+**What each system sends back**
+- The Payment Process API answers **200** with \`{ "orderId": "ORD-55120", "paymentId": "PAY-90311", "status": "AUTHORISED" }\`.
+- The Notification API answers **202** with \`{ "queued": true }\`.
+
+**What failures look like**
+- The Payment Process API is down: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Log an ERROR line with the correlation ID, queue nothing, and answer **502** with the error body.
+- The Notification API is down: the HTTP Request in the notification flow raises \`HTTP:CONNECTIVITY\`. That flow fails on its own; the checkout has already answered 200.
+
 All logs go to Splunk. Support wants to type **one ID** and see every log line from every app for that checkout, in the right order, with the duration and the error type when something failed. The customer-facing error response must show the same ID, so a customer can quote it.
 
 **Design the flow(s):**

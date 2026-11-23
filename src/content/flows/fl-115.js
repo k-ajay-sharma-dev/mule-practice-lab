@@ -140,6 +140,9 @@ A **Cache scope** keeps the result of the steps inside it. The first call runs t
 - The reference API answers \`{ "items": [{ "isoCode": "EUR", "displayName": "Euro", "minorUnits": 2, "active": true, ... }] }\`.
 - \`GET /currencies\` returns a JSON array of \`{ code, name, decimals }\`, taken from \`isoCode\`, \`displayName\` and \`minorUnits\`.
 
+**What failures look like**
+- The reference API cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\` and the caller gets an error. Nothing is cached for a failed call, so the next request calls the API again. No handler is needed for this problem.
+
 **Design the flow.** Which steps go inside the Cache scope?
 `,
   answerTemplate: `## Trigger

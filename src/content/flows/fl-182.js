@@ -130,6 +130,13 @@ What went wrong before:
 - Each staging row carries the file's name in \`file_name\`. The log row's \`row_count\` is the number of data rows.
 - A file keeps its name when moved to \`processed\`. A timestamp in front of the name is fine in \`duplicates\` too.
 
+**What each system sends back**
+- The listener puts the file's name in \`attributes.fileName\` and its full path in \`attributes.path\`.
+- The Database Select on \`plan_file_log\` gives a list of rows: \`[ { "file_name": "REPL_20261113_R0871.csv", "status": "LOADED" } ]\` for a file seen before, and an empty list \`[]\` for a new one.
+
+**What failures look like**
+- A failed insert, for example on \`plan_file_log\`, raises **DB:QUERY_EXECUTION**. The transaction rolls back the plan rows already inserted, and the file goes to \`error\`. The run ends without an error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

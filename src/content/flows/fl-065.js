@@ -329,6 +329,19 @@ For each confirmation the integration must:
 - Ops replays with \`POST /admin/ship-confirm/dlq/replay?max=N\` and gets \`{ replayed }\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- The JMS Listener gives the confirmation JSON as \`payload\`. The delivery count is in \`attributes.properties.jmsxProperties.jmsxDeliveryCount\`; read it before a Database operation replaces the attributes.
+- Database Insert returns \`{ affectedRows: 1 }\`. Bulk Update takes its list of rows from \`payload\`.
+- JMS Consume on the DLQ returns one confirmation as \`payload\`, in the same shape as above.
+
+**What failures look like**
+- A missing \`shipmentId\`: a Validation on it raises \`VALIDATION:BLANK_STRING\`. Park the message at once.
+- A bad \`shippedAt\` such as \`13/11/2026 19:10\`: \`as DateTime\` in DataWeave raises \`MULE:EXPRESSION\`. Park it at once.
+- A re-sent shipment: the \`SHIPMENT\` insert fails with \`DB:QUERY_EXECUTION\` and \`ORA-00001\`. It is already done, so commit and publish nothing.
+- Oracle in its patch window: \`DB:CONNECTIVITY\`. Let it propagate so the message rolls back for redelivery.
+- The event publish fails: \`JMS:CONNECTIVITY\`. Let it propagate; the Oracle writes and the message roll back together.
+- The DLQ is empty: JMS Consume waits its maximum wait and raises \`JMS:TIMEOUT\`. That ends the replay loop.
 `,
   answerTemplate: `## Main flow and transaction
 

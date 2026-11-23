@@ -125,6 +125,13 @@ The planners want to know what happened to each line. The platform reads a respo
 - Put the staging and the \`po_files\` insert in a **Try** with the transactional action \`ALWAYS_BEGIN\`. When no line is good, skip the bulk insert with a **Choice**, but still record the file.
 - The plan file keeps its name in the archive. Do not catch a database error: the run fails.
 
+**What each system sends back**
+- The listener reads a \`.csv\` file as CSV: the payload is a list of rows such as \`{ "plan_line": "1", "supplier_id": "SUP-HAYDEN", "sku": "4410021", "dc": "DC-EAST", "qty": "480", "need_date": "2026-11-19" }\`, every value as text. The name is in \`attributes.fileName\` and the path in \`attributes.path\`.
+- The Select on \`suppliers\` gives \`[ { "supplier_id": "SUP-HAYDEN" }, { "supplier_id": "SUP-ORCHARD" } ]\`.
+
+**What failures look like**
+- A database that cannot be reached raises **DB:CONNECTIVITY** on the first query. The run ends with that error, and the plan file stays in \`/outbound/po\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the plan

@@ -86,7 +86,11 @@ Twice this year the partner sent a broken export of **40 GB**: every product rep
 **Requirements**
 - Read the limit from the property \`feed.maxBytes\` (2 GB today), so operations can change it.
 - A file over the limit is moved to \`/feeds/oversize\`, not loaded, and \`feed-team@marrowpine.example\` gets an email with the file name in the subject.
-- A file under the limit is loaded through a Batch Job into \`dbo.product_feed_staging\` and moved to \`/feeds/done\`.
+- A file under the limit is loaded through a Batch Job into \`dbo.product_feed_staging\` (\`sku\`, \`title\`, \`price\` as a number) and moved to \`/feeds/done\`.
+
+**What each system sends back**
+- The File listener gives the CSV content as the payload, and the file facts in \`attributes\`: \`path\` (\`/feeds/in/PRODUCT_FEED_20261113.csv\`), \`fileName\` (\`PRODUCT_FEED_20261113.csv\`) and \`size\` in bytes. A property read with \`p("feed.maxBytes")\` is text, so cast it before comparing.
+- Each batch record is a row with every value as text: \`{ "sku": "SOFA-3S-GRY", "title": "Three seat sofa grey", "price": "899.00" }\`.
 
 **Design the flow.**
 `,

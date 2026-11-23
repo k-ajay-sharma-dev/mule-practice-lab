@@ -183,6 +183,13 @@ The queue is a **standard queue**, not FIFO, and the consumer runs on two replic
 - When PostgreSQL refuses a second row for the same \`vehicle_id\`, the Database Insert raises **DB:QUERY_EXECUTION** with a description that contains \`duplicate key value violates unique constraint\`.
 
 **Design the flow.** Explain why the check and the write must be one statement.
+
+**What each system sends back**
+- The subscriber puts the message in the payload and its acknowledgement token in \`attributes.ackToken\`. Keep the token in a variable: Ack and Nack need it.
+- A Database **Update** answers \`{ "affectedRows": 1 }\` when it changed the row, and \`{ "affectedRows": 0 }\` when no row matched: a new van, or an event that is not newer. Store it in a target variable, so the payload still holds the event.
+
+**What failures look like**
+- The database is down: the update or insert raises \`DB:CONNECTIVITY\`. Nack the message, so it goes back to the queue.
 `,
   answerTemplate: `## Reading the queue
 

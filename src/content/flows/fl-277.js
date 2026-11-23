@@ -102,6 +102,14 @@ The platform moves each file away once it has loaded it, so the folder should be
 - Write with the mode \`CREATE_NEW\`. When the file exists, the write raises \`SFTP:FILE_ALREADY_EXISTS\`. Do not catch it: the run fails and the old file stays as it was.
 - Send the alert from an **Async** scope, so a mail failure does not fail the run.
 
+**What each system sends back**
+- SFTP List gives a list of messages, one per file, each with \`attributes.fileName\` (such as \`DAILY_SALES_20261112.csv\`). An empty folder gives \`[]\`.
+- The Database Select gives rows with the columns as named: \`[ { "store": "0101", "sku": "TENT-2P-OLV", "units": 3 } ]\`.
+
+**What failures look like**
+- Tonight's file is already there: the SFTP Write raises \`SFTP:FILE_ALREADY_EXISTS\` and the run fails.
+- The mail server is down: the email fails inside the Async scope. Tonight's file is written and the run ends without error.
+
 **Design the flow.**
 `,
   answerTemplate: `## What is waiting

@@ -218,6 +218,18 @@ You are asked to build the relay in Mule.
 - The connector's Upload Blob returns \`true\` when the blob was written and \`false\` when it was not.
 - Store each document as \`from-aws/<file name>\` in \`claims-scans\`.
 
+**What each system sends back**
+- S3 List Objects returns a list of objects, each with \`key\` and \`size\`:
+\`\`\`json
+[ { "key": "outbound/", "size": 0 }, { "key": "outbound/CLM-2026-118201.pdf", "size": 1843322 } ]
+\`\`\`
+- S3 Get Object returns the PDF bytes as a stream in \`payload\`, ready to pass to Upload Blob.
+- Upload Blob returns \`true\` or \`false\` in \`payload\`.
+
+**What failures look like**
+- Upload Blob returns \`false\` for one document: no error is raised, so check the result yourself. Log it, leave the object in S3 and carry on with the next one.
+- Azure Storage is down: Upload Blob raises \`AZURE-STORAGE:CONNECTIVITY\`. Stop the run at that document and delete nothing; the next run catches up. This is a partner connector, so confirm the error type name in Studio.
+
 **Design the flow.** How do you make the relay safe to rerun after a crash?
 `,
   answerTemplate: `## Trigger and listing

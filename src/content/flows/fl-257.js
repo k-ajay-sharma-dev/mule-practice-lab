@@ -123,7 +123,8 @@ export default {
             step('db-insert', { database: 'Oracle', sql: "INSERT INTO msg_log (message_id, status) VALUES (:messageId, 'RECEIVED')", inputParameters: '#[{ messageId: vars.messageId }]', target: 'logged' }),
             step('set-payload', { value: '#[output application/json --- { messageId: vars.messageId, status: "RECEIVED" }]' }),
             step('jms-publish', { destination: 'supplier.items.ack', destinationType: 'QUEUE', persistentDelivery: 'true' }),
-            step('db-stored-procedure', { database: 'Oracle', sql: '{ call JOB_START(:jobName, :jobId) }', inputParameters: '#[{ jobName: "SUPPLIER_ITEMS_IN" }]', target: 'job' }),
+            // outputParameters: job_id (NUMERIC). The result map is keyed by this name.
+            step('db-stored-procedure', { database: 'Oracle', sql: '{ call JOB_START(:jobName, :job_id) }', inputParameters: '#[{ jobName: "SUPPLIER_ITEMS_IN" }]', target: 'job' }),
             step('set-variable', { variableName: 'jobId', value: '#[vars.job.job_id]' }),
             step('azure-download-blob', { container: 'inbound', fileName: '#[vars.blobName]' }),
             router(
@@ -199,9 +200,18 @@ The portal expects ACKs on \`supplier.items.ack\`: \`RECEIVED\` as soon as a not
 - Status is \`COMPLETED\` when nothing failed, \`FAILED\` when nothing loaded, and \`PARTIAL\` otherwise.
 - Every ACK is JSON with \`messageId\` and \`status\`. The final ACK adds \`loaded\` and \`failed\`.
 - The WARN for a duplicate and the email subject both name the message ID.
-- The Stored Procedure result holds the new ID as \`job_id\`.
+- Call it as \`{ call JOB_START(:jobName, :job_id) }\` and declare \`job_id\` as an output parameter (NUMERIC). The Stored Procedure result is a map keyed by the output parameter names, so it holds the new ID as \`job_id\`.
 - Download the blob from container \`inbound\` with the name in \`blobName\`.
 - In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
+
+**What each system sends back**
+- **Database Select** on \`msg_log\`: \`[ { "status": "PROCESSED" } ]\` for a notice seen before, or an empty list.
+- \`JOB_START\` returns \`{ "job_id": 881 }\` in the tests. With Target \`job\`, read it as \`vars.job.job_id\`.
+- **Download Blob** puts the JSON list of items in the payload. The Batch Job splits it into one record per item, such as \`{ "supplier_id": "SUP-HARTLEY", "item_id": "NUT-M8", "cost": null }\`.
+
+**What failures look like**
+- An item with no cost: a Validation **Is Not Null** on \`payload.cost\` raises \`VALIDATION:NULL\` for that record only. It goes on to the ONLY_FAILURES step.
+- The mail server is down: Email Send raises an \`EMAIL\` error, but inside Async it never reaches On Complete. The job row and the final ACK are already done.
 
 **Design the flow.**
 `,

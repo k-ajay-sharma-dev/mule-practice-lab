@@ -97,6 +97,14 @@ The table \`posted_payments\` (\`payment_id\`, \`account_no\`, \`amount\`) is yo
 - Billing answers 201 when it accepts a credit. A 503 from billing must fail the flow (do not catch it), so the listener returns the message to the queue.
 - Log a repeat at INFO or WARN.
 
+**What each system sends back**
+- The JMS listener gives the payment JSON above as the payload.
+- The lookup (Database Select) answers a list of rows with the column names as written: \`[ { "payment_id": "BP-7700418" } ]\` for a payment posted before, or \`[]\` for a new one.
+- Billing answers **201** with \`{ "creditId": "CR-55120" }\`.
+
+**What failures look like**
+- Billing answers **503** \`{ "message": "maintenance" }\`: the HTTP Request raises **HTTP:SERVICE_UNAVAILABLE**. Leave it unhandled, so the flow ends in error and the message goes back to the queue.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why repeats happen

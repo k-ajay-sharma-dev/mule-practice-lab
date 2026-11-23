@@ -236,6 +236,18 @@ The queue \`label-requests-delayed\` already exists. It has a **default delivery
 - The DLQ gets the request as it arrived.
 
 **Design the flows.** How long can a request wait in the worst case before it reaches the DLQ?
+
+**What each system sends back**
+
+The carrier answers \`POST /carrier/v2/labels\` with status 200 and:
+\`\`\`json
+{ "labelUrl": "https://labels.carrier.example/SHP-88120.pdf", "trackingNo": "1Z999AA10123456784" }
+\`\`\`
+The HTTP Request replaces the payload with this answer, so keep the request in a variable: the update needs \`shipmentId\`, and the retry steps need the request as it arrived.
+
+**What failures look like**
+- A blip: the carrier answers **503**, which the HTTP Request raises as \`HTTP:SERVICE_UNAVAILABLE\`. A refused connection raises \`HTTP:CONNECTIVITY\`, and no answer in time raises \`HTTP:TIMEOUT\`.
+- When Until Successful runs out of retries it raises \`MULE:RETRY_EXHAUSTED\`. Catch that error, then send the request to the delayed queue with \`retryAttempt\` one higher, or to the DLQ once \`retryAttempt\` is already 4. The message is then acknowledged and the flow ends without an error.
 `,
   answerTemplate: `## Quick retries
 

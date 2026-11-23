@@ -325,6 +325,15 @@ Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ reque
 - Salesforce Contacts carry the customer in \`Customer_Id__c\`; a Contact is deleted with \`DELETE /services/data/v60.0/sobjects/Contact/{id}\`. The marketing platform starts a bulk delete with \`POST /marketing/bulk-deletes\` and answers \`{ jobId }\`. The data team's erasure API is \`POST /datalake/erasures\` and also answers \`{ jobId }\`. Both async systems report a job's status at \`GET /{system}/jobs/{jobId}\`.
 - One system failing must not stop the others.
 
+**What each system sends back**
+- A Database Select answers with a list of rows, keyed by the column names or the aliases in your SQL. For example \`SELECT COUNT(*) AS BLOCKERS FROM customer_flags WHERE ...\` gives \`[ { "BLOCKERS": 1 } ]\`. It replaces the payload unless you give it a target variable.
+- The Salesforce Query for the customer's Contacts answers with a list of records: \`[ { "Id": "0035g00000KLMNO" }, { "Id": "0035g00000PQRST" } ]\`. Each \`DELETE\` answers 204 with no body.
+- \`POST /marketing/bulk-deletes\` answers 202 \`{ "jobId": "MKT-JOB-551" }\` and \`POST /datalake/erasures\` answers 202 \`{ "jobId": "DL-REQ-88" }\`.
+- An Anypoint MQ Subscriber gets the task as the payload, and the token to Ack or Nack it in \`attributes.ackToken\`.
+
+**What failures look like**
+- The marketing platform cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Only that worker fails; it Nacks its task so the queue retries it, and the other systems are still handled.
+
 **Design the solution:** intake and checks, orchestration across systems, delete vs anonymise, async systems, retries/partial failures, audit evidence, and how the integration layer itself avoids keeping PII.
 `,
   answerTemplate: `## Intake and eligibility checks

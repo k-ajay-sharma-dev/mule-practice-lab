@@ -153,6 +153,13 @@ Support at \`planning-support@brindle.example\` wants an email after every run: 
 - The email subject contains \`COMPLETED\` or \`FAILED\`. Send the success email from an **Async** scope.
 - Handle a failure in an On Error Propagate: update the job, email support, and let the run fail.
 
+**What each system sends back**
+- \`dbo.usp_job_start\` answers one row, \`{ "job_id": 8 }\` on the test night. Store it in a target variable and read \`vars.job.job_id\`.
+- Each select answers a list of rows with the column names in lower case, for example \`{ "item_id": "TENT-2P-OLV", "description": "Two person tent", "dept": "CAMP" }\`, \`{ "location_id": "DC-01", "location_type": "DC", "region": "NORTH" }\` and \`{ "supplier_id": "SUP-HAYDEN", "supplier_name": "Hayden Textiles", "lead_days": 21 }\`.
+
+**What failures look like**
+- The FTP server is down: the first FTP Write raises \`FTP:CONNECTIVITY\`. No control file is written, the handler marks the job \`FAILED\` and emails support, and the run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

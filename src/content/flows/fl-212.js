@@ -91,6 +91,13 @@ The last value sent is in \`dbo.sync_state\` (\`extract_name\` = \`STORES\`, \`l
 - Write the file from a **Choice** that runs only when there are rows.
 - Do not catch a failed write. The run fails and \`last_rv\` stays.
 
+**What each system sends back**
+- The \`sync_state\` select answers one row: \`[ { "last_rv": 50240 } ]\`. Read it with \`[0].last_rv\`.
+- The changes select answers a list of rows, for example \`{ "store_id": "0104", "store_name": "Riverside", "region": "SOUTH", "status": "PLANNED", "rv": 50391 }\`, or \`[]\` when nothing changed. Keep the highest \`rv\` before the Transform drops the column.
+
+**What failures look like**
+- The FTP server is down: the FTP Write raises \`FTP:CONNECTIVITY\`. The run ends with that error and the \`sync_state\` update never runs.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why a rowversion

@@ -140,6 +140,12 @@ The inventory system accepts **one line per call**: \`POST /inventory/reservatio
 - Call the inventory system once per line.
 - After all lines are done, answer with the \`orderId\`, the status \`RESERVED\` and the number of lines.
 
+**What each system sends back**
+- The inventory system answers each line with **201** and \`{ "reservationId": "R-TEA-100", "sku": "TEA-100", "quantity": 2 }\`. The flow does not need these answers.
+
+**What failures look like**
+- The inventory system cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. For Each stops at that line, the later lines are not sent, and the order is not answered as \`RESERVED\`. No handler is needed for this problem.
+
 **Design the flow.** What is the payload after the For Each finishes?
 `,
   answerTemplate: `## Trigger

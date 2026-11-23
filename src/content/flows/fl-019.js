@@ -246,6 +246,20 @@ New subscribers (e.g. a fraud team) will be added next quarter **without changin
 - The publisher sets the message property \`totalAmount\` on every event.
 - The team standard is MANUAL acknowledgement on every subscriber, with an explicit Ack or Nack in each outcome (processed, duplicate, failed).
 
+**What each system sends back**
+- Each Anypoint MQ Subscriber gets the event as the payload:
+\`\`\`json
+{ "eventId": "EV-7001", "eventType": "OrderConfirmed", "version": "1.0", "occurredAt": "2026-11-13T09:59:40Z",
+  "data": { "orderId": "O-1001", "totalAmount": 250, "customerEmail": "ana.silva@example.com" } }
+\`\`\`
+  The message properties are in \`attributes.properties\` (for example \`attributes.properties.totalAmount\`, which is text such as \`"250"\`). The token to Ack or Nack is \`attributes.ackToken\`. An HTTP Request replaces the attributes, so keep the token in a variable.
+- The Database Update answers with the number of changed rows, which replaces the payload.
+- The warehouse answers 201 with \`{ "pickId": "PK-501" }\`, loyalty answers 200 with \`{ "points": 25 }\`, and analytics answers 202 with no body.
+
+**What failures look like**
+- The warehouse cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Nack the event so it comes back, and make sure the redelivery is not dropped as a duplicate.
+- An event that was already processed makes the Idempotent Message Validator raise \`MULE:DUPLICATE_MESSAGE\`. Ack it so it leaves the queue.
+
 **Design the flow(s):** publisher, broker topology, subscribers, filtering, failure isolation, and event contract/versioning.
 `,
   answerTemplate: `## Publisher

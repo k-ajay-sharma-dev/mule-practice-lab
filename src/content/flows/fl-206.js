@@ -139,6 +139,13 @@ The planners do not have database access. They want a reject file in \`/plan/in/
 - Put both bulk inserts in a **Try** with the transactional action \`ALWAYS_BEGIN\`. Skip an empty list with a **Choice**.
 - The reject file has the columns \`alloc_line\` and \`reason\`, and is written from a **Choice** after the commit. Files keep their names when moved.
 
+**What each system sends back**
+- The FTP listener gives the CSV rows as the payload, with every value as text (\`{ "alloc_line": "1", "store": "0101", "sku": "TENT-2P-OLV", "qty": "4" }\`). The name is in \`attributes.fileName\` and the full path in \`attributes.path\`.
+- The open stores select answers a list of rows: \`[ { "store": "0101" }, { "store": "0102" }, { "store": "0103" } ]\`.
+
+**What failures look like**
+- A bulk insert fails: it raises \`DB:QUERY_EXECUTION\`. The Try rolls back both inserts, no reject file is written, and an On Error Propagate moves the file to \`/plan/out/alloc/error\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Checking each line

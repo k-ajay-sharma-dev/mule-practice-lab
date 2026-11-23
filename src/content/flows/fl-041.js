@@ -253,6 +253,19 @@ Last month the **billing** team deployed a bug and silently mis-processed six ho
 - The replay API is \`POST /admin/v1/replays\` with \`{ from, to, eventTypes, targetQueue }\`. The caller is named in the \`X-Requested-By\` header. A request is invalid when \`to\` is not after \`from\`, the window is longer than 2 days, or \`targetQueue\` is not one of the three consumer queues.
 - Each replay is recorded in \`replay_job\` (\`replay_id\`, \`target_queue\`, \`from_ts\`, \`to_ts\`, \`requested_by\`, \`status\`, \`events\`, \`finished_at\`).
 
+**What each system sends back**
+- The archive select returns a list of rows keyed by the column names as written here. \`body\` is JSON text, so \`read\` it before you add the replay marker:
+\`\`\`json
+[ { "event_id": "EV-9003", "event_type": "OrderCreated", "body": "{\\"eventId\\":\\"EV-9003\\",\\"eventType\\":\\"OrderCreated\\",\\"orderId\\":\\"SO-51002\\",\\"total\\":48}" } ]
+\`\`\`
+- A Database Insert replaces the payload with its result (the affected row count). Use a target variable when you still need the request.
+- The MQ subscriber puts the ack token in \`attributes.ackToken\`.
+
+**What failures look like**
+- The archive database is down: the insert raises \`DB:CONNECTIVITY\`. Nack the message so it goes back to the queue.
+- A redelivered event: \`ON CONFLICT (event_id) DO NOTHING\` makes the second insert a no-op, so nothing fails.
+- An invalid replay request: an Is true validation raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **400** and publish nothing.
+
 **Design the flow(s):** archiving, the replay API, how the replay runs, safety checks and auditability.
 `,
   answerTemplate: `## Archiving

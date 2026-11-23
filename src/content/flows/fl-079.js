@@ -189,6 +189,19 @@ Finance's archive reads the PDFs from **Azure Blob Storage**, container \`suppli
 - A PDF is an attachment whose name ends in \`.pdf\`, in any letter case (suppliers also send \`.PDF\`).
 - Store each PDF as \`mailbox/<Message-ID>/<attachment name>\`, with unsafe characters in the Message-ID replaced.
 
+**What each system sends back**
+- The IMAP listener gives one email per flow run, with the body and attachments in \`payload\` and the details in \`attributes\`:
+\`\`\`json
+{
+  "payload": { "body": "Please find our invoices attached.", "attachments": { "INV-4471.pdf": "<content>", "signature-logo.png": "<content>" } },
+  "attributes": { "id": 18233, "subject": "Invoice 4471 and 4472", "fromAddresses": ["billing@steelworks.example"], "headers": { "Message-ID": "<a81f2.4471@steelworks.example>" } }
+}
+\`\`\`
+- Upload Blob returns the stored blob's details, for example \`{ "eTag": "0x8DCB1A2F3C4D5E6" }\`.
+
+**What failures look like**
+- An upload fails: Upload Blob raises \`AZURE-STORAGE:CONNECTIVITY\`. Handle it so the email moves to \`Failed\`, not \`Processed\`, and the flow ends without error. This is a partner connector, so confirm the error type name in Studio.
+
 **Design the flow.** Say where the attachments come from in the Mule message and how the email ID survives the loop.
 `,
   answerTemplate: `## Listener and subject filter

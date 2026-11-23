@@ -210,6 +210,20 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 - Each failed customer, bad data or rejected by Salesforce, is written to \`migration_errors\` (\`customer_no\`, \`wave_id\`, \`error_message\`, \`failed_at\`). These are the records the data-stewards fix.
 - The report goes to \`migration-team@example.com\`.
 
+**What each system sends back**
+- The joined select returns a list of rows keyed by the column names as written here:
+\`\`\`json
+[ { "id": 1, "customer_no": "LC-100201", "company_name": "Harbour Tools Ltd ", "email": "Accounts@HarbourTools.co.uk",
+    "migration_wave": "W1", "migrated": "N", "street": "4 Quay Street", "city": "Bristol", "postcode": "BS1 4DJ", "country": "gb" } ]
+\`\`\`
+- The Salesforce upsert answers one result per Account, in \`items\`: \`{ "successful": true, "items": [ { "id": "001...", "successful": true } ] }\`. A rejected Account has \`successful: false\` and a \`message\`; that alone does not fail the batch record.
+- On Complete receives the batch job result with \`totalRecords\`, \`successfulRecords\`, \`failedRecords\` and \`elapsedTimeInMillis\`.
+
+**What failures look like**
+- A blank customer number or a broken email: the validators raise \`VALIDATION:BLANK_STRING\` and \`VALIDATION:INVALID_EMAIL\`. Only that record fails.
+- Salesforce is down: the upsert raises \`SALESFORCE:CONNECTIVITY\`. Every record in that aggregator block fails, so none of them is logged as migrated; they go to \`migration_errors\` and the report still goes out.
+- The legacy database is down: the select raises \`DB:CONNECTIVITY\` before the batch job starts. The admin call fails and no report is sent.
+
 **Design the flow(s):** batch job structure, steps and their accept policies, how Salesforce is loaded, how failures are captured, and the end-of-job report.
 `,
   answerTemplate: `## Trigger and input

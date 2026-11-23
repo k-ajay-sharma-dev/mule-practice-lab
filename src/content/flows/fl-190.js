@@ -107,6 +107,12 @@ The files are large and the platform uploads them slowly. \`archive\` and \`erro
 - Put the delete and the bulk insert in a **Try** with the transactional action \`ALWAYS_BEGIN\`.
 - The archived name is \`<timestamp>_<file name>\`, such as \`20261113091500_FCST_2026W47_R1204.csv\`, in \`/outbound/forecast/archive\` or \`/outbound/forecast/error\`.
 
+**What each system sends back**
+- The SFTP listener reads a \`.csv\` file as CSV: the payload is a list of rows such as \`{ "forecast_week": "2026W47", "store": "0412", "sku": "4410021", "units": "118" }\`, with every value as text. The name is in \`attributes.fileName\` and the full path in \`attributes.path\`.
+
+**What failures look like**
+- A failed insert raises **DB:QUERY_EXECUTION**. The transaction rolls back the delete too, the file goes to \`error\`, and the run ends without an error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Waiting for the upload

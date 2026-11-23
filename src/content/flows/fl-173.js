@@ -146,6 +146,18 @@ Recipients take them the same way the hub takes inbound documents, by claim chec
 - Count a failure and set \`'FAILED'\` in one update of \`attempts\`. A message below five failures stays \`READY\`.
 - The notification's fields come from the row: \`message_id\`, \`message_type\`, \`recipient_id\` and the blob name.
 
+**What each system sends back**
+- The Database Select answers a list of rows with the column names as written:
+\`\`\`json
+[ { "message_id": "OUT-70001", "message_type": "Item", "recipient_id": "STORE-GRP-NORTH", "body": "{\\"messageId\\":\\"OUT-70001\\",\\"items\\":[...]}", "attempts": 0 } ]
+\`\`\`
+\`body\` is the JSON document as text. Upload it as it is.
+
+**What failures look like**
+- Blob storage is down: Upload Blob raises **AZURE-STORAGE:CONNECTIVITY**.
+- The broker is down: JMS Publish raises a JMS error (for example **JMS:CONNECTIVITY**).
+- Catch either one per message (an On Error Continue for any error inside the For Each), count the attempt, and go on with the next message.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the work

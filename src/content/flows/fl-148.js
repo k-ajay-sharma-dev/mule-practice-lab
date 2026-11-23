@@ -129,6 +129,14 @@ The loyalty API answers **503** for a few minutes most evenings, and sometimes *
 - A message on the dead letter topic is \`{ "event", "attempts", "reason" }\`. From the main flow \`attempts\` is 0.
 - So an event that keeps failing is called 4 times: once from the main topic and 3 times from the retry topic.
 
+**What each system sends back**
+- The Kafka listener gives the event JSON above as the payload.
+- The loyalty API accepts points with **201** and \`{ "awarded": 64 }\`.
+
+**What failures look like**
+- **503** \`{ "message": "Busy" }\`: the HTTP Request raises **HTTP:SERVICE_UNAVAILABLE**. No answer in time raises **HTTP:TIMEOUT**, and a refused connection raises **HTTP:CONNECTIVITY**. All three go to the retry topic.
+- **400** \`{ "message": "Unknown customer" }\`: the HTTP Request raises **HTTP:BAD_REQUEST**. It goes to the dead letter topic.
+
 **Design the flows.**
 `,
   answerTemplate: `## Why retrying in place hurts

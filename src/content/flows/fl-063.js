@@ -155,6 +155,16 @@ When the store does not answer in time, the API should return the snapshot and m
 - The API answers \`{ storeId, source, items: [{ sku, available, asOf }] }\`, with \`source\` \`LIVE\` or \`SNAPSHOT\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- JMS Publish Consume returns the store's reply as \`payload\`:
+\`\`\`json
+{ "storeId": "0101", "items": [ { "sku": "TV-55-OLED", "qty": 4 }, { "sku": "SOUNDBAR-3", "qty": 0 } ] }
+\`\`\`
+- A Database Select on the snapshot returns a list of rows with upper case column names, for example \`[{ "SKU": "TV-55-OLED", "ON_HAND_QTY": 6, "SNAPSHOT_TS": "2026-11-13T02:00:00Z" }]\`.
+
+**What failures look like**
+- The store does not reply within the maximum wait: JMS Publish Consume raises \`JMS:TIMEOUT\`. Catch it, read the snapshot and still answer **200** with \`source\` \`SNAPSHOT\`, inside 2.5 seconds.
 `,
   answerTemplate: `## API and validation
 

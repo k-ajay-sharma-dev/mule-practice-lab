@@ -190,6 +190,10 @@ Oracle tables:
 - \`accepted\` and \`rejected\` in the ACK are the good and bad line counts, the same numbers as \`good_count\` and \`bad_count\`.
 - A failed load is handled: the run ends without an error, so the broker does not deliver the document again. The failure queue is how it comes back.
 
+**What failures look like**
+- Oracle refuses the staging insert (for example \`ORA-01400: cannot insert NULL\`): the Bulk Insert raises **DB:QUERY_EXECUTION**. The transaction rolls back the rejects too. Catch it in the flow's handler, mark the job \`FAILED\` and publish the header to \`PDH.INBOUND.FAILED\`.
+- The mail server is down: Email Send fails. Inside an **Async** scope that error stays in the Async and never reaches the main flow.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job log

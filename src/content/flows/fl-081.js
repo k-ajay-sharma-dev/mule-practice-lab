@@ -191,6 +191,16 @@ The support team wants one email at **02:00** each night, sent to \`integration-
 - An exception must not be reported twice after a successful send.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database Select returns a list of rows with upper case column names, or an empty list when there is nothing new:
+\`\`\`json
+[ { "EXCEPTION_ID": 9002, "SOURCE_SYSTEM": "GUIDEWIRE", "ERROR_CODE": "HTTP:BAD_REQUEST", "MESSAGE": "Claim 77120 has no policy number", "CREATED_AT": "2026-11-12T08:03:00Z" } ]
+\`\`\`
+- Email Send returns nothing useful. Database Update returns \`{ affectedRows: n }\`.
+
+**What failures look like**
+- The mail server is down: Email Send raises \`EMAIL:CONNECTIVITY\` (or \`EMAIL:SEND\` when the server refuses the message). The update must not run, so every row stays unreported for the next night.
 `,
   answerTemplate: `## Schedule and query
 

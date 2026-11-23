@@ -89,6 +89,13 @@ Last week the runtime restarted during a run, and job 41 still says \`STARTED\`.
 - Run the outbound procedure with the job ID.
 - Mark this run's row \`COMPLETED\` with the row count, or \`FAILED\` with the error text.
 
+**What each system sends back**
+- \`{ call dbo.usp_job_start(:jobName) }\` answers \`{ "job_id": 42 }\` on the test night. Keep it in a target variable and read \`vars.job.job_id\`.
+- \`{ call dbo.usp_generate_item_outbound(:jobId) }\` answers \`{ "row_count": 1240 }\`. Keep it in a target variable too, so the job ID is not lost.
+
+**What failures look like**
+- The outbound procedure fails: the Stored procedure operation raises \`DB:QUERY_EXECUTION\` with the database's message in \`error.description\`. An On Error Propagate writes \`FAILED\` and that text to the job row, and the run still fails.
+
 **Design the flow.**
 `,
   answerTemplate: `## Starting the job row

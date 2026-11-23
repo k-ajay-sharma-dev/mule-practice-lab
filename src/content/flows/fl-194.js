@@ -90,6 +90,13 @@ The Mule app runs on workers with a few gigabytes of memory. The first version r
 - When the job is done, log the counts at INFO in the form \`total=<n> loaded=<n> failed=<n>\`.
 - Move the file to \`/settlement/done\` once the job has its records.
 
+**What each system sends back**
+- The listener reads a \`.csv\` file as CSV, so each batch record is one row keyed by the header: \`{ "txn_id": "T-90000001", "card_suffix": "4417", "merchant_id": "M-2201", "amount": "18.40", "currency": "GBP", "txn_time": "2026-11-12T08:01:12" }\`. The keys match the table's columns. The path is in \`attributes.path\` and the name in \`attributes.fileName\`.
+- In **On Complete** the payload is the job result, with \`totalRecords\`, \`successfulRecords\` and \`failedRecords\`.
+
+**What failures look like**
+- A bulk insert the database refuses raises **DB:QUERY_EXECUTION** inside the aggregator. The job marks every record of that group as failed and goes on, so On Complete reports them, such as \`failed=3\`.
+
 **Design the flow.** Say which settings and habits keep memory flat.
 `,
   answerTemplate: `## Waiting for the upload

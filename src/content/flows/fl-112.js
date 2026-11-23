@@ -109,6 +109,10 @@ The **Validate** component checks one rule. If the rule holds, nothing changes a
 - Insert the employee into the \`employees\` table, with the columns \`full_name\` and \`email\`, only when both checks pass. The database fills \`employee_id\`. Then return \`{ "status": "CREATED" }\`.
 - For a failed check, return HTTP status **400** with \`{ "code": "BAD_REQUEST", "message": "..." }\`, using the Validate message. 400 means the caller sent a bad request.
 
+**What failures look like**
+- No email: **Is not null** raises \`VALIDATION:NULL\` (or **Is not blank string** raises \`VALIDATION:BLANK_STRING\`). \`error.description\` holds the message you set, \`email is required\`.
+- A badly formed email: **Is email** raises \`VALIDATION:INVALID_EMAIL\`, with \`email is not a valid address\` in \`error.description\`.
+
 **How the status gets out:** the listener has an Error Response setting that is not shown on the canvas. Assume its status code is \`#[vars.httpStatus default 500]\` and its body is \`#[payload]\`. Your handler only needs to set the variable \`httpStatus\` and the payload.
 
 **Design the flow.**

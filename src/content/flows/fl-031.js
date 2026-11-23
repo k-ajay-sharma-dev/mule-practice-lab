@@ -253,6 +253,18 @@ The DLQ messages must contain the original invoice, an error **type** and a desc
 - Business error types use the \`APP\` namespace, for example \`APP:ERP_REJECTED\`.
 - HTTP 422 has no error type of its own, so a handler catches it with a \`when\` condition on the response status code.
 
+**What each system sends back**
+- The supplier select returns a list of rows with upper case column names. An empty list means an unknown supplier.
+\`\`\`json
+[ { "SUPPLIER_ID": 501, "VAT_ID": "DE811907980", "ERP_VENDOR_NO": "V-77012", "STATUS": "ACTIVE" } ]
+\`\`\`
+- The ERP answers **201** with \`{ "documentId": "AP-2026-118204" }\`.
+
+**What failures look like**
+- An invoice that breaks the schema: the JSON schema validator raises \`JSON:SCHEMA_NOT_HONOURED\`.
+- The ERP rejects the invoice: it answers **400** (\`HTTP:BAD_REQUEST\`) or **422** with \`{ "message": "Document date is in a closed period" }\`. A 422 has no error type of its own; read \`error.errorMessage.attributes.statusCode\`.
+- The ERP is down: the HTTP Request raises \`HTTP:CONNECTIVITY\` (or \`HTTP:TIMEOUT\`, or \`HTTP:SERVICE_UNAVAILABLE\` for a 503). Return the message to the queue; send nothing to \`invoices-dlq\`.
+
 **Design the flow(s):**
 - How do you model these classes as Mule error types?
 - How do you turn a generic \`HTTP:BAD_REQUEST\` into a business error?

@@ -238,6 +238,18 @@ Error responses: invalid order → **400**; unknown customer or unsupported coun
 - EU Fulfilment is \`POST /eu-fulfilment/orders\` and NA Fulfilment is \`POST /na-fulfilment/orders\`. Both answer with a \`reference\`.
 - Countries are ISO codes such as \`DE\`, \`FR\`, \`US\` and \`CA\`.
 
+**What each system sends back**
+- The customer select returns a list of rows with upper case column names, or an empty list for an unknown customer: \`[ { "CUSTOMER_ID": "C-1042", "TIER": "GOLD", "CREDIT_BLOCKED": 0 } ]\`.
+- The Pricing API answers **200** with:
+\`\`\`json
+{ "lines": [ { "sku": "BRK-220", "qty": 4, "unitPrice": 38.5 } ], "total": 154.0, "currency": "EUR" }
+\`\`\`
+- Each fulfilment API answers **201** with \`{ "orderId": "PO-9001", "reference": "EU-FUL-77310" }\`.
+
+**What failures look like**
+- An order that breaks the schema: \`JSON:SCHEMA_NOT_HONOURED\`. A failed Is true check (no lines, or more than 200): \`VALIDATION:INVALID_BOOLEAN\`. Both answer **400**.
+- A dependency that hangs past the HTTP Request's response timeout raises \`HTTP:TIMEOUT\`; one that is down raises \`HTTP:CONNECTIVITY\`. Both answer **503**, and nothing goes to fulfilment.
+
 The validation and enrichment logic will also be reused by a bulk-upload flow next quarter.
 
 **Design the flow(s):**

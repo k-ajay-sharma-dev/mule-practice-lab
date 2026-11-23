@@ -94,6 +94,10 @@ A first version mapped the whole list in one Transform and ran out of memory. A 
 - Download the blob from container \`inbound\` with the name in \`blobName\`.
 - The file's columns are \`declaration\`, \`line\`, \`hs_code\`, \`amount\` and \`currency\`, in that order, as in the example.
 
+**What each system sends back**
+- The JMS listener gives the notice as the payload, so the blob name is \`payload.blobName\`.
+- Download Blob replaces the payload with the blob's content: the JSON list of lines shown above. The notice is gone after it, so keep \`setId\` in a variable first.
+
 **Design the flow.**
 `,
   answerTemplate: `## Mapping each line

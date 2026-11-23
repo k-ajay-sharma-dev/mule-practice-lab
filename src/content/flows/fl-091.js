@@ -212,6 +212,23 @@ A customer portal submits about **6,000 orders per day**. A System API must crea
 - The 201 body is \`{ orderNumber, correlationId }\`, where \`orderNumber\` is the BAPI's \`SALESDOCUMENT\`.
 - A \`RETURN\` row has \`TYPE\`, \`ID\`, \`NUMBER\` and \`MESSAGE\`. \`TYPE\` \`E\` or \`A\` means an error, \`S\`, \`W\` or \`I\` does not.
 
+**What each system sends back**
+
+Synchronous Remote Function Call answers with the BAPI as XML, with \`export\` and \`tables\` sections:
+\`\`\`xml
+<BAPI_SALESORDER_CREATEFROMDAT2>
+  <export><SALESDOCUMENT>0000481207</SALESDOCUMENT></export>
+  <tables><RETURN>
+    <row><TYPE>S</TYPE><ID>V1</ID><NUMBER>311</NUMBER><MESSAGE>Standard Order 481207 has been saved</MESSAGE></row>
+  </RETURN></tables>
+</BAPI_SALESORDER_CREATEFROMDAT2>
+\`\`\`
+The payload may still be Binary, so read it as XML first when it is. \`RETURN\` can hold several \`row\` elements, so use \`..*row\`.
+
+**What failures look like**
+- A business problem is not a Mule error. The call succeeds, \`SALESDOCUMENT\` is empty and \`RETURN\` has a row such as \`TYPE E\`, \`Customer 100999 is blocked for sales orders\`. Raise \`APP:SAP-ORDER-REJECTED\` and answer **422** with that text.
+- SAP cannot be reached: \`SAP:CONNECTIVITY\`. All work processes are busy: \`SAP:SYSTEM_BUSY\`. No answer in time: \`SAP:TIMEOUT\`. Answer **503** for all three.
+
 **Design the flow.** Explain where the transaction starts and ends, and why the RETURN check is inside it.
 `,
   answerTemplate: `## Mapping the request

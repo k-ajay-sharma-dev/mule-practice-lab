@@ -169,6 +169,21 @@ The counts must be loaded into **Oracle** staging tables before the 01:00 stock-
 - \`STORE_COUNT_BATCH\` has \`STORE_ID\`, \`COUNT_DATE\`, \`FILE_NAME\`, \`LINE_COUNT\` and \`LOADED_AT\`.
 - \`STORE_COUNT_STG\` has \`STORE_ID\`, \`COUNT_DATE\`, \`SKU\`, \`LOCATION_CODE\` and \`COUNTED_QTY\`, and is unique on store, date, SKU and location.
 - \`STORE_ID\` is the text from the file name, leading zeros included (\`0042\`).
+- An empty \`LOCATION\` means the sales floor; store it as \`SALES_FLOOR\`.
+
+**What the SFTP listener gives you**
+- With the output MIME type \`application/csv\`, the payload is a list of rows keyed by the header, all values text:
+\`\`\`json
+[ { "SKU": "SKU-100231", "LOCATION": "AISLE-04", "QTY": "12" }, { "SKU": "SKU-100245", "LOCATION": "", "QTY": "30" } ]
+\`\`\`
+- \`attributes.fileName\` is \`STORE_0042_20261102.csv\` and \`attributes.path\` the full path. Later operations replace the attributes, so keep both in variables.
+- A Database Insert replaces the payload with its result, so keep the mapped lines in a variable for the Bulk Insert.
+
+**What failures look like**
+- A quantity that is not a number (\`twelve\`): the DataWeave coercion \`as Number\` fails, so nothing is inserted.
+- A re-uploaded count breaks the unique key on \`STORE_COUNT_BATCH\`, and a line that appears twice breaks the key on \`STORE_COUNT_STG\`. Both raise \`DB:QUERY_EXECUTION\`; inside the transaction the header is rolled back too.
+- Oracle is down: the first insert raises \`DB:CONNECTIVITY\`.
+- In every case, move the file to \`/counts/error\`.
 
 **Requirements**
 - A file is loaded completely or not at all. The adjustment job must never see half a count.

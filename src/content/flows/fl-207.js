@@ -117,6 +117,10 @@ The Mule app runs on a **two node cluster**. Transfers go to the SQL Server tabl
 - \`dbo.transfer_staging\` has \`file_name\`, \`transfer_id\`, \`from_store\`, \`to_store\`, \`sku\` and \`qty\`, with \`qty\` as a number.
 - Insert the key and the rows in a **Try** with the transactional action \`ALWAYS_BEGIN\`. Files keep their names when moved.
 
+**What each system sends back**
+- The FTP listener gives the CSV rows as the payload, with every value as text (\`{ "transfer_id": "T-8801", "from_store": "0103", "to_store": "0101", "sku": "LAMP-OAK-S", "qty": "3" }\`).
+- The key lookup answers a list of rows: \`[ { "file_key": "TRF_0103_20261113.csv|...|2026-11-13T09:58:00Z" } ]\` for a file already loaded, or an empty list \`[]\` for a new one.
+
 **Design the flow.** Also say what you set so the two nodes do not both take the same file.
 `,
   answerTemplate: `## What counts as the same file

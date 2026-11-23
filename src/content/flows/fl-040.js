@@ -248,6 +248,19 @@ Volumes are small (≈50 hires/day, peaks of 300 during graduate intake) but eac
 - Microsoft 365: \`POST /graph/v1.0/users/{login}/assignLicense\`. ServiceNow: \`POST /servicenow/api/now/table/sc_request\`. Slack: \`POST /slack/scim/v2/Users\`. Each answers with an \`id\`.
 - Outcomes are stored in the \`onboarding_status\` table (\`employee_id\`, \`login\`, \`result_json\`, \`created_at\`). Failed systems go to the Anypoint MQ queue \`onboarding-retry\` and IT is emailed at \`it-onboarding@example.com\`.
 
+**What each system sends back**
+- Okta answers the create with **200** and the user:
+\`\`\`json
+{ "id": "00u8f2k1", "status": "ACTIVE", "profile": { "login": "priya.nair@example.com", "employeeNumber": "E-20417" } }
+\`\`\`
+- If you look the user up first, \`GET /okta/api/v1/users\` answers **200** with a list of such users, or \`[]\` when there is none.
+- Microsoft 365 answers **200** \`{ "id": "m365-77a1" }\`, ServiceNow **201** \`{ "id": "REQ0049121" }\`, Slack **201** \`{ "id": "U07PNAIR" }\`.
+
+**What failures look like**
+- Slack (or M365, or ServiceNow) is down: that HTTP Request raises \`HTTP:CONNECTIVITY\`. Catch it inside its own route, record the system as FAILED, and let the others finish. Queue the failure and email IT.
+- Okta is down: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Call no other system, email IT, and let the request fail with that error, so Workday resends it.
+- A resent webhook while the first is still known: the Idempotent Message Validator raises \`MULE:DUPLICATE_MESSAGE\`. Answer it as already in progress, not as a failure.
+
 **Design the flow(s):** ordering/dependencies, parallelism, how partial failures are captured and reported, status persistence and duplicate protection.
 `,
   answerTemplate: `## Trigger and duplicate protection

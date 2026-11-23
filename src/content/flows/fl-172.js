@@ -117,6 +117,12 @@ Two things go wrong today:
 - A 400 raises **HTTP:BAD_REQUEST**, and the API's answer is in \`error.errorMessage.payload\`. A 503 raises **HTTP:SERVICE_UNAVAILABLE**, a refused connection **HTTP:CONNECTIVITY** and a timeout **HTTP:TIMEOUT**.
 - The run itself must end without an error in both cases.
 
+**What each system sends back**
+- List Blobs answers a list of blobs, for example \`[ { "name": "new/clm-0001.json" }, { "name": "new/clm-0002.json" } ]\`. Use \`name\` as the blob name for the download, the delete and the error copy.
+- Download Blob replaces the payload with the claim: \`{ "claimRef": "MP-C-1", "policyNo": "MP-77120", "amount": 640 }\`. Keep it and the blob name in variables before the POST.
+- The claims API accepts a claim with **201**.
+- A refusal is **400** with \`{ "message": "amount must not exceed the policy limit" }\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Listing and the loop

@@ -373,6 +373,16 @@ Each service answers with the new resource's \`id\`. No distributed transaction 
 - The process must survive a Mule replica crash mid-saga.
 - Ops must see stuck sagas. Keep the saga in the table \`saga\` (\`saga_id\`, \`status\`, \`reservation_id\`, \`authorisation_id\`, \`booking_id\`, \`created_at\`). A saga row ends as \`COMPLETED\` or \`COMPENSATED\`, and one whose compensation failed is marked \`COMPENSATION_PENDING\`.
 
+**What each system sends back**
+- \`POST /reservations\` answers 201 \`{ "id": "RSV-301" }\`, \`POST /authorisations\` answers 201 \`{ "id": "AUTH-7701" }\` and \`POST /bookings\` answers 201 \`{ "id": "BK-9001" }\`. Each answer replaces the payload, so save the id right after its call.
+- \`POST /authorisations/AUTH-7701/void\` answers 200 \`{ "voided": true }\`. \`DELETE /reservations/RSV-301\` answers 204 with no body.
+- A Database Select of the saga answers with a list of rows, with the column names as in the table: \`[ { "saga_id": "...", "status": "PAYMENT_DONE", "reservation_id": "RSV-301", "authorisation_id": "AUTH-7701", "booking_id": null, "created_at": "..." } ]\`.
+
+**What failures look like**
+- No courier slot: \`POST /bookings\` answers 503, which raises \`HTTP:SERVICE_UNAVAILABLE\`. Void the payment, then release the stock.
+- Card declined: \`POST /authorisations\` answers 402 \`{ "message": "Card declined" }\`. There is no dedicated HTTP error type for 402, so catch it with a wider type such as \`ANY\`. Release the stock only.
+- The payment service cannot be reached for the void: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Mark the saga \`COMPENSATION_PENDING\` and queue the compensation for retry.
+
 **Design the flow(s):**
 - Orchestration vs choreography
 - Step order

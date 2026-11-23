@@ -129,6 +129,15 @@ The team added \`alert_state\` (\`alert_key\` key, \`last_sent_at\` as \`yyyy-MM
 - Compare times as \`yyyy-MM-ddTHH:mm:ss\` text: the row is due when \`last_sent_at\` is before now minus one hour. In the tests now is 2026-11-13T10:00:00.
 - The subject carries the alert key. When alerts were held back, the body says \`<n> more since the last email.\`
 
+**What each system sends back**
+- **Database Select** on \`alert_state\`: an empty list for a new key, or one row. Read it as \`[0]\`:
+\`\`\`json
+[ { "alert_key": "inv-process:DB:CONNECTIVITY", "last_sent_at": "2026-11-13T09:50:00", "suppressed_count": 2 } ]
+\`\`\`
+
+**What failures look like**
+- The mail server is down: Email Send raises an \`EMAIL\` error, but inside Async it never reaches the flow. The state is already committed and the message is acknowledged.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why throttle alerts

@@ -224,6 +224,18 @@ A home-improvement chain changes prices and promotions every night.
 - The summary goes by email to \`store-systems@example.com\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- A Database Select joining the two tables returns a list of rows with upper case column names:
+\`\`\`json
+[ { "CHANGE_ID": 7001, "STORE_ID": 112, "SKU": "DRILL-18V", "NEW_PRICE": 89.99, "PROMO_ID": null, "EFFECTIVE_FROM": "2026-11-14" } ]
+\`\`\`
+- \`STORE_ID\` is a number. Turn it into text when you build the queue name.
+- JMS Publish returns nothing useful. In a Batch Job's On Complete, \`payload\` holds the job result with \`totalRecords\`, \`successfulRecords\` and \`failedRecords\`.
+
+**What failures look like**
+- One store's broker link is down: the publish to that store queue raises \`JMS:CONNECTIVITY\` (or \`JMS:PUBLISHING\`). Only the records of that store fail; the other stores still get their prices, the failed rows are not marked \`SENT\`, and the summary still goes out.
+- Oracle cannot be reached: the first select raises \`DB:CONNECTIVITY\` before the job starts. Let the error propagate and send no summary.
 `,
   answerTemplate: `## Trigger and source query
 

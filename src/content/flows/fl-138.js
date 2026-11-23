@@ -138,6 +138,9 @@ The checkout calls \`POST /tax/quote\` with the order and expects \`{ "orderId",
 - The test runs look for the switch in an Object Store named \`featureFlags\`, under the key \`tax-provider\`. Use those names wherever you keep it.
 
 **Design the flows.**
+
+**What each system sends back**
+- Object Store **Retrieve** puts the stored text in the payload, for example \`new\`, and so replaces the order. Keep the order in a variable first. For a key that is not there it raises \`OS:KEY_NOT_FOUND\`, unless you give it a default value such as \`legacy\`.
 `,
   answerTemplate: `## Where the switch lives
 

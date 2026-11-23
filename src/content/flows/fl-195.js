@@ -120,6 +120,11 @@ What happens in practice:
 - The gap warning is a WARN log that names the waiting file, such as \`ALLOC_43.csv\`.
 - Files keep their names when moved. Do not catch a failed post: the run fails and \`last_seq\` stays.
 
+**What each system sends back**
+- SFTP List gives one item a file, each with \`payload\` (the content as text, so read it as CSV) and \`attributes\` with \`fileName\` and \`path\`.
+- The Database Select gives \`[ { "last_seq": 40 } ]\`.
+- The WMS answers **202** with \`{ "status": "QUEUED" }\`. The flow does not need that body.
+
 **Design the flow.**
 `,
   answerTemplate: `## Where the order comes from

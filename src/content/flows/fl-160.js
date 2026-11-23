@@ -133,6 +133,14 @@ Ashdown's apps call \`POST /declarations\` with \`{ "shipmentRef", "goods" }\`. 
 - Write the status \`'SUBMITTED'\` as a literal in the SQL, in the insert and in the reply's update. Name the update's ID parameter \`:correlationId\`.
 - Park an unmatched reply as it arrived.
 
+**What each system sends back**
+- The \`customs-replies\` subscriber gives the reply as the payload:
+\`\`\`json
+{ "correlationId": "DEC-40071", "status": "CLEARED", "mrn": "26GB0000F6G7H8J9K0", "decidedAt": "2026-11-13T10:20:00Z" }
+\`\`\`
+- A Database Update answers \`{ "affectedRows": n }\`: 0 when no \`SUBMITTED\` declaration has that ID (already answered, or unknown).
+- A Database Select answers a list of rows with the column names as written, for example \`[ { "declaration_id": "DEC-40070" } ]\`, or \`[]\` when the ID is unknown.
+
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flows.**

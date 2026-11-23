@@ -140,6 +140,15 @@ Your **Customer System API** runs on Runtime Fabric (Kubernetes) with 3 replicas
 - **Readiness** \`GET /health/ready\`: "can this replica serve traffic?" It must check the **database** and the downstream **Customer API**, which offers a cheap \`GET /ping\`. If either is down, return **503** so the load balancer takes the replica out of rotation.
 - Probes run every 10 s and must answer within **3 s**. The response body lists each dependency as \`UP\` / \`DOWN\`.
 
+**What each system sends back**
+- A light Database Select such as \`SELECT 1 FROM dual\` answers with a list of one row. The probe only needs it to succeed.
+- The Customer API answers \`GET /ping\` with 200 and \`{ "status": "ok" }\`.
+
+**What failures look like**
+- The database cannot be reached: the Database Select raises \`DB:CONNECTIVITY\`. Readiness answers **503**.
+- The Customer API hangs for 20 s: the HTTP Request raises \`HTTP:TIMEOUT\` once its response timeout passes. Readiness answers **503** inside the 3 s budget.
+- Set the status with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 **Design the flow(s):**
 - Why should liveness and readiness be different endpoints?
 - How do you check each dependency without one failure crashing the whole response?

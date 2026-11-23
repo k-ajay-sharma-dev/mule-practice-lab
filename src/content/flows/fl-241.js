@@ -114,6 +114,13 @@ The team added \`email_outbox\` (\`id\`, \`order_id\`, \`to_addr\`, \`subject\`,
 - Make the outbox \`id\` with \`uuid()\`. The subject carries the order ID, such as \`Your order CC-30881 is being picked\`.
 - Put the status code in the variable \`httpStatus\`. The listener answers with it. A failed insert must not be caught, so the shopper gets 500.
 
+**What each system sends back**
+- The relay's **Database Select** returns a list of \`PENDING\` rows: \`[ { "id": "...", "order_id": "CC-30881", "to_addr": "r.hale@mail.example", "subject": "Your order CC-30881 is being picked" } ]\`, or an empty list.
+
+**What failures look like**
+- The outbox insert is refused: \`DB:QUERY_EXECUTION\` (\`ORA-01653: unable to extend table\`). The transaction rolls back the order row too, and the uncaught error answers **500**.
+- The mail relay is down: Email Send raises an \`EMAIL\` error inside the relay's Try. The row stays \`PENDING\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Writing the order and the email row

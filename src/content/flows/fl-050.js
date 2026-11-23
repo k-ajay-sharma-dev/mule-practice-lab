@@ -244,6 +244,16 @@ Systems (each already has, or will get, its own System API):
 - Inventory: \`POST /sys-inventory/v1/availability\` takes the priced lines and answers \`[{ sku, available }]\` with the quantity in stock.
 - The quote is \`{ quoteId, customerId, segment, lines: [{ sku, quantity, unitPrice, available }], total }\`, where \`available\` is true when the stock covers the quantity and \`total\` is the sum of quantity times unit price.
 
+**What each system sends back**
+- CRM: **200** \`{ "id": "001KV00000B2B01", "name": "Baltic Tools GmbH", "segment": "B2B" }\`.
+- ERP or pricing engine: **200** \`[ { "sku": "DRILL-18V", "quantity": 5, "unitPrice": 89 } ]\`.
+- Inventory: **200** \`[ { "sku": "DRILL-18V", "available": 40 } ]\`, where \`available\` is a stock count, not a flag.
+- Inside the CRM System API, a Salesforce query returns a list of records: \`[ { "Id": "001KV00000B2B01", "Name": "Baltic Tools GmbH", "Segment__c": "B2B" } ]\`.
+
+**What failures look like**
+- An unknown customer: the CRM System API answers **404** with \`{ "message": "No such customer" }\`. The HTTP Request raises \`HTTP:NOT_FOUND\`. Call nothing else and answer a business error such as **422** \`UNKNOWN_CUSTOMER\`.
+- A System API that hangs: the HTTP Request raises \`HTTP:TIMEOUT\` once its response timeout passes (\`HTTP:CONNECTIVITY\` if it is down, \`HTTP:SERVICE_UNAVAILABLE\` for a 503). Answer **503**; keep the timeouts small enough that the portal still gets its answer inside 5 s.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/prc-quotes/v1/quotes\`), and let layers call each other with HTTP Request pointing at the lower API's path. Draw the Process API in full; one System API flow is enough to show the pattern.
 
 **Design the flow(s):** the call sequence, how the customer type picks the pricing source, how intermediate results survive between calls, and the error mapping.

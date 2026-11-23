@@ -93,6 +93,12 @@ The company mail relay allows each sending account **30 emails a minute**. Above
 - If the relay refuses a send, stop this run with a WARN. Do not try the rest of the batch; they wait for the next minute.
 - No email when nothing is waiting.
 
+**What each system sends back**
+- **Database Select** on \`store_notices\`: a list of rows such as \`[ { "id": 1, "to_addr": "store0101@larkfield.example", "subject": "Price changes for Monday", "body": "Your shelf edge labels for Monday are ready to print." } ]\`, or an empty list when nothing waits.
+
+**What failures look like**
+- The relay pushes back: Email Send raises an \`EMAIL\` error (the \`421\` reply is in the description). Let it leave the For Each and reach the flow's handler, which logs a WARN.
+
 **Design the flow.**
 `,
   answerTemplate: `## Pacing the sends

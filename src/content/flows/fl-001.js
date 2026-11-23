@@ -174,6 +174,15 @@ A supplier drops a CSV of contacts (5,000 to 50,000 rows) on SFTP every night in
 - A bad row, or a chunk that Salesforce rejects, must not stop the run: every row is counted as processed or failed, and the file is still archived.
 - Email a summary (processed / failed counts) to the ops team; attach failed rows as CSV.
 
+**What each system sends back**
+- The SFTP listener gives the file content as the payload (CSV text) and the file details in \`attributes\`: \`attributes.path\` is the full path, for example \`/inbound/contacts/contacts-2026-11-12.csv\`, and \`attributes.fileName\` is the name. Keep the path in a variable, because the payload changes later.
+- Salesforce Upsert answers with one result per record. The flow does not need it.
+- In On Complete the payload is the batch job result, with the counts in \`payload.processedRecords\` and \`payload.failedRecords\`.
+
+**What failures look like**
+- A row that fails a Validation check raises a \`VALIDATION\` error. Inside a batch step it becomes a failed record, not a flow error.
+- When Salesforce cannot be reached, the upsert raises \`SALESFORCE:CONNECTIVITY\`. Inside the Batch Aggregator every record of that chunk becomes a failed record. With Max failed records -1 the job goes on, sends one summary and the file is still archived.
+
 **Design the flow(s):** sources, processors, scopes, error handling, and where DataWeave is used.
 `,
   answerTemplate: `## Trigger

@@ -263,6 +263,16 @@ Two tables hold the job state:
 - Acknowledge a chunk message only after its result is recorded.
 - \`GET /pim/v1/bulk/jobs/{jobId}\` returns the job's progress, worked out from its chunk rows. An unknown job returns **404**.
 
+**What each system sends back**
+- The PIM core answers **200** with \`{ "okCount": 500, "errors": [] }\`. \`errors\` lists records it rejected; store both in the chunk row.
+- A Database select returns a list of rows keyed by the column names or aliases you select, for example \`[ { "job_id": "JOB-7731", "total_chunks": 3, "done": 2, "failed": 1 } ]\`. An unknown job gives an empty list.
+- A Database Insert replaces the payload with its result, so keep the chunks (and the job id and chunk number in the worker) in variables.
+
+**What failures look like**
+- Too many or no records: an Is true validation raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **413** (or 400), store and queue nothing.
+- The PIM core is busy: it answers **503** with \`{ "message": "PIM busy" }\`, which the HTTP Request raises as \`HTTP:SERVICE_UNAVAILABLE\`. An Until Successful retries it.
+- The PIM core stays down: once every retry fails, Until Successful raises \`MULE:RETRY_EXHAUSTED\`. Record the chunk as \`FAILED\` with the error and ack the message.
+
 **Design the flows.**
 `,
   answerTemplate: `## API contract (submit and status)

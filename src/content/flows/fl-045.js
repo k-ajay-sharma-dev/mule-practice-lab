@@ -281,6 +281,16 @@ An online shop reserves stock when a customer enters checkout, so items are not 
 - A release that still fails after retries is parked on the Anypoint MQ queue \`wms-release-retry\` for a separate worker.
 - A hold's \`status\` is \`PENDING\`, \`HELD\`, \`COMMITTED\`, \`RELEASED\` or \`EXPIRED\`.
 
+**What each system sends back**
+- A reservation answers **201** with \`{ "reservationId": "RSV-TENT-2P" }\`. A release answers **204** with no body. A commit answers **200** with \`{ "committed": true }\`.
+- The sweeper's select returns a list of rows keyed by the column names as written here: \`[ { "hold_id": "H-3102", "wms_refs": ["RSV-JACKET-M", "RSV-HAT-W"] } ]\`.
+- A Database Update answers \`{ "affectedRows": 0 }\` when its \`WHERE\` matched nothing, for example a commit of an expired hold.
+
+**What failures look like**
+- Out of stock: the WMS answers **409** with \`{ "message": "Insufficient stock for LAMP-LED" }\`. This is a business answer and must not be retried. Add 409 to the HTTP Request's success status codes, check \`attributes.statusCode\`, and raise your own \`APP:\` error. Release the lines already reserved and answer **409**.
+- The WMS is busy: it answers **503** (\`HTTP:SERVICE_UNAVAILABLE\`) or does not answer in time (\`HTTP:TIMEOUT\`). Retry it. When every retry fails, Until Successful raises \`MULE:RETRY_EXHAUSTED\`: release the reserved lines and answer **409**.
+- A release that still fails after its retries: publish \`{ holdId, reservationId }\` to \`wms-release-retry\`.
+
 **Design the flow(s):** hold creation, retries, out-of-stock handling, compensation, expiry and commit.
 `,
   answerTemplate: `## Hold record and lifecycle

@@ -171,6 +171,14 @@ The old job sent all of tomorrow's reminders in one loop. Last Tuesday the third
 - Any other failure (the provider down or slow) leaves the appointment PENDING for the next run.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "appointment_id": "APT-502", "pet_name": "Luna", "owner_phone": "+44 7700 900123", "starts_at": "11:00" } ]\`.
+- The SMS provider answers **201** with \`{ "messageId": "SM-123" }\`.
+
+**What failures look like**
+- A landline: the provider answers **400** \`{ "error": "INVALID_NUMBER" }\`, which the HTTP Request raises as \`HTTP:BAD_REQUEST\`. Mark the row BAD_NUMBER and go on.
+- The provider is down: \`HTTP:CONNECTIVITY\`. It is slow: \`HTTP:TIMEOUT\`. Log a warning, leave the row PENDING and go on. The run ends without an error.
 `,
   answerTemplate: `## Starting the run
 

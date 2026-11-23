@@ -128,6 +128,14 @@ Build a **restart** flow:
 - A failed health check must fail the run with its database error. Do not catch it.
 - The email names the job ID.
 
+**What each system sends back**
+- The job select answers a list of rows: \`[ { "job_id": 520, "attempts": 1 } ]\`. \`attempts\` is a number.
+- \`{ call dbo.usp_merge_replenishment(:jobId) }\` answers \`{ "merged": 2 }\` when it works.
+
+**What failures look like**
+- SQL Server is down: the health check raises \`DB:CONNECTIVITY\`. The run ends with that error before any job is read.
+- The merge fails again: the procedure raises \`DB:QUERY_EXECUTION\`. Catch it per job with On Error Continue, so the other jobs still run.
+
 **Design the flow.**
 `,
   answerTemplate: `## Health check

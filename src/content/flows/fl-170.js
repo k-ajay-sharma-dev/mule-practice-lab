@@ -147,6 +147,14 @@ Inserting 200,000 rows one at a time took over an hour. A plain bulk insert was 
 - The On Complete log line is INFO and contains the word \`loaded\`.
 - A failed download must fail the flow, so the broker delivers the work again.
 
+**What each system sends back**
+- Download Blob replaces the payload with the document: \`{ "senderDocumentId": "HF-SI-20261113", "items": [ { "supplierItemId": "SI-1", "gtin": "05012345678901", "supplierId": "HALDEN-PAINTS", "costPrice": 5.1 } ] }\`. Keep the notification's \`messageId\` in a variable before the download.
+- In On Complete the payload is the batch job result, with \`totalRecords\`, \`successfulRecords\` and \`failedRecords\`.
+
+**What failures look like**
+- A group with a row that has no GTIN: the Bulk Insert raises **DB:QUERY_EXECUTION** and its transaction rolls the group back. The single Insert of that row raises **DB:QUERY_EXECUTION** again.
+- Blob storage is down: Download Blob raises **AZURE-STORAGE:CONNECTIVITY**. Leave it unhandled, so the batch job never starts.
+
 **Design the flow.**
 `,
   answerTemplate: `## Download and records

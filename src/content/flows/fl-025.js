@@ -170,6 +170,20 @@ A trading back-office receives **trade confirmations** on an **ActiveMQ Artemis*
 - \`TRADES\` has \`TRADE_ID\` (unique key), \`ISIN\`, \`QUANTITY\` and \`PRICE\`. \`TRADE_LEGS\` has \`TRADE_ID\`, \`LEG_NO\` (1, 2, ...), \`ACCOUNT\` (not null) and \`AMOUNT\`.
 - Inserting a \`TRADE_ID\` that already exists fails with \`DB:QUERY_EXECUTION\` and Oracle's \`ORA-00001\` (unique constraint violated) in the description. Other Oracle errors raise the same Mule error type.
 
+**What each system sends back**
+- The JMS listener gives the message body as the payload:
+\`\`\`json
+{ "tradeId": "TR-20261113-0042", "isin": "DE0001102580", "quantity": "500", "price": "99.85",
+  "legs": [ { "account": "ACC-PRIME-01", "amount": "49925.00" }, { "account": "ACC-CLIENT-77", "amount": "-49925.00" } ] }
+\`\`\`
+- A Database Insert answers with the number of affected rows, and a Bulk Insert with one count per record. Either replaces the payload, so keep the trade in a variable.
+
+**What failures look like**
+- Oracle cannot be reached: the Database connector raises \`DB:CONNECTIVITY\`. Roll back; the trade goes back to \`TRADES.IN\`.
+- A leg with no account breaks the not-null rule: \`DB:QUERY_EXECUTION\` with a description that is not \`ORA-00001\`. Roll back the whole trade.
+- \`TRADES.RISK\` cannot take the message: JMS Publish raises a \`JMS\` error such as \`JMS:PUBLISHING\` or \`JMS:CONNECTIVITY\`. Roll back, so the saved trade is undone too.
+- A duplicate \`TRADE_ID\`: \`DB:QUERY_EXECUTION\` with \`ORA-00001\` in \`error.description\`. Treat it as done and commit, with no second risk message.
+
 **Requirements**
 - A trade must **never** be in the DB without the risk message, or vice versa.
 - A message must not be lost if Oracle is down; poison messages must not block the queue forever.

@@ -96,6 +96,14 @@ Rejected adjustments go to \`dbo.stock_adjustment_rejects\` (\`adjustment_id\`, 
 - Retry a deadlock a few times, a couple of seconds apart. If it still fails, give the message back to the broker for a later redelivery.
 - Do not retry a data error. Reject it at once and acknowledge the message.
 
+**What each system sends back**
+- The JMS listener gives the JSON above as the payload.
+- The procedure call answers \`{ "applied": 1 }\` when the adjustment is applied.
+
+**What failures look like**
+- Both a deadlock and a data error raise \`DB:QUERY_EXECUTION\`. Only \`error.description\` tells them apart: a deadlock contains the word \`deadlock\`, a data error does not.
+- When every retry hits a deadlock, Until Successful raises \`MULE:RETRY_EXHAUSTED\`. The flow ends in that error, so the listener returns the message to the broker.
+
 **Design the flow.**
 `,
   answerTemplate: `## Two kinds of error

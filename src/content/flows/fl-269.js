@@ -143,6 +143,14 @@ Hollin's own rules:
 - The report subject says \`COMPLETED\`, and the failure email subject says \`FAILED\`.
 - On failure, mark the job and email in an On Error Propagate, so the run still ends with the original error.
 
+**What each system sends back**
+- \`dbo.usp_job_start\` gives \`{ "job_id": 91 }\`.
+- The Database Select streams rows with the columns as named in the query: \`{ "week": "2026W46", "store": "G01", "sku": "SEED-TOM-CHERRY", "units": 140 }\`. Inside a For Each with a batch size, \`payload\` is a list of up to that many rows.
+
+**What failures look like**
+- The FTP server is down: the FTP Write raises \`FTP:CONNECTIVITY\`. No \`.ctl\` is written, the job is marked \`FAILED\` and support gets the \`FAILED\` email.
+- The mail server is down: the report email fails inside the Async scope. The run still ends without error and the job stays \`COMPLETED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

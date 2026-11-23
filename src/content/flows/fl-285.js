@@ -90,6 +90,12 @@ The support team now keeps the lists in Oracle, in \`job_recipient\` (\`job_name
 - \`active\` is 1 for a current recipient and 0 for an old one.
 - Read the recipients into a target variable, so the event stays the payload. Pass the addresses to **Email Send** as one comma separated To list.
 
+**What each system sends back**
+- \`SELECT email FROM job_recipient ...\` gives a list of rows, empty when nobody is listed:
+\`\`\`json
+[ { "email": "night-ops@fenwick.example" }, { "email": "stock-team@fenwick.example" } ]
+\`\`\`
+
 **Design the flow.**
 `,
   answerTemplate: `## Finding the recipients

@@ -251,6 +251,14 @@ The first version of the job looped over all rows and failed at row 10,001 with 
 - Keep both values in the persistent Object Store \`fleetSyncStore\`: the last sent \`id\` under \`fleet-sync-last-id\`, and the earliest time the next run may call the API under \`fleet-sync-not-before\`.
 - \`X-RateLimit-Reset\` is in milliseconds. When it is missing, wait **15 minutes**.
 
+**What each system sends back**
+- Object Store Retrieve puts the stored value in the payload.
+- Database Select answers with a list of rows. Oracle reports unquoted column names in upper case, so alias them in quotes (\`id AS "id"\`) to read \`payload.id\`. A row looks like \`{ "id": 1043, "vehicle_id": "TRK-207", "reading": "{\\"odometerKm\\":184251,\\"fuelPct\\":58}" }\`.
+- The Fleet API answers each accepted row with **201** and \`{ "accepted": true }\`.
+
+**What failures look like**
+- The quota is used: the API answers **429** \`{ "message": "Quota exceeded" }\` and the HTTP Request raises \`HTTP:TOO_MANY_REQUESTS\`. The headers are in \`error.errorMessage.attributes.headers\`, for example \`x-ratelimit-reset: 3600000\` with \`x-ratelimit-remaining: 0\`. The header can be missing.
+
 **Design the flow.**
 `,
   answerTemplate: `## Trigger and wait check

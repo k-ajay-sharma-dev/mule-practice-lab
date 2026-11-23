@@ -146,6 +146,18 @@ Two incidents:
 - The row count leaves out the header line and blank lines.
 - Each email line names the part.
 
+**What each system sends back**
+- The FTP listener gives the control file text as the payload, with \`attributes.fileName\` (\`ALLOC_20261113.ctl\`) and \`attributes.path\`.
+- The Database Select on \`dbo.file_set_log\` gives a list of rows such as \`[ { "status": "RELEASED" } ]\`, or an empty list for a new set.
+- An FTP Read as \`text/plain\` gives the part as one string, header line included:
+\`\`\`
+store,sku,qty
+0420,4410300,9
+\`\`\`
+
+**What failures look like**
+- A garbled part reads without error. Only the MD5 differs from the control line (the row count can still match).
+
 **Design the flow.**
 `,
   answerTemplate: `## A set seen before

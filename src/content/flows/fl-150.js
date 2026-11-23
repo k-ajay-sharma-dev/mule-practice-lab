@@ -176,6 +176,14 @@ A pen test of an earlier design found that partners could send a \`callbackUrl\`
 - \`callback_path\` is a path on the hooks gateway, such as \`/hooks/northgate/exports\`. Use it as the path of the callback request.
 - Make the export ID with \`uuid()\`.
 
+**What each system sends back**
+- A Database Select on \`client_callbacks\` answers a list of rows with the column names as written, for example \`[ { "callback_path": "/hooks/northgate/exports" } ]\`. An unknown partner gives an empty list \`[]\`.
+- The reporting system answers **200** with \`{ "downloadUrl": "https://files.example.com/exp/7781.csv" }\`, after a few seconds or more.
+- A partner's hook answers **204** with no body when it accepts the callback.
+
+**What failures look like**
+- The partner's hook answers **503**: each call raises **HTTP:SERVICE_UNAVAILABLE**. When an Until Successful runs out of retries it raises **MULE:RETRY_EXHAUSTED**. Catch that, mark the callback \`FAILED\` and log a WARN.
+
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flows.**

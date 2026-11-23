@@ -147,6 +147,12 @@ The carrier waits up to **5 seconds** for an answer. On any answer other than 2x
 - Assume the listener's response status is \`#[vars.httpStatus default 200]\`.
 
 **Design the flow.**
+
+**What each system sends back**
+- The Salesforce **Publish platform event message** operation takes one event as a Java map with the field names above, and answers \`{ "id": "e00xx0000000001AAA", "success": true }\`. Mule does not need anything from that answer.
+
+**What failures look like**
+- Salesforce cannot be reached: the publish raises \`SALESFORCE:CONNECTIVITY\`. Log it and answer **503**.
 `,
   answerTemplate: `## What is wrong with updating Cases from Mule
 

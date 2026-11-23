@@ -87,6 +87,12 @@ Last month the database was restarted during a busy hour. The old flow used AUTO
 - Remove a reading from the queue only once it is in the table.
 - When the insert fails, return the reading to the queue so Anypoint MQ delivers it again, and log a WARN.
 
+**What each system sends back**
+- The Anypoint MQ subscriber gives the reading JSON above as the payload. With MANUAL acknowledgement, the token to ack or nack the message is in \`attributes.ackToken\`.
+
+**What failures look like**
+- The database is down: the Database Insert raises **DB:CONNECTIVITY**. Handle it, log a WARN and nack the message with its token.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the queue

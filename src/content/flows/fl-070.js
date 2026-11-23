@@ -410,6 +410,16 @@ For each pallet a **goods receipt** (movement type 101 against the PO) must be p
 - Goods receipts are posted with \`POST /sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader\`, which returns \`d.MaterialDocument\`. Put the SSCC in \`MaterialDocumentHeaderText\`; a \`GET\` on the same entity set with \`$filter=MaterialDocumentHeaderText eq '<SSCC>'\` returns \`d.results\`. SAP answers **400** when it rejects a receipt.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- The ASN lookup (Database Select) returns a list of rows with upper case column names, for example \`[{ "ASN_NO": "ASN-77310", "PO_NUMBER": "4500093121", "PO_LINE": 10, "SKU": "MAT-100245", "EXPECTED_QTY": 48, "UOM": "CS", "PLANT": "1100", "STORAGE_LOC": "0001" }]\`. A pallet with no open ASN gives an empty list.
+- The SAP \`GET\` answers **200** with \`{ "d": { "results": [] } }\` when no document exists, or with \`[{ "MaterialDocument": "5000412790", "MaterialDocumentYear": "2026", "MaterialDocumentHeaderText": "003456789012349999" }]\` in \`results\` when it does.
+- The SAP \`POST\` answers **201** with \`{ "d": { "MaterialDocument": "5000412877", "MaterialDocumentYear": "2026" } }\`, after about 4 seconds.
+
+**What failures look like**
+- A redelivered scan: the \`GOODS_RECEIPT\` insert fails with \`DB:QUERY_EXECUTION\` and \`ORA-00001\`. Write nothing more and acknowledge the scan.
+- SAP rejects the receipt: **400** with \`{ "error": { "code": "M7/022", "message": { "value": "PO item 4500093121 00010 is closed" } } }\`. HTTP Request raises \`HTTP:BAD_REQUEST\` unless you accept 400 as a response. Do not retry it; mark the row \`FAILED\`.
+- SAP is in maintenance: each post raises \`HTTP:CONNECTIVITY\`. Retry a few times, then set the row to \`RETRY\` and add one to \`ATTEMPTS\`.
 `,
   answerTemplate: `## Intake flow (JMS → Oracle)
 

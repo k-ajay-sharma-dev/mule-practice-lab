@@ -86,6 +86,13 @@ The platform reads \`ONHAND_<yyyyMMdd>.csv\` from its **FTP server**, folder \`/
 - Order the pages by \`store, sku\`. Each line is \`store,sku,on_hand\` with no spaces and ends with a newline, the header too.
 - A failed write must fail the run. Do not catch it.
 
+**What each system sends back**
+- A count select such as \`SELECT COUNT(*) AS n\` answers one row: \`[ { "n": 5 } ]\`.
+- Each page select answers a list of rows: \`[ { "store": "0101", "sku": "LAMP-OAK-S", "on_hand": 7 } ]\`. \`on_hand\` is a number, so make it text before joining the line.
+
+**What failures look like**
+- The FTP server refuses the writes: FTP Write raises \`FTP:CONNECTIVITY\`. The run ends with that error before the rename, so no file with the final name appears.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the replica

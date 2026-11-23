@@ -125,6 +125,8 @@ The folders \`processed\`, \`error\` and \`empty\` exist next to \`in\`.
 - Each item File List returns has \`payload\` (the file's content) and \`attributes\` with \`fileName\`, \`path\`, \`size\` and \`timestamp\` (the last modified time, in UTC).
 - \`runId\` is the file name without \`.csv\`. \`results\` is the CSV's rows.
 - A file keeps its name when it is moved. The run ends without an error even when a file is rejected.
+- The LIMS answers **201** with \`{ "accepted": 2 }\` when it takes a run. The flow does not need that body.
+- A rejected file answers **400** with \`{ "message": "Unknown test code" }\`, which the HTTP Request raises as **HTTP:BAD_REQUEST**.
 
 **Design the flow.**
 `,

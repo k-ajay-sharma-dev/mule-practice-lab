@@ -76,6 +76,15 @@ When the platform finds a mistake it sends the **same week again under the same 
 - The archive name is \`<file name>.<yyyyMMddHHmmss>\`. FTP Move keeps a file's name, so **FTP Rename** the file in place first, then move it.
 - Do not catch a database error. The run fails and the file stays in \`/outbound/promo\`.
 
+**What each system sends back**
+- The FTP listener gives the file as a list of rows keyed by the header, with string values, and the file details in \`attributes.fileName\` (\`PROMO_W46.csv\`) and \`attributes.path\`:
+\`\`\`json
+[ { "store": "0101", "sku": "TENT-2P-OLV", "promo_price": "129.00" } ]
+\`\`\`
+
+**What failures look like**
+- SQL Server is down: the Bulk Insert raises \`DB:CONNECTIVITY\`. The run ends with that error and the file is not renamed or moved.
+
 **Design the flow.**
 `,
   answerTemplate: `## Staging

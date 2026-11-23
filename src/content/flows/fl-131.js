@@ -151,6 +151,10 @@ The team wants these business rules to show up as **errors with their own types*
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, also when an error handler built the answer.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "staff_id": "S-1002", "balance": 4 } ]\`. For a staff number with no wallet the list is empty: no error is raised, so the flow must check for it.
+- A Database **Update** answers \`{ "affectedRows": 1 }\`. Store it in a target variable, so the payload still holds the till's request.
 `,
   answerTemplate: `## The endpoint
 

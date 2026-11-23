@@ -154,6 +154,17 @@ The support console calls \`POST /api/outbound/{messageType}\`. Today the API wa
 - An unknown job answers 404 with \`{ "error": "NOT_FOUND" }\`.
 - **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
 
+**What each system sends back**
+- \`usp_job_claim\` gives \`{ "job_id": 40, "running_job_id": null }\`, or \`{ "job_id": null, "running_job_id": 40 }\` when a run is going.
+- \`usp_generate_outbound\` gives \`{ "message_count": 1200 }\`.
+- The status select gives a list of rows, empty for an unknown job:
+\`\`\`json
+[ { "job_id": 39, "message_type": "ITEM", "status": "COMPLETED", "messages": 1180, "detail": null } ]
+\`\`\`
+
+**What failures look like**
+- The generation fails: the Stored Procedure raises \`DB:QUERY_EXECUTION\` with a description such as \`Arithmetic overflow in item pack size\`. The caller already has 202; the job row gets \`FAILED\` with that text in \`detail\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## Claiming the job

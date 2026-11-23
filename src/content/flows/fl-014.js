@@ -210,6 +210,20 @@ A payroll provider drops a **fixed-width** file \`PAYROLL_YYYYMMDD.txt\` (20,000
 - Never process the same file twice; never let finance pick up a half-written output file.
 - Name the output \`/data/out/PAYROLL_YYYYMMDD.csv\` and the reject file \`/data/reject/PAYROLL_YYYYMMDD_reject.csv\`. Alert the support team by email when a whole file is rejected.
 
+**What the File listener and the parser give you**
+- The File listener gives the file content as the payload. The file details are in \`attributes\`: \`attributes.path\` is the full path (\`/data/in/PAYROLL_20261113.txt\`) and \`attributes.fileName\` the name (\`PAYROLL_20261113.txt\`). Keep them in variables before the payload changes.
+- After the flat-file parse the payload has three parts:
+\`\`\`json
+{
+  "header": { "payDate": "2026-11-13", "provider": "PAYPRO" },
+  "details": [ { "employeeId": "E1001", "amount": 2500 }, { "employeeId": "E1002", "amount": 3100 } ],
+  "trailer": { "recordCount": 2, "totalAmount": 5600 }
+}
+\`\`\`
+
+**What failures look like**
+- No connector fails in these tests. A trailer that does not match is found by your own check: raise an error of your own (for example \`APP:FILE_REJECTED\`), write no output and no reject file, and send one alert email from the error handler.
+
 **Design the flow(s):** trigger, parsing, validation layers, writing output/reject files, and file lifecycle.
 `,
   answerTemplate: `## Trigger and file lifecycle

@@ -241,6 +241,16 @@ The database has an \`accounts\` table (\`account_id\`, \`tenant_id\`) and a \`s
 - Fail safely if the policy is ever removed by mistake.
 - Log refused attempts, so that probing can be spotted.
 
+**What each system sends back**
+- The validated claims are at \`authentication.properties.claims\`, for example \`authentication.properties.claims.tenant_id\`. With no policy there is no claim, so the value is null.
+- Database Select answers with a list of rows, with the column names in lower case as in the SQL. The owner lookup gives \`[ { "tenant_id": "T-77" } ]\`, or \`[]\` for an unknown account. The statements query gives rows such as \`{ "statement_id": "ST-9001", "period": "2026-10", "closing_balance": 182400.55 }\`.
+- The Select replaces \`attributes\`, so save \`attributes.uriParams.accountId\` first.
+
+**What failures look like**
+- No tenant claim: an **Is not blank string** validator raises \`VALIDATION:BLANK_STRING\`. Answer **401**.
+- No \`statements:read\` scope: an **Is true** validator raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **403**.
+- An empty owner lookup or another tenant's account is not an error by itself. Raise \`APP:ACCOUNT_NOT_FOUND\` and answer **404**.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the claims

@@ -299,6 +299,23 @@ SLA: the Process API must answer within **5 s**; ~30 req/s. Callers must be able
 - The central bank publishes \`GET /stats/eurofxref-daily.xml\`: \`Envelope/Cube/Cube\` with a \`time\` attribute holds one \`Cube\` per currency, with \`currency\` and \`rate\` attributes.
 - When the vendor stays down, the primary System API must give up after a few quick retries and answer 503, so the Process API still has time for its fallbacks.
 
+**What each system sends back**
+- The vendor answers **200** with:
+\`\`\`json
+{ "baseCcy": "EUR", "timestamp": "2026-11-13T09:59:30Z",
+  "quotes": [ { "ccy": "USD", "bid": 1.0841, "ask": 1.0843, "mid": 1.0842 }, { "ccy": "GBP", "bid": 0.857, "ask": 0.8572, "mid": 0.8571 } ] }
+\`\`\`
+- The central bank answers XML in this shape:
+\`\`\`xml
+<Envelope><Cube><Cube time="2026-11-12"><Cube currency="USD" rate="1.0815"/><Cube currency="GBP" rate="0.8563"/></Cube></Cube></Envelope>
+\`\`\`
+- Each System API answers **200** with \`{ "base": "EUR", "asOf": "2026-11-13T09:59:30Z", "rates": { "USD": 1.0842, "GBP": 0.8571 } }\`.
+
+**What failures look like**
+- A vendor blip: it answers **502** (\`HTTP:BAD_GATEWAY\`) or does not answer within the response timeout (\`HTTP:TIMEOUT\`). Until Successful retries it; when every retry fails it raises \`MULE:RETRY_EXHAUSTED\`, which the primary System API answers with **503**.
+- In the Process API, a System API that answers **503** raises \`HTTP:SERVICE_UNAVAILABLE\`, and one that is down raises \`HTTP:CONNECTIVITY\`. First Successful then tries the next route.
+- Object Store Retrieve with no stored rate (and no default) raises \`OS:KEY_NOT_FOUND\`, so the last route fails too. When every route fails, First Successful raises an error; answer **503** \`{ "code": "RATES_UNAVAILABLE" }\`.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/sys-fx-primary/v1/rates\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
 **Design the flow(s):** which layer retries, which layer falls back, how the timeouts add up, how the last-known-good value is kept, and what happens when everything fails. (Connector reconnection strategies are configuration, not canvas components: mention them in your answer.)

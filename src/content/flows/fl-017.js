@@ -270,6 +270,20 @@ A **Reporting API** generates a customer statement PDF by querying a data wareho
 - A job status is one of \`PENDING\`, \`COMPLETED\` or \`FAILED\`.
 - The app runs on more than one replica, so any replica must be able to answer a status call.
 
+**What each system sends back**
+- The warehouse Select answers with a list of rows, with the column names as in the table:
+\`\`\`json
+[ { "txn_date": "2026-10-03", "description": "Card payment", "amount": -54.2 }, { "txn_date": "2026-10-15", "description": "Salary", "amount": 3200 } ]
+\`\`\`
+- \`POST /pdf/render\` takes about 45 s and answers 200 with the PDF content as the body. Give it a response timeout of several minutes.
+- \`PUT /statements-bucket/{jobId}.pdf\` answers 200 with \`{ "eTag": "e-77" }\`.
+- Object Store Retrieve gives the stored value. For a key that does not exist it raises \`OS:KEY_NOT_FOUND\`, unless you set a default value.
+- A VM Listener receives as its payload exactly what was published to the queue.
+
+**What failures look like**
+- The PDF service answers 500: the HTTP Request raises \`HTTP:INTERNAL_SERVER_ERROR\`. The caller already has its 202, so mark the job \`FAILED\` and upload nothing.
+- A status call for an unknown job: Retrieve raises \`OS:KEY_NOT_FOUND\`. Answer **404**. Set the status with the variable \`httpStatus\`; the HTTP Listener answers with \`vars.httpStatus\`.
+
 **Design the API and flow(s):** endpoints, status codes, job state storage, worker flow, concurrency limit and cleanup.
 `,
   answerTemplate: `## API contract

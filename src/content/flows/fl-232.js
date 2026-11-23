@@ -141,6 +141,15 @@ which checks each row, moves the good ones into \`store_sales\` and marks the ba
 - Name the procedure parameters as it does: \`p_batch_no\`, \`p_applied\`, \`p_rejected\`. The result holds the outputs under those names.
 - Map \`store\` to \`store_id\` and \`businessDate\` to \`business_date\`.
 
+**What each system sends back**
+- The blob download gives the file's content as the payload: \`[ { "store": "0101", "sku": "SOCK-WOOL-L", "units": -2, "businessDate": "2026-11-12" } ]\`. Keep the notification in a variable first, because the download replaces the payload.
+- \`SELECT LOAD_BATCH_SEQ.NEXTVAL AS batch_no FROM dual\` answers \`[ { "batch_no": 8801 } ]\`.
+- The procedure answers its outputs: \`{ "p_applied": 2, "p_rejected": 1 }\`.
+
+**What failures look like**
+- The blob is not there: the download raises an error with the description "The specified blob does not exist." (\`AZURE-STORAGE:BLOB_NOT_FOUND\` in this simulation; check the error type your connector version raises, as some versions report it as \`AZURE-STORAGE:EXECUTION\`). Nothing is staged and the notification goes back to the queue.
+- The procedure fails: it raises \`DB:QUERY_EXECUTION\` with \`ORA-04068\` in \`error.description\`. The Try rolls back the staging insert, and the notification goes back to the queue.
+
 **Design the flow.**
 `,
   answerTemplate: `## The claim check

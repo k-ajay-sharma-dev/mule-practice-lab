@@ -157,6 +157,13 @@ Expired holds must be given back to available stock **within 5 minutes** of expi
 - \`STOCK_AVAILABILITY\` is keyed on \`SKU\` and \`LOCATION_ID\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- Database Update and Database Delete each return \`{ affectedRows: n }\`, the number of rows changed. Read it as \`payload.affectedRows\` for the log line.
+- Column names are upper case, as in the tables above: \`STATUS\`, \`QTY\`, \`EXPIRES_AT\`, \`RESERVED_QTY\`.
+
+**What failures look like**
+- Oracle is down: the first Database operation raises \`DB:CONNECTIVITY\`. The transaction rolls back, the flow logs the error at ERROR level, and every hold stays for the next run.
 `,
   answerTemplate: `## Schedule
 

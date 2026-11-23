@@ -88,6 +88,14 @@ The rows go to the SQL Server table \`dbo.stock_count_staging\` (\`file_name\`, 
 - \`counted_qty\` is a number. A count that is not a number fails the file, and nothing from it is loaded.
 - Any failure, a database outage too, sends the file to the error folder. Files keep their names when moved.
 
+**What each system sends back**
+- The FTP listener reads a \`.csv\` file as CSV: the payload is a list of rows such as \`{ "store": "0412", "sku": "4410021", "counted_qty": "118", "count_date": "2026-11-13" }\`, every value as text. The name is in \`attributes.fileName\` and the full path in \`attributes.path\`.
+
+**What failures look like**
+- A count such as \`forty\` cannot become a number, so the Transform raises a DataWeave error (\`MULE:EXPRESSION\`) before anything is inserted.
+- SQL Server down: the Bulk Insert raises **DB:CONNECTIVITY**.
+- Both go to the flow's error handler, which moves the file to \`/stockcount/error\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

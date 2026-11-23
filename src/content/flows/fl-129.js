@@ -152,6 +152,10 @@ Last week a pilot store started sending **version 3** without telling anyone. Th
 The subscriber uses the default acknowledgement mode: a message is acknowledged when the flow ends without an error, and goes back to the queue when the flow ends with one.
 
 **Design the flow.** Explain why a parking queue and not the dead-letter queue.
+
+**What failures look like**
+- A repeat: the insert raises \`DB:QUERY_EXECUTION\` with \`duplicate key\` in \`error.description\`. Log it and end without an error, so the message is acknowledged.
+- The database is down: the insert raises \`DB:CONNECTIVITY\`. Let it end the flow with that error, so the message goes back to the queue.
 `,
   answerTemplate: `## Telling the versions apart
 

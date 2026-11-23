@@ -122,6 +122,14 @@ Each worker has a property \`worker.id\` (\`w1\`, \`w2\`).
 - When the post fails, rename the claimed file back to its own name. The run must not fail.
 - The sweeper lists \`*.claimed-*\`. A claim's age is its \`attributes.timestamp\`, the last modified time in UTC without a zone. Test it in a **Choice** against the current UTC time minus \`PT30M\`, and rename the file back to the name without the claim suffix.
 
+**What each system sends back**
+- File List gives one item a file, each with \`payload\` (the content) and \`attributes\` with \`fileName\`, \`path\` and \`timestamp\`.
+- File Read gives the manifest JSON as the payload, such as \`{ "manifestId": "MAN_88120", "depot": "ELL-DEPOT-3", "stops": 14 }\`. Post it as it is.
+- Dispatch answers **202** with \`{ "status": "QUEUED" }\`. The flow does not need that body.
+
+**What failures look like**
+- Dispatch down: the HTTP Request raises **HTTP:CONNECTIVITY**. The work's On Error Continue renames the file back, and the run ends without an error.
+
 **Design the flows.**
 `,
   answerTemplate: `## Why two workers clash

@@ -170,6 +170,15 @@ Support (\`replenishment-support@brindle.example\`) wants an email per plan with
 - The email subject carries the job ID, such as \`Replenishment plan job 513: good=2 rejected=1\`.
 - After marking the job \`FAILED\`, let the error propagate.
 
+**What each system sends back**
+- The FTP listener gives the CSV as rows, every value as text: \`{ "line": "3", "store": "0177", "sku": "JKT-RAIN-M", "qty": "4" }\`. The path is in \`attributes.path\`.
+- \`{ call dbo.usp_job_start(:jobName) }\` answers \`{ "job_id": 513 }\` on the test day.
+- The open stores select answers \`[ { "store": "0101" }, { "store": "0102" } ]\`.
+- \`{ call dbo.usp_merge_replenishment(:jobId) }\` answers \`{ "merged": 2 }\`.
+
+**What failures look like**
+- The MERGE procedure fails: it raises \`DB:QUERY_EXECUTION\`. The Try rolls back staging and rejects, the handler marks the job \`FAILED\` and moves the file to the error folder, and the run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

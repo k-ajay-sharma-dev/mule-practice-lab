@@ -166,6 +166,15 @@ A clothing retailer's pricing tool calls an integration API whenever a buyer cha
 - The pricing tool expects **400** for bad input, **404** when the SKU/zone row does not exist, **503** when it should retry.
 - Response time target: under 1 second.
 
+**What each system sends back**
+- A Database Update answers \`{ "affectedRows": 1 }\`. \`0\` means no row has that SKU and zone. It replaces the payload, so keep the request in a variable to build the event.
+- JMS Publish returns nothing you need.
+
+**What failures look like**
+- A blank \`sku\` raises \`VALIDATION:BLANK_STRING\`; an Is true check on the price raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **400** and touch nothing.
+- No row matched: no error is raised. Check \`affectedRows\` and raise your own \`APP:\` error, answer **404**, and publish nothing.
+- The broker is down: JMS Publish raises \`JMS:CONNECTIVITY\`. The price is already saved; answer **503** so the tool retries.
+
 **Design the flow(s).**
 `,
   answerTemplate: `## Trigger and validation

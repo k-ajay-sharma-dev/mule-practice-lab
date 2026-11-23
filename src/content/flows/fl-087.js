@@ -242,6 +242,14 @@ Last month a transfer was cut off halfway. Nobody noticed, and three regions rep
 - The sales data team's address is \`sales-data@company.example\`.
 
 **Design the flow.**
+
+**What each system sends back**
+- The File listener gives the content as \`payload\` and the name and path in \`attributes.fileName\` and \`attributes.path\`.
+- Read as CSV with a header, every line is a row with the header names, all text. The trailer is a row too: \`{ "region": "TRAILER", "storeId": "6", "saleDate": "", "sku": "", "qty": "", "amount": "" }\`, so the count is in \`storeId\`.
+
+**What failures look like**
+- A count that does not match, or no trailer at all: nothing raises an error by itself, so compare the counts and raise your own error (for example \`APP:CONTROL_COUNT_MISMATCH\`). Write no region file, move the file to \`/data/sales/rejected\` and email the team.
+- A rerun: Create Directory on a folder that already exists raises \`FILE:FILE_ALREADY_EXISTS\`. Catch it and carry on; write the region files with mode \`OVERWRITE\`.
 `,
   answerTemplate: `## Picking up the file
 

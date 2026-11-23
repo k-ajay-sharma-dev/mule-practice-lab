@@ -116,6 +116,12 @@ The first version ran three statements one after another. When the credit failed
 - Make the \`transferId\` with \`uuid()\`.
 - Put the status code in the variable \`httpStatus\`. The listener answers with it. An error you do not catch answers 500.
 
+**What the database sends back**
+- Each Database Update answers \`{ "affectedRows": 1 }\` when it changes the row, and \`{ "affectedRows": 0 }\` for a debit that finds too little stock. Keep each result in a target variable, so the request stays at hand.
+
+**What failures look like**
+- The credit fails: the update raises \`DB:QUERY_EXECUTION\` with \`ORA-00060: deadlock detected\` in \`error.description\`. The Try rolls back the debit. Leave this error uncaught, so the listener answers 500.
+
 **Design the flow.**
 `,
   answerTemplate: `## One transaction

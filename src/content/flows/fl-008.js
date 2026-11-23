@@ -159,6 +159,19 @@ A team has three APIs in one Mule app: \`GET /api/orders\`, \`GET /api/invoices\
 
 A code review asks you to refactor this into reusable pieces.
 
+**What each system sends back**
+- A Database Select answers with a list of rows, with the column names as in the table. \`SELECT * FROM orders WHERE tenant_id = :tenantId\` for \`T-100\` gives:
+\`\`\`json
+[ { "order_id": "O-5001", "tenant_id": "T-100", "total": 120 }, { "order_id": "O-5002", "tenant_id": "T-100", "total": 35.5 } ]
+\`\`\`
+- The tenant lookup gives one row in a list, for example \`[ { "tenant_id": "T-100", "name": "Acme Retail", "currency": "EUR" } ]\`.
+- The Audit API answers 202 with \`{ "accepted": true }\`. The HTTP Request replaces the payload and the attributes with this answer, so the request headers are gone after it.
+
+**What failures look like**
+- The Audit API refuses the connection: the HTTP Request raises \`HTTP:CONNECTIVITY\`.
+- The Audit API answers 500: the HTTP Request raises \`HTTP:INTERNAL_SERVER_ERROR\`.
+- In both cases log a WARN and go on. The endpoint still answers 200 with its rows.
+
 **Design the flow(s):**
 - Which parts become a **sub-flow** and which a **private flow** (flow without a source), and why?
 - How do they get called, and how do variables and errors behave across the call?

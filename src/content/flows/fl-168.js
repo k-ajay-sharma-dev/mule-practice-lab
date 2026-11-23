@@ -96,6 +96,10 @@ You build the Item process flow. Support finds unprocessed documents by looking 
 - \`stg_item.message_id\` is the message's \`messageId\`. Write \`'PROCESSED'\` as a literal in the update SQL.
 - Do not catch errors: a failed insert, upload or delete must fail the flow, so the broker delivers the message again.
 
+**What failures look like**
+- Oracle drops the staging insert: the Bulk Insert raises **DB:CONNECTIVITY**. Nothing after it runs, so the blob is not touched.
+- Blob storage refuses the copy to \`pdh-processed\`: Upload Blob raises **AZURE-STORAGE:CONNECTIVITY**. The delete never runs, so the original stays in \`pdh-inbound\` and the status stays \`RECEIVED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Staging the lines

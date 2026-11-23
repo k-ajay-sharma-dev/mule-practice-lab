@@ -124,6 +124,13 @@ A retail website needs a list of products for one category, for example \`GET /p
 
 The website should not see the table's column names.
 
+**What each system sends back**
+- Database Select puts a list of rows in the payload, one object per row, with the column names as written in the SQL:
+\`\`\`json
+[ { "sku": "SH-117", "product_name": "City Loafer", "unit_price": 74.5 } ]
+\`\`\`
+- A category with no products gives an empty list \`[]\`, not an error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the category

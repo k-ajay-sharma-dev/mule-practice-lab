@@ -86,6 +86,8 @@ Mule posts each snapshot to the stock API, \`POST /warehouse/v1/stock-snapshots\
 
 **Facts**
 - Post the data file's JSON as it is.
+- The listener gives the marker's full path in \`attributes.path\`. File Read gives the data file's content as the payload.
+- The stock API answers **202** with \`{ "status": "ACCEPTED" }\`. The flow does not need that body.
 - File Read on a path that does not exist raises **FILE:ILLEGAL_PATH**.
 - An API that cannot be reached raises **HTTP:CONNECTIVITY**. Do not catch it: the run must end with that error.
 

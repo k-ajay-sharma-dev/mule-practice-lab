@@ -207,6 +207,21 @@ A retailer sends a nightly **4 GB CSV** (~25 million rows of store-level stock p
 - A good quantity is a whole number of 0 or more. An empty or non-numeric quantity is bad.
 - The reporting table is \`stock_positions\` (\`store_id\`, \`sku\`, \`quantity\`, keyed on store and SKU). You may use a staging table \`stock_staging\` with the same columns.
 
+**What each system sends back**
+- S3 Get Object (or the HTTP \`GET\`, which answers 200) gives the file content as a stream of CSV text. Every value is text, so \`quantity\` must be checked and converted:
+\`\`\`
+store_id,sku,quantity
+S-001,SKU-100,38
+S-014,SKU-BAD,abc
+S-020,SKU-EMPTY,
+\`\`\`
+- A Database Bulk Insert answers with one update count per row. The flow does not need it.
+
+**What failures look like**
+- The file is missing: S3 Get Object raises \`S3:NO_SUCH_KEY\`, and the HTTP \`GET\` answers 404, which raises \`HTTP:NOT_FOUND\`. Reporting keeps yesterday's data and ops get one email.
+- The file repeats a store and SKU: copying staging into \`stock_positions\` breaks its key and raises \`DB:QUERY_EXECUTION\` after the old rows were deleted. The delete must roll back, and ops get one email.
+- PostgreSQL cannot be reached: the Database connector raises \`DB:CONNECTIVITY\`. Ops get one email.
+
 **Design the flow(s):** reading, parsing, chunking, writing, transactional consistency, and the things that would accidentally break streaming.
 `,
   answerTemplate: `## Reading the file

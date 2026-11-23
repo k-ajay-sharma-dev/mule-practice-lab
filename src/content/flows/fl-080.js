@@ -280,6 +280,17 @@ The mailbox has a small quota and must not fill up. A previous developer copied 
 - The tracking system has maintenance windows of up to one hour and PostgreSQL has short restarts. Neither may lose an email.
 - Couriers sometimes send the same email twice. A duplicate must not create a second tracking event.
 
+**What each system sends back**
+- The POP3 listener gives one email per flow run. The text is in \`payload.body\`; the subject, sender list and headers are in \`attributes\`: \`attributes.subject\`, \`attributes.fromAddresses[0]\`, \`attributes.headers["Message-ID"]\` (for example \`<c7712093.1@rhone-couriers.example>\`).
+- The File listener on \`/data/mail-spool\` gives the file content as \`payload\` (JSON text, read it with \`read(payload, "application/json")\`) and its path in \`attributes.path\`.
+- A Database Select returns a list of rows with the lower case PostgreSQL column names, for example \`[{ "message_id": "<c7712093.1@rhone-couriers.example>", "subject": "Status 7712093", "body": "AWB: 7712093\\nSTATUS: DELIVERED\\nLOCATION: LYON", "attempts": 0 }]\`. An insert with \`ON CONFLICT (message_id) DO NOTHING\` returns \`{ affectedRows: 0 }\` for a duplicate, without an error.
+- The tracking system answers **202** with \`{ "accepted": true }\`.
+
+**What failures look like**
+- PostgreSQL restarts during intake: the insert raises \`DB:CONNECTIVITY\`. The email is already gone from the server, so write it to \`/data/mail-spool\` and end without error.
+- PostgreSQL is still down when a spool file is reloaded: \`DB:CONNECTIVITY\` again. Keep the spool file.
+- Tracking is in maintenance: **503** with \`{ "message": "Maintenance window" }\`, raised as \`HTTP:SERVICE_UNAVAILABLE\`. Leave the row \`PENDING\`, add one to \`attempts\` and go on with the next row.
+
 **Design the flows.** Explain why the IMAP approach is not available, and how deleting on retrieval changes the failure design.
 `,
   answerTemplate: `## What POP3 cannot do

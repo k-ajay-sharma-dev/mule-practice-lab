@@ -109,6 +109,12 @@ An HR system drops a staff list at \`/data/hr/in/employees.csv\` every night. Th
 
 The original file stays where it is.
 
+**What each system sends back**
+- File Read puts the file content in the payload, for example \`employeeId,name,department\` followed by one line per employee. The file name and size are in \`attributes\`.
+
+**What failures look like**
+- The staff list has not arrived: File Read fails because the path does not exist, and the flow stops with \`FILE:ILLEGAL_PATH\`. The write does not run, so yesterday's copy stays. No handler is needed for this problem.
+
 **Design the flow.**
 `,
   answerTemplate: `## When it runs

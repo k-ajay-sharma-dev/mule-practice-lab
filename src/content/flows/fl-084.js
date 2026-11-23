@@ -200,6 +200,15 @@ The clinical safety officer has one rule: **a result may be delayed, but it must
 - A result without a patient MRN or result ID will never succeed. It goes to \`LAB.RESULTS.PARKED\` for the lab's data team and must not keep returning.
 - Delivering the same result twice must not create two records in the EMR.
 
+**What each system sends back**
+- The JMS Listener gives the result JSON as \`payload\`. With MANUAL acknowledgement the id to acknowledge is \`attributes.ackId\`; keep it in a variable.
+- The EMR answers **200** with \`{ "id": "OBS-88120", "status": "final" }\`.
+
+**What failures look like**
+- The EMR is restarting: **503** with \`{ "message": "Service restarting" }\`, raised as \`HTTP:SERVICE_UNAVAILABLE\`. Do not acknowledge; recover the session so the result comes back.
+- The EMR cannot be reached: \`HTTP:CONNECTIVITY\`. Same as above.
+- A blank \`patientMrn\` or \`resultId\`: nothing raises an error by itself, so check it before the call. Park the result, acknowledge it, and never call the EMR.
+
 **Design the flow.** Walk through the acknowledgement on each path.
 `,
   answerTemplate: `## Listener and acknowledgement mode

@@ -89,6 +89,12 @@ Last Tuesday row 212 had no email. The database refused it, and the whole job st
 - Files match \`LOYALTY_MEMBERS_*.csv\`.
 - In On Complete the payload is the job result. Its fields \`successfulRecords\` and \`failedRecords\` give the two counts.
 
+**What each system sends back**
+- The SFTP listener gives the CSV content as the payload, read as \`application/csv\`, so the Batch Job splits it into one record per row. Inside a step each record is \`{ "member_id": "M-1001", "email": "ana@mail.example", "store": "0101", "points": "120" }\`, with every value as text. The full path is in \`attributes.path\` and the name in \`attributes.fileName\`.
+
+**What failures look like**
+- A row with no email: SQL Server refuses the null, and the Database Insert raises \`DB:QUERY_EXECUTION\` for that record only. The record counts as failed and the job goes on.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up the file

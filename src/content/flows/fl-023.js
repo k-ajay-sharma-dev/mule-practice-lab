@@ -237,6 +237,23 @@ Real-time sync between **SAP** (master for prices and stock) and **Shopify** (st
 - SKUs are not always clean: SAP sometimes has spaces or lower case (\`" sku-c "\`). Trim and upper-case them on both sides before comparing.
 - You may stage both extracts in the tables \`recon_sap\` and \`recon_shopify\` (\`sku\`, \`price\`, \`stock\`). Reports can be stored with \`PUT /recon-reports/{runDate}.csv\`.
 
+**What each system sends back**
+- \`GET /sap/products/count\` answers 200 with \`{ "total": 4 }\`.
+- \`GET /sap/products?page=1&size=1000\` answers 200 with text values:
+\`\`\`json
+{ "items": [ { "sku": "SKU-B", "price": "20.00", "stock": "10" }, { "sku": " sku-c ", "price": "30.00", "stock": "3" } ] }
+\`\`\`
+- \`GET /shopify/products?first=250\` answers 200 with one page; the last page has \`hasNextPage: false\` and \`endCursor: null\`:
+\`\`\`json
+{ "products": [ { "sku": "SKU-B", "price": "18.00", "inventoryQuantity": 10 } ], "pageInfo": { "hasNextPage": true, "endCursor": "cur-2" } }
+\`\`\`
+- The price fix answers 200 \`{ "updated": true }\` and the report store answers 200 \`{ "stored": true }\`. Each answer replaces the payload, so send the email before the upload or keep the CSV in a variable.
+- A Database Select answers with a list of rows whose keys are the column names or aliases in your SQL.
+
+**What failures look like**
+- SAP cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Send no report and change no price; send one alert email.
+- Shopify over its rate limit answers 429, which raises \`HTTP:TOO_MANY_REQUESTS\`. Back off and try again.
+
 **Design the flow(s):** extraction, comparison, report, auto-fix with a safety cap, and scaling.
 `,
   answerTemplate: `## Trigger and extraction

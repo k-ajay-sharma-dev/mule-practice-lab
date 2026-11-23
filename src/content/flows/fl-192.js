@@ -137,6 +137,10 @@ Folders \`/reads/done\`, \`/reads/duplicates\` and \`/reads/corrections\` exist.
 - Each load is a **Try** with the transactional action \`ALWAYS_BEGIN\`. A correction deletes the rows with that \`file_name\` first.
 - Log a repeat at WARN. Files keep their names when moved.
 
+**What each system sends back**
+- The listener reads a \`.csv\` file as CSV: the payload is a list of rows such as \`{ "meter_id": "MTR-30011", "read_at": "2026-11-12T23:59", "reading": "48812" }\`, every value as text. The name is in \`attributes.fileName\` and the path in \`attributes.path\`.
+- The Select on \`received_files\` gives \`[ { "file_name": "READS_PEN_20261112.csv", "file_size": 90 } ]\` for a name seen before, and \`[]\` for a new name.
+
 **Design the flow.**
 `,
   answerTemplate: `## Knowing a file by its name

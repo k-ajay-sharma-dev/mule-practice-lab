@@ -147,6 +147,15 @@ Oracle tables:
 - Check the address with the Validation module's Is Email. A bad one raises \`VALIDATION:INVALID_EMAIL\`.
 - \`email_suppression\` holds addresses in lower case. Put the request on the DLQ as it arrived.
 
+**What each system sends back**
+- **Database Select** on \`email_log\`: \`[ { "request_id": "ER-90001" } ]\` when the request was sent before, or an empty list.
+- **Database Select** on \`email_suppression\`: \`[ { "address": "left.company@mail.example" } ]\` for a suppressed address, or an empty list.
+- **Parse Template** returns the HTML body as the payload, with \`#[...]\` replaced: \`<p>Your order SO-77120 will arrive on Thursday 08:00 to 10:00.</p>\`.
+
+**What failures look like**
+- A bad address such as \`r.hale at mail\`: Is Email raises \`VALIDATION:INVALID_EMAIL\`. Catch it, log \`REJECTED\`, and the receive commits.
+- The relay is busy: Email Send raises an \`EMAIL\` error. Let it reach the listener so the transaction rolls back and the broker redelivers.
+
 **Design the flow.**
 `,
   answerTemplate: `## One service for every app

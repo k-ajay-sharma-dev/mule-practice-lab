@@ -108,6 +108,15 @@ A first draft built the call by joining the store ID into the SQL text. Security
 - Name the parameters as the procedure does: \`p_store_id\` in, \`p_status\` and \`p_orders\` out. The result holds each output under its name, and the cursor is a list of rows with upper case column names.
 - Put the status code in the variable \`httpStatus\`. The listener answers with it, 200 when it is not set.
 
+**What the procedure sends back**
+
+For store \`0101\`:
+\`\`\`json
+{ "p_status": "OK",
+  "p_orders": [ { "ORDER_ID": "SO-88102", "CREATED_AT": "2026-11-12T09:14:00", "LINE_COUNT": 3, "STATUS": "OPEN" } ] }
+\`\`\`
+For store \`0102\` it is \`{ "p_status": "OK", "p_orders": [] }\`, and for an unknown store \`{ "p_status": "NO_SUCH_STORE", "p_orders": [] }\`. Keep the result in a target variable, so the store ID stays at hand.
+
 **Design the flow.**
 `,
   answerTemplate: `## Calling the procedure

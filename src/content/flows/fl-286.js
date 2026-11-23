@@ -103,6 +103,11 @@ The mailbox also gets out of office replies and the odd message from a person.
 - The payload is the mail's body as text. A mail with no \`Final-Recipient\` line is not a bounce.
 - Match the contact on \`email\`. Move a mail with **Email Move** and its \`attributes.id\`. The folders already exist.
 
+**What each system sends back**
+- The IMAP listener gives one message per mail: the body text as \`payload\`, and \`attributes.id\` (such as \`M-901\`), \`attributes.subject\` and \`attributes.fromAddresses\` (here \`mailer-daemon@relay.brindle.example\`).
+- An out of office reply is plain text with no \`Final-Recipient\` or \`Status\` line.
+- The Database Update gives \`affectedRows\`, 0 when no contact has that address.
+
 **Design the flow.**
 `,
   answerTemplate: `## Finding the failed address

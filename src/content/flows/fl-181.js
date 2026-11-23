@@ -102,6 +102,7 @@ The planning platform takes the file from its SFTP server, folder \`/inbound/onh
 
 **Facts**
 - The control file holds only the number, such as \`3\`, as text.
+- The listener gives the control file's content as the payload, its name in \`attributes.fileName\` and its full path in \`attributes.path\`.
 - The data file has the control file's name with \`.csv\` in place of \`.ctl\`. Read it with File Read and the output type \`application/csv\`, so the payload is a list of rows without the header.
 - Files keep their names when moved. Log the mismatch at ERROR.
 

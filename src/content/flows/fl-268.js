@@ -105,6 +105,13 @@ The DBA team offers two SQL Server tables: \`dbo.sales_line_staging\` (\`file_na
 - A rerun replaces: delete the file's staging rows before the job, and its totals in On Complete before you build them again.
 - Build the totals with \`INSERT INTO dbo.store_day_totals ... SELECT ... GROUP BY\`.
 
+**What each system sends back**
+- The SFTP listener gives the CSV as the payload, with the name in \`attributes.fileName\` (\`STORE_SALES_20261113.csv\`). The Batch Job gets one record per line, keyed by the header and with string values:
+\`\`\`json
+{ "sale_id": "S-1", "store": "0412", "sku": "4410021", "units": "2", "amount": "3.70" }
+\`\`\`
+- The totals select gives a list of rows with the columns as named: \`[ { "store": "0412", "units": 6, "amount": 7.5 } ]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why groupBy fails here

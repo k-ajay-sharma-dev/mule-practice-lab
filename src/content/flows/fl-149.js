@@ -126,6 +126,14 @@ You may use a PostgreSQL table \`pending_prices\` (\`sku\` primary key, \`price\
 - \`changed_at\` holds the change's \`changedAt\`. \`version\` starts at 1 for a new row and goes up by one each time the row's price is replaced.
 - PostgreSQL can upsert with \`INSERT ... ON CONFLICT (sku) DO UPDATE ... WHERE ...\`.
 
+**What each system sends back**
+- The Anypoint MQ subscriber gives the change JSON above as the payload.
+- A Database Select on \`pending_prices\` answers a list of rows with the column names as written, for example \`[ { "sku": "KB-210", "price": 47.99, "version": 3 } ]\`.
+- The marketplace accepts a price with **200** and \`{ "updated": true }\`.
+
+**What failures look like**
+- The marketplace answers **503** \`{ "message": "Try later" }\` for one SKU: the HTTP Request raises **HTTP:SERVICE_UNAVAILABLE**. Catch it for that SKU only, log a WARN, keep its row, and go on with the next SKU.
+
 **Design the flows.**
 `,
   answerTemplate: `## Taking in changes

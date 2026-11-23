@@ -228,6 +228,14 @@ The payment provider supports the same idea: a charge with a \`requestId\` it ha
 **How the status gets out:** assume the listener's response and error response both use \`#[vars.httpStatus default 200]\` for the status and \`#[payload]\` for the body.
 
 **Design the flow.**
+
+**What each system sends back**
+- Object Store **Retrieve** puts the stored object in the payload, for example \`{ "state": "DONE", "request": { "cardId": "TC-88104", "amount": 20, "currency": "EUR" }, "status": 201, "response": { ... } }\`. For a key that is not there it raises \`OS:KEY_NOT_FOUND\`, unless you give it a default value such as \`#[null]\`.
+- The provider answers status 200 with \`{ "chargeId": "CH-40917", "status": "CAPTURED", "amount": 20, "currency": "EUR" }\`.
+
+**What failures look like**
+- The provider takes longer than the 10 second timeout: the HTTP Request raises \`HTTP:TIMEOUT\`. It cannot be reached: \`HTTP:CONNECTIVITY\`. For both, remove the PROCESSING marker and answer **503**, so a retry with the same key can charge.
+- No Idempotency-Key header: refuse it with **400** before anything is stored or charged.
 `,
   answerTemplate: `## Why riders were charged twice
 

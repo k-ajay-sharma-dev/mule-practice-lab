@@ -148,6 +148,13 @@ PostgreSQL tables you can use:
 - The subscriber uses the default acknowledgement mode: a message is acknowledged when the flow ends without an error, and goes back to the queue when it ends with one.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Select** answers a list of rows named as the SQL names them. \`SELECT COUNT(*) AS delivered ...\` answers \`[ { "delivered": 3 } ]\`, so read \`[0].delivered\`. Store it in a target variable, so the payload still holds the scan.
+
+**What failures look like**
+- A repeat scan, or an order already announced: the insert raises \`DB:QUERY_EXECUTION\`. Catch it and end without an error, so the message is acknowledged.
+- The \`order-delivered\` queue cannot be reached: the Anypoint MQ Publish raises an error. Let it end the flow, after rolling back the \`order_notices\` row, so the scan goes back to the queue.
 `,
   answerTemplate: `## Keeping each parcel once
 

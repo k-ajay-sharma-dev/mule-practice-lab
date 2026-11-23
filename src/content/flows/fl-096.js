@@ -192,6 +192,17 @@ A platform team wants a **weekly traffic report** for four environments, emailed
 - The Metrics API answers \`{ data: [...] }\`. Its exact path and request body are on its Exchange page, so any path will do here.
 - The report goes by email to \`capacity@example.com\`. It has one row per environment with the environment ID and a status, \`OK\` or \`NO_DATA_CHECK_SCOPES\`.
 
+**What each system sends back**
+- The token endpoint answers **200** with \`{ "access_token": "f3c1d9a2-7b44-4e0e-9d61-2a5c8e7b1f00", "token_type": "bearer", "expires_in": 3600 }\`.
+- The Metrics API answers **200** with:
+\`\`\`json
+{ "data": [ { "metric": "mulesoft.app.inbound", "values": [ { "timestamp": "2026-11-09T00:00:00Z", "count": 182340 } ] } ] }
+\`\`\`
+
+**What failures look like**
+- Missing scopes for an environment: the Metrics API still answers **200**, with \`{ "data": [] }\`. No Mule error is raised, so the flow must check the list itself.
+- The connected app is refused: the token endpoint answers **401** \`{ "message": "Invalid client credentials" }\` and the HTTP Request raises \`HTTP:UNAUTHORIZED\`. The run stops and no metrics are asked for.
+
 **Design the flow.** Say where each value is kept, given that every HTTP call replaces the payload.
 `,
   answerTemplate: `## Trigger and token

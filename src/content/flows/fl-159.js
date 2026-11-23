@@ -108,6 +108,18 @@ The old version sometimes sent a claim on and then failed on the audit insert. T
 - Write the audit row with \`stage\` \`ENRICHED\`.
 - The message on \`CLAIMS.REVIEW\` is the claim with a \`reviewReason\` added.
 
+**What each system sends back**
+- The JMS listener gives the claim as the payload: \`{ "claimId": "CL-310045", "policyNo": "HP-220871", "lossDate": "2026-11-10", "type": "ESCAPE_OF_WATER" }\`.
+- The policy service answers **200** with:
+\`\`\`json
+{ "policyNo": "HP-220871", "holder": "R. Okafor", "excess": 250, "cover": "BUILDINGS_AND_CONTENTS" }
+\`\`\`
+The HTTP Request replaces the payload with this answer, so keep the claim in a variable first.
+
+**What failures look like**
+- **404** \`{ "message": "No such policy" }\`: **HTTP:NOT_FOUND**. Send the claim to \`CLAIMS.REVIEW\` and end without error, so the transaction commits.
+- **503**: **HTTP:SERVICE_UNAVAILABLE**. The audit insert losing its connection: **DB:CONNECTIVITY**. Leave both unhandled, so the transaction rolls back.
+
 **Design the flow.**
 `,
   answerTemplate: `## The transaction

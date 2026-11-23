@@ -233,6 +233,20 @@ Today the team fixes this by resetting the group's offsets with command line too
 - A record is JSON: \`{ postingId, account, amount, postedAt }\`.
 - \`ledger_posting\` has the columns \`posting_id\`, \`account\`, \`amount\` and \`posted_at\`.
 
+**What each system sends back**
+- Kafka Consume returns one record per call. The value is JSON text in \`payload\`, and the position is in \`attributes\`:
+\`\`\`json
+{
+  "payload": "{ \\"postingId\\": \\"PST-77120002\\", \\"account\\": \\"GB-2210-0046\\", \\"amount\\": 75.00, \\"postedAt\\": \\"2026-11-10T14:02:12Z\\" }",
+  "attributes": { "topic": "ledger.postings.v1", "partition": 4, "offset": 918202 }
+}
+\`\`\`
+- Read the value with \`read(payload, "application/json")\`. An insert with \`ON CONFLICT (posting_id) DO NOTHING\` leaves a posting that is already there unchanged, without an error.
+
+**What failures look like**
+- No record arrives within the Consume timeout: \`KAFKA:TIMEOUT\`. Stop the replay there and still answer **200** with what was done so far, even when nothing was written.
+- A range of 2,000 records or more: refuse it before Kafka is touched (a Validation raises \`VALIDATION:INVALID_BOOLEAN\`), for example with **400**.
+
 **Design the flow.** Say which consumer configuration the operations use and how acknowledgement works here.
 `,
   answerTemplate: `## Keeping the live consumer out of it

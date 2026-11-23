@@ -84,7 +84,10 @@ Every job at Fenwick writes a row in \`job_log\` (\`job_id\`, \`job_name\`, \`st
 **Facts**
 - Make the \`job_id\` with \`uuid()\` at the start of the run.
 - Work out the cut off once as \`yyyy-MM-dd\` text (today minus 30 days) and pass it as a parameter.
-- The Database Delete result has \`affectedRows\`.
+- The Database Delete result has \`affectedRows\`, for example \`{ "affectedRows": 2 }\`. Keep it in a target variable.
+
+**What failures look like**
+- Oracle refuses the delete: it raises \`DB:QUERY_EXECUTION\` with \`ORA-00054: resource busy\` in \`error.description\`. The rows stay, and the handler logs an ERROR and sets the job row to \`FAILED\`.
 
 **Design the flow.**
 `,

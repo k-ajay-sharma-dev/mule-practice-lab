@@ -195,6 +195,19 @@ A retailer keeps its product data in a **PIM**. Every night at 01:00 the PIM dro
 - The export is a JSON array of \`{ id, name, sku, status }\`. \`id\` goes to \`PIM_Product_Id__c\`, \`name\` to \`Name\`, \`sku\` to \`ProductCode\`, and \`IsActive\` is true when \`status\` is \`ACTIVE\`.
 - The PIM support mailbox is \`pim-support@example.com\`.
 
+**What each system sends back**
+- SFTP Read gives the file content as the payload.
+- Create Job Bulk Api V2 answers with the job: \`{ "id": "7505g00000Xq1AbAAJ", "object": "Product2", "operation": "upsert", "state": "UploadComplete" }\`. Keep \`payload.id\`.
+- Get Job State Bulk Api V2 answers \`{ "id": "7505g00000Xq1AbAAJ", "state": "JobComplete", "numberRecordsProcessed": 3, "numberRecordsFailed": 1 }\`. While Salesforce works, \`state\` is \`InProgress\`.
+- Retrieve Job Failed Results Bulk V2 gives one row per rejected record, with \`sf__Id\`, \`sf__Error\` and the columns you sent:
+\`\`\`json
+[ { "sf__Id": "", "sf__Error": "REQUIRED_FIELD_MISSING:Required fields are missing: [Family]", "PIM_Product_Id__c": "PIM-100203" } ]
+\`\`\`
+- Retrieve Job Unprocessed Results Bulk V2 gives the rows as you sent them, for example \`[ { "PIM_Product_Id__c": "PIM-100299", "Name": "Hammer", "ProductCode": "HM-1", "IsActive": "true" } ]\`.
+
+**What failures look like**
+- A failed job is not a Mule error. Get Job State answers \`state: "Failed"\` (or \`Aborted\`) with an \`errorMessage\` such as \`InvalidBatch: Field name not found\`. Send one alert and clear the stored job ID.
+
 **Design the flows.** Name the flow that starts the load \`product-load-submit\` and the flow that watches the job \`product-load-monitor\`. Say which job states you handle and how you size and schedule the polling.
 `,
   answerTemplate: `## Submitting the job

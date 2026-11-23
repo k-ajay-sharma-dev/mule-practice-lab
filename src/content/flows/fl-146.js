@@ -148,6 +148,13 @@ Today the flow reads \`seats_left\`, checks it in a Choice, then writes \`seats_
 - Make \`reservation_id\` a new UUID in the flow.
 - A database that fails raises **DB:CONNECTIVITY**. Log it and let the error propagate, so the caller gets an error answer.
 
+**What each system sends back**
+- A Database **Update** answers \`{ "affectedRows": n }\`: 1 when the row matched its \`WHERE\`, 0 when it did not.
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "event_id": "EV-301" } ]\`. An unknown event gives an empty list \`[]\`.
+
+**What failures look like**
+- The \`INSERT INTO reservations\` loses its connection: the Database Insert raises **DB:CONNECTIVITY**. Any update already made in the same transaction is rolled back.
+
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.
 
 **Design the flow.**

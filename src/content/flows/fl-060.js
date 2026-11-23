@@ -278,6 +278,15 @@ Your integration must load every basket into **Oracle** staging tables (\`POS_SA
 - Inserting a key that already exists fails with \`DB:QUERY_EXECUTION\` and \`ORA-00001\` in the description. Other Oracle errors raise the same Mule error type.
 
 **Design the flow(s):** which destination you read, acknowledgement mode, how header and lines are written, duplicates, and failure behaviour.
+
+**What each system sends back**
+- The JMS Listener gives the basket JSON as \`payload\`. With MANUAL acknowledgement the id to acknowledge is \`attributes.ackId\`; keep it in a variable before the payload changes.
+- Database Insert returns \`{ affectedRows: 1 }\`. Bulk Insert takes its list of rows from \`payload\` and returns one count per row.
+
+**What failures look like**
+- A redelivered basket: the header insert fails with \`DB:QUERY_EXECUTION\` and \`ORA-00001\`. The basket is already staged, so the flow acknowledges it and writes nothing.
+- A line with no SKU: the line insert fails with \`DB:QUERY_EXECUTION\` (not null). The header rolls back and the message is not acknowledged.
+- Oracle is in maintenance: the insert raises \`DB:CONNECTIVITY\`. Nothing is written and the message is not acknowledged, so the broker delivers it again later.
 `,
   answerTemplate: `## Destination (virtual topic consumer queue)
 

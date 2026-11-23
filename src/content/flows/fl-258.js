@@ -205,6 +205,16 @@ What went wrong this quarter:
 - Status is \`COMPLETED\` when nothing failed, \`FAILED\` when nothing loaded, else \`COMPLETED_WITH_REJECTS\`.
 - Release the lock on failure in an On Error Propagate, so the run still ends with the original error.
 
+**What each system sends back**
+- The lock update returns \`{ "affectedRows": 1 }\` when this run got the lock, and \`{ "affectedRows": 0 }\` when it is held.
+- **SFTP List** returns a list of messages, one per file, each with its own \`attributes\`. The first file's path is \`payload[0].attributes.path\` (\`/tariffs/in/TARIFF_20261113.csv\`). No file gives an empty list.
+- \`dbo.usp_job_start\` returns \`{ "job_id": 611 }\` in the tests. With Target \`job\`, read it as \`vars.job.job_id\`.
+- **SFTP Read** puts the file content in the payload. Set its output type to \`application/csv\`, so the Batch Job gets one record per row, such as \`{ "lane": "LDS-BRS", "weight_band": "", "rate": "118.50" }\`, every value as text.
+
+**What failures look like**
+- A rate with no weight band: a Validation **Is Not Blank String** on \`payload.weight_band\` raises \`VALIDATION:BLANK_STRING\` for that record only. It goes on to the ONLY_FAILURES step.
+- The job start procedure fails: \`DB:QUERY_EXECUTION\`. The On Error Propagate frees the lock, and the run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## The lock

@@ -129,6 +129,15 @@ The first version split the list into two lists with DataWeave filters and ran t
 - Raise \`APP:UNKNOWN_RECORD_TYPE\` for a type this hub does not take.
 - \`loaded\` and \`failed\` are the job's successful and failed record counts.
 
+**What each system sends back**
+- The JMS listener gives the notice \`{ "messageId": "MD-40912", "blobName": "masterdata/MD-40912.json" }\` as the payload.
+- Download Blob replaces the payload with the JSON array of records shown above, so keep \`messageId\` in a variable first.
+- In On Complete the payload is the job result, with \`payload.successfulRecords\` and \`payload.failedRecords\`.
+
+**What failures look like**
+- A 12 digit GTIN or a \`PRICE\` record fails in its step, and the record reaches the ONLY_FAILURES step.
+- Oracle refuses the barcodes: the Bulk Insert raises \`DB:QUERY_EXECUTION\` and every barcode in that group fails. The items still load, so the ACK says \`PARTIAL\` with 2 loaded and 2 failed.
+
 **Design the flow.**
 `,
   answerTemplate: `## One job, a step per type

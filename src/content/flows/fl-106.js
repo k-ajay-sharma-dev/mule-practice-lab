@@ -116,6 +116,10 @@ The carrier API goes down now and then. The shop does not want checkout to break
 - If the carrier cannot be reached or does not answer in time, log a warning and return \`{ "days": 5, "source": "standard" }\`.
 - The caller must get a normal success response in both cases.
 
+**What failures look like**
+- The carrier refuses the connection: the HTTP Request raises \`HTTP:CONNECTIVITY\`.
+- The carrier takes longer than the 2 second response timeout: the HTTP Request raises \`HTTP:TIMEOUT\`.
+
 An **error handler** is a set of steps that runs when a step in the flow fails. **On Error Continue** is the handler that treats the error as dealt with, so the caller sees a success.
 
 **Design the flow.**

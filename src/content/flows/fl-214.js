@@ -104,6 +104,12 @@ The first version used a plain bulk **INSERT**. It failed on the first row with 
 - Run one MERGE statement for every row with a **Database Bulk Update**, inside a **Try** with the transactional action \`ALWAYS_BEGIN\`.
 - Files keep their names when moved.
 
+**What the listener gives you**
+- The payload is the CSV as a list of rows, every value as text: \`{ "supplier_id": "SUP-HAYDEN", "sku": "SOCK-WOOL-L", "unit_cost": "", "lead_days": "14" }\`. The name is in \`attributes.fileName\`, the path in \`attributes.path\`.
+
+**What failures look like**
+- A row with no cost: the MERGE raises \`DB:QUERY_EXECUTION\` (the NOT NULL column refuses null). The Try rolls back every row of the file, and an On Error Propagate moves the file to \`/costs/error\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the insert failed

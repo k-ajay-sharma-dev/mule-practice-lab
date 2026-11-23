@@ -194,6 +194,16 @@ An **Async scope** runs its steps on another thread while the flow carries on. E
 - Signals that still fail are kept somewhere a person can replay them: the Oracle table \`fraud_signal_parking\`, with the columns \`payment_id\`, \`signal_json\` and \`parked_at\`.
 
 **Design the flows.**
+
+**What each system sends back**
+- The PSP answers status 200 with \`{ "paymentId": "PAY-7731902", "cardHash": "c9f1e2a7", "amount": 64.5, "currency": "EUR", "status": "AUTHORISED" }\`.
+- The fraud service answers **202** with \`{ "received": true }\`. Nothing in it is needed.
+
+**What failures look like**
+- The fraud service is busy: it answers **503**, which the HTTP Request raises as \`HTTP:SERVICE_UNAVAILABLE\`.
+- The fraud service is down: the HTTP Request raises \`HTTP:CONNECTIVITY\`. It is slow: \`HTTP:TIMEOUT\` after the 3 second response timeout.
+- Until Successful raises \`MULE:RETRY_EXHAUSTED\` when its retries run out. That is the point to park the signal in Oracle.
+- None of these errors may reach the caller: the caller still gets **200** with \`{ paymentId, status }\`.
 `,
   answerTemplate: `## What went wrong
 

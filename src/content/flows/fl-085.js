@@ -176,6 +176,10 @@ The current design sends everything with default settings. When the Frankfurt di
 - The Frankfurt gate display app takes gate changes and position updates for hub \`FRA\` at \`POST /displays/fra/events\`.
 - The alert app emails each safety notice to \`duty-managers@company.example\`.
 
+**What each system sends back**
+- A JMS Listener on the topic gives the event JSON as \`payload\`; the two properties are in the message attributes, and a selector reads them by name.
+- The Frankfurt display app answers **204** with no body.
+
 **Requirements**
 - Publish once. Each application receives its own copy.
 - Each app sees only the kinds and hubs it needs.

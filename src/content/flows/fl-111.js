@@ -151,6 +151,14 @@ A **Try scope** is a box around one or more steps with its own error handlers. A
 - The \`orders\` table has the columns \`order_id\`, \`customer_id\` and \`total\`.
 - The loyalty call is \`POST /loyalty/points\`. Wait at most 2 seconds for it.
 
+**What each system sends back**
+- Database Insert replaces the payload with the insert result (the number of rows changed), not the order.
+- The loyalty service answers **200** with \`{ "customerId": "C-4417", "pointsAdded": 90, "balance": 1340 }\`. The flow does not need it.
+
+**What failures look like**
+- The loyalty service refuses the connection: \`HTTP:CONNECTIVITY\`. It answers **500** \`{ "message": "Points ledger unavailable" }\`: \`HTTP:INTERNAL_SERVER_ERROR\`. Neither may fail the order.
+- The database is down: the insert raises \`DB:CONNECTIVITY\`. The caller must get an error, not \`CONFIRMED\`, and no points are added.
+
 **Design the flow.**
 `,
   answerTemplate: `## Saving the order

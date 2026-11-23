@@ -132,6 +132,12 @@ line 3|MISSING_VALUE
 - An unreachable SQL Server raises \`DB:CONNECTIVITY\`; let that error end the run. A refused insert raises \`DB:QUERY_EXECUTION\`.
 - A \`FAILED\` result has the lines \`file=...\`, \`status=FAILED\` and \`reason=...\`.
 
+**What each system sends back**
+- The File listener gives the plan as a list of rows keyed by the header, with string values, and the file details in \`attributes.fileName\` and \`attributes.path\`. A missing quantity is an empty string:
+\`\`\`json
+[ { "store": "0204", "sku": "MILK-2L-SEMI", "qty": "40" }, { "store": "0311", "sku": "MILK-2L-SEMI", "qty": "" } ]
+\`\`\`
+
 **Design the flow.**
 `,
   answerTemplate: `## Good and bad lines

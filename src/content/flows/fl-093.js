@@ -204,6 +204,11 @@ A freight marketplace pushes shipment updates to your **Shipment Callbacks API**
 - The two keys are the secure properties \`partner.callback.key.current\` and \`partner.callback.key.previous\`.
 - \`t\` is in unix seconds. The key is used as UTF-8 text.
 - Publish the partner's JSON unchanged, for example \`{ eventId, shipmentId, status, occurredAt }\`.
+- The exact bytes the partner signed are in \`payload.^raw\`. The header is read as \`attributes.headers."x-partner-signature"\`, because the Listener gives header names in lower case.
+
+**What failures look like**
+- A wrong signature or a timestamp outside the window: an **Is true** validator raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **401** with a body that does not say which check failed.
+- The same signed request again: the Idempotent Message Validator raises \`MULE:DUPLICATE_MESSAGE\`. Answer **200** and publish nothing.
 
 **Design the flow.** Say what you sign, why, and how a rotation runs from start to finish.
 `,

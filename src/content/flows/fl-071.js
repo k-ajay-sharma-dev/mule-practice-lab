@@ -193,6 +193,18 @@ The prices must be loaded into **SQL Server** (\`dbo.PARTNER_PRICE\`) for the pr
 - The DBA team gives you a staging table \`dbo.PARTNER_PRICE_STAGING\` (\`SOURCE_FILE\`, \`SKU\`, \`PRICE\`, \`CURRENCY\`, \`VALID_FROM\`) and the procedure \`dbo.usp_ApplyPartnerPrices(fileName)\`, which merges one file's staging rows into \`dbo.PARTNER_PRICE\`. The procedure does not commit.
 
 **Design the flow.** Also explain what plain FTP means for security and networking.
+
+**What each system sends back**
+- The FTP Listener gives the file content as \`payload\`, and the file name and path in \`attributes.fileName\` and \`attributes.path\`. Read as CSV with \`;\` as the separator, every value is text:
+\`\`\`json
+[ { "ITEM_NO": "400-1187", "UNIT_PRICE": "12.40", "CURR": "EUR", "VALID_FROM": "14.11.2026" } ]
+\`\`\`
+- Database Delete returns \`{ affectedRows: n }\`, which replaces the payload unless you set a target. The procedure has no output parameters.
+
+**What failures look like**
+- A price such as \`n/a\`: \`as Number\` in DataWeave raises \`MULE:EXPRESSION\`. Nothing is loaded and the file goes to \`/error\`.
+- The apply procedure fails: \`DB:QUERY_EXECUTION\`. The staging rows roll back with it and the file goes to \`/error\`.
+- SQL Server is down: \`DB:CONNECTIVITY\`. Nothing is loaded and the file goes to \`/error\`.
 `,
   answerTemplate: `## Picking up the file (listener settings)
 

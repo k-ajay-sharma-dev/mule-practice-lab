@@ -91,6 +91,13 @@ Mule posts each new file to the journey planner: \`POST /journey-planner/v1/time
 - Pick and sort the new files in one Transform after the List, on \`attributes.timestamp\`.
 - A failed post must fail the run. Do not catch it.
 
+**What each system sends back**
+- Object Store Retrieve puts the stored text in the payload, such as \`"2026-11-12T18:00:00"\`, or your default when nothing is stored.
+- The journey planner answers **201** with \`{ "status": "LOADED" }\`. The flow does not need that body.
+
+**What failures look like**
+- A busy journey planner answers **503** with \`{ "message": "busy" }\`, which the HTTP Request raises as **HTTP:SERVICE_UNAVAILABLE**. The run ends with that error and the watermark stays on the last file posted.
+
 **Design the flow.** Say why moving files to a processed folder is not an option, and what replaces it.
 `,
   answerTemplate: `## Why a watermark

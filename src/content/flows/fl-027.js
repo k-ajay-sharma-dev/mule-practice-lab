@@ -225,6 +225,18 @@ The web shop needs a small **Product Lookup API** in front of the product databa
 - Unknown SKU → **404** with a JSON error body. Bad parameters → **400**, without touching the database.
 - Expected load is ~30 requests/s, p95 under 300 ms.
 
+**What the database sends back**
+
+A Database Select answers with a list of rows. Oracle gives unquoted column names in upper case, so read \`$.SKU\` and \`$.NAME\`, not \`$.sku\`:
+\`\`\`json
+[ { "SKU": "SHO-10001", "NAME": "Trail Shoe", "PRICE": 89.9, "CATEGORY": "shoes", "STOCK": 14 } ]
+\`\`\`
+An unknown SKU gives an empty list \`[]\`, not an error.
+
+**What failures look like**
+- A Validate is-true step that fails raises \`VALIDATION:INVALID_BOOLEAN\`; a matches-regex step raises \`VALIDATION:MISMATCH\`. Answer **400**.
+- Set the status in the flow or in an On Error Propagate with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 **Design the flow(s):**
 - Where do query parameters and URI parameters come from in Mule 4, and how do you validate them?
 - How does the flow decide between a 200 and a 404 response?

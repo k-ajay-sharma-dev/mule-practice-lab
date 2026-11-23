@@ -127,6 +127,11 @@ SQL Server holds \`expected_stores\` (\`store_id\`, \`active\`) and \`sales_runs
 - Insert into \`sales_runs\` the date as \`yyyyMMdd\` text (such as \`20261112\`), \`store_count\` = the number of store files, and \`status\` \`SENT\`.
 - Log the missing stores at INFO, with their numbers in the message. Log an already sent day at WARN.
 
+**What each system sends back**
+- File List gives a list with one item a file. Each item has \`payload\` (the content as text) and \`attributes\` with \`fileName\` (such as \`STORE_0101_20261112.csv\`) and \`path\`. No files gives an empty list.
+- The Select on \`expected_stores\` gives \`[ { "store_id": "0101" }, { "store_id": "0102" }, { "store_id": "0103" } ]\`.
+- The Select on \`sales_runs\` gives \`[ { "business_date": "20261112" } ]\` for a day already sent, and \`[]\` otherwise.
+
 **Design the flow.**
 `,
   answerTemplate: `## Is every store in

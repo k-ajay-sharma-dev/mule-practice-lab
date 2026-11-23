@@ -192,6 +192,17 @@ A **Quote API** (\`POST /quotes\`) receives an order with up to **300 lines**. T
 - Target response time: **under 10 seconds**. One hung Pricing call must not hold the whole quote open.
 - If one Pricing call fails, still return the quote: that line gets \`price: null\` and the total covers the priced lines.
 
+**What the Pricing API sends back**
+
+\`GET /prices/TENT-2P\` answers 200 with:
+\`\`\`json
+{ "sku": "TENT-2P", "price": 120, "currency": "EUR" }
+\`\`\`
+
+**What failures look like**
+- When the Pricing API cannot be reached, the HTTP Request raises \`HTTP:CONNECTIVITY\`. When it does not answer within the response timeout, it raises \`HTTP:TIMEOUT\`. Catch these for the one line so the rest of the quote still comes back.
+- Inside a Parallel For Each, an error that is not caught in its route ends the whole scope with \`MULE:COMPOSITE_ROUTING\` after all routes finish.
+
 **What is wrong now**
 
 The current implementation uses a **For Each** and sets \`vars.total\` inside the loop. The developer is surprised that:

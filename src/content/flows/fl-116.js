@@ -190,6 +190,17 @@ The first version used For Each. It took over 8 minutes, so runs overlapped. A d
 - One slow or failed store must not stop the others.
 - Set the status of the rows that were sent to \`SENT\`, and leave failed rows as \`PENDING\` for the next run.
 
+**What each system sends back**
+- Database Select answers with a list of rows, with the column names as in the SQL: \`[ { "update_id": "U-501", "store_id": "S-101", "slots_json": "{\\"date\\":\\"2026-11-14\\",\\"slots\\":[\\"09:00\\",\\"11:00\\"]}" } ]\`.
+- A store answers the PUT with **200** and \`{ "accepted": true }\`.
+- After Parallel For Each the payload is a list with one message per item, so each item's result is at \`$.payload\`.
+
+**What failures look like**
+- A store is offline: the HTTP Request raises \`HTTP:CONNECTIVITY\`.
+- A store takes longer than the response timeout (one test waits 20 seconds): \`HTTP:TIMEOUT\`.
+- The gateway turns the call away with **503** \`{ "message": "Too many connections" }\`: \`HTTP:SERVICE_UNAVAILABLE\`.
+- In each case that row stays \`PENDING\` and the other stores still get their update. If an item's error is not caught inside the loop, Parallel For Each raises \`MULE:COMPOSITE_ROUTING\` after all items finish.
+
 **Design the flow.** What value do you choose for max concurrency, and why?
 `,
   answerTemplate: `## Trigger and selection

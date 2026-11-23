@@ -109,6 +109,13 @@ The support team reads \`dbo.job_log\` each morning. Today every row says \`COMP
 - A blank \`delivered_at\` goes in as null, so the database refuses that event.
 - In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
 
+**What each system sends back**
+- \`dbo.usp_job_start\` returns \`{ "job_id": 41 }\` in the tests. With Target \`job\`, read it as \`vars.job.job_id\`.
+- The SFTP listener gives the CSV content as the payload, so each batch record is a row such as \`{ "event_id": "E-502", "shipment": "SHP-88002", "delivered_at": "" }\`.
+
+**What failures look like**
+- An event with no delivery time: the database refuses the null, and the Database Insert raises \`DB:QUERY_EXECUTION\` for that record only. It counts in \`failedRecords\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

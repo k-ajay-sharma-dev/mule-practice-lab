@@ -222,6 +222,16 @@ You are building a **Shipping Process API**. Four separate requirements arrived 
 - **Address validation:** when both vendors fail, return the address with the field \`validated: false\` so the order team can check it later.
 - The print servers are equal. None of them is a backup for another.
 
+**What each system sends back**
+- A rate API answers 200 with \`{ "carrier": "FedEx", "price": 42.5, "days": 2 }\`.
+- A carrier shipment API answers 201 with \`{ "carrier": "FedEx", "trackingNumber": "7712 3456 7890" }\`.
+- An address vendor answers 200 with the checked address: \`{ "street": "Invalidenstrasse 116", "city": "Berlin", "postcode": "10115", "country": "DE", "validated": true }\`. Return it as it is.
+- A print server answers 200 with \`{ "printed": true, "server": 1 }\`.
+
+**What failures look like**
+- A carrier that refuses the connection makes the HTTP Request raise \`HTTP:CONNECTIVITY\`. A carrier slower than the response timeout raises \`HTTP:TIMEOUT\`. Either way the quote list shows that carrier as unavailable.
+- An address vendor answering 503 raises \`HTTP:SERVICE_UNAVAILABLE\`, and one answering 500 raises \`HTTP:INTERNAL_SERVER_ERROR\`. First Successful then tries the next route. When every route fails, First Successful raises an error of its own.
+
 **Design the flow(s):** for each requirement pick the Mule 4 router (Choice, Scatter-Gather, First Successful, Round Robin), explain why, and describe what the payload looks like after the router and how errors behave.
 `,
   answerTemplate: `## 1. Carrier selection

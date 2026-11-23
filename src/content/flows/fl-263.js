@@ -126,6 +126,17 @@ Twice the platform's upload was cut off: part 9 arrived with half its rows, and 
 - Reading a part that is not there raises \`FTP:ILLEGAL_PATH\`. Catch it so the other parts are still checked.
 - Each email line names the part. A part that is not there gets the word \`missing\`.
 
+**What each system sends back**
+- The FTP listener gives the control file text as the payload, and its full path in \`attributes.path\` (file name in \`attributes.fileName\`).
+- An FTP Read of a part with output type \`application/csv\` gives a list of rows keyed by the header, so \`sizeOf(payload)\` is the row count:
+\`\`\`json
+[ { "store": "0101", "sku": "TENT-2P-OLV", "week": "2026W47", "qty": "6" } ]
+\`\`\`
+
+**What failures look like**
+- A short part reads fine. Only the count tells you: 1 row where the control file says 2.
+- A missing part: the FTP Read raises \`FTP:ILLEGAL_PATH\`. Record the part as \`missing\` and go on with the next one.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the control file

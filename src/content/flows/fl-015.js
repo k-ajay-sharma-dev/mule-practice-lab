@@ -368,6 +368,24 @@ A telecom wants a reusable **Notification API**: \`POST /notifications\` with \`
 - SMS provider: \`POST /v1/messages\` with a form body of \`To\` (the phone number) and \`Body\` (at most 160 characters).
 - If you use Anypoint MQ, the request queue is \`notifications.requested\`.
 
+**What each system sends back**
+- A Database Select answers with a list of rows, with the column names as in the table. The preferences of \`C-100\`:
+\`\`\`json
+[
+  { "channel": "EMAIL", "language": "en", "email": "maria.lopez@example.com", "phone": "+15550100" },
+  { "channel": "SMS", "language": "en", "email": "maria.lopez@example.com", "phone": "+15550100" }
+]
+\`\`\`
+  A customer with no preferences gives \`[]\`. A template lookup gives one row, for example \`[ { "subject": "Your bill is ready", "body": "<p>Your bill of {{amount}} is due on {{dueDate}}.</p>" } ]\`.
+- The SMS provider answers 201 with \`{ "sid": "SM-10001", "status": "queued" }\`.
+- An Anypoint MQ Subscriber gives the message as the payload, and the token to Ack or Nack it in \`attributes.ackToken\`. A Database Select or HTTP Request replaces the attributes, so keep the token in a variable.
+
+**What failures look like**
+- The SMS provider cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. A 429 or 503 raises \`HTTP:TOO_MANY_REQUESTS\` or \`HTTP:SERVICE_UNAVAILABLE\`.
+- The mail server is down: Email Send raises an \`EMAIL\` error such as \`EMAIL:CONNECTIVITY\`.
+- In both cases the other channel still goes out, a \`FAILED\` status is recorded, and the message goes back to its queue.
+- A redelivered message that was already sent makes the Idempotent Message Validator raise \`MULE:DUPLICATE_MESSAGE\`.
+
 **Design the flow(s):** API front door, channel fan-out, templating, sending, failure handling.
 `,
   answerTemplate: `## Front door

@@ -336,6 +336,23 @@ Data in **Oracle**:
 - The hand-off to the fan-out uses an ActiveMQ queue whose name starts with \`RECALL\`, for example \`RECALL.ISSUED\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- Database Stored Procedure returns the output parameters by name in \`payload\`. \`QUARANTINE_LOTS\` gives \`{ "quarantinedQty": 864, "locationCount": 2 }\`.
+- \`AFFECTED_PARTIES\` gives each REF CURSOR as a list of rows with upper case column names:
+\`\`\`json
+{
+  "locations": [ { "LOCATION_ID": "0117", "LOCATION_TYPE": "STORE", "LOT_NO": "L2611A", "QTY": 36 } ],
+  "customers": [ { "CUSTOMER_ID": "C-5520193", "PREFERRED_CHANNEL": "EMAIL", "ORDER_ID": "WEB-771045" } ]
+}
+\`\`\`
+- The notification service answers **202** with \`{ "campaignId": "CMP-20931", "status": "QUEUED" }\`, after about 2.5 seconds.
+- Database Insert returns \`{ affectedRows: 1 }\`, which replaces the payload unless you set a target.
+
+**What failures look like**
+- The same recall id again: the \`RECALL\` insert fails with \`DB:QUERY_EXECUTION\` and \`ORA-00001\`. Answer **409** and notify nobody.
+- The quarantine procedure fails: \`DB:QUERY_EXECUTION\`. The request fails, the \`RECALL\` insert rolls back with it, and nobody is notified.
+- The notification service answers **503**: \`HTTP:SERVICE_UNAVAILABLE\` on each try. When the retries run out the customer branch fails with \`MULE:RETRY_EXHAUSTED\`, and the Scatter-Gather raises \`MULE:COMPOSITE_ROUTING\`. The stores and the WMS have already been told; record the failure in \`RECALL_NOTIFICATION\`. QA got its 202 long before.
 `,
   answerTemplate: `## Recall API (synchronous part)
 

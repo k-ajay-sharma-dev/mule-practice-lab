@@ -185,6 +185,18 @@ Facts:
 - The ERP \`customers\` table has \`customer_no\`, \`name\`, \`phone\`, \`updated_at\` and \`last_modified_by\`. Mule stamps its own ERP writes with \`last_modified_by = 'MULE_SYNC'\`.
 - The shared key is the ERP customer number (\`ERP_Customer_No__c\` on Account, an external ID).
 
+**What each system sends back**
+- The Salesforce "modified" listener gives one changed Account as the payload:
+\`\`\`json
+{ "Id": "001Hp00002Xk9QAA", "Name": "Harbour Lane Ltd", "Phone": "+44 20 7946 0199", "ERP_Customer_No__c": "C-40017",
+  "LastModifiedById": "005Hp00000REP042", "LastModifiedDate": "2026-11-13T09:58:00Z" }
+\`\`\`
+- A Database table listener (or a select from a Scheduler) gives the changed row keyed by the column names as written here: \`{ "customer_no": "C-40017", "name": "Harbour Lane Ltd", "phone": "+44 20 7946 0101", "updated_at": "...", "last_modified_by": "BACKOFFICE" }\`.
+
+**What failures look like**
+- An echo of the integration's own write must not reach the other system at all. If the ERP database is down while an echo arrives, the flow must still finish without error, because it never calls the database for an echo.
+- A real failure on either write (\`DB:CONNECTIVITY\`, \`SALESFORCE:CONNECTIVITY\`) propagates, so the change is not lost and is picked up again.
+
 A first prototype caused an **infinite ping-pong**: an ERP change was copied to Salesforce, which fired the Salesforce "modified" event, which was copied back to the ERP, which bumped \`updated_at\`, and so on.
 
 **Design the flow(s):** change capture on both sides, how each direction recognises and drops its own echoes, how writes are made, and what happens when both sides change the same record.

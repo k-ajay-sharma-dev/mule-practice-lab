@@ -90,6 +90,10 @@ Today a failed notice goes back to the broker and is redelivered again and again
 - Keep the notice in a variable before you transform it.
 - \`errorType\` is \`error.errorType.asString\` and \`reason\` is \`error.description\`.
 
+**What failures look like**
+- Oracle is down: the Database Insert raises \`DB:CONNECTIVITY\`. The failure queue gets the notice with \`errorType\` \`DB:CONNECTIVITY\`, and the notice on \`pdh.items.notify\` is acknowledged.
+- The failure queue is down too: the JMS Publish in the handler fails, so the flow ends with an error. The listener does not acknowledge, and the notice goes back to \`pdh.items.notify\` for redelivery.
+
 **Design the flow.**
 `,
   answerTemplate: `## Storing the notice

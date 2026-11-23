@@ -117,7 +117,8 @@ Bad rows go to \`dbo.sales_rejects\` (\`sale_id\`, \`error_text\`).
 
 **Facts**
 - Turn a blank SKU into null, so the database refuses the row. Store \`units\` as a number.
-- A refused insert raises \`DB:QUERY_EXECUTION\`.
+- The File listener gives the CSV as rows, every value as text. A missing SKU is an empty string: \`{ "sale_id": "7002", "store": "0412", "sku": "", "units": "1" }\`. The path is in \`attributes.path\`.
+- A refused insert raises \`DB:QUERY_EXECUTION\`, with the database's message in \`error.description\`.
 - The rows are not counted as failed by the job, so count the reject table in On Complete. Log at INFO with \`loaded=<n> rejected=<n>\`.
 
 **Design the flow.**

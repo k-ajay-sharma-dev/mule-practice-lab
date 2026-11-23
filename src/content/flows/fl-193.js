@@ -88,6 +88,12 @@ The platform's rule for its \`/inbound/sales\` folder:
 - Mark only the rows that were in the file, by \`sale_id\`.
 - Do not catch a failed write. The run fails and no row is marked.
 
+**What each system sends back**
+- The Database Select gives a list of rows with the table's column names, such as \`{ "sale_id": 9001, "business_date": "2026-11-12", "store": "0101", "sku": "JKT-RAIN-M", "units": 4, "net_sales": 239.96 }\`. Nothing new gives \`[]\`.
+
+**What failures look like**
+- An SFTP server that cannot be reached raises **SFTP:CONNECTIVITY** on the first write. The run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Choosing the rows

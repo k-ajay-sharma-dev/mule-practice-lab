@@ -196,6 +196,16 @@ Past incidents: a 9 GB part (the platform repeated every store) took the worker 
 - The report subject says \`COMPLETED\`, and the failure email subject says \`FAILED\`.
 - On any error, mark the job in an On Error Propagate, so the run still ends with the original error.
 
+**What each system sends back**
+- The SFTP listener gives the control file text as the payload and its path in \`attributes.path\`.
+- \`dbo.usp_job_start\` gives \`{ "job_id": 701 }\`.
+- SFTP List gives a list of messages, one per file. Each has the content in \`payload\` (not read until you touch it) and the details in \`attributes\`: \`fileName\` (\`STORE_ORDERS_20261113_1.csv\`) and \`size\` in bytes. A missing part is not in the list.
+- An SFTP Read as \`text/plain\` gives the part as one string, header line included. \`read(payload, "application/csv")\` turns it into rows such as \`{ "store": "0412", "sku": "4410021", "qty": "12" }\`.
+
+**What failures look like**
+- A part over the limit or a garbled part raises no error. The listing size or the MD5 shows it.
+- The MERGE procedure fails: the Stored Procedure raises \`DB:QUERY_EXECUTION\`. Mark the job \`FAILED\` and let the error end the run.
+
 **Design the flow.**
 `,
   answerTemplate: `## The control file, the job row and the listing

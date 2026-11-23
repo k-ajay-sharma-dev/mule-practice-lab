@@ -265,6 +265,15 @@ Customer notifications are messages on the queue \`CUSTOMER.NOTIFICATIONS\`.
 An order must never be both picked in a store and shipped from the DC, and none may be lost. Taking an order off \`OMS.BOPIS.ORDERS\` and putting it on its next queue must succeed or fail together.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- A Database Select returns a list of rows with the column names in upper case, for example \`[{ "STORE_ID": "0107", "SKU": "STAKES-10", "AVAILABLE_QTY": 9, "DISTANCE_KM": 8.4 }]\`. Store ids are text such as \`"0101"\`.
+- \`RESERVE_ORDER\` returns its output parameter in \`payload\`: \`{ "status": "RESERVED" }\`. It replaces the order in the payload, so keep the order in a variable.
+- JMS Publish returns nothing useful.
+
+**What failures look like**
+- Oracle is down: the stock read raises \`DB:CONNECTIVITY\`. Let the error propagate so the transaction rolls back and the order returns to the queue. Nothing is published.
+- A publish to \`CUSTOMER.NOTIFICATIONS\` fails: the error propagates, the pick request published earlier in the same transaction is rolled back too, and the order returns to the queue.
 `,
   answerTemplate: `## Consuming the order
 

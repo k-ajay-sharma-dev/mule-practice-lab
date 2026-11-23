@@ -74,6 +74,7 @@ Marrow & Pine's returns application reads files from a local folder, \`/data/ret
 **Facts**
 - Each item FTP List returns has \`payload\` (the content) and \`attributes\` (\`path\`, \`fileName\`).
 - Do not catch a failed local write. The run fails, and the files not yet copied stay on the server.
+- A full landing disk makes the File Write fail with a \`FILE\` error. The loop stops there, before that file's FTP Delete.
 
 **Design the flow.** Say why you used a Scheduler and FTP List here instead of the FTP listener.
 `,

@@ -237,6 +237,19 @@ Order data lives in the **OMS** database. The business rules ("which orders a cu
 - The shared Process API is \`GET /prc-orders/v1/customers/{customerId}/orders\` (with an optional \`limit\`). It answers \`{ orders: [{ orderId, orderDate, status, total: { amount, currency }, lines }] }\`, newest first, or 404 for an unknown customer.
 - The OMS System API is \`GET /sys-oms/v1/orders?customerId=...\`. It reads the \`oms_order\` table (\`order_no\`, \`customer_id\`, \`created_ts\`, \`status\`, \`total_amt\`, \`currency_cd\`).
 
+**What each system sends back**
+- The Process API answers **200** with:
+\`\`\`json
+{ "orders": [ { "orderId": "SO-88412", "orderDate": "2026-11-08", "status": "SHIPPED", "total": { "amount": 129.9, "currency": "EUR" },
+    "lines": [ { "sku": "BOOT-42", "quantity": 1, "unitPrice": 129.9, "imageUrl": "https://cdn.example.com/boot-42.jpg" } ] } ] }
+\`\`\`
+- The OMS System API answers **200** with a plain list in the same order shape: \`[ { "orderId": "SO-87120", "orderDate": "2026-10-21", "status": "DELIVERED", "total": { "amount": 45.5, "currency": "EUR" }, "lines": [] } ]\`.
+- Its Database Select returns rows keyed by the column names as written above, for example \`{ "order_no": "SO-87120", "created_ts": "2026-10-21", "total_amt": 45.5, "currency_cd": "EUR", ... }\`.
+
+**What failures look like**
+- An unknown customer: the Process API answers **404** with \`{ "message": "Customer not found" }\`, which the Experience API's HTTP Request raises as \`HTTP:NOT_FOUND\`. Mobile answers **200** with \`[]\`; partners answer **404**.
+- Any other failure below: mobile answers **503** with a friendly message, partners answer **502**.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-mobile/v1/me/orders\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
 **Design the flow(s):** which APIs exist in each layer, who calls whom, where each response shape is produced and how errors reach each channel.

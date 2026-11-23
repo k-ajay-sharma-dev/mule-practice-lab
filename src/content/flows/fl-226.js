@@ -89,6 +89,10 @@ The flow used a Bulk Insert. When a supplier corrected an item and the platform 
 - An item already staged gets its new values and message ID. A new item is inserted.
 - Write all items of a document in one bulk call. A resent document must never fail on the key.
 
+**What each system sends back**
+- The JMS listener gives the document above as the payload. Keep \`messageId\` in a variable before you reshape the items.
+- A Database Bulk Update answers a list of affected row counts, one per item, such as \`[1, 1, 1]\`. A MERGE counts 1 for an update and 1 for an insert alike.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the insert failed

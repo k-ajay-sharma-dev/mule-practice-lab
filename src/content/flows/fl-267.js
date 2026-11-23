@@ -166,6 +166,16 @@ The old flow merged each part as it arrived. When part 9 failed, buyers worked f
 - Take the staged count from the database with \`SELECT COUNT(*) ... FROM dbo.po_plan_staging WHERE job_id = ...\`.
 - On any error, mark the job in an On Error Propagate, so the run still ends with the original error.
 
+**What each system sends back**
+- The SFTP listener gives the control file text as the payload and its path in \`attributes.path\`.
+- \`dbo.usp_job_start\` gives \`{ "job_id": 301 }\`, so the new ID is \`job_id\` on the result.
+- An SFTP Read with output type \`application/csv\` gives a list of rows with string values: \`[ { "line": "1", "supplier": "SUP-ASHBY", "sku": "SOFA-3S-GRY", "qty": "40" } ]\`.
+- The count select gives a list with one row. Alias the count, for example \`SELECT COUNT(*) AS n ...\`, and read it as \`[ { "n": 3 } ]\`.
+
+**What failures look like**
+- A short part reads without error. Only the count shows it: 2 staged where \`TOTAL\` says 3.
+- The MERGE procedure fails: the Stored Procedure raises \`DB:QUERY_EXECUTION\`. Mark the job \`FAILED\` and let the error end the run.
+
 **Design the flow.**
 `,
   answerTemplate: `## The control file and the job row

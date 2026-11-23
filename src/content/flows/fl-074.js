@@ -151,6 +151,14 @@ The bank collects a semicolon-separated file \`SETTLEMENT_yyyyMMdd.csv\` from it
 - \`SETTLEMENT_BATCH\` has \`BATCH_ID\`, \`BUSINESS_DATE\`, \`STATUS\` (\`PREPARED\`, then \`EXPORTED\`), \`EXPORTED_AT\` and \`FILE_NAME\`.
 - The operations team's address is \`payments-ops@example.com\`.
 
+**What each system sends back**
+- Database Stored Procedure returns the output parameters by name in \`payload\`: \`{ "p_batch_id": 9312, "p_row_count": 2 }\`.
+- A Database Select returns a list of rows with upper case column names, for example \`[{ "MERCHANT_ID": "M-100871", "TERMINAL_ID": "T-0003", "TXN_COUNT": 61, "GROSS_AMOUNT": 1450, "FEE_AMOUNT": 21.75, "NET_AMOUNT": 1428.25, "CURRENCY": "EUR" }]\`.
+
+**What failures look like**
+- Oracle cannot be reached: the procedure call raises \`DB:CONNECTIVITY\`. No file is written; email operations.
+- The SFTP server is down: SFTP Write raises \`SFTP:CONNECTIVITY\`. The batch stays \`PREPARED\`, no file is left under its final name, and operations are emailed.
+
 **Design the flow.** What do you need in the project to connect to Oracle?
 `,
   answerTemplate: `## Trigger

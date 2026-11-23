@@ -106,6 +106,13 @@ Inserting row by row took nine hours. One big insert ran out of memory.
 - A failed group must not stop the job: set max failed records to -1, so the counts reach the job row.
 - On Complete's payload has \`successfulRecords\` and \`failedRecords\`. The status is \`COMPLETED_WITH_ERRORS\` when any record failed.
 
+**What each system sends back**
+- The SFTP listener gives the CSV as rows, every value as text: \`{ "business_date": "2026-11-09", "store": "0101", "sku": "TENT-2P-OLV", "units": "2", "net_sales": "258.00" }\`. The path is in \`attributes.path\`.
+- \`{ call dbo.usp_job_start(:jobName) }\` answers \`{ "job_id": 301 }\` on the test day.
+
+**What failures look like**
+- SQL Server refuses a group: the bulk insert raises \`DB:QUERY_EXECUTION\`. The batch job marks every record of that group as failed and goes on, so On Complete sees them in \`failedRecords\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

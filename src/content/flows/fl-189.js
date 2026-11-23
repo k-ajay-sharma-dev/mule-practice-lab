@@ -74,6 +74,7 @@ When a property system crashes during the audit, it sometimes leaves an **empty 
 
 **Facts**
 - The SFTP listener gives the file's size in bytes in \`attributes.size\` and its name in \`attributes.fileName\`. Test the size in a **Choice**.
+- The listener reads a \`.csv\` file as CSV, so the payload is a list of rows keyed by the header, such as \`{ "hotel": "HGF01", "business_date": "2026-11-12", "room": "214", "charge_code": "ROOM", "amount": "129.00" }\`. The keys match the table's columns, so the rows can go to the Bulk Insert as they are.
 - The warning is a WARN log whose message contains the file name, such as \`NA_HGF01_20261112.csv\`.
 - Keep the file names when moving. Move to \`/audit/done\` only after the insert.
 

@@ -247,6 +247,15 @@ For each request, the DLB sends these headers to the app:
 - Publish the claim with the matched \`brokerId\` added to the queue \`claims.submissions\`, and answer **202**.
 - About 45 brokers send 30,000 claims a day. Certificates are renewed every year.
 
+**What each system sends back**
+- The Listener gives header names in lower case, so read \`attributes.headers."x-ssl-client-verify"\`, \`"x-ssl-client-dn"\` and \`"x-ssl-client-serial"\`.
+- Database Select answers with a list of rows, with the column names as written in the SQL, for example \`[ { "broker_id": "BRK-014" } ]\`. An unknown or disabled certificate gives an empty list \`[]\`, not an error.
+- The Select replaces the payload and the attributes, so the claim and the headers are gone after it.
+
+**What failures look like**
+- \`X-SSL-Client-Verify\` is not \`SUCCESS\`: an **Is true** validator raises \`VALIDATION:INVALID_BOOLEAN\`. Answer **401**.
+- No active row matches: an **Is not empty collection** validator raises \`VALIDATION:EMPTY_COLLECTION\`. Answer **403** and log the DN and serial.
+
 **Design the flow.**
 `,
   answerTemplate: `## Verifying the certificate result

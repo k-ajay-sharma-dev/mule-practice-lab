@@ -186,6 +186,19 @@ Facts:
 - The Catalog Process API is \`GET /prc-catalog/v1/categories/{categoryId}/products?locale=...\`. It answers \`{ category: { name }, products: [{ productId, content: { title }, media: [{ url }], badges }] }\`.
 - The Process API reads \`GET /sys-pim/v1/products?category=...\` (product content) and \`GET /sys-dam/v1/assets?category=...\` (\`[{ productId, url }]\`).
 
+**What each system sends back**
+- The Catalog Process API answers **200** with:
+\`\`\`json
+{ "category": { "name": "Tents" },
+  "products": [ { "productId": "TENT-2P", "content": { "title": "Ridge 2-person tent" }, "media": [ { "url": "https://dam.example.com/tent-2p.jpg" } ], "badges": ["NEW"] } ] }
+\`\`\`
+- PIM answers **200** \`[ { "productId": "TENT-2P", "categoryName": "Tents", "content": { "title": "Ridge 2-person tent" } } ]\`. DAM answers **200** \`[ { "productId": "TENT-2P", "url": "https://dam.example.com/tent-2p.jpg" } ]\`.
+- A Scatter-Gather gives one entry per route, in route order, each with its own \`payload\`: \`payload."0".payload\` is the PIM list and \`payload."1".payload\` the DAM list.
+
+**What failures look like**
+- The Process API hangs: the Experience API's HTTP Request raises \`HTTP:TIMEOUT\` once its response timeout passes. Answer **504** with a short message instead of waiting.
+- An unknown category (\`HTTP:NOT_FOUND\`) can answer **404**; any other failure **502**.
+
 **Convention for API-led problems:** one canvas holds the whole application network. Draw each API as a separate flow whose name starts with its layer prefix (\`exp-\`, \`prc-\`, \`sys-\`), give it an HTTP Listener whose path shows the API (e.g. \`/exp-web/v1/categories/{categoryId}/products\`), and let layers call each other with HTTP Request pointing at the lower API's path.
 
 **Design the flow(s):** the Experience API (where the cache goes, its key and TTL, timeouts, error mapping) and the Process API it calls. Say where client id enforcement lives.

@@ -157,6 +157,14 @@ A first try wrote \`successfulRecords\` and \`failedRecords\` to the job row. It
 - A failed bulk insert raises \`DB:QUERY_EXECUTION\`. \`error_text\` holds \`error.description\` of the single insert that failed.
 - \`loaded\` is the number of staging rows with this job's ID, and \`rejected\` the number of reject rows with it.
 
+**What each system sends back**
+- \`dbo.usp_job_start\` returns \`{ "job_id": 501 }\` in the tests. With Target \`job\`, read it as \`vars.job.job_id\`.
+- Each batch record is a CSV row with every value as text: \`{ "invoice_line": "IL-9002", "carrier": "HARROW-HAUL", "shipment": "SHP-30012", "amount": "" }\`.
+- A count query such as \`SELECT COUNT(*) AS n FROM dbo.invoice_rejects WHERE job_id = :jobId\` returns one row named by the alias: \`[ { "n": 1 } ]\`. Read it as \`[0].n\`.
+
+**What failures look like**
+- A group with IL-9002 in it: the Bulk Insert raises \`DB:QUERY_EXECUTION\` and the transaction rolls the group back. Inserted alone, IL-9002 fails again with \`DB:QUERY_EXECUTION\`, and its \`error.description\` goes to \`error_text\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The job row

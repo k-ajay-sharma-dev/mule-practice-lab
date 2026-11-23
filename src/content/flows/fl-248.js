@@ -88,6 +88,13 @@ The buying team's complaint: the log says \`failed=12\`, but nobody can tell whi
 - A good row must never reach the reject table.
 - Log the counts in On Complete, and move the file to \`/mnt/supplier-share/done\`.
 
+**What each system sends back**
+- The File listener gives the CSV content as the payload, so the Batch Job splits it into one record per row: \`{ "supplier_id": "SUP-ORCHARD", "item_id": "4410187", "unit_cost": "" }\`, every value as text. The full path is in \`attributes.path\`.
+- In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
+
+**What failures look like**
+- A row with no cost: Oracle refuses the null, and the Database Insert raises \`DB:QUERY_EXECUTION\` for that record. The record is marked failed and goes on to the ONLY_FAILURES step as it was when it failed.
+
 **Design the flow.**
 `,
   answerTemplate: `## The load step

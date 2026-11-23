@@ -53,6 +53,14 @@ The bank collects payment files from its own SFTP server. Fenwick must put the f
 - A failed download raises **AZURE-STORAGE:CONNECTIVITY**. Do not catch it: the run must end with that error, so alerting picks it up.
 - Overwrite a file of the same name on the SFTP server.
 
+**What each system sends back**
+- Download Blob puts the blob's content in the payload, here the CSV text:
+\`\`\`
+sort_code,account,name,amount
+401122,00418822,J SMITH,1840.22
+\`\`\`
+SFTP Write writes the payload as it is, so no Transform is needed.
+
 **Design the flow.**
 `,
   answerTemplate: `## When it runs

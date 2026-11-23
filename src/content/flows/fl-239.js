@@ -98,6 +98,20 @@ The lines go into the Oracle table \`supplier_asn_lines\` (\`asn_no\`, \`line_no
 - The CSV attachment is the one whose name ends in \`.csv\`. Read it as \`application/csv\`, and store \`line_no\` and \`qty\` as numbers.
 - A database that cannot be reached raises \`DB:CONNECTIVITY\`.
 
+**What each system sends back**
+
+**Email List (IMAP)** returns a list of messages, each with its own \`payload\` and \`attributes\`. Inside the For Each, the current email is \`payload\`, so its ID is \`payload.attributes.id\` and its files are \`payload.payload.attachments\`:
+\`\`\`json
+[ { "payload": { "body": "Please see attached.", "attachments": { "ASN-7701.csv": "asn_no,line_no,item_id,qty\\nASN-7701,1,FX-1001,40\\n..." } },
+    "attributes": { "id": 3101, "subject": "ASN 7701", "fromAddresses": ["despatch@hale-timber.example"] } },
+  { "payload": { "body": "Please see attached.", "attachments": { "photo.jpg": "..." } },
+    "attributes": { "id": 3102, "subject": "Delivery tomorrow" } } ]
+\`\`\`
+An empty inbox returns an empty list.
+
+**What failures look like**
+- Oracle is down: the Bulk Insert raises \`DB:CONNECTIVITY\`. Leave mail 3101 in \`INBOX\`. Mail 3102 still goes to \`Error\`, because it has no CSV.
+
 **Design the flow.**
 `,
   answerTemplate: `## Polling the mailbox

@@ -91,6 +91,11 @@ Mule posts each order to Holloway's order API, \`POST /orders/v1/dealer-orders\`
 - Do not catch \`HTTP:CONNECTIVITY\`. The run fails and the file stays in \`/outbound/orders\`.
 - Keep the file path in a variable before the HTTP Request, which replaces the attributes.
 
+**What each system sends back**
+- The SFTP listener reads a \`.csv\` file as CSV, so the payload is a list of rows without the header, such as \`[ { "order_ref": "D-77310", "dealer_id": "DLR-041", "sku": "FRAME-AL-54", "qty": "2" } ]\`. The full path is in \`attributes.path\`.
+- The order API answers **201** with \`{ "orderRef": "D-77310", "status": "RECEIVED" }\`. The flow does not need that body.
+- A refusal answers **400** with \`{ "message": "Unknown dealer DLR-041" }\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Picking up files

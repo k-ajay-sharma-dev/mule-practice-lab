@@ -142,6 +142,16 @@ Every night at **01:30** the finance system must send the bank a payment file ov
 - The date in the file name and in the header is the run date. \`totalAmount\` is the plain sum of the amounts, for example \`1560.75\`.
 - You may use \`/outbound/staging\` on the same SFTP server. The bank never reads it.
 
+**What each system sends back**
+- The select returns a list of rows, keyed by the column names as written here:
+\`\`\`json
+[ { "payment_id": "P-70011", "beneficiary_iban": "DE89370400440532013000", "amount": 1250.0, "currency": "EUR" } ]
+\`\`\`
+- SFTP Write and SFTP Move return nothing you need. After the Transform the payload is the file text, so keep the payment ids in a variable for the status update.
+
+**What failures look like**
+- The SFTP server is down: the write raises \`SFTP:CONNECTIVITY\`. Email \`payments-ops@example.com\`, mark no payment EXPORTED, and let the run fail.
+
 **Design the flow(s):** trigger, query, file layout, how the upload is made safe, status update, and error handling.
 `,
   answerTemplate: `## Trigger

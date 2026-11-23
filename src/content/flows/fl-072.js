@@ -197,6 +197,15 @@ A bank delivers **remittance files** (\`REM_<account>_<seq>.csv\`, 5 to 80 MB) t
 - A file whose modification time is more than 3 minutes old is complete.
 - The Treasury API is \`POST /treasury/v1/remittance-files\` with \`{ sourceFile, remittances: [{ invoiceNo, amount, currency, valueDate }] }\`, where \`sourceFile\` is the file name. It is idempotent on \`sourceFile\`.
 
+**What each system sends back**
+- SFTP List returns a list of messages, one per file. Each has the file in \`payload\` and its details in \`attributes\`: \`fileName\`, \`path\`, \`size\` and \`timestamp\` (the modification time).
+- SFTP Read returns the content as \`payload\` and the file details in \`attributes\`. Read as CSV, each row is \`{ "INVOICE_NO": "INV-30019", "AMOUNT": "1250.00", "CCY": "EUR", "VALUE_DATE": "20261113" }\`, all text.
+- The Treasury API answers **201** with \`{ "bookingId": "TB-2026-118841", "status": "BOOKED" }\`, after about 2 seconds.
+
+**What failures look like**
+- The Treasury API refuses a file: **400** with \`{ "message": "Unknown account 4471" }\`, which HTTP Request raises as \`HTTP:BAD_REQUEST\`. Move that file to \`/error/remittance\` and carry on with the next file.
+- Another worker has already renamed the file: SFTP Rename fails (\`SFTP:ILLEGAL_PATH\` or \`SFTP:FILE_ALREADY_EXISTS\`). Skip the file.
+
 **Design the flow.** Explain why you chose a Scheduler + List over the SFTP listener, or when you would choose the listener instead.
 `,
   answerTemplate: `## Trigger and listing

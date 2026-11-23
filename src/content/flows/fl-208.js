@@ -98,6 +98,9 @@ Things that went wrong with the old script:
 - Files keep their names when moved to \`archive\` or \`empty\` under \`/plan/out/waves\`.
 - Do not catch a failed write. The run fails and the source stays.
 
+**What failures look like**
+- The WMS FTP server is down: the FTP Write raises \`FTP:CONNECTIVITY\`. The run ends with that error before the move, so the source stays in \`/plan/out/waves\` for the next poll.
+
 **Design the flow.** Mention the FTP settings that keep the bytes unchanged.
 `,
   answerTemplate: `## Picking up a wave

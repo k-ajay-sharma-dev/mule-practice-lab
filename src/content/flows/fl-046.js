@@ -253,6 +253,16 @@ There is no circuit-breaker policy available on this deployment. Mule runs on **
 - The breaker opens after **5 consecutive** bureau outages (timeout, connection failure or 5xx). It stays open for **30 s**, then lets a trial call through: success closes it, failure opens it again.
 - A bureau 400 is answered to the caller with 400.
 
+**What each system sends back**
+- The bureau answers **200** with \`{ "customerId": "CU-7781", "score": 712, "scoredAt": "2026-11-13T10:00:00Z" }\`.
+- Object Store Retrieve returns the stored value, or its default value when the key is missing. A null default counts as no default and raises \`OS:KEY_NOT_FOUND\`, so use an empty object for "no score".
+
+**What failures look like**
+- The bureau hangs: with a response timeout of about 1.5 s the HTTP Request raises \`HTTP:TIMEOUT\`. A refused connection raises \`HTTP:CONNECTIVITY\`.
+- The bureau is degraded: it answers **503** with \`{ "message": "Service degraded" }\` (\`HTTP:SERVICE_UNAVAILABLE\`), or **500** (\`HTTP:INTERNAL_SERVER_ERROR\`).
+- All of these count as outages: record a failure and answer with the fallback, status 200.
+- Bad input: the bureau answers **400** with \`{ "message": "Invalid national ID" }\` (\`HTTP:BAD_REQUEST\`). Answer the caller 400 and do not count it against the breaker.
+
 **Design the flow(s):** a circuit breaker (closed / open / half-open), where its state lives, which errors trip it, the fallback, and how operations are alerted.
 `,
   answerTemplate: `## Breaker states and thresholds

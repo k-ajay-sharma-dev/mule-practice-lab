@@ -121,6 +121,13 @@ The gateway validates the customer's token, and the flow reads the customer ID a
 - Ask the token service for \`container\` \`statements\` and the statement's \`blob_name\` as \`blobName\`.
 - A token service that cannot be reached raises **HTTP:CONNECTIVITY**. It can also time out (**HTTP:TIMEOUT**).
 
+**What each system sends back**
+- A Database Select on \`statements\` answers a list of rows with the column names as written, for example \`[ { "blob_name": "statements/2026/10/CU-55102.pdf" } ]\`. Filter by both the statement ID and the customer ID, and a statement that is not the customer's gives \`[]\`.
+- The token service answers **200** with:
+\`\`\`json
+{ "url": "https://files.example.com/statements/2026/10/CU-55102.pdf?sig=redacted", "expiresAt": "2026-11-13T10:15:00Z" }
+\`\`\`
+
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
 
 **Design the flow.**

@@ -240,6 +240,15 @@ Your company pushes **product price updates** to a marketplace partner API.
 
 Updates for the same SKU must not be applied out of order (an older price must not overwrite a newer one). An update older than the last one sent for its SKU is dropped from the queue without a call.
 
+**What each system sends back**
+- The Anypoint MQ Subscriber gives the update as the payload, for example \`{ "sku": "SKU-8812", "price": 19.99, "effectiveAt": "2026-11-13T09:55:00Z" }\`. The token to Ack or Nack is \`attributes.ackToken\`.
+- Object Store Retrieve replaces the payload with the stored value. For a key that does not exist yet it raises \`OS:KEY_NOT_FOUND\`, unless you set a default value. Keep the update in a variable first.
+- The partner answers \`PUT /prices/SKU-8812\` with 200 and \`{ "accepted": true }\`.
+
+**What failures look like**
+- A 429 makes the HTTP Request raise \`HTTP:TOO_MANY_REQUESTS\`. The answer carries the header \`retry-after: 30\` (seconds), which the error handler reads as \`error.errorMessage.attributes.headers."retry-after"\`.
+- The partner cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. The message must come back and be sent on the redelivery, not skipped as already done.
+
 **Design the flow(s):**
 - Buffering
 - Enforcing the rate and concurrency limit across replicas

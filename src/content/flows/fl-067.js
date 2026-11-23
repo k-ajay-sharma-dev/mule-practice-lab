@@ -321,6 +321,24 @@ EDI-capable suppliers (about 600) exchange **X12 4010** files over the retailer'
 - Move processed 855 files to \`/edi/archive/855\` and failed ones to \`/edi/error/855\`.
 
 **Design the flow(s).**
+
+**What each system sends back**
+- A Database Select returns a list of rows with upper case column names. The PO query gives one row per line, each with the header columns too. A select for a PO that is no longer \`APPROVED\` returns an empty list.
+- \`SELECT EDI_ICN_SEQ.NEXTVAL AS ICN FROM DUAL\` returns \`[{ "ICN": 416 }]\`, so read \`payload[0].ICN\`.
+- The SFTP Listener gives the 855 file as \`payload\` and its path in \`attributes.path\`. After the X12 Read operation the 855 looks like this:
+\`\`\`json
+{ "TransactionSets": { "v004010": { "855": [ {
+  "Heading": { "020_BAK": { "BAK02": "AC", "BAK03": "PO-88101" } },
+  "Detail": { "010_PO1_Loop": [
+    { "010_PO1": { "PO101": "1", "PO102": 120 }, "270_ACK_Loop": [ { "270_ACK": { "ACK01": "IQ", "ACK02": 90, "ACK05": "2026-11-17" } } ] }
+  ] }
+} ] } } }
+\`\`\`
+- \`PO101\` is the line number as text. \`ACK02\` is the acknowledged quantity.
+
+**What failures look like**
+- A redelivered event for a PO already \`SENT\`: the PO select is empty. Log it and finish without error, so the message is acknowledged and nothing is sent again.
+- The SFTP server is down: SFTP Write raises \`SFTP:CONNECTIVITY\`. Let it propagate so the PO is not marked \`SENT\` and the broker delivers the event again.
 `,
   answerTemplate: `## Outbound 850
 

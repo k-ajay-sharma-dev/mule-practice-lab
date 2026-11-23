@@ -109,6 +109,13 @@ New growers are added every month, and the team does not want a new flow or list
 - \`file_name\` is the file's own name. Files keep their names when moved to \`/growers/<grower_id>/archive\` or \`/growers/<grower_id>/error\`.
 - Wrap each file's load and move in a Try with On Error Continue. The run must not fail because of one file.
 
+**What each system sends back**
+- The Database Select gives \`[ { "grower_id": "GR-ASHMEAD" }, { "grower_id": "GR-BRYNFORD" } ]\`.
+- SFTP List gives one item a file. Each item has \`payload\` (the content as text, so read it as CSV) and \`attributes\` with \`fileName\` and \`path\`.
+
+**What failures look like**
+- A quantity such as \`twelve hundred\` cannot become a number, so the Transform raises a DataWeave error (\`MULE:EXPRESSION\`). Catch it in the file's Try.
+
 **Design the flow.**
 `,
   answerTemplate: `## One flow for every grower

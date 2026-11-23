@@ -78,6 +78,7 @@ The point of sale export copies large stores' files slowly. Last month a half co
 
 **Facts**
 - The File listener's **time between size checks** setting makes it wait until a file stops growing.
+- The listener hands the flow the file content as the payload. The name is in \`attributes.fileName\` and the full path in \`attributes.path\`.
 - A failed upload raises **SFTP:CONNECTIVITY**. Do not catch it: the run must end with that error.
 - Keep the file's name in the archive. Overwrite a file of the same name on the SFTP server.
 

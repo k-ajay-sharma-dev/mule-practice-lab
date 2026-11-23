@@ -106,6 +106,16 @@ The sender app runs on **two workers** in a cluster, both polling the table ever
 - Send each row. Mark it \`SENT\` when the store accepts it. If the call fails, set it back to \`READY\` and add 1 to \`attempts\`, so the next poll tries again.
 - One store failing must not stop the others.
 
+**What each system sends back**
+- The claim select answers a list of rows. \`price_json\` is text, so read it as JSON before sending; the store ID inside it is \`store\`:
+\`\`\`json
+[ { "id": 501, "store_id": "0412", "price_json": "{\\"store\\":\\"0412\\",\\"sku\\":\\"BRD-SOUR-800\\",\\"price\\":2.35}" } ]
+\`\`\`
+- A store that accepts the price answers **200** \`{ "ok": true }\`.
+
+**What failures look like**
+- A store that does not answer: the HTTP Request raises \`HTTP:CONNECTIVITY\`. Catch it per row with On Error Continue, set the row back to \`READY\` and add 1 to \`attempts\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Claiming rows without clashing

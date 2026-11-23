@@ -237,6 +237,18 @@ An e-commerce site posts orders to \`POST /orders\` (peak **150 orders/s** on sa
 - SAP System API: \`GET /sap/orders?externalRef={orderId}\` finds an existing order, \`POST /sap/orders\` creates one (body: the order). SAP answers **400** for an invalid material and **503** during maintenance.
 - WMS: \`POST /wms/confirmations\`.
 
+**What each system sends back**
+- The Anypoint MQ Subscriber gives the order as the payload, for example \`{ "orderId": "ORD-90001", "customerId": "CUST-3301", "items": [ { "material": "MAT-100", "quantity": 2 } ] }\`. The token to Ack or Nack it is \`attributes.ackToken\`.
+- \`GET /sap/orders?externalRef=ORD-90005\` answers 200 with a list: \`[]\` when the order is not in SAP yet, or \`[ { "sapOrderId": "4500017399", "externalRef": "ORD-90005" } ]\` when it is.
+- \`POST /sap/orders\` answers 201 with \`{ "sapOrderId": "4500017321", "externalRef": "ORD-90001" }\`.
+- \`POST /wms/confirmations\` answers 200 with \`{ "confirmed": true }\`.
+- Each HTTP Request replaces the payload with its answer, so keep the order in a variable.
+
+**What failures look like**
+- The publish to \`orders.create\` fails: Anypoint MQ raises \`ANYPOINT-MQ:CONNECTIVITY\` (or \`ANYPOINT-MQ:PUBLISHING\`). The front door answers **503**.
+- SAP in maintenance answers 503: the HTTP Request raises \`HTTP:SERVICE_UNAVAILABLE\`. A slow or unreachable SAP raises \`HTTP:TIMEOUT\` or \`HTTP:CONNECTIVITY\`. Nack the message.
+- SAP answers 400 \`{ "message": "Material MAT-XXX does not exist" }\`: the HTTP Request raises \`HTTP:BAD_REQUEST\`. Park the order and Ack it.
+
 **Design the solution:**
 - The synchronous front door and what it returns.
 - Queue topology (main queue, DLQ) and settings that matter.

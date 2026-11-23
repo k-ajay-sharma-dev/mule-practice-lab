@@ -175,6 +175,19 @@ Your **Order Process API** (\`POST /orders/{orderId}/reservations\`) calls a par
 - Bad requests return **400** (e.g. unknown SKU). Retrying will never help, so the caller gets **400** at once.
 - The calling UI times out after **10 s**. If the partner stays down, answer with a 5xx before that.
 
+**What the Inventory API sends back**
+
+\`POST /reservations\` answers 201 with:
+\`\`\`json
+{ "id": "RSV-7781", "orderId": "ORD-4410", "status": "HELD" }
+\`\`\`
+
+**What failures look like**
+- A 503 makes the HTTP Request raise \`HTTP:SERVICE_UNAVAILABLE\`. A call that hangs past the response timeout raises \`HTTP:TIMEOUT\`. Both are worth a retry.
+- A 400 with \`{ "message": "Unknown SKU SKU-NOPE" }\` raises \`HTTP:BAD_REQUEST\`. Do not retry it; answer **400**.
+- When every attempt fails, Until Successful raises \`MULE:RETRY_EXHAUSTED\`. Answer a **5xx**.
+- Set the status in an On Error Propagate with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 **Design the flow(s):**
 - How do you retry only transient failures, how many times and how far apart?
 - What is the difference between a connector **reconnection strategy** and **Until Successful**?

@@ -156,6 +156,14 @@ WEB_ORDERS_MOVE, 0, 2026-11-13T09:50:00Z
 - The skip WARN mentions the lock.
 - When the run fails, free the lock in an On Error Propagate, so the run still ends with the original error.
 
+**What each system sends back**
+- The lock update returns \`{ "affectedRows": 1 }\` when this run got the lock, and \`{ "affectedRows": 0 }\` when another run holds it.
+- **Database Select** on the inbox: a list of rows such as \`[ { "order_id": "W-7001", "store": "0101", "total": 129.0 }, { "order_id": "W-7002", "store": "0102", "total": 58.5 } ]\`, or an empty list when nothing is new.
+- In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
+
+**What failures look like**
+- The inbox select fails after the lock was taken: \`DB:QUERY_EXECUTION\`. The handler frees the lock and the run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Taking the lock

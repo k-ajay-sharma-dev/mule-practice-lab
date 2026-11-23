@@ -290,6 +290,24 @@ Sales reps change **Account** and **Opportunity** records in Salesforce all day 
 - The ERP customer API: \`POST /erp/customers\` creates, \`PATCH /erp/customers/{sfId}\` changes only the fields it is sent (keyed by their Salesforce field names, such as \`Phone\`), \`PUT /erp/customers/{sfId}\` replaces the record and \`POST /erp/customers/{sfId}/deactivate\` deactivates it.
 - The Postgres reporting table is \`account_report (sf_id, name, country, updated_at)\`, filled from \`Name\` and \`BillingCountry\`. A field an event does not carry keeps its stored value. Account changes are handed to the Anypoint MQ queue \`sfdc.account.changes\`.
 
+**What each system sends back**
+- The Salesforce listener gives one change event as the payload, with the replay ID in \`attributes.replayId\` (for example \`"48211"\`). An update event carries only the changed fields:
+\`\`\`json
+{
+  "ChangeEventHeader": { "entityName": "Account", "changeType": "UPDATE", "recordIds": ["0015g00000ABCDE"],
+                         "changedFields": ["Phone", "LastModifiedDate"], "commitUser": "005REP0000000CD" },
+  "Phone": "+49 30 555 0199",
+  "LastModifiedById": "005REP0000000CD"
+}
+\`\`\`
+  A create event carries the full record (\`Name\`, \`BillingCountry\`, \`Phone\`). A gap event carries only the header.
+- An Anypoint MQ Subscriber gets the same event as the payload, and the token to Ack or Nack it in \`attributes.ackToken\`.
+- A Salesforce Query answers with a list of records: \`[ { "Id": "0015g00000ABCDE", "Name": "Acme GmbH", "BillingCountry": "AT", "Phone": "+43 1 555 0100" } ]\`.
+- The ERP answers \`POST /erp/customers\` with 201 \`{ "customerNo": "C-88001" }\`, the \`PATCH\` and \`PUT\` with 200, and the deactivate with 200 \`{ "active": false }\`. Each answer replaces the payload, so keep the record ID and the event in variables.
+
+**What failures look like**
+- The ERP cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. The worker Nacks the change so the queue delivers it again.
+
 **Design the flow(s):** subscription, replay/resume, handling partial-field events, loop prevention, and what to do when you fall outside the retention window.
 `,
   answerTemplate: `## Subscription

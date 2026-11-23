@@ -263,6 +263,16 @@ The architects decided on an **Amazon SQS FIFO queue** \`shipment-status.fifo\` 
 - The event JSON is \`{ orderId, eventType, occurredAt, warehouse }\`. The carrier API is \`POST /carrier/v2/shipment-events\` with \`{ shipmentRef, event, occurredAt, location }\`.
 - Rejected events are recorded in \`dbo.CARRIER_REJECTION\` (\`ORDER_ID\`, \`EVENT_TYPE\`, \`REASON\`, \`REJECTED_AT\`).
 
+**What each system sends back**
+- A Database Select returns a list of rows with upper case column names, for example \`[{ "OUTBOX_ID": 88131, "ORDER_ID": "SO-551207", "EVENT_TYPE": "PACKED", "PAYLOAD": "{\\"orderId\\":\\"SO-551207\\", ...}" }]\`. \`PAYLOAD\` is text.
+- SQS Receive gives the message body as \`payload\`, as JSON text: \`{"orderId":"SO-551207","eventType":"PACKED","occurredAt":"2026-11-13T09:55:00Z","warehouse":"WH-ROT"}\`. Read it with \`read(payload, "application/json")\`. The receipt handle you need to delete the message is in the message attributes; confirm the field name in a test.
+- The carrier answers **202** with \`{ "eventId": "CE-99120431", "accepted": true }\`.
+
+**What failures look like**
+- SQS refuses the send: the send fails with an error from the SQS connector. Stop the run there and mark no row \`SENT\`, so later events of the order never overtake it.
+- The carrier rejects an event: **400** with \`{ "message": "Shipment SO-551388 was never dispatched" }\`, raised as \`HTTP:BAD_REQUEST\`. Record it in \`dbo.CARRIER_REJECTION\`, delete the message and finish without error.
+- The carrier is down: **503**, raised as \`HTTP:SERVICE_UNAVAILABLE\`. Let the flow fail and do not delete the message, so SQS delivers it again.
+
 **Design both flows** (outbox → SQS, SQS → carrier) and explain the FIFO-specific settings.
 `,
   answerTemplate: `## Outbox relay (SQL Server → SQS)

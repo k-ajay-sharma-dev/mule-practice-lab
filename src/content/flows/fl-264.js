@@ -75,6 +75,10 @@ The current flow reads the file and writes it twice, to the archive and to picku
 - Put the file in \`/planning/pickup\`, then write the \`.ok\` marker. The marker holds the file size.
 - No step may read or rewrite the 4 GB of content.
 
+**What each system sends back**
+- The SFTP listener gives the file content as a stream in \`payload\`, and the details in \`attributes\`: \`fileName\` (\`WEEKLY_POS_2026W46.dat\`), \`path\` (\`/landing/WEEKLY_POS_2026W46.dat\`) and \`size\` in bytes.
+- SFTP Copy and SFTP Move return nothing you need. With overwrite false, a file already at the target raises \`SFTP:FILE_ALREADY_EXISTS\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Why the old flow was slow

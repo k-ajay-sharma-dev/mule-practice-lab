@@ -70,6 +70,12 @@ Last month the platform loaded half a file: its loader ran while the Mule app wa
 - The date in the name is the run date.
 - Do not catch a failed write. The run fails, and no file with the final name appears.
 
+**What each system sends back**
+- The Database Select gives a list of rows with the table's column names, such as \`{ "item_id": "JKT-RAIN-M", "description": "Rain jacket, medium", "dept": "APPAREL", "unit_cost": 59.99, "status": "ACTIVE" }\`.
+
+**What failures look like**
+- An FTP server that cannot be reached raises **FTP:CONNECTIVITY**. The run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Schedule and query

@@ -313,6 +313,16 @@ You operate a **payment-event relay**. The payment provider POSTs webhooks (paym
 - The reset endpoint is \`DELETE /admin/circuits/{merchantId}\`.
 - An event is dead-lettered after 12 attempts.
 
+**What each system sends back**
+- A merchant that accepts the event answers **200** with \`{ "received": true }\`.
+- Object Store Retrieve returns the stored circuit, for example \`{ "state": "OPEN", "failures": 5, "openUntil": "2026-11-13T10:05:00Z" }\`. Give it a default value (\`{ state: "CLOSED", failures: 0, openUntil: null }\`) for a merchant with no entry yet.
+
+**What failures look like**
+- A bad signature: the check fails (an Is true validation raises \`VALIDATION:INVALID_BOOLEAN\`). Answer **401** and queue nothing.
+- A misconfigured merchant answers **404** (\`HTTP:NOT_FOUND\`) or **400** (\`HTTP:BAD_REQUEST\`). Send the event to \`webhook-relay-dlq\` and ack it; do not retry.
+- A merchant that is down: the HTTP Request raises \`HTTP:CONNECTIVITY\` (or \`HTTP:TIMEOUT\`, or a 5xx error such as \`HTTP:SERVICE_UNAVAILABLE\`). Count the failure, re-publish the event with \`attempt\` one higher, and ack.
+- Object Store Remove for a key that is not there raises \`OS:KEY_NOT_FOUND\`.
+
 **Design the flow(s):**
 - How do you acknowledge the provider within 1 s while keeping at-least-once delivery?
 - Where is the circuit-breaker state kept, what does it contain, and when is it read and written?

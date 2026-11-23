@@ -194,6 +194,11 @@ Each \`GET\` already returns the row's \`version\` in the body and in an \`ETag\
 **How the status gets out:** assume the listener's response and error response both use \`#[vars.httpStatus default 200]\` for the status and \`#[payload]\` for the body.
 
 **Design the flow.**
+
+**What each system sends back**
+- The If-Match header arrives with its quotes, for example \`"7"\`, in \`attributes.headers['if-match']\`. Strip the quotes before you compare it with the number in \`version\`.
+- A Database **Update** answers \`{ "affectedRows": 1 }\` when the row matched, and \`{ "affectedRows": 0 }\` when the version or the ID did not.
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "version": 7 } ]\`. It answers an empty list for an unknown work order.
 `,
   answerTemplate: `## Why changes were lost
 

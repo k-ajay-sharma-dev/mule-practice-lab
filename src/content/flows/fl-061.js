@@ -186,6 +186,18 @@ Expose \`POST /api/reservations\` (\`{ orderId, sku, locationId, qty, ttlMinutes
 - Flash sales reach **150 requests/s** on a handful of SKUs; p95 must stay under **300 ms**.
 
 **Design the flow(s).**
+
+**What each system sends back**
+
+Call the procedure with input parameters \`orderId, sku, locationId, qty, ttlMinutes\` and output parameters \`reservationId\`, \`status\` and \`availableQty\`. Database Stored Procedure returns the output parameters by those names in \`payload\`:
+\`\`\`json
+{ "reservationId": "RSV-70001", "status": "RESERVED", "availableQty": 3 }
+\`\`\`
+For \`INSUFFICIENT\` and \`UNKNOWN_SKU\` the \`reservationId\` is null. These are normal answers, not errors.
+
+**What failures look like**
+- Oracle cannot be reached: the procedure call raises \`DB:CONNECTIVITY\`. Answer **503**.
+- Bad input never reaches Oracle: the Validation module raises \`VALIDATION:BLANK_STRING\` or \`VALIDATION:INVALID_BOOLEAN\`. Answer **400**.
 `,
   answerTemplate: `## API contract
 

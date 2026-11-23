@@ -153,6 +153,14 @@ You build the **router**: the flow between the intake and the process flows. Eac
 - Record a new sender document with its \`sender_id\`, \`sender_document_id\` and the \`message_id\` of this notification.
 - The REJECTED ACK takes \`messageId\` and \`senderId\` from the notification.
 
+**What each system sends back**
+- Download Blob replaces the payload with the document, for example:
+\`\`\`json
+{ "senderDocumentId": "RB-ITEM-20261113-01", "lines": [ { "gtin": "05012345678900", "description": "Cordless drill, 18V", "brand": "Ridgeway" } ] }
+\`\`\`
+Keep the notification in a variable before the download.
+- The repeat check (Database Select) answers a list of rows with the column names as written: \`[ { "message_id": "MSG-90300" } ]\` for a sender document seen before, or \`[]\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Fetching the document

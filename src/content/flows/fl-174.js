@@ -134,6 +134,11 @@ Two facts about Event Grid that matter here:
 - Post the downloaded feed as it is to the import.
 - Answer Event Grid within half a second.
 
+**What each system sends back**
+- An \`INSERT ... ON CONFLICT (event_id) DO NOTHING\` answers \`{ "affectedRows": n }\`: 1 for a new event, 0 for one already recorded.
+- Download Blob replaces the payload with the feed, for example \`{ "supplierId": "HALDEN-PAINTS", "items": [ { "supplierItemId": "SI-1", "costPrice": 4.1 } ] }\`.
+- The catalogue import answers **202** with \`{ "importId": "IMP-1" }\`.
+
 **Design the flows.**
 `,
   answerTemplate: `## The handshake

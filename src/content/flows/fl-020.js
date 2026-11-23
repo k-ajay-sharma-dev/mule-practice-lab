@@ -159,6 +159,19 @@ A bank's **Account Balance API** (\`GET /accounts/{id}/balance\`, p95 < 1.5 s) m
 - Sometimes the mainframe answers after 10+ s (or never). The mainframe team cannot set an expiry on replies, so a late reply stays on \`BAL.RPLY\` until your application removes it.
 - A reply is XML: \`<BalanceReply><AccountId>…</AccountId><Available>…</Available><Ledger>…</Ledger><AsOf>…</AsOf></BalanceReply>\`. The API answers JSON \`{ accountId, available, ledger, asOf }\` with the amounts as numbers, and **504** when the mainframe does not reply in time.
 
+**What the mainframe sends back**
+
+JMS Publish Consume (or a Consume on \`BAL.RPLY\`) gives the reply body as the payload, as XML text with no namespace:
+\`\`\`xml
+<BalanceReply><AccountId>ACC-55012</AccountId><Available>1520.75</Available><Ledger>1610.00</Ledger><AsOf>2026-11-13T09:59:58Z</AsOf></BalanceReply>
+\`\`\`
+The values are text, so convert \`Available\` and \`Ledger\` with \`as Number\`. The JMS headers, such as the correlation ID, are in \`attributes.headers\`.
+
+**What failures look like**
+- No reply before the maximum wait: the JMS operation raises \`JMS:TIMEOUT\`. Answer **504** with a JSON error body.
+- The queue manager cannot be reached: the JMS operation raises \`JMS:CONNECTIVITY\`.
+- Set the status in an On Error Propagate with the variable \`httpStatus\`. The HTTP Listener answers with \`vars.httpStatus\`.
+
 **Design the flow(s):** how the request is sent, how each replica gets *its own* reply from a shared reply queue, timeouts, late replies, and scaling.
 `,
   answerTemplate: `## Sending the request

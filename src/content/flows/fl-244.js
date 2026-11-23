@@ -126,6 +126,19 @@ Oracle tables:
 - \`log_date\` and \`run_date\` are \`yyyy-MM-dd\` text. In the tests today is 2026-11-13.
 - The ERROR log names the report type.
 
+**What each system sends back**
+- **Database Select** on \`report_config\`: \`[ { "report_type": "Barcode", "recipients": "barcode-team@marrowpine.example" }, { "report_type": "Item", "recipients": "item-team@marrowpine.example" } ]\`. A cleared list has \`recipients\` as an empty string.
+- **Database Select** on \`report_runs\`: an empty list when the type has no \`SENT\` row today.
+- The count query (\`SELECT direction, status, COUNT(*) AS msg_count ... GROUP BY direction, status\`) for Item on 2026-11-12:
+\`\`\`json
+[ { "direction": "IN", "status": "FAILED", "msg_count": 1 },
+  { "direction": "IN", "status": "PROCESSED", "msg_count": 3 },
+  { "direction": "OUT", "status": "SENT", "msg_count": 2 } ]
+\`\`\`
+
+**What failures look like**
+- A type with no recipients: nothing fails on its own. Raise your own error, such as \`APP:NO_RECIPIENTS\`, so the report is recorded \`FAILED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## Which reports

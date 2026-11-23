@@ -167,6 +167,17 @@ Downstream analytics needs each event enriched with the **store's name, region a
 - An event for an unknown store must not block the stream; publish it marked as unenriched.
 - If the Store Master API is down, events must not be lost.
 
+**What each system sends back**
+
+\`GET /stores/S-0042\` answers **200** with:
+\`\`\`json
+{ "id": "S-0042", "name": "Wellington Central", "region": "NZ-North", "currency": "NZD" }
+\`\`\`
+
+**What failures look like**
+- An unknown store: the API answers **404** with \`{ "message": "Store S-9999 not found" }\`. The HTTP Request raises \`HTTP:NOT_FOUND\`. Publish the sale with \`enrichmentStatus: "UNKNOWN_STORE"\` and acknowledge it.
+- The API is down: the HTTP Request raises \`HTTP:CONNECTIVITY\` (or \`HTTP:TIMEOUT\` when it is slow). Publish nothing and let the error propagate, so the message goes back to the queue.
+
 **Design the flow(s):**
 - How do you avoid calling the Store Master API 400 times a second?
 - What is the cache key, where is the cache stored, and how long do entries live?

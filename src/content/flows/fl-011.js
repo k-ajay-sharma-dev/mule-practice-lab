@@ -177,6 +177,18 @@ A legacy **Oracle ERP** table \`CUSTOMERS\` (2M rows) has a \`LAST_UPDATED\` tim
 - Two rows can share the same \`LAST_UPDATED\` value (bulk updates in one transaction).
 - The app runs on **2 replicas** for HA.
 
+**What each system sends back**
+- Object Store Retrieve gives the stored value, \`{ "ts": "2026-11-12T08:00:00", "id": 1002 }\`. When the key does not exist yet it raises \`OS:KEY_NOT_FOUND\`, unless you set a default value.
+- A Database Select answers with a list of rows. Oracle column names come back in upper case, so read \`CUST_ID\`, not \`cust_id\`:
+\`\`\`json
+[ { "CUST_ID": 1003, "CUST_NAME": "Initech", "EMAIL": "finance@initech.example", "LAST_UPDATED": "2026-11-12T09:15:00" } ]
+\`\`\`
+- No changes gives an empty list \`[]\`.
+- The CRM answers 200 with \`{ "upserted": 3 }\`.
+
+**What failures look like**
+- The CRM cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`. The watermark must keep its old value, so the next poll sends the same customers again.
+
 **Design the flow(s):** trigger, how the watermark is stored and advanced, duplicate/missed-row handling, and behaviour with two replicas.
 `,
   answerTemplate: `## Trigger

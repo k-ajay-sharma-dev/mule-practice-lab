@@ -212,6 +212,15 @@ Your **Shipment System API** (\`POST /shipments\`) calls a carrier's REST API (\
 - Your API handles ~50 req/s across **3 replicas**.
 - Occasionally the carrier revokes tokens early, and calls start returning **401**. A shipment must not fail for that reason alone, but a second 401 in a row must not loop either.
 
+**What each system sends back**
+- The token endpoint answers 200 with \`{ "access_token": "eyJhbGciOiJSUzI1NiJ9.fresh", "token_type": "Bearer", "expires_in": 3600 }\`.
+- \`POST /v1/shipments\` answers 201 with \`{ "id": "SHP-10021", "tracking_number": "1Z999AA10123456784" }\`.
+- Object Store Retrieve gives the stored token as text. When the key is missing it raises \`OS:KEY_NOT_FOUND\`, unless you set a default value.
+
+**What failures look like**
+- The carrier answers 401 with \`{ "error": "invalid_token" }\`: the HTTP Request raises \`HTTP:UNAUTHORIZED\`. Fetch a fresh token and send the shipment once more.
+- A second 401 raises \`HTTP:UNAUTHORIZED\` again. Let it fail the request; do not try a third time.
+
 **Design the flow(s):** how tokens are obtained, cached, reused, refreshed and how 401s are handled. Where do the client ID and secret live?
 `,
   answerTemplate: `## Option A: connector-managed OAuth

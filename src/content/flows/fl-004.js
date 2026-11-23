@@ -195,6 +195,16 @@ export default {
 - It occasionally sends the same event twice within milliseconds.
 - Each event has a unique \`id\` (e.g. \`evt_1Q2w...\`).
 - The app runs on CloudHub 2.0 with **2 replicas**.
+- An event body looks like \`{ "id": "evt_1Q2w3eAbCd", "type": "invoice.paid", "invoiceId": "INV-2041", "amount": 1250 }\`, with the signature in the \`x-webhook-signature\` header.
+
+**What each system sends back**
+- NetSuite answers the \`PATCH\` with 200 and \`{ "invoiceId": "INV-2041", "status": "PAID" }\`. The flow does not need the body.
+- The Idempotent Message Validator lets a new ID through unchanged. For an ID it has already seen it raises \`MULE:DUPLICATE_MESSAGE\`.
+
+**What failures look like**
+- NetSuite cannot be reached: the HTTP Request raises \`HTTP:CONNECTIVITY\`.
+- NetSuite answers 503: the HTTP Request raises \`HTTP:SERVICE_UNAVAILABLE\`.
+- In both cases the provider must not get a 2xx, so it retries, and the retry must be processed.
 
 **What is wrong now**
 

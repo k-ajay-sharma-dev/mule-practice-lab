@@ -109,6 +109,10 @@ Tables:
 - Bulk insert the good lines and the rejects. Never send an empty list to a bulk insert.
 - A new row in \`code_map\` must take effect without changing the flow.
 
+**What each system sends back**
+- The JMS listener gives the receipt above as the payload.
+- The unit map select answers a list of rows: \`[ { "ext_code": "CS", "int_code": "CASE" }, { "ext_code": "EA", "int_code": "EACH" }, { "ext_code": "PL", "int_code": "PALLET" } ]\`. Turn it into one object keyed by \`ext_code\`, so a code missing from the map reads as null.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the code map

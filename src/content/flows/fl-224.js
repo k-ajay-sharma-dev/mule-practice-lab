@@ -87,6 +87,10 @@ The first version took \`SELECT MAX(return_id) + 1\`. On busy evenings two tills
 - Put the status code in the variable \`httpStatus\`. The listener answers with it.
 - Read the next value with \`SELECT RETURN_SEQ.NEXTVAL AS return_id FROM dual\`. \`returnId\` is that number.
 
+**What the database sends back**
+- The sequence select answers a list with one row: \`[ { "return_id": 70001 } ]\`. Keep it in a target variable and read \`[0].return_id\`, so the payload stays the request.
+- The insert answers a count of affected rows, not the row. Build the 201 answer from your variables.
+
 **Design the flow.**
 `,
   answerTemplate: `## Checking the request

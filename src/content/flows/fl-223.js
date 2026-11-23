@@ -85,6 +85,10 @@ Every notification is recorded in the Oracle table \`inbound_messages\` (\`messa
 - If the message ID is already in \`inbound_messages\`, log a WARN with the ID and do nothing else.
 - Otherwise record it with status \`RECEIVED\`, then publish the RECEIVED ACK.
 
+**What each system sends back**
+- The JMS listener gives the notification above as the payload.
+- A select by \`message_id\` answers an empty list \`[]\` for a new ID, and a list with one row for an ID already recorded. Keep it in a target variable, so the payload stays the notification.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the notification

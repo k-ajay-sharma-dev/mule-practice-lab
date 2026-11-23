@@ -111,6 +111,9 @@ The shop should not have to wait for the warehouse. So the flow puts each order 
 
 Reading from the queue is the warehouse team's job. You design the sending side only.
 
+**What failures look like**
+- Anypoint MQ cannot be reached: the publish raises \`ANYPOINT-MQ:CONNECTIVITY\`. The flow stops, so the shop gets an error and no \`RECEIVED\`. No handler is needed for this problem.
+
 **Design the flow.**
 `,
   answerTemplate: `## Saving what the reply needs

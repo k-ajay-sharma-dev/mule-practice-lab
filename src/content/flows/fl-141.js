@@ -94,6 +94,9 @@ A security review found that an email such as \`x' OR '1'='1\` returned every cu
 - No value from the request may ever change the SQL itself.
 
 **Design the flow.**
+
+**What each system sends back**
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "customer_id": "C-20114", "name": "Ama Owusu", "email": "ama.owusu@example.com", "tier": "GOLD" } ]\`. When nobody matches, the list is empty: no error is raised, so the flow must check for it.
 `,
   answerTemplate: `## The query
 

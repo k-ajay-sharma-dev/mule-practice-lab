@@ -97,6 +97,10 @@ Support wants bad lines kept in \`dbo.receipt_rejects\` (\`file_name\`, \`line\`
 - Every row carries \`file_name\` (the file's name) and \`line\` as in the file. Store \`qty\` as a number.
 - Skip an empty list with a **Choice** before each bulk insert. The file keeps its name in \`done\`.
 
+**What the listener gives you**
+- The payload is the CSV as a list of rows, every value as text. A missing SKU is an empty string: \`{ "line": "2", "store": "0412", "sku": "", "qty": "12" }\`.
+- The file name is in \`attributes.fileName\` and the full path in \`attributes.path\`. Keep both in variables before the payload changes.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the file

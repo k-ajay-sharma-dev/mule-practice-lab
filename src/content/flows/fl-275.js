@@ -93,6 +93,13 @@ The grades go to \`dbo.store_grade\` (\`store\`, \`grade\`) in SQL Server. The j
 **Facts**
 - If the load fails, let the error end the run and leave every snapshot in the folder.
 
+**What each system sends back**
+- File List on \`/mnt/planning/outbound/grades\` gives a list of messages, one per file, in no set order. Each has \`attributes.fileName\` (\`STORE_GRADES_20261113.csv\`) and \`attributes.path\` (the full path). An empty folder gives \`[]\`.
+- File Read with output type \`application/csv\` gives a list of rows: \`[ { "store": "0101", "grade": "A" } ]\`.
+
+**What failures look like**
+- SQL Server refuses the insert: the Bulk Insert raises \`DB:QUERY_EXECUTION\`. The transaction rolls back the delete, no file is moved, and the run ends with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## Finding the newest snapshot

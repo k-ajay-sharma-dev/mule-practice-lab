@@ -87,6 +87,16 @@ The first version read the whole table into a list and split it with DataWeave. 
 - A part file has the columns \`business_date\`, \`store\`, \`sku\` and \`units\`.
 - If the FTP server fails, let the error end the run. No control file may be written.
 
+**What each system sends back**
+- The Database Select streams rows with the columns as named in the query:
+\`\`\`json
+{ "business_date": "2026-11-10", "store": "0103", "sku": "STOVE-GAS-1B", "units": 1 }
+\`\`\`
+- Inside a For Each with a batch size, \`payload\` is a list of up to that many rows.
+
+**What failures look like**
+- The FTP server is down: the FTP Write raises \`FTP:CONNECTIVITY\`. The run ends with that error and no \`.ctl\` file is written.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the rows

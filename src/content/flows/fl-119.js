@@ -207,6 +207,14 @@ Reports now miss tickets, and some runs fail with duplicate key errors.
 - The API answers \`{ "tickets": [{ "id", "subject", "status", "priority", "updated_at" }] }\`, with \`updated_at\` as ISO text such as \`2026-11-13T09:58:47Z\`.
 
 **Design the flow.** Explain each of the three bugs in the first version.
+
+**What each system sends back**
+- Object Store **Retrieve** puts the stored text in the payload, for example \`2026-11-13T09:50:12Z\`. Give it a default value for the first run, or it raises \`OS:KEY_NOT_FOUND\`.
+- The helpdesk answers status 200 with \`{ "tickets": [ { "id": "TCK-40230", "subject": "New starter needs a laptop", "status": "OPEN", "priority": "MEDIUM", "updated_at": "2026-11-13T09:54:03Z" } ] }\`. With no changes it answers \`{ "tickets": [] }\`.
+
+**What failures look like**
+- The helpdesk answers **503**: the HTTP Request raises \`HTTP:SERVICE_UNAVAILABLE\`. The run fails with that error and the watermark stays.
+- PostgreSQL is down: the insert raises \`DB:CONNECTIVITY\`. The run fails with that error and the watermark stays.
 `,
   answerTemplate: `## The three bugs
 

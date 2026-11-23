@@ -122,6 +122,13 @@ Today a support engineer does this by hand in the broker console. You build a sm
 - Check Oracle with a Database Select that returns no rows. If Oracle is down it raises **DB:CONNECTIVITY**. Blob storage that is down raises **AZURE-STORAGE:CONNECTIVITY**.
 - Publish each message unchanged.
 
+**What each system sends back**
+- Listing \`health/\` in \`pdh-inbound\` answers a list of blobs, for example \`[ { "name": "health/ping.txt" } ]\`. The flow only needs the call to succeed.
+- Each JMS Consume gives one message as the payload, the notification as it was published:
+\`\`\`json
+{ "messageId": "MSG-91001", "messageType": "ReceivingAdvice", "senderId": "NORTHDALE-DC", "blobName": "inbound/NORTHDALE-DC/MSG-91001.json" }
+\`\`\`
+
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, for a success and for an error.
 
 **Design the flow.**

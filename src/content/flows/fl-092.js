@@ -185,6 +185,25 @@ A healthcare group with **22,000 workers** uses **Workday** as its HR system. Th
 - Send each worker as \`PUT /identities/{Worker_ID}\` with body \`{ workerId, userName, active }\`.
 - The HRIS support mailbox is \`hris-support@example.com\`.
 
+**What each system sends back**
+
+\`Get_Workers\` answers with XML in the namespace \`urn:com.workday/bsvc\`. The payload may arrive as Binary, so read it as XML first when it is:
+\`\`\`xml
+<wd:Get_Workers_Response xmlns:wd="urn:com.workday/bsvc">
+  <wd:Response_Results><wd:Total_Pages>2</wd:Total_Pages><wd:Page>1</wd:Page></wd:Response_Results>
+  <wd:Response_Data>
+    <wd:Worker><wd:Worker_Data><wd:Worker_ID>21001</wd:Worker_ID><wd:User_ID>asmith</wd:User_ID>
+      <wd:Employment_Data><wd:Worker_Status_Data><wd:Active>1</wd:Active></wd:Worker_Status_Data></wd:Employment_Data>
+    </wd:Worker_Data></wd:Worker>
+  </wd:Response_Data>
+</wd:Get_Workers_Response>
+\`\`\`
+Declare \`ns wd urn:com.workday/bsvc\` in DataWeave and select with \`wd#\`. The identity platform answers each PUT with **200** and \`{ "updated": true }\`.
+
+**What failures look like**
+- Workday rejects the request (for example \`The task submitted is not authorized.\`): the operation raises \`WORKDAY:VALIDATION_ERROR\`. Email HRIS support and keep the stored position.
+- The identity platform is down: the PUT raises \`HTTP:CONNECTIVITY\`. Keep the stored position so the next run repeats the range.
+
 **Design the flows.** Explain why you chose a Scheduler or the On Modified Objects source.
 `,
   answerTemplate: `## Trigger and sync window

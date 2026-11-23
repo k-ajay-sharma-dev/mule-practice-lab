@@ -276,6 +276,17 @@ Last month the bank took 40 seconds to answer for half an hour. The old flow had
 **How the status gets out:** the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`, also when an error handler built the answer.
 
 **Design the flows.** Explain why a timeout must not be treated as a failure.
+
+**What each system sends back**
+- \`POST /bank/payments\` answers **201** \`{ "endToEndId": "PAY-7001", "status": "ACCEPTED", "bankReference": "BNK-7001" }\`.
+- \`GET /bank/payments/{paymentId}\` answers **200** with the same body, or **404** \`{ "error": "NOT_FOUND" }\`.
+- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "payment_id": "PAY-6991", "amount": 78.5, "currency": "EUR", "creditor_iban": "XX00TEST0000000091" } ]\`.
+
+**What failures look like**
+- The bank refuses: it answers **400** \`{ "reason": "ACCOUNT_CLOSED" }\`, which the HTTP Request raises as \`HTTP:BAD_REQUEST\`. The bank's body is in \`error.errorMessage.payload\`.
+- No answer within 15 seconds raises \`HTTP:TIMEOUT\`. A lost connection raises \`HTTP:CONNECTIVITY\`. Both mean UNKNOWN and **202**.
+- The status service answers **404**: the HTTP Request raises \`HTTP:NOT_FOUND\`, unless you add 404 to its success status codes so a Choice can read the status.
+- The status service is down: \`HTTP:CONNECTIVITY\`. Keep the payment UNKNOWN and go on with the next one.
 `,
   answerTemplate: `## What a timeout means
 

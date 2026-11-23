@@ -138,6 +138,16 @@ If anything fails, the source blob must stay so the restart app can replay the m
 - The failed ACK is \`{ "messageId", "status": "FAILED", "reason": "<error type>" }\`. Send both ACKs with **JMS Publish**.
 - The listener uses the ack mode \`AUTO\`. A flow handler **On Error Continue** does the cleanup, so the request is acknowledged.
 
+**What each system sends back**
+- The code map select gives a list of rows: \`[ { "source_code": "EA", "target_code": "EACH" }, { "source_code": "CS", "target_code": "CASE" } ]\`.
+- Download Blob replaces the payload with the JSON array of lines shown above.
+- After a Scatter-Gather the payload is an object keyed by route index (\`"0"\`, \`"1"\`), each holding that route's result. Keep the line count in a variable before it.
+
+**What failures look like**
+- The archive container does not answer: Upload Blob fails with a connectivity error (\`AZURE-STORAGE:CONNECTIVITY\` here). The staging route still runs, then the Scatter-Gather raises \`MULE:COMPOSITE_ROUTING\`.
+- Oracle refuses the lines: the Bulk Insert raises \`DB:QUERY_EXECUTION\`, and the Scatter-Gather raises \`MULE:COMPOSITE_ROUTING\` after the archive route ends.
+- In both cases the source blob is not deleted, the staged lines are removed, and the ACK says \`FAILED\`.
+
 **Design the flow.**
 `,
   answerTemplate: `## The code map

@@ -218,6 +218,14 @@ The order system only wants **one JSON shape**:
 - A same-named file from a partner next week must not collide in the archive.
 
 **Design the flow.**
+
+**What each system sends back**
+- The File listener gives the file content as \`payload\` and its name and full path in \`attributes.fileName\` and \`attributes.path\`. One listener cannot set a mime type per file, so parse the content yourself with the right format, for example \`read(payload.^raw, "application/csv", {separator: ";"})\`.
+- Values read from CSV are text, so \`net_amount\` arrives as \`"310.00"\`.
+
+**What failures look like**
+- A CSV with \`twelve\` as the amount: \`as Number\` in DataWeave raises \`MULE:EXPRESSION\`. Write no output and move the file to quarantine.
+- A \`.pdf\` raises nothing by itself: route unknown extensions to quarantine.
 `,
   answerTemplate: `## Picking up files safely
 

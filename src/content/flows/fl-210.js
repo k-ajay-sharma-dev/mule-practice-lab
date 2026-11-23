@@ -161,6 +161,12 @@ Twice last quarter the platform dropped rows during a load and still wrote \`LOA
 - In \`ack-in\`, read the send log row into \`vars.sent\`. A **Choice** compares \`rows_loaded\` with \`vars.sent[0].row_count\`. An ACK for an unknown file is logged at WARN and archived.
 - The MISMATCH email and the overdue email name the data file. In \`ack-overdue\`, pass now minus two hours, in UTC, as the parameter \`:cutoff\`.
 
+**What each system sends back**
+- The unsent sales select answers a list of rows: \`{ "sale_id": 9001, "business_date": "2026-11-12", "store": "0101", "sku": "JKT-RAIN-M", "units": 4 }\`.
+- The FTP listener gives the ACK as a list of CSV rows, with every value as text: \`[ { "file_name": "SALES_202611130730.csv", "status": "LOADED", "rows_loaded": "3" } ]\`. Read \`payload[0]\` and turn \`rows_loaded\` into a number before comparing. The path is in \`attributes.path\`.
+- The send log select answers \`[ { "file_name": "SALES_202611130730.csv", "row_count": 3, "status": "SENT" } ]\`, or \`[]\` for an unknown file. \`row_count\` is a number.
+- The overdue select answers rows with \`file_name\` and \`sent_at\`, or \`[]\` when nothing is late.
+
 **Design the flows.**
 `,
   answerTemplate: `## Sending

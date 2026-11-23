@@ -56,6 +56,12 @@ The platform expects \`/inbound/locations/LOCATIONS.csv\` with the columns \`LOC
 - Write them as CSV, with those column names, to \`/inbound/locations/LOCATIONS.csv\`, replacing last night's file.
 - If the write fails, the run must fail so someone notices.
 
+**What each system sends back**
+- The Database Select gives a list of rows with the table's column names: \`[ { "store_id": "S014", "store_name": "Harrowgate Retail Park", "region": "NORTH", "open_date": "2019-04-01", "status": "OPEN" } ]\`.
+
+**What failures look like**
+- An SFTP server that cannot be reached raises **SFTP:CONNECTIVITY**. Do not catch it: the run must end with that error.
+
 **Design the flow.**
 `,
   answerTemplate: `## When it runs

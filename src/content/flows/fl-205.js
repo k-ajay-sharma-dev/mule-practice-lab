@@ -102,6 +102,13 @@ The supplier's server has a **maintenance window** from 00:45 to about 01:05, an
 - When the retries run out, Mule raises \`MULE:RETRY_EXHAUSTED\`. Catch only that, with On Error Continue, and park the file under the same name.
 - A database failure is not caught. The run fails and nothing is parked.
 
+**What each system sends back**
+- The select of READY orders answers a list of rows: \`[ { "order_id": "SO-30011", "supplier_id": "SUP-ORCHARD", "sku": "APL-GALA-1KG", "qty": 240 } ]\`. Keep this list, because the payload becomes CSV text for the write.
+
+**What failures look like**
+- The FTP server is in maintenance: each FTP Write raises \`FTP:CONNECTIVITY\`. When the last retry fails, Until Successful raises \`MULE:RETRY_EXHAUSTED\` and the handler parks the file.
+- SQL Server is down: the select raises \`DB:CONNECTIVITY\`. The run fails before any file exists.
+
 **Design the flow.**
 `,
   answerTemplate: `## Reading the orders

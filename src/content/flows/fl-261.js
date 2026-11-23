@@ -60,6 +60,10 @@ The team wants a claim check: the file goes to **Azure Blob Storage** (container
 - Only after the upload, publish the notice to \`sales.export.ready\`. The notice holds no rows.
 - Move the file to \`/exports/sent\`.
 
+**What each system sends back**
+- The File listener gives the content as a stream in the payload, and the file facts in \`attributes\`: \`path\` (\`/exports/out/SALES_EXPORT_20261113.csv\`), \`fileName\` (\`SALES_EXPORT_20261113.csv\`) and \`size\` in bytes. Keep them in variables before the upload, because the upload changes the payload and attributes.
+- The upload's own result is not needed for the notice.
+
 **Design the flow.**
 `,
   answerTemplate: `## The upload

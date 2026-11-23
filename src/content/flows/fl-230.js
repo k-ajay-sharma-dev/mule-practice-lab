@@ -131,6 +131,7 @@ Every run has a row in \`job_log\` (\`job_id\`, \`job_name\`, \`status\`, \`tota
 **Facts**
 - Make the \`job_id\` with \`uuid()\` and put it on every staged and rejected row.
 - Turn an empty \`case_qty\` into null, so Oracle refuses the row, and store the rest as numbers. A refused insert raises \`DB:QUERY_EXECUTION\`.
+- The File listener gives the CSV as rows, every value as text. A missing quantity is an empty string: \`{ "item_id": "FX-1005", "description": "Item 5", "case_qty": "" }\`.
 - On Complete's payload has \`totalRecords\`. The rejected rows still count as successful, so count \`stg_item_rejects\` for the job.
 
 **Design the flow.**
