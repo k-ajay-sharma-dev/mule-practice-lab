@@ -258,6 +258,7 @@ export default {
       [
         step('set-variable', { variableName: 'scan', value: '#[payload]' }),
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT a.ASN_NO, a.PO_NUMBER, al.PO_LINE, al.SKU, al.EXPECTED_QTY, al.UOM, a.SUPPLIER_ID, a.PLANT, a.STORAGE_LOC\nFROM ASN_PALLET ap\nJOIN ASN_LINE al ON al.ASN_NO = ap.ASN_NO AND al.LINE_NO = ap.LINE_NO\nJOIN ASN a ON a.ASN_NO = ap.ASN_NO\nWHERE ap.SSCC = :sscc AND a.STATUS IN ('OPEN', 'PARTIAL')",
         }),
         router(
@@ -319,9 +320,10 @@ export default {
         step('set-variable', { variableName: 'claimId', value: '#[uuid()]' }),
         // Claim a slice first (no FOR UPDATE with FETCH FIRST in Oracle); stale IN_PROGRESS claims are reset by a sweeper.
         step('db-update', {
+          database: 'Oracle',
           sql: "UPDATE GR_OUTBOX SET STATUS = 'IN_PROGRESS', CLAIM_ID = :claimId, CLAIMED_AT = SYSTIMESTAMP\nWHERE STATUS IN ('PENDING', 'RETRY') AND ATTEMPTS < 10 AND ROWNUM <= 200",
         }),
-        step('db-select', { sql: 'SELECT OUTBOX_ID, SSCC, PAYLOAD, ATTEMPTS FROM GR_OUTBOX WHERE CLAIM_ID = :claimId ORDER BY OUTBOX_ID' }),
+        step('db-select', { database: 'Oracle', sql: 'SELECT OUTBOX_ID, SSCC, PAYLOAD, ATTEMPTS FROM GR_OUTBOX WHERE CLAIM_ID = :claimId ORDER BY OUTBOX_ID' }),
         scope('foreach', { collection: '#[payload]' }, [
           step('set-variable', { variableName: 'row', value: '#[payload]' }),
           step('set-variable', { variableName: 'outboxId', value: '#[payload.OUTBOX_ID]' }),
@@ -363,6 +365,7 @@ export default {
                 },
               ),
               step('db-update', {
+                database: 'Oracle',
                 sql: "UPDATE GR_OUTBOX SET STATUS = 'POSTED', SAP_MAT_DOC = :matDoc, POSTED_AT = SYSTIMESTAMP WHERE OUTBOX_ID = :outboxId",
               }),
             ],
@@ -372,12 +375,14 @@ export default {
                 handler('on-error-continue', { type: 'APP:SAP_REJECTED' }, [
                   step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
                   step('db-update', {
+                    database: 'Oracle',
                     sql: "UPDATE GR_OUTBOX SET STATUS = 'FAILED', LAST_ERROR = :errorText WHERE OUTBOX_ID = :outboxId",
                   }),
                 ]),
                 handler('on-error-continue', { type: 'ANY' }, [
                   step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
                   step('db-update', {
+                    database: 'Oracle',
                     sql: "UPDATE GR_OUTBOX SET STATUS = 'RETRY', ATTEMPTS = ATTEMPTS + 1, LAST_ERROR = :errorText WHERE OUTBOX_ID = :outboxId",
                   }),
                 ]),

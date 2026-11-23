@@ -95,29 +95,29 @@ export default {
       }),
       scope('foreach', { collection: '#[payload]' }, [
         step('set-variable', { variableName: 'row', value: '#[payload]' }),
-        step('set-variable', { variableName: 'blobName', value: '#["outbound/" ++ vars.row.recipient_id ++ "/" ++ vars.row.message_id ++ ".json"]' }),
+        step('set-variable', { variableName: 'blobName', value: '#["outbound/" ++ vars.row.RECIPIENT_ID ++ "/" ++ vars.row.MESSAGE_ID ++ ".json"]' }),
         scope(
           'try',
           {},
           [
-            step('set-payload', { value: '#[vars.row.body]' }),
+            step('set-payload', { value: '#[vars.row.BODY]' }),
             step('azure-upload-blob', { container: 'pdh-outbound', fileName: '#[vars.blobName]', fileStream: '#[payload]', contentType: 'application/json' }),
-            step('set-payload', { value: '#[output application/json --- { messageId: vars.row.message_id, messageType: vars.row.message_type, recipientId: vars.row.recipient_id, blobName: vars.blobName }]' }),
+            step('set-payload', { value: '#[output application/json --- { messageId: vars.row.MESSAGE_ID, messageType: vars.row.MESSAGE_TYPE, recipientId: vars.row.RECIPIENT_ID, blobName: vars.blobName }]' }),
             step('jms-publish', { destination: 'PDH.OUTBOUND.NOTIFY', destinationType: 'QUEUE', persistentDelivery: 'true' }),
             step('db-update', {
               database: 'Oracle',
               sql: "UPDATE pdh_outbound_messages SET status = 'SENT', blob_name = :blobName WHERE message_id = :messageId AND status = 'READY'",
-              inputParameters: '#[{ blobName: vars.blobName, messageId: vars.row.message_id }]',
+              inputParameters: '#[{ blobName: vars.blobName, messageId: vars.row.MESSAGE_ID }]',
             }),
           ],
           {
             errorHandlers: [
               handler('on-error-continue', { type: 'ANY' }, [
-                step('logger', { level: 'WARN', message: '#["Outbound " ++ vars.row.message_id ++ " attempt " ++ ((vars.row.attempts + 1) as String) ++ " failed: " ++ error.description]' }),
+                step('logger', { level: 'WARN', message: '#["Outbound " ++ vars.row.MESSAGE_ID ++ " attempt " ++ ((vars.row.ATTEMPTS + 1) as String) ++ " failed: " ++ error.description]' }),
                 step('db-update', {
                   database: 'Oracle',
                   sql: "UPDATE pdh_outbound_messages SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= 5 THEN 'FAILED' ELSE 'READY' END WHERE message_id = :messageId",
-                  inputParameters: '#[{ messageId: vars.row.message_id }]',
+                  inputParameters: '#[{ messageId: vars.row.MESSAGE_ID }]',
                 }),
               ]),
             ],
@@ -144,14 +144,14 @@ Recipients take them the same way the hub takes inbound documents, by claim chec
 - Message IDs grow over time, so oldest first means ordered by \`message_id\`.
 - Write the statuses as literals in the SQL: the Select reads \`status = 'READY'\`, and the final update sets \`'SENT'\` with the guard \`AND status = 'READY'\`.
 - Count a failure and set \`'FAILED'\` in one update of \`attempts\`. A message below five failures stays \`READY\`.
-- The notification's fields come from the row: \`message_id\`, \`message_type\`, \`recipient_id\` and the blob name.
+- The notification's fields come from the row: \`MESSAGE_ID\`, \`MESSAGE_TYPE\`, \`RECIPIENT_ID\` and the blob name.
 
 **What each system sends back**
-- The Database Select answers a list of rows with the column names as written:
+- The Database Select answers a list of rows. Oracle returns unquoted column names in upper case:
 \`\`\`json
-[ { "message_id": "OUT-70001", "message_type": "Item", "recipient_id": "STORE-GRP-NORTH", "body": "{\\"messageId\\":\\"OUT-70001\\",\\"items\\":[...]}", "attempts": 0 } ]
+[ { "MESSAGE_ID": "OUT-70001", "MESSAGE_TYPE": "Item", "RECIPIENT_ID": "STORE-GRP-NORTH", "BODY": "{\\"messageId\\":\\"OUT-70001\\",\\"items\\":[...]}", "ATTEMPTS": 0 } ]
 \`\`\`
-\`body\` is the JSON document as text. Upload it as it is.
+\`BODY\` is the JSON document as text. Upload it as it is.
 
 **What failures look like**
 - Blob storage is down: Upload Blob raises **AZURE-STORAGE:CONNECTIVITY**.
@@ -179,7 +179,7 @@ Recipients take them the same way the hub takes inbound documents, by claim chec
   solution: `
 1. **Scheduler** every minute.
 2. **Database Select**: \`... WHERE status = 'READY' ORDER BY message_id FETCH FIRST 50 ROWS ONLY\`.
-3. **For Each** row: \`row\` and \`blobName\` = \`outbound/{recipient_id}/{message_id}.json\`, then a **Try**:
+3. **For Each** row: \`row\` and \`blobName\` = \`outbound/{RECIPIENT_ID}/{MESSAGE_ID}.json\`, then a **Try**:
    - **Set Payload** the body, **Upload Blob** to \`pdh-outbound\`, content type \`application/json\`.
    - **Set Payload** the notification, **JMS Publish** to \`PDH.OUTBOUND.NOTIFY\`.
    - **Database Update** \`SET status = 'SENT', blob_name = :blobName WHERE message_id = :messageId AND status = 'READY'\`.

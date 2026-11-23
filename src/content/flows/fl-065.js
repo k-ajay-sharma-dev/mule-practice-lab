@@ -255,6 +255,7 @@ export default {
         // Bulk Update reads its rows from #[payload] by default.
         step('set-payload', { value: '#[vars.ship.lines]' }),
         step('db-bulk-update', {
+          database: 'Oracle',
           sql: 'UPDATE ORDER_LINE SET SHIPPED_QTY = SHIPPED_QTY + :shippedQty, LAST_CARTON = :cartonId\nWHERE ORDER_ID = :orderId AND LINE_NO = :lineNo',
         }),
         step('transform', {

@@ -166,6 +166,7 @@ export default {
         scope('cache', { cachingStrategy: 'temp-range-cache' }, [
           // Cache key = loadId; entries expire after 30 min.
           step('db-select', {
+            database: 'Oracle',
             sql: 'SELECT l.LOAD_ID, l.TMS_LOAD_REF, pc.MIN_TEMP_C, pc.MAX_TEMP_C, pc.MAX_EXCURSION_MIN\nFROM SHIPMENT_LOAD l\nJOIN PRODUCT_CLASS pc ON pc.CLASS_CODE = l.PRODUCT_CLASS\nWHERE l.LOAD_ID = :loadId',
           }),
         ]),
@@ -185,6 +186,7 @@ export default {
                 // Opens an excursion or extends the open one; OUT p_alert_needed = 'Y' only when first opened
                 // or when it has lasted longer than MAX_EXCURSION_MIN.
                 step('db-stored-procedure', {
+                  database: 'Oracle',
                   sql: '{ call COLDCHAIN_PKG.RECORD_EXCURSION(:loadId, :deviceId, :tempC, :readAt, :excursionId, :alertNeeded) }',
                 }),
                 router(
@@ -205,6 +207,7 @@ export default {
                             step('http-request', { method: 'POST', path: '/tms/v1/loads/alerts', responseTimeout: 5000 }),
                           ]),
                           step('db-update', {
+                            database: 'Oracle',
                             sql: "UPDATE EXCURSION SET TMS_ALERT_STATUS = 'SENT', TMS_ALERT_AT = SYSTIMESTAMP WHERE EXCURSION_ID = :excursionId",
                           }),
                         ],
@@ -231,6 +234,7 @@ export default {
             otherwise: [
               // In range: close any open excursion for the load.
               step('db-update', {
+                database: 'Oracle',
                 sql: "UPDATE EXCURSION SET STATUS = 'CLOSED', CLOSED_AT = :readAt WHERE LOAD_ID = :loadId AND STATUS = 'OPEN'",
               }),
             ],

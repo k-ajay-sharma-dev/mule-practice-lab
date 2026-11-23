@@ -84,7 +84,7 @@ export default {
         step('set-variable', { variableName: 'messageId', value: '#[payload.messageId]' }),
         step('set-variable', { variableName: 'blobName', value: '#[payload.blobName]' }),
         step('db-select', { database: 'Oracle', sql: 'SELECT source_code, target_code FROM uom_code_map', target: 'uomRows' }),
-        step('set-variable', { variableName: 'uomMap', value: '#[{ (vars.uomRows map { ($.source_code): $.target_code }) }]' }),
+        step('set-variable', { variableName: 'uomMap', value: '#[{ (vars.uomRows map { ($.SOURCE_CODE): $.TARGET_CODE }) }]' }),
         step('azure-download-blob', { container: 'pdh-inbound', fileName: '#[vars.blobName]' }),
         step('transform', {
           script: '%dw 2.0\noutput application/java\n---\npayload map { message_id: vars.messageId, store: $.store, sku: $.sku, qty: $.qty, uom: vars.uomMap[$.uom] default "UNKNOWN", reason: $.reason }',
@@ -139,7 +139,8 @@ If anything fails, the source blob must stay so the restart app can replay the m
 - The listener uses the ack mode \`AUTO\`. A flow handler **On Error Continue** does the cleanup, so the request is acknowledged.
 
 **What each system sends back**
-- The code map select gives a list of rows: \`[ { "source_code": "EA", "target_code": "EACH" }, { "source_code": "CS", "target_code": "CASE" } ]\`.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "SOURCE_CODE": ..., "TARGET_CODE": ... }\`.
+- The code map select gives a list of rows: \`[ { "SOURCE_CODE": "EA", "TARGET_CODE": "EACH" }, { "SOURCE_CODE": "CS", "TARGET_CODE": "CASE" } ]\`.
 - Download Blob replaces the payload with the JSON array of lines shown above.
 - After a Scatter-Gather the payload is an object keyed by route index (\`"0"\`, \`"1"\`), each holding that route's result. Keep the line count in a variable before it.
 
@@ -167,7 +168,7 @@ If anything fails, the source blob must stay so the restart app can replay the m
   ],
   solution: `
 1. **JMS On New Message** on \`pdh.invtxn.process\`. **Set Variable** \`messageId\`, \`blobName\`.
-2. **Database Select** \`uom_code_map\` (target), **Set Variable** \`uomMap\` = \`{ (vars.uomRows map { ($.source_code): $.target_code }) }\`.
+2. **Database Select** \`uom_code_map\` (target), **Set Variable** \`uomMap\` = \`{ (vars.uomRows map { ($.SOURCE_CODE): $.TARGET_CODE }) }\`.
 3. **Download Blob** from \`pdh-inbound\`. **Transform** the lines with \`vars.uomMap[$.uom] default "UNKNOWN"\`. **Set Variable** \`lineCount\`.
 4. **Scatter-Gather**:
    - Route 1: **Set Payload** the JSON document, **Upload Blob** to \`pdh-archive\`.

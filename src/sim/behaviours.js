@@ -463,6 +463,19 @@ function statementFault(run, sql) {
   }
 }
 
+// Oracle reports an unquoted column name or alias in upper case, so a row from Oracle has keys like CUST_ID.
+// A quoted alias ("custId") keeps its case. The step's database setting or systems.db.vendor names the vendor.
+function isOracle(c, run) {
+  return /oracle/i.test(String(c.database ?? '')) || /oracle/i.test(String(run.scenario.systems?.db?.vendor ?? ''))
+}
+
+function oracleKeys(row, sql) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return row
+  const out = {}
+  for (const [k, v] of Object.entries(row)) out[sql.includes(`"${k}"`) ? k : k.toUpperCase()] = v
+  return out
+}
+
 function dbOp({ node, c, event, run, flow }) {
   const fault = systemFault(run, 'db', 'connect')
   if (fault) throw new MuleError('DB:CONNECTIVITY', 'Could not get a connection from the pool: the database does not answer.')
@@ -477,7 +490,8 @@ function dbOp({ node, c, event, run, flow }) {
   effect.result = out.kind === 'select' ? `${out.rows.length} rows` : out.affectedRows
   run.tick(run.scenario.systems?.db?.latencyMs ?? 8)
   if (out.kind === 'select') {
-    const rows = c.maxRows ? out.rows.slice(0, Number(c.maxRows)) : out.rows
+    let rows = c.maxRows ? out.rows.slice(0, Number(c.maxRows)) : out.rows
+    if (isOracle(c, run)) rows = rows.map((r) => oracleKeys(r, sql))
     return dbResult(event, c, rows, `${COMPONENTS[node.type].label}: ${rows.length} row(s) from ${tableNamesIn(sql).join(', ')}`)
   }
   if (out.kind === 'procedure') return dbResult(event, c, copy(out.result ?? {}), 'Stored procedure ran')

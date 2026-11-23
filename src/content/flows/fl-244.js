@@ -70,38 +70,38 @@ export default {
           step('db-select', {
             database: 'Oracle',
             sql: "SELECT report_type FROM report_runs WHERE report_type = :type AND run_date = :today AND status = 'SENT'",
-            inputParameters: '#[{ type: vars.report.report_type, today: vars.today }]',
+            inputParameters: '#[{ type: vars.report.REPORT_TYPE, today: vars.today }]',
             target: 'done',
           }),
           router('choice', {}, [
             route({ expression: '#[isEmpty(vars.done)]' }, [
-              router('choice', {}, [route({ expression: '#[isEmpty(vars.report.recipients default "")]' }, [step('raise-error', { type: 'APP:NO_RECIPIENTS', description: 'The report has no recipients' })])]),
+              router('choice', {}, [route({ expression: '#[isEmpty(vars.report.RECIPIENTS default "")]' }, [step('raise-error', { type: 'APP:NO_RECIPIENTS', description: 'The report has no recipients' })])]),
               step('db-select', {
                 database: 'Oracle',
                 sql: 'SELECT direction, status, COUNT(*) AS msg_count FROM entity_log WHERE message_type = :type AND log_date = :day GROUP BY direction, status ORDER BY direction, status',
-                inputParameters: '#[{ type: vars.report.report_type, day: vars.yesterday }]',
+                inputParameters: '#[{ type: vars.report.REPORT_TYPE, day: vars.yesterday }]',
                 target: 'counts',
               }),
               step('email-send', {
-                toAddresses: '#[vars.report.recipients]',
-                subject: '#[vars.report.report_type ++ " messages on " ++ vars.yesterday]',
-                content: '#[(vars.counts map ((c) -> c.direction ++ " " ++ c.status ++ ": " ++ (c.msg_count as String))) joinBy "\\n"]',
+                toAddresses: '#[vars.report.RECIPIENTS]',
+                subject: '#[vars.report.REPORT_TYPE ++ " messages on " ++ vars.yesterday]',
+                content: '#[(vars.counts map ((c) -> c.DIRECTION ++ " " ++ c.STATUS ++ ": " ++ (c.MSG_COUNT as String))) joinBy "\\n"]',
               }),
               step('db-insert', {
                 database: 'Oracle',
                 sql: "INSERT INTO report_runs (report_type, run_date, status) VALUES (:type, :today, 'SENT')",
-                inputParameters: '#[{ type: vars.report.report_type, today: vars.today }]',
+                inputParameters: '#[{ type: vars.report.REPORT_TYPE, today: vars.today }]',
               }),
             ]),
           ]),
         ], {
           errorHandlers: [
             handler('on-error-continue', { type: 'ANY' }, [
-              step('logger', { level: 'ERROR', message: '#["Report " ++ vars.report.report_type ++ " failed: " ++ error.description]' }),
+              step('logger', { level: 'ERROR', message: '#["Report " ++ vars.report.REPORT_TYPE ++ " failed: " ++ error.description]' }),
               step('db-insert', {
                 database: 'Oracle',
                 sql: "INSERT INTO report_runs (report_type, run_date, status) VALUES (:type, :today, 'FAILED')",
-                inputParameters: '#[{ type: vars.report.report_type, today: vars.today }]',
+                inputParameters: '#[{ type: vars.report.REPORT_TYPE, today: vars.today }]',
               }),
             ]),
           ],
@@ -127,13 +127,14 @@ Oracle tables:
 - The ERROR log names the report type.
 
 **What each system sends back**
-- **Database Select** on \`report_config\`: \`[ { "report_type": "Barcode", "recipients": "barcode-team@marrowpine.example" }, { "report_type": "Item", "recipients": "item-team@marrowpine.example" } ]\`. A cleared list has \`recipients\` as an empty string.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "DIRECTION": ..., "STATUS": ..., "MSG_COUNT": ... }\`.
+- **Database Select** on \`report_config\`: \`[ { "REPORT_TYPE": "Barcode", "RECIPIENTS": "barcode-team@marrowpine.example" }, { "REPORT_TYPE": "Item", "RECIPIENTS": "item-team@marrowpine.example" } ]\`. A cleared list has \`RECIPIENTS\` as an empty string.
 - **Database Select** on \`report_runs\`: an empty list when the type has no \`SENT\` row today.
 - The count query (\`SELECT direction, status, COUNT(*) AS msg_count ... GROUP BY direction, status\`) for Item on 2026-11-12:
 \`\`\`json
-[ { "direction": "IN", "status": "FAILED", "msg_count": 1 },
-  { "direction": "IN", "status": "PROCESSED", "msg_count": 3 },
-  { "direction": "OUT", "status": "SENT", "msg_count": 2 } ]
+[ { "DIRECTION": "IN", "STATUS": "FAILED", "MSG_COUNT": 1 },
+  { "DIRECTION": "IN", "STATUS": "PROCESSED", "MSG_COUNT": 3 },
+  { "DIRECTION": "OUT", "STATUS": "SENT", "MSG_COUNT": 2 } ]
 \`\`\`
 
 **What failures look like**

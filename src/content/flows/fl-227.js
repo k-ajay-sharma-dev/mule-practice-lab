@@ -70,7 +70,7 @@ export default {
         target: 'variable',
         variableName: 'mapped',
         script:
-          '%dw 2.0\noutput application/java\nvar codes = { (vars.uomMap map ((m) -> { (m.ext_code): m.int_code })) }\n---\nvars.doc.lines map ((l) -> { message_id: vars.doc.messageId, line_no: l.lineNo, sku: l.sku, uom: codes[l.uom], qty: l.qty, ext_uom: l.uom })',
+          '%dw 2.0\noutput application/java\nvar codes = { (vars.uomMap map ((m) -> { (m.EXT_CODE): m.INT_CODE })) }\n---\nvars.doc.lines map ((l) -> { message_id: vars.doc.messageId, line_no: l.lineNo, sku: l.sku, uom: codes[l.uom], qty: l.qty, ext_uom: l.uom })',
       }),
       step('set-variable', { variableName: 'good', value: '#[vars.mapped filter ($.uom != null) map ($ - "ext_uom")]' }),
       step('set-variable', { variableName: 'bad', value: '#[vars.mapped filter ($.uom == null) map ((l) -> { message_id: l.message_id, line_no: l.line_no, sku: l.sku, reason: "UNKNOWN_UOM" })]' }),
@@ -111,7 +111,7 @@ Tables:
 
 **What each system sends back**
 - The JMS listener gives the receipt above as the payload.
-- The unit map select answers a list of rows: \`[ { "ext_code": "CS", "int_code": "CASE" }, { "ext_code": "EA", "int_code": "EACH" }, { "ext_code": "PL", "int_code": "PALLET" } ]\`. Turn it into one object keyed by \`ext_code\`, so a code missing from the map reads as null.
+- The unit map select answers a list of rows: \`[ { "EXT_CODE": "CS", "INT_CODE": "CASE" }, { "EXT_CODE": "EA", "INT_CODE": "EACH" }, { "EXT_CODE": "PL", "INT_CODE": "PALLET" } ]\`. Oracle returns unquoted column names in upper case. Turn it into one object keyed by \`EXT_CODE\`, so a code missing from the map reads as null.
 
 **Design the flow.**
 `,
@@ -133,7 +133,7 @@ Tables:
 2. **Database Select** \`SELECT ext_code, int_code FROM code_map WHERE map_name = 'UOM'\`, Target \`uomMap\`.
 3. **Transform** into \`vars.mapped\`:
 \`\`\`
-var codes = { (vars.uomMap map ((m) -> { (m.ext_code): m.int_code })) }
+var codes = { (vars.uomMap map ((m) -> { (m.EXT_CODE): m.INT_CODE })) }
 ---
 vars.doc.lines map ((l) -> { ..., uom: codes[l.uom], ext_uom: l.uom })
 \`\`\`

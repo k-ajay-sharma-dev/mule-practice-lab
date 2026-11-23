@@ -61,7 +61,7 @@ export default {
         {
           otherwise: [
             step('email-send', {
-              toAddresses: '#[vars.recipients map $.email joinBy ","]',
+              toAddresses: '#[vars.recipients map $.EMAIL joinBy ","]',
               subject: '#[payload.jobName ++ " job " ++ (payload.jobId as String) ++ ": " ++ payload.status]',
               content: '#["Loaded " ++ (payload.loaded as String) ++ ", failed " ++ (payload.failed as String) ++ "."]',
               contentType: 'text/plain',
@@ -91,9 +91,10 @@ The support team now keeps the lists in Oracle, in \`job_recipient\` (\`job_name
 - Read the recipients into a target variable, so the event stays the payload. Pass the addresses to **Email Send** as one comma separated To list.
 
 **What each system sends back**
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "EMAIL": ... }\`.
 - \`SELECT email FROM job_recipient ...\` gives a list of rows, empty when nobody is listed:
 \`\`\`json
-[ { "email": "night-ops@fenwick.example" }, { "email": "stock-team@fenwick.example" } ]
+[ { "EMAIL": "night-ops@fenwick.example" }, { "EMAIL": "stock-team@fenwick.example" } ]
 \`\`\`
 
 **Design the flow.**
@@ -116,7 +117,7 @@ The support team now keeps the lists in Oracle, in \`job_recipient\` (\`job_name
 2. **Database Select** \`SELECT email FROM job_recipient WHERE job_name = :jobName AND active = 1\` (target \`recipients\`).
 3. **Choice**:
    - empty: **Logger** WARN with the job name.
-   - otherwise: **Email Send** to \`#[vars.recipients map $.email joinBy ","]\`, subject from the event, the counts in the body.
+   - otherwise: **Email Send** to \`#[vars.recipients map $.EMAIL joinBy ","]\`, subject from the event, the counts in the body.
 
 **Many recipients.** Everyone in To sees the other addresses. For a long list, or people outside the company, put them in Bcc or send one email each.
 `,

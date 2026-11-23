@@ -107,14 +107,14 @@ export default {
           otherwise: [
             scope('try', {}, [
               step('transform', {
-                script: '%dw 2.0\noutput application/java\nvar csv = (vars.mail.attachments pluck ((content, name) -> content))[0]\n---\nread(csv, "application/csv") map ((r) -> { invoice_no: r.invoice_no, line_no: r.line_no as Number, item_id: r.item_id, amount: if (isEmpty(r.amount)) null else r.amount as Number, supplier_id: vars.supplier[0].supplier_id })',
+                script: '%dw 2.0\noutput application/java\nvar csv = (vars.mail.attachments pluck ((content, name) -> content))[0]\n---\nread(csv, "application/csv") map ((r) -> { invoice_no: r.invoice_no, line_no: r.line_no as Number, item_id: r.item_id, amount: if (isEmpty(r.amount)) null else r.amount as Number, supplier_id: vars.supplier[0].SUPPLIER_ID })',
               }),
               scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
                 step('db-bulk-insert', { database: 'Oracle', sql: 'INSERT INTO invoice_lines (invoice_no, line_no, item_id, amount, supplier_id) VALUES (:invoice_no, :line_no, :item_id, :amount, :supplier_id)' }),
                 step('db-insert', {
                   database: 'Oracle',
                   sql: "INSERT INTO mail_log (message_id, supplier_id, status) VALUES (:messageId, :supplierId, 'LOADED')",
-                  inputParameters: '#[{ messageId: vars.messageId, supplierId: vars.supplier[0].supplier_id }]',
+                  inputParameters: '#[{ messageId: vars.messageId, supplierId: vars.supplier[0].SUPPLIER_ID }]',
                 }),
               ]),
               step('email-move', { emailId: '#[vars.mailId]', targetFolder: 'Processed', createTargetFolder: 'true' }),
@@ -125,7 +125,7 @@ export default {
                   step('email-move', { emailId: '#[vars.mailId]', targetFolder: 'Error', createTargetFolder: 'true' }),
                   scope('async', {}, [
                     step('email-send', {
-                      toAddresses: '#[vars.supplier[0].contact_email]',
+                      toAddresses: '#[vars.supplier[0].CONTACT_EMAIL]',
                       subject: 'Your invoice email could not be loaded',
                       content: '#["We could not load the invoice file sent to us. Please check that every line has an amount and send it again. Reference: " ++ vars.messageId]',
                     }),
@@ -171,8 +171,9 @@ Incidents last year:
 - The subject of the supplier email is \`Your invoice email could not be loaded\`.
 
 **What each system sends back**
-- **Database Select** on \`suppliers\`: \`[ { "supplier_id": "SUP-HALE", "contact_email": "ar-team@hale-timber.example" } ]\` for \`hale-timber.example\`, or an empty list for an unknown domain. Read the row as \`[0]\`.
-- **Database Select** on \`mail_log\`: \`[ { "message_id": "<inv-55021@hale-timber.example>" } ]\` when the email was loaded before, or an empty list.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "SUPPLIER_ID": ..., "CONTACT_EMAIL": ... }\`.
+- **Database Select** on \`suppliers\`: \`[ { "SUPPLIER_ID": "SUP-HALE", "CONTACT_EMAIL": "ar-team@hale-timber.example" } ]\` for \`hale-timber.example\`, or an empty list for an unknown domain. Read the row as \`[0]\`.
+- **Database Select** on \`mail_log\`: \`[ { "MESSAGE_ID": "<inv-55021@hale-timber.example>" } ]\` when the email was loaded before, or an empty list.
 
 **What failures look like**
 - A line with no amount: Oracle refuses the null in the NOT NULL column, and the Bulk Insert raises \`DB:QUERY_EXECUTION\`. The transaction rolls back, so no line and no \`mail_log\` row stay.
@@ -203,10 +204,10 @@ Incidents last year:
    - no supplier: WARN, **Email Move** to \`Quarantine\`.
    - seen: INFO, **Email Move** to \`Processed\`.
    - otherwise a **Try**:
-     - **Transform** the CSV to rows with \`supplier_id\`.
+     - **Transform** the CSV to rows with \`supplier_id\` from \`vars.supplier[0].SUPPLIER_ID\`.
      - **Try** ALWAYS_BEGIN: **Bulk Insert** \`invoice_lines\`, **Insert** \`mail_log\` \`LOADED\`.
      - **Email Move** to \`Processed\`.
-     - **On Error Continue**: ERROR, **Email Move** to \`Error\`, **Async** **Email Send** to \`vars.supplier[0].contact_email\`.
+     - **On Error Continue**: ERROR, **Email Move** to \`Error\`, **Async** **Email Send** to \`vars.supplier[0].CONTACT_EMAIL\`.
 
 **Missing Message-ID.** A few mail tools leave it out. Fall back to a hash of sender, date and attachment, and log that you did.
 `,

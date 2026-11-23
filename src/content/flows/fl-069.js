@@ -220,6 +220,7 @@ export default {
           }),
           // Sets STOCK_LOT.STATUS = 'QUARANTINE' everywhere (DCs, stores, in transit) and blocks sales; no COMMIT inside.
           step('db-stored-procedure', {
+            database: 'Oracle',
             sql: '{ call TRACE_PKG.QUARANTINE_LOTS(:recallId, :sku, :lotCsv, :quarantinedQty, :locationCount) }',
           }),
         ]),
@@ -251,6 +252,7 @@ export default {
         step('set-variable', { variableName: 'recallId', value: '#[payload.recallId]' }),
         // OUT p_locations SYS_REFCURSOR (store/DC rows), OUT p_customers SYS_REFCURSOR (loyalty/e-com buyers of the lots).
         step('db-stored-procedure', {
+          database: 'Oracle',
           sql: '{ call TRACE_PKG.AFFECTED_PARTIES(:recallId, :locations, :customers) }',
         }),
         step('transform', {
@@ -291,15 +293,17 @@ export default {
             '%dw 2.0\noutput application/java\n---\nflatten(valuesOf(payload) map ((r) -> r.payload)) map ((n) -> { recallId: vars.recallId, target: n.target, status: n.status })',
         }),
         step('db-bulk-insert', {
+          database: 'Oracle',
           sql: 'INSERT INTO RECALL_NOTIFICATION (RECALL_ID, TARGET, STATUS, NOTIFIED_AT)\nVALUES (:recallId, :target, :status, SYSTIMESTAMP)',
         }),
-        step('db-update', { sql: "UPDATE RECALL SET STATUS = 'NOTIFIED', NOTIFIED_AT = SYSTIMESTAMP WHERE RECALL_ID = :recallId" }),
+        step('db-update', { database: 'Oracle', sql: "UPDATE RECALL SET STATUS = 'NOTIFIED', NOTIFIED_AT = SYSTIMESTAMP WHERE RECALL_ID = :recallId" }),
       ],
       [
         // MULE:COMPOSITE_ROUTING when a route fails: record what failed, then propagate → redelivery.
         handler('on-error-propagate', { type: 'MULE:COMPOSITE_ROUTING' }, [
           step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
           step('db-insert', {
+            database: 'Oracle',
             sql: "INSERT INTO RECALL_NOTIFICATION (RECALL_ID, TARGET, STATUS, ERROR_TEXT, NOTIFIED_AT)\nVALUES (:recallId, 'FANOUT', 'PARTIAL_FAILURE', :errorText, SYSTIMESTAMP)",
           }),
         ]),

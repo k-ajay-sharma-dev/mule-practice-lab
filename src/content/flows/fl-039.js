@@ -129,6 +129,7 @@ export default {
       [
         step('set-variable', { variableName: 'waveId', value: '#[attributes.queryParams.wave default "W1"]' }),
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT c.*, a.street, a.city, a.postcode, a.country FROM legacy_customer c LEFT JOIN legacy_address a ON a.customer_id = c.id WHERE c.migration_wave = :waveId AND c.migrated = 'N'",
         }),
         router(
@@ -136,11 +137,11 @@ export default {
           { jobName: 'customer-migration', blockSize: 200, maxFailedRecords: -1 },
           [
             route({ name: 'validate-and-map', acceptPolicy: 'NO_FAILURES' }, [
-              step('validation', { check: 'is-not-blank-string', expression: '#[payload.customer_no]', message: 'Missing customer number' }),
-              step('validation', { check: 'is-email', expression: '#[payload.email]', message: 'Invalid email' }),
+              step('validation', { check: 'is-not-blank-string', expression: '#[payload.CUSTOMER_NO]', message: 'Missing customer number' }),
+              step('validation', { check: 'is-email', expression: '#[payload.EMAIL]', message: 'Invalid email' }),
               step('transform', {
                 script:
-                  '%dw 2.0\noutput application/java\n---\n{\n  Legacy_Customer_No__c: payload.customer_no,\n  Name: trim(payload.company_name),\n  BillingStreet: payload.street,\n  BillingCity: payload.city,\n  BillingPostalCode: payload.postcode,\n  BillingCountry: upper(payload.country default ""),\n  Email__c: lower(payload.email)\n}',
+                  '%dw 2.0\noutput application/java\n---\n{\n  Legacy_Customer_No__c: payload.CUSTOMER_NO,\n  Name: trim(payload.COMPANY_NAME),\n  BillingStreet: payload.STREET,\n  BillingCity: payload.CITY,\n  BillingPostalCode: payload.POSTCODE,\n  BillingCountry: upper(payload.COUNTRY default ""),\n  Email__c: lower(payload.EMAIL)\n}',
               }),
             ]),
             route({ name: 'load-salesforce', acceptPolicy: 'NO_FAILURES' }, [
@@ -155,6 +156,7 @@ export default {
             route({ name: 'mark-migrated', acceptPolicy: 'NO_FAILURES' }, [
               scope('batch-aggregator', { size: 500 }, [
                 step('db-bulk-insert', {
+                  database: 'Oracle',
                   sql: "INSERT INTO migration_log (customer_no, wave_id, status) VALUES (:Legacy_Customer_No__c, :waveId, 'MIGRATED')",
                 }),
               ]),
@@ -166,11 +168,12 @@ export default {
               step('set-variable', {
                 variableName: 'error',
                 value:
-                  '#[if (payload.Legacy_Customer_No__c != null) "Salesforce load failed" else if (isBlank(payload.customer_no)) "Missing customer number" else if (not ((payload.email default "") contains "@")) "Invalid email" else "Rejected"]',
+                  '#[if (payload.Legacy_Customer_No__c != null) "Salesforce load failed" else if (isBlank(payload.CUSTOMER_NO)) "Missing customer number" else if (not ((payload.EMAIL default "") contains "@")) "Invalid email" else "Rejected"]',
               }),
               step('db-insert', {
+                database: 'Oracle',
                 sql: 'INSERT INTO migration_errors (customer_no, wave_id, error_message, failed_at) VALUES (:customer_no, :wave_id, :error, CURRENT_TIMESTAMP)',
-                inputParameters: '#[{ customer_no: payload.customer_no default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]',
+                inputParameters: '#[{ customer_no: payload.CUSTOMER_NO default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]',
               }),
             ]),
           ],
@@ -211,10 +214,10 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 - The report goes to \`migration-team@example.com\`.
 
 **What each system sends back**
-- The joined select returns a list of rows keyed by the column names as written here:
+- The joined select returns a list of rows. Oracle returns unquoted column names in upper case, so a row reads \`payload.CUSTOMER_NO\`, not \`payload.customer_no\`:
 \`\`\`json
-[ { "id": 1, "customer_no": "LC-100201", "company_name": "Harbour Tools Ltd ", "email": "Accounts@HarbourTools.co.uk",
-    "migration_wave": "W1", "migrated": "N", "street": "4 Quay Street", "city": "Bristol", "postcode": "BS1 4DJ", "country": "gb" } ]
+[ { "ID": 1, "CUSTOMER_NO": "LC-100201", "COMPANY_NAME": "Harbour Tools Ltd ", "EMAIL": "Accounts@HarbourTools.co.uk",
+    "MIGRATION_WAVE": "W1", "MIGRATED": "N", "STREET": "4 Quay Street", "CITY": "Bristol", "POSTCODE": "BS1 4DJ", "COUNTRY": "gb" } ]
 \`\`\`
 - The Salesforce upsert answers one result per Account, in \`items\`: \`{ "successful": true, "items": [ { "id": "001...", "successful": true } ] }\`. A rejected Account has \`successful: false\` and a \`message\`; that alone does not fail the batch record.
 - On Complete receives the batch job result with \`totalRecords\`, \`successfulRecords\`, \`failedRecords\` and \`elapsedTimeInMillis\`.
@@ -254,7 +257,7 @@ A company is retiring its legacy CRM (Oracle) and moving **1.2 million customers
 1. \`validate-and-map\` (NO_FAILURES): Validate customer number and email; DataWeave maps the row to the Account shape. A failure here marks only that record as failed.
 2. \`load-salesforce\` (NO_FAILURES): **Batch Aggregator size 200** → Salesforce **Upsert** \`Account\` on \`Legacy_Customer_No__c\`. Check the per-item results: the connector reports record-level failures in its result instead of failing the whole group. So a rejected Account does not count as a failed batch record by itself and must be logged from here. (For 300k records, the Salesforce Bulk API v2 is an alternative.)
 3. \`mark-migrated\` (NO_FAILURES): aggregator → Database Bulk Insert into \`migration_log\` (audit and cutover proof).
-4. \`record-failures\` (**ONLY_FAILURES**): insert the record plus a reason into \`migration_errors\` for the data-stewards. A failed record arrives here as it was when it failed (the legacy row after a validation failure, the mapped Account after a failed upsert), and a later step cannot read that record's Mule error, so the reason is worked out again from what the record holds before the insert. Input parameters name each value: \`#[{ customer_no: payload.customer_no default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]\`.
+4. \`record-failures\` (**ONLY_FAILURES**): insert the record plus a reason into \`migration_errors\` for the data-stewards. A failed record arrives here as it was when it failed (the legacy row after a validation failure, the mapped Account after a failed upsert), and a later step cannot read that record's Mule error, so the reason is worked out again from what the record holds before the insert. Input parameters name each value: \`#[{ customer_no: payload.CUSTOMER_NO default payload.Legacy_Customer_No__c, wave_id: vars.waveId, error: vars.error }]\`.
 
 **On Complete:** DataWeave builds the summary from the BatchJobResult (\`totalRecords\`, \`successfulRecords\`, \`failedRecords\`, \`elapsedTimeInMillis\`) and **Email Send** delivers it.
 

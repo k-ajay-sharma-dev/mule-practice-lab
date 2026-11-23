@@ -118,10 +118,12 @@ export default {
         step('set-variable', { variableName: 'cutoff', value: '#[now()]' }),
         scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
           step('db-update', {
+            database: 'Oracle',
             sql: "UPDATE STOCK_AVAILABILITY a\nSET a.RESERVED_QTY = a.RESERVED_QTY - (\n  SELECT SUM(r.QTY) FROM STOCK_RESERVATION r\n  WHERE r.SKU = a.SKU AND r.LOCATION_ID = a.LOCATION_ID\n    AND r.STATUS = 'HELD' AND r.EXPIRES_AT < :cutoff)\nWHERE EXISTS (\n  SELECT 1 FROM STOCK_RESERVATION r\n  WHERE r.SKU = a.SKU AND r.LOCATION_ID = a.LOCATION_ID\n    AND r.STATUS = 'HELD' AND r.EXPIRES_AT < :cutoff)",
           }),
           step('set-variable', { variableName: 'skusReleased', value: '#[payload.affectedRows]' }),
           step('db-delete', {
+            database: 'Oracle',
             sql: "DELETE FROM STOCK_RESERVATION\nWHERE STATUS = 'HELD' AND EXPIRES_AT < :cutoff",
           }),
         ]),

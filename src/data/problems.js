@@ -16,6 +16,14 @@ export function problemsFor(category) {
 
 const cache = new Map()
 
+// A flow problem whose reference talks to Oracle runs the learner's flow against Oracle too, so a select returns
+// upper case column names even when the learner leaves the Database field at Generic JDBC.
+function markOracle(problem) {
+  const db = problem?.simulation?.systems?.db
+  if (db && !db.vendor && /"database":"Oracle"/.test(JSON.stringify(problem.referenceFlow ?? null))) db.vendor = 'Oracle'
+  return problem
+}
+
 export function loadProblem(id) {
   const meta = problemById.get(id)
   if (!meta) return Promise.resolve(null)
@@ -24,6 +32,7 @@ export function loadProblem(id) {
     if (!load) return Promise.reject(new Error(`No content file for ${id}`))
     const pending = load()
       .then((m) => m?.default ?? Promise.reject(new Error(`Failed to load ${id}`)))
+      .then(markOracle)
       .catch((error) => {
         // forget the failure so a later visit (e.g. back online) tries again
         cache.delete(id)

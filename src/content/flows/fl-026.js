@@ -206,6 +206,7 @@ export default {
         step('set-variable', { variableName: 'customerHash', value: '#[dw::Crypto::SHA1(payload.customerId as Binary)]' }),
         // The result goes to a variable, so the payload still holds the request for the inserts below.
         step('db-select', {
+          database: 'Oracle',
           target: 'flags',
           sql: "SELECT COUNT(*) AS BLOCKERS FROM customer_flags WHERE customer_id = :customerId AND (legal_hold = 'Y' OR open_claims > 0)",
         }),
@@ -215,6 +216,7 @@ export default {
           [
             route({ expression: '#[vars.flags[0].BLOCKERS > 0]' }, [
               step('db-insert', {
+                database: 'Oracle',
                 sql: "INSERT INTO erasure_request (request_id, customer_hash, status, reason) VALUES (:requestId, :customerHash, 'REJECTED', 'LEGAL_HOLD_OR_OPEN_CLAIM')",
               }),
               step('set-variable', { variableName: 'httpStatus', value: '422' }),
@@ -226,6 +228,7 @@ export default {
           {
             otherwise: [
               step('db-insert', {
+                database: 'Oracle',
                 sql: "INSERT INTO erasure_request (request_id, customer_hash, status, received_at) VALUES (:requestId, :customerHash, 'ACCEPTED', CURRENT_TIMESTAMP)",
               }),
               step('transform', {
@@ -235,6 +238,7 @@ export default {
               scope('foreach', { collection: '#[payload]', batchSize: 1 }, [
                 // The target keeps the task as the payload, so the publish below sends the task to its system's queue.
                 step('db-insert', {
+                  database: 'Oracle',
                   target: 'taskRow',
                   sql: "INSERT INTO erasure_task (task_id, request_id, system, status) VALUES (:taskId, :requestId, :system, 'PENDING')",
                 }),
@@ -259,7 +263,7 @@ export default {
       scope('foreach', { collection: '#[payload]', batchSize: 1 }, [
         step('http-request', { method: 'DELETE', path: '/services/data/v60.0/sobjects/Contact/{id}' }),
       ]),
-      step('db-update', { sql: "UPDATE erasure_task SET status = 'DONE', done_at = CURRENT_TIMESTAMP WHERE task_id = :taskId" }),
+      step('db-update', { database: 'Oracle', sql: "UPDATE erasure_task SET status = 'DONE', done_at = CURRENT_TIMESTAMP WHERE task_id = :taskId" }),
     ]),
     worker('policydb', [
       step('transform', {
@@ -268,39 +272,46 @@ export default {
       }),
       scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
         step('db-update', {
+          database: 'Oracle',
           sql: 'UPDATE policy_holder SET name = :name, email = :email, phone = :phone, pseudonym = :pseudonym WHERE customer_id = :customerId',
         }),
-        step('db-update', { sql: "UPDATE erasure_task SET status = 'DONE', done_at = CURRENT_TIMESTAMP WHERE task_id = :taskId" }),
+        step('db-update', { database: 'Oracle', sql: "UPDATE erasure_task SET status = 'DONE', done_at = CURRENT_TIMESTAMP WHERE task_id = :taskId" }),
       ]),
     ]),
     worker('marketing', [
       step('http-request', { method: 'POST', path: '/marketing/bulk-deletes' }),
-      step('db-update', { sql: "UPDATE erasure_task SET status = 'IN_PROGRESS', job_id = :jobId WHERE task_id = :taskId" }),
+      step('db-update', { database: 'Oracle', sql:"UPDATE erasure_task SET status = 'IN_PROGRESS', job_id = :jobId WHERE task_id = :taskId" }),
     ]),
     worker('datalake', [
       step('http-request', { method: 'POST', path: '/datalake/erasures' }),
-      step('db-update', { sql: "UPDATE erasure_task SET status = 'IN_PROGRESS', job_id = :jobId WHERE task_id = :taskId" }),
+      step('db-update', { database: 'Oracle', sql:"UPDATE erasure_task SET status = 'IN_PROGRESS', job_id = :jobId WHERE task_id = :taskId" }),
     ]),
     flow('gdpr-async-job-poller', source('scheduler', { strategy: 'fixed-frequency', frequency: 15, timeUnit: 'MINUTES' }), [
-      step('db-select', { sql: "SELECT task_id, system, job_id FROM erasure_task WHERE status = 'IN_PROGRESS'" }),
+      // Quoted aliases keep the keys camelCase for the {system}, {jobId} and :taskId lookups (Oracle upper cases unquoted names).
+      step('db-select', {
+        database: 'Oracle',
+        sql: 'SELECT task_id AS "taskId", system AS "system", job_id AS "jobId" FROM erasure_task WHERE status = \'IN_PROGRESS\'',
+      }),
       scope('foreach', { collection: '#[payload]', batchSize: 1 }, [
         step('http-request', { method: 'GET', path: '/{system}/jobs/{jobId}' }),
         router('choice', {}, [
           route({ expression: '#[payload.status == "COMPLETED"]' }, [
-            step('db-update', { sql: "UPDATE erasure_task SET status = 'DONE', done_at = CURRENT_TIMESTAMP WHERE task_id = :taskId" }),
+            step('db-update', { database: 'Oracle', sql: "UPDATE erasure_task SET status = 'DONE', done_at = CURRENT_TIMESTAMP WHERE task_id = :taskId" }),
           ]),
         ]),
       ]),
     ]),
     flow('gdpr-completion-check', source('scheduler', { strategy: 'cron', expression: '0 0 * * * ?' }), [
       step('db-select', {
-        sql: "SELECT r.request_id FROM erasure_request r WHERE r.status = 'ACCEPTED' AND NOT EXISTS (SELECT 1 FROM erasure_task t WHERE t.request_id = r.request_id AND t.status <> 'DONE')",
+        database: 'Oracle',
+        sql: "SELECT r.request_id AS \"requestId\" FROM erasure_request r WHERE r.status = 'ACCEPTED' AND NOT EXISTS (SELECT 1 FROM erasure_task t WHERE t.request_id = r.request_id AND t.status <> 'DONE')",
       }),
       scope('foreach', { collection: '#[payload]', batchSize: 1 }, [
         step('db-insert', {
+          database: 'Oracle',
           sql: 'INSERT INTO erasure_audit (request_id, customer_hash, system, action, result, done_at) SELECT t.request_id, r.customer_hash, t.system, t.action, t.status, t.done_at FROM erasure_task t JOIN erasure_request r ON r.request_id = t.request_id WHERE t.request_id = :requestId',
         }),
-        step('db-update', { sql: "UPDATE erasure_request SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP WHERE request_id = :requestId" }),
+        step('db-update', { database: 'Oracle', sql: "UPDATE erasure_request SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP WHERE request_id = :requestId" }),
         step('http-request', { method: 'POST', path: '/privacy-portal/erasure-requests/{requestId}/completed' }),
       ]),
     ]),
@@ -326,7 +337,7 @@ Requests arrive from a privacy portal: \`POST /erasure-requests\` with \`{ reque
 - One system failing must not stop the others.
 
 **What each system sends back**
-- A Database Select answers with a list of rows, keyed by the column names or the aliases in your SQL. For example \`SELECT COUNT(*) AS BLOCKERS FROM customer_flags WHERE ...\` gives \`[ { "BLOCKERS": 1 } ]\`. It replaces the payload unless you give it a target variable.
+- A Database Select answers with a list of rows, keyed by the column names or the aliases in your SQL. Oracle returns unquoted column names in upper case, so a row reads \`{ "TASK_ID": ..., "JOB_ID": ... }\`, while a quoted alias such as \`job_id AS "jobId"\` keeps its case. For example \`SELECT COUNT(*) AS BLOCKERS FROM customer_flags WHERE ...\` gives \`[ { "BLOCKERS": 1 } ]\`. It replaces the payload unless you give it a target variable.
 - The Salesforce Query for the customer's Contacts answers with a list of records: \`[ { "Id": "0035g00000KLMNO" }, { "Id": "0035g00000PQRST" } ]\`. Each \`DELETE\` answers 204 with no body.
 - \`POST /marketing/bulk-deletes\` answers 202 \`{ "jobId": "MKT-JOB-551" }\` and \`POST /datalake/erasures\` answers 202 \`{ "jobId": "DL-REQ-88" }\`.
 - An Anypoint MQ Subscriber gets the task as the payload, and the token to Ack or Nack it in \`attributes.ackToken\`.

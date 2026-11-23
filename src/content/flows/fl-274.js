@@ -200,7 +200,7 @@ ACKs go to \`pdh.supplieritem.ack\`: \`DUPLICATE\`, \`REJECTED\` with a reason, 
 - \`RECEIVED\` and \`REJECTED\` are inserts into \`message_log\`. \`LOADED\` and \`FAILED\` update that row.
 
 **What each system sends back**
-- The \`message_log\` select gives a list of rows, such as \`[ { "status": "LOADED" } ]\`, or an empty list for a new message.
+- The \`message_log\` select gives a list of rows, such as \`[ { "STATUS": "LOADED" } ]\`, or an empty list for a new message. Oracle returns unquoted column names in upper case.
 - List Blobs gives \`[ { "name": "supplier-item/SI-30417.json" } ]\` when the blob is there and \`[]\` when it is not.
 - Download Blob replaces the payload with the blob's JSON list of lines:
 \`\`\`json

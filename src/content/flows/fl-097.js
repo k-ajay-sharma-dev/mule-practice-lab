@@ -185,6 +185,7 @@ export default {
               step('os-retrieve', { key: 'fleet-sync-last-id', defaultValue: '#[0]', objectStore: 'fleetSyncStore' }),
               step('set-variable', { variableName: 'lastId', value: '#[payload]' }),
               step('db-select', {
+                database: 'Oracle',
                 // Quoted aliases keep the keys lower case: Oracle reports unquoted column names in upper case.
                 sql: 'SELECT id AS "id", vehicle_id AS "vehicle_id", reading AS "reading" FROM telemetry_outbox WHERE id > :lastId ORDER BY id FETCH FIRST 20000 ROWS ONLY',
               }),

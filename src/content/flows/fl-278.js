@@ -83,7 +83,7 @@ export default {
             step('db-select', { database: 'Oracle', sql: 'SELECT asn, sku FROM asn_reject WHERE file_name = :fileName ORDER BY asn, sku', inputParameters: '#[{ fileName: vars.fileName }]', target: 'rejects' }),
             step('set-payload', {
               value:
-                '#[([vars.fileName ++ "|" ++ (if (payload.failedRecords == 0) "ACCEPTED" else if (payload.successfulRecords == 0) "REJECTED" else "PARTIAL") ++ "|" ++ (payload.successfulRecords as String) ++ "|" ++ (payload.failedRecords as String)] ++ (vars.rejects map ("REJECT|" ++ $.asn ++ "|" ++ $.sku))) joinBy "\\n"]',
+                '#[([vars.fileName ++ "|" ++ (if (payload.failedRecords == 0) "ACCEPTED" else if (payload.successfulRecords == 0) "REJECTED" else "PARTIAL") ++ "|" ++ (payload.successfulRecords as String) ++ "|" ++ (payload.failedRecords as String)] ++ (vars.rejects map ("REJECT|" ++ $.ASN ++ "|" ++ $.SKU))) joinBy "\\n"]',
             }),
             step('sftp-write', { path: '#["/inbound/asn-ack/" ++ vars.fileName ++ ".ack"]', mode: 'OVERWRITE' }),
             step('sftp-move', { sourcePath: '#[vars.filePath]', targetPath: '/outbound/asn/done' }),
@@ -125,7 +125,8 @@ The first line is \`<file>|<status>|<loaded>|<rejected>\`, with status \`ACCEPTE
 **What each system sends back**
 - The SFTP listener gives the CSV with \`attributes.fileName\` and \`attributes.path\`. The Batch Job gets one record per line with string values: \`{ "asn": "ASN-7781", "sku": "ELBOW-22MM", "qty": "0" }\`.
 - In On Complete the payload is the job result, with the counts in \`payload.successfulRecords\` and \`payload.failedRecords\`.
-- The reject select gives rows such as \`[ { "asn": "ASN-7781", "sku": "ELBOW-22MM" } ]\`.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "ASN": ..., "SKU": ... }\`.
+- The reject select gives rows such as \`[ { "ASN": "ASN-7781", "SKU": "ELBOW-22MM" } ]\`.
 
 **What failures look like**
 - A quantity of 0 fails the line's check, and the line goes to the ONLY_FAILURES step.

@@ -81,10 +81,10 @@ export default {
       scope('foreach', { collection: '#[payload]' }, [
         step('set-variable', { variableName: 'row', value: '#[payload]' }),
         scope('try', {}, [
-          step('email-send', { toAddresses: '#[vars.row.to_addr]', subject: '#[vars.row.subject]', content: '#["We have your order " ++ vars.row.order_id ++ ". We will email you again when it is ready to collect."]' }),
-          step('db-update', { database: 'Oracle', sql: "UPDATE email_outbox SET status = 'SENT' WHERE id = :id", inputParameters: '#[{ id: vars.row.id }]' }),
+          step('email-send', { toAddresses: '#[vars.row.TO_ADDR]', subject: '#[vars.row.SUBJECT]', content: '#["We have your order " ++ vars.row.ORDER_ID ++ ". We will email you again when it is ready to collect."]' }),
+          step('db-update', { database: 'Oracle', sql: "UPDATE email_outbox SET status = 'SENT' WHERE id = :id", inputParameters: '#[{ id: vars.row.ID }]' }),
         ], {
-          errorHandlers: [handler('on-error-continue', { type: 'ANY' }, [step('logger', { level: 'WARN', message: '#["Confirmation for " ++ vars.row.order_id ++ " not sent yet: " ++ error.description]' })])],
+          errorHandlers: [handler('on-error-continue', { type: 'ANY' }, [step('logger', { level: 'WARN', message: '#["Confirmation for " ++ vars.row.ORDER_ID ++ " not sent yet: " ++ error.description]' })])],
         }),
       ]),
     ]),
@@ -115,7 +115,8 @@ The team added \`email_outbox\` (\`id\`, \`order_id\`, \`to_addr\`, \`subject\`,
 - Put the status code in the variable \`httpStatus\`. The listener answers with it. A failed insert must not be caught, so the shopper gets 500.
 
 **What each system sends back**
-- The relay's **Database Select** returns a list of \`PENDING\` rows: \`[ { "id": "...", "order_id": "CC-30881", "to_addr": "r.hale@mail.example", "subject": "Your order CC-30881 is being picked" } ]\`, or an empty list.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "ORDER_ID": ..., "TO_ADDR": ... }\`.
+- The relay's **Database Select** returns a list of \`PENDING\` rows: \`[ { "ID": "...", "ORDER_ID": "CC-30881", "TO_ADDR": "r.hale@mail.example", "SUBJECT": "Your order CC-30881 is being picked" } ]\`, or an empty list.
 
 **What failures look like**
 - The outbox insert is refused: \`DB:QUERY_EXECUTION\` (\`ORA-01653: unable to extend table\`). The transaction rolls back the order row too, and the uncaught error answers **500**.

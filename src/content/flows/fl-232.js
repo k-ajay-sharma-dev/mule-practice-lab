@@ -91,7 +91,7 @@ export default {
       step('azure-download-blob', { container: 'store-sales', fileName: '#[vars.note.blobName]' }),
       step('set-variable', { variableName: 'lines', value: '#[payload]' }),
       step('db-select', { database: 'Oracle', sql: 'SELECT LOAD_BATCH_SEQ.NEXTVAL AS batch_no FROM dual', target: 'seq' }),
-      step('set-variable', { variableName: 'batchNo', value: '#[vars.seq[0].batch_no]' }),
+      step('set-variable', { variableName: 'batchNo', value: '#[vars.seq[0].BATCH_NO]' }),
       step('transform', {
         script: '%dw 2.0\noutput application/java\n---\nvars.lines map ((s) -> { batch_no: vars.batchNo, store_id: s.store, sku: s.sku, units: s.units, business_date: s.businessDate, status: "STAGED" })',
       }),
@@ -143,7 +143,7 @@ which checks each row, moves the good ones into \`store_sales\` and marks the ba
 
 **What each system sends back**
 - The blob download gives the file's content as the payload: \`[ { "store": "0101", "sku": "SOCK-WOOL-L", "units": -2, "businessDate": "2026-11-12" } ]\`. Keep the notification in a variable first, because the download replaces the payload.
-- \`SELECT LOAD_BATCH_SEQ.NEXTVAL AS batch_no FROM dual\` answers \`[ { "batch_no": 8801 } ]\`.
+- \`SELECT LOAD_BATCH_SEQ.NEXTVAL AS batch_no FROM dual\` answers \`[ { "BATCH_NO": 8801 } ]\`. Oracle returns unquoted column names and aliases in upper case, so read \`[0].BATCH_NO\`.
 - The procedure answers its outputs: \`{ "p_applied": 2, "p_rejected": 1 }\`.
 
 **What failures look like**

@@ -73,15 +73,15 @@ export default {
         }),
         router('choice', {}, [
           route({ expression: '#[not isEmpty(vars.claimed)]' }, [
-            step('set-payload', { value: '#[vars.claimed]' }),
+            step('set-payload', { value: '#[vars.claimed map { id: $.ID }]' }),
             step('db-bulk-update', { database: 'Oracle', sql: "UPDATE price_outbox SET status = 'SENDING' WHERE id = :id" }),
           ]),
         ]),
       ]),
       scope('foreach', { collection: '#[vars.claimed]' }, [
-        step('set-variable', { variableName: 'rowId', value: '#[payload.id]' }),
+        step('set-variable', { variableName: 'rowId', value: '#[payload.ID]' }),
         scope('try', {}, [
-          step('set-payload', { value: '#[read(payload.price_json, "application/json")]' }),
+          step('set-payload', { value: '#[read(payload.PRICE_JSON, "application/json")]' }),
           step('http-request', { method: 'POST', path: '#["/stores/" ++ payload.store ++ "/prices"]', responseTimeout: 5000 }),
           step('db-update', { database: 'Oracle', sql: "UPDATE price_outbox SET status = 'SENT' WHERE id = :rowId", inputParameters: '#[{ rowId: vars.rowId }]' }),
         ], {
@@ -107,10 +107,11 @@ The sender app runs on **two workers** in a cluster, both polling the table ever
 - One store failing must not stop the others.
 
 **What each system sends back**
-- The claim select answers a list of rows. \`price_json\` is text, so read it as JSON before sending; the store ID inside it is \`store\`:
+- The claim select answers a list of rows. Oracle returns unquoted column names in upper case. \`PRICE_JSON\` is text, so read it as JSON before sending; the store ID inside it is \`store\`:
 \`\`\`json
-[ { "id": 501, "store_id": "0412", "price_json": "{\\"store\\":\\"0412\\",\\"sku\\":\\"BRD-SOUR-800\\",\\"price\\":2.35}" } ]
+[ { "ID": 501, "STORE_ID": "0412", "PRICE_JSON": "{\\"store\\":\\"0412\\",\\"sku\\":\\"BRD-SOUR-800\\",\\"price\\":2.35}" } ]
 \`\`\`
+- A Bulk Update binds \`:id\` from each item of the payload, so give it items with an \`id\` key, for example \`vars.claimed map { id: $.ID }\`.
 - A store that accepts the price answers **200** \`{ "ok": true }\`.
 
 **What failures look like**
@@ -135,9 +136,9 @@ The sender app runs on **two workers** in a cluster, both polling the table ever
 1. **Scheduler** every 30 seconds (no Primary Node Only: both workers poll).
 2. **Try** ALWAYS_BEGIN:
    - **Database Select** \`... WHERE status = 'READY' AND ROWNUM <= 50 FOR UPDATE SKIP LOCKED\`, Target \`claimed\`.
-   - **Choice** not empty: payload = \`vars.claimed\`, **Bulk Update** \`SET status = 'SENDING' WHERE id = :id\`.
+   - **Choice** not empty: payload = \`vars.claimed map { id: $.ID }\`, **Bulk Update** \`SET status = 'SENDING' WHERE id = :id\`.
 3. **For Each** \`vars.claimed\`: \`rowId\`, then a **Try**:
-   - payload = the parsed \`price_json\`, **HTTP Request** \`POST /stores/{store}/prices\`, timeout 5 s.
+   - payload = the parsed \`PRICE_JSON\`, **HTTP Request** \`POST /stores/{store}/prices\`, timeout 5 s.
    - **Database Update** \`SENT\`.
    - **On Error Continue**: WARN, **Database Update** \`status = 'READY', attempts = attempts + 1\`.
 

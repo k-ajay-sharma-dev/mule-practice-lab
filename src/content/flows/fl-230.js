@@ -102,7 +102,7 @@ export default {
             step('db-update', {
               database: 'Oracle',
               sql: "UPDATE job_log SET status = 'COMPLETED', total_count = :total, rejected_count = :rejected WHERE job_id = :jobId",
-              inputParameters: '#[{ total: payload.totalRecords, rejected: vars.rej[0].rejected, jobId: vars.jobId }]',
+              inputParameters: '#[{ total: payload.totalRecords, rejected: vars.rej[0].REJECTED, jobId: vars.jobId }]',
             }),
             step('logger', { level: 'INFO', message: '#["Item load " ++ vars.jobId ++ " done: " ++ (payload.totalRecords as String) ++ " records"]' }),
           ],
@@ -133,6 +133,9 @@ Every run has a row in \`job_log\` (\`job_id\`, \`job_name\`, \`status\`, \`tota
 - Turn an empty \`case_qty\` into null, so Oracle refuses the row, and store the rest as numbers. A refused insert raises \`DB:QUERY_EXECUTION\`.
 - The File listener gives the CSV as rows, every value as text. A missing quantity is an empty string: \`{ "item_id": "FX-1005", "description": "Item 5", "case_qty": "" }\`.
 - On Complete's payload has \`totalRecords\`. The rejected rows still count as successful, so count \`stg_item_rejects\` for the job.
+
+**What each system sends back**
+- A Database **Select** answers a list of rows. Oracle returns unquoted column names and aliases in upper case, so \`SELECT COUNT(*) AS rejected\` reads \`[ { "REJECTED": 1 } ]\`.
 
 **Design the flow.**
 `,

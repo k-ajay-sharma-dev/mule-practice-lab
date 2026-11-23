@@ -165,7 +165,7 @@ export default {
           target: 'variable',
           variableName: 'checked',
           script:
-            '%dw 2.0\noutput application/java\nvar locs = { (vars.locMap map ((m) -> { (m.ext_code): m.int_code })) }\n---\nvars.doc.lines map ((l) -> {\n  line: { sender_doc_id: vars.doc.senderDocId, line_no: l.lineNo, sku: l.sku, location_id: locs[l.location], qty: l.qty, message_id: vars.note.messageId },\n  reason: if (locs[l.location] == null) "UNKNOWN_LOCATION" else if (l.qty < 0) "NEGATIVE_QTY" else ""\n})',
+            '%dw 2.0\noutput application/java\nvar locs = { (vars.locMap map ((m) -> { (m.EXT_CODE): m.INT_CODE })) }\n---\nvars.doc.lines map ((l) -> {\n  line: { sender_doc_id: vars.doc.senderDocId, line_no: l.lineNo, sku: l.sku, location_id: locs[l.location], qty: l.qty, message_id: vars.note.messageId },\n  reason: if (locs[l.location] == null) "UNKNOWN_LOCATION" else if (l.qty < 0) "NEGATIVE_QTY" else ""\n})',
         }),
         step('set-variable', { variableName: 'good', value: '#[vars.checked filter ((c) -> c.reason == "") map ((c) -> c.line)]' }),
         step('set-variable', { variableName: 'bad', value: '#[vars.checked filter ((c) -> c.reason != "") map ((c) -> { message_id: vars.note.messageId, line_no: c.line.line_no, sku: c.line.sku, reason: c.reason })]' }),
@@ -262,14 +262,14 @@ Fenwick Supply, a fictional builders' merchant, receives inventory transactions 
 
 **Facts**
 - Make the \`job_id\` with \`uuid()\`.
-- \`location_id\` is the code map's \`int_code\`, such as \`310\`.
+- \`location_id\` is the code map's \`int_code\` (\`INT_CODE\` in the select's rows), such as \`310\`.
 - Put the notification on \`INV.FAILED\` as it arrived, with its \`messageId\`.
 - The email subject carries the message ID.
 
 **What each system sends back**
 - **Download Blob**: the payload is the JSON document above, for example three lines at \`FX-DC1\`, \`FX-DC9\` and \`FX-DC2\`, the last with \`qty: -5\`.
-- **Database Select** on \`inbound_messages\`: a list of rows such as \`[ { "message_id": "MSG-80101" } ]\`, or an empty list when nothing matches.
-- **Database Select** on the code map: rows \`[ { "ext_code": "FX-DC1", "int_code": "310" }, { "ext_code": "FX-DC2", "int_code": "320" } ]\`. Column names are lower case.
+- **Database Select** on \`inbound_messages\`: a list of rows such as \`[ { "MESSAGE_ID": "MSG-80101" } ]\`, or an empty list when nothing matches.
+- **Database Select** on the code map: rows \`[ { "EXT_CODE": "FX-DC1", "INT_CODE": "310" }, { "EXT_CODE": "FX-DC2", "INT_CODE": "320" } ]\`. Oracle returns unquoted column names in upper case, so read \`EXT_CODE\` and \`INT_CODE\`.
 
 **What failures look like**
 - The MERGE is refused: the Bulk Update raises \`DB:QUERY_EXECUTION\` (\`ORA-01400: cannot insert NULL\`). The transaction rolls back the rejects, and the ANY handler takes over.

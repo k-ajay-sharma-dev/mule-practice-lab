@@ -72,8 +72,8 @@ export default {
         router('choice', {}, [
           route({ expression: '#[not isEmpty(vars.batch)]' }, [
             scope('foreach', { collection: '#[vars.batch]' }, [
-              step('email-send', { toAddresses: '#[payload.to_addr]', subject: '#[payload.subject]', content: '#[payload.body]' }),
-              step('db-update', { database: 'Oracle', sql: "UPDATE store_notices SET status = 'SENT' WHERE id = :id", inputParameters: '#[{ id: payload.id }]' }),
+              step('email-send', { toAddresses: '#[payload.TO_ADDR]', subject: '#[payload.SUBJECT]', content: '#[payload.BODY]' }),
+              step('db-update', { database: 'Oracle', sql: "UPDATE store_notices SET status = 'SENT' WHERE id = :id", inputParameters: '#[{ id: payload.ID }]' }),
             ]),
             step('logger', { level: 'INFO', message: '#["Sent " ++ (sizeOf(vars.batch) as String) ++ " store notices"]' }),
           ]),
@@ -94,7 +94,8 @@ The company mail relay allows each sending account **30 emails a minute**. Above
 - No email when nothing is waiting.
 
 **What each system sends back**
-- **Database Select** on \`store_notices\`: a list of rows such as \`[ { "id": 1, "to_addr": "store0101@larkfield.example", "subject": "Price changes for Monday", "body": "Your shelf edge labels for Monday are ready to print." } ]\`, or an empty list when nothing waits.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "ID": ..., "TO_ADDR": ..., "SUBJECT": ... }\`.
+- **Database Select** on \`store_notices\`: a list of rows such as \`[ { "ID": 1, "TO_ADDR": "store0101@larkfield.example", "SUBJECT": "Price changes for Monday", "BODY": "Your shelf edge labels for Monday are ready to print." } ]\`, or an empty list when nothing waits.
 
 **What failures look like**
 - The relay pushes back: Email Send raises an \`EMAIL\` error (the \`421\` reply is in the description). Let it leave the For Each and reach the flow's handler, which logs a WARN.

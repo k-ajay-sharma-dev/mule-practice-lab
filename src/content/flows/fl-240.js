@@ -51,8 +51,8 @@ export default {
       scope('foreach', { collection: '#[payload]' }, [
         step('set-variable', { variableName: 'mail', value: '#[payload]' }),
         scope('try', {}, [
-          step('email-send', { toAddresses: '#[vars.mail.to_addr]', subject: '#[vars.mail.subject]', content: '#[vars.mail.body]' }),
-          step('db-update', { database: 'Oracle', sql: "UPDATE email_outbox SET status = 'SENT' WHERE id = :id", inputParameters: '#[{ id: vars.mail.id }]' }),
+          step('email-send', { toAddresses: '#[vars.mail.TO_ADDR]', subject: '#[vars.mail.SUBJECT]', content: '#[vars.mail.BODY]' }),
+          step('db-update', { database: 'Oracle', sql: "UPDATE email_outbox SET status = 'SENT' WHERE id = :id", inputParameters: '#[{ id: vars.mail.ID }]' }),
         ], {
           errorHandlers: [
             handler('on-error-continue', { type: 'ANY' }, [
@@ -60,21 +60,21 @@ export default {
                 'choice',
                 {},
                 [
-                  route({ expression: '#[vars.mail.attempts + 1 >= 5]' }, [
-                    step('logger', { level: 'ERROR', message: '#["Gave up on email " ++ (vars.mail.id as String) ++ " after 5 tries: " ++ error.description]' }),
-                    step('db-update', { database: 'Oracle', sql: "UPDATE email_outbox SET status = 'FAILED', attempts = attempts + 1 WHERE id = :id", inputParameters: '#[{ id: vars.mail.id }]' }),
+                  route({ expression: '#[vars.mail.ATTEMPTS + 1 >= 5]' }, [
+                    step('logger', { level: 'ERROR', message: '#["Gave up on email " ++ (vars.mail.ID as String) ++ " after 5 tries: " ++ error.description]' }),
+                    step('db-update', { database: 'Oracle', sql: "UPDATE email_outbox SET status = 'FAILED', attempts = attempts + 1 WHERE id = :id", inputParameters: '#[{ id: vars.mail.ID }]' }),
                   ]),
                 ],
                 {
                   otherwise: [
                     step('set-variable', {
                       variableName: 'nextTry',
-                      value: '#[(now() + ([|PT1M|, |PT2M|, |PT4M|, |PT8M|][vars.mail.attempts])) as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"}]',
+                      value: '#[(now() + ([|PT1M|, |PT2M|, |PT4M|, |PT8M|][vars.mail.ATTEMPTS])) as String {format: "yyyy-MM-dd\'T\'HH:mm:ss"}]',
                     }),
                     step('db-update', {
                       database: 'Oracle',
                       sql: 'UPDATE email_outbox SET attempts = attempts + 1, next_try_at = :nextTry WHERE id = :id',
-                      inputParameters: '#[{ nextTry: vars.nextTry, id: vars.mail.id }]',
+                      inputParameters: '#[{ nextTry: vars.nextTry, id: vars.mail.ID }]',
                     }),
                   ],
                 },
@@ -102,10 +102,11 @@ The company's mail relay answers **421 try again later** (a 4xx reply) when it i
 - The ERROR log names the email as \`email <id>\`.
 
 **What each system sends back**
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "ID": ..., "TO_ADDR": ..., "ATTEMPTS": ... }\`.
 - **Database Select** on \`email_outbox\`: a list of due rows. In the tests emails 1 and 2 are due:
 \`\`\`json
-[ { "id": 1, "to_addr": "store1@larkfield.example", "subject": "Delivery slot changed", "body": "Your Thursday delivery moves to 06:00.", "attempts": 0 },
-  { "id": 2, "to_addr": "store2@larkfield.example", "subject": "Delivery slot changed", "body": "...", "attempts": 4 } ]
+[ { "ID": 1, "TO_ADDR": "store1@larkfield.example", "SUBJECT": "Delivery slot changed", "BODY": "Your Thursday delivery moves to 06:00.", "ATTEMPTS": 0 },
+  { "ID": 2, "TO_ADDR": "store2@larkfield.example", "SUBJECT": "Delivery slot changed", "BODY": "...", "ATTEMPTS": 4 } ]
 \`\`\`
 
 **What failures look like**
@@ -132,10 +133,10 @@ The company's mail relay answers **421 try again later** (a 4xx reply) when it i
 1. **Scheduler** every minute. **Set Variable** \`now\`.
 2. **Database Select** \`... WHERE status = 'PENDING' AND next_try_at <= :now ORDER BY id FETCH FIRST 20 ROWS ONLY\`.
 3. **For Each** row: \`mail\`, then a **Try**:
-   - **Email Send** to \`to_addr\`. **Database Update** \`SENT\`.
+   - **Email Send** to \`vars.mail.TO_ADDR\`. **Database Update** \`SENT\`.
    - **On Error Continue** (ANY): **Choice**:
-     - \`attempts + 1 >= 5\`: ERROR log, **Database Update** \`FAILED\`.
-     - Otherwise: \`nextTry\` = now plus 1, 2, 4 or 8 minutes by \`attempts\`, **Database Update** \`attempts = attempts + 1, next_try_at = :nextTry\`.
+     - \`vars.mail.ATTEMPTS + 1 >= 5\`: ERROR log, **Database Update** \`FAILED\`.
+     - Otherwise: \`nextTry\` = now plus 1, 2, 4 or 8 minutes by \`ATTEMPTS\`, **Database Update** \`attempts = attempts + 1, next_try_at = :nextTry\`.
 
 **Why not Until Successful?** It holds the flow and a thread while it waits, keeps its count in memory, and blocks the emails behind it. The table keeps going with each email on its own clock.
 

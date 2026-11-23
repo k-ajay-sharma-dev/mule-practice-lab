@@ -74,16 +74,16 @@ export default {
         {},
         [
           route({ expression: '#[isEmpty(vars.job)]' }, [step('logger', { level: 'WARN', message: '#["Job " ++ vars.jobId ++ " not found in job_log, no report"]' })]),
-          route({ expression: '#[vars.job[0].bad_count == 0]' }, [step('logger', { level: 'INFO', message: '#["Job " ++ vars.jobId ++ " has no rejects"]' })]),
+          route({ expression: '#[vars.job[0].BAD_COUNT == 0]' }, [step('logger', { level: 'INFO', message: '#["Job " ++ vars.jobId ++ " has no rejects"]' })]),
         ],
         {
           otherwise: [
             step('db-select', { database: 'Oracle', sql: 'SELECT reason, COUNT(*) AS line_count FROM job_rejects WHERE job_id = :jobId GROUP BY reason ORDER BY reason', inputParameters: '#[{ jobId: vars.jobId }]', target: 'byReason' }),
             step('email-send', {
               toAddresses: 'data-stewards@fenwick.example',
-              subject: '#["Rejects in job " ++ vars.jobId ++ " (" ++ vars.job[0].message_type ++ "): " ++ (vars.job[0].bad_count as String)]',
+              subject: '#["Rejects in job " ++ vars.jobId ++ " (" ++ vars.job[0].MESSAGE_TYPE ++ "): " ++ (vars.job[0].BAD_COUNT as String)]',
               content:
-                '#["Job " ++ vars.jobId ++ " loaded " ++ (vars.job[0].good_count as String) ++ " lines and rejected " ++ (vars.job[0].bad_count as String) ++ ".\\n\\n" ++ ((vars.byReason map ((r) -> r.reason ++ ": " ++ (r.line_count as String))) joinBy "\\n") ++ "\\n\\nSee the rows: https://reports.fenwick.example/rejects?jobId=" ++ vars.jobId]',
+                '#["Job " ++ vars.jobId ++ " loaded " ++ (vars.job[0].GOOD_COUNT as String) ++ " lines and rejected " ++ (vars.job[0].BAD_COUNT as String) ++ ".\\n\\n" ++ ((vars.byReason map ((r) -> r.REASON ++ ": " ++ (r.LINE_COUNT as String))) joinBy "\\n") ++ "\\n\\nSee the rows: https://reports.fenwick.example/rejects?jobId=" ++ vars.jobId]',
             }),
           ],
         },
@@ -107,11 +107,12 @@ The reports team runs a rejects screen at \`https://reports.fenwick.example/reje
 - The WARN for an unknown job names the job ID.
 
 **What each system sends back**
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "REASON": ..., "LINE_COUNT": ... }\`.
 - **Database Select** on \`job_log\`: a list with one row, or an empty list for an unknown job. Read the row as \`[0]\`:
 \`\`\`json
-[ { "job_id": "J-40417", "message_type": "SupplierItem", "good_count": 41870, "bad_count": 4 } ]
+[ { "JOB_ID": "J-40417", "MESSAGE_TYPE": "SupplierItem", "GOOD_COUNT": 41870, "BAD_COUNT": 4 } ]
 \`\`\`
-- The count by reason (\`COUNT(*) AS line_count ... GROUP BY reason\`): \`[ { "reason": "BAD_GTIN", "line_count": 1 }, { "reason": "UNKNOWN_SUPPLIER", "line_count": 3 } ]\`.
+- The count by reason (\`COUNT(*) AS line_count ... GROUP BY reason\`): \`[ { "REASON": "BAD_GTIN", "LINE_COUNT": 1 }, { "REASON": "UNKNOWN_SUPPLIER", "LINE_COUNT": 3 } ]\`.
 
 **Design the flow.**
 `,
@@ -133,7 +134,7 @@ The reports team runs a rejects screen at \`https://reports.fenwick.example/reje
 2. **Database Select** the job row, Target \`job\`.
 3. **Choice**:
    - \`isEmpty(vars.job)\`: WARN.
-   - \`vars.job[0].bad_count == 0\`: INFO.
+   - \`vars.job[0].BAD_COUNT == 0\`: INFO.
    - Otherwise: **Database Select** \`SELECT reason, COUNT(*) AS line_count FROM job_rejects WHERE job_id = :jobId GROUP BY reason\`, Target \`byReason\`. **Email Send** to \`data-stewards@fenwick.example\` with the counts, one line per reason, and the link.
 
 **Mail must not hold up the queue.** This flow does only reporting, so a mail failure can let the message be redelivered. Add a redelivery limit, or move the send into an Async scope if one lost report is acceptable.

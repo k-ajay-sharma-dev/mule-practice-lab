@@ -154,6 +154,7 @@ export default {
         step('set-variable', { variableName: 'limit', value: '#[(attributes.queryParams.limit default "20") as Number]' }),
         // The wildcards go around the bound value, so q=shoe finds "Trail Shoe" and the value is never concatenated into the SQL.
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT sku, name, price, category FROM products WHERE LOWER(name) LIKE '%' || LOWER(:q) || '%' ORDER BY name FETCH FIRST :limit ROWS ONLY",
         }),
         step('transform', {
@@ -181,7 +182,7 @@ export default {
         }),
         // Database Select replaces the attributes, so keep the SKU for the 404 message.
         step('set-variable', { variableName: 'sku', value: '#[attributes.uriParams.sku]' }),
-        step('db-select', { sql: 'SELECT sku, name, price, category, stock FROM products WHERE sku = :sku' }),
+        step('db-select', { database: 'Oracle', sql: 'SELECT sku, name, price, category, stock FROM products WHERE sku = :sku' }),
         router(
           'choice',
           {},

@@ -216,12 +216,13 @@ export default {
       [
         step('set-variable', { variableName: 'poNumber', value: '#[payload.poNumber]' }),
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT h.PO_NUMBER, h.PO_DATE, h.SUPPLIER_ID, s.EDI_ISA_ID, s.EDI_GS_ID, s.SFTP_FOLDER, h.SHIP_TO_DC, h.CURRENCY,\n       l.LINE_NO, l.SKU, l.SUPPLIER_ITEM, l.QTY, l.UOM, l.UNIT_PRICE, l.NEED_BY_DATE\nFROM PO_HEADER h\nJOIN SUPPLIER s ON s.SUPPLIER_ID = h.SUPPLIER_ID\nJOIN PO_LINE l ON l.PO_NUMBER = h.PO_NUMBER\nWHERE h.PO_NUMBER = :poNumber AND h.STATUS = 'APPROVED'\nORDER BY l.LINE_NO",
         }),
         step('validation', { check: 'is-not-empty-collection', expression: '#[payload]', message: 'PO not found or not APPROVED' }),
         step('set-variable', { variableName: 'po', value: '#[payload]' }),
         // Interchange control number from an Oracle sequence (ISA13 / GS06 / ST02).
-        step('db-select', { sql: 'SELECT EDI_ICN_SEQ.NEXTVAL AS ICN FROM DUAL' }),
+        step('db-select', { database: 'Oracle', sql: 'SELECT EDI_ICN_SEQ.NEXTVAL AS ICN FROM DUAL' }),
         step('set-variable', { variableName: 'icn', value: '#[payload[0].ICN]' }),
         // Builds the X12 850 structure; the X12 module write operation serialises it (not in the palette).
         step('transform', {
@@ -230,6 +231,7 @@ export default {
         }),
         step('sftp-write', { path: '#[vars.po[0].SFTP_FOLDER ++ "/in/PO_" ++ vars.poNumber ++ "_" ++ vars.icn ++ ".edi"]', mode: 'CREATE_NEW' }),
         step('db-update', {
+          database: 'Oracle',
           sql: "UPDATE PO_HEADER SET STATUS = 'SENT', EDI_ICN = :icn, SENT_AT = SYSTIMESTAMP, ACK_DUE_AT = SYSTIMESTAMP + INTERVAL '24' HOUR\nWHERE PO_NUMBER = :poNumber AND STATUS = 'APPROVED'",
         }),
       ],
@@ -258,11 +260,13 @@ export default {
         // Bulk Update reads its rows from #[payload] by default.
         step('set-payload', { value: '#[vars.ack.lines]' }),
         step('db-bulk-update', {
+          database: 'Oracle',
           sql: 'UPDATE PO_LINE SET ACK_CODE = :ackCode, ACK_QTY = :ackQty, ACK_DATE = :ackDate, ACK_AT = SYSTIMESTAMP\nWHERE PO_NUMBER = :poNumber AND LINE_NO = :lineNo',
         }),
         // The header update takes :ackType and :poNumber from the 855 summary, not from the Bulk Update's row counts.
         step('set-payload', { value: '#[vars.ack]' }),
         step('db-update', {
+          database: 'Oracle',
           sql: "UPDATE PO_HEADER SET STATUS = CASE WHEN :ackType = 'RJ' THEN 'REJECTED' ELSE 'ACKNOWLEDGED' END, ACK_AT = SYSTIMESTAMP\nWHERE PO_NUMBER = :poNumber",
         }),
         router(
@@ -292,6 +296,7 @@ export default {
       source('scheduler', { strategy: 'cron', expression: '0 0 * * * ?' }),
       [
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT PO_NUMBER, SUPPLIER_ID, SENT_AT FROM PO_HEADER WHERE STATUS = 'SENT' AND ACK_DUE_AT < SYSTIMESTAMP",
         }),
         scope('foreach', { collection: '#[payload]' }, [

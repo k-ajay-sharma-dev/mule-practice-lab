@@ -82,8 +82,8 @@ export default {
               step('set-variable', { variableName: 'held', value: '#[0]' }),
               step('set-variable', { variableName: 'send', value: '#[true]' }),
             ]),
-            route({ expression: '#[vars.a.severity == "CRITICAL" or vars.st[0].last_sent_at < vars.hourAgo]' }, [
-              step('set-variable', { variableName: 'held', value: '#[vars.st[0].suppressed_count]' }),
+            route({ expression: '#[vars.a.severity == "CRITICAL" or vars.st[0].LAST_SENT_AT < vars.hourAgo]' }, [
+              step('set-variable', { variableName: 'held', value: '#[vars.st[0].SUPPRESSED_COUNT]' }),
               step('db-update', { database: 'Oracle', sql: 'UPDATE alert_state SET last_sent_at = :now, suppressed_count = 0 WHERE alert_key = :k', inputParameters: '#[{ now: vars.now, k: vars.a.alertKey }]' }),
               step('set-variable', { variableName: 'send', value: '#[true]' }),
             ]),
@@ -130,9 +130,10 @@ The team added \`alert_state\` (\`alert_key\` key, \`last_sent_at\` as \`yyyy-MM
 - The subject carries the alert key. When alerts were held back, the body says \`<n> more since the last email.\`
 
 **What each system sends back**
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "LAST_SENT_AT": ..., "SUPPRESSED_COUNT": ... }\`.
 - **Database Select** on \`alert_state\`: an empty list for a new key, or one row. Read it as \`[0]\`:
 \`\`\`json
-[ { "alert_key": "inv-process:DB:CONNECTIVITY", "last_sent_at": "2026-11-13T09:50:00", "suppressed_count": 2 } ]
+[ { "ALERT_KEY": "inv-process:DB:CONNECTIVITY", "LAST_SENT_AT": "2026-11-13T09:50:00", "SUPPRESSED_COUNT": 2 } ]
 \`\`\`
 
 **What failures look like**

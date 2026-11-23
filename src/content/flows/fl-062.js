@@ -97,7 +97,7 @@ export default {
       'oms-status-to-salesforce',
       // db:listener: table ORDER_STATUS_V (view over ORDER_HEADER), frequency 15 s, watermark LAST_UPDATED_TS, idColumn ORDER_ID.
       // Each changed row triggers its own flow execution.
-      source('db-listener', { table: 'ORDER_STATUS_V', watermarkColumn: 'LAST_UPDATED_TS', idColumn: 'ORDER_ID' }),
+      source('db-listener', { database: 'Oracle', table: 'ORDER_STATUS_V', watermarkColumn: 'LAST_UPDATED_TS', idColumn: 'ORDER_ID' }),
       [
         // Kept for the error table: the Transform replaces the row with the Salesforce record.
         step('set-variable', { variableName: 'orderId', value: '#[payload.ORDER_ID as String]' }),
@@ -117,6 +117,7 @@ export default {
           step('set-variable', { variableName: 'recordJson', value: '#[write(payload, "application/json")]' }),
           step('set-variable', { variableName: 'errorText', value: '#[error.description]' }),
           step('db-insert', {
+            database: 'Oracle',
             sql: "INSERT INTO INTEGRATION_ERROR (ERROR_ID, INTERFACE, BUSINESS_KEY, PAYLOAD, ERROR_TEXT, STATUS, CREATED_AT)\nVALUES (INTEGRATION_ERROR_SEQ.NEXTVAL, 'OMS_STATUS_SF', :orderId, :recordJson, :errorText, 'NEW', SYSTIMESTAMP)",
           }),
           step('logger', { level: 'ERROR', message: '#["Status sync parked: " ++ error.description]' }),

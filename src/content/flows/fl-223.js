@@ -87,7 +87,7 @@ Every notification is recorded in the Oracle table \`inbound_messages\` (\`messa
 
 **What each system sends back**
 - The JMS listener gives the notification above as the payload.
-- A select by \`message_id\` answers an empty list \`[]\` for a new ID, and a list with one row for an ID already recorded. Keep it in a target variable, so the payload stays the notification.
+- A select by \`message_id\` answers an empty list \`[]\` for a new ID, and a list with one row for an ID already recorded: \`[ { "MESSAGE_ID": "MSG-30411" } ]\`. Oracle returns unquoted column names in upper case. Keep it in a target variable, so the payload stays the notification.
 
 **Design the flow.**
 `,

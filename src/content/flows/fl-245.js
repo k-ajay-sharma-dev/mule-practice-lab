@@ -148,8 +148,9 @@ Oracle tables:
 - \`email_suppression\` holds addresses in lower case. Put the request on the DLQ as it arrived.
 
 **What each system sends back**
-- **Database Select** on \`email_log\`: \`[ { "request_id": "ER-90001" } ]\` when the request was sent before, or an empty list.
-- **Database Select** on \`email_suppression\`: \`[ { "address": "left.company@mail.example" } ]\` for a suppressed address, or an empty list.
+- **Database Select** on \`email_log\`: \`[ { "REQUEST_ID": "ER-90001" } ]\` when the request was sent before, or an empty list.
+- **Database Select** on \`email_suppression\`: \`[ { "ADDRESS": "left.company@mail.example" } ]\` for a suppressed address, or an empty list.
+- Oracle returns unquoted column names in upper case, as in the rows above.
 - **Parse Template** returns the HTML body as the payload, with \`#[...]\` replaced: \`<p>Your order SO-77120 will arrive on Thursday 08:00 to 10:00.</p>\`.
 
 **What failures look like**

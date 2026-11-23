@@ -135,6 +135,7 @@ export default {
         }),
         step('set-variable', { variableName: 'watermark', value: '#[payload]' }),
         step('db-select', {
+          database: 'Oracle',
           sql:
             'SELECT * FROM CUSTOMERS\nWHERE (LAST_UPDATED > :ts) OR (LAST_UPDATED = :ts AND CUST_ID > :id)\nORDER BY LAST_UPDATED, CUST_ID\nFETCH FIRST 5000 ROWS ONLY',
         }),

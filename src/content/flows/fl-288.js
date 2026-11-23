@@ -73,7 +73,7 @@ export default {
         { jobName: 'item-outbound', blockSize: 500, maxFailedRecords: -1 },
         [
           route({ name: 'send', acceptPolicy: 'NO_FAILURES' }, [
-            step('set-payload', { value: '#[{ itemId: payload.item_id, description: payload.description, department: payload.dept }]' }),
+            step('set-payload', { value: '#[{ itemId: payload.ITEM_ID, description: payload.DESCRIPTION, department: payload.DEPT }]' }),
             scope('batch-aggregator', { size: 1000, streaming: 'false' }, [
               step('set-variable', { variableName: 'blobName', value: '#["item-out/" ++ (vars.jobId as String) ++ "/" ++ payload[0].itemId ++ ".json"]' }),
               step('set-variable', { variableName: 'ids', value: '#[payload map { item_id: $.itemId, job_id: vars.jobId }]' }),
@@ -119,7 +119,8 @@ The first version built one message per item: 400,000 blobs and notices a night.
 
 **What each system sends back**
 - \`JOB_START\` gives \`{ "job_id": 611 }\`.
-- The Database Select streams rows with the columns as named: \`{ "item_id": "ITM-00001", "description": "Item 1", "dept": "CHILLED" }\`.
+- Oracle returns unquoted column names in upper case, so a row reads \`{ "ITEM_ID": ..., "DEPT": ... }\`.
+- The Database Select streams rows such as \`{ "ITEM_ID": "ITM-00001", "DESCRIPTION": "Item 1", "DEPT": "CHILLED" }\`.
 - Inside a Batch Aggregator of 1,000 the payload is a list of up to 1,000 records.
 - Upload Blob answers with the blob's details, such as \`{ "eTag": "0x8DD2C11" }\`. Nothing after it needs them.
 - In On Complete the payload is the job result, with \`payload.successfulRecords\` and \`payload.failedRecords\`.

@@ -201,6 +201,7 @@ export default {
         // Stock for the chosen store and the 5 nearest stores within 15 km (STORE_DISTANCE is precomputed).
         // STORE_DISTANCE contains a 0 km row from each store to itself.
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT s.STORE_ID, s.SKU, s.AVAILABLE_QTY, d.DISTANCE_KM\nFROM STORE_STOCK s\nJOIN STORE_DISTANCE d ON d.TO_STORE_ID = s.STORE_ID\nWHERE d.FROM_STORE_ID = :storeId AND d.DISTANCE_KM <= 15\n  AND s.SKU IN (SELECT REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) FROM DUAL\n                CONNECT BY REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) IS NOT NULL)",
         }),
         step('transform', {
@@ -215,14 +216,14 @@ export default {
           [
             route({ expression: '#[vars.decision.chosenOk]' }, [
               step('set-variable', { variableName: 'fulfilStore', value: '#[vars.order.storeId]' }),
-              step('db-stored-procedure', { sql: '{ call INV_PKG.RESERVE_ORDER(:orderId, :fulfilStore, :status) }' }),
+              step('db-stored-procedure', { database: 'Oracle', sql: '{ call INV_PKG.RESERVE_ORDER(:orderId, :fulfilStore, :status) }' }),
               // The procedure replaced the payload: put the order back before publishing it.
               step('set-payload', { value: '#[vars.order]' }),
               step('jms-publish', { destination: '#["STORE." ++ vars.fulfilStore ++ ".PICKS"]' }),
             ]),
             route({ expression: '#[vars.decision.altStore != null]' }, [
               step('set-variable', { variableName: 'fulfilStore', value: '#[vars.decision.altStore]' }),
-              step('db-stored-procedure', { sql: '{ call INV_PKG.RESERVE_ORDER(:orderId, :fulfilStore, :status) }' }),
+              step('db-stored-procedure', { database: 'Oracle', sql: '{ call INV_PKG.RESERVE_ORDER(:orderId, :fulfilStore, :status) }' }),
               step('set-payload', { value: '#[vars.order]' }),
               step('jms-publish', { destination: '#["STORE." ++ vars.fulfilStore ++ ".PICKS"]' }),
               step('jms-publish', { destination: 'CUSTOMER.NOTIFICATIONS' }),

@@ -30,10 +30,10 @@ export default async ({ failsOn, passes, one, all, flowOf, step, scope, handler 
     const c = one(d, 'choice')
     flatten(d.flows[0].steps, c, c.otherwise)
   })
-  // Another alias for the ID.
+  // Another alias for the ID (Oracle gives it back as ID).
   await passes('fl-224', (d) => {
     one(d, 'db-select').config.sql = 'SELECT RETURN_SEQ.NEXTVAL AS id FROM dual'
-    one(d, 'set-variable', (s) => s.config.variableName === 'returnId').config.value = '#[vars.seq[0].id]'
+    one(d, 'set-variable', (s) => s.config.variableName === 'returnId').config.value = '#[vars.seq[0].ID]'
   })
 
   // FL-225

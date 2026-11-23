@@ -150,7 +150,7 @@ export default {
                 inputParameters: '#[{ businessDate: vars.businessDate }]',
               }),
               step('transform', {
-                script: '%dw 2.0\noutput application/csv\n---\npayload map { account: $.account_id, amount: $.accrued_interest, currency: $.currency }',
+                script: '%dw 2.0\noutput application/csv\n---\npayload map { account: $.ACCOUNT_ID, amount: $.ACCRUED_INTEREST, currency: $.CURRENCY }',
               }),
               step('sftp-write', { path: '#["/ledger/inbound/interest-" ++ vars.businessDate ++ ".csv"]', mode: 'OVERWRITE' }),
               step('db-update', {
@@ -208,7 +208,7 @@ The DBA has created this table, with one row per job:
 
 **What each system sends back**
 - A Database **Update** answers \`{ "affectedRows": 1 }\` when its WHERE matched the job row, and \`{ "affectedRows": 0 }\` when it did not. Store it in a target variable to keep the payload.
-- A Database **Select** on \`daily_interest\` answers a list of rows with the column names as written, for example \`[ { "account_id": "ACC-1001", "accrued_interest": 1.37, "currency": "GBP" } ]\`.
+- A Database **Select** on \`daily_interest\` answers a list of rows, for example \`[ { "ACCOUNT_ID": "ACC-1001", "ACCRUED_INTEREST": 1.37, "CURRENCY": "GBP" } ]\`. Oracle returns unquoted column names in upper case, so read \`$.ACCOUNT_ID\`, not \`$.account_id\`.
 - SFTP **Write** sends the payload as the file and leaves nothing useful in the payload.
 
 **What failures look like**

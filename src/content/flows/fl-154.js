@@ -141,7 +141,7 @@ You build the first flow of the hub: the intake. Downloading and processing the 
 
 **What each system sends back**
 - The JMS listener gives the notification JSON above as the payload.
-- The duplicate check (Database Select) answers a list of rows with the column names as written: \`[ { "message_id": "MSG-90001" } ]\` for a repeat, or \`[]\` for a new ID.
+- The duplicate check (Database Select) answers a list of rows. Oracle returns unquoted column names in upper case, so a repeat gives \`[ { "MESSAGE_ID": "MSG-90001" } ]\`, and a new ID gives \`[]\`.
 
 **Design the flow.**
 `,

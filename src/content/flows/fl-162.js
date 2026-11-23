@@ -104,7 +104,7 @@ export default {
               [
                 route({ expression: '#[not isEmpty(vars.busy)]' }, [
                   step('set-variable', { variableName: 'httpStatus', value: '409' }),
-                  step('set-payload', { value: '#[output application/json --- { message: "A " ++ vars.messageType ++ " run is already going", jobId: vars.busy[0].job_id }]' }),
+                  step('set-payload', { value: '#[output application/json --- { message: "A " ++ vars.messageType ++ " run is already going", jobId: vars.busy[0].JOB_ID }]' }),
                 ]),
               ],
               {
@@ -174,7 +174,7 @@ You build the outbound app.
 - A failed procedure raises **DB:QUERY_EXECUTION** (for example \`ORA-20001: generation failed\`). Inside an Async scope the caller never sees it, so catch it there, mark the job \`FAILED\` and log an ERROR.
 
 **What each system sends back**
-- The busy check (Database Select) answers a list of rows with the column names as written: \`[ { "job_id": "JOB-77001" } ]\` when a run is going, or \`[]\`.
+- The busy check (Database Select) answers a list of rows: \`[ { "JOB_ID": "JOB-77001" } ]\` when a run is going, or \`[]\`. Oracle returns unquoted column names in upper case, so read \`JOB_ID\`.
 - The Stored Procedure answers its output parameters, here \`{ "generated": 1240 }\`. The flow does not need them; it only needs the call to succeed.
 
 **How the status gets out:** assume the listener's response status is \`#[vars.httpStatus default 200]\` and its body is \`#[payload]\`.

@@ -120,6 +120,7 @@ export default {
         step('validation', { check: 'is-true', expression: '#[(payload.price default 0) > 0]', message: 'price must be greater than 0' }),
         step('set-variable', { variableName: 'change', value: '#[payload]' }),
         step('db-update', {
+          database: 'Oracle',
           sql: 'UPDATE ITEM_PRICE\nSET PRICE = :price, EFFECTIVE_FROM = :effectiveFrom, CHANGED_BY = :changedBy, CHANGED_AT = SYSTIMESTAMP\nWHERE SKU = :sku AND PRICE_ZONE = :zone',
         }),
         router(

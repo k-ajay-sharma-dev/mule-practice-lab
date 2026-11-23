@@ -199,7 +199,7 @@ export default {
       }),
       scope('foreach', { collection: '#[payload]' }, [
         step('set-variable', { variableName: 'payment', value: '#[payload]' }),
-        step('set-variable', { variableName: 'paymentId', value: '#[payload.payment_id]' }),
+        step('set-variable', { variableName: 'paymentId', value: '#[payload.PAYMENT_ID]' }),
         scope(
           'try',
           {},
@@ -221,7 +221,7 @@ export default {
                 otherwise: [
                   step('logger', { level: 'INFO', message: '#["The bank never received " ++ vars.paymentId ++ ". Sending it now."]' }),
                   step('transform', {
-                    script: '%dw 2.0\noutput application/json\n---\n{ endToEndId: vars.payment.payment_id, amount: vars.payment.amount, currency: vars.payment.currency, creditor: { iban: vars.payment.creditor_iban } }',
+                    script: '%dw 2.0\noutput application/json\n---\n{ endToEndId: vars.payment.PAYMENT_ID, amount: vars.payment.AMOUNT, currency: vars.payment.CURRENCY, creditor: { iban: vars.payment.CREDITOR_IBAN } }',
                   }),
                   step('http-request', { method: 'POST', path: '/bank/payments', responseTimeout: 15000 }),
                   step('db-update', {
@@ -280,7 +280,7 @@ Last month the bank took 40 seconds to answer for half an hour. The old flow had
 **What each system sends back**
 - \`POST /bank/payments\` answers **201** \`{ "endToEndId": "PAY-7001", "status": "ACCEPTED", "bankReference": "BNK-7001" }\`.
 - \`GET /bank/payments/{paymentId}\` answers **200** with the same body, or **404** \`{ "error": "NOT_FOUND" }\`.
-- A Database **Select** answers a list of rows with the column names as written, for example \`[ { "payment_id": "PAY-6991", "amount": 78.5, "currency": "EUR", "creditor_iban": "XX00TEST0000000091" } ]\`.
+- A Database **Select** answers a list of rows, for example \`[ { "PAYMENT_ID": "PAY-6991", "AMOUNT": 78.5, "CURRENCY": "EUR", "CREDITOR_IBAN": "XX00TEST0000000091" } ]\`. Oracle returns unquoted column names in upper case, so read \`PAYMENT_ID\`, not \`payment_id\`.
 
 **What failures look like**
 - The bank refuses: it answers **400** \`{ "reason": "ACCOUNT_CLOSED" }\`, which the HTTP Request raises as \`HTTP:BAD_REQUEST\`. The bank's body is in \`error.errorMessage.payload\`.

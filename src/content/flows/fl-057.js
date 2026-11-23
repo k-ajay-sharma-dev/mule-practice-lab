@@ -133,11 +133,13 @@ export default {
         scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
           // Unique key (STORE_ID, COUNT_DATE) stops the same count being loaded twice.
           step('db-insert', {
+            database: 'Oracle',
             sql: 'INSERT INTO STORE_COUNT_BATCH (STORE_ID, COUNT_DATE, FILE_NAME, LINE_COUNT, LOADED_AT)\nVALUES (:storeId, :countDate, :fileName, :lineCount, SYSTIMESTAMP)',
           }),
           // Bulk Insert reads its rows from #[payload] by default, and the header Insert has just replaced the payload.
           step('set-payload', { value: '#[vars.lines]' }),
           step('db-bulk-insert', {
+            database: 'Oracle',
             sql: 'INSERT INTO STORE_COUNT_STG (STORE_ID, COUNT_DATE, SKU, LOCATION_CODE, COUNTED_QTY)\nVALUES (:storeId, :countDate, :sku, :location, :countedQty)',
           }),
         ]),

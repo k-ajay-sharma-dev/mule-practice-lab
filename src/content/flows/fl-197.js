@@ -77,7 +77,7 @@ export default {
         target: 'variable',
         variableName: 'checked',
         script:
-          '%dw 2.0\noutput application/java\nvar known = vars.suppliers map $.supplier_id\n---\nvars.rows map ((r) -> r ++ {\n  reason: if (not (known contains r.supplier_id)) "UNKNOWN_SUPPLIER" else if ((r.qty as Number default 0) <= 0) "QTY_NOT_POSITIVE" else ""\n})',
+          '%dw 2.0\noutput application/java\nvar known = vars.suppliers map $.SUPPLIER_ID\n---\nvars.rows map ((r) -> r ++ {\n  reason: if (not (known contains r.supplier_id)) "UNKNOWN_SUPPLIER" else if ((r.qty as Number default 0) <= 0) "QTY_NOT_POSITIVE" else ""\n})',
       }),
       step('set-variable', { variableName: 'good', value: '#[vars.checked filter ($.reason == "") map ($ - "reason" ++ { file_name: vars.fileName })]' }),
       scope('try', { transactionalAction: 'ALWAYS_BEGIN' }, [
@@ -127,7 +127,7 @@ The planners want to know what happened to each line. The platform reads a respo
 
 **What each system sends back**
 - The listener reads a \`.csv\` file as CSV: the payload is a list of rows such as \`{ "plan_line": "1", "supplier_id": "SUP-HAYDEN", "sku": "4410021", "dc": "DC-EAST", "qty": "480", "need_date": "2026-11-19" }\`, every value as text. The name is in \`attributes.fileName\` and the path in \`attributes.path\`.
-- The Select on \`suppliers\` gives \`[ { "supplier_id": "SUP-HAYDEN" }, { "supplier_id": "SUP-ORCHARD" } ]\`.
+- The Select on \`suppliers\` gives \`[ { "SUPPLIER_ID": "SUP-HAYDEN" }, { "SUPPLIER_ID": "SUP-ORCHARD" } ]\`. Oracle returns unquoted column names in upper case, so read \`SUPPLIER_ID\`.
 
 **What failures look like**
 - A database that cannot be reached raises **DB:CONNECTIVITY** on the first query. The run ends with that error, and the plan file stays in \`/outbound/po\`.

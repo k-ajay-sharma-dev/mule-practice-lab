@@ -205,7 +205,7 @@ The portal expects ACKs on \`supplier.items.ack\`: \`RECEIVED\` as soon as a not
 - In On Complete the payload is the job result, with \`successfulRecords\` and \`failedRecords\`.
 
 **What each system sends back**
-- **Database Select** on \`msg_log\`: \`[ { "status": "PROCESSED" } ]\` for a notice seen before, or an empty list.
+- **Database Select** on \`msg_log\`: \`[ { "STATUS": "PROCESSED" } ]\` for a notice seen before, or an empty list. Oracle returns unquoted column names in upper case.
 - \`JOB_START\` returns \`{ "job_id": 881 }\` in the tests. With Target \`job\`, read it as \`vars.job.job_id\`.
 - **Download Blob** puts the JSON list of items in the payload. The Batch Job splits it into one record per item, such as \`{ "supplier_id": "SUP-HARTLEY", "item_id": "NUT-M8", "cost": null }\`.
 

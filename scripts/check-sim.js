@@ -178,6 +178,17 @@ rule('a duplicate key raises DB:QUERY_EXECUTION with the database text', () => {
   assert.equal(r.error?.type, 'DB:QUERY_EXECUTION')
   assert.match(r.response.body, /ORA-00001/)
 })
+rule('Oracle returns unquoted column names in upper case; a quoted alias keeps its case; other databases keep the case', () => {
+  const tables = { systems: { db: { tables: { t: { key: 'id', rows: [{ id: 1, email: 'a@x.example' }] } } } } }
+  const sel = (database, sql) => simulate(design(flow('f', listener('/a'), [step('db-select', { database, sql }), step('set-payload', { value: '#[output application/json --- payload[0]]' })])), tables, post('/a', {})).response.body
+  const json = (b) => (typeof b === 'string' ? JSON.parse(b) : b)
+  assert.deepEqual(json(sel('Oracle', 'SELECT id, email AS "email" FROM t')), { ID: 1, email: 'a@x.example' })
+  assert.deepEqual(json(sel('PostgreSQL', 'SELECT id, email FROM t')), { id: 1, email: 'a@x.example' })
+  // systems.db.vendor makes a step with no database setting behave as Oracle
+  const vendor = { systems: { db: { ...tables.systems.db, vendor: 'Oracle' } } }
+  const r = simulate(design(flow('f', listener('/a'), [step('db-select', { sql: 'SELECT email FROM t' }), step('set-payload', { value: '#[output application/json --- payload[0]]' })])), vendor, post('/a', {}))
+  assert.deepEqual(json(r.response.body), { EMAIL: 'a@x.example' })
+})
 rule('Success status codes let a 422 through as an answer', () => {
   const d = design(flow('f', listener('/a'), [step('http-request', { method: 'POST', path: '/psp', successStatusCodes: '200..299,422' }), step('set-payload', { value: '#[attributes.statusCode]' })]))
   const r = simulate(d, { systems: { http: [{ method: 'POST', path: '/psp', respond: { status: 422, body: { declined: true } } }] } }, post('/a', {}))

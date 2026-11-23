@@ -64,11 +64,11 @@ export default {
             }),
             step('transform', {
               script:
-                '%dw 2.0\noutput text/plain\n---\n"<p>Item rejects since " ++ vars.since ++ "</p><table><tr><th>Reason</th><th>Lines</th></tr>" ++ ((vars.summary map ((r) -> "<tr><td>" ++ r.reason ++ "</td><td>" ++ (r.line_count as String) ++ "</td></tr>")) joinBy "") ++ "</table><p>The rows are attached as rejects.csv.</p>"',
+                '%dw 2.0\noutput text/plain\n---\n"<p>Item rejects since " ++ vars.since ++ "</p><table><tr><th>Reason</th><th>Lines</th></tr>" ++ ((vars.summary map ((r) -> "<tr><td>" ++ r.REASON ++ "</td><td>" ++ (r.LINE_COUNT as String) ++ "</td></tr>")) joinBy "") ++ "</table><p>The rows are attached as rejects.csv.</p>"',
             }),
             step('email-send', {
               toAddresses: 'item-data@marrowpine.example',
-              subject: '#["Item rejects this week: " ++ (sum(vars.summary map $.line_count) as String)]',
+              subject: '#["Item rejects this week: " ++ (sum(vars.summary map $.LINE_COUNT) as String)]',
               content: '#[payload]',
               contentType: 'text/html',
               attachments: '#[{ "rejects.csv": write(vars.detail, "application/csv") }]',
@@ -91,8 +91,8 @@ Marrow & Pine Home, a fictional homewares retailer, rejects item lines that fail
 - Each reason is one table row with no spaces between cells: \`<tr><td>UNKNOWN_SUPPLIER</td><td>2</td></tr>\`.
 
 **What each system sends back**
-- The count query (\`SELECT reason, COUNT(*) AS line_count ... GROUP BY reason\`) returns one row per reason, named by the column alias: \`[ { "reason": "MISSING_BARCODE", "line_count": 1 }, { "reason": "UNKNOWN_SUPPLIER", "line_count": 2 } ]\`. A clean week returns an empty list.
-- The detail query returns the rows with the columns you select, such as \`{ "sku": "LAMP-OAK-09", "supplier_id": "SUP-OAKLEY", "reason": "UNKNOWN_SUPPLIER", "rejected_on": "2026-11-09" }\`.
+- The count query (\`SELECT reason, COUNT(*) AS line_count ... GROUP BY reason\`) returns one row per reason. Oracle returns unquoted column names and aliases in upper case, so a row reads \`{ "REASON": ..., "LINE_COUNT": ... }\`: \`[ { "REASON": "MISSING_BARCODE", "LINE_COUNT": 1 }, { "REASON": "UNKNOWN_SUPPLIER", "LINE_COUNT": 2 } ]\`. A clean week returns an empty list.
+- The detail query returns the rows with the columns you select, such as \`{ "SKU": "LAMP-OAK-09", "SUPPLIER_ID": "SUP-OAKLEY", "REASON": "UNKNOWN_SUPPLIER", "REJECTED_ON": "2026-11-09" }\`. Written as CSV, those names become the header line.
 
 **Design the flow.**
 `,

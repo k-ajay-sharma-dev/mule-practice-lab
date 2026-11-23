@@ -146,6 +146,7 @@ export default {
         step('set-variable', { variableName: 'runDate', value: '#[now() as Date]' }),
         // Streaming select, fetchSize 5000, ordered by store so aggregated chunks are mostly single-store.
         step('db-select', {
+          database: 'Oracle',
           sql: "SELECT spc.CHANGE_ID, spc.STORE_ID, pc.SKU, pc.NEW_PRICE, pc.PROMO_ID, pc.EFFECTIVE_FROM\nFROM STORE_PRICE_CHANGE spc\nJOIN PRICE_CHANGE pc ON pc.CHANGE_ID = spc.CHANGE_ID\nWHERE spc.DIST_STATUS IN ('PENDING', 'FAILED')\n  AND pc.EFFECTIVE_FROM < TRUNC(SYSDATE) + 2\nORDER BY spc.STORE_ID, pc.SKU",
         }),
         router(
@@ -170,12 +171,14 @@ export default {
             route({ name: 'mark-sent', acceptPolicy: 'NO_FAILURES' }, [
               scope('batch-aggregator', { size: 2000 }, [
                 step('db-bulk-update', {
+                  database: 'Oracle',
                   sql: "UPDATE STORE_PRICE_CHANGE\nSET DIST_STATUS = 'SENT', SENT_AT = SYSTIMESTAMP, ERROR_TEXT = NULL\nWHERE CHANGE_ID = :CHANGE_ID AND STORE_ID = :STORE_ID",
                 }),
               ]),
             ]),
             route({ name: 'record-failures', acceptPolicy: 'ONLY_FAILURES' }, [
               step('db-update', {
+                database: 'Oracle',
                 sql: "UPDATE STORE_PRICE_CHANGE\nSET DIST_STATUS = 'FAILED', ERROR_TEXT = 'Store queue publish failed'\nWHERE CHANGE_ID = :CHANGE_ID AND STORE_ID = :STORE_ID",
               }),
             ]),

@@ -118,6 +118,7 @@ export default {
                 step('logger', { level: 'WARN', message: '#["Store " ++ vars.query.storeId ++ " did not answer, using snapshot"]' }),
                 step('set-variable', { variableName: 'skuCsv', value: '#[vars.query.skus joinBy ","]' }),
                 step('db-select', {
+                  database: 'Oracle',
                   // inputParameters: { storeId: vars.query.storeId, skuCsv: vars.skuCsv }
                   sql: "SELECT SKU, ON_HAND_QTY AS QTY, SNAPSHOT_TS\nFROM STORE_STOCK_SNAPSHOT\nWHERE STORE_ID = :storeId\n  AND SKU IN (SELECT REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) FROM DUAL\n              CONNECT BY REGEXP_SUBSTR(:skuCsv, '[^,]+', 1, LEVEL) IS NOT NULL)",
                 }),

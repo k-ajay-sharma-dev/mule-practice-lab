@@ -53,7 +53,7 @@ export default {
           otherwise: [
             step('set-variable', { variableName: 'ret', value: '#[payload]' }),
             step('db-select', { database: 'Oracle', sql: 'SELECT RETURN_SEQ.NEXTVAL AS return_id FROM dual', target: 'seq' }),
-            step('set-variable', { variableName: 'returnId', value: '#[vars.seq[0].return_id]' }),
+            step('set-variable', { variableName: 'returnId', value: '#[vars.seq[0].RETURN_ID]' }),
             step('db-insert', {
               database: 'Oracle',
               sql: "INSERT INTO store_returns (return_id, store_id, sku, qty, reason, status) VALUES (:returnId, :storeId, :sku, :qty, :reason, 'OPEN')",
@@ -88,7 +88,7 @@ The first version took \`SELECT MAX(return_id) + 1\`. On busy evenings two tills
 - Read the next value with \`SELECT RETURN_SEQ.NEXTVAL AS return_id FROM dual\`. \`returnId\` is that number.
 
 **What the database sends back**
-- The sequence select answers a list with one row: \`[ { "return_id": 70001 } ]\`. Keep it in a target variable and read \`[0].return_id\`, so the payload stays the request.
+- The sequence select answers a list with one row: \`[ { "RETURN_ID": 70001 } ]\`. Oracle returns unquoted column names and aliases in upper case. Keep it in a target variable and read \`[0].RETURN_ID\`, so the payload stays the request.
 - The insert answers a count of affected rows, not the row. Build the 201 answer from your variables.
 
 **Design the flow.**

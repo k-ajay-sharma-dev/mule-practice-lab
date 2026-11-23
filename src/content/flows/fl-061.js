@@ -124,6 +124,7 @@ export default {
         // inputParameters: orderId, sku, locationId, qty, ttlMinutes
         // outputParameters: reservationId (VARCHAR), status (VARCHAR), availableQty (NUMERIC)
         step('db-stored-procedure', {
+          database: 'Oracle',
           sql: '{ call INV_PKG.RESERVE_STOCK(:orderId, :sku, :locationId, :qty, :ttlMinutes, :reservationId, :status, :availableQty) }',
         }),
         router(

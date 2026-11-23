@@ -125,7 +125,7 @@ What went wrong before:
 - Do not catch errors: the failure must reach the listener so the transaction rolls back.
 
 **What each system sends back**
-- **Database Select** on \`wms_orders\`: a list of rows such as \`[ { "order_id": "SO-91001" } ]\` for a known order, or an empty list.
+- **Database Select** on \`wms_orders\`: a list of rows such as \`[ { "ORDER_ID": "SO-91001" } ]\` for a known order, or an empty list. Oracle returns unquoted column names in upper case.
 
 **What failures look like**
 - Oracle refuses the insert: \`DB:QUERY_EXECUTION\` (\`ORA-12899: value too large for column\`).

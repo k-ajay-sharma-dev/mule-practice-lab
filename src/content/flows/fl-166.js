@@ -104,7 +104,7 @@ export default {
           inputParameters: '#[{ senderId: vars.document.senderId, senderDocumentId: vars.document.senderDocumentId }]',
           target: 'seen',
         }),
-        router('choice', {}, [route({ expression: '#[not isEmpty(vars.seen)]' }, [step('raise-error', { type: 'PDH:DUPLICATE_DOCUMENT', description: '#["Sender document " ++ vars.document.senderDocumentId ++ " was received as " ++ vars.seen[0].message_id]' })])], { otherwise: [] }),
+        router('choice', {}, [route({ expression: '#[not isEmpty(vars.seen)]' }, [step('raise-error', { type: 'PDH:DUPLICATE_DOCUMENT', description: '#["Sender document " ++ vars.document.senderDocumentId ++ " was received as " ++ vars.seen[0].MESSAGE_ID]' })])], { otherwise: [] }),
         step('db-insert', {
           database: 'Oracle',
           sql: 'INSERT INTO pdh_sender_documents (sender_id, sender_document_id, message_id) VALUES (:senderId, :senderDocumentId, :messageId)',
@@ -159,7 +159,7 @@ You build the **router**: the flow between the intake and the process flows. Eac
 { "senderDocumentId": "RB-ITEM-20261113-01", "lines": [ { "gtin": "05012345678900", "description": "Cordless drill, 18V", "brand": "Ridgeway" } ] }
 \`\`\`
 Keep the notification in a variable before the download.
-- The repeat check (Database Select) answers a list of rows with the column names as written: \`[ { "message_id": "MSG-90300" } ]\` for a sender document seen before, or \`[]\`.
+- The repeat check (Database Select) answers a list of rows: \`[ { "MESSAGE_ID": "MSG-90300" } ]\` for a sender document seen before, or \`[]\`. Oracle returns unquoted column names in upper case, so read \`MESSAGE_ID\`.
 
 **Design the flow.**
 `,
