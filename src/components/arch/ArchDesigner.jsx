@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
 import { addEdge, addNode, duplicateNode, removeEdge, removeNode, setNodeSetting, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
-import { gutterFor, roundedPath, routeEdges } from '../../arch/route.js'
+import { gutterFor, lanePadFor, roundedPath, routeEdges } from '../../arch/route.js'
 import { configOf, settingsBadge, settingsOf } from '../../arch/settings.js'
 import ArchIcon from './ArchIcon.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
@@ -15,6 +15,31 @@ const PALETTE = LANES.map((lane) => ({
 
 const laneOf = (node) => NODE_TYPES[node.type]?.lane ?? 'backends'
 
+// Zoom: 'fit' shows the whole diagram, down to a size that is still readable. On a phone boxes keep their size.
+const FIT_MIN = 0.75
+const ZOOM_MIN = 0.5
+const ZOOM_MAX = 1.5
+const clampZoom = (z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 20) / 20))
+
+// The side panels can be hidden to give the diagram their room. The choice is kept per browser.
+const PANELS_KEY = 'pl.archPanels'
+function readPanels() {
+  try {
+    const v = JSON.parse(localStorage.getItem(PANELS_KEY))
+    return { palette: v?.palette !== false, properties: v?.properties !== false }
+  } catch {
+    return { palette: true, properties: true }
+  }
+}
+
+function PanelIcon({ side }) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+      <path d={side === 'left' ? 'M4 5h16v14H4zM9.5 5v14' : 'M4 5h16v14H4zM14.5 5v14'} />
+    </svg>
+  )
+}
+
 // A line the router found no way for (two boxes drawn on top of each other while the page resizes).
 const directPath = (s, t) => `M${s.x + s.w / 2},${s.y + s.h / 2} L${t.x + t.w / 2},${t.y + t.h / 2}`
 
@@ -25,7 +50,7 @@ const sameBoxes = (a, b) => {
 
 // overlay: optional { [nodeId]: { text, level: 'ok' | 'warn' | 'bad' } } from a test run, shown on each box
 // flags: optional { [nodeId]: [labels of failed checks about it] }, outlined on the canvas (Find it)
-export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null, overlay = null, flags = null }) {
+export default function ArchDesigner({ diagram, onChange, readOnly = false, history = null, overlay = null, flags = null, toolbarEnd = null }) {
   const [selected, setSelected] = useState(null) // { kind: 'node' | 'edge', id }
   const [connectFrom, setConnectFrom] = useState(null)
   const [newKind, setNewKind] = useState('sync')
@@ -34,7 +59,12 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   const [area, setArea] = useState(null) // the part of the lanes that lines may use, and their full size
   const arrowId = useId()
   const [query, setQuery] = useState('')
+  const [zoom, setZoom] = useState('fit')
+  const [scale, setScale] = useState(1)
+  const [panels, setPanels] = useState(readPanels)
   const lanesRef = useRef(null)
+  const canvasRef = useRef(null)
+  const sheetRef = useRef(null)
   const rootRef = useRef(null)
   const touch = useCoarsePointer()
 
@@ -46,33 +76,78 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   const selNode = selected?.kind === 'node' ? nodeById.get(selected.id) : null
   const selEdge = selected?.kind === 'edge' ? diagram.edges.find((e) => e.id === selected.id) : null
 
-  // Measure node boxes relative to the lanes container so edges can be drawn over them.
+  function togglePanel(name) {
+    const next = { ...panels, [name]: !panels[name] }
+    setPanels(next)
+    try {
+      localStorage.setItem(PANELS_KEY, JSON.stringify(next))
+    } catch {
+      // storage blocked: the choice lasts for this visit
+    }
+  }
+
+  // Sizes the sheet the lanes are laid out on, so that scaled down it is exactly as wide as the canvas, then measures
+  // the boxes so the lines can be drawn over them.
   const measure = useCallback(() => {
+    const canvas = canvasRef.current
+    const sheet = sheetRef.current
     const root = lanesRef.current
-    if (!root) return
+    if (!canvas || !sheet || !root) return
+    const room = { w: canvas.clientWidth, h: canvas.clientHeight }
+    if (!room.w) return
+    const at = (k) => {
+      sheet.style.width = `${room.w / k}px`
+    }
+    let k = zoom
+    if (readOnly || (zoom === 'fit' && touch)) k = 1
+    else if (zoom === 'fit') {
+      for (k = 1; k > FIT_MIN + 0.001; k = Math.round((k - 0.025) * 1000) / 1000) {
+        at(k)
+        if (root.offsetHeight * k <= room.h + 1 && root.offsetWidth * k <= room.w + 1) break
+      }
+    }
+    at(k)
+    sheet.style.transform = k === 1 ? '' : `scale(${k})`
+    sheet.parentElement.style.width = `${root.offsetWidth * k}px`
+    sheet.parentElement.style.height = `${root.offsetHeight * k}px`
+    setScale(k)
+
     const base = root.getBoundingClientRect()
     const next = {}
     root.querySelectorAll('[data-node-id]').forEach((el) => {
       const r = el.getBoundingClientRect()
-      next[el.dataset.nodeId] = { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height }
+      next[el.dataset.nodeId] = { x: (r.left - base.left) / k, y: (r.top - base.top) / k, w: r.width / k, h: r.height / k }
     })
     setBoxes((old) => (sameBoxes(old, next) ? old : next))
-    // lines stay beside the lane names, except on a phone, where the names are above the boxes
-    const label = root.querySelector('.arch-lane-label')?.getBoundingClientRect()
-    const lane = root.querySelector('.arch-lane')?.getBoundingClientRect()
-    const beside = label && lane && label.width < lane.width / 2
-    const size = { x0: beside ? label.right - base.left : 0, x1: base.width, y0: 0, y1: base.height }
-    setArea((old) => (old && sameBoxes({ a: { x: old.x0, y: old.y0, w: old.x1, h: old.y1 } }, { a: { x: size.x0, y: size.y0, w: size.x1, h: size.y1 } }) ? old : size))
-  }, [])
+    // lines stay beside the lane names, except on a narrow canvas, where the names are above the boxes
+    const label = root.querySelector('.arch-lane:not(.empty) .arch-lane-label')?.getBoundingClientRect()
+    const lane = root.querySelector('.arch-lane:not(.empty)')?.getBoundingClientRect()
+    const beside = label && lane && label.height > lane.height - 6
+    const size = { x: beside ? (label.right - base.left) / k : 0, y: 0, w: base.width / k, h: base.height / k }
+    setArea((old) => (old && sameBoxes({ a: old.box }, { a: size }) ? old : { box: size, x0: size.x, x1: size.w, y0: 0, y1: size.h }))
+  }, [zoom, readOnly, touch])
 
-  useLayoutEffect(measure, [diagram, measure])
+  useLayoutEffect(measure, [diagram, overlay, panels, measure])
   useEffect(() => {
-    const root = lanesRef.current
-    if (!root) return
+    if (!lanesRef.current) return undefined
     const ro = new ResizeObserver(measure)
-    ro.observe(root)
+    ro.observe(lanesRef.current)
+    ro.observe(canvasRef.current)
     return () => ro.disconnect()
   }, [measure])
+
+  // Ctrl and the mouse wheel zoom the diagram instead of the page
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (readOnly || !canvas) return undefined
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      setZoom(clampZoom(scale + (e.deltaY < 0 ? 0.1 : -0.1)))
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', onWheel)
+  }, [readOnly, scale])
 
   function add(type) {
     const { diagram: next, id } = addNode(diagram, type)
@@ -156,8 +231,8 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
     e.preventDefault()
     e.stopPropagation()
     const base = lanesRef.current.getBoundingClientRect()
-    setDrag({ from, x: e.clientX - base.left, y: e.clientY - base.top })
-    const move = (ev) => setDrag((d) => d && { ...d, x: ev.clientX - base.left, y: ev.clientY - base.top })
+    setDrag({ from, x: (e.clientX - base.left) / scale, y: (e.clientY - base.top) / scale })
+    const move = (ev) => setDrag((d) => d && { ...d, x: (ev.clientX - base.left) / scale, y: (ev.clientY - base.top) / scale })
     const stop = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
@@ -212,9 +287,6 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
             {diagram.edges.length === 1 ? 'connection' : 'connections'}
           </span>
           <div className="toolbar-actions">
-            <span className="arch-legend small muted">
-              <span className="legend-sync" /> sync call <span className="legend-async" /> async message
-            </span>
             {history && (
                 <>
                   <button className="btn btn-ghost btn-sm" onClick={history.undo} disabled={!history.canUndo} title="Undo (Ctrl+Z)">
@@ -236,7 +308,24 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
             >
               Clear
             </button>
+            <span className="tb-sep arch-panel-toggle" />
+            {[
+              ['palette', 'left', 'components'],
+              ['properties', 'right', 'properties'],
+            ].map(([name, side, word]) => (
+              <button
+                key={name}
+                className={`btn btn-ghost btn-sm tb-icon arch-panel-toggle${panels[name] ? ' on' : ''}`}
+                onClick={() => togglePanel(name)}
+                aria-pressed={panels[name]}
+                title={`${panels[name] ? 'Hide' : 'Show'} the ${word} panel`}
+                aria-label={`${panels[name] ? 'Hide' : 'Show'} the ${word} panel`}
+              >
+                <PanelIcon side={side} />
+              </button>
+            ))}
           </div>
+          {toolbarEnd && <div className="designer-toolbar-end">{toolbarEnd}</div>}
         </div>
       )}
 
@@ -255,7 +344,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
         </div>
       )}
 
-      <div className="designer-body">
+      <div className={`designer-body${panels.palette ? '' : ' no-palette'}${panels.properties ? '' : ' no-properties'}`}>
         {!readOnly && (
           <aside className="palette">
             <input
@@ -292,123 +381,151 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
           </aside>
         )}
 
-        <div
-          className="arch-canvas"
-          onClick={(e) => {
-            if (!readOnly && e.target === e.currentTarget) setSelected(null)
-          }}
-          onDragOver={(e) => !readOnly && e.preventDefault()}
-          onDrop={(e) => {
-            const type = e.dataTransfer.getData('text/arch-type')
-            if (type) add(type)
-          }}
-        >
-          {connectFrom && (
-            <div className="arch-connect-banner">
-              Tap the component that <b>{nodeById.get(connectFrom)?.label}</b> calls ·{' '}
-              <button className="btn btn-ghost btn-sm" onClick={() => setConnectFrom(null)}>
-                Cancel
-              </button>
-            </div>
-          )}
-          <div className={`arch-lanes${gutter > 48 ? ' crowded' : ''}${diagram.nodes.length ? '' : ' blank'}`} ref={lanesRef} style={{ '--gutter': `${gutter}px` }}>
-            <svg className="arch-edges" width={area?.x1 ?? 0} height={area?.y1 ?? 0}>
-              <defs>
-                {['sync', 'async', 'active-sync', 'active-async'].map((k) => (
-                  <marker key={k} id={`${arrowId}${k}`} viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
-                    <path d="M0.5,0.8 L9.5,5 L0.5,9.2 L2.6,5 z" className={`arrow-${k}`} />
-                  </marker>
-                ))}
-              </defs>
-              {diagram.edges.map((e) => {
-                const s = boxes[e.from]
-                const t = boxes[e.to]
-                if (!s || !t) return null
-                const d = routes[e.id] ? roundedPath(routes[e.id]) : directPath(s, t)
-                const active = selEdge?.id === e.id || selNode?.id === e.from || selNode?.id === e.to
-                return (
-                  <g key={e.id} className={`arch-edge ${e.kind}${active ? ' active' : ''}`}>
-                    <path d={d} className="edge-line" markerEnd={`url(#${arrowId}${active ? 'active-' : ''}${e.kind})`} />
-                    {!readOnly && (
-                      <path
-                        d={d}
-                        className="edge-hit"
-                        onClick={(ev) => {
-                          ev.stopPropagation()
-                          setSelected({ kind: 'edge', id: e.id })
-                        }}
+        <div className="arch-stage">
+          <div
+            className="arch-canvas"
+            ref={canvasRef}
+            onClick={() => {
+              if (!readOnly && !connectFrom) setSelected(null)
+            }}
+            onDragOver={(e) => !readOnly && e.preventDefault()}
+            onDrop={(e) => {
+              const type = e.dataTransfer.getData('text/arch-type')
+              if (type) add(type)
+            }}
+          >
+            {connectFrom && (
+              <div className="arch-connect-banner">
+                Tap the component that <b>{nodeById.get(connectFrom)?.label}</b> calls ·{' '}
+                <button className="btn btn-ghost btn-sm" onClick={() => setConnectFrom(null)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+            <div className="arch-zoom">
+              <div className="arch-sheet" ref={sheetRef}>
+                <div className={`arch-lanes${gutter > 48 ? ' crowded' : ''}${diagram.nodes.length ? '' : ' blank'}`} ref={lanesRef} style={{ '--gutter': `${gutter}px`, '--lane-pad': `${lanePadFor(diagram.edges.length)}px` }}>
+                  <svg className="arch-edges" width={area?.x1 ?? 0} height={area?.y1 ?? 0}>
+                    <defs>
+                      {['sync', 'async', 'active-sync', 'active-async'].map((k) => (
+                        <marker key={k} id={`${arrowId}${k}`} viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
+                          <path d="M0.5,0.8 L9.5,5 L0.5,9.2 L2.6,5 z" className={`arrow-${k}`} />
+                        </marker>
+                      ))}
+                    </defs>
+                    {diagram.edges.map((e) => {
+                      const s = boxes[e.from]
+                      const t = boxes[e.to]
+                      if (!s || !t) return null
+                      const d = routes[e.id] ? roundedPath(routes[e.id]) : directPath(s, t)
+                      const active = selEdge?.id === e.id || selNode?.id === e.from || selNode?.id === e.to
+                      return (
+                        <g key={e.id} className={`arch-edge ${e.kind}${active ? ' active' : ''}`}>
+                          <path d={d} className="edge-line" markerEnd={`url(#${arrowId}${active ? 'active-' : ''}${e.kind})`} />
+                          {!readOnly && (
+                            <path
+                              d={d}
+                              className="edge-hit"
+                              onClick={(ev) => {
+                                ev.stopPropagation()
+                                setSelected({ kind: 'edge', id: e.id })
+                              }}
+                            />
+                          )}
+                        </g>
+                      )
+                    })}
+                    {drag && boxes[drag.from] && (
+                      <line
+                        className="arch-drag-line"
+                        x1={boxes[drag.from].x + boxes[drag.from].w / 2}
+                        y1={boxes[drag.from].y + boxes[drag.from].h / 2}
+                        x2={drag.x}
+                        y2={drag.y}
                       />
                     )}
-                  </g>
-                )
-              })}
-              {drag && boxes[drag.from] && (
-                <line
-                  className="arch-drag-line"
-                  x1={boxes[drag.from].x + boxes[drag.from].w / 2}
-                  y1={boxes[drag.from].y + boxes[drag.from].h / 2}
-                  x2={drag.x}
-                  y2={drag.y}
-                />
-              )}
-            </svg>
+                  </svg>
 
-            {lanes.map((lane) => (
-              <div key={lane.key} className={`arch-lane arch-lane-${lane.key}${lane.nodes.length ? '' : ' empty'}`}>
-                <div className="arch-lane-label">
-                  <span>{lane.label}</span>
-                </div>
-                <div className="arch-lane-nodes">
-                  {lane.nodes.map((n) => {
-                    const t = NODE_TYPES[n.type]
-                    const isSel = selNode?.id === n.id
-                    const badge = settingsBadge(n)
-                    const mark = overlay?.[n.id]
-                    return (
-                      <div
-                        key={n.id}
-                        data-node-id={n.id}
-                        className={`arch-node${isSel ? ' selected' : ''}${connectFrom && connectFrom !== n.id ? ' connect-target' : ''}${mark ? ` run-${mark.level}` : ''}${flags?.[n.id] ? ' node-flagged' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          clickNode(n.id)
-                        }}
-                        title={t?.label}
-                      >
-                        <ArchIcon type={n.type} />
-                        <span className="arch-node-text">
-                          <span className="arch-node-label">{n.label}</span>
-                          {n.label !== t?.label && <span className="arch-node-type">{t?.label}</span>}
-                          {badge && <span className="arch-node-settings">{badge}</span>}
-                          {mark && <span className={`arch-node-run ${mark.level}`}>{mark.text}</span>}
-                        </span>
-                        {!readOnly && (
-                          <span
-                            className="arch-handle"
-                            title="Drag onto another component to connect"
-                            onPointerDown={(e) => startDrag(e, n.id)}
-                          />
-                        )}
+                  {lanes.map((lane) => (
+                    <div key={lane.key} className={`arch-lane arch-lane-${lane.key}${lane.nodes.length ? '' : ' empty'}`}>
+                      <div className="arch-lane-label">
+                        <span>{lane.label}</span>
                       </div>
-                    )
-                  })}
+                      <div className="arch-lane-nodes">
+                        {lane.nodes.map((n) => {
+                          const t = NODE_TYPES[n.type]
+                          const isSel = selNode?.id === n.id
+                          const badge = settingsBadge(n)
+                          const mark = overlay?.[n.id]
+                          return (
+                            <div
+                              key={n.id}
+                              data-node-id={n.id}
+                              className={`arch-node${isSel ? ' selected' : ''}${connectFrom && connectFrom !== n.id ? ' connect-target' : ''}${mark ? ` run-${mark.level}` : ''}${flags?.[n.id] ? ' node-flagged' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                clickNode(n.id)
+                              }}
+                              title={t?.label}
+                            >
+                              <ArchIcon type={n.type} />
+                              <span className="arch-node-text">
+                                <span className="arch-node-label">{n.label}</span>
+                                {n.label !== t?.label && <span className="arch-node-type">{t?.label}</span>}
+                                {badge && <span className="arch-node-settings">{badge}</span>}
+                                {mark && <span className={`arch-node-run ${mark.level}`}>{mark.text}</span>}
+                              </span>
+                              {!readOnly && (
+                                <span
+                                  className="arch-handle"
+                                  title="Drag onto another component to connect"
+                                  onPointerDown={(e) => startDrag(e, n.id)}
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-          {!readOnly && !diagram.nodes.length && (
-            <div className="arch-empty muted small">
-              Add components from the palette. Each one drops into its lane. Then connect them:{' '}
-              {touch ? (
-                <>
-                  tap a component and use <b>Connect by tapping</b>.
-                </>
-              ) : (
-                <>
-                  drag the dot on a component's right edge onto another, or select it and use <b>Calls / sends to</b>.
-                </>
-              )}
             </div>
+            {!readOnly && !diagram.nodes.length && (
+              <div className="arch-empty muted small">
+                Add components from the palette. Each one drops into its lane. Then connect them:{' '}
+                {touch ? (
+                  <>
+                    tap a component and use <b>Connect by tapping</b>.
+                  </>
+                ) : (
+                  <>
+                    drag the dot on a component's right edge onto another, or select it and use <b>Calls / sends to</b>.
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {!readOnly && (
+            <>
+              <span className="arch-legend small muted">
+                <span className="legend-sync" /> sync call <span className="legend-async" /> async message
+              </span>
+              <div className="arch-zoom-bar" role="group" aria-label="Zoom">
+                <button onClick={() => setZoom(clampZoom(scale - 0.1))} disabled={scale <= ZOOM_MIN} title="Zoom out (Ctrl and wheel)" aria-label="Zoom out">
+                  −
+                </button>
+                <button className="arch-zoom-value" onClick={() => setZoom(1)} title="Back to 100%">
+                  {Math.round(scale * 100)}%
+                </button>
+                <button onClick={() => setZoom(clampZoom(scale + 0.1))} disabled={scale >= ZOOM_MAX} title="Zoom in (Ctrl and wheel)" aria-label="Zoom in">
+                  +
+                </button>
+                <button className={zoom === 'fit' ? 'on' : ''} onClick={() => setZoom('fit')} aria-pressed={zoom === 'fit'} title="Shrink the diagram until all of it shows">
+                  Fit
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -469,8 +586,10 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                 <div className="props-title">Properties</div>
                 <p>Select a component to rename it and connect it to others, or select a connection to change it.</p>
                 <p>
-                  A <b>sync call</b> is a request/response (HTTP). An <b>async message</b> goes through a queue, topic or
-                  event stream.
+                  <span className="legend-sync" />A <b>sync call</b> is a request/response (HTTP).
+                </p>
+                <p>
+                  <span className="legend-async" />An <b>async message</b> goes through a queue, topic or event stream.
                 </p>
                 {!touch && <p>Keys: Delete removes the selection · Esc cancels connecting.</p>}
               </div>

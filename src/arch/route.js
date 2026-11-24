@@ -6,7 +6,7 @@ const CLEAR = 9 // how close a line may pass to a box
 const TRACK = 8 // distance between two lines that run side by side
 const PORT_GAP = 24 // distance between two lines on the same side of a box
 const SNAP = 6 // line ends sit on multiples of this, so two ends are either in line or clearly apart
-const COST = { bend: 28, cross: 30, touch: 45, share: 6, shareStart: 24 }
+const COST = { bend: 28, cross: 30, touch: 45, share: 10, shareStart: 160 }
 
 // right, down, left, up
 const DX = [1, 0, -1, 0]
@@ -30,6 +30,9 @@ function sidesFor(s, t, others) {
 
 // The free space beside the boxes of a row, for the lines that go around them: more for a diagram with many lines.
 export const gutterFor = (edgeCount) => (edgeCount > 14 ? 80 : edgeCount > 8 ? 48 : 28)
+
+// The free space above and below the boxes of a lane.
+export const lanePadFor = (edgeCount) => (edgeCount > 7 ? 26 : 22)
 
 // A point on a side for every line end, spread out and ordered by where the other end is, so lines do not cross at
 // the box.

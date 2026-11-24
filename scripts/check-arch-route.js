@@ -7,16 +7,17 @@ import { readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { LANES, NODE_TYPES } from '../src/arch/catalog.js'
-import { gutterFor, roundedPath, routeEdges } from '../src/arch/route.js'
+import { gutterFor, lanePadFor, roundedPath, routeEdges } from '../src/arch/route.js'
 
 // the sizes in styles.css: the usual layout, and the compact one for a canvas of 640px or less
-const WIDE = { w: 196, h: 56, gapX: 44, gapY: 48, top: 24, bottom: 24, label: 128, gutter: (g) => g, blank: 32 }
+const WIDE = { w: 196, h: 56, gapX: 44, gapY: 48, label: 128, gutter: (g) => g, blank: 26 }
 const COMPACT = { w: 154, h: 62, gapX: 28, gapY: 48, top: 40, bottom: 26, label: 0, gutter: (g) => Math.max(14, g - 10), blank: 26 }
 const GAP = 6
 const EDGE = 11
 
 function layout(diagram, canvas) {
-  const s = canvas <= 640 ? COMPACT : WIDE
+  const pad = lanePadFor(diagram.edges.length)
+  const s = canvas <= 640 ? COMPACT : { ...WIDE, w: canvas >= 1000 ? 232 : WIDE.w, top: pad, bottom: pad }
   const full = gutterFor(diagram.edges.length)
   const gutter = s.gutter(full)
   // a crowded diagram keeps two boxes in a row and scrolls sideways instead
@@ -79,7 +80,7 @@ for (const dir of ['architecture', 'use-cases', 'case-studies']) {
     const reference = (await import(pathToFileURL(join(path, file)).href)).default.diagram?.reference
     if (!reference) continue
     diagrams++
-    for (const width of [340, 420, 560, 700, 880, 1150]) {
+    for (const width of [340, 420, 560, 700, 880, 1150, 1500]) {
       const { boxes, bounds } = layout(reference, width)
       const t0 = performance.now()
       const routes = routeEdges(boxes, reference.edges, bounds)
