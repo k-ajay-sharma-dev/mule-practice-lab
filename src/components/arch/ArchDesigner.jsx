@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
 import { addEdge, addNode, duplicateNode, removeEdge, removeNode, setNodeSetting, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
+import { gutterFor, roundedPath, routeEdges } from '../../arch/route.js'
 import { configOf, settingsBadge, settingsOf } from '../../arch/settings.js'
+import ArchIcon from './ArchIcon.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 
 const PALETTE = LANES.map((lane) => ({
@@ -13,25 +15,12 @@ const PALETTE = LANES.map((lane) => ({
 
 const laneOf = (node) => NODE_TYPES[node.type]?.lane ?? 'backends'
 
-// Curve between two node boxes: vertical when the nodes sit in different lanes, sideways within a lane.
-function edgePath(s, t) {
-  const dy = t.y + t.h / 2 - (s.y + s.h / 2)
-  if (Math.abs(dy) < Math.min(s.h, t.h) / 2) {
-    const right = t.x > s.x
-    const x1 = right ? s.x + s.w : s.x
-    const x2 = right ? t.x : t.x + t.w
-    const y1 = s.y + s.h / 2
-    const y2 = t.y + t.h / 2
-    const c = Math.max(30, Math.abs(x2 - x1) / 2) * (right ? 1 : -1)
-    return `M${x1},${y1} C${x1 + c},${y1 - 26} ${x2 - c},${y2 - 26} ${x2},${y2}`
-  }
-  const down = dy > 0
-  const x1 = s.x + s.w / 2
-  const y1 = down ? s.y + s.h : s.y
-  const x2 = t.x + t.w / 2
-  const y2 = down ? t.y : t.y + t.h
-  const c = Math.max(24, Math.abs(y2 - y1) / 2) * (down ? 1 : -1)
-  return `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`
+// A line the router found no way for (two boxes drawn on top of each other while the page resizes).
+const directPath = (s, t) => `M${s.x + s.w / 2},${s.y + s.h / 2} L${t.x + t.w / 2},${t.y + t.h / 2}`
+
+const sameBoxes = (a, b) => {
+  const keys = Object.keys(b)
+  return keys.length === Object.keys(a).length && keys.every((k) => a[k] && ['x', 'y', 'w', 'h'].every((p) => Math.abs(a[k][p] - b[k][p]) < 0.5))
 }
 
 // overlay: optional { [nodeId]: { text, level: 'ok' | 'warn' | 'bad' } } from a test run, shown on each box
@@ -42,6 +31,8 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   const [newKind, setNewKind] = useState('sync')
   const [drag, setDrag] = useState(null) // { from, x, y } while dragging a connection handle
   const [boxes, setBoxes] = useState({})
+  const [area, setArea] = useState(null) // the part of the lanes that lines may use, and their full size
+  const arrowId = useId()
   const [query, setQuery] = useState('')
   const lanesRef = useRef(null)
   const rootRef = useRef(null)
@@ -65,7 +56,13 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
       const r = el.getBoundingClientRect()
       next[el.dataset.nodeId] = { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height }
     })
-    setBoxes(next)
+    setBoxes((old) => (sameBoxes(old, next) ? old : next))
+    // lines stay beside the lane names, except on a phone, where the names are above the boxes
+    const label = root.querySelector('.arch-lane-label')?.getBoundingClientRect()
+    const lane = root.querySelector('.arch-lane')?.getBoundingClientRect()
+    const beside = label && lane && label.width < lane.width / 2
+    const size = { x0: beside ? label.right - base.left : 0, x1: base.width, y0: 0, y1: base.height }
+    setArea((old) => (old && sameBoxes({ a: { x: old.x0, y: old.y0, w: old.x1, h: old.y1 } }, { a: { x: size.x0, y: size.y0, w: size.x1, h: size.y1 } }) ? old : size))
   }, [])
 
   useLayoutEffect(measure, [diagram, measure])
@@ -192,21 +189,27 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
     (lane) => !readOnly || lane.nodes.length,
   )
   const q = query.trim().toLowerCase()
-  const lanesSize = lanesRef.current ? { w: lanesRef.current.scrollWidth, h: lanesRef.current.scrollHeight } : { w: 0, h: 0 }
+  const routes = useMemo(() => {
+    // the boxes are measured after the diagram changes, so for a moment one of them can be a box that is gone
+    const known = Object.fromEntries(diagram.nodes.filter((n) => boxes[n.id]).map((n) => [n.id, boxes[n.id]]))
+    return area ? routeEdges(known, diagram.edges, area) : {}
+  }, [boxes, area, diagram])
+  const gutter = gutterFor(diagram.edges.length)
   // connecting needs the diagram, so the phone's properties sheet steps aside for it
   const sheetOpen = Boolean(selNode || selEdge) && !connectFrom
 
   return (
     <div
-      className={`designer arch${readOnly ? ' read-only' : ''}${sheetOpen ? ' sheet-active' : ''}`}
+      className={`designer arch${selNode || selEdge ? ' has-selection' : ''}${readOnly ? ' read-only' : ''}${sheetOpen ? ' sheet-active' : ''}`}
       ref={rootRef}
       tabIndex={readOnly ? -1 : 0}
       onKeyDown={onKeyDown}
     >
       {!readOnly && (
         <div className="designer-toolbar">
-          <span className="mono small muted">
-            {diagram.nodes.length} components · {diagram.edges.length} connections
+          <span className="arch-count small muted">
+            <b>{diagram.nodes.length}</b> {diagram.nodes.length === 1 ? 'component' : 'components'} <b>{diagram.edges.length}</b>{' '}
+            {diagram.edges.length === 1 ? 'connection' : 'connections'}
           </span>
           <div className="toolbar-actions">
             <span className="arch-legend small muted">
@@ -278,7 +281,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                         onClick={() => add(t.type)}
                         title="Click or drag to add"
                       >
-                        <span className="arch-glyph">{t.glyph}</span>
+                        <ArchIcon type={t.type} />
                         {t.label}
                       </button>
                     ))}
@@ -308,25 +311,24 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
               </button>
             </div>
           )}
-          <div className="arch-lanes" ref={lanesRef}>
-            <svg className="arch-edges" width={lanesSize.w} height={lanesSize.h}>
+          <div className={`arch-lanes${gutter > 48 ? ' crowded' : ''}${diagram.nodes.length ? '' : ' blank'}`} ref={lanesRef} style={{ '--gutter': `${gutter}px` }}>
+            <svg className="arch-edges" width={area?.x1 ?? 0} height={area?.y1 ?? 0}>
               <defs>
-                <marker id="arch-arrow-sync" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                  <path d="M0,0 L10,5 L0,10 z" className="arrow-sync" />
-                </marker>
-                <marker id="arch-arrow-async" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                  <path d="M0,0 L10,5 L0,10 z" className="arrow-async" />
-                </marker>
+                {['sync', 'async', 'active-sync', 'active-async'].map((k) => (
+                  <marker key={k} id={`${arrowId}${k}`} viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
+                    <path d="M0.5,0.8 L9.5,5 L0.5,9.2 L2.6,5 z" className={`arrow-${k}`} />
+                  </marker>
+                ))}
               </defs>
               {diagram.edges.map((e) => {
                 const s = boxes[e.from]
                 const t = boxes[e.to]
                 if (!s || !t) return null
-                const d = edgePath(s, t)
+                const d = routes[e.id] ? roundedPath(routes[e.id]) : directPath(s, t)
                 const active = selEdge?.id === e.id || selNode?.id === e.from || selNode?.id === e.to
                 return (
                   <g key={e.id} className={`arch-edge ${e.kind}${active ? ' active' : ''}`}>
-                    <path d={d} className="edge-line" markerEnd={`url(#arch-arrow-${e.kind})`} />
+                    <path d={d} className="edge-line" markerEnd={`url(#${arrowId}${active ? 'active-' : ''}${e.kind})`} />
                     {!readOnly && (
                       <path
                         d={d}
@@ -352,8 +354,10 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
             </svg>
 
             {lanes.map((lane) => (
-              <div key={lane.key} className={`arch-lane arch-lane-${lane.key}`}>
-                <div className="arch-lane-label">{lane.label}</div>
+              <div key={lane.key} className={`arch-lane arch-lane-${lane.key}${lane.nodes.length ? '' : ' empty'}`}>
+                <div className="arch-lane-label">
+                  <span>{lane.label}</span>
+                </div>
                 <div className="arch-lane-nodes">
                   {lane.nodes.map((n) => {
                     const t = NODE_TYPES[n.type]
@@ -371,7 +375,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                         }}
                         title={t?.label}
                       >
-                        <span className="arch-glyph">{t?.glyph ?? '?'}</span>
+                        <ArchIcon type={n.type} />
                         <span className="arch-node-text">
                           <span className="arch-node-label">{n.label}</span>
                           {n.label !== t?.label && <span className="arch-node-type">{t?.label}</span>}
@@ -388,21 +392,20 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
                       </div>
                     )
                   })}
-                  {!readOnly && !lane.nodes.length && <span className="arch-lane-empty">—</span>}
                 </div>
               </div>
             ))}
           </div>
           {!readOnly && !diagram.nodes.length && (
             <div className="arch-empty muted small">
-              Add components from the palette — each one drops into its lane. Then connect them:{' '}
+              Add components from the palette. Each one drops into its lane. Then connect them:{' '}
               {touch ? (
                 <>
                   tap a component and use <b>Connect by tapping</b>.
                 </>
               ) : (
                 <>
-                  drag a component's dot onto another, or select it and use <b>Connect</b>.
+                  drag the dot on a component's right edge onto another, or select it and use <b>Calls / sends to</b>.
                 </>
               )}
             </div>
@@ -440,8 +443,10 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
             {selEdge && (
               <div className="props">
                 <div className="props-title">Connection</div>
-                <p className="small">
-                  <b>{nodeById.get(selEdge.from)?.label}</b> → <b>{nodeById.get(selEdge.to)?.label}</b>
+                <p className="props-route">
+                  <b>{nodeById.get(selEdge.from)?.label}</b>
+                  <span className={`legend-${selEdge.kind}`} />
+                  <b>{nodeById.get(selEdge.to)?.label}</b>
                 </p>
                 <KindToggle value={selEdge.kind} onChange={(kind) => change(updateEdge(diagram, selEdge.id, { kind }))} />
                 <div className="props-actions">
@@ -533,7 +538,13 @@ function NodeProps({ onSetting, onDuplicate, node, diagram, nodeById, newKind, s
 
   return (
     <div className="props">
-      <div className="props-title">{type?.label}</div>
+      <div className={`props-head arch-lane-${laneOf(node)}`}>
+        <ArchIcon type={node.type} />
+        <div>
+          <div className="props-title">{type?.label}</div>
+          <div className="props-lane">{LANES.find((l) => l.key === laneOf(node))?.label}</div>
+        </div>
+      </div>
       <label className="field">
         Name
         <input className="input" value={node.label} onChange={(e) => onLabel(e.target.value)} placeholder={type?.label} />
@@ -545,7 +556,7 @@ function NodeProps({ onSetting, onDuplicate, node, diagram, nodeById, newKind, s
       <KindToggle value={newKind} onChange={setNewKind} />
       <div className="props-connect">
         <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">Choose a component…</option>
+          <option value="">Choose…</option>
           {others.map((n) => (
             <option key={n.id} value={n.id}>
               {n.label}
@@ -571,7 +582,7 @@ function NodeProps({ onSetting, onDuplicate, node, diagram, nodeById, newKind, s
         <ul className="props-edges">
           {out.map((e) => (
             <li key={e.id}>
-              <span>→ {nodeById.get(e.to)?.label}</span>
+              <span className="edge-to">{nodeById.get(e.to)?.label}</span>
               <select className="input" value={e.kind} onChange={(ev) => onEdgeKind(e.id, ev.target.value)}>
                 <option value="sync">sync</option>
                 <option value="async">async</option>
@@ -583,7 +594,7 @@ function NodeProps({ onSetting, onDuplicate, node, diagram, nodeById, newKind, s
           ))}
           {inc.map((e) => (
             <li key={e.id} className="muted">
-              <span>← {nodeById.get(e.from)?.label}</span>
+              <span className="edge-from">{nodeById.get(e.from)?.label}</span>
               <span className="small">{e.kind}</span>
               <button className="icon-btn" onClick={() => onEdgeRemove(e.id)} title="Remove connection">
                 ×

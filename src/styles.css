@@ -2351,23 +2351,28 @@ body.dragging-split {
 
 
 /* ---------- Architecture Designer ---------- */
+/* the lane colours keep clear of the red, amber and green that mean bad, busy and good on the Run tab */
 .arch {
-  --lane-consumers: #a371f7;
-  --lane-edge: #f85149;
-  --lane-experience: #38bdf8;
-  --lane-process: #3fb950;
-  --lane-messaging: #d29922;
-  --lane-system: #f0883e;
-  --lane-backends: #8f8f8f;
+  --lane-consumers: #a78bfa;
+  --lane-edge: #f472b6;
+  --lane-experience: #60a5fa;
+  --lane-process: #2dd4bf;
+  --lane-messaging: #e3b341;
+  --lane-system: #fb923c;
+  --lane-backends: #94a3b8;
+  --line-sync: #7d8ea3;
+  --line-async: #c9973a;
 }
 :root[data-theme='light'] .arch {
-  --lane-consumers: #8250df;
-  --lane-edge: #cf222e;
-  --lane-experience: #0369a1;
-  --lane-process: #1a7f37;
-  --lane-messaging: #9a6700;
-  --lane-system: #bc4c00;
-  --lane-backends: #5b6776;
+  --lane-consumers: #7c3aed;
+  --lane-edge: #be185d;
+  --lane-experience: #1d5fd1;
+  --lane-process: #0f766e;
+  --lane-messaging: #946200;
+  --lane-system: #c2410c;
+  --lane-backends: #526071;
+  --line-sync: #64748b;
+  --line-async: #a56a00;
 }
 .arch-lane-consumers { --lane: var(--lane-consumers); }
 .arch-lane-edge { --lane: var(--lane-edge); }
@@ -2376,29 +2381,50 @@ body.dragging-split {
 .arch-lane-messaging { --lane: var(--lane-messaging); }
 .arch-lane-system { --lane: var(--lane-system); }
 .arch-lane-backends { --lane: var(--lane-backends); }
-.arch-glyph {
+.arch-icon {
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--lane, var(--muted)) 18%, transparent);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--lane, var(--muted)) 14%, transparent);
   color: var(--lane, var(--muted));
-  font-size: 0.78rem;
-  font-weight: 700;
+}
+.arch-icon svg {
+  display: block;
+}
+.palette-item .arch-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+.palette-item .arch-icon svg {
+  width: 15px;
+  height: 15px;
 }
 .arch-canvas {
+  container-type: inline-size;
   position: relative;
   user-select: none;
   min-height: 0;
   overflow: auto;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 .arch-lanes {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-width: 100%;
-  padding: 10px 12px 24px;
+  width: fit-content;
+  padding: 10px 10px 14px;
+}
+/* a crowded diagram keeps two boxes in a row and scrolls sideways instead */
+.arch-lanes.crowded .arch-lane-nodes {
+  min-width: calc(2 * 196px + 44px + 2 * var(--gutter));
 }
 .arch-edges {
   position: absolute;
@@ -2410,60 +2436,89 @@ body.dragging-split {
 .arch-lane {
   position: relative;
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  min-height: 72px;
-  padding: 12px 0;
-  border-bottom: 1px dashed var(--border);
+  grid-template-columns: 128px minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 96px;
+  border: 1px solid color-mix(in srgb, var(--lane) 16%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--lane) 4%, var(--bg));
 }
-.arch-lane:last-child {
-  border-bottom: none;
+.arch-lane.empty {
+  min-height: 32px;
+  border-style: dashed;
+  border-color: var(--border);
+  background: transparent;
 }
 .arch-lane-label {
-  align-self: stretch;
   display: flex;
   align-items: center;
-  padding-left: 10px;
-  border-left: 3px solid var(--lane);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  padding: 6px 12px 6px 14px;
+  border-right: 1px solid color-mix(in srgb, var(--lane) 16%, var(--border));
+  border-radius: 9px 0 0 9px;
+  background: color-mix(in srgb, var(--lane) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--lane);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--lane) 55%, var(--text));
+}
+.arch-lane.empty .arch-lane-label {
+  grid-column: 1 / -1;
+  padding-block: 4px;
+  border-right: none;
+  background: none;
+  box-shadow: none;
+  font-weight: 500;
   color: var(--muted);
+}
+.arch-lane.empty .arch-lane-nodes {
+  display: none;
+}
+/* nothing drawn yet: full lanes show where each kind of component goes */
+.arch-lanes.blank .arch-lane.empty {
+  min-height: 64px;
+  border-color: color-mix(in srgb, var(--lane) 30%, var(--border));
+}
+.arch-lanes.blank .arch-lane.empty .arch-lane-label {
+  color: color-mix(in srgb, var(--lane) 55%, var(--text));
 }
 .arch-lane-nodes {
   display: flex;
   flex-wrap: wrap;
-  gap: 34px 46px;
+  justify-content: center;
   align-items: center;
-}
-.arch-lane-empty {
-  color: var(--border);
+  gap: 48px 44px;
+  padding: 24px var(--gutter, 28px);
 }
 .arch-node {
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 130px;
-  max-width: 220px;
-  padding: 8px 18px 8px 8px;
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--lane);
-  border-radius: 8px;
+  gap: 10px;
+  width: 196px;
+  min-height: 56px;
+  padding: 10px 12px 10px 10px;
+  border: 1px solid color-mix(in srgb, var(--lane) 30%, var(--border));
+  border-radius: 10px;
   background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
   cursor: pointer;
   user-select: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.arch-node:hover {
+  border-color: color-mix(in srgb, var(--lane) 65%, var(--border));
 }
 .arch.read-only .arch-node {
   cursor: default;
-  padding-right: 10px;
 }
 .arch-node.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.arch-node.connect-target {
+  border-style: dashed;
 }
 .arch-node.connect-target:hover {
   border-color: var(--success);
@@ -2476,38 +2531,66 @@ body.dragging-split {
 .arch-node-label {
   font-size: 0.82rem;
   font-weight: 600;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 .arch-node-type {
   font-size: 0.7rem;
+  line-height: 1.35;
   color: var(--muted);
 }
 .arch-handle {
   position: absolute;
-  right: -7px;
+  right: -8px;
   top: 50%;
-  width: 13px;
-  height: 13px;
-  margin-top: -6.5px;
-  border: 2px solid var(--surface);
+  width: 15px;
+  height: 15px;
+  margin-top: -7.5px;
+  border: 3px solid var(--surface);
   border-radius: 50%;
   background: var(--accent);
   cursor: crosshair;
   touch-action: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.arch-handle::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+.arch-node:hover .arch-handle,
+.arch-node.selected .arch-handle {
+  opacity: 1;
 }
 .arch-edge .edge-line {
   fill: none;
   stroke-width: 1.6;
+  stroke-linejoin: round;
+  transition: opacity 0.12s;
 }
 .arch-edge.sync .edge-line {
-  stroke: var(--accent);
+  stroke: var(--line-sync);
 }
 .arch-edge.async .edge-line {
-  stroke: var(--warning);
+  stroke: var(--line-async);
   stroke-dasharray: 6 4;
 }
+.arch-edge:hover .edge-line {
+  stroke-width: 2.4;
+}
+/* with something selected, its lines stand out and the others step back */
+.arch.has-selection .arch-edge:not(.active):not(:hover) .edge-line {
+  opacity: 0.35;
+}
 .arch-edge.active .edge-line {
-  stroke-width: 3;
+  stroke-width: 2.2;
+}
+.arch-edge.active.sync .edge-line {
+  stroke: var(--accent);
+}
+.arch-edge.active.async .edge-line {
+  stroke: var(--lane-messaging);
 }
 .arch-edge .edge-hit {
   fill: none;
@@ -2517,10 +2600,16 @@ body.dragging-split {
   cursor: pointer;
 }
 .arrow-sync {
-  fill: var(--accent);
+  fill: var(--line-sync);
 }
 .arrow-async {
-  fill: var(--warning);
+  fill: var(--line-async);
+}
+.arrow-active-sync {
+  fill: var(--accent);
+}
+.arrow-active-async {
+  fill: var(--lane-messaging);
 }
 .arch-drag-line {
   stroke: var(--accent);
@@ -2553,21 +2642,124 @@ body.dragging-split {
   text-align: center;
   z-index: 2;
 }
+.arch-count b {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.arch-count b + b,
+.arch-count b:nth-of-type(2) {
+  margin-left: 10px;
+}
 .arch-legend {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-right: 6px;
+  gap: 7px;
+  margin-right: 10px;
 }
 .legend-sync,
 .legend-async {
+  position: relative;
   display: inline-block;
-  width: 22px;
-  border-top: 2px solid var(--accent);
+  flex-shrink: 0;
+  width: 26px;
+  border-top: 2px solid var(--line-sync);
 }
 .legend-async {
-  border-top: 2px dashed var(--warning);
-  margin-left: 6px;
+  border-top: 2px dashed var(--line-async);
+}
+.legend-sync::after,
+.legend-async::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -5px;
+  border: 4px solid transparent;
+  border-left: 6px solid var(--line-sync);
+  border-right: none;
+}
+.legend-async::after {
+  border-left-color: var(--line-async);
+}
+.arch-legend .legend-async {
+  margin-left: 8px;
+}
+.props-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.props-lane {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.props-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.props-edges .edge-to::before,
+.props-edges .edge-from::before {
+  margin-right: 6px;
+  color: var(--muted);
+}
+.props-edges .edge-to::before {
+  content: '→';
+}
+.props-edges .edge-from::before {
+  content: '←';
+}
+.arch .seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.arch .seg-btn {
+  padding-inline: 4px;
+  white-space: nowrap;
+}
+/* a narrow canvas: lane names above the boxes, and two smaller boxes in a row */
+@container (max-width: 640px) {
+  .arch-lane {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .arch-lane-label {
+    position: relative;
+    z-index: 2;
+    justify-self: start;
+    padding: 3px 10px;
+    border-right: none;
+    border-radius: 9px 0 8px 0;
+    background: color-mix(in srgb, var(--lane) 12%, var(--bg));
+    box-shadow: none;
+    font-size: 0.7rem;
+  }
+  .arch-lane.empty .arch-lane-label {
+    background: none;
+  }
+  .arch-lane.empty {
+    min-height: 26px;
+  }
+  .arch-lane-nodes {
+    gap: 48px 28px;
+    padding: 16px max(14px, calc(var(--gutter, 28px) - 10px)) 26px;
+  }
+  .arch-node {
+    width: 154px;
+    gap: 8px;
+    padding: 8px;
+  }
+  .arch-node .arch-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .arch-lanes.crowded .arch-lane-nodes {
+    min-width: calc(2 * 154px + 28px + 2 * var(--gutter));
+  }
 }
 .btn-sm {
   padding: 4px 10px;
@@ -2949,14 +3141,13 @@ body.dragging-split {
   .workspace.flow-workspace {
     grid-template-columns: 1fr;
   }
-  .flow-workspace .right-panel {
-    height: 80vh;
-  }
-  .flow-workspace .right-panel {
+  .app .flow-workspace .right-panel,
+  .app:not(.sidebar-collapsed) .flow-workspace .right-panel {
     height: auto;
     min-height: 0;
   }
-  .designer-body {
+  .designer-body,
+  .flow-workspace .designer-body {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 220px 65vh auto;
   }
@@ -3046,9 +3237,10 @@ body.dragging-split {
     width: 36px;
     height: 36px;
   }
+  .arch-handle {
+    opacity: 1;
+  }
   .arch-handle::after {
-    content: '';
-    position: absolute;
     inset: -14px;
   }
 }
@@ -3060,19 +3252,6 @@ body.dragging-split {
   }
   .match-fix {
     grid-column: 1;
-  }
-  .arch-lane {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-  .arch-lane-label {
-    padding-left: 8px;
-  }
-  .arch-lane-nodes {
-    gap: 22px 26px;
-  }
-  .arch-node {
-    min-width: 0;
   }
   .content {
     padding: 14px 12px;
@@ -3303,12 +3482,12 @@ body.dragging-split {
 }
 
 /* ---------- Architecture simulator: box settings and the Run tab ---------- */
-.arch-node-settings { margin-top: 2px; font-size: 0.68rem; color: var(--accent); overflow-wrap: anywhere; }
+.arch-node-settings { margin-top: 2px; font-size: 0.68rem; color: color-mix(in srgb, var(--lane) 60%, var(--text)); overflow-wrap: anywhere; }
 .arch-node-run { margin-top: 3px; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; font-variant-numeric: tabular-nums; align-self: flex-start; }
 .arch-node-run.ok { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
 .arch-node-run.warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
 .arch-node-run.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
-.arch-node.run-bad { border-color: color-mix(in srgb, var(--danger) 60%, var(--border)); }
+.arch-node.run-bad { border-color: color-mix(in srgb, var(--danger) 70%, var(--border)); }
 .arch-node.run-warn { border-color: color-mix(in srgb, var(--warning) 50%, var(--border)); }
 .props-settings { margin: 8px 0; }
 .props-settings > summary { cursor: pointer; list-style: revert; }
