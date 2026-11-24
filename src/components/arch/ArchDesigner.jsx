@@ -3,6 +3,7 @@ import { LANES, NODE_TYPES } from '../../arch/catalog.js'
 import { addEdge, addNode, duplicateNode, removeEdge, removeNode, setNodeSetting, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
 import { gutterFor, lanePadFor, roundedPath, routeEdges } from '../../arch/route.js'
 import { settingsBadge } from '../../arch/settings.js'
+import { clampZoom, PanelToggles, usePanels, ZoomBar } from '../designer/parts.jsx'
 import ArchIcon from './ArchIcon.jsx'
 import { EdgeProps, EmptyProps, laneOf, NodeProps } from './ArchProperties.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
@@ -16,28 +17,6 @@ const PALETTE = LANES.map((lane) => ({
 
 // Zoom: starts at 100%. 'fit' shows the whole diagram, down to a size that is still readable. On a phone boxes keep their size.
 const FIT_MIN = 0.75
-const ZOOM_MIN = 0.5
-const ZOOM_MAX = 1.5
-const clampZoom = (z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 20) / 20))
-
-// The side panels can be hidden to give the diagram their room. The choice is kept per browser.
-const PANELS_KEY = 'pl.archPanels'
-function readPanels() {
-  try {
-    const v = JSON.parse(localStorage.getItem(PANELS_KEY))
-    return { palette: v?.palette !== false, properties: v?.properties !== false }
-  } catch {
-    return { palette: true, properties: true }
-  }
-}
-
-function PanelIcon({ side }) {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
-      <path d={side === 'left' ? 'M4 5h16v14H4zM9.5 5v14' : 'M4 5h16v14H4zM14.5 5v14'} />
-    </svg>
-  )
-}
 
 // A line the router found no way for (two boxes drawn on top of each other while the page resizes).
 const directPath = (s, t) => `M${s.x + s.w / 2},${s.y + s.h / 2} L${t.x + t.w / 2},${t.y + t.h / 2}`
@@ -60,7 +39,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   const [query, setQuery] = useState('')
   const [zoom, setZoom] = useState(1)
   const [scale, setScale] = useState(1)
-  const [panels, setPanels] = useState(readPanels)
+  const { panels, toggle, className: panelClass } = usePanels('pl.archPanels')
   const lanesRef = useRef(null)
   const canvasRef = useRef(null)
   const sheetRef = useRef(null)
@@ -74,16 +53,6 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   const nodeById = useMemo(() => new Map(diagram.nodes.map((n) => [n.id, n])), [diagram.nodes])
   const selNode = selected?.kind === 'node' ? nodeById.get(selected.id) : null
   const selEdge = selected?.kind === 'edge' ? diagram.edges.find((e) => e.id === selected.id) : null
-
-  function togglePanel(name) {
-    const next = { ...panels, [name]: !panels[name] }
-    setPanels(next)
-    try {
-      localStorage.setItem(PANELS_KEY, JSON.stringify(next))
-    } catch {
-      // storage blocked: the choice lasts for this visit
-    }
-  }
 
   // Sizes the sheet the lanes are laid out on, so that scaled down it is exactly as wide as the canvas, then measures
   // the boxes so the lines can be drawn over them.
@@ -307,22 +276,8 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
             >
               Clear
             </button>
-            <span className="tb-sep arch-panel-toggle" />
-            {[
-              ['palette', 'left', 'components'],
-              ['properties', 'right', 'properties'],
-            ].map(([name, side, word]) => (
-              <button
-                key={name}
-                className={`btn btn-ghost btn-sm tb-icon arch-panel-toggle${panels[name] ? ' on' : ''}`}
-                onClick={() => togglePanel(name)}
-                aria-pressed={panels[name]}
-                title={`${panels[name] ? 'Hide' : 'Show'} the ${word} panel`}
-                aria-label={`${panels[name] ? 'Hide' : 'Show'} the ${word} panel`}
-              >
-                <PanelIcon side={side} />
-              </button>
-            ))}
+            <span className="tb-sep panel-toggle" />
+            <PanelToggles panels={panels} toggle={toggle} />
           </div>
           {toolbarEnd && <div className="designer-toolbar-end">{toolbarEnd}</div>}
         </div>
@@ -343,7 +298,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
         </div>
       )}
 
-      <div className={`designer-body${panels.palette ? '' : ' no-palette'}${panels.properties ? '' : ' no-properties'}`}>
+      <div className={`designer-body${panelClass}`}>
         {!readOnly && (
           <aside className="palette">
             <input
@@ -510,20 +465,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
               <span className="arch-legend small muted">
                 <span className="legend-sync" /> sync call <span className="legend-async" /> async message
               </span>
-              <div className="arch-zoom-bar" role="group" aria-label="Zoom">
-                <button onClick={() => setZoom(clampZoom(scale - 0.1))} disabled={scale <= ZOOM_MIN} title="Zoom out (Ctrl and wheel)" aria-label="Zoom out">
-                  −
-                </button>
-                <button className="arch-zoom-value" onClick={() => setZoom(1)} title="Back to 100%">
-                  {Math.round(scale * 100)}%
-                </button>
-                <button onClick={() => setZoom(clampZoom(scale + 0.1))} disabled={scale >= ZOOM_MAX} title="Zoom in (Ctrl and wheel)" aria-label="Zoom in">
-                  +
-                </button>
-                <button className={zoom === 'fit' ? 'on' : ''} onClick={() => setZoom('fit')} aria-pressed={zoom === 'fit'} title="Shrink the diagram until all of it shows">
-                  Fit
-                </button>
-              </div>
+              <ZoomBar zoom={zoom} scale={scale} setZoom={setZoom} fitTitle="Shrink the diagram until all of it shows" />
             </>
           )}
         </div>

@@ -1624,6 +1624,19 @@ textarea:focus {
   padding: 4px 10px;
   border-top: 1px solid var(--border);
 }
+/* the canvas and what floats over it */
+.canvas-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+.designer:not(.read-only) .flow-sheet,
+.settings-aside .flow-sheet {
+  padding-bottom: 34px;
+}
 .designer-body {
   flex: 1;
   min-height: 0;
@@ -1650,7 +1663,11 @@ textarea:focus {
   padding: 0 8px 12px;
 }
 .palette-group-title {
-  margin: 10px 4px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 4px 5px;
+  background: var(--surface);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1660,11 +1677,11 @@ textarea:focus {
 .palette-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
   padding: 5px 6px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -1695,24 +1712,27 @@ textarea:focus {
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  color: #fff;
-  background: var(--g-core);
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: var(--g, var(--g-core));
+  background: color-mix(in srgb, var(--g, var(--g-core)) 15%, transparent);
 }
-.group-sources .node-glyph { background: var(--g-sources); }
-.group-core .node-glyph { background: var(--g-core); }
-.group-routers .node-glyph { background: var(--g-routers); }
-.group-scopes .node-glyph { background: var(--g-scopes); }
-.group-connectors .node-glyph { background: var(--g-connectors); }
-.group-database .node-glyph { background: var(--g-database); }
-.group-files .node-glyph { background: var(--g-files); }
-.group-messaging .node-glyph { background: var(--g-messaging); }
-.group-modules .node-glyph { background: var(--g-modules); }
-.group-enterprise .node-glyph { background: var(--g-enterprise); }
-.group-errors .node-glyph { background: var(--g-errors); }
+.node-glyph svg {
+  display: block;
+}
+/* each component carries the colour of its group */
+.group-sources { --g: var(--g-sources); --lane: var(--g-sources); }
+.group-core { --g: var(--g-core); --lane: var(--g-core); }
+.group-routers { --g: var(--g-routers); --lane: var(--g-routers); }
+.group-scopes { --g: var(--g-scopes); --lane: var(--g-scopes); }
+.group-connectors { --g: var(--g-connectors); --lane: var(--g-connectors); }
+.group-database { --g: var(--g-database); --lane: var(--g-database); }
+.group-files { --g: var(--g-files); --lane: var(--g-files); }
+.group-messaging { --g: var(--g-messaging); --lane: var(--g-messaging); }
+.group-modules { --g: var(--g-modules); --lane: var(--g-modules); }
+.group-enterprise { --g: var(--g-enterprise); --lane: var(--g-enterprise); }
+.group-errors { --g: var(--g-errors); --lane: var(--g-errors); }
 
 .canvas {
   position: relative;
@@ -1747,6 +1767,7 @@ textarea:focus {
 }
 .flow-box.selected {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .flow-head {
   display: flex;
@@ -1754,6 +1775,8 @@ textarea:focus {
   gap: 10px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border);
+  border-radius: 11px 11px 0 0;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
   cursor: pointer;
 }
 .flow-kind {
@@ -1761,12 +1784,14 @@ textarea:focus {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 2px 7px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);
+  font-weight: 600;
 }
 .flow-kind.kind-sub-flow {
+  background: color-mix(in srgb, var(--g-routers) 15%, transparent);
   color: var(--g-routers);
 }
 .flow-name {
@@ -1791,8 +1816,9 @@ textarea:focus {
 .error-section {
   margin-top: 10px;
   padding: 6px 10px 10px;
-  border: 1px dashed color-mix(in srgb, var(--g-errors) 55%, var(--border));
+  border: 1px dashed color-mix(in srgb, var(--g-errors) 45%, var(--border));
   border-radius: 10px;
+  background: color-mix(in srgb, var(--g-errors) 4%, transparent);
 }
 .error-label {
   color: var(--g-errors);
@@ -1804,24 +1830,22 @@ textarea:focus {
   align-items: stretch;
 }
 .node {
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--g-core);
-  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--g) 26%, var(--border));
+  border-radius: 10px;
   background: var(--surface-2);
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
-.node.group-sources { border-left-color: var(--g-sources); }
-.node.group-routers { border-left-color: var(--g-routers); }
-.node.group-scopes { border-left-color: var(--g-scopes); }
-.node.group-connectors { border-left-color: var(--g-connectors); }
-.node.group-database { border-left-color: var(--g-database); }
-.node.group-files { border-left-color: var(--g-files); }
-.node.group-messaging { border-left-color: var(--g-messaging); }
-.node.group-modules { border-left-color: var(--g-modules); }
-.node.group-enterprise { border-left-color: var(--g-enterprise); }
-.node.group-errors { border-left-color: var(--g-errors); }
+.node:hover:not(:has(.node:hover)) {
+  border-color: color-mix(in srgb, var(--g) 60%, var(--border));
+}
+.node-scope,
+.node-router,
+.node-handler {
+  background: color-mix(in srgb, var(--g) 5%, var(--surface));
+}
 .node.selected {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 .designer:not(.read-only) .node {
   cursor: grab;
@@ -1829,8 +1853,8 @@ textarea:focus {
 .node-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 9px;
+  gap: 10px;
+  padding: 6px 10px 6px 8px;
   cursor: pointer;
 }
 .node-text {
@@ -1853,14 +1877,14 @@ textarea:focus {
 }
 .node-body {
   padding: 4px 10px 10px;
-  border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--g) 18%, var(--border));
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
   border-radius: 0 0 9px 9px;
 }
 /* A wide design makes the whole canvas wider, so the canvas scrolls sideways as one area (drag it, or Shift + wheel)
    instead of each router's routes scrolling on their own. Names and paths inside components do not widen it: they
    shorten with "…" and show in full in the settings. */
-.canvas > .flow-box {
+.flow-sheet > .flow-box {
   width: fit-content;
   min-width: 100%;
 }
@@ -2028,29 +2052,13 @@ textarea:focus {
   float: right;
   margin-left: 8px;
 }
-.properties-title {
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-.properties .field {
-  margin-top: 10px;
-}
 .properties textarea.input {
   resize: vertical;
   font-size: 0.78rem;
 }
-.properties-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 16px;
-}
 .btn.danger:hover:not(:disabled) {
   border-color: var(--danger);
   color: var(--danger);
-}
-.properties-empty p {
-  margin: 0 0 10px;
 }
 
 /* Flow problem layout */
@@ -2254,6 +2262,34 @@ body.dragging-split {
   overflow: hidden;
   box-shadow: 0 20px 60px rgb(0 0 0 / 0.5);
 }
+@media (min-width: 1001px) {
+  .app .workspace.flow-workspace.full-mine .right-panel {
+    inset: 0;
+    border: none;
+    border-radius: 0;
+  }
+  .flow-workspace.full-mine .split-handle {
+    display: none;
+  }
+  .app .workspace.flow-workspace.full-mine.with-drawer .left-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 42;
+    display: flex;
+    flex-direction: column;
+    width: min(480px, 92vw);
+    border-radius: 0 14px 14px 0;
+    box-shadow: 0 0 48px rgb(0 0 0 / 0.55);
+  }
+  .app .workspace.flow-workspace.full-mine.with-drawer .left-panel .panel-body {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+}
 .flow-workspace.full-both .flow-full-ref {
   right: calc(50% + 6px);
 }
@@ -2261,6 +2297,13 @@ body.dragging-split {
   left: calc(50% + 6px);
 }
 /* half the screen each: the toolbar buttons wrap and the reference settings panel is narrower */
+.app .workspace.flow-workspace.full-both .designer .designer-toolbar {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+.flow-workspace.full-both .designer-toolbar .tb-sep {
+  display: none;
+}
 .flow-workspace.full-both .designer-toolbar .toolbar-actions {
   flex-wrap: wrap;
 }
@@ -2678,7 +2721,7 @@ body.dragging-split {
   font-size: 0.75rem;
   pointer-events: none;
 }
-.arch-zoom-bar {
+.zoom-bar {
   position: absolute;
   right: 10px;
   bottom: 10px;
@@ -2689,7 +2732,7 @@ body.dragging-split {
   background: var(--surface);
   overflow: hidden;
 }
-.arch-zoom-bar button {
+.zoom-bar button {
   min-width: 30px;
   height: 28px;
   padding: 0 8px;
@@ -2700,20 +2743,20 @@ body.dragging-split {
   font-size: 0.78rem;
   cursor: pointer;
 }
-.arch-zoom-bar button + button {
+.zoom-bar button + button {
   border-left: 1px solid var(--border);
 }
-.arch-zoom-bar button:hover:not(:disabled) {
+.zoom-bar button:hover:not(:disabled) {
   background: var(--surface-2);
 }
-.arch-zoom-bar button:disabled {
+.zoom-bar button:disabled {
   color: var(--muted);
   cursor: default;
 }
-.arch-zoom-bar button.on {
+.zoom-bar button.on {
   color: var(--accent);
 }
-.arch-zoom-bar .arch-zoom-value {
+.zoom-bar .zoom-value {
   min-width: 48px;
   font-variant-numeric: tabular-nums;
 }
@@ -2721,12 +2764,12 @@ body.dragging-split {
 .arch:not(.read-only) .arch-lanes {
   padding-bottom: 44px;
 }
-.arch-panel-toggle.btn {
+.panel-toggle.btn {
   display: inline-grid;
   place-items: center;
   color: var(--muted);
 }
-.arch-panel-toggle.btn.on {
+.panel-toggle.btn.on {
   color: var(--accent);
 }
 .arch-full-btn {
@@ -2736,22 +2779,22 @@ body.dragging-split {
 }
 /* hidden side panels, where the panels sit beside the canvas */
 @media (min-width: 1001px) {
-  .flow-workspace .arch .designer-body.no-palette {
+  .flow-workspace .designer .designer-body.no-palette {
     grid-template-columns: minmax(0, 1fr) 250px;
   }
-  .flow-workspace .arch .designer-body.no-properties {
+  .flow-workspace .designer .designer-body.no-properties {
     position: relative;
     grid-template-columns: 200px minmax(0, 1fr);
   }
-  .flow-workspace .arch .designer-body.no-palette.no-properties {
+  .flow-workspace .designer .designer-body.no-palette.no-properties {
     grid-template-columns: minmax(0, 1fr);
   }
-  .arch .no-palette > .palette,
-  .arch .no-properties > .properties {
+  .designer .no-palette > .palette,
+  .designer .no-properties > .properties {
     display: none;
   }
   /* something is selected: its properties float over the canvas until it is let go */
-  .arch .no-properties > .properties.sheet-open {
+  .designer .no-properties > .properties.sheet-open {
     display: block;
     position: absolute;
     top: 10px;
@@ -2763,7 +2806,7 @@ body.dragging-split {
     border-radius: 12px;
     box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
   }
-  .arch .no-properties > .properties.sheet-open .properties-done {
+  .designer .no-properties > .properties.sheet-open .properties-done {
     display: inline-flex;
   }
 }
@@ -2844,12 +2887,13 @@ body.dragging-split {
   margin-left: 8px;
 }
 @media (max-width: 1000px) {
-  .arch-panel-toggle,
-  .arch-panel-toggle.btn {
+  .panel-toggle,
+  .panel-toggle.btn {
     display: none;
   }
   .arch-full-btn.btn,
   .arch-full-only.btn,
+  .drawer-btn.btn,
   .drawer-close {
     display: none;
   }
@@ -4181,7 +4225,7 @@ body.dragging-split {
 }
 /* Done sits on the header, so the panel keeps its full width */
 @media (max-width: 1000px) {
-  .arch .properties.sheet-open .properties-done {
+  .properties.sheet-open .properties-done {
     position: absolute;
     top: 22px;
     right: 24px;
@@ -4189,12 +4233,12 @@ body.dragging-split {
     float: none;
     margin: 0;
   }
-  .arch .properties.sheet-open .ap-head {
+  .properties.sheet-open .ap-head {
     padding-right: 76px;
   }
 }
 @media (min-width: 1001px) {
-  .arch .no-properties > .properties.sheet-open .properties-done {
+  .designer .no-properties > .properties.sheet-open .properties-done {
     position: absolute;
     top: 22px;
     right: 24px;
@@ -4202,7 +4246,131 @@ body.dragging-split {
     float: none;
     margin: 0;
   }
-  .arch .no-properties > .properties.sheet-open .ap-head {
+  .designer .no-properties > .properties.sheet-open .ap-head {
     padding-right: 76px;
+  }
+}
+
+/* ---------- Flow Designer: the settings panel and the toolbar ---------- */
+.ap-head .node-glyph {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+.ap-head .node-glyph svg {
+  width: 18px;
+  height: 18px;
+}
+.ap-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ap-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.ap-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 45%);
+  align-items: center;
+  gap: 4px 10px;
+}
+.ap-row .ap-switch {
+  justify-self: end;
+}
+.ap-row .ap-help {
+  grid-column: 1 / -1;
+}
+.ap .code-field-box {
+  border-radius: 8px;
+}
+.ap .code-field-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.ap .node-config {
+  padding: 0;
+  border: none;
+}
+.ap-note {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.ap-note .ap-icon {
+  margin-top: 2px;
+}
+.ap-note.warn {
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: color-mix(in srgb, var(--warning) 70%, var(--text));
+}
+.ap-note.bad {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: color-mix(in srgb, var(--danger) 70%, var(--text));
+}
+.ap-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  counter-reset: step;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  list-style: none;
+}
+.ap-steps li {
+  position: relative;
+  padding-left: 32px;
+  counter-increment: step;
+}
+.ap-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 21px;
+  text-align: center;
+}
+.designer-toolbar .seg {
+  gap: 2px;
+  padding: 2px;
+  border: none;
+  border-radius: 9px;
+  background: var(--surface-3);
+}
+.designer-toolbar .seg button {
+  border-radius: 7px;
+}
+.designer-toolbar .seg button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25), inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.seg-short {
+  display: none;
+}
+/* a narrow canvas panel: shorter names, so every button stays in view */
+.designer-toolbar {
+  container: flow-toolbar / inline-size;
+}
+@container flow-toolbar (max-width: 860px) {
+  .seg-long {
+    display: none;
+  }
+  .seg-short {
+    display: inline;
   }
 }

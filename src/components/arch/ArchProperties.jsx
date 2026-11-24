@@ -1,41 +1,12 @@
 import { useState } from 'react'
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
 import { configOf, settingsBadge, settingsOf } from '../../arch/settings.js'
+import { Icon, IconButton } from '../designer/parts.jsx'
 import ArchIcon from './ArchIcon.jsx'
 
 // The right panel of the Architecture Designer: the selected box, the selected line, or how to start.
 
 export const laneOf = (node) => NODE_TYPES[node.type]?.lane ?? 'backends'
-
-const ICONS = {
-  left: 'M14 6l-6 6 6 6',
-  right: 'M10 6l6 6-6 6',
-  copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
-  trash: 'M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5',
-  close: 'M7 7l10 10M17 7L7 17',
-  plus: 'M12 5v14M5 12h14',
-  swap: 'M7 4L3.5 7.5 7 11M3.5 7.5H20M17 13l3.5 3.5L17 20M20.5 16.5H4',
-  target: 'M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM12 2v5M12 17v5M2 12h5M17 12h5',
-  chevron: 'M9 6l6 6-6 6',
-  out: 'M4 12h15M13 6l6 6-6 6',
-  in: 'M20 12H5M11 6l-6 6 6 6',
-}
-
-function Icon({ name, size = 15 }) {
-  return (
-    <svg className={`ap-icon ap-icon-${name}`} viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={ICONS[name]} />
-    </svg>
-  )
-}
-
-function IconButton({ icon, label, title = label, className = '', ...rest }) {
-  return (
-    <button type="button" className={`ap-tool ${className}`} title={title} aria-label={label} {...rest}>
-      <Icon name={icon} />
-    </button>
-  )
-}
 
 function KindToggle({ value, onChange }) {
   return (

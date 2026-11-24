@@ -1,8 +1,11 @@
-import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import CodeEditor from '../CodeEditor.jsx'
-import { CodeBlock } from '../CopyButton.jsx'
+import { clampZoom, Icon, PanelToggles, useNarrow, usePanels, ZoomBar } from '../designer/parts.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 import { COMPONENTS, GROUPS } from '../../flow/catalog.js'
+import { Ctx } from './context.js'
+import FlowIcon from './FlowIcon.jsx'
+import Properties, { ConfigView, ReadOnlyProperties } from './FlowProperties.jsx'
 import { fromXml, looksLikeMuleXml } from '../../flow/import.js'
 import {
   acceptsKind,
@@ -18,12 +21,11 @@ import {
   removeFlow,
   removeNode,
   removeRoute,
-  shiftNode,
-  updateConfig,
 } from '../../flow/model.js'
 import { toXml } from '../../flow/xml.js'
 
-const Ctx = createContext(null)
+// Fit shows the whole design, down to a size that is still readable.
+const FIT_MIN = 0.6
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // Visual Mule flow editor. Design only: nothing here is executed.
@@ -44,6 +46,16 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
   const [removed, setRemoved] = useState(null) // what was just deleted, for the Undo bar
   const root = useRef(null)
   const touch = useCoarsePointer()
+  // beside its XML or the reference the canvas is narrow, so there the panels start hidden
+  const narrow = useNarrow(root, 700)
+  const besidePanels = usePanels('pl.flowNarrowPanels', false)
+  const mainPanels = usePanels('pl.flowPanels')
+  const { panels, toggle, className: panelClass } = view === 'split' || narrow ? besidePanels : mainPanels
+  const [zoom, setZoom] = useState(1)
+  const [scale, setScale] = useState(1)
+  const canvasRef = useRef(null)
+  const sheetRef = useRef(null)
+  const zooms = !readOnly || aside
 
   const placing = Boolean(armed || moving)
   useRevealWhenStacked(root, '.designer-body', placing, 'start')
@@ -115,6 +127,46 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     }),
     [design, readOnly, aside, selectedId, payload, payloadKind, onChange, touch, placing, flags, runMarks, history],
   )
+
+  // Scales the design. Fit tries smaller and smaller until all of it shows.
+  const applyZoom = useRef(null)
+  applyZoom.current = () => {
+    const canvas = canvasRef.current
+    const sheet = sheetRef.current
+    if (!zooms || !canvas || !sheet || !canvas.clientWidth) return
+    const at = (k) => {
+      sheet.style.zoom = k === 1 ? '' : String(k)
+    }
+    let k = zoom
+    if (zoom === 'fit') {
+      for (k = 1; ; k = Math.round((k - 0.05) * 100) / 100) {
+        at(touch ? 1 : k)
+        if (touch || k <= FIT_MIN || (canvas.scrollHeight <= canvas.clientHeight + 1 && canvas.scrollWidth <= canvas.clientWidth + 1)) break
+      }
+    }
+    at(k)
+    setScale(k)
+  }
+  useLayoutEffect(() => applyZoom.current(), [zoom, design, view, touch, panelClass])
+  useEffect(() => {
+    if (!zooms || !canvasRef.current) return undefined
+    const ro = new ResizeObserver(() => applyZoom.current())
+    ro.observe(canvasRef.current)
+    return () => ro.disconnect()
+  }, [zooms, view])
+
+  // Ctrl and the mouse wheel zoom the design instead of the page
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!zooms || !canvas) return undefined
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      setZoom(clampZoom(scale + (e.deltaY < 0 ? 0.1 : -0.1)))
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', onWheel)
+  }, [zooms, scale, view])
 
   function importXml(text) {
     let result
@@ -205,9 +257,10 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
   }
 
   const body = (
-    <div className="designer-body">
+    <div className={`designer-body${readOnly ? '' : panelClass}`}>
       {!readOnly && <Palette armed={armed} setArmed={setArmed} />}
-      <div className="canvas" onClick={() => setSelectedId(null)}>
+      <div className="canvas-stage">
+      <div className="canvas" ref={canvasRef} onClick={() => setSelectedId(null)}>
         {placing && (
           <div className="armed-hint">
             <span>
@@ -225,10 +278,14 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
             </button>
           </div>
         )}
-        {design.flows.map((f) => (
-          <FlowView key={f.id} flow={f} />
-        ))}
-    </div>
+        <div className="flow-sheet" ref={sheetRef}>
+          {design.flows.map((f) => (
+            <FlowView key={f.id} flow={f} />
+          ))}
+        </div>
+      </div>
+      {zooms && <ZoomBar zoom={zoom} scale={scale} setZoom={setZoom} fitTitle="Shrink the design until all of it shows" />}
+      </div>
     {!readOnly && <Properties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
 
     {aside && <ReadOnlyProperties selectedId={selectedId} onDeselect={() => setSelectedId(null)} />}
@@ -245,10 +302,12 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
         <div className="designer-toolbar">
           <div className="seg">
             <button className={view === 'design' ? 'active' : ''} onClick={() => setView('design')}>
-              Message Flow
+              <span className="seg-long">Message Flow</span>
+              <span className="seg-short">Flow</span>
             </button>
             <button className={view === 'xml' ? 'active' : ''} onClick={() => setView('xml')}>
-              Configuration XML
+              <span className="seg-long">Configuration XML</span>
+              <span className="seg-short">XML</span>
             </button>
             <button className={view === 'split' ? 'active' : ''} onClick={() => setView('split')} title="The canvas and its XML side by side: change either one">
               Split
@@ -260,10 +319,10 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               {history && (
                 <>
                   <button className="btn btn-ghost btn-sm tb-icon" onClick={history.undo} disabled={!history.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
-                    ↶
+                    <Icon name="undo" />
                   </button>
                   <button className="btn btn-ghost btn-sm tb-icon" onClick={history.redo} disabled={!history.canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">
-                    ↷
+                    <Icon name="redo" />
                   </button>
                   <span className="tb-sep" aria-hidden="true" />
                 </>
@@ -287,8 +346,10 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
                   setSelectedId(null)
                 }}
               >
-                🗑
+                <Icon name="trash" />
               </button>
+              <span className="tb-sep panel-toggle" aria-hidden="true" />
+              <PanelToggles panels={panels} toggle={toggle} />
             </div>
           )}
           {toolbarEnd && <div className="designer-toolbar-end">{toolbarEnd}</div>}
@@ -369,6 +430,28 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
 
 // ---------- Palette ----------
 
+// Words people search for that are not in a component's name.
+const ALIASES = {
+  'wsc-consume': 'soap wsc wsdl',
+  transform: 'dataweave dw map',
+  'http-request': 'rest api call',
+  'http-listener': 'rest api endpoint',
+  'flow-ref': 'subflow sub-flow call',
+  'os-store': 'cache save',
+  'on-error-propagate': 'catch exception',
+  'on-error-continue': 'catch exception',
+  'raise-error': 'throw exception',
+  'until-successful': 'retry',
+  idempotent: 'duplicate',
+  choice: 'if else when',
+  foreach: 'loop for each',
+  'parallel-foreach': 'loop for each',
+  'scatter-gather': 'parallel',
+  scheduler: 'cron poll timer',
+  'apikit-router': 'raml',
+  'db-stored-procedure': 'call sp plsql',
+}
+
 function Palette({ armed, setArmed }) {
   const { setDrag, touch } = useContext(Ctx)
   const [query, setQuery] = useState('')
@@ -378,10 +461,10 @@ function Palette({ armed, setArmed }) {
 
   return (
     <aside className="palette">
-      <input className="input palette-search" placeholder="Search components" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <input className="input palette-search" type="search" placeholder="Search components…" value={query} onChange={(e) => setQuery(e.target.value)} />
       <div className="palette-groups">
         {GROUPS.map((g) => {
-          const items = Object.entries(COMPONENTS).filter(([, c]) => c.group === g.id && (c.label.toLowerCase().includes(q) || byLane(c)))
+          const items = Object.entries(COMPONENTS).filter(([type, c]) => c.group === g.id && (c.label.toLowerCase().includes(q) || byLane(c) || ALIASES[type]?.includes(q)))
           if (!items.length) return null
           return (
             <div key={g.id} className="palette-group">
@@ -400,7 +483,7 @@ function Palette({ armed, setArmed }) {
                   onClick={() => setArmed(armed === type ? null : type)}
                   title="Drag onto the canvas, or tap then tap a slot"
                 >
-                  <span className="node-glyph">{c.glyph}</span>
+                  <FlowIcon type={type} />
                   <span>
                     {c.label}
                     {byLane(c) && <span className="palette-lane">{c.routeLabel} is inside it</span>}
@@ -600,7 +683,7 @@ function NodeView({ node, at }) {
         select(node.id)
       }}
     >
-      <span className="node-glyph">{def.glyph}</span>
+      <FlowIcon type={node.type} />
       <span className="node-text">
         <span className="node-title">{def.label}</span>
         {summary && <span className="node-sub">{summary}</span>}
@@ -725,246 +808,5 @@ function NodeView({ node, at }) {
         </div>
       )}
     </div>
-  )
-}
-
-// The settings of one component in a read-only design, such as the reference answer.
-function ConfigView({ fields = [], values }) {
-  // a reference can set something the catalog has no field for: show that too, under its own name
-  const extra = Object.keys(values)
-    .filter((key) => !fields.some((f) => f.key === key))
-    .map((key) => ({ key, label: key }))
-  const filled = [...fields, ...extra].filter((f) => values[f.key] != null && values[f.key] !== '')
-  return (
-    <div className="node-config" onClick={(e) => e.stopPropagation()}>
-      {filled.length === 0 && <p className="muted small">No settings for this element.</p>}
-      {filled.map((f) => (
-        <div key={f.key} className="node-config-row">
-          <span className="muted small">{f.label}</span>
-          {f.type === 'textarea' ? (
-            <CodeBlock className="mono small">{String(values[f.key])}</CodeBlock>
-          ) : (
-            <code className="small">{String(values[f.key])}</code>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ---------- Properties ----------
-
-// The settings of the selected component of a read-only design, in the same side panel the editable designer uses.
-function ReadOnlyProperties({ selectedId, onDeselect }) {
-  const { design } = useContext(Ctx)
-  const found = selectedId ? findItem(design, selectedId) : null
-  if (!found || found.ctx.isFlow) {
-    return (
-      <aside className="properties">
-        <div className="properties-empty muted small">
-          <p>Select a component to see how it is configured.</p>
-        </div>
-      </aside>
-    )
-  }
-  const { item, ctx } = found
-  const def = COMPONENTS[ctx.isRoute ? ctx.parent.type : item.type]
-  return (
-    <aside className="properties sheet-open">
-      <button className="btn btn-ghost btn-sm properties-done" onClick={onDeselect}>
-        Done
-      </button>
-      <div className="properties-title">{ctx.isRoute ? `${def.label} · ${def.routeLabel}` : def.label}</div>
-      <ConfigView fields={ctx.isRoute ? def.routeFields : def.fields} values={item.config} />
-    </aside>
-  )
-}
-
-// A setting is an expression when it is wrapped in #[ ], as in Mule. Anything else is used as plain text.
-const isExpression = (value) => /^\s*#\[[\s\S]*\]\s*$/.test(String(value ?? ''))
-// plain text that starts the way an expression does, such as payload.email: Mule would use it as those words
-const looksLikeExpression = (value) => /^\s*(payload|vars\.|attributes\.|error\.|message\.|correlationId\b)/.test(String(value ?? ''))
-
-// The fx switch beside a setting, as in Anypoint Studio: on wraps the value in #[ ], off takes the #[ ] away.
-function FxButton({ value, onChange }) {
-  const on = isExpression(value)
-  const text = String(value ?? '').trim()
-  return (
-    <button
-      type="button"
-      className={`fx-btn${on ? ' on' : ''}`}
-      aria-pressed={on}
-      title={on ? 'Expression. Click to use plain text.' : 'Plain text. Click to make it an expression.'}
-      onClick={() => onChange(on ? text.slice(2, -1).trim() : `#[${text}]`)}
-    >
-      fx
-    </button>
-  )
-}
-
-function PlainTextWarning({ value }) {
-  if (isExpression(value) || !looksLikeExpression(value)) return null
-  return <small className="field-help warn-text">This is plain text, so it is used as these words. Click fx to make it an expression.</small>
-}
-
-function Properties({ selectedId, onDeselect }) {
-  const { design, change, remove, touch, placing, startMove, duplicate } = useContext(Ctx)
-  const found = selectedId ? findItem(design, selectedId) : null
-
-  if (!found) {
-    return (
-      <aside className="properties">
-        <div className="properties-empty muted small">
-          {touch ? (
-            <>
-              <p>
-                <strong>Build the flow:</strong> tap a component above, then tap a <span className="slot-plus inline">+</span>{' '}
-                slot on the canvas.
-              </p>
-              <p>Tap any component to configure, move or delete it.</p>
-            </>
-          ) : (
-            <>
-              <p>
-                <strong>Build the flow:</strong> drag components from the palette onto the canvas (or click a component,
-                then click a <span className="slot-plus inline">+</span> slot).
-              </p>
-              <p>Select any component to configure it here. Delete removes it, Esc cancels placing.</p>
-            </>
-          )}
-        </div>
-      </aside>
-    )
-  }
-
-  const { item, ctx } = found
-  let title, fields, values
-  if (ctx.isFlow) {
-    title = item.kind === 'flow' ? 'Flow' : 'Sub-flow'
-    fields = [{ key: 'name', label: 'Name', type: 'text' }]
-    values = item
-  } else if (ctx.isRoute) {
-    const def = COMPONENTS[ctx.parent.type]
-    title = `${def.label} · ${def.routeLabel}`
-    fields = def.routeFields
-    values = item.config
-  } else {
-    const def = COMPONENTS[item.type]
-    title = def.label
-    fields = def.fields
-    values = item.config
-  }
-
-  const set = (key, value) => change(updateConfig(design, item.id, { [key]: value }))
-  const flowNames = design.flows.map((f) => f.name)
-
-  return (
-    <aside className={`properties${placing ? '' : ' sheet-open'}`}>
-      <button className="btn btn-ghost btn-sm properties-done" onClick={onDeselect}>
-        Done
-      </button>
-      <div className="properties-title">{title}</div>
-      {fields.length === 0 && <p className="muted small">No settings for this element.</p>}
-      {fields.map((f) =>
-        f.type === 'expression' || f.type === 'textarea' ? (
-          // expressions and scripts get a code editor: highlighting, brackets and undo, like in Anypoint Studio
-          <div key={`${item.id}-${f.key}`} className="field code-field">
-            <span>{f.label}</span>
-            <div className="fx-row">
-              {f.type === 'expression' && <FxButton value={values[f.key]} onChange={(v) => set(f.key, v)} />}
-              <div className={`code-field-box${f.type === 'textarea' ? ' tall' : ''}`}>
-                <CodeEditor compact value={String(values[f.key] ?? '')} language={/sql/i.test(f.key) ? 'sql' : 'dataweave'} onChange={(v) => set(f.key, v ?? '')} />
-              </div>
-            </div>
-            <PlainTextWarning value={values[f.key]} />
-            {f.help && <small className="field-help muted">{f.help}</small>}
-          </div>
-        ) : f.type === 'text' && !ctx.isFlow ? (
-          // a <div>, not a <label>: a label would pass clicks on its text to the fx button
-          <div key={f.key} className="field">
-            <span>{f.label}</span>
-            <div className="fx-row">
-              <FxButton value={values[f.key]} onChange={(v) => set(f.key, v)} />
-              <input
-                className={`input${isExpression(values[f.key]) ? ' mono' : ''}`}
-                aria-label={f.label}
-                value={values[f.key] ?? ''}
-                list={item.type === 'flow-ref' && f.key === 'name' ? 'flow-names' : undefined}
-                onChange={(e) => set(f.key, e.target.value)}
-              />
-            </div>
-            <PlainTextWarning value={values[f.key]} />
-            {f.help && <small className="field-help muted">{f.help}</small>}
-          </div>
-        ) : (
-        <label key={f.key} className="field">
-          <span>{f.label}</span>
-          {f.type === 'select' ? (
-            <select className="input" value={values[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)}>
-              {f.options.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          ) : f.type === 'textarea' ? (
-            <textarea className="input mono" rows={8} value={values[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} />
-          ) : (
-            <input
-              className={`input ${f.type === 'expression' ? 'mono' : ''}`}
-              type={f.type === 'number' ? 'number' : 'text'}
-              value={values[f.key] ?? ''}
-              list={item.type === 'flow-ref' && f.key === 'name' ? 'flow-names' : undefined}
-              onChange={(e) => set(f.key, f.type === 'number' ? Number(e.target.value) : e.target.value)}
-            />
-          )}
-          {f.help && <small className="field-help muted">{f.help}</small>}
-        </label>
-        ),
-      )}
-      {!ctx.isFlow && !ctx.isRoute && COMPONENTS[item.type].routeFields?.length > 0 && (
-        <p className="muted small">
-          Click a {COMPONENTS[item.type].routeLabel} header on the canvas to set{' '}
-          {COMPONENTS[item.type].routeFields
-            .map((f) => f.label.replace(/ \(optional\)$/, '').toLowerCase())
-            .join(', ')
-            .replace(/, ([^,]*)$/, ' and $1')}
-          .
-        </p>
-      )}
-      <datalist id="flow-names">
-        {flowNames.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
-
-      {!ctx.isFlow && !ctx.isRoute && (
-        <div className="properties-actions">
-          {ctx.slot !== 'source' && (
-            <>
-              <button className="btn btn-ghost" onClick={() => change(shiftNode(design, item.id, -1))}>
-                ↑ Up
-              </button>
-              <button className="btn btn-ghost" onClick={() => change(shiftNode(design, item.id, 1))}>
-                ↓ Down
-              </button>
-              <button className="btn btn-ghost" onClick={() => startMove(item.id)}>
-                Move…
-              </button>
-              <button className="btn btn-ghost" onClick={() => duplicate(item.id)} title="Duplicate (Ctrl+D)">
-                Duplicate
-              </button>
-            </>
-          )}
-          <button
-            className="btn btn-ghost danger"
-            onClick={() => {
-              remove(removeNode(design, item.id), COMPONENTS[item.type]?.label)
-              onDeselect()
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-    </aside>
   )
 }

@@ -132,22 +132,38 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const [runMarks, setRunMarks] = useState(null)
   const [finding, setFinding] = useState(null) // the check whose Find it is open
 
+  // in full screen the scenario and the checks slide in over the canvas when wanted
+  const [drawer, setDrawer] = useState(false)
   useEffect(() => {
-    if (!full) return
-    // Esc inside a designer cancels placing or a selection there, so only Esc from elsewhere closes the view
-    const onKey = (e) => e.key === 'Escape' && !e.target.closest?.('.designer, input, textarea, select') && setFull(null)
+    const onKey = (e) => {
+      if (e.target.closest?.('input, textarea, select, [contenteditable]')) return
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setFull(full ? null : 'mine')
+        setDrawer(false)
+      } else if (e.key === 'Escape' && full) {
+        // Esc first closes the drawer. Inside a designer it cancels placing or a selection, so it does not close the view
+        if (drawer) setDrawer(false)
+        else if (!e.target.closest?.('.designer')) setFull(null)
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [full])
+  }, [full, drawer])
+  // on the wide screen the checks open in the drawer
+  function showTab(key) {
+    setTab(key)
+    if (full === 'mine') setDrawer(true)
+  }
 
   const fullButton = (which, label) => (
-    <button className="btn btn-ghost btn-sm full-btn" onClick={() => setFull(full === which ? null : which)} title={full === which ? 'Close full screen (Esc)' : label} aria-label={full === which ? 'Close full screen' : label}>
+    <button className="btn btn-ghost btn-sm full-btn" onClick={() => { setFull(full === which ? null : which); setDrawer(false) }} title={full === which ? 'Close full screen (Esc or Shift+F)' : label} aria-label={full === which ? 'Close full screen' : label}>
       <FullIcon open={full === which} />
       <span>{full === which ? 'Close' : 'Full screen'}</span>
     </button>
   )
   const sideButton = (
-    <button className="btn btn-ghost btn-sm full-btn" onClick={() => setFull(full === 'both' ? null : 'both')} title={full === 'both' ? 'Close side by side (Esc)' : 'The reference and your design side by side'} aria-label={full === 'both' ? 'Close side by side' : 'Open the reference and your design side by side'}>
+    <button className="btn btn-ghost btn-sm full-btn" onClick={() => { setFull(full === 'both' ? null : 'both'); setDrawer(false) }} title={full === 'both' ? 'Close side by side (Esc)' : 'The reference and your design side by side'} aria-label={full === 'both' ? 'Close side by side' : 'Open the reference and your design side by side'}>
       {full === 'both' ? <FullIcon open /> : <SideIcon />}
       <span>{full === 'both' ? 'Close' : 'Side by side'}</span>
     </button>
@@ -169,7 +185,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
   function openFind(i) {
     recordMistake(problem.id, checks[i], findIt(design, problem.referenceFlow, checks[i]))
     setFinding(i)
-    setTab('checks')
+    showTab('checks')
     recordHint(problem.id, entry, i, 3)
   }
   const flags = useMemo(() => {
@@ -187,7 +203,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
   function checkDesign() {
     const r = runChecks(design, checks)
     setResults(r)
-    setTab('checks')
+    showTab('checks')
     if (r.every((c) => c.pass)) updateEntry(problem.id, { flow: design, status: 'solved', rebuilding: false }, { graded: true })
     // what failed is kept for the Mistakes page (practice rounds only, and only with a reference to compare to)
     else if (guided && problem.referenceFlow) checks.forEach((c, i) => !r[i].pass && recordMistake(problem.id, c, findIt(design, problem.referenceFlow, c)))
@@ -205,7 +221,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const passed = results?.filter((r) => r.pass).length ?? 0
 
   return (
-    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
+    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}${full === 'mine' && drawer ? ' with-drawer' : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
       <section className="panel left-panel">
         <div className="panel-tabs">
           {TABS.filter((t) => t !== 'run' || problem.simulation?.tests?.length).map((t) => (
@@ -213,6 +229,11 @@ export default function FlowWorkspace({ problem, guided = true }) {
               {t === 'checks' && checks.length ? `Checks (${checks.length})` : t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
+          {full === 'mine' && (
+            <button className="sg-icon drawer-close" onClick={() => setDrawer(false)} aria-label="Close the scenario panel" title="Close (Esc)">
+              ×
+            </button>
+          )}
         </div>
         <div className="panel-body">
           {tab === 'scenario' && (
@@ -381,9 +402,21 @@ export default function FlowWorkspace({ problem, guided = true }) {
                   ▶ Run tests
                 </button>
               )}
+              {full === 'mine' && (
+                <>
+                  <button className={`btn btn-sm drawer-btn${drawer ? ' active' : ''}`} onClick={() => setDrawer(!drawer)} aria-pressed={drawer} title="Open the scenario, the checks and the notes over the canvas">
+                    Scenario and checks
+                  </button>
+                  {checks.length > 0 && (
+                    <button className="btn btn-sm btn-primary drawer-btn" onClick={checkDesign} disabled={!countComponents(design)}>
+                      Check
+                    </button>
+                  )}
+                </>
+              )}
               {full && guided && <CopyForAi id={problem.id} className="btn btn-sm" />}
               {hasReference && sideButton}
-              {full === 'both' ? null : fullButton('mine', 'Open your design full screen')}
+              {full === 'both' ? null : fullButton('mine', 'Open your design full screen (Shift+F)')}
             </>
           }
         />
