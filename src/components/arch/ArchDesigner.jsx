@@ -2,8 +2,9 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { LANES, NODE_TYPES } from '../../arch/catalog.js'
 import { addEdge, addNode, duplicateNode, removeEdge, removeNode, setNodeSetting, shiftNode, updateEdge, updateNode } from '../../arch/model.js'
 import { gutterFor, lanePadFor, roundedPath, routeEdges } from '../../arch/route.js'
-import { configOf, settingsBadge, settingsOf } from '../../arch/settings.js'
+import { settingsBadge } from '../../arch/settings.js'
 import ArchIcon from './ArchIcon.jsx'
+import { EdgeProps, EmptyProps, laneOf, NodeProps } from './ArchProperties.jsx'
 import { useCoarsePointer, useRevealWhenStacked } from '../touch.js'
 
 const PALETTE = LANES.map((lane) => ({
@@ -12,8 +13,6 @@ const PALETTE = LANES.map((lane) => ({
     .filter(([, t]) => t.lane === lane.key)
     .map(([type, t]) => ({ type, ...t })),
 }))
-
-const laneOf = (node) => NODE_TYPES[node.type]?.lane ?? 'backends'
 
 // Zoom: starts at 100%. 'fit' shows the whole diagram, down to a size that is still readable. On a phone boxes keep their size.
 const FIT_MIN = 0.75
@@ -538,6 +537,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
             )}
             {selNode && (
               <NodeProps
+                key={selNode.id}
                 node={selNode}
                 diagram={diagram}
                 nodeById={nodeById}
@@ -558,184 +558,17 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
               />
             )}
             {selEdge && (
-              <div className="props">
-                <div className="props-title">Connection</div>
-                <p className="props-route">
-                  <b>{nodeById.get(selEdge.from)?.label}</b>
-                  <span className={`legend-${selEdge.kind}`} />
-                  <b>{nodeById.get(selEdge.to)?.label}</b>
-                </p>
-                <KindToggle value={selEdge.kind} onChange={(kind) => change(updateEdge(diagram, selEdge.id, { kind }))} />
-                <div className="props-actions">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() =>
-                      change(updateEdge(diagram, selEdge.id, { from: selEdge.to, to: selEdge.from }))
-                    }
-                  >
-                    Reverse
-                  </button>
-                  <button className="btn btn-ghost btn-sm danger" onClick={deleteSelected}>
-                    Delete
-                  </button>
-                </div>
-              </div>
+              <EdgeProps
+                edge={selEdge}
+                nodeById={nodeById}
+                onKind={(kind) => change(updateEdge(diagram, selEdge.id, { kind }))}
+                onReverse={() => change(updateEdge(diagram, selEdge.id, { from: selEdge.to, to: selEdge.from }))}
+                onDelete={deleteSelected}
+              />
             )}
-            {!selNode && !selEdge && (
-              <div className="props muted small">
-                <div className="props-title">Properties</div>
-                <p>Select a component to rename it and connect it to others, or select a connection to change it.</p>
-                <p>
-                  <span className="legend-sync" />A <b>sync call</b> is a request/response (HTTP).
-                </p>
-                <p>
-                  <span className="legend-async" />An <b>async message</b> goes through a queue, topic or event stream.
-                </p>
-                {!touch && <p>Keys: Delete removes the selection · Esc cancels connecting.</p>}
-              </div>
-            )}
+            {!selNode && !selEdge && <EmptyProps touch={touch} />}
           </aside>
         )}
-      </div>
-    </div>
-  )
-}
-
-// How the box is deployed, protected or kept, for the Run tab's simulation (see arch/settings.js).
-function NodeSettings({ node, onSetting }) {
-  const fields = settingsOf(node.type)
-  if (!fields.length) return null
-  const config = configOf(node)
-  return (
-    <details className="props-settings" open={Boolean(node.config)}>
-      <summary className="props-subtitle">Settings</summary>
-      {fields.map((f) => (
-        <label key={f.key} className="field small">
-          {f.label}
-          {f.type === 'select' ? (
-            <select className="input" value={String(config[f.key])} onChange={(e) => onSetting(f, e.target.value)}>
-              {f.options.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              className="input"
-              type="number"
-              min="0"
-              value={config[f.key]}
-              onChange={(e) => onSetting(f, e.target.value === '' ? undefined : Number(e.target.value))}
-            />
-          )}
-          {f.help && <span className="muted small field-help">{f.help}</span>}
-        </label>
-      ))}
-    </details>
-  )
-}
-
-function KindToggle({ value, onChange }) {
-  return (
-    <div className="seg">
-      {['sync', 'async'].map((k) => (
-        <button key={k} className={`seg-btn${value === k ? ' active' : ''}`} onClick={() => onChange(k)}>
-          {k === 'sync' ? 'Sync call' : 'Async message'}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function NodeProps({ onSetting, onDuplicate, node, diagram, nodeById, newKind, setNewKind, onLabel, onConnect, onStartConnect, onEdgeKind, onEdgeRemove, onShift, onDelete }) {
-  const [target, setTarget] = useState('')
-  const out = diagram.edges.filter((e) => e.from === node.id)
-  const inc = diagram.edges.filter((e) => e.to === node.id)
-  const others = diagram.nodes.filter((n) => n.id !== node.id && !out.some((e) => e.to === n.id))
-  const type = NODE_TYPES[node.type]
-
-  return (
-    <div className="props">
-      <div className={`props-head arch-lane-${laneOf(node)}`}>
-        <ArchIcon type={node.type} />
-        <div>
-          <div className="props-title">{type?.label}</div>
-          <div className="props-lane">{LANES.find((l) => l.key === laneOf(node))?.label}</div>
-        </div>
-      </div>
-      <label className="field">
-        Name
-        <input className="input" value={node.label} onChange={(e) => onLabel(e.target.value)} placeholder={type?.label} />
-      </label>
-      {type?.api && <p className="muted small">Tip: name APIs by layer, e.g. exp-mobile-api, prc-order-api, sys-sap-api.</p>}
-      <NodeSettings node={node} onSetting={onSetting} />
-
-      <div className="props-subtitle">Calls / sends to</div>
-      <KindToggle value={newKind} onChange={setNewKind} />
-      <div className="props-connect">
-        <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">Choose…</option>
-          {others.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.label}
-            </option>
-          ))}
-        </select>
-        <button
-          className="btn btn-sm"
-          disabled={!target}
-          onClick={() => {
-            onConnect(target)
-            setTarget('')
-          }}
-        >
-          Add
-        </button>
-      </div>
-      <button className="btn btn-ghost btn-sm" onClick={onStartConnect}>
-        Connect by tapping…
-      </button>
-
-      {(out.length > 0 || inc.length > 0) && (
-        <ul className="props-edges">
-          {out.map((e) => (
-            <li key={e.id}>
-              <span className="edge-to">{nodeById.get(e.to)?.label}</span>
-              <select className="input" value={e.kind} onChange={(ev) => onEdgeKind(e.id, ev.target.value)}>
-                <option value="sync">sync</option>
-                <option value="async">async</option>
-              </select>
-              <button className="icon-btn" onClick={() => onEdgeRemove(e.id)} title="Remove connection">
-                ×
-              </button>
-            </li>
-          ))}
-          {inc.map((e) => (
-            <li key={e.id} className="muted">
-              <span className="edge-from">{nodeById.get(e.from)?.label}</span>
-              <span className="small">{e.kind}</span>
-              <button className="icon-btn" onClick={() => onEdgeRemove(e.id)} title="Remove connection">
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="props-actions">
-        <button className="btn btn-ghost btn-sm" onClick={() => onShift(-1)} title="Move left in its lane">
-          ←
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={() => onShift(1)} title="Move right in its lane">
-          →
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={onDuplicate} title="Duplicate (Ctrl+D)">
-          Duplicate
-        </button>
-        <button className="btn btn-ghost btn-sm danger" onClick={onDelete}>
-          Delete
-        </button>
       </div>
     </div>
   )
