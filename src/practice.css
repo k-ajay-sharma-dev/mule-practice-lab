@@ -3564,6 +3564,55 @@
   justify-self: start;
 }
 
+/* on a phone the buttons go onto a second line */
+@media (max-width: 700px) {
+  .problem-head .prev-next {
+    flex-wrap: wrap;
+  }
+  .problem-head .prev-next .head-nav {
+    flex: 1;
+  }
+  .copy-ai {
+    display: flex;
+    flex: 1;
+  }
+}
+
+/* Copy for AI: the menu under the button */
+.copy-ai-pop {
+  position: fixed;
+  right: auto;
+  z-index: 60;
+  gap: 4px;
+  min-width: 0;
+  overflow-y: auto;
+  white-space: normal;
+}
+.copy-ai-pop p {
+  margin: 0 0 4px;
+}
+.copy-ai-item {
+  display: grid;
+  gap: 1px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+}
+.copy-ai-item b {
+  font-weight: 600;
+}
+.copy-ai-item:hover,
+.copy-ai-item:focus-visible {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
 /* ---------- step guide: one quiet line ---------- */
 .step-guide-head {
   min-height: 32px;

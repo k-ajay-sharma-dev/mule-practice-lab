@@ -1,6 +1,6 @@
-import { grade, isAnswered } from '../../quiz/quiz.js'
+import { fitsQuestion, grade, initialResponse, isAnswered } from '../../quiz/quiz.js'
 import { scheduleReview, updateEntry, useEntry, workedStatus } from '../../store/progress.js'
-import QuestionCard, { fitsQuestion, initialResponse } from './QuestionCard.jsx'
+import QuestionCard from './QuestionCard.jsx'
 
 // Runs a list of auto-graded questions, optionally preceded by a "pick the relevant log lines" step.
 // State is saved on the problem's progress entry as `exercise: { responses, logs, submitted }`.

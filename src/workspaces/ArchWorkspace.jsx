@@ -3,6 +3,7 @@ import FindIt from '../components/FindIt.jsx'
 import { archFindIt, archMetBy } from '../arch/findit.js'
 import WhyPassed from '../components/WhyPassed.jsx'
 import { recordMistake } from '../store/mistakes.js'
+import CopyForAi from '../components/CopyForAi.jsx'
 import ArchDesigner from '../components/arch/ArchDesigner.jsx'
 import ArchRunPanel, { runOverlay } from '../components/arch/ArchRunPanel.jsx'
 import ExplainPanel from '../components/ExplainPanel.jsx'
@@ -269,6 +270,7 @@ export default function ArchWorkspace({ problem, guided = true }) {
                   <button className={`btn btn-sm arch-full-only${drawer ? ' active' : ''}`} onClick={() => setDrawer(!drawer)} aria-pressed={drawer} title="Open the scenario, the checks and the test runs over the canvas">
                     Scenario and checks
                   </button>
+                  {guided && <CopyForAi id={problem.id} className="btn btn-sm arch-full-only" />}
                   <button className="btn btn-sm btn-primary arch-full-only" onClick={check} disabled={!diagram.nodes.length}>
                     Check
                   </button>

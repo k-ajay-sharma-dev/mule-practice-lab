@@ -36,6 +36,35 @@ export function permutation(n, seed) {
   return idx
 }
 
+// Default response for a question nobody has touched yet (an order puzzle starts shuffled).
+export function initialResponse(q, seed) {
+  if (q.type === 'logger') return { level: '', message: '' }
+  return q.type === 'order' ? permutation(q.items.length, seed) : q.type === 'multi' ? [] : q.type === 'match' ? {} : null
+}
+
+// A saved response only counts if it still fits the question — the content may have changed since it was saved.
+export function fitsQuestion(q, r) {
+  if (r == null) return false
+  const n = (q.options ?? q.items ?? q.pairs ?? []).length
+  const index = (v) => Number.isInteger(v) && v >= 0 && v < n
+  switch (q.type) {
+    case 'single':
+      return index(r)
+    case 'multi':
+      return Array.isArray(r) && r.every(index)
+    case 'order':
+      return Array.isArray(r) && r.length === n && new Set(r).size === n && r.every(index)
+    case 'match':
+      return typeof r === 'object' && !Array.isArray(r)
+    case 'level':
+      return LEVELS.includes(r)
+    case 'logger':
+      return typeof r === 'object' && typeof r.level === 'string' && typeof r.message === 'string'
+    default:
+      return false
+  }
+}
+
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
 
 export function isAnswered(q, r) {

@@ -5,6 +5,7 @@ import { useFocusSession } from '../store/focus.js'
 import { readOrigin } from '../store/origin.js'
 import { removeReview, scheduleReview, statusOf, useEntry, useProgress, useReview } from '../store/progress.js'
 import { LevelBadge, StatusBadge, Tags } from '../components/Badges.jsx'
+import CopyForAi from '../components/CopyForAi.jsx'
 import ProblemTimer from '../components/ProblemTimer.jsx'
 import ProblemWorkspace from '../components/ProblemWorkspace.jsx'
 import ReadOnlyLock from '../components/ReadOnlyLock.jsx'
@@ -76,6 +77,7 @@ export default function ProblemPage() {
           >
             {inReview ? '✓ In review' : '＋ Review'}
           </button>
+          <CopyForAi key={`ai-${problem.id}`} id={problem.id} />
           {!focusing && (
             <nav className="head-nav" aria-label="Other problems">
               {prev ? (

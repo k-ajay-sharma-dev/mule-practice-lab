@@ -1,35 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { simulate } from '../../sim/engine.js'
+import { effectRows, json, triggerBody, triggerText } from '../../sim/run-text.js'
 import { runClues, runTest } from '../../sim/tests.js'
 
 // The Run tab of a flow problem: runs the learner's design against the problem's test cases and shows what
 // happened at each step, the log lines, what was sent to other systems, and the answer.
-
-const json = (v) => {
-  if (v === undefined) return '(nothing)'
-  if (typeof v === 'string') return v
-  try {
-    return JSON.stringify(v, null, 2)
-  } catch {
-    return String(v)
-  }
-}
-
-function triggerText(t = {}) {
-  if (t.http) return `${t.http.method ?? 'GET'} ${t.http.path}`
-  if (t.message) return `A message on ${t.message.kind} ${t.message.destination}`
-  if (t.schedule !== undefined) return 'The Scheduler fires'
-  if (t.file) return `A file arrives: ${t.file.path}`
-  if (t.source) return `${t.source} receives an event`
-  return 'Start'
-}
-
-function triggerBody(t = {}) {
-  if (t.http) return t.http.body
-  if (t.message) return t.message.payload
-  if (t.file) return t.file.content
-  return t.payload
-}
 
 function Step({ entry }) {
   const [open, setOpen] = useState(false)
@@ -61,13 +36,7 @@ function Step({ entry }) {
 }
 
 function Effects({ effects }) {
-  const rows = []
-  for (const c of effects.http) rows.push(`HTTP ${c.method} ${c.path} → ${c.status}`)
-  for (const d of effects.db) rows.push(`Database: ${d.sql.replace(/\s+/g, ' ').slice(0, 90)} → ${d.result}`)
-  for (const m of effects.sent) rows.push(`Sent to ${m.destination}: ${json(m.payload).replace(/\s+/g, ' ').slice(0, 90)}`)
-  for (const e of effects.emails) rows.push(`Email to ${e.to}: ${e.subject}`)
-  for (const c of effects.calls) rows.push(`${c.type} ${c.operation}`)
-  for (const a of effects.acks.filter((x) => x.op === 'outcome')) rows.push(`Message on ${a.destination}: ${a.outcome}`)
+  const rows = effectRows(effects)
   if (!rows.length) return <p className="muted small">Nothing was sent to another system.</p>
   return (
     <ul className="sim-effects">

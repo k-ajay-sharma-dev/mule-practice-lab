@@ -6,6 +6,7 @@ import Markdown from '../components/Markdown.jsx'
 import RunningMessage from '../components/RunningMessage.jsx'
 import { runScript } from '../runner/client.js'
 import { jsonDifferences, mimeToLanguage, outputsMatch } from '../runner/grade.js'
+import { rememberRun } from '../store/last-run.js'
 import { scheduleReview, updateEntry, useEntry, workedStatus } from '../store/progress.js'
 import NotesBox from './NotesBox.jsx'
 import { useAutosave } from './useAutosave.js'
@@ -44,6 +45,7 @@ export default function DataWeaveWorkspace({ problem }) {
     setIoTab('output')
     const result = await runScript(code, problem.inputs)
     setRunResult(result)
+    rememberRun(problem.id, code, { run: result })
     setBusy(null)
   }
 
@@ -70,6 +72,7 @@ export default function DataWeaveWorkspace({ problem }) {
     }
     const allPassed = results.every((r) => r.passed)
     setTestResults({ results, allPassed })
+    rememberRun(problem.id, code, { tests: results })
     if (allPassed) updateEntry(problem.id, { status: 'solved', code }, { graded: true })
     else scheduleReview(problem.id) // failed hidden tests come back for review
     setBusy(null)

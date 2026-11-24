@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import CopyForAi from '../components/CopyForAi.jsx'
 import FlowDesigner from '../components/flow/FlowDesigner.jsx'
 import RunPanel from '../components/flow/RunPanel.jsx'
 import FollowUps from '../components/FollowUps.jsx'
@@ -380,6 +381,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
                   ▶ Run tests
                 </button>
               )}
+              {full && guided && <CopyForAi id={problem.id} className="btn btn-sm" />}
               {hasReference && sideButton}
               {full === 'both' ? null : fullButton('mine', 'Open your design full screen')}
             </>
