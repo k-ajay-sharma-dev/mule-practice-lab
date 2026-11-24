@@ -15,7 +15,7 @@ const PALETTE = LANES.map((lane) => ({
 
 const laneOf = (node) => NODE_TYPES[node.type]?.lane ?? 'backends'
 
-// Zoom: 'fit' shows the whole diagram, down to a size that is still readable. On a phone boxes keep their size.
+// Zoom: starts at 100%. 'fit' shows the whole diagram, down to a size that is still readable. On a phone boxes keep their size.
 const FIT_MIN = 0.75
 const ZOOM_MIN = 0.5
 const ZOOM_MAX = 1.5
@@ -59,7 +59,7 @@ export default function ArchDesigner({ diagram, onChange, readOnly = false, hist
   const [area, setArea] = useState(null) // the part of the lanes that lines may use, and their full size
   const arrowId = useId()
   const [query, setQuery] = useState('')
-  const [zoom, setZoom] = useState('fit')
+  const [zoom, setZoom] = useState(1)
   const [scale, setScale] = useState(1)
   const [panels, setPanels] = useState(readPanels)
   const lanesRef = useRef(null)
