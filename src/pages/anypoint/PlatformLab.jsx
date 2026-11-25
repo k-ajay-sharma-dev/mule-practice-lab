@@ -3,7 +3,8 @@ import { labDone, openConsole, PLATFORM_LABS, stepDone } from '../../lab/platfor
 import AnypointConsole from './AnypointConsole.jsx'
 import { Btn, Copy } from './parts.jsx'
 
-const OPEN_KEY = 'pl.lab.anypoint'
+const OPEN_KEY = 'pl.lab.anypoint2'
+const OLD_KEY = 'pl.lab.anypoint' // the console before it had the API-led project
 const LAB_KEY = 'pl.lab.console' // the lab in progress, one at a time, because a state is large
 export const platformLabById = new Map(PLATFORM_LABS.map((l) => [l.id, l]))
 
@@ -44,10 +45,17 @@ export function OpenConsole() {
     return isState(saved) ? saved : openConsole()
   })
   useSaved(OPEN_KEY, state)
+  useEffect(() => {
+    try {
+      localStorage.removeItem(OLD_KEY)
+    } catch {
+      // storage blocked
+    }
+  }, [])
   return (
     <div className="pc-wrap">
       <div className="lab-row-head">
-        <p className="muted small lab-grow">A working practice environment with the pages and steps of Anypoint Platform. Change anything, break anything, then reset it.</p>
+        <p className="muted small lab-grow">A working practice environment with the pages and steps of Anypoint Platform. The order project of Harbor Foods runs in it with three API layers: open Visualizer to see it. Change anything, break anything, then reset it.</p>
         <button className="btn btn-sm btn-ghost" onClick={() => setState(openConsole())}>
           Reset the console
         </button>

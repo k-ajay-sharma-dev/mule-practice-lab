@@ -117,7 +117,7 @@ function Dashboard({ state, update, target, go }) {
         {app ? (
           <>
             <dt>URL</dt>
-            <dd>{packageOf(app.pkg).handle ? endpointOf(app) : 'None'}</dd>
+            <dd>{packageOf(app.pkg).handle && app.publicEndpoint !== false ? endpointOf(app) : 'None'}</dd>
             <dt>Runtime</dt>
             <dd>{app.version}</dd>
             <dt>Replicas</dt>
@@ -332,12 +332,12 @@ function LogSearch({ state, update }) {
   const search = (e) => {
     e.preventDefault()
     setQuery(text)
-    if (text.trim()) update((s) => mark(s, 'logsearch'))
+    if (text.trim()) update((s) => mark(mark(s, 'logsearch'), `logsearch:${text.trim().slice(0, 80)}`))
   }
   return (
     <>
       <form className="pc-bar" onSubmit={search}>
-        <Input value={text} onChange={setText} placeholder='log-level: ERROR AND appId: shipments-eapi' aria-label="Search query" />
+        <Input value={text} onChange={setText} placeholder='log-level: ERROR AND appId: orders-sapi' aria-label="Search query" />
         <Btn kind="primary" type="submit">
           Search
         </Btn>

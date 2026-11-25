@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { assetGroups, callApi, dayText, endpointOf, importSpec, mark, packageJar, purge, sendMessage, setStudio, stamp, studioFlows, viewMessages } from '../../lab/platform.js'
+import { assetGroups, callApi, dayText, endpointOf, importSpec, mark, packageJar, purge, sendMessage, setBackend, setStudio, stamp, studioFlows, viewMessages } from '../../lab/platform.js'
+import { BACKENDS } from '../../lab/platform-led.js'
 import { packageOf } from '../../lab/platform-packages.js'
 import { Btn, Check, Field, Input, Link, Modal, Note, Select, SideNav, Table } from './parts.jsx'
 
@@ -199,7 +200,8 @@ export function Studio({ state, update, place, go }) {
 
 export function ApiClient({ state, update }) {
   const apps = state.apps.filter((a) => a.env === state.env && packageOf(a.pkg).handle)
-  const [f, setF] = useState({ app: apps[0]?.name ?? '', method: 'GET', path: apps[0]?.pkg === 'search-eapi' ? '/search' : apps[0]?.pkg === 'shipments-eapi' ? '/shipments' : '/orders', client: '', clientId: '', clientSecret: '', body: '' })
+  const sampleOf = (a) => (a && packageOf(a.pkg).sample) ?? { method: 'GET', path: '/orders' }
+  const [f, setF] = useState({ app: apps[0]?.name ?? '', ...sampleOf(apps[0]), client: '', clientId: '', clientSecret: '', body: '', cid: '' })
   const [history, setHistory] = useState([])
   const set = (patch) => setF({ ...f, ...patch })
   const app = apps.find((a) => a.name === f.app)
@@ -207,7 +209,7 @@ export function ApiClient({ state, update }) {
     let s = state
     const results = []
     for (let i = 0; i < times; i++) {
-      const r = callApi(s, { env: state.env, app: f.app, method: f.method, path: f.path, body: f.body, client: f.client, clientId: f.clientId, clientSecret: f.clientSecret })
+      const r = callApi(s, { env: state.env, app: f.app, method: f.method, path: f.path, body: f.body, client: f.client, clientId: f.clientId, clientSecret: f.clientSecret, cid: f.cid.trim() })
       s = r.state
       results.unshift({ ...r.response, key: s.clock })
     }
@@ -222,7 +224,7 @@ export function ApiClient({ state, update }) {
       {apps.length === 0 && <Note>No application with an HTTP endpoint is deployed in {state.env}.</Note>}
       <div className="pc-pair">
         <Field label="Application">
-          <Select value={f.app} onChange={(name) => set({ app: name })} options={apps.map((a) => a.name)} placeholder="Choose an application" />
+          <Select value={f.app} onChange={(name) => set({ app: name, ...sampleOf(apps.find((a) => a.name === name)) })} options={apps.map((a) => a.name)} placeholder="Choose an application" />
         </Field>
         <Field label="Send as">
           <Select value={f.client} onChange={(name) => { const c = state.clients.find((x) => x.name === name); set({ client: name, clientId: c?.clientId ?? '', clientSecret: c?.clientSecret ?? '' }) }} placeholder="No client application" options={state.clients.map((c) => c.name)} />
@@ -241,6 +243,9 @@ export function ApiClient({ state, update }) {
           <Input value={f.clientSecret} onChange={(clientSecret) => set({ clientSecret })} autoComplete="off" />
         </Field>
       </div>
+      <Field label="X-Correlation-ID header (optional)">
+        <Input value={f.cid} onChange={(cid) => set({ cid })} placeholder="The runtime makes one" />
+      </Field>
       {f.method !== 'GET' && f.method !== 'DELETE' && (
         <Field label="Body (JSON)">
           <textarea className="pc-input pc-mono" rows={3} value={f.body} onChange={(e) => set({ body: e.target.value })} />
@@ -257,13 +262,46 @@ export function ApiClient({ state, update }) {
       {last && (
         <div className="pc-sheet" aria-live="polite">
           <p>
-            <b className={last.status < 300 ? 'pc-good' : 'pc-bad'}>{last.status}</b> <span className="pc-dim">{last.ms} ms</span> {last.policy && <span>Answered by the policy {last.policy}</span>}
+            <b className={last.status >= 200 && last.status < 300 ? 'pc-good' : 'pc-bad'}>{last.status || 'No answer'}</b> {last.status > 0 && <span className="pc-dim">{last.ms} ms</span>} {last.policy && <span>Answered by the policy {last.policy}</span>}
           </p>
           <pre className="pc-pre">{last.body || '(empty body)'}</pre>
           {last.headers.length > 0 && <pre className="pc-pre">{last.headers.map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>}
-          <p className="pc-dim">Last calls: {history.map((h) => h.status).join(', ')}</p>
+          <p className="pc-dim">Last calls: {history.map((h) => h.status || 'no answer').join(', ')}</p>
         </div>
       )}
+    </main>
+  )
+}
+
+// ---------- Backends ----------
+
+const SPEEDS = [['', 'Normal'], ['3000', 'Slow, 3 seconds'], ['8000', 'Very slow, 8 seconds']]
+
+export function Backends({ state, update }) {
+  return (
+    <main className="pc-main">
+      <h2>Backends</h2>
+      <p className="pc-dim">The systems behind the System APIs. Stop one or slow it down, move the clock, and see in Visualizer and Monitoring what happens in the layers above. It is a lab tool and not part of the platform.</p>
+      <Table
+        heads={['System', 'Used by', 'State', 'Speed', '']}
+        rows={Object.entries(BACKENDS).map(([id, b]) => {
+          const now = { up: true, ms: b.ms, ...state.backends?.[id] }
+          const users = state.apps.filter((a) => a.env === state.env && packageOf(a.pkg).backend === id).map((a) => a.name)
+          return (
+            <tr key={id}>
+              <td>{b.name}</td>
+              <td>{users.join(', ') || 'Nothing'}</td>
+              <td className={now.up ? 'pc-good' : 'pc-bad'}>{now.up ? `Up, ${now.ms} ms` : 'Down'}</td>
+              <td>
+                <Select aria-label={`Speed of ${b.name}`} value={now.ms === b.ms ? '' : String(now.ms)} onChange={(ms) => update((s) => setBackend(s, id, { ms: Number(ms) || b.ms }))} options={SPEEDS} />
+              </td>
+              <td>
+                <Btn onClick={() => update((s) => setBackend(s, id, { up: !now.up }))}>{now.up ? 'Stop' : 'Start'}</Btn>
+              </td>
+            </tr>
+          )
+        })}
+      />
     </main>
   )
 }

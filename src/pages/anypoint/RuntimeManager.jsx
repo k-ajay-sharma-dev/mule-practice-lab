@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  addRmAlert, appNamed, cpuOf, cronError, dayText, deleteApp, deployApp, endpointOf, eventsOf, heapOf, HOUR, jarsOf, LOG_LEVELS, mark, removeRmAlert, REPLICA_SIZES, replicaName, RM_CONDITIONS,
+  addRmAlert, appNamed, cpuOf, cronError, dayText, deleteApp, deployApp, endpointOf, eventsOf, heapOf, HOUR, internalOf, jarsOf, LOG_LEVELS, mark, removeRmAlert, REPLICA_SIZES, replicaName, RM_CONDITIONS,
   RM_SEVERITIES, runNow, RUNTIME_VERSIONS, scheduleText, searchLogs, setRmAlert, setSchedule, stamp, startApp, stopApp, TIME_ZONES, UNIT_NAMES,
 } from '../../lab/platform.js'
 import { packageOf } from '../../lab/platform-packages.js'
+import { PRIVATE_SPACE } from '../../lab/platform-project.js'
 import { Btn, Chart, Check, Dot, Errors, Field, Input, Link, Modal, Note, Select, SideNav, Table, Tabs } from './parts.jsx'
 import { bucketsOf, COLORS } from './charts.js'
 
@@ -92,7 +93,11 @@ function Overview({ app, state, go }) {
     <>
       <dl className="pc-facts">
         <dt>Public Endpoint</dt>
-        <dd>{packageOf(app.pkg).handle ? endpointOf(app) : 'None'}</dd>
+        <dd>{packageOf(app.pkg).handle && app.publicEndpoint !== false ? endpointOf(app) : 'None'}</dd>
+        <dt>Private Endpoint</dt>
+        <dd>{packageOf(app.pkg).handle ? internalOf(app) : 'None'}</dd>
+        <dt>Target</dt>
+        <dd>{app.target}</dd>
         <dt>Replicas</dt>
         <dd>
           {app.replicas} x {app.vCores} vCores
@@ -375,7 +380,7 @@ function RuntimeTab({ form, set }) {
   )
 }
 
-const NEW = { name: '', jar: '', pkg: '', channel: 'LTS', version: '4.9', java: '17', replicas: 1, vCores: 0.1, model: 'Rolling update', cluster: false, objectStore: true }
+const NEW = { name: '', jar: '', pkg: '', target: 'Shared Space', publicEndpoint: true, channel: 'LTS', version: '4.9', java: '17', replicas: 1, vCores: 0.1, model: 'Rolling update', cluster: false, objectStore: true }
 
 function Deploy({ state, update, go }) {
   const [form, setForm] = useState(NEW)
@@ -400,7 +405,7 @@ function Deploy({ state, update, go }) {
           <Input value={form.name} onChange={(name) => set({ name })} placeholder="orders-sapi" />
         </Field>
         <Field label="Deployment Target">
-          <Select value="Shared Space" onChange={() => {}} options={[['Shared Space', 'Shared Space, US East (Ohio), CloudHub 2.0']]} />
+          <Select value={form.target} onChange={(target) => set({ target, ...(target === 'Shared Space' && { publicEndpoint: true }) })} options={[['Shared Space', 'Shared Space, US East (Ohio), CloudHub 2.0'], [PRIVATE_SPACE, `Private Space ${PRIVATE_SPACE}, US East (Ohio)`]]} />
         </Field>
         <Field label="Application File" required hint={jars.length === 0 ? 'No files yet. Export an application from Anypoint Studio first.' : chosen ? packageOf(chosen.pkg).note : undefined}>
           <Select value={form.jar} onChange={(jar) => set({ jar, pkg: jars.find((j) => j.jar === jar)?.pkg ?? '' })} placeholder="Choose file" options={jars.map((j) => j.jar)} />
@@ -408,7 +413,7 @@ function Deploy({ state, update, go }) {
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />
       {tab === 'Runtime' && <RuntimeTab form={form} set={set} />}
-      {tab === 'Ingress' && <Ingress name={form.name} env={state.env} />}
+      {tab === 'Ingress' && <Ingress app={{ name: form.name, env: state.env }} target={form.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />}
       {tab === 'Properties' && <Properties rows={rows} onChange={setRows} />}
       {tab === 'Logging' && <LoggingTab />}
       <Errors list={errors} />
@@ -422,10 +427,18 @@ function Deploy({ state, update, go }) {
   )
 }
 
-const Ingress = ({ name, env }) => (
+const Ingress = ({ app, target, on, onChange }) => (
   <div className="pc-split">
     <b>Public endpoint</b>
-    <div className="pc-dim">{name ? endpointOf({ name, env }) : 'Give the application a name first.'}</div>
+    <div>
+      <Check checked={on} disabled={target === 'Shared Space'} onChange={onChange}>
+        Use a public endpoint
+      </Check>
+      <p className="pc-dim">{!app.name ? 'Give the application a name first.' : on ? endpointOf(app) : 'None. The application is reached through the private endpoint only.'}</p>
+      {target === 'Shared Space' && <p className="pc-dim">In the shared space every application has a public endpoint. A private space lets you take it away.</p>}
+    </div>
+    <b>Private endpoint</b>
+    <div className="pc-dim">{app.name ? internalOf(app) : ''}</div>
     <b>Last-mile security</b>
     <Check checked={false} disabled onChange={() => {}}>
       Enable last-mile security
@@ -442,7 +455,7 @@ const LoggingTab = () => (
 )
 
 function Settings({ app, state, update, go }) {
-  const [form, setForm] = useState({ channel: app.channel, version: app.version, java: app.java, replicas: app.replicas, vCores: app.vCores, model: app.model, cluster: app.cluster, objectStore: app.objectStore })
+  const [form, setForm] = useState({ channel: app.channel, version: app.version, java: app.java, replicas: app.replicas, vCores: app.vCores, model: app.model, cluster: app.cluster, objectStore: app.objectStore, publicEndpoint: app.publicEndpoint !== false })
   const [rows, setRows] = useState(() => rowsOf(app.props, app.secrets))
   const [tab, setTab] = useState('Properties')
   const [jar, setJar] = useState(app.jar)
@@ -468,7 +481,7 @@ function Settings({ app, state, update, go }) {
       </div>
       <Tabs tabs={['Runtime', 'Ingress', 'Properties', 'Logging']} value={tab} onChange={setTab} />
       {tab === 'Runtime' && <RuntimeTab form={form} set={set} />}
-      {tab === 'Ingress' && <Ingress name={app.name} env={app.env} />}
+      {tab === 'Ingress' && <Ingress app={app} target={app.target} on={form.publicEndpoint} onChange={(publicEndpoint) => set({ publicEndpoint })} />}
       {tab === 'Properties' && <Properties rows={rows} onChange={setRows} />}
       {tab === 'Logging' && <LoggingTab />}
       <Errors list={errors} />

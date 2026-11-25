@@ -3518,6 +3518,36 @@ html:has(.lab-page) {
   height: 32px;
 }
 
+/* the running clock and its buttons are one chip, so the icons stand without boxes of their own */
+.timer-run {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.problem-timer.compact .timer-run {
+  gap: 2px;
+  height: 32px;
+  padding: 0 3px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.problem-timer.compact .timer-run .problem-clock,
+.problem-timer.compact .timer-run .problem-timer-note {
+  margin-right: 6px;
+}
+.problem-timer.compact .timer-run .timer-pause {
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+}
+.problem-timer.compact .timer-run .timer-pause:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
 /* the timer: a chip, with the details under it */
 .problem-timer.compact {
   gap: 4px;

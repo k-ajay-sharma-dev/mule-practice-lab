@@ -2,7 +2,7 @@
 // starts unsolved, gives no step away, and is solved by its own solution.
 import assert from 'node:assert/strict'
 import {
-  addMonAlert, advance, at, callApi, cronError, cronMatches, deployApp, finishDeploys, mockCall, newApp, newPlatform, nextJob, nextRun, publish, createProject, saveProject, queryLogs, stamp,
+  addMonAlert, advance, at, callApi, cronError, cronMatches, deployApp, finishDeploys, mockCall, newApp, newPlatform, nextJob, nextRun, publish, createProject, saveProject, queryLogs, setBackend, stamp,
 } from '../src/lab/platform.js'
 import { GROUPS, labDone, openConsole, PLATFORM_LABS, stepDone } from '../src/lab/platform-labs.js'
 
@@ -42,7 +42,7 @@ assert.ok(queryLogs(before, 'log-level: ERROR').length > 0)
 // gateway: no autodiscovery means no policies; a wrong ID or wrong credentials block the API
 {
   const s = openConsole()
-  const get = (state, extra = {}) => callApi(state, { env: 'Sandbox', app: 'shipments-eapi', method: 'GET', path: '/shipments', ...extra }).response.status
+  const get = (state, extra = {}) => callApi(state, { env: 'Sandbox', app: 'mobile-orders-eapi', method: 'GET', path: '/my-orders/O-1001', ...extra }).response.status
   assert.equal(get(s), 401)
   assert.equal(get(s, { clientId: 'mob-71c2', clientSecret: 'mob-secret-19' }), 200)
   assert.equal(get(s, { clientId: 'mob-71c2', clientSecret: 'mob-secret-19', path: '/nothing' }), 404)
@@ -52,6 +52,34 @@ assert.ok(queryLogs(before, 'log-level: ERROR').length > 0)
   const wrong = structuredClone(s)
   wrong.apps[0].props['api.id'] = '1'
   assert.equal(get(wrong), 503)
+}
+
+// API-led: one correlation ID in five applications, a failure and a delay that go up, a private application
+{
+  const mobile = (state, extra = {}) => callApi(state, { env: 'Sandbox', app: 'mobile-orders-eapi', method: 'GET', path: '/my-orders/O-1001', client: 'Mobile App', clientId: 'mob-71c2', clientSecret: 'mob-secret-19', ...extra })
+  const s = openConsole()
+  const ok = mobile(s, { cid: 'check-1' })
+  assert.deepEqual(JSON.parse(ok.response.body), { id: 'O-1001', status: 'PACKED', inStock: true })
+  assert.equal(new Set(queryLogs(ok.state, 'check-1').map((l) => l.app)).size, 5)
+  assert.equal(mobile(s, { path: '/my-orders/O-9001' }).response.status, 404)
+  const order = mobile(s, { method: 'POST', path: '/my-orders' })
+  assert.equal(order.response.status, 201)
+  assert.equal(order.state.queues[0].messages.length, s.queues[0].messages.length + 1)
+  assert.equal(advance(order.state, 60000).queues[0].messages.length, 0)
+  assert.equal(mobile(setBackend(s, 'oracle', { up: false })).response.status, 502)
+  assert.equal(mobile(setBackend(s, 'sftp', { ms: 8000 })).response.status, 504)
+  const without = (name, patch) => {
+    const n = structuredClone(s)
+    Object.assign(n.apps.find((a) => a.name === name), patch)
+    return mobile(n).response.status
+  }
+  assert.equal(without('customers-sapi', { status: 'Stopped' }), 503)
+  assert.equal(without('order-fulfilment-papi', { status: 'Stopped' }), 503)
+  const revoked = structuredClone(s)
+  revoked.apis.find((a) => a.id === '19500302').contracts[0].status = 'revoked'
+  assert.equal(mobile(revoked).response.status, 502)
+  assert.equal(callApi(s, { env: 'Sandbox', app: 'customers-sapi', method: 'GET', path: '/customers/C-7' }).response.status, 0)
+  assert.ok(Object.keys(s.links).includes('Sandbox|order-fulfilment-papi>customers-sapi'))
 }
 
 // deployments

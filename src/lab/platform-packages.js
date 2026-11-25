@@ -1,39 +1,10 @@
 // The sample Mule applications of the Anypoint console. Each one is invented for the lab and behaves from its settings:
 // boot() says why it cannot start, jobs run a scheduled flow, handle() answers an HTTP request, consume() takes a message.
 import { parseRaml } from '../raml/parse.js'
-
-const line = (level, text, logger = 'org.mule.runtime.core.internal.processor.LoggerMessageProcessor') => ({ level, text, logger })
-export const info = (text, logger) => line('INFO', text, logger)
-export const warn = (text, logger) => line('WARN', text, logger)
-
-const STARS = '*'.repeat(80)
-// The shape of the error block Mule 4 writes to the log
-export const muleError = ({ message, type, flow, file, at, name, dsl }) =>
-  line(
-    'ERROR',
-    [
-      '',
-      STARS,
-      `Message               : ${message}`,
-      `Element               : ${flow}/processors/${at} @ ${file}:${file}.xml:${18 + at * 6} (${name})`,
-      `Element DSL           : ${dsl}`,
-      `Error type            : ${type}`,
-      `FlowStack             : at ${flow}(${flow}/processors/${at} @ ${file}:${file}.xml:${18 + at * 6} (${name}))`,
-      '  (set debug level logging or -Dmule.verbose.exceptions=true for everything)',
-      STARS,
-    ].join('\n'),
-    'org.mule.runtime.core.internal.exception.OnErrorPropagateHandler',
-  )
+import { LED_PACKAGES } from './platform-led.js'
+import { info, line, muleError, needs, warn } from './platform-log.js'
 
 const fail = (error, ms, extra = {}) => ({ ok: false, ms, errorType: error.type, log: [info(`Starting ${error.flow}`), muleError(error)], ...extra })
-const missing = (props, names) => names.filter((n) => !String(props[n] ?? '').trim())
-const needs =
-  (...names) =>
-  ({ props }) => {
-    const gone = missing(props, names)
-    return gone.length ? `Couldn't find configuration property value for key \${${gone[0]}} from properties provider "Environment properties"` : null
-  }
-
 const MINUTE = 60000
 const fixed = (flow, value, unit = 'minutes', extra = {}) => ({ flow, type: 'fixed', value, unit, enabled: true, ...extra })
 const cron = (flow, value, tz = 'UTC', extra = {}) => ({ flow, type: 'cron', value, tz, enabled: true, ...extra })
@@ -226,6 +197,7 @@ export const PACKAGES = {
 
   'shipments-eapi': {
     note: 'An API that reads shipments from a partner system.',
+    sample: { method: 'GET', path: '/shipments' },
     boot: needs('partner.url'),
     handle({ props }, req) {
       if (!/^\/api\/shipments(\/\w+)?$/.test(`/api${req.path}`.split('?')[0])) return { status: 404, ms: 10, error: 'APIKIT:NOT_FOUND', flow: 'shipments-main', body: '{"message":"Resource not found"}' }
@@ -239,6 +211,7 @@ export const PACKAGES = {
 
   'search-eapi': {
     note: 'A product search API that uses a lot of CPU per request.',
+    sample: { method: 'GET', path: '/search' },
     boot: needs('index.name'),
     cpu: 1,
     handle({ app, perMinute }) {
@@ -249,4 +222,4 @@ export const PACKAGES = {
   },
 }
 
-export const packageOf = (id) => PACKAGES[id]
+export const packageOf = (id) => PACKAGES[id] ?? LED_PACKAGES[id]

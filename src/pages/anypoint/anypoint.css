@@ -1392,3 +1392,107 @@ button.pc-method {
     min-height: 32px;
   }
 }
+
+/* Visualizer */
+.pc-map-box {
+  overflow: auto;
+  margin: 10px 0;
+  padding: 14px;
+  border: 1px solid var(--pc-line);
+  border-radius: 4px;
+  background: var(--pc-soft);
+}
+.pc-map {
+  position: relative;
+  margin: 0 auto;
+}
+.pc-map svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.pc-map-head {
+  position: absolute;
+  top: 0;
+  color: var(--pc-dim);
+  font-size: 12px;
+  text-align: center;
+}
+.pc-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid #b9c2d4;
+  border-left: 4px solid var(--pc-good);
+  border-radius: 4px;
+  background: var(--pc-bg);
+  color: var(--pc-text);
+  text-align: left;
+  cursor: pointer;
+}
+.pc-node.out {
+  border-left-color: #7a869f;
+  border-radius: 18px;
+}
+.pc-node.bad {
+  border-left-color: var(--pc-bad);
+}
+.pc-node:hover,
+.pc-node.on {
+  border-color: var(--pc-blue);
+}
+.pc-node.on {
+  box-shadow: 0 0 0 2px #cfe6fb;
+}
+.pc-node b {
+  overflow: hidden;
+  color: var(--pc-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pc-node span {
+  color: var(--pc-dim);
+  font-size: 12px;
+}
+.pc-node i {
+  position: absolute;
+  top: -9px;
+  right: 8px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--pc-bad);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+}
+.pc-edge path {
+  fill: none;
+  stroke: #5b7ba8;
+  stroke-width: 1.6;
+}
+.pc-edge.bad path {
+  stroke: var(--pc-bad);
+}
+.pc-edge.old path {
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+.pc-edge.far {
+  opacity: 0.2;
+}
+.pc-edge text {
+  fill: var(--pc-text);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--pc-soft);
+  stroke-width: 4px;
+}
+.pc-arrow {
+  fill: #5b7ba8;
+}
+.pc-arrow-bad {
+  fill: var(--pc-bad);
+}

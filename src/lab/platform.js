@@ -3,13 +3,15 @@
 import { parseRaml } from '../raml/parse.js'
 import { newRuntime, newTopology, send } from './engine.js'
 import { defaultSettings } from './policies.js'
-import { info, muleError, packageOf, routeOf, warn } from './platform-packages.js'
+import { BACKENDS } from './platform-led.js'
+import { info, line as logLine, muleError, warn } from './platform-log.js'
+import { packageOf, routeOf } from './platform-packages.js'
 
 export const MINUTE = 60000
 export const HOUR = 60 * MINUTE
 export const DAY = 24 * HOUR
 const BASE = Date.UTC(2026, 10, 2) // Monday 2 November 2026
-const MAX_EVENTS = 500
+const MAX_EVENTS = 900
 const MAX_LOGS = 120
 const MAX_STEP = 8 * DAY
 
@@ -89,6 +91,7 @@ export const newApp = (name, extra = {}) => ({
   model: 'Rolling update',
   cluster: false,
   objectStore: true,
+  publicEndpoint: true,
   props: {},
   secrets: {},
   status: 'Running',
@@ -101,6 +104,8 @@ export const newApp = (name, extra = {}) => ({
 })
 export const replicaName = (app) => `${app.name.slice(0, 18)}-${(app.name.length * 7919 + app.config * 31).toString(16).slice(0, 5)}-x2k9p`
 export const endpointOf = (app) => `https://${app.name}-lab1a2.${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example`
+// Each application also has an address that only other applications of the network reach
+export const internalOf = (app) => `https://${app.name}-lab1a2.internal-${app.env === 'Sandbox' ? 'sbx' : 'prd'}.usa-e2.cloudhub.example/api`
 export const propsOf = (app) => ({ ...app.props, ...app.secrets })
 const ctxOf = (s, app, extra = {}) => ({ app, props: propsOf(app), ...extra })
 
@@ -184,7 +189,7 @@ function runJob(s, app, schedule, manual = false) {
     app.restarts = (app.restarts ?? 0) + 1
   }
 }
-const line = (level, text, logger = 'com.mulesoft.cloudhub.runtime') => ({ level, text, logger })
+const line = (level, text, logger = 'com.mulesoft.cloudhub.runtime') => logLine(level, text, logger)
 
 function put(s, queue, body) {
   const q = s.queues.find((x) => x.name === queue)
@@ -196,12 +201,17 @@ function consumeQueues(s) {
     const pkg = packageOf(app.pkg)
     const q = s.queues.find((x) => x.name === propsOf(app)[pkg.consumes])
     if (!q?.messages.length) continue
-    for (const m of q.messages.splice(0)) {
+    // a package with a rate takes that many messages a minute per replica, and the rest waits
+    const waiting = q.messages.splice(0)
+    const now = pkg.rate ? waiting.splice(0, pkg.rate * app.replicas) : waiting.splice(0)
+    q.messages.push(...waiting)
+    for (const m of now) {
       let done = false
       while (!done) {
         m.deliveries++
-        const result = pkg.consume(ctxOf(s, app), m)
-        event(s, { k: 'msg', app: app.name, env: app.env, fl: result.error?.flow ?? 'order-events-flow', s: result.ok ? 'ok' : 'failed', ms: 120, e: result.errorType, n: result.ok ? 0 : 1 })
+        const result = pkg.consume(ctxOf(s, app, { backend: (id) => backendOf(s, app, id) }), m)
+        linked(s, q.name, app.name, app.env, result.ok ? 200 : 500, 120)
+        event(s, { k: 'msg', app: app.name, env: app.env, fl: result.flow ?? result.error?.flow ?? 'order-events-flow', s: result.ok ? 'ok' : 'failed', ms: 120, e: result.errorType, n: result.ok ? 0 : 1 })
         if (result.ok) {
           log(s, app, result.log)
           done = true
@@ -247,11 +257,51 @@ function gatewayConfig(s, api) {
   return { policies: api.policies, automated: [], tiers: api.tiers, apps: contracts, topology: newTopology() }
 }
 
+// The last calls between two applications, or an application and a backend, for the Visualizer
+function linked(s, from, to, env, status, ms) {
+  s.links ??= {}
+  const link = (s.links[`${env}|${from}>${to}`] ??= [])
+  link.push([s.clock, status, ms])
+  if (link.length > 15) link.shift()
+}
+
+function backendOf(s, app, id) {
+  const be = { up: true, ms: BACKENDS[id].ms, ...s.backends?.[id] }
+  linked(s, app.name, id, app.env, be.up ? 200 : 500, be.ms)
+  return be
+}
+export const setBackend = (state, id, patch) => edit(state, (s) => void (s.backends = { ...s.backends, [id]: { ...s.backends?.[id], ...patch, t: s.clock } }))
+
+const ENV_OF = { sbx: 'Sandbox', prd: 'Production' }
+// An application calls another one by its address. The answer has an error type, the way the HTTP Request operation has.
+function invoke(s, from, key, req, timeout, cid) {
+  const url = String(propsOf(from)[key] ?? '')
+  const [, name, internal, env] = url.match(/^https?:\/\/([a-z0-9-]+)-lab1a2\.(internal-)?(sbx|prd)\./) ?? []
+  const target = name && appNamed(s, name, ENV_OF[env])
+  const result = (r) => {
+    linked(s, from.name, name ?? url, from.env, r.status ?? 0, r.ms)
+    return { url, method: req.method, path: req.path, ...r }
+  }
+  if (!target) return result({ error: 'HTTP:CONNECTIVITY', text: `Couldn't connect. The host of ${url || key} cannot be resolved`, ms: 30 })
+  if (!internal && !target.publicEndpoint) return result({ error: 'HTTP:CONNECTIVITY', text: 'Connection refused. The application has no public endpoint', ms: 30 })
+  const client = s.clients.find((c) => c.clientId === req.clientId)?.name
+  const r = callApp(s, target, { ...req, client, cid, inside: true })
+  if (r.ms > timeout) return result({ error: 'HTTP:TIMEOUT', text: `Timeout exceeded after ${timeout} ms`, ms: timeout, status: 504 })
+  if (r.status < 400) return result({ status: r.status, ms: r.ms, body: r.body })
+  const names = { 400: 'BAD_REQUEST', 401: 'UNAUTHORIZED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 429: 'TOO_MANY_REQUESTS', 500: 'INTERNAL_SERVER_ERROR', 502: 'BAD_GATEWAY', 503: 'SERVICE_UNAVAILABLE', 504: 'GATEWAY_TIMEOUT' }
+  const name_ = names[r.status] ?? 'INTERNAL_SERVER_ERROR'
+  return result({ error: `HTTP:${name_}`, text: `${name_.toLowerCase().replace(/_/g, ' ')} (${r.status})`, status: r.status, ms: r.ms })
+}
+const newCid = (s) => `${((s.nextId++ * 2654435761) >>> 0).toString(16).padStart(8, '0')}-c7a1-11f1`
+
 function callApp(s, app, req) {
+  const pkg = app && packageOf(app.pkg)
+  const cid = pkg?.traced ? (req.cid ?? newCid(s)) : undefined
+  if (app && !req.inside && !app.publicEndpoint) return { status: 0, ms: 0, body: 'Connection refused. This application has no public endpoint.', policy: null, trace: [], headers: [], api: null }
   const done = (r) => {
     const api = pairing(s, app).api
     event(s, { k: 'in', app: app?.name, env: app?.env, api: api?.id, m: req.method, p: req.path, s: r.status, ms: r.ms ?? 5, c: req.client ?? '', e: r.error, pol: r.policy, fl: r.flow })
-    return { status: r.status, ms: r.ms ?? 5, body: r.body ?? '', policy: r.policy ?? null, trace: r.trace ?? [], headers: r.headers ?? [], api: api?.id ?? null }
+    return { status: r.status, ms: r.ms ?? 5, body: r.body ?? '', policy: r.policy ?? null, trace: r.trace ?? [], headers: [...(r.headers ?? []), ...(cid ? [['X-Correlation-ID', cid]] : [])], api: api?.id ?? null, cid }
   }
   if (!app || app.status !== 'Running') return done({ status: 503, body: '{"error":"Service Unavailable"}', error: 'NO_APPLICATION' })
   const pair = pairing(s, app)
@@ -267,8 +317,28 @@ function callApp(s, app, req) {
     }
   }
   const perMinute = s.traffic.filter((x) => x.app === app.name && x.env === app.env).reduce((n, x) => n + x.perMinute, 0)
-  const r = packageOf(app.pkg).handle?.(ctxOf(s, app, { perMinute }), req) ?? { status: 404, ms: 3, body: '' }
-  if (r.log) log(s, app, r.log)
+  const lines = []
+  const say = (text) => lines.push(info(`event:${cid} ${text}`))
+  say(`${req.method} ${req.path} received`)
+  const ctx = ctxOf(s, app, {
+    perMinute,
+    say,
+    backend: (id) => backendOf(s, app, id),
+    put(queue, body) {
+      put(s, queue, body)
+      linked(s, app.name, queue, app.env, 200, 5)
+    },
+    call(key, call, timeout) {
+      const a = invoke(s, app, key, { ...call, traced: req.traced, offset: req.offset }, timeout, cid)
+      say(`Called ${a.url}${a.path}, ${a.error ?? a.status} in ${a.ms} ms`)
+      return a
+    },
+  })
+  const r = pkg.handle?.(ctx, req) ?? { status: 404, ms: 3, body: '' }
+  say(`Answered ${r.status} in ${r.ms} ms`)
+  // steady traffic that works would fill the log, so its lines are written for failures and for calls of the API client
+  if (pkg.traced && (req.traced || r.status >= 500)) log(s, app, lines)
+  if (r.log) log(s, app, pkg.traced ? r.log.map((l) => ({ ...l, text: `event:${cid} ${l.text}` })) : r.log)
   return done({ ...r, ...extra })
 }
 
@@ -276,9 +346,9 @@ function callApp(s, app, req) {
 export function callApi(state, { env, app, ...req }) {
   let response
   const next = edit(state, (s) => {
-    response = callApp(s, appNamed(s, app, env), req)
+    response = callApp(s, appNamed(s, app, env), { ...req, cid: req.cid || undefined, traced: true })
     s.clock += 100
-    s.lastCalls = [...(s.lastCalls ?? []), { t: s.clock, app, env, method: req.method, path: req.path, status: response.status }].slice(-30)
+    s.lastCalls = [...(s.lastCalls ?? []), { t: s.clock, app, env, method: req.method, path: req.path, status: response.status, ms: response.ms, cid: response.cid }].slice(-30)
     checkAlerts(s)
   })
   return { state: next, response }
@@ -390,8 +460,10 @@ export function advance(state, ms) {
         }
       }
       for (const f of s.traffic) {
+        // a flow with `every` sends only in every n-th minute
+        if (f.every && (t / MINUTE) % f.every !== 0) continue
         const client = s.clients.find((c) => c.name === f.client)
-        for (let i = 0; i < f.perMinute; i++) callApp(s, appNamed(s, f.app, f.env), { method: f.method ?? 'GET', path: f.path, ip: f.ip, client: f.client, clientId: f.clientId ?? client?.clientId, clientSecret: f.clientSecret ?? client?.clientSecret, offset: Math.floor((i * MINUTE) / f.perMinute) })
+        for (let i = 0; i < f.perMinute; i++) callApp(s, appNamed(s, f.app, f.env), { method: f.method ?? 'GET', path: f.path, body: f.body, ip: f.ip, client: f.client, clientId: f.clientId ?? client?.clientId, clientSecret: f.clientSecret ?? client?.clientSecret, offset: Math.floor((i * MINUTE) / f.perMinute) })
       }
       for (const f of s.queueTraffic ?? []) if (t % (f.everyMinutes * MINUTE) === 0) put(s, f.queue, JSON.stringify({ order: `O-${1000 + s.nextId}`, total: 42 }))
       consumeQueues(s)

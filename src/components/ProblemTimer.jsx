@@ -97,33 +97,35 @@ function RunningClock({ id, timer, now, compact, history, children }) {
 
   return (
     <div className={`problem-timer${compact ? ' compact' : ''}`}>
-      <span className={`problem-clock mono${paused || idle ? ' muted' : CLOCK_CLASS[level]}`} role="timer" title={note}>
-        {level === 'over' && '+'}
-        {clock(remaining)}
-      </span>
-      {(!compact || paused || idle) && (
-        <span className="small muted problem-timer-note" title={note}>
-          {compact ? (idle ? 'No activity' : 'Paused') : note}
+      <div className="timer-run">
+        <span className={`problem-clock mono${paused || idle ? ' muted' : CLOCK_CLASS[level]}`} role="timer" title={note}>
+          {level === 'over' && '+'}
+          {clock(remaining)}
         </span>
-      )}
+        {(!compact || paused || idle) && (
+          <span className="small muted problem-timer-note" title={note}>
+            {compact ? (idle ? 'No activity' : 'Paused') : note}
+          </span>
+        )}
+        <button className="icon-btn timer-pause" onClick={togglePause} aria-label={label} title={label}>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {paused ? <path d="M7.5 5v14l11-7z" /> : <path d="M8.5 5.5v13M15.5 5.5v13" />}
+          </svg>
+        </button>
+        {!paused && !idle &&
+          (compact ? (
+            <button className="icon-btn timer-pause" onClick={reset} aria-label="Reset timer" title="Reset timer">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" />
+              </svg>
+            </button>
+          ) : (
+            <button className="btn btn-ghost btn-sm" onClick={reset}>
+              Reset
+            </button>
+          ))}
+      </div>
       {history}
-      <button className="icon-btn timer-pause" onClick={togglePause} aria-label={label} title={label}>
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
-          {paused ? <path d="M7 4.5v15l13-7.5z" /> : <path d="M6 4h4v16H6zM14 4h4v16h-4z" />}
-        </svg>
-      </button>
-      {!paused && !idle &&
-        (compact ? (
-          <button className="icon-btn timer-pause" onClick={reset} aria-label="Reset timer" title="Reset timer">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-              <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" />
-            </svg>
-          </button>
-        ) : (
-          <button className="btn btn-ghost btn-sm" onClick={reset}>
-            Reset
-          </button>
-        ))}
       {children}
     </div>
   )

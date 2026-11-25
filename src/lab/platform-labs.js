@@ -1,36 +1,26 @@
 // Guided labs of the Anypoint console. A lab has a starting platform and steps. Each step reads the state, so it is met by
 // any route that gets there. `solve` plays a full solution through the same engine, for scripts/check-platform.js.
 import {
-  addApi, addApiAlert, addMonAlert, addRmAlert, addTier, advance, apiById, apiStatus, appNamed, applyPolicy, at, callApi, cpuOf, createClient, createProject, DAY, deployApp, eventsOf,
+  addApi, addApiAlert, addMonAlert, addRmAlert, addTier, advance, apiById, apiStatus, appNamed, applyPolicy, at, cpuOf, createClient, createProject, DAY, deployApp,
   finishDeploys, HOUR, importSpec, jarsOf, mark, MINUTE, mockCall, newApi, newApp, newPlatform, nextRun, packageJar, pairing, promoteApi, publish, ramlErrors, requestAccess, runNow, saveProject, setContract,
   setSchedule, setStudio, viewMessages,
 } from './platform.js'
-import { defaultSettings } from './policies.js'
+import { app, ask, asset, call, called, change, CLIENTS, creds, OPS, policy, propsValue, recent, sawLogs, until, withProp, withSecret } from './platform-kit.js'
+import { LED_LABS } from './platform-led-labs.js'
+
+export { openConsole } from './platform-project.js'
 
 const CH2 = 'https://docs.mulesoft.com/cloudhub-2/'
 const MON = 'https://docs.mulesoft.com/monitoring/'
 const APIM = 'https://docs.mulesoft.com/api-manager/latest/'
 
-export const GROUPS = ['Full life cycle', 'Failed jobs', 'API operations']
-const OPS = 'ops@harbor.example'
+export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations']
 
 // ---------- helpers ----------
 
-const app = (s, name) => appNamed(s, name, 'Sandbox')
 const scheduleOf = (s, name, flow) => app(s, name)?.schedules.find((x) => x.flow === flow)
 const lastRun = (s, name, flow) => scheduleOf(s, name, flow)?.last
 const ranOk = (s, name, flow, since = 0) => Boolean(lastRun(s, name, flow)?.ok) && lastRun(s, name, flow).t >= since
-const sawLogs = (name) => ({ title: `Open the logs of ${name}`, how: `Runtime Manager, Applications, ${name}, Logs.`, done: (s) => Boolean(s.seen[`logs:${name}`]) })
-const ask = (title, question, options, right, reason) => ({ title, ask: question, options, right, reason })
-const change = (state, name, patch) => {
-  const a = appNamed(state, name)
-  return finishDeploys(deployApp(state, { name, pkg: a.pkg, replicas: a.replicas, vCores: a.vCores, model: a.model, version: a.version, ...patch, editing: true }).state)
-}
-const withProp = (state, name, key, value) => change(state, name, { props: { ...appNamed(state, name).props, [key]: value } })
-const withSecret = (state, name, key, value) => change(state, name, { secrets: { ...appNamed(state, name).secrets, [key]: value } })
-// plays the platform from an earlier day up to the morning the learner arrives
-const until = (state, clock) => advance(state, clock - state.clock)
-
 const ORDERS_RAML = `#%RAML 1.0
 title: Orders System API
 version: v1
@@ -89,14 +79,6 @@ version: v1
             example: |
               [ { "id": "S-1" } ]
 `
-const asset = (assetId, name, raml, version = '1.0.0') => ({ assetId, name, version, apiVersion: 'v1', lifecycle: 'stable', raml, t: at(0, 10) })
-const policy = (type, settings = {}) => ({ id: `lab-${type}`, type, settings: { ...defaultSettings(type), ...settings } })
-const creds = (s, env) => ({ props: { 'anypoint.platform.client_id': s.creds[env].id }, secrets: { 'anypoint.platform.client_secret': s.creds[env].secret } })
-
-const CLIENTS = [
-  { name: 'Mobile App', clientId: 'mob-71c2', clientSecret: 'mob-secret-19' },
-  { name: 'Partner Portal', clientId: 'par-5e90', clientSecret: 'par-secret-44' },
-]
 const shipmentsApi = (extra = {}) =>
   newApi('19400555', {
     name: 'Shipments Experience API', assetId: 'shipments-experience-api', label: 'shipments-sbx', upstream: '', seen: true,
@@ -116,10 +98,6 @@ function shipments({ api = {}, appExtra = {}, traffic = true, ...extra } = {}) {
   if (traffic) s.traffic = [{ app: 'shipments-eapi', env: 'Sandbox', client: 'Mobile App', path: '/shipments', perMinute: 2 }]
   return s
 }
-const call = (state, name, client, path = '/shipments', method = 'GET', body = '') => callApi(state, { env: state.env, app: name, method, path, body, client: client?.name, clientId: client?.clientId, clientSecret: client?.clientSecret })
-const called = (s, name, status, method, path) => (s.lastCalls ?? []).some((c) => c.app === name && c.status === status && (!method || c.method === method) && (!path || path.test(c.path)))
-const recent = (s, name, minutes) => eventsOf(s, { app: name, env: 'Sandbox' }, s.clock - minutes * MINUTE, s.clock).filter((e) => e.k === 'in')
-
 // ---------- full life cycle ----------
 
 const E2E = {
@@ -196,7 +174,7 @@ const fullLifeCycle = {
     return mark(s, 'dash:orders-sapi')
   },
 }
-const propsValue = (a, key) => ({ ...a?.props, ...a?.secrets })[key]
+
 
 const promote = {
   id: 'p-promote',
@@ -652,21 +630,7 @@ const badDeploy = {
   answers: { 3: 1 },
 }
 
-export const PLATFORM_LABS = [fullLifeCycle, promote, nightly, disabled, overlap, batch, sftp, silent, dlq, memory, zone, badDeploy, unregistered, wrongCreds, quota, errors500, slow, attack]
-
-// The open console: everything at once, to explore
-export function openConsole() {
-  const s = shipments({ clock: at(0, 12), jars: [LINKED, 'search-eapi', 'orders-nightly-load', 'stock-file-poll'] })
-  s.apps.push(
-    newApp('orders-nightly-load', { props: { 'db.host': 'sql01.harbor.lab', 'db.port': '1433', 'db.user': 'mule_etl' }, secrets: { 'db.password': 'Nightly-2026' } }),
-    newApp('stock-file-poll', { props: { 'sftp.host': 'sftp.harbor.lab' }, secrets: { 'sftp.password': 'lab' } }),
-    newApp('customer-export', { props: { 'blob.account': 'harborstore', 'blob.container': 'customer-exports' } }),
-    newApp('order-events-consumer', { props: { 'erp.baseUrl': 'https://erp.harbor.lab/v2', 'queue.name': 'orders-in', 'dlq.name': 'orders-dlq' } }),
-  )
-  s.queues = [{ name: 'orders-in', type: 'Standard queue', dlq: 'orders-dlq', attempts: 10, messages: [] }, { name: 'orders-dlq', type: 'Standard queue', dlq: '', attempts: 10, messages: [] }]
-  s.projects = [{ id: 'p0', name: 'Shipments Experience API', raml: SHIPMENTS_RAML, updated: at(0, 10), published: '1.0.0' }]
-  return until(s, at(1, 9))
-}
+export const PLATFORM_LABS = [fullLifeCycle, promote, ...LED_LABS, nightly, disabled, overlap, batch, sftp, silent, dlq, memory, zone, badDeploy, unregistered, wrongCreds, quota, errors500, slow, attack]
 
 export const stepDone = (step, index, state, answers) => (step.ask ? answers[index] === step.right : Boolean(step.done(state)))
 export const labDone = (lab, state, answers) => lab.steps.every((step, i) => stepDone(step, i, state, answers))

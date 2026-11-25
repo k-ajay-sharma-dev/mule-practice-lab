@@ -68,7 +68,7 @@ export default function GuidedLabsScreen() {
     return (
       <div className="lab-sections">
         <p className="muted small">
-          {solvedCount} of {ALL.length} solved. The first three groups run in the Anypoint console, with steps that tick off as you work.
+          {solvedCount} of {ALL.length} solved. The first {GROUPS.length} groups run in the Anypoint console, with steps that tick off as you work.
         </p>
         {SECTIONS.map(([name, labs]) => (
           <section key={name} aria-label={name}>
