@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { diagramHint, runDiagramChecks } from '../src/arch/checks.js'
 import { duplicateNode as duplicateBox, emptyDiagram } from '../src/arch/model.js'
 import { designChecks, missingHint, runChecks } from '../src/flow/checks.js'
-import { countComponents, createNode, duplicateNode, emptyDesign, findItem, insertNode, walk } from '../src/flow/model.js'
+import { addFlow, countComponents, createNode, duplicateNode, emptyDesign, findItem, insertNode, placeFlow, shiftFlow, walk } from '../src/flow/model.js'
 import { currentStep, diagramSteps, flowSteps } from '../src/study/steps.js'
 import { record, redo, startHistory, undo } from '../src/study/undo.js'
 
@@ -31,6 +31,23 @@ assert.equal(undo(t).present, '')
 // other quick changes stay separate steps
 assert.equal(record(record(startHistory('a'), 'b', 1000), 'c', 1100).past.length, 2)
 assert.equal(undo(startHistory('a')).present, 'a')
+
+// moving whole flows: one place, to any place, and nothing happens at the ends
+const five = ['flow', 'flow', 'sub-flow', 'flow'].reduce((d, kind) => addFlow(d, kind), emptyDesign())
+const flowIds = five.flows.map((f) => f.id)
+const orderOf = (d) => d.flows.map((f) => flowIds.indexOf(f.id)).join('')
+assert.equal(orderOf(five), '01234')
+assert.equal(orderOf(shiftFlow(five, flowIds[2], -1)), '02134')
+assert.equal(orderOf(shiftFlow(five, flowIds[2], 1)), '01324')
+assert.equal(shiftFlow(five, flowIds[0], -1), five)
+assert.equal(shiftFlow(five, flowIds[4], 1), five)
+assert.equal(shiftFlow(five, 'none', 1), five)
+assert.equal(orderOf(placeFlow(five, flowIds[4], 0)), '40123')
+assert.equal(orderOf(placeFlow(five, flowIds[0], 5)), '12340')
+assert.equal(orderOf(placeFlow(five, flowIds[1], 4)), '02314')
+assert.equal(placeFlow(five, flowIds[1], 1), five)
+assert.equal(placeFlow(five, flowIds[1], 2), five)
+assert.equal(orderOf(five), '01234', 'the design given is not changed')
 
 // duplicate: new ids all the way down, placed after the original
 const d0 = emptyDesign()

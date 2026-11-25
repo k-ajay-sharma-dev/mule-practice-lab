@@ -238,6 +238,22 @@ export function addFlow(design, kind) {
   return { ...design, flows: [...design.flows, createFlow(kind, `${base}-${n}`)] }
 }
 
+// Puts a flow before the flow now at that index (or last). Only the order on the canvas and in the XML changes.
+export function placeFlow(design, flowId, index) {
+  const from = design.flows.findIndex((f) => f.id === flowId)
+  const to = from < index ? index - 1 : index
+  if (from < 0 || to < 0 || to >= design.flows.length || to === from) return design
+  const flows = [...design.flows]
+  flows.splice(to, 0, ...flows.splice(from, 1))
+  return { ...design, flows }
+}
+
+// One place up (-1) or down (1).
+export function shiftFlow(design, flowId, delta) {
+  const at = design.flows.findIndex((f) => f.id === flowId)
+  return at < 0 ? design : placeFlow(design, flowId, at + (delta > 0 ? 2 : -1))
+}
+
 export function removeFlow(design, flowId) {
   if (design.flows.length <= 1) return design
   return { ...design, flows: design.flows.filter((f) => f.id !== flowId) }

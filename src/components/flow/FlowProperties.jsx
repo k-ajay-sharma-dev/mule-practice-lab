@@ -3,7 +3,7 @@ import CodeEditor from '../CodeEditor.jsx'
 import { CodeBlock } from '../CopyButton.jsx'
 import { Icon, IconButton } from '../designer/parts.jsx'
 import { COMPONENTS, GROUPS } from '../../flow/catalog.js'
-import { findItem, removeNode, removeRoute, shiftNode, updateConfig } from '../../flow/model.js'
+import { findItem, removeFlow, removeNode, removeRoute, shiftFlow, shiftNode, updateConfig } from '../../flow/model.js'
 import { Ctx } from './context.js'
 import FlowIcon from './FlowIcon.jsx'
 
@@ -230,6 +230,9 @@ function EmptyProps({ touch }) {
             <kbd>Ctrl D</kbd> duplicate
           </li>
           <li>
+            <kbd>Alt ↑ ↓</kbd> move up or down
+          </li>
+          <li>
             <kbd>Ctrl Z</kbd> undo
           </li>
           <li>
@@ -245,7 +248,7 @@ function EmptyProps({ touch }) {
 }
 
 export default function Properties({ selectedId, onDeselect }) {
-  const { design, change, remove, touch, placing, startMove, duplicate, flags, runMarks } = useContext(Ctx)
+  const { design, change, remove, touch, placing, startMove, duplicate, flags, runMarks, moveFlow } = useContext(Ctx)
   const found = selectedId ? findItem(design, selectedId) : null
   if (!found) {
     return (
@@ -289,6 +292,22 @@ export default function Properties({ selectedId, onDeselect }) {
               className="danger"
               onClick={() => {
                 remove(removeNode(design, item.id), COMPONENTS[item.type]?.label)
+                onDeselect()
+              }}
+            />
+          </div>
+        )}
+        {ctx.isFlow && design.flows.length > 1 && (
+          <div className="ap-tools" role="toolbar" aria-label="Flow actions">
+            <IconButton icon="up" label="Move flow up" onClick={() => moveFlow(shiftFlow(design, item.id, -1), item.id)} disabled={design.flows[0].id === item.id} />
+            <IconButton icon="down" label="Move flow down" onClick={() => moveFlow(shiftFlow(design, item.id, 1), item.id)} disabled={design.flows.at(-1).id === item.id} />
+            <IconButton
+              icon="trash"
+              label="Remove flow"
+              className="danger"
+              onClick={() => {
+                if (!confirm(`Remove ${item.name}?`)) return
+                remove(removeFlow(design, item.id), item.name)
                 onDeselect()
               }}
             />

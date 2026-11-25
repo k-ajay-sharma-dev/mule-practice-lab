@@ -18,9 +18,12 @@ import {
   findItem,
   insertNode,
   moveNode,
+  placeFlow,
   removeFlow,
   removeNode,
   removeRoute,
+  shiftFlow,
+  shiftNode,
 } from '../../flow/model.js'
 import { toXml } from '../../flow/xml.js'
 
@@ -39,6 +42,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
   const [armed, setArmed] = useState(null) // component type picked from the palette (tap-to-place)
   const [moving, setMoving] = useState(null) // id of a node being moved by tapping a slot
   const [drag, setDrag] = useState(null) // { type } from palette or { moveId } from canvas
+  const [flowDrag, setFlowDrag] = useState(null) // id of the flow being dragged by its header
   const [view, setView] = useState('design')
   const [notice, setNotice] = useState(null) // { text, warn } after importing XML
   const [removed, setRemoved] = useState(null) // what was just deleted, for the Undo bar
@@ -122,9 +126,26 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
         onChange(copy.design)
         setSelectedId(copy.id)
       },
+      flowDrag,
+      setFlowDrag,
+      moveFlow,
     }),
-    [design, readOnly, aside, selectedId, payload, payloadKind, onChange, touch, placing, flags, runMarks, history],
+    [design, readOnly, aside, selectedId, payload, payloadKind, onChange, touch, placing, flags, runMarks, history, flowDrag],
   )
+
+  // after a move the flow may be off the screen: bring its header back into view
+  const movedFlow = useRef(null)
+  function moveFlow(next, id) {
+    if (next === design) return
+    movedFlow.current = id
+    onChange(next)
+    setSelectedId(id)
+  }
+  useEffect(() => {
+    if (!movedFlow.current) return
+    root.current?.querySelector(`[data-flow="${movedFlow.current}"] > .flow-head`)?.scrollIntoView({ block: 'nearest' })
+    movedFlow.current = null
+  }, [design])
 
   // Scales the design. Fit tries smaller and smaller until all of it shows.
   const applyZoom = useRef(null)
@@ -236,6 +257,12 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && !typing && selectedId) {
       e.preventDefault()
       duplicate(selectedId)
+    }
+    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !typing && selectedId) {
+      e.preventDefault()
+      const by = e.key === 'ArrowUp' ? -1 : 1
+      if (design.flows.some((f) => f.id === selectedId)) moveFlow(shiftFlow(design, selectedId, by), selectedId)
+      else onChange(shiftNode(design, selectedId, by))
     }
     if (e.key === 'Escape') {
       cancelPlacing()
@@ -458,11 +485,48 @@ function Palette({ armed, setArmed }) {
 // ---------- Canvas ----------
 
 function FlowView({ flow }) {
-  const { design, readOnly, selectedId, select, remove } = useContext(Ctx)
+  const { design, readOnly, selectedId, select, remove, touch, flowDrag, setFlowDrag, moveFlow } = useContext(Ctx)
+  const [side, setSide] = useState(null) // where a dragged flow would land: before or after this one
+  useEffect(() => {
+    if (!flowDrag) setSide(null)
+  }, [flowDrag])
+  const index = design.flows.indexOf(flow)
+  const movable = !readOnly && design.flows.length > 1
+  const droppable = movable && flowDrag && flowDrag !== flow.id
+  const half = (e) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    return e.clientY < r.top + r.height / 2 ? 'before' : 'after'
+  }
   return (
-    <section className={`flow-box ${selectedId === flow.id ? 'selected' : ''}`}>
+    <section
+      className={`flow-box ${selectedId === flow.id ? 'selected' : ''}${flowDrag === flow.id ? ' dragging' : ''}${side ? ` drop-${side}` : ''}`}
+      data-flow={flow.id}
+      // in the capture phase: the slots inside take every drop, and a whole flow is not for them
+      onDragOverCapture={(e) => {
+        if (!droppable) return
+        e.preventDefault()
+        e.stopPropagation()
+        setSide(half(e))
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget) && setSide(null)}
+      onDropCapture={(e) => {
+        if (!droppable) return
+        e.preventDefault()
+        e.stopPropagation()
+        moveFlow(placeFlow(design, flowDrag, index + (half(e) === 'after' ? 1 : 0)), flowDrag)
+        setFlowDrag(null)
+      }}
+    >
       <header
-        className="flow-head"
+        className={`flow-head${movable ? ' no-pan' : ''}`}
+        draggable={movable && !touch}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', flow.name)
+          setFlowDrag(flow.id)
+        }}
+        onDragEnd={() => setFlowDrag(null)}
+        title={movable && !touch ? 'Drag to move the whole flow' : undefined}
         onClick={(e) => {
           e.stopPropagation()
           if (!readOnly) select(flow.id)
@@ -470,17 +534,38 @@ function FlowView({ flow }) {
       >
         <span className={`flow-kind kind-${flow.kind}`}>{flow.kind}</span>
         <span className="flow-name">{flow.name}</span>
-        {!readOnly && design.flows.length > 1 && (
-          <button
-            className="icon-x"
-            title="Remove flow"
-            onClick={(e) => {
-              e.stopPropagation()
-              if (confirm(`Remove ${flow.name}?`)) remove(removeFlow(design, flow.id), flow.name)
-            }}
-          >
-            ×
-          </button>
+        {movable && (
+          <span className="flow-tools">
+            {[
+              [-1, 'up', 'Move flow up'],
+              [1, 'down', 'Move flow down'],
+            ].map(([by, icon, label]) => (
+              <button
+                key={icon}
+                className="icon-x flow-move"
+                title={`${label} (Alt and the ${icon} arrow)`}
+                aria-label={label}
+                disabled={by < 0 ? index === 0 : index === design.flows.length - 1}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  moveFlow(shiftFlow(design, flow.id, by), flow.id)
+                }}
+              >
+                <Icon name={icon} />
+              </button>
+            ))}
+            <button
+              className="icon-x"
+              title="Remove flow"
+              aria-label="Remove flow"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (confirm(`Remove ${flow.name}?`)) remove(removeFlow(design, flow.id), flow.name)
+              }}
+            >
+              ×
+            </button>
+          </span>
         )}
       </header>
       <div className="flow-body">
