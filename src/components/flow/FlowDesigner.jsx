@@ -40,9 +40,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
   const [moving, setMoving] = useState(null) // id of a node being moved by tapping a slot
   const [drag, setDrag] = useState(null) // { type } from palette or { moveId } from canvas
   const [view, setView] = useState('design')
-  const [pasted, setPasted] = useState('')
   const [notice, setNotice] = useState(null) // { text, warn } after importing XML
-  const [pasteError, setPasteError] = useState(null)
   const [removed, setRemoved] = useState(null) // what was just deleted, for the Undo bar
   const root = useRef(null)
   const touch = useCoarsePointer()
@@ -173,18 +171,14 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
     try {
       result = fromXml(text)
     } catch (error) {
-      setPasted(text)
-      setPasteError(error.message)
-      setView('paste')
+      setNotice({ text: `This XML could not be read: ${error.message.replace(/\.?$/, '.')} You can paste it in the Configuration XML tab and correct it there.`, warn: true })
       return
     }
     if (countComponents(design) && !confirm('Replace your current design with this XML?')) return
     onChange(result.design)
     setSelectedId(null)
     cancelPlacing()
-    setPasted('')
-    setPasteError(null)
-    setView('design')
+    if (view === 'xml') setView('design')
     const left = result.skipped.map((s) => `${s.name}${s.count > 1 ? ` (${s.count})` : ''}`).join(', ')
     setNotice({
       text: `Imported ${plural(result.flows, 'flow')} and ${plural(result.components, 'component')}.${left ? ` Left out: ${left}.` : ''}`,
@@ -313,7 +307,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               Split
             </button>
           </div>
-          {readOnly && view !== 'xml' && view !== 'paste' && <span className="muted small">Click a component to see its settings</span>}
+          {readOnly && view !== 'xml' && <span className="muted small">Click a component to see its settings</span>}
           {!readOnly && (view === 'design' || view === 'split') && (
             <div className="toolbar-actions">
               {history && (
@@ -332,9 +326,6 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => onChange(addFlow(design, 'sub-flow'))} title="Add a sub-flow">
                 + Sub-flow
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setView('paste')} title="Paste Mule XML to load a design">
-                Paste XML
               </button>
               <button
                 className="btn btn-ghost btn-sm tb-icon"
@@ -355,7 +346,7 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
           {toolbarEnd && <div className="designer-toolbar-end">{toolbarEnd}</div>}
         </div>
 
-        {notice && view === 'design' && (
+        {notice && view !== 'xml' && (
           <div className={`designer-notice small${notice.warn ? ' warn-text' : ''}`}>
             <span>{notice.text}</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setNotice(null)}>
@@ -381,40 +372,6 @@ export default function FlowDesigner({ design, onChange, readOnly = false, histo
 
         {view === 'xml' ? (
           <XmlView design={design} readOnly={readOnly} onChange={onChange} />
-
-        ) : view === 'paste' ? (
-          <div className="designer-paste">
-            <p className="muted small">
-              Paste from the Configuration XML tab in Anypoint Studio. This replaces the design. Global configurations
-              such as connection details are not imported.
-            </p>
-            <textarea
-              className="input mono"
-              autoFocus
-              spellCheck={false}
-              placeholder={'<mule ...>\n  <flow name="orders-api">\n    ...\n  </flow>\n</mule>'}
-              value={pasted}
-              onChange={(e) => {
-                setPasted(e.target.value)
-                setPasteError(null)
-              }}
-            />
-            {pasteError && <p className="warn-text small">{pasteError}</p>}
-            <div className="designer-paste-actions">
-              <button className="btn btn-primary" onClick={() => importXml(pasted)} disabled={!pasted.trim()}>
-                Import
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  setPasteError(null)
-                  setView('design')
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
         ) : view === 'split' ? (
           <div className="designer-split">
             {body}
