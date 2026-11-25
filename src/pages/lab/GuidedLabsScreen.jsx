@@ -1,12 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { GUIDED_LABS, labById, runCheck } from '../../lab/labs.js'
+import { GROUPS, PLATFORM_LABS } from '../../lab/platform-labs.js'
 import { policyByType } from '../../lab/policies.js'
 import Assumed from './Assumed.jsx'
 import { AppsTab, NodesTab, PoliciesTab, TiersTab } from './ConfigTabs.jsx'
 import { formFor, RuntimeWorkbench } from './RuntimeManagerScreen.jsx'
 import { topologyOf } from '../../lab/engine.js'
 
+const PlatformLab = lazy(() => import('../anypoint/PlatformLab.jsx').then((m) => ({ default: m.PlatformLab })))
+
 const PROGRESS_KEY = 'pl.lab.guided'
+const ALL = [...PLATFORM_LABS, ...GUIDED_LABS]
+const platformIds = new Set(PLATFORM_LABS.map((l) => l.id))
+const SECTIONS = [
+  ...GROUPS.map((name) => [name, PLATFORM_LABS.filter((l) => l.group === name)]),
+  ['Policies and quotas', GUIDED_LABS.filter((l) => l.kind !== 'runtime')],
+  ['Deployments', GUIDED_LABS.filter((l) => l.kind === 'runtime')],
+]
 
 const isConfig = (c) =>
   Array.isArray(c?.apps) && Array.isArray(c?.tiers) && Array.isArray(c?.policies) && [...c.policies, ...(c.automated ?? [])].every((p) => policyByType.has(p?.type))
@@ -33,9 +43,9 @@ function saveProgress(progress) {
 
 export default function GuidedLabsScreen() {
   const [progress, setProgress] = useState(loadProgress)
-  const [labId, setLabId] = useState(GUIDED_LABS[0].id)
-  const lab = labById.get(labId)
-  const solvedCount = GUIDED_LABS.filter((l) => progress.solved[l.id]).length
+  const [labId, setLabId] = useState(null)
+  const lab = ALL.find((l) => l.id === labId)
+  const solvedCount = ALL.filter((l) => progress.solved[l.id]).length
 
   useEffect(() => saveProgress(progress), [progress])
 
@@ -48,43 +58,73 @@ export default function GuidedLabsScreen() {
       }),
     [labId],
   )
-  const markSolved = () => setProgress((p) => ({ ...p, solved: { ...p.solved, [labId]: true } }))
+  const markSolved = useCallback(() => setProgress((p) => ({ ...p, solved: { ...p.solved, [labId]: true } })), [labId])
 
   function restart() {
     setProgress((p) => ({ ...p, configs: Object.fromEntries(Object.entries(p.configs).filter(([id]) => id !== labId)) }))
   }
 
+  if (!lab)
+    return (
+      <div className="lab-sections">
+        <p className="muted small">
+          {solvedCount} of {ALL.length} solved. The first three groups run in the Anypoint console, with steps that tick off as you work.
+        </p>
+        {SECTIONS.map(([name, labs]) => (
+          <section key={name} aria-label={name}>
+            <div className="lab-panel-head">
+              <h2>{name}</h2>
+              <span className="muted small">
+                {labs.filter((l) => progress.solved[l.id]).length} of {labs.length} solved
+              </span>
+            </div>
+            <div className="lab-cards">
+              {labs.map((l) => (
+                <button key={l.id} className="lab-card" onClick={() => setLabId(l.id)}>
+                  <b>{l.title}</b>
+                  <span className="muted small">{l.scenario}</span>
+                  <span className="lab-card-foot small">
+                    <span className="muted">{l.steps ? `${l.steps.length} steps, about ${l.minutes} min` : l.kind === 'runtime' ? 'Runtime Manager' : 'API Manager'}</span>
+                    {progress.solved[l.id] && <span className="lab-badge lab-approved">solved</span>}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    )
+
+  const position = ALL.indexOf(lab)
   return (
-    <div className="lab-guided">
-      <section className="lab-panel" aria-label="Guided Labs">
-        <div className="lab-panel-head">
-          <h2>Guided Labs</h2>
-          <span className="muted small">
-            {solvedCount} of {GUIDED_LABS.length} solved
-          </span>
-        </div>
-        <ol className="lab-list">
-          {GUIDED_LABS.map((l, index) => (
-            <li key={l.id}>
-              <button className={`lab-pick${l.id === labId ? ' active' : ''}`} aria-current={l.id === labId} onClick={() => setLabId(l.id)}>
-                <span className="lab-order mono">{index + 1}</span>
-                <span className="lab-grow">{l.title}</span>
-                <span className="muted small">{l.kind === 'runtime' ? 'Runtime' : 'API'}</span>
-                {progress.solved[l.id] && <span className="lab-badge lab-approved">solved</span>}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <LabWorkspace
-        key={labId}
-        lab={lab}
-        config={progress.configs[labId] ?? lab.start()}
-        solved={Boolean(progress.solved[labId])}
-        onChange={setConfig}
-        onSolved={markSolved}
-        onRestart={restart}
-      />
+    <div className="lab-open">
+      <div className="lab-row-head">
+        <button className="btn btn-sm btn-ghost" onClick={() => setLabId(null)}>
+          ← All labs
+        </button>
+        <span className="lab-grow" />
+        <button className="btn btn-sm btn-ghost" disabled={position === 0} onClick={() => setLabId(ALL[position - 1].id)}>
+          Previous lab
+        </button>
+        <button className="btn btn-sm btn-ghost" disabled={position === ALL.length - 1} onClick={() => setLabId(ALL[position + 1].id)}>
+          Next lab
+        </button>
+      </div>
+      {platformIds.has(labId) ? (
+        <Suspense fallback={<p className="muted">Loading the console…</p>}>
+          <PlatformLab key={labId} lab={lab} solved={Boolean(progress.solved[labId])} onSolved={markSolved} />
+        </Suspense>
+      ) : (
+        <LabWorkspace
+          key={labId}
+          lab={lab}
+          config={progress.configs[labId] ?? lab.start()}
+          solved={Boolean(progress.solved[labId])}
+          onChange={setConfig}
+          onSolved={markSolved}
+          onRestart={restart}
+        />
+      )}
     </div>
   )
 }

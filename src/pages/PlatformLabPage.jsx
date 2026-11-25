@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import WideToggle from '../components/WideToggle.jsx'
 import ApiManagerScreen from './lab/ApiManagerScreen.jsx'
 import ExchangeScreen from './lab/ExchangeScreen.jsx'
@@ -6,16 +6,24 @@ import GuidedLabsScreen from './lab/GuidedLabsScreen.jsx'
 import PipelineScreen from './lab/PipelineScreen.jsx'
 import RuntimeManagerScreen from './lab/RuntimeManagerScreen.jsx'
 
+const OpenConsole = lazy(() => import('./anypoint/PlatformLab.jsx').then((m) => ({ default: m.OpenConsole })))
+const ConsoleScreen = () => (
+  <Suspense fallback={<p className="muted">Loading the console…</p>}>
+    <OpenConsole />
+  </Suspense>
+)
+
 const VIEWS = [
+  ['console', 'Anypoint console', ConsoleScreen],
+  ['guided', 'Guided Labs', GuidedLabsScreen],
   ['api', 'API Manager', ApiManagerScreen],
   ['runtime', 'Runtime Manager', RuntimeManagerScreen],
   ['exchange', 'Exchange', ExchangeScreen],
   ['pipeline', 'CI/CD', PipelineScreen],
-  ['guided', 'Guided Labs', GuidedLabsScreen],
 ]
 
 export default function PlatformLabPage() {
-  const [view, setView] = useState('api')
+  const [view, setView] = useState('console')
 
   return (
     <div className="lab-page">
@@ -25,8 +33,9 @@ export default function PlatformLabPage() {
         <WideToggle />
       </div>
       <p className="muted">
-        Practise API Manager, Runtime Manager, Exchange and CI/CD tasks and see their effect. This is a simulator based on
-        the MuleSoft documentation. It is not connected to Anypoint Platform and sends nothing over the network.
+        Practise Anypoint Platform tasks and see their effect. The console follows the pages of the platform. The other tabs
+        go deeper into one part. This is a simulator based on the MuleSoft documentation. It is not made by MuleSoft, is not
+        connected to Anypoint Platform and sends nothing over the network.
       </p>
 
       <div className="lab-tabs lab-views" role="tablist" aria-label="Platform Lab sections">

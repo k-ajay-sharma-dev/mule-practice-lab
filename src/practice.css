@@ -1698,34 +1698,81 @@
 .lab-log-error b {
   color: var(--danger);
 }
-.lab-guided {
+/* scroll bars: the Platform Lab shows them, the rest of the site hides them */
+html:has(.lab-page),
+.lab-page,
+.lab-page * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
+}
+html:has(.lab-page)::-webkit-scrollbar,
+.lab-page *::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+html:has(.lab-page)::-webkit-scrollbar-thumb,
+.lab-page *::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+html:has(.lab-page) {
+  scrollbar-width: auto;
+}
+@media (min-width: 1101px) {
+  /* two panels side by side scroll on their own */
+  .lab-grid > .lab-panel {
+    max-height: calc(100vh - var(--topbar-h) - 32px);
+    overflow-y: auto;
+  }
+}
+.lab-sections {
   display: grid;
-  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-  margin-top: 16px;
+  gap: 18px;
+  margin-top: 12px;
 }
-.lab-guided .lab-grid {
-  grid-template-columns: minmax(0, 1fr);
-  margin-top: 8px;
+.lab-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
 }
-.lab-pick {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px;
-  background: var(--surface-2);
+.lab-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
   font: inherit;
-  font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
 }
-.lab-pick.active {
+.lab-card:hover {
   border-color: var(--accent);
+}
+.lab-card > .muted {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.lab-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lab-open {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.lab-open .lab-grid {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 8px;
 }
 .lab-goal {
   padding: 8px 12px;
@@ -1747,8 +1794,7 @@
   color: var(--danger);
 }
 @media (max-width: 1100px) {
-  .lab-grid,
-  .lab-guided {
+  .lab-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -25,8 +25,9 @@ export default function CodeEditor(given) {
   )
 }
 
+// light: always the light theme, for a part of the site that has its own colours
 // compact: a small field (a setting's expression), with no line numbers or folding margin
-function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%', compact = false }) {
+function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnly = false, height = '100%', compact = false, light = false }) {
   const { theme } = useTheme()
   // Keep the latest onRun so the Ctrl+Enter command never calls a stale closure.
   const runRef = useRef(onRun)
@@ -44,7 +45,7 @@ function DesktopEditor({ value, onChange, onRun, language = 'dataweave', readOnl
       onChange={(v) => onChange?.(v ?? '')}
       beforeMount={registerDataWeave}
       onMount={handleMount}
-      theme={theme === 'dark' ? 'pl-dark' : 'vs'}
+      theme={theme === 'dark' && !light ? 'pl-dark' : 'vs'}
       loading={<div className="editor-loading">Loading editor…</div>}
       options={{
         readOnly,
