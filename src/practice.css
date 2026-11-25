@@ -3536,17 +3536,20 @@ html:has(.lab-page) {
 .problem-timer.compact .timer-run .problem-clock {
   margin-right: 6px;
 }
-/* paused: the same chip, with the play icon and the border in the accent colour */
-.problem-timer.compact .timer-run.paused {
+/* running: the accent colour. Paused or stopped: grey, with nothing moved */
+.problem-timer.compact .timer-run.running {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 .problem-timer.compact .timer-run .timer-pause {
   border: none;
   border-radius: 6px;
   background: none;
+  color: var(--muted);
+}
+.problem-timer.compact .timer-run.running .timer-pause {
   color: var(--text);
 }
-.problem-timer.compact .timer-run.paused .timer-pause:first-of-type {
+.problem-timer.compact .timer-run.running .timer-pause:first-of-type {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
 }

@@ -98,7 +98,7 @@ function RunningClock({ id, timer, now, compact, history, children }) {
   return (
     <div className={`problem-timer${compact ? ' compact' : ''}`}>
       {/* the chip never changes width: paused or not, it has the same three parts, so the button stays under the mouse */}
-      <div className={`timer-run${paused ? ' paused' : ''}`}>
+      <div className={`timer-run${paused || idle ? '' : ' running'}`}>
         <span className={`problem-clock mono${paused || idle ? ' muted' : CLOCK_CLASS[level]}`} role="timer" title={note}>
           {level === 'over' && '+'}
           {clock(remaining)}
