@@ -1,17 +1,20 @@
 // Problem timer rules. Plain functions with no page or storage code, so scripts/check-timer.js can test them.
 //
-// entry.timer   { firstStartedAt, startedAt, minutes, resets, pauses, pausedAt?, held? }: the attempt in progress
+// entry.timer   { firstStartedAt, startedAt, minutes, resets, pauses, pausedAt?, held?, idle? }: the attempt in progress
 // entry.timeLog [{ at, seconds, totalSeconds, minutes, resets, pauses }]: finished attempts, oldest first
 //
 // The clock only runs while the problem is open. Leaving sets pausedAt, and coming back moves the start times forward
 // by the time away, so every sum below stays the same. A reset restarts the countdown but keeps firstStartedAt, so
 // totalSeconds always shows the real time spent on the problem. Pauses stay on record, as resets do.
 // held marks a pause made with the button: it lasts until the button resumes it, even if you leave and come back.
+// idle marks a pause made after a minute without activity. It starts at the last activity, so that minute is given back,
+// and it ends at the next activity. It is not counted in pauses: you did not choose it.
 
 export const BLINK_MS = 60000 // under a minute left
 export const LOW_MS = 5 * 60000
 const STALE_MS = 12 * 3600000 // an attempt this old was abandoned, not still being worked on
 const LOG_SIZE = 20
+export const IDLE_MS = 60000 // no key, mouse or touch for this long means you stepped away
 export const BRIEF_MS = 5000 // a page reload pauses too, and that is not stepping away
 
 export const startTimer = (minutes, now) => ({ firstStartedAt: now, startedAt: now, minutes, resets: 0, pauses: 0 })
@@ -24,16 +27,23 @@ export const retargetTimer = (timer, minutes) => (minutes > 0 && timer.minutes !
 
 export const pauseTimer = (timer, now, held = false) => (timer.pausedAt ? timer : { ...timer, pausedAt: now, ...(held && { held }) })
 
+// Stops the clock when nothing has happened since lastMs. The same timer comes back when there is nothing to do.
+export function idleTimer(timer, lastMs, nowMs) {
+  if (timer.pausedAt || nowMs - lastMs < IDLE_MS) return timer
+  const from = Math.max(lastMs, Date.parse(timer.startedAt)) // never before the attempt began
+  return { ...pauseTimer(timer, new Date(Math.min(from, nowMs)).toISOString()), idle: true }
+}
+
 export function resumeTimer(timer, now) {
   if (!timer.pausedAt) return timer
-  const { pausedAt, held, ...rest } = timer
+  const { pausedAt, held, idle, ...rest } = timer
   const away = Math.max(0, Date.parse(now) - Date.parse(pausedAt))
   const later = (iso) => new Date(Date.parse(iso) + away).toISOString()
   return {
     ...rest,
     startedAt: later(timer.startedAt),
     firstStartedAt: later(timer.firstStartedAt),
-    pauses: (timer.pauses ?? 0) + (held || away >= BRIEF_MS ? 1 : 0),
+    pauses: (timer.pauses ?? 0) + (held || (!idle && away >= BRIEF_MS) ? 1 : 0),
   }
 }
 

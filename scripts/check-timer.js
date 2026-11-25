@@ -1,6 +1,6 @@
 // Problem timer rules: the countdown, resets that cannot hide time, what gets recorded, and bad stored data.
 import assert from 'node:assert/strict'
-import { BLINK_MS, clock, finishTimer, inTime, isStale, LOW_MS, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../src/study/timer.js'
+import { BLINK_MS, clock, finishTimer, IDLE_MS, idleTimer, inTime, isStale, LOW_MS, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../src/study/timer.js'
 
 const at = (minutes) => new Date(Date.parse('2026-11-05T10:00:00.000Z') + minutes * 60000).toISOString()
 const ms = (minutes) => Date.parse(at(minutes))
@@ -114,6 +114,24 @@ const released = resumeTimer(held, at(10.01))
 assert.equal(released.held, undefined)
 assert.equal(released.pauses, 1)
 assert.equal(pauseTimer(held, at(20)), held)
+
+// a minute without activity stops the clock at the last activity, and the next activity carries on from there
+assert.equal(idleTimer(t, ms(10), ms(10) + IDLE_MS - 1), t)
+const idle = idleTimer(t, ms(10), ms(11))
+assert.equal(idle.pausedAt, at(10))
+assert.equal(idle.idle, true)
+assert.equal(idle.held, undefined)
+assert.equal(remainingMs(idle, ms(11)), 20 * 60000) // the idle minute is given back
+assert.equal(idleTimer(idle, ms(10), ms(60)), idle)
+assert.equal(idleTimer(held, ms(10), ms(60)), held) // the button's pause is left alone
+const active = resumeTimer(idle, at(45))
+assert.equal(active.idle, undefined)
+assert.equal(active.pauses, 0)
+assert.equal(remainingMs(active, ms(50)), 15 * 60000)
+assert.equal(finishTimer({ timer: active }, at(50)).timeLog[0].totalSeconds, 900)
+assert.equal(finishTimer({ timer: idle }, at(50)).timeLog[0].seconds, 600)
+assert.equal(idleTimer(t, ms(-5), ms(3)).pausedAt, at(0)) // never before the attempt began
+assert.deepEqual(validTimer(idle), idle)
 
 // a timer saved before pausing existed still works
 const { pauses: _, ...oldTimer } = t

@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { getEntry, setTimer, statusOf, useEntry } from '../store/progress.js'
-import { clock, inTime, isStale, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
+import { clock, idleTimer, inTime, isStale, pauseTimer, remainingMs, resetTimer, resumeTimer, retargetTimer, startTimer, timerLevel, validTimer } from '../study/timer.js'
 
 const CLOCK_CLASS = { ok: '', low: ' warn-text', last: ' err-text timer-blink', over: ' err-text' }
+// a key, the mouse, a touch or a drag: any of these means you are here
+const ACTIVITY = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchmove', 'dragover']
+// speaking an answer or listening to one needs no mouse
+const speaking = () => Boolean(document.querySelector('.voice-live')) || [...document.querySelectorAll('audio')].some((a) => !a.paused)
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 function describe(record) {
@@ -53,7 +57,8 @@ function HistoryList({ log }) {
 }
 
 // Counts down from the problem's estimated time while the problem is open and on screen. Leaving the page, switching to
-// another tab or minimising the window pauses it, and coming back resumes it.
+// another tab or minimising the window pauses it, and coming back resumes it. A minute without activity stops it too, at
+// the last activity, until the next one.
 // Recording happens in the progress store when the problem is solved, whichever way it is solved.
 export default function ProblemTimer({ problem, compact = false }) {
   const { id, estMinutes } = problem
@@ -63,20 +68,34 @@ export default function ProblemTimer({ problem, compact = false }) {
   const running = timer && !isStale(timer, now)
   const log = Array.isArray(entry.timeLog) ? entry.timeLog : []
   const last = log.at(-1)
+  const lastActive = useRef(Date.now())
+
+  function stopIfIdle() {
+    if (speaking()) lastActive.current = Date.now()
+    const active = validTimer(getEntry(id).timer)
+    const next = active && idleTimer(active, lastActive.current, Date.now())
+    if (next !== active) setTimer(id, next)
+  }
 
   function pause() {
+    stopIfIdle() // a laptop that slept ran no interval, so the time asleep is taken off here
     const active = validTimer(getEntry(id).timer)
     if (active && !active.pausedAt) setTimer(id, pauseTimer(active, new Date().toISOString()))
   }
 
   function resume() {
+    lastActive.current = Date.now()
+    setNow(Date.now())
     const active = validTimer(getEntry(id).timer)
     if (active?.pausedAt && !active.held) setTimer(id, resumeTimer(active, new Date().toISOString()))
   }
 
   function togglePause() {
+    lastActive.current = Date.now()
+    setNow(Date.now())
     const now = new Date().toISOString()
-    setTimer(id, timer.pausedAt ? resumeTimer(timer, now) : pauseTimer(timer, now, true))
+    const active = validTimer(getEntry(id).timer)
+    setTimer(id, active.pausedAt ? resumeTimer(active, now) : pauseTimer(active, now, true))
   }
 
   useEffect(() => {
@@ -109,6 +128,32 @@ export default function ProblemTimer({ problem, compact = false }) {
 
   useEffect(() => {
     if (!running) return
+    lastActive.current = Date.now()
+    let spot = ''
+    const onActivity = (event) => {
+      // the browser also reports a move when the page changes under a still mouse
+      if (event.type === 'pointermove') {
+        const at = `${event.screenX},${event.screenY}`
+        if (at === spot) return
+        const first = !spot
+        spot = at
+        if (first) return
+      }
+      stopIfIdle()
+      lastActive.current = Date.now()
+      if (validTimer(getEntry(id).timer)?.idle) resume()
+    }
+    const check = setInterval(stopIfIdle, 1000)
+    ACTIVITY.forEach((name) => window.addEventListener(name, onActivity, { capture: true, passive: true }))
+    return () => {
+      clearInterval(check)
+      ACTIVITY.forEach((name) => window.removeEventListener(name, onActivity, { capture: true }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, running])
+
+  useEffect(() => {
+    if (!running) return
     setNow(Date.now())
     const tick = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(tick)
@@ -138,28 +183,34 @@ export default function ProblemTimer({ problem, compact = false }) {
   if (running) {
     const remaining = remainingMs(timer, now)
     const level = timerLevel(remaining)
-    const paused = Boolean(timer.pausedAt)
+    const idle = Boolean(timer.idle)
+    const paused = Boolean(timer.pausedAt) && !idle
     const label = paused ? 'Resume timer' : 'Pause timer'
     const note = [
       paused && 'Paused, read only',
+      idle && 'Stopped, no activity for a minute, and that minute was given back',
       level === 'over' ? `over the ${timer.minutes} minute target` : `of ${timer.minutes} minutes`,
       timer.resets > 0 && plural(timer.resets, 'reset'),
       timer.pauses > 0 && plural(timer.pauses, 'pause'),
     ].filter(Boolean).join(' · ')
     return (
       <div className={`problem-timer${compact ? ' compact' : ''}`}>
-        <span className={`problem-clock mono${paused ? ' muted' : CLOCK_CLASS[level]}`} role="timer" title={note}>
+        <span className={`problem-clock mono${paused || idle ? ' muted' : CLOCK_CLASS[level]}`} role="timer" title={note}>
           {level === 'over' && '+'}
           {clock(remaining)}
         </span>
-        {(!compact || paused) && <span className="small muted problem-timer-note">{compact ? 'Paused' : note}</span>}
+        {(!compact || paused || idle) && (
+          <span className="small muted problem-timer-note" title={note}>
+            {compact ? (idle ? 'No activity' : 'Paused') : note}
+          </span>
+        )}
         {!compact && history}
         <button className="icon-btn timer-pause" onClick={togglePause} aria-label={label} title={label}>
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
             {paused ? <path d="M7 4.5v15l13-7.5z" /> : <path d="M6 4h4v16H6zM14 4h4v16h-4z" />}
           </svg>
         </button>
-        {!paused &&
+        {!paused && !idle &&
           (compact ? (
             <button className="icon-btn timer-pause" onClick={reset} aria-label="Reset timer" title="Reset timer">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">

@@ -190,7 +190,8 @@ export default function ProgressDashboardPage() {
 
       <p className="muted small pd-note">
         Time counts while a problem page is open and on screen, from opening it until it is solved. Leaving the page,
-        switching to another tab or minimising the window pauses the clock.
+        switching to another tab or minimising the window pauses the clock. So does a minute without activity, and that
+        minute is not counted.
         Review, mock interviews and flashcards are not timed, and solving an already solved problem is timed only with
         <i> Time it again</i>. The time for each problem is in the Solved table below.
       </p>
