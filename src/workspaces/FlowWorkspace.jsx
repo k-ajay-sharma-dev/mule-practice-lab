@@ -393,10 +393,7 @@ export default function FlowWorkspace({ problem, guided = true, clock }) {
             <NotesBox problemId={problem.id} />
           )}
         </div>
-      </section>
-
-      <section className="panel right-panel">
-        <SplitHandle onChange={setSplit} />
+        {/* under the scenario, so the canvas has the whole of the other side */}
         {guided && (
           <StepGuide
             steps={steps}
@@ -413,6 +410,10 @@ export default function FlowWorkspace({ problem, guided = true, clock }) {
             }
           />
         )}
+      </section>
+
+      <section className="panel right-panel">
+        <SplitHandle onChange={setSplit} />
         <FlowDesigner
           design={design}
           onChange={setDesign}

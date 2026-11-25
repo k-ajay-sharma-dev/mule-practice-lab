@@ -2093,44 +2093,61 @@
   background: var(--surface-2);
 }
 
-/* one small step at a time, above the designers */
+/* one small step at a time, under the scenario of a design problem */
 .step-guide {
   flex: none;
-  max-height: 34%;
-  padding: 8px 12px;
+  max-height: 40vh;
+  padding: 10px 14px;
   overflow-y: auto;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
 }
-.step-guide.slim {
-  padding: 4px 12px;
-}
-.step-guide.slim .step-guide-head {
-  flex-wrap: nowrap;
-}
-.step-guide-next {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.step-guide-actions {
-  flex: none;
-}
 .step-guide.off {
-  padding: 4px 12px;
+  padding: 4px 14px;
   background: none;
 }
+/* the step and its two icon buttons on one line, then what is next, then the help buttons */
 .step-guide-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 10px;
+  gap: 6px 8px;
+}
+.step-guide-head > b {
+  flex: 1;
+  min-width: 0;
+}
+.step-guide-next {
+  display: -webkit-box;
+  flex: 1 1 100%;
+  order: 1;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .step-guide-actions {
-  display: flex;
-  gap: 12px;
-  margin-left: auto;
+  display: contents;
+}
+.step-guide .sg-group,
+.step-guide-actions > .btn {
+  flex: 1 1 100%;
+  order: 2;
+}
+.step-guide .sg-group {
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow: visible;
+  border: none;
+  background: none;
+}
+.step-guide .sg-btn {
+  flex: 1 1 auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+}
+.step-guide .sg-btn.on {
+  border-color: var(--accent);
 }
 .step-dots {
   display: inline-flex;
@@ -2151,9 +2168,6 @@
 .step-guide-list {
   margin: 6px 0 0;
   font-size: 0.85rem;
-}
-.step-guide .btn {
-  margin-top: 6px;
 }
 
 /* ---------- Wider view ----------
@@ -3234,12 +3248,6 @@
     width: 38px;
     padding: 0;
   }
-  .step-guide-next {
-    display: none;
-  }
-  .step-guide-actions {
-    flex-wrap: wrap;
-  }
 }
 
 /* problem page: the title, its details and the buttons share one slim bar, so the workspace gets the height */
@@ -3591,14 +3599,7 @@
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
-/* ---------- step guide: one quiet line ---------- */
-.step-guide-head {
-  min-height: 32px;
-}
-.step-guide-actions {
-  align-items: center;
-  gap: 4px 14px;
-}
+/* ---------- step guide ---------- */
 .step-guide-actions .btn {
   height: 28px;
   padding: 0 12px;
@@ -3607,10 +3608,6 @@
   opacity: 0.75;
 }
 
-/* step guide buttons: one quiet group for help, then two icon buttons */
-.step-guide-actions {
-  gap: 6px;
-}
 .sg-group {
   display: inline-flex;
   overflow: hidden;

@@ -36,7 +36,7 @@ function Icon({ name, className = '' }) {
   )
 }
 
-// Sits above a designer and shows one small step at a time, ticking each requirement as the design meets it.
+// Sits under the scenario of a design problem and shows one small step at a time, ticking each requirement as the design meets it.
 // steps come from study/steps.js, results are live, and hintFor(index) says what a failing check still needs.
 // ladder(index) gives the three hints for a failing check ({ scenario, missing, piece }), and onHint(index, level)
 // records each one used.
@@ -152,7 +152,7 @@ export default function StepGuide({ steps, checks, results, hintFor, finish, lad
               aria-label={open ? 'Hide the checks of this step' : 'Show the checks of this step'}
               title={open ? 'Hide the checks of this step' : 'Show the checks of this step'}
             >
-              <Icon name={open ? 'up' : 'down'} />
+              <Icon name={open ? 'down' : 'up'} />
             </button>
           )}
           <button className="sg-icon" onClick={toggle} aria-label="Turn off the step guide" title="Turn off the step guide">

@@ -262,10 +262,7 @@ export default function ArchWorkspace({ problem, guided = true, clock }) {
             <NotesBox problemId={problem.id} />
           )}
         </div>
-      </section>
-
-      <section className="panel right-panel">
-        <SplitHandle onChange={setSplit} />
+        {/* under the scenario, so the canvas has the whole of the other side */}
         {guided && (
           <StepGuide
             steps={steps}
@@ -278,6 +275,10 @@ export default function ArchWorkspace({ problem, guided = true, clock }) {
             finish={checkButton}
           />
         )}
+      </section>
+
+      <section className="panel right-panel">
+        <SplitHandle onChange={setSplit} />
         <ArchDesigner
           diagram={diagram}
           onChange={setDiagram}

@@ -127,7 +127,7 @@ export function RevealGate({ entry, onReveal, children, parts }) {
       <div className="reveal-gate">
         <p className="small">
           <b>You are rebuilding this from memory.</b> The reference stays hidden until your design passes its checks.
-          Use the 💡 Hint above the canvas if you are stuck.
+          Use the 💡 Hint at the bottom of this panel if you are stuck.
         </p>
         <button className="btn btn-ghost" onClick={() => confirm('Open the reference before you finish the rebuild?') && onReveal()}>
           Open it anyway
@@ -139,7 +139,7 @@ export function RevealGate({ entry, onReveal, children, parts }) {
     <div className="reveal-gate">
       {children}
       <p className="muted small">
-        Stuck? Try the 💡 Hint above the canvas first ({used ? `${used} used so far` : 'none used yet'}). Each hint
+        Stuck? Try the 💡 Hint at the bottom of this panel first ({used ? `${used} used so far` : 'none used yet'}). Each hint
         shows one small step. Opening the reference puts this problem on your review list, to rebuild from memory.
       </p>
       {parts && <RevealParts parts={parts} />}

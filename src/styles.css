@@ -2926,16 +2926,6 @@ body.dragging-split {
     display: inline-flex;
   }
 }
-/* the checks of a step in one row instead of one per line */
-.arch-workspace .step-guide-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 18px;
-}
-.arch-workspace .step-guide-list li {
-  padding: 3px 0;
-  border: none;
-}
 .legend-sync,
 .legend-async {
   position: relative;
