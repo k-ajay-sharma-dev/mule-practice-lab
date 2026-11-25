@@ -3533,15 +3533,22 @@ html:has(.lab-page) {
   border-radius: 8px;
   background: var(--surface);
 }
-.problem-timer.compact .timer-run .problem-clock,
-.problem-timer.compact .timer-run .problem-timer-note {
+.problem-timer.compact .timer-run .problem-clock {
   margin-right: 6px;
+}
+/* paused: the same chip, with the play icon and the border in the accent colour */
+.problem-timer.compact .timer-run.paused {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 .problem-timer.compact .timer-run .timer-pause {
   border: none;
   border-radius: 6px;
   background: none;
   color: var(--text);
+}
+.problem-timer.compact .timer-run.paused .timer-pause:first-of-type {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
 }
 .problem-timer.compact .timer-run .timer-pause:hover {
   background: var(--surface-2);

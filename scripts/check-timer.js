@@ -94,6 +94,12 @@ assert.equal(resumeTimer(t, at(5)), t) // already running
 assert.equal(resumeTimer(pauseTimer(t, at(10)), at(10.05)).pauses, 0) // a page reload is not a pause
 
 // a reset still keeps the real total across a pause
+// a reset while paused stays paused at the full time, and the pause is not counted in the total
+const pausedReset = resetTimer(pauseTimer(t, at(10), true), at(60))
+assert.equal(remainingMs(pausedReset, ms(90)), 30 * 60000)
+assert.ok(pausedReset.held && pausedReset.pausedAt)
+assert.equal(remainingMs(resumeTimer(pausedReset, at(100)), ms(105)), 25 * 60000)
+assert.equal(finishTimer({ timer: resumeTimer(pausedReset, at(100)) }, at(105)).timeLog[0].totalSeconds, 15 * 60)
 const both = resetTimer(resumeTimer(pauseTimer(t, at(10)), at(60)), at(70))
 const bothLog = finishTimer({ timer: both }, at(75)).timeLog[0]
 assert.equal(bothLog.seconds, 300)

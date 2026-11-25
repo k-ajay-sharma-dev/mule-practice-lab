@@ -19,7 +19,13 @@ export const BRIEF_MS = 5000 // a page reload pauses too, and that is not steppi
 
 export const startTimer = (minutes, now) => ({ firstStartedAt: now, startedAt: now, minutes, resets: 0, pauses: 0 })
 
-export const resetTimer = (timer, now) => ({ ...timer, startedAt: now, resets: timer.resets + 1 })
+// A reset while paused stays paused, at the full time. The pause so far is taken out of the total, as a resume would do.
+export function resetTimer(timer, now) {
+  const next = { ...timer, startedAt: now, resets: timer.resets + 1 }
+  if (!timer.pausedAt) return next
+  const away = Math.max(0, Date.parse(now) - Date.parse(timer.pausedAt))
+  return { ...next, pausedAt: now, firstStartedAt: new Date(Date.parse(timer.firstStartedAt) + away).toISOString() }
+}
 
 // A saved attempt keeps the target it started with. When the problem's estimate changes later, the attempt moves to
 // the new target and keeps the time already spent, so the clock and the estimate on the page always agree.
