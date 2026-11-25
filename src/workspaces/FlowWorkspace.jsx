@@ -230,7 +230,11 @@ export default function FlowWorkspace({ problem, guided = true, clock }) {
     updateEntry(problem.id, { checkedPoints: next })
   }
 
-  const passed = results?.filter((r) => r.pass).length ?? 0
+  // The Checks tab follows the design: what is met turns green at once, and the rest turn red after the first Check.
+  // Nothing is recorded and the problem is not solved until Check is pressed. A mock interview shows only what Check found.
+  const shown = !guided ? results : results || countComponents(design) > 0 ? live : null
+  const passed = shown?.filter((r) => r.pass).length ?? 0
+  const solvedNow = passed === checks.length && (results ? results.every((r) => r.pass) : entry.status === 'solved' && !entry.rebuilding)
 
   return (
     <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}${full === 'mine' ? ` work-full${requirement.open ? ' with-req' : ''}` : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
@@ -261,7 +265,7 @@ export default function FlowWorkspace({ problem, guided = true, clock }) {
         <div className="panel-body">
           {tab === 'scenario' && (
             <>
-              {guided && <RebuildBanner entry={entry} onRebuild={() => startRebuild(problem.id, entry, () => setDesign(emptyDesign()))} />}
+              {guided && <RebuildBanner entry={entry} onRebuild={() => startRebuild(problem.id, entry, () => (setDesign(emptyDesign()), setResults(null)))} />}
               <Markdown>{problem.description}</Markdown>
               {guided && <PlanBox key={problem.id} problemId={problem.id} kind="flow" saved={entry.plan} started={countComponents(design) > 0} />}
               <SystemsList design={problem.referenceFlow} />
@@ -283,19 +287,20 @@ export default function FlowWorkspace({ problem, guided = true, clock }) {
           {tab === 'checks' &&
             (checks.length ? (
               <div className="stack">
-                {results && (
-                  <div className={`match-banner ${passed === checks.length ? 'pass' : 'fail'}`}>
-                    {passed} / {checks.length} requirements met{passed === checks.length && ' — solved!'}
+                {shown && (
+                  <div className={`match-banner ${passed === checks.length ? 'pass' : results ? 'fail' : ''}`} role="status">
+                    {passed} / {checks.length} requirements met
+                    {solvedNow ? ': solved!' : passed === checks.length ? '. Press Check to finish.' : guided && <span className="muted small"> · follows your changes</span>}
                   </div>
                 )}
-                {results && passed === checks.length && <WhyPassed checks={checks} metBy={(c) => metBy(design, c)} />}
+                {solvedNow && <WhyPassed checks={checks} metBy={(c) => metBy(design, c)} />}
                 <ul className="check-list">
                   {checks.map((c, i) => {
-                    const r = results?.[i]
+                    const r = shown?.[i]
                     const failing = guided && countComponents(design) > 0 && !live[i]?.pass
                     return (
-                      <li key={i} className={r ? (r.pass ? 'pass' : 'fail') : ''}>
-                        <span className="mark">{r ? (r.pass ? '✓' : '✗') : '○'}</span>
+                      <li key={i} className={r?.pass ? 'pass' : r && results ? 'fail' : ''}>
+                        <span className="mark">{r?.pass ? '✓' : r && results ? '✗' : '○'}</span>
                         <span className="check-body">
                           <span className="check-line">
                             {c.label}
@@ -305,7 +310,7 @@ export default function FlowWorkspace({ problem, guided = true, clock }) {
                               </button>
                             )}
                           </span>
-                          {guided && r && !r.pass && finding !== i && <span className="check-hint muted small">{missingHint(design, c.rule)}</span>}
+                          {guided && results && r && !r.pass && finding !== i && <span className="check-hint muted small">{missingHint(design, c.rule)}</span>}
                           {finding === i && findInfo && <FindIt label={c.label} info={findInfo} onClose={() => setFinding(null)} />}
                         </span>
                       </li>
