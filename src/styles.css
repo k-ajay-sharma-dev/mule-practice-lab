@@ -2075,9 +2075,9 @@ textarea:focus {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -11px;
+  left: 0;
   z-index: 5;
-  width: 8px;
+  width: 7px;
   border-radius: 4px;
   cursor: col-resize;
   touch-action: none;
@@ -2251,7 +2251,6 @@ body.dragging-split {
   flex: 1;
   min-height: 0;
 }
-.app .workspace.flow-workspace.full-mine .right-panel,
 .app .workspace.flow-workspace.full-both .right-panel {
   position: fixed;
   inset: 3vh 2vw;
@@ -2262,32 +2261,112 @@ body.dragging-split {
   overflow: hidden;
   box-shadow: 0 20px 60px rgb(0 0 0 / 0.5);
 }
+/* full screen of both designers: a bar on top, then the requirement when it is wanted, then the canvas */
+.app .workspace.flow-workspace.work-full {
+  position: fixed;
+  inset: 0;
+  z-index: 41;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0 8px;
+  width: auto;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+}
+.app .workspace.flow-workspace.work-full > .panel {
+  grid-row: 2;
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+.app .workspace.flow-workspace.work-full > .left-panel {
+  z-index: 6;
+}
+.app .workspace.flow-workspace.work-full:not(.with-req) > .left-panel {
+  display: none;
+}
+.app .workspace.flow-workspace.work-full .left-panel .panel-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+.full-bar {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 5px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.full-req {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+.full-req.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.full-title {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.full-clock {
+  flex-shrink: 0;
+}
+.full-clock .mock-timer {
+  font-size: 1rem;
+}
+.full-bar-end {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
 @media (min-width: 1001px) {
-  .app .workspace.flow-workspace.full-mine .right-panel {
-    inset: 0;
-    border: none;
-    border-radius: 0;
+  .app .workspace.flow-workspace.work-full.with-req {
+    grid-template-columns: minmax(300px, var(--left-w, 30%)) minmax(0, 1fr);
   }
-  .flow-workspace.full-mine .split-handle {
+  .app .workspace.flow-workspace.work-full.with-req > .right-panel {
+    grid-column: 2;
+    border-left: 1px solid var(--border);
+  }
+  .app .workspace.flow-workspace.work-full.with-req .split-handle {
+    display: block;
+  }
+  .app .workspace.flow-workspace.work-full:not(.with-req) .split-handle {
     display: none;
   }
-  .app .workspace.flow-workspace.full-mine.with-drawer .left-panel {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 42;
-    display: flex;
-    flex-direction: column;
-    width: min(480px, 92vw);
-    border-radius: 0 14px 14px 0;
-    box-shadow: 0 0 48px rgb(0 0 0 / 0.55);
+}
+@media (max-width: 700px) {
+  .full-bar {
+    gap: 8px;
   }
-  .app .workspace.flow-workspace.full-mine.with-drawer .left-panel .panel-body {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    overflow-y: auto;
+  .full-title,
+  .full-bar .copy-ai,
+  .full-bar .problem-timer-note {
+    display: none;
   }
 }
 .flow-workspace.full-both .flow-full-ref {
@@ -2820,45 +2899,6 @@ body.dragging-split {
   padding: 3px 0;
   border: none;
 }
-/* full screen */
-.drawer-close {
-  margin-left: auto;
-  font-size: 1.1rem;
-}
-@media (min-width: 1001px) {
-  .app .workspace.arch-workspace.arch-full .right-panel {
-    position: fixed;
-    inset: 0;
-    z-index: 41;
-    height: auto;
-    min-height: 0;
-    border: none;
-    border-radius: 0;
-    overflow: hidden;
-  }
-  .app .workspace.arch-workspace.arch-full .split-handle,
-  .app .workspace.arch-workspace.arch-full .left-panel {
-    display: none;
-  }
-  .app .workspace.arch-workspace.arch-full.with-drawer .left-panel {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 42;
-    display: flex;
-    flex-direction: column;
-    width: min(460px, 92vw);
-    border-radius: 0 14px 14px 0;
-    box-shadow: 0 0 48px rgb(0 0 0 / 0.55);
-  }
-  .app .workspace.arch-workspace.arch-full.with-drawer .left-panel .panel-body {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    overflow-y: auto;
-  }
-}
 .legend-sync,
 .legend-async {
   position: relative;
@@ -2891,10 +2931,7 @@ body.dragging-split {
   .panel-toggle.btn {
     display: none;
   }
-  .arch-full-btn.btn,
-  .arch-full-only.btn,
-  .drawer-btn.btn,
-  .drawer-close {
+  .arch-full-btn.btn {
     display: none;
   }
 }

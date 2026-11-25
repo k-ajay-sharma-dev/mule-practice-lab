@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import CopyForAi from '../components/CopyForAi.jsx'
+import { FullBar, isShiftKey, useRequirement } from '../components/designer/FullScreen.jsx'
+import { FullScreenTimer } from '../components/ProblemTimer.jsx'
 import FlowDesigner from '../components/flow/FlowDesigner.jsx'
 import RunPanel from '../components/flow/RunPanel.jsx'
 import FollowUps from '../components/FollowUps.jsx'
@@ -118,7 +120,7 @@ function SystemsList({ design }) {
 }
 
 // guided adds the step guide and the hints on failed checks. A mock interview turns it off.
-export default function FlowWorkspace({ problem, guided = true }) {
+export default function FlowWorkspace({ problem, guided = true, clock }) {
   const entry = useEntry(problem.id)
   const [design, setDesign, history] = useUndo(() => restoreDesign(entry.flow))
   const [tab, setTab] = useProblemTab(problem.id, 'scenario', TABS)
@@ -132,38 +134,48 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const [runMarks, setRunMarks] = useState(null)
   const [finding, setFinding] = useState(null) // the check whose Find it is open
 
-  // in full screen the scenario and the checks slide in over the canvas when wanted
-  const [drawer, setDrawer] = useState(false)
+  // in full screen the scenario and the checks sit beside the canvas when wanted
+  const requirement = useRequirement()
+  function toggleRequirement() {
+    if (!requirement.open) setTab('scenario')
+    requirement.toggle()
+  }
+  function openMine() {
+    requirement.start()
+    setFull('mine')
+  }
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.closest?.('input, textarea, select, [contenteditable]')) return
-      if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'f') {
+      if (isShiftKey(e, 'f')) {
         e.preventDefault()
-        setFull(full ? null : 'mine')
-        setDrawer(false)
+        if (full) setFull(null)
+        else openMine()
+      } else if (isShiftKey(e, 'r') && full === 'mine') {
+        e.preventDefault()
+        toggleRequirement()
       } else if (e.key === 'Escape' && full) {
-        // Esc first closes the drawer. Inside a designer it cancels placing or a selection, so it does not close the view
-        if (drawer) setDrawer(false)
-        else if (!e.target.closest?.('.designer')) setFull(null)
+        // inside a designer Esc cancels placing or a selection, so it does not close the view
+        if (!e.target.closest?.('.designer')) setFull(null)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [full, drawer])
-  // on the wide screen the checks open in the drawer
+  })
+  // in full screen the checks open beside the canvas
   function showTab(key) {
     setTab(key)
-    if (full === 'mine') setDrawer(true)
+    if (full === 'mine') requirement.show()
   }
 
   const fullButton = (which, label) => (
-    <button className="btn btn-ghost btn-sm full-btn" onClick={() => { setFull(full === which ? null : which); setDrawer(false) }} title={full === which ? 'Close full screen (Esc or Shift+F)' : label} aria-label={full === which ? 'Close full screen' : label}>
+    <button className="btn btn-ghost btn-sm full-btn" onClick={() => (full === which ? setFull(null) : which === 'mine' ? openMine() : setFull(which))} title={full === which ? 'Close full screen (Esc or Shift+F)' : label} aria-label={full === which ? 'Close full screen' : label}>
       <FullIcon open={full === which} />
       <span>{full === which ? 'Close' : 'Full screen'}</span>
     </button>
   )
   const sideButton = (
-    <button className="btn btn-ghost btn-sm full-btn" onClick={() => { setFull(full === 'both' ? null : 'both'); setDrawer(false) }} title={full === 'both' ? 'Close side by side (Esc)' : 'The reference and your design side by side'} aria-label={full === 'both' ? 'Close side by side' : 'Open the reference and your design side by side'}>
+    <button className="btn btn-ghost btn-sm full-btn" onClick={() => setFull(full === 'both' ? null : 'both')} title={full === 'both' ? 'Close side by side (Esc)' : 'The reference and your design side by side'} aria-label={full === 'both' ? 'Close side by side' : 'Open the reference and your design side by side'}>
       {full === 'both' ? <FullIcon open /> : <SideIcon />}
       <span>{full === 'both' ? 'Close' : 'Side by side'}</span>
     </button>
@@ -221,7 +233,23 @@ export default function FlowWorkspace({ problem, guided = true }) {
   const passed = results?.filter((r) => r.pass).length ?? 0
 
   return (
-    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}${full === 'mine' && drawer ? ' with-drawer' : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
+    <div className={`workspace flow-workspace${full ? ` full-${full}` : ''}${full === 'mine' ? ` work-full${requirement.open ? ' with-req' : ''}` : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
+      {full === 'mine' && (
+        <FullBar
+          problem={problem}
+          open={requirement.open}
+          onToggle={toggleRequirement}
+          clock={clock ?? (guided && <FullScreenTimer id={problem.id} />)}
+          onClose={() => setFull(null)}
+        >
+          {checks.length > 0 && (
+            <button className="btn btn-sm btn-primary" onClick={checkDesign} disabled={!countComponents(design)}>
+              Check
+            </button>
+          )}
+          {guided && <CopyForAi id={problem.id} className="btn btn-sm" />}
+        </FullBar>
+      )}
       <section className="panel left-panel">
         <div className="panel-tabs">
           {TABS.filter((t) => t !== 'run' || problem.simulation?.tests?.length).map((t) => (
@@ -229,11 +257,6 @@ export default function FlowWorkspace({ problem, guided = true }) {
               {t === 'checks' && checks.length ? `Checks (${checks.length})` : t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
-          {full === 'mine' && (
-            <button className="sg-icon drawer-close" onClick={() => setDrawer(false)} aria-label="Close the scenario panel" title="Close (Esc)">
-              ×
-            </button>
-          )}
         </div>
         <div className="panel-body">
           {tab === 'scenario' && (
@@ -402,21 +425,9 @@ export default function FlowWorkspace({ problem, guided = true }) {
                   ▶ Run tests
                 </button>
               )}
-              {full === 'mine' && (
-                <>
-                  <button className={`btn btn-sm drawer-btn${drawer ? ' active' : ''}`} onClick={() => setDrawer(!drawer)} aria-pressed={drawer} title="Open the scenario, the checks and the notes over the canvas">
-                    Scenario and checks
-                  </button>
-                  {checks.length > 0 && (
-                    <button className="btn btn-sm btn-primary drawer-btn" onClick={checkDesign} disabled={!countComponents(design)}>
-                      Check
-                    </button>
-                  )}
-                </>
-              )}
-              {full && guided && <CopyForAi id={problem.id} className="btn btn-sm" />}
+              {full === 'both' && guided && <CopyForAi id={problem.id} className="btn btn-sm" />}
               {hasReference && sideButton}
-              {full === 'both' ? null : fullButton('mine', 'Open your design full screen (Shift+F)')}
+              {full === 'both' || full === 'mine' ? null : fullButton('mine', 'Open your design full screen (Shift+F)')}
             </>
           }
         />
@@ -436,7 +447,7 @@ export default function FlowWorkspace({ problem, guided = true }) {
         )}
       </section>
 
-      {full && <div className="io-backdrop" onClick={() => setFull(null)} aria-hidden="true" />}
+      {full && full !== 'mine' && <div className="io-backdrop" onClick={() => setFull(null)} aria-hidden="true" />}
       {hasReference && (full === 'reference' || full === 'both') && (
         <section className="flow-full-ref" role="dialog" aria-label="Reference design">
           <div className="flow-full-label">

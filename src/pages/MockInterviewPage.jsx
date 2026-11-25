@@ -326,12 +326,16 @@ function Running({ session, progress, onSelect, onFinish }) {
   const over = onThis > share[session.current] * 60000
   const fmt = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
+  const clock = (
+    <span className={`mock-timer mono${remaining < 5 * 60000 ? ' err-text' : ''}${remaining < BLINK_MS ? ' timer-blink' : ''}`}>
+      {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+    </span>
+  )
+
   return (
     <div className="mock-page mock-running">
       <div className="mock-bar">
-        <span className={`mock-timer mono${remaining < 5 * 60000 ? ' err-text' : ''}${remaining < BLINK_MS ? ' timer-blink' : ''}`}>
-          {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
-        </span>
+        {clock}
         <div className="mock-steps">
           {session.items.map((itemId, i) => {
             const item = problemById.get(itemId)
@@ -369,7 +373,7 @@ function Running({ session, progress, onSelect, onFinish }) {
           <p className="muted small">
             Treat the <b>Explain it</b> and reference tabs as off-limits until the round is over — that is the interview.
           </p>
-          <ProblemWorkspace id={p.id} guided={false} />
+          <ProblemWorkspace id={p.id} guided={false} clock={clock} />
         </>
       )}
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 // Stops everything that changes the work, in every workspace, without each one needing its own read-only mode. These
 // listeners run in the capture phase, so the editors and designers underneath never see the event.
-const READING = '.md, .panel-tab, .sub-tabs, summary, a, .copy-btn, .copy-ai, .designer.read-only'
+const READING = '.md, .panel-tab, .sub-tabs, summary, a, .copy-btn, .copy-ai, .designer.read-only, .problem-timer, .full-view'
 const POINTER_EVENTS = ['pointerdown', 'mousedown', 'click', 'dblclick', 'contextmenu', 'dragstart']
 const EDIT_EVENTS = ['beforeinput', 'paste', 'cut', 'drop']
 const MOVING_KEYS = new Set(['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', 'Escape'])
@@ -18,7 +18,9 @@ const blockPointer = (event) => {
 
 const blockKey = (event) => {
   const copying = (event.ctrlKey || event.metaKey) && ['a', 'c'].includes(event.key.toLowerCase())
-  if (!MOVING_KEYS.has(event.key) && !copying) stop(event)
+  // the clock and the full screen buttons have to answer the keyboard too, or a pause could not be ended
+  const pressing = ['Enter', ' '].includes(event.key) && event.target.closest?.('.problem-timer, .full-view')
+  if (!MOVING_KEYS.has(event.key) && !copying && !pressing) stop(event)
 }
 
 export default function ReadOnlyLock({ locked, children }) {

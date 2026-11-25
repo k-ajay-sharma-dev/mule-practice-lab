@@ -4,6 +4,8 @@ import { archFindIt, archMetBy } from '../arch/findit.js'
 import WhyPassed from '../components/WhyPassed.jsx'
 import { recordMistake } from '../store/mistakes.js'
 import CopyForAi from '../components/CopyForAi.jsx'
+import { FullBar, isShiftKey, useRequirement } from '../components/designer/FullScreen.jsx'
+import { FullScreenTimer } from '../components/ProblemTimer.jsx'
 import ArchDesigner from '../components/arch/ArchDesigner.jsx'
 import ArchRunPanel, { runOverlay } from '../components/arch/ArchRunPanel.jsx'
 import ExplainPanel from '../components/ExplainPanel.jsx'
@@ -61,7 +63,7 @@ function Landscape({ reference }) {
 
 // Architecture problems with a `diagram` exercise: draw the solution on the Architecture Designer and
 // check it against the rules in `diagram.checks`.
-export default function ArchWorkspace({ problem, guided = true }) {
+export default function ArchWorkspace({ problem, guided = true, clock }) {
   const entry = useEntry(problem.id)
   const [diagram, setDiagram, history] = useUndo(() => restoreDiagram(entry.diagram))
   const [tab, setTab] = useProblemTab(problem.id, 'scenario', TABS.map(([k]) => k))
@@ -82,32 +84,37 @@ export default function ArchWorkspace({ problem, guided = true }) {
   )
   const flags = useMemo(() => (findInfo ? Object.fromEntries(findInfo.mine.map((m) => [m.id, [checks[finding].label]])) : null), [findInfo, finding, checks])
 
-  // full screen: the canvas takes the window, and the scenario and checks slide in over it when wanted
+  // full screen: the canvas takes the window, and the scenario and checks sit beside it when wanted
   const [full, setFull] = useState(false)
-  const [drawer, setDrawer] = useState(false)
+  const requirement = useRequirement()
+  function toggleRequirement() {
+    if (!requirement.open) setTab('scenario')
+    requirement.toggle()
+  }
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.closest?.('input, textarea, select, [contenteditable]')) return
-      if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'f' && window.innerWidth > 1000) {
+      if (isShiftKey(e, 'f') && (full || window.innerWidth > 1000)) {
         e.preventDefault()
-        setFull(!full)
-        setDrawer(false)
+        toggleFull()
+      } else if (isShiftKey(e, 'r') && full) {
+        e.preventDefault()
+        toggleRequirement()
       } else if (e.key === 'Escape' && full) {
-        // Esc first closes the drawer, then the full screen; inside the designer it cancels connecting
-        if (drawer) setDrawer(false)
-        else if (!e.target.closest?.('.designer')) setFull(false)
+        // inside the designer Esc cancels connecting, so it does not close the view
+        if (!e.target.closest?.('.designer')) setFull(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [full, drawer])
+  })
   function showTab(key) {
     setTab(key)
-    if (full) setDrawer(true)
+    if (full) requirement.show()
   }
   function toggleFull() {
+    if (!full) requirement.start()
     setFull(!full)
-    setDrawer(false)
   }
 
   useSidebarRoom()
@@ -140,7 +147,21 @@ export default function ArchWorkspace({ problem, guided = true }) {
   )
 
   return (
-    <div className={`workspace flow-workspace arch-workspace${full ? ' arch-full' : ''}${full && drawer ? ' with-drawer' : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
+    <div className={`workspace flow-workspace arch-workspace${full ? ` work-full${requirement.open ? ' with-req' : ''}` : ''}`} style={split ? { '--left-w': `${split}%` } : undefined}>
+      {full && (
+        <FullBar
+          problem={problem}
+          open={requirement.open}
+          onToggle={toggleRequirement}
+          clock={clock ?? (guided && <FullScreenTimer id={problem.id} />)}
+          onClose={toggleFull}
+        >
+          <button className="btn btn-sm btn-primary" onClick={check} disabled={!diagram.nodes.length}>
+            Check
+          </button>
+          {guided && <CopyForAi id={problem.id} className="btn btn-sm" />}
+        </FullBar>
+      )}
       <section className="panel left-panel">
         <div className="panel-tabs">
           {TABS.filter(([key]) => key !== 'run' || hasRuns).map(([key, label]) => (
@@ -148,11 +169,6 @@ export default function ArchWorkspace({ problem, guided = true }) {
               {key === 'checks' ? `${label} (${checks.length})` : label}
             </button>
           ))}
-          {full && (
-            <button className="sg-icon drawer-close" onClick={() => setDrawer(false)} aria-label="Close the scenario panel" title="Close (Esc)">
-              ×
-            </button>
-          )}
         </div>
         <div className="panel-body">
           {tab === 'scenario' && (
@@ -264,25 +280,14 @@ export default function ArchWorkspace({ problem, guided = true }) {
           overlay={overlay}
           flags={flags}
           toolbarEnd={
-            <>
-              {full && (
-                <>
-                  <button className={`btn btn-sm arch-full-only${drawer ? ' active' : ''}`} onClick={() => setDrawer(!drawer)} aria-pressed={drawer} title="Open the scenario, the checks and the test runs over the canvas">
-                    Scenario and checks
-                  </button>
-                  {guided && <CopyForAi id={problem.id} className="btn btn-sm arch-full-only" />}
-                  <button className="btn btn-sm btn-primary arch-full-only" onClick={check} disabled={!diagram.nodes.length}>
-                    Check
-                  </button>
-                </>
-              )}
-              <button className="btn btn-sm arch-full-btn" onClick={toggleFull} aria-pressed={full} title={full ? 'Close full screen (Esc or Shift+F)' : 'Work on the diagram full screen (Shift+F)'}>
+            !full && (
+              <button className="btn btn-sm arch-full-btn" onClick={toggleFull} title="Work on the diagram full screen (Shift+F)">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d={full ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'} />
+                  <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
                 </svg>
-                {full ? 'Close' : 'Full screen'}
+                Full screen
               </button>
-            </>
+            )
           }
         />
       </section>
