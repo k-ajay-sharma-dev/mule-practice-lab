@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { categoryBySlug } from '../data/categories.js'
 import { problemById, problems } from '../data/problems.js'
 import { currentStage, PHASES, phaseProblems } from '../data/roadmap.js'
@@ -59,6 +59,7 @@ function nextUnsolved(p, progress) {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const progress = useProgress()
   const review = useReview()
   const sync = useSyncStatus()
@@ -82,6 +83,14 @@ export default function DashboardPage() {
   const activePhase = currentStage(phases)
   const nextUp = activePhase?.list.find((p) => !isSolved(p))
 
+  // any section and any level; when everything is solved, any problem at all
+  function openRandom() {
+    const open = problems.filter((p) => !isSolved(p))
+    const pool = open.length ? open : problems
+    const p = pool[Math.floor(Math.random() * pool.length)]
+    navigate(`/${p.category}/${p.id}`)
+  }
+
   const today = todayKey()
   const due = Object.entries(review)
     .filter(([id, r]) => r.due <= today && problemById.has(id))
@@ -103,6 +112,12 @@ export default function DashboardPage() {
                 Continue: {nextUp.title} →
               </Link>
             )}
+            <button className="btn btn-ghost" onClick={openRandom} title="Open a problem you have not solved, from any section">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 7h3.5c5 0 5.5 10 11 10H21M3 17h3.5c1.9 0 3.1-1.4 4.1-3.2M13.4 10.2c1-1.8 2.2-3.2 4.1-3.2H21M18 4l3 3-3 3M18 14l3 3-3 3" />
+              </svg>
+              Random problem
+            </button>
             <Link className="btn btn-ghost" to="/dashboard">
               See your dashboard
             </Link>
