@@ -1,10 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import WideToggle from '../components/WideToggle.jsx'
-import ApiManagerScreen from './lab/ApiManagerScreen.jsx'
-import ExchangeScreen from './lab/ExchangeScreen.jsx'
 import GuidedLabsScreen from './lab/GuidedLabsScreen.jsx'
 import PipelineScreen from './lab/PipelineScreen.jsx'
-import RuntimeManagerScreen from './lab/RuntimeManagerScreen.jsx'
 import './lab/platform-skin.css'
 
 const OpenConsole = lazy(() => import('./anypoint/PlatformLab.jsx').then((m) => ({ default: m.OpenConsole })))
@@ -14,42 +11,11 @@ const ConsoleScreen = () => (
   </Suspense>
 )
 
-// A product page of the console look: Anypoint's light top bar with the product name, the screen below it.
-const product = (Screen, name, short, colour) =>
-  function ProductScreen() {
-    return (
-      <div className="apx lab-skin-light">
-        <div className="apx-top">
-          <span className="apx-burger" aria-hidden="true">
-            ☰
-          </span>
-          <span className="apx-brand">Anypoint Platform</span>
-          <span className="apx-sep" aria-hidden="true">
-            ›
-          </span>
-          <span className="apx-product">
-            <span className="apx-dot" style={{ background: colour }} aria-hidden="true">
-              {short}
-            </span>
-            {name}
-          </span>
-          <span className="apx-env">
-            Business group <b>Harbor Lab</b>
-          </span>
-        </div>
-        <div className="apx-body">
-          <Screen />
-        </div>
-      </div>
-    )
-  }
-
+// API Manager, Runtime Manager and Exchange live in the console. Their deeper drills are under Practice drills on
+// the console's home page.
 const VIEWS = [
   ['console', 'Anypoint console', ConsoleScreen],
   ['guided', 'Guided Labs', GuidedLabsScreen],
-  ['api', 'API Manager', product(ApiManagerScreen, 'API Manager', 'AM', '#0f7b6c')],
-  ['runtime', 'Runtime Manager', product(RuntimeManagerScreen, 'Runtime Manager', 'RM', '#2a5bb8')],
-  ['exchange', 'Exchange', product(ExchangeScreen, 'Exchange', 'E', '#0176d3')],
   ['pipeline', 'CI/CD', PipelineScreen],
 ]
 
@@ -64,8 +30,9 @@ export default function PlatformLabPage() {
         <WideToggle />
       </div>
       <p className="muted">
-        Practise Anypoint Platform tasks and see their effect. The console follows the pages of the platform. The other tabs
-        go deeper into one part, and CI/CD runs the release pipeline as a GitHub Actions workflow. This is a simulator based
+        Practise Anypoint Platform tasks and see their effect. The console follows the pages of the platform, with deeper
+        practice drills on its home page. Guided Labs walk you through a task step by step, and CI/CD runs the release
+        pipeline as a GitHub Actions workflow. This is a simulator based
         on the MuleSoft documentation. It is not made by MuleSoft, is not connected to Anypoint Platform or GitHub and sends
         nothing over the network.
       </p>

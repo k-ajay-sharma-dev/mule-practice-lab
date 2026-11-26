@@ -8,7 +8,29 @@ import RuntimeManager from './RuntimeManager.jsx'
 import { ApiClient, Backends, Inbox, Mq, Studio } from './Tools.jsx'
 import Visualizer from './Visualizer.jsx'
 import { Btn } from './parts.jsx'
+import ApiManagerScreen from '../lab/ApiManagerScreen.jsx'
+import ExchangeScreen from '../lab/ExchangeScreen.jsx'
+import RuntimeManagerScreen from '../lab/RuntimeManagerScreen.jsx'
 import './anypoint.css'
+import '../lab/platform-skin.css'
+
+// Focused drills that go deeper into one product. Each keeps its own practice data, apart from the console's.
+const drill = (Screen, text) =>
+  function Drill({ go }) {
+    return (
+      <main className="pc-main pc-drill">
+        <p className="pc-drill-note">
+          {text} This drill has its own practice data, so nothing here changes the console's apps and APIs.{' '}
+          <button type="button" className="pc-link" onClick={() => go({ product: 'Home' })}>
+            Back to home
+          </button>
+        </p>
+        <div className="lab-skin-light pc-drill-body">
+          <Screen />
+        </div>
+      </main>
+    )
+  }
 
 const PRODUCTS = {
   'Design Center': DesignCenter,
@@ -22,16 +44,23 @@ const PRODUCTS = {
   'API client': ApiClient,
   Backends,
   Inbox,
+  'Policy test bench': drill(ApiManagerScreen, 'Apply policies in order, then send requests and see which policy decides.'),
+  'Deployment drill': drill(RuntimeManagerScreen, 'Deploy with properties, scale, read the logs and roll back.'),
+  'Exchange versioning': drill(ExchangeScreen, 'Publish versions, change their lifecycle and see which numbers stay reserved.'),
 }
 const MENU = [
   ['APIs', [['Design Center', 'Design, mock and publish API specifications.'], ['Exchange', 'Discover and share assets.'], ['API Manager', 'Manage, secure and watch API instances.']]],
   ['Runtimes', [['Runtime Manager', 'Deploy and manage applications.'], ['MQ', 'Queues and messages.'], ['Monitoring', 'Dashboards, alerts and logs.'], ['Visualizer', 'The map of your applications.']]],
   ['Lab tools', [['Anypoint Studio', 'The steps that link an app to an API.'], ['API client', 'Send requests.'], ['Backends', 'Stop or slow a system.'], ['Inbox', 'Mail that alerts send.']]],
+  ['Practice drills', [['Policy test bench', 'Policy order, quotas and the headers a request gets.'], ['Deployment drill', 'Properties, replicas, logs and rollback.'], ['Exchange versioning', 'Versions, lifecycle and reserved numbers.']]],
 ]
-const COLOR = { 'Design Center': '#0b5cab', Exchange: '#0176d3', 'API Manager': '#0b827c', 'Runtime Manager': '#2e5bba', MQ: '#7f56d9', Monitoring: '#1b6fd0', Visualizer: '#0f6e84', Backends: '#8a4b08', 'Anypoint Studio': '#525f7f', 'API client': '#b86e00', Inbox: '#525f7f' }
+const COLOR = {
+  'Policy test bench': '#0b827c',
+  'Deployment drill': '#2e5bba',
+  'Exchange versioning': '#0176d3', 'Design Center': '#0b5cab', Exchange: '#0176d3', 'API Manager': '#0b827c', 'Runtime Manager': '#2e5bba', MQ: '#7f56d9', Monitoring: '#1b6fd0', Visualizer: '#0f6e84', Backends: '#8a4b08', 'Anypoint Studio': '#525f7f', 'API client': '#b86e00', Inbox: '#525f7f' }
 const Badge = ({ name }) => (
   <span className="pc-badge" style={{ background: COLOR[name] ?? '#0176d3' }} aria-hidden="true">
-    {name.split(' ').map((w) => w[0]).join('').slice(0, 2)}
+    {name.split(' ').map((w) => w[0].toUpperCase()).join('').slice(0, 2)}
   </span>
 )
 

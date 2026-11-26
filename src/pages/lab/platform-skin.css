@@ -1,4 +1,4 @@
-/* The Platform Lab tabs are light, like the platforms they copy: the Anypoint tabs take Anypoint's colours, and the
+/* The Platform Lab is light, like the platforms it copies: the console's practice drills take Anypoint's colours, and the
    CI/CD tab takes the look of a GitHub Actions page. The site's own tokens are redefined inside, so the shared lab
    pieces (buttons, inputs, panels, logs) follow without their own rules. */
 .lab-skin-light {
@@ -22,71 +22,30 @@
   background: var(--bg);
 }
 
-/* ---------- Anypoint tabs ---------- */
-.apx {
-  margin-top: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
-}
-.apx-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 56px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border);
-  background: #fff;
+/* ---------- Practice drills inside the console ---------- */
+.pc-drill-note {
+  margin: 0 0 14px !important;
+  padding: 10px 14px !important;
+  border: 1px solid #c9dcf3;
+  border-radius: 6px;
+  background: #f0f6fd;
   color: #32325d;
 }
-.apx-burger {
-  font-size: 18px;
-  color: #32325d;
+.pc-drill-body {
+  background: transparent;
+  font-size: 14px;
 }
-.apx-brand {
-  font-size: 17px;
-  font-weight: 600;
-}
-.apx-sep {
-  color: var(--muted);
-}
-.apx-product {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-}
-.apx-dot {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-}
-.apx-env {
-  margin-left: auto;
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.apx-env b {
-  color: #32325d;
-}
-.apx-body {
-  padding: 18px 20px 22px;
-}
-.apx-body .lab-panel {
+.pc-drill-body .lab-panel {
   background: #fff;
   border-color: var(--border);
 }
-.apx-body .lab-panel h2 {
-  color: #32325d;
+.pc-drill-body h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.pc-drill-body p {
+  margin: 0 0 8px;
 }
 
 /* ---------- CI/CD: GitHub Actions ---------- */
