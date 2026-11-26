@@ -13,7 +13,7 @@ const PHASE_PAGE_SIZE = 10
 
 // The problem you last worked on (its progress carries the time, so this also works across synced devices), and
 // when that one is solved, the next unsolved problem in the same tab.
-function ContinueCard({ progress }) {
+function lastWorked(progress) {
   let last = null
   let lastAt = ''
   for (const [id, e] of Object.entries(progress)) {
@@ -27,23 +27,36 @@ function ContinueCard({ progress }) {
   const solved = statusOf(progress[last]) === 'solved'
   const next = solved ? nextUnsolved(p, progress) : null
   const target = next ?? p
+  return {
+    target,
+    label: solved ? (next ? 'Next in this tab' : 'Last solved') : 'Continue where you left off',
+    meta: `${categoryBySlug.get(target.category)?.label ?? ''}${solved && next ? ` · after ${p.title}` : ''}${
+      !solved ? ` · ${statusOf(progress[last]) === 'not-started' ? 'opened' : 'in progress'} ${new Date(lastAt).toLocaleDateString()}` : ''
+    }`,
+    action: solved ? 'Start' : 'Continue',
+  }
+}
+
+const ICONS = {
+  path: 'M4 19h4l3-7 3 4 6-10M17 6h3v3',
+  resume: 'M12 8v4l3 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
+}
+
+function NextCard({ icon, label, target, meta, action }) {
   return (
-    <section className="continue-card">
-      <div>
-        <span className="stat-label">{solved ? (next ? 'Next up' : 'Last solved') : 'Continue where you left off'}</span>
-        <Link to={`/${target.category}/${target.id}`} className="continue-title">
-          {target.title}
-        </Link>
-        <span className="muted small">
-          {categoryBySlug.get(target.category)?.label}
-          {solved && next && ` · after ${p.title}`}
-          {!solved && ` · ${statusOf(progress[last]) === 'not-started' ? 'opened' : 'in progress'} ${new Date(lastAt).toLocaleDateString()}`}
-        </span>
-      </div>
-      <Link to={`/${target.category}/${target.id}`} className="btn btn-primary">
-        {solved ? 'Start' : 'Continue'} →
-      </Link>
-    </section>
+    <Link to={`/${target.category}/${target.id}`} className="next-card">
+      <span className="next-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={ICONS[icon]} />
+        </svg>
+      </span>
+      <span className="next-body">
+        <span className="stat-label">{label}</span>
+        <span className="next-title">{target.title}</span>
+        <span className="muted small next-meta">{meta}</span>
+      </span>
+      <span className="btn btn-primary next-go">{action} →</span>
+    </Link>
   )
 }
 
@@ -82,6 +95,7 @@ export default function DashboardPage() {
   })
   const activePhase = currentStage(phases)
   const nextUp = activePhase?.list.find((p) => !isSolved(p))
+  const resume = lastWorked(progress)
 
   // any section and any level; when everything is solved, any problem at all
   function openRandom() {
@@ -109,7 +123,7 @@ export default function DashboardPage() {
           <div className="hero-actions">
             {nextUp && (
               <Link className="btn btn-primary" to={`/${nextUp.category}/${nextUp.id}`}>
-                Continue: {nextUp.title} →
+                Continue the roadmap →
               </Link>
             )}
             <button className="btn btn-ghost" onClick={openRandom} title="Open a problem you have not solved, from any section">
@@ -126,16 +140,47 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
-        <div className="hero-ring" aria-label={`${pct}% complete`}>
-          <Ring pct={pct} />
-          <div className="ring-label">
-            <strong>{pct}%</strong>
-            <span className="muted small">
-              {solved} / {problems.length} solved
-            </span>
+        <div className="hero-progress">
+          <div className="hero-ring" aria-label={`${pct}% complete`}>
+            <Ring pct={pct} />
+            <div className="ring-label">
+              <strong>{pct}%</strong>
+              <span className="muted small">complete</span>
+            </div>
           </div>
+          <dl className="hero-stats">
+            <div>
+              <dt>Solved</dt>
+              <dd>
+                {solved.toLocaleString()} <span className="muted">/ {problems.length.toLocaleString()}</span>
+              </dd>
+            </div>
+            {activePhase && (
+              <div>
+                <dt>Current stage</dt>
+                <dd>
+                  {activePhase.stage}. {activePhase.title}
+                </dd>
+              </div>
+            )}
+          </dl>
         </div>
       </section>
+
+      {(nextUp || resume) && (
+        <section className="next-row">
+          {nextUp && (
+            <NextCard
+              icon="path"
+              label={`Roadmap · Stage ${activePhase.stage}`}
+              target={nextUp}
+              meta={`${categoryBySlug.get(nextUp.category)?.label ?? ''} · ${activePhase.title}`}
+              action="Start"
+            />
+          )}
+          {resume && resume.target.id !== nextUp?.id && <NextCard icon="resume" {...resume} />}
+        </section>
+      )}
 
       {sync.state === 'signed-out' && (
         <section className="sync-nudge">
@@ -148,8 +193,6 @@ export default function DashboardPage() {
           </button>
         </section>
       )}
-
-      <ContinueCard progress={progress} />
 
       <TodayPlan />
 

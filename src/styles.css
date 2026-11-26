@@ -1254,35 +1254,86 @@ textarea:focus {
   gap: 18px;
 }
 .hero {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 24px;
-  padding: 24px 28px;
+  gap: 32px;
+  padding: 30px 32px;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
+  border-radius: 16px;
+  background:
+    radial-gradient(600px 220px at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    var(--surface);
+}
+.hero-main {
+  min-width: 0;
 }
 .hero h1 {
-  font-size: 2rem;
-  margin: 4px 0 8px;
+  font-size: 2.1rem;
+  line-height: 1.15;
+  margin: 8px 0 10px;
+  letter-spacing: -0.01em;
 }
 .hero-main > p.muted {
-  max-width: 640px;
+  max-width: 600px;
   margin: 0;
+  line-height: 1.6;
 }
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+.hero-progress {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-3) 35%, transparent);
+}
+.hero-stats {
+  display: grid;
   gap: 14px;
-  margin-top: 18px;
+  margin: 0;
+  min-width: 150px;
+}
+.hero-stats dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.hero-stats dd {
+  margin: 3px 0 0;
+  font-weight: 600;
 }
 .hero-ring {
   position: relative;
   flex-shrink: 0;
   width: 132px;
   height: 132px;
+}
+@media (max-width: 1150px) {
+  .hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-progress {
+    justify-content: flex-start;
+  }
+}
+.ring-label .small {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 .ring-label {
   position: absolute;
@@ -3466,8 +3517,9 @@ body.dragging-split {
   .hero h1 {
     font-size: 1.5rem;
   }
-  .hero-ring {
-    align-self: center;
+  .hero-progress {
+    justify-content: center;
+    flex-wrap: wrap;
   }
   .phase-grid,
   .stat-row {
