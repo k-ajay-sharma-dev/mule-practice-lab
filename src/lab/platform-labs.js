@@ -15,7 +15,7 @@ const CH2 = 'https://docs.mulesoft.com/cloudhub-2/'
 const MON = 'https://docs.mulesoft.com/monitoring/'
 const APIM = 'https://docs.mulesoft.com/api-manager/latest/'
 
-export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations', 'More production failures']
+export const GROUPS = ['Full life cycle', 'API-led project', 'Failed jobs', 'API operations', 'More production failures', 'API-led failures']
 
 // ---------- helpers ----------
 
